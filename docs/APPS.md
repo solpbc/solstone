@@ -212,16 +212,6 @@ Both badge types appear as red notification counts.
 }
 ```
 
-**Submenu Methods:**
-- `AppServices.submenus.set(appName, items)` - Set all submenu items
-- `AppServices.submenus.upsert(appName, item)` - Add or update single item
-- `AppServices.submenus.remove(appName, itemId)` - Remove item by id
-- `AppServices.submenus.clear(appName)` - Clear all items
-
-Submenus appear as hover pop-outs on menu bar icons. Items support `id`, `label`, `icon`, `href`, `facet`, `badge`, and `order` properties.
-
-**See implementation:** `convey/static/app.js` - Submenu rendering and positioning
-
 **WebSocket Events (`window.appEvents`):**
 - `listen(tract, callback)` - Listen to specific tract ('cortex', 'indexer', 'observe', etc.)
 - `listen('*', callback)` - Listen to all events
@@ -230,7 +220,6 @@ Submenus appear as hover pop-outs on menu bar icons. Items support `id`, `label`
 
 **Reference implementations:**
 - `apps/todos/background.html` - App icon badge with API fetch
-- `apps/dev/background.html` - Submenu quick-links with dynamic badges
 
 **Implementation source:** `convey/static/app.js` - AppServices framework, `convey/static/websocket.js` - WebSocket API
 
