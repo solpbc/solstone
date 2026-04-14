@@ -10,7 +10,7 @@ import json
 import pytest
 
 from apps.events import EventContext
-from apps.observer.events import handle_observed
+from apps.observer.events import handle_observed, handle_transferred
 
 
 @pytest.fixture
@@ -75,7 +75,9 @@ class TestHandleObserved:
         handle_observed(ctx)
 
         # Check history was written
-        hist_path = observer_journal.observers_dir / "testkey1" / "hist" / "20250103.jsonl"
+        hist_path = (
+            observer_journal.observers_dir / "testkey1" / "hist" / "20250103.jsonl"
+        )
         assert hist_path.exists()
 
         with open(hist_path) as f:
@@ -108,7 +110,9 @@ class TestHandleObserved:
             handle_observed(ctx)
 
         # Check all records written
-        hist_path = observer_journal.observers_dir / "testkey1" / "hist" / "20250103.jsonl"
+        hist_path = (
+            observer_journal.observers_dir / "testkey1" / "hist" / "20250103.jsonl"
+        )
         with open(hist_path) as f:
             lines = f.readlines()
 
@@ -204,3 +208,50 @@ class TestHandleObserved:
         # No history should be created
         hist_dir = observer_journal.observers_dir / "testkey1" / "hist"
         assert not hist_dir.exists()
+
+    def test_handle_transferred(self, observer_journal, monkeypatch):
+        """Handler records transferred status, stats, and queues rescan."""
+        import think.callosum as callosum_module
+
+        calls = []
+        monkeypatch.setattr(
+            callosum_module,
+            "callosum_send",
+            lambda *a, **kw: calls.append((a, kw)) or True,
+        )
+
+        ctx = EventContext(
+            msg={
+                "tract": "observe",
+                "event": "transferred",
+                "observer": "test-observer",
+                "segment": "120000_300",
+                "day": "20250103",
+            },
+            app="observer",
+            tract="observe",
+            event="transferred",
+        )
+
+        handle_transferred(ctx)
+
+        hist_path = (
+            observer_journal.observers_dir / "testkey1" / "hist" / "20250103.jsonl"
+        )
+        assert hist_path.exists()
+        with open(hist_path) as f:
+            record = json.loads(f.readline())
+
+        assert record["type"] == "transferred"
+        assert record["segment"] == "120000_300"
+
+        with open(observer_journal.observer_path) as f:
+            data = json.load(f)
+        assert data["stats"]["segments_transferred"] == 1
+
+        assert calls == [
+            (
+                ("supervisor", "request"),
+                {"cmd": ["sol", "indexer", "--rescan"]},
+            )
+        ]

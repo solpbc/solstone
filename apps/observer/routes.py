@@ -6,6 +6,8 @@
 Provides endpoints for:
 - Managing observer registrations (UI)
 - Receiving file uploads from observers (ingest)
+- Receiving transferred segments from other instances (transfer ingest)
+- Serving segment manifests for transfer diffing
 - Relaying events from observers to local Callosum
 - Retrieving segment upload history for sync verification
 """
@@ -15,6 +17,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import platform
 import re
 import secrets
 from pathlib import Path
@@ -28,14 +31,16 @@ from convey import emit
 from observe.utils import (
     MAX_SEGMENT_ATTEMPTS,
     compute_bytes_sha256,
+    compute_file_sha256,
     find_available_segment,
 )
 from think.streams import stream_name, update_stream, write_segment_stream
-from think.utils import day_path, now_ms, segment_path
+from think.utils import day_path, iter_segments, now_ms, segment_path
 
 from .utils import (
     append_history_record,
     find_segment_by_sha256,
+    get_hist_dir,
     get_observers_dir,
     list_observers,
     load_history,
@@ -301,6 +306,200 @@ def _save_to_failed(
 # === Ingest API (key-protected) ===
 
 
+def _process_ingest_files(
+    observer: dict,
+    key_prefix: str,
+    segment: str,
+    day: str,
+    stream: str,
+    uploaded_files,
+    *,
+    source: str | None = None,
+) -> tuple[dict, int]:
+    """Shared ingest pipeline: read/hash files, dedup, deconflict, save, record history, update stats.
+
+    Parameters
+    ----------
+    observer : dict
+        Observer metadata dict (must include 'stats', 'name', 'last_seen', etc.)
+    key_prefix : str
+        First 8 chars of observer key.
+    segment : str
+        Requested segment key (HHMMSS_LEN format).
+    day : str
+        Day string (YYYYMMDD format).
+    stream : str
+        Stream name (already resolved by caller).
+    uploaded_files : list
+        List of Flask FileStorage objects from request.files.getlist("files").
+    source : str or None
+        If provided, added as "source" field to history record (e.g., "transfer").
+
+    Returns
+    -------
+    tuple of (dict, int)
+        Response body dict and HTTP status code.
+    """
+    # Read file contents into memory and compute SHA256 before saving
+    # This allows duplicate detection without writing to disk
+    file_data = []  # List of (submitted_filename, simple_filename, content, sha256)
+    for upload in uploaded_files:
+        if not upload.filename:
+            continue
+
+        submitted_filename = secure_filename(upload.filename)
+        if not submitted_filename:
+            continue
+
+        # Strip segment prefix from filename if present
+        simple_filename = _strip_segment_prefix(submitted_filename, segment)
+
+        # Read content and compute SHA256
+        content = upload.read()
+        if len(content) == 0:
+            logger.warning(f"Skipping 0-byte file: {submitted_filename}")
+            continue
+        sha256 = compute_bytes_sha256(content)
+
+        file_data.append((submitted_filename, simple_filename, content, sha256))
+
+    if not file_data:
+        return {"error": "No valid files uploaded"}, 400
+
+    # Check for duplicate submission by SHA256
+    incoming_sha256s = {fd[3] for fd in file_data}
+    existing_segment, matched_sha256s = find_segment_by_sha256(
+        key_prefix, day, incoming_sha256s
+    )
+
+    if existing_segment:
+        logger.info(
+            f"Duplicate segment rejected: {day}/{segment} from {observer.get('name')} "
+            f"(matches existing {existing_segment})"
+        )
+
+        observer["last_seen"] = now_ms()
+        observer["stats"]["duplicates_rejected"] = (
+            observer["stats"].get("duplicates_rejected", 0) + 1
+        )
+        save_observer(observer)
+
+        return (
+            {
+                "status": "duplicate",
+                "existing_segment": existing_segment,
+                "message": "All files already received",
+            },
+            200,
+        )
+
+    partial_match = bool(matched_sha256s)
+
+    # Ensure day directory exists
+    day_dir = day_path(day)
+    day_dir.mkdir(parents=True, exist_ok=True)
+
+    # Find available segment key within the stream directory
+    stream_dir = day_dir / stream
+    stream_dir.mkdir(parents=True, exist_ok=True)
+
+    original_segment = segment
+    available_segment = find_available_segment(stream_dir, segment)
+
+    if available_segment is None:
+        logger.error(
+            f"No available segment slot for {day}/{stream}/{segment} from "
+            f"{observer.get('name', 'unknown')} after {MAX_SEGMENT_ATTEMPTS} attempts"
+        )
+        failed_dir = _save_to_failed(day_dir, file_data, segment)
+        return (
+            {
+                "status": "failed",
+                "error": f"No available segment slot after {MAX_SEGMENT_ATTEMPTS} attempts",
+                "failed_path": str(failed_dir.relative_to(day_dir.parent)),
+            },
+            507,
+        )
+
+    segment = available_segment
+    if segment != original_segment:
+        logger.info(
+            f"Segment collision resolved: {original_segment} -> {segment} "
+            f"for observer {observer.get('name', 'unknown')}"
+        )
+
+    # Create segment directory for files (under stream)
+    segment_dir = segment_path(day, segment, stream)
+    segment_dir.mkdir(parents=True, exist_ok=True)
+
+    # Save files from memory to disk
+    saved_files = []
+    file_records = []
+    total_bytes = 0
+
+    for submitted_filename, simple_filename, content, sha256 in file_data:
+        target_path = segment_dir / simple_filename
+
+        try:
+            target_path.write_bytes(content)
+            stat = target_path.stat()
+            file_size = stat.st_size
+            file_inode = stat.st_ino
+
+            saved_files.append(simple_filename)
+            total_bytes += file_size
+
+            file_records.append(
+                {
+                    "submitted": submitted_filename,
+                    "written": simple_filename,
+                    "inode": file_inode,
+                    "size": file_size,
+                    "sha256": sha256,
+                }
+            )
+
+            logger.info(f"Saved {simple_filename} to {segment_dir}")
+        except OSError as e:
+            logger.error(f"Failed to save {simple_filename}: {e}")
+            return {"error": f"Failed to save {simple_filename}"}, 500
+
+    if not saved_files:
+        return {"error": "No valid files saved"}, 400
+
+    sync_record = {
+        "ts": now_ms(),
+        "segment": segment,
+        "stream": stream,
+        "files": file_records,
+    }
+    if segment != original_segment:
+        sync_record["segment_original"] = original_segment
+    if partial_match:
+        sync_record["partial_match_sha256s"] = list(matched_sha256s)
+    if source:
+        sync_record["source"] = source
+    append_history_record(key_prefix, day, sync_record)
+
+    observer["last_seen"] = now_ms()
+    observer["last_segment"] = segment
+    observer["stats"]["segments_received"] = (
+        observer["stats"].get("segments_received", 0) + 1
+    )
+    observer["stats"]["bytes_received"] = (
+        observer["stats"].get("bytes_received", 0) + total_bytes
+    )
+    save_observer(observer)
+
+    status = "collision" if segment != original_segment else "ok"
+    return {
+        "status": status,
+        "segment": segment,
+        "files": saved_files,
+        "bytes": total_bytes,
+    }, 200
+
+
 @observer_bp.route("/ingest", methods=["POST"])
 @observer_bp.route("/ingest/<key>", methods=["POST"])
 def ingest_upload(key: str | None = None) -> Any:
@@ -387,67 +586,6 @@ def ingest_upload(key: str | None = None) -> Any:
 
     key_prefix = auth_key[:8]
 
-    # Read file contents into memory and compute SHA256 before saving
-    # This allows duplicate detection without writing to disk
-    file_data = []  # List of (submitted_filename, simple_filename, content, sha256)
-    for upload in files:
-        if not upload.filename:
-            continue
-
-        submitted_filename = secure_filename(upload.filename)
-        if not submitted_filename:
-            continue
-
-        # Strip segment prefix from filename if present
-        simple_filename = _strip_segment_prefix(submitted_filename, segment)
-
-        # Read content and compute SHA256
-        content = upload.read()
-        if len(content) == 0:
-            logger.warning(f"Skipping 0-byte file: {submitted_filename}")
-            continue
-        sha256 = compute_bytes_sha256(content)
-
-        file_data.append((submitted_filename, simple_filename, content, sha256))
-
-    if not file_data:
-        return jsonify({"error": "No valid files uploaded"}), 400
-
-    # Check for duplicate submission by SHA256
-    incoming_sha256s = {fd[3] for fd in file_data}
-    existing_segment, matched_sha256s = find_segment_by_sha256(
-        key_prefix, day, incoming_sha256s
-    )
-
-    if existing_segment:
-        # Full duplicate - all files already exist in an existing segment
-        logger.info(
-            f"Duplicate segment rejected: {day}/{segment} from {observer.get('name')} "
-            f"(matches existing {existing_segment})"
-        )
-
-        # Update last_seen and increment duplicates_rejected stat
-        observer["last_seen"] = now_ms()
-        observer["stats"]["duplicates_rejected"] = (
-            observer["stats"].get("duplicates_rejected", 0) + 1
-        )
-        save_observer(observer)
-
-        return jsonify(
-            {
-                "status": "duplicate",
-                "existing_segment": existing_segment,
-                "message": "All files already received",
-            }
-        )
-
-    # Log partial match context if some files already exist
-    partial_match = bool(matched_sha256s)
-
-    # Ensure day directory exists
-    day_dir = day_path(day)
-    day_dir.mkdir(parents=True, exist_ok=True)
-
     # Determine stream name: trust client-provided stream in meta if valid,
     # otherwise derive from observer registration name.
     # Deriving from observer name via stream_name(observer=...) calls _strip_hostname,
@@ -460,101 +598,15 @@ def ingest_upload(key: str | None = None) -> Any:
     else:
         stream = stream_name(observer=observer_name)
 
-    # Find available segment key within the stream directory
-    stream_dir = day_dir / stream
-    stream_dir.mkdir(parents=True, exist_ok=True)
+    body, status = _process_ingest_files(
+        observer, key_prefix, segment, day, stream, files
+    )
+    if status != 200 or body.get("status") == "duplicate":
+        return jsonify(body), status
 
-    original_segment = segment
-    available_segment = find_available_segment(stream_dir, segment)
-
-    if available_segment is None:
-        # Exhausted attempts, save to failed directory
-        logger.error(
-            f"No available segment slot for {day}/{stream}/{segment} from "
-            f"{observer_name} after {MAX_SEGMENT_ATTEMPTS} attempts"
-        )
-        failed_dir = _save_to_failed(day_dir, file_data, segment)
-        return (
-            jsonify(
-                {
-                    "status": "failed",
-                    "error": f"No available segment slot after {MAX_SEGMENT_ATTEMPTS} attempts",
-                    "failed_path": str(failed_dir.relative_to(day_dir.parent)),
-                }
-            ),
-            507,
-        )  # Insufficient Storage
-
-    segment = available_segment
-    if segment != original_segment:
-        logger.info(
-            f"Segment collision resolved: {original_segment} -> {segment} "
-            f"for observer {observer_name}"
-        )
-
-    # Create segment directory for files (under stream)
+    segment = body["segment"]
+    saved_files = body["files"]
     segment_dir = segment_path(day, segment, stream)
-    segment_dir.mkdir(parents=True, exist_ok=True)
-
-    # Save files from memory to disk
-    saved_files = []
-    file_records = []
-    total_bytes = 0
-
-    for submitted_filename, simple_filename, content, sha256 in file_data:
-        target_path = segment_dir / simple_filename
-
-        try:
-            target_path.write_bytes(content)
-            stat = target_path.stat()
-            file_size = stat.st_size
-            file_inode = stat.st_ino
-
-            saved_files.append(simple_filename)
-            total_bytes += file_size
-
-            file_records.append(
-                {
-                    "submitted": submitted_filename,
-                    "written": simple_filename,
-                    "inode": file_inode,
-                    "size": file_size,
-                    "sha256": sha256,
-                }
-            )
-
-            logger.info(f"Saved {simple_filename} to {segment_dir}")
-        except OSError as e:
-            logger.error(f"Failed to save {simple_filename}: {e}")
-            return jsonify({"error": f"Failed to save {simple_filename}"}), 500
-
-    if not saved_files:
-        return jsonify({"error": "No valid files saved"}), 400
-
-    # Write sync history record
-    sync_record = {
-        "ts": now_ms(),
-        "segment": segment,
-        "stream": stream,
-        "files": file_records,
-    }
-    if segment != original_segment:
-        sync_record["segment_original"] = original_segment
-    if partial_match:
-        # Log which SHA256s matched existing files (for debugging/audit)
-        sync_record["partial_match_sha256s"] = list(matched_sha256s)
-    append_history_record(key_prefix, day, sync_record)
-
-    # Update observer stats
-    observer["last_seen"] = now_ms()
-    observer["last_segment"] = segment
-    observer["stats"]["segments_received"] = (
-        observer["stats"].get("segments_received", 0) + 1
-    )
-    observer["stats"]["bytes_received"] = (
-        observer["stats"].get("bytes_received", 0) + total_bytes
-    )
-    save_observer(observer)
 
     # Write stream identity for this segment
     try:
@@ -588,21 +640,167 @@ def ingest_upload(key: str | None = None) -> Any:
     logger.info(
         f"Received {len(saved_files)} files for {day}/{segment} from {observer.get('name')}"
     )
+    return jsonify(body), status
 
-    # Determine response status
-    if segment != original_segment:
-        status = "collision"
-    else:
-        status = "ok"
 
-    return jsonify(
-        {
-            "status": status,
-            "segment": segment,
-            "files": saved_files,
-            "bytes": total_bytes,
-        }
+@observer_bp.route("/ingest/<key>/transfer", methods=["POST"])
+def ingest_transfer(key: str) -> Any:
+    """Receive transferred file uploads from another solstone instance."""
+    auth_key = _get_key(key)
+    if not auth_key:
+        return jsonify({"error": "Authorization required"}), 401
+
+    observer = load_observer(auth_key)
+    if not observer:
+        return jsonify({"error": "Invalid key"}), 401
+
+    if observer.get("revoked", False):
+        return jsonify({"error": "Observer revoked"}), 403
+
+    if not observer.get("enabled", True):
+        return jsonify({"error": "Observer disabled"}), 403
+
+    segment = request.form.get("segment", "").strip()
+    day = request.form.get("day", "").strip()
+    stream = request.form.get("stream", "").strip()
+    host = request.form.get("host", "").strip()
+    platform_name = request.form.get("platform", "").strip()
+    meta_str = request.form.get("meta", "").strip()
+
+    meta: dict = {}
+    if meta_str:
+        try:
+            meta = json.loads(meta_str)
+        except json.JSONDecodeError:
+            logger.warning(f"Invalid meta JSON from observer: {meta_str[:100]}")
+    if host and "host" not in meta:
+        meta["host"] = host
+    if platform_name and "platform" not in meta:
+        meta["platform"] = platform_name
+
+    if not segment:
+        return jsonify({"error": "Missing segment"}), 400
+    if not day:
+        return jsonify({"error": "Missing day"}), 400
+    if not stream:
+        return jsonify({"error": "Missing stream"}), 400
+    if not re.match(r"^\d{6}_\d+$", segment):
+        return jsonify({"error": "Invalid segment format"}), 400
+    if not re.match(r"^\d{8}$", day):
+        return jsonify({"error": "Invalid day format"}), 400
+    if not re.match(r"^[a-z0-9][a-z0-9._-]*$", stream):
+        return jsonify({"error": "Invalid stream format"}), 400
+
+    files = request.files.getlist("files")
+    if not files:
+        return jsonify({"error": "No files uploaded"}), 400
+
+    key_prefix = auth_key[:8]
+    body, status = _process_ingest_files(
+        observer,
+        key_prefix,
+        segment,
+        day,
+        stream,
+        files,
+        source="transfer",
     )
+    if status != 200 or body.get("status") == "duplicate":
+        return jsonify(body), status
+
+    observer_name = observer.get("name", "")
+    event_fields: dict[str, Any] = {
+        "segment": body["segment"],
+        "day": day,
+        "files": body["files"],
+        "observer": observer_name,
+        "stream": stream,
+    }
+    if meta:
+        event_fields["meta"] = meta
+    emit("observe", "transferred", **event_fields)
+
+    return jsonify(body), status
+
+
+@observer_bp.route("/ingest/<key>/manifest", methods=["GET"])
+def ingest_manifest(key: str) -> Any:
+    """List available manifest days for an observer."""
+    auth_key = _get_key(key)
+    if not auth_key:
+        return jsonify({"error": "Authorization required"}), 401
+
+    observer = load_observer(auth_key)
+    if not observer:
+        return jsonify({"error": "Invalid key"}), 401
+
+    if observer.get("revoked", False):
+        return jsonify({"error": "Observer revoked"}), 403
+
+    if not observer.get("enabled", True):
+        return jsonify({"error": "Observer disabled"}), 403
+
+    key_prefix = auth_key[:8]
+    hist_dir = get_hist_dir(key_prefix, ensure_exists=False)
+    if not hist_dir.exists():
+        return jsonify({"days": {}})
+
+    days: dict[str, dict[str, int]] = {}
+    for hist_path in sorted(hist_dir.glob("*.jsonl")):
+        records = load_history(key_prefix, hist_path.stem)
+        segments = {
+            record.get("segment", "")
+            for record in records
+            if not record.get("type") and record.get("segment")
+        }
+        days[hist_path.stem] = {"segments": len(segments)}
+
+    return jsonify({"days": days})
+
+
+@observer_bp.route("/ingest/<key>/manifest/<day>", methods=["GET"])
+def ingest_manifest_day(key: str, day: str) -> Any:
+    """Return a transfer manifest for all segments on a given day."""
+    auth_key = _get_key(key)
+    if not auth_key:
+        return jsonify({"error": "Authorization required"}), 401
+
+    observer = load_observer(auth_key)
+    if not observer:
+        return jsonify({"error": "Invalid key"}), 401
+
+    if observer.get("revoked", False):
+        return jsonify({"error": "Observer revoked"}), 403
+
+    if not observer.get("enabled", True):
+        return jsonify({"error": "Observer disabled"}), 403
+
+    if not re.match(r"^\d{8}$", day):
+        return jsonify({"error": "Invalid day format"}), 400
+
+    manifest = {
+        "version": 1,
+        "day": day,
+        "created_at": now_ms(),
+        "host": platform.node() or "unknown",
+        "segments": {},
+    }
+
+    for stream, seg_key, seg_path in iter_segments(day):
+        arc_key = f"{stream}/{seg_key}"
+        files = []
+        for file_path in sorted(seg_path.iterdir()):
+            if file_path.is_file():
+                files.append(
+                    {
+                        "name": file_path.name,
+                        "sha256": compute_file_sha256(file_path),
+                        "size": file_path.stat().st_size,
+                    }
+                )
+        manifest["segments"][arc_key] = {"files": files}
+
+    return jsonify(manifest)
 
 
 @observer_bp.route("/ingest/event", methods=["POST"])
