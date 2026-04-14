@@ -1,11 +1,12 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Segment ingest endpoint for journal source imports."""
+"""Ingest endpoints for journal source imports."""
 
 from __future__ import annotations
 
 import json
+import hashlib
 import logging
 import os
 import re
@@ -22,6 +23,13 @@ from observe.utils import (
     compute_file_sha256,
     find_available_segment,
 )
+from think.entities.core import EntityDict, entity_slug
+from think.entities.journal import (
+    has_journal_principal,
+    load_all_journal_entities,
+    save_journal_entity,
+)
+from think.entities.matching import find_matching_entity
 
 from .journal_sources import (
     get_state_directory,
@@ -257,6 +265,298 @@ def register_ingest_routes(bp) -> None:
                 "segments_received": written,
                 "segments_skipped": skipped,
                 "segments_deconflicted": deconflicted,
+                "errors": errors,
+            }
+        )
+
+    @bp.route("/journal/<key_prefix>/ingest/entities", methods=["POST"])
+    @require_journal_source
+    def ingest_entities(key_prefix: str):
+        if g.journal_source["key"][:8] != key_prefix:
+            abort(403, description="Key prefix mismatch")
+
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            return jsonify({"error": "Invalid JSON body"}), 400
+
+        entities = payload.get("entities")
+        if not isinstance(entities, list):
+            return jsonify({"error": "Missing entities array"}), 400
+
+        state_dir = get_state_directory(key_prefix)
+        log_path = state_dir / "entities" / "log.jsonl"
+        state_path = state_dir / "entities" / "state.json"
+        staged_dir = state_dir / "entities" / "staged"
+
+        try:
+            entity_state = json.loads(state_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            entity_state = {}
+        if not isinstance(entity_state, dict):
+            entity_state = {}
+        id_map = entity_state.get("id_map")
+        received = entity_state.get("received")
+        if not isinstance(id_map, dict) or not isinstance(received, dict):
+            entity_state = {"id_map": {}, "received": {}}
+        else:
+            entity_state = {"id_map": dict(id_map), "received": dict(received)}
+
+        target_entities = load_all_journal_entities()
+        target_has_principal = has_journal_principal()
+
+        auto_merged = 0
+        created = 0
+        staged = 0
+        skipped = 0
+        errors: list[dict[str, str]] = []
+
+        for entity_data in entities:
+            try:
+                if not isinstance(entity_data, dict):
+                    raise ValueError("Entity data must be an object")
+
+                name = str(entity_data.get("name", "")).strip()
+                if not name:
+                    raise ValueError("Entity name is required")
+
+                source_id = str(entity_data.get("id") or entity_slug(name))
+                if not source_id:
+                    raise ValueError("Entity id is required")
+                entity_data["id"] = source_id
+
+                content_hash = hashlib.sha256(
+                    json.dumps(entity_data, sort_keys=True, ensure_ascii=False).encode()
+                ).hexdigest()
+
+                existing_hash = entity_state["received"].get(source_id)
+                if existing_hash == content_hash:
+                    skipped += 1
+                    entity_state["received"][source_id] = content_hash
+                    _append_decision(
+                        log_path,
+                        {
+                            "ts": datetime.now(timezone.utc).isoformat(),
+                            "action": "skipped",
+                            "item_type": "entity",
+                            "item_id": source_id,
+                            "match_tier": None,
+                            "reason": "idempotent",
+                            "source": entity_data,
+                            "target": None,
+                            "fields_changed": [],
+                        },
+                    )
+                    continue
+
+                match = find_matching_entity(entity_data["name"], list(target_entities.values()))
+
+                if match is not None and match.is_high_confidence:
+                    target_id = str(match["id"])
+                    target_entity: EntityDict = dict(target_entities[target_id])
+                    pre_merge_snapshot = dict(target_entity)
+
+                    aka_by_lower: dict[str, str] = {}
+                    for values in (target_entity.get("aka", []), entity_data.get("aka", [])):
+                        if not isinstance(values, list):
+                            continue
+                        for value in values:
+                            if not value:
+                                continue
+                            key = str(value).lower()
+                            if key not in aka_by_lower:
+                                aka_by_lower[key] = str(value)
+                    if aka_by_lower:
+                        target_entity["aka"] = sorted(aka_by_lower.values(), key=str.lower)
+
+                    merged_emails: list[str] = []
+                    seen_emails: set[str] = set()
+                    for values in (
+                        target_entity.get("emails", []),
+                        entity_data.get("emails", []),
+                    ):
+                        if not isinstance(values, list):
+                            continue
+                        for value in values:
+                            if not value:
+                                continue
+                            email = str(value)
+                            key = email.lower()
+                            if key in seen_emails:
+                                continue
+                            seen_emails.add(key)
+                            merged_emails.append(email)
+                    if merged_emails:
+                        target_entity["emails"] = merged_emails
+
+                    source_created = entity_data.get("created_at")
+                    target_created = target_entity.get("created_at")
+                    if source_created is not None and target_created is not None:
+                        target_entity["created_at"] = min(source_created, target_created)
+                    elif source_created is not None:
+                        target_entity["created_at"] = source_created
+
+                    save_journal_entity(target_entity)
+                    target_entities[target_id] = target_entity
+                    fields_changed = sorted(
+                        key
+                        for key in set(pre_merge_snapshot) | set(target_entity)
+                        if pre_merge_snapshot.get(key) != target_entity.get(key)
+                    )
+                    entity_state["id_map"][source_id] = target_id
+                    auto_merged += 1
+                    _append_decision(
+                        log_path,
+                        {
+                            "ts": datetime.now(timezone.utc).isoformat(),
+                            "action": "auto_merged",
+                            "item_type": "entity",
+                            "item_id": source_id,
+                            "match_tier": int(match.tier),
+                            "reason": "high_confidence_match",
+                            "source": entity_data,
+                            "target": target_entity,
+                            "fields_changed": fields_changed,
+                        },
+                    )
+                elif match is not None and not match.is_high_confidence:
+                    staged_dir.mkdir(parents=True, exist_ok=True)
+                    staged_payload = {
+                        "source_entity": entity_data,
+                        "match_candidates": [
+                            {
+                                "id": match["id"],
+                                "name": match["name"],
+                                "tier": int(match.tier),
+                            }
+                        ],
+                        "reason": "low_confidence_match",
+                        "staged_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                    (staged_dir / f"{source_id}.json").write_text(
+                        json.dumps(staged_payload, indent=2, ensure_ascii=False) + "\n",
+                        encoding="utf-8",
+                    )
+                    staged += 1
+                    _append_decision(
+                        log_path,
+                        {
+                            "ts": datetime.now(timezone.utc).isoformat(),
+                            "action": "staged",
+                            "item_type": "entity",
+                            "item_id": source_id,
+                            "match_tier": int(match.tier),
+                            "reason": "low_confidence_match",
+                            "source": entity_data,
+                            "target": None,
+                            "fields_changed": [],
+                        },
+                    )
+                else:
+                    source_slug = entity_data["id"]
+                    if source_slug in target_entities:
+                        staged_dir.mkdir(parents=True, exist_ok=True)
+                        staged_payload = {
+                            "source_entity": entity_data,
+                            "match_candidates": [
+                                {
+                                    "id": source_slug,
+                                    "name": target_entities[source_slug]["name"],
+                                    "tier": None,
+                                }
+                            ],
+                            "reason": "id_collision",
+                            "staged_at": datetime.now(timezone.utc).isoformat(),
+                        }
+                        (staged_dir / f"{source_id}.json").write_text(
+                            json.dumps(staged_payload, indent=2, ensure_ascii=False) + "\n",
+                            encoding="utf-8",
+                        )
+                        staged += 1
+                        _append_decision(
+                            log_path,
+                            {
+                                "ts": datetime.now(timezone.utc).isoformat(),
+                                "action": "staged",
+                                "item_type": "entity",
+                                "item_id": source_id,
+                                "match_tier": None,
+                                "reason": "id_collision",
+                                "source": entity_data,
+                                "target": None,
+                                "fields_changed": [],
+                            },
+                        )
+                    elif entity_data.get("is_principal") and target_has_principal:
+                        staged_dir.mkdir(parents=True, exist_ok=True)
+                        staged_payload = {
+                            "source_entity": entity_data,
+                            "match_candidates": [],
+                            "reason": "principal_conflict",
+                            "staged_at": datetime.now(timezone.utc).isoformat(),
+                        }
+                        (staged_dir / f"{source_id}.json").write_text(
+                            json.dumps(staged_payload, indent=2, ensure_ascii=False) + "\n",
+                            encoding="utf-8",
+                        )
+                        staged += 1
+                        _append_decision(
+                            log_path,
+                            {
+                                "ts": datetime.now(timezone.utc).isoformat(),
+                                "action": "staged",
+                                "item_type": "entity",
+                                "item_id": source_id,
+                                "match_tier": None,
+                                "reason": "principal_conflict",
+                                "source": entity_data,
+                                "target": None,
+                                "fields_changed": [],
+                            },
+                        )
+                    else:
+                        save_journal_entity(entity_data)
+                        target_entities[source_slug] = entity_data
+                        if entity_data.get("is_principal"):
+                            target_has_principal = True
+                        entity_state["id_map"][source_id] = source_id
+                        created += 1
+                        _append_decision(
+                            log_path,
+                            {
+                                "ts": datetime.now(timezone.utc).isoformat(),
+                                "action": "created",
+                                "item_type": "entity",
+                                "item_id": source_id,
+                                "match_tier": None,
+                                "reason": "no_match",
+                                "source": entity_data,
+                                "target": None,
+                                "fields_changed": [],
+                            },
+                        )
+
+                entity_state["received"][source_id] = content_hash
+            except Exception as exc:
+                entity_id = entity_data.get("id", "") if isinstance(entity_data, dict) else ""
+                errors.append({"entity_id": entity_id, "error": str(exc)})
+
+        _write_state_atomic(state_path, entity_state)
+
+        written = auto_merged + created
+        if written > 0:
+            source = g.journal_source
+            source.setdefault("stats", {})
+            source["stats"]["entities_received"] = (
+                source["stats"].get("entities_received", 0) + written
+            )
+            save_journal_source(source)
+
+        return jsonify(
+            {
+                "auto_merged": auto_merged,
+                "created": created,
+                "staged": staged,
+                "skipped": skipped,
                 "errors": errors,
             }
         )
