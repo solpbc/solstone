@@ -476,7 +476,7 @@ def entity_strength(
         label = f"{name} ({eid})" if eid and eid != entity_slug(name) else name
         typer.echo(f"  {score:>8.1f}  {label}")
         typer.echo(
-            f"           kg={r['kg_edge_count']} co={r['co_occurrence']} rec={r['recency']:.3f} obs={r['observation_depth']} fac={r['facet_breadth']}"
+            f"           kg={r['kg_edge_count']} co={r['co_occurrence']} pho={r['photo_count']} rec={r['recency']:.3f} obs={r['observation_depth']} fac={r['facet_breadth']}"
         )
 
 
