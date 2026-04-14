@@ -110,52 +110,6 @@ def test_start_sense(tmp_path, mock_callosum, monkeypatch):
         assert stderr == subprocess.PIPE
 
 
-def test_start_sync(tmp_path, mock_callosum, monkeypatch):
-    """Test that start_sync() launches sol sync with remote URL."""
-    mod = importlib.import_module("think.supervisor")
-
-    started = []
-
-    class DummyProc:
-        def __init__(self):
-            self.stdout = io.StringIO()
-            self.stderr = io.StringIO()
-            self.pid = 12345
-
-        def terminate(self):
-            pass
-
-        def wait(self, timeout=None):
-            pass
-
-    def fake_popen(
-        cmd,
-        stdout=None,
-        stderr=None,
-        text=False,
-        bufsize=-1,
-        start_new_session=False,
-        env=None,
-    ):
-        proc = DummyProc()
-        started.append((cmd, stdout, stderr))
-        return proc
-
-    monkeypatch.setattr(mod.subprocess, "Popen", fake_popen)
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
-
-    # Test start_sync()
-    remote_url = "https://server:5000/app/observer/ingest/abc123"
-    sync_proc = mod.start_sync(remote_url)
-    assert sync_proc is not None
-
-    # Verify the command includes --remote with the URL
-    sync_cmds = [cmd for cmd, _, _ in started if "sync" in cmd]
-    assert len(sync_cmds) == 1
-    cmd = sync_cmds[0]
-    assert cmd == ["sol", "sync", "-v", "--remote", remote_url]
-
-
 def test_parse_args_remote_flag():
     """Test that parse_args includes --remote flag."""
     mod = importlib.reload(importlib.import_module("think.supervisor"))

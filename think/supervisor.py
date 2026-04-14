@@ -19,7 +19,6 @@ from pathlib import Path
 
 from desktop_notifier import DesktopNotifier, Urgency
 
-from observe.sync import check_remote_health
 from think import routines, scheduler
 from think.callosum import CallosumConnection, CallosumServer
 from think.runner import DailyLogWriter
@@ -790,23 +789,6 @@ def start_sense() -> ManagedProcess:
     return _launch_process("sense", ["sol", "sense", "-v"], restart=True)
 
 
-def start_sync(remote_url: str) -> ManagedProcess:
-    """Launch sol sync with output logging.
-
-    Args:
-        remote_url: Remote ingest URL for sync service
-    """
-    managed = _launch_process(
-        "sync",
-        ["sol", "sync", "-v", "--remote", remote_url],
-        restart=True,
-    )
-    # Sync shutdown can block while draining pending segments.
-    # Give it extra time so the supervisor does not cut it off early.
-    managed.shutdown_timeout = 90
-    return managed
-
-
 def start_callosum_in_process() -> CallosumServer:
     """Start Callosum message bus server in-process.
 
@@ -1358,7 +1340,7 @@ def parse_args() -> argparse.ArgumentParser:
     parser.add_argument(
         "--remote",
         type=str,
-        help="Remote mode: sync to server URL instead of local processing",
+        help="Remote mode: URL for segment transfer (not yet implemented)",
     )
     return parser
 
@@ -1486,15 +1468,8 @@ def main() -> None:
 
     # Now start other services (their startup events will be captured)
     if _is_remote_mode:
-        # Remote mode: verify remote server is reachable before starting sync
-        logging.info("Remote mode: checking server connectivity...")
-        success, message = check_remote_health(args.remote)
-        if not success:
-            logging.error(f"Remote health check failed: {message}")
-            stop_callosum_in_process()
-            parser.error(f"Remote server not available: {message}")
-        logging.info(f"Remote server verified: {message}")
-        procs.append(start_sync(args.remote))
+        # Remote mode: transfer send will be added here
+        pass
     else:
         # Local mode: convey first, then sense for file processing
         if not args.no_convey:
