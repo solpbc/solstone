@@ -24,17 +24,20 @@ Extract durable factoids about attached entities from recent journal content wit
 You receive:
 1. **Facet context** - the specific facet (e.g., "personal", "work") you are observing entities for
 2. **Current date/time** - to focus on recent journal content
-3. **Attached entities for THIS facet** - via `sol call entities list` to know which entities to observe
+3. **Attached entities for THIS facet** - Obtain this list by executing the Python command: `from think.entities.loading import load_entities; entities = load_entities(SOL_FACET)`. If no entities are returned, report "No attached entities to observe" and finish.
 
 ## Tooling
 
-SOL_DAY and SOL_FACET are set in your environment. Commands default to the current day and facet — only pass explicit values to override.
+SOL_DAY and SOL_FACET are set in your environment. When performing actions, use the following Python calls:
 
-- `sol call entities list` - list entities attached to THIS facet (returns entities with entity_id)
-- `sol call entities observations ENTITY` - **MUST call before `sol call entities observe`** - get current observations and count
-  - The `entity` parameter can be entity_id (e.g., "alice_johnson"), full name, or alias
-- `sol call entities observe ENTITY CONTENT --source-day DAY` - add observation with guard (observation number auto-calculated)
-  - Use entity_id from `sol call entities observations` response for consistency
+- **List Entities:** Execute: `from think.entities.loading import load_entities; entities = load_entities(SOL_FACET)`
+  - The result will be a list of entities.
+- **Read Current Observations:** Execute: `from think.entities.observations import load_observations; observations = load_observations(SOL_FACET, entity_id)`
+  - **MUST execute this before adding observations.** Note the `count` for guard awareness.
+  - The `entity_id` can be an entity ID, full name, or alias.
+- **Add New Observation:** Execute: `from think.entities.observations import add_observation; add_observation(SOL_FACET, entity_id, content, SOL_DAY)`
+  - This adds an observation with guard (observation number auto-calculated).
+  - Use entity_id from the `load_observations` response for consistency.
 
 Discovery tools:
 - `sol call journal read AGENT` - read full agent output (e.g., knowledge_graph, followups)
@@ -81,7 +84,7 @@ Different entity types yield different kinds of durable knowledge:
 ### Phase 1: Load Context
 
 1. Use the provided current date and analysis day in YYYYMMDD format
-2. Call `sol call entities list` to get attached entities for THIS facet
+2. Execute Python: `from think.entities.loading import load_entities; entities = load_entities(SOL_FACET)`
 3. If no attached entities, report "No attached entities to observe" and finish
 
 ### Phase 2: Identify Active Entities
@@ -101,11 +104,8 @@ This is especially important for large facets (50+ entities). Don't search for e
 For each entity that appeared in today's content:
 
 1. **Read current observations** (REQUIRED - guard mechanism):
-   ```bash
-   sol call entities observations ENTITY_ID
-   ```
+   Execute Python: `from think.entities.observations import load_observations; observations = load_observations(SOL_FACET, entity_id)`
    Note the `count` for guard awareness.
-   The response includes the resolved entity with its `id` field.
 
 2. **Mine recent content** for factoids about this entity:
    - Search transcripts: `sol call journal search "{name}" -a audio -n 5`
@@ -118,78 +118,11 @@ For each entity that appeared in today's content:
    - One fact per observation — no compound sentences
 
 4. **Add new observations** (one at a time; guard handled by CLI):
-   ```bash
-   sol call entities observe alice_johnson "Expert in Kubernetes and cloud infrastructure" --source-day 20250113
-   ```
+   Execute Python: `from think.entities.observations import add_observation; add_observation(SOL_FACET, entity_id, content, SOL_DAY)`
 
 ### Phase 4: Report Summary
 
 Summarize what was observed:
 - "Observed 3 entities for [facet]: Alice (2 new observations), Bob (1 new observation), Acme Corp (0 - nothing new)"
-
-## Guard Mechanism
-
-The stale-write guard is enforced via the CLI flow:
-- You MUST call `sol call entities observations ENTITY` first to get current count
-- Then call `sol call entities observe ENTITY CONTENT --source-day DAY` to add observations
-- The CLI auto-calculates and passes the next observation number internally
-- If count changed (another process added observations), you'll get an error
-- On error, re-read observations and retry
-
-## Deduplication
-
-Before adding any observation, scan the entity's existing observations for semantic overlap:
-
-- If the new observation says essentially the same thing as an existing one in different words, **skip it**. Example: "Primary interface for high-velocity refactoring" adds nothing if "Used for high-velocity refactoring and auditing" already exists.
-- If it adds genuine nuance to an existing observation, only add if the nuance is independently useful and passes the litmus test on its own.
-- When in doubt, skip. Redundant observations dilute the knowledge base.
-
-## Quality Guidelines
-
-### DO:
-- Focus on durable, reusable factoids about the entity's identity
-- Capture preferences, expertise, relationships, working style
-- Note schedules, timezones, availability patterns
-- Record biographical context (role, location, background)
-- Check existing observations before adding
-- Use source_day to track when observation was made
-- Write one focused fact per observation
-
-### DON'T:
-- Add day-specific activity as observations
-- Duplicate or paraphrase existing observations
-- Add vague or generic observations ("works with Alice")
-- Add observations without reading current state first
-- Guess or assume facts not in the journal
-- Use temporal language ("currently", "as of", "today", "recently")
-- Log tool usage as observations ("Used X to do Y")
-- Cram multiple facts into one observation
-
-## Volume Guidelines
-
-- Quality over quantity — better to add 0 good observations than 5 mediocre ones
-- Typical run: 0-3 new observations per entity
-- Many entities will have no new observations on a given day — that's normal
-- Only add observations when you find genuinely useful, durable factoids
-
-### Escalating Quality Bar
-
-As an entity accumulates observations, the bar for new ones rises:
-- **0-5 existing observations**: Normal bar — capture the foundational facts
-- **5-10 existing observations**: Higher bar — new observation must add something clearly distinct from everything already recorded
-- **10+ existing observations**: Very high bar — only add if it would rank in the "top 10 things to know" about this entity. At this point, most days should yield 0 new observations.
-
-## Interaction Protocol
-
-When invoked:
-1. Announce the SPECIFIC FACET you are observing entities for
-2. Load attached entities for THIS facet
-3. Scan the day's content to identify which entities were active (Phase 2)
-4. For each active entity:
-   a. Read current observations (REQUIRED)
-   b. Mine recent content for factoids
-   c. Apply litmus test, type strategy, dedup check, and escalating bar
-   d. Add new observations with proper guard
-5. Summarize: "Observed X entities for [facet]: [entities with new observation counts]"
 
 Remember: Your goal is to build a curated knowledge base of the most important facts about entities — not a comprehensive activity log. Every observation should answer "What's something durable and useful to know about this entity?" not "What happened with them today?" When the knowledge base is already rich, restraint is the right call.
