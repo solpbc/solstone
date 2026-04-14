@@ -953,11 +953,51 @@ def purge(
 @app.command(name="storage-summary")
 def storage_summary(
     json_output: bool = typer.Option(False, "--json", help="Output as JSON."),
+    check: bool = typer.Option(
+        False, "--check", help="Check storage health thresholds."
+    ),
 ) -> None:
     """Show journal storage summary."""
     from think.retention import compute_storage_summary
 
     summary = compute_storage_summary()
+
+    if check:
+        from think.retention import check_storage_health
+        from think.utils import get_journal
+
+        journal_path = get_journal()
+        warnings = check_storage_health(summary, journal_path)
+
+        if json_output:
+            typer.echo(
+                json.dumps(
+                    {
+                        "raw_media_bytes": summary.raw_media_bytes,
+                        "derived_bytes": summary.derived_bytes,
+                        "total_segments": summary.total_segments,
+                        "segments_with_raw": summary.segments_with_raw,
+                        "segments_purged": summary.segments_purged,
+                        "warnings": warnings,
+                    },
+                    indent=2,
+                )
+            )
+        else:
+            typer.echo(f"Raw media:          {summary.raw_media_human}")
+            typer.echo(f"AI-processed content: {summary.derived_human}")
+            typer.echo(
+                f"Segments: {summary.total_segments} total, "
+                f"{summary.segments_with_raw} with raw media, "
+                f"{summary.segments_purged} purged"
+            )
+            if warnings:
+                typer.echo("")
+                for w in warnings:
+                    typer.echo(f"⚠ {w['message']}")
+            else:
+                typer.echo("\nAll storage thresholds OK.")
+        return
 
     if json_output:
         typer.echo(

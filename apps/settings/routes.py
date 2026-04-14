@@ -20,12 +20,14 @@ from convey import state
 from think.providers.google import validate_vertex_credentials
 from think.retention import (
     _human_bytes,
+    check_storage_health,
     compute_storage_summary,
     load_retention_config,
     purge,
 )
 from think.streams import list_streams
 from think.utils import get_config as get_journal_config
+from think.utils import get_journal
 
 logger = logging.getLogger(__name__)
 
@@ -2155,6 +2157,8 @@ def get_storage() -> Any:
     try:
         summary = compute_storage_summary()
         config = load_retention_config()
+        journal_path = get_journal()
+        warnings = check_storage_health(summary, journal_path)
         try:
             streams = list_streams()
         except Exception:
@@ -2180,6 +2184,7 @@ def get_storage() -> Any:
                     },
                 },
                 "streams": [{"name": s.get("name", "")} for s in streams],
+                "warnings": warnings,
             }
         )
     except Exception:
