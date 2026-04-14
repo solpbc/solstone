@@ -948,3 +948,9 @@ def journal_source_manifest(key_prefix: str, area: str) -> Any:
     except (OSError, json.JSONDecodeError):
         data = {}
     return jsonify(data)
+
+
+# Segment ingest routes (separate module to keep routes.py manageable)
+from .ingest import register_ingest_routes
+
+register_ingest_routes(import_bp)
