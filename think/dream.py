@@ -568,6 +568,10 @@ def run_segment_sense(
     if entities_config:
         agents_to_run.append(("entities", entities_config))
 
+    documents_config = _cfg("documents")
+    if documents_config:
+        agents_to_run.append(("documents", documents_config))
+
     if recommend.get("screen_record"):
         screen_config = _cfg("screen")
         if screen_config:
