@@ -246,11 +246,11 @@ def agents_client(tmp_path):
     """Create a Flask test client with agents blueprint and tmp journal."""
     from flask import Flask
 
-    from apps.sol.routes import agents_bp
+    from apps.sol.routes import sol_bp
     from convey import state
 
     app = Flask(__name__)
-    app.register_blueprint(agents_bp)
+    app.register_blueprint(sol_bp)
 
     # Point state at our tmp journal
     state.journal_root = str(tmp_path)

@@ -21,7 +21,7 @@ from think.models import calc_agent_cost
 from think.talent import get_output_path, get_talent_configs
 from think.utils import updated_days
 
-agents_bp = Blueprint(
+sol_bp = Blueprint(
     "app:sol",
     __name__,
     url_prefix="/app/sol",
@@ -349,14 +349,14 @@ def _build_agents_meta() -> dict[str, dict[str, Any]]:
 # =============================================================================
 
 
-@agents_bp.route("/")
+@sol_bp.route("/")
 def index() -> Any:
     """Redirect to today's agent history."""
     today = date.today().strftime("%Y%m%d")
     return redirect(url_for("app:sol.agents_day", day=today))
 
 
-@agents_bp.route("/<day>")
+@sol_bp.route("/<day>")
 def agents_day(day: str) -> str:
     """Render agent history viewer for a specific day."""
     if not DATE_RE.fullmatch(day):
@@ -372,7 +372,7 @@ def agents_day(day: str) -> str:
 # =============================================================================
 
 
-@agents_bp.route("/api/agents/<day>")
+@sol_bp.route("/api/agents/<day>")
 def api_agents_day(day: str) -> Any:
     """Get agent runs and metadata for a specific day.
 
@@ -409,7 +409,7 @@ def api_agents_day(day: str) -> Any:
     )
 
 
-@agents_bp.route("/api/run/<agent_id>")
+@sol_bp.route("/api/run/<agent_id>")
 def api_agent_run(agent_id: str) -> Any:
     """Return full agent run detail with metadata and parsed events."""
     # Locate the agent JSONL file
@@ -490,7 +490,7 @@ def api_agent_run(agent_id: str) -> Any:
         return jsonify({"error": str(e)}), 500
 
 
-@agents_bp.route("/api/output/<day>/<path:filename>")
+@sol_bp.route("/api/output/<day>/<path:filename>")
 def api_output_file(day: str, filename: str) -> Any:
     """Serve output file content for the run detail output tab.
 
@@ -532,7 +532,7 @@ def api_output_file(day: str, filename: str) -> Any:
     return jsonify(content=content, format=fmt, filename=file_path.name)
 
 
-@agents_bp.route("/api/preview/<path:name>")
+@sol_bp.route("/api/preview/<path:name>")
 def api_preview_prompt(name: str) -> Any:
     """Return the complete rendered prompt for an agent.
 
@@ -576,7 +576,7 @@ def api_preview_prompt(name: str) -> Any:
         return jsonify({"error": str(e)}), 500
 
 
-@agents_bp.route("/api/stats/<month>")
+@sol_bp.route("/api/stats/<month>")
 def api_stats(month: str) -> Any:
     """Return agent run counts per day per facet for a month.
 
@@ -623,7 +623,7 @@ def api_stats(month: str) -> Any:
     return jsonify(stats)
 
 
-@agents_bp.route("/api/badge-count")
+@sol_bp.route("/api/badge-count")
 def api_badge_count() -> Any:
     """Get count of failed agent runs for today (for app icon badge)."""
     today = date.today().strftime("%Y%m%d")
@@ -632,7 +632,7 @@ def api_badge_count() -> Any:
     return jsonify({"count": failed_count})
 
 
-@agents_bp.route("/api/updated-days")
+@sol_bp.route("/api/updated-days")
 def api_updated_days() -> Any:
     """Return journal days with pending reprocessing."""
     today = date.today().strftime("%Y%m%d")
@@ -642,7 +642,7 @@ def api_updated_days() -> Any:
         return jsonify([])
 
 
-@agents_bp.route("/api/identity")
+@sol_bp.route("/api/identity")
 def api_identity() -> Any:
     """Return agent identity and thickness signals."""
     try:
