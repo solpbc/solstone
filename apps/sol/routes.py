@@ -22,9 +22,9 @@ from think.talent import get_output_path, get_talent_configs
 from think.utils import updated_days
 
 agents_bp = Blueprint(
-    "app:agents",
+    "app:sol",
     __name__,
-    url_prefix="/app/agents",
+    url_prefix="/app/sol",
 )
 
 
@@ -353,7 +353,7 @@ def _build_agents_meta() -> dict[str, dict[str, Any]]:
 def index() -> Any:
     """Redirect to today's agent history."""
     today = date.today().strftime("%Y%m%d")
-    return redirect(url_for("app:agents.agents_day", day=today))
+    return redirect(url_for("app:sol.agents_day", day=today))
 
 
 @agents_bp.route("/<day>")
@@ -640,3 +640,26 @@ def api_updated_days() -> Any:
         return jsonify(updated_days(exclude={today}))
     except Exception:
         return jsonify([])
+
+
+@agents_bp.route("/api/identity")
+def api_identity() -> Any:
+    """Return agent identity and thickness signals."""
+    try:
+        from think.awareness import compute_thickness
+        from think.utils import get_config
+
+        config = get_config()
+        agent = config.get("agent", {})
+        identity = config.get("identity", {})
+        thickness = compute_thickness()
+
+        return jsonify(
+            {
+                "agent": agent,
+                "identity": identity,
+                "thickness": thickness,
+            }
+        )
+    except Exception:
+        return jsonify({"error": "Unable to load identity data"}), 500

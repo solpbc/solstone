@@ -24,10 +24,10 @@ logger = logging.getLogger(__name__)
 SCENARIOS: list[dict[str, Any]] = [
     # smoke scenarios
     {
-        "app": "agents",
+        "app": "sol",
         "name": "smoke",
         "steps": [
-            {"do": "navigate", "path": "/app/agents/20260304"},
+            {"do": "navigate", "path": "/app/sol/20260304"},
             {"do": "wait", "ms": 1000},
             {"do": "screenshot"},
         ],

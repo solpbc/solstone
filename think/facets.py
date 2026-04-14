@@ -1082,7 +1082,7 @@ def format_logs(
 
         # Agent link if present
         if agent_id:
-            lines.append(f"**Agent:** [{agent_id}](/app/agents/{agent_id})")
+            lines.append(f"**Agent:** [{agent_id}](/app/sol/{agent_id})")
 
         lines.append("")
 

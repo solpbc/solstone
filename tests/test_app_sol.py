@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from apps.agents.routes import _resolve_output_path
+from apps.sol.routes import _resolve_output_path
 from think.talent import _resolve_agent_path, get_agent, get_talent_configs
 
 
@@ -246,7 +246,7 @@ def agents_client(tmp_path):
     """Create a Flask test client with agents blueprint and tmp journal."""
     from flask import Flask
 
-    from apps.agents.routes import agents_bp
+    from apps.sol.routes import agents_bp
     from convey import state
 
     app = Flask(__name__)
@@ -273,7 +273,7 @@ class TestApiOutputFile:
 
     def test_serves_day_relative_file(self, agents_client):
         """Day-relative paths resolve under {journal}/{day}/."""
-        resp = agents_client.get("/app/agents/api/output/20260214/agents/flow.md")
+        resp = agents_client.get("/app/sol/api/output/20260214/agents/flow.md")
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["content"] == "# Day agent output"
@@ -283,7 +283,7 @@ class TestApiOutputFile:
     def test_serves_facet_scoped_activity_file(self, agents_client):
         """Paths starting with facets/ resolve from journal root."""
         resp = agents_client.get(
-            "/app/agents/api/output/20260214/"
+            "/app/sol/api/output/20260214/"
             "facets/work/activities/20260214/coding_100/summary.md"
         )
         assert resp.status_code == 200
@@ -293,17 +293,17 @@ class TestApiOutputFile:
 
     def test_rejects_invalid_day_format(self, agents_client):
         """Non-YYYYMMDD day returns 400."""
-        resp = agents_client.get("/app/agents/api/output/bad-day/agents/flow.md")
+        resp = agents_client.get("/app/sol/api/output/bad-day/agents/flow.md")
         assert resp.status_code == 400
 
     def test_rejects_path_traversal(self, agents_client):
         """Path traversal attempts return 403."""
-        resp = agents_client.get("/app/agents/api/output/20260214/../../etc/passwd")
+        resp = agents_client.get("/app/sol/api/output/20260214/../../etc/passwd")
         assert resp.status_code in (403, 404)
 
     def test_missing_file_returns_404(self, agents_client):
         """Non-existent file returns 404."""
         resp = agents_client.get(
-            "/app/agents/api/output/20260214/agents/nonexistent.md"
+            "/app/sol/api/output/20260214/agents/nonexistent.md"
         )
         assert resp.status_code == 404

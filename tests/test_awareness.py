@@ -543,12 +543,12 @@ class TestOwnerDetectionReady:
 
 
 class TestThicknessCLI:
-    """Tests for the thickness CLI command in apps/agent/call.py."""
+    """Tests for the thickness CLI command in apps/sol/call.py."""
 
     def test_thickness_command_returns_json(self):
         from typer.testing import CliRunner
 
-        from apps.agent.call import app
+        from apps.sol.call import app
 
         mock_result = {
             "entity_depth": 5,
@@ -933,7 +933,7 @@ class TestSolInitCLI:
     def test_sol_init_command(self, tmp_path):
         from typer.testing import CliRunner
 
-        from apps.agent.call import app
+        from apps.sol.call import app
 
         result = CliRunner().invoke(app, ["sol-init"])
         assert result.exit_code == 0
@@ -944,7 +944,7 @@ class TestSolInitCLI:
 
 
 class TestSetOwnerCLI:
-    """Tests for sol call agent set-owner."""
+    """Tests for sol call sol set-owner."""
 
     def test_set_owner_name_only(self, tmp_path):
         """set-owner saves identity.name to config and updates self.md."""
@@ -962,7 +962,7 @@ class TestSetOwnerCLI:
 
         from typer.testing import CliRunner
 
-        from apps.agent.call import app as agent_app
+        from apps.sol.call import app as agent_app
 
         runner = CliRunner()
         with unittest.mock.patch("subprocess.run"):
@@ -994,7 +994,7 @@ class TestSetOwnerCLI:
 
         from typer.testing import CliRunner
 
-        from apps.agent.call import app as agent_app
+        from apps.sol.call import app as agent_app
 
         runner = CliRunner()
         with unittest.mock.patch("subprocess.run"):
@@ -1029,7 +1029,7 @@ class TestSetNameUpdatesSelfMd:
 
         from typer.testing import CliRunner
 
-        from apps.agent.call import app as agent_app
+        from apps.sol.call import app as agent_app
 
         runner = CliRunner()
         # Mock subprocess.run to avoid `make skills`

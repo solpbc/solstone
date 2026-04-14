@@ -999,7 +999,88 @@
   white-space: nowrap;
   border: 0;
 }
+
+/* Identity Header */
+.sol-identity {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1rem 2rem 0;
+}
+
+.sol-identity-card {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1rem 1.25rem;
+  background: var(--card-bg, #faf9f7);
+  border: 1px solid var(--facet-border, #e5e0db);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: var(--text-secondary, #6b6560);
+}
+
+.sol-identity-card .identity-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary, #2c2825);
+}
+
+.sol-identity-card .identity-status {
+  font-size: 0.8rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  background: var(--facet-border, #e5e0db);
+}
+
+.sol-identity-card .identity-signals {
+  display: flex;
+  gap: 1rem;
+  margin-left: auto;
+}
+
+.sol-identity-card .signal {
+  text-align: center;
+}
+
+.sol-identity-card .signal-value {
+  font-weight: 600;
+  color: var(--text-primary, #2c2825);
+}
+
+.sol-identity-card .signal-label {
+  font-size: 0.75rem;
+}
+
+.sol-identity-card .ready-badge {
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.sol-identity-card .ready-badge.ready-true {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.sol-identity-card .ready-badge.ready-false {
+  background: #fff3e0;
+  color: #e65100;
+}
 </style>
+
+<div class="sol-identity" id="sol-identity">
+  <div class="sol-identity-card">
+    <div>
+      <span class="identity-name" id="identity-name">...</span>
+      <span class="identity-status" id="identity-status"></span>
+    </div>
+    <div style="color: var(--text-secondary, #6b6560)">
+      <span id="identity-owner"></span>
+    </div>
+    <div class="identity-signals" id="identity-signals"></div>
+  </div>
+</div>
 
 <div class="agents-content">
   <h2 class="sr-only">Agent Runs</h2>
@@ -1111,8 +1192,45 @@
   // Get current day from URL path
   function getDayFromUrl() {
     const path = window.location.pathname;
-    const match = path.match(/\/app\/agents\/(\d{8})$/);
+    const match = path.match(/\/app\/sol\/(\d{8})$/);
     return match ? match[1] : null;
+  }
+
+  function loadIdentity() {
+    fetch('/app/sol/api/identity')
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) {
+          document.getElementById('sol-identity').style.display = 'none';
+          return;
+        }
+        const agent = data.agent || {};
+        const identity = data.identity || {};
+        const thickness = data.thickness || {};
+
+        document.getElementById('identity-name').textContent = agent.name || 'sol';
+        const statusEl = document.getElementById('identity-status');
+        statusEl.textContent = agent.name_status || 'default';
+
+        const ownerEl = document.getElementById('identity-owner');
+        if (identity.name) {
+          ownerEl.textContent = 'Owner: ' + identity.name;
+        }
+
+        const signalsEl = document.getElementById('identity-signals');
+        signalsEl.innerHTML = [
+          { label: 'Entities', value: thickness.entity_depth ?? '—' },
+          { label: 'Conversations', value: thickness.conversation_count ?? '—' },
+          { label: 'Days', value: thickness.journal_days ?? '—' },
+          { label: 'Facets', value: thickness.facet_count ?? '—' },
+        ].map(s => '<div class="signal"><div class="signal-value">' + s.value + '</div><div class="signal-label">' + s.label + '</div></div>').join('')
+          + '<div class="ready-badge ready-' + (thickness.ready ? 'true' : 'false') + '">'
+          + (thickness.ready ? 'Ready' : 'Growing')
+          + '</div>';
+      })
+      .catch(() => {
+        document.getElementById('sol-identity').style.display = 'none';
+      });
   }
 
   // Format timestamp to time string
@@ -2413,6 +2531,7 @@
   });
 
   // Initial load
+  loadIdentity();
   loadUpdatedBanner();
   loadAgents();
 })();
