@@ -9,7 +9,7 @@ import stat
 from importlib import import_module
 
 import pytest
-from flask import Flask, g, jsonify
+from flask import Flask, abort, g, jsonify
 
 import convey.state
 from think.utils import now_ms
@@ -19,6 +19,7 @@ STATE_AREAS = journal_sources.STATE_AREAS
 create_state_directory = journal_sources.create_state_directory
 find_journal_source_by_name = journal_sources.find_journal_source_by_name
 generate_key = journal_sources.generate_key
+get_state_directory = journal_sources.get_state_directory
 is_valid_journal_source_name = journal_sources.is_valid_journal_source_name
 list_journal_sources = journal_sources.list_journal_sources
 load_journal_source = journal_sources.load_journal_source
@@ -29,7 +30,9 @@ save_journal_source = journal_sources.save_journal_source
 @pytest.fixture
 def journal_env(tmp_path, monkeypatch):
     monkeypatch.setattr(convey.state, "journal_root", str(tmp_path), raising=False)
-    (tmp_path / "apps" / "import" / "journal_sources").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "apps" / "import" / "journal_sources").mkdir(
+        parents=True, exist_ok=True
+    )
     return tmp_path
 
 
@@ -49,6 +52,37 @@ def _source(name: str, key: str, created_at: int = 0) -> dict:
             "config_received": 0,
         },
     }
+
+
+@pytest.fixture
+def manifest_env(journal_env):
+    """Journal env with a saved source and state directory."""
+    key = generate_key()
+    source = _source("manifest-test", key, created_at=123)
+    save_journal_source(source)
+    create_state_directory(journal_env, key[:8])
+    return {"root": journal_env, "key": key, "source": source}
+
+
+@pytest.fixture
+def manifest_app(manifest_env):
+    app = Flask(__name__)
+
+    @app.route("/journal/<key_prefix>/manifest/<area>")
+    @require_journal_source
+    def journal_source_manifest(key_prefix: str, area: str):
+        if g.journal_source["key"][:8] != key_prefix:
+            abort(403, description="Key prefix mismatch")
+        if area not in STATE_AREAS:
+            abort(404, description="Unknown manifest area")
+        state_path = get_state_directory(key_prefix) / area / "state.json"
+        try:
+            data = json.loads(state_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            data = {}
+        return jsonify(data)
+
+    return app
 
 
 def test_generate_key():
@@ -124,7 +158,10 @@ def test_duplicate_name_rejected(journal_env):
 
 def test_invalid_name_rejected(journal_env):
     assert is_valid_journal_source_name("../alpha") is False
-    assert save_journal_source(_source("../alpha", generate_key(), created_at=123)) is False
+    assert (
+        save_journal_source(_source("../alpha", generate_key(), created_at=123))
+        is False
+    )
     assert find_journal_source_by_name("../alpha") is None
     assert not (journal_env.parent / "alpha.json").exists()
 
@@ -212,6 +249,115 @@ def test_auth_decorator_revoked_key(journal_env):
     response = app.test_client().get(
         "/protected",
         headers={"Authorization": f"Bearer {key}"},
+    )
+
+    assert response.status_code == 403
+
+
+@pytest.mark.parametrize("area", STATE_AREAS)
+def test_manifest_empty_state(manifest_app, manifest_env, area):
+    response = manifest_app.test_client().get(
+        f"/journal/{manifest_env['key'][:8]}/manifest/{area}",
+        headers={"Authorization": f"Bearer {manifest_env['key']}"},
+    )
+
+    assert response.status_code == 200
+    assert response.get_json() == {}
+
+
+def test_manifest_populated_state(manifest_app, manifest_env):
+    data = {"days": {"2026-04-01": {"count": 5}}}
+    state_path = (
+        get_state_directory(manifest_env["key"][:8]) / "segments" / "state.json"
+    )
+    state_path.write_text(json.dumps(data), encoding="utf-8")
+
+    response = manifest_app.test_client().get(
+        f"/journal/{manifest_env['key'][:8]}/manifest/segments",
+        headers={"Authorization": f"Bearer {manifest_env['key']}"},
+    )
+
+    assert response.status_code == 200
+    assert response.get_json() == data
+
+
+def test_manifest_missing_state_file(manifest_app, manifest_env):
+    state_path = (
+        get_state_directory(manifest_env["key"][:8]) / "segments" / "state.json"
+    )
+    state_path.unlink()
+
+    response = manifest_app.test_client().get(
+        f"/journal/{manifest_env['key'][:8]}/manifest/segments",
+        headers={"Authorization": f"Bearer {manifest_env['key']}"},
+    )
+
+    assert response.status_code == 200
+    assert response.get_json() == {}
+
+
+def test_manifest_malformed_json(manifest_app, manifest_env):
+    state_path = (
+        get_state_directory(manifest_env["key"][:8]) / "segments" / "state.json"
+    )
+    state_path.write_text("not valid json{{{", encoding="utf-8")
+
+    response = manifest_app.test_client().get(
+        f"/journal/{manifest_env['key'][:8]}/manifest/segments",
+        headers={"Authorization": f"Bearer {manifest_env['key']}"},
+    )
+
+    assert response.status_code == 200
+    assert response.get_json() == {}
+
+
+def test_manifest_invalid_area(manifest_app, manifest_env):
+    response = manifest_app.test_client().get(
+        f"/journal/{manifest_env['key'][:8]}/manifest/invalid_area",
+        headers={"Authorization": f"Bearer {manifest_env['key']}"},
+    )
+
+    assert response.status_code == 404
+
+
+def test_manifest_key_prefix_mismatch(manifest_app, manifest_env):
+    other_prefix = "deadbeef"
+    assert other_prefix != manifest_env["key"][:8]
+
+    response = manifest_app.test_client().get(
+        f"/journal/{other_prefix}/manifest/segments",
+        headers={"Authorization": f"Bearer {manifest_env['key']}"},
+    )
+
+    assert response.status_code == 403
+
+
+def test_manifest_auth_missing(manifest_app, manifest_env):
+    response = manifest_app.test_client().get(
+        f"/journal/{manifest_env['key'][:8]}/manifest/segments"
+    )
+
+    assert response.status_code == 401
+
+
+def test_manifest_auth_invalid(manifest_app, manifest_env):
+    response = manifest_app.test_client().get(
+        f"/journal/{manifest_env['key'][:8]}/manifest/segments",
+        headers={"Authorization": "Bearer does-not-exist"},
+    )
+
+    assert response.status_code == 401
+
+
+def test_manifest_auth_revoked(manifest_app, manifest_env):
+    source = manifest_env["source"]
+    source["revoked"] = True
+    source["revoked_at"] = now_ms()
+    assert save_journal_source(source) is True
+
+    response = manifest_app.test_client().get(
+        f"/journal/{manifest_env['key'][:8]}/manifest/segments",
+        headers={"Authorization": f"Bearer {manifest_env['key']}"},
     )
 
     assert response.status_code == 403
