@@ -35,6 +35,8 @@
   "retention": {
     "raw_media": "keep",
     "raw_media_days": null,
-    "per_stream": {}
+    "per_stream": {},
+    "storage_warning_disk_percent": 80,
+    "storage_warning_raw_media_gb": null
   }
 }

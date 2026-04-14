@@ -6,12 +6,15 @@
 import hashlib
 import json
 import os
+import shutil
 from datetime import datetime
 
 from think.retention import (
     RetentionConfig,
     RetentionPolicy,
+    StorageSummary,
     _human_bytes,
+    check_storage_health,
     get_raw_media_files,
     is_raw_media,
     is_segment_complete,
@@ -483,3 +486,160 @@ class TestHumanBytes:
     def test_large(self):
         result = _human_bytes(12_400_000_000)
         assert "GB" in result
+
+
+class TestCheckStorageHealth:
+    """Tests for check_storage_health threshold evaluation."""
+
+    def _make_summary(self, raw_media_bytes=0, derived_bytes=0):
+        return StorageSummary(
+            raw_media_bytes=raw_media_bytes,
+            derived_bytes=derived_bytes,
+            total_segments=10,
+            segments_with_raw=5,
+            segments_purged=3,
+        )
+
+    def test_no_warnings_when_healthy(self, tmp_path, monkeypatch):
+        """No warnings when disk is below threshold and raw media GB is null."""
+        usage_type = type(shutil.disk_usage(tmp_path))
+        monkeypatch.setattr(
+            "shutil.disk_usage",
+            lambda path: usage_type(1000, 500, 500),  # 50% used
+        )
+        config = {
+            "retention": {
+                "storage_warning_disk_percent": 80,
+                "storage_warning_raw_media_gb": None,
+            }
+        }
+        summary = self._make_summary()
+        warnings = check_storage_health(summary, tmp_path, config=config)
+        assert warnings == []
+
+    def test_disk_percent_exceeded(self, tmp_path, monkeypatch):
+        """Warning when disk usage exceeds threshold."""
+        config = {
+            "retention": {
+                "storage_warning_disk_percent": 1,
+            }
+        }
+        summary = self._make_summary()
+        warnings = check_storage_health(summary, tmp_path, config=config)
+        assert len(warnings) == 1
+        assert warnings[0]["type"] == "disk_percent"
+        assert warnings[0]["level"] == "warning"
+        assert warnings[0]["current"] >= 1
+        assert warnings[0]["threshold"] == 1
+        assert "retention settings" in warnings[0]["message"]
+        assert "Clean Up Now" in warnings[0]["message"]
+
+    def test_disk_percent_not_exceeded(self, tmp_path, monkeypatch):
+        """No warning when disk is well below threshold."""
+        config = {
+            "retention": {
+                "storage_warning_disk_percent": 100,
+            }
+        }
+        summary = self._make_summary()
+        warnings = check_storage_health(summary, tmp_path, config=config)
+        assert warnings == []
+
+    def test_raw_media_gb_exceeded(self, tmp_path, monkeypatch):
+        """Warning when raw media exceeds GB threshold."""
+        raw_bytes = int(5.5 * 1024**3)
+        config = {
+            "retention": {
+                "storage_warning_disk_percent": None,
+                "storage_warning_raw_media_gb": 5.0,
+            }
+        }
+        summary = self._make_summary(raw_media_bytes=raw_bytes)
+        warnings = check_storage_health(summary, tmp_path, config=config)
+        assert len(warnings) == 1
+        assert warnings[0]["type"] == "raw_media_gb"
+        assert warnings[0]["level"] == "warning"
+        assert warnings[0]["current"] >= 5.0
+        assert warnings[0]["threshold"] == 5.0
+        assert "retention settings" in warnings[0]["message"]
+
+    def test_raw_media_gb_not_exceeded(self, tmp_path, monkeypatch):
+        """No warning when raw media is below threshold."""
+        raw_bytes = int(2.0 * 1024**3)
+        config = {
+            "retention": {
+                "storage_warning_disk_percent": None,
+                "storage_warning_raw_media_gb": 5.0,
+            }
+        }
+        summary = self._make_summary(raw_media_bytes=raw_bytes)
+        warnings = check_storage_health(summary, tmp_path, config=config)
+        assert warnings == []
+
+    def test_both_thresholds_exceeded(self, tmp_path, monkeypatch):
+        """Both warnings when both thresholds exceeded."""
+        raw_bytes = int(10 * 1024**3)
+        config = {
+            "retention": {
+                "storage_warning_disk_percent": 1,
+                "storage_warning_raw_media_gb": 5.0,
+            }
+        }
+        summary = self._make_summary(raw_media_bytes=raw_bytes)
+        warnings = check_storage_health(summary, tmp_path, config=config)
+        assert len(warnings) == 2
+        types = {w["type"] for w in warnings}
+        assert types == {"disk_percent", "raw_media_gb"}
+
+    def test_null_thresholds_disables_checks(self, tmp_path, monkeypatch):
+        """Both thresholds null means no warnings ever."""
+        raw_bytes = int(100 * 1024**3)
+        config = {
+            "retention": {
+                "storage_warning_disk_percent": None,
+                "storage_warning_raw_media_gb": None,
+            }
+        }
+        summary = self._make_summary(raw_media_bytes=raw_bytes)
+        warnings = check_storage_health(summary, tmp_path, config=config)
+        assert warnings == []
+
+    def test_exact_threshold_triggers(self, tmp_path, monkeypatch):
+        """Warning triggers at exactly the threshold (>=, not >)."""
+        raw_bytes = int(5.0 * 1024**3)
+        config = {
+            "retention": {
+                "storage_warning_disk_percent": None,
+                "storage_warning_raw_media_gb": 5.0,
+            }
+        }
+        summary = self._make_summary(raw_media_bytes=raw_bytes)
+        warnings = check_storage_health(summary, tmp_path, config=config)
+        assert len(warnings) == 1
+        assert warnings[0]["type"] == "raw_media_gb"
+
+    def test_missing_retention_section_uses_defaults(self, tmp_path, monkeypatch):
+        """Missing retention section falls back to defaults (80% disk, null raw media)."""
+        config = {}
+        summary = self._make_summary()
+        warnings = check_storage_health(summary, tmp_path, config=config)
+        for w in warnings:
+            assert w["type"] != "raw_media_gb"
+
+    def test_warning_dict_structure(self, tmp_path, monkeypatch):
+        """Each warning has all required keys."""
+        config = {
+            "retention": {
+                "storage_warning_disk_percent": 1,
+                "storage_warning_raw_media_gb": 0.001,
+            }
+        }
+        raw_bytes = int(1 * 1024**3)
+        summary = self._make_summary(raw_media_bytes=raw_bytes)
+        warnings = check_storage_health(summary, tmp_path, config=config)
+        for w in warnings:
+            assert "level" in w
+            assert "type" in w
+            assert "message" in w
+            assert "current" in w
+            assert "threshold" in w

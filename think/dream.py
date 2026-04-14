@@ -2504,6 +2504,36 @@ def main() -> None:
                 stats_cmd.append("--verbose")
             run_command(stats_cmd, day)
 
+            # Check storage health and emit warnings
+            try:
+                from think.retention import check_storage_health, compute_storage_summary
+                from think.callosum import callosum_send
+
+                storage_summary = compute_storage_summary()
+                journal_path = get_journal()
+                storage_warnings = check_storage_health(storage_summary, journal_path)
+                for warning in storage_warnings:
+                    callosum_send(
+                        "storage",
+                        "warning",
+                        level=warning["level"],
+                        type=warning["type"],
+                        message=warning["message"],
+                        current=warning["current"],
+                        threshold=warning["threshold"],
+                    )
+                if storage_warnings:
+                    callosum_send(
+                        "notification",
+                        "show",
+                        title="Storage Warning",
+                        message=storage_warnings[0]["message"],
+                        icon="💾",
+                        action="/app/settings#storage",
+                    )
+            except Exception:
+                logging.debug("Storage health check failed in post-phase", exc_info=True)
+
             # Touch daily.updated marker after daily schedule completion
             try:
                 health_dir = day_path(day) / "health"

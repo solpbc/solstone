@@ -2621,6 +2621,7 @@ button:focus:not(:focus-visible) {
     <section class="settings-section" id="section-storage" role="tabpanel" aria-labelledby="tab-storage">
       <h2>storage</h2>
       <p class="settings-section-desc">Manage raw media retention and view storage usage.</p>
+      <div id="storageWarnings"></div>
 
       <form class="settings-form" onsubmit="return false;">
 
@@ -5792,6 +5793,18 @@ async function loadStorage() {
 }
 
 function populateStorage(data) {
+  // Render storage warnings
+  const warningsEl = document.getElementById('storageWarnings');
+  warningsEl.innerHTML = '';
+  if (data.warnings && data.warnings.length > 0) {
+    data.warnings.forEach(w => {
+      const div = document.createElement('div');
+      div.className = 'provider-key-warning';
+      div.innerHTML = '<span>&#9888;</span> <span>' + escapeHtml(w.message) + '</span>';
+      warningsEl.appendChild(div);
+    });
+  }
+
   const s = data.summary;
   document.getElementById('storageSummaryRaw').textContent = s.raw_media_human;
   document.getElementById('storageSummaryDerived').textContent = s.derived_human;
@@ -6055,13 +6068,7 @@ async function runCleanupExecute() {
 
     closeCleanupModal();
 
-    // Refresh storage summary
-    if (result.summary) {
-      storageData.summary = result.summary;
-      populateStorage(storageData);
-    } else {
-      loadStorage();
-    }
+    loadStorage();
   } catch (err) {
     notifyError('Cleanup Failed', err.message);
   } finally {
