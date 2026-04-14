@@ -1,16 +1,21 @@
-as of: 2026-04-14T01:48:46Z
+as of: 2026-04-14T08:00:00Z
+segment: N/A
 
 ## capture
 - status: stale
+- streams: N/A
 
 ## calendar
-- No events found for 20260413.
+- No events found for today.
+
+## activity
+- N/A
 
 ## routines
 - No routines configured.
 
 ## entities
-- Error searching for recent entities.
+- Failed to retrieve entity information due to command errors.
 
 ## partner
-- Jeremie Miller is the owner. Observed agent failures and timeouts in morning and evening clusters, impacting entity_observer, todos:daily, and newsletters. Convey shows 401 errors. Curation needs for unknown speaker clusters and recurring entity duplicates.
+- Behavior patterns are currently being observed.

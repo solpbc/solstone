@@ -30,9 +30,9 @@ Skip any url, domain, filename, or path.
 ## Name Resolution
 
 - Prefer full names over nicknames or abbreviations when context makes identity clear (e.g., "Dens" → "Dennis Crowley" if the surrounding conversation confirms identity).
-- Consolidate name variants within the same transcript to a single canonical entity using the most complete name (e.g., "JB", "John B", "John Borthwick" → extract once as "John Borthwick").
+- Use the first full name encountered for people (e.g., if "John B." and "John Borthwick" appear, use "John Borthwick").
 - Only extract first-name-only references when identity is unambiguous (one "Sarah" in the conversation). Skip ambiguous first-name references rather than guessing.
-- Normalize company name variants to canonical form (e.g., "MS", "Microsoft", "MSFT" → "Microsoft").
+- Use the official or most common name for companies (e.g., "MS", "Microsoft", "MSFT" → "Microsoft").
 
 Output as a markdown list. Each line has three parts separated by colon and dash:
 * Type: Entity Name - Description

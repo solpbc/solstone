@@ -44,6 +44,14 @@ from think.utils import get_journal, now_ms, resolve_sol_day, resolve_sol_facet
 
 app = typer.Typer(help="Entity management.")
 
+# Simple in-memory cache for entity and observation loading
+ENTITY_CACHE = {}
+OBSERVATION_CACHE = {}
+
+def clear_entity_caches():
+    """Clears the entity and observation caches."""
+    ENTITY_CACHE.clear()
+    OBSERVATION_CACHE.clear()
 
 def _resolve_or_exit(facet: str, entity: str) -> dict:
     """Resolve entity or exit with CLI error."""
@@ -88,7 +96,21 @@ def list_entities(
 ) -> None:
     """List entities for a facet."""
     facet = resolve_sol_facet(facet)
-    entities = load_entities(facet, day)
+    
+    # Use cache for attached entities (day is None)
+    if day is None:
+        cache_key = (facet, day, False, False) # Default values for include_detached, include_blocked
+        if cache_key in ENTITY_CACHE:
+            # print(f"Cache HIT: entities {cache_key}") # Debugging
+            entities = ENTITY_CACHE[cache_key]
+        else:
+            # print(f"Cache MISS: entities {cache_key}") # Debugging
+            entities = load_entities(facet, day) # Original call
+            ENTITY_CACHE[cache_key] = entities
+    else:
+        # No caching for detected entities (day is provided)
+        entities = load_entities(facet, day) 
+
     if not entities:
         typer.echo("No entities found.")
         return
@@ -142,8 +164,21 @@ def move_entity(
         if src_relationship is not None and dst_relationship is None:
             save_facet_relationship(to_facet, entity_id, src_relationship)
 
-        src_obs = load_observations(from_facet, entity_name)
-        dst_obs = load_observations(to_facet, entity_name)
+        # Use cache for observations
+        cache_key_src = (from_facet, entity_name)
+        if cache_key_src in OBSERVATION_CACHE:
+            src_obs = OBSERVATION_CACHE[cache_key_src]
+        else:
+            src_obs = load_observations(from_facet, entity_name)
+            OBSERVATION_CACHE[cache_key_src] = src_obs
+            
+        cache_key_dst = (to_facet, entity_name)
+        if cache_key_dst in OBSERVATION_CACHE:
+            dst_obs = OBSERVATION_CACHE[cache_key_dst]
+        else:
+            dst_obs = load_observations(to_facet, entity_name)
+            OBSERVATION_CACHE[cache_key_dst] = dst_obs
+            
         existing_keys = {(o["content"], o.get("observed_at")) for o in dst_obs}
         merged = list(dst_obs) + [
             o
@@ -151,6 +186,10 @@ def move_entity(
             if (o["content"], o.get("observed_at")) not in existing_keys
         ]
         save_observations(to_facet, entity_name, merged)
+        # Invalidate cache for dst_obs as it has been updated
+        if cache_key_dst in OBSERVATION_CACHE:
+            del OBSERVATION_CACHE[cache_key_dst]
+
         shutil.rmtree(str(src_dir))
     else:
         dst_dir.parent.mkdir(parents=True, exist_ok=True)
@@ -374,9 +413,16 @@ def add_aka(
         return
 
     # Validate uniqueness across all entities in facet
-    entities = load_entities(
-        facet, day=None, include_detached=True, include_blocked=True
-    )
+    # Use cache for load_entities call
+    cache_key = (facet, None, True, True) # Equivalent to day=None, include_detached=True, include_blocked=True
+    if cache_key in ENTITY_CACHE:
+        # print(f"Cache HIT: entities for aka uniqueness check {cache_key}") # Debugging
+        entities = ENTITY_CACHE[cache_key]
+    else:
+        # print(f"Cache MISS: entities for aka uniqueness check {cache_key}") # Debugging
+        entities = load_entities(facet, day=None, include_detached=True, include_blocked=True)
+        ENTITY_CACHE[cache_key] = entities
+
     conflict = validate_aka_uniqueness(
         aka_value, entities, exclude_entity_name=resolved_name
     )
@@ -415,7 +461,16 @@ def list_observations(
     facet = resolve_sol_facet(facet)
     resolved = _resolve_or_exit(facet, entity)
     resolved_name = resolved.get("name", "")
-    obs = load_observations(facet, resolved_name)
+    
+    # Use cache for observations
+    cache_key = (facet, resolved_name)
+    if cache_key in OBSERVATION_CACHE:
+        # print(f"Cache HIT: observations {cache_key}") # Debugging
+        obs = OBSERVATION_CACHE[cache_key]
+    else:
+        # print(f"Cache MISS: observations {cache_key}") # Debugging
+        obs = load_observations(facet, resolved_name)
+        OBSERVATION_CACHE[cache_key] = obs
 
     if not obs:
         typer.echo(f"No observations for '{resolved_name}'.")
@@ -442,6 +497,13 @@ def observe_entity(
 
     try:
         add_observation(facet, resolved_name, content, source_day)
+        
+        # Invalidate cache for this observation to ensure fresh data on next read
+        cache_key = (facet, resolved_name)
+        if cache_key in OBSERVATION_CACHE:
+            del OBSERVATION_CACHE[cache_key]
+            # print(f"Cache INVALIDATED: observations {cache_key} after add_observation") # Debugging
+
     except ValueError as exc:
         typer.echo(f"Error: {exc}", err=True)
         raise typer.Exit(1)
