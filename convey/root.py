@@ -238,6 +238,19 @@ def init_finalize() -> Any:
     if gemini_key:
         config.setdefault("env", {})["GOOGLE_API_KEY"] = gemini_key
     config.setdefault("setup", {})["completed_at"] = now_ms()
+    retention_mode = data.get("retention_mode", "days")
+    retention_days = data.get("retention_days", 7)
+    if isinstance(retention_days, str):
+        try:
+            retention_days = int(retention_days)
+        except (ValueError, TypeError):
+            retention_days = 7
+    config.setdefault("retention", {}).update(
+        {
+            "raw_media": retention_mode,
+            "raw_media_days": retention_days if retention_mode == "days" else None,
+        }
+    )
 
     config_path = Path(get_journal()) / "config" / "journal.json"
     config_path.parent.mkdir(parents=True, exist_ok=True)
