@@ -326,6 +326,22 @@ def main() -> None:
     if extra and not args.timestamp:
         args.timestamp = extra[0]
 
+    # Dispatch journal-source subcommand
+    if args.media == "journal-source":
+        import sys
+
+        from think.importers.journal_source_cli import main as journal_source_main
+
+        forwarded_args = sys.argv[1:]
+        if "journal-source" in forwarded_args:
+            idx = forwarded_args.index("journal-source")
+            forwarded_args = forwarded_args[:idx] + forwarded_args[idx + 1 :]
+        else:
+            forwarded_args = extra
+        sys.argv = [sys.argv[0]] + forwarded_args
+        journal_source_main()
+        return
+
     if args.backends:
         from think.importers.sync import get_syncable_backends
 

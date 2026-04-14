@@ -12,6 +12,15 @@ from typing import Any
 from flask import Blueprint, jsonify, render_template, request
 from werkzeug.utils import secure_filename
 
+from .journal_sources import (
+    create_state_directory,
+    find_journal_source_by_name,
+    generate_key,
+    is_valid_journal_source_name,
+    list_journal_sources,
+    save_journal_source,
+)
+from apps.utils import log_app_action
 from convey import emit, state
 from media import MEDIA_EXTENSIONS
 from think.detect_created import detect_created
@@ -827,3 +836,96 @@ def import_start() -> Any:
     emit("supervisor", "request", ref=task_id, cmd=cmd)
 
     return jsonify({"status": "ok", "task_id": task_id})
+
+
+@import_bp.route("/api/journal-sources/create", methods=["POST"])
+def api_journal_source_create() -> Any:
+    data = request.get_json(force=True) if request.is_json else {}
+    name = data.get("name", "").strip()
+    if not name:
+        return jsonify({"error": "Name is required"}), 400
+    if not is_valid_journal_source_name(name):
+        return jsonify({"error": "Invalid journal source name"}), 400
+    if find_journal_source_by_name(name):
+        return jsonify({"error": f"Journal source '{name}' already exists"}), 409
+    key = generate_key()
+    source_data = {
+        "key": key,
+        "name": name,
+        "created_at": now_ms(),
+        "enabled": True,
+        "revoked": False,
+        "revoked_at": None,
+        "stats": {
+            "segments_received": 0,
+            "entities_received": 0,
+            "facets_received": 0,
+            "imports_received": 0,
+            "config_received": 0,
+        },
+    }
+    if not save_journal_source(source_data):
+        return jsonify({"error": "Failed to save journal source"}), 500
+    create_state_directory(Path(state.journal_root), key[:8])
+    log_app_action(
+        app="import",
+        facet=None,
+        action="journal_source_create",
+        params={"name": name, "key_prefix": key[:8]},
+    )
+    return jsonify({"key": key, "key_prefix": key[:8], "name": name})
+
+
+@import_bp.route("/api/journal-sources/list")
+def api_journal_source_list() -> Any:
+    sources = list_journal_sources()
+    result = []
+    for s in sources:
+        result.append(
+            {
+                "name": s.get("name", ""),
+                "prefix": s.get("key", "")[:8],
+                "status": "revoked" if s.get("revoked") else "active",
+                "created_at": s.get("created_at"),
+            }
+        )
+    return jsonify(result)
+
+
+@import_bp.route("/api/journal-sources/<name>/revoke", methods=["POST"])
+def api_journal_source_revoke(name: str) -> Any:
+    source = find_journal_source_by_name(name)
+    if not source:
+        return jsonify({"error": f"Journal source '{name}' not found"}), 404
+    if source.get("revoked"):
+        return jsonify({"error": f"Journal source '{name}' is already revoked"}), 409
+    source["revoked"] = True
+    source["revoked_at"] = now_ms()
+    if not save_journal_source(source):
+        return jsonify({"error": "Failed to save journal source"}), 500
+    log_app_action(
+        app="import",
+        facet=None,
+        action="journal_source_revoke",
+        params={"name": name, "key_prefix": source["key"][:8]},
+    )
+    return jsonify({"name": name, "prefix": source["key"][:8], "revoked": True})
+
+
+@import_bp.route("/api/journal-sources/<name>/status")
+def api_journal_source_status(name: str) -> Any:
+    source = find_journal_source_by_name(name)
+    if not source:
+        return jsonify({"error": f"Journal source '{name}' not found"}), 404
+    key = source.get("key", "")
+    return jsonify(
+        {
+            "name": source.get("name", ""),
+            "prefix": key[:8],
+            "status": "revoked" if source.get("revoked") else "active",
+            "created_at": source.get("created_at"),
+            "revoked": source.get("revoked", False),
+            "revoked_at": source.get("revoked_at"),
+            "stats": source.get("stats", {}),
+        }
+    )
