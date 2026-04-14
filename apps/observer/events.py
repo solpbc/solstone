@@ -57,3 +57,51 @@ def handle_observed(ctx: EventContext) -> None:
     logger.debug(
         f"Recorded observed status for observer {observer_name}: {day}/{segment}"
     )
+
+
+@on_event("observe", "transferred")
+def handle_transferred(ctx: EventContext) -> None:
+    """Handle observe.transferred events for transfer-originated segments.
+
+    When a transferred segment is received, append a 'transferred' record
+    to the observer's sync history, increment stats, and queue an indexer
+    rescan to pick up the new content.
+    """
+    observer_name = ctx.msg.get("observer")
+    if not observer_name:
+        return
+
+    segment = ctx.msg.get("segment")
+    day = ctx.msg.get("day")
+    if not segment or not day:
+        logger.warning(
+            f"observe.transferred missing segment/day for observer {observer_name}"
+        )
+        return
+
+    observer = find_observer_by_name(observer_name)
+    if not observer:
+        logger.debug(f"Observer not found for transferred event: {observer_name}")
+        return
+
+    key_prefix = observer.get("key", "")[:8]
+    if not key_prefix:
+        return
+
+    record = {
+        "ts": now_ms(),
+        "type": "transferred",
+        "segment": segment,
+    }
+    append_history_record(key_prefix, day, record)
+
+    increment_stat(key_prefix, "segments_transferred")
+
+    # Queue indexer rescan to pick up transferred content
+    from think.callosum import callosum_send
+
+    callosum_send("supervisor", "request", cmd=["sol", "indexer", "--rescan"])
+
+    logger.debug(
+        f"Recorded transferred status for observer {observer_name}: {day}/{segment}"
+    )

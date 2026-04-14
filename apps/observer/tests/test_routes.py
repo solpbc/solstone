@@ -1255,7 +1255,9 @@ def test_api_list_includes_segments_observed_stat(observer_env):
     assert "segments_observed" not in data[0]["stats"]
 
     # Manually add segments_observed stat
-    observer_path = env.journal / "apps" / "observer" / "observers" / f"{key_prefix}.json"
+    observer_path = (
+        env.journal / "apps" / "observer" / "observers" / f"{key_prefix}.json"
+    )
     with open(observer_path) as f:
         observer_data = json.load(f)
     observer_data["stats"]["segments_observed"] = 5
@@ -1690,3 +1692,362 @@ def test_ingest_stream_qualifier_preserved(observer_env):
     assert not (
         env.journal / "20250103" / "fedora" / "120000_300" / "tmux.jsonl"
     ).exists()
+
+
+def test_transfer_success(observer_env):
+    """Test successful transfer upload."""
+    env = observer_env()
+
+    resp = env.client.post(
+        "/app/observer/api/create",
+        json={"name": "transfer-test"},
+        content_type="application/json",
+    )
+    key = resp.get_json()["key"]
+
+    test_data = b"transferred audio content"
+    resp = env.client.post(
+        f"/app/observer/ingest/{key}/transfer",
+        data={
+            "day": "20250103",
+            "segment": "120000_300",
+            "stream": "remote.host",
+            "files": (io.BytesIO(test_data), "audio.flac"),
+        },
+    )
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["status"] == "ok"
+    assert data["segment"] == "120000_300"
+    assert data["files"] == ["audio.flac"]
+    assert data["bytes"] == len(test_data)
+
+    expected_file = (
+        env.journal / "20250103" / "remote.host" / "120000_300" / "audio.flac"
+    )
+    assert expected_file.exists()
+    assert expected_file.read_bytes() == test_data
+
+
+def test_transfer_requires_stream(observer_env):
+    """Test that transfer requires stream."""
+    env = observer_env()
+
+    resp = env.client.post(
+        "/app/observer/api/create",
+        json={"name": "transfer-stream-test"},
+        content_type="application/json",
+    )
+    key = resp.get_json()["key"]
+
+    resp = env.client.post(
+        f"/app/observer/ingest/{key}/transfer",
+        data={
+            "day": "20250103",
+            "segment": "120000_300",
+            "files": (io.BytesIO(b"content"), "audio.flac"),
+        },
+    )
+    assert resp.status_code == 400
+    assert resp.get_json()["error"] == "Missing stream"
+
+
+def test_transfer_invalid_stream(observer_env):
+    """Test that transfer validates stream format."""
+    env = observer_env()
+
+    resp = env.client.post(
+        "/app/observer/api/create",
+        json={"name": "transfer-invalid-stream"},
+        content_type="application/json",
+    )
+    key = resp.get_json()["key"]
+
+    resp = env.client.post(
+        f"/app/observer/ingest/{key}/transfer",
+        data={
+            "day": "20250103",
+            "segment": "120000_300",
+            "stream": "INVALID!",
+            "files": (io.BytesIO(b"content"), "audio.flac"),
+        },
+    )
+    assert resp.status_code == 400
+    assert resp.get_json()["error"] == "Invalid stream format"
+
+
+def test_transfer_duplicate_detection(observer_env):
+    """Test transfer duplicate detection."""
+    env = observer_env()
+
+    resp = env.client.post(
+        "/app/observer/api/create",
+        json={"name": "transfer-duplicate-test"},
+        content_type="application/json",
+    )
+    key = resp.get_json()["key"]
+
+    test_data = b"duplicate transfer content"
+    resp = env.client.post(
+        f"/app/observer/ingest/{key}/transfer",
+        data={
+            "day": "20250103",
+            "segment": "120000_300",
+            "stream": "remote.host",
+            "files": (io.BytesIO(test_data), "audio.flac"),
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.get_json()["status"] == "ok"
+
+    resp = env.client.post(
+        f"/app/observer/ingest/{key}/transfer",
+        data={
+            "day": "20250103",
+            "segment": "120000_300",
+            "stream": "remote.host",
+            "files": (io.BytesIO(test_data), "audio.flac"),
+        },
+    )
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["status"] == "duplicate"
+    assert data["existing_segment"] == "120000_300"
+
+
+def test_transfer_deconfliction(observer_env):
+    """Test transfer deconflicts existing segment directories."""
+    env = observer_env()
+
+    resp = env.client.post(
+        "/app/observer/api/create",
+        json={"name": "transfer-collision-test"},
+        content_type="application/json",
+    )
+    key = resp.get_json()["key"]
+
+    stream_dir = env.journal / "20250103" / "remote.host"
+    stream_dir.mkdir(parents=True)
+    (stream_dir / "120000_300").mkdir()
+
+    resp = env.client.post(
+        f"/app/observer/ingest/{key}/transfer",
+        data={
+            "day": "20250103",
+            "segment": "120000_300",
+            "stream": "remote.host",
+            "files": (io.BytesIO(b"collision content"), "audio.flac"),
+        },
+    )
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["status"] == "collision"
+    assert data["segment"] != "120000_300"
+    assert (stream_dir / data["segment"] / "audio.flac").exists()
+
+
+def test_transfer_emits_transferred_event(observer_env, monkeypatch):
+    """Test transfer emits observe.transferred."""
+    env = observer_env()
+
+    import apps.observer.routes as routes_module
+
+    calls = []
+
+    def mock_emit(*args, **kwargs):
+        calls.append((args, kwargs))
+
+    monkeypatch.setattr(routes_module, "emit", mock_emit)
+
+    resp = env.client.post(
+        "/app/observer/api/create",
+        json={"name": "transfer-event-test"},
+        content_type="application/json",
+    )
+    key = resp.get_json()["key"]
+
+    resp = env.client.post(
+        f"/app/observer/ingest/{key}/transfer",
+        data={
+            "day": "20250103",
+            "segment": "120000_300",
+            "stream": "remote.host",
+            "files": (io.BytesIO(b"event content"), "audio.flac"),
+        },
+    )
+    assert resp.status_code == 200
+    assert len(calls) == 1
+    assert calls[0][0] == ("observe", "transferred")
+
+
+def test_transfer_does_not_emit_observing(observer_env, monkeypatch):
+    """Test transfer does not emit observe.observing."""
+    env = observer_env()
+
+    import apps.observer.routes as routes_module
+
+    calls = []
+
+    def mock_emit(*args, **kwargs):
+        calls.append((args, kwargs))
+
+    monkeypatch.setattr(routes_module, "emit", mock_emit)
+
+    resp = env.client.post(
+        "/app/observer/api/create",
+        json={"name": "transfer-no-observing-test"},
+        content_type="application/json",
+    )
+    key = resp.get_json()["key"]
+
+    resp = env.client.post(
+        f"/app/observer/ingest/{key}/transfer",
+        data={
+            "day": "20250103",
+            "segment": "120000_300",
+            "stream": "remote.host",
+            "files": (io.BytesIO(b"event content"), "audio.flac"),
+        },
+    )
+    assert resp.status_code == 200
+    assert all(args[1] != "observing" for args, _kwargs in calls)
+
+
+def test_transfer_history_record(observer_env):
+    """Test transfer upload history records source='transfer'."""
+    from apps.observer.utils import load_history
+
+    env = observer_env()
+
+    resp = env.client.post(
+        "/app/observer/api/create",
+        json={"name": "transfer-history-test"},
+        content_type="application/json",
+    )
+    data = resp.get_json()
+    key = data["key"]
+    key_prefix = data["key_prefix"]
+
+    resp = env.client.post(
+        f"/app/observer/ingest/{key}/transfer",
+        data={
+            "day": "20250103",
+            "segment": "120000_300",
+            "stream": "remote.host",
+            "files": (io.BytesIO(b"history content"), "audio.flac"),
+        },
+    )
+    assert resp.status_code == 200
+
+    records = load_history(key_prefix, "20250103")
+    upload_record = next(record for record in records if not record.get("type"))
+    assert upload_record["source"] == "transfer"
+
+
+def test_transfer_auth_required(observer_env):
+    """Test transfer rejects invalid path key without auth header."""
+    env = observer_env()
+
+    resp = env.client.post(
+        "/app/observer/ingest/badkey/transfer",
+        data={
+            "day": "20250103",
+            "segment": "120000_300",
+            "stream": "remote.host",
+            "files": (io.BytesIO(b"content"), "audio.flac"),
+        },
+    )
+    assert resp.status_code == 401
+
+
+def test_transfer_invalid_key(observer_env):
+    """Test transfer rejects invalid key."""
+    env = observer_env()
+
+    resp = env.client.post(
+        "/app/observer/ingest/not-a-real-key/transfer",
+        data={
+            "day": "20250103",
+            "segment": "120000_300",
+            "stream": "remote.host",
+            "files": (io.BytesIO(b"content"), "audio.flac"),
+        },
+    )
+    assert resp.status_code == 401
+
+
+def test_manifest_day_listing(observer_env):
+    """Test manifest day listing from observer history."""
+    env = observer_env()
+
+    resp = env.client.post(
+        "/app/observer/api/create",
+        json={"name": "manifest-list-test"},
+        content_type="application/json",
+    )
+    key = resp.get_json()["key"]
+
+    resp = env.client.post(
+        "/app/observer/ingest",
+        headers={"Authorization": f"Bearer {key}"},
+        data={
+            "day": "20250103",
+            "segment": "120000_300",
+            "files": (io.BytesIO(b"manifest content"), "audio.flac"),
+        },
+    )
+    assert resp.status_code == 200
+
+    resp = env.client.get(f"/app/observer/ingest/{key}/manifest")
+    assert resp.status_code == 200
+    assert resp.get_json() == {"days": {"20250103": {"segments": 1}}}
+
+
+def test_manifest_per_day(observer_env):
+    """Test per-day manifest format matches transfer manifest v1."""
+    env = observer_env()
+
+    resp = env.client.post(
+        "/app/observer/api/create",
+        json={"name": "manifest-day-test"},
+        content_type="application/json",
+    )
+    key = resp.get_json()["key"]
+
+    resp = env.client.post(
+        f"/app/observer/ingest/{key}/transfer",
+        data={
+            "day": "20250103",
+            "segment": "120000_300",
+            "stream": "remote.host",
+            "files": [
+                (io.BytesIO(b"audio bytes"), "audio.flac"),
+                (io.BytesIO(b"screen bytes"), "screen.webm"),
+            ],
+        },
+    )
+    assert resp.status_code == 200
+
+    resp = env.client.get(f"/app/observer/ingest/{key}/manifest/20250103")
+    assert resp.status_code == 200
+    data = resp.get_json()
+
+    assert data["version"] == 1
+    assert data["day"] == "20250103"
+    assert isinstance(data["created_at"], int)
+    assert "host" in data
+    assert "remote.host/120000_300" in data["segments"]
+
+    files = data["segments"]["remote.host/120000_300"]["files"]
+    assert len(files) == 2
+    for file_info in files:
+        assert set(file_info) == {"name", "sha256", "size"}
+        assert len(file_info["sha256"]) == 64
+
+
+def test_manifest_auth_required(observer_env):
+    """Test manifest endpoint rejects invalid key."""
+    env = observer_env()
+
+    resp = env.client.get("/app/observer/ingest/badkey/manifest")
+    assert resp.status_code == 401
