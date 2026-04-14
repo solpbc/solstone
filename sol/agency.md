@@ -1,4 +1,5 @@
 ## system
+- [ ] 2026-04-14 agent failure: `timeline` (1776181033217) timed out (600s) at 09:37.
 - [ ] 2026-04-14 agent failure: `heartbeat` (1776147807132) timed out (600s) at 00:23.
 - [x] 2026-04-13 persistent `convey` 401 Unauthorized errors during ingest. Resolved 2026-04-14.
 - [x] 2026-04-13 recurring `pulse` failures. Resolved 2026-04-14.
@@ -7,7 +8,7 @@
 - [x] 2026-04-12 agent failure: `entities:entity_observer` (solstone) timed out (600s) at 11:33. Resolved 2026-04-14.
 
 ## curation
-- [ ] 2026-04-14 unknown recurring speaker: cluster 123 (164 samples, plaud), cluster 143 (96 samples, plaud), cluster 275 (67 samples, fedora).
-- [ ] 2026-04-14 unknown recurring speaker: cluster 86 (105 samples, pro5e), cluster 38 (91 samples, plaud).
+- [ ] 2026-04-14 unknown recurring speaker: cluster 125 (163 samples, plaud), cluster 83 (105 samples, pro5e), cluster 145 (95 samples, plaud).
+- [ ] 2026-04-14 unknown recurring speaker: cluster 36 (91 samples, plaud), cluster 278 (67 samples, fedora).
 - [ ] 2026-04-08 speaker curation: cluster 11 (36 samples) from pro5e. cluster 18 (91 samples) remains active across Plaud imports.
 - [ ] 2026-04-08 entity duplicates: `Zoey` in personal facet; `Solstone` vs `Sunstone` in solstone facet.
