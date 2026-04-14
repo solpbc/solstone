@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -63,6 +64,45 @@ def _make_session(*, manifest_data=None, get_status=200, post_status=200, post_j
     mock.post.return_value = post_response
 
     return mock
+
+
+def _setup_entities(tmp_path):
+    """Create test entities in journal fixture."""
+    entities_dir = tmp_path / "entities"
+
+    alice_dir = entities_dir / "alice_johnson"
+    alice_dir.mkdir(parents=True)
+    alice = {
+        "id": "alice_johnson",
+        "name": "Alice Johnson",
+        "type": "Person",
+        "created_at": 1000,
+    }
+    (alice_dir / "entity.json").write_text(json.dumps(alice), encoding="utf-8")
+
+    bob_dir = entities_dir / "bob_smith"
+    bob_dir.mkdir(parents=True)
+    bob = {"id": "bob_smith", "name": "Bob Smith", "type": "Person", "created_at": 2000}
+    (bob_dir / "entity.json").write_text(json.dumps(bob), encoding="utf-8")
+
+    blocked_dir = entities_dir / "blocked_user"
+    blocked_dir.mkdir(parents=True)
+    blocked = {
+        "id": "blocked_user",
+        "name": "Blocked",
+        "type": "Person",
+        "blocked": True,
+        "created_at": 3000,
+    }
+    (blocked_dir / "entity.json").write_text(json.dumps(blocked), encoding="utf-8")
+
+    return {"alice_johnson": alice, "bob_smith": bob, "blocked_user": blocked}
+
+
+def _entity_hash(entity: dict) -> str:
+    return hashlib.sha256(
+        json.dumps(entity, sort_keys=True, ensure_ascii=False).encode()
+    ).hexdigest()
 
 
 class TestExportSegments:
@@ -264,12 +304,12 @@ class TestExportSegments:
         mock_args = MagicMock()
         mock_args.to = "host"
         mock_args.key = "testkey"
-        mock_args.only = "entities"
+        mock_args.only = "facets"
         mock_args.dry_run = False
         mock_args.day = None
 
         with (
-            patch("sys.argv", ["sol export", "--to", "host", "--key", "testkey", "--only", "entities"]),
+            patch("sys.argv", ["sol export", "--to", "host", "--key", "testkey", "--only", "facets"]),
             patch("observe.export.setup_cli", return_value=mock_args),
         ):
             with pytest.raises(SystemExit) as excinfo:
@@ -320,3 +360,190 @@ class TestExportSegments:
             assert "stream.json" not in metadata["segments"][0]["files"]
             uploaded_names = [entry[1][0] for entry in post_kwargs["files"]]
             assert "stream.json" not in uploaded_names
+
+
+class TestExportEntities:
+    def test_manifest_delta(self, tmp_path, monkeypatch):
+        from observe.export import export_entities
+
+        entities = _setup_entities(tmp_path)
+        _set_journal_override(monkeypatch, tmp_path)
+
+        manifest_data = {
+            "received": {
+                "alice_johnson": _entity_hash(entities["alice_johnson"]),
+            }
+        }
+        post_json = {
+            "created": 1,
+            "auto_merged": 0,
+            "staged": 0,
+            "skipped": 0,
+            "errors": [],
+        }
+        mock_session = _make_session(manifest_data=manifest_data, post_json=post_json)
+
+        with patch("observe.export.requests.Session", return_value=mock_session):
+            export_entities("https://example.com", "test-key", dry_run=False)
+
+        assert mock_session.post.call_count == 1
+        posted_data = mock_session.post.call_args.kwargs.get(
+            "json"
+        ) or mock_session.post.call_args[1].get("json")
+        posted_entities = posted_data["entities"]
+        posted_ids = [e["id"] for e in posted_entities]
+        assert "bob_smith" in posted_ids
+        assert "alice_johnson" not in posted_ids
+        assert "blocked_user" not in posted_ids
+
+    def test_dry_run(self, tmp_path, monkeypatch, capsys):
+        from observe.export import export_entities
+
+        entities = _setup_entities(tmp_path)
+        _set_journal_override(monkeypatch, tmp_path)
+
+        manifest_data = {
+            "received": {
+                "alice_johnson": _entity_hash(entities["alice_johnson"]),
+            }
+        }
+        mock_session = _make_session(manifest_data=manifest_data)
+
+        with patch("observe.export.requests.Session", return_value=mock_session):
+            export_entities("https://example.com", "test-key", dry_run=True)
+
+        assert mock_session.post.call_count == 0
+        output = capsys.readouterr().out
+        assert "1 new" in output
+        assert "1 unchanged" in output
+
+    def test_idempotent(self, tmp_path, monkeypatch, capsys):
+        from observe.export import export_entities
+
+        entities = _setup_entities(tmp_path)
+        _set_journal_override(monkeypatch, tmp_path)
+
+        manifest_data = {
+            "received": {
+                "alice_johnson": _entity_hash(entities["alice_johnson"]),
+                "bob_smith": _entity_hash(entities["bob_smith"]),
+            }
+        }
+        mock_session = _make_session(manifest_data=manifest_data)
+
+        with patch("observe.export.requests.Session", return_value=mock_session):
+            export_entities("https://example.com", "test-key", dry_run=False)
+
+        assert mock_session.post.call_count == 0
+        output = capsys.readouterr().out
+        assert "up to date" in output
+
+    def test_changed_entity(self, tmp_path, monkeypatch):
+        from observe.export import export_entities
+
+        entities = _setup_entities(tmp_path)
+        _set_journal_override(monkeypatch, tmp_path)
+
+        manifest_data = {
+            "received": {
+                "alice_johnson": "stale_hash_that_does_not_match",
+                "bob_smith": _entity_hash(entities["bob_smith"]),
+            }
+        }
+        post_json = {
+            "created": 0,
+            "auto_merged": 1,
+            "staged": 0,
+            "skipped": 0,
+            "errors": [],
+        }
+        mock_session = _make_session(manifest_data=manifest_data, post_json=post_json)
+
+        with patch("observe.export.requests.Session", return_value=mock_session):
+            export_entities("https://example.com", "test-key", dry_run=False)
+
+        assert mock_session.post.call_count == 1
+        posted_data = mock_session.post.call_args.kwargs.get(
+            "json"
+        ) or mock_session.post.call_args[1].get("json")
+        posted_ids = [e["id"] for e in posted_data["entities"]]
+        assert "alice_johnson" in posted_ids
+        assert "bob_smith" not in posted_ids
+
+    def test_auth_error_401(self, tmp_path, monkeypatch, capsys):
+        from observe.export import export_entities
+
+        _setup_entities(tmp_path)
+        _set_journal_override(monkeypatch, tmp_path)
+
+        mock_session = _make_session(get_status=401)
+
+        with patch("observe.export.requests.Session", return_value=mock_session):
+            export_entities("https://example.com", "test-key", dry_run=False)
+
+        assert mock_session.post.call_count == 0
+        assert "Authentication failed" in capsys.readouterr().out
+
+    def test_connection_error(self, tmp_path, monkeypatch, capsys):
+        from observe.export import export_entities
+
+        _setup_entities(tmp_path)
+        _set_journal_override(monkeypatch, tmp_path)
+
+        mock_session = _make_session()
+        mock_session.get.side_effect = requests.ConnectionError
+
+        with patch("observe.export.requests.Session", return_value=mock_session):
+            export_entities("https://example.com", "test-key", dry_run=False)
+
+        assert mock_session.post.call_count == 0
+        assert "Connection failed" in capsys.readouterr().out
+
+    def test_empty_manifest(self, tmp_path, monkeypatch):
+        from observe.export import export_entities
+
+        _setup_entities(tmp_path)
+        _set_journal_override(monkeypatch, tmp_path)
+
+        post_json = {
+            "created": 2,
+            "auto_merged": 0,
+            "staged": 0,
+            "skipped": 0,
+            "errors": [],
+        }
+        mock_session = _make_session(manifest_data={}, post_json=post_json)
+
+        with patch("observe.export.requests.Session", return_value=mock_session):
+            export_entities("https://example.com", "test-key", dry_run=False)
+
+        assert mock_session.post.call_count == 1
+        posted_data = mock_session.post.call_args.kwargs.get(
+            "json"
+        ) or mock_session.post.call_args[1].get("json")
+        posted_ids = [e["id"] for e in posted_data["entities"]]
+        assert "alice_johnson" in posted_ids
+        assert "bob_smith" in posted_ids
+        assert "blocked_user" not in posted_ids
+
+    def test_response_errors_reported(self, tmp_path, monkeypatch, capsys):
+        from observe.export import export_entities
+
+        _setup_entities(tmp_path)
+        _set_journal_override(monkeypatch, tmp_path)
+
+        post_json = {
+            "created": 1,
+            "auto_merged": 0,
+            "staged": 0,
+            "skipped": 0,
+            "errors": ["Entity bob_smith: invalid type"],
+        }
+        mock_session = _make_session(manifest_data={}, post_json=post_json)
+
+        with patch("observe.export.requests.Session", return_value=mock_session):
+            export_entities("https://example.com", "test-key", dry_run=False)
+
+        output = capsys.readouterr().out
+        assert "Entity bob_smith: invalid type" in output
+        assert "1 error" in output

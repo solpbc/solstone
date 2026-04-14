@@ -10,6 +10,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import logging
 import sys
@@ -26,15 +27,18 @@ from observe.transfer import (
     _parse_day_spec,
 )
 from think.utils import get_journal, iter_segments, setup_cli
+from think.entities.journal import load_all_journal_entities
 
 logger = logging.getLogger(__name__)
 
 UPLOAD_TIMEOUT = 300
 
 
-def _query_manifest(session: requests.Session, base_url: str, key: str) -> dict[str, Any]:
+def _query_manifest(
+    session: requests.Session, base_url: str, key: str, area: str = "segments"
+) -> dict[str, Any]:
     key_prefix = key[:8]
-    url = f"{base_url}/app/import/journal/{key_prefix}/manifest/segments"
+    url = f"{base_url}/app/import/journal/{key_prefix}/manifest/{area}"
     response = session.get(url, timeout=UPLOAD_TIMEOUT)
     if response.status_code == 401:
         raise ValueError("Authentication failed: invalid or missing API key")
@@ -257,6 +261,109 @@ def export_segments(base_url: str, key: str, days: list[str], dry_run: bool) -> 
         session.close()
 
 
+def export_entities(base_url: str, key: str, dry_run: bool) -> None:
+    session = requests.Session()
+    session.headers["Authorization"] = f"Bearer {key}"
+
+    try:
+        try:
+            remote_manifest = _query_manifest(session, base_url, key, area="entities")
+        except requests.ConnectionError:
+            print(f"Connection failed: could not reach {base_url}")
+            return
+        except ValueError as e:
+            print(str(e))
+            return
+
+        received = remote_manifest.get("received", {})
+        entities = load_all_journal_entities()
+        if not entities:
+            print("No entities found to export")
+            return
+
+        new_count = 0
+        changed_count = 0
+        unchanged_count = 0
+        to_send = []
+
+        for entity_id, entity in entities.items():
+            if entity.get("blocked"):
+                continue
+
+            content_hash = hashlib.sha256(
+                json.dumps(entity, sort_keys=True, ensure_ascii=False).encode()
+            ).hexdigest()
+            if received.get(entity_id) == content_hash:
+                unchanged_count += 1
+                continue
+
+            if entity_id in received:
+                changed_count += 1
+            else:
+                new_count += 1
+            to_send.append(entity)
+
+        if dry_run:
+            print(
+                f"Dry run: {new_count} new, {changed_count} changed, "
+                f"{unchanged_count} unchanged"
+            )
+            return
+
+        if not to_send:
+            print("Nothing to send - remote entities are up to date")
+            return
+
+        key_prefix = key[:8]
+        url = f"{base_url}/app/import/journal/{key_prefix}/ingest/entities"
+        for attempt, delay in enumerate(RETRY_BACKOFF):
+            try:
+                response = session.post(
+                    url, json={"entities": to_send}, timeout=UPLOAD_TIMEOUT
+                )
+                if response.status_code == 200:
+                    break
+                if response.status_code == 401:
+                    print("Authentication failed: invalid or missing API key")
+                    return
+                if response.status_code == 403:
+                    print("Authentication failed: journal source revoked or disabled")
+                    return
+                if 500 <= response.status_code <= 599:
+                    logger.warning(
+                        "Entity upload attempt %s failed: %s %s",
+                        attempt + 1,
+                        response.status_code,
+                        response.text,
+                    )
+                else:
+                    print(f"Entity upload failed: {response.status_code} {response.text}")
+                    return
+            except (requests.RequestException, OSError) as e:
+                logger.warning("Entity upload attempt %s failed: %s", attempt + 1, e)
+            if attempt < len(RETRY_BACKOFF) - 1:
+                time.sleep(delay)
+        else:
+            print("Entity upload failed after all retries")
+            return
+
+        result = response.json()
+        errors = result.get("errors", [])
+        if errors:
+            for err in errors:
+                print(f"  Error: {err}")
+        print(
+            f"\nExport complete: {result.get('created', 0)} created, "
+            f"{result.get('auto_merged', 0)} merged, "
+            f"{result.get('staged', 0)} staged, "
+            f"{result.get('skipped', 0)} skipped"
+        )
+        if errors:
+            print(f"  {len(errors)} error(s)")
+    finally:
+        session.close()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Export journal data to a remote solstone instance"
@@ -274,7 +381,7 @@ def main() -> None:
     parser.add_argument(
         "--only",
         default=None,
-        help="Export only specific area (segments)",
+        help="Export only specific area (segments, entities)",
     )
     parser.add_argument(
         "--dry-run",
@@ -288,10 +395,17 @@ def main() -> None:
     )
     args = setup_cli(parser)
 
+    base_url = _normalize_url(args.to)
+
+    if args.only == "entities":
+        export_entities(base_url, args.key, args.dry_run)
+        return
+
     if args.only is not None and args.only != "segments":
         print(f"Export of '{args.only}' is not yet implemented")
         sys.exit(0)
 
-    base_url = _normalize_url(args.to)
     days = _parse_day_spec(args.day, Path(get_journal()))
     export_segments(base_url, args.key, days, args.dry_run)
+    if args.only is None:
+        export_entities(base_url, args.key, args.dry_run)
