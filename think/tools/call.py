@@ -14,6 +14,7 @@ import json
 import shutil
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 import typer
@@ -1147,7 +1148,8 @@ def journal_merge(
     ),
 ) -> None:
     """Merge segments, entities, facets, and imports from a source journal."""
-    from think.tools.journal_merge import merge_journals
+    from think.merge import MergeSummary, merge_journals
+    from think.utils import get_journal
 
     source_path = Path(source).resolve()
 
@@ -1168,7 +1170,19 @@ def journal_merge(
         )
         raise typer.Exit(1)
 
-    summary = merge_journals(source_path, dry_run=dry_run)
+    target_path = Path(get_journal())
+    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    artifact_root = target_path.parent / f"{target_path.name}.merge" / run_id
+    log_path = artifact_root / "decisions.jsonl"
+    staging_path = artifact_root / "staging"
+
+    summary: MergeSummary = merge_journals(
+        source_path,
+        target_path,
+        dry_run=dry_run,
+        log_path=log_path,
+        staging_path=staging_path,
+    )
 
     action = "Would merge" if dry_run else "Merged"
     typer.echo(f"\n{action}:")
@@ -1176,7 +1190,7 @@ def journal_merge(
         f"  Segments: {summary.segments_copied} copied, {summary.segments_skipped} skipped, {summary.segments_errored} errored"
     )
     typer.echo(
-        f"  Entities: {summary.entities_created} created, {summary.entities_merged} merged, {summary.entities_skipped} skipped"
+        f"  Entities: {summary.entities_created} created, {summary.entities_merged} merged, {summary.entities_staged} staged, {summary.entities_skipped} skipped"
     )
     typer.echo(
         f"  Facets: {summary.facets_created} created, {summary.facets_merged} merged"
@@ -1189,6 +1203,11 @@ def journal_merge(
         typer.echo(f"\n{len(summary.errors)} errors:")
         for error in summary.errors:
             typer.echo(f"  - {error}")
+
+    if log_path.exists():
+        typer.echo(f"\nDecision log: {log_path}")
+    if summary.entities_staged > 0:
+        typer.echo(f"Staged entities: {staging_path}")
 
     if not dry_run:
         subprocess.run(
@@ -1205,6 +1224,7 @@ def journal_merge(
                 "segments_copied": summary.segments_copied,
                 "entities_created": summary.entities_created,
                 "entities_merged": summary.entities_merged,
+                "entities_staged": summary.entities_staged,
                 "facets_created": summary.facets_created,
                 "facets_merged": summary.facets_merged,
                 "imports_copied": summary.imports_copied,

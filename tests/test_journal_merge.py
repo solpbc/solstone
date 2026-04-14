@@ -40,6 +40,13 @@ def _read_jsonl(path: Path) -> list[dict]:
     ]
 
 
+def _find_merge_artifact_root(target: Path) -> Path:
+    merge_dir = target.parent / f"{target.name}.merge"
+    runs = sorted(path for path in merge_dir.iterdir() if path.is_dir())
+    assert len(runs) >= 1
+    return runs[-1]
+
+
 def _mock_indexer(monkeypatch):
     import think.tools.call as call_module
 
@@ -229,11 +236,16 @@ def test_entity_id_collision(merge_journals_fixture, monkeypatch):
     result = runner.invoke(call_app, ["journal", "merge", str(paths["source"])])
 
     assert result.exit_code == 0
-    merged = _read_json(
+    assert not (
         paths["target"] / "entities" / "alice_johnson_2" / "entity.json"
+    ).exists()
+    artifact_root = _find_merge_artifact_root(paths["target"])
+    staged = _read_json(
+        artifact_root / "staging" / "alice_johnson" / "entity.json"
     )
-    assert merged["id"] == "alice_johnson_2"
-    assert merged["name"] == "Alice Cooper"
+    assert staged["id"] == "alice_johnson"
+    assert staged["name"] == "Alice Cooper"
+    assert "staged" in result.output
 
 
 def test_facet_copy_new(merge_journals_fixture, monkeypatch):
@@ -349,15 +361,62 @@ def test_facet_merge_overlapping(merge_journals_fixture, monkeypatch):
         "target duplicate\n",
         encoding="utf-8",
     )
-    (paths["source"] / "facets" / "work" / "activities").mkdir(parents=True)
-    (paths["source"] / "facets" / "work" / "activities" / "skip.txt").write_text(
-        "skip\n",
+    _write_jsonl(
+        paths["source"] / "facets" / "work" / "activities" / "activities.jsonl",
+        [
+            {"id": "coding", "name": "Coding"},
+            {"id": "meeting", "name": "Meeting"},
+        ],
+    )
+    _write_jsonl(
+        paths["target"] / "facets" / "work" / "activities" / "activities.jsonl",
+        [
+            {"id": "coding", "name": "Coding"},
+            {"id": "email", "name": "Email"},
+        ],
+    )
+    _write_jsonl(
+        paths["source"] / "facets" / "work" / "activities" / "20260101.jsonl",
+        [
+            {"id": "coding_100000_300", "activity": "coding"},
+            {"id": "meeting_110000_300", "activity": "meeting"},
+        ],
+    )
+    _write_jsonl(
+        paths["target"] / "facets" / "work" / "activities" / "20260101.jsonl",
+        [
+            {"id": "coding_100000_300", "activity": "coding"},
+        ],
+    )
+    source_output = (
+        paths["source"]
+        / "facets"
+        / "work"
+        / "activities"
+        / "20260101"
+        / "coding_100000_300"
+    )
+    source_output.mkdir(parents=True)
+    (source_output / "session_review.md").write_text(
+        "source review\n",
         encoding="utf-8",
     )
-    (paths["source"] / "facets" / "work" / "logs").mkdir(parents=True)
-    (paths["source"] / "facets" / "work" / "logs" / "20260101.jsonl").write_text(
-        '{"log": "skip"}\n',
-        encoding="utf-8",
+    _write_jsonl(
+        paths["source"] / "facets" / "work" / "logs" / "20260101.jsonl",
+        [{"action": "test_action", "ts": 1000}],
+    )
+    _write_jsonl(
+        paths["source"] / "facets" / "work" / "entities" / "20260101.jsonl",
+        [
+            {"id": "alice_johnson", "type": "Person", "name": "Alice Johnson"},
+            {"id": "bob_smith", "type": "Person", "name": "Bob Smith"},
+        ],
+    )
+    _write_jsonl(
+        paths["target"] / "facets" / "work" / "entities" / "20260101.jsonl",
+        [
+            {"id": "alice_johnson", "type": "Person", "name": "Alice Johnson"},
+        ],
     )
     (paths["source"] / "facets" / "work" / "entities.jsonl").write_text(
         '{"skip": true}\n',
@@ -418,8 +477,38 @@ def test_facet_merge_overlapping(merge_journals_fixture, monkeypatch):
     assert (paths["target"] / "facets" / "work" / "news" / "20260101.md").read_text(
         encoding="utf-8"
     ) == "target duplicate\n"
-    assert not (paths["target"] / "facets" / "work" / "activities").exists()
-    assert not (paths["target"] / "facets" / "work" / "logs").exists()
+
+    activities_config = _read_jsonl(
+        paths["target"] / "facets" / "work" / "activities" / "activities.jsonl"
+    )
+    config_ids = {item["id"] for item in activities_config}
+    assert config_ids == {"coding", "email", "meeting"}
+
+    activity_records = _read_jsonl(
+        paths["target"] / "facets" / "work" / "activities" / "20260101.jsonl"
+    )
+    record_ids = {item["id"] for item in activity_records}
+    assert record_ids == {"coding_100000_300", "meeting_110000_300"}
+
+    assert (
+        paths["target"]
+        / "facets"
+        / "work"
+        / "activities"
+        / "20260101"
+        / "coding_100000_300"
+        / "session_review.md"
+    ).exists()
+
+    logs = _read_jsonl(paths["target"] / "facets" / "work" / "logs" / "20260101.jsonl")
+    assert any(item.get("action") == "test_action" for item in logs)
+
+    detected = _read_jsonl(
+        paths["target"] / "facets" / "work" / "entities" / "20260101.jsonl"
+    )
+    detected_ids = {item["id"] for item in detected}
+    assert detected_ids == {"alice_johnson", "bob_smith"}
+
     assert not (paths["target"] / "facets" / "work" / "entities.jsonl").exists()
 
 
@@ -530,7 +619,7 @@ def test_error_resilience(merge_journals_fixture, monkeypatch):
         encoding="utf-8",
     )
 
-    import think.tools.journal_merge as journal_merge_module
+    import think.merge as journal_merge_module
 
     real_copytree = shutil.copytree
     bad_segment = paths["source"] / "20260101" / "150000_60"
@@ -548,3 +637,53 @@ def test_error_resilience(merge_journals_fixture, monkeypatch):
     assert (paths["target"] / "20260101" / "143022_300" / "audio.jsonl").exists()
     assert (paths["target"] / "entities" / "bob_smith" / "entity.json").exists()
     assert "1 errors:" in result.output
+
+
+def test_decision_log_written(merge_journals_fixture, monkeypatch):
+    paths = merge_journals_fixture
+    _mock_indexer(monkeypatch)
+
+    result = runner.invoke(call_app, ["journal", "merge", str(paths["source"])])
+
+    assert result.exit_code == 0
+    artifact_root = _find_merge_artifact_root(paths["target"])
+    decision_log = artifact_root / "decisions.jsonl"
+    assert decision_log.exists()
+    entries = _read_jsonl(decision_log)
+    assert entries
+    for entry in entries:
+        assert {"ts", "action", "item_type", "item_id", "reason"} <= set(entry)
+
+
+def test_decision_log_entity_merge_snapshots(merge_journals_fixture, monkeypatch):
+    paths = merge_journals_fixture
+    _mock_indexer(monkeypatch)
+
+    result = runner.invoke(call_app, ["journal", "merge", str(paths["source"])])
+
+    assert result.exit_code == 0
+    artifact_root = _find_merge_artifact_root(paths["target"])
+    entries = _read_jsonl(artifact_root / "decisions.jsonl")
+    entity_merged = next(entry for entry in entries if entry["action"] == "entity_merged")
+    assert "source" in entity_merged
+    assert "target" in entity_merged
+    assert "fields_changed" in entity_merged
+
+
+def test_entity_staged_count_in_output(merge_journals_fixture, monkeypatch):
+    paths = merge_journals_fixture
+    _mock_indexer(monkeypatch)
+    _write_json(
+        paths["source"] / "entities" / "alice_johnson" / "entity.json",
+        {
+            "id": "alice_johnson",
+            "name": "Alice Cooper",
+            "type": "person",
+            "created_at": 3000,
+        },
+    )
+
+    result = runner.invoke(call_app, ["journal", "merge", str(paths["source"])])
+
+    assert result.exit_code == 0
+    assert "staged" in result.output
