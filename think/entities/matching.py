@@ -4,18 +4,51 @@
 """Entity matching and resolution.
 
 This module provides entity lookup functions:
-- find_matching_entity: Low-level fuzzy matching per name
+- find_matching_entity: Low-level fuzzy matching per name (returns MatchResult)
 - build_name_resolution_map: Batch name-to-entity-id resolution
 - resolve_entity: High-level resolution with candidates
 - validate_aka_uniqueness: Check for aka collisions
 """
 
 import logging
+from enum import IntEnum
 
 from think.entities.core import EntityDict, entity_slug
 from think.entities.loading import load_entities
 
 logger = logging.getLogger(__name__)
+
+
+class MatchTier(IntEnum):
+    """Confidence tier for entity matches, ordered from highest to lowest."""
+
+    EXACT = 1  # exact name, id, or aka
+    CASE_INSENSITIVE = 2  # case-insensitive name, id, or aka
+    EMAIL = 3  # email address match
+    SLUG = 4  # slugified query match against id
+    FIRST_WORD = 5  # first-word match (bidirectional)
+    TOKEN_SUBSET = 6  # token-subset match
+    PREFIX = 7  # prefix-token match
+    FUZZY = 8  # fuzzy match via rapidfuzz
+
+
+class MatchResult(dict):
+    """Entity match result with confidence tier.
+
+    Behaves like an EntityDict (dict) so existing callers work unchanged.
+    Also exposes .tier for callers that need confidence information.
+    """
+
+    tier: MatchTier
+
+    def __init__(self, entity: EntityDict, tier: MatchTier):
+        super().__init__(entity)
+        self.tier = tier
+
+    @property
+    def is_high_confidence(self) -> bool:
+        """True for tiers 1-4 (exact, case-insensitive, email, slug)."""
+        return self.tier <= MatchTier.SLUG
 
 
 def _token_subset_match(name_a_lower: str, name_b_lower: str) -> bool:
@@ -117,7 +150,7 @@ def find_matching_entity(
     detected_name: str,
     entities: list[EntityDict],
     fuzzy_threshold: int = 90,
-) -> EntityDict | None:
+) -> MatchResult | None:
     """Find an entity matching a detected name.
 
     Works with any list of entity dicts (journal-level or facet-attached).
@@ -125,11 +158,16 @@ def find_matching_entity(
     Uses tiered matching strategy (in order of precedence):
     1. Exact name, id, or aka match
     2. Case-insensitive name, id, or aka match
-    3. Slugified query match against id
-    4. First-word match (bidirectional, unambiguous only, min 3 chars)
-    4b. Token-subset match (unambiguous only, min 2 tokens in shorter)
-    4c. Prefix-token match (unambiguous only, ≥4-char prefix)
-    5. Fuzzy match using rapidfuzz (score >= threshold)
+    3. Email match
+    4. Slugified query match against id
+    5. First-word match (bidirectional, unambiguous only, min 3 chars)
+    6. Token-subset match (unambiguous only, min 2 tokens in shorter)
+    7. Prefix-token match (unambiguous only, ≥4-char prefix)
+    8. Fuzzy match using rapidfuzz (score >= threshold)
+
+    Returns a MatchResult (dict subclass with .tier and .is_high_confidence)
+    so existing callers that treat the result as a dict work unchanged.
+    Tiers 1-4 are high confidence (safe for auto-merge); 5+ are lower.
 
     Args:
         detected_name: Name, id (slug), or aka to search for
@@ -137,14 +175,17 @@ def find_matching_entity(
         fuzzy_threshold: Minimum score (0-100) for fuzzy matching (default: 90)
 
     Returns:
-        Matched entity dict, or None if no match found
+        MatchResult with entity data and confidence tier, or None if no match
 
     Example:
         >>> entities = [{"id": "robert_johnson", "name": "Robert Johnson", "aka": ["Bob", "Bobby"]}]
-        >>> find_matching_entity("Bob", entities)
-        {"id": "robert_johnson", "name": "Robert Johnson", "aka": ["Bob", "Bobby"]}
-        >>> find_matching_entity("robert_johnson", entities)
-        {"id": "robert_johnson", "name": "Robert Johnson", "aka": ["Bob", "Bobby"]}
+        >>> result = find_matching_entity("Bob", entities)
+        >>> result["id"]
+        'robert_johnson'
+        >>> result.tier
+        <MatchTier.EXACT: 1>
+        >>> result.is_high_confidence
+        True
     """
     if not detected_name or not entities:
         return None
@@ -153,8 +194,10 @@ def find_matching_entity(
     detected_slug = entity_slug(detected_name)
 
     # Build lookup structures for efficient matching
-    # Maps exact name/id/aka -> entity
-    exact_map: dict[str, EntityDict] = {}
+    # Maps exact-case name/id/aka -> entity (tier 1: exact)
+    exact_case_map: dict[str, EntityDict] = {}
+    # Maps lowered name/id/aka -> entity (tier 2: case-insensitive)
+    lower_map: dict[str, EntityDict] = {}
     # Maps id -> entity for slug matching
     id_map: dict[str, EntityDict] = {}
     # Maps lowercase first word -> list of entities (for ambiguity detection)
@@ -172,13 +215,15 @@ def find_matching_entity(
 
         name_lower = name.lower()
 
-        # Tier 1 & 2: Exact and case-insensitive for name
-        exact_map[name] = entity
-        exact_map[name_lower] = entity
+        # Tier 1: Exact-case name
+        exact_case_map[name] = entity
+        # Tier 2: Case-insensitive name
+        lower_map[name_lower] = entity
 
-        # Also add id to exact map (compute from name if not present)
+        # Also add id (compute from name if not present)
         if entity_id:
-            exact_map[entity_id] = entity
+            exact_case_map[entity_id] = entity
+            lower_map[entity_id.lower()] = entity
             id_map[entity_id] = entity
         else:
             # Compute slug from name for entities without id
@@ -191,8 +236,8 @@ def find_matching_entity(
         if isinstance(aka_list, list):
             for aka in aka_list:
                 if aka:
-                    exact_map[aka] = entity
-                    exact_map[aka.lower()] = entity
+                    exact_case_map[aka] = entity
+                    lower_map[aka.lower()] = entity
 
         # Build email lookup
         entity_emails = entity.get("emails", [])
@@ -201,44 +246,44 @@ def find_matching_entity(
                 if email:
                     email_map[email.lower()] = entity
 
-        # Tier 4: First word
+        # Tier 5: First word
         first_word = name.split()[0].lower() if name else ""
         if first_word and len(first_word) >= 3:
             if first_word not in first_word_map:
                 first_word_map[first_word] = []
             first_word_map[first_word].append(entity)
 
-        # Tier 5: Fuzzy candidates (name and akas)
+        # Tier 8: Fuzzy candidates (name and akas)
         fuzzy_candidates[name] = entity
         if isinstance(aka_list, list):
             for aka in aka_list:
                 if aka:
                     fuzzy_candidates[aka] = entity
 
-    # Tier 1: Exact match (name, id, or aka)
-    if detected_name in exact_map:
-        return exact_map[detected_name]
+    # Tier 1: Exact match (name, id, or aka — case-sensitive)
+    if detected_name in exact_case_map:
+        return MatchResult(exact_case_map[detected_name], MatchTier.EXACT)
 
     # Tier 2: Case-insensitive match
-    if detected_lower in exact_map:
-        return exact_map[detected_lower]
+    if detected_lower in lower_map:
+        return MatchResult(lower_map[detected_lower], MatchTier.CASE_INSENSITIVE)
 
-    # Tier 2.5: Email match
+    # Tier 3: Email match
     if "@" in detected_name:
         email_match = email_map.get(detected_lower)
         if email_match:
-            return email_match
+            return MatchResult(email_match, MatchTier.EMAIL)
 
-    # Tier 3: Slugified query match against id
+    # Tier 4: Slugified query match against id
     if detected_slug and detected_slug in id_map:
-        return id_map[detected_slug]
+        return MatchResult(id_map[detected_slug], MatchTier.SLUG)
 
-    # Tier 4: First-word match (bidirectional, only if unambiguous)
+    # Tier 5: First-word match (bidirectional, only if unambiguous)
     if len(detected_name) >= 3:
         # Short→long: detected name IS a first word of an entity
         matches = first_word_map.get(detected_lower, [])
         if len(matches) == 1:
-            return matches[0]
+            return MatchResult(matches[0], MatchTier.FIRST_WORD)
 
         # Long→short: detected name's first word matches a single-token entity
         detected_first = detected_name.split()[0].lower()
@@ -251,40 +296,40 @@ def find_matching_entity(
                 # multi-token and merely share a first word (e.g., "Person B"
                 # should NOT match "Person A").
                 if len(matched_name.split()) == 1:
-                    return fw_matches[0]
+                    return MatchResult(fw_matches[0], MatchTier.FIRST_WORD)
 
-    # Tier 4b: Token-subset match (unambiguous only)
+    # Tier 6: Token-subset match (unambiguous only)
     subset_matches = [
         e
         for e in entities
         if e.get("name") and _token_subset_match(detected_lower, e["name"].lower())
     ]
     if len(subset_matches) == 1:
-        return subset_matches[0]
+        return MatchResult(subset_matches[0], MatchTier.TOKEN_SUBSET)
 
-    # Tier 4c: Prefix-token match (unambiguous only)
+    # Tier 7: Prefix-token match (unambiguous only)
     prefix_matches = [
         e
         for e in entities
         if e.get("name") and _prefix_token_match(detected_lower, e["name"].lower())
     ]
     if len(prefix_matches) == 1:
-        return prefix_matches[0]
+        return MatchResult(prefix_matches[0], MatchTier.PREFIX)
 
-    # Tier 5: Fuzzy match
+    # Tier 8: Fuzzy match
     if len(detected_name) >= 4 and fuzzy_candidates:
         try:
             from rapidfuzz import fuzz, process
 
-            result = process.extractOne(
+            fuzz_result = process.extractOne(
                 detected_name,
                 fuzzy_candidates.keys(),
                 scorer=fuzz.token_sort_ratio,
                 score_cutoff=fuzzy_threshold,
             )
-            if result:
-                matched_str, _score, _index = result
-                return fuzzy_candidates[matched_str]
+            if fuzz_result:
+                matched_str, _score, _index = fuzz_result
+                return MatchResult(fuzzy_candidates[matched_str], MatchTier.FUZZY)
         except ImportError:
             # rapidfuzz not available, skip fuzzy matching
             pass
