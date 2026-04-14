@@ -223,7 +223,8 @@ class TestRetentionPolicy:
 class TestRetentionConfig:
     def test_default_policy(self):
         cfg = RetentionConfig()
-        assert cfg.policy_for_stream("default").mode == "processed"
+        assert cfg.policy_for_stream("default").mode == "days"
+        assert cfg.policy_for_stream("default").days == 7
 
     def test_per_stream_override(self):
         cfg = RetentionConfig(
@@ -246,7 +247,8 @@ class TestLoadRetentionConfig:
     def test_default_config(self, monkeypatch):
         monkeypatch.setattr("think.utils.get_config", lambda: {})
         cfg = load_retention_config()
-        assert cfg.default.mode == "processed"
+        assert cfg.default.mode == "days"
+        assert cfg.default.days == 7
         assert cfg.per_stream == {}
 
     def test_custom_config(self, monkeypatch):
