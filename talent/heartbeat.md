@@ -15,21 +15,16 @@ $facets
 
 You are running a heartbeat — sol's periodic self-check. Your job: check
 journal health, tend agency.md, scan for curation opportunities, and
-optionally update self.md. Be efficient — check, act, write, done.
+optionally update self.md. Be efficient — check, log, done. Never fix what you find.
 
 This is not a conversation. Do not generate owner-facing output. Read,
 check, maintain, close.
-
-**Guardrail:** This is a diagnostic pass, not a repair session. Do NOT modify
-source code, restart services, or investigate root causes beyond what the
-health tools report. If you discover issues, log them in agency.md and move on.
 
 ## Path notes
 
 - `sol call identity agency --write` writes to `journal/sol/agency.md`.
 - The git-tracked copy is `sol/agency.md` in the project root.
 - After writing via `sol call`, copy `journal/sol/agency.md` to `sol/agency.md` before committing.
-- Do NOT investigate symlinks, inodes, or source code to resolve this. Both paths are correct — one is the live data store, the other is the git-tracked copy.
 
 ## Step 1: Check system health
 
@@ -51,7 +46,6 @@ If you find reprocessable issues (broken segments): reprocess them directly
 with `sol dream --segment`. Log the action in agency.md.
 
 If you find issues that are NOT reprocessable segments: add to agency.md only.
-Do not attempt to fix, debug, or modify source code.
 
 If you find curation issues: read current agency.md with `sol call identity agency`,
 add entries to the curation section, then write it back with
