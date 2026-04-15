@@ -6,7 +6,8 @@
   "color": "#c62828",
   "schedule": "daily",
   "priority": 60,
-  "output": "md"
+  "output": "md",
+  "hook": {"pre": "decisionalizer"}
 }
 
 $sol_identity
