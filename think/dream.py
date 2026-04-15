@@ -543,14 +543,18 @@ def run_segment_sense(
         if state_machine is not None:
             idle_changes = state_machine.update(sense_json, segment, day)
             # Persist completed activity records from idle transitions
-            facet_by_id = {
-                c["id"]: c.get("_facet", "__")
+            ended_pairs = [
+                (c["id"], c.get("_facet", "__"))
                 for c in idle_changes
                 if c.get("state") == "ended"
-            }
+            ]
+            completed_lookup = {}
             for rec in state_machine.get_completed_activities():
-                if rec["id"] in facet_by_id:
-                    append_activity_record(facet_by_id[rec["id"]], day, rec)
+                completed_lookup.setdefault(rec["id"], rec)
+            for activity_id, facet in ended_pairs:
+                rec = completed_lookup.get(activity_id)
+                if rec:
+                    append_activity_record(facet, day, rec)
             # Persist activity state even on idle segments
             try:
                 awareness_dir = Path(get_journal()) / "awareness"
@@ -659,14 +663,18 @@ def run_segment_sense(
     if state_machine is not None:
         changes = state_machine.update(sense_json, segment, day)
         # Persist completed activity records before running activity agents
-        facet_by_id = {
-            c["id"]: c.get("_facet", "__")
+        ended_pairs = [
+            (c["id"], c.get("_facet", "__"))
             for c in changes
             if c.get("state") == "ended"
-        }
+        ]
+        completed_lookup = {}
         for rec in state_machine.get_completed_activities():
-            if rec["id"] in facet_by_id:
-                append_activity_record(facet_by_id[rec["id"]], day, rec)
+            completed_lookup.setdefault(rec["id"], rec)
+        for activity_id, facet in ended_pairs:
+            rec = completed_lookup.get(activity_id)
+            if rec:
+                append_activity_record(facet, day, rec)
         # Persist activity state for awareness.md consumption
         try:
             awareness_dir = Path(get_journal()) / "awareness"
