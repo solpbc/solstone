@@ -1,6 +1,6 @@
 {
-  "type": "cogitate",
-  "tier": 3,
+  "type": "generate",
+  "tier": 2,
 
   "title": "Entity Observer",
   "description": "Extracts durable factoids about attached entities from journal content",
@@ -8,41 +8,25 @@
   "schedule": "daily",
   "priority": 57,
   "multi_facet": true,
-  "group": "Entities"
+  "group": "Entities",
+  "output": "json",
+  "thinking_budget": 2048,
+  "hook": {"pre": "entities:entity_observer", "post": "entities:entity_observer"},
+  "load": {"transcripts": false, "percepts": false, "agents": false}
 }
-
-$sol_identity
-
-$facets
 
 ## Core Mission
 
-Extract durable factoids about attached entities from recent journal content within this specific facet. Observations are persistent facts that help with future interactions - preferences, expertise, relationships, schedules, and biographical details. This is NOT about logging daily activity (that's entity detection), but capturing lasting knowledge.
+Extract durable factoids about attached entities from recent journal content. Observations are persistent facts that help with future interactions - preferences, expertise, relationships, schedules, and biographical details. This is NOT about logging daily activity (that's entity detection), but capturing lasting knowledge.
 
-## Input Context
+## Pre-computed Context
 
-You receive:
-1. **Facet context** - the specific facet (e.g., "personal", "work") you are observing entities for
-2. **Current date/time** - to focus on recent journal content
-3. **Attached entities for THIS facet** - Obtain this list by executing the Python command: `from think.entities.loading import load_entities; entities = load_entities(SOL_FACET)`. If no entities are returned, report "No attached entities to observe" and finish.
+Below you'll find the pre-computed context for this observation run, including:
+- Active entities (those that appeared in today's content)
+- Recent observations for each entity (last 3)
+- Relevant knowledge graph content
 
-## Tooling
-
-SOL_DAY and SOL_FACET are set in your environment. When performing actions, use the following Python calls:
-
-- **List Entities:** Execute: `from think.entities.loading import load_entities; entities = load_entities(SOL_FACET)`
-  - The result will be a list of entities.
-- **Read Current Observations:** Execute: `from think.entities.observations import load_observations; observations = load_observations(SOL_FACET, entity_id)`
-  - **MUST execute this before adding observations.** Note the `count` for guard awareness.
-  - The `entity_id` can be an entity ID, full name, or alias.
-- **Add New Observation:** Execute: `from think.entities.observations import add_observation; add_observation(SOL_FACET, entity_id, content, SOL_DAY)`
-  - This adds an observation with guard (observation number auto-calculated).
-  - Use entity_id from the `load_observations` response for consistency.
-
-Discovery tools:
-- `sol call journal read AGENT` - read full agent output (e.g., knowledge_graph, followups)
-- `sol call journal search QUERY -d DAY -a AGENT -f FACET -n LIMIT` - unified search across journal content
-- `sol call journal events [-f FACET]` - get structured events
+$observer_context
 
 ## What Makes a Good Observation
 
@@ -79,50 +63,27 @@ Different entity types yield different kinds of durable knowledge:
 - **Projects**: Architecture decisions, design principles, known constraints, key technical learnings. NOT commit logs or deployment activity.
 - **Tools**: Capabilities, limitations, best-practice configurations. NOT "was used for X on Y" — that's a usage log, not a fact about the tool.
 
-## Observation Process
+## Output Format
 
-### Phase 1: Load Context
+Respond with a JSON object in this exact format:
 
-1. Use the provided current date and analysis day in YYYYMMDD format
-2. Execute Python: `from think.entities.loading import load_entities; entities = load_entities(SOL_FACET)`
-3. If no attached entities, report "No attached entities to observe" and finish
+```json
+{
+  "observations": {
+    "entity_slug": [
+      {"content": "The durable observation text", "reasoning": "Why this qualifies (1 sentence)"}
+    ]
+  },
+  "skipped": ["entity_ids_examined_but_no_new_observations"],
+  "summary": "Observed X entities, Y new observations total."
+}
+```
 
-### Phase 2: Identify Active Entities
-
-Before deep-mining every entity, scan the day's content to find which entities actually appeared:
-
-1. Check knowledge graph: `sol call journal read knowledge_graph`
-2. Check events: `sol call journal events -f FACET`
-3. From these sources, identify which attached entities were active today, prioritizing those with high relevance or recent activity (e.g., seen within the last 7 days or having a relevance score above a threshold).
-4. Focus your deep mining (Phase 3) on entities that appeared in today's content
-5. For entities NOT mentioned today, skip — no content means no new observations
-
-This is especially important for large facets (50+ entities). Don't search for every entity name when you can scan what the day produced first.
-
-### Phase 3: Mine and Observe Active Entities
-
-For each entity that appeared in today's content:
-
-1. **Read current observations** (REQUIRED - guard mechanism):
-   Execute Python: `from think.entities.observations import load_observations; observations = load_observations(SOL_FACET, entity_id)`
-   Note the `count` for guard awareness.
-
-2. **Mine recent content** for factoids about this entity:
-   - Search transcripts: `sol call journal search "{name}" -a audio -n 5`
-   - Search insights: `sol call journal search "{name}" -n 5`
-
-3. **Extract and filter observations**:
-   - Apply the litmus test (both questions must be yes)
-   - Apply the entity-type strategy (people = who they are, projects = design decisions, etc.)
-   - Check for semantic duplicates against existing observations (see Deduplication below)
-   - One fact per observation — no compound sentences
-
-4. **Add new observations** (one at a time; guard handled by CLI):
-   Execute Python: `from think.entities.observations import add_observation; add_observation(SOL_FACET, entity_id, content, SOL_DAY)`
-
-### Phase 4: Report Summary
-
-Summarize what was observed:
-- "Observed 3 entities for [facet]: Alice (2 new observations), Bob (1 new observation), Acme Corp (0 - nothing new)"
-
-Remember: Your goal is to build a curated knowledge base of the most important facts about entities — not a comprehensive activity log. Every observation should answer "What's something durable and useful to know about this entity?" not "What happened with them today?" When the knowledge base is already rich, restraint is the right call.
+Rules:
+- Use the entity_id (slug) from the context as the key
+- One fact per observation — no compound sentences
+- Check for semantic duplicates against the existing observations shown in context
+- If existing observations are already rich, zero new observations is valid and correct
+- The `reasoning` field is for audit only
+- Include ALL examined entities in either `observations` or `skipped`
+- Empty observations dict is valid when nothing new is found
