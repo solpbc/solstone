@@ -2705,6 +2705,7 @@ def search_entities(
 def get_entity_intelligence(
     entity: str,
     facet: str | None = None,
+    brief: bool = False,
 ) -> dict[str, Any] | None:
     """Get a full intelligence briefing for an entity."""
     conn, _ = get_journal_index()
@@ -2938,7 +2939,20 @@ def get_entity_intelligence(
             "photo_count": photo_count,
         }
 
-        return {
+        if brief:
+            activity_total = len(activity)
+            network_total = len(network)
+            activity = activity[:20]
+            network = dict(list(network.items())[:20])
+            meta = {
+                "brief": True,
+                "activity_total": activity_total,
+                "activity_included": len(activity),
+                "network_total": network_total,
+                "network_included": len(network),
+            }
+
+        result = {
             "identity": identity,
             "relationships": relationships,
             "observations": observations,
@@ -2947,5 +2961,8 @@ def get_entity_intelligence(
             "network": network,
             "facets": all_facets,
         }
+        if brief:
+            result["_meta"] = meta
+        return result
     finally:
         conn.close()

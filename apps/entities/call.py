@@ -522,11 +522,14 @@ def entity_search(
 def entity_intel(
     entity: str = typer.Argument(help="Entity name or identifier."),
     facet: str | None = typer.Option(None, "--facet", "-f", help="Filter by facet."),
+    brief: bool = typer.Option(
+        False, "--brief", "-b", help="Truncate activity and network to 20 items."
+    ),
 ) -> None:
     """Get a full intelligence briefing for an entity."""
     import json as _json
 
-    result = get_entity_intelligence(entity, facet=facet)
+    result = get_entity_intelligence(entity, facet=facet, brief=brief)
     if result is None:
         typer.echo(f"Error: Entity '{entity}' not found.", err=True)
         raise typer.Exit(1)
