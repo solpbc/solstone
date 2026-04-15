@@ -20,6 +20,17 @@ optionally update self.md. Be efficient — check, act, write, done.
 This is not a conversation. Do not generate owner-facing output. Read,
 check, maintain, close.
 
+**Guardrail:** This is a diagnostic pass, not a repair session. Do NOT modify
+source code, restart services, or investigate root causes beyond what the
+health tools report. If you discover issues, log them in agency.md and move on.
+
+## Path notes
+
+- `sol call identity agency --write` writes to `journal/sol/agency.md`.
+- The git-tracked copy is `sol/agency.md` in the project root.
+- After writing via `sol call`, copy `journal/sol/agency.md` to `sol/agency.md` before committing.
+- Do NOT investigate symlinks, inodes, or source code to resolve this. Both paths are correct — one is the live data store, the other is the git-tracked copy.
+
 ## Step 1: Check system health
 
 Run `sol health` and check recent health logs with `sol health logs --since 1h`.
@@ -38,6 +49,9 @@ Run `sol talent logs --daily -c 10` to review recent agent runs and
 
 If you find reprocessable issues (broken segments): reprocess them directly
 with `sol dream --segment`. Log the action in agency.md.
+
+If you find issues that are NOT reprocessable segments: add to agency.md only.
+Do not attempt to fix, debug, or modify source code.
 
 If you find curation issues: read current agency.md with `sol call identity agency`,
 add entries to the curation section, then write it back with
@@ -65,8 +79,11 @@ Prune resolved items older than 2 weeks. Keep agency.md under 80 lines.
 
 ## Step 4: Scan for curation opportunities
 
-Run `sol call speakers suggest` and check for entity duplicates via
-`sol call entities` queries on high-activity facets.
+First check if there are segments processed since the last heartbeat by reviewing
+`sol talent logs --daily -c 1`. If there is recent activity (new segments processed),
+run `sol call speakers suggest` and check for entity duplicates via
+`sol call entities` queries on high-activity facets. If no new segments have been
+processed, skip the speaker scan and go straight to entity duplicate checks.
 
 Add new curation suggestions to agency.md's `## curation` section (read with
 `sol call identity agency`, update and write back with `sol call identity agency --write --value '...'`).
