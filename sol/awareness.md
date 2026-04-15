@@ -1,21 +1,14 @@
-as of: 2026-04-14T12:35:01.9563866
-segment: N/A
+as of: 2026-04-14T19:36:15
+segment: PLACEHOLDER_SEGMENT_KEY
 
 ## capture
 - status: stale
-- streams: N/A
 
 ## calendar
-- No events found for today.
+- No events for today.
 
 ## activity
-- Voiceprint status: confirmed.
+- Noticed: test-rewrite
 
 ## routines
 - No routines configured.
-
-## entities
-- Recent entity activity: Jeremie Miller, Jaymie Oehler, Thomas Muldowney, Lis Miller, Neal Satterfield.
-
-## partner
-- N/A
