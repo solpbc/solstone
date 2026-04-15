@@ -205,10 +205,15 @@ def _load_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _setup_segments(journal_root: Path, *, day: str = "20260413") -> list[str]:
+def _setup_segments(
+    journal_root: Path, *, day: str = "20260413", include_default: bool = False
+) -> list[str]:
     segment_dir = journal_root / day / "laptop" / "143022_300"
     _write_bytes(segment_dir / "audio.flac", b"audio-data")
     _write_bytes(segment_dir / "transcript.jsonl", b'{"text":"hello"}\n')
+    if include_default:
+        default_segment_dir = journal_root / day / "180000_300"
+        _write_bytes(default_segment_dir / "audio.flac", b"default-audio")
     return [day]
 
 
@@ -359,6 +364,25 @@ def test_idempotent_reexport(export_integration_env):
     assert second_entities.sent == 0 and second_entities.skipped == 1
     assert second_facets.sent == 0 and second_facets.skipped == 1
     assert second_config.sent == 0 and second_config.skipped == 1
+
+
+def test_idempotent_reexport_default_stream(export_integration_env):
+    env = export_integration_env
+    _setup_segments(env["source"], include_default=True)
+
+    first = export_segments(
+        env["base_url"], env["key"], ["20260413"], False, session=env["adapter"]
+    )
+    second = export_segments(
+        env["base_url"], env["key"], ["20260413"], False, session=env["adapter"]
+    )
+
+    assert first.sent == 2
+    assert (
+        env["target"] / "20260413" / "_default" / "180000_300" / "audio.flac"
+    ).exists()
+    assert second.sent == 0
+    assert second.skipped == 2
 
 
 def test_partial_only_segments(export_integration_env):

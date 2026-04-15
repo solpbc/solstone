@@ -524,6 +524,63 @@ def test_ingest_state_json_manifest_sync(ingest_env):
     }
 
 
+def test_ingest_default_stream_segment(ingest_env):
+    env = ingest_env
+    segments = [
+        {
+            "day": "20260413",
+            "stream": "_default",
+            "segment_key": "143022_300",
+            "files": [("transcript.jsonl", b'{"text":"default"}\n')],
+        }
+    ]
+
+    response = _post_ingest(env["client"], env["key"], env["key_prefix"], segments)
+
+    assert response.status_code == 200
+    assert response.get_json() == {
+        "segments_received": 1,
+        "segments_skipped": 0,
+        "segments_deconflicted": 0,
+        "errors": [],
+    }
+
+    state_data = _read_state(env["key_prefix"])
+    assert "_default/143022_300" in state_data["20260413"]
+    assert (
+        env["root"]
+        / "20260413"
+        / "_default"
+        / "143022_300"
+        / "transcript.jsonl"
+    ).read_bytes() == b'{"text":"default"}\n'
+
+
+def test_ingest_default_stream_idempotent(ingest_env):
+    env = ingest_env
+    segments = [
+        {
+            "day": "20260413",
+            "stream": "_default",
+            "segment_key": "143022_300",
+            "files": [("transcript.jsonl", b'{"text":"default"}\n')],
+        }
+    ]
+
+    first = _post_ingest(env["client"], env["key"], env["key_prefix"], segments)
+    second = _post_ingest(env["client"], env["key"], env["key_prefix"], segments)
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.get_json()["segments_received"] == 1
+    assert second.get_json() == {
+        "segments_received": 0,
+        "segments_skipped": 1,
+        "segments_deconflicted": 0,
+        "errors": [],
+    }
+
+
 def test_ingest_idempotent(ingest_env):
     env = ingest_env
     segments = [
