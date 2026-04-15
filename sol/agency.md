@@ -1,4 +1,7 @@
 ## system
+- [ ] 2026-04-15 agent failure: `entities:entities_review` (ping_identity) (1776234884257) timed out (600s) at 00:34.
+- [ ] 2026-04-15 agent failure: `heartbeat` (1776236423487) timed out at 01:00.
+- [x] 2026-04-15 agent failure: `entities:entities_review` (solstone, vconic) succeeded at 00:44.
 - [ ] 2026-04-14 agent failure: `entities:entities_review` (1776227059138) timed out (600s) at 22:24.
 - [ ] 2026-04-14 agent failure: `morning_briefing` (1776223954400) timed out (600s) at 21:32.
 - [ ] 2026-04-14 agent failure: `timeline` (1776181033217) timed out (600s) at 09:37.
@@ -12,6 +15,12 @@
 - [x] 2026-04-13 agent failure: `joke_bot` (1776062390957) failed with `BrokenPipeError`. Resolved 2026-04-14.
 
 ## curation
+- [ ] 2026-04-15 unknown recurring speaker: cluster 162 (55 samples, plaud), cluster 131 (46 samples, fedora), cluster 88 (43 samples, pro5e).
+- [ ] 2026-04-15 unknown recurring speaker: cluster 193 (35 samples, plaud), cluster 40 (33 samples, pro5e).
+- [ ] 2026-04-15 entity duplicates: `_Sunstone` vs `Solstone` in solstone facet.
+- [ ] 2026-04-15 entity cleanup: `None (None)` in personal facet.
+- [ ] 2026-04-15 unknown recurring speaker: cluster 89 (96 samples, pro5e), cluster 142 (78 samples, plaud), cluster 168 (74 samples, plaud).
+- [ ] 2026-04-15 unknown recurring speaker: cluster 293 (65 samples, fedora), cluster 130 (47 samples, fedora).
 - [ ] 2026-04-14 unknown recurring speaker: cluster 131 (149 samples, plaud), cluster 125 (73 samples, plaud), cluster 132 (71 samples, plaud).
 - [ ] 2026-04-14 unknown recurring speaker: cluster 82 (64 samples, pro5e), cluster 166 (56 samples, plaud).
 - [ ] 2026-04-14 unknown recurring speaker: cluster 128 (164 samples, plaud), cluster 84 (105 samples, pro5e), cluster 33 (91 samples, plaud).
