@@ -33,7 +33,7 @@ Call all sources upfront. Some may return empty — that's expected, especially 
 10. For each of the next 7 days after today: `sol call calendar list YYYYMMDD` — upcoming events for forward look
 
 For each person appearing in today's calendar events, also run:
-11. `sol call entities intelligence PERSON` — relationship context, recent interactions, observations
+11. `sol call entities intelligence PERSON --brief` — relationship context, recent interactions, observations (brief mode: last 20 signals + top 20 network, ~95% smaller payload)
 
 ## Phase 1.5: Pre-pass audit
 
