@@ -149,3 +149,50 @@ class TestEntityIntelligence:
         result = get_entity_intelligence("Bob Smith")
         assert result is not None
         assert result["identity"]["entity_id"] == "bob_smith"
+
+
+class TestEntityIntelligenceBrief:
+    def test_brief_has_meta(self):
+        result = get_entity_intelligence("Alice Johnson", brief=True)
+        assert result is not None
+        assert "_meta" in result
+        assert result["_meta"]["brief"] is True
+
+    def test_brief_has_all_sections(self):
+        result = get_entity_intelligence("Alice Johnson", brief=True)
+        for section in (
+            "identity",
+            "relationships",
+            "observations",
+            "activity",
+            "strength",
+            "network",
+            "facets",
+        ):
+            assert section in result
+
+    def test_brief_truncates_activity(self):
+        result = get_entity_intelligence("Alice Johnson", brief=True)
+        assert len(result["activity"]) <= 20
+        assert result["_meta"]["activity_included"] == len(result["activity"])
+
+    def test_brief_truncates_network(self):
+        result = get_entity_intelligence("Alice Johnson", brief=True)
+        assert len(result["network"]) <= 20
+        assert result["_meta"]["network_included"] == len(result["network"])
+
+    def test_brief_meta_counts_consistent(self):
+        result = get_entity_intelligence("Alice Johnson", brief=True)
+        meta = result["_meta"]
+        assert meta["activity_included"] <= meta["activity_total"]
+        assert meta["network_included"] <= meta["network_total"]
+
+    def test_brief_preserves_other_sections(self):
+        full = get_entity_intelligence("Alice Johnson")
+        brief = get_entity_intelligence("Alice Johnson", brief=True)
+        for key in ("identity", "relationships", "observations", "strength", "facets"):
+            assert full[key] == brief[key]
+
+    def test_default_no_meta(self):
+        result = get_entity_intelligence("Alice Johnson")
+        assert "_meta" not in result
