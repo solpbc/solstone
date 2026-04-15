@@ -378,6 +378,7 @@ class TestRunActivityPrompts:
             assert "group_started" in events
             assert "agent_started" in events
             assert "agent_completed" in events
+
             assert "group_completed" in events
             assert "completed" in events
 
@@ -386,6 +387,72 @@ class TestRunActivityPrompts:
             assert started_kw["mode"] == "activity"
             assert started_kw["activity"] == "coding_100000_300"
             assert started_kw["facet"] == "work"
+
+
+class TestActivityPersistence:
+    """Verify state machine completed records persist and load correctly."""
+
+    def test_completed_record_persisted_and_found(self, monkeypatch):
+        import tempfile
+
+        from think.activities import append_activity_record, load_activity_records
+        from think.activity_state_machine import ActivityStateMachine
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+
+            sm = ActivityStateMachine()
+            sm.update(
+                {
+                    "density": "active",
+                    "content_type": "coding",
+                    "activity_summary": "Writing tests",
+                    "entities": [],
+                    "facets": [
+                        {"facet": "work", "activity": "coding", "level": "high"}
+                    ],
+                    "meeting_detected": False,
+                    "speakers": [],
+                    "recommend": {},
+                },
+                "090000_300",
+                "20260304",
+            )
+            changes = sm.update(
+                {
+                    "density": "active",
+                    "content_type": "meeting",
+                    "activity_summary": "Stand-up",
+                    "entities": [],
+                    "facets": [
+                        {"facet": "work", "activity": "meeting", "level": "medium"}
+                    ],
+                    "meeting_detected": True,
+                    "speakers": [],
+                    "recommend": {},
+                },
+                "090500_300",
+                "20260304",
+            )
+
+            # Find the ended change
+            ended = [c for c in changes if c.get("state") == "ended"]
+            assert len(ended) == 1
+            facet = ended[0]["_facet"]
+
+            # Persist completed record (what dream.py now does)
+            completed = sm.get_completed_activities()
+            assert len(completed) == 1
+            rec = completed[0]
+            assert isinstance(rec["created_at"], int)
+            append_activity_record(facet, "20260304", rec)
+
+            # Verify load finds it (what run_activity_prompts does)
+            records = load_activity_records(facet, "20260304")
+            assert len(records) == 1
+            assert records[0]["id"] == rec["id"]
+            assert records[0]["activity"] == "coding"
+            assert isinstance(records[0]["created_at"], int)
 
 
 # ---------------------------------------------------------------------------

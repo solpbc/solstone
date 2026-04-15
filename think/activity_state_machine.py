@@ -3,7 +3,7 @@
 
 """Deterministic activity state machine replacing LLM-based activity tracking."""
 
-from datetime import datetime, timezone
+import time
 
 from think.activities import LEVEL_VALUES, make_activity_id
 from think.utils import segment_parse
@@ -75,11 +75,11 @@ class ActivityStateMachine:
         return {
             "id": entry["id"],
             "activity": entry["activity"],
-            "segments": [entry["since"]],
+            "segments": entry.get("_segments", [entry["since"]]),
             "level_avg": LEVEL_VALUES.get(entry.get("level", "medium"), 0.5),
             "description": entry["description"],
             "active_entities": entry.get("active_entities", []),
-            "created_at": datetime.now(tz=timezone.utc).isoformat(),
+            "created_at": int(time.time() * 1000),
         }
 
     def update(
@@ -166,6 +166,7 @@ class ActivityStateMachine:
                         "_change": "new",
                         "_facet": facet,
                         "_segment": segment_key,
+                        "_segments": [segment_key],
                     }
                     self.state[facet] = new_entry
                     changes.append(dict(new_entry))
@@ -175,6 +176,9 @@ class ActivityStateMachine:
                     prior["active_entities"] = entity_names
                     prior["_change"] = "continuing"
                     prior["_segment"] = segment_key
+                    prior.setdefault("_segments", [prior["since"]])
+                    if segment_key not in prior["_segments"]:
+                        prior["_segments"].append(segment_key)
                     changes.append(dict(prior))
             else:
                 new_entry = {
@@ -188,6 +192,7 @@ class ActivityStateMachine:
                     "_change": "new",
                     "_facet": facet,
                     "_segment": segment_key,
+                    "_segments": [segment_key],
                 }
                 self.state[facet] = new_entry
                 changes.append(dict(new_entry))

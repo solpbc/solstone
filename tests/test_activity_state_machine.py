@@ -198,6 +198,50 @@ class TestGetCompletedActivities:
         assert "description" in rec
         assert "active_entities" in rec
         assert "created_at" in rec
+        assert isinstance(rec["created_at"], int)
+
+
+class TestSegmentAccumulation:
+    def test_continuing_accumulates_segments(self):
+        from think.activity_state_machine import ActivityStateMachine
+
+        sm = ActivityStateMachine()
+        sm.update(_sense(content_type="coding"), "090000_300", "20260304")
+        sm.update(_sense(content_type="coding"), "090500_300", "20260304")
+        sm.update(_sense(content_type="coding"), "091000_300", "20260304")
+        # End by type change
+        sm.update(_sense(content_type="meeting"), "091500_300", "20260304")
+
+        completed = sm.get_completed_activities()
+        assert len(completed) == 1
+        rec = completed[0]
+        assert rec["segments"] == ["090000_300", "090500_300", "091000_300"]
+
+    def test_ten_segments_produces_ten_keys(self):
+        from think.activity_state_machine import ActivityStateMachine
+
+        sm = ActivityStateMachine()
+        for i in range(10):
+            minutes = i * 5
+            seg = f"09{minutes:02d}00_300"
+            sm.update(_sense(content_type="coding"), seg, "20260304")
+        # End with idle
+        sm.update(_sense(density="idle"), "095000_300", "20260304")
+
+        completed = sm.get_completed_activities()
+        assert len(completed) == 1
+        assert len(completed[0]["segments"]) == 10
+
+    def test_segments_not_in_current_state(self):
+        from think.activity_state_machine import ActivityStateMachine
+
+        sm = ActivityStateMachine()
+        sm.update(_sense(content_type="coding"), "090000_300", "20260304")
+        sm.update(_sense(content_type="coding"), "090500_300", "20260304")
+
+        state = sm.get_current_state()
+        assert len(state) == 1
+        assert "_segments" not in state[0]
 
 
 class TestPseudoFacet:

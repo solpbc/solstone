@@ -20,7 +20,11 @@ import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from think.activities import get_activity_output_path, load_activity_records
+from think.activities import (
+    append_activity_record,
+    get_activity_output_path,
+    load_activity_records,
+)
 from think.activity_state_machine import ActivityStateMachine
 from think.callosum import CallosumConnection
 from think.cluster import cluster_segments
@@ -537,7 +541,16 @@ def run_segment_sense(
         write_idle_stubs(seg_dir)
         logging.info("Segment %s is idle, skipping remaining agents", segment)
         if state_machine is not None:
-            state_machine.update(sense_json, segment, day)
+            idle_changes = state_machine.update(sense_json, segment, day)
+            # Persist completed activity records from idle transitions
+            facet_by_id = {
+                c["id"]: c.get("_facet", "__")
+                for c in idle_changes
+                if c.get("state") == "ended"
+            }
+            for rec in state_machine.get_completed_activities():
+                if rec["id"] in facet_by_id:
+                    append_activity_record(facet_by_id[rec["id"]], day, rec)
             # Persist activity state even on idle segments
             try:
                 awareness_dir = Path(get_journal()) / "awareness"
@@ -645,6 +658,15 @@ def run_segment_sense(
 
     if state_machine is not None:
         changes = state_machine.update(sense_json, segment, day)
+        # Persist completed activity records before running activity agents
+        facet_by_id = {
+            c["id"]: c.get("_facet", "__")
+            for c in changes
+            if c.get("state") == "ended"
+        }
+        for rec in state_machine.get_completed_activities():
+            if rec["id"] in facet_by_id:
+                append_activity_record(facet_by_id[rec["id"]], day, rec)
         # Persist activity state for awareness.md consumption
         try:
             awareness_dir = Path(get_journal()) / "awareness"
