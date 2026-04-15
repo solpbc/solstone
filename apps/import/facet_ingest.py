@@ -598,6 +598,7 @@ def process_facet(
                             "staged_path": str(staged_path),
                         },
                     )
+                    received[item_id] = content_hash
                     continue
 
                 parsed_data, path_info = _remap_entity_ids(
@@ -674,6 +675,7 @@ def process_facet(
                 result["wrote_files"] = True
                 action = "facet_file_created" if new_facet else "facet_file_merged"
             elif status == "staged":
+                received[item_id] = content_hash
                 result["staged"] += 1
                 action = "facet_file_staged"
             else:

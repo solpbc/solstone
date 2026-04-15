@@ -40,16 +40,7 @@ _DAY_RE = re.compile(r"^\d{8}$")
 _DAY_JSONL_RE = re.compile(r"^\d{8}\.jsonl$")
 _DAY_MD_RE = re.compile(r"^\d{8}\.md$")
 _IMPORT_ID_RE = re.compile(r"^\d{8}_\d{6}$")
-_NEVER_TRANSFER_PATHS = frozenset(
-    {
-        "convey.password_hash",
-        "convey.secret",
-        "setup.completed_at",
-        "providers.auth",
-        "providers.key_validation",
-        "transcribe.whisper.device",
-    }
-)
+_NEVER_TRANSFER_PATHS = frozenset({"convey.password_hash"})
 
 
 @dataclass
@@ -234,7 +225,6 @@ def _strip_never_transfer(config: dict) -> dict:
         else:
             if isinstance(obj, dict):
                 obj.pop(parts[-1], None)
-    result.pop("env", None)
     return result
 
 

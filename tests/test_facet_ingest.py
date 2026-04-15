@@ -893,8 +893,9 @@ def test_staged_then_retry(ingest_env):
     assert second.status_code == 200
     body = second.get_json()
     assert body["staged"] == 0
-    assert body["skipped"] == 0
-    assert body["created"] == 1 or body["merged"] == 1
+    assert body["skipped"] == 1
+    assert body["created"] == 0
+    assert body["merged"] == 0
 
 
 def test_facet_json_conflict_staging(ingest_env):
