@@ -175,6 +175,9 @@ class TestRunSegmentSense:
             def get_current_state(self):
                 return []
 
+            def get_completed_activities(self):
+                return []
+
         _write_sense_output(
             segment_dir,
             {"density": "idle", "recommend": {"screen_record": True}, "facets": []},
@@ -495,6 +498,9 @@ class TestRunSegmentSense:
 
             def get_current_state(self):
                 return [{"facet": "work", "state": "active", "id": "coding_120000_300"}]
+
+            def get_completed_activities(self):
+                return [{"id": "coding_120000_300", "activity": "coding", "segments": ["120000_300"], "level_avg": 0.5, "description": "coding", "active_entities": [], "created_at": 1713200000000}]
 
         _write_sense_output(
             segment_dir,
