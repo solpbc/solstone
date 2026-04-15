@@ -46,17 +46,7 @@ _STREAM_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 _FACET_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 _IMPORT_ID_RE = re.compile(r"^\d{8}_\d{6}$")
 
-_NEVER_TRANSFER_PATHS = frozenset(
-    {
-        "convey.password_hash",
-        "convey.secret",
-        "setup.completed_at",
-        "providers.auth",
-        "providers.key_validation",
-        "transcribe.whisper.device",
-    }
-)
-_NEVER_TRANSFER_PREFIXES = ("env.",)
+_NEVER_TRANSFER_PATHS = frozenset({"convey.password_hash"})
 _IDENTITY_PATHS = frozenset(
     {
         "identity.name",
@@ -101,9 +91,7 @@ def _flatten_config(cfg: dict, prefix: str = "") -> dict[str, Any]:
 
 
 def _is_never_transfer(path: str) -> bool:
-    if path in _NEVER_TRANSFER_PATHS:
-        return True
-    return any(path.startswith(prefix) for prefix in _NEVER_TRANSFER_PREFIXES)
+    return path in _NEVER_TRANSFER_PATHS
 
 
 def _categorize_field(path: str) -> str:
@@ -250,15 +238,20 @@ def register_ingest_routes(bp) -> None:
                     for name in expected_names:
                         (segment_dir / name).write_bytes(file_infos[name]["content"])
 
-                    file_records = [
-                        {
-                            "name": name,
-                            "sha256": str(file_infos[name]["sha256"]),
-                            "size": int(file_infos[name]["size"]),
-                        }
-                        for name in expected_names
-                    ]
-                    new_state.setdefault(day, {})[arc_key] = {"files": file_records}
+                file_records = [
+                    {
+                        "name": name,
+                        "sha256": str(file_infos[name]["sha256"]),
+                        "size": int(file_infos[name]["size"]),
+                    }
+                    for name in expected_names
+                ]
+                new_state.setdefault(day, {})[arc_key] = {"files": file_records}
+                if action == "deconflicted":
+                    original_arc_key = f"{stream}/{original_segment_key}"
+                    new_state.setdefault(day, {})[original_arc_key] = {
+                        "files": file_records
+                    }
 
                 entry = {
                     "ts": datetime.now(timezone.utc).isoformat(),

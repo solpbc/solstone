@@ -256,6 +256,7 @@ def test_ingest_deconfliction(ingest_env, monkeypatch):
 
     state_data = _read_state(env["key_prefix"])
     assert "laptop/143023_300" in state_data["20260413"]
+    assert "laptop/143022_300" in state_data["20260413"]
 
     log_entries = _read_log(env["key_prefix"])
     assert log_entries[0]["action"] == "deconflicted"
@@ -458,6 +459,9 @@ def test_ingest_skip_ignores_extra_existing_files(ingest_env):
         "errors": [],
     }
     assert (segment_dir / "extra.txt").read_bytes() == b"keep me"
+    state_data = _read_state(env["key_prefix"])
+    assert "laptop/143022_300" in state_data["20260413"]
+    assert state_data["20260413"]["laptop/143022_300"]["files"][0]["name"] == "audio.flac"
 
 
 def test_ingest_stats_update(ingest_env):

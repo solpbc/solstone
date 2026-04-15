@@ -96,6 +96,8 @@ def _sample_config():
             "trust_localhost": True,
         },
         "setup": {"completed_at": 12345},
+        "providers": {"auth": "provider_auth_val", "key_validation": "val123"},
+        "transcribe": {"whisper": {"device": "gpu"}},
         "env": {"API_KEY": "xyz"},
         "retention": {"days": 30},
     }
@@ -179,7 +181,7 @@ def test_config_staged(ingest_env):
     source = load_journal_source(env["key"])
 
     assert response.status_code == 200
-    assert body == {"staged": True, "skipped": False, "diff_fields": 5}
+    assert body == {"staged": True, "skipped": False, "diff_fields": 11}
     assert (state_dir / "source_config.json").exists()
     assert (state_dir / "diff.json").exists()
     assert "last_hash" in _read_json(state_dir / "state.json")
@@ -211,8 +213,13 @@ def test_never_transfer_excluded(ingest_env):
 
     assert response.status_code == 200
     assert "convey.password_hash" not in diff
-    assert "convey.secret" not in diff
-    assert not any(key.startswith("env.") for key in diff)
+    assert "convey.secret" in diff
+    assert diff["convey.secret"]["category"] == "preference"
+    assert "setup.completed_at" in diff
+    assert "providers.auth" in diff
+    assert "providers.key_validation" in diff
+    assert "transcribe.whisper.device" in diff
+    assert any(key.startswith("env.") for key in diff)
 
 
 def test_idempotent(ingest_env):
