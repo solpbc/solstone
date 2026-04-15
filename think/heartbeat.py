@@ -115,7 +115,7 @@ def main() -> None:
         logger.info("Heartbeat agent started (ID: %s)", agent_id)
 
         # Wait for completion
-        completed, timed_out = wait_for_agents([agent_id], timeout=300)
+        completed, timed_out = wait_for_agents([agent_id], timeout=600)
 
         # Determine outcome
         if agent_id in timed_out:

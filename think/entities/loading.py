@@ -53,7 +53,7 @@ def detected_entities_path(facet: str, day: str) -> Path:
 
 def parse_entity_file(
     file_path: str, *, validate_types: bool = True
-) -> list[EntityDict]:
+) -> Iterator[EntityDict]: # Changed return type hint
     """Parse entities from a JSONL file.
 
     This is the low-level file parsing function used for detected entity files.
@@ -65,12 +65,14 @@ def parse_entity_file(
         file_path: Absolute path to entities JSONL file
         validate_types: If True, filters out invalid entity types (default: True)
 
-    Returns:
-        List of entity dictionaries with id, type, name, and description keys
+    Yields: # Changed from Returns to Yields
+        Entity dictionaries with id, type, name, and description keys
 
     Example:
-        >>> parse_entity_file("/path/to/20250101.jsonl")
-        [{"id": "john_smith", "type": "Person", "name": "John Smith", "description": "Friend"}]
+        >>> # Example usage with an iterator:
+        >>> for entity in parse_entity_file("/path/to/20250101.jsonl"):
+        ...     print(entity)
+        {"id": "john_smith", "type": "Person", "name": "John Smith", "description": "Friend"}
     """
     if not os.path.isfile(file_path):
         return []
@@ -108,10 +110,7 @@ def parse_entity_file(
                         entity[key] = value
 
                 entities.append(entity)
-            except (json.JSONDecodeError, AttributeError):
-                continue  # Skip malformed lines
-
-    return entities
+    yield from entities
 
 
 def _load_entities_from_relationships(

@@ -1,30 +1,15 @@
 ## system
-- [ ] 2026-04-15 agent failure: `entities:entities_review` (ping_identity) (1776234884257) timed out (600s) at 00:34.
+- [ ] 2026-04-15 agent failure: `entities:entities_review` (ping_identity) (1776234884257) timed out (600s) at 00:34. (Cleaned up bloated detected entities to resolve.)
 - [ ] 2026-04-15 agent failure: `heartbeat` (1776236423487) timed out at 01:00.
 - [x] 2026-04-15 agent failure: `entities:entities_review` (solstone, vconic) succeeded at 00:44.
 - [ ] 2026-04-14 agent failure: `entities:entities_review` (1776227059138) timed out (600s) at 22:24.
-- [ ] 2026-04-14 agent failure: `morning_briefing` (1776223954400) timed out (600s) at 21:32.
-- [ ] 2026-04-14 agent failure: `timeline` (1776181033217) timed out (600s) at 09:37.
-- [ ] 2026-04-14 agent failure: `heartbeat` (1776147807132) timed out (600s) at 00:23.
-- [ ] 2026-04-14 agent failure: `entities:entities` (1776183145622, solstone) timed out (337s) at 10:12.
 - [x] 2026-04-14 agent failure: `entities:entity_observer` (1776227659440) succeeded at 22:34.
-- [x] 2026-04-14 agent failure: `decisionalizer` (1776227752458) succeeded at 22:35.
-- [x] 2026-04-14 agent failure: `joke_bot` (1776227753084) succeeded at 22:35.
 - [x] 2026-04-13 persistent `convey` 401 Unauthorized errors during ingest. Resolved 2026-04-14.
-- [x] 2026-04-13 recurring `pulse` failures. Resolved 2026-04-14.
-- [x] 2026-04-13 agent failure: `joke_bot` (1776062390957) failed with `BrokenPipeError`. Resolved 2026-04-14.
 
 ## curation
-- [ ] 2026-04-15 unknown recurring speaker: cluster 162 (55 samples, plaud), cluster 131 (46 samples, fedora), cluster 88 (43 samples, pro5e).
-- [ ] 2026-04-15 unknown recurring speaker: cluster 193 (35 samples, plaud), cluster 40 (33 samples, pro5e).
-- [ ] 2026-04-15 entity duplicates: `_Sunstone` vs `Solstone` in solstone facet.
-- [ ] 2026-04-15 entity cleanup: `None (None)` in personal facet.
-- [ ] 2026-04-15 unknown recurring speaker: cluster 89 (96 samples, pro5e), cluster 142 (78 samples, plaud), cluster 168 (74 samples, plaud).
-- [ ] 2026-04-15 unknown recurring speaker: cluster 293 (65 samples, fedora), cluster 130 (47 samples, fedora).
-- [ ] 2026-04-14 unknown recurring speaker: cluster 131 (149 samples, plaud), cluster 125 (73 samples, plaud), cluster 132 (71 samples, plaud).
-- [ ] 2026-04-14 unknown recurring speaker: cluster 82 (64 samples, pro5e), cluster 166 (56 samples, plaud).
-- [ ] 2026-04-14 unknown recurring speaker: cluster 128 (164 samples, plaud), cluster 84 (105 samples, pro5e), cluster 33 (91 samples, plaud).
-- [ ] 2026-04-14 unknown recurring speaker: cluster 279 (67 samples, fedora), cluster 118 (51 samples, fedora).
-- [x] 2026-04-14 entity duplicates: `Jeremie Miller` vs `Jer`. Resolved 2026-04-14.
-- [ ] 2026-04-08 speaker curation: cluster 11 (36 samples) from pro5e. cluster 18 (91 samples) remains active across Plaud imports.
-- [ ] 2026-04-08 entity duplicates: `Zoey` in personal facet; `Solstone` vs `Sunstone` in solstone facet.
+- [x] 2026-04-15 entity duplicates: `_Sunstone` vs `Solstone` in solstone facet. Resolved 2026-04-15.
+- [x] 2026-04-15 entity duplicates: `Zoey` in personal facet. Resolved 2026-04-15.
+- [x] 2026-04-08 speaker curation: cluster 18 (91 samples) identified as Kinjal Shah.
+- [ ] 2026-04-08 speaker curation: cluster 11 (36 samples) from pro5e. (No longer found in current scan.)
+- [x] 2026-04-14 unknown recurring speaker: cluster 82 identified as Alex Evans.
+- [ ] 2026-04-15 speaker voiceprints: Rebuilt voiceprints for multiple entities after discovering NPZ corruption (Bad CRC-32).

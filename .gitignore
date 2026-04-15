@@ -27,3 +27,9 @@ build/
 tmp/
 filter_vconic_activity.py
 sol/history.jsonl
+.sol/
+attached_names.txt
+counts.txt
+counts_all.txt
+detections_7days.txt
+search_ping_identity.py

@@ -102,6 +102,9 @@ def require_login() -> Any:
         "app:import.journal_source_manifest",
         "app:import.ingest_segments",
         "app:import.ingest_entities",
+        "app:import.ingest_facets",
+        "app:import.ingest_imports",
+        "app:import.ingest_config",
     }:
         return None
 
