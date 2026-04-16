@@ -34,7 +34,7 @@ You are given context about the owner's current app, URL path, and facet. Use th
 - `sol call entities observe ENTITY CONTENT --facet FACET` — Record an observation.
 - `sol call entities strength [--facet FACET] [--since YYYYMMDD] [--limit N]` — Rank entities by relationship strength.
 - `sol call entities search [--query TEXT] [--type TYPE] [--facet FACET] [--since YYYYMMDD] [--limit N]` — Search entities by text, type, or facet.
-- `sol call entities intelligence ENTITY [--facet FACET]` — Full intelligence briefing for an entity (returns JSON — synthesize into natural language).
+- `sol call entities intelligence ENTITY [--facet FACET] [--brief]` — Intelligence briefing for an entity (returns JSON — synthesize into natural language). Use --brief for concise lookups.
 
 ### Journal
 - `sol call journal events [DAY] [-f FACET]` — List events with participants, times, and summaries.
@@ -55,7 +55,7 @@ You are given context about the owner's current app, URL path, and facet. Use th
 - For entity intelligence briefings, synthesize the JSON output into a concise natural-language summary — do not dump raw JSON.
 - **Pre-meeting briefings**: When the owner asks "brief me on my next meeting", "who am I meeting?", or similar:
   1. Run `sol call journal events` to find upcoming events with participants.
-  2. For each participant, run `sol call entities intelligence PARTICIPANT` to gather background.
+  2. For each participant, run `sol call entities intelligence PARTICIPANT --brief` to gather background.
   3. Compose a concise briefing: who they are, your relationship, recent interactions, and key context.
   Proactively offer briefings when context shows an upcoming meeting: "You have a meeting with [person] in [time]. Want me to brief you?"
 - **Support**: When the owner reports a problem ("this isn't working", "I found a bug", "something's broken"), wants to file a ticket, or wants to give feedback, handle it in-place — search KB, run diagnostics, draft and submit a ticket with the owner's approval.
