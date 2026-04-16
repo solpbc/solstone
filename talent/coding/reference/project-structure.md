@@ -25,7 +25,7 @@ Each package has a README.md symlink pointing to its documentation in `docs/`.
 - **Modules**: Each top-level folder is a Python package with `__init__.py` unless it is data-only (e.g., `tests/fixtures/`)
 - **Imports**: Prefer absolute imports (e.g., `from think.utils import setup_cli`) whenever feasible
 - **Entry Points**: Commands are registered in `sol.py`'s `COMMANDS` dict (pyproject.toml just defines the `sol` entry point)
-- **Journal**: Data stored under `journal/` at the project root
+- **Journal**: Data stored under `journal/` at the project root; day content lives under `journal/chronicle/`
 - **Calling**: When calling other modules as a separate process always use `sol <command>` and never call using `python -m ...` (e.g., use `sol indexer`, NOT `python -m think.indexer`)
 
 ## CLI Routing
