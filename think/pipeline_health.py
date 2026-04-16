@@ -27,10 +27,7 @@ def summarize_pipeline_day(day: str) -> dict:
         "generated_at": now_ms(),
         "status": "healthy",
         "anomalies": [],
-        "runs": {
-            mode: {"count": 0, "duration_ms_total": 0}
-            for mode in _MODES
-        },
+        "runs": {mode: {"count": 0, "duration_ms_total": 0} for mode in _MODES},
         "agents": {
             "dispatched": 0,
             "completed": 0,
@@ -75,7 +72,9 @@ def summarize_pipeline_day(day: str) -> dict:
                         continue
 
                     if not isinstance(rec, dict) or "event" not in rec:
-                        logger.debug("pipeline_health: skipping invalid record in %s", path)
+                        logger.debug(
+                            "pipeline_health: skipping invalid record in %s", path
+                        )
                         continue
 
                     event = rec["event"]
@@ -108,7 +107,9 @@ def summarize_pipeline_day(day: str) -> dict:
                         except (TypeError, ValueError):
                             duration_ms = 0
                         summary["runs"][mode]["duration_ms_total"] += duration_ms
-                    elif event == "run.start" and (rec.get("mode") or mode) == "activity":
+                    elif (
+                        event == "run.start" and (rec.get("mode") or mode) == "activity"
+                    ):
                         summary["activities"]["agents_fired"] = True
     except Exception:
         logger.warning(
@@ -121,7 +122,10 @@ def summarize_pipeline_day(day: str) -> dict:
     for failure in summary["agents"]["failed_list"]:
         summary["anomalies"].append({"kind": "agent_failure", **failure})
 
-    if summary["activities"]["detected"] > 0 and summary["runs"]["activity"]["count"] == 0:
+    if (
+        summary["activities"]["detected"] > 0
+        and summary["runs"]["activity"]["count"] == 0
+    ):
         summary["anomalies"].append({"kind": "activity_agents_missing"})
 
     current = _now()

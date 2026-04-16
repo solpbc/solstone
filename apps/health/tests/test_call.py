@@ -65,7 +65,9 @@ def test_pipeline_with_real_fixture(health_env):
                 json.dumps({"event": "run.start", "mode": "segment"}),
                 json.dumps({"event": "agent.dispatch", "mode": "segment"}),
                 json.dumps({"event": "agent.complete", "mode": "segment"}),
-                json.dumps({"event": "run.complete", "mode": "segment", "duration_ms": 42}),
+                json.dumps(
+                    {"event": "run.complete", "mode": "segment", "duration_ms": 42}
+                ),
             ]
         )
         + "\n",

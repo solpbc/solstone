@@ -18,8 +18,12 @@ app = typer.Typer(help="Health diagnostics — sol call health ...")
 
 @app.command("pipeline")
 def pipeline(
-    day: Optional[str] = typer.Option(None, "--day", help="Day to summarize (YYYYMMDD)."),
-    yesterday: bool = typer.Option(False, "--yesterday", help="Summarize yesterday's pipeline."),
+    day: Optional[str] = typer.Option(
+        None, "--day", help="Day to summarize (YYYYMMDD)."
+    ),
+    yesterday: bool = typer.Option(
+        False, "--yesterday", help="Summarize yesterday's pipeline."
+    ),
 ) -> None:
     """Summarize dream pipeline health for one day."""
     if day is not None and yesterday:

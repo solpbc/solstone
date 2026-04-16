@@ -47,7 +47,9 @@ def test_empty_day_is_healthy(pipeline_journal):
         "persisted": 0,
         "agents_fired": False,
     }
-    assert all(run == {"count": 0, "duration_ms_total": 0} for run in summary["runs"].values())
+    assert all(
+        run == {"count": 0, "duration_ms_total": 0} for run in summary["runs"].values()
+    )
 
 
 def test_missing_health_dir(pipeline_journal):
@@ -258,7 +260,15 @@ def test_malformed_json_lines_skipped(pipeline_journal):
 @pytest.mark.parametrize(
     ("summary", "expected"),
     [
-        ({"status": "healthy", "anomalies": [], "agents": {"failed": 0}, "day": "20260101"}, None),
+        (
+            {
+                "status": "healthy",
+                "anomalies": [],
+                "agents": {"failed": 0},
+                "day": "20260101",
+            },
+            None,
+        ),
         (
             {
                 "status": "stale",
