@@ -13,6 +13,8 @@ import json
 import re
 from pathlib import Path
 
+from think.utils import resolve_journal_path
+
 # ============================================================================
 # File Operations
 # ============================================================================
@@ -450,7 +452,7 @@ def generate_content_manifest(journal_root: Path, timestamp: str) -> Path | None
     for file_path_str in all_files:
         file_path = Path(file_path_str)
         if not file_path.exists():
-            file_path = journal_root / file_path_str
+            file_path = resolve_journal_path(journal_root, file_path_str)
             if not file_path.exists():
                 continue
 

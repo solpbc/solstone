@@ -134,7 +134,7 @@ constraint-dependencies = ["numba>=0.60"]
 override-dependencies = ["webrtcvad>=99; python_version < '0'"]
 
 [tool.pytest.ini_options]
-addopts = "--import-mode=importlib"
+addopts = "--import-mode=importlib --basetemp=/var/tmp/pytest-solstone"
 testpaths = ["tests", "apps"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
@@ -144,7 +144,6 @@ markers = [
 ]
 timeout = 5
 tmp_path_retention_policy = "none"
-basetemp = "/var/tmp/pytest-solstone"
 filterwarnings = [
     # Third-party deprecation warnings (Python 3.14+)
     "ignore:codecs.open.* is deprecated:DeprecationWarning",

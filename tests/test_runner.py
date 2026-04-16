@@ -266,14 +266,14 @@ def test_process_creates_health_log(journal_path, mock_callosum):
     from datetime import datetime
 
     day = datetime.now().strftime("%Y%m%d")
-    log_path = journal_path / day / "health" / f"{ref}_echo.log"
+    log_path = journal_path / "chronicle" / day / "health" / f"{ref}_echo.log"
 
     assert log_path.exists()
     content = log_path.read_text()
     assert "logged output" in content
 
     # Verify day-level symlink exists
-    day_symlink = journal_path / day / "health" / "echo.log"
+    day_symlink = journal_path / "chronicle" / day / "health" / "echo.log"
     assert day_symlink.is_symlink()
     assert day_symlink.resolve() == log_path.resolve()
 
@@ -292,7 +292,7 @@ def test_process_day_override(journal_path, mock_callosum):
     managed.cleanup()
 
     # Log should be in target day, not today
-    log_path = journal_path / target_day / "health" / f"{ref}_echo.log"
+    log_path = journal_path / "chronicle" / target_day / "health" / f"{ref}_echo.log"
     assert log_path.exists()
     content = log_path.read_text()
     assert "day test" in content
@@ -306,7 +306,7 @@ def test_process_day_override(journal_path, mock_callosum):
         assert not today_log.exists()
 
     # Day-level symlink in target day
-    day_symlink = journal_path / target_day / "health" / "echo.log"
+    day_symlink = journal_path / "chronicle" / target_day / "health" / "echo.log"
     assert day_symlink.is_symlink()
     assert day_symlink.resolve() == log_path.resolve()
 

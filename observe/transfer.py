@@ -29,7 +29,14 @@ from typing import Any
 import requests
 
 from think.callosum import callosum_send
-from think.utils import day_path, get_journal, iter_segments, now_ms, setup_cli
+from think.utils import (
+    CHRONICLE_DIR,
+    day_path,
+    get_journal,
+    iter_segments,
+    now_ms,
+    setup_cli,
+)
 
 from .utils import compute_file_sha256, find_available_segment
 
@@ -375,10 +382,15 @@ def _normalize_url(to: str) -> str:
 def _parse_day_spec(day_spec: str | None, journal_root: Path) -> list[str]:
     """Parse a single day, day range, or default to all journal days."""
     if day_spec is None:
+        day_root = (
+            journal_root / CHRONICLE_DIR
+            if (journal_root / CHRONICLE_DIR).is_dir()
+            else journal_root
+        )
         return sorted(
             [
                 day_dir.name
-                for day_dir in journal_root.iterdir()
+                for day_dir in day_root.iterdir()
                 if day_dir.is_dir() and re.match(r"^\d{8}$", day_dir.name)
             ]
         )

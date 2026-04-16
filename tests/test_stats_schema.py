@@ -11,8 +11,8 @@ def test_validate_passes_on_valid_output(tmp_path, monkeypatch):
     stats_mod = importlib.import_module("think.journal_stats")
     schema_mod = importlib.import_module("think.stats_schema")
     journal = tmp_path
-    day = journal / "20240101"
-    day.mkdir()
+    day = journal / "chronicle" / "20240101"
+    day.mkdir(parents=True)
 
     # Create minimal transcript fixture
     ts_dir = day / "default" / "123456_300"
@@ -79,8 +79,8 @@ def test_day_fields_present_in_scan_day(tmp_path, monkeypatch):
     stats_mod = importlib.import_module("think.journal_stats")
     schema_mod = importlib.import_module("think.stats_schema")
     journal = tmp_path
-    day = journal / "20240101"
-    day.mkdir()
+    day = journal / "chronicle" / "20240101"
+    day.mkdir(parents=True)
 
     # Create transcript and percept fixtures
     ts_dir = day / "default" / "123456_300"

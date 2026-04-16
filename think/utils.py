@@ -27,6 +27,7 @@ from timefhuman import timefhuman
 from media import MIME_TYPES
 
 DATE_RE = re.compile(r"\d{8}")
+CHRONICLE_DIR = "chronicle"
 DEFAULT_STREAM = "_default"
 
 
@@ -122,8 +123,35 @@ def get_journal() -> str:
     return journal
 
 
+def resolve_journal_path(journal: str | Path, rel: str) -> Path:
+    """Resolve a chronicle-free journal-relative path to its on-disk location."""
+    if not rel:
+        raise ValueError("rel must be non-empty")
+    if os.path.isabs(rel):
+        raise ValueError("rel must be journal-relative")
+    if "\\" in rel:
+        raise ValueError("rel must use POSIX separators")
+    parts = Path(rel).parts
+    if not parts or any(p in ("", ".", "..") for p in parts):
+        raise ValueError("rel must not contain empty, '.', or '..' components")
+    journal_path = Path(journal)
+    if DATE_RE.fullmatch(parts[0]):
+        return journal_path / CHRONICLE_DIR / rel
+    return journal_path / rel
+
+
+def journal_relative_path(journal: str | Path, abs_path: str | Path) -> str:
+    """Return a chronicle-free journal-relative POSIX path for an absolute path under the journal."""
+    journal_path = Path(journal)
+    file_path = Path(abs_path)
+    chronicle_root = journal_path / CHRONICLE_DIR
+    if file_path.is_relative_to(chronicle_root):
+        return file_path.relative_to(chronicle_root).as_posix()
+    return file_path.relative_to(journal_path).as_posix()
+
+
 def day_path(day: Optional[str] = None, *, create: bool = True) -> Path:
-    """Return absolute path for a day directory within the journal.
+    """Return absolute path for a day directory within the journal chronicle.
 
     Parameters
     ----------
@@ -135,7 +163,8 @@ def day_path(day: Optional[str] = None, *, create: bool = True) -> Path:
     Returns
     -------
     Path
-        Absolute path to the day directory. Directory is created if it doesn't exist.
+        Absolute path to the day directory in chronicle/. Directory is created if
+        it doesn't exist.
 
     Raises
     ------
@@ -150,7 +179,7 @@ def day_path(day: Optional[str] = None, *, create: bool = True) -> Path:
     elif not DATE_RE.fullmatch(day):
         raise ValueError("day must be in YYYYMMDD format")
 
-    path = Path(journal) / day
+    path = Path(journal) / CHRONICLE_DIR / day
     if create:
         path.mkdir(parents=True, exist_ok=True)
     return path
@@ -163,14 +192,16 @@ def day_dirs() -> dict[str, str]:
     -------
     dict[str, str]
         Mapping of day folder names to their full paths.
-        Example: {"20250101": "/path/to/journal/20250101", ...}
+        Example: {"20250101": "/path/to/journal/chronicle/20250101", ...}
     """
-    journal = get_journal()
+    chronicle_dir = Path(get_journal()) / CHRONICLE_DIR
+    if not chronicle_dir.is_dir():
+        return {}
 
     days: dict[str, str] = {}
-    for name in os.listdir(journal):
+    for name in os.listdir(chronicle_dir):
         if DATE_RE.fullmatch(name):
-            path = os.path.join(journal, name)
+            path = os.path.join(chronicle_dir, name)
             if os.path.isdir(path):
                 days[name] = path
     return days

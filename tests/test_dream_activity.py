@@ -554,11 +554,8 @@ class TestActivityPersistenceRoundTrip:
 
             sm = ActivityStateMachine()
             sm.update(self._sense(content_type="coding"), "090000_300", "20260304")
-            changes = sm.update(
-                self._sense(content_type="meeting"), "090500_300", "20260304"
-            )
+            sm.update(self._sense(content_type="meeting"), "090500_300", "20260304")
 
-            ended = [c for c in changes if c.get("state") == "ended"]
             rec = sm.get_completed_activities()[0]
 
             # Write once
@@ -732,7 +729,6 @@ class TestCreatedAtRoutesCompat:
 
     def test_created_at_passes_cutoff_filter(self, monkeypatch):
         """Simulate routes.py filtering — recent records pass, old records don't."""
-        import time
         from datetime import datetime, timedelta
 
         from think.activities import append_activity_record, load_activity_records

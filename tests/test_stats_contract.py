@@ -5,7 +5,6 @@ import importlib
 import json
 from pathlib import Path
 
-
 CONTRACT_FIELDS = [
     ("days", "stats.days"),
     ("totals", "stats.totals"),
@@ -57,7 +56,7 @@ def _resolve_path(data, path):
 
 def _build_journal(base_path):
     journal = base_path
-    day = journal / "20240101"
+    day = journal / "chronicle" / "20240101"
     seg1 = day / "default" / "123456_300"
     seg2 = day / "default" / "134500_300"
     seg1.mkdir(parents=True)

@@ -403,8 +403,8 @@ class PortalClient:
                 raise RuntimeError(
                     "could not register — all handle variants were taken after 3 attempts"
                 )
-            import re
             import random
+            import re
             import string
 
             base = re.sub(r"-[a-z0-9]{4}$", "", self._handle)

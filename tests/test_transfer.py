@@ -90,7 +90,7 @@ class TestTransferExport:
 
         # Set up mock journal with day/stream/segment structure
         journal_path = tmp_path / "journal"
-        day_dir = journal_path / "20250101"
+        day_dir = journal_path / "chronicle" / "20250101"
         segment_dir = day_dir / "default" / "120000_300"
         segment_dir.mkdir(parents=True)
 
@@ -130,7 +130,7 @@ class TestTransferExport:
         from observe.transfer import create_archive
 
         journal_path = tmp_path / "journal"
-        day_dir = journal_path / "20250101"
+        day_dir = journal_path / "chronicle" / "20250101"
         day_dir.mkdir(parents=True)
 
         monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_path))
@@ -249,7 +249,7 @@ class TestTransferImport:
 
         # Set up journal with matching segment
         journal_path = tmp_path / "journal"
-        segment_dir = journal_path / "20250101" / "120000_300"
+        segment_dir = journal_path / "chronicle" / "20250101" / "120000_300"
         segment_dir.mkdir(parents=True)
         (segment_dir / "audio.flac").write_bytes(content)
 
@@ -276,7 +276,7 @@ class TestTransferImport:
 
         # Set up journal with different content in same segment
         journal_path = tmp_path / "journal"
-        segment_dir = journal_path / "20250101" / "120000_300"
+        segment_dir = journal_path / "chronicle" / "20250101" / "120000_300"
         segment_dir.mkdir(parents=True)
         (segment_dir / "audio.flac").write_bytes(b"existing different data")
 
@@ -327,7 +327,7 @@ class TestTransferImport:
         assert "120000_300" in result["imported"]
 
         # Verify files were extracted
-        segment_dir = journal_path / "20250101" / "120000_300"
+        segment_dir = journal_path / "chronicle" / "20250101" / "120000_300"
         assert segment_dir.exists()
         assert (segment_dir / "audio.flac").read_bytes() == audio_content
         assert (segment_dir / "audio.jsonl").read_bytes() == jsonl_content
@@ -354,7 +354,7 @@ class TestTransferImport:
 
         assert result["status"] == "dry_run"
         # Directory should not be created
-        assert not (journal_path / "20250101").exists()
+        assert not (journal_path / "chronicle" / "20250101").exists()
 
     def test_import_archive_nothing_to_import(self, tmp_path, monkeypatch):
         """Test import_archive when all segments already synced."""
@@ -368,7 +368,7 @@ class TestTransferImport:
 
         # Set up journal with matching content
         journal_path = tmp_path / "journal"
-        segment_dir = journal_path / "20250101" / "120000_300"
+        segment_dir = journal_path / "chronicle" / "20250101" / "120000_300"
         segment_dir.mkdir(parents=True)
         (segment_dir / "audio.flac").write_bytes(content)
 
@@ -440,7 +440,7 @@ class TestTransferSend:
 
     def _setup_journal(self, tmp_path, *, include_stream_json: bool = False) -> Path:
         journal = tmp_path / "journal"
-        day_dir = journal / "20250103" / "default" / "120000_300"
+        day_dir = journal / "chronicle" / "20250103" / "default" / "120000_300"
         day_dir.mkdir(parents=True)
         (day_dir / "audio.flac").write_bytes(b"audio data")
         (day_dir / "transcript.jsonl").write_text('{"text": "hello"}\n')
@@ -507,8 +507,8 @@ class TestTransferSend:
 
         journal_root = tmp_path / "journal"
         journal_root.mkdir()
-        (journal_root / "20250101").mkdir()
-        (journal_root / "20250103").mkdir()
+        (journal_root / "chronicle" / "20250101").mkdir(parents=True)
+        (journal_root / "chronicle" / "20250103").mkdir(parents=True)
         (journal_root / "config").mkdir()
         (journal_root / "streams").mkdir()
 
@@ -556,7 +556,7 @@ class TestTransferSend:
         journal = self._setup_journal(tmp_path)
         self._set_journal_override(monkeypatch, journal)
 
-        segment_dir = journal / "20250103" / "default" / "120000_300"
+        segment_dir = journal / "chronicle" / "20250103" / "default" / "120000_300"
         remote_files = [
             {
                 "name": "audio.flac",
@@ -655,7 +655,7 @@ class TestTransferSend:
         journal = self._setup_journal(tmp_path)
         self._set_journal_override(monkeypatch, journal)
 
-        segment_dir = journal / "20250103" / "default" / "120000_300"
+        segment_dir = journal / "chronicle" / "20250103" / "default" / "120000_300"
         remote_files = [
             {
                 "name": "audio.flac",

@@ -281,14 +281,14 @@ class TestPurge:
         journal = tmp_path / "journal"
 
         # Day 1: 60 days old — two complete segments
-        day1 = journal / "20260115" / "default" / "100000_300"
+        day1 = journal / "chronicle" / "20260115" / "default" / "100000_300"
         day1.mkdir(parents=True)
         (day1 / "audio.flac").write_bytes(b"x" * 1000)
         (day1 / "audio.jsonl").write_text('{"raw":"audio.flac"}\n')
         (day1 / "stream.json").write_text('{"stream":"default"}')
         (day1 / "agents").mkdir()
 
-        day1b = journal / "20260115" / "plaud" / "103000_300"
+        day1b = journal / "chronicle" / "20260115" / "plaud" / "103000_300"
         day1b.mkdir(parents=True)
         (day1b / "audio.m4a").write_bytes(b"x" * 500)
         (day1b / "audio.jsonl").write_text('{"raw":"audio.m4a"}\n')
@@ -296,7 +296,7 @@ class TestPurge:
         (day1b / "agents").mkdir()
 
         # Day 2: recent — one complete segment (must stay within 30d window)
-        day2 = journal / "20260401" / "default" / "120000_300"
+        day2 = journal / "chronicle" / "20260401" / "default" / "120000_300"
         day2.mkdir(parents=True)
         (day2 / "audio.flac").write_bytes(b"x" * 800)
         (day2 / "audio.jsonl").write_text('{"raw":"audio.flac"}\n')
@@ -304,7 +304,7 @@ class TestPurge:
         (day2 / "agents").mkdir()
 
         # Day 3: incomplete segment (no audio.jsonl)
-        day3 = journal / "20260101" / "default" / "140000_300"
+        day3 = journal / "chronicle" / "20260101" / "default" / "140000_300"
         day3.mkdir(parents=True)
         (day3 / "audio.flac").write_bytes(b"x" * 600)
         (day3 / "stream.json").write_text('{"stream":"default"}')
@@ -325,8 +325,12 @@ class TestPurge:
         # Should report but not delete
         assert result.files_deleted == 2  # day1 default + plaud
         assert result.bytes_freed == 1500
-        assert (journal / "20260115" / "default" / "100000_300" / "audio.flac").exists()
-        assert (journal / "20260115" / "plaud" / "103000_300" / "audio.m4a").exists()
+        assert (
+            journal / "chronicle" / "20260115" / "default" / "100000_300" / "audio.flac"
+        ).exists()
+        assert (
+            journal / "chronicle" / "20260115" / "plaud" / "103000_300" / "audio.m4a"
+        ).exists()
         # No retention log for dry run
         assert not (journal / "health" / "retention.log").exists()
 
@@ -338,14 +342,19 @@ class TestPurge:
         assert result.files_deleted == 2
         # Files should be gone
         assert not (
-            journal / "20260115" / "default" / "100000_300" / "audio.flac"
+            journal / "chronicle" / "20260115" / "default" / "100000_300" / "audio.flac"
         ).exists()
         assert not (
-            journal / "20260115" / "plaud" / "103000_300" / "audio.m4a"
+            journal / "chronicle" / "20260115" / "plaud" / "103000_300" / "audio.m4a"
         ).exists()
         # Derived content preserved
         assert (
-            journal / "20260115" / "default" / "100000_300" / "audio.jsonl"
+            journal
+            / "chronicle"
+            / "20260115"
+            / "default"
+            / "100000_300"
+            / "audio.jsonl"
         ).exists()
         # Retention log written
         assert (journal / "health" / "retention.log").exists()
@@ -437,7 +446,7 @@ class TestPurgeProvenance:
 
     def test_processed_at_reflects_latest_mtime(self, tmp_path, monkeypatch):
         journal = self._setup_journal(tmp_path, monkeypatch)
-        segment = journal / "20260115" / "default" / "100000_300"
+        segment = journal / "chronicle" / "20260115" / "default" / "100000_300"
         audio_jsonl = segment / "audio.jsonl"
         alternate_audio_jsonl = segment / "meeting_audio.jsonl"
         speaker_labels = segment / "agents" / "speaker_labels.json"

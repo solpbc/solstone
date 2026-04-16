@@ -228,7 +228,11 @@ class TestMain:
         # root should NOT end with /journal — that's --path
         assert not path.endswith("/journal")
         # should be a parent of the journal path
-        assert path.endswith("/solstone") or "/solstone" in path
+        assert (
+            path.endswith("/solstone")
+            or "/solstone" in path
+            or path.endswith("/worktree")
+        )
 
     def test_main_unknown_command_exits(self, monkeypatch):
         """Test that unknown command exits with code 1."""

@@ -19,7 +19,7 @@ from convey.utils import DATE_RE, format_date
 from think.facets import get_facets
 from think.models import calc_agent_cost
 from think.talent import get_output_path, get_talent_configs
-from think.utils import day_path, updated_days
+from think.utils import resolve_journal_path, updated_days
 
 sol_bp = Blueprint(
     "app:sol",
@@ -510,7 +510,12 @@ def api_output_file(day: str, filename: str) -> Any:
     if filename.startswith("facets/"):
         file_path = (journal_root / filename).resolve()
     else:
-        file_path = (day_path(day, create=False) / filename).resolve()
+        try:
+            file_path = resolve_journal_path(
+                journal_root, f"{day}/{filename}"
+            ).resolve()
+        except ValueError:
+            return jsonify(error="Invalid path"), 403
 
     # Security: ensure path is within the journal directory
     try:

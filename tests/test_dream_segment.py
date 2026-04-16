@@ -14,7 +14,7 @@ import pytest
 def segment_dir(tmp_path, monkeypatch):
     """Create a temporary journal with a segment directory."""
     journal = tmp_path / "journal"
-    day_dir = journal / "20240115"
+    day_dir = journal / "chronicle" / "20240115"
     segment_path = day_dir / "default" / "120000_300"
     segment_path.mkdir(parents=True)
     (segment_path / "agents").mkdir(parents=True)
@@ -226,7 +226,7 @@ class TestRunSegmentSense:
 
         # Verify activity state persisted even on idle path
         activity_state_path = (
-            segment_dir.parent.parent.parent / "awareness" / "activity_state.json"
+            segment_dir.parents[3] / "awareness" / "activity_state.json"
         )
         assert activity_state_path.exists()
         state_data = json.loads(activity_state_path.read_text())
@@ -566,7 +566,7 @@ class TestRunSegmentSense:
             }
         ]
         activity_state_path = (
-            segment_dir.parent.parent.parent / "awareness" / "activity_state.json"
+            segment_dir.parents[3] / "awareness" / "activity_state.json"
         )
         assert activity_state_path.exists()
         state_data = json.loads(activity_state_path.read_text())

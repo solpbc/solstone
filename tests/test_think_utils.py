@@ -18,8 +18,8 @@ from think.utils import (
     DEFAULT_STREAM,
     day_from_path,
     iter_segments,
-    segment_parse,
     segment_key,
+    segment_parse,
     setup_cli,
 )
 
@@ -830,8 +830,8 @@ class TestPortDiscovery:
 class TestIterSegments:
     def test_skips_health_directory(self, tmp_path):
         """iter_segments does not return segments from health/ dirs."""
-        day_dir = tmp_path / "20240101"
-        day_dir.mkdir()
+        day_dir = tmp_path / "chronicle" / "20240101"
+        day_dir.mkdir(parents=True)
         health_seg = day_dir / "health" / "120000_300"
         health_seg.mkdir(parents=True)
         normal_seg = day_dir / "default" / "130000_300"
@@ -844,8 +844,8 @@ class TestIterSegments:
 
     def test_toplevel_segments_as_default_stream(self, tmp_path):
         """Top-level segment dirs are returned with _default stream name."""
-        day_dir = tmp_path / "20240101"
-        day_dir.mkdir()
+        day_dir = tmp_path / "chronicle" / "20240101"
+        day_dir.mkdir(parents=True)
         toplevel_seg = day_dir / "143022_300"
         toplevel_seg.mkdir()
         normal_seg = day_dir / "default" / "150000_300"
@@ -861,8 +861,8 @@ class TestIterSegments:
 
     def test_normal_stream_discovery_unchanged(self, tmp_path):
         """Normal stream/segment discovery still works correctly."""
-        day_dir = tmp_path / "20240101"
-        day_dir.mkdir()
+        day_dir = tmp_path / "chronicle" / "20240101"
+        day_dir.mkdir(parents=True)
         (day_dir / "default" / "100000_300").mkdir(parents=True)
         (day_dir / "default" / "110000_300").mkdir(parents=True)
         (day_dir / "import.apple" / "120000_600").mkdir(parents=True)

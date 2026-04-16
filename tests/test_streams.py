@@ -20,7 +20,7 @@ from think.streams import (
 # --- stream_name tests ---
 
 
-def test_stream_name_observer():
+def test_stream_name_host():
     """Host only -> hostname."""
     assert stream_name(host="archon") == "archon"
 
@@ -141,7 +141,7 @@ def test_update_stream_cross_day(tmp_path, monkeypatch):
 
 def test_write_read_segment_stream(tmp_path):
     """Round-trip write/read stream.json."""
-    seg_dir = tmp_path / "20250119" / "default" / "142500_300"
+    seg_dir = tmp_path / "chronicle" / "20250119" / "default" / "142500_300"
     seg_dir.mkdir(parents=True)
 
     write_segment_stream(seg_dir, "archon", "20250119", "142000_300", 5)
@@ -156,7 +156,7 @@ def test_write_read_segment_stream(tmp_path):
 
 def test_write_segment_stream_first(tmp_path):
     """First segment has None prev values."""
-    seg_dir = tmp_path / "20250119" / "default" / "142500_300"
+    seg_dir = tmp_path / "chronicle" / "20250119" / "default" / "142500_300"
     seg_dir.mkdir(parents=True)
 
     write_segment_stream(seg_dir, "archon", None, None, 1)
@@ -169,7 +169,7 @@ def test_write_segment_stream_first(tmp_path):
 
 def test_read_segment_stream_missing(tmp_path):
     """Returns None for pre-stream segments."""
-    seg_dir = tmp_path / "20250119" / "default" / "142500_300"
+    seg_dir = tmp_path / "chronicle" / "20250119" / "default" / "142500_300"
     seg_dir.mkdir(parents=True)
 
     assert read_segment_stream(seg_dir) is None
@@ -202,7 +202,7 @@ def test_rebuild_stream_state(tmp_path, monkeypatch):
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
     # Create segment dirs with stream markers under default stream
-    day_dir = tmp_path / "20250119"
+    day_dir = tmp_path / "chronicle" / "20250119"
     seg1 = day_dir / "default" / "142500_300"
     seg2 = day_dir / "default" / "143000_300"
     seg1.mkdir(parents=True)

@@ -15,8 +15,8 @@ import json
 import os
 from pathlib import Path
 
-from think.utils import day_path
 from tests.conftest import copytree_tracked
+from think.utils import day_path
 
 FIXTURES = Path("tests/fixtures")
 
@@ -24,7 +24,7 @@ FIXTURES = Path("tests/fixtures")
 def copy_day(tmp_path: Path) -> Path:
     os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
     dest = day_path("20240101")
-    src = FIXTURES / "journal" / "20240101"
+    src = FIXTURES / "journal" / "chronicle" / "20240101"
     copytree_tracked(src, dest)
     return dest
 
@@ -170,7 +170,9 @@ def post_process(result, context):
     assert len(finish_events) == 1
 
     # Read captured context
-    captured_path = tmp_path / "20240101" / "agents" / "context_captured.json"
+    captured_path = (
+        tmp_path / "chronicle" / "20240101" / "agents" / "context_captured.json"
+    )
     captured = json.loads(captured_path.read_text())
 
     assert captured["day"] == "20240101"

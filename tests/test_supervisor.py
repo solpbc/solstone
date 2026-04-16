@@ -132,8 +132,6 @@ def test_parse_args_remote_flag_optional():
 
 def test_shutdown_stops_in_reverse_order(monkeypatch):
     """Shutdown stops services in reverse order."""
-    mod = importlib.import_module("think.supervisor")
-
     operations = []
 
     class MockProc:

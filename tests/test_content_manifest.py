@@ -51,7 +51,7 @@ def test_map_items_to_segments():
 def test_generate_content_manifest_from_segments(tmp_path):
     journal_root = tmp_path
     import_dir = journal_root / "imports" / "20260101_090000"
-    segment_dir = journal_root / "20260101" / "import.ics" / "090000_300"
+    segment_dir = journal_root / "chronicle" / "20260101" / "import.ics" / "090000_300"
     segment_dir.mkdir(parents=True)
     import_dir.mkdir(parents=True)
 

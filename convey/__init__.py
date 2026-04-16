@@ -17,8 +17,7 @@ from jinja2 import ChoiceLoader, FileSystemLoader
 
 from apps import AppRegistry
 
-from . import state
-from . import system
+from . import state, system
 from .apps import register_app_context
 from .bridge import emit, register_websocket
 from .config import bp as config_bp

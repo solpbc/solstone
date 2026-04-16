@@ -523,7 +523,14 @@ def test_granola_sync_import(tmp_path, monkeypatch):
     import glob
 
     segments = glob.glob(
-        str(tmp_path / "*/import.granola/*/conversation_transcript.jsonl")
+        str(
+            tmp_path
+            / "chronicle"
+            / "*"
+            / "import.granola"
+            / "*"
+            / "conversation_transcript.jsonl"
+        )
     )
     assert len(segments) >= 1
 
@@ -545,7 +552,9 @@ def test_granola_sync_import(tmp_path, monkeypatch):
     assert entry["source"] == "import"
 
     # Check source.md was copied
-    source_files = glob.glob(str(tmp_path / "*/import.granola/*/source.md"))
+    source_files = glob.glob(
+        str(tmp_path / "chronicle" / "*" / "import.granola" / "*" / "source.md")
+    )
     assert len(source_files) == 1  # only in first segment
 
 

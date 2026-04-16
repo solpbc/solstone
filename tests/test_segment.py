@@ -23,7 +23,7 @@ def _make_segment(
     agents=None,
 ):
     """Create a minimal segment fixture directory."""
-    seg_dir = base / day / stream / segment
+    seg_dir = base / "chronicle" / day / stream / segment
     seg_dir.mkdir(parents=True)
     if stream_json is not None:
         (seg_dir / "stream.json").write_text(json.dumps(stream_json))
@@ -560,12 +560,12 @@ def test_move_basic(tmp_path, monkeypatch, capsys):
     )
     cmd_move(args)
 
-    assert not (tmp_path / "20240101" / "default" / "090000_300").exists()
-    assert (tmp_path / "20240115" / "default" / "090000_300").is_dir()
+    assert not (tmp_path / "chronicle" / "20240101" / "default" / "090000_300").exists()
+    assert (tmp_path / "chronicle" / "20240115" / "default" / "090000_300").is_dir()
     import think.streams
 
     marker = think.streams.read_segment_stream(
-        tmp_path / "20240115" / "default" / "090000_300"
+        tmp_path / "chronicle" / "20240115" / "default" / "090000_300"
     )
     assert marker["stream"] == "default"
     assert marker["seq"] == 1
@@ -601,8 +601,8 @@ def test_move_with_to_time(tmp_path, monkeypatch, capsys):
     )
     cmd_move(args)
 
-    assert not (tmp_path / "20240101" / "default" / "090000_300").exists()
-    assert (tmp_path / "20240101" / "default" / "140000_300").is_dir()
+    assert not (tmp_path / "chronicle" / "20240101" / "default" / "090000_300").exists()
+    assert (tmp_path / "chronicle" / "20240101" / "default" / "140000_300").is_dir()
 
 
 def test_move_dry_run(tmp_path, monkeypatch, capsys):
@@ -638,7 +638,7 @@ def test_move_dry_run(tmp_path, monkeypatch, capsys):
 
     assert "[dry run]" in out
     assert "090000_300" in out
-    assert (tmp_path / "20240101" / "default" / "090000_300").is_dir()
+    assert (tmp_path / "chronicle" / "20240101" / "default" / "090000_300").is_dir()
 
 
 def test_move_collision_no_to_time(tmp_path, monkeypatch, capsys):
@@ -722,7 +722,7 @@ def test_move_no_events_jsonl(tmp_path, monkeypatch, capsys):
     cmd_move(args)
     out = capsys.readouterr().out
 
-    assert (tmp_path / "20240115" / "default" / "090000_300").is_dir()
+    assert (tmp_path / "chronicle" / "20240115" / "default" / "090000_300").is_dir()
     assert "events.jsonl lines: 0" in out
 
 
@@ -771,7 +771,7 @@ def test_move_patches_successor(tmp_path, monkeypatch, capsys):
     import think.streams
 
     succ_marker = think.streams.read_segment_stream(
-        tmp_path / "20240101" / "default" / "140000_300"
+        tmp_path / "chronicle" / "20240101" / "default" / "140000_300"
     )
     assert succ_marker["prev_day"] == "20240115"
     assert succ_marker["prev_segment"] == "090000_300"
@@ -821,7 +821,7 @@ def test_move_stream_tail(tmp_path, monkeypatch, capsys):
     out = capsys.readouterr().out
 
     assert "successor to patch: (none - stream tail)" in out
-    assert (tmp_path / "20240115" / "default" / "140000_300").is_dir()
+    assert (tmp_path / "chronicle" / "20240115" / "default" / "140000_300").is_dir()
 
 
 def test_move_rewrites_events_jsonl(tmp_path, monkeypatch, capsys):
@@ -868,7 +868,9 @@ def test_move_rewrites_events_jsonl(tmp_path, monkeypatch, capsys):
     )
     cmd_move(args)
 
-    new_events_path = tmp_path / "20240115" / "default" / "140000_300" / "events.jsonl"
+    new_events_path = (
+        tmp_path / "chronicle" / "20240115" / "default" / "140000_300" / "events.jsonl"
+    )
     assert new_events_path.exists()
     lines = [
         json.loads(line)
@@ -909,8 +911,8 @@ def test_move_touches_health_markers(tmp_path, monkeypatch, capsys):
     )
     cmd_move(args)
 
-    assert (tmp_path / "20240101" / "health" / "stream.updated").exists()
-    assert (tmp_path / "20240115" / "health" / "stream.updated").exists()
+    assert (tmp_path / "chronicle" / "20240101" / "health" / "stream.updated").exists()
+    assert (tmp_path / "chronicle" / "20240115" / "health" / "stream.updated").exists()
 
 
 def test_move_same_location_refused(tmp_path, monkeypatch, capsys):
