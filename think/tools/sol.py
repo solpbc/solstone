@@ -17,13 +17,13 @@ import sys
 
 import typer
 
-from think.entities.core import atomic_write
 from think.awareness import (
     _log_identity_change,
     ensure_sol_directory,
     update_identity_section,
     update_self_md_section,
 )
+from think.entities.core import atomic_write
 
 app = typer.Typer(
     help="Sol identity directory — self.md, partner.md, agency.md, pulse.md, awareness.md, and morning briefing."
@@ -258,14 +258,10 @@ def briefing_cmd(
     day: str | None = typer.Option(None, "--day", "-d", help="Specific day YYYYMMDD."),
 ) -> None:
     """Read the morning briefing from YYYYMMDD/agents/morning_briefing.md."""
-    from pathlib import Path as _Path
-
-    from think.utils import get_journal
-
-    journal = _Path(get_journal())
+    from think.utils import day_dirs, day_path
 
     if day:
-        path = journal / day / "agents" / "morning_briefing.md"
+        path = day_path(day, create=False) / "agents" / "morning_briefing.md"
         if not path.exists():
             typer.echo("No briefing found.", err=True)
             raise typer.Exit(1)
@@ -273,8 +269,10 @@ def briefing_cmd(
         return
 
     # No day specified — find most recent
-    agents_dirs = sorted(journal.glob("*/agents"), reverse=True)
-    for agents_dir in agents_dirs:
+    for day in sorted(day_dirs().keys(), reverse=True):
+        agents_dir = day_path(day, create=False) / "agents"
+        if not agents_dir.is_dir():
+            continue
         briefing = agents_dir / "morning_briefing.md"
         if briefing.exists() and briefing.stat().st_size > 0:
             typer.echo(briefing.read_text(encoding="utf-8"))

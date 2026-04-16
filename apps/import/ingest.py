@@ -31,7 +31,7 @@ from think.entities.journal import (
     save_journal_entity,
 )
 from think.entities.matching import find_matching_entity
-from think.utils import DEFAULT_STREAM
+from think.utils import DEFAULT_STREAM, day_path
 
 from .journal_sources import (
     get_state_directory,
@@ -128,7 +128,6 @@ def register_ingest_routes(bp) -> None:
         if not isinstance(segments, list):
             return jsonify({"error": "Missing segments array"}), 400
 
-        journal_root = Path(state.journal_root)
         log_path = get_state_directory(key_prefix) / "segments" / "log.jsonl"
 
         copied = 0
@@ -204,7 +203,7 @@ def register_ingest_routes(bp) -> None:
 
                 original_segment_key = segment_key
                 arc_key = f"{stream}/{segment_key}"
-                day_dir = journal_root / day
+                day_dir = day_path(day, create=False)
                 stream_dir = day_dir / stream
                 segment_dir = stream_dir / segment_key
                 action = "copied"

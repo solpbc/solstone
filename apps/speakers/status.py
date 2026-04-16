@@ -142,12 +142,11 @@ def _clusters_section() -> dict[str, Any] | None:
 
 
 def _imports_section() -> dict[str, Any]:
-    journal = Path(get_journal())
     meetings = 0
     screens = 0
 
-    for day in day_dirs().keys():
-        day_dir = journal / day
+    for _day, day_dir_str in day_dirs().items():
+        day_dir = Path(day_dir_str)
         if not day_dir.is_dir():
             continue
         for stream_dir in sorted(day_dir.iterdir()):
@@ -165,14 +164,13 @@ def _imports_section() -> dict[str, Any]:
 
 
 def _attribution_section() -> dict[str, Any]:
-    journal = Path(get_journal())
     total_files = 0
     total_labels = 0
     by_confidence: dict[str, int] = {}
     by_method: dict[str, int] = {}
 
-    for day in day_dirs().keys():
-        day_dir = journal / day
+    for _day, day_dir_str in day_dirs().items():
+        day_dir = Path(day_dir_str)
         if not day_dir.is_dir():
             continue
         for stream_dir in sorted(day_dir.iterdir()):

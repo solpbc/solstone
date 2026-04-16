@@ -27,7 +27,7 @@ from think.importers.utils import (
     update_import_metadata_fields,
     write_import_metadata,
 )
-from think.utils import now_ms
+from think.utils import day_path, now_ms
 
 from .journal_sources import (
     STATE_AREAS,
@@ -693,7 +693,7 @@ def import_content_detail(timestamp: str, item_id: str) -> Any:
         key = seg.get("key", "")
         if not day or not key:
             continue
-        seg_dir = journal_root / day / f"import.{source_type}" / key
+        seg_dir = day_path(day, create=False) / f"import.{source_type}" / key
         if not seg_dir.exists():
             continue
 

@@ -24,6 +24,7 @@ from think.callosum import CallosumConnection, CallosumServer
 from think.runner import DailyLogWriter
 from think.runner import ManagedProcess as RunnerManagedProcess
 from think.utils import (
+    day_path,
     find_available_port,
     get_journal,
     get_journal_info,
@@ -1142,12 +1143,10 @@ def _handle_segment_event_log(message: dict) -> None:
     stream = message.get("stream")
 
     try:
-        journal_path = _get_journal_path()
-
         if stream:
-            segment_dir = journal_path / day / stream / segment
+            segment_dir = day_path(day, create=False) / stream / segment
         else:
-            segment_dir = journal_path / day / segment
+            segment_dir = day_path(day, create=False) / segment
 
         # Only log if segment directory exists
         if not segment_dir.is_dir():
