@@ -84,7 +84,7 @@ class AttentionItem:
 
 
 def _resolve_attention(awareness_current: dict) -> AttentionItem | None:
-    """Check attention sources P0-P4, return highest priority or None."""
+    """Check attention sources P0-P3, return highest priority or None."""
     # P0: Cortex errors
     try:
         import json
@@ -139,17 +139,7 @@ def _resolve_attention(awareness_current: dict) -> AttentionItem | None:
     except Exception:
         pass
 
-    # P1: Capture stale
-    capture = awareness_current.get("capture", {})
-    if capture.get("status") == "stale":
-        placeholder = "Capture may be offline — ask me to check"
-        context = [
-            "System health: capture appears offline (observer heartbeats stale). "
-            "If user asks what needs attention, mention capture status."
-        ]
-        return AttentionItem(placeholder_text=placeholder, context_lines=context)
-
-    # P2: Recent import completion
+    # P1: Recent import completion
     imports = awareness_current.get("imports", {})
     last_completed = imports.get("last_completed")
     last_summary = imports.get("last_result_summary")
@@ -173,7 +163,7 @@ def _resolve_attention(awareness_current: dict) -> AttentionItem | None:
         except Exception:
             pass
 
-    # P3: Daily analysis highlights
+    # P2: Daily analysis highlights
     journal_state = awareness_current.get("journal", {})
     if journal_state.get("first_daily_ready"):
         try:
@@ -205,7 +195,7 @@ def _resolve_attention(awareness_current: dict) -> AttentionItem | None:
         except Exception:
             pass
 
-    # P4: Owner voiceprint candidate ready for confirmation
+    # P3: Owner voiceprint candidate ready for confirmation
     voiceprint = awareness_current.get("voiceprint", {})
     if voiceprint.get("status") == "candidate":
         cluster_size = voiceprint.get("cluster_size", 0)
@@ -226,16 +216,12 @@ def _resolve_placeholder(awareness_current: dict, day_count: int) -> str:
         return attention.placeholder_text
     imports = awareness_current.get("imports", {})
     if not imports.get("has_imported") and day_count < 3:
-        return (
-            "Bring in past conversations, calendar, or notes to give me context..."
-        )
+        return "Bring in past conversations, calendar, or notes to give me context..."
     if awareness_current.get("journal", {}).get("first_daily_ready"):
         if day_count < 2:
             return "Your first daily analysis is ready — ask me what I found..."
         if day_count >= 7:
-            return (
-                "Ask me about your day, search your journal, or explore insights..."
-            )
+            return "Ask me about your day, search your journal, or explore insights..."
         return "Your daily analysis is ready — ask about today or anything in your journal..."
     return "Capture is running — your first daily analysis will be ready soon..."
 
@@ -290,6 +276,20 @@ def register_app_context(app: Flask, registry: AppRegistry) -> None:
         config = load_convey_config()
         apps_dict = apply_app_order(apps_dict, config)
 
+        # Override sol label if agent has a chosen name
+        if "sol" in apps_dict:
+            try:
+                from think.utils import get_config as _get_journal_config
+
+                journal_config = _get_journal_config()
+                agent_block = journal_config.get("agent", {})
+                if agent_block.get("name_status") in ("chosen", "self-named"):
+                    agent_name = agent_block.get("name", "").strip()
+                    if agent_name:
+                        apps_dict["sol"]["label"] = agent_name
+            except Exception:
+                pass  # Keep default label on any error
+
         # Get starred apps list
         starred_apps = config.get("apps", {}).get("starred", [])
 
@@ -336,7 +336,7 @@ def register_app_context(app: Flask, registry: AppRegistry) -> None:
             """
             if file is None:
                 file = f"{library_name}.min.js"
-            return url_for("static", filename=f"vendor/{library_name}/{file}")
+            return url_for("root.static", filename=f"vendor/{library_name}/{file}")
 
         return {"vendor_lib": vendor_lib}
 

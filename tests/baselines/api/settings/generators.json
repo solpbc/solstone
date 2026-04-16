@@ -1,6 +1,16 @@
 {
   "daily": [
     {
+      "app": "entities",
+      "description": "Extracts durable factoids about attached entities from journal content",
+      "disabled": false,
+      "extract": null,
+      "has_extraction": false,
+      "key": "entities:entity_observer",
+      "source": "app",
+      "title": "Entity Observer"
+    },
+    {
       "app": null,
       "description": "Analyzes activity patterns to identify optimal times for scheduled maintenance tasks.",
       "disabled": false,
@@ -71,6 +81,16 @@
       "key": "entities",
       "source": "system",
       "title": "Entity Extraction"
+    },
+    {
+      "app": null,
+      "description": "Extracts structured intelligence from imported documents",
+      "disabled": false,
+      "extract": null,
+      "has_extraction": false,
+      "key": "documents",
+      "source": "system",
+      "title": "Document Analysis"
     },
     {
       "app": null,

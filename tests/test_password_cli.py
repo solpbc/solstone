@@ -20,7 +20,9 @@ def _read_config(journal_dir):
 def _mock_getpass(monkeypatch, *responses):
     """Mock getpass.getpass to return successive responses."""
     it = iter(responses)
-    monkeypatch.setattr("think.password_cli.getpass.getpass", lambda prompt="": next(it))
+    monkeypatch.setattr(
+        "think.password_cli.getpass.getpass", lambda prompt="": next(it)
+    )
 
 
 class TestSetPassword:

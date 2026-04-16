@@ -12,7 +12,7 @@ import pytest
 
 def test_main_accepts_journal_relative_path(tmp_path, monkeypatch):
     """main() resolves audio_path relative to journal when absolute path fails."""
-    seg_dir = tmp_path / "20260201" / "default" / "090000_300"
+    seg_dir = tmp_path / "chronicle" / "20260201" / "default" / "090000_300"
     seg_dir.mkdir(parents=True)
     audio_file = seg_dir / "audio.wav"
     audio_file.touch()
@@ -78,16 +78,16 @@ def test_setup_cli_no_message_on_project_journal(tmp_path, monkeypatch, capsys):
 
 def _make_batch_journal(tmp_path: Path) -> Path:
     """Create a minimal temp journal with three segments for batch testing."""
-    seg1 = tmp_path / "20260101" / "default" / "090000_300"
+    seg1 = tmp_path / "chronicle" / "20260101" / "default" / "090000_300"
     seg1.mkdir(parents=True)
     (seg1 / "audio.flac").touch()
 
-    seg2 = tmp_path / "20260101" / "default" / "140000_300"
+    seg2 = tmp_path / "chronicle" / "20260101" / "default" / "140000_300"
     seg2.mkdir(parents=True)
     (seg2 / "audio.flac").touch()
     (seg2 / "audio.jsonl").touch()
 
-    seg3 = tmp_path / "20260101" / "default" / "180000_300"
+    seg3 = tmp_path / "chronicle" / "20260101" / "default" / "180000_300"
     seg3.mkdir(parents=True)
     (seg3 / "screen.png").touch()
 

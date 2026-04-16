@@ -247,6 +247,34 @@ class TestInitFinalize:
         resp = fresh_client.get("/init")
         assert resp.status_code == 302
 
+    def test_finalize_with_retention_config(self, fresh_client, journal_copy):
+        """Finalize with explicit retention config writes correct values."""
+        resp = fresh_client.post(
+            "/init/finalize",
+            json={
+                "password": "securepass123",
+                "retention_mode": "processed",
+                "retention_days": 30,
+            },
+            content_type="application/json",
+        )
+        assert resp.status_code == 200
+        config = _read_config(journal_copy)
+        assert config["retention"]["raw_media"] == "processed"
+        assert config["retention"]["raw_media_days"] is None
+
+    def test_finalize_default_retention(self, fresh_client, journal_copy):
+        """Finalize without retention fields writes default (days/7)."""
+        resp = fresh_client.post(
+            "/init/finalize",
+            json={"password": "securepass123"},
+            content_type="application/json",
+        )
+        assert resp.status_code == 200
+        config = _read_config(journal_copy)
+        assert config["retention"]["raw_media"] == "days"
+        assert config["retention"]["raw_media_days"] == 7
+
 
 class TestRemovedEndpoints:
     """Verify old endpoints no longer exist."""

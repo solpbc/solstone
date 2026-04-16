@@ -15,12 +15,12 @@ learned preferences, and cross-session agent memory.
 
 from __future__ import annotations
 
+import fcntl
 import json
 import logging
 import os
 import tempfile
 import time
-import fcntl
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -77,8 +77,8 @@ Present one thing at a time — don't overwhelm.
 ### learn their name
 
 Ask what they'd like to be called. Record it:
-- `sol call agent set-owner "NAME"`
-- With context: `sol call agent set-owner "NAME" --bio "SHORT_BIO"`
+- `sol call sol set-owner "NAME"`
+- With context: `sol call sol set-owner "NAME" --bio "SHORT_BIO"`
 
 As you learn about them, update your partner profile:
 - `sol call identity partner --update-section 'SECTION' --value 'what you observed'`
@@ -268,8 +268,8 @@ def update_identity_section(filename: str, heading: str, content: str) -> bool:
     bool
         True if the section was found and updated, False otherwise.
     """
-    from think.utils import get_journal
     from think.entities.core import atomic_write
+    from think.utils import get_journal
 
     file_path = Path(get_journal()) / "sol" / filename
     lock_path = file_path.parent / f".{filename}.lock"

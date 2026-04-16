@@ -36,7 +36,13 @@ from observe.extract import DEFAULT_MAX_EXTRACTIONS, select_frames_for_extractio
 from observe.utils import get_segment_key
 from think.callosum import callosum_send
 from think.prompts import load_prompt
-from think.utils import day_from_path, get_config, get_journal, setup_cli
+from think.utils import (
+    day_from_path,
+    get_config,
+    get_journal,
+    journal_relative_path,
+    setup_cli,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -307,12 +313,18 @@ class VideoProcessor:
                     f"{len(self.qualified_frames)} qualified"
                 )
 
+        except av.error.InvalidDataError as e:
+            logger.error(
+                f"Invalid video data error for {self.video_path}: {e}. Skipping video.",
+                exc_info=True,
+            )
+            return []
         except Exception as e:
             logger.error(
-                f"Error processing video {self.video_path}: {e}", exc_info=True
+                f"Unexpected error processing video {self.video_path}: {e}",
+                exc_info=True,
             )
             raise
-
         return self.qualified_frames
 
     def _dhash(self, img: Image.Image) -> int:
@@ -940,8 +952,8 @@ async def async_main():
                 journal_path = Path(get_journal())
 
                 try:
-                    rel_input = video_path.relative_to(journal_path)
-                    rel_output = output_path.relative_to(journal_path)
+                    rel_input = journal_relative_path(journal_path, video_path)
+                    rel_output = journal_relative_path(journal_path, output_path)
                 except ValueError:
                     rel_input = video_path
                     rel_output = output_path

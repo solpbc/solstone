@@ -105,7 +105,7 @@ The workspace template is included inside the app container (`app.html`).
 
 **Reference implementations:**
 - Minimal: `apps/home/workspace.html` (simple content)
-- Styled: `apps/dev/workspace.html` (custom CSS, forms, interactive JS)
+- Styled: `apps/support/workspace.html` (custom CSS, forms, interactive JS)
 - Data-driven: `apps/todos/workspace.html` (facet sections, dynamic rendering)
 
 ---
@@ -212,16 +212,6 @@ Both badge types appear as red notification counts.
 }
 ```
 
-**Submenu Methods:**
-- `AppServices.submenus.set(appName, items)` - Set all submenu items
-- `AppServices.submenus.upsert(appName, item)` - Add or update single item
-- `AppServices.submenus.remove(appName, itemId)` - Remove item by id
-- `AppServices.submenus.clear(appName)` - Clear all items
-
-Submenus appear as hover pop-outs on menu bar icons. Items support `id`, `label`, `icon`, `href`, `facet`, `badge`, and `order` properties.
-
-**See implementation:** `convey/static/app.js` - Submenu rendering and positioning
-
 **WebSocket Events (`window.appEvents`):**
 - `listen(tract, callback)` - Listen to specific tract ('cortex', 'indexer', 'observe', etc.)
 - `listen('*', callback)` - Listen to all events
@@ -230,7 +220,6 @@ Submenus appear as hover pop-outs on menu bar icons. Items support `id`, `label`
 
 **Reference implementations:**
 - `apps/todos/background.html` - App icon badge with API fetch
-- `apps/dev/background.html` - Submenu quick-links with dynamic badges
 
 **Implementation source:** `convey/static/app.js` - AppServices framework, `convey/static/websocket.js` - WebSocket API
 
@@ -478,7 +467,7 @@ Define one-time maintenance scripts that run automatically on Convey startup.
 **CLI:** `sol maint` (run pending), `sol maint --list` (show status), `sol maint --force` (re-run all)
 
 **Reference implementations:**
-- Example task: `apps/dev/maint/000_example.py` - recommended patterns
+- Example task: `apps/entities/maint/001_migrate_to_journal_entities.py` - real migration task demonstrating maint patterns
 - Discovery logic: `convey/maint.py` - `discover_tasks()`, `run_task()`
 
 ---
@@ -530,7 +519,7 @@ Define server-side handlers that react to Callosum events. Handlers run in Conve
 
 **Reference implementations:**
 - Framework: `apps/events.py` - `EventContext` dataclass, decorator, discovery
-- Example: `apps/dev/events.py` - Debug handler showing usage pattern
+- Example: `apps/entities/events.py` - Entity activity tracking via event handlers
 
 ---
 
@@ -726,7 +715,7 @@ Use these in your app-specific styles to respond to facet theme.
 
 **Best practice:** Scope styles with unique class prefix to avoid conflicts.
 
-**Example:** `apps/dev/workspace.html` shows scoped `.dev-*` classes for all custom styles in its `<style>` block.
+**Example:** `apps/stats/workspace.html` shows scoped `.stats-*` classes for all custom styles in its `<style>` block.
 
 ### Global Styles
 
@@ -810,7 +799,7 @@ Use `current_app.logger` from Flask for debugging. See `apps/todos/routes.py` fo
 Browse `apps/*/` directories for reference implementations. Apps range in complexity:
 
 - **Minimal** - Just `workspace.html` (e.g., `apps/home/`, `apps/health/`)
-- **Styled** - Custom CSS, background services (e.g., `apps/dev/`)
+- **Styled** - Custom CSS, background services (e.g., `apps/support/`)
 - **Full-featured** - Routes, forms, AJAX, badges, tools (e.g., `apps/todos/`, `apps/entities/`)
 
 ---

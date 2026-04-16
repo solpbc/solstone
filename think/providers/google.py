@@ -128,9 +128,7 @@ def get_or_create_client(client: genai.Client | None = None) -> genai.Client:
     config = get_config()
     providers_config = config.get("providers", {})
 
-    http_options = types.HttpOptions(
-        retry_options=types.HttpRetryOptions(attempts=8)
-    )
+    http_options = types.HttpOptions(retry_options=types.HttpRetryOptions(attempts=8))
 
     api_key = os.getenv("GOOGLE_API_KEY")
 
@@ -693,23 +691,26 @@ async def run_cogitate(
         if system_instruction:
             prompt_body = system_instruction + "\n\n" + prompt_body
 
-        # Build CLI command — yolo mode auto-approves all tool calls
-        # (required for headless subprocess use).
+        # Build CLI command.  approval-mode controls tool access:
+        #   "yolo"  — auto-approve all tools (write-enabled agents only)
+        #   "plan"  — read-only mode (no file writes, no destructive tools)
+        # The deprecated --allowed-tools flag did NOT restrict tool
+        # availability, only auto-approval — combined with --yolo it
+        # provided zero protection.  --approval-mode plan is the
+        # replacement that actually enforces read-only.
+        approval = "yolo" if config.get("write") else "plan"
         cmd = [
             "gemini",
             "-p",
             "-",
             "-o",
             "stream-json",
-            "--yolo",
+            "--approval-mode",
+            approval,
             "-m",
             model,
             "--sandbox=none",
         ]
-
-        # Restrict tool access unless write mode is enabled
-        if not config.get("write"):
-            cmd.extend(["--allowed-tools", "run_shell_command(sol)"])
 
         # Resume from previous session if continuing
         if session_id:

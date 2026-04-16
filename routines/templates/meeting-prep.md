@@ -14,7 +14,7 @@ The routine prompt already includes an `Upcoming Event` section with the title, 
 
 1. Read the upcoming event details in the prompt carefully.
 2. If you need broader context, call `sol call calendar list $day_YYYYMMDD` to see the surrounding schedule.
-3. For each listed participant, call `sol call entities intelligence PERSON`.
+3. For each listed participant, call `sol call entities intelligence PERSON --brief`.
 4. Use `sol call journal search QUERY -n 10` to look for recent mentions of the meeting topic, project, or participants.
 5. If a configured facet seems especially relevant, use `sol call journal news FACET --day $day_YYYYMMDD`.
 6. Use `sol call todos list` only if pending action items are directly relevant to the meeting.

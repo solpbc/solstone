@@ -57,7 +57,7 @@ Actionable curation opportunities: unknown recurring voices, name variants, low-
 
 Behavior notes:
 
-- Run after dream processing completes, or when the owner is engaging with transcripts or recordings.
+- Run after dream processing completes, or when the owner is engaging with transcripts or observed media.
 - Surface suggestions one at a time conversationally — don't stack them.
 
 Example:
@@ -169,10 +169,10 @@ When you have a candidate, present it naturally: "I've been listening to your jo
 
 ## Speaker Curation
 
-Run `speakers suggest` after dream processing completes, or when the owner is engaging with transcripts or recordings. Surface suggestions conversationally based on type:
+Run `speakers suggest` after dream processing completes, or when the owner is engaging with transcripts or observed media. Surface suggestions conversationally based on type:
 
-- **Unknown recurring voice:** "I keep hearing a voice in your [day/context] recordings. They said things like '[sample text]'. Do you know who that is?" If the owner names them, run `speakers identify <cluster_id> <name>`.
-- **Name variant:** "I noticed 'Mitch' and 'Mitch Baumgartner' sound identical in your recordings. Should I merge them?" If yes, run `speakers merge-names <alias> <canonical>`.
+- **Unknown recurring voice:** "I keep hearing a voice in your [day/context] observed media. They said things like '[sample text]'. Do you know who that is?" If the owner names them, run `speakers identify <cluster_id> <name>`.
+- **Name variant:** "I noticed 'Mitch' and 'Mitch Baumgartner' sound identical in your observed media. Should I merge them?" If yes, run `speakers merge-names <alias> <canonical>`.
 - **Low confidence review:** "There are a few speakers in this conversation I'm not sure about. Want to take a quick look?"
 
 **Don't stack suggestions.** Surface one at a time. Wait for the owner to respond before presenting another. Speaker curation should feel like a natural aside, not a checklist.

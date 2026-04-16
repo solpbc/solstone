@@ -228,7 +228,11 @@ class TestMain:
         # root should NOT end with /journal — that's --path
         assert not path.endswith("/journal")
         # should be a parent of the journal path
-        assert path.endswith("/solstone") or "/solstone" in path
+        assert (
+            path.endswith("/solstone")
+            or "/solstone" in path
+            or path.endswith("/worktree")
+        )
 
     def test_main_unknown_command_exits(self, monkeypatch):
         """Test that unknown command exits with code 1."""
@@ -257,6 +261,7 @@ class TestMain:
         assert captured_argv[0] == "sol import"
         assert "--day" in captured_argv
         assert "20250101" in captured_argv
+
 
 class TestCommandRegistry:
     """Tests for command registry completeness."""

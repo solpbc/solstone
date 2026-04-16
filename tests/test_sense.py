@@ -164,14 +164,14 @@ def test_process_log_writer(tmp_path, monkeypatch):
     writer.close()
 
     # Log file uses {ref}_{name}.log format
-    log_path = tmp_path / "20241101" / "health" / f"{ref}_test.log"
+    log_path = tmp_path / "chronicle" / "20241101" / "health" / f"{ref}_test.log"
     assert log_path.exists()
     content = log_path.read_text()
     assert "line 1\n" in content
     assert "line 2\n" in content
 
     # Verify symlinks exist
-    day_symlink = tmp_path / "20241101" / "health" / "test.log"
+    day_symlink = tmp_path / "chronicle" / "20241101" / "health" / "test.log"
     assert day_symlink.is_symlink()
     journal_symlink = tmp_path / "health" / "test.log"
     assert journal_symlink.is_symlink()
@@ -204,7 +204,7 @@ def test_process_log_writer_thread_safe(tmp_path, monkeypatch):
     writer.close()
 
     # Log file uses {ref}_{name}.log format
-    log_path = tmp_path / "20241101" / "health" / f"{ref}_test.log"
+    log_path = tmp_path / "chronicle" / "20241101" / "health" / f"{ref}_test.log"
     lines = log_path.read_text().split("\n")
     # Should have 50 lines (5 threads * 10 lines each)
     assert len([line for line in lines if line]) == 50
@@ -245,7 +245,7 @@ def test_file_sensor_match_pattern():
     with tempfile.TemporaryDirectory() as tmpdir:
         # Create journal/day/stream/segment structure
         journal_dir = Path(tmpdir)
-        day_dir = journal_dir / "20250101"
+        day_dir = journal_dir / "chronicle" / "20250101"
         segment_dir = day_dir / "default" / "123456_300"
         segment_dir.mkdir(parents=True)
 
@@ -286,7 +286,7 @@ def test_standalone_dry_run(tmp_path, monkeypatch):
 
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
-    day_dir = tmp_path / "20250101"
+    day_dir = tmp_path / "chronicle" / "20250101"
     segment_dir = day_dir / "default" / "143022_300"
     segment_dir.mkdir(parents=True)
 
@@ -316,7 +316,7 @@ def test_standalone_dry_run_with_segment_filter(tmp_path, monkeypatch):
 
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
-    day_dir = tmp_path / "20250101"
+    day_dir = tmp_path / "chronicle" / "20250101"
     segment_1 = day_dir / "default" / "143022_300"
     segment_2 = day_dir / "default" / "150022_300"
     segment_1.mkdir(parents=True)
@@ -368,7 +368,7 @@ def test_file_sensor_spawn_handler(mock_popen, mock_day, mock_journal, tmp_path)
     assert args == ["echo", str(test_file)]
 
     # Verify log file was created with {ref}_echo.log format
-    health_dir = tmp_path / "20241101" / "health"
+    health_dir = tmp_path / "chronicle" / "20241101" / "health"
     log_files = list(health_dir.glob("*_echo.log"))
     assert len(log_files) == 1, f"Expected 1 echo log file, found {len(log_files)}"
 
@@ -376,8 +376,8 @@ def test_file_sensor_spawn_handler(mock_popen, mock_day, mock_journal, tmp_path)
 def test_file_sensor_spawn_handler_duplicate(tmp_path, mock_callosum):
     """Test that duplicate file processing is prevented."""
     # Create journal/day structure
-    day_dir = tmp_path / "20250101"
-    day_dir.mkdir()
+    day_dir = tmp_path / "chronicle" / "20250101"
+    day_dir.mkdir(parents=True)
 
     sensor = FileSensor(tmp_path)
     sensor.register("*.txt", "test", ["echo", "hello"])
@@ -424,7 +424,7 @@ def test_file_sensor_spawn_handler_real_process(
     assert test_file not in sensor.running
 
     # Check log file contains output with {ref}_echo.log format
-    health_dir = tmp_path / "20241101" / "health"
+    health_dir = tmp_path / "chronicle" / "20241101" / "health"
     log_files = list(health_dir.glob("*_echo.log"))
     assert len(log_files) == 1, f"Expected 1 echo log file, found {len(log_files)}"
 
@@ -486,7 +486,7 @@ def test_file_sensor_handle_file(tmp_path):
     """Test file handling dispatches to correct handler."""
     with patch.object(FileSensor, "_spawn_handler") as mock_spawn:
         # Create journal/day/stream/segment structure
-        day_dir = tmp_path / "20250101"
+        day_dir = tmp_path / "chronicle" / "20250101"
         segment_dir = day_dir / "default" / "143022_300"
         segment_dir.mkdir(parents=True)
 
@@ -536,7 +536,7 @@ def test_file_sensor_handle_callosum_message(tmp_path):
     """Test handling of observe.observing Callosum events."""
     with patch.object(FileSensor, "_handle_file") as mock_handle:
         # Create journal/day/stream/segment structure
-        day_dir = tmp_path / "20250101"
+        day_dir = tmp_path / "chronicle" / "20250101"
         segment_dir = day_dir / "default" / "143022_300"
         segment_dir.mkdir(parents=True)
 
@@ -618,7 +618,7 @@ def test_file_sensor_segment_observed_includes_day(tmp_path, mock_callosum):
     from think.callosum import CallosumConnection
 
     # Create journal/day/stream/segment structure
-    day_dir = tmp_path / "20250101"
+    day_dir = tmp_path / "chronicle" / "20250101"
     segment_dir = day_dir / "default" / "143022_300"
     segment_dir.mkdir(parents=True)
 
@@ -671,7 +671,7 @@ def test_file_sensor_segment_observed_no_handlers(tmp_path, mock_callosum):
     from think.callosum import CallosumConnection
 
     # Create journal/day/stream/segment structure
-    day_dir = tmp_path / "20250101"
+    day_dir = tmp_path / "chronicle" / "20250101"
     segment_dir = day_dir / "default" / "143022_300"
     segment_dir.mkdir(parents=True)
 
@@ -720,7 +720,7 @@ def test_delete_outputs_screen(tmp_path):
     from observe.sense import delete_outputs
 
     # Create journal/day/stream/segment structure
-    day_dir = tmp_path / "20250101"
+    day_dir = tmp_path / "chronicle" / "20250101"
     segment_dir = day_dir / "default" / "143022_300"
     segment_dir.mkdir(parents=True)
 
@@ -744,7 +744,7 @@ def test_delete_outputs_audio(tmp_path):
     from observe.sense import delete_outputs
 
     # Create journal/day/stream/segment structure
-    day_dir = tmp_path / "20250101"
+    day_dir = tmp_path / "chronicle" / "20250101"
     segment_dir = day_dir / "default" / "143022_300"
     segment_dir.mkdir(parents=True)
 
@@ -768,7 +768,7 @@ def test_delete_outputs_dry_run(tmp_path):
     from observe.sense import delete_outputs
 
     # Create journal/day/stream/segment structure
-    day_dir = tmp_path / "20250101"
+    day_dir = tmp_path / "chronicle" / "20250101"
     segment_dir = day_dir / "default" / "143022_300"
     segment_dir.mkdir(parents=True)
 
@@ -788,7 +788,7 @@ def test_delete_outputs_segment_filter(tmp_path):
     from observe.sense import delete_outputs
 
     # Create journal/day/stream/segments structure
-    day_dir = tmp_path / "20250101"
+    day_dir = tmp_path / "chronicle" / "20250101"
     segment1 = day_dir / "default" / "143022_300"
     segment2 = day_dir / "default" / "150022_300"
     segment1.mkdir(parents=True)

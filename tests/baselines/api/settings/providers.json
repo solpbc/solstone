@@ -137,7 +137,35 @@
       "group": "Entities",
       "label": "Entity Observer",
       "schedule": "daily",
-      "tier": 3,
+      "tier": 2,
+      "type": "generate"
+    },
+    "talent.import.review": {
+      "disabled": false,
+      "group": "Import",
+      "label": "Import Review",
+      "tier": 2,
+      "type": "cogitate"
+    },
+    "talent.import.review_config": {
+      "disabled": false,
+      "group": "Import",
+      "label": "Import Config Reviewer",
+      "tier": 2,
+      "type": "cogitate"
+    },
+    "talent.import.review_entities": {
+      "disabled": false,
+      "group": "Import",
+      "label": "Import Entity Reviewer",
+      "tier": 2,
+      "type": "cogitate"
+    },
+    "talent.import.review_facets": {
+      "disabled": false,
+      "group": "Import",
+      "label": "Import Facet Reviewer",
+      "tier": 2,
       "type": "cogitate"
     },
     "talent.support.support": {
@@ -201,6 +229,14 @@
       "tier": 2,
       "type": "generate"
     },
+    "talent.system.documents": {
+      "disabled": false,
+      "group": "Think",
+      "label": "Document Analysis",
+      "schedule": "segment",
+      "tier": 2,
+      "type": "generate"
+    },
     "talent.system.entities": {
       "disabled": false,
       "group": "Think",
@@ -212,10 +248,9 @@
     "talent.system.facet_newsletter": {
       "disabled": false,
       "group": "Think",
-      "label": "Facet Newsletter Generator",
-      "schedule": "daily",
-      "tier": 3,
-      "type": "cogitate"
+      "label": "facet_newsletter",
+      "tier": 2,
+      "type": null
     },
     "talent.system.flow": {
       "disabled": false,
@@ -365,6 +400,13 @@
       "tier": 2,
       "type": "generate"
     },
+    "talent.system.test_missing_type_output_1568d299dc474aa9ba42401c7b1b75e2": {
+      "disabled": false,
+      "group": "Think",
+      "label": "test_missing_type_output_1568d299dc474aa9ba42401c7b1b75e2",
+      "tier": 2,
+      "type": null
+    },
     "talent.system.timeline": {
       "disabled": false,
       "extract": true,
@@ -383,11 +425,10 @@
     },
     "talent.todos.daily": {
       "disabled": false,
-      "group": "Todos",
-      "label": "Daily TODO Curator",
-      "schedule": "daily",
-      "tier": 3,
-      "type": "cogitate"
+      "group": "Think",
+      "label": "todos:daily",
+      "tier": 2,
+      "type": null
     },
     "talent.todos.todo": {
       "disabled": false,

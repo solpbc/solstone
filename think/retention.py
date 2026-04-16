@@ -5,8 +5,8 @@
 
 Manages the lifecycle of raw media files (layer 1 captures) in journal segments.
 Three retention modes:
-- keep: retain raw media indefinitely (default)
-- days: delete raw media after N days, once processing is complete
+- keep: retain raw media indefinitely
+- days: delete raw media after N days, once processing is complete (default: 7)
 - processed: delete raw media as soon as processing completes
 
 Safety invariant: never delete raw media from segments that haven't finished
@@ -18,6 +18,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import shutil
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -141,8 +142,8 @@ def _get_completion_files(segment_path: Path) -> list[Path]:
 class RetentionPolicy:
     """Retention policy for a single scope (global or per-stream)."""
 
-    mode: str = "keep"  # "keep", "days", or "processed"
-    days: int | None = None
+    mode: str = "days"  # "keep", "days", or "processed"
+    days: int | None = 7
 
     def is_eligible(self, segment_age_days: int) -> bool:
         """Check if a segment's raw media should be purged under this policy."""
@@ -174,8 +175,8 @@ def load_retention_config() -> RetentionConfig:
     config = get_config()
     retention = config.get("retention", {})
 
-    mode = retention.get("raw_media", "keep")
-    days = retention.get("raw_media_days")
+    mode = retention.get("raw_media", "days")
+    days = retention.get("raw_media_days", 7)
     default = RetentionPolicy(mode=mode, days=days)
 
     per_stream: dict[str, RetentionPolicy] = {}
@@ -247,6 +248,80 @@ def compute_storage_summary() -> StorageSummary:
                     summary.derived_bytes += f.stat().st_size
 
     return summary
+
+
+def check_storage_health(
+    summary: StorageSummary,
+    journal_path: str | Path,
+    config: dict | None = None,
+) -> list[dict]:
+    """Check storage health against configured thresholds.
+
+    Parameters
+    ----------
+    summary
+        Pre-computed storage summary (avoids recomputation).
+    journal_path
+        Journal root path, used for disk usage check.
+    config
+        Full journal config dict. Loaded via get_config() if not provided.
+
+    Returns
+    -------
+    list[dict]
+        List of warning dicts. Empty when healthy.
+    """
+    if config is None:
+        from think.utils import get_config
+
+        config = get_config()
+
+    retention = config.get("retention", {})
+    warnings = []
+
+    # Check disk usage percentage
+    disk_threshold = retention.get("storage_warning_disk_percent", 80)
+    if disk_threshold is not None:
+        try:
+            usage = shutil.disk_usage(str(journal_path))
+            disk_percent = round(usage.used / usage.total * 100, 1)
+            if disk_percent >= disk_threshold:
+                warnings.append(
+                    {
+                        "level": "warning",
+                        "type": "disk_percent",
+                        "message": (
+                            f"Disk is {disk_percent}% full (threshold: {disk_threshold}%). "
+                            "Consider adjusting retention settings or running Clean Up Now "
+                            "to free space."
+                        ),
+                        "current": disk_percent,
+                        "threshold": disk_threshold,
+                    }
+                )
+        except OSError:
+            pass
+
+    # Check raw media size
+    raw_media_gb_threshold = retention.get("storage_warning_raw_media_gb")
+    if raw_media_gb_threshold is not None:
+        raw_media_gb = round(summary.raw_media_bytes / (1024**3), 2)
+        if raw_media_gb >= raw_media_gb_threshold:
+            warnings.append(
+                {
+                    "level": "warning",
+                    "type": "raw_media_gb",
+                    "message": (
+                        f"Raw media is {raw_media_gb} GB (threshold: {raw_media_gb_threshold} GB). "
+                        "Consider adjusting retention settings or running Clean Up Now "
+                        "to free space."
+                    ),
+                    "current": raw_media_gb,
+                    "threshold": raw_media_gb_threshold,
+                }
+            )
+
+    return warnings
 
 
 # ---------------------------------------------------------------------------

@@ -295,7 +295,7 @@ solstone/
 |-------|----------|
 | Think (processing) | `import`, `dream`, `planner`, `indexer`, `supervisor`, `schedule`, `top`, `health`, `callosum`, `notify`, `heartbeat` |
 | Service | `service` (+ aliases `up`, `down`, `start`) |
-| Observe (capture) | `transcribe`, `describe`, `sense`, `sync`, `transfer`, `observer` |
+| Observe (capture) | `transcribe`, `describe`, `sense`, `transfer`, `observer` |
 | Talent (AI agents) | `agents`, `cortex`, `talent`, `call`, `engage` |
 | Convey (web UI) | `convey`, `restart-convey`, `screenshot`, `maint` |
 | Specialized | `config`, `streams`, `journal-stats`, `formatter`, `detect-created` |
@@ -311,7 +311,7 @@ solstone/
 | `speakers` | `apps/speakers/call.py` | list, show, detect-owner, confirm-owner, clusters, suggest |
 | `transcripts` | `apps/transcripts/call.py` | list, read, segments |
 | `support` | `apps/support/call.py` | register, search, article, create, list, show, reply, attach, feedback, announcements, diagnose |
-| `agent` | `apps/agent/call.py` | name, set-name, reset, thickness, set-owner, sol-init |
+| `sol` | `apps/sol/call.py` | name, set-name, reset, thickness, set-owner, sol-init |
 | `awareness` | `apps/awareness/call.py` | status, imports, log, log-read |
 | `journal` | `think/tools/call.py` | search, events, facets, facet (show/create/update/rename/mute/unmute/delete/merge), news, agents, read, imports, import, retention purge, storage-summary |
 | `routines` | `think/tools/routines.py` | list, templates, create, edit, delete, run, output, suggestions, suggest-respond, suggest-state |

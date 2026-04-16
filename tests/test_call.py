@@ -10,9 +10,9 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
+from tests.conftest import copytree_tracked
 from think.call import call_app
 from think.utils import resolve_sol_day, resolve_sol_facet, resolve_sol_segment
-from tests.conftest import copytree_tracked
 
 runner = CliRunner()
 

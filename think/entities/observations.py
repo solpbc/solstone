@@ -21,6 +21,15 @@ from think.entities.core import atomic_write
 from think.entities.relationships import entity_memory_path
 from think.utils import now_ms
 
+# Global cache for entity observations: {(facet, entity_slug): list[dict]}
+_OBSERVATION_CACHE: dict[tuple[str, str], list[dict[str, Any]]] | None = None
+
+
+def clear_observation_cache() -> None:
+    """Clear the entity observation cache."""
+    global _OBSERVATION_CACHE
+    _OBSERVATION_CACHE = None
+
 
 def observations_file_path(facet: str, name: str) -> Path:
     """Return path to observations file for an entity.
@@ -57,6 +66,15 @@ def load_observations(facet: str, name: str) -> list[dict[str, Any]]:
         >>> load_observations("work", "Alice Johnson")
         [{"content": "Prefers async communication", "observed_at": 1736784000000, "source_day": "20250113"}]
     """
+    global _OBSERVATION_CACHE
+    from think.entities.core import entity_slug
+
+    slug = entity_slug(name)
+    if _OBSERVATION_CACHE is not None:
+        cached = _OBSERVATION_CACHE.get((facet, slug))
+        if cached is not None:
+            return cached
+
     path = observations_file_path(facet, name)
 
     if not path.exists():
@@ -74,6 +92,10 @@ def load_observations(facet: str, name: str) -> list[dict[str, Any]]:
             except json.JSONDecodeError:
                 continue  # Skip malformed lines
 
+    # Update cache if initialized
+    if _OBSERVATION_CACHE is not None:
+        _OBSERVATION_CACHE[(facet, slug)] = observations
+
     return observations
 
 
@@ -87,6 +109,9 @@ def save_observations(
         name: Entity name
         observations: List of observation dictionaries
     """
+    # Clear cache on modification
+    clear_observation_cache()
+
     path = observations_file_path(facet, name)
 
     # Format observations as JSONL

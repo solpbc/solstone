@@ -28,6 +28,15 @@ from think.entities.relationships import (
 )
 from think.utils import get_journal
 
+# Global cache for loaded entities: {(facet, day, detached, blocked): list[EntityDict]}
+_ENTITY_LOADING_CACHE: dict[tuple, list[EntityDict]] | None = None
+
+
+def clear_entity_loading_cache() -> None:
+    """Clear the entity loading cache."""
+    global _ENTITY_LOADING_CACHE
+    _ENTITY_LOADING_CACHE = None
+
 
 def detected_entities_path(facet: str, day: str) -> Path:
     """Return path to detected entities file for a facet and day.
@@ -179,15 +188,33 @@ def load_entities(
         >>> load_entities("personal")
         [{"id": "john_smith", "type": "Person", "name": "John Smith", "description": "Friend"}]
     """
+    global _ENTITY_LOADING_CACHE
+
+    # Use cache if available
+    cache_key = (facet, day, include_detached, include_blocked)
+    if _ENTITY_LOADING_CACHE is not None:
+        cached = _ENTITY_LOADING_CACHE.get(cache_key)
+        if cached is not None:
+            return cached
+
     # For detected entities, use day-specific files
     if day is not None:
         path = detected_entities_path(facet, day)
-        return parse_entity_file(str(path))
+        result = parse_entity_file(str(path))
+    else:
+        # For attached entities, load from relationships
+        result = _load_entities_from_relationships(
+            facet, include_detached=include_detached, include_blocked=include_blocked
+        )
 
-    # For attached entities, load from relationships
-    return _load_entities_from_relationships(
-        facet, include_detached=include_detached, include_blocked=include_blocked
-    )
+    # Populate cache if initialized
+    if _ENTITY_LOADING_CACHE is not None:
+        _ENTITY_LOADING_CACHE[cache_key] = result
+    else:
+        # Initialize and populate
+        _ENTITY_LOADING_CACHE = {cache_key: result}
+
+    return result
 
 
 def load_all_attached_entities(

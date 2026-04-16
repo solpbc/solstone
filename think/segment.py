@@ -521,7 +521,9 @@ def cmd_move(args: argparse.Namespace) -> None:
         )
         raise SystemExit(1)
 
-    succ_day, succ_seg, succ_path = _find_successor_segment(src_day, stream, src_segment)
+    succ_day, succ_seg, succ_path = _find_successor_segment(
+        src_day, stream, src_segment
+    )
 
     events_path = src_dir / "events.jsonl"
     events_count = 0
@@ -558,14 +560,15 @@ def cmd_move(args: argparse.Namespace) -> None:
 
     rewritten = _rewrite_events_jsonl(dst_dir, to_day, new_segment)
     if rewritten:
-        print(f"  rewrote {rewritten} events.jsonl lines (day: {src_day}->{to_day}, segment: {src_segment}->{new_segment})")
+        print(
+            f"  rewrote {rewritten} events.jsonl lines (day: {src_day}->{to_day}, segment: {src_segment}->{new_segment})"
+        )
     elif verbose:
         print("  no events.jsonl to rewrite")
 
     if succ_path:
         succ_marker = read_segment_stream(succ_path)
         if succ_marker:
-            old_prev = f"{succ_marker.get('prev_day')}/{stream}/{succ_marker.get('prev_segment')}"
             write_segment_stream(
                 succ_path,
                 succ_marker["stream"],
@@ -576,19 +579,25 @@ def cmd_move(args: argparse.Namespace) -> None:
             print(f"  patched successor {succ_day}/{stream}/{succ_seg}")
             if verbose:
                 print(f"    prev_day: {succ_marker.get('prev_day')} -> {to_day}")
-                print(f"    prev_segment: {succ_marker.get('prev_segment')} -> {new_segment}")
+                print(
+                    f"    prev_segment: {succ_marker.get('prev_segment')} -> {new_segment}"
+                )
     elif verbose:
         print("  no successor to patch (stream tail)")
 
     summary = rebuild_stream_state(stream)
     print(f"  rebuilt stream state: {stream}")
     if verbose:
-        print(f"    scanned {summary['segments_scanned']} segments, rebuilt {len(summary['rebuilt'])} stream(s)")
+        print(
+            f"    scanned {summary['segments_scanned']} segments, rebuilt {len(summary['rebuilt'])} stream(s)"
+        )
 
     if index_info["available"]:
         deleted = _delete_index_rows(journal, old_rel)
         if any(deleted.values()) or verbose:
-            print(f"  deleted index rows: chunks={deleted['chunks']}, files={deleted['files']}, entities={deleted['entities']}, signals={deleted['entity_signals']}")
+            print(
+                f"  deleted index rows: chunks={deleted['chunks']}, files={deleted['files']}, entities={deleted['entities']}, signals={deleted['entity_signals']}"
+            )
         new_rel = f"{to_day}/{stream}/{new_segment}"
         indexed = _reindex_segment(journal, dst_dir)
         print(f"  re-indexed: {indexed} files at {new_rel}")
@@ -599,7 +608,7 @@ def cmd_move(args: argparse.Namespace) -> None:
     _touch_health_marker(to_day)
     print(f"  touched health markers: {src_day}, {to_day}")
     if verbose:
-        print(f"    dream will re-run daily agents on both days")
+        print("    dream will re-run daily agents on both days")
 
     # Post-move verify is informational — the move already completed.
     print()

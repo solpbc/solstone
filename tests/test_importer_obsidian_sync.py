@@ -105,7 +105,16 @@ def test_obsidian_sync_import(tmp_path, monkeypatch):
     assert result["downloaded"] >= 1
     assert result["imported"] >= 1
 
-    segments = glob.glob(str(tmp_path / "*/import.obsidian/*/note_transcript.md"))
+    segments = glob.glob(
+        str(
+            tmp_path
+            / "chronicle"
+            / "*"
+            / "import.obsidian"
+            / "*"
+            / "note_transcript.md"
+        )
+    )
     assert len(segments) >= 1
 
     state = load_sync_state(tmp_path, "obsidian")
@@ -126,7 +135,16 @@ def test_obsidian_sync_edit_creates_new_segments(tmp_path, monkeypatch):
     first = backend.sync(tmp_path, source_path=vault, dry_run=False)
     assert first["downloaded"] == 1
     first_segments = sorted(
-        glob.glob(str(tmp_path / "*/import.obsidian/*/note_transcript.md"))
+        glob.glob(
+            str(
+                tmp_path
+                / "chronicle"
+                / "*"
+                / "import.obsidian"
+                / "*"
+                / "note_transcript.md"
+            )
+        )
     )
     assert len(first_segments) == 1
 
@@ -135,7 +153,16 @@ def test_obsidian_sync_edit_creates_new_segments(tmp_path, monkeypatch):
     assert second["downloaded"] == 1
 
     all_segments = sorted(
-        glob.glob(str(tmp_path / "*/import.obsidian/*/note_transcript.md"))
+        glob.glob(
+            str(
+                tmp_path
+                / "chronicle"
+                / "*"
+                / "import.obsidian"
+                / "*"
+                / "note_transcript.md"
+            )
+        )
     )
     assert len(all_segments) == 2
     assert first_segments[0] in all_segments

@@ -17,7 +17,7 @@ This is not a conversation. Gather the information, synthesize it, and write a c
 3. Call `sol call todos list` to see pending action items across facets.
 4. Call `sol call identity pulse` to capture current narrative, priorities, and needs-you items.
 5. Call `sol call journal search "" -a followups -n 10` to find recent follow-up items.
-6. For each person on today's calendar, call `sol call entities intelligence PERSON`.
+6. For each person on today's calendar, call `sol call entities intelligence PERSON --brief`.
 7. If a facet needs more detail, call `sol call journal news FACET --day $day_YYYYMMDD`.
 
 ## Synthesize

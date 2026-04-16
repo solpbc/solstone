@@ -36,7 +36,16 @@ from think.formatters import (
     load_jsonl,
 )
 from think.markdown import format_markdown
-from think.utils import DATE_RE, get_journal, now_ms, segment_key, segment_parse
+from think.utils import (
+    CHRONICLE_DIR,
+    DATE_RE,
+    get_journal,
+    journal_relative_path,
+    now_ms,
+    resolve_journal_path,
+    segment_key,
+    segment_parse,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -243,10 +252,15 @@ def _find_signal_files(journal: str) -> dict[str, tuple[str, str]]:
     """Find all signal source files (KG markdown + event JSONL)."""
     journal_path = Path(journal)
     files: dict[str, tuple[str, str]] = {}
+    day_root = (
+        journal_path / CHRONICLE_DIR
+        if (journal_path / CHRONICLE_DIR).is_dir()
+        else journal_path
+    )
 
-    for path in journal_path.glob("*/agents/knowledge_graph.md"):
+    for path in day_root.glob("*/agents/knowledge_graph.md"):
         if path.is_file():
-            rel = path.relative_to(journal_path).as_posix()
+            rel = path.relative_to(day_root).as_posix()
             files[rel] = (str(path), "kg")
 
     for path in journal_path.glob("facets/*/events/*.jsonl"):
@@ -502,7 +516,7 @@ def _load_facet_entities_for_day(journal: str, day: str) -> dict[str, set[str]]:
 
 def _extract_signal_kg(journal: str, rel_path: str) -> list[dict[str, Any]]:
     """Extract KG appearance and edge signals from a knowledge graph markdown file."""
-    abs_path = os.path.join(journal, rel_path)
+    abs_path = resolve_journal_path(journal, rel_path)
     day = rel_path.split("/")[0]
 
     try:
@@ -904,7 +918,7 @@ def index_file(journal: str, file_path: str, verbose: bool = False) -> bool:
     if os.path.isabs(file_path):
         abs_path = Path(file_path).resolve()
     else:
-        abs_path = (journal_path / file_path).resolve()
+        abs_path = resolve_journal_path(journal_path, file_path).resolve()
 
     # Validate file exists
     if not abs_path.is_file():
@@ -912,7 +926,7 @@ def index_file(journal: str, file_path: str, verbose: bool = False) -> bool:
 
     # Validate file is under journal
     try:
-        rel_path = str(abs_path.relative_to(journal_path))
+        rel_path = journal_relative_path(journal_path, abs_path)
     except ValueError:
         raise ValueError(f"File is outside journal directory: {abs_path}") from None
 
@@ -942,7 +956,7 @@ def index_file(journal: str, file_path: str, verbose: bool = False) -> bool:
     parts = rel_path.replace("\\", "/").split("/")
     if len(parts) >= 4 and segment_key(parts[2]):
         rel_segment = "/".join(parts[:3])
-        seg_dir = os.path.join(journal, rel_segment)
+        seg_dir = str(resolve_journal_path(journal, rel_segment))
         conn.execute("DELETE FROM chunks WHERE path=?", (rel_segment,))
         if os.path.isdir(seg_dir):
             seg_stream = _extract_stream(journal, rel_segment + "/dummy")
@@ -967,7 +981,7 @@ def _extract_stream(journal: str, rel: str) -> str | None:
     parts = rel.replace("\\", "/").split("/")
     # Segment paths: parts[0]=day, parts[1]=stream, parts[2]=segment, parts[3+]=file
     if len(parts) >= 3 and segment_key(parts[2]):
-        seg_dir = os.path.join(journal, parts[0], parts[1], parts[2])
+        seg_dir = str(resolve_journal_path(journal, "/".join(parts[:3])))
         marker = read_segment_stream(seg_dir)
         if marker:
             return marker.get("stream")
@@ -1483,15 +1497,20 @@ def consolidate_segment_entities(journal: str, full: bool = False) -> int:
     from datetime import datetime
 
     journal_path = Path(journal)
+    day_root = (
+        journal_path / CHRONICLE_DIR
+        if (journal_path / CHRONICLE_DIR).is_dir()
+        else journal_path
+    )
     today = datetime.now().strftime("%Y%m%d")
 
     # Collect all matching segment entity files across day/stream/segment dirs
     segment_files = []
-    for path in journal_path.glob("**/agents/entities.jsonl"):
+    for path in day_root.glob("**/agents/entities.jsonl"):
         if not path.is_file():
             continue
         try:
-            day = path.relative_to(journal_path).parts[0]
+            day = path.relative_to(day_root).parts[0]
         except (ValueError, IndexError):
             continue
         if not DATE_RE.fullmatch(day):
@@ -1723,7 +1742,7 @@ def scan_journal(journal: str, verbose: bool = False, full: bool = False) -> boo
 
     seg_count = 0
     for rel_segment in sorted(affected_segments):
-        segment_dir = os.path.join(journal, rel_segment)
+        segment_dir = str(resolve_journal_path(journal, rel_segment))
         conn.execute("DELETE FROM chunks WHERE path=?", (rel_segment,))
         if os.path.isdir(segment_dir):
             stream = _extract_stream(journal, rel_segment + "/dummy")
@@ -2312,14 +2331,16 @@ def _strength_score(
     recency: float,
     observation_depth: int,
     facet_breadth: int,
+    photo_count: int = 0,
 ) -> float:
     """Compute composite strength score from components.
 
-    Weights: kg_edge=5, co_occurrence=4, recency=3, observation_depth=2, facet_breadth=1
+    Weights: kg_edge=5, co_occurrence=4, photo_count=3 (log2), recency=3, observation_depth=2, facet_breadth=1
     """
     return round(
         5 * kg_edge_count
         + 4 * co_occurrence
+        + 3 * math.log2(photo_count + 1)
         + 3 * recency
         + 2 * observation_depth
         + 1 * facet_breadth,
@@ -2362,6 +2383,7 @@ def _compute_strength_scores(
             "facet_breadth": facet_breadth,
             "co_occurrence": 0,
             "kg_edge_count": 0,
+            "photo_count": 0,
         }
 
     # Count distinct KG relationship edges per entity (both source and target roles).
@@ -2427,6 +2449,28 @@ def _compute_strength_scores(
         if entity_name in scores:
             scores[entity_name]["co_occurrence"] = co_count
 
+    photo_where_parts: list[str] = ["signal_type='photo_cooccurrence'"]
+    photo_params: list[Any] = []
+    if facet:
+        photo_where_parts.append("facet=?")
+        photo_params.append(facet.lower())
+    if since:
+        photo_where_parts.append("day>=?")
+        photo_params.append(since)
+    photo_where = " AND ".join(photo_where_parts)
+    photo_rows = conn.execute(
+        f"""
+        SELECT entity_name, COUNT(*) as photo_count
+        FROM entity_signals
+        WHERE {photo_where}
+        GROUP BY entity_name
+        """,
+        photo_params,
+    ).fetchall()
+    for entity_name, photo_count in photo_rows:
+        if entity_name in scores:
+            scores[entity_name]["photo_count"] = photo_count
+
     obs_rows = conn.execute(
         "SELECT entity_id, observation_count FROM entities WHERE source='observation'"
     ).fetchall()
@@ -2466,6 +2510,7 @@ def get_entity_strength(
                     "recency": 0.0,
                     "facet_breadth": 0,
                     "observation_depth": 0,
+                    "photo_count": 0,
                 }
 
             r = results[key]
@@ -2479,6 +2524,7 @@ def get_entity_strength(
             r["facet_breadth"] = max(
                 r["facet_breadth"], components.get("facet_breadth", 0)
             )
+            r["photo_count"] = max(r["photo_count"], components.get("photo_count", 0))
             last_day = components.get("last_day", "")
             if last_day and last_day > r.get("_last_day", ""):
                 r["_last_day"] = last_day
@@ -2504,6 +2550,7 @@ def get_entity_strength(
                 r["recency"],
                 r["observation_depth"],
                 r["facet_breadth"],
+                photo_count=r["photo_count"],
             )
 
         ranked = sorted(results.values(), key=lambda x: x["score"], reverse=True)
@@ -2677,6 +2724,7 @@ def search_entities(
 def get_entity_intelligence(
     entity: str,
     facet: str | None = None,
+    brief: bool = False,
 ) -> dict[str, Any] | None:
     """Get a full intelligence briefing for an entity."""
     conn, _ = get_journal_index()
@@ -2823,6 +2871,7 @@ def get_entity_intelligence(
         max_co = 0
         max_breadth = 0
         best_last_day = ""
+        photo_count = 0
 
         if signal_names:
             placeholders_s = ",".join("?" for _ in signal_names)
@@ -2843,6 +2892,12 @@ def get_entity_intelligence(
                 total_appearance = stat_row[0]
                 best_last_day = stat_row[1] or ""
                 max_breadth = stat_row[2]
+
+            photo_row = conn.execute(
+                f"SELECT COUNT(*) FROM entity_signals WHERE signal_type='photo_cooccurrence' AND entity_name IN ({placeholders_s}){facet_filter}",
+                signal_names + facet_params,
+            ).fetchone()
+            photo_count = photo_row[0] if photo_row else 0
 
             # KG edge count for this entity
             kg_facet_filter = " AND facet=?" if facet else ""
@@ -2887,7 +2942,12 @@ def get_entity_intelligence(
 
         strength = {
             "score": _strength_score(
-                max_kg_edges, max_co, recency, obs_depth, max_breadth
+                max_kg_edges,
+                max_co,
+                recency,
+                obs_depth,
+                max_breadth,
+                photo_count=photo_count,
             ),
             "kg_edge_count": max_kg_edges,
             "co_occurrence": max_co,
@@ -2895,9 +2955,23 @@ def get_entity_intelligence(
             "recency": recency,
             "facet_breadth": max_breadth,
             "observation_depth": obs_depth,
+            "photo_count": photo_count,
         }
 
-        return {
+        if brief:
+            activity_total = len(activity)
+            network_total = len(network)
+            activity = activity[:20]
+            network = dict(list(network.items())[:20])
+            meta = {
+                "brief": True,
+                "activity_total": activity_total,
+                "activity_included": len(activity),
+                "network_total": network_total,
+                "network_included": len(network),
+            }
+
+        result = {
             "identity": identity,
             "relationships": relationships,
             "observations": observations,
@@ -2906,5 +2980,8 @@ def get_entity_intelligence(
             "network": network,
             "facets": all_facets,
         }
+        if brief:
+            result["_meta"] = meta
+        return result
     finally:
         conn.close()

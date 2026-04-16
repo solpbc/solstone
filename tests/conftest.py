@@ -2,9 +2,6 @@
 # Copyright (c) 2026 sol pbc
 
 import importlib
-import os
-import shutil
-import subprocess
 import sys
 import types
 from pathlib import Path
@@ -13,30 +10,12 @@ from unittest.mock import Mock
 import numpy as np
 import pytest
 
+from tests._baseline_harness import copytree_tracked
+from think.entities.journal import clear_journal_entity_cache
+from think.entities.loading import clear_entity_loading_cache
+from think.entities.observations import clear_observation_cache
+from think.entities.relationships import clear_relationship_caches
 from think.utils import now_ms
-
-
-def copytree_tracked(src, dst):
-    """Copy only git-tracked files from src to dst."""
-    src = Path(src)
-    dst = Path(dst)
-    result = subprocess.run(
-        ["git", "ls-files"],
-        cwd=src,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    for rel in result.stdout.splitlines():
-        if not rel:
-            continue
-        src_path = src / rel
-        dst_path = dst / rel
-        dst_path.parent.mkdir(parents=True, exist_ok=True)
-        if src_path.is_symlink():
-            os.symlink(os.readlink(src_path), dst_path)
-        else:
-            shutil.copy2(src_path, dst_path)
 
 
 @pytest.fixture(autouse=True)
@@ -51,7 +30,27 @@ def set_test_journal_path(request, monkeypatch):
         return
 
     # Set _SOLSTONE_JOURNAL_OVERRIDE to tests/fixtures/journal for all unit tests
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", "tests/fixtures/journal")
+    monkeypatch.setenv(
+        "_SOLSTONE_JOURNAL_OVERRIDE",
+        str(Path("tests/fixtures/journal").resolve()),
+    )
+
+
+@pytest.fixture(autouse=True)
+def _clear_entity_caches(request):
+    """Clear all entity caches before/after each test."""
+    if "integration" in request.node.keywords:
+        yield
+        return
+    clear_entity_loading_cache()
+    clear_journal_entity_cache()
+    clear_relationship_caches()
+    clear_observation_cache()
+    yield
+    clear_entity_loading_cache()
+    clear_journal_entity_cache()
+    clear_relationship_caches()
+    clear_observation_cache()
 
 
 @pytest.fixture
@@ -60,7 +59,7 @@ def journal_copy(tmp_path, monkeypatch):
     src = Path(__file__).resolve().parent / "fixtures" / "journal"
     dst = tmp_path / "journal"
     copytree_tracked(src, dst)
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(dst))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(dst.resolve()))
     return dst
 
 
@@ -482,36 +481,3 @@ def setup_google_genai_stub(monkeypatch, *, with_thinking=False):
     monkeypatch.setitem(sys.modules, "google.genai.errors", errors_mod)
 
     return DummyChat
-
-
-def copytree_tracked(src, dst):
-    """Copy only git-tracked files from src to dst, preserving directory structure."""
-    src = Path(src)
-    dst = Path(dst)
-    result = subprocess.run(
-        ["git", "ls-files", "."],
-        cwd=str(src),
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    for rel in result.stdout.splitlines():
-        if not rel:
-            continue
-        src_file = src / rel
-        dst_file = dst / rel
-        dst_file.parent.mkdir(parents=True, exist_ok=True)
-        if src_file.is_symlink():
-            os.symlink(os.readlink(src_file), dst_file)
-        else:
-            shutil.copy2(src_file, dst_file)
-
-
-@pytest.fixture
-def journal_copy(tmp_path, monkeypatch):
-    """Copy git-tracked journal fixtures to tmp_path and set the override env var."""
-    src = Path("tests/fixtures/journal")
-    dst = tmp_path / "journal"
-    copytree_tracked(src, dst)
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(dst))
-    return dst

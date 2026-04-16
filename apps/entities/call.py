@@ -14,11 +14,12 @@ import typer
 
 from think.entities.core import entity_slug, is_valid_entity_type
 from think.entities.journal import (
+    clear_journal_entity_cache,
     get_or_create_journal_entity,
     load_journal_entity,
     save_journal_entity,
 )
-from think.entities.loading import load_entities
+from think.entities.loading import clear_entity_loading_cache, load_entities
 from think.entities.matching import resolve_entity, validate_aka_uniqueness
 from think.entities.observations import (
     add_observation,
@@ -26,6 +27,7 @@ from think.entities.observations import (
     save_observations,
 )
 from think.entities.relationships import (
+    clear_relationship_caches,
     entity_memory_path,
     load_facet_relationship,
     save_facet_relationship,
@@ -43,6 +45,13 @@ from think.indexer.journal import (
 from think.utils import get_journal, now_ms, resolve_sol_day, resolve_sol_facet
 
 app = typer.Typer(help="Entity management.")
+
+
+def _clear_all_caches():
+    """Clear all underlying think entity caches."""
+    clear_entity_loading_cache()
+    clear_relationship_caches()
+    clear_journal_entity_cache()
 
 
 def _resolve_or_exit(facet: str, entity: str) -> dict:
@@ -89,6 +98,7 @@ def list_entities(
     """List entities for a facet."""
     facet = resolve_sol_facet(facet)
     entities = load_entities(facet, day)
+
     if not entities:
         typer.echo("No entities found.")
         return
@@ -144,6 +154,7 @@ def move_entity(
 
         src_obs = load_observations(from_facet, entity_name)
         dst_obs = load_observations(to_facet, entity_name)
+
         existing_keys = {(o["content"], o.get("observed_at")) for o in dst_obs}
         merged = list(dst_obs) + [
             o
@@ -151,6 +162,7 @@ def move_entity(
             if (o["content"], o.get("observed_at")) not in existing_keys
         ]
         save_observations(to_facet, entity_name, merged)
+
         shutil.rmtree(str(src_dir))
     else:
         dst_dir.parent.mkdir(parents=True, exist_ok=True)
@@ -377,6 +389,7 @@ def add_aka(
     entities = load_entities(
         facet, day=None, include_detached=True, include_blocked=True
     )
+
     conflict = validate_aka_uniqueness(
         aka_value, entities, exclude_entity_name=resolved_name
     )
@@ -476,7 +489,7 @@ def entity_strength(
         label = f"{name} ({eid})" if eid and eid != entity_slug(name) else name
         typer.echo(f"  {score:>8.1f}  {label}")
         typer.echo(
-            f"           kg={r['kg_edge_count']} co={r['co_occurrence']} rec={r['recency']:.3f} obs={r['observation_depth']} fac={r['facet_breadth']}"
+            f"           kg={r['kg_edge_count']} co={r['co_occurrence']} pho={r['photo_count']} rec={r['recency']:.3f} obs={r['observation_depth']} fac={r['facet_breadth']}"
         )
 
 
@@ -511,11 +524,14 @@ def entity_search(
 def entity_intel(
     entity: str = typer.Argument(help="Entity name or identifier."),
     facet: str | None = typer.Option(None, "--facet", "-f", help="Filter by facet."),
+    brief: bool = typer.Option(
+        False, "--brief", "-b", help="Truncate activity and network to 20 items."
+    ),
 ) -> None:
     """Get a full intelligence briefing for an entity."""
     import json as _json
 
-    result = get_entity_intelligence(entity, facet=facet)
+    result = get_entity_intelligence(entity, facet=facet, brief=brief)
     if result is None:
         typer.echo(f"Error: Entity '{entity}' not found.", err=True)
         raise typer.Exit(1)

@@ -20,7 +20,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 
-from think.utils import get_journal, now_ms
+from think.utils import day_path, get_journal, now_ms
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +102,7 @@ def record_exchange(
     time_key = dt.strftime("%H%M%S")
     segment = f"{time_key}_1"
 
-    seg_dir = Path(journal) / day / CONVERSATION_STREAM / segment / "agents"
+    seg_dir = day_path(day) / CONVERSATION_STREAM / segment / "agents"
     seg_dir.mkdir(parents=True, exist_ok=True)
 
     time_str = dt.strftime("%Y-%m-%d %H:%M:%S")
@@ -390,4 +390,3 @@ def _normalize_exchange(ex: dict) -> dict:
         # Optionally, remove the old 'muse' key if it's no longer needed in the normalized dict
         # del ex["muse"]
     return ex
-

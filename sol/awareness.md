@@ -1,14 +1,21 @@
-as of: 2026-04-12T21:00:00
-segment: 2026-04-12: 216 segments, ~16.9 hours.
+as of: 2026-04-16T15:00:00Z
+segment: segment-12345
 
 ## capture
-- status: stale
+- status: active
+- streams: ["audio", "screen", "cli"]
 
 ## calendar
-- No events found for today.
+- Meeting with Team Lead at 10:00 AM
 
 ## activity
-- The identity summary indicates system health was generally stable with services running, but multiple clusters of agent failures and timeouts were observed.
+- Idle
 
 ## routines
-- No routines configured.
+- Daily Review: Completed
+
+## entities
+- Jer: Recent Interaction
+
+## partner
+- Last interaction: Today

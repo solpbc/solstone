@@ -59,6 +59,25 @@
     .observer-empty { font-size: 0.85rem; color: #888; }
     .observer-empty a { color: #b06a1a; }
     .footer-note { font-size: 0.88rem; color: #767676; margin-top: 1.5rem; text-align: center; }
+    .settings-mode-btn {
+      padding: 0.5em 1em; border: 1px solid #ccc; border-radius: 4px;
+      background: #fff; color: #555; cursor: pointer; font-size: 0.85rem;
+    }
+    .settings-mode-btn:hover { border-color: #999; }
+    .settings-mode-btn:active:not(.active) { background: #f5f5f5; }
+    .settings-mode-btn.active { background: #E8923A; color: #fff; border-color: #E8923A; }
+    .settings-preset-btn {
+      padding: 0.35em 0.75em; border: 1px solid #ccc; border-radius: 4px;
+      background: #fff; color: #555; cursor: pointer; font-size: 0.85rem;
+    }
+    .settings-preset-btn:hover { border-color: #999; }
+    .settings-preset-btn.active { border-color: #E8923A; color: #E8923A; }
+    .retention-days-row { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; }
+    .retention-days-row input[type="number"] {
+      width: 5em; padding: 0.35em 0.5em; border: 2px solid #ddd; border-radius: 8px;
+      font-size: 0.85rem; box-sizing: border-box;
+    }
+    .retention-days-row input[type="number"]:focus { outline: none; border-color: #E8923A; }
   </style>
 </head>
 <body>
@@ -131,8 +150,27 @@
       </div>
     </section>
 
+    <section class="init-section disabled" id="section-observed-media">
+      <h3>5. your observed media</h3>
+      <p class="section-hint">choose how long to keep observed audio and screen media. you can change this anytime in settings.</p>
+      <div class="field-group">
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+          <button type="button" class="settings-mode-btn active" data-mode="days" onclick="setRetentionMode('days')">keep N days</button>
+          <button type="button" class="settings-mode-btn" data-mode="keep" onclick="setRetentionMode('keep')">keep forever</button>
+          <button type="button" class="settings-mode-btn" data-mode="processed" onclick="setRetentionMode('processed')">delete after processing</button>
+        </div>
+        <div id="retention-days-field" class="retention-days-row">
+          <button type="button" class="settings-preset-btn active" data-days="7" onclick="setRetentionDays(7)">7</button>
+          <button type="button" class="settings-preset-btn" data-days="30" onclick="setRetentionDays(30)">30</button>
+          <button type="button" class="settings-preset-btn" data-days="90" onclick="setRetentionDays(90)">90</button>
+          <input type="number" id="retention-days-input" min="1" max="365" value="7" onchange="setRetentionDaysCustom(this.value)">
+          <span style="font-size: 0.85rem; color: #666;">days</span>
+        </div>
+      </div>
+    </section>
+
     <section class="init-section disabled" id="section-finalize">
-      <h3>5. get started</h3>
+      <h3>6. get started</h3>
       <p class="section-hint">solstone works best with a coding agent. open a terminal, navigate to your solstone directory, and ask it to help you set up:</p>
       <p class="section-hint"><code>cd {{ repo_path }} &amp;&amp; claude "help me set up solstone"</code></p>
       <p class="section-hint"><code>cd {{ repo_path }} &amp;&amp; codex "help me set up solstone"</code></p>
@@ -180,7 +218,7 @@
     let detectedTimezone = '';
 
     function unlockSections() {
-      ['section-identity', 'section-provider', 'section-observers', 'section-finalize'].forEach(id => {
+      ['section-identity', 'section-provider', 'section-observers', 'section-observed-media', 'section-finalize'].forEach(id => {
         const section = document.getElementById(id);
         section.classList.remove('disabled');
         section.querySelectorAll('input[disabled]').forEach(inp => inp.disabled = false);
@@ -250,6 +288,27 @@
       } catch (err) {}
     }
 
+    function setRetentionMode(mode) {
+      document.querySelectorAll('#section-observed-media .settings-mode-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.mode === mode);
+      });
+      document.getElementById('retention-days-field').style.display = mode === 'days' ? 'flex' : 'none';
+    }
+
+    function setRetentionDays(days) {
+      document.querySelectorAll('#section-observed-media .settings-preset-btn').forEach(btn => {
+        btn.classList.toggle('active', parseInt(btn.dataset.days) === days);
+      });
+      document.getElementById('retention-days-input').value = days;
+    }
+
+    function setRetentionDaysCustom(value) {
+      const days = parseInt(value) || 7;
+      document.querySelectorAll('#section-observed-media .settings-preset-btn').forEach(btn => {
+        btn.classList.toggle('active', parseInt(btn.dataset.days) === days);
+      });
+    }
+
     async function finalize() {
       try {
         const resp = await fetch('/init/finalize', {
@@ -259,7 +318,9 @@
             name: document.getElementById('name').value.trim(),
             preferred: document.getElementById('preferred').value.trim(),
             timezone: detectedTimezone,
-            gemini_key: document.getElementById('gemini-key').value.trim()
+            gemini_key: document.getElementById('gemini-key').value.trim(),
+            retention_mode: (document.querySelector('#section-observed-media .settings-mode-btn.active') || {}).dataset?.mode || 'days',
+            retention_days: parseInt(document.getElementById('retention-days-input').value) || 7
           })
         });
         const data = await resp.json();

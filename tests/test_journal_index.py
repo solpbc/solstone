@@ -10,13 +10,13 @@ from pathlib import Path
 
 import pytest
 
+from tests.conftest import copytree_tracked
 from think.indexer import sanitize_fts_query
 from think.indexer.journal import (
     extract_temporal_references,
     get_journal_index,
     search_journal,
 )
-from tests.conftest import copytree_tracked
 
 
 class TestSanitizeFtsQuery:
@@ -279,8 +279,8 @@ def journal_fixture(tmp_path):
     os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(journal)
 
     # Create daily insight
-    day = journal / "20240101"
-    day.mkdir()
+    day = journal / "chronicle" / "20240101"
+    day.mkdir(parents=True)
     agents_dir = day / "agents"
     agents_dir.mkdir()
     (agents_dir / "flow.md").write_text("# Flow Summary\n\nWorked on project alpha.\n")
@@ -908,7 +908,7 @@ def test_light_scan_removes_deleted_today_segment(tmp_path):
     # Create content for today (which is in light scan scope)
     today = datetime.now().strftime("%Y%m%d")
     day_dir = journal / today
-    day_dir.mkdir()
+    day_dir.mkdir(parents=True)
     agents_dir = day_dir / "agents"
     agents_dir.mkdir()
     output_file = agents_dir / "flow.md"
@@ -941,8 +941,8 @@ def test_light_scan_preserves_historical_content(tmp_path):
     os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(journal)
 
     # Create historical day content
-    day_dir = journal / "20200101"
-    day_dir.mkdir()
+    day_dir = journal / "chronicle" / "20200101"
+    day_dir.mkdir(parents=True)
     agents_dir = day_dir / "agents"
     agents_dir.mkdir()
     output_file = agents_dir / "flow.md"
@@ -976,8 +976,8 @@ def test_full_scan_removes_historical_content(tmp_path):
     os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(journal)
 
     # Create historical day content
-    day_dir = journal / "20200101"
-    day_dir.mkdir()
+    day_dir = journal / "chronicle" / "20200101"
+    day_dir.mkdir(parents=True)
     agents_dir = day_dir / "agents"
     agents_dir.mkdir()
     output_file = agents_dir / "flow.md"
@@ -1019,13 +1019,37 @@ def test_index_file_absolute_path(journal_fixture):
     """Test indexing with absolute path."""
     from think.indexer.journal import index_file, search_journal
 
-    abs_path = str(journal_fixture / "20240101" / "agents" / "flow.md")
+    abs_path = str(journal_fixture / "chronicle" / "20240101" / "agents" / "flow.md")
     result = index_file(str(journal_fixture), abs_path, verbose=True)
     assert result is True
 
     # Should be searchable
     total, _ = search_journal("project alpha")
     assert total >= 1
+
+
+def test_scan_journal_never_stores_chronicle_prefix(journal_fixture):
+    """Chronicle is an on-disk prefix only, never a stored relative path."""
+    from think.indexer.journal import scan_journal
+
+    scan_journal(str(journal_fixture), full=True)
+
+    conn, _ = get_journal_index(str(journal_fixture))
+    try:
+        assert (
+            conn.execute(
+                "SELECT count(*) FROM files WHERE path LIKE 'chronicle/%'"
+            ).fetchone()[0]
+            == 0
+        )
+        assert (
+            conn.execute(
+                "SELECT count(*) FROM chunks WHERE path LIKE 'chronicle/%'"
+            ).fetchone()[0]
+            == 0
+        )
+    finally:
+        conn.close()
 
 
 def test_index_file_updates_existing(journal_fixture):
@@ -1072,7 +1096,7 @@ def test_index_file_no_formatter(journal_fixture):
     from think.indexer.journal import index_file
 
     # Create a file with no formatter (e.g., .txt)
-    txt_file = journal_fixture / "20240101" / "notes.txt"
+    txt_file = journal_fixture / "chronicle" / "20240101" / "notes.txt"
     txt_file.write_text("Just some text notes.\n")
 
     with pytest.raises(ValueError, match="No formatter found"):
@@ -1088,7 +1112,7 @@ def test_extract_stream_segment_path(tmp_path):
     from think.streams import write_segment_stream
 
     # Create a segment with stream marker
-    seg_dir = tmp_path / "20240101" / "default" / "123456_300"
+    seg_dir = tmp_path / "chronicle" / "20240101" / "default" / "123456_300"
     seg_dir.mkdir(parents=True)
     write_segment_stream(seg_dir, "archon", None, None, 1)
 
@@ -1113,7 +1137,7 @@ def test_extract_stream_missing_marker(tmp_path):
     """_extract_stream returns None when stream.json doesn't exist."""
     from think.indexer.journal import _extract_stream
 
-    seg_dir = tmp_path / "20240101" / "default" / "123456_300"
+    seg_dir = tmp_path / "chronicle" / "20240101" / "default" / "123456_300"
     seg_dir.mkdir(parents=True)
 
     result = _extract_stream(
@@ -1443,7 +1467,7 @@ def test_scan_signals_deletion(tmp_path):
     conn.close()
     assert initial == 45
 
-    kg_file = dst / "20240101" / "agents" / "knowledge_graph.md"
+    kg_file = dst / "chronicle" / "20240101" / "agents" / "knowledge_graph.md"
     kg_file.unlink()
 
     scan_journal(j, full=True)

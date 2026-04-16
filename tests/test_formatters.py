@@ -89,7 +89,7 @@ class TestLoadJsonl:
 
         path = (
             Path(os.environ["_SOLSTONE_JOURNAL_OVERRIDE"])
-            / "20240101/default/123456_300/audio.jsonl"
+            / "chronicle/20240101/default/123456_300/audio.jsonl"
         )
         entries = load_jsonl(path)
 
@@ -144,7 +144,7 @@ class TestFormatFile:
 
         path = (
             Path(os.environ["_SOLSTONE_JOURNAL_OVERRIDE"])
-            / "20240102/default/234567_300/screen.jsonl"
+            / "chronicle/20240102/default/234567_300/screen.jsonl"
         )
         chunks, meta = format_file(path)
 
@@ -161,7 +161,7 @@ class TestFormatFile:
 
         path = (
             Path(os.environ["_SOLSTONE_JOURNAL_OVERRIDE"])
-            / "20240101/default/123456_300/audio.jsonl"
+            / "chronicle/20240101/default/123456_300/audio.jsonl"
         )
         chunks, meta = format_file(path)
 
@@ -471,7 +471,7 @@ class TestLoadTranscriptBackwardCompat:
 
         path = (
             Path(os.environ["_SOLSTONE_JOURNAL_OVERRIDE"])
-            / "20240101/default/123456_300/audio.jsonl"
+            / "chronicle/20240101/default/123456_300/audio.jsonl"
         )
         metadata, entries, formatted_text = load_transcript(path)
 
@@ -1281,7 +1281,8 @@ class TestFormatMarkdown:
         from think.formatters import format_file
 
         path = (
-            Path(os.environ["_SOLSTONE_JOURNAL_OVERRIDE"]) / "20240101/agents/flow.md"
+            Path(os.environ["_SOLSTONE_JOURNAL_OVERRIDE"])
+            / "chronicle/20240101/agents/flow.md"
         )
         chunks, meta = format_file(path)
 
@@ -1294,7 +1295,8 @@ class TestFormatMarkdown:
         from think.formatters import load_markdown
 
         path = (
-            Path(os.environ["_SOLSTONE_JOURNAL_OVERRIDE"]) / "20240101/agents/flow.md"
+            Path(os.environ["_SOLSTONE_JOURNAL_OVERRIDE"])
+            / "chronicle/20240101/agents/flow.md"
         )
         text = load_markdown(path)
 
@@ -1743,7 +1745,7 @@ class TestFormatLogs:
 
         assert len(chunks) == 1
         assert (
-            "**Agent:** [1765870373972](/app/agents/1765870373972)"
+            "**Agent:** [1765870373972](/app/sol/1765870373972)"
             in chunks[0]["markdown"]
         )
 

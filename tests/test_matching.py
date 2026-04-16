@@ -4,6 +4,7 @@
 """Tests for entity matching and name variant resolution."""
 
 from think.entities.matching import (
+    MatchTier,
     build_name_resolution_map,
     find_matching_entity,
     is_name_variant_match,
@@ -306,3 +307,147 @@ class TestIsNameVariantMatch:
     def test_single_token_not_first_word(self):
         """Single tokens that aren't the first word don't match."""
         assert is_name_variant_match("Dilworth", "Jones Dilworth") is False
+
+
+# --- MatchResult and confidence tiers ---
+
+
+class TestMatchResult:
+    """Verify MatchResult is backward-compatible with dict usage."""
+
+    def test_is_dict(self):
+        entities = [_entity("Alice Johnson")]
+        result = find_matching_entity("Alice Johnson", entities)
+        assert isinstance(result, dict)
+
+    def test_subscript_access(self):
+        entities = [_entity("Alice Johnson")]
+        result = find_matching_entity("Alice Johnson", entities)
+        assert result["id"] == "alice_johnson"
+        assert result["name"] == "Alice Johnson"
+
+    def test_get_access(self):
+        entities = [_entity("Alice Johnson")]
+        result = find_matching_entity("Alice Johnson", entities)
+        assert result.get("name") == "Alice Johnson"
+        assert result.get("missing") is None
+
+    def test_truthiness(self):
+        entities = [_entity("Alice Johnson")]
+        result = find_matching_entity("Alice Johnson", entities)
+        assert result  # truthy
+        assert find_matching_entity("Nobody", entities) is None
+
+    def test_none_is_none(self):
+        """No match still returns None, not an empty MatchResult."""
+        entities = [_entity("Alice Johnson")]
+        result = find_matching_entity("Nobody", entities)
+        assert result is None
+
+
+class TestMatchTiers:
+    """Verify each tier returns the correct MatchTier value."""
+
+    def test_exact_name_tier(self):
+        entities = [_entity("Robert Johnson")]
+        result = find_matching_entity("Robert Johnson", entities)
+        assert result.tier == MatchTier.EXACT
+
+    def test_exact_id_tier(self):
+        entities = [_entity("Robert Johnson")]
+        result = find_matching_entity("robert_johnson", entities)
+        assert result.tier == MatchTier.EXACT
+
+    def test_exact_aka_tier(self):
+        entities = [_entity("Robert Johnson", aka=["Bob"])]
+        result = find_matching_entity("Bob", entities)
+        assert result.tier == MatchTier.EXACT
+
+    def test_case_insensitive_tier(self):
+        entities = [_entity("Robert Johnson")]
+        result = find_matching_entity("robert johnson", entities)
+        assert result.tier == MatchTier.CASE_INSENSITIVE
+
+    def test_email_tier(self):
+        entities = [{"id": "alice", "name": "Alice", "emails": ["alice@example.com"]}]
+        result = find_matching_entity("alice@example.com", entities)
+        assert result.tier == MatchTier.EMAIL
+
+    def test_slug_tier(self):
+        """Slugified query matching entity id."""
+        entities = [{"id": "robert_johnson", "name": "Robert Johnson"}]
+        result = find_matching_entity("Robert Johnson", entities)
+        # "Robert Johnson" exact-matches the name, so it's tier 1
+        assert result.tier == MatchTier.EXACT
+        # Use a slug-form query that doesn't exact-match but slug-matches
+        entities2 = [{"id": "some_custom_id", "name": "Some Name"}]
+        result2 = find_matching_entity("Some Name", entities2)
+        # This exact-matches the name
+        assert result2.tier == MatchTier.EXACT
+
+    def test_first_word_tier(self):
+        entities = [_entity("Javier Garcia")]
+        result = find_matching_entity("Javier", entities)
+        assert result.tier == MatchTier.FIRST_WORD
+
+    def test_first_word_long_to_short_tier(self):
+        entities = [_entity("Javier")]
+        result = find_matching_entity("Javier Garcia", entities)
+        assert result.tier == MatchTier.FIRST_WORD
+
+    def test_token_subset_tier(self):
+        entities = [_entity("Josh Jones Dilworth")]
+        result = find_matching_entity("Jones Dilworth", entities)
+        assert result.tier == MatchTier.TOKEN_SUBSET
+
+    def test_prefix_tier(self):
+        entities = [_entity("Christopher DeWolfe")]
+        result = find_matching_entity("Chris DeWolfe", entities)
+        assert result.tier == MatchTier.PREFIX
+
+    def test_fuzzy_tier(self):
+        entities = [_entity("Christopher DeWolfe")]
+        # Close enough for fuzzy but not an exact/prefix match
+        result = find_matching_entity("Christoph DeWolffe", entities)
+        if result:  # rapidfuzz may not be installed
+            assert result.tier == MatchTier.FUZZY
+
+
+class TestHighConfidence:
+    """Verify the is_high_confidence boundary between tiers 1-4 and 5+."""
+
+    def test_exact_is_high(self):
+        entities = [_entity("Alice Johnson")]
+        result = find_matching_entity("Alice Johnson", entities)
+        assert result.is_high_confidence is True
+
+    def test_case_insensitive_is_high(self):
+        entities = [_entity("Alice Johnson")]
+        result = find_matching_entity("alice johnson", entities)
+        assert result.is_high_confidence is True
+
+    def test_email_is_high(self):
+        entities = [{"id": "alice", "name": "Alice", "emails": ["a@b.com"]}]
+        result = find_matching_entity("a@b.com", entities)
+        assert result.is_high_confidence is True
+
+    def test_first_word_is_low(self):
+        entities = [_entity("Javier Garcia")]
+        result = find_matching_entity("Javier", entities)
+        assert result.is_high_confidence is False
+
+    def test_token_subset_is_low(self):
+        entities = [_entity("Josh Jones Dilworth")]
+        result = find_matching_entity("Jones Dilworth", entities)
+        assert result.is_high_confidence is False
+
+    def test_prefix_is_low(self):
+        entities = [_entity("Christopher DeWolfe")]
+        result = find_matching_entity("Chris DeWolfe", entities)
+        assert result.is_high_confidence is False
+
+    def test_tier_comparison(self):
+        """MatchTier is an IntEnum — callers can compare tiers numerically."""
+        assert MatchTier.EXACT < MatchTier.FUZZY
+        assert MatchTier.SLUG <= MatchTier.SLUG
+        assert MatchTier.FIRST_WORD > MatchTier.SLUG

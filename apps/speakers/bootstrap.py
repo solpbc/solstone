@@ -105,29 +105,65 @@ def _save_voiceprints_batch(
     # Load existing voiceprints
     if npz_path.exists():
         try:
-            data = np.load(npz_path, allow_pickle=False)
-            existing_emb = data["embeddings"]
-            existing_meta = list(data["metadata"])
-        except Exception:
+            # Use np.load with allow_pickle=False for safety, adjust if metadata requires it.
+            with np.load(npz_path, allow_pickle=False) as data:
+                existing_emb = data["embeddings"]
+                # Existing metadata was likely saved as JSON strings. Deserialize them.
+                # Assuming np.load returns an array of strings if saved as dtype=str.
+                existing_meta_strings = data["metadata"]
+                existing_meta_dicts = [json.loads(m) for m in existing_meta_strings]
+        except (FileNotFoundError, ValueError, np.lib.npyio.NpzFile) as e:
+            logger.warning(
+                f"Failed to load existing voiceprints for {entity_id} from {npz_path}: {e}. Starting fresh."
+            )
             existing_emb = np.empty((0, 256), dtype=np.float32)
-            existing_meta = []
+            existing_meta_dicts = []
+        except Exception as e:  # Catch other potential errors during loading
+            logger.error(
+                f"Unexpected error loading existing voiceprints for {entity_id} from {npz_path}: {e}"
+            )
+            raise
     else:
         existing_emb = np.empty((0, 256), dtype=np.float32)
-        existing_meta = []
+        existing_meta_dicts = []
 
-    # Build new arrays
-    new_emb = np.vstack([emb.reshape(1, -1).astype(np.float32) for emb, _ in new_items])
-    new_meta = [json.dumps(m) for _, m in new_items]
+    # Prepare new embeddings and metadata dicts
+    new_emb_list = []
+    new_meta_dicts = []
+    for emb, meta_dict in new_items:
+        new_emb_list.append(emb.reshape(1, -1).astype(np.float32))
+        new_meta_dicts.append(meta_dict)
 
-    combined_emb = (
-        np.vstack([existing_emb, new_emb]) if len(existing_emb) > 0 else new_emb
-    )
-    combined_meta = np.array(existing_meta + new_meta, dtype=str)
+    # Combine existing and new data
+    if new_emb_list:
+        new_emb_np = np.vstack(new_emb_list)
+        combined_emb = (
+            np.vstack([existing_emb, new_emb_np])
+            if len(existing_emb) > 0
+            else new_emb_np
+        )
+        # Combine the metadata dictionaries
+        combined_meta_dicts = existing_meta_dicts + new_meta_dicts
+    else:  # Should not happen if new_items is not empty, but for safety
+        combined_emb = existing_emb
+        combined_meta_dicts = existing_meta_dicts
 
-    tmp_path = npz_path.with_name(npz_path.stem + ".tmp.npz")
-    np.savez_compressed(tmp_path, embeddings=combined_emb, metadata=combined_meta)
-    tmp_path.rename(npz_path)
-    return len(new_items)
+    # Use the new safe saving utility
+    try:
+        # Import the utility function
+        from apps.speakers.voiceprint_io import save_voiceprints_safely
+
+        save_voiceprints_safely(
+            npz_path=npz_path,
+            embeddings=combined_emb,
+            metadata=combined_meta_dicts,  # Pass metadata as a list of dicts
+        )
+        return len(new_items)
+    except Exception as e:
+        logger.error(f"Failed to safely save voiceprints for {entity_id}: {e}")
+        # The save_voiceprints_safely function already logs critical errors and re-raises.
+        # We re-raise here to propagate the failure.
+        raise
 
 
 def bootstrap_voiceprints(dry_run: bool = False) -> dict[str, Any]:
@@ -852,9 +888,7 @@ def link_import(name: str, entity_id: str) -> dict[str, Any]:
     others = [e for eid, e in all_entities.items() if eid != entity_id]
     conflict = find_matching_entity(name, others)
     if conflict:
-        return {
-            "error": f"Name '{name}' conflicts with entity '{conflict['id']}'"
-        }
+        return {"error": f"Name '{name}' conflicts with entity '{conflict['id']}'"}
 
     existing_aka = set(entity.get("aka", []))
     already_present = name in existing_aka

@@ -75,7 +75,7 @@ def test_process_text_pdf(tmp_path, monkeypatch):
     pdf.write_bytes(b"%PDF-1.4")
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     monkeypatch.setattr(mod, "PdfReader", MockPdfReader)
-    monkeypatch.setattr(mod, "day_path", lambda day: tmp_path / day)
+    monkeypatch.setattr(mod, "day_path", lambda day: tmp_path / "chronicle" / day)
     monkeypatch.setattr(
         mod,
         "write_content_manifest",
@@ -87,7 +87,7 @@ def test_process_text_pdf(tmp_path, monkeypatch):
         pdf, tmp_path, facet="work", import_id="20260115_120000"
     )
 
-    seg_dir = tmp_path / "20260115" / "import.document" / "120000_0"
+    seg_dir = tmp_path / "chronicle" / "20260115" / "import.document" / "120000_0"
     md_path = seg_dir / "document_transcript.md"
 
     assert result.entries_written == 1
@@ -107,7 +107,7 @@ def test_process_creates_original_pdf(tmp_path, monkeypatch):
     pdf.write_bytes(b"%PDF-1.4 fake")
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     monkeypatch.setattr(mod, "PdfReader", MockPdfReader)
-    monkeypatch.setattr(mod, "day_path", lambda day: tmp_path / day)
+    monkeypatch.setattr(mod, "day_path", lambda day: tmp_path / "chronicle" / day)
     monkeypatch.setattr(
         mod,
         "write_content_manifest",
@@ -117,7 +117,14 @@ def test_process_creates_original_pdf(tmp_path, monkeypatch):
 
     result = mod.importer.process(pdf, tmp_path, import_id="20260115_120000")
 
-    copied = tmp_path / "20260115" / "import.document" / "120000_0" / "original.pdf"
+    copied = (
+        tmp_path
+        / "chronicle"
+        / "20260115"
+        / "import.document"
+        / "120000_0"
+        / "original.pdf"
+    )
     assert copied.exists()
     assert copied.read_bytes() == b"%PDF-1.4 fake"
     assert str(copied) not in result.files_created
@@ -136,7 +143,7 @@ def test_process_scanned_detection(tmp_path, monkeypatch):
     pdf.write_bytes(b"%PDF-1.4")
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     monkeypatch.setattr(mod, "PdfReader", ScannedReader)
-    monkeypatch.setattr(mod, "day_path", lambda day: tmp_path / day)
+    monkeypatch.setattr(mod, "day_path", lambda day: tmp_path / "chronicle" / day)
     monkeypatch.setattr(
         mod,
         "write_content_manifest",
@@ -157,6 +164,7 @@ def test_process_scanned_detection(tmp_path, monkeypatch):
     assert result.errors == []
     md_path = (
         tmp_path
+        / "chronicle"
         / "20260115"
         / "import.document"
         / "120000_0"
@@ -178,7 +186,7 @@ def test_process_scanned_ocr_fallback(tmp_path, monkeypatch):
     pdf.write_bytes(b"%PDF-1.4")
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     monkeypatch.setattr(mod, "PdfReader", ScannedReader)
-    monkeypatch.setattr(mod, "day_path", lambda day: tmp_path / day)
+    monkeypatch.setattr(mod, "day_path", lambda day: tmp_path / "chronicle" / day)
     monkeypatch.setattr(
         mod,
         "write_content_manifest",
@@ -198,6 +206,7 @@ def test_process_scanned_ocr_fallback(tmp_path, monkeypatch):
 
     md_path = (
         tmp_path
+        / "chronicle"
         / "20260115"
         / "import.document"
         / "120000_0"
@@ -219,7 +228,7 @@ def test_process_scanned_all_fallback(tmp_path, monkeypatch):
     pdf.write_bytes(b"%PDF-1.4")
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     monkeypatch.setattr(mod, "PdfReader", ScannedReader)
-    monkeypatch.setattr(mod, "day_path", lambda day: tmp_path / day)
+    monkeypatch.setattr(mod, "day_path", lambda day: tmp_path / "chronicle" / day)
     monkeypatch.setattr(
         mod,
         "write_content_manifest",
@@ -246,6 +255,7 @@ def test_process_scanned_all_fallback(tmp_path, monkeypatch):
     ]
     md_path = (
         tmp_path
+        / "chronicle"
         / "20260115"
         / "import.document"
         / "120000_0"
@@ -262,7 +272,7 @@ def test_process_multi_file(tmp_path, monkeypatch):
     pdf_b.write_bytes(b"%PDF-1.4")
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     monkeypatch.setattr(mod, "PdfReader", MockPdfReader)
-    monkeypatch.setattr(mod, "day_path", lambda day: tmp_path / day)
+    monkeypatch.setattr(mod, "day_path", lambda day: tmp_path / "chronicle" / day)
     monkeypatch.setattr(
         mod,
         "write_content_manifest",
@@ -293,7 +303,7 @@ def test_process_entity_seeding(tmp_path, monkeypatch):
     pdf.write_bytes(b"%PDF-1.4")
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     monkeypatch.setattr(mod, "PdfReader", EntityReader)
-    monkeypatch.setattr(mod, "day_path", lambda day: tmp_path / day)
+    monkeypatch.setattr(mod, "day_path", lambda day: tmp_path / "chronicle" / day)
     monkeypatch.setattr(
         mod,
         "write_content_manifest",

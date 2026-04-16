@@ -130,7 +130,10 @@
   }
 
   function renderAgentContent(content) {
-    return sanitizeAgentHtml(marked.parse(content, { breaks: true, gfm: true }));
+    if (typeof marked !== 'undefined') {
+      return sanitizeAgentHtml(marked.parse(content, { breaks: true, gfm: true }));
+    }
+    return sanitizeAgentHtml('<p>' + content.replace(/\n/g, '<br>') + '</p>');
   }
 
   const backdrop = document.getElementById('conversationBackdrop');

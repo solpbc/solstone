@@ -14,6 +14,16 @@
       </div>
     </details>
 
+    <div id="capture-status-section" style="margin-top: 12px; display: none;">
+      <h4 style="margin: 0 0 4px 0; font-size: 13px; font-weight: 600;">capture</h4>
+      <span id="capture-status-text" style="font-size: 13px;"></span>
+    </div>
+
+    <div id="version-section" style="margin-top: 12px; display: none;">
+      <h4 style="margin: 0 0 4px 0; font-size: 13px; font-weight: 600;">version</h4>
+      <span id="version-text" style="font-size: 13px;"></span>
+    </div>
+
     <div id="quiet-notifs-section" style="display:none; margin-top: 16px;">
       <h3 style="margin-bottom: 8px;">quiet notifications</h3>
       <div id="quiet-notifs-list" style="display: flex; flex-direction: column; gap: 4px; font-size: 13px;"></div>
@@ -34,6 +44,8 @@
   const liveRegion = document.getElementById('status-live-region');
   let statusPaneOpen = false;
   let _lastHistoryLen = -1;
+  let _systemStatusInterval = null;
+  let _lastCaptureStatus = null;
 
   // Shared label updater — called from here and from websocket.js
   window.updateStatusLabel = function() {
@@ -59,8 +71,11 @@
         window.AppServices?.quietNotifs?.markViewed();
         renderQuietNotifs();
         updateStatusPane();
+        fetchSystemStatus();
+        _systemStatusInterval = setInterval(fetchSystemStatus, 60000);
       } else {
         statusPane.classList.remove('visible');
+        if (_systemStatusInterval) { clearInterval(_systemStatusInterval); _systemStatusInterval = null; }
         statusIcon.focus();
       }
     });
@@ -72,6 +87,7 @@
         statusPaneOpen = false;
         statusPane.classList.remove('visible');
         statusIcon.setAttribute('aria-expanded', 'false');
+        if (_systemStatusInterval) { clearInterval(_systemStatusInterval); _systemStatusInterval = null; }
         window.updateStatusLabel();
         statusIcon.focus();
       }
@@ -83,6 +99,7 @@
         statusPaneOpen = false;
         statusPane.classList.remove('visible');
         statusIcon.setAttribute('aria-expanded', 'false');
+        if (_systemStatusInterval) { clearInterval(_systemStatusInterval); _systemStatusInterval = null; }
         window.updateStatusLabel();
         statusIcon.focus();
       }
@@ -154,9 +171,101 @@
       }
     }
 
+    // Update composite icon if we have capture data
+    if (_lastCaptureStatus !== null) updateCompositeIcon();
+
     // Update notification history
     updateNotificationHistory();
     updateBellState();
+  }
+
+  function fetchSystemStatus() {
+    fetch('/api/system/status')
+      .then(r => r.ok ? r.json() : null)
+      .catch(() => null)
+      .then(data => {
+        if (!data) return;
+        _lastCaptureStatus = data.capture?.status || null;
+        renderCaptureSection(data.capture);
+        renderVersionSection(data.version);
+        updateCompositeIcon();
+      });
+  }
+
+  function renderCaptureSection(capture) {
+    const section = document.getElementById('capture-status-section');
+    const text = document.getElementById('capture-status-text');
+    if (!section || !text) return;
+
+    section.style.display = '';
+    const status = capture?.status;
+    const displayStatus = status === 'no_observers' ? 'no observers' : (status || 'unknown');
+    if (status === 'active') {
+      text.style.color = '#10b981';
+    } else if (status === 'stale') {
+      const names = (capture.observers || []).filter(o => o.status === 'stale').map(o => o.name).join(', ');
+      text.textContent = 'capture ' + displayStatus + (names ? ' — ' + names : '');
+      text.style.color = '#f59e0b';
+      return;
+    } else if (status === 'offline') {
+      text.style.color = '#ef4444';
+    } else {
+      text.style.color = '#9ca3af';
+    }
+    text.textContent = 'capture ' + displayStatus;
+  }
+
+  function renderVersionSection(version) {
+    const section = document.getElementById('version-section');
+    const text = document.getElementById('version-text');
+    if (!section || !text) return;
+
+    section.style.display = '';
+    if (version?.update_available) {
+      text.textContent = '';
+      text.appendChild(document.createTextNode('v' + (version.current || '?') + ' — '));
+      const span = document.createElement('span');
+      span.style.color = '#f59e0b';
+      span.textContent = 'update available (v' + (version.latest || '?') + ')';
+      text.appendChild(span);
+      text.style.color = '';
+    } else {
+      text.textContent = 'v' + (version?.current || 'unknown');
+      text.style.color = '#9ca3af';
+    }
+  }
+
+  function updateCompositeIcon() {
+    const metrics = window.appEvents?.getMetrics?.();
+    const wsState = metrics?.state || 'disconnected';
+
+    // Map capture status to severity: active=0, no_observers=0, stale=1, offline=2
+    // Map WS state to severity: connected=0, connecting=1, disconnected=2
+    const captureSeverity = { active: 0, no_observers: 0, stale: 1, offline: 2 };
+    const wsSeverity = { connected: 0, connecting: 1, disconnected: 2 };
+
+    const cs = captureSeverity[_lastCaptureStatus] ?? 0;
+    const ws = wsSeverity[wsState] ?? 2;
+
+    // Only override icon if capture makes it worse than WS alone
+    if (cs <= ws) return;
+
+    const worst = Math.max(cs, ws);
+    const iconState = worst === 0 ? 'connected' : worst === 1 ? 'connecting' : 'disconnected';
+
+    // Directly update the SVG without touching connectionState
+    const icon = document.querySelector('.facet-bar .status-icon');
+    if (!icon) return;
+
+    const svgs = {
+      connected: '<svg class="status-indicator" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="#10b981"/></svg>',
+      connecting: '<svg class="status-indicator status-indicator--connecting" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-dasharray="24 8"/></svg>',
+      disconnected: '<svg class="status-indicator" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M8 2 L14 13 L2 13 Z" fill="#ef4444"/></svg>'
+    };
+
+    const badge = icon.querySelector('#quiet-notif-badge');
+    icon.innerHTML = svgs[iconState] || svgs.disconnected;
+    if (badge) icon.appendChild(badge);
   }
 
   function renderQuietNotifs() {

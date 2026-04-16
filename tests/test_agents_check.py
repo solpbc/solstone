@@ -418,7 +418,9 @@ def test_all_skip_exits_zero(tmp_path, monkeypatch):
     monkeypatch.setattr("think.providers.PROVIDER_REGISTRY", fake_registry)
     monkeypatch.setattr("think.models.PROVIDER_DEFAULTS", fake_defaults)
     monkeypatch.setattr(agents, "get_journal", lambda: str(tmp_path))
-    monkeypatch.setattr(agents, "_check_generate", lambda *_args: ("skip", "not configured"))
+    monkeypatch.setattr(
+        agents, "_check_generate", lambda *_args: ("skip", "not configured")
+    )
 
     async def mock_check_cogitate(*_args):
         return "skip", "not configured"
@@ -458,7 +460,9 @@ def test_mix_skip_and_fail_exits_one(tmp_path, monkeypatch):
     monkeypatch.setattr("think.providers.PROVIDER_REGISTRY", fake_registry)
     monkeypatch.setattr("think.models.PROVIDER_DEFAULTS", fake_defaults)
     monkeypatch.setattr(agents, "get_journal", lambda: str(tmp_path))
-    monkeypatch.setattr(agents, "_check_generate", lambda *_args: ("skip", "not configured"))
+    monkeypatch.setattr(
+        agents, "_check_generate", lambda *_args: ("skip", "not configured")
+    )
 
     async def mock_check_cogitate(*_args):
         return "fail", "FAIL: broken"
@@ -527,7 +531,9 @@ def test_skipped_count_in_summary(tmp_path, monkeypatch):
     assert exc_info.value.code == 0
     payload = json.loads((tmp_path / "health" / "agents.json").read_text())
     summary = payload["summary"]
-    assert summary["total"] == summary["passed"] + summary["skipped"] + summary["failed"]
+    assert (
+        summary["total"] == summary["passed"] + summary["skipped"] + summary["failed"]
+    )
     assert summary["passed"] == 6
     assert summary["skipped"] == 6
     assert summary["failed"] == 0

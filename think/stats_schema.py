@@ -52,7 +52,9 @@ def validate(data: dict) -> list[str]:
     if "schema_version" not in data:
         errors.append("missing 'schema_version'")
     elif data["schema_version"] != SCHEMA_VERSION:
-        errors.append(f"schema_version is {data['schema_version']}, expected {SCHEMA_VERSION}")
+        errors.append(
+            f"schema_version is {data['schema_version']}, expected {SCHEMA_VERSION}"
+        )
 
     # Check generated_at
     if "generated_at" not in data:

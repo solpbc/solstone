@@ -203,7 +203,8 @@ def test_api_skills_seen(monkeypatch, tmp_path, home_client):
 def test_api_pulse_includes_skills(monkeypatch, home_client):
     """Pulse API includes skills data from the context builder."""
     monkeypatch.setattr(
-        "apps.home.routes.get_current", lambda: {"capture": {"status": "ok"}}
+        "apps.home.routes.get_capture_health",
+        lambda: {"status": "active", "observers": []},
     )
     monkeypatch.setattr("apps.home.routes.get_cached_state", lambda: {})
     monkeypatch.setattr("apps.home.routes._resolve_attention", lambda awareness: None)

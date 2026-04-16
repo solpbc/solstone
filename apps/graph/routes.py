@@ -112,9 +112,7 @@ def api_graph():
 
         # Map edge entity names to node IDs
         node_ids = {n["id"] for n in nodes}
-        name_to_id = _build_name_to_node_id(
-            conn, node_ids, since=since, facet=facet
-        )
+        name_to_id = _build_name_to_node_id(conn, node_ids, since=since, facet=facet)
         edges = []
         for e in explicit_edges + co_occurrence_edges:
             from_id = name_to_id.get(e["from_name"], e["from_name"])

@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
@@ -140,12 +139,16 @@ def test_validate_vertex_credentials(tmp_path):
     import json
 
     sa_file = tmp_path / "sa.json"
-    sa_file.write_text(json.dumps({
-        "type": "service_account",
-        "project_id": "test-project",
-        "client_email": "test@project.iam.gserviceaccount.com",
-        "private_key": "fake",
-    }))
+    sa_file.write_text(
+        json.dumps(
+            {
+                "type": "service_account",
+                "project_id": "test-project",
+                "client_email": "test@project.iam.gserviceaccount.com",
+                "private_key": "fake",
+            }
+        )
+    )
 
     client = Mock()
     client.models.list.return_value = [Mock()]
@@ -154,9 +157,7 @@ def test_validate_vertex_credentials(tmp_path):
     mock_creds.service_account_email = "test@project.iam.gserviceaccount.com"
 
     with (
-        patch(
-            "think.providers.google.genai.Client", return_value=client
-        ) as mock_cls,
+        patch("think.providers.google.genai.Client", return_value=client) as mock_cls,
         patch(
             "google.oauth2.service_account.Credentials.from_service_account_file",
             return_value=mock_creds,
@@ -378,14 +379,16 @@ def test_providers_vertex_credentials_roundtrip(settings_client):
     """PUT/GET vertex_credentials saves file and returns email."""
     client, journal = settings_client
 
-    sa_json = json.dumps({
-        "type": "service_account",
-        "project_id": "test-project",
-        "client_email": "test@test-project.iam.gserviceaccount.com",
-        "private_key": "-----BEGIN RSA PRIVATE KEY-----\nfake\n-----END RSA PRIVATE KEY-----\n",
-        "client_id": "123",
-        "token_uri": "https://oauth2.googleapis.com/token",
-    })
+    sa_json = json.dumps(
+        {
+            "type": "service_account",
+            "project_id": "test-project",
+            "client_email": "test@test-project.iam.gserviceaccount.com",
+            "private_key": "-----BEGIN RSA PRIVATE KEY-----\nfake\n-----END RSA PRIVATE KEY-----\n",
+            "client_id": "123",
+            "token_uri": "https://oauth2.googleapis.com/token",
+        }
+    )
 
     # Mock validation (don't actually call Google API)
     with patch(

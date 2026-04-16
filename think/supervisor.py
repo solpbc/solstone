@@ -19,12 +19,12 @@ from pathlib import Path
 
 from desktop_notifier import DesktopNotifier, Urgency
 
-from observe.sync import check_remote_health
 from think import routines, scheduler
 from think.callosum import CallosumConnection, CallosumServer
 from think.runner import DailyLogWriter
 from think.runner import ManagedProcess as RunnerManagedProcess
 from think.utils import (
+    day_path,
     find_available_port,
     get_journal,
     get_journal_info,
@@ -143,7 +143,9 @@ class TaskQueue:
             on_queue_change: Optional callback(cmd_name, running_ref, queue_entries)
                             called after queue state changes. Called outside lock.
         """
-        self._running: dict[str, str] = {}  # command_name -> ref of running task
+        self._running: dict[
+            str, dict
+        ] = {}  # command_name -> {"ref": str, "thread": Thread}
         self._queues: dict[str, list] = {}  # command_name -> list of {refs, cmd} dicts
         self._active: dict[str, RunnerManagedProcess] = {}  # ref -> process
         self._lock = threading.Lock()
@@ -166,7 +168,8 @@ class TaskQueue:
 
         with self._lock:
             queue = list(self._queues.get(cmd_name, []))
-            running_ref = self._running.get(cmd_name)
+            entry = self._running.get(cmd_name)
+            running_ref = entry["ref"] if entry else None
 
         self._on_queue_change(cmd_name, running_ref, queue)
 
@@ -196,6 +199,16 @@ class TaskQueue:
         should_start = False
 
         with self._lock:
+            # Detect stale running state (task thread died without clearing queue)
+            if cmd_name in self._running:
+                stale = self._running[cmd_name]
+                if stale["thread"] is not None and not stale["thread"].is_alive():
+                    logging.warning(
+                        f"Clearing stale {cmd_name} queue "
+                        f"(thread dead, ref={stale['ref']})"
+                    )
+                    self._running.pop(cmd_name)
+
             if cmd_name in self._running:
                 # Command already running - queue or coalesce
                 queue = self._queues.setdefault(cmd_name, [])
@@ -220,7 +233,8 @@ class TaskQueue:
                     should_notify = True
             else:
                 # Not running - mark as running and start
-                self._running[cmd_name] = ref
+                # Thread is set to None here; _run_task registers it on entry
+                self._running[cmd_name] = {"ref": ref, "thread": None}
                 should_start = True
 
         # Notify outside lock
@@ -254,6 +268,11 @@ class TaskQueue:
             cmd_name: Command name for queue management
             day: Optional day override (YYYYMMDD) for log placement
         """
+        # Register this thread for stale-queue detection
+        with self._lock:
+            if cmd_name in self._running and self._running[cmd_name]["ref"] == refs[0]:
+                self._running[cmd_name]["thread"] = threading.current_thread()
+
         callosum = CallosumConnection()
         managed = None
         primary_ref = refs[0]
@@ -309,10 +328,20 @@ class TaskQueue:
                     exit_code=-1,
                 )
         finally:
-            if managed:
-                managed.cleanup()
+            # Each cleanup step is isolated so _process_next always runs.
+            # A disk-full or other OS error in cleanup must never stall the queue.
+            try:
+                if managed:
+                    managed.cleanup()
+            except Exception:
+                logging.exception(f"Task {cmd_name} ({primary_ref}): cleanup failed")
             self._active.pop(primary_ref, None)
-            callosum.stop()
+            try:
+                callosum.stop()
+            except Exception:
+                logging.exception(
+                    f"Task {cmd_name} ({primary_ref}): callosum stop failed"
+                )
             self._process_next(cmd_name)
 
     def _process_next(self, cmd_name: str) -> None:
@@ -328,7 +357,8 @@ class TaskQueue:
                 refs = entry["refs"]
                 next_cmd = entry["cmd"]
                 day = entry.get("day")
-                self._running[cmd_name] = refs[0]
+                # Thread is set to None here; _run_task registers it on entry
+                self._running[cmd_name] = {"ref": refs[0], "thread": None}
                 logging.info(
                     f"Dequeued task {cmd_name}: {' '.join(next_cmd)} refs={refs} "
                     f"(remaining: {len(queue)})"
@@ -764,23 +794,6 @@ def start_sense() -> ManagedProcess:
     return _launch_process("sense", ["sol", "sense", "-v"], restart=True)
 
 
-def start_sync(remote_url: str) -> ManagedProcess:
-    """Launch sol sync with output logging.
-
-    Args:
-        remote_url: Remote ingest URL for sync service
-    """
-    managed = _launch_process(
-        "sync",
-        ["sol", "sync", "-v", "--remote", remote_url],
-        restart=True,
-    )
-    # Sync shutdown can block while draining pending segments.
-    # Give it extra time so the supervisor does not cut it off early.
-    managed.shutdown_timeout = 90
-    return managed
-
-
 def start_callosum_in_process() -> CallosumServer:
     """Start Callosum message bus server in-process.
 
@@ -1134,12 +1147,10 @@ def _handle_segment_event_log(message: dict) -> None:
     stream = message.get("stream")
 
     try:
-        journal_path = _get_journal_path()
-
         if stream:
-            segment_dir = journal_path / day / stream / segment
+            segment_dir = day_path(day, create=False) / stream / segment
         else:
-            segment_dir = journal_path / day / segment
+            segment_dir = day_path(day, create=False) / segment
 
         # Only log if segment directory exists
         if not segment_dir.is_dir():
@@ -1332,7 +1343,7 @@ def parse_args() -> argparse.ArgumentParser:
     parser.add_argument(
         "--remote",
         type=str,
-        help="Remote mode: sync to server URL instead of local processing",
+        help="Remote mode: URL for segment transfer (not yet implemented)",
     )
     return parser
 
@@ -1460,15 +1471,8 @@ def main() -> None:
 
     # Now start other services (their startup events will be captured)
     if _is_remote_mode:
-        # Remote mode: verify remote server is reachable before starting sync
-        logging.info("Remote mode: checking server connectivity...")
-        success, message = check_remote_health(args.remote)
-        if not success:
-            logging.error(f"Remote health check failed: {message}")
-            stop_callosum_in_process()
-            parser.error(f"Remote server not available: {message}")
-        logging.info(f"Remote server verified: {message}")
-        procs.append(start_sync(args.remote))
+        # Remote mode: transfer send will be added here
+        pass
     else:
         # Local mode: convey first, then sense for file processing
         if not args.no_convey:

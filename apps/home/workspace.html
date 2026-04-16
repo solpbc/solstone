@@ -46,7 +46,7 @@
   top: 0px;
 }
 
-.pulse-vitals-dot.ok { background: #4ade80; }
+.pulse-vitals-dot.active { background: #4ade80; }
 .pulse-vitals-dot.stale { background: #fbbf24; }
 .pulse-vitals-dot.offline { background: #f87171; }
 .pulse-vitals-dot.unknown { background: #9ca3af; }
@@ -922,10 +922,10 @@
 
   <!-- Vital Signs -->
   <div class="pulse-vitals" id="pulse-vitals" role="status" aria-live="polite">
-    {% set dot_class = 'ok' if capture_status == 'ok' else ('stale' if capture_status == 'stale' else ('offline' if capture_status == 'offline' else 'unknown')) %}
+    {% set dot_class = 'active' if capture_status == 'active' else ('stale' if capture_status == 'stale' else ('offline' if capture_status == 'offline' else 'unknown')) %}
     <div class="pulse-vitals-item">
       <span class="pulse-vitals-dot {{ dot_class }}" aria-hidden="true"></span>
-      <span>capture {{ capture_status }}</span>
+      <span>capture {{ 'no observers' if capture_status == 'no_observers' else capture_status }}</span>
     </div>
     {% if segment_count > 0 %}
     <div class="pulse-vitals-sep"></div>
@@ -944,6 +944,10 @@
     <div class="pulse-vitals-item pulse-vitals-attention">
       {{ attention.placeholder_text }}
     </div>
+    {% endif %}
+    {% if pipeline_status %}
+    <div class="pulse-vitals-sep"></div>
+    <div class="pulse-vitals-item pulse-vitals-attention">{{ pipeline_status.message }}</div>
     {% endif %}
     <a href="/app/health">health →</a>
   </div>
@@ -1432,8 +1436,9 @@
       .then(data => {
         const el = document.getElementById('pulse-vitals');
         if (!el) return;
-        let dotClass = data.capture_status === 'ok' ? 'ok' : (data.capture_status === 'stale' ? 'stale' : (data.capture_status === 'offline' ? 'offline' : 'unknown'));
-        let html = '<div class="pulse-vitals-item"><span class="pulse-vitals-dot ' + dotClass + '" aria-hidden="true"></span><span>capture ' + esc(data.capture_status) + '</span></div>';
+        let dotClass = data.capture_status === 'active' ? 'active' : (data.capture_status === 'stale' ? 'stale' : (data.capture_status === 'offline' ? 'offline' : 'unknown'));
+        let displayStatus = data.capture_status === 'no_observers' ? 'no observers' : data.capture_status;
+        let html = '<div class="pulse-vitals-item"><span class="pulse-vitals-dot ' + dotClass + '" aria-hidden="true"></span><span>capture ' + esc(displayStatus) + '</span></div>';
         if (data.segment_count > 0) {
           html += '<div class="pulse-vitals-sep"></div><div class="pulse-vitals-item">' + data.segment_count + ' segment' + (data.segment_count !== 1 ? 's' : '');
           if (data.duration_minutes > 0) html += ' · ' + data.duration_minutes + 'm';
@@ -1444,6 +1449,9 @@
         }
         if (data.attention) {
           html += '<div class="pulse-vitals-sep"></div><div class="pulse-vitals-item pulse-vitals-attention">' + esc(data.attention.placeholder_text) + '</div>';
+        }
+        if (data.pipeline_status) {
+          html += '<div class="pulse-vitals-sep"></div><div class="pulse-vitals-item pulse-vitals-attention">' + esc(data.pipeline_status.message) + '</div>';
         }
         html += '<a href="/app/health">health →</a>';
         el.innerHTML = html;

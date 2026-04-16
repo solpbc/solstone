@@ -25,8 +25,6 @@
 
 .occ {
   position: absolute;
-  left: 0;
-  right: 0;
   min-width: 40px;
   border-radius: 4px;
   opacity: 0.9;
@@ -1067,7 +1065,9 @@ button.activity-detail-back {
     });
 
     const totalColumns = globalColumnOffset;
-    const columnWidth = totalColumns > 0 ? 100 / totalColumns : 100;
+    const maxColumns = 20;
+    const displayColumns = Math.min(totalColumns, maxColumns);
+    const columnWidth = displayColumns > 0 ? 100 / displayColumns : 100;
 
     processedEvents.forEach(event => {
       event.column = agentColumnOffsets[event.agent] + event.slugColumn;
@@ -1076,7 +1076,8 @@ button.activity-detail-back {
     processedEvents.forEach(event => {
       const top = ((event.startMinutes - startHour * 60) / totalMinutes) * 100;
       const height = Math.max((event.endMinutes - event.startMinutes) / totalMinutes * 100, 0.4);
-      const left = event.column * columnWidth;
+      const displayColumn = event.column % displayColumns;
+      const left = displayColumn * columnWidth;
       const width = columnWidth * 0.95;
       const plannedClass = event.isPlanned ? ' occ-planned' : '';
       const bgStyle = event.isPlanned ? `border-color:${event.color}` : `background:${event.color}`;

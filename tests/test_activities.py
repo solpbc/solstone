@@ -638,7 +638,9 @@ class TestActivityRecordIO:
 
 def _setup_segment(tmpdir, day, segment, facet, state):
     """Helper to create an activity_state.json file in a segment."""
-    agents_dir = Path(tmpdir) / day / "default" / segment / "agents" / facet
+    agents_dir = (
+        Path(tmpdir) / "chronicle" / day / "default" / segment / "agents" / facet
+    )
     agents_dir.mkdir(parents=True, exist_ok=True)
     state_file = agents_dir / "activity_state.json"
     state_file.write_text(json.dumps(state))
@@ -861,7 +863,7 @@ class TestWalkActivitySegments:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
-            (Path(tmpdir) / "20260209").mkdir()
+            (Path(tmpdir) / "chronicle" / "20260209").mkdir(parents=True)
 
             result = _walk_activity_segments(
                 "20260209", "work", "coding", "100000_300", "100500_300"
@@ -878,8 +880,8 @@ class TestPreProcess:
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
 
-            day_dir = Path(tmpdir) / "20260209"
-            day_dir.mkdir()
+            day_dir = Path(tmpdir) / "chronicle" / "20260209"
+            day_dir.mkdir(parents=True)
             (day_dir / "default" / "100000_300").mkdir(parents=True)
 
             result = pre_process(
@@ -1638,7 +1640,7 @@ class TestPreProcessFlush:
             monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
 
             # Create segment dir but no activity_state files
-            seg_dir = Path(tmpdir) / "20260209" / "default" / "100000_300"
+            seg_dir = Path(tmpdir) / "chronicle" / "20260209" / "default" / "100000_300"
             seg_dir.mkdir(parents=True)
 
             result = pre_process(

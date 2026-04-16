@@ -20,6 +20,18 @@ from pathlib import Path
 from think.entities.core import EntityDict, atomic_write, entity_slug
 from think.utils import get_journal
 
+# Global cache for facet relationships: {(facet, entity_id): EntityDict}
+_RELATIONSHIP_CACHE: dict[tuple[str, str], EntityDict] | None = None
+# Global cache for facet relationship IDs: {facet: [entity_id, ...]}
+_RELATIONSHIP_IDS_CACHE: dict[str, list[str]] | None = None
+
+
+def clear_relationship_caches() -> None:
+    """Clear all relationship and ID caches."""
+    global _RELATIONSHIP_CACHE, _RELATIONSHIP_IDS_CACHE
+    _RELATIONSHIP_CACHE = None
+    _RELATIONSHIP_IDS_CACHE = None
+
 
 def facet_relationship_path(facet: str, entity_id: str) -> Path:
     """Return path to facet relationship file.
@@ -47,6 +59,12 @@ def load_facet_relationship(facet: str, entity_id: str) -> EntityDict | None:
         Relationship dict with entity_id, description, timestamps, etc.,
         or None if not found.
     """
+    global _RELATIONSHIP_CACHE
+    if _RELATIONSHIP_CACHE is not None:
+        cached = _RELATIONSHIP_CACHE.get((facet, entity_id))
+        if cached is not None:
+            return cached
+
     path = facet_relationship_path(facet, entity_id)
     if not path.exists():
         return None
@@ -56,6 +74,11 @@ def load_facet_relationship(facet: str, entity_id: str) -> EntityDict | None:
             data = json.load(f)
         # Ensure entity_id is present
         data["entity_id"] = entity_id
+
+        # Update cache if initialized
+        if _RELATIONSHIP_CACHE is not None:
+            _RELATIONSHIP_CACHE[(facet, entity_id)] = data
+
         return data
     except (json.JSONDecodeError, OSError):
         return None
@@ -73,6 +96,9 @@ def save_facet_relationship(
         entity_id: Entity ID (slug)
         relationship: Relationship dict with description, timestamps, etc.
     """
+    # Clear caches on modification
+    clear_relationship_caches()
+
     path = facet_relationship_path(facet, entity_id)
 
     # Ensure entity_id is in the relationship
@@ -93,6 +119,12 @@ def scan_facet_relationships(facet: str) -> list[str]:
     Returns:
         List of entity IDs (directory names)
     """
+    global _RELATIONSHIP_IDS_CACHE
+    if _RELATIONSHIP_IDS_CACHE is not None:
+        cached = _RELATIONSHIP_IDS_CACHE.get(facet)
+        if cached is not None:
+            return cached
+
     entities_dir = Path(get_journal()) / "facets" / facet / "entities"
     if not entities_dir.exists():
         return []
@@ -102,7 +134,11 @@ def scan_facet_relationships(facet: str) -> list[str]:
         if entry.is_dir() and (entry / "entity.json").exists():
             entity_ids.append(entry.name)
 
-    return sorted(entity_ids)
+    entity_ids.sort()
+    if _RELATIONSHIP_IDS_CACHE is None:
+        _RELATIONSHIP_IDS_CACHE = {}
+    _RELATIONSHIP_IDS_CACHE[facet] = entity_ids
+    return entity_ids
 
 
 def enrich_relationship_with_journal(
@@ -217,6 +253,9 @@ def rename_entity_memory(facet: str, old_name: str, new_name: str) -> bool:
 
     if new_folder.exists():
         raise OSError(f"Target folder already exists: {new_folder}")
+
+    # Clear caches on modification
+    clear_relationship_caches()
 
     shutil.move(str(old_folder), str(new_folder))
     return True

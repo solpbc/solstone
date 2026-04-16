@@ -14,6 +14,7 @@ import json
 import shutil
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 import typer
@@ -40,6 +41,7 @@ from think.indexer.journal import get_events as get_events_impl
 from think.indexer.journal import search_counts as search_counts_impl
 from think.indexer.journal import search_journal as search_journal_impl
 from think.utils import (
+    day_path,
     get_journal,
     iter_segments,
     resolve_sol_day,
@@ -588,16 +590,15 @@ def agents(
     """List available agent outputs for a day."""
     day = resolve_sol_day(day)
     segment = resolve_sol_segment(segment)
-    journal = get_journal()
-    day_path = Path(journal) / day
+    day_dir = day_path(day, create=False)
 
-    if not day_path.is_dir():
+    if not day_dir.is_dir():
         typer.echo(f"No data for {day}.")
         return
 
     if segment:
         # List outputs in a specific segment directory
-        seg_path = day_path / segment / "agents"
+        seg_path = day_dir / segment / "agents"
         if not seg_path.is_dir():
             typer.echo(f"Segment {segment} not found for {day}.")
             return
@@ -605,7 +606,7 @@ def agents(
         return
 
     # List daily agent outputs
-    agents_path = day_path / "agents"
+    agents_path = day_dir / "agents"
     if agents_path.is_dir():
         _list_outputs(agents_path, "Daily agents")
 
@@ -670,17 +671,16 @@ def read(
     """Read full content of an agent output."""
     day = resolve_sol_day(day)
     segment = resolve_sol_segment(segment)
-    journal = get_journal()
-    day_path = Path(journal) / day
+    day_dir = day_path(day, create=False)
 
-    if not day_path.is_dir():
+    if not day_dir.is_dir():
         typer.echo(f"No data for {day}.", err=True)
         raise typer.Exit(1)
 
     if segment:
-        base_dir = day_path / segment / "agents"
+        base_dir = day_dir / segment / "agents"
     else:
-        base_dir = day_path / "agents"
+        base_dir = day_dir / "agents"
 
     if not base_dir.is_dir():
         location = f"segment {segment}" if segment else "agents"
@@ -950,14 +950,164 @@ def purge(
         )
 
 
+@retention_app.command()
+def config(
+    mode: str | None = typer.Option(
+        None, "--mode", help="Retention mode: keep, days, or processed."
+    ),
+    days: int | None = typer.Option(
+        None, "--days", help="Days to retain (required when mode is 'days')."
+    ),
+    stream: str | None = typer.Option(
+        None, "--stream", help="Apply to a specific stream instead of global."
+    ),
+    clear: bool = typer.Option(
+        False, "--clear", help="Clear per-stream override (requires --stream)."
+    ),
+) -> None:
+    """Show or update retention configuration."""
+    import os
+
+    from think.retention import load_retention_config
+    from think.utils import get_config, get_journal
+
+    if mode is None and days is None and not clear:
+        cfg = load_retention_config()
+        result = {
+            "default": {"mode": cfg.default.mode, "days": cfg.default.days},
+            "per_stream": {
+                name: {"mode": policy.mode, "days": policy.days}
+                for name, policy in cfg.per_stream.items()
+            },
+        }
+        typer.echo(json.dumps(result, indent=2))
+        return
+
+    if clear:
+        if not stream:
+            typer.echo("--clear requires --stream", err=True)
+            raise typer.Exit(1)
+        if mode is not None or days is not None:
+            typer.echo("--clear cannot be combined with --mode or --days", err=True)
+            raise typer.Exit(1)
+
+    if mode is not None and mode not in ("keep", "days", "processed"):
+        typer.echo(f"Invalid mode: {mode}. Must be keep, days, or processed.", err=True)
+        raise typer.Exit(1)
+
+    if mode == "days" and days is None:
+        typer.echo("--days is required when mode is 'days'.", err=True)
+        raise typer.Exit(1)
+
+    if days is not None and days < 1:
+        typer.echo("--days must be a positive integer.", err=True)
+        raise typer.Exit(1)
+
+    journal_config = get_config()
+    retention = journal_config.setdefault("retention", {})
+
+    if clear:
+        ps = retention.get("per_stream", {})
+        if stream in ps:
+            del ps[stream]
+            if not ps:
+                retention.pop("per_stream", None)
+        log_call_action(
+            facet=None,
+            action="retention_config",
+            params={"stream": stream, "clear": True},
+        )
+    elif stream:
+        ps = retention.setdefault("per_stream", {})
+        entry = ps.setdefault(stream, {})
+        if mode is not None:
+            entry["raw_media"] = mode
+        if days is not None:
+            entry["raw_media_days"] = days
+        log_call_action(
+            facet=None,
+            action="retention_config",
+            params={"stream": stream, "mode": mode, "days": days},
+        )
+    else:
+        if mode is not None:
+            retention["raw_media"] = mode
+        if days is not None:
+            retention["raw_media_days"] = days
+        log_call_action(
+            facet=None,
+            action="retention_config",
+            params={"mode": mode, "days": days},
+        )
+
+    config_dir = Path(get_journal()) / "config"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    config_path = config_dir / "journal.json"
+
+    with open(config_path, "w", encoding="utf-8") as f:
+        json.dump(journal_config, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+    os.chmod(config_path, 0o600)
+
+    cfg = load_retention_config()
+    result = {
+        "default": {"mode": cfg.default.mode, "days": cfg.default.days},
+        "per_stream": {
+            name: {"mode": policy.mode, "days": policy.days}
+            for name, policy in cfg.per_stream.items()
+        },
+    }
+    typer.echo(json.dumps(result, indent=2))
+
+
 @app.command(name="storage-summary")
 def storage_summary(
     json_output: bool = typer.Option(False, "--json", help="Output as JSON."),
+    check: bool = typer.Option(
+        False, "--check", help="Check storage health thresholds."
+    ),
 ) -> None:
     """Show journal storage summary."""
     from think.retention import compute_storage_summary
 
     summary = compute_storage_summary()
+
+    if check:
+        from think.retention import check_storage_health
+        from think.utils import get_journal
+
+        journal_path = get_journal()
+        warnings = check_storage_health(summary, journal_path)
+
+        if json_output:
+            typer.echo(
+                json.dumps(
+                    {
+                        "raw_media_bytes": summary.raw_media_bytes,
+                        "derived_bytes": summary.derived_bytes,
+                        "total_segments": summary.total_segments,
+                        "segments_with_raw": summary.segments_with_raw,
+                        "segments_purged": summary.segments_purged,
+                        "warnings": warnings,
+                    },
+                    indent=2,
+                )
+            )
+        else:
+            typer.echo(f"Raw media:          {summary.raw_media_human}")
+            typer.echo(f"AI-processed content: {summary.derived_human}")
+            typer.echo(
+                f"Segments: {summary.total_segments} total, "
+                f"{summary.segments_with_raw} with raw media, "
+                f"{summary.segments_purged} purged"
+            )
+            if warnings:
+                typer.echo("")
+                for w in warnings:
+                    typer.echo(f"⚠ {w['message']}")
+            else:
+                typer.echo("\nAll storage thresholds OK.")
+        return
 
     if json_output:
         typer.echo(
@@ -981,3 +1131,102 @@ def storage_summary(
         f"{summary.segments_with_raw} with raw media, "
         f"{summary.segments_purged} purged"
     )
+
+
+@app.command("merge")
+def journal_merge(
+    source: str = typer.Argument(
+        help="Path to source journal directory to merge from."
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Show what would be merged without making changes.",
+    ),
+) -> None:
+    """Merge segments, entities, facets, and imports from a source journal."""
+    from think.merge import MergeSummary, merge_journals
+    from think.utils import get_journal
+
+    source_path = Path(source).resolve()
+
+    if not source_path.is_dir():
+        typer.echo(f"Error: '{source}' is not a directory.", err=True)
+        raise typer.Exit(1)
+
+    import re
+
+    has_day = any(
+        entry.is_dir() and re.match(r"^\d{8}$", entry.name)
+        for entry in source_path.iterdir()
+    )
+    if not has_day:
+        typer.echo(
+            f"Error: '{source}' does not appear to be a journal (no YYYYMMDD directories found).",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    target_path = Path(get_journal())
+    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    artifact_root = target_path.parent / f"{target_path.name}.merge" / run_id
+    log_path = artifact_root / "decisions.jsonl"
+    staging_path = artifact_root / "staging"
+
+    summary: MergeSummary = merge_journals(
+        source_path,
+        target_path,
+        dry_run=dry_run,
+        log_path=log_path,
+        staging_path=staging_path,
+    )
+
+    action = "Would merge" if dry_run else "Merged"
+    typer.echo(f"\n{action}:")
+    typer.echo(
+        f"  Segments: {summary.segments_copied} copied, {summary.segments_skipped} skipped, {summary.segments_errored} errored"
+    )
+    typer.echo(
+        f"  Entities: {summary.entities_created} created, {summary.entities_merged} merged, {summary.entities_staged} staged, {summary.entities_skipped} skipped"
+    )
+    typer.echo(
+        f"  Facets: {summary.facets_created} created, {summary.facets_merged} merged"
+    )
+    typer.echo(
+        f"  Imports: {summary.imports_copied} copied, {summary.imports_skipped} skipped"
+    )
+
+    if summary.errors:
+        typer.echo(f"\n{len(summary.errors)} errors:")
+        for error in summary.errors:
+            typer.echo(f"  - {error}")
+
+    if log_path.exists():
+        typer.echo(f"\nDecision log: {log_path}")
+    if summary.entities_staged > 0:
+        typer.echo(f"Staged entities: {staging_path}")
+
+    if not dry_run:
+        subprocess.run(
+            ["sol", "indexer", "--rescan-full"],
+            check=False,
+            capture_output=True,
+        )
+
+        log_call_action(
+            facet=None,
+            action="journal_merge",
+            params={
+                "source": str(source_path),
+                "segments_copied": summary.segments_copied,
+                "entities_created": summary.entities_created,
+                "entities_merged": summary.entities_merged,
+                "entities_staged": summary.entities_staged,
+                "facets_created": summary.facets_created,
+                "facets_merged": summary.facets_merged,
+                "imports_copied": summary.imports_copied,
+                "errors": len(summary.errors),
+            },
+        )
+
+        typer.echo("Index rebuild started.")

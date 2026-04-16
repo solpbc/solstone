@@ -13,8 +13,8 @@ Present one thing at a time — don't overwhelm.
 ### learn their name
 
 Ask what they'd like to be called. Record it:
-- `sol call agent set-owner "NAME"`
-- With context: `sol call agent set-owner "NAME" --bio "SHORT_BIO"`
+- `sol call sol set-owner "NAME"`
+- With context: `sol call sol set-owner "NAME" --bio "SHORT_BIO"`
 
 As you learn about them, update your partner profile:
 - `sol call identity partner --update-section 'SECTION' --value 'what you observed'`

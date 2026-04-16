@@ -5,7 +5,6 @@ import importlib
 import json
 from pathlib import Path
 
-
 CONTRACT_FIELDS = [
     ("days", "stats.days"),
     ("totals", "stats.totals"),
@@ -57,7 +56,7 @@ def _resolve_path(data, path):
 
 def _build_journal(base_path):
     journal = base_path
-    day = journal / "20240101"
+    day = journal / "chronicle" / "20240101"
     seg1 = day / "default" / "123456_300"
     seg2 = day / "default" / "134500_300"
     seg1.mkdir(parents=True)
@@ -150,16 +149,18 @@ def test_contract_fields_exist_in_output(tmp_path, monkeypatch):
     output = _scan_output(journal, stats_mod)
 
     for python_path, _ in CONTRACT_FIELDS:
-        assert _resolve_path(output, python_path), f"{python_path} missing from stats output"
+        assert _resolve_path(output, python_path), (
+            f"{python_path} missing from stats output"
+        )
 
 
 def test_contract_fields_referenced_in_js():
     js_source = JS_PATH.read_text()
 
     for _, js_ref in CONTRACT_FIELDS:
-        assert (
-            js_ref in js_source
-        ), f"{js_ref} not found in dashboard.js — contract field may be stale"
+        assert js_ref in js_source, (
+            f"{js_ref} not found in dashboard.js — contract field may be stale"
+        )
 
 
 def test_all_day_fields_have_nonzero_values(tmp_path, monkeypatch):

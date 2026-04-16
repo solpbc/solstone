@@ -44,7 +44,8 @@ Read the transcript and screen data. Produce a JSON object with ALL of the follo
     "screen_record": false,
     "speaker_attribution": false,
     "pulse_update": false
-  }
+  },
+  "emotional_register": "high_energy|tense|focused|collaborative|flat|celebratory|strained|neutral"
 }
 ```
 
@@ -113,6 +114,17 @@ Processing recommendations for downstream agents:
 - **screen_record**: `true` if density is "active" AND there is meaningful screen content worth documenting (not just a static/repetitive screen)
 - **speaker_attribution**: `true` if `meeting_detected` is true AND there are multiple speakers to attribute
 - **pulse_update**: `true` if this segment represents a meaningful change in activity — new activity started, activity ended, significant context shift, or noteworthy event occurred. `false` for continuation of the same activity with no notable change.
+
+### emotional_register
+The observable emotional tone of the segment based on conversation tone, speech patterns, and behavioral signals — not inferred feelings. Choose the single best match:
+- **high_energy**: Fast-paced, enthusiastic, productive momentum
+- **tense**: Conflict, disagreement, pressure, frustration evident in tone or content
+- **focused**: Quiet concentration, deep work, minimal interruption
+- **collaborative**: Engaged multi-person work, building on each other's ideas
+- **flat**: Low energy, going through motions, no strong signal either way
+- **celebratory**: Wins acknowledged, positive outcomes, shared excitement
+- **strained**: Fatigue, overload, pushing through difficulty
+- **neutral**: No clear emotional register observable — use this as the default when the segment doesn't carry detectable emotional tone
 
 ## Rules
 

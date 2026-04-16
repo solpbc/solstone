@@ -5,12 +5,12 @@
 """Unified process spawning and lifecycle management utilities.
 
 All subprocess output is automatically logged to:
-    journal/{YYYYMMDD}/health/{ref}_{process_name}.log
+    journal/chronicle/{YYYYMMDD}/health/{ref}_{process_name}.log
 
 Where process_name is derived from cmd[0] basename, and ref is a unique correlation ID.
 
 Symlinks provide stable access paths:
-    journal/{YYYYMMDD}/health/{process_name}.log (day-level symlink)
+    journal/chronicle/{YYYYMMDD}/health/{process_name}.log (day-level symlink)
     journal/health/{process_name}.log (journal-level symlink)
 
 Logs automatically roll over at midnight for long-running processes.
@@ -28,7 +28,7 @@ from datetime import datetime
 from pathlib import Path
 
 from think.callosum import CallosumConnection
-from think.utils import get_journal, now_ms
+from think.utils import CHRONICLE_DIR, get_journal, now_ms
 
 logger = logging.getLogger(__name__)
 
@@ -46,9 +46,9 @@ def _current_day() -> str:
 def _day_health_log_path(day: str, ref: str, name: str) -> Path:
     """Build path to day health log.
 
-    Returns: journal/{day}/health/{ref}_{name}.log
+    Returns: journal/chronicle/{day}/health/{ref}_{name}.log
     """
-    return _get_journal_path() / day / "health" / f"{ref}_{name}.log"
+    return _get_journal_path() / CHRONICLE_DIR / day / "health" / f"{ref}_{name}.log"
 
 
 def _atomic_symlink(link_path: Path, target: str) -> None:
@@ -91,11 +91,11 @@ class DailyLogWriter:
     When ``day`` is provided, the writer is pinned to that day directory
     and midnight rollover is disabled (batch processing of historical days).
 
-    Writes to: journal/{YYYYMMDD}/health/{ref}_{name}.log
+    Writes to: journal/chronicle/{YYYYMMDD}/health/{ref}_{name}.log
 
     Creates and maintains symlinks:
-    - journal/{YYYYMMDD}/health/{name}.log -> {ref}_{name}.log (day-level)
-    - journal/health/{name}.log -> {YYYYMMDD}/health/{ref}_{name}.log (journal-level)
+    - journal/chronicle/{YYYYMMDD}/health/{name}.log -> {ref}_{name}.log (day-level)
+    - journal/health/{name}.log -> chronicle/{YYYYMMDD}/health/{ref}_{name}.log (journal-level)
 
     When the day changes, automatically closes old file, opens new file, and updates symlinks.
     """
@@ -118,17 +118,19 @@ class DailyLogWriter:
     def _update_symlinks(self) -> None:
         """Update day-level and journal-level symlinks to point to current log."""
         journal = _get_journal_path()
-        day_health = journal / self._current_day / "health"
+        day_health = journal / CHRONICLE_DIR / self._current_day / "health"
         log_filename = f"{self._ref}_{self._name}.log"
 
-        # Day-level symlink: {YYYYMMDD}/health/{name}.log -> {ref}_{name}.log
+        # Day-level symlink: chronicle/{YYYYMMDD}/health/{name}.log -> {ref}_{name}.log
         day_symlink = day_health / f"{self._name}.log"
         _atomic_symlink(day_symlink, log_filename)
 
-        # Journal-level symlink: health/{name}.log -> ../{YYYYMMDD}/health/{ref}_{name}.log
-        # Relative from journal/health/ to journal/{YYYYMMDD}/health/
+        # Journal-level symlink: health/{name}.log -> ../chronicle/{YYYYMMDD}/health/{ref}_{name}.log
+        # Relative from journal/health/ to journal/chronicle/{YYYYMMDD}/health/
         journal_symlink = journal / "health" / f"{self._name}.log"
-        relative_target = f"../{self._current_day}/health/{log_filename}"
+        relative_target = (
+            f"../{CHRONICLE_DIR}/{self._current_day}/health/{log_filename}"
+        )
         _atomic_symlink(journal_symlink, relative_target)
 
     def write(self, message: str) -> None:
@@ -141,15 +143,20 @@ class DailyLogWriter:
                     # Close old log
                     if not self._fh.closed:
                         self._fh.close()
-                    # Open new log for new day
-                    self._current_day = day_now
-                    self._fh = self._open_log()
-                    # Update symlinks to point to new day's file
-                    self._update_symlinks()
+                    # Open new log for new day — keep old handle on failure
+                    try:
+                        self._fh = self._open_log()
+                        self._current_day = day_now
+                        self._update_symlinks()
+                    except OSError:
+                        pass
 
-            # Write and flush
-            self._fh.write(message)
-            self._fh.flush()
+            # Write and flush — swallow disk-full so output threads survive
+            try:
+                self._fh.write(message)
+                self._fh.flush()
+            except OSError:
+                pass
 
     def close(self) -> None:
         """Close log file."""
@@ -167,14 +174,14 @@ class DailyLogWriter:
 class ManagedProcess:
     """Subprocess wrapper with automatic output logging and lifecycle management.
 
-    All output is automatically logged to:
-        journal/{YYYYMMDD}/health/{ref}_{name}.log
+        All output is automatically logged to:
+            journal/chronicle/{YYYYMMDD}/health/{ref}_{name}.log
 
     Where name is derived from cmd[0] basename, and ref is a unique correlation ID.
 
-    Symlinks are automatically created and maintained:
-        journal/{YYYYMMDD}/health/{name}.log -> {ref}_{name}.log (day-level)
-        journal/health/{name}.log -> {YYYYMMDD}/health/{ref}_{name}.log (journal-level)
+        Symlinks are automatically created and maintained:
+            journal/chronicle/{YYYYMMDD}/health/{name}.log -> {ref}_{name}.log (day-level)
+            journal/health/{name}.log -> chronicle/{YYYYMMDD}/health/{ref}_{name}.log (journal-level)
 
     Logs roll over automatically at midnight for long-running processes.
 
@@ -238,6 +245,19 @@ class ManagedProcess:
         # Derive name from command - use subcommand if invoked via sol
         if cmd[0] == "sol" and len(cmd) > 1:
             name = cmd[1]
+            if name == "dream":
+                for flag, mode in [
+                    ("--activity", "activity"),
+                    ("--flush", "flush"),
+                    ("--segments", "segment"),
+                    ("--weekly", "weekly"),
+                    ("--segment", "segment"),
+                ]:
+                    if flag in cmd:
+                        name = f"{mode}_dream"
+                        break
+                else:
+                    name = "daily_dream"
         else:
             name = Path(cmd[0]).name
 
@@ -396,28 +416,42 @@ class ManagedProcess:
         """Wait for output threads to finish and close log file.
 
         Call this after process exits to clean up resources.
+        Each step is isolated so one failure doesn't block the rest.
         """
         for thread in self._threads:
-            thread.join(timeout=1)
-        self.log_writer.close()
+            try:
+                thread.join(timeout=1)
+            except Exception:
+                pass
+
+        try:
+            self.log_writer.close()
+        except Exception:
+            pass
 
         # Emit exit event
         if self._callosum:
-            duration_ms = int((time.time() - self._start_time) * 1000)
-            self._callosum.emit(
-                "logs",
-                "exit",
-                ref=self.ref,
-                name=self.name,
-                pid=self.pid,
-                exit_code=self.returncode,
-                duration_ms=duration_ms,
-                cmd=self.cmd,
-                log_path=str(self.log_writer.path),
-            )
+            try:
+                duration_ms = int((time.time() - self._start_time) * 1000)
+                self._callosum.emit(
+                    "logs",
+                    "exit",
+                    ref=self.ref,
+                    name=self.name,
+                    pid=self.pid,
+                    exit_code=self.returncode,
+                    duration_ms=duration_ms,
+                    cmd=self.cmd,
+                    log_path=str(self.log_writer.path),
+                )
+            except Exception:
+                pass
             # Only stop callosum if we created it (not shared)
             if self._owns_callosum:
-                self._callosum.stop()
+                try:
+                    self._callosum.stop()
+                except Exception:
+                    pass
 
     @property
     def pid(self) -> int:

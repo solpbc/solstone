@@ -20,8 +20,10 @@ from flask import Blueprint, jsonify, render_template
 from convey.apps import _resolve_attention
 from convey.bridge import get_cached_state
 from think.awareness import get_current
+from think.capture_health import get_capture_health
 from think.facets import get_enabled_facets, get_facets
 from think.indexer.journal import get_journal_index
+from think.pipeline_health import pipeline_status_message, summarize_pipeline_day
 from think.utils import get_journal
 
 # Briefing phase thresholds
@@ -555,7 +557,9 @@ def _collect_skills() -> list[dict[str, Any]]:
                     summary = meta.get("activity_type", "")
                     typical_time = meta.get("typical_time", "")
                     if typical_time:
-                        summary = f"{summary} · {typical_time}" if summary else typical_time
+                        summary = (
+                            f"{summary} · {typical_time}" if summary else typical_time
+                        )
 
                     observations = meta.get("observations", 0)
                     last_seen_str = meta.get("last_seen", "")
@@ -604,11 +608,10 @@ def _build_pulse_context() -> dict[str, Any]:
     today = _today()
     now = datetime.now()
 
-    awareness = get_current()
-    capture_status = awareness.get("capture", {}).get("status", "unknown")
+    capture_status = get_capture_health()["status"]
     cached = get_cached_state()
     last_observe_ts = cached.get("last_observe_ts")
-    attention = _resolve_attention(awareness)
+    attention = _resolve_attention(get_current())
 
     stats_data = _load_stats(today)
     stats = stats_data.get("stats", {})
@@ -765,12 +768,20 @@ def _build_pulse_context() -> dict[str, Any]:
             briefing_sections, len(briefing_needs_deduped)
         )
 
+    try:
+        _summary = summarize_pipeline_day(_today())
+        pipeline_status = pipeline_status_message(_summary)
+    except Exception:
+        logger.warning("pipeline_status unavailable", exc_info=True)
+        pipeline_status = None
+
     return {
         "today": today,
         "now": now,
         "capture_status": capture_status,
         "last_observe_relative": last_observe_relative,
         "attention": attention,
+        "pipeline_status": pipeline_status,
         "segment_count": segment_count,
         "duration_minutes": duration_minutes,
         "facet_data": facet_data,

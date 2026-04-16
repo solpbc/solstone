@@ -343,7 +343,7 @@ def test_facet_summaries_mixed_entities(monkeypatch):
 def test_get_active_facets_from_segment_facets(monkeypatch, tmp_path):
     """Test get_active_facets() returns facets from segment facets.json files."""
     journal = tmp_path / "journal"
-    day_dir = journal / "20240115"
+    day_dir = journal / "chronicle" / "20240115"
 
     # Create segment with facets.json containing two facets (stream layout)
     seg1 = day_dir / "archon" / "100000_300" / "agents"
@@ -379,7 +379,7 @@ def test_get_active_facets_from_segment_facets(monkeypatch, tmp_path):
 def test_get_active_facets_empty_segments(monkeypatch, tmp_path):
     """Test get_active_facets() with segments that have empty facets.json."""
     journal = tmp_path / "journal"
-    day_dir = journal / "20240115"
+    day_dir = journal / "chronicle" / "20240115"
 
     # Segment with empty facets array (stream layout)
     seg1 = day_dir / "archon" / "100000_300" / "agents"
@@ -401,7 +401,7 @@ def test_get_active_facets_empty_segments(monkeypatch, tmp_path):
 def test_get_active_facets_no_segments(monkeypatch, tmp_path):
     """Test get_active_facets() when day directory has no segments."""
     journal = tmp_path / "journal"
-    (journal / "20240115").mkdir(parents=True)
+    (journal / "chronicle" / "20240115").mkdir(parents=True)
 
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
 
@@ -425,7 +425,7 @@ def test_get_active_facets_no_day_dir(monkeypatch, tmp_path):
 def test_get_active_facets_malformed_json(monkeypatch, tmp_path):
     """Test get_active_facets() skips malformed facets.json gracefully."""
     journal = tmp_path / "journal"
-    day_dir = journal / "20240115"
+    day_dir = journal / "chronicle" / "20240115"
 
     # Malformed JSON segment (stream layout)
     seg1 = day_dir / "archon" / "100000_300" / "agents"

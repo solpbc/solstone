@@ -108,7 +108,9 @@ def test_auto_registration(mock_session, mock_config, mock_journal, tmp_path):
 
     assert result.success is True
     assert client._key == "registered-key"
-    assert mock_session.post.call_args_list[0][0][0].endswith("/app/observer/api/create")
+    assert mock_session.post.call_args_list[0][0][0].endswith(
+        "/app/observer/api/create"
+    )
     config = json.loads((mock_journal / "config" / "journal.json").read_text())
     assert config["observe"]["observer"]["key"] == "registered-key"
 

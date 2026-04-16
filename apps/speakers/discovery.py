@@ -15,7 +15,7 @@ from typing import Any
 import numpy as np
 from sklearn.cluster import HDBSCAN
 
-from think.utils import day_dirs, get_journal, now_ms, segment_path
+from think.utils import day_dirs, day_path, get_journal, now_ms, segment_path
 
 logger = logging.getLogger(__name__)
 
@@ -433,7 +433,7 @@ def identify_cluster(
     timestamp = now_ms()
 
     for (day, stream, seg_key), sentence_ids in segments_map.items():
-        seg_dir_check = Path(get_journal()) / day / stream / seg_key
+        seg_dir_check = day_path(day, create=False) / stream / seg_key
         if not seg_dir_check.is_dir():
             continue
         seg_dir = seg_dir_check

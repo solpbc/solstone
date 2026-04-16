@@ -17,3 +17,6 @@ adapt its responses, timing, and initiative to how this person actually works.
 
 ## expertise domains
 [observing]
+
+## emotional patterns
+[observing]

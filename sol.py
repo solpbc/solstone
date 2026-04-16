@@ -54,8 +54,8 @@ COMMANDS: dict[str, str] = {
     "transcribe": "observe.transcribe",
     "describe": "observe.describe",
     "sense": "observe.sense",
-    "sync": "observe.sync",
     "transfer": "observe.transfer",
+    "export": "observe.export",
     "observer": "observe.observer_cli",
     # AI agents (talent package)
     "agents": "think.agents",
@@ -107,8 +107,8 @@ GROUPS: dict[str, list[str]] = {
         "transcribe",
         "describe",
         "sense",
-        "sync",
         "transfer",
+        "export",
         "observer",
     ],
     "Talent (AI agents)": [

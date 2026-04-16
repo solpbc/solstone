@@ -11,10 +11,11 @@ import pytest
 
 
 @pytest.fixture
-def journal_dir(tmp_path):
+def journal_dir(tmp_path, monkeypatch):
     """Create a temporary journal directory."""
     journal = tmp_path / "journal"
     journal.mkdir()
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
     with mock.patch("think.conversation.get_journal", return_value=str(journal)):
         yield journal
 
@@ -79,6 +80,7 @@ def test_record_exchange_writes_journal_segment(journal_dir):
     time_key = datetime.fromtimestamp(ts / 1000).strftime("%H%M%S")
     md_path = (
         journal_dir
+        / "chronicle"
         / day
         / "conversation"
         / f"{time_key}_1"

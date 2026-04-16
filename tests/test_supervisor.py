@@ -110,52 +110,6 @@ def test_start_sense(tmp_path, mock_callosum, monkeypatch):
         assert stderr == subprocess.PIPE
 
 
-def test_start_sync(tmp_path, mock_callosum, monkeypatch):
-    """Test that start_sync() launches sol sync with remote URL."""
-    mod = importlib.import_module("think.supervisor")
-
-    started = []
-
-    class DummyProc:
-        def __init__(self):
-            self.stdout = io.StringIO()
-            self.stderr = io.StringIO()
-            self.pid = 12345
-
-        def terminate(self):
-            pass
-
-        def wait(self, timeout=None):
-            pass
-
-    def fake_popen(
-        cmd,
-        stdout=None,
-        stderr=None,
-        text=False,
-        bufsize=-1,
-        start_new_session=False,
-        env=None,
-    ):
-        proc = DummyProc()
-        started.append((cmd, stdout, stderr))
-        return proc
-
-    monkeypatch.setattr(mod.subprocess, "Popen", fake_popen)
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
-
-    # Test start_sync()
-    remote_url = "https://server:5000/app/observer/ingest/abc123"
-    sync_proc = mod.start_sync(remote_url)
-    assert sync_proc is not None
-
-    # Verify the command includes --remote with the URL
-    sync_cmds = [cmd for cmd, _, _ in started if "sync" in cmd]
-    assert len(sync_cmds) == 1
-    cmd = sync_cmds[0]
-    assert cmd == ["sol", "sync", "-v", "--remote", remote_url]
-
-
 def test_parse_args_remote_flag():
     """Test that parse_args includes --remote flag."""
     mod = importlib.reload(importlib.import_module("think.supervisor"))
@@ -178,8 +132,6 @@ def test_parse_args_remote_flag_optional():
 
 def test_shutdown_stops_in_reverse_order(monkeypatch):
     """Shutdown stops services in reverse order."""
-    mod = importlib.import_module("think.supervisor")
-
     operations = []
 
     class MockProc:
@@ -385,7 +337,7 @@ def test_process_queue_spawns_next(monkeypatch):
 
     # Create task queue with pre-set state
     mod._task_queue = mod.TaskQueue(on_queue_change=None)
-    mod._task_queue._running = {"indexer": "ref123"}
+    mod._task_queue._running = {"indexer": {"ref": "ref123", "thread": None}}
     mod._task_queue._queues = {
         "indexer": [
             {"refs": ["queued-ref"], "cmd": ["sol", "indexer", "--rescan-full"]}
@@ -418,7 +370,7 @@ def test_process_queue_clears_running_when_empty(monkeypatch):
 
     # Create task queue with pre-set state (no queued tasks)
     mod._task_queue = mod.TaskQueue(on_queue_change=None)
-    mod._task_queue._running = {"indexer": "ref123"}
+    mod._task_queue._running = {"indexer": {"ref": "ref123", "thread": None}}
     mod._task_queue._queues = {"indexer": []}
 
     spawned = []
@@ -462,7 +414,7 @@ def test_task_request_uses_caller_provided_ref(monkeypatch):
     mod._handle_task_request(msg)
 
     # Should use the provided ref
-    assert mod._task_queue._running["indexer"] == "my-custom-ref-123"
+    assert mod._task_queue._running["indexer"]["ref"] == "my-custom-ref-123"
     assert spawned[0][0] == ["my-custom-ref-123"]  # refs is a list
 
 
@@ -564,7 +516,7 @@ def test_process_queue_spawns_with_multiple_refs(monkeypatch):
 
     # Create task queue with pre-set state (queued task with multiple refs)
     mod._task_queue = mod.TaskQueue(on_queue_change=None)
-    mod._task_queue._running = {"indexer": "running-ref"}
+    mod._task_queue._running = {"indexer": {"ref": "running-ref", "thread": None}}
     mod._task_queue._queues = {
         "indexer": [
             {
@@ -588,6 +540,51 @@ def test_process_queue_spawns_with_multiple_refs(monkeypatch):
     assert len(spawned) == 1
     assert spawned[0][0] == ["ref-A", "ref-B", "ref-C"]  # all refs passed
     assert spawned[0][1] == ["sol", "indexer", "--rescan"]
+
+
+def test_stale_queue_detected_on_submit(monkeypatch):
+    """Test that a dead task thread is detected and cleared on next submit."""
+    import threading
+
+    mod = importlib.import_module("think.supervisor")
+
+    mod._task_queue = mod.TaskQueue(on_queue_change=None)
+
+    # Create a dead thread BEFORE monkeypatching Thread.start
+    dead_thread = threading.Thread(target=lambda: None)
+    dead_thread.start()
+    dead_thread.join()
+    assert not dead_thread.is_alive()
+
+    spawned = []
+
+    def fake_thread_start(self):
+        spawned.append(self._target.__name__)
+
+    monkeypatch.setattr(mod.threading.Thread, "start", fake_thread_start)
+
+    mod._task_queue._running = {"indexer": {"ref": "stale-ref", "thread": dead_thread}}
+    mod._task_queue._queues = {
+        "indexer": [
+            {"refs": ["queued-ref"], "cmd": ["sol", "indexer", "--rescan-full"]}
+        ]
+    }
+
+    # Submit a new indexer task — should detect stale state and start immediately
+    msg = {
+        "tract": "supervisor",
+        "event": "request",
+        "cmd": ["sol", "indexer", "--rescan-new"],
+        "ref": "new-ref",
+    }
+    mod._handle_task_request(msg)
+
+    # Stale entry should have been cleared, new task started
+    assert mod._task_queue._running["indexer"]["ref"] == "new-ref"
+    assert len(spawned) == 1
+
+    # Old queued entries should still be in queue (stale clear only removes _running)
+    assert len(mod._task_queue._queues["indexer"]) == 1
 
 
 def test_supervisor_singleton_lock_acquired(tmp_path, monkeypatch):

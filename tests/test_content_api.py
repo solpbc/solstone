@@ -92,7 +92,7 @@ def test_content_detail_404_for_missing_item(content_client):
 def test_content_lazy_backfill(tmp_path):
     journal_root = tmp_path
     import_dir = journal_root / "imports" / "20260101_120000"
-    seg_dir = journal_root / "20260101" / "import.chatgpt" / "120000_300"
+    seg_dir = journal_root / "chronicle" / "20260101" / "import.chatgpt" / "120000_300"
     import_dir.mkdir(parents=True)
     seg_dir.mkdir(parents=True)
 

@@ -20,7 +20,11 @@ import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from think.activities import get_activity_output_path, load_activity_records
+from think.activities import (
+    append_activity_record,
+    get_activity_output_path,
+    load_activity_records,
+)
 from think.activity_state_machine import ActivityStateMachine
 from think.callosum import CallosumConnection
 from think.cluster import cluster_segments
@@ -41,6 +45,7 @@ from think.utils import (
     get_rev,
     iso_date,
     iter_segments,
+    now_ms,
     setup_cli,
     updated_days,
 )
@@ -51,6 +56,53 @@ _callosum: CallosumConnection | None = None
 _status: dict = {}
 _status_lock = threading.Lock()
 _stop_status = threading.Event()
+
+
+class DreamJSONLWriter:
+    """Write JSONL events to a file. File-only, fail-silent."""
+
+    def __init__(self, path: str | None = None) -> None:
+        self.file = None
+        self.skip_count = 0
+        if path:
+            try:
+                Path(path).parent.mkdir(parents=True, exist_ok=True)
+                self.file = open(path, "a", encoding="utf-8")
+            except Exception:
+                pass
+
+    def log(self, event: str, **fields) -> None:
+        if not self.file:
+            return
+        data = {"event": event, "ts": now_ms(), **fields}
+        if event == "agent.skip":
+            self.skip_count += 1
+        try:
+            self.file.write(json.dumps(data, ensure_ascii=False) + "\n")
+            self.file.flush()
+        except Exception:
+            pass
+
+    def close(self) -> None:
+        if self.file:
+            try:
+                self.file.close()
+            except Exception:
+                pass
+
+
+_jsonl: DreamJSONLWriter | None = None
+
+
+def _jsonl_log(event: str, **fields) -> None:
+    """Write a JSONL event if the writer is active."""
+    if _jsonl:
+        _jsonl.log(event, **fields)
+
+
+def _log_skip(name: str, reason: str, detail: str, **extra) -> None:
+    """Emit an agent.skip JSONL event."""
+    _jsonl_log("agent.skip", name=name, reason=reason, detail=detail, **extra)
 
 
 def _update_status(**fields) -> None:
@@ -249,6 +301,16 @@ def _drain_priority_batch(
                 state="timeout",
                 **({"facet": timed_facet} if timed_facet else {}),
             )
+            _jsonl_log(
+                "agent.fail",
+                mode=target_schedule,
+                day=day,
+                segment=segment,
+                name=timed_name,
+                agent_id=agent_id,
+                state="timeout",
+                **({"facet": timed_facet} if timed_facet else {}),
+            )
 
     for agent_id, prompt_name, config, agent_facet in spawned:
         if agent_id in timed_out:
@@ -260,6 +322,16 @@ def _drain_priority_batch(
             success += 1
             emit(
                 "agent_completed",
+                mode=target_schedule,
+                day=day,
+                segment=segment,
+                name=prompt_name,
+                agent_id=agent_id,
+                state="finish",
+                **({"facet": agent_facet} if agent_facet else {}),
+            )
+            _jsonl_log(
+                "agent.complete",
                 mode=target_schedule,
                 day=day,
                 segment=segment,
@@ -296,6 +368,16 @@ def _drain_priority_batch(
             failed_names.append(f"{label} ({end_state})")
             emit(
                 "agent_completed",
+                mode=target_schedule,
+                day=day,
+                segment=segment,
+                name=prompt_name,
+                agent_id=agent_id,
+                state=end_state,
+                **({"facet": agent_facet} if agent_facet else {}),
+            )
+            _jsonl_log(
+                "agent.fail",
                 mode=target_schedule,
                 day=day,
                 segment=segment,
@@ -423,6 +505,14 @@ def run_segment_sense(
     sense_config = _cfg("sense")
     if sense_config is None:
         logging.error("Sense agent not found in segment configs")
+        _log_skip(
+            "sense",
+            "no_config",
+            "Sense agent not found in segment configs",
+            mode=target_schedule,
+            day=day,
+            segment=segment,
+        )
         return (0, 1, ["sense (not_configured)"])
 
     day_dir = day_path(day)
@@ -455,6 +545,14 @@ def run_segment_sense(
 
     sense_agent_id = _dispatch_agent("sense", sense_config)
     if sense_agent_id is None:
+        _log_skip(
+            "sense",
+            "send_failed",
+            "All cortex request attempts failed",
+            mode=target_schedule,
+            day=day,
+            segment=segment,
+        )
         duration_ms = int((time.time() - start_time) * 1000)
         emit(
             "completed",
@@ -470,6 +568,14 @@ def run_segment_sense(
 
     emit(
         "agent_started",
+        mode=target_schedule,
+        day=day,
+        segment=segment,
+        name="sense",
+        agent_id=sense_agent_id,
+    )
+    _jsonl_log(
+        "agent.dispatch",
         mode=target_schedule,
         day=day,
         segment=segment,
@@ -532,12 +638,73 @@ def run_segment_sense(
 
     write_sense_outputs(sense_json, seg_dir, stream=stream)
     density = sense_json.get("density") or "active"
+    _jsonl_log(
+        "sense.complete",
+        mode=target_schedule,
+        day=day,
+        segment=segment,
+        density=density,
+        recommend=sense_json.get("recommend") or {},
+    )
 
     if density == "idle" and not refresh:
         write_idle_stubs(seg_dir)
         logging.info("Segment %s is idle, skipping remaining agents", segment)
+        _log_skip(
+            "*",
+            "density_idle",
+            f"Segment {segment} is idle, skipping remaining agents",
+            mode=target_schedule,
+            day=day,
+            segment=segment,
+        )
         if state_machine is not None:
-            state_machine.update(sense_json, segment, day)
+            idle_changes = state_machine.update(sense_json, segment, day)
+            # Persist completed activity records from idle transitions
+            ended_pairs = [
+                (c["id"], c.get("_facet", "__"))
+                for c in idle_changes
+                if c.get("state") == "ended"
+            ]
+            completed_lookup = {}
+            for rec in state_machine.get_completed_activities():
+                completed_lookup.setdefault(rec["id"], rec)
+            for activity_id, facet in ended_pairs:
+                _jsonl_log(
+                    "activity.detected",
+                    mode=target_schedule,
+                    day=day,
+                    segment=segment,
+                    activity=str(activity_id),
+                    facet=str(facet),
+                    state="ended",
+                )
+                rec = completed_lookup.get(activity_id)
+                if rec:
+                    append_activity_record(facet, day, rec)
+                    _jsonl_log(
+                        "activity.persisted",
+                        mode=target_schedule,
+                        day=day,
+                        segment=segment,
+                        activity=str(activity_id),
+                        facet=str(facet),
+                    )
+            # Run activity agents for completed activities
+            for activity_id, facet in ended_pairs:
+                logging.info(
+                    "Activity completed (idle): %s facet=%s, running activity agents",
+                    activity_id,
+                    facet,
+                )
+                run_activity_prompts(
+                    day=day,
+                    activity_id=str(activity_id),
+                    facet=str(facet),
+                    refresh=refresh,
+                    verbose=verbose,
+                    max_concurrency=max_concurrency,
+                )
             # Persist activity state even on idle segments
             try:
                 awareness_dir = Path(get_journal()) / "awareness"
@@ -562,21 +729,90 @@ def run_segment_sense(
         return (total_success, total_failed, all_failed_names)
 
     recommend = sense_json.get("recommend") or {}
+    has_audio_embeddings = _has_audio_embeddings(seg_dir)
     agents_to_run: list[tuple[str, dict]] = []
 
     entities_config = _cfg("entities")
     if entities_config:
         agents_to_run.append(("entities", entities_config))
+    else:
+        _log_skip(
+            "entities",
+            "no_config",
+            "entities config not found",
+            mode=target_schedule,
+            day=day,
+            segment=segment,
+        )
+
+    documents_config = _cfg("documents")
+    if documents_config:
+        agents_to_run.append(("documents", documents_config))
+    else:
+        _log_skip(
+            "documents",
+            "no_config",
+            "documents config not found",
+            mode=target_schedule,
+            day=day,
+            segment=segment,
+        )
 
     if recommend.get("screen_record"):
         screen_config = _cfg("screen")
         if screen_config:
             agents_to_run.append(("screen", screen_config))
+        else:
+            _log_skip(
+                "screen",
+                "no_config",
+                "screen config not found",
+                mode=target_schedule,
+                day=day,
+                segment=segment,
+            )
+    else:
+        _log_skip(
+            "screen",
+            "not_recommended",
+            "screen_record not recommended by sense",
+            mode=target_schedule,
+            day=day,
+            segment=segment,
+        )
 
-    if recommend.get("speaker_attribution") and _has_audio_embeddings(seg_dir):
+    if recommend.get("speaker_attribution") and has_audio_embeddings:
         speaker_config = _cfg("speaker_attribution")
         if speaker_config:
             agents_to_run.append(("speaker_attribution", speaker_config))
+        else:
+            _log_skip(
+                "speaker_attribution",
+                "no_config",
+                "speaker_attribution config not found",
+                mode=target_schedule,
+                day=day,
+                segment=segment,
+            )
+    else:
+        if not recommend.get("speaker_attribution"):
+            _log_skip(
+                "speaker_attribution",
+                "not_recommended",
+                "speaker_attribution not recommended by sense",
+                mode=target_schedule,
+                day=day,
+                segment=segment,
+            )
+        elif not has_audio_embeddings:
+            _log_skip(
+                "speaker_attribution",
+                "not_recommended",
+                "no audio embeddings available",
+                mode=target_schedule,
+                day=day,
+                segment=segment,
+            )
 
     total_expected = 1 + len(agents_to_run)
     if recommend.get("pulse_update") and pulse_config:
@@ -587,6 +823,14 @@ def run_segment_sense(
     for agent_name, config in agents_to_run:
         agent_id = _dispatch_agent(agent_name, config)
         if agent_id is None:
+            _log_skip(
+                agent_name,
+                "send_failed",
+                f"All cortex request attempts failed for {agent_name}",
+                mode=target_schedule,
+                day=day,
+                segment=segment,
+            )
             total_failed += 1
             all_failed_names.append(f"{agent_name} (send)")
             _update_status(agents_completed=total_success + total_failed)
@@ -595,6 +839,14 @@ def run_segment_sense(
         spawned.append((agent_id, agent_name, config, None))
         emit(
             "agent_started",
+            mode=target_schedule,
+            day=day,
+            segment=segment,
+            name=agent_name,
+            agent_id=agent_id,
+        )
+        _jsonl_log(
+            "agent.dispatch",
             mode=target_schedule,
             day=day,
             segment=segment,
@@ -641,6 +893,36 @@ def run_segment_sense(
 
     if state_machine is not None:
         changes = state_machine.update(sense_json, segment, day)
+        # Persist completed activity records before running activity agents
+        ended_pairs = [
+            (c["id"], c.get("_facet", "__"))
+            for c in changes
+            if c.get("state") == "ended"
+        ]
+        completed_lookup = {}
+        for rec in state_machine.get_completed_activities():
+            completed_lookup.setdefault(rec["id"], rec)
+        for activity_id, facet in ended_pairs:
+            _jsonl_log(
+                "activity.detected",
+                mode=target_schedule,
+                day=day,
+                segment=segment,
+                activity=str(activity_id),
+                facet=str(facet),
+                state="ended",
+            )
+            rec = completed_lookup.get(activity_id)
+            if rec:
+                append_activity_record(facet, day, rec)
+                _jsonl_log(
+                    "activity.persisted",
+                    mode=target_schedule,
+                    day=day,
+                    segment=segment,
+                    activity=str(activity_id),
+                    facet=str(facet),
+                )
         # Persist activity state for awareness.md consumption
         try:
             awareness_dir = Path(get_journal()) / "awareness"
@@ -675,12 +957,28 @@ def run_segment_sense(
     if awareness_tender_config:
         at_agent_id = _dispatch_agent("awareness_tender", awareness_tender_config)
         if at_agent_id is None:
+            _log_skip(
+                "awareness_tender",
+                "send_failed",
+                "All cortex request attempts failed for awareness_tender",
+                mode=target_schedule,
+                day=day,
+                segment=segment,
+            )
             total_failed += 1
             all_failed_names.append("awareness_tender (send)")
             _update_status(agents_completed=total_success + total_failed)
         else:
             emit(
                 "agent_started",
+                mode=target_schedule,
+                day=day,
+                segment=segment,
+                name="awareness_tender",
+                agent_id=at_agent_id,
+            )
+            _jsonl_log(
+                "agent.dispatch",
                 mode=target_schedule,
                 day=day,
                 segment=segment,
@@ -707,12 +1005,28 @@ def run_segment_sense(
     if recommend.get("pulse_update") and pulse_config:
         pulse_agent_id = _dispatch_agent("pulse", pulse_config)
         if pulse_agent_id is None:
+            _log_skip(
+                "pulse",
+                "send_failed",
+                "All cortex request attempts failed for pulse",
+                mode=target_schedule,
+                day=day,
+                segment=segment,
+            )
             total_failed += 1
             all_failed_names.append("pulse (send)")
             _update_status(agents_completed=total_success + total_failed)
         else:
             emit(
                 "agent_started",
+                mode=target_schedule,
+                day=day,
+                segment=segment,
+                name="pulse",
+                agent_id=pulse_agent_id,
+            )
+            _jsonl_log(
+                "agent.dispatch",
                 mode=target_schedule,
                 day=day,
                 segment=segment,
@@ -735,6 +1049,24 @@ def run_segment_sense(
                 agents_completed=total_success + total_failed,
                 current_agents=[],
             )
+    elif not recommend.get("pulse_update"):
+        _log_skip(
+            "pulse",
+            "not_recommended",
+            "pulse_update not recommended by sense",
+            mode=target_schedule,
+            day=day,
+            segment=segment,
+        )
+    elif not pulse_config:
+        _log_skip(
+            "pulse",
+            "no_config",
+            "pulse config not found",
+            mode=target_schedule,
+            day=day,
+            segment=segment,
+        )
 
     duration_ms = int((time.time() - start_time) * 1000)
     emit(
@@ -844,6 +1176,13 @@ def run_daily_prompts(
             priority=priority,
             count=len(prompts_list),
         )
+        _jsonl_log(
+            "group.start",
+            mode=target_schedule,
+            day=day,
+            priority=priority,
+            count=len(prompts_list),
+        )
 
         spawned: list[
             tuple[str, str, dict, str | None]
@@ -861,6 +1200,13 @@ def run_daily_prompts(
                     logging.info(
                         f"Skipping {prompt_name}: stream '{stream}' matches exclude_streams"
                     )
+                    _log_skip(
+                        prompt_name,
+                        "stream_excluded",
+                        f"stream '{stream}' matches exclude_streams",
+                        mode=target_schedule,
+                        day=day,
+                    )
                     continue
 
             try:
@@ -872,6 +1218,14 @@ def run_daily_prompts(
                             logging.info(
                                 f"Skipping {prompt_name} for {facet_name}: "
                                 f"no activity on {day_formatted}"
+                            )
+                            _log_skip(
+                                prompt_name,
+                                "no_active_facets",
+                                f"no activity on {iso_date(day)}",
+                                mode=target_schedule,
+                                day=day,
+                                facet=facet_name,
                             )
                             continue
 
@@ -905,6 +1259,14 @@ def run_daily_prompts(
                             config=request_config,
                         )
                         if agent_id is None:
+                            _log_skip(
+                                prompt_name,
+                                "send_failed",
+                                f"All cortex request attempts failed for {prompt_name}",
+                                mode=target_schedule,
+                                day=day,
+                                facet=facet_name,
+                            )
                             group_failed += 1
                             all_failed_names.append(
                                 f"{prompt_name}/{facet_name} (send)"
@@ -913,6 +1275,14 @@ def run_daily_prompts(
                         spawned.append((agent_id, prompt_name, config, facet_name))
                         emit(
                             "agent_started",
+                            mode=target_schedule,
+                            day=day,
+                            name=prompt_name,
+                            agent_id=agent_id,
+                            facet=facet_name,
+                        )
+                        _jsonl_log(
+                            "agent.dispatch",
                             mode=target_schedule,
                             day=day,
                             name=prompt_name,
@@ -973,12 +1343,26 @@ def run_daily_prompts(
                         config=request_config,
                     )
                     if agent_id is None:
+                        _log_skip(
+                            prompt_name,
+                            "send_failed",
+                            f"All cortex request attempts failed for {prompt_name}",
+                            mode=target_schedule,
+                            day=day,
+                        )
                         group_failed += 1
                         all_failed_names.append(f"{prompt_name} (send)")
                         continue
                     spawned.append((agent_id, prompt_name, config, None))
                     emit(
                         "agent_started",
+                        mode=target_schedule,
+                        day=day,
+                        name=prompt_name,
+                        agent_id=agent_id,
+                    )
+                    _jsonl_log(
+                        "agent.dispatch",
                         mode=target_schedule,
                         day=day,
                         name=prompt_name,
@@ -1032,6 +1416,14 @@ def run_daily_prompts(
 
         emit(
             "group_completed",
+            mode=target_schedule,
+            day=day,
+            priority=priority,
+            success=group_success,
+            failed=group_failed,
+        )
+        _jsonl_log(
+            "group.complete",
             mode=target_schedule,
             day=day,
             priority=priority,
@@ -1140,6 +1532,13 @@ def run_weekly_prompts(
             priority=priority,
             count=len(prompts_list),
         )
+        _jsonl_log(
+            "group.start",
+            mode=target_schedule,
+            day=day,
+            priority=priority,
+            count=len(prompts_list),
+        )
 
         spawned: list[
             tuple[str, str, dict, str | None]
@@ -1157,6 +1556,13 @@ def run_weekly_prompts(
                     logging.info(
                         f"Skipping {prompt_name}: stream '{stream}' matches exclude_streams"
                     )
+                    _log_skip(
+                        prompt_name,
+                        "stream_excluded",
+                        f"stream '{stream}' matches exclude_streams",
+                        mode=target_schedule,
+                        day=day,
+                    )
                     continue
 
             try:
@@ -1168,6 +1574,14 @@ def run_weekly_prompts(
                             logging.info(
                                 f"Skipping {prompt_name} for {facet_name}: "
                                 f"no activity on {day_formatted}"
+                            )
+                            _log_skip(
+                                prompt_name,
+                                "no_active_facets",
+                                f"no activity on {iso_date(day)}",
+                                mode=target_schedule,
+                                day=day,
+                                facet=facet_name,
                             )
                             continue
 
@@ -1201,6 +1615,14 @@ def run_weekly_prompts(
                             config=request_config,
                         )
                         if agent_id is None:
+                            _log_skip(
+                                prompt_name,
+                                "send_failed",
+                                f"All cortex request attempts failed for {prompt_name}",
+                                mode=target_schedule,
+                                day=day,
+                                facet=facet_name,
+                            )
                             group_failed += 1
                             all_failed_names.append(
                                 f"{prompt_name}/{facet_name} (send)"
@@ -1209,6 +1631,14 @@ def run_weekly_prompts(
                         spawned.append((agent_id, prompt_name, config, facet_name))
                         emit(
                             "agent_started",
+                            mode=target_schedule,
+                            day=day,
+                            name=prompt_name,
+                            agent_id=agent_id,
+                            facet=facet_name,
+                        )
+                        _jsonl_log(
+                            "agent.dispatch",
                             mode=target_schedule,
                             day=day,
                             name=prompt_name,
@@ -1269,12 +1699,26 @@ def run_weekly_prompts(
                         config=request_config,
                     )
                     if agent_id is None:
+                        _log_skip(
+                            prompt_name,
+                            "send_failed",
+                            f"All cortex request attempts failed for {prompt_name}",
+                            mode=target_schedule,
+                            day=day,
+                        )
                         group_failed += 1
                         all_failed_names.append(f"{prompt_name} (send)")
                         continue
                     spawned.append((agent_id, prompt_name, config, None))
                     emit(
                         "agent_started",
+                        mode=target_schedule,
+                        day=day,
+                        name=prompt_name,
+                        agent_id=agent_id,
+                    )
+                    _jsonl_log(
+                        "agent.dispatch",
                         mode=target_schedule,
                         day=day,
                         name=prompt_name,
@@ -1328,6 +1772,14 @@ def run_weekly_prompts(
 
         emit(
             "group_completed",
+            mode=target_schedule,
+            day=day,
+            priority=priority,
+            success=group_success,
+            failed=group_failed,
+        )
+        _jsonl_log(
+            "group.complete",
             mode=target_schedule,
             day=day,
             priority=priority,
@@ -1479,6 +1931,15 @@ def run_activity_prompts(
             priority=priority,
             count=len(prompts_list),
         )
+        _jsonl_log(
+            "group.start",
+            mode="activity",
+            day=day,
+            activity=activity_id,
+            facet=facet,
+            priority=priority,
+            count=len(prompts_list),
+        )
 
         spawned: list[tuple[str, str, dict]] = []  # (agent_id, name, config)
         group_success = 0
@@ -1504,6 +1965,16 @@ def run_activity_prompts(
                     )
                     emit(
                         "agent_completed",
+                        mode="activity",
+                        day=day,
+                        activity=activity_id,
+                        facet=facet,
+                        name=timed_name,
+                        agent_id=agent_id,
+                        state="timeout",
+                    )
+                    _jsonl_log(
+                        "agent.fail",
                         mode="activity",
                         day=day,
                         activity=activity_id,
@@ -1546,6 +2017,16 @@ def run_activity_prompts(
 
                 emit(
                     "agent_completed",
+                    mode="activity",
+                    day=day,
+                    activity=activity_id,
+                    facet=facet,
+                    name=prompt_name,
+                    agent_id=agent_id,
+                    state=end_state,
+                )
+                _jsonl_log(
+                    "agent.complete" if end_state == "finish" else "agent.fail",
                     mode="activity",
                     day=day,
                     activity=activity_id,
@@ -1602,11 +2083,29 @@ def run_activity_prompts(
                     config=request_config,
                 )
                 if agent_id is None:
+                    _log_skip(
+                        prompt_name,
+                        "send_failed",
+                        f"All cortex request attempts failed for {prompt_name}",
+                        mode="activity",
+                        day=day,
+                        activity=activity_id,
+                        facet=facet,
+                    )
                     total_failed += 1
                     continue
                 spawned.append((agent_id, prompt_name, config))
                 emit(
                     "agent_started",
+                    mode="activity",
+                    day=day,
+                    activity=activity_id,
+                    facet=facet,
+                    name=prompt_name,
+                    agent_id=agent_id,
+                )
+                _jsonl_log(
+                    "agent.dispatch",
                     mode="activity",
                     day=day,
                     activity=activity_id,
@@ -1648,6 +2147,16 @@ def run_activity_prompts(
 
         emit(
             "group_completed",
+            mode="activity",
+            day=day,
+            activity=activity_id,
+            facet=facet,
+            priority=priority,
+            success=group_success,
+            failed=group_failed,
+        )
+        _jsonl_log(
+            "group.complete",
             mode="activity",
             day=day,
             activity=activity_id,
@@ -1764,11 +2273,27 @@ def run_flush_prompts(
                 config=request_config,
             )
             if agent_id is None:
+                _log_skip(
+                    prompt_name,
+                    "send_failed",
+                    f"All cortex request attempts failed for {prompt_name}",
+                    mode="flush",
+                    day=day,
+                    segment=segment,
+                )
                 total_failed += 1
                 continue
             spawned.append((agent_id, prompt_name, config))
             emit(
                 "agent_started",
+                mode="flush",
+                day=day,
+                segment=segment,
+                name=prompt_name,
+                agent_id=agent_id,
+            )
+            _jsonl_log(
+                "agent.dispatch",
                 mode="flush",
                 day=day,
                 segment=segment,
@@ -1789,6 +2314,19 @@ def run_flush_prompts(
         if timed_out:
             logging.warning(f"Flush: {len(timed_out)} agents timed out")
             total_failed += len(timed_out)
+            for agent_id in timed_out:
+                timed_name = next(
+                    (n for aid, n, _ in spawned if aid == agent_id), "unknown"
+                )
+                _jsonl_log(
+                    "agent.fail",
+                    mode="flush",
+                    day=day,
+                    segment=segment,
+                    name=timed_name,
+                    agent_id=agent_id,
+                    state="timeout",
+                )
 
         for agent_id, prompt_name, config in spawned:
             if agent_id in timed_out:
@@ -1805,6 +2343,15 @@ def run_flush_prompts(
 
             emit(
                 "agent_completed",
+                mode="flush",
+                day=day,
+                segment=segment,
+                name=prompt_name,
+                agent_id=agent_id,
+                state=end_state,
+            )
+            _jsonl_log(
+                "agent.complete" if end_state == "finish" else "agent.fail",
                 mode="flush",
                 day=day,
                 segment=segment,
@@ -2213,7 +2760,7 @@ def parse_args() -> argparse.ArgumentParser:
 
 
 def main() -> None:
-    global _callosum
+    global _callosum, _jsonl
 
     parser = parse_args()
     args = setup_cli(parser)
@@ -2305,12 +2852,32 @@ def main() -> None:
         )
         sys.exit(0)
 
+    if args.activity:
+        _run_mode = "activity"
+    elif args.flush:
+        _run_mode = "flush"
+    elif args.segments:
+        _run_mode = "segment"
+    elif args.weekly:
+        _run_mode = "weekly"
+    elif args.segment:
+        _run_mode = "segment"
+    else:
+        _run_mode = "daily"
+
+    _run_ref = str(now_ms())
+    _run_start_time = time.time()
+    _run_result = {"success": 0, "failed": 0}
+    jsonl_path = str(day_path(day) / "health" / f"{_run_ref}_{_run_mode}_dream.jsonl")
+    _jsonl = DreamJSONLWriter(jsonl_path)
+
     # Start callosum connection
     _callosum = CallosumConnection(defaults={"rev": get_rev()})
     _callosum.start()
     _stop_status.clear()
     status_thread = threading.Thread(target=_emit_periodic_status, daemon=True)
     status_thread.start()
+    _jsonl_log("run.start", mode=_run_mode, day=day, ref=_run_ref)
 
     try:
         # Handle activity-triggered execution mode
@@ -2323,6 +2890,8 @@ def main() -> None:
                 verbose=args.verbose,
                 max_concurrency=args.jobs,
             )
+            _run_result["success"] = 1 if success else 0
+            _run_result["failed"] = 0 if success else 1
             sys.exit(0 if success else 1)
 
         # Handle flush mode
@@ -2335,6 +2904,8 @@ def main() -> None:
                 verbose=args.verbose,
                 stream=args.stream,
             )
+            _run_result["success"] = 1 if success else 0
+            _run_result["failed"] = 0 if success else 1
             sys.exit(0 if success else 1)
 
         # Handle batch segment re-processing mode
@@ -2408,6 +2979,8 @@ def main() -> None:
             else:
                 day_log(day, f"dream --segments failed={batch_failed}")
 
+            _run_result["success"] = batch_success
+            _run_result["failed"] = batch_failed
             if batch_failed > 0:
                 sys.exit(1)
             sys.exit(0)
@@ -2434,6 +3007,8 @@ def main() -> None:
                 f"{success_count} succeeded, {fail_count} failed"
             )
             day_log(day, f"dream --weekly failed={fail_count}")
+            _run_result["success"] = success_count
+            _run_result["failed"] = fail_count
 
             if fail_count > 0:
                 names = ", ".join(failed_names)
@@ -2448,7 +3023,18 @@ def main() -> None:
             if args.verbose:
                 cmd.append("-v")
             day_log(day, f"starting: {' '.join(cmd)}")
-            if not run_command(cmd, day):
+            _jsonl_log("phase.start", mode=_run_mode, day=day, phase="sense_repair")
+            _phase_start = time.time()
+            phase_ok = run_command(cmd, day)
+            _jsonl_log(
+                "phase.complete",
+                mode=_run_mode,
+                day=day,
+                phase="sense_repair",
+                success=phase_ok,
+                duration_ms=int((time.time() - _phase_start) * 1000),
+            )
+            if not phase_ok:
                 logging.warning("Sense repair failed, continuing anyway")
 
         # MAIN PHASE: Run prompts
@@ -2480,6 +3066,8 @@ def main() -> None:
                 max_concurrency=args.jobs,
                 stream=resolved_stream,
             )
+        _run_result["success"] = success_count
+        _run_result["failed"] = fail_count
 
         # Touch stream.updated marker after segment processing
         if args.segment:
@@ -2496,13 +3084,68 @@ def main() -> None:
             rescan_cmd = ["sol", "indexer", "--rescan"]
             if args.verbose:
                 rescan_cmd.append("--verbose")
-            run_queued_command(rescan_cmd, day, timeout=3600)
+            _jsonl_log("phase.start", mode=_run_mode, day=day, phase="indexer_rescan")
+            _phase_start = time.time()
+            rescan_ok = run_queued_command(rescan_cmd, day, timeout=3600)
+            _jsonl_log(
+                "phase.complete",
+                mode=_run_mode,
+                day=day,
+                phase="indexer_rescan",
+                success=rescan_ok,
+                duration_ms=int((time.time() - _phase_start) * 1000),
+            )
 
             logging.info("Running post-phase: journal stats")
             stats_cmd = ["sol", "journal-stats"]
             if args.verbose:
                 stats_cmd.append("--verbose")
-            run_command(stats_cmd, day)
+            _jsonl_log("phase.start", mode=_run_mode, day=day, phase="journal_stats")
+            _phase_start = time.time()
+            stats_ok = run_command(stats_cmd, day)
+            _jsonl_log(
+                "phase.complete",
+                mode=_run_mode,
+                day=day,
+                phase="journal_stats",
+                success=stats_ok,
+                duration_ms=int((time.time() - _phase_start) * 1000),
+            )
+
+            # Check storage health and emit warnings
+            try:
+                from think.callosum import callosum_send
+                from think.retention import (
+                    check_storage_health,
+                    compute_storage_summary,
+                )
+
+                storage_summary = compute_storage_summary()
+                journal_path = get_journal()
+                storage_warnings = check_storage_health(storage_summary, journal_path)
+                for warning in storage_warnings:
+                    callosum_send(
+                        "storage",
+                        "warning",
+                        level=warning["level"],
+                        type=warning["type"],
+                        message=warning["message"],
+                        current=warning["current"],
+                        threshold=warning["threshold"],
+                    )
+                if storage_warnings:
+                    callosum_send(
+                        "notification",
+                        "show",
+                        title="Storage Warning",
+                        message=storage_warnings[0]["message"],
+                        icon="💾",
+                        action="/app/settings#storage",
+                    )
+            except Exception:
+                logging.debug(
+                    "Storage health check failed in post-phase", exc_info=True
+                )
 
             # Touch daily.updated marker after daily schedule completion
             try:
@@ -2561,7 +3204,22 @@ def main() -> None:
         _clear_status()
         _stop_status.set()
         status_thread.join(timeout=2)
-        _callosum.stop()
+        _run_duration_ms = int((time.time() - _run_start_time) * 1000)
+        _jsonl_log(
+            "run.complete",
+            mode=_run_mode,
+            day=day,
+            ref=_run_ref,
+            success=_run_result["success"],
+            failed=_run_result["failed"],
+            skipped=_jsonl.skip_count if _jsonl else 0,
+            duration_ms=_run_duration_ms,
+        )
+        if _jsonl:
+            _jsonl.close()
+            _jsonl = None
+        if _callosum:
+            _callosum.stop()
 
 
 if __name__ == "__main__":

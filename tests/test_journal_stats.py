@@ -8,8 +8,8 @@ import json
 def test_scan_day(tmp_path, monkeypatch):
     stats_mod = importlib.import_module("think.journal_stats")
     journal = tmp_path
-    day = journal / "20240101"
-    day.mkdir()
+    day = journal / "chronicle" / "20240101"
+    day.mkdir(parents=True)
 
     # Create an audio jsonl file in segment directory (already processed)
     ts_dir = day / "default" / "123456_300"
@@ -68,10 +68,10 @@ def test_scan_day(tmp_path, monkeypatch):
 def test_token_usage(tmp_path, monkeypatch):
     stats_mod = importlib.import_module("think.journal_stats")
     journal = tmp_path
-    day1 = journal / "20240101"
-    day1.mkdir()
-    day2 = journal / "20240102"
-    day2.mkdir()
+    day1 = journal / "chronicle" / "20240101"
+    day1.mkdir(parents=True)
+    day2 = journal / "chronicle" / "20240102"
+    day2.mkdir(parents=True)
 
     # Create tokens directory with test token files
     tokens_dir = journal / "tokens"
@@ -177,8 +177,7 @@ def test_token_usage(tmp_path, monkeypatch):
     assert "total_transcript_duration" in data["totals"]
     assert "total_percept_duration" in data["totals"]
     assert (
-        data["tokens"]["by_day"]["20240101"]["gemini-2.5-flash"]["total_tokens"]
-        == 495
+        data["tokens"]["by_day"]["20240101"]["gemini-2.5-flash"]["total_tokens"] == 495
     )
 
 
@@ -186,8 +185,8 @@ def test_caching(tmp_path, monkeypatch):
     """Test that per-day caching works correctly."""
     stats_mod = importlib.import_module("think.journal_stats")
     journal = tmp_path
-    day = journal / "20240101"
-    day.mkdir()
+    day = journal / "chronicle" / "20240101"
+    day.mkdir(parents=True)
 
     # Create an audio jsonl file in segment directory
     ts_dir = day / "default" / "123456_300"
@@ -228,15 +227,14 @@ def test_facet_event_mtime_invalidates_cache(tmp_path, monkeypatch):
     """Modifying a facet event file invalidates that day's cache."""
     stats_mod = importlib.import_module("think.journal_stats")
     journal = tmp_path
-    day = journal / "20240101"
-    day.mkdir()
+    day = journal / "chronicle" / "20240101"
+    day.mkdir(parents=True)
 
     # Create minimal day content
     ts_dir = day / "default" / "123456_300"
     ts_dir.mkdir(parents=True)
     (ts_dir / "audio.jsonl").write_text(
-        '{"raw": "raw.flac"}\n'
-        '{"start": "10:00:00", "text": "hello"}\n'
+        '{"raw": "raw.flac"}\n{"start": "10:00:00", "text": "hello"}\n'
     )
 
     # Create facet event file
@@ -289,8 +287,8 @@ def test_token_usage_new_format(tmp_path, monkeypatch):
     """Test that the new unified token format is properly handled."""
     stats_mod = importlib.import_module("think.journal_stats")
     journal = tmp_path
-    day1 = journal / "20240101"
-    day1.mkdir()
+    day1 = journal / "chronicle" / "20240101"
+    day1.mkdir(parents=True)
 
     # Create tokens directory with new format token files
     tokens_dir = journal / "tokens"
@@ -338,8 +336,8 @@ def test_process_token_entry_counts_all_int_usage_fields(tmp_path, monkeypatch):
     """Int-valued fields in usage are all counted; top-level metadata is ignored."""
     stats_mod = importlib.import_module("think.journal_stats")
     journal = tmp_path
-    day1 = journal / "20240101"
-    day1.mkdir()
+    day1 = journal / "chronicle" / "20240101"
+    day1.mkdir(parents=True)
 
     tokens_dir = journal / "tokens"
     tokens_dir.mkdir()

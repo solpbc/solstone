@@ -1,14 +1,15 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Tests for observe/transfer.py - day archive export and import."""
+"""Tests for observe/transfer.py - day archive export, import, and send."""
 
 import json
 import tarfile
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
 
 
 class TestSegmentDeconfliction:
@@ -89,7 +90,7 @@ class TestTransferExport:
 
         # Set up mock journal with day/stream/segment structure
         journal_path = tmp_path / "journal"
-        day_dir = journal_path / "20250101"
+        day_dir = journal_path / "chronicle" / "20250101"
         segment_dir = day_dir / "default" / "120000_300"
         segment_dir.mkdir(parents=True)
 
@@ -129,7 +130,7 @@ class TestTransferExport:
         from observe.transfer import create_archive
 
         journal_path = tmp_path / "journal"
-        day_dir = journal_path / "20250101"
+        day_dir = journal_path / "chronicle" / "20250101"
         day_dir.mkdir(parents=True)
 
         monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_path))
@@ -248,7 +249,7 @@ class TestTransferImport:
 
         # Set up journal with matching segment
         journal_path = tmp_path / "journal"
-        segment_dir = journal_path / "20250101" / "120000_300"
+        segment_dir = journal_path / "chronicle" / "20250101" / "120000_300"
         segment_dir.mkdir(parents=True)
         (segment_dir / "audio.flac").write_bytes(content)
 
@@ -275,7 +276,7 @@ class TestTransferImport:
 
         # Set up journal with different content in same segment
         journal_path = tmp_path / "journal"
-        segment_dir = journal_path / "20250101" / "120000_300"
+        segment_dir = journal_path / "chronicle" / "20250101" / "120000_300"
         segment_dir.mkdir(parents=True)
         (segment_dir / "audio.flac").write_bytes(b"existing different data")
 
@@ -326,7 +327,7 @@ class TestTransferImport:
         assert "120000_300" in result["imported"]
 
         # Verify files were extracted
-        segment_dir = journal_path / "20250101" / "120000_300"
+        segment_dir = journal_path / "chronicle" / "20250101" / "120000_300"
         assert segment_dir.exists()
         assert (segment_dir / "audio.flac").read_bytes() == audio_content
         assert (segment_dir / "audio.jsonl").read_bytes() == jsonl_content
@@ -353,7 +354,7 @@ class TestTransferImport:
 
         assert result["status"] == "dry_run"
         # Directory should not be created
-        assert not (journal_path / "20250101").exists()
+        assert not (journal_path / "chronicle" / "20250101").exists()
 
     def test_import_archive_nothing_to_import(self, tmp_path, monkeypatch):
         """Test import_archive when all segments already synced."""
@@ -367,7 +368,7 @@ class TestTransferImport:
 
         # Set up journal with matching content
         journal_path = tmp_path / "journal"
-        segment_dir = journal_path / "20250101" / "120000_300"
+        segment_dir = journal_path / "chronicle" / "20250101" / "120000_300"
         segment_dir.mkdir(parents=True)
         (segment_dir / "audio.flac").write_bytes(content)
 
@@ -432,3 +433,284 @@ class TestManifestValidation:
 
         with pytest.raises(ValueError, match="missing required fields"):
             _read_manifest(archive_path)
+
+
+class TestTransferSend:
+    """Tests for transfer send functionality."""
+
+    def _setup_journal(self, tmp_path, *, include_stream_json: bool = False) -> Path:
+        journal = tmp_path / "journal"
+        day_dir = journal / "chronicle" / "20250103" / "default" / "120000_300"
+        day_dir.mkdir(parents=True)
+        (day_dir / "audio.flac").write_bytes(b"audio data")
+        (day_dir / "transcript.jsonl").write_text('{"text": "hello"}\n')
+        if include_stream_json:
+            (day_dir / "stream.json").write_text('{"stream": "default"}\n')
+        return journal
+
+    def _set_journal_override(self, monkeypatch, journal: Path) -> None:
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+
+        import think.utils
+
+        think.utils._journal_path_cache = None
+
+    def _make_session(
+        self,
+        *,
+        get_status: int = 200,
+        get_json: list | None = None,
+        post_status: int = 200,
+        post_json: dict | None = None,
+    ) -> MagicMock:
+        mock_session = MagicMock(spec=requests.Session)
+        mock_session.headers = {}
+
+        get_response = MagicMock()
+        get_response.status_code = get_status
+        get_response.json.return_value = get_json if get_json is not None else []
+        get_response.text = "GET error"
+        mock_session.get.return_value = get_response
+
+        post_response = MagicMock()
+        post_response.status_code = post_status
+        post_response.json.return_value = (
+            post_json if post_json is not None else {"status": "ok", "bytes": 100}
+        )
+        post_response.text = "POST error"
+        mock_session.post.return_value = post_response
+
+        return mock_session
+
+    def test_parse_day_spec_single(self, tmp_path):
+        from observe.transfer import _parse_day_spec
+
+        journal_root = tmp_path / "journal"
+        journal_root.mkdir()
+
+        assert _parse_day_spec("20250103", journal_root) == ["20250103"]
+
+    def test_parse_day_spec_range(self, tmp_path):
+        from observe.transfer import _parse_day_spec
+
+        journal_root = tmp_path / "journal"
+        journal_root.mkdir()
+
+        assert _parse_day_spec("20250101-20250103", journal_root) == [
+            "20250101",
+            "20250102",
+            "20250103",
+        ]
+
+    def test_parse_day_spec_all_days(self, tmp_path):
+        from observe.transfer import _parse_day_spec
+
+        journal_root = tmp_path / "journal"
+        journal_root.mkdir()
+        (journal_root / "chronicle" / "20250101").mkdir(parents=True)
+        (journal_root / "chronicle" / "20250103").mkdir(parents=True)
+        (journal_root / "config").mkdir()
+        (journal_root / "streams").mkdir()
+
+        assert _parse_day_spec(None, journal_root) == ["20250101", "20250103"]
+
+    def test_parse_day_spec_invalid(self, tmp_path):
+        from observe.transfer import _parse_day_spec
+
+        journal_root = tmp_path / "journal"
+        journal_root.mkdir()
+
+        with pytest.raises(ValueError, match="Invalid day format"):
+            _parse_day_spec("invalid", journal_root)
+
+    def test_normalize_url(self):
+        from observe.transfer import _normalize_url
+
+        assert _normalize_url("example.com") == "https://example.com"
+        assert _normalize_url("example.com/") == "https://example.com"
+        assert _normalize_url("https://example.com/") == "https://example.com"
+        assert _normalize_url("http://example.com/api/") == "http://example.com/api"
+
+    def test_send_dry_run(self, tmp_path, monkeypatch, capsys):
+        from observe.transfer import send_segments
+
+        journal = self._setup_journal(tmp_path)
+        self._set_journal_override(monkeypatch, journal)
+
+        mock_session = self._make_session(get_json=[])
+
+        with patch("observe.transfer.requests.Session", return_value=mock_session):
+            send_segments("https://example.com", "test-key", ["20250103"], dry_run=True)
+
+        assert mock_session.get.call_count == 1
+        assert mock_session.get.call_args.args[0].endswith(
+            "/app/observer/ingest/segments/20250103"
+        )
+        assert mock_session.post.call_count == 0
+        assert "Dry run: would send 1, skip 0" in capsys.readouterr().out
+
+    def test_send_skips_matching(self, tmp_path, monkeypatch, capsys):
+        from observe.transfer import send_segments
+        from observe.utils import compute_file_sha256
+
+        journal = self._setup_journal(tmp_path)
+        self._set_journal_override(monkeypatch, journal)
+
+        segment_dir = journal / "chronicle" / "20250103" / "default" / "120000_300"
+        remote_files = [
+            {
+                "name": "audio.flac",
+                "sha256": compute_file_sha256(segment_dir / "audio.flac"),
+            },
+            {
+                "name": "transcript.jsonl",
+                "sha256": compute_file_sha256(segment_dir / "transcript.jsonl"),
+            },
+        ]
+        mock_session = self._make_session(
+            get_json=[{"key": "120000_300", "observed": False, "files": remote_files}]
+        )
+
+        with patch("observe.transfer.requests.Session", return_value=mock_session):
+            send_segments(
+                "https://example.com", "test-key", ["20250103"], dry_run=False
+            )
+
+        assert mock_session.post.call_count == 0
+        output = capsys.readouterr().out
+        assert "Transfer complete: 0 sent, 1 skipped, 0 failed" in output
+        assert "Nothing to send - remote is up to date" in output
+
+    def test_send_uploads_new(self, tmp_path, monkeypatch, capsys):
+        from observe.transfer import send_segments
+
+        journal = self._setup_journal(tmp_path)
+        self._set_journal_override(monkeypatch, journal)
+
+        mock_session = self._make_session(
+            get_json=[],
+            post_json={"status": "ok", "bytes": 100},
+        )
+
+        with patch("observe.transfer.requests.Session", return_value=mock_session):
+            send_segments(
+                "https://example.com", "test-key", ["20250103"], dry_run=False
+            )
+
+        assert mock_session.post.call_count == 1
+        post_kwargs = mock_session.post.call_args.kwargs
+        assert post_kwargs["data"]["day"] == "20250103"
+        assert post_kwargs["data"]["segment"] == "120000_300"
+        assert json.loads(post_kwargs["data"]["meta"]) == {"stream": "default"}
+        # Auth is set on the session, not per-request
+        assert mock_session.headers["Authorization"] == "Bearer test-key"
+        assert (
+            "Transfer complete: 1 sent, 0 skipped, 0 failed, 100 bytes transferred"
+            in (capsys.readouterr().out)
+        )
+
+    def test_send_retry_on_5xx(self, tmp_path, monkeypatch, capsys):
+        from observe.transfer import send_segments
+
+        journal = self._setup_journal(tmp_path)
+        self._set_journal_override(monkeypatch, journal)
+
+        mock_session = self._make_session(get_json=[])
+        first = MagicMock(status_code=500, text="server error")
+        second = MagicMock(status_code=500, text="server error")
+        success = MagicMock(status_code=200)
+        success.json.return_value = {"status": "ok", "bytes": 100}
+        mock_session.post.side_effect = [first, second, success]
+
+        with (
+            patch("observe.transfer.requests.Session", return_value=mock_session),
+            patch("observe.transfer.time.sleep"),
+        ):
+            send_segments(
+                "https://example.com", "test-key", ["20250103"], dry_run=False
+            )
+
+        assert mock_session.post.call_count == 3
+        assert (
+            "Transfer complete: 1 sent, 0 skipped, 0 failed, 100 bytes transferred"
+            in (capsys.readouterr().out)
+        )
+
+    def test_send_auth_error(self):
+        from observe.transfer import _query_remote_segments
+
+        mock_session = self._make_session(get_status=401)
+
+        with pytest.raises(ValueError, match="Authentication failed"):
+            _query_remote_segments(
+                mock_session,
+                "https://example.com",
+                "20250103",
+            )
+
+    def test_send_idempotent(self, tmp_path, monkeypatch, capsys):
+        from observe.transfer import send_segments
+        from observe.utils import compute_file_sha256
+
+        journal = self._setup_journal(tmp_path)
+        self._set_journal_override(monkeypatch, journal)
+
+        segment_dir = journal / "chronicle" / "20250103" / "default" / "120000_300"
+        remote_files = [
+            {
+                "name": "audio.flac",
+                "sha256": compute_file_sha256(segment_dir / "audio.flac"),
+            },
+            {
+                "name": "transcript.jsonl",
+                "sha256": compute_file_sha256(segment_dir / "transcript.jsonl"),
+            },
+        ]
+        first_get = MagicMock(status_code=200)
+        first_get.json.return_value = []
+        first_get.text = "GET error"
+        second_get = MagicMock(status_code=200)
+        second_get.json.return_value = [
+            {"key": "120000_300", "observed": False, "files": remote_files}
+        ]
+        second_get.text = "GET error"
+
+        mock_session = self._make_session()
+        mock_session.get.side_effect = [first_get, second_get]
+
+        with patch("observe.transfer.requests.Session", return_value=mock_session):
+            send_segments(
+                "https://example.com", "test-key", ["20250103"], dry_run=False
+            )
+            send_segments(
+                "https://example.com", "test-key", ["20250103"], dry_run=False
+            )
+
+        assert mock_session.post.call_count == 1
+        output = capsys.readouterr().out
+        assert (
+            "Transfer complete: 1 sent, 0 skipped, 0 failed, 100 bytes transferred"
+            in (output)
+        )
+        assert (
+            "Transfer complete: 0 sent, 1 skipped, 0 failed, 0 bytes transferred"
+            in output
+        )
+
+    def test_send_excludes_stream_json(self, tmp_path, monkeypatch):
+        from observe.transfer import send_segments
+
+        journal = self._setup_journal(tmp_path, include_stream_json=True)
+        self._set_journal_override(monkeypatch, journal)
+
+        mock_session = self._make_session(get_json=[])
+
+        with patch("observe.transfer.requests.Session", return_value=mock_session):
+            send_segments(
+                "https://example.com", "test-key", ["20250103"], dry_run=False
+            )
+
+        files_arg = mock_session.post.call_args.kwargs["files"]
+        uploaded_names = [entry[1][0] for entry in files_arg]
+        assert "stream.json" not in uploaded_names
+        assert uploaded_names == ["audio.flac", "transcript.jsonl"]

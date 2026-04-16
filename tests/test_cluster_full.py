@@ -5,8 +5,8 @@ import importlib
 import os
 from pathlib import Path
 
-from think.utils import day_path
 from tests.conftest import copytree_tracked
+from think.utils import day_path
 
 FIXTURES = Path("tests/fixtures")
 
@@ -14,7 +14,7 @@ FIXTURES = Path("tests/fixtures")
 def copy_day(tmp_path: Path) -> Path:
     os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
     dest = day_path("20240101")
-    src = FIXTURES / "journal" / "20240101"
+    src = FIXTURES / "journal" / "chronicle" / "20240101"
     copytree_tracked(src, dest)
     return dest
 

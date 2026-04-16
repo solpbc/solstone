@@ -6,12 +6,15 @@
 import hashlib
 import json
 import os
+import shutil
 from datetime import datetime
 
 from think.retention import (
     RetentionConfig,
     RetentionPolicy,
+    StorageSummary,
     _human_bytes,
+    check_storage_health,
     get_raw_media_files,
     is_raw_media,
     is_segment_complete,
@@ -220,7 +223,8 @@ class TestRetentionPolicy:
 class TestRetentionConfig:
     def test_default_policy(self):
         cfg = RetentionConfig()
-        assert cfg.policy_for_stream("default").mode == "keep"
+        assert cfg.policy_for_stream("default").mode == "days"
+        assert cfg.policy_for_stream("default").days == 7
 
     def test_per_stream_override(self):
         cfg = RetentionConfig(
@@ -243,7 +247,8 @@ class TestLoadRetentionConfig:
     def test_default_config(self, monkeypatch):
         monkeypatch.setattr("think.utils.get_config", lambda: {})
         cfg = load_retention_config()
-        assert cfg.default.mode == "keep"
+        assert cfg.default.mode == "days"
+        assert cfg.default.days == 7
         assert cfg.per_stream == {}
 
     def test_custom_config(self, monkeypatch):
@@ -276,14 +281,14 @@ class TestPurge:
         journal = tmp_path / "journal"
 
         # Day 1: 60 days old — two complete segments
-        day1 = journal / "20260115" / "default" / "100000_300"
+        day1 = journal / "chronicle" / "20260115" / "default" / "100000_300"
         day1.mkdir(parents=True)
         (day1 / "audio.flac").write_bytes(b"x" * 1000)
         (day1 / "audio.jsonl").write_text('{"raw":"audio.flac"}\n')
         (day1 / "stream.json").write_text('{"stream":"default"}')
         (day1 / "agents").mkdir()
 
-        day1b = journal / "20260115" / "plaud" / "103000_300"
+        day1b = journal / "chronicle" / "20260115" / "plaud" / "103000_300"
         day1b.mkdir(parents=True)
         (day1b / "audio.m4a").write_bytes(b"x" * 500)
         (day1b / "audio.jsonl").write_text('{"raw":"audio.m4a"}\n')
@@ -291,7 +296,7 @@ class TestPurge:
         (day1b / "agents").mkdir()
 
         # Day 2: recent — one complete segment (must stay within 30d window)
-        day2 = journal / "20260401" / "default" / "120000_300"
+        day2 = journal / "chronicle" / "20260401" / "default" / "120000_300"
         day2.mkdir(parents=True)
         (day2 / "audio.flac").write_bytes(b"x" * 800)
         (day2 / "audio.jsonl").write_text('{"raw":"audio.flac"}\n')
@@ -299,7 +304,7 @@ class TestPurge:
         (day2 / "agents").mkdir()
 
         # Day 3: incomplete segment (no audio.jsonl)
-        day3 = journal / "20260101" / "default" / "140000_300"
+        day3 = journal / "chronicle" / "20260101" / "default" / "140000_300"
         day3.mkdir(parents=True)
         (day3 / "audio.flac").write_bytes(b"x" * 600)
         (day3 / "stream.json").write_text('{"stream":"default"}')
@@ -320,8 +325,12 @@ class TestPurge:
         # Should report but not delete
         assert result.files_deleted == 2  # day1 default + plaud
         assert result.bytes_freed == 1500
-        assert (journal / "20260115" / "default" / "100000_300" / "audio.flac").exists()
-        assert (journal / "20260115" / "plaud" / "103000_300" / "audio.m4a").exists()
+        assert (
+            journal / "chronicle" / "20260115" / "default" / "100000_300" / "audio.flac"
+        ).exists()
+        assert (
+            journal / "chronicle" / "20260115" / "plaud" / "103000_300" / "audio.m4a"
+        ).exists()
         # No retention log for dry run
         assert not (journal / "health" / "retention.log").exists()
 
@@ -333,14 +342,19 @@ class TestPurge:
         assert result.files_deleted == 2
         # Files should be gone
         assert not (
-            journal / "20260115" / "default" / "100000_300" / "audio.flac"
+            journal / "chronicle" / "20260115" / "default" / "100000_300" / "audio.flac"
         ).exists()
         assert not (
-            journal / "20260115" / "plaud" / "103000_300" / "audio.m4a"
+            journal / "chronicle" / "20260115" / "plaud" / "103000_300" / "audio.m4a"
         ).exists()
         # Derived content preserved
         assert (
-            journal / "20260115" / "default" / "100000_300" / "audio.jsonl"
+            journal
+            / "chronicle"
+            / "20260115"
+            / "default"
+            / "100000_300"
+            / "audio.jsonl"
         ).exists()
         # Retention log written
         assert (journal / "health" / "retention.log").exists()
@@ -432,7 +446,7 @@ class TestPurgeProvenance:
 
     def test_processed_at_reflects_latest_mtime(self, tmp_path, monkeypatch):
         journal = self._setup_journal(tmp_path, monkeypatch)
-        segment = journal / "20260115" / "default" / "100000_300"
+        segment = journal / "chronicle" / "20260115" / "default" / "100000_300"
         audio_jsonl = segment / "audio.jsonl"
         alternate_audio_jsonl = segment / "meeting_audio.jsonl"
         speaker_labels = segment / "agents" / "speaker_labels.json"
@@ -483,3 +497,160 @@ class TestHumanBytes:
     def test_large(self):
         result = _human_bytes(12_400_000_000)
         assert "GB" in result
+
+
+class TestCheckStorageHealth:
+    """Tests for check_storage_health threshold evaluation."""
+
+    def _make_summary(self, raw_media_bytes=0, derived_bytes=0):
+        return StorageSummary(
+            raw_media_bytes=raw_media_bytes,
+            derived_bytes=derived_bytes,
+            total_segments=10,
+            segments_with_raw=5,
+            segments_purged=3,
+        )
+
+    def test_no_warnings_when_healthy(self, tmp_path, monkeypatch):
+        """No warnings when disk is below threshold and raw media GB is null."""
+        usage_type = type(shutil.disk_usage(tmp_path))
+        monkeypatch.setattr(
+            "shutil.disk_usage",
+            lambda path: usage_type(1000, 500, 500),  # 50% used
+        )
+        config = {
+            "retention": {
+                "storage_warning_disk_percent": 80,
+                "storage_warning_raw_media_gb": None,
+            }
+        }
+        summary = self._make_summary()
+        warnings = check_storage_health(summary, tmp_path, config=config)
+        assert warnings == []
+
+    def test_disk_percent_exceeded(self, tmp_path, monkeypatch):
+        """Warning when disk usage exceeds threshold."""
+        config = {
+            "retention": {
+                "storage_warning_disk_percent": 1,
+            }
+        }
+        summary = self._make_summary()
+        warnings = check_storage_health(summary, tmp_path, config=config)
+        assert len(warnings) == 1
+        assert warnings[0]["type"] == "disk_percent"
+        assert warnings[0]["level"] == "warning"
+        assert warnings[0]["current"] >= 1
+        assert warnings[0]["threshold"] == 1
+        assert "retention settings" in warnings[0]["message"]
+        assert "Clean Up Now" in warnings[0]["message"]
+
+    def test_disk_percent_not_exceeded(self, tmp_path, monkeypatch):
+        """No warning when disk is well below threshold."""
+        config = {
+            "retention": {
+                "storage_warning_disk_percent": 100,
+            }
+        }
+        summary = self._make_summary()
+        warnings = check_storage_health(summary, tmp_path, config=config)
+        assert warnings == []
+
+    def test_raw_media_gb_exceeded(self, tmp_path, monkeypatch):
+        """Warning when raw media exceeds GB threshold."""
+        raw_bytes = int(5.5 * 1024**3)
+        config = {
+            "retention": {
+                "storage_warning_disk_percent": None,
+                "storage_warning_raw_media_gb": 5.0,
+            }
+        }
+        summary = self._make_summary(raw_media_bytes=raw_bytes)
+        warnings = check_storage_health(summary, tmp_path, config=config)
+        assert len(warnings) == 1
+        assert warnings[0]["type"] == "raw_media_gb"
+        assert warnings[0]["level"] == "warning"
+        assert warnings[0]["current"] >= 5.0
+        assert warnings[0]["threshold"] == 5.0
+        assert "retention settings" in warnings[0]["message"]
+
+    def test_raw_media_gb_not_exceeded(self, tmp_path, monkeypatch):
+        """No warning when raw media is below threshold."""
+        raw_bytes = int(2.0 * 1024**3)
+        config = {
+            "retention": {
+                "storage_warning_disk_percent": None,
+                "storage_warning_raw_media_gb": 5.0,
+            }
+        }
+        summary = self._make_summary(raw_media_bytes=raw_bytes)
+        warnings = check_storage_health(summary, tmp_path, config=config)
+        assert warnings == []
+
+    def test_both_thresholds_exceeded(self, tmp_path, monkeypatch):
+        """Both warnings when both thresholds exceeded."""
+        raw_bytes = int(10 * 1024**3)
+        config = {
+            "retention": {
+                "storage_warning_disk_percent": 1,
+                "storage_warning_raw_media_gb": 5.0,
+            }
+        }
+        summary = self._make_summary(raw_media_bytes=raw_bytes)
+        warnings = check_storage_health(summary, tmp_path, config=config)
+        assert len(warnings) == 2
+        types = {w["type"] for w in warnings}
+        assert types == {"disk_percent", "raw_media_gb"}
+
+    def test_null_thresholds_disables_checks(self, tmp_path, monkeypatch):
+        """Both thresholds null means no warnings ever."""
+        raw_bytes = int(100 * 1024**3)
+        config = {
+            "retention": {
+                "storage_warning_disk_percent": None,
+                "storage_warning_raw_media_gb": None,
+            }
+        }
+        summary = self._make_summary(raw_media_bytes=raw_bytes)
+        warnings = check_storage_health(summary, tmp_path, config=config)
+        assert warnings == []
+
+    def test_exact_threshold_triggers(self, tmp_path, monkeypatch):
+        """Warning triggers at exactly the threshold (>=, not >)."""
+        raw_bytes = int(5.0 * 1024**3)
+        config = {
+            "retention": {
+                "storage_warning_disk_percent": None,
+                "storage_warning_raw_media_gb": 5.0,
+            }
+        }
+        summary = self._make_summary(raw_media_bytes=raw_bytes)
+        warnings = check_storage_health(summary, tmp_path, config=config)
+        assert len(warnings) == 1
+        assert warnings[0]["type"] == "raw_media_gb"
+
+    def test_missing_retention_section_uses_defaults(self, tmp_path, monkeypatch):
+        """Missing retention section falls back to defaults (80% disk, null raw media)."""
+        config = {}
+        summary = self._make_summary()
+        warnings = check_storage_health(summary, tmp_path, config=config)
+        for w in warnings:
+            assert w["type"] != "raw_media_gb"
+
+    def test_warning_dict_structure(self, tmp_path, monkeypatch):
+        """Each warning has all required keys."""
+        config = {
+            "retention": {
+                "storage_warning_disk_percent": 1,
+                "storage_warning_raw_media_gb": 0.001,
+            }
+        }
+        raw_bytes = int(1 * 1024**3)
+        summary = self._make_summary(raw_media_bytes=raw_bytes)
+        warnings = check_storage_health(summary, tmp_path, config=config)
+        for w in warnings:
+            assert "level" in w
+            assert "type" in w
+            assert "message" in w
+            assert "current" in w
+            assert "threshold" in w
