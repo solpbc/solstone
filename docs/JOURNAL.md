@@ -60,7 +60,7 @@ solstone transforms raw recordings into actionable understanding through a three
 
 | Directory/File | Purpose |
 |----------------|---------|
-| `YYYYMMDD/` | Daily capture folders containing segments, extracts, and agent outputs |
+| `chronicle/` | Container for daily capture folders (`YYYYMMDD/`) containing segments, extracts, and agent outputs |
 | `entities/` | Journal-level entity identity records (`<id>/entity.json`) |
 | `facets/` | Facet-specific data: entity relationships, todos, events, news, action logs |
 | `agents/` | Agent run logs in per-agent subdirectories (`<name>/<id>.jsonl`), day indexes (`<day>.jsonl`), and latest-run symlinks (`<name>.log`) |
