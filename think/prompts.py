@@ -150,6 +150,12 @@ def _load_sol_vars() -> dict[str, str]:
     return _sol_vars_cache
 
 
+def reset_sol_vars_cache() -> None:
+    """Reset the module-global sol/ vars cache. Test-only helper."""
+    global _sol_vars_cache
+    _sol_vars_cache = None
+
+
 def format_current_datetime() -> str:
     """Format current datetime with timezone for display.
 

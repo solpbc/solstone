@@ -6,25 +6,41 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
+from freezegun import freeze_time
 
-from convey import create_app
+from tests._baseline_harness import (
+    FROZEN_DATE,
+    FROZEN_TZ_OFFSET,
+    isolated_app_env,
+    make_logged_in_test_client,
+    prepare_isolated_journal,
+)
 from tests.verify_api import ENDPOINTS, baseline_path, fetch_endpoint, normalize
 
 
-@pytest.fixture(scope="module")
-def client():
-    journal = str(Path(__file__).resolve().parent / "fixtures" / "journal")
-    app = create_app(journal)
-    app.config["TESTING"] = True
-    return app.test_client()
+@pytest.fixture(scope="module", autouse=True)
+def _freeze_time():
+    with freeze_time(FROZEN_DATE, tz_offset=FROZEN_TZ_OFFSET):
+        yield
 
 
 @pytest.fixture(scope="module")
-def journal_path():
-    return str(Path(__file__).resolve().parent / "fixtures" / "journal")
+def _baseline_journal(tmp_path_factory):
+    dst = tmp_path_factory.mktemp("baseline_journal") / "journal"
+    return prepare_isolated_journal(dst)
+
+
+@pytest.fixture(scope="module")
+def client(_baseline_journal):
+    with isolated_app_env(_baseline_journal):
+        yield make_logged_in_test_client(_baseline_journal)
+
+
+@pytest.fixture(scope="module")
+def journal_path(_baseline_journal):
+    return str(_baseline_journal)
 
 
 @pytest.mark.parametrize(

@@ -197,16 +197,10 @@ verify-api: .installed
 	$(MAKE) sandbox-stop; \
 	exit $$RESULT
 
-# Regenerate all API baseline files from current responses (uses sandbox for consistency)
+# Regenerate all API baseline files from the deterministic Flask test-client path
 update-api-baselines: .installed
-	@echo "Updating API baselines (sandbox)..."
-	@$(MAKE) sandbox
-	@SANDBOX_JOURNAL=$$(cat .sandbox.journal); \
-	CONVEY_PORT=$$(cat "$$SANDBOX_JOURNAL/health/convey.port"); \
-	RESULT=0; \
-	_SOLSTONE_JOURNAL_OVERRIDE="$$SANDBOX_JOURNAL" $(VENV_BIN)/python tests/verify_api.py update --base-url "http://localhost:$$CONVEY_PORT" || RESULT=$$?; \
-	$(MAKE) sandbox-stop; \
-	exit $$RESULT
+	@echo "Updating API baselines (test client)..."
+	@$(VENV_BIN)/python tests/verify_api.py update
 
 
 # Install pinchtab browser automation tool

@@ -79,6 +79,7 @@ dependencies = [
     "pytest-asyncio",
     "pytest-cov",
     "pytest-timeout",
+    "freezegun",
     "playwright>=1.40.0",
     "requests",
 ]

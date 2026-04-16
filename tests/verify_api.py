@@ -9,11 +9,30 @@ import argparse
 import json
 import os
 import re
+from contextlib import contextmanager
 from difflib import unified_diff
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any
 
-from convey import create_app
+from freezegun import freeze_time
+
+try:
+    from tests._baseline_harness import (
+        FROZEN_DATE,
+        FROZEN_TZ_OFFSET,
+        isolated_app_env,
+        make_logged_in_test_client,
+        prepare_isolated_journal,
+    )
+except ModuleNotFoundError:
+    from _baseline_harness import (
+        FROZEN_DATE,
+        FROZEN_TZ_OFFSET,
+        isolated_app_env,
+        make_logged_in_test_client,
+        prepare_isolated_journal,
+    )
 
 ENDPOINTS = [
     # convey/config.py
@@ -640,46 +659,52 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def make_client(base_url: str | None, password: str | None = None) -> Any:
-    if base_url:
-        return _HttpClient(base_url, password=password)
-    journal_path = _resolve_journal_path()
-    app = create_app(journal_path)
-    app.config["TESTING"] = True
-    return app.test_client()
-
-
-def resolve_journal_for_mode(base_url: str | None) -> str:
-    if base_url:
-        env_path = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
-        if env_path:
-            return str(Path(env_path).resolve())
-        sandbox_path = _resolve_sandbox_journal()
-        if sandbox_path:
-            return sandbox_path
+def _resolve_http_journal() -> str:
+    env_path = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
+    if env_path:
+        return str(Path(env_path).resolve())
+    sandbox_path = _resolve_sandbox_journal()
+    if sandbox_path:
+        return sandbox_path
     return _resolve_journal_path()
+
+
+@contextmanager
+def client_context(
+    base_url: str | None, password: str | None = None
+) -> tuple[Any, str]:
+    if base_url:
+        yield _HttpClient(base_url, password=password), _resolve_http_journal()
+        return
+
+    with TemporaryDirectory(prefix="api-baseline-journal-") as tmpdir:
+        journal_path = prepare_isolated_journal(Path(tmpdir) / "journal")
+        with freeze_time(FROZEN_DATE, tz_offset=FROZEN_TZ_OFFSET):
+            with isolated_app_env(journal_path):
+                yield make_logged_in_test_client(journal_path), str(journal_path)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    client = make_client(args.base_url, password=args.password)
-    journal_path = resolve_journal_for_mode(args.base_url)
+    with client_context(args.base_url, password=args.password) as (
+        client,
+        journal_path,
+    ):
+        if args.command == "verify":
+            failures = verify_all(client, journal_path)
+            if failures:
+                print(f"API baseline verification failed ({len(failures)} endpoints):")
+                for item in failures:
+                    print(item)
+                    print()
+                print("Run 'make update-api-baselines' to update baselines")
+                return 1
+            print(f"API baseline verification passed for {len(ENDPOINTS)} endpoints.")
+            return 0
 
-    if args.command == "verify":
-        failures = verify_all(client, journal_path)
-        if failures:
-            print(f"API baseline verification failed ({len(failures)} endpoints):")
-            for item in failures:
-                print(item)
-                print()
-            print("Run 'make update-api-baselines' to update baselines")
-            return 1
-        print(f"API baseline verification passed for {len(ENDPOINTS)} endpoints.")
+        updated = update_all(client, journal_path)
+        print(f"Updated {updated} baseline files.")
         return 0
-
-    updated = update_all(client, journal_path)
-    print(f"Updated {updated} baseline files.")
-    return 0
 
 
 if __name__ == "__main__":
