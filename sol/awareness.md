@@ -1,14 +1,21 @@
-as of: 2026-04-15T19:10:05Z
-segment: 20260415_segment_1
+as of: 2026-04-16T15:00:00Z
+segment: segment-12345
 
 ## capture
-- status: stale
+- status: active
+- streams: ["audio", "screen", "cli"]
 
 ## calendar
-- No events for today.
+- Meeting with Team Lead at 10:00 AM
 
 ## activity
-- test-rewrite
+- Idle
 
 ## routines
-- No routines configured.
+- Daily Review: Completed
+
+## entities
+- Jer: Recent Interaction
+
+## partner
+- Last interaction: Today
