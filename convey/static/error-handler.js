@@ -35,6 +35,7 @@
         btn.onclick = function() {
           errorLog.innerHTML = '';
           errorLog.style.display = 'none';
+          document.body.classList.remove('has-error-log');
         };
         errorLog.insertAdjacentElement('afterbegin', btn);
       }
@@ -43,6 +44,7 @@
         escapeHtml(text) + '<br>'
       );
       errorLog.style.display = 'block';
+      document.body.classList.add('has-error-log');
     }
   }
 

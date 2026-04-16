@@ -115,6 +115,11 @@ body.has-date-nav .workspace {
   margin-top: calc(var(--facet-bar-height) + var(--date-nav-height));
 }
 
+/* Reserve space when error log is visible */
+body.has-error-log .workspace {
+  margin-bottom: calc(var(--app-bar-height) + 80px + 30vh);
+}
+
 /* Standard workspace containers */
 .workspace-content {
   max-width: 1200px;
