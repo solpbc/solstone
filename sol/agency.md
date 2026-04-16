@@ -6,6 +6,8 @@
 - [x] 2026-04-15 agent failure: entities:entity_observer (all facets) succeeded.
 - [ ] 2026-04-15 dream failure: Segment 20260415/fedora/231333_302 missing capture files (sense failed).
 - [ ] 2026-04-16 capture status: Stale since April 1st; observer service missing from `sol health`.
+- [ ] 2026-04-16 routine health: `sol call routines list` returns no configured routines.
+- [ ] 2026-04-16 dream queue: 11 tasks pending.
 
 ## curation
 - [x] 2026-04-15 entity duplicates: _Sunstone vs Solstone.
