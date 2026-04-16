@@ -141,14 +141,14 @@ class TestOpenAIWriteFlag:
 
 
 class TestGoogleWriteFlag:
-    """Verify --allowed-tools is controlled by config write flag."""
+    """Verify --approval-mode is controlled by config write flag."""
 
     def _provider(self):
         return importlib.import_module("think.providers.google")
 
     @patch("think.providers.google.CLIRunner")
-    def test_no_write_restricts_tools(self, mock_runner_cls):
-        """Without write flag, --allowed-tools restricts to sol."""
+    def test_no_write_uses_plan_mode(self, mock_runner_cls):
+        """Without write flag, approval-mode is plan (read-only)."""
         provider = self._provider()
         mock_instance = AsyncMock()
         mock_instance.run = AsyncMock(return_value="result")
@@ -159,12 +159,12 @@ class TestGoogleWriteFlag:
         asyncio.run(provider.run_cogitate(config))
 
         cmd = mock_runner_cls.call_args.kwargs["cmd"]
-        assert "--allowed-tools" in cmd
-        assert "run_shell_command(sol)" in cmd
+        idx = cmd.index("--approval-mode")
+        assert cmd[idx + 1] == "plan"
 
     @patch("think.providers.google.CLIRunner")
-    def test_write_true_grants_full_access(self, mock_runner_cls):
-        """With write=True, --allowed-tools is omitted."""
+    def test_write_true_uses_yolo_mode(self, mock_runner_cls):
+        """With write=True, approval-mode is yolo (full access)."""
         provider = self._provider()
         mock_instance = AsyncMock()
         mock_instance.run = AsyncMock(return_value="result")
@@ -175,7 +175,8 @@ class TestGoogleWriteFlag:
         asyncio.run(provider.run_cogitate(config))
 
         cmd = mock_runner_cls.call_args.kwargs["cmd"]
-        assert "--allowed-tools" not in cmd
+        idx = cmd.index("--approval-mode")
+        assert cmd[idx + 1] == "yolo"
 
 
 # ---------------------------------------------------------------------------

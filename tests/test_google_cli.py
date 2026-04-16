@@ -16,7 +16,7 @@ def _google_provider():
     return importlib.reload(importlib.import_module("think.providers.google"))
 
 
-def _assert_write_mode_removes_allowed_tools(make_runner):
+def _assert_write_mode_uses_yolo_approval(make_runner):
     provider = _google_provider()
     MockCLIRunner = make_runner()
     with patch("think.providers.google.CLIRunner", MockCLIRunner):
@@ -27,8 +27,8 @@ def _assert_write_mode_removes_allowed_tools(make_runner):
             )
         )
     cmd = MockCLIRunner.last_instance.cmd
-    assert "--yolo" in cmd
-    assert "--allowed-tools" not in cmd
+    idx = cmd.index("--approval-mode")
+    assert cmd[idx + 1] == "yolo"
 
 
 class TestTranslateGemini:
@@ -339,11 +339,11 @@ class TestRunCogitateCommand:
                 )
             )
         cmd = MockCLIRunner.last_instance.cmd
-        assert "--yolo" in cmd
-        assert cmd[cmd.index("--allowed-tools") + 1] == "run_shell_command(sol)"
+        idx = cmd.index("--approval-mode")
+        assert cmd[idx + 1] == "plan"
 
-    def test_write_mode_removes_allowed_tools(self):
-        _assert_write_mode_removes_allowed_tools(self._mock_runner)
+    def test_write_mode_uses_yolo_approval(self):
+        _assert_write_mode_uses_yolo_approval(self._mock_runner)
 
     def test_sandbox_none(self):
         provider = _google_provider()
