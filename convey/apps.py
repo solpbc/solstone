@@ -350,7 +350,7 @@ def register_app_context(app: Flask, registry: AppRegistry) -> None:
             """
             if file is None:
                 file = f"{library_name}.min.js"
-            return url_for("static", filename=f"vendor/{library_name}/{file}")
+            return url_for("root.static", filename=f"vendor/{library_name}/{file}")
 
         return {"vendor_lib": vendor_lib}
 
