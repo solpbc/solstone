@@ -4,6 +4,7 @@
 """Tests for think.runner and logs tract integration."""
 
 import os
+from io import StringIO
 
 import pytest
 
@@ -324,3 +325,50 @@ def test_run_task_day_override(journal_path, mock_callosum):
     assert exit_code == 0
     assert target_day in str(log_path)
     assert log_path.exists()
+
+
+@pytest.mark.parametrize(
+    ("cmd", "expected_name"),
+    [
+        (["sol", "dream", "--day", "20240115"], "daily_dream"),
+        (["sol", "dream", "--day", "20240115", "--segment", "120000_300"], "segment_dream"),
+        (["sol", "dream", "--weekly"], "weekly_dream"),
+        (["sol", "dream", "--activity", "id", "--facet", "work", "--day", "20240115"], "activity_dream"),
+        (["sol", "dream", "--day", "20240115", "--segment", "120000_300", "--flush"], "flush_dream"),
+        (["sol", "dream", "--day", "20240115", "--segments"], "segment_dream"),
+    ],
+)
+def test_dream_mode_name_derivation(
+    journal_path, mock_callosum, monkeypatch, cmd, expected_name
+):
+    """Dream commands produce mode-aware log names."""
+
+    class FakePopen:
+        def __init__(self, *args, **kwargs):
+            self.pid = 4321
+            self.stdout = StringIO("")
+            self.stderr = StringIO("")
+            self.returncode = 0
+
+        def wait(self, timeout=None):
+            self.returncode = 0
+            return 0
+
+        def poll(self):
+            return self.returncode
+
+        def terminate(self):
+            self.returncode = -15
+
+        def kill(self):
+            self.returncode = -9
+
+    monkeypatch.setattr("think.runner.subprocess.Popen", FakePopen)
+
+    managed = ManagedProcess.spawn(cmd, ref="testref")
+
+    assert managed.name == expected_name
+    assert managed.log_writer.path.name == f"testref_{expected_name}.log"
+
+    managed.wait()
+    managed.cleanup()
