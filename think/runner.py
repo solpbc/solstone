@@ -28,7 +28,7 @@ from datetime import datetime
 from pathlib import Path
 
 from think.callosum import CallosumConnection
-from think.utils import get_journal, now_ms
+from think.utils import day_path, get_journal, now_ms
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,7 @@ def _day_health_log_path(day: str, ref: str, name: str) -> Path:
 
     Returns: journal/{day}/health/{ref}_{name}.log
     """
-    return _get_journal_path() / day / "health" / f"{ref}_{name}.log"
+    return day_path(day) / "health" / f"{ref}_{name}.log"
 
 
 def _atomic_symlink(link_path: Path, target: str) -> None:

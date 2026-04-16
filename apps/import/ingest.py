@@ -128,7 +128,6 @@ def register_ingest_routes(bp) -> None:
         if not isinstance(segments, list):
             return jsonify({"error": "Missing segments array"}), 400
 
-        journal_root = Path(state.journal_root)
         log_path = get_state_directory(key_prefix) / "segments" / "log.jsonl"
 
         copied = 0

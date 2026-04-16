@@ -619,11 +619,8 @@ class FileSensor:
 
         # Build full paths for all files in this segment
         # Files are in segment directories: YYYYMMDD/stream/HHMMSS_LEN/filename
-        segment_dir = (
-            self.journal_dir / day / stream / segment
-            if stream
-            else self.journal_dir / day / segment
-        )
+        dp = day_path(day, create=False)
+        segment_dir = dp / stream / segment if stream else dp / segment
         file_paths = [segment_dir / filename for filename in files]
 
         # Pre-register segment tracking with complete file list
