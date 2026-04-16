@@ -1,11 +1,11 @@
 ## system
-- [x] 2026-04-16 agent failure: heartbeat timeout (Apr 15) resolved by current run.
-- [ ] 2026-04-16 agent failure: entities:entities timeout on solstone (Apr 16 00:16).
-- [ ] 2026-04-16 agent failure: entities:entities timeout on personal (Apr 16 00:10).
-- [x] 2026-04-15 agent failure: entities:entities_review (ping_identity) resolved by cleanup.
-- [x] 2026-04-15 agent failure: entities:entities_review (solstone, vconic) succeeded at 23:32.
-- [x] 2026-04-15 agent failure: entities:entity_observer (all facets) succeeded at 23:42.
+- [ ] 2026-04-16 agent failure: heartbeat timeout (Apr 16 00:29).
+- [ ] 2026-04-16 agent failure: entities:entities_review (solstone) timeout at 00:23.
+- [ ] 2026-04-16 agent failure: entities:entities timeout on solstone (00:16) and personal (00:10).
+- [x] 2026-04-15 agent failure: entities:entities_review (ping_identity) resolved.
+- [x] 2026-04-15 agent failure: entities:entity_observer (all facets) succeeded.
 - [ ] 2026-04-15 dream failure: Segment 20260415/fedora/231333_302 missing capture files (sense failed).
+- [ ] 2026-04-16 capture status: Stale since April 1st; investigating pipeline.
 
 ## curation
 - [x] 2026-04-15 entity duplicates: _Sunstone vs Solstone.
