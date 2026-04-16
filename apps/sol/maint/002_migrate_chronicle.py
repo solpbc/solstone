@@ -69,8 +69,13 @@ def migrate(journal_path: Path, dry_run: bool = False) -> MigrationSummary:
     for source_day in day_dirs:
         target_day = chronicle_dir / source_day.name
         if target_day.exists():
-            print(f"  Skip (already exists): {source_day.name}")
-            summary.skipped += 1
+            # Target exists (race: new code created chronicle/day before migration ran).
+            # Deep-merge source into target, then remove the root copy.
+            print(f"  Merge: {source_day.name} -> {CHRONICLE_DIR}/{source_day.name}")
+            if not dry_run:
+                shutil.copytree(source_day, target_day, dirs_exist_ok=True)
+                shutil.rmtree(source_day)
+            summary.moved += 1
             continue
 
         print(f"  Move: {source_day.name} -> {CHRONICLE_DIR}/{source_day.name}")
@@ -78,7 +83,7 @@ def migrate(journal_path: Path, dry_run: bool = False) -> MigrationSummary:
             shutil.move(str(source_day), str(target_day))
         summary.moved += 1
 
-    if summary.moved and not dry_run:
+    if (summary.moved or summary.skipped) and not dry_run:
         for sqlite_path in _sqlite_paths(journal_path):
             if not sqlite_path.exists():
                 continue
