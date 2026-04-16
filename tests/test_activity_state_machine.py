@@ -483,8 +483,15 @@ class TestCompletedRecordFields:
         sm.update(_sense(content_type="meeting"), "090500_300", "20260304")
 
         rec = sm.get_completed_activities()[0]
-        required = {"id", "activity", "segments", "level_avg", "description",
-                     "active_entities", "created_at"}
+        required = {
+            "id",
+            "activity",
+            "segments",
+            "level_avg",
+            "description",
+            "active_entities",
+            "created_at",
+        }
         assert required.issubset(rec.keys())
         # No internal _fields should leak
         assert not any(k.startswith("_") for k in rec.keys())
@@ -497,7 +504,9 @@ class TestCompletedRecordFields:
             {"type": "Person", "name": "Alice", "context": "dev"},
             {"type": "Tool", "name": "VSCode", "context": "editor"},
         ]
-        sm.update(_sense(content_type="coding", entities=entities), "090000_300", "20260304")
+        sm.update(
+            _sense(content_type="coding", entities=entities), "090000_300", "20260304"
+        )
         sm.update(_sense(content_type="meeting"), "090500_300", "20260304")
 
         rec = sm.get_completed_activities()[0]

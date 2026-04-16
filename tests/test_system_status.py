@@ -88,7 +88,12 @@ class TestSystemStatusEndpoint:
     def test_revoked_observers_excluded(self, client):
         now = int(time.time() * 1000)
         observers = [
-            {"name": "phone", "last_seen": now - 5000, "enabled": True, "revoked": True},
+            {
+                "name": "phone",
+                "last_seen": now - 5000,
+                "enabled": True,
+                "revoked": True,
+            },
         ]
         with patch.object(system_mod, "list_observers", return_value=observers):
             data = client.get("/api/system/status").get_json()
@@ -121,7 +126,9 @@ class TestSystemStatusEndpoint:
     def test_version_with_update_available(self, client):
         with (
             patch.object(system_mod, "list_observers", return_value=[]),
-            patch.object(system_mod, "_check_latest_version", return_value={"latest": "99.0.0"}),
+            patch.object(
+                system_mod, "_check_latest_version", return_value={"latest": "99.0.0"}
+            ),
             patch.object(system_mod, "collect_version", return_value="0.1.0"),
         ):
             data = client.get("/api/system/status").get_json()
@@ -134,7 +141,9 @@ class TestCaptureHealthDerivation:
     """Unit tests for _get_capture_health logic."""
 
     def test_no_last_seen_is_offline(self):
-        with patch.object(system_mod, "list_observers", return_value=[{"name": "x", "enabled": True}]):
+        with patch.object(
+            system_mod, "list_observers", return_value=[{"name": "x", "enabled": True}]
+        ):
             result = system_mod._get_capture_health()
         assert result["observers"][0]["status"] == "offline"
 

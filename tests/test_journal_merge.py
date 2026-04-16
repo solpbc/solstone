@@ -240,9 +240,7 @@ def test_entity_id_collision(merge_journals_fixture, monkeypatch):
         paths["target"] / "entities" / "alice_johnson_2" / "entity.json"
     ).exists()
     artifact_root = _find_merge_artifact_root(paths["target"])
-    staged = _read_json(
-        artifact_root / "staging" / "alice_johnson" / "entity.json"
-    )
+    staged = _read_json(artifact_root / "staging" / "alice_johnson" / "entity.json")
     assert staged["id"] == "alice_johnson"
     assert staged["name"] == "Alice Cooper"
     assert "staged" in result.output
@@ -664,7 +662,9 @@ def test_decision_log_entity_merge_snapshots(merge_journals_fixture, monkeypatch
     assert result.exit_code == 0
     artifact_root = _find_merge_artifact_root(paths["target"])
     entries = _read_jsonl(artifact_root / "decisions.jsonl")
-    entity_merged = next(entry for entry in entries if entry["action"] == "entity_merged")
+    entity_merged = next(
+        entry for entry in entries if entry["action"] == "entity_merged"
+    )
     assert "source" in entity_merged
     assert "target" in entity_merged
     assert "fields_changed" in entity_merged

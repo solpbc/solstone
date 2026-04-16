@@ -99,7 +99,9 @@ def transcript_day_data(day: str) -> Any:
         return error_response("Day not found", 404)
 
     audio_ranges, screen_ranges, segments = scan_day(day)
-    return jsonify({"audio": audio_ranges, "screen": screen_ranges, "segments": segments})
+    return jsonify(
+        {"audio": audio_ranges, "screen": screen_ranges, "segments": segments}
+    )
 
 
 @transcripts_bp.route("/api/serve_file/<day>/<path:encoded_path>")

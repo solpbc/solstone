@@ -242,9 +242,8 @@ def keys_validate() -> None:
             key_validation[provider] = result
 
     providers_config = config.get("providers", {})
-    if (
-        providers_config.get("google_backend") == "vertex"
-        and providers_config.get("vertex_credentials")
+    if providers_config.get("google_backend") == "vertex" and providers_config.get(
+        "vertex_credentials"
     ):
         result = validate_vertex_credentials(providers_config["vertex_credentials"])
         result["timestamp"] = datetime.now(timezone.utc).isoformat()
@@ -286,7 +285,9 @@ def providers_show() -> None:
         for provider in providers_list
     }
     vertex_creds_path = providers_config.get("vertex_credentials")
-    vertex_creds_configured = bool(vertex_creds_path and Path(vertex_creds_path).exists())
+    vertex_creds_configured = bool(
+        vertex_creds_path and Path(vertex_creds_path).exists()
+    )
     provider_status = build_provider_status(providers_list, vertex_creds_configured)
     result = {
         "providers": providers_list,
@@ -307,7 +308,9 @@ def providers_set_generate(
     backup: str | None = typer.Option(None, "--backup", help="Backup provider."),
 ) -> None:
     """Set generate provider defaults."""
-    typer.echo(json.dumps(_set_provider_type("generate", provider, tier, backup), indent=2))
+    typer.echo(
+        json.dumps(_set_provider_type("generate", provider, tier, backup), indent=2)
+    )
 
 
 @providers_app.command("set-cogitate")
@@ -317,7 +320,9 @@ def providers_set_cogitate(
     backup: str | None = typer.Option(None, "--backup", help="Backup provider."),
 ) -> None:
     """Set cogitate provider defaults."""
-    typer.echo(json.dumps(_set_provider_type("cogitate", provider, tier, backup), indent=2))
+    typer.echo(
+        json.dumps(_set_provider_type("cogitate", provider, tier, backup), indent=2)
+    )
 
 
 @providers_app.command("set-auth")

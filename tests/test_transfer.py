@@ -572,7 +572,9 @@ class TestTransferSend:
         )
 
         with patch("observe.transfer.requests.Session", return_value=mock_session):
-            send_segments("https://example.com", "test-key", ["20250103"], dry_run=False)
+            send_segments(
+                "https://example.com", "test-key", ["20250103"], dry_run=False
+            )
 
         assert mock_session.post.call_count == 0
         output = capsys.readouterr().out
@@ -591,7 +593,9 @@ class TestTransferSend:
         )
 
         with patch("observe.transfer.requests.Session", return_value=mock_session):
-            send_segments("https://example.com", "test-key", ["20250103"], dry_run=False)
+            send_segments(
+                "https://example.com", "test-key", ["20250103"], dry_run=False
+            )
 
         assert mock_session.post.call_count == 1
         post_kwargs = mock_session.post.call_args.kwargs
@@ -600,8 +604,9 @@ class TestTransferSend:
         assert json.loads(post_kwargs["data"]["meta"]) == {"stream": "default"}
         # Auth is set on the session, not per-request
         assert mock_session.headers["Authorization"] == "Bearer test-key"
-        assert "Transfer complete: 1 sent, 0 skipped, 0 failed, 100 bytes transferred" in (
-            capsys.readouterr().out
+        assert (
+            "Transfer complete: 1 sent, 0 skipped, 0 failed, 100 bytes transferred"
+            in (capsys.readouterr().out)
         )
 
     def test_send_retry_on_5xx(self, tmp_path, monkeypatch, capsys):
@@ -621,11 +626,14 @@ class TestTransferSend:
             patch("observe.transfer.requests.Session", return_value=mock_session),
             patch("observe.transfer.time.sleep"),
         ):
-            send_segments("https://example.com", "test-key", ["20250103"], dry_run=False)
+            send_segments(
+                "https://example.com", "test-key", ["20250103"], dry_run=False
+            )
 
         assert mock_session.post.call_count == 3
-        assert "Transfer complete: 1 sent, 0 skipped, 0 failed, 100 bytes transferred" in (
-            capsys.readouterr().out
+        assert (
+            "Transfer complete: 1 sent, 0 skipped, 0 failed, 100 bytes transferred"
+            in (capsys.readouterr().out)
         )
 
     def test_send_auth_error(self):
@@ -671,15 +679,23 @@ class TestTransferSend:
         mock_session.get.side_effect = [first_get, second_get]
 
         with patch("observe.transfer.requests.Session", return_value=mock_session):
-            send_segments("https://example.com", "test-key", ["20250103"], dry_run=False)
-            send_segments("https://example.com", "test-key", ["20250103"], dry_run=False)
+            send_segments(
+                "https://example.com", "test-key", ["20250103"], dry_run=False
+            )
+            send_segments(
+                "https://example.com", "test-key", ["20250103"], dry_run=False
+            )
 
         assert mock_session.post.call_count == 1
         output = capsys.readouterr().out
-        assert "Transfer complete: 1 sent, 0 skipped, 0 failed, 100 bytes transferred" in (
-            output
+        assert (
+            "Transfer complete: 1 sent, 0 skipped, 0 failed, 100 bytes transferred"
+            in (output)
         )
-        assert "Transfer complete: 0 sent, 1 skipped, 0 failed, 0 bytes transferred" in output
+        assert (
+            "Transfer complete: 0 sent, 1 skipped, 0 failed, 0 bytes transferred"
+            in output
+        )
 
     def test_send_excludes_stream_json(self, tmp_path, monkeypatch):
         from observe.transfer import send_segments
@@ -690,7 +706,9 @@ class TestTransferSend:
         mock_session = self._make_session(get_json=[])
 
         with patch("observe.transfer.requests.Session", return_value=mock_session):
-            send_segments("https://example.com", "test-key", ["20250103"], dry_run=False)
+            send_segments(
+                "https://example.com", "test-key", ["20250103"], dry_run=False
+            )
 
         files_arg = mock_session.post.call_args.kwargs["files"]
         uploaded_names = [entry[1][0] for entry in files_arg]

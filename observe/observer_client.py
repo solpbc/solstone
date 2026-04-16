@@ -206,11 +206,13 @@ class ObserverClient:
                     data["platform"] = self._platform
                 if meta:
                     data["meta"] = json.dumps(meta)
-                
+
                 headers = {}
                 if self._key:
                     headers["Authorization"] = f"Bearer {self._key}"
-                    logger.debug(f"Sending Authorization header: Bearer {self._key[:8]}...")
+                    logger.debug(
+                        f"Sending Authorization header: Bearer {self._key[:8]}..."
+                    )
 
                 response = self._session.post(
                     url,

@@ -128,9 +128,7 @@ def get_or_create_client(client: genai.Client | None = None) -> genai.Client:
     config = get_config()
     providers_config = config.get("providers", {})
 
-    http_options = types.HttpOptions(
-        retry_options=types.HttpRetryOptions(attempts=8)
-    )
+    http_options = types.HttpOptions(retry_options=types.HttpRetryOptions(attempts=8))
 
     api_key = os.getenv("GOOGLE_API_KEY")
 

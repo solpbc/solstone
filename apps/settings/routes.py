@@ -472,9 +472,7 @@ def get_providers() -> Any:
             except Exception:
                 pass
 
-        provider_status = build_provider_status(
-            providers_list, vertex_creds_configured
-        )
+        provider_status = build_provider_status(providers_list, vertex_creds_configured)
 
         return jsonify(
             {

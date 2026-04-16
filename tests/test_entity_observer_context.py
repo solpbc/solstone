@@ -72,7 +72,9 @@ def test_assemble_observer_context_with_fixture_data():
     assert result
     assert "Juliet Capulet" in result
     assert "Knowledge Graph" in result
-    assert "Prepared revenue projections for Verona Platform board presentation" in result
+    assert (
+        "Prepared revenue projections for Verona Platform board presentation" in result
+    )
 
 
 def test_assemble_observer_context_no_kg(tmp_path):
@@ -125,7 +127,14 @@ def test_assemble_observer_context_observations_sliced(tmp_path):
     _attach_entity(tmp_path, facet, entity_id, "Alice Johnson")
     _write_jsonl(
         tmp_path / "facets" / facet / "entities" / f"{day}.jsonl",
-        [{"id": entity_id, "type": "Person", "name": "Alice Johnson", "description": ""}],
+        [
+            {
+                "id": entity_id,
+                "type": "Person",
+                "name": "Alice Johnson",
+                "description": "",
+            }
+        ],
     )
     _write_jsonl(
         tmp_path / _obs_path(facet, entity_id),
@@ -283,7 +292,10 @@ def test_post_process_deduplicates_existing(tmp_path):
                 "observations": {
                     "alice_johnson": [
                         {"content": "Prefers morning meetings", "reasoning": "dupe"},
-                        {"content": "Expert in distributed systems", "reasoning": "new"},
+                        {
+                            "content": "Expert in distributed systems",
+                            "reasoning": "new",
+                        },
                     ]
                 },
                 "skipped": [],

@@ -133,7 +133,16 @@ def test_invalid_mode(journal_env):
 def test_clear_with_mode_rejected(journal_env):
     result = runner.invoke(
         call_app,
-        ["journal", "retention", "config", "--stream", "plaud", "--clear", "--mode", "keep"],
+        [
+            "journal",
+            "retention",
+            "config",
+            "--stream",
+            "plaud",
+            "--clear",
+            "--mode",
+            "keep",
+        ],
     )
 
     assert result.exit_code == 1

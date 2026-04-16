@@ -88,14 +88,24 @@ def test_list_stream_filter(tmp_path, monkeypatch, capsys):
         "20240101",
         "default",
         "090000_300",
-        stream_json={"stream": "default", "prev_day": None, "prev_segment": None, "seq": 1},
+        stream_json={
+            "stream": "default",
+            "prev_day": None,
+            "prev_segment": None,
+            "seq": 1,
+        },
     )
     _make_segment(
         tmp_path,
         "20240101",
         "custom",
         "100000_300",
-        stream_json={"stream": "custom", "prev_day": None, "prev_segment": None, "seq": 1},
+        stream_json={
+            "stream": "custom",
+            "prev_day": None,
+            "prev_segment": None,
+            "seq": 1,
+        },
     )
 
     args = argparse.Namespace(
@@ -115,7 +125,12 @@ def test_list_json(tmp_path, monkeypatch, capsys):
         "20240101",
         "default",
         "090000_300",
-        stream_json={"stream": "default", "prev_day": None, "prev_segment": None, "seq": 1},
+        stream_json={
+            "stream": "default",
+            "prev_day": None,
+            "prev_segment": None,
+            "seq": 1,
+        },
         agents=["audio.md"],
     )
 
@@ -150,7 +165,12 @@ def test_inspect_basic(tmp_path, monkeypatch, capsys):
         "20240101",
         "default",
         "090000_300",
-        stream_json={"stream": "default", "prev_day": None, "prev_segment": None, "seq": 1},
+        stream_json={
+            "stream": "default",
+            "prev_day": None,
+            "prev_segment": None,
+            "seq": 1,
+        },
         agents=["audio.md"],
     )
 
@@ -200,7 +220,12 @@ def test_inspect_json(tmp_path, monkeypatch, capsys):
         "20240101",
         "default",
         "090000_300",
-        stream_json={"stream": "default", "prev_day": None, "prev_segment": None, "seq": 1},
+        stream_json={
+            "stream": "default",
+            "prev_day": None,
+            "prev_segment": None,
+            "seq": 1,
+        },
         agents=["audio.md"],
     )
 
@@ -223,7 +248,12 @@ def test_inspect_chain(tmp_path, monkeypatch, capsys):
         "20240101",
         "default",
         "090000_300",
-        stream_json={"stream": "default", "prev_day": None, "prev_segment": None, "seq": 1},
+        stream_json={
+            "stream": "default",
+            "prev_day": None,
+            "prev_segment": None,
+            "seq": 1,
+        },
     )
     _make_segment(
         tmp_path,
@@ -267,7 +297,12 @@ def test_verify_all_pass(tmp_path, monkeypatch, capsys):
         "20240101",
         "default",
         "090000_300",
-        stream_json={"stream": "default", "prev_day": None, "prev_segment": None, "seq": 1},
+        stream_json={
+            "stream": "default",
+            "prev_day": None,
+            "prev_segment": None,
+            "seq": 1,
+        },
         screen=False,
     )
     streams_dir = tmp_path / "streams"
@@ -322,7 +357,12 @@ def test_verify_missing_content(tmp_path, monkeypatch, capsys):
         "20240101",
         "default",
         "090000_300",
-        stream_json={"stream": "default", "prev_day": None, "prev_segment": None, "seq": 1},
+        stream_json={
+            "stream": "default",
+            "prev_day": None,
+            "prev_segment": None,
+            "seq": 1,
+        },
         audio=False,
         screen=False,
     )
@@ -377,7 +417,10 @@ def test_verify_broken_backward_chain(tmp_path, monkeypatch, capsys):
 
     out = capsys.readouterr().out
     assert excinfo.value.code == 1
-    assert "FAIL  backward chain: missing previous segment 20240101/default/090000_300" in out
+    assert (
+        "FAIL  backward chain: missing previous segment 20240101/default/090000_300"
+        in out
+    )
 
 
 def test_verify_day_mode(tmp_path, monkeypatch, capsys):
@@ -387,7 +430,12 @@ def test_verify_day_mode(tmp_path, monkeypatch, capsys):
         "20240101",
         "default",
         "090000_300",
-        stream_json={"stream": "default", "prev_day": None, "prev_segment": None, "seq": 1},
+        stream_json={
+            "stream": "default",
+            "prev_day": None,
+            "prev_segment": None,
+            "seq": 1,
+        },
     )
     _make_segment(
         tmp_path,
@@ -427,7 +475,12 @@ def test_verify_json(tmp_path, monkeypatch, capsys):
         "20240101",
         "default",
         "090000_300",
-        stream_json={"stream": "default", "prev_day": None, "prev_segment": None, "seq": 1},
+        stream_json={
+            "stream": "default",
+            "prev_day": None,
+            "prev_segment": None,
+            "seq": 1,
+        },
     )
     streams_dir = tmp_path / "streams"
     streams_dir.mkdir()
@@ -485,7 +538,12 @@ def test_move_basic(tmp_path, monkeypatch, capsys):
         "20240101",
         "default",
         "090000_300",
-        stream_json={"stream": "default", "prev_day": None, "prev_segment": None, "seq": 1},
+        stream_json={
+            "stream": "default",
+            "prev_day": None,
+            "prev_segment": None,
+            "seq": 1,
+        },
     )
     streams_dir = tmp_path / "streams"
     streams_dir.mkdir()
@@ -521,7 +579,12 @@ def test_move_with_to_time(tmp_path, monkeypatch, capsys):
         "20240101",
         "default",
         "090000_300",
-        stream_json={"stream": "default", "prev_day": None, "prev_segment": None, "seq": 1},
+        stream_json={
+            "stream": "default",
+            "prev_day": None,
+            "prev_segment": None,
+            "seq": 1,
+        },
     )
     streams_dir = tmp_path / "streams"
     streams_dir.mkdir()
@@ -550,7 +613,12 @@ def test_move_dry_run(tmp_path, monkeypatch, capsys):
         "20240101",
         "default",
         "090000_300",
-        stream_json={"stream": "default", "prev_day": None, "prev_segment": None, "seq": 1},
+        stream_json={
+            "stream": "default",
+            "prev_day": None,
+            "prev_segment": None,
+            "seq": 1,
+        },
     )
     streams_dir = tmp_path / "streams"
     streams_dir.mkdir()
@@ -581,14 +649,24 @@ def test_move_collision_no_to_time(tmp_path, monkeypatch, capsys):
         "20240101",
         "default",
         "090000_300",
-        stream_json={"stream": "default", "prev_day": None, "prev_segment": None, "seq": 1},
+        stream_json={
+            "stream": "default",
+            "prev_day": None,
+            "prev_segment": None,
+            "seq": 1,
+        },
     )
     _make_segment(
         tmp_path,
         "20240115",
         "default",
         "090000_300",
-        stream_json={"stream": "default", "prev_day": None, "prev_segment": None, "seq": 1},
+        stream_json={
+            "stream": "default",
+            "prev_day": None,
+            "prev_segment": None,
+            "seq": 1,
+        },
     )
     streams_dir = tmp_path / "streams"
     streams_dir.mkdir()
@@ -619,7 +697,12 @@ def test_move_no_events_jsonl(tmp_path, monkeypatch, capsys):
         "20240101",
         "default",
         "090000_300",
-        stream_json={"stream": "default", "prev_day": None, "prev_segment": None, "seq": 1},
+        stream_json={
+            "stream": "default",
+            "prev_day": None,
+            "prev_segment": None,
+            "seq": 1,
+        },
         audio=False,
         screen=False,
     )
@@ -651,7 +734,12 @@ def test_move_patches_successor(tmp_path, monkeypatch, capsys):
         "20240101",
         "default",
         "090000_300",
-        stream_json={"stream": "default", "prev_day": None, "prev_segment": None, "seq": 1},
+        stream_json={
+            "stream": "default",
+            "prev_day": None,
+            "prev_segment": None,
+            "seq": 1,
+        },
     )
     _make_segment(
         tmp_path,
@@ -697,7 +785,12 @@ def test_move_stream_tail(tmp_path, monkeypatch, capsys):
         "20240101",
         "default",
         "090000_300",
-        stream_json={"stream": "default", "prev_day": None, "prev_segment": None, "seq": 1},
+        stream_json={
+            "stream": "default",
+            "prev_day": None,
+            "prev_segment": None,
+            "seq": 1,
+        },
     )
     _make_segment(
         tmp_path,
@@ -739,15 +832,27 @@ def test_move_rewrites_events_jsonl(tmp_path, monkeypatch, capsys):
         "20240101",
         "default",
         "090000_300",
-        stream_json={"stream": "default", "prev_day": None, "prev_segment": None, "seq": 1},
+        stream_json={
+            "stream": "default",
+            "prev_day": None,
+            "prev_segment": None,
+            "seq": 1,
+        },
         audio=False,
         screen=False,
     )
     events = [
-        {"tract": "observe", "event": "start", "day": "20240101", "segment": "090000_300"},
+        {
+            "tract": "observe",
+            "event": "start",
+            "day": "20240101",
+            "segment": "090000_300",
+        },
         {"tract": "dream", "event": "done", "day": "20240101", "segment": "090000_300"},
     ]
-    (seg_dir / "events.jsonl").write_text("\n".join(json.dumps(e) for e in events) + "\n")
+    (seg_dir / "events.jsonl").write_text(
+        "\n".join(json.dumps(e) for e in events) + "\n"
+    )
     streams_dir = tmp_path / "streams"
     streams_dir.mkdir()
     (streams_dir / "default.json").write_text(
@@ -782,7 +887,12 @@ def test_move_touches_health_markers(tmp_path, monkeypatch, capsys):
         "20240101",
         "default",
         "090000_300",
-        stream_json={"stream": "default", "prev_day": None, "prev_segment": None, "seq": 1},
+        stream_json={
+            "stream": "default",
+            "prev_day": None,
+            "prev_segment": None,
+            "seq": 1,
+        },
     )
     streams_dir = tmp_path / "streams"
     streams_dir.mkdir()
@@ -811,7 +921,12 @@ def test_move_same_location_refused(tmp_path, monkeypatch, capsys):
         "20240101",
         "default",
         "090000_300",
-        stream_json={"stream": "default", "prev_day": None, "prev_segment": None, "seq": 1},
+        stream_json={
+            "stream": "default",
+            "prev_day": None,
+            "prev_segment": None,
+            "seq": 1,
+        },
     )
 
     args = argparse.Namespace(
@@ -835,7 +950,12 @@ def test_move_invalid_to_time(tmp_path, monkeypatch, capsys):
         "20240101",
         "default",
         "090000_300",
-        stream_json={"stream": "default", "prev_day": None, "prev_segment": None, "seq": 1},
+        stream_json={
+            "stream": "default",
+            "prev_day": None,
+            "prev_segment": None,
+            "seq": 1,
+        },
     )
 
     args = argparse.Namespace(
@@ -859,7 +979,12 @@ def test_move_invalid_to_day(tmp_path, monkeypatch, capsys):
         "20240101",
         "default",
         "090000_300",
-        stream_json={"stream": "default", "prev_day": None, "prev_segment": None, "seq": 1},
+        stream_json={
+            "stream": "default",
+            "prev_day": None,
+            "prev_segment": None,
+            "seq": 1,
+        },
     )
 
     args = argparse.Namespace(

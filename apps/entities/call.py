@@ -154,7 +154,7 @@ def move_entity(
 
         src_obs = load_observations(from_facet, entity_name)
         dst_obs = load_observations(to_facet, entity_name)
-            
+
         existing_keys = {(o["content"], o.get("observed_at")) for o in dst_obs}
         merged = list(dst_obs) + [
             o
@@ -386,7 +386,9 @@ def add_aka(
         return
 
     # Validate uniqueness across all entities in facet
-    entities = load_entities(facet, day=None, include_detached=True, include_blocked=True)
+    entities = load_entities(
+        facet, day=None, include_detached=True, include_blocked=True
+    )
 
     conflict = validate_aka_uniqueness(
         aka_value, entities, exclude_entity_name=resolved_name

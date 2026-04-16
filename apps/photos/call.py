@@ -73,7 +73,9 @@ def sync(
         if not matched:
             return
 
-        conn.execute("DELETE FROM entity_signals WHERE signal_type='photo_cooccurrence'")
+        conn.execute(
+            "DELETE FROM entity_signals WHERE signal_type='photo_cooccurrence'"
+        )
 
         signal_count = 0
         for cluster in clusters:

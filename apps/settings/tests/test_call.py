@@ -77,7 +77,9 @@ class TestKeysClear:
     def test_keys_clear(self, settings_env):
         tmp_path, _config = settings_env()
 
-        result = runner.invoke(call_app, ["settings", "keys", "clear", "GOOGLE_API_KEY"])
+        result = runner.invoke(
+            call_app, ["settings", "keys", "clear", "GOOGLE_API_KEY"]
+        )
 
         assert result.exit_code == 0
         saved = json.loads((tmp_path / "config" / "journal.json").read_text())
@@ -281,7 +283,9 @@ class TestVertexCredentials:
             encoding="utf-8",
         )
 
-        with patch("think.providers.google.validate_vertex_credentials") as mock_validate:
+        with patch(
+            "think.providers.google.validate_vertex_credentials"
+        ) as mock_validate:
             result = runner.invoke(
                 call_app,
                 [

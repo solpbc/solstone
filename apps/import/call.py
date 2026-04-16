@@ -92,7 +92,9 @@ def _write_config(config: dict) -> None:
     os.chmod(config_path, 0o600)
 
 
-def merge_entity_fields(target: EntityDict, source: EntityDict) -> tuple[EntityDict, list[str]]:
+def merge_entity_fields(
+    target: EntityDict, source: EntityDict
+) -> tuple[EntityDict, list[str]]:
     merged: EntityDict = dict(target)
     pre_merge_snapshot = dict(merged)
 
@@ -204,7 +206,9 @@ def _parse_jsonl_text(source_data: str) -> list[dict[str, Any]]:
         except json.JSONDecodeError as exc:
             raise ValueError(f"Invalid JSONL at line {line_number}: {exc.msg}") from exc
         if not isinstance(item, dict):
-            raise ValueError(f"Invalid JSONL at line {line_number}: item must be an object")
+            raise ValueError(
+                f"Invalid JSONL at line {line_number}: item must be an object"
+            )
         items.append(item)
     return items
 
@@ -283,7 +287,9 @@ def _resolve_config_field(state_dir: Path, field: str, action: str) -> None:
 @app.command("list-staged")
 def list_staged(
     source: str = typer.Option(..., "--source", help="Import source name."),
-    area: str | None = typer.Option(None, "--area", help="Area: entities, facets, or config."),
+    area: str | None = typer.Option(
+        None, "--area", help="Area: entities, facets, or config."
+    ),
 ) -> None:
     _, _, state_dir = _resolve_source(source)
 
@@ -337,7 +343,9 @@ def resolve_entity(
     source_id: str = typer.Argument(help="Source entity ID."),
     action: str = typer.Argument(help="Action: merge, create, or skip."),
     source: str = typer.Option(..., "--source", help="Import source name."),
-    target: str | None = typer.Option(None, "--target", help="Target entity ID for merge."),
+    target: str | None = typer.Option(
+        None, "--target", help="Target entity ID for merge."
+    ),
 ) -> None:
     _, _, state_dir = _resolve_source(source)
 
@@ -408,7 +416,9 @@ def resolve_entity(
         if reason == "id_collision" or journal_entity_path(final_id).exists():
             allocated = _allocate_slug(str(created_entity.get("name", "")))
             if allocated is None:
-                _fail(f"Unable to allocate a slug for '{created_entity.get('name', '')}'.")
+                _fail(
+                    f"Unable to allocate a slug for '{created_entity.get('name', '')}'."
+                )
             final_id = allocated
         created_entity["id"] = final_id
 
@@ -450,7 +460,9 @@ def resolve_entity(
 
 @app.command("resolve-facet")
 def resolve_facet(
-    staged_file: str = typer.Argument(help="Staged file path relative to facets/staged/."),
+    staged_file: str = typer.Argument(
+        help="Staged file path relative to facets/staged/."
+    ),
     action: str = typer.Argument(help="Action: apply or skip."),
     source: str = typer.Option(..., "--source", help="Import source name."),
 ) -> None:
@@ -505,7 +517,9 @@ def resolve_facet(
         id_map = entities_state.get("id_map", {})
         source_entity_id = str(payload.get("source_entity_id", ""))
         if source_entity_id not in id_map:
-            _fail(f"Entity {source_entity_id} has no mapping yet. Run entity review first.")
+            _fail(
+                f"Entity {source_entity_id} has no mapping yet. Run entity review first."
+            )
 
         source_path = str(payload.get("source_path", ""))
         source_data = str(payload.get("source_data", ""))
@@ -544,9 +558,15 @@ def resolve_facet(
                 merged_observations.append(item)
             save_observations(facet_name, entity_id, merged_observations)
         elif file_type in {"detected_entities", "activity_records"}:
-            existing_items = _parse_jsonl_text(target_path.read_text(encoding="utf-8")) if target_path.exists() else []
+            existing_items = (
+                _parse_jsonl_text(target_path.read_text(encoding="utf-8"))
+                if target_path.exists()
+                else []
+            )
             existing_ids = {item.get("id") for item in existing_items}
-            new_items = [item for item in remapped_data if item.get("id") not in existing_ids]
+            new_items = [
+                item for item in remapped_data if item.get("id") not in existing_ids
+            ]
             _append_jsonl_items(target_path, new_items)
         else:
             _fail(f"Unsupported staged facet file type '{file_type}'.")
@@ -569,7 +589,8 @@ def resolve_facet(
         target_path = Path(get_journal()) / "facets" / facet_name / "facet.json"
         target_path.parent.mkdir(parents=True, exist_ok=True)
         target_path.write_text(
-            json.dumps(payload.get("source_content"), indent=2, ensure_ascii=False) + "\n",
+            json.dumps(payload.get("source_content"), indent=2, ensure_ascii=False)
+            + "\n",
             encoding="utf-8",
         )
         staged_path.unlink()
@@ -603,7 +624,9 @@ def resolve_config(
 @app.command("resolve-config-all")
 def resolve_config_all(
     source: str = typer.Option(..., "--source", help="Import source name."),
-    category: str = typer.Option(..., "--category", help="Category: transferable or preference."),
+    category: str = typer.Option(
+        ..., "--category", help="Category: transferable or preference."
+    ),
 ) -> None:
     _, _, state_dir = _resolve_source(source)
 

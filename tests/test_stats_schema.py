@@ -18,8 +18,7 @@ def test_validate_passes_on_valid_output(tmp_path, monkeypatch):
     ts_dir = day / "default" / "123456_300"
     ts_dir.mkdir(parents=True)
     (ts_dir / "audio.jsonl").write_text(
-        '{"raw": "raw.flac"}\n'
-        '{"start": "10:00:00", "text": "hello"}\n'
+        '{"raw": "raw.flac"}\n{"start": "10:00:00", "text": "hello"}\n'
     )
 
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
@@ -87,12 +86,10 @@ def test_day_fields_present_in_scan_day(tmp_path, monkeypatch):
     ts_dir = day / "default" / "123456_300"
     ts_dir.mkdir(parents=True)
     (ts_dir / "audio.jsonl").write_text(
-        '{"raw": "raw.flac"}\n'
-        '{"start": "10:00:00", "text": "hello"}\n'
+        '{"raw": "raw.flac"}\n{"start": "10:00:00", "text": "hello"}\n'
     )
     (ts_dir / "screen.jsonl").write_text(
-        '{"header": true}\n'
-        '{"frame_id": 1, "timestamp": "10:00:00"}\n'
+        '{"header": true}\n{"frame_id": 1, "timestamp": "10:00:00"}\n'
     )
 
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
@@ -101,4 +98,6 @@ def test_day_fields_present_in_scan_day(tmp_path, monkeypatch):
 
     stats = day_data["stats"]
     for field in schema_mod.DAY_FIELDS:
-        assert field in stats, f"DAY_FIELDS field '{field}' missing from scan_day output"
+        assert field in stats, (
+            f"DAY_FIELDS field '{field}' missing from scan_day output"
+        )

@@ -303,7 +303,5 @@ class TestApiOutputFile:
 
     def test_missing_file_returns_404(self, agents_client):
         """Non-existent file returns 404."""
-        resp = agents_client.get(
-            "/app/sol/api/output/20260214/agents/nonexistent.md"
-        )
+        resp = agents_client.get("/app/sol/api/output/20260214/agents/nonexistent.md")
         assert resp.status_code == 404

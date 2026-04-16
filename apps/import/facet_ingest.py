@@ -74,7 +74,9 @@ def _parse_path(path_str: str, file_type: str) -> tuple[PurePosixPath, dict[str,
 
     if file_type == "entity_relationship":
         if len(parts) != 3 or parts[0] != "entities" or parts[2] != "entity.json":
-            raise ValueError("entity_relationship path must be entities/<id>/entity.json")
+            raise ValueError(
+                "entity_relationship path must be entities/<id>/entity.json"
+            )
         return path, {"entity_id": parts[1]}
 
     if file_type == "entity_observations":
@@ -89,7 +91,11 @@ def _parse_path(path_str: str, file_type: str) -> tuple[PurePosixPath, dict[str,
         return path, {"entity_id": parts[1]}
 
     if file_type == "detected_entities":
-        if len(parts) != 2 or parts[0] != "entities" or not _DAY_JSONL_RE.match(parts[1]):
+        if (
+            len(parts) != 2
+            or parts[0] != "entities"
+            or not _DAY_JSONL_RE.match(parts[1])
+        ):
             raise ValueError("detected_entities path must be entities/YYYYMMDD.jsonl")
         return path, {"day_file": parts[1]}
 
@@ -99,12 +105,20 @@ def _parse_path(path_str: str, file_type: str) -> tuple[PurePosixPath, dict[str,
         return path, {}
 
     if file_type == "activity_records":
-        if len(parts) != 2 or parts[0] != "activities" or not _DAY_JSONL_RE.match(parts[1]):
+        if (
+            len(parts) != 2
+            or parts[0] != "activities"
+            or not _DAY_JSONL_RE.match(parts[1])
+        ):
             raise ValueError("activity_records path must be activities/YYYYMMDD.jsonl")
         return path, {"day_file": parts[1]}
 
     if file_type == "activity_output":
-        if len(parts) < 4 or parts[0] != "activities" or not re.match(r"^\d{8}$", parts[1]):
+        if (
+            len(parts) < 4
+            or parts[0] != "activities"
+            or not re.match(r"^\d{8}$", parts[1])
+        ):
             raise ValueError(
                 "activity_output path must be activities/YYYYMMDD/<activity_id>/..."
             )
@@ -116,7 +130,11 @@ def _parse_path(path_str: str, file_type: str) -> tuple[PurePosixPath, dict[str,
         return path, {"day_file": parts[1]}
 
     if file_type == "calendar":
-        if len(parts) != 2 or parts[0] != "calendar" or not _DAY_JSONL_RE.match(parts[1]):
+        if (
+            len(parts) != 2
+            or parts[0] != "calendar"
+            or not _DAY_JSONL_RE.match(parts[1])
+        ):
             raise ValueError("calendar path must be calendar/YYYYMMDD.jsonl")
         return path, {"day_file": parts[1]}
 
@@ -152,7 +170,9 @@ def _parse_jsonl_bytes(raw_bytes: bytes) -> list[dict[str, Any]]:
         except json.JSONDecodeError as exc:
             raise ValueError(f"Invalid JSONL at line {line_number}: {exc.msg}") from exc
         if not isinstance(value, dict):
-            raise ValueError(f"Invalid JSONL at line {line_number}: item must be an object")
+            raise ValueError(
+                f"Invalid JSONL at line {line_number}: item must be an object"
+            )
         items.append(value)
     return items
 
@@ -166,7 +186,11 @@ def _check_unmapped_entities(
     unmapped: list[str] = []
 
     def add(entity_id: str) -> None:
-        if entity_id and _remap_entity_id(entity_id, id_map) is None and entity_id not in unmapped:
+        if (
+            entity_id
+            and _remap_entity_id(entity_id, id_map) is None
+            and entity_id not in unmapped
+        ):
             unmapped.append(entity_id)
 
     if file_type in {"entity_relationship", "entity_observations"}:
@@ -200,7 +224,9 @@ def _stage_unmapped_entity(
     entity_id: str,
     source_data: str,
 ) -> Path:
-    target_path = staged_dir / facet_name / file_type / _sanitize_stage_name(relative_path)
+    target_path = (
+        staged_dir / facet_name / file_type / _sanitize_stage_name(relative_path)
+    )
     target_path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "reason": "unmapped_entity",
@@ -226,7 +252,9 @@ def _stage_facet_json_conflict(
     source_content: Any,
     target_content: Any,
 ) -> Path:
-    target_path = staged_dir / facet_name / "facet_json" / _sanitize_stage_name(relative_path)
+    target_path = (
+        staged_dir / facet_name / "facet_json" / _sanitize_stage_name(relative_path)
+    )
     target_path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "reason": "facet_json_conflict",
@@ -258,7 +286,10 @@ def _merge_facet_json(
     source_content = _parse_json_bytes(raw_bytes)
     if not target_path.exists() or new_facet:
         _write_bytes(target_path, raw_bytes)
-        return {"status": "written", "reason": "new_facet" if new_facet else "overlap_merged"}
+        return {
+            "status": "written",
+            "reason": "new_facet" if new_facet else "overlap_merged",
+        }
 
     target_content = json.loads(target_path.read_text(encoding="utf-8"))
     if target_content == source_content:
@@ -294,7 +325,10 @@ def _merge_entity_relationship(
 
     merged_relationship = {**source_relationship, **target_relationship}
     save_facet_relationship(facet_name, entity_id, merged_relationship)
-    return {"status": "written", "reason": "new_facet" if new_facet else "overlap_merged"}
+    return {
+        "status": "written",
+        "reason": "new_facet" if new_facet else "overlap_merged",
+    }
 
 
 def _merge_observations(
@@ -307,7 +341,8 @@ def _merge_observations(
     source_observations = _parse_jsonl_bytes(raw_bytes)
     target_observations = [] if new_facet else load_observations(facet_name, entity_id)
     seen = {
-        (item.get("content", ""), item.get("observed_at")) for item in target_observations
+        (item.get("content", ""), item.get("observed_at"))
+        for item in target_observations
     }
     merged_observations = list(target_observations)
     for item in source_observations:
@@ -318,7 +353,10 @@ def _merge_observations(
         merged_observations.append(item)
 
     save_observations(facet_name, entity_id, merged_observations)
-    return {"status": "written", "reason": "new_facet" if new_facet else "overlap_merged"}
+    return {
+        "status": "written",
+        "reason": "new_facet" if new_facet else "overlap_merged",
+    }
 
 
 def _merge_detected_entities(
@@ -337,7 +375,10 @@ def _merge_detected_entities(
             continue
         new_items.append(item)
     _append_jsonl(target_path, new_items)
-    return {"status": "written", "reason": "new_facet" if new_facet else "overlap_merged"}
+    return {
+        "status": "written",
+        "reason": "new_facet" if new_facet else "overlap_merged",
+    }
 
 
 def _merge_activity_config(
@@ -351,7 +392,10 @@ def _merge_activity_config(
     existing_ids = {item.get("id") for item in target_items}
     new_items = [item for item in source_items if item.get("id") not in existing_ids]
     _append_jsonl(target_path, new_items)
-    return {"status": "written", "reason": "new_facet" if new_facet else "overlap_merged"}
+    return {
+        "status": "written",
+        "reason": "new_facet" if new_facet else "overlap_merged",
+    }
 
 
 def _merge_activity_records(
@@ -365,7 +409,10 @@ def _merge_activity_records(
     existing_ids = {item.get("id") for item in target_items}
     new_items = [item for item in source_items if item.get("id") not in existing_ids]
     _append_jsonl(target_path, new_items)
-    return {"status": "written", "reason": "new_facet" if new_facet else "overlap_merged"}
+    return {
+        "status": "written",
+        "reason": "new_facet" if new_facet else "overlap_merged",
+    }
 
 
 def _merge_activity_output(
@@ -378,7 +425,10 @@ def _merge_activity_output(
     if output_dir.exists():
         return {"status": "skipped", "reason": "output_dir_exists"}
     _write_bytes(target_path, raw_bytes)
-    return {"status": "written", "reason": "new_facet" if new_facet else "overlap_merged"}
+    return {
+        "status": "written",
+        "reason": "new_facet" if new_facet else "overlap_merged",
+    }
 
 
 def _merge_todos(
@@ -396,7 +446,10 @@ def _merge_todos(
         if (item["text"], item.get("created_at")) not in seen
     ]
     _append_jsonl(target_path, new_items)
-    return {"status": "written", "reason": "new_facet" if new_facet else "overlap_merged"}
+    return {
+        "status": "written",
+        "reason": "new_facet" if new_facet else "overlap_merged",
+    }
 
 
 def _merge_calendar(
@@ -409,12 +462,13 @@ def _merge_calendar(
     target_items = [] if new_facet else _read_jsonl(target_path)
     seen = {(item["title"], item.get("start")) for item in target_items}
     new_items = [
-        item
-        for item in source_items
-        if (item["title"], item.get("start")) not in seen
+        item for item in source_items if (item["title"], item.get("start")) not in seen
     ]
     _append_jsonl(target_path, new_items)
-    return {"status": "written", "reason": "new_facet" if new_facet else "overlap_merged"}
+    return {
+        "status": "written",
+        "reason": "new_facet" if new_facet else "overlap_merged",
+    }
 
 
 def _merge_news(
@@ -426,7 +480,10 @@ def _merge_news(
     if target_path.exists():
         return {"status": "skipped", "reason": "news_exists"}
     _write_bytes(target_path, raw_bytes)
-    return {"status": "written", "reason": "new_facet" if new_facet else "overlap_merged"}
+    return {
+        "status": "written",
+        "reason": "new_facet" if new_facet else "overlap_merged",
+    }
 
 
 def _merge_logs(
@@ -437,7 +494,10 @@ def _merge_logs(
 ) -> dict[str, Any]:
     source_items = _parse_jsonl_bytes(raw_bytes)
     _append_jsonl(target_path, source_items)
-    return {"status": "written", "reason": "new_facet" if new_facet else "overlap_merged"}
+    return {
+        "status": "written",
+        "reason": "new_facet" if new_facet else "overlap_merged",
+    }
 
 
 def _remap_entity_ids(
@@ -503,9 +563,9 @@ def _remap_entity_ids(
 def _serialize_jsonl(items: list[dict[str, Any]]) -> bytes:
     if not items:
         return b""
-    return "".join(json.dumps(item, ensure_ascii=False) + "\n" for item in items).encode(
-        "utf-8"
-    )
+    return "".join(
+        json.dumps(item, ensure_ascii=False) + "\n" for item in items
+    ).encode("utf-8")
 
 
 def process_facet(
@@ -575,7 +635,9 @@ def process_facet(
                 parsed_data = _parse_json_bytes(raw_bytes)
 
             if file_type in _ENTITY_FILE_TYPES:
-                unmapped = _check_unmapped_entities(parsed_data, id_map, file_type, path_info)
+                unmapped = _check_unmapped_entities(
+                    parsed_data, id_map, file_type, path_info
+                )
                 if unmapped:
                     staged_path = _stage_unmapped_entity(
                         staged_dir,
@@ -659,7 +721,9 @@ def process_facet(
             elif file_type == "todos":
                 merge_result = _merge_todos(target_path, raw_bytes, new_facet=new_facet)
             elif file_type == "calendar":
-                merge_result = _merge_calendar(target_path, raw_bytes, new_facet=new_facet)
+                merge_result = _merge_calendar(
+                    target_path, raw_bytes, new_facet=new_facet
+                )
             elif file_type == "news":
                 merge_result = _merge_news(target_path, raw_bytes, new_facet=new_facet)
             elif file_type == "logs":

@@ -438,7 +438,9 @@ def main() -> None:
     sub.add_parser("list", help="List all registered observers")
 
     # rename
-    p_rename = sub.add_parser("rename", help="Rename an observer (affects future streams)")
+    p_rename = sub.add_parser(
+        "rename", help="Rename an observer (affects future streams)"
+    )
     p_rename.add_argument("identifier", help="Observer name or key prefix")
     p_rename.add_argument("new_name", help="New name for the observer")
 

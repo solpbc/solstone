@@ -177,8 +177,7 @@ def test_token_usage(tmp_path, monkeypatch):
     assert "total_transcript_duration" in data["totals"]
     assert "total_percept_duration" in data["totals"]
     assert (
-        data["tokens"]["by_day"]["20240101"]["gemini-2.5-flash"]["total_tokens"]
-        == 495
+        data["tokens"]["by_day"]["20240101"]["gemini-2.5-flash"]["total_tokens"] == 495
     )
 
 
@@ -235,8 +234,7 @@ def test_facet_event_mtime_invalidates_cache(tmp_path, monkeypatch):
     ts_dir = day / "default" / "123456_300"
     ts_dir.mkdir(parents=True)
     (ts_dir / "audio.jsonl").write_text(
-        '{"raw": "raw.flac"}\n'
-        '{"start": "10:00:00", "text": "hello"}\n'
+        '{"raw": "raw.flac"}\n{"start": "10:00:00", "text": "hello"}\n'
     )
 
     # Create facet event file

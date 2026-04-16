@@ -258,6 +258,7 @@ class TestMain:
         assert "--day" in captured_argv
         assert "20250101" in captured_argv
 
+
 class TestCommandRegistry:
     """Tests for command registry completeness."""
 

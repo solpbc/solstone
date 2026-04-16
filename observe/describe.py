@@ -310,13 +310,13 @@ class VideoProcessor:
         except av.error.InvalidDataError as e:
             logger.error(
                 f"Invalid video data error for {self.video_path}: {e}. Skipping video.",
-                exc_info=True
+                exc_info=True,
             )
             return []
         except Exception as e:
             logger.error(
                 f"Unexpected error processing video {self.video_path}: {e}",
-                exc_info=True
+                exc_info=True,
             )
             raise
         return self.qualified_frames

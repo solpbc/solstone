@@ -52,8 +52,12 @@ def merge_journals(
 
     _merge_segments(source, target, summary, dry_run, log_path=log_path)
     _merge_entities(
-        source, summary, dry_run, target_entities,
-        log_path=log_path, staging_path=staging_path,
+        source,
+        summary,
+        dry_run,
+        target_entities,
+        log_path=log_path,
+        staging_path=staging_path,
     )
     _merge_facets(source, target, summary, dry_run, log_path=log_path)
     _merge_imports(source, target, summary, dry_run, log_path=log_path)
@@ -457,20 +461,26 @@ def _merge_overlapping_facet(
                     item_id = item.get("id", "")
                     log_id = f"{facet_name}/entities/{source_det_file.name}/{item_id}"
                     if item_id in seen_ids:
-                        _log_decision(log_path, {
-                            "action": "facet_detected_entity_merged",
-                            "item_type": "facet_detected_entity",
-                            "item_id": log_id,
-                            "reason": "duplicate_skip",
-                        })
+                        _log_decision(
+                            log_path,
+                            {
+                                "action": "facet_detected_entity_merged",
+                                "item_type": "facet_detected_entity",
+                                "item_id": log_id,
+                                "reason": "duplicate_skip",
+                            },
+                        )
                     else:
                         new_items.append(item)
-                        _log_decision(log_path, {
-                            "action": "facet_detected_entity_merged",
-                            "item_type": "facet_detected_entity",
-                            "item_id": log_id,
-                            "reason": "appended",
-                        })
+                        _log_decision(
+                            log_path,
+                            {
+                                "action": "facet_detected_entity_merged",
+                                "item_type": "facet_detected_entity",
+                                "item_id": log_id,
+                                "reason": "appended",
+                            },
+                        )
                 if new_items and not dry_run:
                     _append_jsonl(target_det_file, new_items)
             except Exception as exc:
@@ -489,20 +499,26 @@ def _merge_overlapping_facet(
                 for item in _read_jsonl(source_todo_file):
                     log_id = f"{facet_name}/todos/{source_todo_file.name}/{item.get('text', '')}"
                     if (item["text"], item.get("created_at")) in seen:
-                        _log_decision(log_path, {
-                            "action": "facet_todo_merged",
-                            "item_type": "todo",
-                            "item_id": log_id,
-                            "reason": "duplicate_skip",
-                        })
+                        _log_decision(
+                            log_path,
+                            {
+                                "action": "facet_todo_merged",
+                                "item_type": "todo",
+                                "item_id": log_id,
+                                "reason": "duplicate_skip",
+                            },
+                        )
                     else:
                         new_items.append(item)
-                        _log_decision(log_path, {
-                            "action": "facet_todo_merged",
-                            "item_type": "todo",
-                            "item_id": log_id,
-                            "reason": "appended",
-                        })
+                        _log_decision(
+                            log_path,
+                            {
+                                "action": "facet_todo_merged",
+                                "item_type": "todo",
+                                "item_id": log_id,
+                                "reason": "appended",
+                            },
+                        )
                 if new_items and not dry_run:
                     _append_jsonl(target_todo_file, new_items)
             except Exception as exc:
@@ -523,20 +539,26 @@ def _merge_overlapping_facet(
                 for item in _read_jsonl(source_calendar_file):
                     log_id = f"{facet_name}/calendar/{source_calendar_file.name}/{item.get('title', '')}"
                     if (item["title"], item.get("start")) in seen:
-                        _log_decision(log_path, {
-                            "action": "facet_calendar_merged",
-                            "item_type": "calendar",
-                            "item_id": log_id,
-                            "reason": "duplicate_skip",
-                        })
+                        _log_decision(
+                            log_path,
+                            {
+                                "action": "facet_calendar_merged",
+                                "item_type": "calendar",
+                                "item_id": log_id,
+                                "reason": "duplicate_skip",
+                            },
+                        )
                     else:
                         new_items.append(item)
-                        _log_decision(log_path, {
-                            "action": "facet_calendar_merged",
-                            "item_type": "calendar",
-                            "item_id": log_id,
-                            "reason": "appended",
-                        })
+                        _log_decision(
+                            log_path,
+                            {
+                                "action": "facet_calendar_merged",
+                                "item_type": "calendar",
+                                "item_id": log_id,
+                                "reason": "appended",
+                            },
+                        )
                 if new_items and not dry_run:
                     _append_jsonl(target_calendar_file, new_items)
             except Exception as exc:
@@ -557,20 +579,26 @@ def _merge_overlapping_facet(
                 for item in source_config:
                     log_id = f"{facet_name}/activities/{item.get('id', '')}"
                     if item.get("id") in existing_ids:
-                        _log_decision(log_path, {
-                            "action": "facet_activities_config_merged",
-                            "item_type": "activity_config",
-                            "item_id": log_id,
-                            "reason": "duplicate_skip",
-                        })
+                        _log_decision(
+                            log_path,
+                            {
+                                "action": "facet_activities_config_merged",
+                                "item_type": "activity_config",
+                                "item_id": log_id,
+                                "reason": "duplicate_skip",
+                            },
+                        )
                     else:
                         new_config.append(item)
-                        _log_decision(log_path, {
-                            "action": "facet_activities_config_merged",
-                            "item_type": "activity_config",
-                            "item_id": log_id,
-                            "reason": "appended",
-                        })
+                        _log_decision(
+                            log_path,
+                            {
+                                "action": "facet_activities_config_merged",
+                                "item_type": "activity_config",
+                                "item_id": log_id,
+                                "reason": "appended",
+                            },
+                        )
                 if new_config and not dry_run:
                     _append_jsonl(target_config_file, new_config)
             except Exception as exc:
@@ -588,20 +616,26 @@ def _merge_overlapping_facet(
                 for item in source_records:
                     log_id = f"{facet_name}/activities/{source_day_file.name}/{item.get('id', '')}"
                     if item.get("id") in existing_ids:
-                        _log_decision(log_path, {
-                            "action": "facet_activities_record_merged",
-                            "item_type": "activity_record",
-                            "item_id": log_id,
-                            "reason": "duplicate_skip",
-                        })
+                        _log_decision(
+                            log_path,
+                            {
+                                "action": "facet_activities_record_merged",
+                                "item_type": "activity_record",
+                                "item_id": log_id,
+                                "reason": "duplicate_skip",
+                            },
+                        )
                     else:
                         new_records.append(item)
-                        _log_decision(log_path, {
-                            "action": "facet_activities_record_merged",
-                            "item_type": "activity_record",
-                            "item_id": log_id,
-                            "reason": "appended",
-                        })
+                        _log_decision(
+                            log_path,
+                            {
+                                "action": "facet_activities_record_merged",
+                                "item_type": "activity_record",
+                                "item_id": log_id,
+                                "reason": "appended",
+                            },
+                        )
                 if new_records and not dry_run:
                     _append_jsonl(target_day_file, new_records)
             except Exception as exc:

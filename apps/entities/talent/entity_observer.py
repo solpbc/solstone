@@ -51,7 +51,9 @@ def post_process(result: str, context: dict) -> str | None:
     if not isinstance(observations, dict) or not observations:
         return None
 
-    valid_entity_ids = {entity.get("id") for entity in load_entities(facet) if entity.get("id")}
+    valid_entity_ids = {
+        entity.get("id") for entity in load_entities(facet) if entity.get("id")
+    }
 
     for entity_id, items in observations.items():
         if entity_id not in valid_entity_ids:
@@ -72,7 +74,9 @@ def post_process(result: str, context: dict) -> str | None:
             if not content:
                 continue
             if content.lower() in existing:
-                logger.debug("Skipping duplicate observation for %s: %s", entity_id, content[:60])
+                logger.debug(
+                    "Skipping duplicate observation for %s: %s", entity_id, content[:60]
+                )
                 continue
             add_observation(facet, entity_id, content, day)
             existing.add(content.lower())

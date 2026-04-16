@@ -72,9 +72,9 @@ def ingest_env(journal_env):
         },
         "received": {},
     }
-    (
-        get_state_directory(key_prefix) / "entities" / "state.json"
-    ).write_text(json.dumps(entity_state, indent=2), encoding="utf-8")
+    (get_state_directory(key_prefix) / "entities" / "state.json").write_text(
+        json.dumps(entity_state, indent=2), encoding="utf-8"
+    )
 
     app = Flask(__name__)
     app.config["TESTING"] = True
@@ -136,7 +136,9 @@ def _read_log(key_prefix: str) -> list[dict]:
     ]
 
 
-def _read_staged(key_prefix: str, facet: str, file_type: str, relative_path: str) -> dict:
+def _read_staged(
+    key_prefix: str, facet: str, file_type: str, relative_path: str
+) -> dict:
     staged_name = relative_path.replace("/", "__") + ".staged.json"
     staged_path = (
         get_state_directory(key_prefix)
@@ -154,9 +156,9 @@ def _json_bytes(data: dict) -> bytes:
 
 
 def _jsonl_bytes(items: list[dict]) -> bytes:
-    return "".join(json.dumps(item, ensure_ascii=False) + "\n" for item in items).encode(
-        "utf-8"
-    )
+    return "".join(
+        json.dumps(item, ensure_ascii=False) + "\n" for item in items
+    ).encode("utf-8")
 
 
 def _read_json(path: Path) -> dict:
@@ -289,11 +291,17 @@ def test_new_facet_all_types(ingest_env):
         {
             "name": "personal",
             "files": [
-                {"path": "facet.json", "type": "facet_json", "content": _json_bytes({"title": "Personal"})},
+                {
+                    "path": "facet.json",
+                    "type": "facet_json",
+                    "content": _json_bytes({"title": "Personal"}),
+                },
                 {
                     "path": "entities/same_entity/entity.json",
                     "type": "entity_relationship",
-                    "content": _json_bytes({"description": "Close contact", "attached_at": 100}),
+                    "content": _json_bytes(
+                        {"description": "Close contact", "attached_at": 100}
+                    ),
                 },
                 {
                     "path": "entities/same_entity/observations.jsonl",
@@ -359,7 +367,9 @@ def test_new_facet_all_types(ingest_env):
     ]
     metadata, file_map = _build_request(facets)
 
-    response = _post_facets(env["client"], env["key"], env["key_prefix"], metadata, file_map)
+    response = _post_facets(
+        env["client"], env["key"], env["key_prefix"], metadata, file_map
+    )
 
     assert response.status_code == 200
     assert response.get_json() == {
@@ -380,16 +390,40 @@ def test_new_facet_all_types(ingest_env):
     assert _read_jsonl_file(
         facet_root / "entities" / "same_entity" / "observations.jsonl"
     ) == [{"content": "Likes tea", "observed_at": 1}]
-    assert _read_jsonl_file(facet_root / "entities" / "20260305.jsonl")[0]["id"] == "same_entity"
-    assert _read_jsonl_file(facet_root / "activities" / "activities.jsonl")[0]["id"] == "coding"
-    assert _read_jsonl_file(facet_root / "activities" / "20260305.jsonl")[0]["id"] == "coding_093000_300"
     assert (
-        facet_root / "activities" / "20260305" / "coding_093000_300" / "session_review.md"
+        _read_jsonl_file(facet_root / "entities" / "20260305.jsonl")[0]["id"]
+        == "same_entity"
+    )
+    assert (
+        _read_jsonl_file(facet_root / "activities" / "activities.jsonl")[0]["id"]
+        == "coding"
+    )
+    assert (
+        _read_jsonl_file(facet_root / "activities" / "20260305.jsonl")[0]["id"]
+        == "coding_093000_300"
+    )
+    assert (
+        facet_root
+        / "activities"
+        / "20260305"
+        / "coding_093000_300"
+        / "session_review.md"
     ).read_text(encoding="utf-8") == "# Session\n"
-    assert _read_jsonl_file(facet_root / "todos" / "20260305.jsonl")[0]["text"] == "Ship it"
-    assert _read_jsonl_file(facet_root / "calendar" / "20260305.jsonl")[0]["title"] == "Standup"
-    assert (facet_root / "news" / "20260305.md").read_text(encoding="utf-8") == "# News\n"
-    assert _read_jsonl_file(facet_root / "logs" / "20260305.jsonl")[0]["event"] == "ingested"
+    assert (
+        _read_jsonl_file(facet_root / "todos" / "20260305.jsonl")[0]["text"]
+        == "Ship it"
+    )
+    assert (
+        _read_jsonl_file(facet_root / "calendar" / "20260305.jsonl")[0]["title"]
+        == "Standup"
+    )
+    assert (facet_root / "news" / "20260305.md").read_text(
+        encoding="utf-8"
+    ) == "# News\n"
+    assert (
+        _read_jsonl_file(facet_root / "logs" / "20260305.jsonl")[0]["event"]
+        == "ingested"
+    )
 
     source = load_journal_source(env["key"])
     assert source["stats"]["facets_received"] == 1
@@ -397,7 +431,9 @@ def test_new_facet_all_types(ingest_env):
 
 def test_existing_facet_merge_entity_relationship(ingest_env):
     env = ingest_env
-    target_path = env["root"] / "facets" / "work" / "entities" / "same_entity" / "entity.json"
+    target_path = (
+        env["root"] / "facets" / "work" / "entities" / "same_entity" / "entity.json"
+    )
     _write_json(
         target_path,
         {"entity_id": "same_entity", "description": "Keep target", "attached_at": 200},
@@ -410,13 +446,17 @@ def test_existing_facet_merge_entity_relationship(ingest_env):
                 {
                     "path": "entities/same_entity/entity.json",
                     "type": "entity_relationship",
-                    "content": _json_bytes({"description": "Source desc", "last_seen": 999}),
+                    "content": _json_bytes(
+                        {"description": "Source desc", "last_seen": 999}
+                    ),
                 }
             ],
         }
     ]
     metadata, file_map = _build_request(facets)
-    response = _post_facets(env["client"], env["key"], env["key_prefix"], metadata, file_map)
+    response = _post_facets(
+        env["client"], env["key"], env["key_prefix"], metadata, file_map
+    )
 
     assert response.status_code == 200
     assert response.get_json()["merged"] == 1
@@ -431,7 +471,12 @@ def test_existing_facet_merge_entity_relationship(ingest_env):
 def test_existing_facet_merge_observations(ingest_env):
     env = ingest_env
     target_path = (
-        env["root"] / "facets" / "work" / "entities" / "same_entity" / "observations.jsonl"
+        env["root"]
+        / "facets"
+        / "work"
+        / "entities"
+        / "same_entity"
+        / "observations.jsonl"
     )
     _write_jsonl(
         target_path,
@@ -459,7 +504,9 @@ def test_existing_facet_merge_observations(ingest_env):
         }
     ]
     metadata, file_map = _build_request(facets)
-    response = _post_facets(env["client"], env["key"], env["key_prefix"], metadata, file_map)
+    response = _post_facets(
+        env["client"], env["key"], env["key_prefix"], metadata, file_map
+    )
 
     assert response.status_code == 200
     assert response.get_json()["merged"] == 1
@@ -493,7 +540,9 @@ def test_existing_facet_merge_detected_entities(ingest_env):
         }
     ]
     metadata, file_map = _build_request(facets)
-    response = _post_facets(env["client"], env["key"], env["key_prefix"], metadata, file_map)
+    response = _post_facets(
+        env["client"], env["key"], env["key_prefix"], metadata, file_map
+    )
 
     assert response.status_code == 200
     assert response.get_json()["merged"] == 1
@@ -524,11 +573,16 @@ def test_existing_facet_merge_activity_config(ingest_env):
         }
     ]
     metadata, file_map = _build_request(facets)
-    response = _post_facets(env["client"], env["key"], env["key_prefix"], metadata, file_map)
+    response = _post_facets(
+        env["client"], env["key"], env["key_prefix"], metadata, file_map
+    )
 
     assert response.status_code == 200
     assert response.get_json()["merged"] == 1
-    assert [item["id"] for item in _read_jsonl_file(target_path)] == ["coding", "meeting"]
+    assert [item["id"] for item in _read_jsonl_file(target_path)] == [
+        "coding",
+        "meeting",
+    ]
 
 
 def test_existing_facet_merge_activity_records(ingest_env):
@@ -548,8 +602,16 @@ def test_existing_facet_merge_activity_records(ingest_env):
                     "type": "activity_records",
                     "content": _jsonl_bytes(
                         [
-                            {"id": "coding_1", "activity": "coding", "active_entities": ["same_entity"]},
-                            {"id": "coding_2", "activity": "coding", "active_entities": ["source_entity"]},
+                            {
+                                "id": "coding_1",
+                                "activity": "coding",
+                                "active_entities": ["same_entity"],
+                            },
+                            {
+                                "id": "coding_2",
+                                "activity": "coding",
+                                "active_entities": ["source_entity"],
+                            },
                         ]
                     ),
                 }
@@ -557,7 +619,9 @@ def test_existing_facet_merge_activity_records(ingest_env):
         }
     ]
     metadata, file_map = _build_request(facets)
-    response = _post_facets(env["client"], env["key"], env["key_prefix"], metadata, file_map)
+    response = _post_facets(
+        env["client"], env["key"], env["key_prefix"], metadata, file_map
+    )
 
     assert response.status_code == 200
     assert response.get_json()["merged"] == 1
@@ -593,7 +657,9 @@ def test_existing_facet_merge_activity_output_skip(ingest_env):
         }
     ]
     metadata, file_map = _build_request(facets)
-    response = _post_facets(env["client"], env["key"], env["key_prefix"], metadata, file_map)
+    response = _post_facets(
+        env["client"], env["key"], env["key_prefix"], metadata, file_map
+    )
 
     assert response.status_code == 200
     assert response.get_json()["skipped"] == 1
@@ -617,7 +683,9 @@ def test_existing_facet_merge_activity_output_copy(ingest_env):
         }
     ]
     metadata, file_map = _build_request(facets)
-    response = _post_facets(env["client"], env["key"], env["key_prefix"], metadata, file_map)
+    response = _post_facets(
+        env["client"], env["key"], env["key_prefix"], metadata, file_map
+    )
 
     target_file = (
         env["root"]
@@ -656,7 +724,9 @@ def test_existing_facet_merge_todos(ingest_env):
         }
     ]
     metadata, file_map = _build_request(facets)
-    response = _post_facets(env["client"], env["key"], env["key_prefix"], metadata, file_map)
+    response = _post_facets(
+        env["client"], env["key"], env["key_prefix"], metadata, file_map
+    )
 
     assert response.status_code == 200
     assert response.get_json()["merged"] == 1
@@ -689,7 +759,9 @@ def test_existing_facet_merge_calendar(ingest_env):
         }
     ]
     metadata, file_map = _build_request(facets)
-    response = _post_facets(env["client"], env["key"], env["key_prefix"], metadata, file_map)
+    response = _post_facets(
+        env["client"], env["key"], env["key_prefix"], metadata, file_map
+    )
 
     assert response.status_code == 200
     assert response.get_json()["merged"] == 1
@@ -718,7 +790,9 @@ def test_existing_facet_merge_news_skip(ingest_env):
         }
     ]
     metadata, file_map = _build_request(facets)
-    response = _post_facets(env["client"], env["key"], env["key_prefix"], metadata, file_map)
+    response = _post_facets(
+        env["client"], env["key"], env["key_prefix"], metadata, file_map
+    )
 
     assert response.status_code == 200
     assert response.get_json()["skipped"] == 1
@@ -742,7 +816,9 @@ def test_existing_facet_merge_news_copy(ingest_env):
         }
     ]
     metadata, file_map = _build_request(facets)
-    response = _post_facets(env["client"], env["key"], env["key_prefix"], metadata, file_map)
+    response = _post_facets(
+        env["client"], env["key"], env["key_prefix"], metadata, file_map
+    )
 
     target_path = env["root"] / "facets" / "work" / "news" / "20260305.md"
     assert response.status_code == 200
@@ -768,7 +844,9 @@ def test_existing_facet_merge_logs(ingest_env):
         }
     ]
     metadata, file_map = _build_request(facets)
-    response = _post_facets(env["client"], env["key"], env["key_prefix"], metadata, file_map)
+    response = _post_facets(
+        env["client"], env["key"], env["key_prefix"], metadata, file_map
+    )
 
     assert response.status_code == 200
     assert response.get_json()["merged"] == 1
@@ -789,13 +867,21 @@ def test_entity_id_remapping(ingest_env):
                 {
                     "path": "entities/source_entity/observations.jsonl",
                     "type": "entity_observations",
-                    "content": _jsonl_bytes([{"content": "Knows Rust", "observed_at": 1}]),
+                    "content": _jsonl_bytes(
+                        [{"content": "Knows Rust", "observed_at": 1}]
+                    ),
                 },
                 {
                     "path": "entities/20260305.jsonl",
                     "type": "detected_entities",
                     "content": _jsonl_bytes(
-                        [{"id": "source_entity", "name": "Source Entity", "type": "Person"}]
+                        [
+                            {
+                                "id": "source_entity",
+                                "name": "Source Entity",
+                                "type": "Person",
+                            }
+                        ]
                     ),
                 },
                 {
@@ -815,7 +901,9 @@ def test_entity_id_remapping(ingest_env):
         }
     ]
     metadata, file_map = _build_request(facets)
-    response = _post_facets(env["client"], env["key"], env["key_prefix"], metadata, file_map)
+    response = _post_facets(
+        env["client"], env["key"], env["key_prefix"], metadata, file_map
+    )
 
     facet_root = env["root"] / "facets" / "work"
     assert response.status_code == 200
@@ -823,10 +911,13 @@ def test_entity_id_remapping(ingest_env):
     assert (facet_root / "entities" / "target_entity" / "entity.json").exists()
     assert (facet_root / "entities" / "target_entity" / "observations.jsonl").exists()
     assert not (facet_root / "entities" / "source_entity").exists()
-    assert _read_jsonl_file(facet_root / "entities" / "20260305.jsonl")[0]["id"] == "target_entity"
-    assert _read_jsonl_file(facet_root / "activities" / "20260305.jsonl")[0]["active_entities"] == [
-        "target_entity"
-    ]
+    assert (
+        _read_jsonl_file(facet_root / "entities" / "20260305.jsonl")[0]["id"]
+        == "target_entity"
+    )
+    assert _read_jsonl_file(facet_root / "activities" / "20260305.jsonl")[0][
+        "active_entities"
+    ] == ["target_entity"]
 
 
 def test_unmapped_entity_staging(ingest_env):
@@ -845,7 +936,9 @@ def test_unmapped_entity_staging(ingest_env):
         }
     ]
     metadata, file_map = _build_request(facets)
-    response = _post_facets(env["client"], env["key"], env["key_prefix"], metadata, file_map)
+    response = _post_facets(
+        env["client"], env["key"], env["key_prefix"], metadata, file_map
+    )
 
     assert response.status_code == 200
     assert response.get_json() == {
@@ -855,7 +948,9 @@ def test_unmapped_entity_staging(ingest_env):
         "staged": 1,
         "errors": [],
     }
-    staged = _read_staged(env["key_prefix"], "work", "entity_relationship", "entities/unknown/entity.json")
+    staged = _read_staged(
+        env["key_prefix"], "work", "entity_relationship", "entities/unknown/entity.json"
+    )
     assert staged["reason"] == "unmapped_entity"
     assert staged["source_entity_id"] == "unknown"
     assert staged["source_path"] == "entities/unknown/entity.json"
@@ -877,7 +972,9 @@ def test_staged_then_retry(ingest_env):
         }
     ]
     metadata, file_map = _build_request(facets)
-    first = _post_facets(env["client"], env["key"], env["key_prefix"], metadata, file_map)
+    first = _post_facets(
+        env["client"], env["key"], env["key_prefix"], metadata, file_map
+    )
 
     assert first.status_code == 200
     assert first.get_json()["staged"] == 1
@@ -888,7 +985,9 @@ def test_staged_then_retry(ingest_env):
     state_path.write_text(json.dumps(entity_state), encoding="utf-8")
 
     metadata, file_map = _build_request(facets)
-    second = _post_facets(env["client"], env["key"], env["key_prefix"], metadata, file_map)
+    second = _post_facets(
+        env["client"], env["key"], env["key_prefix"], metadata, file_map
+    )
 
     assert second.status_code == 200
     body = second.get_json()
@@ -916,7 +1015,9 @@ def test_facet_json_conflict_staging(ingest_env):
         }
     ]
     metadata, file_map = _build_request(facets)
-    response = _post_facets(env["client"], env["key"], env["key_prefix"], metadata, file_map)
+    response = _post_facets(
+        env["client"], env["key"], env["key_prefix"], metadata, file_map
+    )
 
     assert response.status_code == 200
     assert response.get_json()["staged"] == 1
@@ -937,10 +1038,14 @@ def test_idempotent(ingest_env):
         }
     ]
     metadata, file_map = _build_request(facets)
-    first = _post_facets(env["client"], env["key"], env["key_prefix"], metadata, file_map)
+    first = _post_facets(
+        env["client"], env["key"], env["key_prefix"], metadata, file_map
+    )
 
     metadata, file_map = _build_request(facets)
-    second = _post_facets(env["client"], env["key"], env["key_prefix"], metadata, file_map)
+    second = _post_facets(
+        env["client"], env["key"], env["key_prefix"], metadata, file_map
+    )
 
     assert first.status_code == 200
     assert second.status_code == 200
@@ -971,7 +1076,9 @@ def test_error_isolation(ingest_env):
         }
     ]
     metadata, file_map = _build_request(facets)
-    response = _post_facets(env["client"], env["key"], env["key_prefix"], metadata, file_map)
+    response = _post_facets(
+        env["client"], env["key"], env["key_prefix"], metadata, file_map
+    )
 
     assert response.status_code == 200
     body = response.get_json()
@@ -995,13 +1102,13 @@ def test_error_isolation_across_facets(ingest_env):
         },
         {
             "name": "good",
-            "files": [
-                {"path": "news/20260305.md", "type": "news", "content": b"ok\n"}
-            ],
+            "files": [{"path": "news/20260305.md", "type": "news", "content": b"ok\n"}],
         },
     ]
     metadata, file_map = _build_request(facets)
-    response = _post_facets(env["client"], env["key"], env["key_prefix"], metadata, file_map)
+    response = _post_facets(
+        env["client"], env["key"], env["key_prefix"], metadata, file_map
+    )
 
     assert response.status_code == 200
     body = response.get_json()
@@ -1042,7 +1149,9 @@ def test_stats_update(ingest_env):
         },
     ]
     metadata, file_map = _build_request(facets)
-    response = _post_facets(env["client"], env["key"], env["key_prefix"], metadata, file_map)
+    response = _post_facets(
+        env["client"], env["key"], env["key_prefix"], metadata, file_map
+    )
     source = load_journal_source(env["key"])
 
     assert response.status_code == 200
@@ -1063,7 +1172,9 @@ def test_state_manifest(ingest_env):
         }
     ]
     metadata, file_map = _build_request(facets)
-    response = _post_facets(env["client"], env["key"], env["key_prefix"], metadata, file_map)
+    response = _post_facets(
+        env["client"], env["key"], env["key_prefix"], metadata, file_map
+    )
 
     assert response.status_code == 200
     assert _read_state(env["key_prefix"]) == {
@@ -1085,7 +1196,9 @@ def test_decision_log(ingest_env):
         }
     ]
     metadata, file_map = _build_request(facets)
-    response = _post_facets(env["client"], env["key"], env["key_prefix"], metadata, file_map)
+    response = _post_facets(
+        env["client"], env["key"], env["key_prefix"], metadata, file_map
+    )
 
     assert response.status_code == 200
     entries = _read_log(env["key_prefix"])
@@ -1114,7 +1227,9 @@ def test_error_logged_to_decision_log(ingest_env):
         }
     ]
     metadata, file_map = _build_request(facets)
-    response = _post_facets(env["client"], env["key"], env["key_prefix"], metadata, file_map)
+    response = _post_facets(
+        env["client"], env["key"], env["key_prefix"], metadata, file_map
+    )
 
     assert response.status_code == 200
     assert len(response.get_json()["errors"]) == 1

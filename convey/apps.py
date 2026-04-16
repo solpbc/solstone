@@ -226,16 +226,12 @@ def _resolve_placeholder(awareness_current: dict, day_count: int) -> str:
         return attention.placeholder_text
     imports = awareness_current.get("imports", {})
     if not imports.get("has_imported") and day_count < 3:
-        return (
-            "Bring in past conversations, calendar, or notes to give me context..."
-        )
+        return "Bring in past conversations, calendar, or notes to give me context..."
     if awareness_current.get("journal", {}).get("first_daily_ready"):
         if day_count < 2:
             return "Your first daily analysis is ready — ask me what I found..."
         if day_count >= 7:
-            return (
-                "Ask me about your day, search your journal, or explore insights..."
-            )
+            return "Ask me about your day, search your journal, or explore insights..."
         return "Your daily analysis is ready — ask about today or anything in your journal..."
     return "Capture is running — your first daily analysis will be ready soon..."
 

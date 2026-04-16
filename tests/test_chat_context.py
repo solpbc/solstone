@@ -94,7 +94,9 @@ def test_chat_context_awareness_error_graceful(monkeypatch):
     """Awareness failures still return the full template var shape."""
     monkeypatch.setattr("think.conversation.build_memory_context", lambda **kw: "")
     monkeypatch.setattr("think.routines.get_routine_state", lambda: [])
-    monkeypatch.setattr("think.routines.get_config", lambda: {"_meta": {"suggestions": {}}})
+    monkeypatch.setattr(
+        "think.routines.get_config", lambda: {"_meta": {"suggestions": {}}}
+    )
     monkeypatch.setattr(
         "think.utils.get_config",
         lambda: {"agent": {"name": "aria", "name_status": "default"}},
@@ -182,7 +184,9 @@ def test_chat_context_routines_error_graceful(monkeypatch):
         "think.routines.get_routine_state",
         lambda: (_ for _ in ()).throw(RuntimeError("boom")),
     )
-    monkeypatch.setattr("think.routines.get_config", lambda: {"_meta": {"suggestions": {}}})
+    monkeypatch.setattr(
+        "think.routines.get_config", lambda: {"_meta": {"suggestions": {}}}
+    )
     monkeypatch.setattr(
         "think.utils.get_config",
         lambda: {"agent": {"name": "aria", "name_status": "default"}},

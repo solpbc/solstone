@@ -442,7 +442,9 @@ def test_key_prefix_mismatch(ingest_env):
 
 def test_stats_update(ingest_env):
     env = ingest_env
-    save_journal_entity({"id": "alice_johnson", "name": "Alice Johnson", "type": "Person"})
+    save_journal_entity(
+        {"id": "alice_johnson", "name": "Alice Johnson", "type": "Person"}
+    )
 
     response = _post_entities(
         env["client"],

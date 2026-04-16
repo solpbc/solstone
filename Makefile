@@ -1,7 +1,7 @@
 # solstone Makefile
 # Python-based AI-driven desktop journaling toolkit
 
-.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format ci clean clean-install coverage watch versions update update-prices pre-commit skills dev all sail sandbox sandbox-stop install-pinchtab verify-browser update-browser-baselines review verify-api update-api-baselines install-service uninstall-service
+.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format format-check ci clean clean-install coverage watch versions update update-prices pre-commit skills dev all sail sandbox sandbox-stop install-pinchtab verify-browser update-browser-baselines review verify-api update-api-baselines install-service uninstall-service
 
 # Default target - install package in editable mode
 all: install
@@ -291,8 +291,12 @@ PYTEST := $(VENV_BIN)/pytest
 RUFF := $(VENV_BIN)/ruff
 MYPY := $(VENV_BIN)/mypy
 
+# Check formatting without modifying files — gates `make test`
+format-check: .installed
+	@$(RUFF) format --check . || { echo "Run 'make format' to fix formatting"; exit 1; }
+
 # Run core tests (excluding integration and app tests)
-test: .installed
+test: .installed format-check
 	@echo "Running core tests..."
 	$(TEST_ENV) $(PYTEST) tests/ -q --cov=. --ignore=tests/integration
 

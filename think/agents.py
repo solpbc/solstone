@@ -55,6 +55,7 @@ LOG = logging.getLogger("think.agents")
 # Minimum content length for transcript-based generation
 MIN_INPUT_CHARS = 50
 
+
 def setup_logging(verbose: bool = False) -> logging.Logger:
     """Configure logging for agent CLI."""
     level = logging.DEBUG if verbose else logging.INFO
@@ -1183,7 +1184,10 @@ def _check_generate(provider_name: str, tier: int, timeout: int) -> tuple[str, s
 
         result = validate_key(provider_name, "")
         if not result.get("valid"):
-            return "skip", f"Ollama not reachable ({result.get('error', 'unreachable')})"
+            return (
+                "skip",
+                f"Ollama not reachable ({result.get('error', 'unreachable')})",
+            )
 
     try:
         module = get_provider_module(provider_name)
@@ -1235,7 +1239,10 @@ async def _check_cogitate(
 
         result = validate_key(provider_name, "")
         if not result.get("valid"):
-            return "skip", f"Ollama not reachable ({result.get('error', 'unreachable')})"
+            return (
+                "skip",
+                f"Ollama not reachable ({result.get('error', 'unreachable')})",
+            )
 
     # Pre-flight: check cogitate CLI binary is installed
     binary = PROVIDER_METADATA[provider_name].get("cogitate_cli", "")

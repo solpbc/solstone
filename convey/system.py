@@ -102,9 +102,7 @@ def _get_capture_health() -> dict[str, Any]:
     observers = list_observers()
     # Filter to active (non-revoked, enabled) observers
     active = [
-        o
-        for o in observers
-        if not o.get("revoked", False) and o.get("enabled", True)
+        o for o in observers if not o.get("revoked", False) and o.get("enabled", True)
     ]
 
     if not active:

@@ -424,9 +424,9 @@ class CortexService:
                                         )
                                     provider = event.get("provider")
                                     if provider:
-                                        self.agent_requests[agent.agent_id]["provider"] = (
-                                            provider
-                                        )
+                                        self.agent_requests[agent.agent_id][
+                                            "provider"
+                                        ] = provider
 
                         # Handle finish or error event
                         if event.get("event") in ["finish", "error"]:

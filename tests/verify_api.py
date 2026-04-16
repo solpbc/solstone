@@ -421,8 +421,7 @@ def normalize(data: Any, journal_path: str) -> Any:
                     and isinstance(item_value, (int, float))
                     else (
                         "<TIMESTAMP>"
-                        if item_key == "generated_at"
-                        and isinstance(item_value, str)
+                        if item_key == "generated_at" and isinstance(item_value, str)
                         else (
                             round(item_value, 1)
                             if item_key in {"score", "recency"}

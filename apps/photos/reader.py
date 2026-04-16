@@ -7,6 +7,7 @@ import sqlite3
 def read_face_clusters(db_path: str) -> list[dict]:
     conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     try:
+
         def resolve_table(preferred: str, fallback: str) -> str:
             for table_name in (preferred, fallback):
                 row = conn.execute(

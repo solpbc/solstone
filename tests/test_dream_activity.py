@@ -458,8 +458,14 @@ class TestActivityPersistence:
 class TestActivityPersistenceRoundTrip:
     """Full round-trip: state machine → append → load → field verification."""
 
-    def _sense(self, content_type="coding", density="active", facets=None,
-               summary="Working.", entities=None):
+    def _sense(
+        self,
+        content_type="coding",
+        density="active",
+        facets=None,
+        summary="Working.",
+        entities=None,
+    ):
         if facets is None:
             facets = [{"facet": "work", "activity": content_type, "level": "high"}]
         return {
@@ -486,7 +492,9 @@ class TestActivityPersistenceRoundTrip:
             sm.update(self._sense(content_type="coding"), "090500_300", "20260304")
             sm.update(self._sense(content_type="coding"), "091000_300", "20260304")
             # End via type change
-            changes = sm.update(self._sense(content_type="meeting"), "091500_300", "20260304")
+            changes = sm.update(
+                self._sense(content_type="meeting"), "091500_300", "20260304"
+            )
 
             ended = [c for c in changes if c.get("state") == "ended"]
             assert len(ended) == 1
@@ -546,7 +554,9 @@ class TestActivityPersistenceRoundTrip:
 
             sm = ActivityStateMachine()
             sm.update(self._sense(content_type="coding"), "090000_300", "20260304")
-            changes = sm.update(self._sense(content_type="meeting"), "090500_300", "20260304")
+            changes = sm.update(
+                self._sense(content_type="meeting"), "090500_300", "20260304"
+            )
 
             ended = [c for c in changes if c.get("state") == "ended"]
             rec = sm.get_completed_activities()[0]
@@ -572,7 +582,9 @@ class TestActivityPersistenceRoundTrip:
             sm = ActivityStateMachine()
             # Activity 1 ends
             sm.update(self._sense(content_type="coding"), "090000_300", "20260304")
-            changes1 = sm.update(self._sense(content_type="meeting"), "090500_300", "20260304")
+            changes1 = sm.update(
+                self._sense(content_type="meeting"), "090500_300", "20260304"
+            )
             facet_by_id = {
                 c["id"]: c.get("_facet", "__")
                 for c in changes1
@@ -583,7 +595,9 @@ class TestActivityPersistenceRoundTrip:
                     append_activity_record(facet_by_id[rec["id"]], "20260304", rec)
 
             # Activity 2 continues (no ending)
-            changes2 = sm.update(self._sense(content_type="meeting"), "091000_300", "20260304")
+            changes2 = sm.update(
+                self._sense(content_type="meeting"), "091000_300", "20260304"
+            )
             # No ended changes in this update
             facet_by_id2 = {
                 c["id"]: c.get("_facet", "__")
@@ -613,9 +627,13 @@ class TestActivityPersistenceRoundTrip:
             ]
             sm = ActivityStateMachine()
             sm.update(
-                self._sense(content_type="coding", entities=entities,
-                            summary="Pair programming with Alice"),
-                "090000_300", "20260304",
+                self._sense(
+                    content_type="coding",
+                    entities=entities,
+                    summary="Pair programming with Alice",
+                ),
+                "090000_300",
+                "20260304",
             )
             sm.update(self._sense(content_type="meeting"), "090500_300", "20260304")
 
@@ -641,8 +659,9 @@ class TestActivityPersistenceRoundTrip:
             monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
 
             sm = ActivityStateMachine()
-            sm.update(self._sense(content_type="coding", facets=[]),
-                      "090000_300", "20260304")
+            sm.update(
+                self._sense(content_type="coding", facets=[]), "090000_300", "20260304"
+            )
             changes = sm.update(self._sense(density="idle"), "090500_300", "20260304")
 
             facet_by_id = {
@@ -725,21 +744,35 @@ class TestCreatedAtRoutesCompat:
             sm = ActivityStateMachine()
             sm.update(
                 {
-                    "density": "active", "content_type": "coding",
-                    "activity_summary": "test", "entities": [],
-                    "facets": [{"facet": "work", "activity": "coding", "level": "high"}],
-                    "meeting_detected": False, "speakers": [], "recommend": {},
+                    "density": "active",
+                    "content_type": "coding",
+                    "activity_summary": "test",
+                    "entities": [],
+                    "facets": [
+                        {"facet": "work", "activity": "coding", "level": "high"}
+                    ],
+                    "meeting_detected": False,
+                    "speakers": [],
+                    "recommend": {},
                 },
-                "090000_300", "20260304",
+                "090000_300",
+                "20260304",
             )
             sm.update(
                 {
-                    "density": "active", "content_type": "meeting",
-                    "activity_summary": "standup", "entities": [],
-                    "facets": [{"facet": "work", "activity": "meeting", "level": "medium"}],
-                    "meeting_detected": True, "speakers": [], "recommend": {},
+                    "density": "active",
+                    "content_type": "meeting",
+                    "activity_summary": "standup",
+                    "entities": [],
+                    "facets": [
+                        {"facet": "work", "activity": "meeting", "level": "medium"}
+                    ],
+                    "meeting_detected": True,
+                    "speakers": [],
+                    "recommend": {},
                 },
-                "090500_300", "20260304",
+                "090500_300",
+                "20260304",
             )
             rec = sm.get_completed_activities()[0]
             append_activity_record("work", "20260304", rec)
@@ -774,26 +807,41 @@ class TestCreatedAtRoutesCompat:
             sm = ActivityStateMachine()
             sm.update(
                 {
-                    "density": "active", "content_type": "coding",
-                    "activity_summary": "first", "entities": [],
-                    "facets": [{"facet": "work", "activity": "coding", "level": "high"}],
-                    "meeting_detected": False, "speakers": [], "recommend": {},
+                    "density": "active",
+                    "content_type": "coding",
+                    "activity_summary": "first",
+                    "entities": [],
+                    "facets": [
+                        {"facet": "work", "activity": "coding", "level": "high"}
+                    ],
+                    "meeting_detected": False,
+                    "speakers": [],
+                    "recommend": {},
                 },
-                "090000_300", "20260304",
+                "090000_300",
+                "20260304",
             )
             changes1 = sm.update(
                 {
-                    "density": "active", "content_type": "meeting",
-                    "activity_summary": "second", "entities": [],
-                    "facets": [{"facet": "work", "activity": "meeting", "level": "medium"}],
-                    "meeting_detected": True, "speakers": [], "recommend": {},
+                    "density": "active",
+                    "content_type": "meeting",
+                    "activity_summary": "second",
+                    "entities": [],
+                    "facets": [
+                        {"facet": "work", "activity": "meeting", "level": "medium"}
+                    ],
+                    "meeting_detected": True,
+                    "speakers": [],
+                    "recommend": {},
                 },
-                "090500_300", "20260304",
+                "090500_300",
+                "20260304",
             )
             # Persist first completed
             facet_by_id = {
                 c["id"]: c.get("_facet", "__")
-                for c in changes1 if c.get("state") == "ended"
+                for c in changes1
+                if c.get("state") == "ended"
             }
             for rec in sm.get_completed_activities():
                 if rec["id"] in facet_by_id:
@@ -804,16 +852,24 @@ class TestCreatedAtRoutesCompat:
 
             changes2 = sm.update(
                 {
-                    "density": "active", "content_type": "coding",
-                    "activity_summary": "third", "entities": [],
-                    "facets": [{"facet": "work", "activity": "coding", "level": "high"}],
-                    "meeting_detected": False, "speakers": [], "recommend": {},
+                    "density": "active",
+                    "content_type": "coding",
+                    "activity_summary": "third",
+                    "entities": [],
+                    "facets": [
+                        {"facet": "work", "activity": "coding", "level": "high"}
+                    ],
+                    "meeting_detected": False,
+                    "speakers": [],
+                    "recommend": {},
                 },
-                "091000_300", "20260304",
+                "091000_300",
+                "20260304",
             )
             facet_by_id2 = {
                 c["id"]: c.get("_facet", "__")
-                for c in changes2 if c.get("state") == "ended"
+                for c in changes2
+                if c.get("state") == "ended"
             }
             for rec in sm.get_completed_activities():
                 if rec["id"] in facet_by_id2:

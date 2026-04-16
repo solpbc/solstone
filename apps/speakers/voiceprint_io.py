@@ -20,7 +20,9 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 
-def save_voiceprints_safely(npz_path: Path, embeddings: np.ndarray, metadata: dict) -> None:
+def save_voiceprints_safely(
+    npz_path: Path, embeddings: np.ndarray, metadata: dict
+) -> None:
     """
     Safely saves voiceprint data to an NPZ file with file locking and integrity check.
 
@@ -60,7 +62,9 @@ def save_voiceprints_safely(npz_path: Path, embeddings: np.ndarray, metadata: di
                     tmp_path.rename(npz_path)
                 else:
                     # This should ideally not happen if np.savez_compressed succeeded
-                    raise FileNotFoundError(f"Temporary voiceprint file not found: {tmp_path}")
+                    raise FileNotFoundError(
+                        f"Temporary voiceprint file not found: {tmp_path}"
+                    )
 
                 # --- Integrity Check ---
                 try:
@@ -70,9 +74,13 @@ def save_voiceprints_safely(npz_path: Path, embeddings: np.ndarray, metadata: di
                     # For now, assume standard numpy savz_compressed data.
                     with np.load(npz_path, allow_pickle=False) as data:
                         # Basic check: ensure expected keys exist
-                        if 'embeddings' not in data or 'metadata' not in data:
-                            raise ValueError("Missing 'embeddings' or 'metadata' keys in loaded NPZ.")
-                    logger.info(f"Successfully wrote and verified voiceprint file: {npz_path}")
+                        if "embeddings" not in data or "metadata" not in data:
+                            raise ValueError(
+                                "Missing 'embeddings' or 'metadata' keys in loaded NPZ."
+                            )
+                    logger.info(
+                        f"Successfully wrote and verified voiceprint file: {npz_path}"
+                    )
 
                 except (FileNotFoundError, ValueError, np.lib.npyio.NpzFile) as e:
                     logger.error(
@@ -95,7 +103,9 @@ def save_voiceprints_safely(npz_path: Path, embeddings: np.ndarray, metadata: di
                     try:
                         tmp_path.unlink()
                     except OSError as rm_err:
-                        logger.error(f"Failed to clean up temporary file {tmp_path}: {rm_err}")
+                        logger.error(
+                            f"Failed to clean up temporary file {tmp_path}: {rm_err}"
+                        )
                 raise e  # Re-raise the original exception
 
             finally:

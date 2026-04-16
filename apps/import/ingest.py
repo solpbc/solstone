@@ -31,7 +31,7 @@ from think.entities.journal import (
     save_journal_entity,
 )
 from think.entities.matching import find_matching_entity
-from think.utils import DEFAULT_STREAM
+from think.utils import DEFAULT_STREAM, day_path
 
 from .journal_sources import (
     get_state_directory,
@@ -204,7 +204,7 @@ def register_ingest_routes(bp) -> None:
 
                 original_segment_key = segment_key
                 arc_key = f"{stream}/{segment_key}"
-                day_dir = journal_root / day
+                day_dir = day_path(day)
                 stream_dir = day_dir / stream
                 segment_dir = stream_dir / segment_key
                 action = "copied"
@@ -396,7 +396,9 @@ def register_ingest_routes(bp) -> None:
                     )
                     continue
 
-                match = find_matching_entity(entity_data["name"], list(target_entities.values()))
+                match = find_matching_entity(
+                    entity_data["name"], list(target_entities.values())
+                )
 
                 if match is not None and match.is_high_confidence:
                     target_id = str(match["id"])
@@ -404,7 +406,10 @@ def register_ingest_routes(bp) -> None:
                     pre_merge_snapshot = dict(target_entity)
 
                     aka_by_lower: dict[str, str] = {}
-                    for values in (target_entity.get("aka", []), entity_data.get("aka", [])):
+                    for values in (
+                        target_entity.get("aka", []),
+                        entity_data.get("aka", []),
+                    ):
                         if not isinstance(values, list):
                             continue
                         for value in values:
@@ -414,7 +419,9 @@ def register_ingest_routes(bp) -> None:
                             if key not in aka_by_lower:
                                 aka_by_lower[key] = str(value)
                     if aka_by_lower:
-                        target_entity["aka"] = sorted(aka_by_lower.values(), key=str.lower)
+                        target_entity["aka"] = sorted(
+                            aka_by_lower.values(), key=str.lower
+                        )
 
                     merged_emails: list[str] = []
                     seen_emails: set[str] = set()
@@ -439,7 +446,9 @@ def register_ingest_routes(bp) -> None:
                     source_created = entity_data.get("created_at")
                     target_created = target_entity.get("created_at")
                     if source_created is not None and target_created is not None:
-                        target_entity["created_at"] = min(source_created, target_created)
+                        target_entity["created_at"] = min(
+                            source_created, target_created
+                        )
                     elif source_created is not None:
                         target_entity["created_at"] = source_created
 
@@ -516,7 +525,8 @@ def register_ingest_routes(bp) -> None:
                             "staged_at": datetime.now(timezone.utc).isoformat(),
                         }
                         (staged_dir / f"{source_id}.json").write_text(
-                            json.dumps(staged_payload, indent=2, ensure_ascii=False) + "\n",
+                            json.dumps(staged_payload, indent=2, ensure_ascii=False)
+                            + "\n",
                             encoding="utf-8",
                         )
                         staged += 1
@@ -543,7 +553,8 @@ def register_ingest_routes(bp) -> None:
                             "staged_at": datetime.now(timezone.utc).isoformat(),
                         }
                         (staged_dir / f"{source_id}.json").write_text(
-                            json.dumps(staged_payload, indent=2, ensure_ascii=False) + "\n",
+                            json.dumps(staged_payload, indent=2, ensure_ascii=False)
+                            + "\n",
                             encoding="utf-8",
                         )
                         staged += 1
@@ -585,7 +596,9 @@ def register_ingest_routes(bp) -> None:
 
                 entity_state["received"][source_id] = content_hash
             except Exception as exc:
-                entity_id = entity_data.get("id", "") if isinstance(entity_data, dict) else ""
+                entity_id = (
+                    entity_data.get("id", "") if isinstance(entity_data, dict) else ""
+                )
                 errors.append({"entity_id": entity_id, "error": str(exc)})
 
         _write_state_atomic(state_path, entity_state)
@@ -682,13 +695,17 @@ def register_ingest_routes(bp) -> None:
             normalized_files: list[dict[str, str]] = []
             for file_idx, file_meta in enumerate(files):
                 if not isinstance(file_meta, dict):
-                    return jsonify({"error": "Facet file metadata must be an object"}), 400
+                    return jsonify(
+                        {"error": "Facet file metadata must be an object"}
+                    ), 400
 
                 path_value = file_meta.get("path")
                 type_value = file_meta.get("type")
                 if not isinstance(path_value, str) or not isinstance(type_value, str):
                     return (
-                        jsonify({"error": "Facet file metadata must include path and type"}),
+                        jsonify(
+                            {"error": "Facet file metadata must include path and type"}
+                        ),
                         400,
                     )
 
@@ -731,9 +748,9 @@ def register_ingest_routes(bp) -> None:
         if written_facets:
             source = g.journal_source
             source.setdefault("stats", {})
-            source["stats"]["facets_received"] = (
-                source["stats"].get("facets_received", 0) + len(written_facets)
-            )
+            source["stats"]["facets_received"] = source["stats"].get(
+                "facets_received", 0
+            ) + len(written_facets)
             save_journal_source(source)
 
         return jsonify(

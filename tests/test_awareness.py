@@ -185,6 +185,7 @@ class TestJournalState:
         assert state["journal"]["first_daily_ready"] is True
         assert state["journal"]["first_daily_ready_at"] == "20260308T14:00:00"
 
+
 class TestComputeThickness:
     """Tests for compute_thickness()."""
 

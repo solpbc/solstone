@@ -461,7 +461,9 @@ def test_ingest_skip_ignores_extra_existing_files(ingest_env):
     assert (segment_dir / "extra.txt").read_bytes() == b"keep me"
     state_data = _read_state(env["key_prefix"])
     assert "laptop/143022_300" in state_data["20260413"]
-    assert state_data["20260413"]["laptop/143022_300"]["files"][0]["name"] == "audio.flac"
+    assert (
+        state_data["20260413"]["laptop/143022_300"]["files"][0]["name"] == "audio.flac"
+    )
 
 
 def test_ingest_stats_update(ingest_env):
@@ -548,11 +550,7 @@ def test_ingest_default_stream_segment(ingest_env):
     state_data = _read_state(env["key_prefix"])
     assert "_default/143022_300" in state_data["20260413"]
     assert (
-        env["root"]
-        / "20260413"
-        / "_default"
-        / "143022_300"
-        / "transcript.jsonl"
+        env["root"] / "20260413" / "_default" / "143022_300" / "transcript.jsonl"
     ).read_bytes() == b'{"text":"default"}\n'
 
 

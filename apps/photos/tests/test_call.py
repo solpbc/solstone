@@ -15,7 +15,9 @@ runner = CliRunner()
 
 
 def _create_photos_db(
-    db_path: Path, people: list[tuple[int, str | None]], faces: list[tuple[int, int, int]]
+    db_path: Path,
+    people: list[tuple[int, str | None]],
+    faces: list[tuple[int, int, int]],
 ) -> None:
     conn = sqlite3.connect(db_path)
     try:
@@ -217,7 +219,9 @@ class TestPhotosSync:
         from think.indexer.journal import get_entity_strength
 
         results = get_entity_strength()
-        alice = next((r for r in results if r.get("entity_id") == "alice_johnson"), None)
+        alice = next(
+            (r for r in results if r.get("entity_id") == "alice_johnson"), None
+        )
         assert alice is not None
         assert "photo_count" in alice
         assert alice["photo_count"] == 2
@@ -258,6 +262,8 @@ class TestPhotosSync:
         monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_dir))
         monkeypatch.setattr(sys, "platform", "darwin")
 
-        result = runner.invoke(call_app, ["photos", "sync", "--library", str(photos_db)])
+        result = runner.invoke(
+            call_app, ["photos", "sync", "--library", str(photos_db)]
+        )
         assert result.exit_code == 0
         assert "Found 1 named face clusters." in result.output

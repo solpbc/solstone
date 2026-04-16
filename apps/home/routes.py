@@ -556,7 +556,9 @@ def _collect_skills() -> list[dict[str, Any]]:
                     summary = meta.get("activity_type", "")
                     typical_time = meta.get("typical_time", "")
                     if typical_time:
-                        summary = f"{summary} · {typical_time}" if summary else typical_time
+                        summary = (
+                            f"{summary} · {typical_time}" if summary else typical_time
+                        )
 
                     observations = meta.get("observations", 0)
                     last_seen_str = meta.get("last_seen", "")
