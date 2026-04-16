@@ -53,6 +53,28 @@
       "title": "Decision Actions",
       "type": "generate"
     },
+    "documents": {
+      "color": "#5c6bc0",
+      "description": "Extracts structured intelligence from imported documents",
+      "hook": {
+        "pre": "documents"
+      },
+      "load": {
+        "agents": false,
+        "percepts": false,
+        "transcripts": true
+      },
+      "max_output_tokens": 8192,
+      "mtime": 0,
+      "output": "md",
+      "path": "<PROJECT>/talent/documents.md",
+      "priority": 10,
+      "schedule": "segment",
+      "source": "system",
+      "thinking_budget": 8192,
+      "title": "Document Analysis",
+      "type": "generate"
+    },
     "entities": {
       "color": "#2e7d32",
       "description": "Extracts people, companies, projects, and tools from segment content",
@@ -73,6 +95,32 @@
       "source": "system",
       "thinking_budget": 4096,
       "title": "Entity Extraction",
+      "type": "generate"
+    },
+    "entities:entity_observer": {
+      "app": "entities",
+      "color": "#004d40",
+      "description": "Extracts durable factoids about attached entities from journal content",
+      "group": "Entities",
+      "hook": {
+        "post": "entities:entity_observer",
+        "pre": "entities:entity_observer"
+      },
+      "load": {
+        "agents": false,
+        "percepts": false,
+        "transcripts": false
+      },
+      "mtime": 0,
+      "multi_facet": true,
+      "output": "json",
+      "path": "<PROJECT>/apps/entities/talent/entity_observer.md",
+      "priority": 57,
+      "schedule": "daily",
+      "source": "app",
+      "thinking_budget": 2048,
+      "tier": 2,
+      "title": "Entity Observer",
       "type": "generate"
     },
     "flow": {
@@ -244,7 +292,7 @@
     },
     "sense": {
       "color": "#ff6f00",
-      "description": "Unified segment understanding \u2014 density, content type, entities, facets, speakers, and routing recommendations in a single pass",
+      "description": "Unified segment understanding — density, content type, entities, facets, speakers, and routing recommendations in a single pass",
       "load": {
         "agents": false,
         "percepts": true,
@@ -376,7 +424,7 @@
         "meetings": 570.0
       }
     },
-    "day_count": 61,
+    "day_count": 65,
     "days": {
       "20240101": {
         "day_bytes": 38312,
@@ -438,6 +486,18 @@
         "transcript_segments": 0,
         "transcript_sessions": 0
       },
+      "20250105": {
+        "day_bytes": 1490,
+        "outputs_pending": 6,
+        "outputs_processed": 0,
+        "pending_segments": 0,
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
+      },
       "20250107": {
         "day_bytes": 33,
         "outputs_pending": 5,
@@ -453,6 +513,18 @@
       "20250108": {
         "day_bytes": 0,
         "outputs_pending": 5,
+        "outputs_processed": 0,
+        "pending_segments": 0,
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
+      },
+      "20250109": {
+        "day_bytes": 1773,
+        "outputs_pending": 6,
         "outputs_processed": 0,
         "pending_segments": 0,
         "percept_duration": 0.0,
@@ -1089,6 +1161,30 @@
       "20260412": {
         "day_bytes": 396,
         "outputs_pending": 5,
+        "outputs_processed": 0,
+        "pending_segments": 0,
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
+      },
+      "20260413": {
+        "day_bytes": 1563,
+        "outputs_pending": 5,
+        "outputs_processed": 0,
+        "pending_segments": 0,
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
+      },
+      "20260414": {
+        "day_bytes": 4394,
+        "outputs_pending": 6,
         "outputs_processed": 0,
         "pending_segments": 0,
         "percept_duration": 0.0,
@@ -1897,8 +1993,8 @@
       }
     },
     "totals": {
-      "day_bytes": 439954,
-      "outputs_pending": 291,
+      "day_bytes": 449174,
+      "outputs_pending": 314,
       "outputs_processed": 14,
       "pending_segments": 0,
       "percept_frames": 3,
