@@ -555,6 +555,21 @@ def run_segment_sense(
                 rec = completed_lookup.get(activity_id)
                 if rec:
                     append_activity_record(facet, day, rec)
+            # Run activity agents for completed activities
+            for activity_id, facet in ended_pairs:
+                logging.info(
+                    "Activity completed (idle): %s facet=%s, running activity agents",
+                    activity_id,
+                    facet,
+                )
+                run_activity_prompts(
+                    day=day,
+                    activity_id=str(activity_id),
+                    facet=str(facet),
+                    refresh=refresh,
+                    verbose=verbose,
+                    max_concurrency=max_concurrency,
+                )
             # Persist activity state even on idle segments
             try:
                 awareness_dir = Path(get_journal()) / "awareness"

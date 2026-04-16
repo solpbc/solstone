@@ -216,16 +216,22 @@ class TestPipelineSmokeTest:
         assert isinstance(meeting_rec["description"], str)
         assert len(meeting_rec["description"]) > 0
 
-        # run_activity_prompts is only called on the active path (type_change
-        # on segment 3 ends coding). The idle path (segment 5) persists
-        # records but does NOT dispatch activity agents.
-        assert len(activity_calls) == 1
+        # Activity agents fire for BOTH endings:
+        # 1. Coding ended by type change (segment 3, active path)
+        # 2. Meeting ended by idle (segment 5, idle path)
+        assert len(activity_calls) == 2
 
         assert activity_calls[0]["facet"] == "work"
         assert activity_calls[0]["activity_id"] == make_activity_id(
             "coding", "090000_300"
         )
         assert activity_calls[0]["day"] == DAY
+
+        assert activity_calls[1]["facet"] == "work"
+        assert activity_calls[1]["activity_id"] == make_activity_id(
+            "meeting", "091000_300"
+        )
+        assert activity_calls[1]["day"] == DAY
 
         state_path = journal / "awareness" / "activity_state.json"
         assert state_path.exists()
