@@ -10,13 +10,11 @@ to inject $observer_context into the prompt.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from think.entities.activity import parse_knowledge_graph_entities
 from think.entities.loading import load_entities
 from think.entities.matching import find_matching_entity
 from think.entities.observations import load_observations
-from think.utils import get_journal
+from think.utils import day_path
 
 
 def _active_entity_ids(facet: str, day: str, attached: list[dict]) -> set[str]:
@@ -40,7 +38,7 @@ def _active_entity_ids(facet: str, day: str, attached: list[dict]) -> set[str]:
 
 
 def _load_knowledge_graph(day: str) -> str:
-    kg_path = Path(get_journal()) / day / "agents" / "knowledge_graph.md"
+    kg_path = day_path(day, create=False) / "agents" / "knowledge_graph.md"
     if not kg_path.exists():
         return "No knowledge graph available for this day."
 

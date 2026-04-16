@@ -30,7 +30,7 @@ from observe.transfer import (
 )
 from think.entities.journal import load_all_journal_entities
 from think.importers.sync import SYNCABLE_REGISTRY
-from think.utils import get_config, get_journal, iter_segments, setup_cli
+from think.utils import day_path, get_config, get_journal, iter_segments, setup_cli
 
 logger = logging.getLogger(__name__)
 
@@ -255,9 +255,8 @@ def export_segments(
             print(result.error)
             return result
 
-        journal = get_journal()
         for day in days:
-            day_dir = Path(journal) / day
+            day_dir = day_path(day, create=False)
             if not day_dir.exists():
                 continue
 

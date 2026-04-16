@@ -41,6 +41,7 @@ from think.indexer.journal import get_events as get_events_impl
 from think.indexer.journal import search_counts as search_counts_impl
 from think.indexer.journal import search_journal as search_journal_impl
 from think.utils import (
+    day_path,
     get_journal,
     iter_segments,
     resolve_sol_day,
@@ -589,16 +590,15 @@ def agents(
     """List available agent outputs for a day."""
     day = resolve_sol_day(day)
     segment = resolve_sol_segment(segment)
-    journal = get_journal()
-    day_path = Path(journal) / day
+    day_dir = day_path(day, create=False)
 
-    if not day_path.is_dir():
+    if not day_dir.is_dir():
         typer.echo(f"No data for {day}.")
         return
 
     if segment:
         # List outputs in a specific segment directory
-        seg_path = day_path / segment / "agents"
+        seg_path = day_dir / segment / "agents"
         if not seg_path.is_dir():
             typer.echo(f"Segment {segment} not found for {day}.")
             return
@@ -606,7 +606,7 @@ def agents(
         return
 
     # List daily agent outputs
-    agents_path = day_path / "agents"
+    agents_path = day_dir / "agents"
     if agents_path.is_dir():
         _list_outputs(agents_path, "Daily agents")
 
@@ -671,17 +671,16 @@ def read(
     """Read full content of an agent output."""
     day = resolve_sol_day(day)
     segment = resolve_sol_segment(segment)
-    journal = get_journal()
-    day_path = Path(journal) / day
+    day_dir = day_path(day, create=False)
 
-    if not day_path.is_dir():
+    if not day_dir.is_dir():
         typer.echo(f"No data for {day}.", err=True)
         raise typer.Exit(1)
 
     if segment:
-        base_dir = day_path / segment / "agents"
+        base_dir = day_dir / segment / "agents"
     else:
-        base_dir = day_path / "agents"
+        base_dir = day_dir / "agents"
 
     if not base_dir.is_dir():
         location = f"segment {segment}" if segment else "agents"
@@ -993,9 +992,7 @@ def config(
             raise typer.Exit(1)
 
     if mode is not None and mode not in ("keep", "days", "processed"):
-        typer.echo(
-            f"Invalid mode: {mode}. Must be keep, days, or processed.", err=True
-        )
+        typer.echo(f"Invalid mode: {mode}. Must be keep, days, or processed.", err=True)
         raise typer.Exit(1)
 
     if mode == "days" and days is None:

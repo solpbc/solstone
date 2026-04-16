@@ -29,7 +29,7 @@ from typing import Any
 import requests
 
 from think.callosum import callosum_send
-from think.utils import get_journal, iter_segments, now_ms, setup_cli
+from think.utils import day_path, get_journal, iter_segments, now_ms, setup_cli
 
 from .utils import compute_file_sha256, find_available_segment
 
@@ -93,8 +93,7 @@ def create_archive(day: str, output_path: Path | None = None) -> Path:
     Raises:
         ValueError: If day directory doesn't exist or has no segments
     """
-    journal = get_journal()
-    day_dir = Path(journal) / day
+    day_dir = day_path(day, create=False)
 
     if not day_dir.exists():
         raise ValueError(f"Day directory does not exist: {day_dir}")
@@ -230,8 +229,7 @@ def validate_archive(archive_path: Path) -> dict[str, Any]:
     manifest = _read_manifest(archive_path)
     day = manifest["day"]
 
-    journal = get_journal()
-    day_dir = Path(journal) / day
+    day_dir = day_path(day, create=False)
 
     result = {
         "manifest": manifest,
@@ -311,9 +309,7 @@ def import_archive(
         }
 
     # Ensure day directory exists
-    journal = get_journal()
-    day_dir = Path(journal) / day
-    day_dir.mkdir(parents=True, exist_ok=True)
+    day_dir = day_path(day)
 
     # Extract segments
     imported = []
@@ -395,7 +391,9 @@ def _parse_day_spec(day_spec: str | None, journal_root: Path) -> list[str]:
         start = datetime.strptime(start_str, "%Y%m%d")
         end = datetime.strptime(end_str, "%Y%m%d")
         if start > end:
-            raise ValueError("Invalid day format: start day must be on or before end day")
+            raise ValueError(
+                "Invalid day format: start day must be on or before end day"
+            )
 
         days = []
         current = start
@@ -532,9 +530,8 @@ def send_segments(base_url: str, key: str, days: list[str], dry_run: bool) -> No
     duplicates = 0
 
     try:
-        journal = get_journal()
         for day in days:
-            day_dir = Path(journal) / day
+            day_dir = day_path(day, create=False)
             if not day_dir.exists():
                 logger.debug(f"Day directory not found: {day}")
                 continue
@@ -661,9 +658,7 @@ def main() -> None:
     )
 
     # Send subcommand
-    send_parser = subparsers.add_parser(
-        "send", help="Send segments to remote observer"
-    )
+    send_parser = subparsers.add_parser("send", help="Send segments to remote observer")
     send_parser.add_argument(
         "--to",
         required=True,

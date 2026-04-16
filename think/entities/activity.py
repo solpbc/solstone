@@ -18,7 +18,7 @@ from think.entities.core import EntityDict
 from think.entities.loading import load_entities, parse_entity_file
 from think.entities.matching import find_matching_entity
 from think.entities.saving import save_entities
-from think.utils import get_journal
+from think.utils import day_path, get_journal
 
 
 def touch_entity(facet: str, name: str, day: str) -> str:
@@ -80,8 +80,7 @@ def parse_knowledge_graph_entities(day: str) -> list[str]:
         >>> parse_knowledge_graph_entities("20260108")
         ["Jeremie Miller (Jer)", "Neal Satterfield", "Flightline", ...]
     """
-    journal = get_journal()
-    kg_path = Path(journal) / day / "agents" / "knowledge_graph.md"
+    kg_path = day_path(day, create=False) / "agents" / "knowledge_graph.md"
 
     if not kg_path.exists():
         return []

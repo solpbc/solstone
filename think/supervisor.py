@@ -24,6 +24,7 @@ from think.callosum import CallosumConnection, CallosumServer
 from think.runner import DailyLogWriter
 from think.runner import ManagedProcess as RunnerManagedProcess
 from think.utils import (
+    day_path,
     find_available_port,
     get_journal,
     get_journal_info,
@@ -142,7 +143,9 @@ class TaskQueue:
             on_queue_change: Optional callback(cmd_name, running_ref, queue_entries)
                             called after queue state changes. Called outside lock.
         """
-        self._running: dict[str, dict] = {}  # command_name -> {"ref": str, "thread": Thread}
+        self._running: dict[
+            str, dict
+        ] = {}  # command_name -> {"ref": str, "thread": Thread}
         self._queues: dict[str, list] = {}  # command_name -> list of {refs, cmd} dicts
         self._active: dict[str, RunnerManagedProcess] = {}  # ref -> process
         self._lock = threading.Lock()
@@ -336,7 +339,9 @@ class TaskQueue:
             try:
                 callosum.stop()
             except Exception:
-                logging.exception(f"Task {cmd_name} ({primary_ref}): callosum stop failed")
+                logging.exception(
+                    f"Task {cmd_name} ({primary_ref}): callosum stop failed"
+                )
             self._process_next(cmd_name)
 
     def _process_next(self, cmd_name: str) -> None:
@@ -1142,12 +1147,10 @@ def _handle_segment_event_log(message: dict) -> None:
     stream = message.get("stream")
 
     try:
-        journal_path = _get_journal_path()
-
         if stream:
-            segment_dir = journal_path / day / stream / segment
+            segment_dir = day_path(day, create=False) / stream / segment
         else:
-            segment_dir = journal_path / day / segment
+            segment_dir = day_path(day, create=False) / segment
 
         # Only log if segment directory exists
         if not segment_dir.is_dir():

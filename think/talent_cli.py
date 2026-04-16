@@ -40,7 +40,7 @@ from think.talent import (
     _load_prompt_metadata,
     get_talent_configs,
 )
-from think.utils import setup_cli
+from think.utils import day_path, setup_cli
 
 # Project root for computing relative paths
 _PROJECT_ROOT = Path(__file__).parent.parent
@@ -807,7 +807,7 @@ def _get_output_size(request_event: dict[str, Any], journal_root: str) -> int | 
         req_name = request_event.get("name", "unified")
         req_env = request_event.get("env") or {}
         req_stream = req_env.get("SOL_STREAM") if req_env else None
-        day_dir = Path(journal_root) / req_day
+        day_dir = day_path(req_day, create=False)
         out_path = get_output_path(
             day_dir,
             req_name,

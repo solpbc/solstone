@@ -13,7 +13,8 @@ from typing import Dict
 from observe.sense import scan_day as sense_scan_day
 from observe.utils import VIDEO_EXTENSIONS, load_analysis_frames
 from think.agents import scan_day as generate_scan_day
-from think.stats_schema import DAY_FIELDS, SCHEMA_VERSION, validate as validate_stats
+from think.stats_schema import DAY_FIELDS, SCHEMA_VERSION
+from think.stats_schema import validate as validate_stats
 from think.utils import day_dirs, get_journal, setup_cli
 
 logger = logging.getLogger(__name__)
@@ -61,7 +62,7 @@ class JournalStats:
             files.extend(agents_dir.glob("*/*.md"))
 
         # Check facet event files for this day
-        journal_root = day_dir.parent
+        journal_root = Path(get_journal())
         day = day_dir.name
         facets_dir = journal_root / "facets"
         if facets_dir.is_dir():
@@ -269,7 +270,7 @@ class JournalStats:
 
         # --- Events and heatmap from facets/*/events/YYYYMMDD.jsonl ---
         weekday = datetime.strptime(day, "%Y%m%d").weekday()
-        journal_root = day_dir.parent
+        journal_root = Path(get_journal())
         facets_dir = journal_root / "facets"
 
         if facets_dir.is_dir():
