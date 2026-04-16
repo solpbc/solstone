@@ -187,9 +187,9 @@ def _aggregate_token_data(day: str) -> Dict[str, Any]:
             "output_tokens": data["output_tokens"],
             "cached_tokens": data["cached_tokens"],
             "reasoning_tokens": data["reasoning_tokens"],
-            "cost": round(data["cost"], 6),
-            "input_cost": round(data["input_cost"], 6),
-            "output_cost": round(data["output_cost"], 6),
+            "cost": round(data["cost"], 2),
+            "input_cost": round(data["input_cost"], 2),
+            "output_cost": round(data["output_cost"], 2),
             "models_used": sorted(list(data["models"])),
             "percent": round(
                 (data["cost"] / total_cost * 100) if total_cost > 0 else 0, 1
@@ -205,9 +205,9 @@ def _aggregate_token_data(day: str) -> Dict[str, Any]:
             "provider": data["provider"],
             "requests": data["requests"],
             "tokens": data["tokens"],
-            "cost": round(data["cost"], 6),
+            "cost": round(data["cost"], 2),
             "avg_cost_per_request": round(
-                data["cost"] / data["requests"] if data["requests"] > 0 else 0, 6
+                data["cost"] / data["requests"] if data["requests"] > 0 else 0, 2
             ),
             "percent": round(
                 (data["cost"] / total_cost * 100) if total_cost > 0 else 0, 1
@@ -222,7 +222,7 @@ def _aggregate_token_data(day: str) -> Dict[str, Any]:
             "context": ctx,
             "requests": data["requests"],
             "tokens": data["tokens"],
-            "cost": round(data["cost"], 6),
+            "cost": round(data["cost"], 2),
             "models_used": sorted(list(data["models"])),
             "percent": round(
                 (data["cost"] / total_cost * 100) if total_cost > 0 else 0, 1
@@ -238,7 +238,7 @@ def _aggregate_token_data(day: str) -> Dict[str, Any]:
             "segment": seg,
             "requests": data["requests"],
             "tokens": data["tokens"],
-            "cost": round(data["cost"], 6),
+            "cost": round(data["cost"], 2),
             "models_used": sorted(list(data["models"])),
             "percent": round(
                 (data["cost"] / total_cost * 100) if total_cost > 0 else 0, 1
@@ -285,14 +285,14 @@ def _aggregate_token_data(day: str) -> Dict[str, Any]:
         ttype["percent"] = round(
             (ttype["cost"] / total_cost * 100) if total_cost > 0 else 0, 1
         )
-        ttype["cost"] = round(ttype["cost"], 6)
+        ttype["cost"] = round(ttype["cost"], 2)
 
     return {
         "day": day,
         "total": {
             "requests": total_requests,
             "tokens": total_tokens,
-            "cost": round(total_cost, 6),
+            "cost": round(total_cost, 2),
             "segment_count": segment_count,
             "skipped_unknown": skipped_unknown,
         },
@@ -305,7 +305,7 @@ def _aggregate_token_data(day: str) -> Dict[str, Any]:
             t: {
                 "requests": d["requests"],
                 "tokens": d["tokens"],
-                "cost": round(d["cost"], 6),
+                "cost": round(d["cost"], 2),
             }
             for t, d in by_type.items()
         },
