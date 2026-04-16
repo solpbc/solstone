@@ -5,7 +5,6 @@ from pathlib import Path
 
 from talent.chat_context import pre_process
 
-
 TEMPLATE_VAR_KEYS = {
     "recent_conversation",
     "active_routines",
@@ -117,14 +116,14 @@ def test_chat_context_sol_awareness_injected(monkeypatch, tmp_path):
     sol_dir = tmp_path / "sol"
     sol_dir.mkdir()
     (sol_dir / "awareness.md").write_text(
-        "as of: 2026-04-05T10:00:00\n\n## capture\n- status: active\n"
+        "as of: 2026-04-05T10:00:00\n\n## activity\n- focused on work\n"
     )
 
     result = pre_process({"user_instruction": "Base instruction."})
 
     template_vars = _assert_template_vars_result(result)
     assert "## Awareness" in template_vars["sol_awareness"]
-    assert "capture" in template_vars["sol_awareness"]
+    assert "activity" in template_vars["sol_awareness"]
 
 
 def test_chat_context_sol_awareness_cold_start(monkeypatch, tmp_path):

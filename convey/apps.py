@@ -84,7 +84,7 @@ class AttentionItem:
 
 
 def _resolve_attention(awareness_current: dict) -> AttentionItem | None:
-    """Check attention sources P0-P4, return highest priority or None."""
+    """Check attention sources P0-P3, return highest priority or None."""
     # P0: Cortex errors
     try:
         import json
@@ -139,17 +139,7 @@ def _resolve_attention(awareness_current: dict) -> AttentionItem | None:
     except Exception:
         pass
 
-    # P1: Capture stale
-    capture = awareness_current.get("capture", {})
-    if capture.get("status") == "stale":
-        placeholder = "Capture may be offline — ask me to check"
-        context = [
-            "System health: capture appears offline (observer heartbeats stale). "
-            "If user asks what needs attention, mention capture status."
-        ]
-        return AttentionItem(placeholder_text=placeholder, context_lines=context)
-
-    # P2: Recent import completion
+    # P1: Recent import completion
     imports = awareness_current.get("imports", {})
     last_completed = imports.get("last_completed")
     last_summary = imports.get("last_result_summary")
@@ -173,7 +163,7 @@ def _resolve_attention(awareness_current: dict) -> AttentionItem | None:
         except Exception:
             pass
 
-    # P3: Daily analysis highlights
+    # P2: Daily analysis highlights
     journal_state = awareness_current.get("journal", {})
     if journal_state.get("first_daily_ready"):
         try:
@@ -205,7 +195,7 @@ def _resolve_attention(awareness_current: dict) -> AttentionItem | None:
         except Exception:
             pass
 
-    # P4: Owner voiceprint candidate ready for confirmation
+    # P3: Owner voiceprint candidate ready for confirmation
     voiceprint = awareness_current.get("voiceprint", {})
     if voiceprint.get("status") == "candidate":
         cluster_size = voiceprint.get("cluster_size", 0)

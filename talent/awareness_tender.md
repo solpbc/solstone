@@ -19,7 +19,7 @@ This is not a conversation. Gather state, write the update, done.
 
 Read current state using these tools:
 
-1. `sol call awareness status` — capture, processing, import, and journal state
+1. `sol call awareness status` — processing, import, and journal state
 2. `sol call identity self` — identity summary (skim for key changes)
 3. `sol call calendar list` — today's events
 4. `sol call routines list` — active routines and recent outputs
@@ -31,10 +31,6 @@ Compose a structured bullet-point snapshot. Keep it under 30 lines. Use this for
 ```
 as of: {ISO 8601 datetime}
 segment: {$SOL_SEGMENT}
-
-## capture
-- status: {active|stale|offline}
-- streams: {list of active streams}
 
 ## calendar
 - {key events for today, 1-3 bullets}

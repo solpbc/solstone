@@ -5,7 +5,6 @@
 
 import json
 import sys
-import time
 from pathlib import Path
 from unittest.mock import patch
 
@@ -16,7 +15,6 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import convey
-
 from convey import create_app
 
 system_mod = convey.system
@@ -43,7 +41,11 @@ def client(tmp_path, monkeypatch):
 
 class TestSystemStatusEndpoint:
     def test_returns_valid_json_shape(self, client):
-        with patch.object(system_mod, "list_observers", return_value=[]):
+        with patch.object(
+            system_mod,
+            "get_capture_health",
+            return_value={"status": "no_observers", "observers": []},
+        ):
             resp = client.get("/api/system/status")
         assert resp.status_code == 200
         data = resp.get_json()
@@ -55,64 +57,89 @@ class TestSystemStatusEndpoint:
         assert "observers" in data["capture"]
 
     def test_no_observers(self, client):
-        with patch.object(system_mod, "list_observers", return_value=[]):
+        with patch.object(
+            system_mod,
+            "get_capture_health",
+            return_value={"status": "no_observers", "observers": []},
+        ):
             data = client.get("/api/system/status").get_json()
         assert data["capture"]["status"] == "no_observers"
         assert data["capture"]["observers"] == []
         assert data["ok"] is True
 
     def test_active_observer(self, client):
-        now = int(time.time() * 1000)
-        observers = [{"name": "phone", "last_seen": now - 5000, "enabled": True}]
-        with patch.object(system_mod, "list_observers", return_value=observers):
+        with patch.object(
+            system_mod,
+            "get_capture_health",
+            return_value={
+                "status": "active",
+                "observers": [{"name": "phone", "last_seen": 1000, "status": "active"}],
+            },
+        ):
             data = client.get("/api/system/status").get_json()
         assert data["capture"]["status"] == "active"
         assert data["ok"] is True
 
     def test_stale_observer(self, client):
-        now = int(time.time() * 1000)
-        observers = [{"name": "phone", "last_seen": now - 60000, "enabled": True}]
-        with patch.object(system_mod, "list_observers", return_value=observers):
+        with patch.object(
+            system_mod,
+            "get_capture_health",
+            return_value={
+                "status": "stale",
+                "observers": [{"name": "phone", "last_seen": 1000, "status": "stale"}],
+            },
+        ):
             data = client.get("/api/system/status").get_json()
         assert data["capture"]["status"] == "stale"
         assert data["ok"] is False
 
     def test_offline_observer(self, client):
-        now = int(time.time() * 1000)
-        observers = [{"name": "phone", "last_seen": now - 300000, "enabled": True}]
-        with patch.object(system_mod, "list_observers", return_value=observers):
+        with patch.object(
+            system_mod,
+            "get_capture_health",
+            return_value={
+                "status": "offline",
+                "observers": [
+                    {"name": "phone", "last_seen": 1000, "status": "offline"}
+                ],
+            },
+        ):
             data = client.get("/api/system/status").get_json()
         assert data["capture"]["status"] == "offline"
         assert data["ok"] is False
 
     def test_revoked_observers_excluded(self, client):
-        now = int(time.time() * 1000)
-        observers = [
-            {
-                "name": "phone",
-                "last_seen": now - 5000,
-                "enabled": True,
-                "revoked": True,
-            },
-        ]
-        with patch.object(system_mod, "list_observers", return_value=observers):
+        with patch.object(
+            system_mod,
+            "get_capture_health",
+            return_value={"status": "no_observers", "observers": []},
+        ):
             data = client.get("/api/system/status").get_json()
         assert data["capture"]["status"] == "no_observers"
 
     def test_worst_of_multiple_observers(self, client):
-        now = int(time.time() * 1000)
-        observers = [
-            {"name": "phone", "last_seen": now - 5000, "enabled": True},
-            {"name": "laptop", "last_seen": now - 60000, "enabled": True},
-        ]
-        with patch.object(system_mod, "list_observers", return_value=observers):
+        with patch.object(
+            system_mod,
+            "get_capture_health",
+            return_value={
+                "status": "active",
+                "observers": [
+                    {"name": "phone", "last_seen": 1000, "status": "active"},
+                    {"name": "laptop", "last_seen": 500, "status": "stale"},
+                ],
+            },
+        ):
             data = client.get("/api/system/status").get_json()
         # At least one is active, so overall is active
         assert data["capture"]["status"] == "active"
 
     def test_version_github_failure_graceful(self, client):
         with (
-            patch.object(system_mod, "list_observers", return_value=[]),
+            patch.object(
+                system_mod,
+                "get_capture_health",
+                return_value={"status": "no_observers", "observers": []},
+            ),
             patch.object(system_mod, "_check_latest_version", return_value=None),
         ):
             data = client.get("/api/system/status").get_json()
@@ -125,7 +152,11 @@ class TestSystemStatusEndpoint:
 
     def test_version_with_update_available(self, client):
         with (
-            patch.object(system_mod, "list_observers", return_value=[]),
+            patch.object(
+                system_mod,
+                "get_capture_health",
+                return_value={"status": "no_observers", "observers": []},
+            ),
             patch.object(
                 system_mod, "_check_latest_version", return_value={"latest": "99.0.0"}
             ),
@@ -136,23 +167,12 @@ class TestSystemStatusEndpoint:
         assert data["version"]["latest"] == "99.0.0"
         assert data["version"]["update_available"] is True
 
-
-class TestCaptureHealthDerivation:
-    """Unit tests for _get_capture_health logic."""
-
-    def test_no_last_seen_is_offline(self):
-        with patch.object(
-            system_mod, "list_observers", return_value=[{"name": "x", "enabled": True}]
-        ):
-            result = system_mod._get_capture_health()
-        assert result["observers"][0]["status"] == "offline"
-
-    def test_disabled_observers_excluded(self):
-        now = int(time.time() * 1000)
+    def test_unknown_status_is_not_ok(self, client):
         with patch.object(
             system_mod,
-            "list_observers",
-            return_value=[{"name": "x", "last_seen": now, "enabled": False}],
+            "get_capture_health",
+            return_value={"status": "unknown", "observers": []},
         ):
-            result = system_mod._get_capture_health()
-        assert result["status"] == "no_observers"
+            data = client.get("/api/system/status").get_json()
+        assert data["capture"]["status"] == "unknown"
+        assert data["ok"] is False

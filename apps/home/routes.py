@@ -20,6 +20,7 @@ from flask import Blueprint, jsonify, render_template
 from convey.apps import _resolve_attention
 from convey.bridge import get_cached_state
 from think.awareness import get_current
+from think.capture_health import get_capture_health
 from think.facets import get_enabled_facets, get_facets
 from think.indexer.journal import get_journal_index
 from think.pipeline_health import pipeline_status_message, summarize_pipeline_day
@@ -607,11 +608,10 @@ def _build_pulse_context() -> dict[str, Any]:
     today = _today()
     now = datetime.now()
 
-    awareness = get_current()
-    capture_status = awareness.get("capture", {}).get("status", "unknown")
+    capture_status = get_capture_health()["status"]
     cached = get_cached_state()
     last_observe_ts = cached.get("last_observe_ts")
-    attention = _resolve_attention(awareness)
+    attention = _resolve_attention(get_current())
 
     stats_data = _load_stats(today)
     stats = stats_data.get("stats", {})

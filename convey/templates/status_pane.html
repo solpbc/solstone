@@ -199,20 +199,20 @@
 
     section.style.display = '';
     const status = capture?.status;
+    const displayStatus = status === 'no_observers' ? 'no observers' : (status || 'unknown');
     if (status === 'active') {
-      text.textContent = 'capture active';
       text.style.color = '#10b981';
     } else if (status === 'stale') {
       const names = (capture.observers || []).filter(o => o.status === 'stale').map(o => o.name).join(', ');
-      text.textContent = 'capture stale' + (names ? ' — ' + names : '');
+      text.textContent = 'capture ' + displayStatus + (names ? ' — ' + names : '');
       text.style.color = '#f59e0b';
+      return;
     } else if (status === 'offline') {
-      text.textContent = 'capture offline';
       text.style.color = '#ef4444';
     } else {
-      text.textContent = 'no capture devices connected';
       text.style.color = '#9ca3af';
     }
+    text.textContent = 'capture ' + displayStatus;
   }
 
   function renderVersionSection(version) {

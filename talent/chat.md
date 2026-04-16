@@ -305,7 +305,6 @@ When the context includes a `System health:` line, there is an active attention 
 
 - **"what needs my attention?"** — Report the system health item. Be concise.
 - **Agent errors:** Explain which agents failed. Suggest checking logs.
-- **Capture offline:** Suggest checking that the observer service is running.
 - **Import complete:** Describe what was imported, offer to explore or import more.
 
 When no `System health:` line is present, everything is fine.

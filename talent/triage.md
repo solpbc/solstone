@@ -40,7 +40,7 @@ You are given context about the owner's current app, URL path, and facet. Use th
 - `sol call journal events [DAY] [-f FACET]` — List events with participants, times, and summaries.
 
 ### Awareness
-- `sol call awareness status [SECTION]` — Read awareness state (e.g., capture state, journal health).
+- `sol call awareness status [SECTION]` — Read awareness state (e.g., processing state, journal health).
 - `sol call awareness log-read [DAY] [--kind KIND] [--limit N]` — Read awareness log entries.
 
 ### Support
@@ -66,9 +66,8 @@ You are given context about the owner's current app, URL path, and facet. Use th
 
 When the context includes a `System health:` line, there is an active attention item. Handle these queries:
 
-- **"what needs my attention?"** — Report the system health item from context. If there are agent errors, mention which agents failed. If capture is stale, mention it may be offline. If an import just completed, mention what arrived. Be concise.
+- **"what needs my attention?"** — Report the system health item from context. If there are agent errors, mention which agents failed. If an import just completed, mention what arrived. Be concise.
 - **Agent errors**: If the owner asks about errors, explain which agents failed today. Suggest checking agent logs or re-running the daily analysis.
-- **Capture offline**: If capture appears stale, suggest checking that the observer service is running.
 - **Import complete**: If an import just finished, briefly describe what was imported and offer to explore the new data or import from another source.
 
 When no `System health:` line is present in context, there is nothing to report. If the owner asks "what needs my attention?", respond that everything looks good.
