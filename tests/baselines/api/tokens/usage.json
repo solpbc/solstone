@@ -2,7 +2,7 @@
   "by_context": [
     {
       "context": "think.cortex.flow:42",
-      "cost": 0.002615,
+      "cost": 0.0,
       "models_used": [
         "gemini-2.5-flash"
       ],
@@ -12,7 +12,7 @@
     },
     {
       "context": "think.cortex.knowledge_graph:88",
-      "cost": 0.0354,
+      "cost": 0.04,
       "models_used": [
         "claude-sonnet-4-5"
       ],
@@ -23,8 +23,8 @@
   ],
   "by_model": [
     {
-      "avg_cost_per_request": 0.002615,
-      "cost": 0.002615,
+      "avg_cost_per_request": 0.0,
+      "cost": 0.0,
       "model": "gemini-2.5-flash",
       "percent": 6.9,
       "provider": "google",
@@ -32,8 +32,8 @@
       "tokens": 3300
     },
     {
-      "avg_cost_per_request": 0.0354,
-      "cost": 0.0354,
+      "avg_cost_per_request": 0.04,
+      "cost": 0.04,
       "model": "claude-sonnet-4-5",
       "percent": 93.1,
       "provider": "anthropic",
@@ -44,13 +44,13 @@
   "by_provider": [
     {
       "cached_tokens": 1000,
-      "cost": 0.0354,
-      "input_cost": 0.0099,
+      "cost": 0.04,
+      "input_cost": 0.01,
       "input_tokens": 4200,
       "models_used": [
         "claude-sonnet-4-5"
       ],
-      "output_cost": 0.0255,
+      "output_cost": 0.03,
       "output_tokens": 1500,
       "percent": 93.1,
       "provider": "anthropic",
@@ -60,13 +60,13 @@
     },
     {
       "cached_tokens": 500,
-      "cost": 0.002615,
-      "input_cost": 0.000615,
+      "cost": 0.0,
+      "input_cost": 0.0,
       "input_tokens": 2500,
       "models_used": [
         "gemini-2.5-flash"
       ],
-      "output_cost": 0.002,
+      "output_cost": 0.0,
       "output_tokens": 800,
       "percent": 6.9,
       "provider": "google",
@@ -77,7 +77,7 @@
   ],
   "by_segment": [
     {
-      "cost": 0.038015,
+      "cost": 0.04,
       "models_used": [
         "claude-sonnet-4-5",
         "gemini-2.5-flash"
@@ -96,13 +96,13 @@
     "input": {
       "avg_rate": 0.0016,
       "cached_pct": 22.4,
-      "cost": 0.010515,
+      "cost": 0.01,
       "percent": 27.7,
       "tokens": 6700
     },
     "output": {
       "avg_rate": 0.011,
-      "cost": 0.0275,
+      "cost": 0.03,
       "percent": 72.3,
       "reasoning_pct": 8.0,
       "tokens": 2500
@@ -115,7 +115,7 @@
   "by_type": {},
   "day": "20260304",
   "total": {
-    "cost": 0.038015,
+    "cost": 0.04,
     "requests": 2,
     "segment_count": 0,
     "skipped_unknown": 0,

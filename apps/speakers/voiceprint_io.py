@@ -11,8 +11,6 @@ and adds an integrity check after writing.
 
 import fcntl
 import logging
-import os
-import re
 from pathlib import Path
 
 import numpy as np

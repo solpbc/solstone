@@ -4,6 +4,7 @@
 """Journal merge engine - one-shot merge of a source journal into the target."""
 
 import json
+import logging
 import re
 import shutil
 from dataclasses import dataclass, field
@@ -19,9 +20,10 @@ from think.entities.journal import (
 from think.entities.matching import find_matching_entity
 from think.entities.observations import save_observations
 from think.entities.relationships import save_facet_relationship
-from think.utils import iter_segments
+from think.utils import CHRONICLE_DIR, iter_segments
 
 DATE_RE = re.compile(r"^\d{8}$")
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -76,11 +78,27 @@ def _log_decision(log_path: Path | None, entry: dict[str, Any]) -> None:
 
 
 def _source_day_dirs(source: Path) -> dict[str, Path]:
-    days: dict[str, Path] = {}
-    for entry in sorted(source.iterdir()):
-        if entry.is_dir() and DATE_RE.match(entry.name):
-            days[entry.name] = entry
-    return days
+    chronicle_dir = source / CHRONICLE_DIR
+    chronicle_days = {}
+    if chronicle_dir.is_dir():
+        chronicle_days = {
+            entry.name: entry
+            for entry in chronicle_dir.iterdir()
+            if entry.is_dir() and DATE_RE.match(entry.name)
+        }
+    flat_days = {
+        entry.name: entry
+        for entry in source.iterdir()
+        if entry.is_dir() and DATE_RE.match(entry.name)
+    }
+    if chronicle_days and flat_days:
+        logger.warning(
+            "Merge source has both flat and %s/ day dirs; preferring %s/.",
+            CHRONICLE_DIR,
+            CHRONICLE_DIR,
+        )
+        return chronicle_days
+    return chronicle_days or flat_days
 
 
 def _merge_segments(
@@ -90,9 +108,12 @@ def _merge_segments(
     dry_run: bool,
     log_path: Path | None = None,
 ) -> None:
+    target_chronicle = target / CHRONICLE_DIR
+    if not dry_run:
+        target_chronicle.mkdir(parents=True, exist_ok=True)
 
     for day_name, source_day in sorted(_source_day_dirs(source).items()):
-        target_day = target / day_name
+        target_day = target_chronicle / day_name
         for stream, seg_key, seg_path in iter_segments(source_day):
             if stream == "_default":
                 target_path = target_day / seg_key

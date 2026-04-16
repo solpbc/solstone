@@ -76,8 +76,8 @@ def merge_journals_fixture(tmp_path, monkeypatch):
         encoding="utf-8",
     )
 
-    (target / "20260101" / "120000_60").mkdir(parents=True)
-    (target / "20260101" / "120000_60" / "audio.jsonl").write_text(
+    (target / "chronicle" / "20260101" / "120000_60").mkdir(parents=True)
+    (target / "chronicle" / "20260101" / "120000_60" / "audio.jsonl").write_text(
         '{"audio": "target-existing-segment"}\n',
         encoding="utf-8",
     )
@@ -138,7 +138,9 @@ def test_segment_copy(merge_journals_fixture, monkeypatch):
     result = runner.invoke(call_app, ["journal", "merge", str(paths["source"])])
 
     assert result.exit_code == 0
-    assert (paths["target"] / "20260101" / "143022_300" / "audio.jsonl").exists()
+    assert (
+        paths["target"] / "chronicle" / "20260101" / "143022_300" / "audio.jsonl"
+    ).exists()
 
 
 def test_segment_skip(merge_journals_fixture, monkeypatch):
@@ -148,9 +150,9 @@ def test_segment_skip(merge_journals_fixture, monkeypatch):
     result = runner.invoke(call_app, ["journal", "merge", str(paths["source"])])
 
     assert result.exit_code == 0
-    assert (paths["target"] / "20260101" / "120000_60" / "audio.jsonl").read_text(
-        encoding="utf-8"
-    ) == '{"audio": "target-existing-segment"}\n'
+    assert (
+        paths["target"] / "chronicle" / "20260101" / "120000_60" / "audio.jsonl"
+    ).read_text(encoding="utf-8") == '{"audio": "target-existing-segment"}\n'
 
 
 def test_entity_create(merge_journals_fixture, monkeypatch):
@@ -576,7 +578,7 @@ def test_dry_run(merge_journals_fixture):
 
     assert result.exit_code == 0
     assert "Would merge:" in result.output
-    assert not (paths["target"] / "20260101" / "143022_300").exists()
+    assert not (paths["target"] / "chronicle" / "20260101" / "143022_300").exists()
     assert not (paths["target"] / "entities" / "bob_smith").exists()
     assert not (paths["target"] / "facets" / "work").exists()
     assert not (paths["target"] / "imports" / "20260101_120000").exists()
@@ -632,7 +634,9 @@ def test_error_resilience(merge_journals_fixture, monkeypatch):
     result = runner.invoke(call_app, ["journal", "merge", str(paths["source"])])
 
     assert result.exit_code == 0
-    assert (paths["target"] / "20260101" / "143022_300" / "audio.jsonl").exists()
+    assert (
+        paths["target"] / "chronicle" / "20260101" / "143022_300" / "audio.jsonl"
+    ).exists()
     assert (paths["target"] / "entities" / "bob_smith" / "entity.json").exists()
     assert "1 errors:" in result.output
 

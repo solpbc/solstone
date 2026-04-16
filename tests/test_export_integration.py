@@ -208,11 +208,12 @@ def _load_json(path: Path) -> dict:
 def _setup_segments(
     journal_root: Path, *, day: str = "20260413", include_default: bool = False
 ) -> list[str]:
-    segment_dir = journal_root / day / "laptop" / "143022_300"
+    chronicle_day = journal_root / "chronicle" / day
+    segment_dir = chronicle_day / "laptop" / "143022_300"
     _write_bytes(segment_dir / "audio.flac", b"audio-data")
     _write_bytes(segment_dir / "transcript.jsonl", b'{"text":"hello"}\n')
     if include_default:
-        default_segment_dir = journal_root / day / "180000_300"
+        default_segment_dir = chronicle_day / "180000_300"
         _write_bytes(default_segment_dir / "audio.flac", b"default-audio")
     return [day]
 
@@ -317,7 +318,12 @@ def test_full_export_cycle(export_integration_env):
     assert config_result == ExportResult(area="config", staged=1)
 
     assert (
-        env["target"] / "20260413" / "laptop" / "143022_300" / "audio.flac"
+        env["target"]
+        / "chronicle"
+        / "20260413"
+        / "laptop"
+        / "143022_300"
+        / "audio.flac"
     ).exists()
     assert (env["target"] / "entities" / "source_entity" / "entity.json").exists()
     assert (env["target"] / "imports" / "20260101_090000" / "import.json").exists()
@@ -379,7 +385,12 @@ def test_idempotent_reexport_default_stream(export_integration_env):
 
     assert first.sent == 2
     assert (
-        env["target"] / "20260413" / "_default" / "180000_300" / "audio.flac"
+        env["target"]
+        / "chronicle"
+        / "20260413"
+        / "_default"
+        / "180000_300"
+        / "audio.flac"
     ).exists()
     assert second.sent == 0
     assert second.skipped == 2
@@ -395,7 +406,12 @@ def test_partial_only_segments(export_integration_env):
 
     assert result.sent == 1
     assert (
-        env["target"] / "20260413" / "laptop" / "143022_300" / "transcript.jsonl"
+        env["target"]
+        / "chronicle"
+        / "20260413"
+        / "laptop"
+        / "143022_300"
+        / "transcript.jsonl"
     ).exists()
 
 
@@ -612,5 +628,5 @@ def test_dry_run_full(export_integration_env):
     assert entity_result.sent == 1
     assert facet_result.sent == 1
     assert config_result.staged == 1
-    assert not (env["target"] / "20260413").exists()
+    assert not (env["target"] / "chronicle" / "20260413").exists()
     assert not (env["target"] / "entities" / "source_entity" / "entity.json").exists()

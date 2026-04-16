@@ -269,7 +269,7 @@ def test_write_segment(tmp_path):
     mod = importlib.import_module("think.importers.shared")
 
     json_path = mod.write_segment(
-        str(tmp_path / "20240101"),
+        str(tmp_path / "chronicle" / "20240101"),
         "import.text",
         "120000_300",
         [{"start": "00:00:00", "speaker": "Alice", "text": "Hello"}],
@@ -284,6 +284,7 @@ def test_write_segment(tmp_path):
     assert (
         written
         == tmp_path
+        / "chronicle"
         / "20240101"
         / "import.text"
         / "120000_300"
@@ -720,8 +721,8 @@ def test_prepare_audio_segments(tmp_path, monkeypatch):
     audio_file = tmp_path / "test.mp3"
     audio_file.write_bytes(b"fake audio content")
 
-    day_dir = tmp_path / "20240101"
-    day_dir.mkdir()
+    day_dir = tmp_path / "chronicle" / "20240101"
+    day_dir.mkdir(parents=True)
 
     base_dt = dt.datetime(2024, 1, 1, 12, 0, 0)
 
@@ -773,8 +774,8 @@ def test_prepare_audio_segments_with_collision(tmp_path, monkeypatch):
     audio_file = tmp_path / "test.mp3"
     audio_file.write_bytes(b"fake audio content")
 
-    day_dir = tmp_path / "20240101"
-    day_dir.mkdir()
+    day_dir = tmp_path / "chronicle" / "20240101"
+    day_dir.mkdir(parents=True)
 
     base_dt = dt.datetime(2024, 1, 1, 12, 0, 0)
 
@@ -840,7 +841,7 @@ def test_importer_dry_run_text(tmp_path, monkeypatch, capsys):
     assert "2 lines" in captured.out
 
     assert not (tmp_path / "imports").exists()
-    assert not (tmp_path / "20240101").exists()
+    assert not (tmp_path / "chronicle" / "20240101").exists()
 
 
 def test_importer_dry_run_audio(tmp_path, monkeypatch, capsys):
@@ -879,7 +880,7 @@ def test_importer_dry_run_audio(tmp_path, monkeypatch, capsys):
     assert "120500_300" in captured.out
 
     assert not (tmp_path / "imports").exists()
-    assert not (tmp_path / "20240101").exists()
+    assert not (tmp_path / "chronicle" / "20240101").exists()
     assert callosum_cls.call_count == 0
 
 
@@ -909,7 +910,7 @@ def test_importer_dry_run_auto(tmp_path, monkeypatch, capsys):
     assert "Content:" in captured.out
 
     assert not (tmp_path / "imports").exists()
-    assert not (tmp_path / "20240315").exists()
+    assert not (tmp_path / "chronicle" / "20240315").exists()
 
 
 def test_file_importer_without_timestamp(tmp_path, monkeypatch, capsys):

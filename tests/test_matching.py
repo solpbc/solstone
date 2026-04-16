@@ -4,7 +4,6 @@
 """Tests for entity matching and name variant resolution."""
 
 from think.entities.matching import (
-    MatchResult,
     MatchTier,
     build_name_resolution_map,
     find_matching_entity,

@@ -5,7 +5,6 @@ from pathlib import Path
 
 from talent.chat_context import pre_process
 
-
 TEMPLATE_VAR_KEYS = {
     "recent_conversation",
     "active_routines",

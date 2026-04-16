@@ -54,8 +54,8 @@ class TestFindPreviousSegment:
 
             try:
                 # Create day directory with segments
-                day_dir = Path(tmpdir) / "20260130"
-                day_dir.mkdir()
+                day_dir = Path(tmpdir) / "chronicle" / "20260130"
+                day_dir.mkdir(parents=True)
                 (day_dir / "default" / "100000_300").mkdir(parents=True)
                 (day_dir / "default" / "110000_300").mkdir(parents=True)
                 (day_dir / "default" / "120000_300").mkdir(parents=True)
@@ -90,8 +90,8 @@ class TestFindPreviousSegment:
             os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
 
             try:
-                day_dir = Path(tmpdir) / "20260130"
-                day_dir.mkdir()
+                day_dir = Path(tmpdir) / "chronicle" / "20260130"
+                day_dir.mkdir(parents=True)
                 (day_dir / "default" / "100000_300_audio").mkdir(parents=True)
                 (day_dir / "default" / "110000_300").mkdir(parents=True)
 
@@ -142,7 +142,9 @@ class TestLoadPreviousState:
 
             try:
                 # Create state file (new flat format)
-                segment_dir = Path(tmpdir) / "20260130" / "default" / "100000_300"
+                segment_dir = (
+                    Path(tmpdir) / "chronicle" / "20260130" / "default" / "100000_300"
+                )
                 segment_dir.mkdir(parents=True)
                 (segment_dir / "agents" / "work").mkdir(parents=True)
 
@@ -178,7 +180,9 @@ class TestLoadPreviousState:
             os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
 
             try:
-                segment_dir = Path(tmpdir) / "20260130" / "default" / "100000_300"
+                segment_dir = (
+                    Path(tmpdir) / "chronicle" / "20260130" / "default" / "100000_300"
+                )
                 segment_dir.mkdir(parents=True)
                 (segment_dir / "agents" / "work").mkdir(parents=True)
 
@@ -200,7 +204,9 @@ class TestLoadPreviousState:
             os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
 
             try:
-                segment_dir = Path(tmpdir) / "20260130" / "default" / "100000_300"
+                segment_dir = (
+                    Path(tmpdir) / "chronicle" / "20260130" / "default" / "100000_300"
+                )
                 segment_dir.mkdir(parents=True)
                 (segment_dir / "agents" / "work").mkdir(parents=True)
 
@@ -355,8 +361,8 @@ class TestPreProcess:
 
             try:
                 # Create day and segments
-                day_dir = Path(tmpdir) / "20260130"
-                day_dir.mkdir()
+                day_dir = Path(tmpdir) / "chronicle" / "20260130"
+                day_dir.mkdir(parents=True)
                 (day_dir / "default" / "100000_300").mkdir(parents=True)
                 (day_dir / "default" / "100000_300" / "agents" / "work").mkdir(
                     parents=True
@@ -475,8 +481,8 @@ class TestPostProcess:
             os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
 
             try:
-                day_dir = Path(tmpdir) / "20260130"
-                day_dir.mkdir()
+                day_dir = Path(tmpdir) / "chronicle" / "20260130"
+                day_dir.mkdir(parents=True)
 
                 # Previous segment with active meeting
                 prev_dir = day_dir / "default" / "100000_300"
@@ -533,8 +539,8 @@ class TestPostProcess:
             os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
 
             try:
-                day_dir = Path(tmpdir) / "20260130"
-                day_dir.mkdir()
+                day_dir = Path(tmpdir) / "chronicle" / "20260130"
+                day_dir.mkdir(parents=True)
 
                 # Previous segment with active meeting
                 prev_dir = day_dir / "default" / "100000_300"
@@ -657,8 +663,8 @@ class TestPostProcess:
             os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
 
             try:
-                day_dir = Path(tmpdir) / "20260130"
-                day_dir.mkdir()
+                day_dir = Path(tmpdir) / "chronicle" / "20260130"
+                day_dir.mkdir(parents=True)
 
                 # Previous segment — email already ended
                 prev_dir = day_dir / "default" / "100000_300"
@@ -713,8 +719,8 @@ class TestPostProcess:
             os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
 
             try:
-                day_dir = Path(tmpdir) / "20260130"
-                day_dir.mkdir()
+                day_dir = Path(tmpdir) / "chronicle" / "20260130"
+                day_dir.mkdir(parents=True)
 
                 # Previous segment — email ended with different description
                 prev_dir = day_dir / "default" / "100000_300"
@@ -795,8 +801,8 @@ class TestPostProcess:
             os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
 
             try:
-                day_dir = Path(tmpdir) / "20260130"
-                day_dir.mkdir()
+                day_dir = Path(tmpdir) / "chronicle" / "20260130"
+                day_dir.mkdir(parents=True)
 
                 prev_dir = day_dir / "default" / "100000_300"
                 prev_dir.mkdir(parents=True)
@@ -916,8 +922,8 @@ class TestPostProcess:
             os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
 
             try:
-                day_dir = Path(tmpdir) / "20260130"
-                day_dir.mkdir()
+                day_dir = Path(tmpdir) / "chronicle" / "20260130"
+                day_dir.mkdir(parents=True)
 
                 prev_dir = day_dir / "default" / "100000_300"
                 prev_dir.mkdir(parents=True)
@@ -973,8 +979,8 @@ class TestPostProcess:
             os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
 
             try:
-                day_dir = Path(tmpdir) / "20260130"
-                day_dir.mkdir()
+                day_dir = Path(tmpdir) / "chronicle" / "20260130"
+                day_dir.mkdir(parents=True)
 
                 prev_dir = day_dir / "default" / "100000_300"
                 prev_dir.mkdir(parents=True)
@@ -1058,8 +1064,8 @@ class TestActivityId:
             os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
 
             try:
-                day_dir = Path(tmpdir) / "20260130"
-                day_dir.mkdir()
+                day_dir = Path(tmpdir) / "chronicle" / "20260130"
+                day_dir.mkdir(parents=True)
 
                 prev_dir = day_dir / "default" / "100000_300"
                 prev_dir.mkdir(parents=True)
@@ -1113,8 +1119,8 @@ class TestActivityId:
             os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
 
             try:
-                day_dir = Path(tmpdir) / "20260130"
-                day_dir.mkdir()
+                day_dir = Path(tmpdir) / "chronicle" / "20260130"
+                day_dir.mkdir(parents=True)
 
                 prev_dir = day_dir / "default" / "100000_300"
                 prev_dir.mkdir(parents=True)
@@ -1233,8 +1239,8 @@ class TestActivityLiveEvents:
             os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
 
             try:
-                day_dir = Path(tmpdir) / "20260130"
-                day_dir.mkdir()
+                day_dir = Path(tmpdir) / "chronicle" / "20260130"
+                day_dir.mkdir(parents=True)
 
                 prev_dir = day_dir / "default" / "100000_300"
                 prev_dir.mkdir(parents=True)
@@ -1295,8 +1301,8 @@ class TestActivityLiveEvents:
             os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
 
             try:
-                day_dir = Path(tmpdir) / "20260130"
-                day_dir.mkdir()
+                day_dir = Path(tmpdir) / "chronicle" / "20260130"
+                day_dir.mkdir(parents=True)
 
                 prev_dir = day_dir / "default" / "100000_300"
                 prev_dir.mkdir(parents=True)

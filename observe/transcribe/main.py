@@ -77,6 +77,8 @@ from think.utils import (
     get_config,
     get_journal,
     iter_segments,
+    journal_relative_path,
+    resolve_journal_path,
     setup_cli,
 )
 
@@ -187,7 +189,7 @@ def _build_base_event(
     day = day_from_path(audio_path)
 
     try:
-        rel_input = audio_path.relative_to(journal_path)
+        rel_input = journal_relative_path(journal_path, audio_path)
     except ValueError:
         rel_input = audio_path
 
@@ -616,10 +618,10 @@ def process_audio(
         event["outcome"] = "transcribed"
         event["duration_ms"] = int((time.time() - start_time) * 1000)
         try:
-            rel_output = jsonl_path.relative_to(journal_path)
+            rel_output = journal_relative_path(journal_path, jsonl_path)
         except ValueError:
             rel_output = jsonl_path
-        event["output"] = str(rel_output)
+        event["output"] = rel_output
 
         callosum_send("observe", "transcribed", **event)
 
@@ -852,7 +854,10 @@ def main():
 
     audio_path = Path(args.audio_path)
     if not audio_path.exists():
-        journal_relative = Path(get_journal()) / args.audio_path
+        if audio_path.is_absolute():
+            journal_relative = Path(get_journal()) / audio_path.as_posix().lstrip("/")
+        else:
+            journal_relative = resolve_journal_path(get_journal(), args.audio_path)
         if journal_relative.exists():
             audio_path = journal_relative
         else:

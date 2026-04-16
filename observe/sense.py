@@ -24,7 +24,18 @@ from typing import Any, Dict, List, Optional
 from observe.utils import AUDIO_EXTENSIONS, VIDEO_EXTENSIONS
 from think.callosum import CallosumConnection
 from think.runner import ManagedProcess as RunnerManagedProcess
-from think.utils import day_path, get_journal, get_rev, iter_segments, now_ms, setup_cli
+from think.utils import (
+    CHRONICLE_DIR,
+    DATE_RE,
+    day_path,
+    get_journal,
+    get_rev,
+    iter_segments,
+    journal_relative_path,
+    now_ms,
+    resolve_journal_path,
+    setup_cli,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -173,20 +184,28 @@ class FileSensor:
         self.handlers[pattern] = (handler_name, command)
         logger.info(f"Registered handler '{handler_name}' for pattern '{pattern}'")
 
+    def _segment_relative_path(self, file_path: Path) -> Optional[Path]:
+        """Return day/stream/segment/file relative path for journal media files."""
+        roots = [self.journal_dir / CHRONICLE_DIR, self.journal_dir]
+        for root in roots:
+            try:
+                rel_path = file_path.relative_to(root)
+            except ValueError:
+                continue
+            if len(rel_path.parts) == 4 and DATE_RE.fullmatch(rel_path.parts[0]):
+                return rel_path
+        return None
+
     def _match_pattern(self, file_path: Path) -> Optional[tuple[str, List[str]]]:
         """Check if file matches any registered pattern."""
         # Ignore hidden files (temp recordings with dot prefix)
         if file_path.name.startswith("."):
             return None
 
-        # Files should be in segment directories: journal_dir/YYYYMMDD/stream/HHMMSS_LEN/file.ext
-        # Expected structure: 4 parts from journal_dir
-        try:
-            rel_path = file_path.relative_to(self.journal_dir)
-            if len(rel_path.parts) != 4:
-                return None
-        except ValueError:
-            # File not under journal directory
+        # Files should be in segment directories:
+        # journal_dir/chronicle/YYYYMMDD/stream/HHMMSS_LEN/file.ext
+        # Expected structure after stripping journal_dir[/chronicle]: 4 parts
+        if self._segment_relative_path(file_path) is None:
             return None
 
         for pattern, handler_info in self.handlers.items():
@@ -208,7 +227,8 @@ class FileSensor:
     ):
         """Spawn a handler process for the file.
 
-        Files are expected to be in segment directories: YYYYMMDD/stream/HHMMSS_LEN/file.ext
+        Files are expected to be in segment directories:
+        YYYYMMDD/stream/HHMMSS_LEN/file.ext relative to journal_dir[/chronicle]
 
         Args:
             file_path: Path to the file to process (in segment directory)
@@ -223,16 +243,13 @@ class FileSensor:
             cpu_fallback: If True, this is a retry after GPU failure (adds --cpu,
                           skips tracking/events since already done on first attempt)
         """
-        # Extract day and segment from path: journal_dir/YYYYMMDD/stream/HHMMSS_LEN/file.ext
-        try:
-            rel_path = file_path.relative_to(self.journal_dir)
-            if len(rel_path.parts) >= 4:
-                if day is None:
-                    day = rel_path.parts[0]
-                if segment is None:
-                    segment = rel_path.parts[2]
-        except ValueError:
-            pass
+        # Extract day and segment from path relative to journal_dir[/chronicle].
+        rel_path = self._segment_relative_path(file_path)
+        if rel_path is not None:
+            if day is None:
+                day = rel_path.parts[0]
+            if segment is None:
+                segment = rel_path.parts[2]
 
         # Skip tracking/queueing for CPU fallback (already done on first attempt)
         if not cpu_fallback:
@@ -617,10 +634,9 @@ class FileSensor:
                 meta = {}
             meta["stream"] = stream
 
-        # Build full paths for all files in this segment
-        # Files are in segment directories: YYYYMMDD/stream/HHMMSS_LEN/filename
-        dp = day_path(day, create=False)
-        segment_dir = dp / stream / segment if stream else dp / segment
+        # Build full paths for all files in this segment.
+        rel_segment = f"{day}/{stream}/{segment}" if stream else f"{day}/{segment}"
+        segment_dir = resolve_journal_path(self.journal_dir, rel_segment)
         file_paths = [segment_dir / filename for filename in files]
 
         # Pre-register segment tracking with complete file list
@@ -663,7 +679,7 @@ class FileSensor:
             status = {}
 
             # Get journal path for relative paths
-            journal_path = get_journal()
+            journal_path = Path(get_journal())
             now = time.time()
 
             # Build status for each serialized handler queue
@@ -674,7 +690,9 @@ class FileSensor:
                 if handler_queue.current_process is not None:
                     handler_proc = handler_queue.current_process
                     try:
-                        rel_file = str(handler_proc.file_path.relative_to(journal_path))
+                        rel_file = journal_relative_path(
+                            journal_path, handler_proc.file_path
+                        )
                     except ValueError:
                         rel_file = str(handler_proc.file_path)
 
@@ -691,7 +709,9 @@ class FileSensor:
                     queued_list = []
                     for item in handler_queue.queue:
                         try:
-                            rel_file = str(item.file_path.relative_to(journal_path))
+                            rel_file = journal_relative_path(
+                                journal_path, item.file_path
+                            )
                         except ValueError:
                             rel_file = str(item.file_path)
 
@@ -1094,7 +1114,7 @@ def main():
                 if deleted:
                     logger.info(f"Would delete {len(deleted)} output file(s):")
                     for path in deleted:
-                        logger.info(f"  {path.relative_to(journal)}")
+                        logger.info(f"  {journal_relative_path(Path(journal), path)}")
                 else:
                     logger.info("No files to delete")
                 return
@@ -1116,7 +1136,7 @@ def main():
                 )
                 logger.info(f"Would process {len(to_process)} file(s) ({breakdown}):")
                 for file_path, handler_name, command in to_process:
-                    logger.info(f"  {file_path.relative_to(journal)}")
+                    logger.info(f"  {journal_relative_path(Path(journal), file_path)}")
             else:
                 logger.info("No unprocessed files found")
             return

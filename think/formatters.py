@@ -40,7 +40,7 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any, Callable
 
-from think.utils import DATE_RE, get_journal
+from think.utils import CHRONICLE_DIR, DATE_RE, get_journal, journal_relative_path
 
 
 def extract_path_metadata(rel_path: str) -> dict[str, str]:
@@ -202,6 +202,9 @@ FORMATTERS: dict[str, tuple[str, str, bool]] = {
     "apps/*/agents/*.md": ("think.markdown", "format_markdown", True),
 }
 
+_DAY_ROOTED_PATTERNS = [p for p in FORMATTERS if p.startswith("*/")]
+_STRUCTURAL_PATTERNS = [p for p in FORMATTERS if not p.startswith("*/")]
+
 
 def get_formatter(file_path: str) -> Callable | None:
     """Return formatter function for a journal-relative file path.
@@ -271,13 +274,28 @@ def find_formattable_files(journal: str) -> dict[str, str]:
     """
     files: dict[str, str] = {}
     journal_path = Path(journal)
+    day_root = (
+        journal_path / CHRONICLE_DIR
+        if (journal_path / CHRONICLE_DIR).is_dir()
+        else journal_path
+    )
 
-    for pattern, (_mod, _func, indexed) in FORMATTERS.items():
+    for pattern in _STRUCTURAL_PATTERNS:
+        _mod, _func, indexed = FORMATTERS[pattern]
         if not indexed:
             continue
         for match in journal_path.glob(pattern):
             if match.is_file():
-                rel = str(match.relative_to(journal_path))
+                rel = match.relative_to(journal_path).as_posix()
+                files[rel] = str(match)
+
+    for pattern in _DAY_ROOTED_PATTERNS:
+        _mod, _func, indexed = FORMATTERS[pattern]
+        if not indexed:
+            continue
+        for match in day_root.glob(pattern):
+            if match.is_file():
+                rel = match.relative_to(day_root).as_posix()
                 files[rel] = str(match)
 
     return files
@@ -314,7 +332,7 @@ def format_file(
     if not file_path.is_relative_to(journal_path):
         raise ValueError(f"File is outside journal directory: {file_path}")
 
-    rel_path = str(file_path.relative_to(journal_path))
+    rel_path = journal_relative_path(journal_path, file_path)
 
     formatter = get_formatter(rel_path)
     if formatter is None:

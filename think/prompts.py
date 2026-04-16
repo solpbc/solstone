@@ -32,7 +32,7 @@ TEMPLATES_DIR = Path(__file__).parent / "templates"
 # Cached raw template content loaded from think/templates/*.md
 _templates_cache: dict[str, str] | None = None
 
-# Cached sol/ template vars loaded from repo and journal sol/ dirs
+# Cached repo sol/ template vars loaded from sol/*.md
 _sol_vars_cache: dict[str, str] | None = None
 
 SOL_DIR = Path(__file__).parent.parent / "sol"
@@ -116,22 +116,22 @@ def _load_sol_vars() -> dict[str, str]:
     Journal sol/ files override repo sol/ files on collision.
     """
     global _sol_vars_cache
-    if _sol_vars_cache is not None:
-        return _sol_vars_cache
-
     from think.utils import get_journal
 
-    _sol_vars_cache = {}
+    if _sol_vars_cache is None:
+        _sol_vars_cache = {}
 
-    # Repo sol/ first
-    if SOL_DIR.is_dir():
-        for md_path in sorted(SOL_DIR.glob("*.md")):
-            var_name = f"sol_{md_path.stem}"
-            try:
-                post = frontmatter.load(md_path)
-                _sol_vars_cache[var_name] = post.content.strip()
-            except Exception:
-                pass
+        # Repo sol/ first
+        if SOL_DIR.is_dir():
+            for md_path in sorted(SOL_DIR.glob("*.md")):
+                var_name = f"sol_{md_path.stem}"
+                try:
+                    post = frontmatter.load(md_path)
+                    _sol_vars_cache[var_name] = post.content.strip()
+                except Exception:
+                    pass
+
+    sol_vars = dict(_sol_vars_cache)
 
     # Journal sol/ second (wins on collision)
     try:
@@ -141,13 +141,13 @@ def _load_sol_vars() -> dict[str, str]:
                 var_name = f"sol_{md_path.stem}"
                 try:
                     post = frontmatter.load(md_path)
-                    _sol_vars_cache[var_name] = post.content.strip()
+                    sol_vars[var_name] = post.content.strip()
                 except Exception:
                     pass
     except Exception:
         pass
 
-    return _sol_vars_cache
+    return sol_vars
 
 
 def format_current_datetime() -> str:

@@ -13,6 +13,12 @@ from pathlib import Path
 import typer
 
 from think.entities.core import entity_slug, is_valid_entity_type
+from think.entities.journal import (
+    clear_journal_entity_cache,
+    get_or_create_journal_entity,
+    load_journal_entity,
+    save_journal_entity,
+)
 from think.entities.loading import clear_entity_loading_cache, load_entities
 from think.entities.matching import resolve_entity, validate_aka_uniqueness
 from think.entities.observations import (
@@ -25,12 +31,6 @@ from think.entities.relationships import (
     entity_memory_path,
     load_facet_relationship,
     save_facet_relationship,
-)
-from think.entities.journal import (
-    clear_journal_entity_cache,
-    get_or_create_journal_entity,
-    load_journal_entity,
-    save_journal_entity,
 )
 from think.entities.saving import (
     save_detected_entity,

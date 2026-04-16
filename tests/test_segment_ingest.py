@@ -28,6 +28,7 @@ register_ingest_routes = ingest.register_ingest_routes
 def journal_env(tmp_path, monkeypatch):
     """Set up journal root and source storage."""
     monkeypatch.setattr(convey.state, "journal_root", str(tmp_path), raising=False)
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     (tmp_path / "apps" / "import" / "journal_sources").mkdir(
         parents=True, exist_ok=True
     )
@@ -156,8 +157,8 @@ def test_ingest_new_segments(ingest_env):
         "errors": [],
     }
 
-    first_dir = env["root"] / "20260413" / "laptop" / "143022_300"
-    second_dir = env["root"] / "20260413" / "laptop" / "143500_300"
+    first_dir = env["root"] / "chronicle" / "20260413" / "laptop" / "143022_300"
+    second_dir = env["root"] / "chronicle" / "20260413" / "laptop" / "143500_300"
     assert (first_dir / "audio.flac").read_bytes() == b"audio one"
     assert (first_dir / "transcript.jsonl").read_bytes() == b'{"text":"one"}\n'
     assert (second_dir / "audio.flac").read_bytes() == b"audio two"
@@ -224,7 +225,7 @@ def test_ingest_duplicate_detection(ingest_env):
 
 def test_ingest_deconfliction(ingest_env, monkeypatch):
     env = ingest_env
-    target_dir = env["root"] / "20260413" / "laptop" / "143022_300"
+    target_dir = env["root"] / "chronicle" / "20260413" / "laptop" / "143022_300"
     target_dir.mkdir(parents=True, exist_ok=True)
     (target_dir / "audio.flac").write_bytes(b"existing audio")
 
@@ -251,7 +252,7 @@ def test_ingest_deconfliction(ingest_env, monkeypatch):
         "errors": [],
     }
     assert (
-        env["root"] / "20260413" / "laptop" / "143023_300" / "audio.flac"
+        env["root"] / "chronicle" / "20260413" / "laptop" / "143023_300" / "audio.flac"
     ).read_bytes() == b"new audio"
 
     state_data = _read_state(env["key_prefix"])
@@ -296,7 +297,7 @@ def test_ingest_batch_error_isolation(ingest_env):
         }
     ]
     assert (
-        env["root"] / "20260413" / "laptop" / "143500_300" / "audio.flac"
+        env["root"] / "chronicle" / "20260413" / "laptop" / "143500_300" / "audio.flac"
     ).read_bytes() == b"good"
 
 
@@ -435,7 +436,7 @@ def test_ingest_callosum_failure_isolated(ingest_env, monkeypatch):
 
 def test_ingest_skip_ignores_extra_existing_files(ingest_env):
     env = ingest_env
-    segment_dir = env["root"] / "20260413" / "laptop" / "143022_300"
+    segment_dir = env["root"] / "chronicle" / "20260413" / "laptop" / "143022_300"
     segment_dir.mkdir(parents=True, exist_ok=True)
     (segment_dir / "audio.flac").write_bytes(b"audio one")
     (segment_dir / "extra.txt").write_bytes(b"keep me")
@@ -550,7 +551,12 @@ def test_ingest_default_stream_segment(ingest_env):
     state_data = _read_state(env["key_prefix"])
     assert "_default/143022_300" in state_data["20260413"]
     assert (
-        env["root"] / "20260413" / "_default" / "143022_300" / "transcript.jsonl"
+        env["root"]
+        / "chronicle"
+        / "20260413"
+        / "_default"
+        / "143022_300"
+        / "transcript.jsonl"
     ).read_bytes() == b'{"text":"default"}\n'
 
 

@@ -183,7 +183,7 @@ def compute_output_source(context: dict) -> str:
         Relative path like "20240101/agents/meetings.md".
     """
     from think.talent import get_output_name
-    from think.utils import get_journal
+    from think.utils import CHRONICLE_DIR, get_journal
 
     day = context.get("day", "")
     output_path = context.get("output_path", "")
@@ -191,7 +191,8 @@ def compute_output_source(context: dict) -> str:
     journal = get_journal()
 
     try:
-        return os.path.relpath(output_path, journal)
+        rel = os.path.relpath(output_path, journal).replace("\\", "/")
+        return rel.removeprefix(f"{CHRONICLE_DIR}/")
     except ValueError:
         segment = context.get("segment")
         output_name = get_output_name(name)

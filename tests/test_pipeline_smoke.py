@@ -141,7 +141,7 @@ class TestPipelineSmokeTest:
         )
 
         for segment_key, sense_dict in SEGMENTS:
-            seg_dir = journal / DAY / STREAM / segment_key
+            seg_dir = journal / "chronicle" / DAY / STREAM / segment_key
             (seg_dir / "agents").mkdir(parents=True, exist_ok=True)
             (seg_dir / "agents" / "sense.json").write_text(json.dumps(sense_dict))
 
@@ -161,7 +161,7 @@ class TestPipelineSmokeTest:
             "091500_300",
             "100000_300",
         ]:
-            seg_agents = journal / DAY / STREAM / seg_key / "agents"
+            seg_agents = journal / "chronicle" / DAY / STREAM / seg_key / "agents"
             assert (seg_agents / "sense.json").exists()
             assert (seg_agents / "activity.md").exists()
             assert (seg_agents / "density.json").exists()
@@ -174,19 +174,37 @@ class TestPipelineSmokeTest:
         for seg_key in ["091000_300", "091500_300"]:
             speakers = json.loads(
                 (
-                    journal / DAY / STREAM / seg_key / "agents" / "speakers.json"
+                    journal
+                    / "chronicle"
+                    / DAY
+                    / STREAM
+                    / seg_key
+                    / "agents"
+                    / "speakers.json"
                 ).read_text()
             )
             assert speakers == ["Alice", "Bob"]
 
         for seg_key in ["090000_300", "090500_300", "100000_300"]:
             assert not (
-                journal / DAY / STREAM / seg_key / "agents" / "speakers.json"
+                journal
+                / "chronicle"
+                / DAY
+                / STREAM
+                / seg_key
+                / "agents"
+                / "speakers.json"
             ).exists()
 
         idle_density = json.loads(
             (
-                journal / DAY / STREAM / "092000_300" / "agents" / "density.json"
+                journal
+                / "chronicle"
+                / DAY
+                / STREAM
+                / "092000_300"
+                / "agents"
+                / "density.json"
             ).read_text()
         )
         assert idle_density["classification"] == "idle"

@@ -256,8 +256,8 @@ def agents_client(tmp_path):
     state.journal_root = str(tmp_path)
 
     # Create test files
-    day_dir = tmp_path / "20260214"
-    day_dir.mkdir()
+    day_dir = tmp_path / "chronicle" / "20260214"
+    day_dir.mkdir(parents=True)
     (day_dir / "agents" / "flow.md").parent.mkdir(parents=True)
     (day_dir / "agents" / "flow.md").write_text("# Day agent output")
 

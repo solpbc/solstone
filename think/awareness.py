@@ -15,12 +15,12 @@ learned preferences, and cross-session agent memory.
 
 from __future__ import annotations
 
+import fcntl
 import json
 import logging
 import os
 import tempfile
 import time
-import fcntl
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -268,8 +268,8 @@ def update_identity_section(filename: str, heading: str, content: str) -> bool:
     bool
         True if the section was found and updated, False otherwise.
     """
-    from think.utils import get_journal
     from think.entities.core import atomic_write
+    from think.utils import get_journal
 
     file_path = Path(get_journal()) / "sol" / filename
     lock_path = file_path.parent / f".{filename}.lock"

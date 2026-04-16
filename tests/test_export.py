@@ -16,8 +16,8 @@ from observe.utils import compute_bytes_sha256
 
 
 def _setup_journal(tmp_path, *, include_stream_json: bool = False):
-    first_dir = tmp_path / "20260413" / "laptop" / "143022_300"
-    second_dir = tmp_path / "20260413" / "laptop" / "150000_600"
+    first_dir = tmp_path / "chronicle" / "20260413" / "laptop" / "143022_300"
+    second_dir = tmp_path / "chronicle" / "20260413" / "laptop" / "150000_600"
     first_dir.mkdir(parents=True)
     second_dir.mkdir(parents=True)
 
@@ -324,7 +324,7 @@ class TestExportSegments:
         journal = _setup_journal(tmp_path)
         _set_journal_override(monkeypatch, journal)
 
-        second_dir = journal / "20260413" / "laptop" / "150000_600"
+        second_dir = journal / "chronicle" / "20260413" / "laptop" / "150000_600"
         for file_path in second_dir.iterdir():
             file_path.unlink()
         second_dir.rmdir()

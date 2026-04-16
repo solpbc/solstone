@@ -569,7 +569,6 @@ def cmd_move(args: argparse.Namespace) -> None:
     if succ_path:
         succ_marker = read_segment_stream(succ_path)
         if succ_marker:
-            old_prev = f"{succ_marker.get('prev_day')}/{stream}/{succ_marker.get('prev_segment')}"
             write_segment_stream(
                 succ_path,
                 succ_marker["stream"],
@@ -609,7 +608,7 @@ def cmd_move(args: argparse.Namespace) -> None:
     _touch_health_marker(to_day)
     print(f"  touched health markers: {src_day}, {to_day}")
     if verbose:
-        print(f"    dream will re-run daily agents on both days")
+        print("    dream will re-run daily agents on both days")
 
     # Post-move verify is informational — the move already completed.
     print()
