@@ -424,7 +424,7 @@
         "meetings": 570.0
       }
     },
-    "day_count": 65,
+    "day_count": 66,
     "days": {
       "20240101": {
         "day_bytes": 38312,
@@ -1184,6 +1184,18 @@
       },
       "20260414": {
         "day_bytes": 4394,
+        "outputs_pending": 6,
+        "outputs_processed": 0,
+        "pending_segments": 0,
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
+      },
+      "20260415": {
+        "day_bytes": 1848,
         "outputs_pending": 6,
         "outputs_processed": 0,
         "pending_segments": 0,
@@ -1993,8 +2005,8 @@
       }
     },
     "totals": {
-      "day_bytes": 449174,
-      "outputs_pending": 314,
+      "day_bytes": 451022,
+      "outputs_pending": 320,
       "outputs_processed": 14,
       "pending_segments": 0,
       "percept_frames": 3,
