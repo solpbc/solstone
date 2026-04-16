@@ -43,6 +43,24 @@ def journal_path(_baseline_journal):
     return str(_baseline_journal)
 
 
+@pytest.fixture(autouse=True)
+def _reapply_isolated_override(_baseline_journal, monkeypatch):
+    """Re-apply the isolated journal override after conftest's per-test autouse
+    (`set_test_journal_path`) flips the env var back to the in-tree fixture.
+
+    Without this, each test runs against `tests/fixtures/journal/` — whose
+    gitignored `indexer/journal.sqlite` contains populated data from live use,
+    breaking both determinism and the module-scoped `isolated_app_env` harness.
+    """
+    import think.prompts as prompts_mod
+    from think.prompts import reset_sol_vars_cache
+
+    journal = _baseline_journal.resolve()
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setattr(prompts_mod, "SOL_DIR", journal / "sol")
+    reset_sol_vars_cache()
+
+
 @pytest.mark.parametrize(
     "endpoint", ENDPOINTS, ids=[endpoint["name"] for endpoint in ENDPOINTS]
 )
