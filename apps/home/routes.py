@@ -22,6 +22,7 @@ from convey.bridge import get_cached_state
 from think.awareness import get_current
 from think.facets import get_enabled_facets, get_facets
 from think.indexer.journal import get_journal_index
+from think.pipeline_health import pipeline_status_message, summarize_pipeline_day
 from think.utils import get_journal
 
 # Briefing phase thresholds
@@ -765,12 +766,20 @@ def _build_pulse_context() -> dict[str, Any]:
             briefing_sections, len(briefing_needs_deduped)
         )
 
+    try:
+        _summary = summarize_pipeline_day(_today())
+        pipeline_status = pipeline_status_message(_summary)
+    except Exception:
+        logger.warning("pipeline_status unavailable", exc_info=True)
+        pipeline_status = None
+
     return {
         "today": today,
         "now": now,
         "capture_status": capture_status,
         "last_observe_relative": last_observe_relative,
         "attention": attention,
+        "pipeline_status": pipeline_status,
         "segment_count": segment_count,
         "duration_minutes": duration_minutes,
         "facet_data": facet_data,

@@ -945,6 +945,10 @@
       {{ attention.placeholder_text }}
     </div>
     {% endif %}
+    {% if pipeline_status %}
+    <div class="pulse-vitals-sep"></div>
+    <div class="pulse-vitals-item pulse-vitals-attention">{{ pipeline_status.message }}</div>
+    {% endif %}
     <a href="/app/health">health →</a>
   </div>
 
@@ -1444,6 +1448,9 @@
         }
         if (data.attention) {
           html += '<div class="pulse-vitals-sep"></div><div class="pulse-vitals-item pulse-vitals-attention">' + esc(data.attention.placeholder_text) + '</div>';
+        }
+        if (data.pipeline_status) {
+          html += '<div class="pulse-vitals-sep"></div><div class="pulse-vitals-item pulse-vitals-attention">' + esc(data.pipeline_status.message) + '</div>';
         }
         html += '<a href="/app/health">health →</a>';
         el.innerHTML = html;
