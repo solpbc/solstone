@@ -500,7 +500,17 @@ class TestRunSegmentSense:
                 return [{"facet": "work", "state": "active", "id": "coding_120000_300"}]
 
             def get_completed_activities(self):
-                return [{"id": "coding_120000_300", "activity": "coding", "segments": ["120000_300"], "level_avg": 0.5, "description": "coding", "active_entities": [], "created_at": 1713200000000}]
+                return [
+                    {
+                        "id": "coding_120000_300",
+                        "activity": "coding",
+                        "segments": ["120000_300"],
+                        "level_avg": 0.5,
+                        "description": "coding",
+                        "active_entities": [],
+                        "created_at": 1713200000000,
+                    }
+                ]
 
         _write_sense_output(
             segment_dir,
@@ -730,6 +740,9 @@ class TestStreamAutoResolution:
             def start(self, callback=None):
                 return None
 
+            def emit(self, *args, **kwargs):
+                return None
+
             def stop(self):
                 return None
 
@@ -777,6 +790,9 @@ class TestStreamAutoResolution:
             def start(self, callback=None):
                 return None
 
+            def emit(self, *args, **kwargs):
+                return None
+
             def stop(self):
                 return None
 
@@ -807,6 +823,9 @@ class TestStreamAutoResolution:
                 pass
 
             def start(self, callback=None):
+                return None
+
+            def emit(self, *args, **kwargs):
                 return None
 
             def stop(self):
@@ -847,3 +866,160 @@ class TestStreamAutoResolution:
         assert iter_calls == 0
         assert len(calls) == 1
         assert calls[0]["stream"] == "explicit_stream"
+
+
+class TestDreamJSONLWriter:
+    """Tests for DreamJSONLWriter."""
+
+    def test_noop_when_no_path(self):
+        from think.dream import DreamJSONLWriter
+
+        writer = DreamJSONLWriter(None)
+        writer.log("test.event", foo="bar")
+        writer.close()
+
+        assert writer.skip_count == 0
+
+    def test_writes_jsonl_to_file(self, tmp_path):
+        from think.dream import DreamJSONLWriter
+
+        path = tmp_path / "test.jsonl"
+        writer = DreamJSONLWriter(str(path))
+        writer.log("run.start", mode="segment", day="20240115")
+        writer.log("agent.skip", name="screen", reason="not_recommended", detail="test")
+        writer.close()
+
+        lines = path.read_text().strip().split("\n")
+        assert len(lines) == 2
+
+        first = json.loads(lines[0])
+        assert first["event"] == "run.start"
+        assert "ts" in first
+        assert isinstance(first["ts"], int)
+        assert first["mode"] == "segment"
+
+        second = json.loads(lines[1])
+        assert second["event"] == "agent.skip"
+        assert writer.skip_count == 1
+
+    def test_creates_parent_dirs(self, tmp_path):
+        from think.dream import DreamJSONLWriter
+
+        path = tmp_path / "nested" / "dir" / "test.jsonl"
+        writer = DreamJSONLWriter(str(path))
+        writer.log("test.event")
+        writer.close()
+
+        assert path.exists()
+
+
+class TestDreamJSONLEvents:
+    """Tests for JSONL event emission during segment orchestration."""
+
+    def test_density_idle_skip_event(self, segment_dir, monkeypatch):
+        """JSONL emits agent.skip with reason=density_idle for idle segments."""
+        from think import dream
+        from think.dream import DreamJSONLWriter
+
+        jsonl_path = segment_dir.parent.parent / "health" / "test_idle.jsonl"
+        writer = DreamJSONLWriter(str(jsonl_path))
+
+        _write_sense_output(
+            segment_dir,
+            {"density": "idle", "recommend": {}, "facets": []},
+        )
+
+        monkeypatch.setattr(
+            dream,
+            "get_talent_configs",
+            lambda schedule=None, **kwargs: _segment_configs("sense"),
+        )
+        monkeypatch.setattr(
+            dream,
+            "cortex_request",
+            lambda prompt, name, config=None: "agent-sense",
+        )
+        monkeypatch.setattr(
+            dream,
+            "wait_for_agents",
+            lambda agent_ids, timeout=600: ({aid: "finish" for aid in agent_ids}, []),
+        )
+        monkeypatch.setattr(dream, "_callosum", None)
+        monkeypatch.setattr(dream, "_jsonl", writer)
+
+        dream.run_segment_sense(
+            "20240115",
+            "120000_300",
+            refresh=False,
+            verbose=False,
+            stream="default",
+        )
+        writer.close()
+
+        events = [
+            json.loads(line)
+            for line in jsonl_path.read_text(encoding="utf-8").strip().splitlines()
+        ]
+        skips = [event for event in events if event["event"] == "agent.skip"]
+
+        assert any(skip["reason"] == "density_idle" for skip in skips)
+
+    def test_sense_complete_and_skip_events(self, segment_dir, monkeypatch):
+        from think import dream
+        from think.dream import DreamJSONLWriter
+
+        jsonl_path = segment_dir.parent.parent / "health" / "test_dream.jsonl"
+        writer = DreamJSONLWriter(str(jsonl_path))
+
+        _write_sense_output(
+            segment_dir,
+            {
+                "density": "active",
+                "recommend": {
+                    "screen_record": False,
+                    "speaker_attribution": False,
+                    "pulse_update": False,
+                },
+                "facets": [],
+            },
+        )
+
+        monkeypatch.setattr(
+            dream,
+            "get_talent_configs",
+            lambda schedule=None, **kwargs: _segment_configs("sense", "entities"),
+        )
+        monkeypatch.setattr(
+            dream,
+            "cortex_request",
+            lambda prompt, name, config=None: f"agent-{name}",
+        )
+        monkeypatch.setattr(
+            dream,
+            "wait_for_agents",
+            lambda agent_ids, timeout=600: ({aid: "finish" for aid in agent_ids}, []),
+        )
+        monkeypatch.setattr(dream, "_callosum", None)
+        monkeypatch.setattr(dream, "_jsonl", writer)
+
+        dream.run_segment_sense(
+            "20240115",
+            "120000_300",
+            refresh=False,
+            verbose=False,
+            stream="default",
+        )
+        writer.close()
+
+        events = [
+            json.loads(line)
+            for line in jsonl_path.read_text(encoding="utf-8").strip().splitlines()
+        ]
+        assert "sense.complete" in [event["event"] for event in events]
+
+        skips = [event for event in events if event["event"] == "agent.skip"]
+        skip_pairs = {(event["name"], event["reason"]) for event in skips}
+        assert ("documents", "no_config") in skip_pairs
+        assert ("screen", "not_recommended") in skip_pairs
+        assert ("speaker_attribution", "not_recommended") in skip_pairs
+        assert ("pulse", "not_recommended") in skip_pairs

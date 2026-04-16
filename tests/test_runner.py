@@ -331,10 +331,28 @@ def test_run_task_day_override(journal_path, mock_callosum):
     ("cmd", "expected_name"),
     [
         (["sol", "dream", "--day", "20240115"], "daily_dream"),
-        (["sol", "dream", "--day", "20240115", "--segment", "120000_300"], "segment_dream"),
+        (
+            ["sol", "dream", "--day", "20240115", "--segment", "120000_300"],
+            "segment_dream",
+        ),
         (["sol", "dream", "--weekly"], "weekly_dream"),
-        (["sol", "dream", "--activity", "id", "--facet", "work", "--day", "20240115"], "activity_dream"),
-        (["sol", "dream", "--day", "20240115", "--segment", "120000_300", "--flush"], "flush_dream"),
+        (
+            [
+                "sol",
+                "dream",
+                "--activity",
+                "id",
+                "--facet",
+                "work",
+                "--day",
+                "20240115",
+            ],
+            "activity_dream",
+        ),
+        (
+            ["sol", "dream", "--day", "20240115", "--segment", "120000_300", "--flush"],
+            "flush_dream",
+        ),
         (["sol", "dream", "--day", "20240115", "--segments"], "segment_dream"),
     ],
 )
