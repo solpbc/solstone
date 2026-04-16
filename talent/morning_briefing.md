@@ -90,12 +90,12 @@ Grade highlights by evidence strength. **High** (corroborated by multiple source
   2. Pending follow-ups (items flagged by the followups agent)
   3. Relationship maintenance (entities not contacted recently who are relevant)
   4. Unscheduled todos (action items with no calendar time blocked)
-  Pipeline gaps owner-facing phrasings (from `pipeline_anomalies`):
-  - `activity_agents_missing` → "Activity agents didn't fire yesterday — detected activities weren't processed."
-  - `daily_agents_missing` → "Daily dream agents didn't run yesterday."
-  - `agent_failure` → "N dream agent(s) failed yesterday: <names>."
+  Pipeline gaps owner-facing phrasings (from `pipeline_anomalies`). Use these verbatim, substituting real counts and agent names from the summary:
+  - `activity_agents_missing` → "**Pipeline gap:** N activities ended yesterday but activity agents didn't fire — meeting notes, decisions, and follow-ups may be missing."
+  - `agent_failure` → "**Pipeline issue:** N agents timed out during yesterday's processing (name1, name2). Some insights may be incomplete." (Use "timed out" when every failed agent has `state == "timeout"`; otherwise use "failed".)
+  - `daily_agents_missing` → "**Pipeline gap:** Daily agents didn't run yesterday despite journal data. Facet newsletters and digest may be missing."
 
-  Do NOT include this section when pipeline status is `healthy` (status == "healthy" or anomalies list is empty).
+  Do NOT include this section when pipeline status is `healthy` (status == "healthy" or anomalies list is empty). Zero noise on normal days.
 Attribute commitments and follow-ups to the originating segment: `(committed [date](sol://...))`, `(flagged [date](sol://...))`. For relationship items: `(last interaction [date])`. For inferred items: `(inferred from [source](sol://...))`.
 Grade action items by evidence strength. **High** (explicit commitment with date, or overdue todo): state assertively — "Follow up on Series A term sheet — committed March 20, now overdue." **Medium** (flagged by followups agent with moderate confidence, or clear single-source item): present with attribution — "Review CI pipeline logs (flagged yesterday)." **Low** (inferred obligation from ambiguous mention, or low-confidence followup): hedge — "Possible commitment to send deck to investors" or "May need to follow up on the API discussion." When upstream followup output includes a `Confidence:` score, use it: 0.85+ high, 0.50–0.84 medium, below 0.50 low. Never hedge explicit commitments with clear dates; never present inferred obligations as definite action items.
 

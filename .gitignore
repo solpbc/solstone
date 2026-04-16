@@ -10,6 +10,7 @@ logs/
 .coverage
 tests/fixtures/journal/agents/*/*.jsonl
 tests/fixtures/journal/tokens/*.json
+tests/fixtures/journal/*/health/*_dream.jsonl
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal

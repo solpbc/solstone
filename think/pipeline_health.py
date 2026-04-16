@@ -168,18 +168,18 @@ def pipeline_status_message(summary: dict) -> dict | None:
     if any(anomaly.get("kind") == "activity_agents_missing" for anomaly in anomalies):
         return {
             "status": "stale",
-            "message": "Activity agents didn't run — persisted activities untouched.",
+            "message": "Activity processing gap — meeting notes may be delayed",
         }
     if any(anomaly.get("kind") == "daily_agents_missing" for anomaly in anomalies):
         return {
             "status": "stale",
-            "message": f"Daily dream didn't run for {summary['day']}.",
+            "message": "Daily processing hasn't run yet",
         }
     if any(anomaly.get("kind") == "agent_failure" for anomaly in anomalies):
         count = summary.get("agents", {}).get("failed", 0)
         plural = "s" if count != 1 else ""
         return {
             "status": "warning",
-            "message": f"{count} dream agent{plural} failed.",
+            "message": f"{count} agent error{plural} today",
         }
     return None

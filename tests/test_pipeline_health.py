@@ -282,7 +282,7 @@ def test_malformed_json_lines_skipped(pipeline_journal):
             },
             {
                 "status": "stale",
-                "message": "Activity agents didn't run — persisted activities untouched.",
+                "message": "Activity processing gap — meeting notes may be delayed",
             },
         ),
         (
@@ -297,7 +297,7 @@ def test_malformed_json_lines_skipped(pipeline_journal):
             },
             {
                 "status": "stale",
-                "message": "Daily dream didn't run for 20260102.",
+                "message": "Daily processing hasn't run yet",
             },
         ),
         (
@@ -307,7 +307,7 @@ def test_malformed_json_lines_skipped(pipeline_journal):
                 "agents": {"failed": 1},
                 "day": "20260101",
             },
-            {"status": "warning", "message": "1 dream agent failed."},
+            {"status": "warning", "message": "1 agent error today"},
         ),
         (
             {
@@ -316,7 +316,7 @@ def test_malformed_json_lines_skipped(pipeline_journal):
                 "agents": {"failed": 3},
                 "day": "20260101",
             },
-            {"status": "warning", "message": "3 dream agents failed."},
+            {"status": "warning", "message": "3 agent errors today"},
         ),
         (
             {
