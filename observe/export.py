@@ -40,7 +40,7 @@ _DAY_RE = re.compile(r"^\d{8}$")
 _DAY_JSONL_RE = re.compile(r"^\d{8}\.jsonl$")
 _DAY_MD_RE = re.compile(r"^\d{8}\.md$")
 _IMPORT_ID_RE = re.compile(r"^\d{8}_\d{6}$")
-_NEVER_TRANSFER_PATHS = frozenset({"convey.password_hash"})
+_NEVER_TRANSFER_PATHS = frozenset({"convey.password_hash", "convey.secret"})
 
 
 @dataclass
