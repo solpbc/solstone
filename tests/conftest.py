@@ -13,6 +13,10 @@ from unittest.mock import Mock
 import numpy as np
 import pytest
 
+from think.entities.journal import clear_journal_entity_cache
+from think.entities.loading import clear_entity_loading_cache
+from think.entities.observations import clear_observation_cache
+from think.entities.relationships import clear_relationship_caches
 from think.utils import now_ms
 
 
@@ -52,6 +56,23 @@ def set_test_journal_path(request, monkeypatch):
 
     # Set _SOLSTONE_JOURNAL_OVERRIDE to tests/fixtures/journal for all unit tests
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", "tests/fixtures/journal")
+
+
+@pytest.fixture(autouse=True)
+def _clear_entity_caches(request):
+    """Clear all entity caches before/after each test."""
+    if "integration" in request.node.keywords:
+        yield
+        return
+    clear_entity_loading_cache()
+    clear_journal_entity_cache()
+    clear_relationship_caches()
+    clear_observation_cache()
+    yield
+    clear_entity_loading_cache()
+    clear_journal_entity_cache()
+    clear_relationship_caches()
+    clear_observation_cache()
 
 
 @pytest.fixture

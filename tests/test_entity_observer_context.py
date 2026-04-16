@@ -7,8 +7,6 @@ import json
 import os
 from pathlib import Path
 
-import pytest
-
 from apps.entities.talent.entity_observer import post_process, pre_process
 from think.entities.context import assemble_observer_context
 from think.entities.journal import clear_journal_entity_cache
@@ -18,27 +16,12 @@ from think.entities.relationships import clear_relationship_caches
 from think.talent import get_agent
 
 
-def _clear_entity_caches() -> None:
+def _set_journal(path: str) -> None:
+    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = path
     clear_entity_loading_cache()
     clear_observation_cache()
     clear_relationship_caches()
     clear_journal_entity_cache()
-
-
-@pytest.fixture(autouse=True)
-def _clean_journal_env():
-    old = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
-    yield
-    _clear_entity_caches()
-    if old is None:
-        os.environ.pop("_SOLSTONE_JOURNAL_OVERRIDE", None)
-    else:
-        os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = old
-
-
-def _set_journal(path: str) -> None:
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = path
-    _clear_entity_caches()
 
 
 def _write_json(path: Path, data: dict) -> None:
