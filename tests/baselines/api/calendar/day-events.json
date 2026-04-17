@@ -10,7 +10,7 @@
       "Romeo Montague",
       "Mercutio Escalus"
     ],
-    "source": "20260304/agents/flow.md",
+    "source": "20260304/talents/flow.md",
     "startTime": "2026-03-04T09:00:00",
     "subject": "",
     "summary": "Conference keynote featuring Juliet Capulet",
@@ -27,7 +27,7 @@
       "Juliet Capulet",
       "Romeo Montague"
     ],
-    "source": "20260304/agents/flow.md",
+    "source": "20260304/talents/flow.md",
     "startTime": "2026-03-04T18:00:00",
     "subject": "",
     "summary": "Networking event",
@@ -43,7 +43,7 @@
     "participants": [
       "Juliet Capulet"
     ],
-    "source": "20260304/agents/flow.md",
+    "source": "20260304/talents/flow.md",
     "startTime": "2026-03-04T09:00:00",
     "subject": "",
     "summary": "Juliet presented on unified API gateways",
@@ -60,7 +60,7 @@
       "Romeo Montague",
       "Mercutio Escalus"
     ],
-    "source": "20260304/agents/flow.md",
+    "source": "20260304/talents/flow.md",
     "startTime": "2026-03-04T14:00:00",
     "subject": "",
     "summary": "Built API bridge prototype",

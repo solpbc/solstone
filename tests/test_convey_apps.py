@@ -140,13 +140,13 @@ class TestAttentionResolution:
         monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
         today = datetime.now().strftime("%Y%m%d")
-        agents_dir = tmp_path / "agents"
-        agents_dir.mkdir()
-        day_index = agents_dir / f"{today}.jsonl"
+        talents_dir = tmp_path / "talents"
+        talents_dir.mkdir()
+        day_index = talents_dir / f"{today}.jsonl"
         day_index.write_text(
             json.dumps(
                 {
-                    "agent_id": "1",
+                    "use_id": "1",
                     "name": "flow",
                     "day": today,
                     "ts": 1000,
@@ -156,7 +156,7 @@ class TestAttentionResolution:
             + "\n"
             + json.dumps(
                 {
-                    "agent_id": "2",
+                    "use_id": "2",
                     "name": "meetings",
                     "day": today,
                     "ts": 1001,
@@ -182,13 +182,13 @@ class TestAttentionResolution:
         monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
         today = datetime.now().strftime("%Y%m%d")
-        agents_dir = tmp_path / "agents"
-        agents_dir.mkdir()
-        day_index = agents_dir / f"{today}.jsonl"
+        talents_dir = tmp_path / "talents"
+        talents_dir.mkdir()
+        day_index = talents_dir / f"{today}.jsonl"
         day_index.write_text(
             json.dumps(
                 {
-                    "agent_id": "1",
+                    "use_id": "1",
                     "name": "flow",
                     "day": today,
                     "ts": 1000,
@@ -198,7 +198,7 @@ class TestAttentionResolution:
             + "\n"
             + json.dumps(
                 {
-                    "agent_id": "3",
+                    "use_id": "3",
                     "name": "flow",
                     "day": today,
                     "ts": 2000,
@@ -221,13 +221,13 @@ class TestAttentionResolution:
         monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
         today = datetime.now().strftime("%Y%m%d")
-        agents_dir = tmp_path / "agents"
-        agents_dir.mkdir()
-        day_index = agents_dir / f"{today}.jsonl"
+        talents_dir = tmp_path / "talents"
+        talents_dir.mkdir()
+        day_index = talents_dir / f"{today}.jsonl"
         day_index.write_text(
             json.dumps(
                 {
-                    "agent_id": "1",
+                    "use_id": "1",
                     "name": "flow",
                     "day": today,
                     "ts": 1000,
@@ -266,11 +266,11 @@ class TestAttentionResolution:
         monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
         today = datetime.now().strftime("%Y%m%d")
-        agents_dir = tmp_path / "agents"
-        agents_dir.mkdir()
-        day_index = agents_dir / f"{today}.jsonl"
+        talents_dir = tmp_path / "talents"
+        talents_dir.mkdir()
+        day_index = talents_dir / f"{today}.jsonl"
         day_index.write_text(
-            json.dumps({"agent_id": "1", "name": "flow", "ts": 1000, "status": "error"})
+            json.dumps({"use_id": "1", "name": "flow", "ts": 1000, "status": "error"})
             + "\n"
         )
         result = _resolve_attention({})
@@ -278,7 +278,7 @@ class TestAttentionResolution:
         assert len(result.placeholder_text) <= 90
 
         day_index.unlink()
-        agents_dir.rmdir()
+        talents_dir.rmdir()
         result = _resolve_attention(
             {
                 "imports": {
@@ -299,10 +299,10 @@ class TestAttentionResolution:
         monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
         today = datetime.now().strftime("%Y%m%d")
-        agents_dir = tmp_path / today / "agents"
-        agents_dir.mkdir(parents=True)
-        (agents_dir / "flow.md").write_text("# Flow")
-        (agents_dir / "meetings.md").write_text("# Meetings")
+        talents_dir = tmp_path / "chronicle" / today / "talents"
+        talents_dir.mkdir(parents=True)
+        (talents_dir / "flow.md").write_text("# Flow")
+        (talents_dir / "meetings.md").write_text("# Meetings")
 
         current = {"journal": {"first_daily_ready": True}}
         result = _resolve_attention(current)

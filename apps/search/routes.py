@@ -156,7 +156,7 @@ def search_journal_api() -> Any:
     # First get unfiltered counts for sidebar display
     base_counts = search_counts(query, stream=stream_filter)
     facet_counts = dict(base_counts["facets"])
-    agent_counts = dict(base_counts["agents"])
+    talent_counts = dict(base_counts["talents"])
 
     # Get filtered counts for results
     filtered_counts = search_counts(
@@ -216,7 +216,7 @@ def search_journal_api() -> Any:
 
     # Build agent list for sidebar (unfiltered counts for discovery)
     agents_list = []
-    for agent, count in sorted(agent_counts.items(), key=lambda x: -x[1]):
+    for agent, count in sorted(talent_counts.items(), key=lambda x: -x[1]):
         agents_list.append(
             {
                 "name": agent,
@@ -233,7 +233,7 @@ def search_journal_api() -> Any:
             "showing_days": len(days_response),
             "days": days_response,
             "facets": facets_list,
-            "agents": agents_list,
+            "talents": agents_list,
         }
     )
 

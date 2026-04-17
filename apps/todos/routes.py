@@ -625,7 +625,7 @@ Write the generated checklist to facets/{facet}/todos/{day}.jsonl"""
     try:
         from convey.utils import spawn_agent
 
-        agent_id = spawn_agent(
+        use_id = spawn_agent(
             prompt=prompt,
             name="todos:todo",
             provider="openai",
@@ -634,14 +634,14 @@ Write the generated checklist to facets/{facet}/todos/{day}.jsonl"""
     except Exception as exc:  # pragma: no cover - network/agent failure
         return jsonify({"error": f"Failed to spawn agent: {exc}"}), 500
 
-    if agent_id is None:
+    if use_id is None:
         return jsonify({"error": "Failed to connect to agent service"}), 503
 
     if not hasattr(state, "todo_generation_agents"):
         state.todo_generation_agents = {}
-    state.todo_generation_agents[day] = agent_id
+    state.todo_generation_agents[day] = use_id
 
-    return jsonify({"agent_id": agent_id, "status": "started"})
+    return jsonify({"use_id": use_id, "status": "started"})
 
 
 @todos_bp.route("/<day>/generation-status")
@@ -650,19 +650,19 @@ def todo_generation_status(day: str):  # type: ignore[override]
         return "", 404
 
     facet = request.args.get("facet", "personal")
-    agent_id = request.args.get("agent_id")
-    if not agent_id and hasattr(state, "todo_generation_agents"):
-        agent_id = state.todo_generation_agents.get(day)
+    use_id = request.args.get("use_id")
+    if not use_id and hasattr(state, "todo_generation_agents"):
+        use_id = state.todo_generation_agents.get(day)
 
-    if not agent_id:
-        return jsonify({"status": "none", "agent_id": None})
+    if not use_id:
+        return jsonify({"status": "none", "use_id": None})
 
     from think.cortex_client import cortex_agents
 
     todo_path = _todo_path(day, facet)
 
-    agents_dir = Path(state.journal_root) / "agents"
-    agent_file = next(agents_dir.glob(f"*/{agent_id}.jsonl"), None)
+    talents_dir = Path(state.journal_root) / "talents"
+    agent_file = next(talents_dir.glob(f"*/{use_id}.jsonl"), None)
 
     if agent_file and agent_file.exists():
         if todo_path.exists():
@@ -672,24 +672,22 @@ def todo_generation_status(day: str):  # type: ignore[override]
             ):
                 del state.todo_generation_agents[day]
             return jsonify(
-                {"status": "finished", "agent_id": agent_id, "todo_created": True}
+                {"status": "finished", "use_id": use_id, "todo_created": True}
             )
-        return jsonify(
-            {"status": "finished", "agent_id": agent_id, "todo_created": False}
-        )
+        return jsonify({"status": "finished", "use_id": use_id, "todo_created": False})
 
     try:
         response = cortex_agents(limit=100, offset=0)
         if response:
-            agents = response.get("agents", [])
+            agents = response.get("talents", [])
             for agent in agents:
-                if agent.get("id") == agent_id:
-                    return jsonify({"status": "running", "agent_id": agent_id})
-            return jsonify({"status": "unknown", "agent_id": agent_id})
+                if agent.get("id") == use_id:
+                    return jsonify({"status": "running", "use_id": use_id})
+            return jsonify({"status": "unknown", "use_id": use_id})
     except Exception:  # pragma: no cover - external call failure
         pass
 
-    return jsonify({"status": "unknown", "agent_id": agent_id})
+    return jsonify({"status": "unknown", "use_id": use_id})
 
 
 @todos_bp.route("/<day>/generate-weekly/<facet>", methods=["POST"])
@@ -712,7 +710,7 @@ Focus on surfacing the most important unfinished work from the past 7 days."""
     try:
         from convey.utils import spawn_agent
 
-        agent_id = spawn_agent(
+        use_id = spawn_agent(
             prompt=prompt,
             name="todos:weekly",
             provider="openai",
@@ -721,7 +719,7 @@ Focus on surfacing the most important unfinished work from the past 7 days."""
     except Exception as exc:  # pragma: no cover - network/agent failure
         return jsonify({"error": f"Failed to spawn agent: {exc}"}), 500
 
-    if agent_id is None:
+    if use_id is None:
         return jsonify({"error": "Failed to connect to agent service"}), 503
 
-    return jsonify({"agent_id": agent_id, "status": "started"})
+    return jsonify({"use_id": use_id, "status": "started"})

@@ -135,14 +135,14 @@ def read(
         sources: dict[str, bool] = {
             "transcripts": True,
             "percepts": True,
-            "agents": True,
+            "talents": True,
         }
     elif raw:
-        sources = {"transcripts": True, "percepts": True, "agents": False}
+        sources = {"transcripts": True, "percepts": True, "talents": False}
     elif transcripts or percepts or agents:
-        sources = {"transcripts": transcripts, "percepts": percepts, "agents": agents}
+        sources = {"transcripts": transcripts, "percepts": percepts, "talents": agents}
     else:
-        sources = {"transcripts": True, "percepts": False, "agents": True}
+        sources = {"transcripts": True, "percepts": False, "talents": True}
 
     # Validate mutually exclusive selection modes
     mode_count = sum(

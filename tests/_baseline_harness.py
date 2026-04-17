@@ -44,7 +44,7 @@ def copytree_tracked(src: Path, dst: Path) -> None:
         if src_file.is_symlink():
             os.symlink(os.readlink(src_file), dst_file)
         else:
-            shutil.copy2(src_file, dst_file)
+            shutil.copyfile(src_file, dst_file)
 
 
 def prepare_isolated_journal(dst: Path) -> Path:
