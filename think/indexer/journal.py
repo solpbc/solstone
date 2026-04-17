@@ -258,7 +258,7 @@ def _find_signal_files(journal: str) -> dict[str, tuple[str, str]]:
         else journal_path
     )
 
-    for path in day_root.glob("*/agents/knowledge_graph.md"):
+    for path in day_root.glob("*/talents/knowledge_graph.md"):
         if path.is_file():
             rel = path.relative_to(day_root).as_posix()
             files[rel] = (str(path), "kg")
@@ -972,7 +972,7 @@ def _extract_stream(journal: str, rel: str) -> str | None:
     """Extract stream name from a journal-relative path's segment directory.
 
     Reads stream.json from the segment dir if the path is inside a segment
-    (e.g., "20240101/142500_300/agents/facet/flow.md").
+    (e.g., "20240101/142500_300/talents/facet/flow.md").
 
     Returns stream name string or None for non-segment paths or pre-stream segments.
     """
@@ -1054,8 +1054,8 @@ def _index_segment_chunks(
     segment_path = Path(segment_dir)
     agent_files = sorted(
         [
-            *segment_path.glob("agents/*.md"),
-            *segment_path.glob("agents/*/*.md"),
+            *segment_path.glob("talents/*.md"),
+            *segment_path.glob("talents/*/*.md"),
         ],
         key=lambda path: str(path),
     )
@@ -1324,7 +1324,7 @@ def scan_signals(
             for path in db_signal_paths
             if not _is_historical_signal_file(
                 path.split("#")[0],
-                "kg" if "/agents/knowledge_graph.md" in path else "event",
+                "kg" if "/talents/knowledge_graph.md" in path else "event",
             )
         }
         removed = {p for p in in_scope_db if p.split("#")[0] not in in_scope}
@@ -1482,7 +1482,7 @@ def _index_entity_search_chunks(conn: sqlite3.Connection) -> int:
 def consolidate_segment_entities(journal: str, full: bool = False) -> int:
     """Consolidate per-segment entity detections into the journal entity store.
 
-    Reads agents/entities.jsonl files from all day/stream/segment directories,
+    Reads talents/entities.jsonl files from all day/stream/segment directories,
     deduplicates by (name, type), and writes to entities/<slug>/entity.json for
     new entities. Skips any entity whose entity.json already exists (preserves
     user-managed and previously-consolidated records).
@@ -1506,7 +1506,7 @@ def consolidate_segment_entities(journal: str, full: bool = False) -> int:
 
     # Collect all matching segment entity files across day/stream/segment dirs
     segment_files = []
-    for path in day_root.glob("**/agents/entities.jsonl"):
+    for path in day_root.glob("**/talents/entities.jsonl"):
         if not path.is_file():
             continue
         try:
@@ -2181,7 +2181,7 @@ def search_counts(
     return {
         "total": len(rows),
         "facets": Counter(r[0] for r in rows if r[0]),
-        "agents": Counter(r[1] for r in rows if r[1]),
+        "talents": Counter(r[1] for r in rows if r[1]),
         "days": Counter(r[2] for r in rows if r[2]),
         "streams": Counter(r[3] for r in rows if r[3]),
     }

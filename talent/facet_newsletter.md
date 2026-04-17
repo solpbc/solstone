@@ -9,7 +9,7 @@
   "priority": 40,
   "multi_facet": true,
   "load": {
-    "agents": True,
+    "talents": True,
     "journal": True
   }
 }

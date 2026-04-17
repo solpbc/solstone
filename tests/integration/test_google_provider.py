@@ -62,8 +62,8 @@ def test_google_provider_basic():
         }
     )
 
-    # Run the sol agents command
-    cmd = ["sol", "agents"]
+    # Run the think.talents module
+    cmd = ["sol", "talents"]
     result = subprocess.run(
         cmd,
         env=env,
@@ -154,8 +154,8 @@ def test_google_provider_with_thinking():
         }
     )
 
-    # Run the sol agents command
-    cmd = ["sol", "agents"]
+    # Run the think.talents module
+    cmd = ["sol", "talents"]
     result = subprocess.run(
         cmd,
         env=env,

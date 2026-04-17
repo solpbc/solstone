@@ -36,9 +36,9 @@ gaps: []
 
 ## Forward Look
 
-- **Monday** — All-hands presentation on Q1 results. Slides need final review by Friday (from [anticipation](sol://20260327/agents/anticipation)).
+- **Monday** — All-hands presentation on Q1 results. Slides need final review by Friday (from [anticipation](sol://20260327/talents/anticipation)).
 - **Wednesday** — Deadline for the compliance audit documentation.
-- Sarah mentioned wanting to discuss the API rate limiting strategy next week (from [anticipation](sol://20260327/agents/anticipation)).
+- Sarah mentioned wanting to discuss the API rate limiting strategy next week (from [anticipation](sol://20260327/talents/anticipation)).
 
 ## Reading
 

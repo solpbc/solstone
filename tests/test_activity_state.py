@@ -15,13 +15,13 @@ class TestExtractFacetFromOutputPath:
     def test_extracts_facet_from_valid_path(self):
         from talent.activity_state import _extract_facet_from_output_path
 
-        path = "/journal/20260130/143000_300/agents/work/activity_state.json"
+        path = "/journal/20260130/143000_300/talents/work/activity_state.json"
         assert _extract_facet_from_output_path(path) == "work"
 
     def test_extracts_facet_with_hyphen(self):
         from talent.activity_state import _extract_facet_from_output_path
 
-        path = "/journal/20260130/143000_300/agents/my-project/activity_state.json"
+        path = "/journal/20260130/143000_300/talents/my-project/activity_state.json"
         assert _extract_facet_from_output_path(path) == "my-project"
 
     def test_returns_none_for_empty_path(self):
@@ -37,7 +37,7 @@ class TestExtractFacetFromOutputPath:
         assert _extract_facet_from_output_path("/path/to/facets.json") is None
         # No facet directory
         assert (
-            _extract_facet_from_output_path("/path/to/agents/activity_state.json")
+            _extract_facet_from_output_path("/path/to/talents/activity_state.json")
             is None
         )
 
@@ -146,7 +146,7 @@ class TestLoadPreviousState:
                     Path(tmpdir) / "chronicle" / "20260130" / "default" / "100000_300"
                 )
                 segment_dir.mkdir(parents=True)
-                (segment_dir / "agents" / "work").mkdir(parents=True)
+                (segment_dir / "talents" / "work").mkdir(parents=True)
 
                 state = [
                     {
@@ -157,7 +157,7 @@ class TestLoadPreviousState:
                         "level": "high",
                     }
                 ]
-                (segment_dir / "agents/work/activity_state.json").write_text(
+                (segment_dir / "talents/work/activity_state.json").write_text(
                     json.dumps(state)
                 )
 
@@ -184,7 +184,7 @@ class TestLoadPreviousState:
                     Path(tmpdir) / "chronicle" / "20260130" / "default" / "100000_300"
                 )
                 segment_dir.mkdir(parents=True)
-                (segment_dir / "agents" / "work").mkdir(parents=True)
+                (segment_dir / "talents" / "work").mkdir(parents=True)
 
                 loaded, segment = load_previous_state(
                     "20260130", "100000_300", "work", stream="default"
@@ -208,10 +208,10 @@ class TestLoadPreviousState:
                     Path(tmpdir) / "chronicle" / "20260130" / "default" / "100000_300"
                 )
                 segment_dir.mkdir(parents=True)
-                (segment_dir / "agents" / "work").mkdir(parents=True)
+                (segment_dir / "talents" / "work").mkdir(parents=True)
 
                 # Write a dict (old format) — should be rejected
-                (segment_dir / "agents/work/activity_state.json").write_text(
+                (segment_dir / "talents/work/activity_state.json").write_text(
                     '{"active": [], "ended": []}'
                 )
 
@@ -364,7 +364,7 @@ class TestPreProcess:
                 day_dir = Path(tmpdir) / "chronicle" / "20260130"
                 day_dir.mkdir(parents=True)
                 (day_dir / "default" / "100000_300").mkdir(parents=True)
-                (day_dir / "default" / "100000_300" / "agents" / "work").mkdir(
+                (day_dir / "default" / "100000_300" / "talents" / "work").mkdir(
                     parents=True
                 )
                 segment_dir = day_dir / "default" / "110000_300"
@@ -391,14 +391,14 @@ class TestPreProcess:
                     day_dir
                     / "default"
                     / "100000_300"
-                    / "agents/work/activity_state.json"
+                    / "talents/work/activity_state.json"
                 ).write_text(json.dumps(prev_state))
 
                 context = {
                     "day": "20260130",
                     "segment": "110000_300",
                     "stream": "default",
-                    "output_path": "/journal/20260130/110000_300/agents/work/activity_state.json",
+                    "output_path": "/journal/20260130/110000_300/talents/work/activity_state.json",
                     "transcript": "User is typing code...",
                     "meta": {},
                 }
@@ -424,7 +424,7 @@ class TestPreProcess:
 
         context = {
             "segment": "100000_300",
-            "output_path": "/path/to/agents/work/activity_state.json",
+            "output_path": "/path/to/talents/work/activity_state.json",
         }
         assert pre_process(context) is None
 
@@ -433,7 +433,7 @@ class TestPreProcess:
 
         context = {
             "day": "20260130",
-            "output_path": "/path/to/agents/work/activity_state.json",
+            "output_path": "/path/to/talents/work/activity_state.json",
         }
         assert pre_process(context) is None
 
@@ -487,7 +487,7 @@ class TestPostProcess:
                 # Previous segment with active meeting
                 prev_dir = day_dir / "default" / "100000_300"
                 prev_dir.mkdir(parents=True)
-                (prev_dir / "agents" / "work").mkdir(parents=True)
+                (prev_dir / "talents" / "work").mkdir(parents=True)
                 prev_state = [
                     {
                         "activity": "meeting",
@@ -497,7 +497,7 @@ class TestPostProcess:
                         "level": "high",
                     }
                 ]
-                (prev_dir / "agents/work/activity_state.json").write_text(
+                (prev_dir / "talents/work/activity_state.json").write_text(
                     json.dumps(prev_state)
                 )
 
@@ -519,7 +519,7 @@ class TestPostProcess:
                     "day": "20260130",
                     "segment": "100500_300",
                     "stream": "default",
-                    "output_path": f"{tmpdir}/20260130/100500_300/agents/work/activity_state.json",
+                    "output_path": f"{tmpdir}/20260130/100500_300/talents/work/activity_state.json",
                 }
 
                 result = post_process(llm_output, context)
@@ -545,7 +545,7 @@ class TestPostProcess:
                 # Previous segment with active meeting
                 prev_dir = day_dir / "default" / "100000_300"
                 prev_dir.mkdir(parents=True)
-                (prev_dir / "agents" / "work").mkdir(parents=True)
+                (prev_dir / "talents" / "work").mkdir(parents=True)
                 prev_state = [
                     {
                         "activity": "meeting",
@@ -555,7 +555,7 @@ class TestPostProcess:
                         "level": "high",
                     }
                 ]
-                (prev_dir / "agents/work/activity_state.json").write_text(
+                (prev_dir / "talents/work/activity_state.json").write_text(
                     json.dumps(prev_state)
                 )
 
@@ -575,7 +575,7 @@ class TestPostProcess:
                     "day": "20260130",
                     "segment": "100500_300",
                     "stream": "default",
-                    "output_path": f"{tmpdir}/20260130/100500_300/agents/work/activity_state.json",
+                    "output_path": f"{tmpdir}/20260130/100500_300/talents/work/activity_state.json",
                 }
 
                 result = post_process(llm_output, context)
@@ -669,7 +669,7 @@ class TestPostProcess:
                 # Previous segment — email already ended
                 prev_dir = day_dir / "default" / "100000_300"
                 prev_dir.mkdir(parents=True)
-                (prev_dir / "agents" / "work").mkdir(parents=True)
+                (prev_dir / "talents" / "work").mkdir(parents=True)
                 prev_state = [
                     {
                         "activity": "email",
@@ -678,7 +678,7 @@ class TestPostProcess:
                         "description": "Replied to boss",
                     }
                 ]
-                (prev_dir / "agents/work/activity_state.json").write_text(
+                (prev_dir / "talents/work/activity_state.json").write_text(
                     json.dumps(prev_state)
                 )
 
@@ -698,7 +698,7 @@ class TestPostProcess:
                     "day": "20260130",
                     "segment": "100500_300",
                     "stream": "default",
-                    "output_path": f"{tmpdir}/20260130/100500_300/agents/work/activity_state.json",
+                    "output_path": f"{tmpdir}/20260130/100500_300/talents/work/activity_state.json",
                 }
 
                 result = post_process(llm_output, context)
@@ -725,7 +725,7 @@ class TestPostProcess:
                 # Previous segment — email ended with different description
                 prev_dir = day_dir / "default" / "100000_300"
                 prev_dir.mkdir(parents=True)
-                (prev_dir / "agents" / "work").mkdir(parents=True)
+                (prev_dir / "talents" / "work").mkdir(parents=True)
                 prev_state = [
                     {
                         "activity": "email",
@@ -734,7 +734,7 @@ class TestPostProcess:
                         "description": "Replied to boss",
                     }
                 ]
-                (prev_dir / "agents/work/activity_state.json").write_text(
+                (prev_dir / "talents/work/activity_state.json").write_text(
                     json.dumps(prev_state)
                 )
 
@@ -754,7 +754,7 @@ class TestPostProcess:
                     "day": "20260130",
                     "segment": "100500_300",
                     "stream": "default",
-                    "output_path": f"{tmpdir}/20260130/100500_300/agents/work/activity_state.json",
+                    "output_path": f"{tmpdir}/20260130/100500_300/talents/work/activity_state.json",
                 }
 
                 result = post_process(llm_output, context)
@@ -806,7 +806,7 @@ class TestPostProcess:
 
                 prev_dir = day_dir / "default" / "100000_300"
                 prev_dir.mkdir(parents=True)
-                (prev_dir / "agents" / "work").mkdir(parents=True)
+                (prev_dir / "talents" / "work").mkdir(parents=True)
                 prev_state = [
                     {
                         "activity": "meeting",
@@ -816,7 +816,7 @@ class TestPostProcess:
                         "level": "high",
                     }
                 ]
-                (prev_dir / "agents/work/activity_state.json").write_text(
+                (prev_dir / "talents/work/activity_state.json").write_text(
                     json.dumps(prev_state)
                 )
 
@@ -842,7 +842,7 @@ class TestPostProcess:
                     "day": "20260130",
                     "segment": "100500_300",
                     "stream": "default",
-                    "output_path": f"{tmpdir}/20260130/100500_300/agents/work/activity_state.json",
+                    "output_path": f"{tmpdir}/20260130/100500_300/talents/work/activity_state.json",
                 }
 
                 result = post_process(llm_output, context)
@@ -927,7 +927,7 @@ class TestPostProcess:
 
                 prev_dir = day_dir / "default" / "100000_300"
                 prev_dir.mkdir(parents=True)
-                (prev_dir / "agents" / "work").mkdir(parents=True)
+                (prev_dir / "talents" / "work").mkdir(parents=True)
                 prev_state = [
                     {
                         "activity": "meeting",
@@ -937,7 +937,7 @@ class TestPostProcess:
                         "level": "high",
                     }
                 ]
-                (prev_dir / "agents/work/activity_state.json").write_text(
+                (prev_dir / "talents/work/activity_state.json").write_text(
                     json.dumps(prev_state)
                 )
 
@@ -958,7 +958,7 @@ class TestPostProcess:
                     "day": "20260130",
                     "segment": "100500_300",
                     "stream": "default",
-                    "output_path": f"{tmpdir}/20260130/100500_300/agents/work/activity_state.json",
+                    "output_path": f"{tmpdir}/20260130/100500_300/talents/work/activity_state.json",
                 }
 
                 result = post_process(llm_output, context)
@@ -984,7 +984,7 @@ class TestPostProcess:
 
                 prev_dir = day_dir / "default" / "100000_300"
                 prev_dir.mkdir(parents=True)
-                (prev_dir / "agents" / "work").mkdir(parents=True)
+                (prev_dir / "talents" / "work").mkdir(parents=True)
                 prev_state = [
                     {
                         "activity": "meeting",
@@ -1001,7 +1001,7 @@ class TestPostProcess:
                         "level": "medium",
                     },
                 ]
-                (prev_dir / "agents/work/activity_state.json").write_text(
+                (prev_dir / "talents/work/activity_state.json").write_text(
                     json.dumps(prev_state)
                 )
 
@@ -1022,7 +1022,7 @@ class TestPostProcess:
                     "day": "20260130",
                     "segment": "100500_300",
                     "stream": "default",
-                    "output_path": f"{tmpdir}/20260130/100500_300/agents/work/activity_state.json",
+                    "output_path": f"{tmpdir}/20260130/100500_300/talents/work/activity_state.json",
                 }
 
                 result = post_process(llm_output, context)
@@ -1069,7 +1069,7 @@ class TestActivityId:
 
                 prev_dir = day_dir / "default" / "100000_300"
                 prev_dir.mkdir(parents=True)
-                (prev_dir / "agents" / "work").mkdir(parents=True)
+                (prev_dir / "talents" / "work").mkdir(parents=True)
                 prev_state = [
                     {
                         "activity": "meeting",
@@ -1079,7 +1079,7 @@ class TestActivityId:
                         "level": "high",
                     }
                 ]
-                (prev_dir / "agents/work/activity_state.json").write_text(
+                (prev_dir / "talents/work/activity_state.json").write_text(
                     json.dumps(prev_state)
                 )
 
@@ -1100,7 +1100,7 @@ class TestActivityId:
                     "day": "20260130",
                     "segment": "100500_300",
                     "stream": "default",
-                    "output_path": f"{tmpdir}/20260130/100500_300/agents/work/activity_state.json",
+                    "output_path": f"{tmpdir}/20260130/100500_300/talents/work/activity_state.json",
                 }
 
                 result = post_process(llm_output, context)
@@ -1124,7 +1124,7 @@ class TestActivityId:
 
                 prev_dir = day_dir / "default" / "100000_300"
                 prev_dir.mkdir(parents=True)
-                (prev_dir / "agents" / "work").mkdir(parents=True)
+                (prev_dir / "talents" / "work").mkdir(parents=True)
                 prev_state = [
                     {
                         "activity": "meeting",
@@ -1134,7 +1134,7 @@ class TestActivityId:
                         "level": "high",
                     }
                 ]
-                (prev_dir / "agents/work/activity_state.json").write_text(
+                (prev_dir / "talents/work/activity_state.json").write_text(
                     json.dumps(prev_state)
                 )
 
@@ -1154,7 +1154,7 @@ class TestActivityId:
                     "day": "20260130",
                     "segment": "100500_300",
                     "stream": "default",
-                    "output_path": f"{tmpdir}/20260130/100500_300/agents/work/activity_state.json",
+                    "output_path": f"{tmpdir}/20260130/100500_300/talents/work/activity_state.json",
                 }
 
                 result = post_process(llm_output, context)
@@ -1208,7 +1208,7 @@ class TestActivityLiveEvents:
         context = {
             "day": "20260130",
             "segment": "143000_300",
-            "output_path": "/j/20260130/143000_300/agents/work/activity_state.json",
+            "output_path": "/j/20260130/143000_300/talents/work/activity_state.json",
         }
 
         with patch("talent.activity_state.callosum_send") as mock_send:
@@ -1244,7 +1244,7 @@ class TestActivityLiveEvents:
 
                 prev_dir = day_dir / "default" / "100000_300"
                 prev_dir.mkdir(parents=True)
-                (prev_dir / "agents" / "work").mkdir(parents=True)
+                (prev_dir / "talents" / "work").mkdir(parents=True)
                 prev_state = [
                     {
                         "activity": "coding",
@@ -1254,7 +1254,7 @@ class TestActivityLiveEvents:
                         "level": "high",
                     }
                 ]
-                (prev_dir / "agents/work/activity_state.json").write_text(
+                (prev_dir / "talents/work/activity_state.json").write_text(
                     json.dumps(prev_state)
                 )
 
@@ -1275,7 +1275,7 @@ class TestActivityLiveEvents:
                     "day": "20260130",
                     "segment": "100500_300",
                     "stream": "default",
-                    "output_path": f"{tmpdir}/20260130/100500_300/agents/work/activity_state.json",
+                    "output_path": f"{tmpdir}/20260130/100500_300/talents/work/activity_state.json",
                 }
 
                 with patch("talent.activity_state.callosum_send") as mock_send:
@@ -1306,7 +1306,7 @@ class TestActivityLiveEvents:
 
                 prev_dir = day_dir / "default" / "100000_300"
                 prev_dir.mkdir(parents=True)
-                (prev_dir / "agents" / "work").mkdir(parents=True)
+                (prev_dir / "talents" / "work").mkdir(parents=True)
                 prev_state = [
                     {
                         "activity": "meeting",
@@ -1316,7 +1316,7 @@ class TestActivityLiveEvents:
                         "level": "high",
                     }
                 ]
-                (prev_dir / "agents/work/activity_state.json").write_text(
+                (prev_dir / "talents/work/activity_state.json").write_text(
                     json.dumps(prev_state)
                 )
 
@@ -1336,7 +1336,7 @@ class TestActivityLiveEvents:
                     "day": "20260130",
                     "segment": "100500_300",
                     "stream": "default",
-                    "output_path": f"{tmpdir}/20260130/100500_300/agents/work/activity_state.json",
+                    "output_path": f"{tmpdir}/20260130/100500_300/talents/work/activity_state.json",
                 }
 
                 with patch("talent.activity_state.callosum_send") as mock_send:
@@ -1387,7 +1387,7 @@ class TestActivityLiveEvents:
         context = {
             "day": "20260130",
             "segment": "143000_300",
-            "output_path": "/j/20260130/143000_300/agents/work/activity_state.json",
+            "output_path": "/j/20260130/143000_300/talents/work/activity_state.json",
         }
 
         with patch("talent.activity_state.callosum_send") as mock_send:
@@ -1440,7 +1440,7 @@ class TestActivityIdValidation:
 
                 context = {
                     "segment": "143000_300",
-                    "output_path": f"{tmpdir}/20260130/143000_300/agents/work/activity_state.json",
+                    "output_path": f"{tmpdir}/20260130/143000_300/talents/work/activity_state.json",
                 }
 
                 with patch("talent.activity_state.callosum_send"):
@@ -1483,7 +1483,7 @@ class TestActivityIdValidation:
 
                 context = {
                     "segment": "143000_300",
-                    "output_path": f"{tmpdir}/20260130/143000_300/agents/work/activity_state.json",
+                    "output_path": f"{tmpdir}/20260130/143000_300/talents/work/activity_state.json",
                 }
 
                 with caplog.at_level(logging.WARNING, logger="talent.activity_state"):
@@ -1539,7 +1539,7 @@ class TestActivityIdValidation:
 
                 context = {
                     "segment": "143000_300",
-                    "output_path": f"{tmpdir}/20260130/143000_300/agents/work/activity_state.json",
+                    "output_path": f"{tmpdir}/20260130/143000_300/talents/work/activity_state.json",
                 }
 
                 with patch("talent.activity_state.callosum_send"):
@@ -1589,7 +1589,7 @@ class TestActivityIdValidation:
 
                 context = {
                     "segment": "143000_300",
-                    "output_path": f"{tmpdir}/20260130/143000_300/agents/new_facet/activity_state.json",
+                    "output_path": f"{tmpdir}/20260130/143000_300/talents/new_facet/activity_state.json",
                 }
 
                 with patch("talent.activity_state.callosum_send"):

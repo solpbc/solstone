@@ -107,8 +107,8 @@ def _make_segment(
     """Create a segment directory with specified contents."""
     seg = tmp_path / "segment"
     seg.mkdir(exist_ok=True)
-    agents_dir = seg / "agents"
-    agents_dir.mkdir(exist_ok=True)
+    talents_dir = seg / "talents"
+    talents_dir.mkdir(exist_ok=True)
 
     if audio:
         (seg / "audio.flac").write_bytes(b"audio")
@@ -121,9 +121,9 @@ def _make_segment(
     if video and screen_extract:
         (seg / "screen.jsonl").write_text('{"raw":"screen.webm"}\n')
     if embeddings and speaker_labels:
-        (agents_dir / "speaker_labels.json").write_text("{}")
+        (talents_dir / "speaker_labels.json").write_text("{}")
     if active_agents:
-        (agents_dir / "1234_active.jsonl").write_text("{}")
+        (talents_dir / "1234_active.jsonl").write_text("{}")
 
     (seg / "stream.json").write_text('{"stream":"default"}')
     return seg
@@ -167,7 +167,7 @@ class TestIsSegmentComplete:
     def test_complete_with_stub_speaker_labels(self, tmp_path):
         """Stub speaker_labels.json (skipped=True, labels=[]) unblocks retention."""
         seg = _make_segment(tmp_path, audio=True, embeddings=True, speaker_labels=False)
-        stub = seg / "agents" / "speaker_labels.json"
+        stub = seg / "talents" / "speaker_labels.json"
         stub.write_text(
             json.dumps({"labels": [], "skipped": True, "reason": "no_owner_centroid"})
         )
@@ -286,14 +286,14 @@ class TestPurge:
         (day1 / "audio.flac").write_bytes(b"x" * 1000)
         (day1 / "audio.jsonl").write_text('{"raw":"audio.flac"}\n')
         (day1 / "stream.json").write_text('{"stream":"default"}')
-        (day1 / "agents").mkdir()
+        (day1 / "talents").mkdir()
 
         day1b = journal / "chronicle" / "20260115" / "plaud" / "103000_300"
         day1b.mkdir(parents=True)
         (day1b / "audio.m4a").write_bytes(b"x" * 500)
         (day1b / "audio.jsonl").write_text('{"raw":"audio.m4a"}\n')
         (day1b / "stream.json").write_text('{"stream":"plaud"}')
-        (day1b / "agents").mkdir()
+        (day1b / "talents").mkdir()
 
         # Day 2: recent — one complete segment (must stay within 30d window)
         day2 = journal / "chronicle" / "20260401" / "default" / "120000_300"
@@ -301,7 +301,7 @@ class TestPurge:
         (day2 / "audio.flac").write_bytes(b"x" * 800)
         (day2 / "audio.jsonl").write_text('{"raw":"audio.flac"}\n')
         (day2 / "stream.json").write_text('{"stream":"default"}')
-        (day2 / "agents").mkdir()
+        (day2 / "talents").mkdir()
 
         # Day 3: incomplete segment (no audio.jsonl)
         day3 = journal / "chronicle" / "20260101" / "default" / "140000_300"
@@ -449,7 +449,7 @@ class TestPurgeProvenance:
         segment = journal / "chronicle" / "20260115" / "default" / "100000_300"
         audio_jsonl = segment / "audio.jsonl"
         alternate_audio_jsonl = segment / "meeting_audio.jsonl"
-        speaker_labels = segment / "agents" / "speaker_labels.json"
+        speaker_labels = segment / "talents" / "speaker_labels.json"
 
         alternate_audio_jsonl.write_text('{"raw":"audio.flac"}\n')
         speaker_labels.write_text("{}")

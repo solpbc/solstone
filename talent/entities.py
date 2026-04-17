@@ -113,7 +113,7 @@ def post_process(result: str, context: dict) -> str | None:
             len(unique_entities),
         )
 
-    # Write entities.jsonl alongside the agent output in the agents/ directory
+    # Write entities.jsonl alongside the agent output in the talents/ directory
     output_path_value = context.get("output_path")
     if not output_path_value:
         logging.error("entities hook: missing output_path in context")

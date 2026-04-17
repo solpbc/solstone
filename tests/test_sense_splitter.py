@@ -40,21 +40,21 @@ class TestWriteSenseOutputs:
 
         write_sense_outputs(sense_json, seg_dir)
 
-        agents_dir = seg_dir / "agents"
-        assert (agents_dir / "activity.md").exists()
-        assert (agents_dir / "facets.json").exists()
-        assert (agents_dir / "density.json").exists()
-        assert (agents_dir / "sense.json").exists()
-        assert not (agents_dir / "speakers.json").exists()
+        talents_dir = seg_dir / "talents"
+        assert (talents_dir / "activity.md").exists()
+        assert (talents_dir / "facets.json").exists()
+        assert (talents_dir / "density.json").exists()
+        assert (talents_dir / "sense.json").exists()
+        assert not (talents_dir / "speakers.json").exists()
 
-        assert (agents_dir / "activity.md").read_text(encoding="utf-8") == (
+        assert (talents_dir / "activity.md").read_text(encoding="utf-8") == (
             "Writing unit tests for the API module."
         )
-        assert json.loads((agents_dir / "facets.json").read_text(encoding="utf-8")) == [
-            {"facet": "work", "activity": "coding", "level": "high"}
-        ]
+        assert json.loads(
+            (talents_dir / "facets.json").read_text(encoding="utf-8")
+        ) == [{"facet": "work", "activity": "coding", "level": "high"}]
 
-        density = json.loads((agents_dir / "density.json").read_text(encoding="utf-8"))
+        density = json.loads((talents_dir / "density.json").read_text(encoding="utf-8"))
         assert set(density.keys()) == {
             "classification",
             "transcript_lines",
@@ -65,7 +65,7 @@ class TestWriteSenseOutputs:
         assert density["transcript_lines"] == 0
         assert density["screen_frames"] == 0
 
-        assert json.loads((agents_dir / "sense.json").read_text(encoding="utf-8")) == (
+        assert json.loads((talents_dir / "sense.json").read_text(encoding="utf-8")) == (
             sense_json
         )
 
@@ -77,7 +77,7 @@ class TestWriteSenseOutputs:
 
         write_sense_outputs(sense_json, seg_dir)
 
-        stored = json.loads((seg_dir / "agents" / "sense.json").read_text("utf-8"))
+        stored = json.loads((seg_dir / "talents" / "sense.json").read_text("utf-8"))
         assert stored["foo"] == "bar"
         assert stored == sense_json
 
@@ -94,7 +94,7 @@ class TestMeetingDetection:
 
         write_sense_outputs(sense_json, seg_dir)
 
-        speakers_path = seg_dir / "agents" / "speakers.json"
+        speakers_path = seg_dir / "talents" / "speakers.json"
         assert speakers_path.exists()
         assert json.loads(speakers_path.read_text(encoding="utf-8")) == ["Alice", "Bob"]
 
@@ -105,7 +105,7 @@ class TestMeetingDetection:
 
         write_sense_outputs(_make_sense_output(meeting_detected=False), seg_dir)
 
-        assert not (seg_dir / "agents" / "speakers.json").exists()
+        assert not (seg_dir / "talents" / "speakers.json").exists()
 
     def test_meeting_with_no_speakers_writes_empty_array(self, tmp_path):
         from think.sense_splitter import write_sense_outputs
@@ -115,7 +115,7 @@ class TestMeetingDetection:
 
         write_sense_outputs(sense_json, seg_dir)
 
-        speakers_path = seg_dir / "agents" / "speakers.json"
+        speakers_path = seg_dir / "talents" / "speakers.json"
         assert speakers_path.exists()
         assert json.loads(speakers_path.read_text(encoding="utf-8")) == []
 
@@ -128,16 +128,16 @@ class TestEdgeCases:
 
         write_sense_outputs({}, seg_dir)
 
-        agents_dir = seg_dir / "agents"
-        assert (agents_dir / "activity.md").exists()
-        assert (agents_dir / "facets.json").exists()
-        assert (agents_dir / "density.json").exists()
-        assert (agents_dir / "sense.json").exists()
-        assert (agents_dir / "activity.md").read_text(encoding="utf-8") == ""
+        talents_dir = seg_dir / "talents"
+        assert (talents_dir / "activity.md").exists()
+        assert (talents_dir / "facets.json").exists()
+        assert (talents_dir / "density.json").exists()
+        assert (talents_dir / "sense.json").exists()
+        assert (talents_dir / "activity.md").read_text(encoding="utf-8") == ""
         assert (
-            json.loads((agents_dir / "facets.json").read_text(encoding="utf-8")) == []
+            json.loads((talents_dir / "facets.json").read_text(encoding="utf-8")) == []
         )
-        density = json.loads((agents_dir / "density.json").read_text(encoding="utf-8"))
+        density = json.loads((talents_dir / "density.json").read_text(encoding="utf-8"))
         assert density["classification"] == "active"
 
     def test_null_fields(self, tmp_path):
@@ -156,14 +156,14 @@ class TestEdgeCases:
 
         write_sense_outputs(sense_json, seg_dir)
 
-        agents_dir = seg_dir / "agents"
-        assert (agents_dir / "activity.md").read_text(encoding="utf-8") == ""
+        talents_dir = seg_dir / "talents"
+        assert (talents_dir / "activity.md").read_text(encoding="utf-8") == ""
         assert (
-            json.loads((agents_dir / "facets.json").read_text(encoding="utf-8")) == []
+            json.loads((talents_dir / "facets.json").read_text(encoding="utf-8")) == []
         )
-        density = json.loads((agents_dir / "density.json").read_text(encoding="utf-8"))
+        density = json.loads((talents_dir / "density.json").read_text(encoding="utf-8"))
         assert density["classification"] == "active"
-        assert not (agents_dir / "speakers.json").exists()
+        assert not (talents_dir / "speakers.json").exists()
 
     def test_empty_activity_summary(self, tmp_path):
         from think.sense_splitter import write_sense_outputs
@@ -172,7 +172,7 @@ class TestEdgeCases:
 
         write_sense_outputs(_make_sense_output(activity_summary=""), seg_dir)
 
-        assert (seg_dir / "agents" / "activity.md").read_text(encoding="utf-8") == ""
+        assert (seg_dir / "talents" / "activity.md").read_text(encoding="utf-8") == ""
 
 
 class TestMultipleFacets:
@@ -187,7 +187,7 @@ class TestMultipleFacets:
 
         write_sense_outputs(_make_sense_output(facets=facets), seg_dir)
 
-        assert json.loads((seg_dir / "agents" / "facets.json").read_text("utf-8")) == (
+        assert json.loads((seg_dir / "talents" / "facets.json").read_text("utf-8")) == (
             facets
         )
 
@@ -200,13 +200,13 @@ class TestWriteIdleStubs:
 
         write_idle_stubs(seg_dir)
 
-        agents_dir = seg_dir / "agents"
-        assert (agents_dir / "density.json").exists()
-        density = json.loads((agents_dir / "density.json").read_text(encoding="utf-8"))
+        talents_dir = seg_dir / "talents"
+        assert (talents_dir / "density.json").exists()
+        density = json.loads((talents_dir / "density.json").read_text(encoding="utf-8"))
         assert density["classification"] == "idle"
         assert density["transcript_lines"] == 0
         assert density["screen_frames"] == 0
-        assert not (agents_dir / "activity.md").exists()
-        assert not (agents_dir / "facets.json").exists()
-        assert not (agents_dir / "speakers.json").exists()
-        assert not (agents_dir / "sense.json").exists()
+        assert not (talents_dir / "activity.md").exists()
+        assert not (talents_dir / "facets.json").exists()
+        assert not (talents_dir / "speakers.json").exists()
+        assert not (talents_dir / "sense.json").exists()

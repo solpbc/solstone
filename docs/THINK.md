@@ -17,7 +17,7 @@ The package exposes several commands:
 - `sol call transcripts read` groups audio and screen transcripts into report sections. Use `--start` and
   `--length` to limit the report to a specific time range. See `sol call transcripts --help` for additional commands.
 - `sol dream` runs generators and agents for a single day via Cortex.
-- `sol agents` is the unified CLI for tool agents and generators (spawned by Cortex, NDJSON protocol).
+- `python -m think.talents` is the unified CLI for tool agents and generators (spawned by Cortex, NDJSON protocol).
 - `sol supervisor` monitors observation heartbeats. Use `--no-observers` to disable local capture (sense still runs for observer uploads and imports).
 - `sol cortex` starts a Callosum-based service for managing AI agent instances and generators.
 - `sol talent` lists available agents and generators with their configuration. Use `sol talent show <name>` to see details, and `sol talent show <name> --prompt` to see the fully composed prompt that would be sent to the LLM.
@@ -93,13 +93,13 @@ After each generator completes and creates output, the indexer runs `--rescan-fi
 
 ### Cortex: Central Agent Manager
 
-The Cortex service (`sol cortex`) is the central system for managing AI agent instances and generators. It monitors the journal's `agents/` directory for new requests and manages execution. All agent spawning should go through Cortex for proper event tracking and management.
+The Cortex service (`sol cortex`) is the central system for managing AI agent instances and generators. It monitors the journal's `talents/` directory for new requests and manages execution. All agent spawning should go through Cortex for proper event tracking and management.
 
 Cortex routes requests based on configuration:
-- Requests with `tools` field → tool-using agents (`sol agents`)
-- Requests with `output` field (no `tools`) → generators (`sol agents`)
+- Requests with `tools` field → tool-using agents (`python -m think.talents`)
+- Requests with `output` field (no `tools`) → generators (`python -m think.talents`)
 
-Both types are handled by the unified `sol agents` CLI which routes internally.
+Both types are handled by the unified `python -m think.talents` CLI which routes internally.
 
 To spawn agents programmatically, use the cortex_client functions:
 
@@ -108,7 +108,7 @@ from think.cortex_client import cortex_request
 from think.callosum import CallosumConnection
 
 # Create a request
-agent_id = cortex_request(
+use_id = cortex_request(
     prompt="Your task here",
     name="default",
     provider="openai"  # or "google", "anthropic", "claude"
@@ -138,7 +138,7 @@ Generators can also be spawned via `cortex_request` by including an `output` fie
 from think.cortex_client import cortex_request, wait_for_agents
 
 # Spawn a generator
-agent_id = cortex_request(
+use_id = cortex_request(
     prompt="",  # Generators don't use prompts
     name="activity",
     config={
@@ -149,15 +149,15 @@ agent_id = cortex_request(
 )
 
 # Wait for completion
-completed, timed_out = wait_for_agents([agent_id], timeout=300)
+completed, timed_out = wait_for_agents([use_id], timeout=300)
 ```
 
 ### Direct CLI Usage (Testing Only)
 
-The `sol agents` command is primarily used internally by Cortex. For testing purposes, it can be invoked directly:
+The `python -m think.talents` command is primarily used internally by Cortex. For testing purposes, it can be invoked directly:
 
 ```bash
-sol agents [TASK_FILE] [--provider PROVIDER] [--model MODEL] [--max-tokens N] [-o OUT_FILE]
+python -m think.talents [TASK_FILE] [--provider PROVIDER] [--model MODEL] [--max-tokens N] [-o OUT_FILE]
 ```
 
 The provider can be ``openai`` (default), ``google``, ``anthropic``, or ``ollama``. Configure the corresponding API key in the ``env`` section of ``journal/config/journal.json`` (e.g., ``OPENAI_API_KEY``, ``GOOGLE_API_KEY``, or ``ANTHROPIC_API_KEY``). The ``ollama`` provider requires no API key — it connects to a local Ollama instance. Keys are loaded into ``os.environ`` by ``setup_cli()`` at process startup.
@@ -218,7 +218,7 @@ AI agent system and tool-calling support for solstone.
 | Command | Purpose |
 |---------|---------|
 | `sol cortex` | Agent orchestration service |
-| `sol agents` | Direct agent invocation (testing only) |
+| `python -m think.talents` | Direct agent invocation (testing only) |
 
 ## Architecture
 
@@ -244,9 +244,9 @@ Providers implement `run_generate()`, `run_agenerate()`, and `run_cogitate()` fu
 
 ## Key Components
 
-- **cortex.py** - Central agent manager, file watcher, event distribution, spawns agents.py
+- **cortex.py** - Central agent manager, file watcher, event distribution, spawns talents.py
 - **cortex_client.py** - Client functions: `cortex_request()`, `cortex_agents()`, `wait_for_agents()`
-- **agents.py** - Unified CLI entry point for both tool-using agents and generators (NDJSON protocol)
+- **talents.py** - Unified CLI entry point for both tool-using agents and generators (NDJSON protocol)
 - **models.py** - Unified `generate()`/`agenerate()` API, provider routing, token logging
 - **batch.py** - `Batch` class for concurrent LLM requests with dynamic queuing
 

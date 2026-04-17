@@ -43,13 +43,13 @@ def main() -> None:
     if args.facet:
         config["facet"] = args.facet
 
-    agent_id = cortex_request(
+    use_id = cortex_request(
         prompt=message,
         name=args.talent,
         provider=args.provider,
         config=config if config else None,
     )
-    if agent_id is None:
+    if use_id is None:
         print(
             "Error: failed to connect to cortex (is the stack running?)",
             file=sys.stderr,
@@ -63,7 +63,7 @@ def main() -> None:
     def on_event(msg: dict) -> None:
         if msg.get("tract") != "cortex":
             return
-        if msg.get("agent_id") != agent_id:
+        if msg.get("use_id") != use_id:
             return
 
         event_type = msg.get("event")
@@ -122,7 +122,7 @@ def main() -> None:
         sys.exit(1)
 
     try:
-        events = read_agent_events(agent_id)
+        events = read_agent_events(use_id)
         for event in reversed(events):
             event_type = event.get("event")
             if event_type == "finish":

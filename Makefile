@@ -401,6 +401,9 @@ ci: .installed
 	@echo "=== Checking formatting ==="
 	@$(RUFF) format --check . || { echo "Run 'make format' to fix formatting"; exit 1; }
 	@echo ""
+	@echo "=== Checking rename gate ==="
+	@$(PYTHON) scripts/check_rename.py
+	@echo ""
 	@echo "=== Running ruff ==="
 	@$(RUFF) check . || { echo "Run 'make format' to auto-fix"; exit 1; }
 	@echo ""

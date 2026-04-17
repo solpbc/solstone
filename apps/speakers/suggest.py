@@ -54,7 +54,7 @@ def _name_matches_entity(participant: str, names: set[str]) -> bool:
 
 
 def _parse_meetings(day_path: str) -> list[dict[str, Any]]:
-    meetings_path = Path(day_path) / "agents" / "meetings.md"
+    meetings_path = Path(day_path) / "talents" / "meetings.md"
     if not meetings_path.exists():
         return []
 
@@ -296,7 +296,7 @@ def _low_confidence_review() -> list[dict[str, Any]]:
 
     for day in sorted(day_dirs().keys()):
         for stream, segment_key, seg_path in iter_segments(day):
-            labels_path = seg_path / "agents" / "speaker_labels.json"
+            labels_path = seg_path / "talents" / "speaker_labels.json"
             if not labels_path.exists():
                 continue
             try:
@@ -323,7 +323,7 @@ def _low_confidence_review() -> list[dict[str, Any]]:
             if medium_or_null <= 10:
                 continue
 
-            speakers_path = seg_path / "agents" / "speakers.json"
+            speakers_path = seg_path / "talents" / "speakers.json"
             has_speakers = speakers_path.is_file()
             null_proportion = null_count / total if total else 0.0
             results.append(

@@ -110,7 +110,7 @@ def _load_voiceprint_count(journal: Path, entity_id: str) -> int:
 
 def _load_corrections_count(journal: Path, day: str, segment_key: str) -> int:
     """Return number of correction entries for a segment."""
-    path = journal / day / "test" / segment_key / "agents" / "speaker_corrections.json"
+    path = journal / day / "test" / segment_key / "talents" / "speaker_corrections.json"
     if not path.exists():
         return 0
     return len(json.loads(path.read_text(encoding="utf-8")).get("corrections", []))
@@ -199,14 +199,14 @@ def test_identify_creates_entity(speakers_env):
 
     for day, segment_key, _sentence_count in segments:
         labels_path = (
-            env.journal / day / "test" / segment_key / "agents" / "speaker_labels.json"
+            env.journal / day / "test" / segment_key / "talents" / "speaker_labels.json"
         )
         corrections_path = (
             env.journal
             / day
             / "test"
             / segment_key
-            / "agents"
+            / "talents"
             / "speaker_corrections.json"
         )
         labels_data = json.loads(labels_path.read_text(encoding="utf-8"))

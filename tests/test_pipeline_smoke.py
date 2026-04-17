@@ -126,7 +126,7 @@ class TestPipelineSmokeTest:
         monkeypatch.setattr(
             dream,
             "wait_for_agents",
-            lambda agent_ids, timeout=600: ({aid: "finish" for aid in agent_ids}, []),
+            lambda use_ids, timeout=600: ({aid: "finish" for aid in use_ids}, []),
         )
         monkeypatch.setattr(dream, "_callosum", None)
         monkeypatch.setattr(
@@ -142,8 +142,8 @@ class TestPipelineSmokeTest:
 
         for segment_key, sense_dict in SEGMENTS:
             seg_dir = journal / "chronicle" / DAY / STREAM / segment_key
-            (seg_dir / "agents").mkdir(parents=True, exist_ok=True)
-            (seg_dir / "agents" / "sense.json").write_text(json.dumps(sense_dict))
+            (seg_dir / "talents").mkdir(parents=True, exist_ok=True)
+            (seg_dir / "talents" / "sense.json").write_text(json.dumps(sense_dict))
 
             dream.run_segment_sense(
                 day=DAY,
@@ -161,7 +161,7 @@ class TestPipelineSmokeTest:
             "091500_300",
             "100000_300",
         ]:
-            seg_agents = journal / "chronicle" / DAY / STREAM / seg_key / "agents"
+            seg_agents = journal / "chronicle" / DAY / STREAM / seg_key / "talents"
             assert (seg_agents / "sense.json").exists()
             assert (seg_agents / "activity.md").exists()
             assert (seg_agents / "density.json").exists()
@@ -179,7 +179,7 @@ class TestPipelineSmokeTest:
                     / DAY
                     / STREAM
                     / seg_key
-                    / "agents"
+                    / "talents"
                     / "speakers.json"
                 ).read_text()
             )
@@ -192,7 +192,7 @@ class TestPipelineSmokeTest:
                 / DAY
                 / STREAM
                 / seg_key
-                / "agents"
+                / "talents"
                 / "speakers.json"
             ).exists()
 
@@ -203,7 +203,7 @@ class TestPipelineSmokeTest:
                 / DAY
                 / STREAM
                 / "092000_300"
-                / "agents"
+                / "talents"
                 / "density.json"
             ).read_text()
         )

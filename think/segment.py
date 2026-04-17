@@ -66,9 +66,9 @@ def _segment_stats(seg_path: Path) -> dict[str, int]:
         if path.is_file():
             files += 1
             size += path.stat().st_size
-            if "agents" in path.parts:
+            if "talents" in path.parts:
                 agents += 1
-    return {"files": files, "agents": agents, "size": size}
+    return {"files": files, "talents": agents, "size": size}
 
 
 def _split_segment_path(path: str) -> tuple[str, str, str]:
@@ -161,11 +161,11 @@ def _segment_files(seg_dir: Path) -> list[str]:
 
 
 def _agent_files(seg_dir: Path) -> list[str]:
-    """Return top-level file names from agents/ if present."""
-    agents_dir = seg_dir / "agents"
-    if not agents_dir.is_dir():
+    """Return top-level file names from talents/ if present."""
+    talents_dir = seg_dir / "talents"
+    if not talents_dir.is_dir():
         return []
-    return sorted(path.name for path in agents_dir.iterdir() if path.is_file())
+    return sorted(path.name for path in talents_dir.iterdir() if path.is_file())
 
 
 def _events_summary(seg_dir: Path) -> dict[str, object]:
@@ -641,7 +641,7 @@ def cmd_list(args: argparse.Namespace) -> None:
                 "end": end,
                 "duration": _segment_duration(seg_key),
                 "files": stats["files"],
-                "agents": stats["agents"],
+                "talents": stats["talents"],
                 "size": stats["size"],
             }
         )
@@ -652,7 +652,7 @@ def cmd_list(args: argparse.Namespace) -> None:
 
     print(
         f"{'STREAM':<20} {'SEGMENT':<14} {'TIME':<15} "
-        f"{'DUR':>5} {'FILES':>5} {'AGENTS':>6} {'SIZE':>8}"
+        f"{'DUR':>5} {'FILES':>5} {'TALENTS':>7} {'SIZE':>8}"
     )
     print("-" * 77)
     for row in rows:
@@ -664,7 +664,7 @@ def cmd_list(args: argparse.Namespace) -> None:
         dur_str = f"{row['duration']}s"
         print(
             f"{row['stream']:<20} {row['segment']:<14} {time_str:<15} "
-            f"{dur_str:>5} {row['files']:>5} {row['agents']:>6} "
+            f"{dur_str:>5} {row['files']:>5} {row['talents']:>7} "
             f"{_format_size(int(row['size'])):>8}"
         )
 
@@ -701,7 +701,7 @@ def cmd_inspect(args: argparse.Namespace) -> None:
         "duration": duration,
         "chain": {"prev": prev_desc, "next": next_desc},
         "files": files,
-        "agents": agents,
+        "talents": agents,
         "stats": stats,
         "events": events,
         "index": index_info,

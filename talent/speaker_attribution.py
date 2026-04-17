@@ -42,9 +42,9 @@ def pre_process(context: dict) -> dict | None:
         logger.info("Attribution skipped: %s", result["error"])
         reason = result["error"]
         if any(seg_dir.glob("*.npz")):
-            agents_dir = seg_dir / "agents"
-            agents_dir.mkdir(parents=True, exist_ok=True)
-            out_path = agents_dir / "speaker_labels.json"
+            talents_dir = seg_dir / "talents"
+            talents_dir.mkdir(parents=True, exist_ok=True)
+            out_path = talents_dir / "speaker_labels.json"
             with open(out_path, "w", encoding="utf-8") as fh:
                 json.dump(
                     {"labels": [], "skipped": True, "reason": reason},
@@ -58,9 +58,9 @@ def pre_process(context: dict) -> dict | None:
     if not labels:
         reason = "no_embeddings"
         if any(seg_dir.glob("*.npz")):
-            agents_dir = seg_dir / "agents"
-            agents_dir.mkdir(parents=True, exist_ok=True)
-            out_path = agents_dir / "speaker_labels.json"
+            talents_dir = seg_dir / "talents"
+            talents_dir.mkdir(parents=True, exist_ok=True)
+            out_path = talents_dir / "speaker_labels.json"
             with open(out_path, "w", encoding="utf-8") as fh:
                 json.dump(
                     {"labels": [], "skipped": True, "reason": reason},

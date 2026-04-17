@@ -80,7 +80,7 @@ List recent agent runs.
 
 Flags compose with AND logic. For example, `--daily --errors` shows only daily runs that errored.
 
-Output columns: agent_id, time, name, status, runtime, cost, events, tools, output_size, model, facet.
+Output columns: use_id, time, name, status, runtime, cost, events, tools, output_size, model, facet.
 
 Examples:
 
@@ -124,7 +124,7 @@ Reference map of key paths. `journal/` is the journal root.
 | Path | Purpose |
 |------|---------|
 | `health/` | Service logs: `<service>.log` symlinks, `callosum.sock`, `supervisor.log` |
-| `agents/` | Agent run logs: `<name>/<id>.jsonl`, `<name>/<id>_active.jsonl`, `<name>.log` symlink, `<day>.jsonl` day index |
+| `talents/` | Agent run logs: `<name>/<id>.jsonl`, `<name>/<id>_active.jsonl`, `<name>.log` symlink, `<day>.jsonl` day index |
 | `config/` | `journal.json`, `convey.json`, `schedules.json`, `actions/YYYYMMDD.jsonl` |
 | `facets/<facet>/` | Per-facet data: `facet.json`, `entities/`, `todos/`, `events/`, `news/`, `logs/` |
 | `entities/<id>/` | Canonical entity records: `entity.json` |
@@ -138,7 +138,7 @@ Reference map of key paths. `journal/` is the journal root.
 | Path | Purpose |
 |------|---------|
 | `<stream>/HHMMSS_LEN/` | Segment folders (captures, extracts, agent outputs) |
-| `agents/` | Daily agent outputs: `<name>.md`, `<name>.json` |
+| `talents/` | Daily agent outputs: `<name>.md`, `<name>.json` |
 | `health/` | Service logs for that day: `<ref>_<service>.log` (symlinked from journal-level `health/`) |
 | `stats.json` | Day statistics |
 
@@ -161,7 +161,7 @@ Which services write where:
 |---------|-----------|
 | Observer | Audio/video captures in segment folders |
 | Sense | Transcripts + screen analysis (JSONL) in segment folders |
-| Cortex | Agent JSONL in `agents/<name>/`, outputs in segment/day dirs |
+| Cortex | Agent JSONL in `talents/<name>/`, outputs in segment/day dirs |
 | Indexer | `indexer/journal.sqlite` |
 | Supervisor | `health/supervisor.log`, service logs in `YYYYMMDD/health/` |
 

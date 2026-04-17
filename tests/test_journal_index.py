@@ -281,17 +281,17 @@ def journal_fixture(tmp_path):
     # Create daily insight
     day = journal / "chronicle" / "20240101"
     day.mkdir(parents=True)
-    agents_dir = day / "agents"
-    agents_dir.mkdir()
-    (agents_dir / "flow.md").write_text("# Flow Summary\n\nWorked on project alpha.\n")
+    talents_dir = day / "talents"
+    talents_dir.mkdir()
+    (talents_dir / "flow.md").write_text("# Flow Summary\n\nWorked on project alpha.\n")
 
     # Create segment with agent output
     stream_dir = day / "default"
     stream_dir.mkdir()
     segment = stream_dir / "100000_300"
     segment.mkdir()
-    (segment / "agents").mkdir()
-    (segment / "agents" / "screen.md").write_text(
+    (segment / "talents").mkdir()
+    (segment / "talents" / "screen.md").write_text(
         "# Screen Summary\n\nViewed documentation.\n"
     )
     # Add stream.json for segment stream metadata
@@ -299,15 +299,15 @@ def journal_fixture(tmp_path):
 
     write_segment_stream(str(segment), "default", None, None, 1)
     # Add second agent file for cross-file segment testing
-    (segment / "agents" / "activity.md").write_text(
+    (segment / "talents" / "activity.md").write_text(
         "# Activity Summary\n\nMet with Scott Ward about Acme deal.\n"
     )
 
     # Create evening segment for time_bucket testing
     evening_segment = stream_dir / "200000_300"
     evening_segment.mkdir()
-    (evening_segment / "agents").mkdir()
-    (evening_segment / "agents" / "screen.md").write_text(
+    (evening_segment / "talents").mkdir()
+    (evening_segment / "talents" / "screen.md").write_text(
         "# Evening Screen\n\nReviewed evening reports.\n"
     )
     write_segment_stream(str(evening_segment), "default", None, None, 1)
@@ -363,7 +363,7 @@ def test_search_journal_outputs(journal_fixture):
     """Test searching returns agent output chunks."""
     from think.indexer.journal import scan_journal, search_journal
 
-    scan_journal(str(journal_fixture))
+    scan_journal(str(journal_fixture), full=True)
 
     total, results = search_journal("project alpha")
     assert total >= 1
@@ -636,17 +636,17 @@ def test_is_historical_day():
     # Non-day paths are never historical
     assert _is_historical_day("facets/work/events/20240101.jsonl") is False
     assert _is_historical_day("imports/123/summary.md") is False
-    assert _is_historical_day("apps/home/agents/foo.md") is False
+    assert _is_historical_day("apps/home/talents/foo.md") is False
 
     # Future dates are not historical
-    assert _is_historical_day("29991231/agents/flow.md") is False
+    assert _is_historical_day("29991231/talents/flow.md") is False
 
     # Path without slash is not historical
     assert _is_historical_day("20240101") is False
     assert _is_historical_day("") is False
 
     # Day paths before today are historical (tested with a very old date)
-    assert _is_historical_day("20000101/agents/flow.md") is True
+    assert _is_historical_day("20000101/talents/flow.md") is True
 
 
 def test_scan_journal_full_mode(journal_fixture):
@@ -672,10 +672,10 @@ def test_find_formattable_files(journal_fixture):
     paths = set(files.keys())
 
     # Daily agent outputs
-    assert "20240101/agents/flow.md" in paths
+    assert "20240101/talents/flow.md" in paths
 
     # Segment agent outputs
-    assert "20240101/default/100000_300/agents/screen.md" in paths
+    assert "20240101/default/100000_300/talents/screen.md" in paths
 
     # Facet content
     assert "facets/work/events/20240101.jsonl" in paths
@@ -759,7 +759,7 @@ def test_search_journal_returns_counts():
     assert "counts" in result
     counts = result["counts"]
     assert "facets" in counts
-    assert "agents" in counts
+    assert "talents" in counts
     assert "recent_days" in counts
     assert "top_days" in counts
     assert "bucketed_days" in counts
@@ -818,7 +818,7 @@ def test_search_journal_truncates_large_results():
             "score": 1.0,
         }
     ]
-    fake_counts = {"facets": [], "agents": [], "days": []}
+    fake_counts = {"facets": [], "talents": [], "days": []}
 
     with (
         patch("think.tools.search.search_journal_impl", return_value=(1, fake_results)),
@@ -909,9 +909,9 @@ def test_light_scan_removes_deleted_today_segment(tmp_path):
     today = datetime.now().strftime("%Y%m%d")
     day_dir = journal / today
     day_dir.mkdir(parents=True)
-    agents_dir = day_dir / "agents"
-    agents_dir.mkdir()
-    output_file = agents_dir / "flow.md"
+    talents_dir = day_dir / "talents"
+    talents_dir.mkdir()
+    output_file = talents_dir / "flow.md"
     output_file.write_text("# Today Flow\n\nWorked on unique_today_content.\n")
 
     # Initial scan
@@ -943,9 +943,9 @@ def test_light_scan_preserves_historical_content(tmp_path):
     # Create historical day content
     day_dir = journal / "chronicle" / "20200101"
     day_dir.mkdir(parents=True)
-    agents_dir = day_dir / "agents"
-    agents_dir.mkdir()
-    output_file = agents_dir / "flow.md"
+    talents_dir = day_dir / "talents"
+    talents_dir.mkdir()
+    output_file = talents_dir / "flow.md"
     output_file.write_text("# Historical Flow\n\nWorked on historical_content.\n")
 
     # Full scan to index historical content
@@ -978,9 +978,9 @@ def test_full_scan_removes_historical_content(tmp_path):
     # Create historical day content
     day_dir = journal / "chronicle" / "20200101"
     day_dir.mkdir(parents=True)
-    agents_dir = day_dir / "agents"
-    agents_dir.mkdir()
-    output_file = agents_dir / "flow.md"
+    talents_dir = day_dir / "talents"
+    talents_dir.mkdir()
+    output_file = talents_dir / "flow.md"
     output_file.write_text("# Historical Flow\n\nWorked on historical_full_test.\n")
 
     # Full scan to index historical content
@@ -1007,7 +1007,7 @@ def test_index_file_valid(journal_fixture):
     from think.indexer.journal import index_file, search_journal
 
     # Index a specific file
-    result = index_file(str(journal_fixture), "20240101/agents/flow.md", verbose=True)
+    result = index_file(str(journal_fixture), "20240101/talents/flow.md", verbose=True)
     assert result is True
 
     # Should be searchable
@@ -1019,7 +1019,7 @@ def test_index_file_absolute_path(journal_fixture):
     """Test indexing with absolute path."""
     from think.indexer.journal import index_file, search_journal
 
-    abs_path = str(journal_fixture / "chronicle" / "20240101" / "agents" / "flow.md")
+    abs_path = str(journal_fixture / "chronicle" / "20240101" / "talents" / "flow.md")
     result = index_file(str(journal_fixture), abs_path, verbose=True)
     assert result is True
 
@@ -1057,13 +1057,13 @@ def test_index_file_updates_existing(journal_fixture):
     from think.indexer.journal import index_file, search_journal
 
     # Index the file
-    index_file(str(journal_fixture), "20240101/agents/flow.md")
+    index_file(str(journal_fixture), "20240101/talents/flow.md")
 
     # Get initial count
     total1, _ = search_journal("project alpha")
 
     # Re-index the same file
-    index_file(str(journal_fixture), "20240101/agents/flow.md")
+    index_file(str(journal_fixture), "20240101/talents/flow.md")
 
     # Count should be the same (not doubled)
     total2, _ = search_journal("project alpha")
@@ -1117,7 +1117,7 @@ def test_extract_stream_segment_path(tmp_path):
     write_segment_stream(seg_dir, "archon", None, None, 1)
 
     result = _extract_stream(
-        str(tmp_path), "20240101/default/123456_300/agents/work/flow.md"
+        str(tmp_path), "20240101/default/123456_300/talents/work/flow.md"
     )
     assert result == "archon"
 
@@ -1126,7 +1126,7 @@ def test_extract_stream_non_segment_path(tmp_path):
     """_extract_stream returns None for non-segment paths."""
     from think.indexer.journal import _extract_stream
 
-    result = _extract_stream(str(tmp_path), "20240101/agents/flow.md")
+    result = _extract_stream(str(tmp_path), "20240101/talents/flow.md")
     assert result is None
 
     result = _extract_stream(str(tmp_path), "facets/work/events/20240101.jsonl")
@@ -1141,7 +1141,7 @@ def test_extract_stream_missing_marker(tmp_path):
     seg_dir.mkdir(parents=True)
 
     result = _extract_stream(
-        str(tmp_path), "20240101/default/123456_300/agents/work/flow.md"
+        str(tmp_path), "20240101/default/123456_300/talents/work/flow.md"
     )
     assert result is None
 
@@ -1467,7 +1467,7 @@ def test_scan_signals_deletion(tmp_path):
     conn.close()
     assert initial == 45
 
-    kg_file = dst / "chronicle" / "20240101" / "agents" / "knowledge_graph.md"
+    kg_file = dst / "chronicle" / "20240101" / "talents" / "knowledge_graph.md"
     kg_file.unlink()
 
     scan_journal(j, full=True)
@@ -1711,10 +1711,10 @@ class TestSegmentChunks:
         scan_journal(str(journal_fixture), verbose=True, full=True)
         conn, _ = get_journal_index(str(journal_fixture))
         screen_chunks = conn.execute(
-            "SELECT count(*) FROM chunks WHERE path='20240101/default/100000_300/agents/screen.md'"
+            "SELECT count(*) FROM chunks WHERE path='20240101/default/100000_300/talents/screen.md'"
         ).fetchone()[0]
         activity_chunks = conn.execute(
-            "SELECT count(*) FROM chunks WHERE path='20240101/default/100000_300/agents/activity.md'"
+            "SELECT count(*) FROM chunks WHERE path='20240101/default/100000_300/talents/activity.md'"
         ).fetchone()[0]
         segment_chunks = conn.execute(
             "SELECT count(*) FROM chunks WHERE agent='segment'"

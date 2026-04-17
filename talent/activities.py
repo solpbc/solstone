@@ -46,13 +46,13 @@ logger = logging.getLogger(__name__)
 
 def _list_facets_with_activity_state(day: str, segment: str, stream: str) -> list[str]:
     """Find all facets that have activity_state.json in a segment."""
-    agents_dir = segment_path(day, segment, stream) / "agents"
-    if not agents_dir.is_dir():
+    talents_dir = segment_path(day, segment, stream) / "talents"
+    if not talents_dir.is_dir():
         return []
 
     facets = []
-    for entry in sorted(os.listdir(agents_dir)):
-        entry_path = agents_dir / entry
+    for entry in sorted(os.listdir(talents_dir)):
+        entry_path = talents_dir / entry
         if entry_path.is_dir() and (entry_path / "activity_state.json").exists():
             facets.append(entry)
     return facets
@@ -61,7 +61,7 @@ def _list_facets_with_activity_state(day: str, segment: str, stream: str) -> lis
 def _load_activity_state(day: str, segment: str, facet: str, stream: str) -> list[dict]:
     """Load activity_state.json for a facet in a segment. Returns [] on failure."""
     state_path = (
-        segment_path(day, segment, stream) / "agents" / facet / "activity_state.json"
+        segment_path(day, segment, stream) / "talents" / facet / "activity_state.json"
     )
     if not state_path.exists():
         return []

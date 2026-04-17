@@ -38,7 +38,7 @@ def _active_entity_ids(facet: str, day: str, attached: list[dict]) -> set[str]:
 
 
 def _load_knowledge_graph(day: str) -> str:
-    kg_path = day_path(day, create=False) / "agents" / "knowledge_graph.md"
+    kg_path = day_path(day, create=False) / "talents" / "knowledge_graph.md"
     if not kg_path.exists():
         return "No knowledge graph available for this day."
 

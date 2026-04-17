@@ -124,7 +124,7 @@ def _extract_screen_participants(seg_dir: Path) -> list[str]:
     screen.md captures video-call participant panels.  The content is
     free-form markdown so extraction is best-effort.
     """
-    screen_path = seg_dir / "agents" / "screen.md"
+    screen_path = seg_dir / "talents" / "screen.md"
     if not screen_path.exists():
         return []
     try:
@@ -159,7 +159,7 @@ def _extract_screen_participants(seg_dir: Path) -> list[str]:
 
 def _extract_meeting_participants(day: str, segment_key: str) -> list[str]:
     """Extract participant names from daily meetings.md."""
-    meetings_path = day_path(day) / "agents" / "meetings.md"
+    meetings_path = day_path(day) / "talents" / "meetings.md"
     if not meetings_path.exists():
         return []
     try:
@@ -462,17 +462,17 @@ def save_speaker_labels(
     labels: list[dict],
     metadata: dict[str, Any],
 ) -> Path:
-    """Write speaker_labels.json to the segment's agents/ directory.
+    """Write speaker_labels.json to the segment's talents/ directory.
 
     Preserves user corrections: if speaker_corrections.json exists, any
     sentence that was corrected by the user keeps the corrected attribution
     rather than being overwritten by a fresh pipeline run.
     """
-    agents_dir = seg_dir / "agents"
-    agents_dir.mkdir(parents=True, exist_ok=True)
+    talents_dir = seg_dir / "talents"
+    talents_dir.mkdir(parents=True, exist_ok=True)
 
     # Load existing corrections to preserve user overrides
-    corr_path = agents_dir / "speaker_corrections.json"
+    corr_path = talents_dir / "speaker_corrections.json"
     corrected: dict[int, dict] = {}
     if corr_path.is_file():
         try:
@@ -509,7 +509,7 @@ def save_speaker_labels(
             seg_dir,
         )
 
-    out_path = agents_dir / "speaker_labels.json"
+    out_path = talents_dir / "speaker_labels.json"
     data = {
         "labels": labels,
         "owner_centroid_version": metadata.get("owner_centroid_version"),
@@ -653,7 +653,7 @@ def _has_audio_embeddings(seg_dir: Path) -> bool:
 
 def _has_speaker_labels(seg_dir: Path) -> bool:
     """Check if the segment already has speaker_labels.json."""
-    return (seg_dir / "agents" / "speaker_labels.json").exists()
+    return (seg_dir / "talents" / "speaker_labels.json").exists()
 
 
 def backfill_segments(

@@ -183,7 +183,7 @@ def search_journal(
         day_buckets = _bucket_day_counts(dict(counts_data["days"]))
         counts = {
             "facets": dict(counts_data["facets"]),
-            "agents": dict(counts_data["agents"]),
+            "talents": dict(counts_data["talents"]),
             **day_buckets,
         }
 

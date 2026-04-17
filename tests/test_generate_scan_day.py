@@ -16,22 +16,22 @@ def copy_day(tmp_path: Path) -> Path:
     dest = day_path("20240101")
     src = FIXTURES / "journal" / "chronicle" / "20240101"
     copytree_tracked(src, dest)
-    agents_dir = dest / "agents"
-    agents_dir.mkdir(exist_ok=True)  # Allow existing directory
-    (agents_dir / "flow.md").write_text("done")
+    talents_dir = dest / "talents"
+    talents_dir.mkdir(exist_ok=True)  # Allow existing directory
+    (talents_dir / "flow.md").write_text("done")
     return dest
 
 
 def test_scan_day(tmp_path, monkeypatch):
-    mod = importlib.import_module("think.agents")
+    mod = importlib.import_module("think.talents")
     day_dir = copy_day(tmp_path)
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
     info = mod.scan_day("20240101")
-    assert "agents/flow.md" in info["processed"]
-    assert "agents/timeline.md" in info["repairable"]
+    assert "talents/flow.md" in info["processed"]
+    assert "talents/timeline.md" in info["repairable"]
 
-    (day_dir / "agents" / "timeline.md").write_text("done")
+    (day_dir / "talents" / "timeline.md").write_text("done")
     info_after = mod.scan_day("20240101")
-    assert "agents/timeline.md" in info_after["processed"]
-    assert "agents/timeline.md" not in info_after["repairable"]
+    assert "talents/timeline.md" in info_after["processed"]
+    assert "talents/timeline.md" not in info_after["repairable"]

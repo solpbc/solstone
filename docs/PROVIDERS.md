@@ -113,7 +113,7 @@ async def run_cogitate(
 ) -> str:
 ```
 
-**Config dict fields** (see `think/agents.py` `main_async()` for routing logic):
+**Config dict fields** (see `think/talents.py` `main_async()` for routing logic):
 - `prompt`: User's input (required)
 - `model`: Model identifier
 - `max_tokens`: Output token limit
@@ -121,7 +121,7 @@ async def run_cogitate(
 - `extra_context`: Runtime context (facets, insights list, datetime) as first user message
 - `user_instruction`: Agent-specific prompt as second user message
 - `tools`: Optional list of allowed tool names
-- `agent_id`, `name`: Identity for logging and tool calls
+- `use_id`, `name`: Identity for logging and tool calls
 - `session_id`: CLI session ID for conversation continuation
 - `chat_id`: Chat ID for reverse lookup from agent to chat
 
@@ -217,7 +217,7 @@ usage_dict = {
 Context strings determine provider and model selection. Providers receive already-resolved models, but understanding the system helps:
 
 **Context naming convention:**
-- Talent configs (agents/generators): `talent.{source}.{name}` where source is `system` or app name
+- Talent configs (talents/generators): `talent.{source}.{name}` where source is `system` or app name
   - System: `talent.system.meetings`, `talent.system.default`
   - App: `talent.entities.observer`, `talent.chat.helper`
 - Other contexts: `{module}.{feature}[.{operation}]`
@@ -358,7 +358,7 @@ from cloud providers:
 
 **Registry:**
 7. Add provider to `PROVIDER_REGISTRY` in `think/providers/__init__.py`
-8. Add routing case in `think/agents.py` `main_async()` (around line 331)
+8. Add routing case in `think/talents.py` `main_async()` (around line 331)
 
 **Settings UI:**
 9. Add provider to `PROVIDER_METADATA` in `think/providers/__init__.py` with `label` and `env_key`

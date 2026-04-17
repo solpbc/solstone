@@ -24,11 +24,11 @@ def test_cluster_full(tmp_path, monkeypatch):
     copy_day(tmp_path)
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     md, counts = mod.cluster(
-        "20240101", sources={"transcripts": True, "percepts": False, "agents": True}
+        "20240101", sources={"transcripts": True, "percepts": False, "talents": True}
     )
     # Transcript entries come from 2 segments on 20240101 (default + import.apple)
     assert counts["transcripts"] == 2
-    assert counts["agents"] == 2  # audio.md + screen.md
+    assert counts["talents"] == 2  # audio.md + screen.md
     assert "### Transcript" in md
     # Now uses insight format: "### {stem} summary"
     assert "### screen summary" in md
@@ -40,7 +40,7 @@ def test_cluster_default_sources(tmp_path, monkeypatch):
     copy_day(tmp_path)
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     out, _counts = mod.cluster(
-        "20240101", sources={"transcripts": True, "percepts": False, "agents": True}
+        "20240101", sources={"transcripts": True, "percepts": False, "talents": True}
     )
     # Now uses insight format: "### {stem} summary"
     assert "### screen summary" in out
@@ -54,7 +54,7 @@ def test_cluster_range_raw_screen(tmp_path, monkeypatch):
         "20240101",
         "123456",
         "123556",
-        sources={"transcripts": True, "percepts": True, "agents": False},
+        sources={"transcripts": True, "percepts": True, "talents": False},
     )
     # Range mode with screen=True uses raw screen data.
     assert "### Screen Activity" in out

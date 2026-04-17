@@ -32,10 +32,10 @@ def _make_segment(
     if screen:
         (seg_dir / "screen.jsonl").write_text('{"t":0}\n')
     if agents:
-        agents_dir = seg_dir / "agents"
-        agents_dir.mkdir()
+        talents_dir = seg_dir / "talents"
+        talents_dir.mkdir()
         for name in agents:
-            (agents_dir / name).write_text("# agent output\n")
+            (talents_dir / name).write_text("# agent output\n")
     return seg_dir
 
 
@@ -143,7 +143,7 @@ def test_list_json(tmp_path, monkeypatch, capsys):
     assert isinstance(data, list)
     assert data[0]["stream"] == "default"
     assert data[0]["segment"] == "090000_300"
-    assert data[0]["agents"] == 1
+    assert data[0]["talents"] == 1
 
 
 def test_list_empty_day(tmp_path, monkeypatch, capsys):

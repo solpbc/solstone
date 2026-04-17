@@ -127,7 +127,7 @@ def test_deep_merge_full(speakers_env):
         / "20240101"
         / STREAM
         / "143022_300"
-        / "agents"
+        / "talents"
         / "speaker_labels.json"
     )
     with open(labels_path) as f:
@@ -142,7 +142,7 @@ def test_deep_merge_full(speakers_env):
         / "20240101"
         / STREAM
         / "143022_300"
-        / "agents"
+        / "talents"
         / "speaker_corrections.json"
     )
     with open(corr_path) as f:
@@ -418,7 +418,7 @@ def test_speaker_labels_rewritten(speakers_env):
         / "20240101"
         / STREAM
         / "143022_300"
-        / "agents"
+        / "talents"
         / "speaker_labels.json"
     )
     with open(labels_path) as f:
@@ -459,7 +459,7 @@ def test_speaker_corrections_rewritten(speakers_env):
         / "20240101"
         / STREAM
         / "143022_300"
-        / "agents"
+        / "talents"
         / "speaker_corrections.json"
     )
     with open(corr_path) as f:
@@ -493,7 +493,7 @@ def test_fast_path_skips_unrelated_files(speakers_env):
         / "20240101"
         / STREAM
         / "143022_300"
-        / "agents"
+        / "talents"
         / "speaker_labels.json"
     )
     mtime_before = labels_path.stat().st_mtime_ns
@@ -511,9 +511,9 @@ def test_corrupted_labels_logged_not_aborted(speakers_env):
     env.create_entity("Corrupt Canon")
 
     # Write corrupted file containing the alias_id string
-    agents_dir = env.journal / "20240101" / STREAM / "143022_300" / "agents"
-    agents_dir.mkdir(parents=True, exist_ok=True)
-    (agents_dir / "speaker_labels.json").write_text("corrupt_alias {not valid json")
+    talents_dir = env.journal / "20240101" / STREAM / "143022_300" / "talents"
+    talents_dir.mkdir(parents=True, exist_ok=True)
+    (talents_dir / "speaker_labels.json").write_text("corrupt_alias {not valid json")
 
     result = merge_names("Corrupt Alias", "Corrupt Canon")
 

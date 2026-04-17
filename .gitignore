@@ -8,7 +8,7 @@ logs/
 *.mp3
 *.flac
 .coverage
-tests/fixtures/journal/agents/*/*.jsonl
+tests/fixtures/journal/talents/*/*.jsonl
 tests/fixtures/journal/tokens/*.json
 tests/fixtures/journal/*/health/*_dream.jsonl
 tests/fixtures/journal/chronicle/*/health/*_dream.jsonl

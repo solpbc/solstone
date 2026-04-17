@@ -11,7 +11,7 @@ Directory Structure:
       routes.py            # Optional: Flask blueprint (for custom routes beyond index)
       background.html      # Optional: Background service
       app.json             # Optional: Metadata overrides
-      agents/              # Optional: Custom agents
+      talents/              # Optional: Custom agents
       tests/               # Optional: App-specific tests
 
 Naming Rules:

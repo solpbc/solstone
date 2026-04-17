@@ -179,7 +179,7 @@ def _attribution_section() -> dict[str, Any]:
             for seg_dir in sorted(stream_dir.iterdir()):
                 if not seg_dir.is_dir():
                     continue
-                labels_file = seg_dir / "agents" / "speaker_labels.json"
+                labels_file = seg_dir / "talents" / "speaker_labels.json"
                 if not labels_file.exists():
                     continue
                 try:

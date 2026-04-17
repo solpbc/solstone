@@ -1016,7 +1016,7 @@ class TestFormatEvents:
                 "title": "Project kickoff",
                 "start": "14:00:00",
                 "occurred": False,
-                "source": "20240101/agents/schedule.md",
+                "source": "20240101/talents/schedule.md",
                 "participants": ["Alice", "Bob"],
             }
         ]
@@ -1039,7 +1039,7 @@ class TestFormatEvents:
                 "title": "Team standup",
                 "start": "09:00:00",
                 "occurred": True,
-                "source": "20240101/agents/meetings.md",
+                "source": "20240101/talents/meetings.md",
                 "participants": ["Alice"],
             }
         ]
@@ -1168,7 +1168,7 @@ class TestFormatMarkdown:
         """Test pattern matching for .md files."""
         from think.formatters import get_formatter
 
-        formatter = get_formatter("20240101/agents/flow.md")
+        formatter = get_formatter("20240101/talents/flow.md")
         assert formatter is not None
         assert formatter.__name__ == "format_markdown"
 
@@ -1176,7 +1176,7 @@ class TestFormatMarkdown:
         """Test pattern matching for segment screen.md files."""
         from think.formatters import get_formatter
 
-        formatter = get_formatter("20240101/default/123456_300/agents/screen.md")
+        formatter = get_formatter("20240101/default/123456_300/talents/screen.md")
         assert formatter is not None
         assert formatter.__name__ == "format_markdown"
 
@@ -1282,7 +1282,7 @@ class TestFormatMarkdown:
 
         path = (
             Path(os.environ["_SOLSTONE_JOURNAL_OVERRIDE"])
-            / "chronicle/20240101/agents/flow.md"
+            / "chronicle/20240101/talents/flow.md"
         )
         chunks, meta = format_file(path)
 
@@ -1296,7 +1296,7 @@ class TestFormatMarkdown:
 
         path = (
             Path(os.environ["_SOLSTONE_JOURNAL_OVERRIDE"])
-            / "chronicle/20240101/agents/flow.md"
+            / "chronicle/20240101/talents/flow.md"
         )
         text = load_markdown(path)
 
@@ -1373,7 +1373,7 @@ class TestExtractPathMetadata:
         """Test day extraction from daily agent output path."""
         from think.formatters import extract_path_metadata
 
-        meta = extract_path_metadata("20240101/agents/flow.md")
+        meta = extract_path_metadata("20240101/talents/flow.md")
         assert meta["day"] == "20240101"
         assert meta["facet"] == ""
         assert meta["agent"] == "flow"
@@ -1382,7 +1382,7 @@ class TestExtractPathMetadata:
         """Test day and agent extraction from segment markdown."""
         from think.formatters import extract_path_metadata
 
-        meta = extract_path_metadata("20240101/100000/agents/screen.md")
+        meta = extract_path_metadata("20240101/100000/talents/screen.md")
         assert meta["day"] == "20240101"
         assert meta["facet"] == ""
         assert meta["agent"] == "screen"
@@ -1445,7 +1445,7 @@ class TestExtractPathMetadata:
         """Test app output path extraction."""
         from think.formatters import extract_path_metadata
 
-        meta = extract_path_metadata("apps/myapp/agents/custom.md")
+        meta = extract_path_metadata("apps/myapp/talents/custom.md")
         assert meta["day"] == ""
         assert meta["facet"] == ""
         assert meta["agent"] == "myapp:custom"
@@ -1727,7 +1727,7 @@ class TestFormatLogs:
         assert "- text: Test task" in chunks[0]["markdown"]
 
     def test_format_logs_with_agent_id(self):
-        """Test that agent_id renders as a link."""
+        """Test that use_id renders as a link."""
         from think.facets import format_logs
 
         entries = [
@@ -1737,7 +1737,7 @@ class TestFormatLogs:
                 "actor": "entities",
                 "action": "entity_attach",
                 "params": {"type": "Person", "name": "Alice"},
-                "agent_id": "1765870373972",
+                "use_id": "1765870373972",
             }
         ]
 

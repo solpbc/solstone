@@ -17,7 +17,7 @@ def segment_dir(tmp_path, monkeypatch):
     day_dir = journal / "chronicle" / "20240115"
     segment_path = day_dir / "default" / "120000_300"
     segment_path.mkdir(parents=True)
-    (segment_path / "agents").mkdir(parents=True)
+    (segment_path / "talents").mkdir(parents=True)
 
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
     return segment_path
@@ -57,7 +57,7 @@ def _segment_configs(*names: str) -> dict[str, dict]:
 
 
 def _write_sense_output(segment_dir: Path, sense_json: dict) -> None:
-    (segment_dir / "agents" / "sense.json").write_text(
+    (segment_dir / "talents" / "sense.json").write_text(
         json.dumps(sense_json),
         encoding="utf-8",
     )
@@ -74,13 +74,13 @@ class TestLoadSegmentFacets:
     def test_empty_file_returns_empty(self, segment_dir):
         from think.facets import load_segment_facets
 
-        (segment_dir / "agents" / "facets.json").write_text("")
+        (segment_dir / "talents" / "facets.json").write_text("")
         assert load_segment_facets("20240115", "120000_300") == []
 
     def test_empty_array_returns_empty(self, segment_dir):
         from think.facets import load_segment_facets
 
-        (segment_dir / "agents" / "facets.json").write_text("[]")
+        (segment_dir / "talents" / "facets.json").write_text("[]")
         assert load_segment_facets("20240115", "120000_300") == []
 
     def test_valid_facets_extracted(self, segment_dir):
@@ -90,21 +90,21 @@ class TestLoadSegmentFacets:
             {"facet": "work", "activity": "Code review", "level": "high"},
             {"facet": "personal", "activity": "Email check", "level": "low"},
         ]
-        (segment_dir / "agents" / "facets.json").write_text(json.dumps(facets_data))
+        (segment_dir / "talents" / "facets.json").write_text(json.dumps(facets_data))
 
         assert load_segment_facets("20240115", "120000_300") == ["work", "personal"]
 
     def test_malformed_json_returns_empty(self, segment_dir, caplog):
         from think.facets import load_segment_facets
 
-        (segment_dir / "agents" / "facets.json").write_text("{ invalid json")
+        (segment_dir / "talents" / "facets.json").write_text("{ invalid json")
         assert load_segment_facets("20240115", "120000_300") == []
         assert "Failed to parse facets.json" in caplog.text
 
     def test_non_array_returns_empty(self, segment_dir, caplog):
         from think.facets import load_segment_facets
 
-        (segment_dir / "agents" / "facets.json").write_text('{"facet": "work"}')
+        (segment_dir / "talents" / "facets.json").write_text('{"facet": "work"}')
         assert load_segment_facets("20240115", "120000_300") == []
         assert "not an array" in caplog.text
 
@@ -116,7 +116,7 @@ class TestLoadSegmentFacets:
             {"activity": "Unknown"},
             {"facet": "personal", "activity": "Email"},
         ]
-        (segment_dir / "agents" / "facets.json").write_text(json.dumps(facets_data))
+        (segment_dir / "talents" / "facets.json").write_text(json.dumps(facets_data))
 
         assert load_segment_facets("20240115", "120000_300") == ["work", "personal"]
 
@@ -144,7 +144,7 @@ class TestRunSegmentSense:
         monkeypatch.setattr(
             dream,
             "wait_for_agents",
-            lambda agent_ids, timeout=600: ({aid: "finish" for aid in agent_ids}, []),
+            lambda use_ids, timeout=600: ({aid: "finish" for aid in use_ids}, []),
         )
         monkeypatch.setattr(dream, "_callosum", None)
 
@@ -198,7 +198,7 @@ class TestRunSegmentSense:
         monkeypatch.setattr(
             dream,
             "wait_for_agents",
-            lambda agent_ids, timeout=600: ({aid: "finish" for aid in agent_ids}, []),
+            lambda use_ids, timeout=600: ({aid: "finish" for aid in use_ids}, []),
         )
         monkeypatch.setattr(dream, "_callosum", None)
 
@@ -221,7 +221,7 @@ class TestRunSegmentSense:
                 "20240115",
             )
         ]
-        density = json.loads((segment_dir / "agents" / "density.json").read_text())
+        density = json.loads((segment_dir / "talents" / "density.json").read_text())
         assert density["classification"] == "idle"
 
         # Verify activity state persisted even on idle path
@@ -256,7 +256,7 @@ class TestRunSegmentSense:
         monkeypatch.setattr(
             dream,
             "wait_for_agents",
-            lambda agent_ids, timeout=600: ({aid: "finish" for aid in agent_ids}, []),
+            lambda use_ids, timeout=600: ({aid: "finish" for aid in use_ids}, []),
         )
         monkeypatch.setattr(dream, "_callosum", None)
 
@@ -316,7 +316,7 @@ class TestRunSegmentSense:
         monkeypatch.setattr(
             dream,
             "wait_for_agents",
-            lambda agent_ids, timeout=600: ({aid: "finish" for aid in agent_ids}, []),
+            lambda use_ids, timeout=600: ({aid: "finish" for aid in use_ids}, []),
         )
         monkeypatch.setattr(dream, "_callosum", None)
 
@@ -352,7 +352,7 @@ class TestRunSegmentSense:
         monkeypatch.setattr(
             dream,
             "wait_for_agents",
-            lambda agent_ids, timeout=600: ({aid: "finish" for aid in agent_ids}, []),
+            lambda use_ids, timeout=600: ({aid: "finish" for aid in use_ids}, []),
         )
         monkeypatch.setattr(dream, "_callosum", None)
 
@@ -393,7 +393,7 @@ class TestRunSegmentSense:
         monkeypatch.setattr(
             dream,
             "wait_for_agents",
-            lambda agent_ids, timeout=600: ({aid: "finish" for aid in agent_ids}, []),
+            lambda use_ids, timeout=600: ({aid: "finish" for aid in use_ids}, []),
         )
         monkeypatch.setattr(dream, "_callosum", None)
 
@@ -432,7 +432,7 @@ class TestRunSegmentSense:
         monkeypatch.setattr(
             dream,
             "wait_for_agents",
-            lambda agent_ids, timeout=600: ({aid: "finish" for aid in agent_ids}, []),
+            lambda use_ids, timeout=600: ({aid: "finish" for aid in use_ids}, []),
         )
         monkeypatch.setattr(dream, "_callosum", None)
 
@@ -466,8 +466,8 @@ class TestRunSegmentSense:
             lambda prompt, name, config=None: spawned.append(name) or f"agent-{name}",
         )
 
-        def mock_wait_for_agents(agent_ids, timeout=600):
-            return ({agent_ids[0]: "error"}, [])
+        def mock_wait_for_agents(use_ids, timeout=600):
+            return ({use_ids[0]: "error"}, [])
 
         monkeypatch.setattr(dream, "wait_for_agents", mock_wait_for_agents)
         monkeypatch.setattr(dream, "_callosum", None)
@@ -530,7 +530,7 @@ class TestRunSegmentSense:
         monkeypatch.setattr(
             dream,
             "wait_for_agents",
-            lambda agent_ids, timeout=600: ({aid: "finish" for aid in agent_ids}, []),
+            lambda use_ids, timeout=600: ({aid: "finish" for aid in use_ids}, []),
         )
         monkeypatch.setattr(
             dream,
@@ -582,7 +582,7 @@ class TestRunSegmentSense:
             segment_dir,
             {"density": "active", "recommend": {}, "facets": []},
         )
-        (segment_dir / "agents" / "entities.md").write_text(
+        (segment_dir / "talents" / "entities.md").write_text(
             "entities", encoding="utf-8"
         )
 
@@ -607,7 +607,7 @@ class TestRunSegmentSense:
         monkeypatch.setattr(
             dream,
             "wait_for_agents",
-            lambda agent_ids, timeout=600: ({aid: "finish" for aid in agent_ids}, []),
+            lambda use_ids, timeout=600: ({aid: "finish" for aid in use_ids}, []),
         )
         monkeypatch.setattr(
             dream,
@@ -653,7 +653,7 @@ class TestRunSegmentSense:
         monkeypatch.setattr(
             dream,
             "wait_for_agents",
-            lambda agent_ids, timeout=600: ({aid: "finish" for aid in agent_ids}, []),
+            lambda use_ids, timeout=600: ({aid: "finish" for aid in use_ids}, []),
         )
         monkeypatch.setattr(dream, "_callosum", None)
 
@@ -942,7 +942,7 @@ class TestDreamJSONLEvents:
         monkeypatch.setattr(
             dream,
             "wait_for_agents",
-            lambda agent_ids, timeout=600: ({aid: "finish" for aid in agent_ids}, []),
+            lambda use_ids, timeout=600: ({aid: "finish" for aid in use_ids}, []),
         )
         monkeypatch.setattr(dream, "_callosum", None)
         monkeypatch.setattr(dream, "_jsonl", writer)
@@ -997,7 +997,7 @@ class TestDreamJSONLEvents:
         monkeypatch.setattr(
             dream,
             "wait_for_agents",
-            lambda agent_ids, timeout=600: ({aid: "finish" for aid in agent_ids}, []),
+            lambda use_ids, timeout=600: ({aid: "finish" for aid in use_ids}, []),
         )
         monkeypatch.setattr(dream, "_callosum", None)
         monkeypatch.setattr(dream, "_jsonl", writer)

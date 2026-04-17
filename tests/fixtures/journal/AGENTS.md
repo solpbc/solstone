@@ -732,7 +732,7 @@ The `logs/` directory within each facet records facet-scoped actions. Logs are o
     "text": "Review project proposal"
   },
   "facet": "work",
-  "agent_id": "1765870373972"
+  "use_id": "1765870373972"
 }
 ```
 
@@ -746,7 +746,7 @@ Both log types share the same structure:
 - `action` – Action name (e.g., "todo_add", "identity_update")
 - `params` – Action-specific parameters
 - `facet` – Facet name (only present in facet-scoped logs)
-- `agent_id` – Agent ID (only present for agent tool actions)
+- `use_id` – Agent ID (only present for agent tool actions)
 
 These logs enable auditing, debugging, and potential rollback of automated actions.
 
@@ -777,7 +777,7 @@ Each line in a token log file is a JSON object with the following structure:
 Required fields:
 - `timestamp` – Unix timestamp in milliseconds (13 digits)
 - `model` – Model identifier (e.g., "gemini-2.5-flash", "gpt-5", "claude-sonnet-4-5")
-- `context` – Calling context (e.g., "agent.name.agent_id" or "module.function:line")
+- `context` – Calling context (e.g., "agent.name.use_id" or "module.function:line")
 - `usage` – Token counts dictionary with normalized field names
 
 Optional fields:
@@ -799,12 +799,12 @@ The `agents/` directory stores event logs for all AI agent sessions managed by C
 
 **Directory layout:**
 - `<name>/` – per-agent subdirectory (e.g., `default/`, `entities--observer/`)
-- `<name>/<agent_id>_active.jsonl` – currently running agent (renamed when complete)
-- `<name>/<agent_id>.jsonl` – completed agent session
+- `<name>/<use_id>_active.jsonl` – currently running agent (renamed when complete)
+- `<name>/<use_id>.jsonl` – completed agent session
 - `<name>.log` – symlink to the latest completed run for each agent name
 - `<day>.jsonl` – day index with one summary line per agent that completed on that day
 
-The `agent_id` is a Unix timestamp in milliseconds that uniquely identifies the session.
+The `use_id` is a Unix timestamp in milliseconds that uniquely identifies the session.
 
 **Event format (JSONL):**
 
@@ -1039,8 +1039,8 @@ There are two types of events:
 - **Anticipations** – future scheduled events extracted from calendar views (`occurred: false`)
 
 ```jsonl
-{"type": "meeting", "start": "09:00:00", "end": "09:30:00", "title": "Team stand-up", "summary": "Status update with the engineering team", "work": true, "participants": ["Jeremie Miller", "Alice", "Bob"], "facet": "work", "agent": "meetings", "occurred": true, "source": "20250101/agents/meetings.md", "details": "Sprint planning discussion"}
-{"type": "deadline", "date": "2025-01-15", "start": null, "end": null, "title": "Project milestone", "summary": "Q1 deliverable due", "work": true, "participants": [], "facet": "work", "agent": "schedule", "occurred": false, "source": "20250101/agents/schedule.md", "details": "Final review before release"}
+{"type": "meeting", "start": "09:00:00", "end": "09:30:00", "title": "Team stand-up", "summary": "Status update with the engineering team", "work": true, "participants": ["Jeremie Miller", "Alice", "Bob"], "facet": "work", "agent": "meetings", "occurred": true, "source": "20250101/talents/meetings.md", "details": "Sprint planning discussion"}
+{"type": "deadline", "date": "2025-01-15", "start": null, "end": null, "title": "Project milestone", "summary": "Q1 deliverable due", "work": true, "participants": [], "facet": "work", "agent": "schedule", "occurred": false, "source": "20250101/talents/schedule.md", "details": "Final review before release"}
 ```
 
 **Common fields:**

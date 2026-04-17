@@ -57,14 +57,14 @@ def record_exchange(
     user_message: str = "",
     agent_response: str = "",
     talent: str = "",
-    agent_id: str = "",
+    use_id: str = "",
 ) -> None:
     """Record a conversation exchange to journal storage.
 
     Writes to two locations:
     1. conversation/exchanges.jsonl — append-only quick-read index
-    2. YYYYMMDD/conversation/HHMMSS_1/agents/conversation.md — journal entry
-       for FTS5 search indexing (matches */*/*/agents/*.md formatter pattern)
+    2. YYYYMMDD/conversation/HHMMSS_1/talents/conversation.md — journal entry
+       for FTS5 search indexing (matches */*/*/talents/*.md formatter pattern)
 
     Also runs lightweight entity extraction on the conversation text.
     """
@@ -84,7 +84,7 @@ def record_exchange(
         "user_message": user_message,
         "agent_response": agent_response,
         "talent": talent,
-        "agent_id": agent_id,
+        "use_id": use_id,
     }
 
     # 1. Append to exchanges.jsonl (fast-read index)
@@ -102,7 +102,7 @@ def record_exchange(
     time_key = dt.strftime("%H%M%S")
     segment = f"{time_key}_1"
 
-    seg_dir = day_path(day) / CONVERSATION_STREAM / segment / "agents"
+    seg_dir = day_path(day) / CONVERSATION_STREAM / segment / "talents"
     seg_dir.mkdir(parents=True, exist_ok=True)
 
     time_str = dt.strftime("%Y-%m-%d %H:%M:%S")

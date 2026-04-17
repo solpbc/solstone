@@ -10,7 +10,7 @@
   "multi_facet": true,
   "group": "Todos",
   "load": {
-    "agents": True,
+    "talents": True,
     "journal": True
   }
 }

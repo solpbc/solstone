@@ -95,7 +95,7 @@ def _resolve_attention(awareness_current: dict) -> AttentionItem | None:
 
         journal = Path(get_journal())
         today = datetime.now().strftime("%Y%m%d")
-        day_index = journal / "agents" / f"{today}.jsonl"
+        day_index = journal / "talents" / f"{today}.jsonl"
         if day_index.exists():
             errors: dict[str, float] = {}
             successes: dict[str, float] = {}
@@ -170,13 +170,13 @@ def _resolve_attention(awareness_current: dict) -> AttentionItem | None:
             from datetime import datetime
             from pathlib import Path
 
-            from think.utils import get_journal
+            from think.utils import day_path, get_journal
 
             journal = Path(get_journal())
             today = datetime.now().strftime("%Y%m%d")
-            agents_dir = journal / today / "agents"
-            if agents_dir.is_dir():
-                outputs = sorted(p.stem for p in agents_dir.glob("*.md"))
+            talents_dir = day_path(today, create=False) / "talents"
+            if talents_dir.is_dir():
+                outputs = sorted(p.stem for p in talents_dir.glob("*.md"))
                 if outputs:
                     count = len(outputs)
                     placeholder = (

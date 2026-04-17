@@ -37,10 +37,10 @@ def test_seed_agents_md_creates_all_files(journal_path):
     result = _run_main(journal_path)
 
     assert result.returncode == 0
-    agents_path = journal_path / "AGENTS.md"
+    talents_path = journal_path / "AGENTS.md"
     claude_path = journal_path / "CLAUDE.md"
     gemini_path = journal_path / "GEMINI.md"
-    assert agents_path.read_text(encoding="utf-8") == docs_text
+    assert talents_path.read_text(encoding="utf-8") == docs_text
     assert claude_path.is_symlink()
     assert claude_path.readlink() == Path("AGENTS.md")
     assert gemini_path.is_symlink()
@@ -49,12 +49,12 @@ def test_seed_agents_md_creates_all_files(journal_path):
 
 def test_seed_agents_md_is_noop_when_already_seeded(journal_path):
     docs_text = Path("docs/JOURNAL.md").read_text(encoding="utf-8")
-    agents_path = journal_path / "AGENTS.md"
-    agents_path.write_text(docs_text, encoding="utf-8")
+    talents_path = journal_path / "AGENTS.md"
+    talents_path.write_text(docs_text, encoding="utf-8")
     (journal_path / "CLAUDE.md").symlink_to("AGENTS.md")
     (journal_path / "GEMINI.md").symlink_to("AGENTS.md")
     before = {
-        "agents": agents_path.stat().st_mtime_ns,
+        "talents": talents_path.stat().st_mtime_ns,
         "claude": (journal_path / "CLAUDE.md").lstat().st_mtime_ns,
         "gemini": (journal_path / "GEMINI.md").lstat().st_mtime_ns,
     }
@@ -62,7 +62,7 @@ def test_seed_agents_md_is_noop_when_already_seeded(journal_path):
     result = _run_main(journal_path)
 
     after = {
-        "agents": agents_path.stat().st_mtime_ns,
+        "talents": talents_path.stat().st_mtime_ns,
         "claude": (journal_path / "CLAUDE.md").lstat().st_mtime_ns,
         "gemini": (journal_path / "GEMINI.md").lstat().st_mtime_ns,
     }
@@ -71,8 +71,8 @@ def test_seed_agents_md_is_noop_when_already_seeded(journal_path):
 
 
 def test_seed_agents_md_refreshes_on_drift(journal_path):
-    agents_path = journal_path / "AGENTS.md"
-    agents_path.write_text("stale content", encoding="utf-8")
+    talents_path = journal_path / "AGENTS.md"
+    talents_path.write_text("stale content", encoding="utf-8")
     (journal_path / "CLAUDE.md").symlink_to("AGENTS.md")
     (journal_path / "GEMINI.md").symlink_to("AGENTS.md")
     docs_text = Path("docs/JOURNAL.md").read_text(encoding="utf-8")
@@ -80,4 +80,4 @@ def test_seed_agents_md_refreshes_on_drift(journal_path):
     result = _run_main(journal_path)
 
     assert result.returncode == 0
-    assert agents_path.read_text(encoding="utf-8") == docs_text
+    assert talents_path.read_text(encoding="utf-8") == docs_text

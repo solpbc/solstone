@@ -80,7 +80,7 @@ def parse_knowledge_graph_entities(day: str) -> list[str]:
         >>> parse_knowledge_graph_entities("20260108")
         ["Jeremie Miller (Jer)", "Neal Satterfield", "Flightline", ...]
     """
-    kg_path = day_path(day, create=False) / "agents" / "knowledge_graph.md"
+    kg_path = day_path(day, create=False) / "talents" / "knowledge_graph.md"
 
     if not kg_path.exists():
         return []

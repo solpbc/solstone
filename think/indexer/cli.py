@@ -31,7 +31,7 @@ def _display_counts(counts: dict[str, Any], top_n: int = 5) -> None:
     """Display aggregated counts in a compact table format."""
     total = counts["total"]
     facets = counts["facets"]  # Counter
-    agents = counts["agents"]  # Counter
+    agents = counts["talents"]  # Counter
     days = counts["days"]  # Counter
 
     print(f"Total: {total:,} chunks\n")

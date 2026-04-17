@@ -203,12 +203,12 @@ def test_claude_main(monkeypatch, tmp_path, capsys):
         importlib.import_module("think.providers.anthropic")
     )
     _setup_claude_cli_stub(monkeypatch, provider_mod)
-    mod = importlib.reload(importlib.import_module("think.agents"))
+    mod = importlib.reload(importlib.import_module("think.talents"))
 
     journal = tmp_path / "journal"
     journal.mkdir()
-    agents_dir = journal / "agents"
-    agents_dir.mkdir()
+    talents_dir = journal / "talents"
+    talents_dir.mkdir()
 
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
     monkeypatch.setenv("ANTHROPIC_API_KEY", "x")
@@ -221,7 +221,7 @@ def test_claude_main(monkeypatch, tmp_path, capsys):
             "tools": ["search_insights"],
         }
     )
-    asyncio.run(run_main(mod, ["sol agents"], stdin_data=ndjson_input))
+    asyncio.run(run_main(mod, ["think.talents"], stdin_data=ndjson_input))
 
     out_lines = capsys.readouterr().out.strip().splitlines()
     events = [json.loads(line) for line in out_lines]
@@ -246,12 +246,12 @@ def test_claude_outfile(monkeypatch, tmp_path, capsys):
         importlib.import_module("think.providers.anthropic")
     )
     _setup_claude_cli_stub(monkeypatch, provider_mod)
-    mod = importlib.reload(importlib.import_module("think.agents"))
+    mod = importlib.reload(importlib.import_module("think.talents"))
 
     journal = tmp_path / "journal"
     journal.mkdir()
-    agents_dir = journal / "agents"
-    agents_dir.mkdir()
+    talents_dir = journal / "talents"
+    talents_dir.mkdir()
 
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
     monkeypatch.setenv("ANTHROPIC_API_KEY", "x")
@@ -264,7 +264,7 @@ def test_claude_outfile(monkeypatch, tmp_path, capsys):
             "tools": ["search_insights"],
         }
     )
-    asyncio.run(run_main(mod, ["sol agents"], stdin_data=ndjson_input))
+    asyncio.run(run_main(mod, ["think.talents"], stdin_data=ndjson_input))
 
     # Output file functionality was removed in NDJSON-only mode
     # Check stdout instead
@@ -293,12 +293,12 @@ def test_claude_thinking_events(monkeypatch, tmp_path, capsys):
         importlib.import_module("think.providers.anthropic")
     )
     _setup_claude_cli_stub(monkeypatch, provider_mod, with_thinking=True)
-    mod = importlib.reload(importlib.import_module("think.agents"))
+    mod = importlib.reload(importlib.import_module("think.talents"))
 
     journal = tmp_path / "journal"
     journal.mkdir()
-    agents_dir = journal / "agents"
-    agents_dir.mkdir()
+    talents_dir = journal / "talents"
+    talents_dir.mkdir()
 
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
     monkeypatch.setenv("ANTHROPIC_API_KEY", "x")
@@ -311,7 +311,7 @@ def test_claude_thinking_events(monkeypatch, tmp_path, capsys):
             "tools": ["search_insights"],
         }
     )
-    asyncio.run(run_main(mod, ["sol agents"], stdin_data=ndjson_input))
+    asyncio.run(run_main(mod, ["think.talents"], stdin_data=ndjson_input))
 
     out_lines = capsys.readouterr().out.strip().splitlines()
     events = [json.loads(line) for line in out_lines]
@@ -335,12 +335,12 @@ def test_claude_redacted_thinking_events(monkeypatch, tmp_path, capsys):
         importlib.import_module("think.providers.anthropic")
     )
     _setup_claude_cli_stub(monkeypatch, provider_mod, with_redacted_thinking=True)
-    mod = importlib.reload(importlib.import_module("think.agents"))
+    mod = importlib.reload(importlib.import_module("think.talents"))
 
     journal = tmp_path / "journal"
     journal.mkdir()
-    agents_dir = journal / "agents"
-    agents_dir.mkdir()
+    talents_dir = journal / "talents"
+    talents_dir.mkdir()
 
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
     monkeypatch.setenv("ANTHROPIC_API_KEY", "x")
@@ -353,7 +353,7 @@ def test_claude_redacted_thinking_events(monkeypatch, tmp_path, capsys):
             "tools": ["search_insights"],
         }
     )
-    asyncio.run(run_main(mod, ["sol agents"], stdin_data=ndjson_input))
+    asyncio.run(run_main(mod, ["think.talents"], stdin_data=ndjson_input))
 
     out_lines = capsys.readouterr().out.strip().splitlines()
     events = [json.loads(line) for line in out_lines]
@@ -375,12 +375,12 @@ def test_claude_outfile_error(monkeypatch, tmp_path, capsys):
         importlib.import_module("think.providers.anthropic")
     )
     _setup_claude_cli_stub(monkeypatch, provider_mod, error=True)
-    mod = importlib.reload(importlib.import_module("think.agents"))
+    mod = importlib.reload(importlib.import_module("think.talents"))
 
     journal = tmp_path / "journal"
     journal.mkdir()
-    agents_dir = journal / "agents"
-    agents_dir.mkdir()
+    talents_dir = journal / "talents"
+    talents_dir.mkdir()
 
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
     monkeypatch.setenv("ANTHROPIC_API_KEY", "x")
@@ -393,7 +393,7 @@ def test_claude_outfile_error(monkeypatch, tmp_path, capsys):
             "tools": ["search_insights"],
         }
     )
-    asyncio.run(run_main(mod, ["sol agents"], stdin_data=ndjson_input))
+    asyncio.run(run_main(mod, ["think.talents"], stdin_data=ndjson_input))
 
     # Error events should be written to stdout
     out_lines = capsys.readouterr().out.strip().splitlines()

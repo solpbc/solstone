@@ -188,10 +188,10 @@ def speakers_env(tmp_path, monkeypatch):
                 segment_key: Segment key (HHMMSS_LEN)
                 speakers: List of speaker names
             """
-            agents_dir = self.journal / day / STREAM / segment_key / "agents"
-            agents_dir.mkdir(parents=True, exist_ok=True)
+            talents_dir = self.journal / day / STREAM / segment_key / "talents"
+            talents_dir.mkdir(parents=True, exist_ok=True)
 
-            speakers_path = agents_dir / "speakers.json"
+            speakers_path = talents_dir / "speakers.json"
             with open(speakers_path, "w", encoding="utf-8") as f:
                 json.dump(speakers, f)
 
@@ -214,8 +214,8 @@ def speakers_env(tmp_path, monkeypatch):
                 metadata: Optional extra metadata (owner_centroid_version,
                     voiceprint_versions)
             """
-            agents_dir = self.journal / day / STREAM / segment_key / "agents"
-            agents_dir.mkdir(parents=True, exist_ok=True)
+            talents_dir = self.journal / day / STREAM / segment_key / "talents"
+            talents_dir.mkdir(parents=True, exist_ok=True)
 
             data = {"labels": labels}
             if metadata:
@@ -224,7 +224,7 @@ def speakers_env(tmp_path, monkeypatch):
                 data["owner_centroid_version"] = None
                 data["voiceprint_versions"] = {}
 
-            labels_path = agents_dir / "speaker_labels.json"
+            labels_path = talents_dir / "speaker_labels.json"
             with open(labels_path, "w", encoding="utf-8") as f:
                 json.dump(data, f)
 
@@ -247,13 +247,13 @@ def speakers_env(tmp_path, monkeypatch):
                     original_speaker, corrected_speaker, timestamp
                 stream: Optional stream name (defaults to STREAM)
             """
-            agents_dir = (
-                self.journal / day / (stream or STREAM) / segment_key / "agents"
+            talents_dir = (
+                self.journal / day / (stream or STREAM) / segment_key / "talents"
             )
-            agents_dir.mkdir(parents=True, exist_ok=True)
+            talents_dir.mkdir(parents=True, exist_ok=True)
 
             data = {"corrections": corrections}
-            corrections_path = agents_dir / "speaker_corrections.json"
+            corrections_path = talents_dir / "speaker_corrections.json"
             with open(corrections_path, "w", encoding="utf-8") as f:
                 json.dump(data, f)
 

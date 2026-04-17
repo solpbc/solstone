@@ -281,7 +281,7 @@ Define custom generator prompts that integrate with solstone's output generation
 - Create `talent/` directory with `.md` files containing JSON frontmatter
 - App generators are automatically discovered alongside system generators
 - Keys are namespaced as `{app}:{agent}` (e.g., `my_app:weekly_summary`)
-- Outputs go to `JOURNAL/YYYYMMDD/agents/_<app>_<agent>.md` (or `.json` if `output: "json"`)
+- Outputs go to `JOURNAL/YYYYMMDD/talents/_<app>_<agent>.md` (or `.json` if `output: "json"`)
 
 **Metadata format:** Same schema as system generators in `talent/*.md` - JSON frontmatter includes `title`, `description`, `color`, `schedule` (required), `priority` (required for scheduled prompts), `hook`, `output`, `max_output_tokens`, and `thinking_budget` fields. The `schedule` field must be `"segment"` or `"daily"`. The `priority` field is required for all scheduled prompts - prompts without explicit priority will fail validation. Set `output: "json"` for structured JSON output instead of markdown. Optional `max_output_tokens` sets the maximum response length; `thinking_budget` sets the model's thinking token budget (provider-specific defaults apply if omitted). Generators reject a `cwd` field entirely; working-directory control is only available for `type: "cogitate"` prompts.
 
@@ -307,7 +307,7 @@ The `occurrences` field (optional string) provides agent-specific extraction gui
 }
 ```
 
-**App-data outputs:** For outputs from app-specific data (not transcripts), store in `JOURNAL/apps/{app}/agents/*.md` - these are automatically indexed.
+**App-data outputs:** For outputs from app-specific data (not transcripts), store in `JOURNAL/apps/{app}/talents/*.md` - these are automatically indexed.
 
 **Template variables:** Generator prompts can use template variables like `$name`, `$preferred`, `$daily_preamble`, and context variables like `$day` and `$day_YYYYMMDD`. See [PROMPT_TEMPLATES.md](PROMPT_TEMPLATES.md) for the complete template system documentation.
 
@@ -321,13 +321,13 @@ The `occurrences` field (optional string) provides agent-specific extraction gui
 - Resolution: `"name"` → `talent/{name}.py`, `"app:name"` → `apps/{app}/talent/{name}.py`, or explicit path
 
 **Pre-hooks** (`pre_process`): Modify inputs before the LLM call
-- `context` is the full config dict with: `name`, `agent_id`, `provider`, `model`, `prompt`, `system_instruction` (if set), `user_instruction`, `output`, `meta`, and for generators: `day`, `segment`, `span`, `span_mode`, `transcript`, `output_path`
+- `context` is the full config dict with: `name`, `use_id`, `provider`, `model`, `prompt`, `system_instruction` (if set), `user_instruction`, `output`, `meta`, and for generators: `day`, `segment`, `span`, `span_mode`, `transcript`, `output_path`
 - Return a dict of modified fields to merge back (e.g., `{"prompt": "modified"}`)
 - Return `None` for no changes
 
 **Post-hooks** (`post_process`): Transform output after the LLM call
 - `result` is the LLM output (markdown or JSON string)
-- `context` is the full config dict with: `name`, `agent_id`, `provider`, `model`, `prompt`, `output`, `meta`, and for generators: `day`, `segment`, `span`, `span_mode`, `transcript`, `output_path`
+- `context` is the full config dict with: `name`, `use_id`, `provider`, `model`, `prompt`, `output`, `meta`, and for generators: `day`, `segment`, `span`, `span_mode`, `transcript`, `output_path`
 - Return modified string, or `None` to use original result
 
 **Flush hooks:** Segment agents can declare `"hook": {"flush": true}` to participate in segment flush. When no new segments arrive for an extended period, the supervisor triggers `sol dream --flush --segment <last>`, which runs only flush-enabled agents with `context["flush"] = True` and `context["refresh"] = True`. This lets agents close out dangling state (e.g., end active activities that would otherwise wait indefinitely for the next segment). The timeout is managed by the supervisor — agents should trust the flush signal without their own timeout logic.
@@ -361,7 +361,7 @@ Define custom agents and generator templates that integrate with solstone's Cort
 - Create `talent/` directory with `.md` files containing JSON frontmatter
 - Both agents and generators live in the same directory - distinguished by frontmatter fields
 - Agents have a `tools` field, generators have `schedule` but no `tools`
-- App agents/generators are automatically discovered alongside system ones
+- App talents/generators are automatically discovered alongside system ones
 - Keys are namespaced as `{app}:{name}` (e.g., `my_app:helper`)
 - Agents inherit all system agent capabilities (tools, scheduling, multi-facet)
 
@@ -371,7 +371,7 @@ Define custom agents and generator templates that integrate with solstone's Cort
 
 **Reference implementations:**
 - System agent examples: `talent/*.md` (files with `tools` field)
-- Discovery logic: `think/talent.py` - `get_talent_configs(has_tools=True)`, `get_agent()`
+- Discovery logic: `think/talent.py` - `get_talent_configs(has_tools=True)`, `get_talent()`
 
 #### Prompt Context Configuration
 
@@ -379,7 +379,7 @@ Both generators and agents support an optional `load` key for configuring source
 
 ```json
 {
-  "load": {"transcripts": true, "percepts": false, "agents": {"screen": true}}
+  "load": {"transcripts": true, "percepts": false, "talents": {"screen": true}}
 }
 ```
 
@@ -394,7 +394,7 @@ Context is provided inline in the `.md` body via template variables:
 - `$facets` - focused facet context or all available facets
 - `$activity_context` - activity metadata, segment state, and analysis focus sections
 
-**Authoritative source:** `think/talent.py` - `_DEFAULT_LOAD`, `source_is_enabled()`, `source_is_required()`, `get_agent_filter()`
+**Authoritative source:** `think/talent.py` - `_DEFAULT_LOAD`, `source_is_enabled()`, `source_is_required()`, `get_talent_filter()`
 
 ---
 
@@ -535,7 +535,7 @@ Available in `convey/utils.py`:
 - `format_date(date_str)` - Format YYYYMMDD as "Wednesday January 14th"
 
 ### Agent Spawning
-- `spawn_agent(prompt, name, provider, config)` - Spawn Cortex agent, returns agent_id
+- `spawn_agent(prompt, name, provider, config)` - Spawn Cortex agent, returns use_id
 
 ### JSON Utilities
 - `load_json(path)` - Load JSON file with error handling (returns None on error)

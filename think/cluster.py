@@ -211,15 +211,15 @@ def _process_segment(
                     file=sys.stderr,
                 )
 
-    # Process agent output summaries from agents/**/*.md files (with optional filtering)
+    # Process agent output summaries from talents/**/*.md files (with optional filtering)
     if agents:
         # Convert bool to filter: True -> None (all), False handled by outer if
         agent_filter = (
             None if agents is True else agents if isinstance(agents, dict) else None
         )
-        agents_dir = segment_path / "agents"
-        if agents_dir.is_dir():
-            for md_file in sorted(agents_dir.rglob("*.md")):
+        talents_dir = segment_path / "talents"
+        if talents_dir.is_dir():
+            for md_file in sorted(talents_dir.rglob("*.md")):
                 if not md_file.is_file():
                     continue
 
@@ -230,7 +230,7 @@ def _process_segment(
                 try:
                     content = md_file.read_text()
                     if content.strip():
-                        rel_md_path = md_file.relative_to(agents_dir).as_posix()
+                        rel_md_path = md_file.relative_to(talents_dir).as_posix()
                         entries.append(
                             {
                                 "timestamp": segment_start,
@@ -240,7 +240,7 @@ def _process_segment(
                                 "prefix": "agent_output",
                                 "output_name": md_file.stem,
                                 "content": content,
-                                "name": f"{segment_path.name}/agents/{rel_md_path}",
+                                "name": f"{segment_path.name}/talents/{rel_md_path}",
                                 "stream": stream,
                             }
                         )
@@ -299,16 +299,16 @@ def _count_by_source(entries: list[dict[str, Any]]) -> dict[str, int]:
     Maps the internal prefix names to source config names:
     - "transcript" -> "transcripts"
     - "percept" -> "percepts"
-    - "agent_output" -> "agents"
+    - "agent_output" -> "talents"
 
     Returns:
-        Dict with counts for each source type, e.g., {"transcripts": 2, "percepts": 1, "agents": 0}
+        Dict with counts for each source type, e.g., {"transcripts": 2, "percepts": 1, "talents": 0}
     """
     # Map internal prefix to source config name
     prefix_to_source = {
         "transcript": "transcripts",
         "percept": "percepts",
-        "agent_output": "agents",
+        "agent_output": "talents",
     }
 
     counts = Counter(prefix_to_source.get(e["prefix"], e["prefix"]) for e in entries)
@@ -317,7 +317,7 @@ def _count_by_source(entries: list[dict[str, Any]]) -> dict[str, int]:
     return {
         "transcripts": counts.get("transcripts", 0),
         "percepts": counts.get("percepts", 0),
-        "agents": counts.get("agents", 0),
+        "talents": counts.get("talents", 0),
     }
 
 
@@ -539,16 +539,16 @@ def cluster(
 
     Args:
         day: Day in YYYYMMDD format
-        sources: Dict with keys "transcripts", "percepts", "agents".
+        sources: Dict with keys "transcripts", "percepts", "talents".
             Values can be bool, "required" string, or dict (for agents).
-            The "agents" source can be a dict for selective filtering,
+            The "talents" source can be a dict for selective filtering,
             e.g., {"entities": True, "meetings": "required"}.
 
     Returns:
         Tuple of (markdown, source_counts) where source_counts is a dict
-        with keys "transcripts", "percepts", "agents" mapping to entry counts.
+        with keys "transcripts", "percepts", "talents" mapping to entry counts.
     """
-    empty_counts = {"transcripts": 0, "screen": 0, "agents": 0}
+    empty_counts = {"transcripts": 0, "screen": 0, "talents": 0}
 
     day_dir = str(day_path(day))
     # day_path now ensures dir exists, but check anyway for safety
@@ -559,7 +559,7 @@ def cluster(
         day_dir,
         transcripts=sources.get("transcripts", False),
         percepts=sources.get("percepts", False),
-        agents=sources.get("agents", False),
+        agents=sources.get("talents", False),
     )
     if not entries:
         return (
@@ -583,15 +583,15 @@ def cluster_period(
     Args:
         day: Day in YYYYMMDD format
         segment: Segment key in HHMMSS_LEN format (e.g., "163045_300")
-        sources: Dict with keys "transcripts", "percepts", "agents".
+        sources: Dict with keys "transcripts", "percepts", "talents".
             Values can be bool, "required" string, or dict (for agents).
         stream: Stream name. If None, searches all streams for the segment.
 
     Returns:
         Tuple of (markdown, source_counts) where source_counts is a dict
-        with keys "transcripts", "percepts", "agents" mapping to entry counts.
+        with keys "transcripts", "percepts", "talents" mapping to entry counts.
     """
-    empty_counts = {"transcripts": 0, "screen": 0, "agents": 0}
+    empty_counts = {"transcripts": 0, "screen": 0, "talents": 0}
 
     segment_dir = _find_segment_dir(day, segment, stream)
 
@@ -602,7 +602,7 @@ def cluster_period(
         str(segment_dir),
         transcripts=sources.get("transcripts", False),
         percepts=sources.get("percepts", False),
-        agents=sources.get("agents", False),
+        agents=sources.get("talents", False),
     )
     if not entries:
         return (
@@ -660,18 +660,18 @@ def cluster_span(
     Args:
         day: Day in YYYYMMDD format
         span: List of segment keys in HHMMSS_LEN format (e.g., ["163045_300", "170000_600"])
-        sources: Dict with keys "transcripts", "percepts", "agents".
+        sources: Dict with keys "transcripts", "percepts", "talents".
             Values can be bool, "required" string, or dict (for agents).
         stream: Stream name. If None, searches all streams for each segment.
 
     Returns:
         Tuple of (markdown, source_counts) where source_counts is a dict
-        with keys "transcripts", "percepts", "agents" mapping to entry counts.
+        with keys "transcripts", "percepts", "talents" mapping to entry counts.
 
     Raises:
         ValueError: If any segment directories are missing
     """
-    empty_counts = {"transcripts": 0, "screen": 0, "agents": 0}
+    empty_counts = {"transcripts": 0, "screen": 0, "talents": 0}
 
     # Validate all segments in span exist upfront (fail fast)
     missing = []
@@ -693,7 +693,7 @@ def cluster_span(
             str(seg_dir),
             transcripts=sources.get("transcripts", False),
             percepts=sources.get("percepts", False),
-            agents=sources.get("agents", False),
+            agents=sources.get("talents", False),
         )
         entries.extend(segment_entries)
 
@@ -735,7 +735,7 @@ def cluster_range(
         day: Day in YYYYMMDD format
         start: Start time in HHMMSS format
         end: End time in HHMMSS format
-        sources: Dict with keys "transcripts", "percepts", "agents".
+        sources: Dict with keys "transcripts", "percepts", "talents".
             Values can be bool, "required" string, or dict (for agents).
     """
     day_dir = str(day_path(day))
@@ -747,7 +747,7 @@ def cluster_range(
         day_dir,
         transcripts=sources.get("transcripts", False),
         percepts=sources.get("percepts", False),
-        agents=sources.get("agents", False),
+        agents=sources.get("talents", False),
     )
     # Include segments that overlap with the requested range
     entries = [

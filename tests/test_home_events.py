@@ -32,7 +32,7 @@ class TestRecordTriageExchange:
                 "tract": "cortex",
                 "event": "finish",
                 "name": "reviewer",
-                "agent_id": "123",
+                "use_id": "123",
                 "result": "hello",
             }
         )
@@ -41,7 +41,7 @@ class TestRecordTriageExchange:
             mock_record.assert_not_called()
 
     def test_ignores_missing_agent_id(self):
-        """Handler returns early if agent_id is missing."""
+        """Handler returns early if use_id is missing."""
         ctx = self._make_ctx(
             {
                 "tract": "cortex",
@@ -61,7 +61,7 @@ class TestRecordTriageExchange:
             {
                 "event": "request",
                 "ts": 1700000000000,
-                "agent_id": "abc123",
+                "use_id": "abc123",
                 "facet": "work",
                 "app": "home",
                 "path": "/home",
@@ -70,7 +70,7 @@ class TestRecordTriageExchange:
             {
                 "event": "finish",
                 "ts": 1700000001000,
-                "agent_id": "abc123",
+                "use_id": "abc123",
                 "result": "hi there",
             },
         ]
@@ -79,7 +79,7 @@ class TestRecordTriageExchange:
                 "tract": "cortex",
                 "event": "finish",
                 "name": agent_name,
-                "agent_id": "abc123",
+                "use_id": "abc123",
                 "result": "hi there",
             }
         )
@@ -93,20 +93,20 @@ class TestRecordTriageExchange:
                     user_message="hello world",
                     agent_response="hi there",
                     talent=agent_name,
-                    agent_id="abc123",
+                    use_id="abc123",
                 )
 
     def test_handles_missing_request_event(self):
         """Handler uses empty strings for metadata if request event not found."""
         events = [
-            {"event": "finish", "agent_id": "abc123", "result": "done"},
+            {"event": "finish", "use_id": "abc123", "result": "done"},
         ]
         ctx = self._make_ctx(
             {
                 "tract": "cortex",
                 "event": "finish",
                 "name": "unified",
-                "agent_id": "abc123",
+                "use_id": "abc123",
                 "result": "done",
             }
         )
@@ -120,7 +120,7 @@ class TestRecordTriageExchange:
                     user_message="",
                     agent_response="done",
                     talent="unified",
-                    agent_id="abc123",
+                    use_id="abc123",
                 )
 
     def test_handles_read_error_gracefully(self):
@@ -130,7 +130,7 @@ class TestRecordTriageExchange:
                 "tract": "cortex",
                 "event": "finish",
                 "name": "unified",
-                "agent_id": "abc123",
+                "use_id": "abc123",
                 "result": "done",
             }
         )

@@ -71,7 +71,7 @@ def test_google_main(monkeypatch, tmp_path, capsys):
     setup_google_genai_stub(monkeypatch, with_thinking=False)
     sys.modules.pop("think.providers.google", None)
     importlib.reload(importlib.import_module("think.providers.google"))
-    mod = importlib.reload(importlib.import_module("think.agents"))
+    mod = importlib.reload(importlib.import_module("think.talents"))
 
     journal = tmp_path / "journal"
     journal.mkdir()
@@ -127,7 +127,7 @@ def test_google_main(monkeypatch, tmp_path, capsys):
             "tools": ["search_insights"],
         }
     )
-    asyncio.run(run_main(mod, ["sol agents"], stdin_data=ndjson_input))
+    asyncio.run(run_main(mod, ["think.talents"], stdin_data=ndjson_input))
 
     out_lines = capsys.readouterr().out.strip().splitlines()
     events = [json.loads(line) for line in out_lines]
@@ -149,7 +149,7 @@ def test_google_cli_not_found_error(monkeypatch, tmp_path, capsys):
 
     sys.modules.pop("think.providers.google", None)
     importlib.reload(importlib.import_module("think.providers.google"))
-    mod = importlib.reload(importlib.import_module("think.agents"))
+    mod = importlib.reload(importlib.import_module("think.talents"))
 
     journal = tmp_path / "journal"
     journal.mkdir()
@@ -166,7 +166,7 @@ def test_google_cli_not_found_error(monkeypatch, tmp_path, capsys):
             "tools": ["search_insights"],
         }
     )
-    asyncio.run(run_main(mod, ["sol agents"], stdin_data=ndjson_input))
+    asyncio.run(run_main(mod, ["think.talents"], stdin_data=ndjson_input))
 
     # Check stdout for error event
     out_lines = capsys.readouterr().out.strip().splitlines()

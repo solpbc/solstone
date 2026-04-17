@@ -29,7 +29,7 @@ class TestLogRoute:
 
     def test_path_outside_health_dir_rejected(self, health_env):
         env = health_env()
-        resp = env.client.get("/app/health/api/log?path=20260322/agents/something.log")
+        resp = env.client.get("/app/health/api/log?path=20260322/talents/something.log")
         assert resp.status_code == 400
 
     def test_missing_file_returns_404(self, health_env):

@@ -302,13 +302,13 @@ def _run_routine(routine: dict, event_context: dict | None = None) -> None:
         )
 
         callosum_send("routines", "started", routine_id=routine_id, name=name)
-        agent_id = cortex_request(
+        use_id = cortex_request(
             prompt=prompt,
             name="routine",
             config={"output_path": str(output_path), "output": "md"},
         )
 
-        if agent_id is None:
+        if use_id is None:
             duration = int(time.monotonic() - start_time)
             logger.error("Failed to start routine %s", routine_id)
             _log_health(routine_id, name, duration, "error")
@@ -323,11 +323,11 @@ def _run_routine(routine: dict, event_context: dict | None = None) -> None:
             )
             return
 
-        completed, timed_out = wait_for_agents([agent_id], timeout=600)
-        if agent_id in timed_out:
+        completed, timed_out = wait_for_agents([use_id], timeout=600)
+        if use_id in timed_out:
             outcome = "timeout"
         else:
-            end_state = completed.get(agent_id, "error")
+            end_state = completed.get(use_id, "error")
             outcome = "success" if end_state == "finish" else "error"
 
         duration = int(time.monotonic() - start_time)

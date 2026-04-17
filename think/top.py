@@ -74,7 +74,7 @@ class ServiceManager:
         self.dream_last_completed = {}  # Last dream/completed event
         self.dream_running = False  # Whether a dream run is active
 
-        # Agents health tracking (from health/agents.json file)
+        # Agents health tracking (from health/talents.json file)
         self.agents_health = None  # Parsed agents.json dict, or None
         self.agents_health_ts = 0.0  # Last time health file was read
         self.AGENTS_HEALTH_INTERVAL = 30  # Seconds between file re-reads
@@ -762,7 +762,7 @@ class ServiceManager:
         return self.displayed_mode
 
     def _load_agents_health(self) -> None:
-        """Read and cache health/agents.json from the journal."""
+        """Read and cache health/talents.json from the journal."""
         self.agents_health_ts = time.time()
         try:
             path = Path(get_journal()) / "health" / "agents.json"

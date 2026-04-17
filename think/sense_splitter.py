@@ -28,7 +28,7 @@ def write_sense_outputs(
     sense_json: dict, seg_dir: Path, stream: str | None = None
 ) -> None:
     """Write unified Sense output into per-agent files."""
-    agents_dir = seg_dir / "agents"
+    talents_dir = seg_dir / "talents"
 
     density = sense_json.get("density") or "active"
     activity_summary = sense_json.get("activity_summary") or ""
@@ -36,10 +36,10 @@ def write_sense_outputs(
     meeting_detected = bool(sense_json.get("meeting_detected"))
     speakers = sense_json.get("speakers") or []
 
-    _write_text_atomic(agents_dir / "activity.md", activity_summary)
-    _write_json_atomic(agents_dir / "facets.json", facets)
+    _write_text_atomic(talents_dir / "activity.md", activity_summary)
+    _write_json_atomic(talents_dir / "facets.json", facets)
     _write_json_atomic(
-        agents_dir / "density.json",
+        talents_dir / "density.json",
         {
             "classification": density,
             "transcript_lines": 0,
@@ -47,16 +47,16 @@ def write_sense_outputs(
             "timestamp": datetime.now(tz=timezone.utc).isoformat(),
         },
     )
-    _write_json_atomic(agents_dir / "sense.json", sense_json)
+    _write_json_atomic(talents_dir / "sense.json", sense_json)
 
     if meeting_detected:
-        _write_json_atomic(agents_dir / "speakers.json", speakers)
+        _write_json_atomic(talents_dir / "speakers.json", speakers)
 
 
 def write_idle_stubs(seg_dir: Path) -> None:
     """Write minimal idle output files for a segment."""
     _write_json_atomic(
-        seg_dir / "agents" / "density.json",
+        seg_dir / "talents" / "density.json",
         {
             "classification": "idle",
             "transcript_lines": 0,
