@@ -30,6 +30,9 @@ def _repair_symlink(path: Path) -> int:
     return 0
 
 
+# AGENTS.md is derived from docs/JOURNAL.md. Drift-detection: direct content
+# compare. Hand-edit policy: overwrite on mismatch with stderr warning
+# (prior content recoverable from git history).
 def main() -> int:
     parser = argparse.ArgumentParser(description="Seed journal AGENTS.md symlinks.")
     setup_cli(parser)
@@ -41,20 +44,20 @@ def main() -> int:
     claude_path = journal / "CLAUDE.md"
     gemini_path = journal / "GEMINI.md"
 
-    if (
-        agents_path.exists()
-        and _symlink_points_to_agents(claude_path)
-        and _symlink_points_to_agents(gemini_path)
-    ):
-        print("all journal agent files already present")
-        return 0
-
     try:
         journal_md = (repo_root / "docs" / "JOURNAL.md").read_text(encoding="utf-8")
 
         if not agents_path.exists():
             agents_path.write_text(journal_md, encoding="utf-8")
             print("created AGENTS.md")
+        elif agents_path.read_text(encoding="utf-8") != journal_md:
+            agents_path.write_text(journal_md, encoding="utf-8")
+            print(
+                "AGENTS.md content differed from docs/JOURNAL.md; refreshing "
+                "(previous content preserved in git history)",
+                file=sys.stderr,
+            )
+            print("refreshed AGENTS.md")
 
         for path in (claude_path, gemini_path):
             if _symlink_points_to_agents(path):

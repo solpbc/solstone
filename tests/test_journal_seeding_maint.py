@@ -70,13 +70,14 @@ def test_seed_agents_md_is_noop_when_already_seeded(journal_path):
     assert before == after
 
 
-def test_seed_agents_md_does_not_refresh_existing_agents_md(journal_path):
+def test_seed_agents_md_refreshes_on_drift(journal_path):
     agents_path = journal_path / "AGENTS.md"
     agents_path.write_text("stale content", encoding="utf-8")
     (journal_path / "CLAUDE.md").symlink_to("AGENTS.md")
     (journal_path / "GEMINI.md").symlink_to("AGENTS.md")
+    docs_text = Path("docs/JOURNAL.md").read_text(encoding="utf-8")
 
     result = _run_main(journal_path)
 
     assert result.returncode == 0
-    assert agents_path.read_text(encoding="utf-8") == "stale content"
+    assert agents_path.read_text(encoding="utf-8") == docs_text
