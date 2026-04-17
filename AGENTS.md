@@ -1,6 +1,6 @@
 # solstone Developer Guide
 
-This is the developer-facing documentation for the solstone codebase. If you're an AI agent working **inside a journal**, read the journal's own `AGENTS.md` instead — it's seeded from `docs/JOURNAL.md` and tells you about the journal layout.
+This is the developer-facing documentation for the solstone codebase. If you're an AI agent working **inside a journal**, read the journal template at `journal/AGENTS.md`; journal-side agents discover the full layout and CLI reference via `.claude/skills/journal/` or `.agents/skills/journal/`.
 
 ## Key Concepts
 
@@ -63,7 +63,3 @@ For deeper material, see:
 - `docs/coding-standards.md`
 - `docs/testing.md`
 - `docs/environment.md`
-
-## Known limitations
-
-- Per-journal `AGENTS.md` files are seeded once at journal init by `apps/sol/maint/003_seed_agents_md.py`. They are not automatically refreshed if `docs/JOURNAL.md` changes upstream. Re-seed manually by deleting the journal's `AGENTS.md` and restarting the supervisor.

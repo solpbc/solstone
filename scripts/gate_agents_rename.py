@@ -61,8 +61,6 @@ def is_allowed(path: Path) -> bool:
         return True
     if path == Path("scripts/gate_agents_rename.py"):
         return True
-    if path_str.startswith(".agents/skills/"):
-        return True
     if ALLOWLIST_RE.match(path_str):
         return True
     return False

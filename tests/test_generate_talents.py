@@ -12,7 +12,7 @@ def test_root_agents_md_is_hand_maintained():
     assert content.startswith("# solstone Developer Guide")
     assert "generated from sol/identity.md" not in content
     assert "docs/project-structure.md" in content
-    assert "003_seed_agents_md.py" in content
+    assert "journal/AGENTS.md" in content
 
 
 def test_root_agent_symlinks_point_to_agents():
