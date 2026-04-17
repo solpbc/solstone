@@ -597,6 +597,9 @@ def test_supervisor_singleton_lock_acquired(tmp_path, monkeypatch):
     def stop_after_lock():
         raise SystemExit(0)
 
+    # Skip maint discovery/subprocess runs — unrelated to lock acquisition and
+    # slow enough on a fresh tmp_path to blow the 5s pytest-timeout under load.
+    monkeypatch.setattr(mod, "run_pending_tasks", lambda *a, **k: (0, 0))
     monkeypatch.setattr(mod, "start_callosum_in_process", stop_after_lock)
 
     with pytest.raises(SystemExit) as exc:
