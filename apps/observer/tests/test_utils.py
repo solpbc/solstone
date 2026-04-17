@@ -218,6 +218,61 @@ class TestIncrementStat:
         increment_stat("nonexistent", "segments_observed")
 
 
+class TestAtomicWriteCrashSafety:
+    """Tests for atomic write crash safety."""
+
+    def test_save_observer_crash_preserves_existing_file(
+        self, storage_env, monkeypatch
+    ):
+        """save_observer leaves prior observer data intact on replace failure."""
+        observer = {
+            "key": "testkey123456789",
+            "name": "original",
+            "stats": {},
+        }
+        assert save_observer(observer) is True
+
+        def raising_stub(*args, **kwargs):
+            raise OSError("simulated crash")
+
+        monkeypatch.setattr("think.entities.core.os.replace", raising_stub)
+
+        updated_observer = {
+            "key": "testkey123456789",
+            "name": "updated",
+            "stats": {},
+        }
+        assert save_observer(updated_observer) is False
+
+        loaded = load_observer("testkey123456789")
+        assert loaded is not None
+        assert loaded["name"] == "original"
+        assert list(storage_env.observers_dir.glob(".tmp_*")) == []
+
+    def test_increment_stat_crash_preserves_existing_file(
+        self, storage_env, monkeypatch
+    ):
+        """increment_stat leaves prior observer data intact on replace failure."""
+        observer = {
+            "key": "testkey123456789",
+            "name": "test",
+            "stats": {"events_received": 5},
+        }
+        assert save_observer(observer) is True
+
+        def raising_stub(*args, **kwargs):
+            raise OSError("simulated crash")
+
+        monkeypatch.setattr("think.entities.core.os.replace", raising_stub)
+
+        increment_stat("testkey1", "events_received")
+
+        loaded = load_observer("testkey123456789")
+        assert loaded is not None
+        assert loaded["stats"]["events_received"] == 5
+        assert list(storage_env.observers_dir.glob(".tmp_*")) == []
+
+
 class TestFindSegmentBySha256:
     """Tests for find_segment_by_sha256."""
 
