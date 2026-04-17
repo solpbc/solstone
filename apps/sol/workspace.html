@@ -1396,7 +1396,7 @@
     document.getElementById('agents-status').textContent = '';
 
     try {
-      const response = await fetch(`api/agents/${currentDay}`);
+      const response = await fetch(`api/talents/${currentDay}`);
       const data = await response.json();
 
       allRuns = data.runs || [];
@@ -1533,7 +1533,7 @@
     const badges = document.createElement('div');
     badges.className = 'agent-card-badges';
 
-    const successCount = agent.run_count - agent.failed_count;
+    const successCount = agent.run_count - talent.failed_count;
     if (successCount > 0) {
       const successBadge = document.createElement('span');
       successBadge.className = 'badge badge-success';
@@ -1541,10 +1541,10 @@
       badges.appendChild(successBadge);
     }
 
-    if (agent.failed_count > 0) {
+    if (talent.failed_count > 0) {
       const failBadge = document.createElement('span');
       failBadge.className = 'badge badge-failed';
-      failBadge.textContent = '✗ ' + agent.failed_count;
+      failBadge.textContent = '✗ ' + talent.failed_count;
       badges.appendChild(failBadge);
     }
 

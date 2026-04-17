@@ -171,7 +171,7 @@ class TestJournal:
         """Journal sub-app is registered and shows help."""
         result = runner.invoke(call_app, ["journal", "--help"])
         assert result.exit_code == 0
-        for cmd in ("search", "events", "facet", "facets", "news", "agents", "read"):
+        for cmd in ("search", "events", "facet", "facets", "news", "talents", "read"):
             assert cmd in result.output
 
     def test_journal_search(self):
@@ -235,13 +235,13 @@ class TestJournal:
 
     def test_journal_agents(self):
         """Agents command lists agent outputs for a day."""
-        result = runner.invoke(call_app, ["journal", "agents", "20240101"])
+        result = runner.invoke(call_app, ["journal", "talents", "20240101"])
         assert result.exit_code == 0
         assert "flow.md" in result.output
 
     def test_journal_agents_no_data(self):
         """Agents command reports no data for missing day."""
-        result = runner.invoke(call_app, ["journal", "agents", "19990101"])
+        result = runner.invoke(call_app, ["journal", "talents", "19990101"])
         assert result.exit_code == 0
         assert "No data" in result.output
 
@@ -993,7 +993,7 @@ class TestJournalSolEnv:
     def test_agents_from_sol_day(self, monkeypatch):
         """agents with SOL_DAY env and no arg works."""
         monkeypatch.setenv("SOL_DAY", "20240101")
-        result = runner.invoke(call_app, ["journal", "agents"])
+        result = runner.invoke(call_app, ["journal", "talents"])
         assert result.exit_code == 0
         assert "flow.md" in result.output
 

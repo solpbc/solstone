@@ -46,8 +46,8 @@ ENDPOINTS = [
     # apps/sol/routes.py
     {
         "app": "sol",
-        "name": "agents-day",
-        "path": "/app/sol/api/agents/20260304",
+        "name": "talents-day",
+        "path": "/app/sol/api/talents/20260304",
         "params": {"facet": "work"},
         "status": 200,
     },

@@ -359,7 +359,7 @@ def test_logs_runs_new_columns(capsys):
     output = capsys.readouterr().out
     lines = [line for line in output.strip().splitlines() if line.strip()]
 
-    # Find the line for agent_id 1700000000001 (has JSONL file)
+    # Find the line for use_id 1700000000001 (has JSONL file)
     enriched_line = None
     for line in lines:
         if "1700000000001" in line:
@@ -387,7 +387,7 @@ def test_logs_runs_day_filter(capsys):
     assert len(lines) == 4
     # All should be from 20231114
     for line in lines:
-        assert "1700000" in line  # all agent_ids from that day start with 1700000
+        assert "1700000" in line  # all use_ids from that day start with 1700000
 
 
 def test_logs_runs_day_filter_no_match(capsys):
@@ -488,7 +488,7 @@ def test_parse_run_stats():
     """Parse run stats extracts correct counts from fixture JSONL."""
     from pathlib import Path
 
-    jsonl = Path("tests/fixtures/journal/agents/default/1700000000001.jsonl")
+    jsonl = Path("tests/fixtures/journal/talents/default/1700000000001.jsonl")
     stats = _parse_run_stats(jsonl)
     assert stats["event_count"] == 6  # all except request
     assert stats["tool_count"] == 1  # one tool_start
@@ -502,7 +502,7 @@ def test_parse_run_stats_error():
     """Parse run stats handles error run JSONL correctly."""
     from pathlib import Path
 
-    jsonl = Path("tests/fixtures/journal/agents/flow/1700000000002.jsonl")
+    jsonl = Path("tests/fixtures/journal/talents/flow/1700000000002.jsonl")
     stats = _parse_run_stats(jsonl)
     assert stats["event_count"] == 2  # start + error (not request)
     assert stats["tool_count"] == 0

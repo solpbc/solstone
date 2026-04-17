@@ -109,10 +109,10 @@ def search(
         parts = [f"{f}:{c}" for f, c in facet_counts.most_common(10)]
         typer.echo(f"Facets: {', '.join(parts)}")
 
-    agent_counts = counts.get("agents", {})
-    if agent_counts:
-        parts = [f"{a}:{c}" for a, c in agent_counts.most_common(10)]
-        typer.echo(f"Agents: {', '.join(parts)}")
+    talent_counts = counts.get("talents", {})
+    if talent_counts:
+        parts = [f"{a}:{c}" for a, c in talent_counts.most_common(10)]
+        typer.echo(f"Talents: {', '.join(parts)}")
 
     day_counts = counts.get("days", {})
     if day_counts:
@@ -583,8 +583,8 @@ def news(
         typer.echo(entry.get("raw_content", ""))
 
 
-@app.command()
-def agents(
+@app.command(name="talents")
+def talents(
     day: str | None = typer.Argument(
         default=None, help="Day YYYYMMDD (default: SOL_DAY env)."
     ),
@@ -595,7 +595,7 @@ def agents(
         help="Segment key (HHMMSS_LEN, default: SOL_SEGMENT env).",
     ),
 ) -> None:
-    """List available agent outputs for a day."""
+    """List available talent outputs for a day."""
     day = resolve_sol_day(day)
     segment = resolve_sol_segment(segment)
     day_dir = day_path(day, create=False)
@@ -606,25 +606,25 @@ def agents(
 
     if segment:
         # List outputs in a specific segment directory
-        seg_path = day_dir / segment / "agents"
+        seg_path = day_dir / segment / "talents"
         if not seg_path.is_dir():
             typer.echo(f"Segment {segment} not found for {day}.")
             return
         _list_outputs(seg_path, f"Segment {segment}")
         return
 
-    # List daily agent outputs
-    agents_path = day_dir / "agents"
-    if agents_path.is_dir():
-        _list_outputs(agents_path, "Daily agents")
+    # List daily talent outputs
+    talents_path = day_dir / "talents"
+    if talents_path.is_dir():
+        _list_outputs(talents_path, "Daily talents")
 
     # List segments and their outputs (across all streams)
     seg_list = iter_segments(day)
     if seg_list:
         typer.echo(f"\nSegments: {len(seg_list)}")
         for stream_name, seg_key, seg_path_obj in seg_list:
-            agents_dir = seg_path_obj / "agents"
-            outputs = _get_output_names(agents_dir)
+            talents_dir = seg_path_obj / "talents"
+            outputs = _get_output_names(talents_dir)
             label = f"  {stream_name}/{seg_key}" if stream_name else f"  {seg_key}"
             if outputs:
                 typer.echo(f"{label}: {', '.join(outputs)}")
@@ -662,7 +662,7 @@ def _list_outputs(directory: Path, label: str) -> None:
 
 @app.command()
 def read(
-    agent: str = typer.Argument(help="Agent name (e.g., flow, meetings, activity)."),
+    agent: str = typer.Argument(help="Talent name (e.g., flow, meetings, activity)."),
     day: str | None = typer.Option(
         None, "--day", "-d", help="Day YYYYMMDD (default: SOL_DAY env)."
     ),
@@ -676,7 +676,7 @@ def read(
         16384, "--max", help="Max output bytes (0 = unlimited)."
     ),
 ) -> None:
-    """Read full content of an agent output."""
+    """Read full content of a talent output."""
     day = resolve_sol_day(day)
     segment = resolve_sol_segment(segment)
     day_dir = day_path(day, create=False)
@@ -686,12 +686,12 @@ def read(
         raise typer.Exit(1)
 
     if segment:
-        base_dir = day_dir / segment / "agents"
+        base_dir = day_dir / segment / "talents"
     else:
-        base_dir = day_dir / "agents"
+        base_dir = day_dir / "talents"
 
     if not base_dir.is_dir():
-        location = f"segment {segment}" if segment else "agents"
+        location = f"segment {segment}" if segment else "talents"
         typer.echo(f"No {location} directory for {day}.", err=True)
         raise typer.Exit(1)
 
@@ -706,10 +706,11 @@ def read(
     available = _get_output_names(base_dir)
     if available:
         typer.echo(
-            f"Agent '{agent}' not found. Available: {', '.join(available)}", err=True
+            f"Talent '{agent}' not found. Available: {', '.join(available)}",
+            err=True,
         )
     else:
-        typer.echo(f"Agent '{agent}' not found and no outputs exist.", err=True)
+        typer.echo(f"Talent '{agent}' not found and no outputs exist.", err=True)
     raise typer.Exit(1)
 
 
