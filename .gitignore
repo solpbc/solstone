@@ -19,7 +19,7 @@ tests/fixtures/journal/chronicle/*/health/*_dream.jsonl
 *.port
 /config*.py
 .installed
-/journal
+/journal/*
 .agents/
 .claude/
 .sandbox.pid
@@ -35,3 +35,12 @@ counts.txt
 counts_all.txt
 detections_7days.txt
 search_ping_identity.py
+!/journal/AGENTS.md
+!/journal/CLAUDE.md
+!/journal/GEMINI.md
+!/journal/.claude/
+!/journal/.claude/skills/
+!/journal/.claude/skills/**
+!/journal/.agents/
+!/journal/.agents/skills/
+!/journal/.agents/skills/**
