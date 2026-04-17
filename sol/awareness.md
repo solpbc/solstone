@@ -1,19 +1,17 @@
-as of: 2026-04-16T12:00:00
-segment: UNKNOWN
+as of: 2026-04-16T10:00:00Z
+segment: 355
 
 ## calendar
-- No events scheduled for today.
+- No events found for today.
 
 ## activity
-- Imports: Last completed 2026-04-16T00:11:26.
-- Voiceprint: Confirmed status.
-- Journal: First daily ready since 2026-04-06.
+- Journal first daily ready: True (since 20260406T17:19:27)
 
 ## routines
 - No routines configured.
 
 ## entities
-- Recent entity activity search failed.
+- Information unavailable. sol call entities search failed.
 
 ## partner
-- Jer is focused on decentralized protocols, agentic systems, and data curation.
+- Information unavailable. sol call identity self and sol/self.md are inaccessible.
