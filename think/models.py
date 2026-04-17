@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import subprocess
+import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -1024,7 +1025,7 @@ def get_backup_provider(agent_type: str) -> Optional[str]:
 
 
 def load_health_status() -> Optional[dict]:
-    """Load health status from journal/health/agents.json.
+    """Load health status from journal/health/talents.json.
 
     Returns parsed dict or None if file is missing/unreadable.
     """
@@ -1082,7 +1083,7 @@ def request_health_recheck() -> None:
     """
     try:
         subprocess.Popen(
-            ["sol", "agents", "check", "--targeted"],
+            [sys.executable, "-m", "think.providers_cli", "check", "--targeted"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
