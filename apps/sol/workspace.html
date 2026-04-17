@@ -1507,18 +1507,18 @@
   }
 
   // Render an agent card
-  function renderCard(agent) {
+  function renderCard(talent) {
     const card = document.createElement('div');
     card.className = 'agent-card';
-    card.style.borderLeftColor = agent.color;
-    card.onclick = () => showRunList(agent.name);
+    card.style.borderLeftColor = talent.color;
+    card.onclick = () => showRunList(talent.name);
     card.setAttribute('role', 'button');
     card.setAttribute('tabindex', '0');
-    card.setAttribute('aria-label', agent.title);
+    card.setAttribute('aria-label', talent.title);
     card.addEventListener('keydown', e => {
       if (e.key !== 'Enter' && e.key !== ' ') return;
       e.preventDefault();
-      showRunList(agent.name);
+      showRunList(talent.name);
     });
 
     // Header with title and badges
@@ -1527,13 +1527,13 @@
 
     const title = document.createElement('h4');
     title.className = 'agent-card-title';
-    title.textContent = agent.title;
+    title.textContent = talent.title;
     header.appendChild(title);
 
     const badges = document.createElement('div');
     badges.className = 'agent-card-badges';
 
-    const successCount = agent.run_count - talent.failed_count;
+    const successCount = talent.run_count - talent.failed_count;
     if (successCount > 0) {
       const successBadge = document.createElement('span');
       successBadge.className = 'badge badge-success';
@@ -1552,20 +1552,20 @@
     card.appendChild(header);
 
     // Description
-    if (agent.description) {
+    if (talent.description) {
       const desc = document.createElement('p');
       desc.className = 'agent-card-description';
-      desc.textContent = agent.description;
-      desc.title = agent.description;
+      desc.textContent = talent.description;
+      desc.title = talent.description;
       card.appendChild(desc);
     }
 
     // Capability badges
     const caps = [];
-    if (agent.schedule) caps.push(agent.schedule);
-    if (agent.type === 'cogitate') caps.push('tools');
-    if (agent.type === 'generate') caps.push('output');
-    if (agent.multi_facet) caps.push('per-facet');
+    if (talent.schedule) caps.push(talent.schedule);
+    if (talent.type === 'cogitate') caps.push('tools');
+    if (talent.type === 'generate') caps.push('output');
+    if (talent.multi_facet) caps.push('per-facet');
 
     if (caps.length > 0) {
       const capsRow = document.createElement('div');
