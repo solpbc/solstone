@@ -9,8 +9,6 @@
   "max_output_tokens": 1000
 }
 
-$sol_identity
-
 $facets
 
 # Pulse

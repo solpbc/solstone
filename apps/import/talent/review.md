@@ -6,8 +6,6 @@
   "group": "Import"
 }
 
-$sol_identity
-
 $facets
 
 ## Core Mission

@@ -391,7 +391,6 @@ Both generators and agents support an optional `load` key for configuring source
 
 Context is provided inline in the `.md` body via template variables:
 
-- `$sol_identity` - core identity from `sol/identity.md`
 - `$facets` - focused facet context or all available facets
 - `$activity_context` - activity metadata, segment state, and analysis focus sections
 

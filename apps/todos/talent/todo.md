@@ -11,8 +11,6 @@
   "group": "Todos"
 }
 
-$sol_identity
-
 $facets
 
 $activity_context

@@ -146,10 +146,6 @@ Agent prompts are `.md` files with configuration in frontmatter:
 You are a helpful assistant...
 ```
 
-Agent prompts use `$sol_identity` for core identity context, loaded automatically
-from `sol/identity.md` via `_load_sol_vars()`. Each agent's `.md` file includes
-`$sol_identity` as a template variable alongside `$facets` and agent-specific content.
-
 **Optional model configuration:** Add `max_output_tokens` (response length limit) and `thinking_budget` (model thinking token budget) to override provider defaults. Note: OpenAI uses fixed reasoning and ignores `thinking_budget`.
 
 **Reference:** `think/talent.py` → `get_agent()` for agent configuration loading

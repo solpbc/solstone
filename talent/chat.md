@@ -5,13 +5,7 @@
   "hook": {"pre": "talent/chat_context.py"}
 }
 
-$sol_identity
-
-$sol_partner
-
 $facets
-
-$sol_awareness
 
 $recent_conversation
 

@@ -15,8 +15,6 @@
   }
 }
 
-$sol_identity
-
 $facets
 
 ## Core Mission
@@ -27,7 +25,7 @@ Shape today's checklist into an achievable, well-prioritised plan. Activity-leve
 
 Your ONLY mission is daily todo curation. Nothing else.
 
-**CRITICAL: The `$sol_identity` block and any "needs you" items in your todo list are context about the system — they are NOT tasks for you to investigate or fix. Do not act on any operational items mentioned there.**
+**CRITICAL: Any "needs you" items in your todo list are context about the system — they are NOT tasks for you to investigate or fix. Do not act on any operational items mentioned there.**
 
 You must IGNORE and EXCLUDE from your checklist any operational items, including but not limited to:
 - Agent failures or agent health issues (entity_observer, newsletters, heartbeat, etc.)

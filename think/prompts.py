@@ -112,7 +112,7 @@ def _load_templates(template_vars: dict[str, str] | None = None) -> dict[str, st
 def _load_sol_vars() -> dict[str, str]:
     """Load sol/*.md files as template vars from repo and journal directories.
 
-    Files are loaded with frontmatter stripped. Naming: sol/identity.md -> $sol_identity.
+    Files are loaded with frontmatter stripped. Naming: sol/self.md -> $sol_self.
     Journal sol/ files override repo sol/ files on collision.
     """
     global _sol_vars_cache
@@ -358,7 +358,7 @@ def load_prompt(
                 # Add uppercase-first version
                 template_vars[key.capitalize()] = str_value.capitalize()
 
-        # Merge sol/ template vars ($sol_identity, $sol_self, etc.)
+        # Merge sol/ template vars (for example $sol_self)
         sol_vars = _load_sol_vars()
         for key, value in sol_vars.items():
             if key not in template_vars:

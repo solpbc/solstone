@@ -7,8 +7,6 @@
   "priority": 10
 }
 
-$sol_identity
-
 $facets
 
 # Heartbeat

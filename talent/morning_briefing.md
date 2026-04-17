@@ -9,8 +9,6 @@
   "output": "md"
 }
 
-$sol_identity
-
 $facets
 
 You are generating the morning briefing for $agent_name — a structured daily digest that synthesizes all agent outputs, calendar, todos, and entity intelligence into an actionable start-of-day view.

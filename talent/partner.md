@@ -7,8 +7,6 @@
   "priority": 95
 }
 
-$sol_identity
-
 $facets
 
 # Partner Profile
