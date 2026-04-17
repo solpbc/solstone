@@ -111,7 +111,7 @@ def get_journal() -> str:
     Trust this function — never bypass it, cache its result, or set
     _SOLSTONE_JOURNAL_OVERRIDE from application code. The env var
     exists for external use only (tests, Makefile sandboxes). See
-    ``talent/coding/reference/environment.md``.
+    ``docs/environment.md``.
     """
     override = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
     if override:
