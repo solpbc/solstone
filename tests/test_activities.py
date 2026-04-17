@@ -638,11 +638,11 @@ class TestActivityRecordIO:
 
 def _setup_segment(tmpdir, day, segment, facet, state):
     """Helper to create an activity_state.json file in a segment."""
-    agents_dir = (
-        Path(tmpdir) / "chronicle" / day / "default" / segment / "agents" / facet
+    talents_dir = (
+        Path(tmpdir) / "chronicle" / day / "default" / segment / "talents" / facet
     )
-    agents_dir.mkdir(parents=True, exist_ok=True)
-    state_file = agents_dir / "activity_state.json"
+    talents_dir.mkdir(parents=True, exist_ok=True)
+    state_file = talents_dir / "activity_state.json"
     state_file.write_text(json.dumps(state))
 
 

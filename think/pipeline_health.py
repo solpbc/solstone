@@ -28,7 +28,7 @@ def summarize_pipeline_day(day: str) -> dict:
         "status": "healthy",
         "anomalies": [],
         "runs": {mode: {"count": 0, "duration_ms_total": 0} for mode in _MODES},
-        "agents": {
+        "talents": {
             "dispatched": 0,
             "completed": 0,
             "failed": 0,
@@ -39,7 +39,7 @@ def summarize_pipeline_day(day: str) -> dict:
         "activities": {
             "detected": 0,
             "persisted": 0,
-            "agents_fired": False,
+            "talents_fired": False,
         },
     }
 
@@ -78,25 +78,26 @@ def summarize_pipeline_day(day: str) -> dict:
                         continue
 
                     event = rec["event"]
-                    if event == "agent.dispatch":
-                        summary["agents"]["dispatched"] += 1
-                    elif event == "agent.complete":
-                        summary["agents"]["completed"] += 1
-                    elif event == "agent.fail":
-                        summary["agents"]["failed"] += 1
-                        if len(summary["agents"]["failed_list"]) < _FAILED_LIST_CAP:
-                            summary["agents"]["failed_list"].append(
+                    # HISTORICAL SHIM: accept legacy agent.* chronicle event names from before 2026-04-17; sunset 2026-05-01
+                    if event in {"agent.dispatch", "talent.dispatch"}:
+                        summary["talents"]["dispatched"] += 1
+                    elif event in {"agent.complete", "talent.complete"}:
+                        summary["talents"]["completed"] += 1
+                    elif event in {"agent.fail", "talent.fail"}:
+                        summary["talents"]["failed"] += 1
+                        if len(summary["talents"]["failed_list"]) < _FAILED_LIST_CAP:
+                            summary["talents"]["failed_list"].append(
                                 {
                                     "mode": rec.get("mode") or mode,
                                     "name": rec.get("name"),
-                                    "agent_id": rec.get("agent_id"),
+                                    "use_id": rec.get("use_id"),
                                     "state": rec.get("state"),
                                 }
                             )
                         else:
-                            summary["agents"]["failed_list_truncated"] = True
-                    elif event == "agent.skip":
-                        summary["agents"]["skipped"] += 1
+                            summary["talents"]["failed_list_truncated"] = True
+                    elif event in {"agent.skip", "talent.skip"}:
+                        summary["talents"]["skipped"] += 1
                     elif event == "activity.detected":
                         summary["activities"]["detected"] += 1
                     elif event == "activity.persisted":
@@ -110,7 +111,7 @@ def summarize_pipeline_day(day: str) -> dict:
                     elif (
                         event == "run.start" and (rec.get("mode") or mode) == "activity"
                     ):
-                        summary["activities"]["agents_fired"] = True
+                        summary["activities"]["talents_fired"] = True
     except Exception:
         logger.warning(
             "pipeline_health: unexpected error summarizing %s",
@@ -119,8 +120,8 @@ def summarize_pipeline_day(day: str) -> dict:
         )
         return summary
 
-    for failure in summary["agents"]["failed_list"]:
-        summary["anomalies"].append({"kind": "agent_failure", **failure})
+    for failure in summary["talents"]["failed_list"]:
+        summary["anomalies"].append({"kind": "talent_failure", **failure})
 
     if (
         summary["activities"]["detected"] > 0
@@ -149,7 +150,7 @@ def summarize_pipeline_day(day: str) -> dict:
         for anomaly in summary["anomalies"]
     )
     has_failure = any(
-        anomaly["kind"] == "agent_failure" for anomaly in summary["anomalies"]
+        anomaly["kind"] == "talent_failure" for anomaly in summary["anomalies"]
     )
     if has_stale:
         summary["status"] = "stale"
@@ -175,11 +176,11 @@ def pipeline_status_message(summary: dict) -> dict | None:
             "status": "stale",
             "message": "Daily processing hasn't run yet",
         }
-    if any(anomaly.get("kind") == "agent_failure" for anomaly in anomalies):
-        count = summary.get("agents", {}).get("failed", 0)
+    if any(anomaly.get("kind") == "talent_failure" for anomaly in anomalies):
+        count = summary.get("talents", {}).get("failed", 0)
         plural = "s" if count != 1 else ""
         return {
             "status": "warning",
-            "message": f"{count} agent error{plural} today",
+            "message": f"{count} talent error{plural} today",
         }
     return None

@@ -134,7 +134,7 @@ class TestCalendarActivityOutput:
     def test_rejects_non_facets_path(self, calendar_client):
         """Paths not starting with facets/ are rejected."""
         resp = calendar_client.get(
-            "/app/calendar/api/activity_output/20260214/agents/flow.md"
+            "/app/calendar/api/activity_output/20260214/talents/flow.md"
         )
         assert resp.status_code == 400
 

@@ -88,10 +88,10 @@ def spawn_agent(
     provider: Optional[str] = None,
     config: Optional[dict[str, Any]] = None,
 ) -> str | None:
-    """Spawn a Cortex agent and return the agent_id.
+    """Spawn a Cortex agent and return the use_id.
 
     Thin wrapper around cortex_request that ensures imports are handled
-    and returns the agent_id directly.
+    and returns the use_id directly.
 
     Args:
         prompt: The task or question for the agent
@@ -100,7 +100,7 @@ def spawn_agent(
         config: Additional configuration (max_tokens, facet, session_id, etc.)
 
     Returns:
-        agent_id string (timestamp-based), or None if the request could not be sent.
+        use_id string (timestamp-based), or None if the request could not be sent.
 
     Raises:
         ValueError: If config is invalid
@@ -245,7 +245,7 @@ def success_response(
 
     Example:
         return success_response()  # Returns {"success": True}
-        return success_response({"agent_id": "123"})  # Returns {"success": True, "agent_id": "123"}
+        return success_response({"use_id": "123"})  # Returns {"success": True, "use_id": "123"}
     """
     from flask import jsonify
 

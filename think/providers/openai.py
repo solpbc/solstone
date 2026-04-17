@@ -4,7 +4,7 @@
 
 """OpenAI provider for agents and direct LLM generation.
 
-This module provides the OpenAI provider for the ``sol agents`` CLI
+This module provides the OpenAI provider for the ``sol providers check`` CLI
 and run_generate/run_agenerate functions returning GenerateResult.
 
 Common Parameters
@@ -54,7 +54,7 @@ from .shared import (
     safe_raw,
 )
 
-# Agent configuration is now loaded via get_agent() in cortex.py
+# Agent configuration is now loaded via get_talent() in cortex.py
 
 LOG = logging.getLogger("think.providers.openai")
 

@@ -97,7 +97,7 @@ def _load_flow_md(today: str) -> tuple[str | None, float | None]:
     """Load today's flow.md content and mtime. Returns (content, mtime) or (None, None)."""
     try:
         journal = Path(get_journal())
-        flow_path = journal / today / "agents" / "flow.md"
+        flow_path = journal / today / "talents" / "flow.md"
         if flow_path.exists():
             return flow_path.read_text(), flow_path.stat().st_mtime
     except Exception:
@@ -508,7 +508,7 @@ def _top_heatmap_hours(stats_data: dict[str, Any]) -> list[int]:
 
 def _knowledge_graph_freshness(yesterday: str) -> dict[str, Any]:
     path = (
-        Path(get_journal()) / "chronicle" / yesterday / "agents" / "knowledge_graph.md"
+        Path(get_journal()) / "chronicle" / yesterday / "talents" / "knowledge_graph.md"
     )
     if not path.exists():
         return {"exists": False, "fresh": False, "updated_label": None}
@@ -584,8 +584,9 @@ def _newsletter_attempts_from_dream_logs(yesterday: str) -> tuple[int, int]:
                             record = json.loads(line)
                         except json.JSONDecodeError:
                             continue
+                        # HISTORICAL SHIM: accept legacy agent.* chronicle event names from before 2026-04-17; sunset 2026-05-01
                         if (
-                            record.get("event") == "agent.fail"
+                            record.get("event") in {"agent.fail", "talent.fail"}
                             and record.get("facet")
                             and record.get("name") == "facet_newsletter"
                         ):
@@ -765,7 +766,7 @@ def _format_gap_bullets(
     has_activity = any(
         anomaly.get("kind") == "activity_agents_missing" for anomaly in anomalies
     )
-    has_failure = any(anomaly.get("kind") == "agent_failure" for anomaly in anomalies)
+    has_failure = any(anomaly.get("kind") == "talent_failure" for anomaly in anomalies)
 
     if has_daily:
         bullets.append("I didn't finish the full overnight review.")

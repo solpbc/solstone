@@ -34,9 +34,9 @@ If you find issues: update agency.md's `## system` section via
 
 ## Step 2: Check journal quality
 
-Run `sol talent logs --daily -c 10` to review recent agent runs and
+Run `sol talent logs --daily -c 10` to review recent talent runs and
 `sol talent logs --errors -c 10` for recent errors. Look for:
-- Broken segments (transcription failures, missing agent output)
+- Broken segments (transcription failures, missing talent output)
 - Processing gaps (capture with no dream processing)
 - Orphaned entities (zero observations after 7+ days)
 

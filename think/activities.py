@@ -639,7 +639,7 @@ def load_segment_activity_state(
     if not seg_dir:
         return None
 
-    state_path = seg_dir / "agents" / facet / "activity_state.json"
+    state_path = seg_dir / "talents" / facet / "activity_state.json"
     if not state_path.exists():
         return None
 

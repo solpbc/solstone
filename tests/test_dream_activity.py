@@ -114,7 +114,7 @@ class TestRunActivityPrompts:
 
             monkeypatch.setattr("think.dream.cortex_request", mock_cortex_request)
             monkeypatch.setattr(
-                "think.dream.wait_for_agents",
+                "think.dream.wait_for_uses",
                 lambda ids, timeout: ({aid: "finish" for aid in ids}, []),
             )
 
@@ -170,7 +170,7 @@ class TestRunActivityPrompts:
 
             monkeypatch.setattr("think.dream.cortex_request", mock_cortex_request)
             monkeypatch.setattr(
-                "think.dream.wait_for_agents",
+                "think.dream.wait_for_uses",
                 lambda ids, timeout: ({aid: "finish" for aid in ids}, []),
             )
 
@@ -220,7 +220,7 @@ class TestRunActivityPrompts:
 
             monkeypatch.setattr("think.dream.cortex_request", mock_cortex_request)
             monkeypatch.setattr(
-                "think.dream.wait_for_agents",
+                "think.dream.wait_for_uses",
                 lambda ids, timeout: ({aid: "finish" for aid in ids}, []),
             )
 
@@ -282,7 +282,7 @@ class TestRunActivityPrompts:
                 lambda prompt, name, config: "agent-1",
             )
             monkeypatch.setattr(
-                "think.dream.wait_for_agents",
+                "think.dream.wait_for_uses",
                 lambda ids, timeout: ({aid: "error" for aid in ids}, []),
             )
 
@@ -358,7 +358,7 @@ class TestRunActivityPrompts:
                 lambda prompt, name, config: "agent-1",
             )
             monkeypatch.setattr(
-                "think.dream.wait_for_agents",
+                "think.dream.wait_for_uses",
                 lambda ids, timeout: ({aid: "finish" for aid in ids}, []),
             )
 
@@ -376,8 +376,8 @@ class TestRunActivityPrompts:
             events = [e[0] for e in emitted]
             assert "started" in events
             assert "group_started" in events
-            assert "agent_started" in events
-            assert "agent_completed" in events
+            assert "talent_started" in events
+            assert "talent_completed" in events
 
             assert "group_completed" in events
             assert "completed" in events
@@ -889,7 +889,7 @@ class TestActivityTemplateVars:
     """Tests for activity template variables in _build_prompt_context."""
 
     def test_activity_vars_populated(self):
-        from think.agents import _build_prompt_context
+        from think.talents import _build_prompt_context
 
         activity = {
             "id": "coding_100000_300",
@@ -916,7 +916,7 @@ class TestActivityTemplateVars:
         assert int(ctx["activity_duration"]) == 10  # 2 * 300s = 10 min
 
     def test_no_activity_no_vars(self):
-        from think.agents import _build_prompt_context
+        from think.talents import _build_prompt_context
 
         ctx = _build_prompt_context("20260209", None, None)
 
@@ -924,7 +924,7 @@ class TestActivityTemplateVars:
         assert "activity_type" not in ctx
 
     def test_empty_entities(self):
-        from think.agents import _build_prompt_context
+        from think.talents import _build_prompt_context
 
         activity = {
             "id": "browsing_100000_300",
@@ -940,7 +940,7 @@ class TestActivityTemplateVars:
         assert ctx["activity_entities"] == ""
 
     def test_duration_minimum_one(self):
-        from think.agents import _build_prompt_context
+        from think.talents import _build_prompt_context
 
         activity = {
             "id": "test_bad_seg",

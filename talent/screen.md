@@ -7,7 +7,7 @@
   "schedule": "segment",
   "priority": 10,
   "output": "md",
-  "load": {"transcripts": true, "percepts": "required", "agents": false}
+  "load": {"transcripts": true, "percepts": "required", "talents": false}
 
 }
 

@@ -14,7 +14,7 @@ from datetime import datetime
 from pathlib import Path
 
 from think.awareness import ensure_sol_directory
-from think.cortex_client import cortex_request, wait_for_agents
+from think.cortex_client import cortex_request, wait_for_uses
 from think.utils import get_journal, require_solstone, setup_cli
 
 logger = logging.getLogger(__name__)
@@ -104,27 +104,27 @@ def main() -> None:
         pid_file.write_text(str(os.getpid()))
         start_time = time.monotonic()
 
-        agent_id = cortex_request(
+        use_id = cortex_request(
             prompt="Run heartbeat check.",
             name="heartbeat",
         )
-        if agent_id is None:
+        if use_id is None:
             logger.error("Failed to send heartbeat request to cortex")
             _log_run(health_dir, start_time, "error")
             sys.exit(1)
 
-        logger.info("Heartbeat agent started (ID: %s)", agent_id)
+        logger.info("Heartbeat agent started (ID: %s)", use_id)
 
         # Wait for completion
-        completed, timed_out = wait_for_agents([agent_id], timeout=600)
+        completed, timed_out = wait_for_uses([use_id], timeout=600)
 
         # Determine outcome
-        if agent_id in timed_out:
+        if use_id in timed_out:
             logger.error("Heartbeat agent timed out")
             _log_run(health_dir, start_time, "timeout")
             sys.exit(2)
 
-        end_state = completed.get(agent_id, "unknown")
+        end_state = completed.get(use_id, "unknown")
         if end_state == "finish":
             logger.info("Heartbeat completed successfully")
             _log_run(health_dir, start_time, "success")

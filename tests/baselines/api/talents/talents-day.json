@@ -1,5 +1,5 @@
 {
-  "agents": {
+  "talents": {
     "anticipation": {
       "app": null,
       "color": "#4527a0",
@@ -77,17 +77,6 @@
       "title": "Decision Actions",
       "type": "generate"
     },
-    "documents": {
-      "app": null,
-      "color": "#5c6bc0",
-      "description": "Extracts structured intelligence from imported documents",
-      "multi_facet": false,
-      "output_format": "md",
-      "schedule": "segment",
-      "source": "system",
-      "title": "Document Analysis",
-      "type": "generate"
-    },
     "entities": {
       "app": null,
       "color": "#2e7d32",
@@ -148,22 +137,22 @@
       "color": "#004d40",
       "description": "Extracts durable factoids about attached entities from journal content",
       "multi_facet": true,
-      "output_format": "json",
+      "output_format": null,
       "schedule": "daily",
       "source": "app",
       "title": "Entity Observer",
-      "type": "generate"
+      "type": "cogitate"
     },
     "facet_newsletter": {
       "app": null,
-      "color": "#6c757d",
-      "description": null,
-      "multi_facet": false,
+      "color": "#0d47a1",
+      "description": "Creates comprehensive daily newsletters for each facet, capturing activities, progress, and insights",
+      "multi_facet": true,
       "output_format": null,
-      "schedule": null,
+      "schedule": "daily",
       "source": "system",
-      "title": "facet_newsletter",
-      "type": null
+      "title": "Facet Newsletter Generator",
+      "type": "cogitate"
     },
     "flow": {
       "app": null,
@@ -196,50 +185,6 @@
       "schedule": "none",
       "source": "system",
       "title": "Heartbeat",
-      "type": "cogitate"
-    },
-    "import:review": {
-      "app": "import",
-      "color": "#37474f",
-      "description": "Unified import review: resolves staged entities, then facets, then config in dependency order.",
-      "multi_facet": false,
-      "output_format": null,
-      "schedule": null,
-      "source": "app",
-      "title": "Import Review",
-      "type": "cogitate"
-    },
-    "import:review_config": {
-      "app": "import",
-      "color": "#6a1b9a",
-      "description": "Reviews and resolves staged config field differences from journal-to-journal import.",
-      "multi_facet": false,
-      "output_format": null,
-      "schedule": null,
-      "source": "app",
-      "title": "Import Config Reviewer",
-      "type": "cogitate"
-    },
-    "import:review_entities": {
-      "app": "import",
-      "color": "#1565c0",
-      "description": "Reviews and resolves staged entities from journal-to-journal import, handling low-confidence matches, ID collisions, and principal conflicts.",
-      "multi_facet": false,
-      "output_format": null,
-      "schedule": null,
-      "source": "app",
-      "title": "Import Entity Reviewer",
-      "type": "cogitate"
-    },
-    "import:review_facets": {
-      "app": "import",
-      "color": "#2e7d32",
-      "description": "Reviews and resolves staged facet items from journal-to-journal import, handling unmapped entities and facet.json conflicts.",
-      "multi_facet": false,
-      "output_format": null,
-      "schedule": null,
-      "source": "app",
-      "title": "Import Facet Reviewer",
       "type": "cogitate"
     },
     "joke_bot": {
@@ -418,17 +363,6 @@
       "title": "Support",
       "type": "cogitate"
     },
-    "test_missing_type_output_1568d299dc474aa9ba42401c7b1b75e2": {
-      "app": null,
-      "color": "#6c757d",
-      "description": null,
-      "multi_facet": false,
-      "output_format": null,
-      "schedule": null,
-      "source": "system",
-      "title": "test_missing_type_output_1568d299dc474aa9ba42401c7b1b75e2",
-      "type": null
-    },
     "timeline": {
       "app": null,
       "color": "#7b1fa2",
@@ -442,14 +376,14 @@
     },
     "todos:daily": {
       "app": "todos",
-      "color": "#6c757d",
-      "description": null,
-      "multi_facet": false,
+      "color": "#ef6c00",
+      "description": "Carries forward unfinished tasks, aggregates per-activity todo detections, validates completions against journal evidence, and prioritises the day's checklist.",
+      "multi_facet": true,
       "output_format": null,
-      "schedule": null,
+      "schedule": "daily",
       "source": "app",
-      "title": "todos:daily",
-      "type": null
+      "title": "Daily TODO Curator",
+      "type": "cogitate"
     },
     "todos:todo": {
       "app": "todos",
@@ -523,5 +457,5 @@
       "title": "Verona"
     }
   },
-  "runs": []
+  "uses": []
 }

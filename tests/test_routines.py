@@ -201,7 +201,7 @@ class TestCheck:
                 "think.routines.cortex_request", return_value="fake_agent_id"
             ) as mock_req,
             patch(
-                "think.routines.wait_for_agents",
+                "think.routines.wait_for_uses",
                 return_value=({"fake_agent_id": "finish"}, []),
             ),
             patch("think.routines.callosum_send", return_value=True),
@@ -237,7 +237,7 @@ class TestCheck:
                 "think.routines.cortex_request", return_value="fake_agent_id"
             ) as mock_req,
             patch(
-                "think.routines.wait_for_agents",
+                "think.routines.wait_for_uses",
                 return_value=({"fake_agent_id": "finish"}, []),
             ),
             patch("think.routines.callosum_send", return_value=True),
@@ -273,7 +273,7 @@ class TestCheck:
                 "think.routines.cortex_request", return_value="fake_agent_id"
             ) as mock_req,
             patch(
-                "think.routines.wait_for_agents",
+                "think.routines.wait_for_uses",
                 return_value=({"fake_agent_id": "finish"}, []),
             ),
             patch("think.routines.callosum_send", return_value=True),
@@ -309,7 +309,7 @@ class TestCheck:
                 "think.routines.cortex_request", return_value="fake_agent_id"
             ) as mock_req,
             patch(
-                "think.routines.wait_for_agents",
+                "think.routines.wait_for_uses",
                 return_value=({"fake_agent_id": "finish"}, []),
             ),
             patch("think.routines.callosum_send", return_value=True),
@@ -508,7 +508,7 @@ class TestEventTrigger:
                 "think.routines.cortex_request", return_value="fake_agent_id"
             ) as mock_req,
             patch(
-                "think.routines.wait_for_agents",
+                "think.routines.wait_for_uses",
                 return_value=({"fake_agent_id": "finish"}, []),
             ),
             patch("think.routines.callosum_send", return_value=True),
@@ -530,7 +530,7 @@ class TestEventTrigger:
                 "think.routines.cortex_request", return_value="fake_agent_id"
             ) as mock_req,
             patch(
-                "think.routines.wait_for_agents",
+                "think.routines.wait_for_uses",
                 return_value=({"fake_agent_id": "finish"}, []),
             ),
             patch("think.routines.callosum_send", return_value=True),
@@ -552,7 +552,7 @@ class TestEventTrigger:
                 "think.routines.cortex_request", return_value="fake_agent_id"
             ) as mock_req,
             patch(
-                "think.routines.wait_for_agents",
+                "think.routines.wait_for_uses",
                 return_value=({"fake_agent_id": "finish"}, []),
             ),
             patch("think.routines.callosum_send", return_value=True),
@@ -574,7 +574,7 @@ class TestEventTrigger:
                 "think.routines.cortex_request", return_value="fake_agent_id"
             ) as mock_req,
             patch(
-                "think.routines.wait_for_agents",
+                "think.routines.wait_for_uses",
                 return_value=({"fake_agent_id": "finish"}, []),
             ),
             patch("think.routines.callosum_send", return_value=True),
@@ -786,7 +786,7 @@ class TestResumeDate:
         with (
             patch("think.routines.cortex_request", return_value="fake_agent_id"),
             patch(
-                "think.routines.wait_for_agents",
+                "think.routines.wait_for_uses",
                 return_value=({"fake_agent_id": "finish"}, []),
             ),
             patch("think.routines.callosum_send", return_value=True),
@@ -825,7 +825,7 @@ class TestResumeDate:
         with (
             patch("think.routines.cortex_request", return_value="fake_agent_id"),
             patch(
-                "think.routines.wait_for_agents",
+                "think.routines.wait_for_uses",
                 return_value=({"fake_agent_id": "finish"}, []),
             ),
             patch("think.routines.callosum_send", return_value=True),
@@ -1576,7 +1576,7 @@ class TestMetaFiltering:
                 "think.routines.cortex_request", return_value="fake_agent_id"
             ) as mock_req,
             patch(
-                "think.routines.wait_for_agents",
+                "think.routines.wait_for_uses",
                 return_value=({"fake_agent_id": "finish"}, []),
             ),
             patch("think.routines.callosum_send", return_value=True),

@@ -17,7 +17,7 @@ def segment_dir(tmp_path, monkeypatch):
     day_dir = journal / "chronicle" / "20240115"
     segment_path = day_dir / "default" / "120000_300"
     segment_path.mkdir(parents=True)
-    (segment_path / "agents").mkdir(parents=True)
+    (segment_path / "talents").mkdir(parents=True)
 
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
     return segment_path
@@ -57,7 +57,7 @@ def _segment_configs(*names: str) -> dict[str, dict]:
 
 
 def _write_sense_output(segment_dir: Path, sense_json: dict) -> None:
-    (segment_dir / "agents" / "sense.json").write_text(
+    (segment_dir / "talents" / "sense.json").write_text(
         json.dumps(sense_json),
         encoding="utf-8",
     )
@@ -74,13 +74,13 @@ class TestLoadSegmentFacets:
     def test_empty_file_returns_empty(self, segment_dir):
         from think.facets import load_segment_facets
 
-        (segment_dir / "agents" / "facets.json").write_text("")
+        (segment_dir / "talents" / "facets.json").write_text("")
         assert load_segment_facets("20240115", "120000_300") == []
 
     def test_empty_array_returns_empty(self, segment_dir):
         from think.facets import load_segment_facets
 
-        (segment_dir / "agents" / "facets.json").write_text("[]")
+        (segment_dir / "talents" / "facets.json").write_text("[]")
         assert load_segment_facets("20240115", "120000_300") == []
 
     def test_valid_facets_extracted(self, segment_dir):
@@ -90,21 +90,21 @@ class TestLoadSegmentFacets:
             {"facet": "work", "activity": "Code review", "level": "high"},
             {"facet": "personal", "activity": "Email check", "level": "low"},
         ]
-        (segment_dir / "agents" / "facets.json").write_text(json.dumps(facets_data))
+        (segment_dir / "talents" / "facets.json").write_text(json.dumps(facets_data))
 
         assert load_segment_facets("20240115", "120000_300") == ["work", "personal"]
 
     def test_malformed_json_returns_empty(self, segment_dir, caplog):
         from think.facets import load_segment_facets
 
-        (segment_dir / "agents" / "facets.json").write_text("{ invalid json")
+        (segment_dir / "talents" / "facets.json").write_text("{ invalid json")
         assert load_segment_facets("20240115", "120000_300") == []
         assert "Failed to parse facets.json" in caplog.text
 
     def test_non_array_returns_empty(self, segment_dir, caplog):
         from think.facets import load_segment_facets
 
-        (segment_dir / "agents" / "facets.json").write_text('{"facet": "work"}')
+        (segment_dir / "talents" / "facets.json").write_text('{"facet": "work"}')
         assert load_segment_facets("20240115", "120000_300") == []
         assert "not an array" in caplog.text
 
@@ -116,7 +116,7 @@ class TestLoadSegmentFacets:
             {"activity": "Unknown"},
             {"facet": "personal", "activity": "Email"},
         ]
-        (segment_dir / "agents" / "facets.json").write_text(json.dumps(facets_data))
+        (segment_dir / "talents" / "facets.json").write_text(json.dumps(facets_data))
 
         assert load_segment_facets("20240115", "120000_300") == ["work", "personal"]
 
@@ -143,7 +143,7 @@ class TestRunSegmentSense:
         )
         monkeypatch.setattr(
             dream,
-            "wait_for_agents",
+            "wait_for_uses",
             lambda agent_ids, timeout=600: ({aid: "finish" for aid in agent_ids}, []),
         )
         monkeypatch.setattr(dream, "_callosum", None)
@@ -197,7 +197,7 @@ class TestRunSegmentSense:
         )
         monkeypatch.setattr(
             dream,
-            "wait_for_agents",
+            "wait_for_uses",
             lambda agent_ids, timeout=600: ({aid: "finish" for aid in agent_ids}, []),
         )
         monkeypatch.setattr(dream, "_callosum", None)
@@ -221,7 +221,7 @@ class TestRunSegmentSense:
                 "20240115",
             )
         ]
-        density = json.loads((segment_dir / "agents" / "density.json").read_text())
+        density = json.loads((segment_dir / "talents" / "density.json").read_text())
         assert density["classification"] == "idle"
 
         # Verify activity state persisted even on idle path
@@ -255,7 +255,7 @@ class TestRunSegmentSense:
         )
         monkeypatch.setattr(
             dream,
-            "wait_for_agents",
+            "wait_for_uses",
             lambda agent_ids, timeout=600: ({aid: "finish" for aid in agent_ids}, []),
         )
         monkeypatch.setattr(dream, "_callosum", None)
@@ -315,7 +315,7 @@ class TestRunSegmentSense:
         )
         monkeypatch.setattr(
             dream,
-            "wait_for_agents",
+            "wait_for_uses",
             lambda agent_ids, timeout=600: ({aid: "finish" for aid in agent_ids}, []),
         )
         monkeypatch.setattr(dream, "_callosum", None)
@@ -351,7 +351,7 @@ class TestRunSegmentSense:
         )
         monkeypatch.setattr(
             dream,
-            "wait_for_agents",
+            "wait_for_uses",
             lambda agent_ids, timeout=600: ({aid: "finish" for aid in agent_ids}, []),
         )
         monkeypatch.setattr(dream, "_callosum", None)
@@ -392,7 +392,7 @@ class TestRunSegmentSense:
         )
         monkeypatch.setattr(
             dream,
-            "wait_for_agents",
+            "wait_for_uses",
             lambda agent_ids, timeout=600: ({aid: "finish" for aid in agent_ids}, []),
         )
         monkeypatch.setattr(dream, "_callosum", None)
@@ -431,7 +431,7 @@ class TestRunSegmentSense:
         )
         monkeypatch.setattr(
             dream,
-            "wait_for_agents",
+            "wait_for_uses",
             lambda agent_ids, timeout=600: ({aid: "finish" for aid in agent_ids}, []),
         )
         monkeypatch.setattr(dream, "_callosum", None)
@@ -469,7 +469,7 @@ class TestRunSegmentSense:
         def mock_wait_for_agents(agent_ids, timeout=600):
             return ({agent_ids[0]: "error"}, [])
 
-        monkeypatch.setattr(dream, "wait_for_agents", mock_wait_for_agents)
+        monkeypatch.setattr(dream, "wait_for_uses", mock_wait_for_agents)
         monkeypatch.setattr(dream, "_callosum", None)
 
         success, failed, failed_names = dream.run_segment_sense(
@@ -529,7 +529,7 @@ class TestRunSegmentSense:
         )
         monkeypatch.setattr(
             dream,
-            "wait_for_agents",
+            "wait_for_uses",
             lambda agent_ids, timeout=600: ({aid: "finish" for aid in agent_ids}, []),
         )
         monkeypatch.setattr(
@@ -582,7 +582,7 @@ class TestRunSegmentSense:
             segment_dir,
             {"density": "active", "recommend": {}, "facets": []},
         )
-        (segment_dir / "agents" / "entities.md").write_text(
+        (segment_dir / "talents" / "entities.md").write_text(
             "entities", encoding="utf-8"
         )
 
@@ -606,7 +606,7 @@ class TestRunSegmentSense:
         )
         monkeypatch.setattr(
             dream,
-            "wait_for_agents",
+            "wait_for_uses",
             lambda agent_ids, timeout=600: ({aid: "finish" for aid in agent_ids}, []),
         )
         monkeypatch.setattr(
@@ -652,7 +652,7 @@ class TestRunSegmentSense:
         monkeypatch.setattr(dream, "_SEND_RETRY_DELAYS", (0.0, 0.0))
         monkeypatch.setattr(
             dream,
-            "wait_for_agents",
+            "wait_for_uses",
             lambda agent_ids, timeout=600: ({aid: "finish" for aid in agent_ids}, []),
         )
         monkeypatch.setattr(dream, "_callosum", None)
@@ -886,7 +886,9 @@ class TestDreamJSONLWriter:
         path = tmp_path / "test.jsonl"
         writer = DreamJSONLWriter(str(path))
         writer.log("run.start", mode="segment", day="20240115")
-        writer.log("agent.skip", name="screen", reason="not_recommended", detail="test")
+        writer.log(
+            "talent.skip", name="screen", reason="not_recommended", detail="test"
+        )
         writer.close()
 
         lines = path.read_text().strip().split("\n")
@@ -899,7 +901,7 @@ class TestDreamJSONLWriter:
         assert first["mode"] == "segment"
 
         second = json.loads(lines[1])
-        assert second["event"] == "agent.skip"
+        assert second["event"] == "talent.skip"
         assert writer.skip_count == 1
 
     def test_creates_parent_dirs(self, tmp_path):
@@ -917,7 +919,7 @@ class TestDreamJSONLEvents:
     """Tests for JSONL event emission during segment orchestration."""
 
     def test_density_idle_skip_event(self, segment_dir, monkeypatch):
-        """JSONL emits agent.skip with reason=density_idle for idle segments."""
+        """JSONL emits talent.skip with reason=density_idle for idle segments."""
         from think import dream
         from think.dream import DreamJSONLWriter
 
@@ -941,7 +943,7 @@ class TestDreamJSONLEvents:
         )
         monkeypatch.setattr(
             dream,
-            "wait_for_agents",
+            "wait_for_uses",
             lambda agent_ids, timeout=600: ({aid: "finish" for aid in agent_ids}, []),
         )
         monkeypatch.setattr(dream, "_callosum", None)
@@ -960,7 +962,7 @@ class TestDreamJSONLEvents:
             json.loads(line)
             for line in jsonl_path.read_text(encoding="utf-8").strip().splitlines()
         ]
-        skips = [event for event in events if event["event"] == "agent.skip"]
+        skips = [event for event in events if event["event"] == "talent.skip"]
 
         assert any(skip["reason"] == "density_idle" for skip in skips)
 
@@ -996,7 +998,7 @@ class TestDreamJSONLEvents:
         )
         monkeypatch.setattr(
             dream,
-            "wait_for_agents",
+            "wait_for_uses",
             lambda agent_ids, timeout=600: ({aid: "finish" for aid in agent_ids}, []),
         )
         monkeypatch.setattr(dream, "_callosum", None)
@@ -1017,7 +1019,7 @@ class TestDreamJSONLEvents:
         ]
         assert "sense.complete" in [event["event"] for event in events]
 
-        skips = [event for event in events if event["event"] == "agent.skip"]
+        skips = [event for event in events if event["event"] == "talent.skip"]
         skip_pairs = {(event["name"], event["reason"]) for event in skips}
         assert ("documents", "no_config") in skip_pairs
         assert ("screen", "not_recommended") in skip_pairs

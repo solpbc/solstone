@@ -188,7 +188,7 @@ def speakers_env(tmp_path, monkeypatch):
                 segment_key: Segment key (HHMMSS_LEN)
                 speakers: List of speaker names
             """
-            agents_dir = self.journal / day / STREAM / segment_key / "agents"
+            agents_dir = self.journal / day / STREAM / segment_key / "talents"
             agents_dir.mkdir(parents=True, exist_ok=True)
 
             speakers_path = agents_dir / "speakers.json"
@@ -214,7 +214,7 @@ def speakers_env(tmp_path, monkeypatch):
                 metadata: Optional extra metadata (owner_centroid_version,
                     voiceprint_versions)
             """
-            agents_dir = self.journal / day / STREAM / segment_key / "agents"
+            agents_dir = self.journal / day / STREAM / segment_key / "talents"
             agents_dir.mkdir(parents=True, exist_ok=True)
 
             data = {"labels": labels}
@@ -248,7 +248,7 @@ def speakers_env(tmp_path, monkeypatch):
                 stream: Optional stream name (defaults to STREAM)
             """
             agents_dir = (
-                self.journal / day / (stream or STREAM) / segment_key / "agents"
+                self.journal / day / (stream or STREAM) / segment_key / "talents"
             )
             agents_dir.mkdir(parents=True, exist_ok=True)
 

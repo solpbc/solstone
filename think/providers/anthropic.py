@@ -4,7 +4,7 @@
 
 """Anthropic Claude provider for agents and direct LLM generation.
 
-This module provides the Anthropic Claude provider for the ``sol agents`` CLI
+This module provides the Anthropic Claude provider for the ``sol providers check`` CLI
 and run_generate/run_agenerate functions returning GenerateResult.
 
 Common Parameters

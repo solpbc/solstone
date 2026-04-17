@@ -118,7 +118,7 @@ def _load_segment_speakers(segment_dir: Path) -> list[str]:
     Returns:
         List of speaker name strings, or empty list if not found/invalid.
     """
-    speakers_path = segment_dir / "agents" / "speakers.json"
+    speakers_path = segment_dir / "talents" / "speakers.json"
     if not speakers_path.exists():
         return []
 
@@ -303,11 +303,11 @@ def _remove_voiceprint(
 
 
 def _load_speaker_labels(segment_dir: Path) -> dict | None:
-    """Load speaker_labels.json from a segment's agents/ directory.
+    """Load speaker_labels.json from a segment's talents/ directory.
 
     Returns the parsed JSON dict, or None if not found/invalid.
     """
-    labels_path = segment_dir / "agents" / "speaker_labels.json"
+    labels_path = segment_dir / "talents" / "speaker_labels.json"
     if not labels_path.is_file():
         return None
     try:
@@ -318,10 +318,10 @@ def _load_speaker_labels(segment_dir: Path) -> dict | None:
 
 
 def _save_speaker_labels(segment_dir: Path, labels_data: dict) -> None:
-    """Atomically write speaker_labels.json to a segment's agents/ directory."""
-    agents_dir = segment_dir / "agents"
-    agents_dir.mkdir(parents=True, exist_ok=True)
-    out_path = agents_dir / "speaker_labels.json"
+    """Atomically write speaker_labels.json to a segment's talents/ directory."""
+    talents_dir = segment_dir / "talents"
+    talents_dir.mkdir(parents=True, exist_ok=True)
+    out_path = talents_dir / "speaker_labels.json"
     tmp_path = out_path.with_suffix(".tmp")
     with open(tmp_path, "w", encoding="utf-8") as f:
         json.dump(labels_data, f, indent=2)
@@ -329,11 +329,11 @@ def _save_speaker_labels(segment_dir: Path, labels_data: dict) -> None:
 
 
 def _load_speaker_corrections(segment_dir: Path) -> list[dict]:
-    """Load speaker_corrections.json from a segment's agents/ directory.
+    """Load speaker_corrections.json from a segment's talents/ directory.
 
     Returns list of correction entries, or empty list if not found.
     """
-    corr_path = segment_dir / "agents" / "speaker_corrections.json"
+    corr_path = segment_dir / "talents" / "speaker_corrections.json"
     if not corr_path.is_file():
         return []
     try:
@@ -348,9 +348,9 @@ def _append_speaker_correction(segment_dir: Path, correction: dict) -> None:
     """Append a correction entry to speaker_corrections.json (atomic write)."""
     corrections = _load_speaker_corrections(segment_dir)
     corrections.append(correction)
-    agents_dir = segment_dir / "agents"
-    agents_dir.mkdir(parents=True, exist_ok=True)
-    out_path = agents_dir / "speaker_corrections.json"
+    talents_dir = segment_dir / "talents"
+    talents_dir.mkdir(parents=True, exist_ok=True)
+    out_path = talents_dir / "speaker_corrections.json"
     tmp_path = out_path.with_suffix(".tmp")
     with open(tmp_path, "w", encoding="utf-8") as f:
         json.dump({"corrections": corrections}, f, indent=2)

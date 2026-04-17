@@ -10,7 +10,7 @@
   "thinking_budget": 8192,
   "max_output_tokens": 8192,
   "output": "md",
-  "load": {"transcripts": true, "percepts": false, "agents": false}
+  "load": {"transcripts": true, "percepts": false, "talents": false}
 
 }
 

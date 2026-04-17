@@ -4,13 +4,7 @@
   "error_message": null,
   "events": [
     {
-      "agent": "solstone",
-      "agent_id": "1700000000001",
-      "event": "agent_updated",
-      "ts": 1700000000200
-    },
-    {
-      "agent_id": "1700000000001",
+      "use_id": "1700000000001",
       "args": null,
       "call_id": "call_001",
       "event": "tool_end",
@@ -19,7 +13,7 @@
       "ts": 1700000000500
     },
     {
-      "agent_id": "1700000000001",
+      "use_id": "1700000000001",
       "args": {
         "limit": 5,
         "query": "project updates"
@@ -30,13 +24,13 @@
       "ts": 1700000000400
     },
     {
-      "agent_id": "1700000000001",
+      "use_id": "1700000000001",
       "content": "The user wants to search for meetings about project updates.\nI should use the search_events tool to find relevant meetings.",
       "event": "thinking",
       "ts": 1700000000300
     },
     {
-      "agent_id": "1700000000001",
+      "use_id": "1700000000001",
       "event": "finish",
       "result": "I found 2 meetings about project updates:\n\n1. **Project Update Meeting** on 2023-11-14\n2. **Weekly Status** on 2023-11-15",
       "ts": 1700000000600,
@@ -46,13 +40,19 @@
       }
     },
     {
-      "agent_id": "1700000000001",
+      "use_id": "1700000000001",
       "event": "start",
       "model": "gpt-4o",
       "name": "default",
       "prompt": "Search for meetings about project updates",
       "provider": "openai",
       "ts": 1700000000100
+    },
+    {
+      "talent": "solstone",
+      "use_id": "1700000000001",
+      "event": "talent_updated",
+      "ts": 1700000000200
     }
   ],
   "facet": null,

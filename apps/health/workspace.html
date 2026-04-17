@@ -2278,12 +2278,12 @@
       const k = child.getAttribute('data-key');
       if (k) existingByKey.set(k, child);
     }
-    const newKeys = new Set(activeAgents.map(a => a.agent_id));
+    const newKeys = new Set(activeAgents.map(a => a.use_id));
     for (const [k, child] of existingByKey) {
       if (!newKeys.has(k)) container.removeChild(child);
     }
     for (const agent of activeAgents) {
-      const key = agent.agent_id;
+      const key = agent.use_id;
       let card = existingByKey.get(key);
       if (!card) {
         card = document.createElement('div');
@@ -2309,7 +2309,7 @@
       const stateLabel = agent.event === 'thinking' ? 'Thinking...' :
                         (agent.event === 'tool_start' || agent.event === 'tool_end') ? 'Working...' : 'Running...';
       const elapsed = agent.elapsed_seconds ? formatElapsed(agent.elapsed_seconds) : '0s';
-      card.children[0].textContent = '...' + getAgentId(agent.agent_id);
+      card.children[0].textContent = '...' + getAgentId(agent.use_id);
       card.children[1].textContent = agent.name || 'default';
       card.children[2].textContent = stateLabel;
       card.children[3].textContent = elapsed;
@@ -2696,27 +2696,27 @@
   }
 
   function handleCortexEvent(msg) {
-    // Handle status event first (no agent_id at top level)
+    // Handle status event first (no use_id at top level)
     if (msg.event === 'status') {
       // Update agent count for vitals
-      state.agentCount = msg.running_agents || 0;
+      state.agentCount = msg.running_uses || 0;
 
-      // Status event contains array of agents
-      if (msg.agents) {
-        // Clear agents not in status (they finished)
-        const activeIds = new Set(msg.agents.map(a => a.agent_id));
+      // Status event contains array of uses
+      if (msg.uses) {
+        // Clear uses not in status (they finished)
+        const activeIds = new Set(msg.uses.map(a => a.use_id));
         state.agents.forEach((_, id) => {
           if (!activeIds.has(id)) {
             state.agents.delete(id);
           }
         });
 
-        // Update/add agents from status
-        msg.agents.forEach(agent => {
-          const existing = state.agents.get(agent.agent_id) || {};
-          state.agents.set(agent.agent_id, {
+        // Update/add uses from status
+        msg.uses.forEach(agent => {
+          const existing = state.agents.get(agent.use_id) || {};
+          state.agents.set(agent.use_id, {
             ...existing,
-            agent_id: agent.agent_id,
+            use_id: agent.use_id,
             name: agent.name,
             provider: agent.provider,
             elapsed_seconds: agent.elapsed_seconds,
@@ -2730,8 +2730,8 @@
       return;
     }
 
-    // Individual agent events require agent_id
-    const agentId = msg.agent_id;
+    // Individual agent events require use_id
+    const agentId = msg.use_id;
     if (!agentId) return;
 
     // Track start time for client-side elapsed updates
@@ -2740,7 +2740,7 @@
 
     state.agents.set(agentId, {
       ...existing,
-      agent_id: agentId,
+      use_id: agentId,
       name: msg.name || existing.name,
       provider: msg.provider || existing.provider,
       event: msg.event,

@@ -1480,8 +1480,8 @@ let entitiesData = null;
 let detectedPage = 1;
 let journalEntitiesData = null;  // For all-facet mode
 let currentDetailEntity = null;
-const pendingEntities = new Map(); // agent_id → { name, element }
-const pendingAgentCallbacks = new Map(); // agent_id → callback function
+const pendingEntities = new Map(); // use_id → { name, element }
+const pendingAgentCallbacks = new Map(); // use_id → callback function
 const _errorTimers = {};
 
 // Standard entity types - fetched from server
@@ -2361,8 +2361,8 @@ function startDescriptionEdit(entity) {
     })
     .then(response => response.json())
     .then(data => {
-      if (data.success && data.agent_id) {
-        listenForAgentCompletion(data.agent_id, (result) => {
+      if (data.success && data.use_id) {
+        listenForAgentCompletion(data.use_id, (result) => {
           if (result.success && result.response) {
             saveDescription(entity, result.response);
           } else {
@@ -3185,12 +3185,12 @@ function submitEntityAssist() {
   })
   .then(response => response.json())
   .then(data => {
-    if (data.success && data.agent_id) {
+    if (data.success && data.use_id) {
       const pending = pendingEntities.get(tempId);
       if (pending) {
         pendingEntities.delete(tempId);
-        pendingEntities.set(data.agent_id, pending);
-        pending.element.dataset.agentId = data.agent_id;
+        pendingEntities.set(data.use_id, pending);
+        pending.element.dataset.agentId = data.use_id;
       }
     } else {
       throw new Error(data.error || 'Failed to start assistant');
@@ -3210,7 +3210,7 @@ function setupCortexListener() {
   }
 
   window.appEvents.listen('cortex', (msg) => {
-    const agentId = msg.agent_id;
+    const agentId = msg.use_id;
     if (!agentId) return;
 
     // Pending entity additions

@@ -63,8 +63,8 @@ def test_pipeline_with_real_fixture(health_env):
         "\n".join(
             [
                 json.dumps({"event": "run.start", "mode": "segment"}),
-                json.dumps({"event": "agent.dispatch", "mode": "segment"}),
-                json.dumps({"event": "agent.complete", "mode": "segment"}),
+                json.dumps({"event": "talent.dispatch", "mode": "segment"}),
+                json.dumps({"event": "talent.complete", "mode": "segment"}),
                 json.dumps(
                     {"event": "run.complete", "mode": "segment", "duration_ms": 42}
                 ),

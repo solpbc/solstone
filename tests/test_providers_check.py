@@ -11,8 +11,8 @@ import pytest
 
 
 def test_run_check_writes_health_file(tmp_path, monkeypatch):
-    """_run_check writes agents health results to _SOLSTONE_JOURNAL_OVERRIDE/health/agents.json."""
-    import think.agents as agents
+    """_run_check writes provider health results to _SOLSTONE_JOURNAL_OVERRIDE/health/talents.json."""
+    import think.providers_cli as providers_cli
 
     fake_registry = {"fake": object()}
     fake_defaults = {
@@ -25,13 +25,13 @@ def test_run_check_writes_health_file(tmp_path, monkeypatch):
 
     monkeypatch.setattr("think.providers.PROVIDER_REGISTRY", fake_registry)
     monkeypatch.setattr("think.models.PROVIDER_DEFAULTS", fake_defaults)
-    monkeypatch.setattr(agents, "get_journal", lambda: str(tmp_path))
-    monkeypatch.setattr(agents, "_check_generate", lambda *_args: ("ok", "ok"))
+    monkeypatch.setattr(providers_cli, "get_journal", lambda: str(tmp_path))
+    monkeypatch.setattr(providers_cli, "_check_generate", lambda *_args: ("ok", "ok"))
 
     async def mock_check_cogitate(*_args):
         return "ok", "ok"
 
-    monkeypatch.setattr(agents, "_check_cogitate", mock_check_cogitate)
+    monkeypatch.setattr(providers_cli, "_check_cogitate", mock_check_cogitate)
 
     args = argparse.Namespace(
         provider=None,
@@ -43,11 +43,11 @@ def test_run_check_writes_health_file(tmp_path, monkeypatch):
     )
 
     with pytest.raises(SystemExit) as exc_info:
-        asyncio.run(agents._run_check(args))
+        asyncio.run(providers_cli._run_check(args))
 
     assert exc_info.value.code == 0
 
-    health_file = tmp_path / "health" / "agents.json"
+    health_file = tmp_path / "health" / "talents.json"
     assert health_file.exists()
 
     payload = json.loads(health_file.read_text())
@@ -61,7 +61,7 @@ def test_run_check_writes_health_file(tmp_path, monkeypatch):
 
 def test_run_check_partial_failure_exits_one(tmp_path, monkeypatch):
     """_run_check exits 1 when any check fails."""
-    import think.agents as agents
+    import think.providers_cli as providers_cli
 
     fake_registry = {"fake": object()}
     fake_defaults = {
@@ -74,13 +74,13 @@ def test_run_check_partial_failure_exits_one(tmp_path, monkeypatch):
 
     monkeypatch.setattr("think.providers.PROVIDER_REGISTRY", fake_registry)
     monkeypatch.setattr("think.models.PROVIDER_DEFAULTS", fake_defaults)
-    monkeypatch.setattr(agents, "get_journal", lambda: str(tmp_path))
-    monkeypatch.setattr(agents, "_check_generate", lambda *_args: ("ok", "ok"))
+    monkeypatch.setattr(providers_cli, "get_journal", lambda: str(tmp_path))
+    monkeypatch.setattr(providers_cli, "_check_generate", lambda *_args: ("ok", "ok"))
 
     async def mock_check_cogitate(*_args):
         return "fail", "FAIL: timeout"
 
-    monkeypatch.setattr(agents, "_check_cogitate", mock_check_cogitate)
+    monkeypatch.setattr(providers_cli, "_check_cogitate", mock_check_cogitate)
 
     args = argparse.Namespace(
         provider=None,
@@ -92,11 +92,11 @@ def test_run_check_partial_failure_exits_one(tmp_path, monkeypatch):
     )
 
     with pytest.raises(SystemExit) as exc_info:
-        asyncio.run(agents._run_check(args))
+        asyncio.run(providers_cli._run_check(args))
 
     assert exc_info.value.code == 1
 
-    health_file = tmp_path / "health" / "agents.json"
+    health_file = tmp_path / "health" / "talents.json"
     payload = json.loads(health_file.read_text())
     assert payload["summary"]["passed"] == 3
     assert payload["summary"]["skipped"] == 0
@@ -105,7 +105,7 @@ def test_run_check_partial_failure_exits_one(tmp_path, monkeypatch):
 
 def test_run_check_full_provider_failure_exits_one(tmp_path, monkeypatch):
     """_run_check exits 1 when all checks for a provider fail."""
-    import think.agents as agents
+    import think.providers_cli as providers_cli
 
     fake_registry = {"fake": object()}
     fake_defaults = {
@@ -118,15 +118,15 @@ def test_run_check_full_provider_failure_exits_one(tmp_path, monkeypatch):
 
     monkeypatch.setattr("think.providers.PROVIDER_REGISTRY", fake_registry)
     monkeypatch.setattr("think.models.PROVIDER_DEFAULTS", fake_defaults)
-    monkeypatch.setattr(agents, "get_journal", lambda: str(tmp_path))
+    monkeypatch.setattr(providers_cli, "get_journal", lambda: str(tmp_path))
     monkeypatch.setattr(
-        agents, "_check_generate", lambda *_args: ("fail", "FAIL: key not set")
+        providers_cli, "_check_generate", lambda *_args: ("fail", "FAIL: key not set")
     )
 
     async def mock_check_cogitate(*_args):
         return "fail", "FAIL: key not set"
 
-    monkeypatch.setattr(agents, "_check_cogitate", mock_check_cogitate)
+    monkeypatch.setattr(providers_cli, "_check_cogitate", mock_check_cogitate)
 
     args = argparse.Namespace(
         provider=None,
@@ -138,11 +138,11 @@ def test_run_check_full_provider_failure_exits_one(tmp_path, monkeypatch):
     )
 
     with pytest.raises(SystemExit) as exc_info:
-        asyncio.run(agents._run_check(args))
+        asyncio.run(providers_cli._run_check(args))
 
     assert exc_info.value.code == 1
 
-    health_file = tmp_path / "health" / "agents.json"
+    health_file = tmp_path / "health" / "talents.json"
     payload = json.loads(health_file.read_text())
     assert payload["summary"]["passed"] == 0
     assert payload["summary"]["skipped"] == 0
@@ -151,7 +151,7 @@ def test_run_check_full_provider_failure_exits_one(tmp_path, monkeypatch):
 
 def test_run_check_dedup_same_model(tmp_path, monkeypatch):
     """_run_check deduplicates checks when tiers resolve to the same model."""
-    import think.agents as agents
+    import think.providers_cli as providers_cli
 
     fake_registry = {"fake": object()}
     fake_defaults = {
@@ -164,17 +164,17 @@ def test_run_check_dedup_same_model(tmp_path, monkeypatch):
 
     monkeypatch.setattr("think.providers.PROVIDER_REGISTRY", fake_registry)
     monkeypatch.setattr("think.models.PROVIDER_DEFAULTS", fake_defaults)
-    monkeypatch.setattr(agents, "get_journal", lambda: str(tmp_path))
+    monkeypatch.setattr(providers_cli, "get_journal", lambda: str(tmp_path))
 
     gen_mock = MagicMock(return_value=("ok", "ok"))
-    monkeypatch.setattr(agents, "_check_generate", gen_mock)
+    monkeypatch.setattr(providers_cli, "_check_generate", gen_mock)
 
     cog_inner = MagicMock(return_value=("ok", "ok"))
 
     async def mock_check_cogitate(*args):
         return cog_inner(*args)
 
-    monkeypatch.setattr(agents, "_check_cogitate", mock_check_cogitate)
+    monkeypatch.setattr(providers_cli, "_check_cogitate", mock_check_cogitate)
 
     args = argparse.Namespace(
         provider=None,
@@ -186,13 +186,13 @@ def test_run_check_dedup_same_model(tmp_path, monkeypatch):
     )
 
     with pytest.raises(SystemExit) as exc_info:
-        asyncio.run(agents._run_check(args))
+        asyncio.run(providers_cli._run_check(args))
 
     assert exc_info.value.code == 0
     assert gen_mock.call_count == 1
     assert cog_inner.call_count == 1
 
-    health_file = tmp_path / "health" / "agents.json"
+    health_file = tmp_path / "health" / "talents.json"
     assert health_file.exists()
 
     payload = json.loads(health_file.read_text())
@@ -212,7 +212,7 @@ def test_run_check_dedup_same_model(tmp_path, monkeypatch):
 
 def test_run_check_targeted_filters_to_configured_pairs(tmp_path, monkeypatch):
     """--targeted filters checks to only configured provider+tier pairs."""
-    import think.agents as agents
+    import think.providers_cli as providers_cli
 
     fake_registry = {"provA": object(), "provB": object(), "provC": object()}
     fake_defaults = {
@@ -228,13 +228,13 @@ def test_run_check_targeted_filters_to_configured_pairs(tmp_path, monkeypatch):
     monkeypatch.setattr("think.providers.PROVIDER_REGISTRY", fake_registry)
     monkeypatch.setattr("think.models.PROVIDER_DEFAULTS", fake_defaults)
     monkeypatch.setattr("think.models.TYPE_DEFAULTS", fake_type_defaults)
-    monkeypatch.setattr(agents, "get_journal", lambda: str(tmp_path))
-    monkeypatch.setattr(agents, "_check_generate", lambda *_args: ("ok", "ok"))
+    monkeypatch.setattr(providers_cli, "get_journal", lambda: str(tmp_path))
+    monkeypatch.setattr(providers_cli, "_check_generate", lambda *_args: ("ok", "ok"))
 
     async def mock_check_cogitate(*_args):
         return "ok", "ok"
 
-    monkeypatch.setattr(agents, "_check_cogitate", mock_check_cogitate)
+    monkeypatch.setattr(providers_cli, "_check_cogitate", mock_check_cogitate)
 
     # Mock get_config to return no overrides (use TYPE_DEFAULTS)
     monkeypatch.setattr("think.utils.get_config", lambda: {})
@@ -258,11 +258,11 @@ def test_run_check_targeted_filters_to_configured_pairs(tmp_path, monkeypatch):
     )
 
     with pytest.raises(SystemExit) as exc_info:
-        asyncio.run(agents._run_check(args))
+        asyncio.run(providers_cli._run_check(args))
 
     assert exc_info.value.code == 0
 
-    health_file = tmp_path / "health" / "agents.json"
+    health_file = tmp_path / "health" / "talents.json"
     payload = json.loads(health_file.read_text())
     # Expected targeted pairs: (provA, 2), (provB, 2), (provC, 2) = 3 pairs × 2 interfaces = 6 checks
     assert payload["summary"]["total"] == 6
@@ -274,7 +274,7 @@ def test_run_check_targeted_flock_dedup(tmp_path, monkeypatch):
     """--targeted exits silently when another targeted check holds the lock."""
     import fcntl
 
-    import think.agents as agents
+    import think.providers_cli as providers_cli
 
     fake_registry = {"fake": object()}
     fake_defaults = {"fake": {1: "m", 2: "m", 3: "m"}}
@@ -286,7 +286,7 @@ def test_run_check_targeted_flock_dedup(tmp_path, monkeypatch):
     monkeypatch.setattr("think.providers.PROVIDER_REGISTRY", fake_registry)
     monkeypatch.setattr("think.models.PROVIDER_DEFAULTS", fake_defaults)
     monkeypatch.setattr("think.models.TYPE_DEFAULTS", fake_type_defaults)
-    monkeypatch.setattr(agents, "get_journal", lambda: str(tmp_path))
+    monkeypatch.setattr(providers_cli, "get_journal", lambda: str(tmp_path))
     monkeypatch.setattr("think.utils.get_config", lambda: {})
     monkeypatch.setattr("think.models.get_backup_provider", lambda _: None)
 
@@ -297,7 +297,7 @@ def test_run_check_targeted_flock_dedup(tmp_path, monkeypatch):
     fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
 
     gen_mock = MagicMock(return_value=("ok", "ok"))
-    monkeypatch.setattr(agents, "_check_generate", gen_mock)
+    monkeypatch.setattr(providers_cli, "_check_generate", gen_mock)
 
     args = argparse.Namespace(
         provider=None,
@@ -309,18 +309,18 @@ def test_run_check_targeted_flock_dedup(tmp_path, monkeypatch):
     )
 
     # Should return silently (no SystemExit, no checks run)
-    asyncio.run(agents._run_check(args))
+    asyncio.run(providers_cli._run_check(args))
     assert gen_mock.call_count == 0
 
     # No health file written
-    assert not (tmp_path / "health" / "agents.json").exists()
+    assert not (tmp_path / "health" / "talents.json").exists()
 
     lock_file.close()
 
 
 def test_check_generate_logs_token_usage(monkeypatch):
     """_check_generate logs token usage when result includes usage data."""
-    import think.agents as agents
+    import think.providers_cli as providers_cli
 
     fake_module = MagicMock()
     fake_module.run_generate.return_value = {
@@ -339,7 +339,7 @@ def test_check_generate_logs_token_usage(monkeypatch):
     log_mock = MagicMock()
     monkeypatch.setattr("think.models.log_token_usage", log_mock)
 
-    status, msg = agents._check_generate("fake", 2, 30)
+    status, msg = providers_cli._check_generate("fake", 2, 30)
 
     assert status == "ok"
     assert msg == "OK"
@@ -351,8 +351,8 @@ def test_check_generate_logs_token_usage(monkeypatch):
     )
 
 
-def test_cortex_start_emits_agents_check(tmp_path):
-    """Cortex startup requests an agents health check via supervisor."""
+def test_cortex_start_emits_providers_check(tmp_path):
+    """Cortex startup requests a providers health check via supervisor."""
     from think.cortex import CortexService
 
     cortex = CortexService(journal_path=str(tmp_path))
@@ -366,13 +366,13 @@ def test_cortex_start_emits_agents_check(tmp_path):
             cortex.start()
 
     cortex.callosum.emit.assert_any_call(
-        "supervisor", "request", cmd=["sol", "agents", "check"]
+        "supervisor", "request", cmd=["sol", "providers", "check"]
     )
 
 
 def test_missing_env_key_returns_skip(monkeypatch):
     """_check_generate returns skip status when env key is not set."""
-    import think.agents as agents
+    import think.providers_cli as providers_cli
 
     monkeypatch.setattr(
         "think.providers.PROVIDER_METADATA",
@@ -380,7 +380,7 @@ def test_missing_env_key_returns_skip(monkeypatch):
     )
     monkeypatch.delenv("FAKE_API_KEY", raising=False)
 
-    status, msg = agents._check_generate("fake", 2, 30)
+    status, msg = providers_cli._check_generate("fake", 2, 30)
     assert status == "skip"
     assert "Fake Provider not configured" in msg
     assert "FAKE_API_KEY" in msg
@@ -388,8 +388,8 @@ def test_missing_env_key_returns_skip(monkeypatch):
 
 def test_cogitate_missing_binary_returns_skip(monkeypatch):
     """_check_cogitate returns skip when CLI binary is not installed."""
-    import think.agents as agents
     import think.providers as providers
+    import think.providers_cli as providers_cli
 
     monkeypatch.setitem(
         providers.PROVIDER_METADATA,
@@ -403,29 +403,29 @@ def test_cogitate_missing_binary_returns_skip(monkeypatch):
     monkeypatch.setenv("FAKE_API_KEY", "test-key")
     monkeypatch.setattr("shutil.which", lambda _: None)
 
-    status, msg = asyncio.run(agents._check_cogitate("fake", 2, 30))
+    status, msg = asyncio.run(providers_cli._check_cogitate("fake", 2, 30))
     assert status == "skip"
     assert "nonexistent-binary-xyz CLI not installed" in msg
 
 
 def test_all_skip_exits_zero(tmp_path, monkeypatch):
     """Exit code is 0 when all results are skipped (no fails)."""
-    import think.agents as agents
+    import think.providers_cli as providers_cli
 
     fake_registry = {"fake": object()}
     fake_defaults = {"fake": {1: "m1", 2: "m2", 3: "m3"}}
 
     monkeypatch.setattr("think.providers.PROVIDER_REGISTRY", fake_registry)
     monkeypatch.setattr("think.models.PROVIDER_DEFAULTS", fake_defaults)
-    monkeypatch.setattr(agents, "get_journal", lambda: str(tmp_path))
+    monkeypatch.setattr(providers_cli, "get_journal", lambda: str(tmp_path))
     monkeypatch.setattr(
-        agents, "_check_generate", lambda *_args: ("skip", "not configured")
+        providers_cli, "_check_generate", lambda *_args: ("skip", "not configured")
     )
 
     async def mock_check_cogitate(*_args):
         return "skip", "not configured"
 
-    monkeypatch.setattr(agents, "_check_cogitate", mock_check_cogitate)
+    monkeypatch.setattr(providers_cli, "_check_cogitate", mock_check_cogitate)
 
     args = argparse.Namespace(
         provider=None,
@@ -437,11 +437,11 @@ def test_all_skip_exits_zero(tmp_path, monkeypatch):
     )
 
     with pytest.raises(SystemExit) as exc_info:
-        asyncio.run(agents._run_check(args))
+        asyncio.run(providers_cli._run_check(args))
 
     assert exc_info.value.code == 0
 
-    payload = json.loads((tmp_path / "health" / "agents.json").read_text())
+    payload = json.loads((tmp_path / "health" / "talents.json").read_text())
     assert payload["summary"]["skipped"] == 6
     assert payload["summary"]["failed"] == 0
     assert payload["summary"]["passed"] == 0
@@ -452,22 +452,22 @@ def test_all_skip_exits_zero(tmp_path, monkeypatch):
 
 def test_mix_skip_and_fail_exits_one(tmp_path, monkeypatch):
     """Exit code is 1 when there's a mix of skip and fail results."""
-    import think.agents as agents
+    import think.providers_cli as providers_cli
 
     fake_registry = {"fake": object()}
     fake_defaults = {"fake": {1: "m1", 2: "m2", 3: "m3"}}
 
     monkeypatch.setattr("think.providers.PROVIDER_REGISTRY", fake_registry)
     monkeypatch.setattr("think.models.PROVIDER_DEFAULTS", fake_defaults)
-    monkeypatch.setattr(agents, "get_journal", lambda: str(tmp_path))
+    monkeypatch.setattr(providers_cli, "get_journal", lambda: str(tmp_path))
     monkeypatch.setattr(
-        agents, "_check_generate", lambda *_args: ("skip", "not configured")
+        providers_cli, "_check_generate", lambda *_args: ("skip", "not configured")
     )
 
     async def mock_check_cogitate(*_args):
         return "fail", "FAIL: broken"
 
-    monkeypatch.setattr(agents, "_check_cogitate", mock_check_cogitate)
+    monkeypatch.setattr(providers_cli, "_check_cogitate", mock_check_cogitate)
 
     args = argparse.Namespace(
         provider=None,
@@ -479,18 +479,18 @@ def test_mix_skip_and_fail_exits_one(tmp_path, monkeypatch):
     )
 
     with pytest.raises(SystemExit) as exc_info:
-        asyncio.run(agents._run_check(args))
+        asyncio.run(providers_cli._run_check(args))
 
     assert exc_info.value.code == 1
 
-    payload = json.loads((tmp_path / "health" / "agents.json").read_text())
+    payload = json.loads((tmp_path / "health" / "talents.json").read_text())
     assert payload["summary"]["skipped"] == 3
     assert payload["summary"]["failed"] == 3
 
 
 def test_skipped_count_in_summary(tmp_path, monkeypatch):
     """Summary total equals passed + skipped + failed."""
-    import think.agents as agents
+    import think.providers_cli as providers_cli
 
     fake_registry = {"okp": object(), "skipP": object()}
     fake_defaults = {
@@ -500,21 +500,21 @@ def test_skipped_count_in_summary(tmp_path, monkeypatch):
 
     monkeypatch.setattr("think.providers.PROVIDER_REGISTRY", fake_registry)
     monkeypatch.setattr("think.models.PROVIDER_DEFAULTS", fake_defaults)
-    monkeypatch.setattr(agents, "get_journal", lambda: str(tmp_path))
+    monkeypatch.setattr(providers_cli, "get_journal", lambda: str(tmp_path))
 
     def mock_gen(provider, tier, timeout):
         if provider == "okp":
             return "ok", "OK"
         return "skip", "not configured"
 
-    monkeypatch.setattr(agents, "_check_generate", mock_gen)
+    monkeypatch.setattr(providers_cli, "_check_generate", mock_gen)
 
     async def mock_cog(provider, tier, timeout):
         if provider == "okp":
             return "ok", "OK"
         return "skip", "not configured"
 
-    monkeypatch.setattr(agents, "_check_cogitate", mock_cog)
+    monkeypatch.setattr(providers_cli, "_check_cogitate", mock_cog)
 
     args = argparse.Namespace(
         provider=None,
@@ -526,10 +526,10 @@ def test_skipped_count_in_summary(tmp_path, monkeypatch):
     )
 
     with pytest.raises(SystemExit) as exc_info:
-        asyncio.run(agents._run_check(args))
+        asyncio.run(providers_cli._run_check(args))
 
     assert exc_info.value.code == 0
-    payload = json.loads((tmp_path / "health" / "agents.json").read_text())
+    payload = json.loads((tmp_path / "health" / "talents.json").read_text())
     summary = payload["summary"]
     assert (
         summary["total"] == summary["passed"] + summary["skipped"] + summary["failed"]
@@ -541,20 +541,20 @@ def test_skipped_count_in_summary(tmp_path, monkeypatch):
 
 def test_status_field_in_json_output(tmp_path, monkeypatch, capsys):
     """JSON output includes status per result and skipped in summary."""
-    import think.agents as agents
+    import think.providers_cli as providers_cli
 
     fake_registry = {"fake": object()}
     fake_defaults = {"fake": {1: "m1", 2: "m2", 3: "m3"}}
 
     monkeypatch.setattr("think.providers.PROVIDER_REGISTRY", fake_registry)
     monkeypatch.setattr("think.models.PROVIDER_DEFAULTS", fake_defaults)
-    monkeypatch.setattr(agents, "get_journal", lambda: str(tmp_path))
-    monkeypatch.setattr(agents, "_check_generate", lambda *_args: ("ok", "OK"))
+    monkeypatch.setattr(providers_cli, "get_journal", lambda: str(tmp_path))
+    monkeypatch.setattr(providers_cli, "_check_generate", lambda *_args: ("ok", "OK"))
 
     async def mock_cog(*_args):
         return "ok", "OK"
 
-    monkeypatch.setattr(agents, "_check_cogitate", mock_cog)
+    monkeypatch.setattr(providers_cli, "_check_cogitate", mock_cog)
 
     args = argparse.Namespace(
         provider=None,
@@ -566,7 +566,7 @@ def test_status_field_in_json_output(tmp_path, monkeypatch, capsys):
     )
 
     with pytest.raises(SystemExit):
-        asyncio.run(agents._run_check(args))
+        asyncio.run(providers_cli._run_check(args))
 
     captured = capsys.readouterr()
     data = json.loads(captured.out)

@@ -217,9 +217,9 @@ def _process_segment(
         agent_filter = (
             None if agents is True else agents if isinstance(agents, dict) else None
         )
-        agents_dir = segment_path / "agents"
-        if agents_dir.is_dir():
-            for md_file in sorted(agents_dir.rglob("*.md")):
+        talents_dir = segment_path / "talents"
+        if talents_dir.is_dir():
+            for md_file in sorted(talents_dir.rglob("*.md")):
                 if not md_file.is_file():
                     continue
 
@@ -230,7 +230,7 @@ def _process_segment(
                 try:
                     content = md_file.read_text()
                     if content.strip():
-                        rel_md_path = md_file.relative_to(agents_dir).as_posix()
+                        rel_md_path = md_file.relative_to(talents_dir).as_posix()
                         entries.append(
                             {
                                 "timestamp": segment_start,
@@ -240,7 +240,7 @@ def _process_segment(
                                 "prefix": "agent_output",
                                 "output_name": md_file.stem,
                                 "content": content,
-                                "name": f"{segment_path.name}/agents/{rel_md_path}",
+                                "name": f"{segment_path.name}/talents/{rel_md_path}",
                                 "stream": stream,
                             }
                         )

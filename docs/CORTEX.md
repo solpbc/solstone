@@ -1,6 +1,6 @@
 # Cortex API and Eventing
 
-The Cortex system manages AI agent execution through the Callosum message bus with file-based persistence. It acts as a process manager for agent instances, receiving requests via Callosum and writing execution events to both JSONL files (for persistence) and the message bus (for real-time distribution).
+The Cortex system manages AI talent execution through the Callosum message bus with file-based persistence. It acts as a process manager for talent instances, receiving requests via Callosum and writing execution events to both JSONL files (for persistence) and the message bus (for real-time distribution).
 
 For details on the Callosum protocol and message format, see [CALLOSUM.md](CALLOSUM.md).
 
@@ -9,22 +9,22 @@ For details on the Callosum protocol and message format, see [CALLOSUM.md](CALLO
 ### Event Flow
 1. **Request Creation**: Client calls `cortex_request()` which broadcasts to Callosum (`tract="cortex"`, `event="request"`)
 2. **Request Reception**: Cortex receives message via Callosum callback and creates `<name>/<timestamp>_active.jsonl`
-3. **Agent Spawning**: Cortex spawns agent process via `sol agents` with merged configuration
-4. **Event Emission**: Agents write JSON events to stdout (captured by Cortex)
+3. **Talent Spawning**: Cortex spawns a talent process via `python -m think.talents` with merged configuration
+4. **Event Emission**: Talents write JSON events to stdout (captured by Cortex)
 5. **Event Distribution**: Cortex appends events to JSONL file AND broadcasts to Callosum
 6. **Agent Completion**: Cortex renames file to `<name>/<timestamp>.jsonl` when agent finishes
 
 ### Key Components
 - **Message Bus Integration**: Cortex connects to Callosum to receive requests and broadcast events
-- **Process Management**: Spawns agent subprocesses (both tool agents and generators)
-- **Configuration Delegation**: Passes raw requests to `sol agents`, which handles all config loading, validation, and hydration
+- **Process Management**: Spawns talent subprocesses (both tool talents and generators)
+- **Configuration Delegation**: Passes raw requests to `python -m think.talents`, which handles all config loading, validation, and hydration
 - **Event Capture**: Monitors agent stdout/stderr and appends to JSONL files
 - **Dual Event Distribution**: Events go to both persistent files and real-time message bus
 - **NDJSON Input Mode**: Agent processes accept newline-delimited JSON via stdin containing the full merged configuration
 
 ### File States
-- `<name>/<timestamp>_active.jsonl`: Agent currently executing (Cortex is appending events)
-- `<name>/<timestamp>.jsonl`: Agent completed (contains full event history)
+- `<name>/<timestamp>_active.jsonl`: Talent currently executing (Cortex is appending events)
+- `<name>/<timestamp>.jsonl`: Talent completed (contains full event history)
 
 **Note**: Files provide persistence and historical record, while Callosum provides real-time event distribution to all interested services.
 
@@ -35,16 +35,16 @@ Requests are created via `cortex_request()` from `think.cortex_client`, which br
 ```json
 {
   "event": "request",
-  "ts": 1234567890123,              // Required: millisecond timestamp (must match agent_id in filename)
-  "prompt": "Analyze this code for security issues",  // Required for agents (not generators)
-  "name": "default",              // Optional: agent name from talent/*.md
+  "ts": 1234567890123,              // Required: millisecond timestamp (must match use_id in filename)
+  "prompt": "Analyze this code for security issues",  // Required for talents (not generators)
+  "name": "default",              // Optional: talent name from talent/*.md
   "provider": "openai",              // Optional: override provider (openai, google, anthropic)
   "max_output_tokens": 8192,        // Optional: maximum response tokens
   "thinking_budget": 10000,         // Optional: thinking token budget (ignored by OpenAI)
   "session_id": "sess-abc123",       // Optional: CLI session ID for continuation
   "chat_id": "1234567890122",        // Optional: chat ID for reverse lookup
   "facet": "my-project",          // Optional: project context
-  "output": "md",                     // Optional: output format ("md" or "json"), writes to agents/
+  "output": "md",                     // Optional: output format ("md" or "json"), writes to talents/
   "day": "20250109",                  // Optional: YYYYMMDD format, defaults to current day
   "env": {                           // Optional: environment variables for subprocess
     "API_KEY": "secret",
@@ -79,7 +79,7 @@ Generators are spawned via Cortex when a request has an `output` field but no `t
 
 ### Generator Events
 
-Generators emit the same event types as agents:
+Generators emit the same event types as talents:
 - `start` - When generation begins
 - `finish` - On completion, with `result` containing generated content
 - `error` - On failure
@@ -92,16 +92,16 @@ The `finish` event may include a `skipped` field when generation is skipped:
 
 All providers (Anthropic, OpenAI, Google) support continuing conversations via CLI
 session resumption. Include a `session_id` field in the request with the CLI session
-ID from a previous agent's finish event. The provider CLI tool resumes the conversation
+ID from a previous talent's finish event. The provider CLI tool resumes the conversation
 internally using its native session management (e.g., `claude --resume`, `codex exec resume`).
 
 Chats are locked to their original provider — continuations must use the same provider
 that started the conversation. The `chat_id` field enables reverse lookup from an
-agent back to its parent chat.
+talent back to its parent chat.
 
 ## Agent Event Format
 
-All subsequent lines are JSON objects with `event` and millisecond `ts` fields. The `ts` field is automatically added by Cortex if not provided by the provider. Additionally, Cortex automatically adds an `agent_id` field (matching the timestamp component in the filename) to all events for tracking purposes.
+All subsequent lines are JSON objects with `event` and millisecond `ts` fields. The `ts` field is automatically added by Cortex if not provided by the provider. Additionally, Cortex automatically adds an `use_id` field (matching the timestamp component in the filename) to all events for tracking purposes.
 
 ### request
 The initial spawn request (first line of file, written by client).
@@ -109,7 +109,7 @@ The initial spawn request (first line of file, written by client).
 {
   "event": "request",
   "ts": 1234567890123,
-  "agent_id": "1234567890123",
+  "use_id": "1234567890123",
   "prompt": "User's task or question",
   "provider": "openai",
   "name": "default",
@@ -119,12 +119,12 @@ The initial spawn request (first line of file, written by client).
 ```
 
 ### start
-Emitted when an agent run begins.
+Emitted when a talent run begins.
 ```json
 {
   "event": "start",
   "ts": 1234567890123,
-  "agent_id": "1234567890123",
+  "use_id": "1234567890123",
   "name": "default",
   "model": "gpt-4o",
   "session_id": "sess-abc",
@@ -138,7 +138,7 @@ Emitted when a tool execution begins.
 {
   "event": "tool_start",
   "ts": 1234567890123,
-  "agent_id": "1234567890123",
+  "use_id": "1234567890123",
   "tool": "search_journal",
   "args": {"query": "search terms", "limit": 10},
   "call_id": "search_journal-1"
@@ -151,7 +151,7 @@ Emitted when a tool execution completes.
 {
   "event": "tool_end",
   "ts": 1234567890123,
-  "agent_id": "1234567890123",
+  "use_id": "1234567890123",
   "tool": "search_journal",
   "args": {"query": "search terms"},
   "result": ["result", "array", "or", "object"],
@@ -165,30 +165,30 @@ Emitted when the model produces reasoning/thinking content (model-dependent, pri
 {
   "event": "thinking",
   "ts": 1234567890123,
-  "agent_id": "1234567890123",
+  "use_id": "1234567890123",
   "summary": "Model's internal reasoning about the task...",
   "model": "o1-mini"
 }
 ```
 
-### agent_updated
+### talent_updated
 Emitted when control is handed off to a different agent (multi-agent scenarios).
 ```json
 {
-  "event": "agent_updated",
+  "event": "talent_updated",
   "ts": 1234567890123,
-  "agent_id": "1234567890123",
+  "use_id": "1234567890123",
   "agent": "SpecializedAgent"
 }
 ```
 
 ### finish
-Emitted when the agent run completes successfully.
+Emitted when the talent run completes successfully.
 ```json
 {
   "event": "finish",
   "ts": 1234567890123,
-  "agent_id": "1234567890123",
+  "use_id": "1234567890123",
   "result": "Final response text to the owner"
 }
 ```
@@ -199,7 +199,7 @@ Emitted when an error occurs during execution.
 {
   "event": "error",
   "ts": 1234567890123,
-  "agent_id": "1234567890123",
+  "use_id": "1234567890123",
   "error": "Error message",
   "trace": "Full stack trace..."
 }
@@ -211,7 +211,7 @@ Emitted when non-JSON output is captured from agent stdout.
 {
   "event": "info",
   "ts": 1234567890123,
-  "agent_id": "1234567890123",
+  "use_id": "1234567890123",
   "message": "Non-JSON output line from agent"
 }
 ```
@@ -232,23 +232,23 @@ When an agent completes successfully, its result can be automatically written to
 
 - Include an `output` field in the agent's frontmatter with the format ("md" or "json")
 - Output path is derived from agent name + format + schedule:
-  - Daily agents: `YYYYMMDD/agents/{name}.{ext}`
+  - Daily agents: `YYYYMMDD/talents/{name}.{ext}`
   - Segment agents: `YYYYMMDD/{segment}/{name}.{ext}`
 - Writing occurs before completion
 - Write failures are logged but don't interrupt the agent flow
 - Commonly used for scheduled agents that generate daily reports
 
-## Agent Configuration
+## Talent Configuration
 
-Agents use configurations stored in the `talent/` directory. Each agent is a `.md` file containing:
+Talents use configurations stored in the `talent/` directory. Each talent is a `.md` file containing:
 - JSON frontmatter with metadata and configuration
-- The agent-specific prompt and instructions in the content
+- The talent-specific prompt and instructions in the content
 
-When spawning an agent:
-1. Cortex passes the raw request to `sol agents` via stdin (NDJSON format)
-2. The agent process (`think/agents.py`) handles all config loading via `prepare_config()`:
-   - Loads agent configuration using `get_agent()` from `think/talent.py`
-   - Merges request parameters with agent defaults
+When spawning a talent:
+1. Cortex passes the raw request to `python -m think.talents` via stdin (NDJSON format)
+2. The talent process (`think/talents.py`) handles all config loading via `prepare_config()`:
+   - Loads talent configuration using `get_talent()` from `think/talent.py`
+   - Merges request parameters with talent defaults
    - Resolves provider and model based on context
 3. The agent validates the config via `validate_config()` before execution
 4. Instructions are built with three components:

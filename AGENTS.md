@@ -7,7 +7,7 @@ This is the developer-facing documentation for the solstone codebase. If you're 
 - **Journal**: Central data structure organized as `journal/YYYYMMDD/` directories. All captured data, transcripts, and analysis artifacts are stored here.
 - **Facets**: Project/context organization system that groups related content and provides scoped views of entities, tasks, and activities.
 - **Entities**: Extracted information tracked over time across transcripts and interactions and associated with facets for semantic navigation.
-- **Agents**: AI processors with configurable prompts that analyze content, extract insights, and respond to queries.
+- **Talents**: AI processors with configurable prompts that analyze content, extract insights, and respond to queries.
 - **Callosum**: Message bus that enables asynchronous communication between components.
 - **Indexer**: Builds and maintains a SQLite database from journal data, enabling fast search and retrieval.
 
@@ -24,37 +24,37 @@ This is the developer-facing documentation for the solstone codebase. If you're 
 
 **Component communication**:
 - Callosum enables async communication between services.
-- Cortex orchestrates AI agent execution via `sol cortex`, spawning agent subprocesses with agent configurations.
+- Cortex orchestrates AI talent execution via `sol cortex`, spawning talent subprocesses with talent configurations.
 - The unified CLI is `sol`. Run `sol` to see status and available commands.
 
 ## Quick Commands
 
 ```bash
 make install   # Install package (includes all deps)
-make skills    # Discover and symlink Agent Skills from talent/ dirs
+make skills    # Discover and symlink Anthropic Skills from talent/ dirs
 make format    # Auto-fix formatting, then report remaining issues
 make test      # Run unit tests
 make ci        # Full CI check (format check + lint + test)
 make dev       # Start stack (Ctrl+C to stop)
 ```
 
-## Agent CLI Boundaries
+## Talent CLI Boundaries
 
-Cogitate agents have access to all `sol` commands. The following infrastructure commands must never be called by agents because they manage services and data pipelines that should only be operated by the supervisor or a human operator:
+Cogitate talents have access to all `sol` commands. The following infrastructure commands must never be called by talents because they manage services and data pipelines that should only be operated by the supervisor or a human operator:
 
 - `sol supervisor` / `sol start`
 - `sol dream` except heartbeat's targeted `sol dream --segment`
 - `sol import`
 - `sol config`
 - `sol cortex`
-- `sol agents`
+- `sol providers check`
 - `sol callosum`
 - `sol observer` / `sol observe-*`
 - `sol sense`
 - `sol transcribe` / `sol describe`
 - `sol indexer --reset`
 
-Agents should use `sol call` commands for journal interaction and `sol health` / `sol talent logs` for diagnostics.
+Talents should use `sol call` commands for journal interaction and `sol health` / `sol talent logs` for diagnostics.
 
 ## Reference
 

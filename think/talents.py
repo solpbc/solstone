@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Unified agent CLI for solstone.
+"""Unified talent execution module for solstone.
 
-Spawned by cortex for all agent types:
-- Tool-using agents (with configured tools)
+Spawned by cortex for all talent types:
+- Tool-using talents (with configured tools)
 - Generators (transcript analysis, no tools)
 
 Both paths share unified config preparation and execution flow.
@@ -18,11 +18,9 @@ import asyncio
 import json
 import logging
 import os
-import shutil
 import sys
-import time
 import traceback
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from string import Template
 from typing import Any, Callable, Optional
@@ -30,9 +28,9 @@ from typing import Any, Callable, Optional
 from think.cluster import cluster, cluster_period, cluster_span
 from think.providers.shared import Event
 from think.talent import (
-    get_agent_filter,
     get_output_path,
     get_talent_configs,
+    get_talent_filter,
     load_post_hook,
     load_pre_hook,
     load_prompt,
@@ -52,7 +50,9 @@ from think.utils import (
     setup_cli,
 )
 
-LOG = logging.getLogger("think.agents")
+TALENT_EXECUTION_MODULE = "think.talents"
+
+LOG = logging.getLogger("think.talents")
 
 # Minimum content length for transcript-based generation
 MIN_INPUT_CHARS = 50
@@ -105,7 +105,7 @@ class JSONEventWriter:
 def _stream_content_description(stream: str | None) -> str:
     """Return a human-readable content description for a stream.
 
-    Used in preamble templates so agents know what kind of content they're
+    Used in preamble templates so talents know what kind of content they're
     analyzing (live capture vs imported conversations, notes, etc.).
     """
     if not stream:
@@ -218,7 +218,7 @@ def _build_prompt_context(
         day: Day in YYYYMMDD format
         segment: Segment key (HHMMSS_LEN)
         span: List of segment keys
-        activity: Optional activity record dict for activity-scheduled agents
+        activity: Optional activity record dict for activity-scheduled talents
 
     Returns:
         Dict with template variables:
@@ -392,17 +392,19 @@ def _load_transcript(
     elif span:
         os.environ["SOL_SEGMENT"] = span[0]
 
-    # Convert sources config for clustering
+    # Convert sources config for clustering.
+    # Frontmatter now uses ``load.talents`` but cluster still consumes the
+    # normalized ``agents`` source key internally.
     cluster_sources: dict = {}
     for k, v in sources.items():
-        if k == "agents":
-            agent_filter = get_agent_filter(v)
-            if agent_filter is None:
-                cluster_sources[k] = source_is_enabled(v)
-            elif not agent_filter:
-                cluster_sources[k] = False
+        if k == "talents":
+            talent_filter = get_talent_filter(v)
+            if talent_filter is None:
+                cluster_sources["agents"] = source_is_enabled(v)
+            elif not talent_filter:
+                cluster_sources["agents"] = False
             else:
-                cluster_sources[k] = agent_filter
+                cluster_sources["agents"] = talent_filter
         else:
             cluster_sources[k] = source_is_enabled(v)
 
@@ -417,15 +419,15 @@ def _load_transcript(
 
 
 def prepare_config(request: dict) -> dict:
-    """Prepare complete agent config from request.
+    """Prepare a complete talent config from a request.
 
-    Single unified preparation path for all agent types. Takes raw request
+    Single unified preparation path for all talent types. Takes raw request
     from cortex and returns fully prepared config ready for execution.
 
     Config fields produced:
-    - name: Agent name
+    - name: Talent name
     - provider, model: Resolved from context/request
-    - user_instruction: Agent instruction from .md file
+    - user_instruction: Talent instruction from .md file
     - prompt: User's runtime query/request
     - transcript: Clustered transcript (if day provided)
     - output_path: Where to write output (if output format set)
@@ -438,7 +440,7 @@ def prepare_config(request: dict) -> dict:
         Fully prepared config dict
     """
     from think.models import resolve_model_for_provider, resolve_provider
-    from think.talent import get_agent, key_to_context
+    from think.talent import get_talent, key_to_context
 
     name = request.get("name", "unified")
     facet = request.get("facet")
@@ -450,8 +452,8 @@ def prepare_config(request: dict) -> dict:
     output_path_override = request.get("output_path")
     user_prompt = request.get("prompt", "")
 
-    # Load complete agent config
-    config = get_agent(name, facet=facet, analysis_day=day)
+    # Load complete talent config
+    config = get_talent(name, facet=facet, analysis_day=day)
 
     # Config now contains all frontmatter fields plus:
     # - path: Path to the .md file
@@ -459,11 +461,11 @@ def prepare_config(request: dict) -> dict:
     # - All frontmatter: tools, hook, disabled, thinking_budget, max_output_tokens, etc.
 
     # Convert path string to Path object for convenience
-    agent_path = Path(config["path"]) if config.get("path") else None
+    talent_path = Path(config["path"]) if config.get("path") else None
     sources = config.get("sources", {})
     talent_cwd = config.get("cwd")
 
-    # Merge request values (request overrides agent defaults)
+    # Merge request values (request overrides talent defaults)
     config.update({k: v for k, v in request.items() if v is not None})
     request_cwd = request.get("cwd")
     if request_cwd is not None and request_cwd != talent_cwd:
@@ -501,14 +503,14 @@ def prepare_config(request: dict) -> dict:
 
     # Resolve provider and model from context
     context = key_to_context(name)
-    agent_type = config["type"]
-    default_provider, default_model = resolve_provider(context, agent_type)
+    talent_type = config["type"]
+    default_provider, default_model = resolve_provider(context, talent_type)
 
     provider = config.get("provider") or default_provider
     model = config.get("model")
     if not model:
         if provider != default_provider:
-            model = resolve_model_for_provider(context, provider, agent_type)
+            model = resolve_model_for_provider(context, provider, talent_type)
         else:
             model = default_model
 
@@ -529,14 +531,14 @@ def prepare_config(request: dict) -> dict:
     config["health_stale"] = should_recheck_health(health_data)
 
     if not is_provider_healthy(provider, health_data):
-        backup = get_backup_provider(agent_type)
+        backup = get_backup_provider(talent_type)
         if backup and backup != provider:
             env_key = PROVIDER_METADATA.get(backup, {}).get("env_key")
             if not env_key or os.getenv(env_key):
                 config["fallback_from"] = provider
                 config["provider"] = backup
                 config["model"] = resolve_model_for_provider(
-                    context, backup, agent_type
+                    context, backup, talent_type
                 )
 
     # Check if disabled
@@ -546,7 +548,7 @@ def prepare_config(request: dict) -> dict:
 
     # Day-based processing: load transcript and apply template substitution
     if day:
-        # Load transcript (only when agent has enabled sources to consume)
+        # Load transcript (only when the talent has enabled sources to consume)
         if any(source_is_enabled(v) for v in sources.values()):
             transcript, source_counts = _load_transcript(day, segment, span, sources)
             config["transcript"] = transcript
@@ -571,8 +573,8 @@ def prepare_config(request: dict) -> dict:
                     "Scale analysis to available input.\n\n" + transcript
                 )
 
-        # Reload agent instruction with template substitution for day/segment context
-        if agent_path and agent_path.exists():
+        # Reload talent instruction with template substitution for day/segment context
+        if talent_path and talent_path.exists():
             from think.prompts import _resolve_facets
 
             prompt_context = _build_prompt_context(
@@ -585,13 +587,13 @@ def prepare_config(request: dict) -> dict:
                 if activity_ctx:
                     prompt_context["activity_context"] = activity_ctx
 
-            agent_prompt_obj = load_prompt(
-                agent_path.stem, base_dir=agent_path.parent, context=prompt_context
+            talent_prompt_obj = load_prompt(
+                talent_path.stem, base_dir=talent_path.parent, context=prompt_context
             )
-            config["user_instruction"] = agent_prompt_obj.text
+            config["user_instruction"] = talent_prompt_obj.text
 
     # Set prompt (user's runtime query)
-    # For tool agents: prompt is the user's question
+    # For tool talents: prompt is the user's question
     # For generators: prompt is typically empty (instruction is in user_instruction)
     config["prompt"] = user_prompt
 
@@ -628,9 +630,9 @@ def validate_config(config: dict) -> str | None:
     has_user_instruction = bool(config.get("user_instruction"))
     has_day = bool(config.get("day"))
 
-    # Cogitate agents need a prompt (user's question)
+    # Cogitate talents need a prompt (user's question)
     if is_cogitate and not has_prompt:
-        return "Missing 'prompt' field for cogitate agent"
+        return "Missing 'prompt' field for cogitate talent"
 
     # Generate prompts need either day (transcript) or user_instruction
     if not is_cogitate and not has_day and not has_user_instruction and not has_prompt:
@@ -716,7 +718,7 @@ def _run_post_hooks(result: str, config: dict) -> str:
 
 
 # =============================================================================
-# Unified Agent Execution
+# Unified Talent Execution
 # =============================================================================
 
 
@@ -730,12 +732,12 @@ def _write_output(output_path: Path, result: str) -> None:
 
 def _build_dry_run_event(config: dict, before_values: dict) -> dict:
     """Build a dry-run event with all context."""
-    agent_type = config["type"]
+    talent_type = config["type"]
 
     event: dict[str, Any] = {
         "event": "dry_run",
         "ts": now_ms(),
-        "type": agent_type,
+        "type": talent_type,
         "name": config.get("name", "unified"),
         "provider": config.get("provider", ""),
         "model": config.get("model") or "unknown",
@@ -798,7 +800,7 @@ async def _execute_with_tools(
     config: dict,
     emit_event: Callable[[dict], None],
 ) -> None:
-    """Execute tool-using agent via provider's run_cogitate.
+    """Execute a tool-using talent via the provider's run_cogitate.
 
     Args:
         config: Prepared config dict
@@ -816,7 +818,7 @@ async def _execute_with_tools(
     provider_mod = get_provider_module(provider)
 
     # Wrapper to intercept finish event for post-processing
-    def agent_emit_event(data: Event) -> None:
+    def talent_emit_event(data: Event) -> None:
         if data.get("event") == "finish":
             result = data.get("result", "")
             result = _run_post_hooks(result, config)
@@ -832,7 +834,7 @@ async def _execute_with_tools(
         emit_event(data)
 
     try:
-        await provider_mod.run_cogitate(config=config, on_event=agent_emit_event)
+        await provider_mod.run_cogitate(config=config, on_event=talent_emit_event)
     except Exception as exc:
         if not _is_retryable_error(exc) or config.get("fallback_from"):
             raise
@@ -878,7 +880,7 @@ async def _execute_with_tools(
         def backup_emit(data: Event) -> None:
             if data.get("event") == "error":
                 return
-            agent_emit_event(data)
+            talent_emit_event(data)
 
         try:
             await backup_mod.run_cogitate(config=config, on_event=backup_emit)
@@ -1030,14 +1032,14 @@ async def _execute_generate(
     emit_event(finish_event)
 
 
-async def _run_agent(
+async def _run_talent(
     config: dict,
     emit_event: Callable[[dict], None],
     dry_run: bool = False,
 ) -> None:
-    """Execute agent based on config.
+    """Execute a talent based on config.
 
-    Unified execution path for all agent types. Handles:
+    Unified execution path for all talent types. Handles:
     - Skip conditions (disabled, no input, etc.)
     - Output existence checking (skip if exists unless refresh)
     - Pre/post hooks
@@ -1096,10 +1098,10 @@ async def _run_agent(
             }
         )
         if config.get("day"):
-            day_log(config["day"], f"agent {name} skipped ({skip_reason})")
+            day_log(config["day"], f"talent {name} skipped ({skip_reason})")
         return
 
-    # Check if output already exists (applies to both tool agents and generators)
+    # Check if output already exists (applies to both tool talents and generators)
     if output_path and not refresh and not dry_run:
         if output_path.exists() and output_path.stat().st_size > 0:
             LOG.info("Output exists, loading: %s", output_path)
@@ -1145,7 +1147,7 @@ async def _run_agent(
             }
         )
         if config.get("day"):
-            day_log(config["day"], f"agent {name} skipped ({skip_reason})")
+            day_log(config["day"], f"talent {name} skipped ({skip_reason})")
         return
 
     # Dry-run mode
@@ -1153,7 +1155,7 @@ async def _run_agent(
         emit_event(_build_dry_run_event(config, before_values))
         return
 
-    # Execute based on agent type
+    # Execute based on talent type
     if is_cogitate:
         await _execute_with_tools(config, emit_event)
     else:
@@ -1161,7 +1163,7 @@ async def _run_agent(
 
     # Log completion
     if config.get("day"):
-        day_log(config["day"], f"agent {name} ok")
+        day_log(config["day"], f"talent {name} ok")
 
 
 # =============================================================================
@@ -1185,291 +1187,10 @@ def scan_day(day: str) -> dict[str, list[str]]:
         output_format = meta.get("output")
         output_file = get_output_path(day_dir, key, output_format=output_format)
         if output_file.exists():
-            processed.append(os.path.join("agents", output_file.name))
+            processed.append(os.path.join("talents", output_file.name))
         else:
-            pending.append(os.path.join("agents", output_file.name))
+            pending.append(os.path.join("talents", output_file.name))
     return {"processed": sorted(processed), "repairable": sorted(pending)}
-
-
-def _check_generate(provider_name: str, tier: int, timeout: int) -> tuple[str, str]:
-    """Check generate interface for a provider."""
-    from think.models import PROVIDER_DEFAULTS
-    from think.providers import PROVIDER_METADATA, get_provider_module
-
-    env_key = PROVIDER_METADATA[provider_name]["env_key"]
-    if env_key and not os.getenv(env_key):
-        label = PROVIDER_METADATA[provider_name]["label"]
-        # Google Vertex AI can work without GOOGLE_API_KEY, but this health check
-        # treats missing env as "not configured" for the standard API path.
-        return "skip", f"{label} not configured (no {env_key})"
-
-    # For keyless providers (e.g., Ollama), check reachability instead
-    if not env_key:
-        from think.providers import validate_key
-
-        result = validate_key(provider_name, "")
-        if not result.get("valid"):
-            return (
-                "skip",
-                f"Ollama not reachable ({result.get('error', 'unreachable')})",
-            )
-
-    try:
-        module = get_provider_module(provider_name)
-        model = PROVIDER_DEFAULTS[provider_name][tier]
-        result = module.run_generate(
-            contents="Say OK",
-            model=model,
-            temperature=0,
-            max_output_tokens=16,
-            system_instruction=None,
-            json_output=False,
-            thinking_budget=None,
-            timeout_s=timeout,
-        )
-        text = result.get("text", "") if isinstance(result, dict) else ""
-        if text:
-            usage = result.get("usage") if isinstance(result, dict) else None
-            if usage:
-                from think.models import log_token_usage
-
-                log_token_usage(
-                    model=PROVIDER_DEFAULTS[provider_name][tier],
-                    usage=usage,
-                    context="health.check.generate",
-                    type="generate",
-                )
-            return "ok", "OK"
-        return "fail", "FAIL: empty response text"
-    except Exception as exc:
-        return "fail", f"FAIL: {exc}"
-
-
-async def _check_cogitate(
-    provider_name: str, tier: int, timeout: int
-) -> tuple[str, str]:
-    """Check cogitate interface for a provider by running a real prompt."""
-    from think.models import PROVIDER_DEFAULTS
-    from think.providers import PROVIDER_METADATA, get_provider_module
-
-    # Pre-flight: check provider is configured
-    env_key = PROVIDER_METADATA[provider_name]["env_key"]
-    if env_key and not os.getenv(env_key):
-        label = PROVIDER_METADATA[provider_name]["label"]
-        return "skip", f"{label} not configured (no {env_key})"
-
-    # For keyless providers (e.g., Ollama), check reachability
-    if not env_key:
-        from think.providers import validate_key
-
-        result = validate_key(provider_name, "")
-        if not result.get("valid"):
-            return (
-                "skip",
-                f"Ollama not reachable ({result.get('error', 'unreachable')})",
-            )
-
-    # Pre-flight: check cogitate CLI binary is installed
-    binary = PROVIDER_METADATA[provider_name].get("cogitate_cli", "")
-    if binary and not shutil.which(binary):
-        return "skip", f"{binary} CLI not installed"
-
-    try:
-        module = get_provider_module(provider_name)
-        model = PROVIDER_DEFAULTS[provider_name][tier]
-        config = {"prompt": "Say OK", "model": model}
-        result = await asyncio.wait_for(
-            module.run_cogitate(config=config, on_event=None),
-            timeout=timeout,
-        )
-        if result:
-            return "ok", "OK"
-        return "fail", "FAIL: empty response"
-    except asyncio.TimeoutError:
-        return "fail", f"FAIL: timed out after {timeout}s"
-    except Exception as exc:
-        return "fail", f"FAIL: {exc}"
-
-
-async def _run_check(args: argparse.Namespace) -> None:
-    """Run connectivity checks against AI providers."""
-    from think.models import PROVIDER_DEFAULTS, TIER_FLASH, TIER_LITE, TIER_PRO
-    from think.providers import PROVIDER_REGISTRY
-
-    # --targeted: only check configured provider+tier pairs
-    targeted_pairs = None
-    if args.targeted and not args.provider and not args.tier:
-        import fcntl
-
-        from think.models import TYPE_DEFAULTS, get_backup_provider
-        from think.utils import get_config
-
-        targeted_pairs = set()
-        config = get_config()
-        providers_config = config.get("providers", {})
-        for agent_type, defaults in TYPE_DEFAULTS.items():
-            type_config = providers_config.get(agent_type, {})
-            provider = type_config.get("provider", defaults["provider"])
-            tier = type_config.get("tier", defaults["tier"])
-            targeted_pairs.add((provider, tier))
-            backup = get_backup_provider(agent_type)
-            if backup:
-                targeted_pairs.add((backup, tier))
-
-        # flock dedup: only one targeted check runs at a time
-        lock_dir = Path(get_journal()) / "health"
-        lock_dir.mkdir(parents=True, exist_ok=True)
-        lock_fd = open(lock_dir / "recheck.lock", "w")
-        try:
-            fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except OSError:
-            lock_fd.close()
-            return
-
-    if args.provider:
-        providers = args.provider
-        for name in providers:
-            if name not in PROVIDER_REGISTRY:
-                available = ", ".join(PROVIDER_REGISTRY.keys())
-                print(
-                    f"Unknown provider: {name}. Available providers: {available}",
-                    file=sys.stderr,
-                )
-                sys.exit(1)
-    else:
-        providers = list(PROVIDER_REGISTRY.keys())
-
-    interfaces = [args.interface] if args.interface else ["generate", "cogitate"]
-
-    tier_names = {1: "pro", 2: "flash", 3: "lite"}
-    tiers = [args.tier] if args.tier else [TIER_PRO, TIER_FLASH, TIER_LITE]
-
-    # Pre-compute column widths
-    provider_width = max(len(n) for n in providers) if providers else 0
-    tier_width = max(len(tier_names[t]) for t in tiers)
-    # Resolve all model names to get max width
-    model_names = set()
-    for p in providers:
-        for t in tiers:
-            model_names.add(PROVIDER_DEFAULTS[p][t])
-    model_width = max(len(m) for m in model_names) if model_names else 0
-    interface_width = max(len(n) for n in interfaces) if interfaces else 0
-
-    total = 0
-    passed = 0
-    failed = 0
-    skipped = 0
-    results = []
-    cache = {}  # (provider, model, interface) -> (status, message, source_tier)
-
-    for provider_name in providers:
-        for tier in tiers:
-            if (
-                targeted_pairs is not None
-                and (provider_name, tier) not in targeted_pairs
-            ):
-                continue
-            model = PROVIDER_DEFAULTS[provider_name][tier]
-            for interface_name in interfaces:
-                cache_key = (provider_name, model, interface_name)
-                if cache_key in cache:
-                    status, message, source_tier = cache[cache_key]
-                    elapsed_s = 0.0
-                    elapsed_s_rounded = 0.0
-                    reused_from = source_tier
-                else:
-                    start = time.perf_counter()
-                    if interface_name == "generate":
-                        status, message = _check_generate(
-                            provider_name, tier, args.timeout
-                        )
-                    else:
-                        status, message = await _check_cogitate(
-                            provider_name, tier, args.timeout
-                        )
-                    elapsed_s = time.perf_counter() - start
-                    elapsed_s_rounded = round(elapsed_s, 1)
-                    cache[cache_key] = (status, message, tier_names[tier])
-                    reused_from = None
-
-                result = {
-                    "provider": provider_name,
-                    "tier": tier_names[tier],
-                    "model": model,
-                    "interface": interface_name,
-                    "ok": status != "fail",
-                    "status": status,
-                    "message": str(message),
-                    "elapsed_s": elapsed_s_rounded,
-                }
-                if reused_from:
-                    result["reused_from"] = reused_from
-                results.append(result)
-
-                if not args.json:
-                    if reused_from:
-                        mark = "="
-                        display_message = f"{message} (={reused_from})"
-                    else:
-                        if status == "ok":
-                            mark = "✓"
-                        elif status == "skip":
-                            mark = "-"
-                        else:
-                            mark = "✗"
-                        display_message = str(message)
-                    print(
-                        f"{mark} "
-                        f"{provider_name:<{provider_width}}  "
-                        f"{tier_names[tier]:<{tier_width}}  "
-                        f"{model:<{model_width}}  "
-                        f"{interface_name:<{interface_width}}  "
-                        f"{display_message} ({elapsed_s:.1f}s)"
-                    )
-
-                total += 1
-                if status == "ok":
-                    passed += 1
-                elif status == "skip":
-                    skipped += 1
-                else:
-                    failed += 1
-
-    any_failed = any(r["status"] == "fail" for r in results)
-
-    # Write results to health file
-    payload = {
-        "results": results,
-        "summary": {
-            "total": total,
-            "passed": passed,
-            "skipped": skipped,
-            "failed": failed,
-        },
-        "checked_at": datetime.now(timezone.utc).isoformat(),
-    }
-    health_dir = Path(get_journal()) / "health"
-    health_dir.mkdir(parents=True, exist_ok=True)
-    (health_dir / "agents.json").write_text(json.dumps(payload, indent=2))
-
-    if args.json:
-        print(
-            json.dumps(
-                {
-                    "results": results,
-                    "summary": {
-                        "total": total,
-                        "passed": passed,
-                        "skipped": skipped,
-                        "failed": failed,
-                    },
-                },
-                indent=2,
-            )
-        )
-    else:
-        print(f"{total} checks: {passed} passed, {skipped} skipped, {failed} failed")
-    sys.exit(1 if any_failed else 0)
 
 
 # =============================================================================
@@ -1478,58 +1199,18 @@ async def _run_check(args: argparse.Namespace) -> None:
 
 
 async def main_async() -> None:
-    """NDJSON-based CLI for agents."""
-    from think.providers import PROVIDER_REGISTRY
+    """NDJSON-based CLI for talents."""
 
     parser = argparse.ArgumentParser(
-        description="solstone Agent CLI - Accepts NDJSON input via stdin"
+        description="solstone Talent CLI - Accepts NDJSON input via stdin"
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Show what would be sent to the provider without calling the LLM",
     )
-    subparsers = parser.add_subparsers(dest="subcommand")
-    check_parser = subparsers.add_parser("check", help="Check AI provider connectivity")
-    check_parser.add_argument(
-        "--provider",
-        action="append",
-        help=f"Provider to check (repeatable). Available: {', '.join(PROVIDER_REGISTRY.keys())}",
-    )
-    check_parser.add_argument(
-        "--interface",
-        choices=["generate", "cogitate"],
-        default=None,
-        help="Interface to check (default: both)",
-    )
-    check_parser.add_argument(
-        "--timeout",
-        type=int,
-        default=30,
-        help="Timeout in seconds for generate checks (default: 30)",
-    )
-    check_parser.add_argument(
-        "--tier",
-        type=int,
-        choices=[1, 2, 3],
-        default=None,
-        help="Tier to check (1=pro, 2=flash, 3=lite; default: all)",
-    )
-    check_parser.add_argument(
-        "--json", action="store_true", help="Output results as JSON"
-    )
-    check_parser.add_argument(
-        "--targeted",
-        action="store_true",
-        help="Only check configured provider+tier pairs (used by automated rechecks)",
-    )
-
     args = setup_cli(parser)
     require_solstone()
-    if args.subcommand == "check":
-        await _run_check(args)
-        return
-
     dry_run = args.dry_run
 
     app_logger = setup_logging(args.verbose)
@@ -1556,7 +1237,7 @@ async def main_async() -> None:
                     emit_event({"event": "error", "error": error, "ts": now_ms()})
                     continue
 
-                await _run_agent(config, emit_event, dry_run=dry_run)
+                await _run_talent(config, emit_event, dry_run=dry_run)
 
             except json.JSONDecodeError as e:
                 emit_event(

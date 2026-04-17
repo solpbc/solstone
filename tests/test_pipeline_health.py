@@ -34,7 +34,7 @@ def test_empty_day_is_healthy(pipeline_journal):
 
     assert summary["status"] == "healthy"
     assert summary["anomalies"] == []
-    assert summary["agents"] == {
+    assert summary["talents"] == {
         "dispatched": 0,
         "completed": 0,
         "failed": 0,
@@ -45,7 +45,7 @@ def test_empty_day_is_healthy(pipeline_journal):
     assert summary["activities"] == {
         "detected": 0,
         "persisted": 0,
-        "agents_fired": False,
+        "talents_fired": False,
     }
     assert all(
         run == {"count": 0, "duration_ms_total": 0} for run in summary["runs"].values()
@@ -69,8 +69,8 @@ def test_healthy_day_with_all_modes(pipeline_journal):
         base / "1_segment_dream.jsonl",
         [
             {"event": "run.start", "mode": "segment"},
-            {"event": "agent.dispatch", "mode": "segment"},
-            {"event": "agent.complete", "mode": "segment"},
+            {"event": "talent.dispatch", "mode": "segment"},
+            {"event": "talent.complete", "mode": "segment"},
             {"event": "run.complete", "mode": "segment", "duration_ms": 10},
         ],
     )
@@ -78,8 +78,8 @@ def test_healthy_day_with_all_modes(pipeline_journal):
         base / "2_daily_dream.jsonl",
         [
             {"event": "run.start", "mode": "daily"},
-            {"event": "agent.dispatch", "mode": "daily"},
-            {"event": "agent.complete", "mode": "daily"},
+            {"event": "talent.dispatch", "mode": "daily"},
+            {"event": "talent.complete", "mode": "daily"},
             {"event": "run.complete", "mode": "daily", "duration_ms": 20},
         ],
     )
@@ -87,8 +87,8 @@ def test_healthy_day_with_all_modes(pipeline_journal):
         base / "3_activity_dream.jsonl",
         [
             {"event": "run.start", "mode": "activity"},
-            {"event": "agent.dispatch", "mode": "activity"},
-            {"event": "agent.complete", "mode": "activity"},
+            {"event": "talent.dispatch", "mode": "activity"},
+            {"event": "talent.complete", "mode": "activity"},
             {"event": "run.complete", "mode": "activity", "duration_ms": 30},
         ],
     )
@@ -96,12 +96,12 @@ def test_healthy_day_with_all_modes(pipeline_journal):
     summary = summarize_pipeline_day(day)
 
     assert summary["status"] == "healthy"
-    assert summary["agents"]["dispatched"] == 3
-    assert summary["agents"]["completed"] == 3
+    assert summary["talents"]["dispatched"] == 3
+    assert summary["talents"]["completed"] == 3
     assert summary["runs"]["segment"] == {"count": 1, "duration_ms_total": 10}
     assert summary["runs"]["daily"] == {"count": 1, "duration_ms_total": 20}
     assert summary["runs"]["activity"] == {"count": 1, "duration_ms_total": 30}
-    assert summary["activities"]["agents_fired"] is True
+    assert summary["activities"]["talents_fired"] is True
 
 
 def test_agent_failure_promotes_warning(pipeline_journal):
@@ -110,10 +110,10 @@ def test_agent_failure_promotes_warning(pipeline_journal):
         pipeline_journal / "chronicle" / day / "health" / "1_segment_dream.jsonl",
         [
             {
-                "event": "agent.fail",
+                "event": "talent.fail",
                 "mode": "segment",
                 "name": "screen",
-                "agent_id": "a-1",
+                "use_id": "a-1",
                 "state": "timeout",
             }
         ],
@@ -122,29 +122,65 @@ def test_agent_failure_promotes_warning(pipeline_journal):
     summary = summarize_pipeline_day(day)
 
     assert summary["status"] == "warning"
-    assert summary["agents"]["failed"] == 1
-    assert summary["agents"]["failed_list"] == [
-        {"mode": "segment", "name": "screen", "agent_id": "a-1", "state": "timeout"}
+    assert summary["talents"]["failed"] == 1
+    assert summary["talents"]["failed_list"] == [
+        {"mode": "segment", "name": "screen", "use_id": "a-1", "state": "timeout"}
     ]
     assert summary["anomalies"] == [
         {
-            "kind": "agent_failure",
+            "kind": "talent_failure",
             "mode": "segment",
             "name": "screen",
-            "agent_id": "a-1",
+            "use_id": "a-1",
             "state": "timeout",
         }
     ]
+
+
+@pytest.mark.parametrize("event_name", ["agent.fail", "talent.fail"])
+def test_failure_reader_accepts_legacy_and_new_names(pipeline_journal, event_name):
+    day = "20990107"
+    _write_jsonl(
+        pipeline_journal / "chronicle" / day / "health" / "1_segment_dream.jsonl",
+        [{"event": event_name, "mode": "segment", "name": "screen", "use_id": "u-1"}],
+    )
+
+    summary = summarize_pipeline_day(day)
+
+    assert summary["talents"]["failed"] == 1
+
+
+@pytest.mark.parametrize(
+    ("event_name", "field"),
+    [
+        ("agent.dispatch", "dispatched"),
+        ("talent.dispatch", "dispatched"),
+        ("agent.complete", "completed"),
+        ("talent.complete", "completed"),
+        ("agent.skip", "skipped"),
+        ("talent.skip", "skipped"),
+    ],
+)
+def test_reader_accepts_legacy_and_new_event_names(pipeline_journal, event_name, field):
+    day = "20990108"
+    _write_jsonl(
+        pipeline_journal / "chronicle" / day / "health" / "1_segment_dream.jsonl",
+        [{"event": event_name, "mode": "segment"}],
+    )
+
+    summary = summarize_pipeline_day(day)
+
+    assert summary["talents"][field] == 1
 
 
 def test_failed_list_truncates_at_20(pipeline_journal):
     day = "20990103"
     events = [
         {
-            "event": "agent.fail",
+            "event": "talent.fail",
             "mode": "daily",
             "name": f"agent-{idx}",
-            "agent_id": f"id-{idx}",
+            "use_id": f"id-{idx}",
             "state": "error",
         }
         for idx in range(25)
@@ -155,10 +191,10 @@ def test_failed_list_truncates_at_20(pipeline_journal):
 
     summary = summarize_pipeline_day(day)
 
-    assert summary["agents"]["failed"] == 25
-    assert len(summary["agents"]["failed_list"]) == 20
-    assert summary["agents"]["failed_list_truncated"] is True
-    assert sum(1 for a in summary["anomalies"] if a["kind"] == "agent_failure") == 20
+    assert summary["talents"]["failed"] == 25
+    assert len(summary["talents"]["failed_list"]) == 20
+    assert summary["talents"]["failed_list_truncated"] is True
+    assert sum(1 for a in summary["anomalies"] if a["kind"] == "talent_failure") == 20
 
 
 def test_activity_detected_without_run_is_stale(pipeline_journal):
@@ -235,7 +271,7 @@ def test_invalid_day_returns_healthy_empty(pipeline_journal):
 
     assert summary["status"] == "healthy"
     assert summary["anomalies"] == []
-    assert summary["agents"] == {
+    assert summary["talents"] == {
         "dispatched": 0,
         "completed": 0,
         "failed": 0,
@@ -252,7 +288,7 @@ def test_malformed_json_lines_skipped(pipeline_journal):
     path.write_text(
         json.dumps({"event": "run.start", "mode": "segment"})
         + "\nnot json at all\n"
-        + json.dumps({"event": "agent.dispatch", "mode": "segment"})
+        + json.dumps({"event": "talent.dispatch", "mode": "segment"})
         + "\n",
         encoding="utf-8",
     )
@@ -260,7 +296,7 @@ def test_malformed_json_lines_skipped(pipeline_journal):
     summary = summarize_pipeline_day(day)
 
     assert summary["runs"]["segment"]["count"] == 1
-    assert summary["agents"]["dispatched"] == 1
+    assert summary["talents"]["dispatched"] == 1
 
 
 @pytest.mark.parametrize(
@@ -270,7 +306,7 @@ def test_malformed_json_lines_skipped(pipeline_journal):
             {
                 "status": "healthy",
                 "anomalies": [],
-                "agents": {"failed": 0},
+                "talents": {"failed": 0},
                 "day": "20260101",
             },
             None,
@@ -281,9 +317,9 @@ def test_malformed_json_lines_skipped(pipeline_journal):
                 "anomalies": [
                     {"kind": "activity_agents_missing"},
                     {"kind": "daily_agents_missing"},
-                    {"kind": "agent_failure"},
+                    {"kind": "talent_failure"},
                 ],
-                "agents": {"failed": 3},
+                "talents": {"failed": 3},
                 "day": "20260101",
             },
             {
@@ -296,9 +332,9 @@ def test_malformed_json_lines_skipped(pipeline_journal):
                 "status": "stale",
                 "anomalies": [
                     {"kind": "daily_agents_missing"},
-                    {"kind": "agent_failure"},
+                    {"kind": "talent_failure"},
                 ],
-                "agents": {"failed": 2},
+                "talents": {"failed": 2},
                 "day": "20260102",
             },
             {
@@ -309,26 +345,26 @@ def test_malformed_json_lines_skipped(pipeline_journal):
         (
             {
                 "status": "warning",
-                "anomalies": [{"kind": "agent_failure"}],
-                "agents": {"failed": 1},
+                "anomalies": [{"kind": "talent_failure"}],
+                "talents": {"failed": 1},
                 "day": "20260101",
             },
-            {"status": "warning", "message": "1 agent error today"},
+            {"status": "warning", "message": "1 talent error today"},
         ),
         (
             {
                 "status": "warning",
-                "anomalies": [{"kind": "agent_failure"}] * 3,
-                "agents": {"failed": 3},
+                "anomalies": [{"kind": "talent_failure"}] * 3,
+                "talents": {"failed": 3},
                 "day": "20260101",
             },
-            {"status": "warning", "message": "3 agent errors today"},
+            {"status": "warning", "message": "3 talent errors today"},
         ),
         (
             {
                 "status": "healthy",
                 "anomalies": [{"kind": "segment_runs_missing"}],
-                "agents": {"failed": 0},
+                "talents": {"failed": 0},
                 "day": "20260101",
             },
             None,

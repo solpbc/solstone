@@ -8,7 +8,7 @@
         "pre": "daily_schedule"
       },
       "load": {
-        "agents": false,
+        "talents": false,
         "percepts": false,
         "transcripts": false
       },
@@ -36,7 +36,7 @@
         "post": "occurrence"
       },
       "load": {
-        "agents": {
+        "talents": {
           "screen": true
         },
         "percepts": false,
@@ -59,7 +59,7 @@
         "pre": "documents"
       },
       "load": {
-        "agents": false,
+        "talents": false,
         "percepts": false,
         "transcripts": true
       },
@@ -81,7 +81,7 @@
         "post": "entities"
       },
       "load": {
-        "agents": false,
+        "talents": false,
         "percepts": true,
         "transcripts": true
       },
@@ -106,7 +106,7 @@
         "pre": "entities:entity_observer"
       },
       "load": {
-        "agents": false,
+        "talents": false,
         "percepts": false,
         "transcripts": false
       },
@@ -129,7 +129,7 @@
         "post": "occurrence"
       },
       "load": {
-        "agents": {
+        "talents": {
           "screen": true
         },
         "percepts": false,
@@ -158,7 +158,7 @@
         "post": "occurrence"
       },
       "load": {
-        "agents": {
+        "talents": {
           "screen": true
         },
         "percepts": false,
@@ -181,7 +181,7 @@
         "post": "occurrence"
       },
       "load": {
-        "agents": {
+        "talents": {
           "screen": true
         },
         "percepts": false,
@@ -207,7 +207,7 @@
         "post": "occurrence"
       },
       "load": {
-        "agents": {
+        "talents": {
           "screen": true
         },
         "percepts": false,
@@ -234,7 +234,7 @@
         "post": "occurrence"
       },
       "load": {
-        "agents": {
+        "talents": {
           "screen": true
         },
         "percepts": false,
@@ -257,7 +257,7 @@
         "post": "anticipation"
       },
       "load": {
-        "agents": {
+        "talents": {
           "screen": true
         },
         "percepts": false,
@@ -276,7 +276,7 @@
       "color": "#9c27b0",
       "description": "Creates a detailed documentary record of screen activity. Focuses on the 'what' - chronological account with preserved details, excerpts, and entities.",
       "load": {
-        "agents": false,
+        "talents": false,
         "percepts": "required",
         "transcripts": true
       },
@@ -293,7 +293,7 @@
       "color": "#ff6f00",
       "description": "Unified segment understanding — density, content type, entities, facets, speakers, and routing recommendations in a single pass",
       "load": {
-        "agents": false,
+        "talents": false,
         "percepts": true,
         "transcripts": true
       },
@@ -320,7 +320,7 @@
         "pre": "skills"
       },
       "load": {
-        "agents": false,
+        "talents": false,
         "percepts": false,
         "transcripts": false
       },
@@ -341,7 +341,7 @@
         "pre": "speaker_attribution"
       },
       "load": {
-        "agents": {
+        "talents": {
           "screen": true,
           "speakers": true
         },
@@ -363,7 +363,7 @@
         "post": "occurrence"
       },
       "load": {
-        "agents": {
+        "talents": {
           "screen": true
         },
         "percepts": false,

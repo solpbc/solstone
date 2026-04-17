@@ -148,7 +148,7 @@ You are a helpful assistant...
 
 **Optional model configuration:** Add `max_output_tokens` (response length limit) and `thinking_budget` (model thinking token budget) to override provider defaults. Note: OpenAI uses fixed reasoning and ignores `thinking_budget`.
 
-**Reference:** `think/talent.py` → `get_agent()` for agent configuration loading
+**Reference:** `think/talent.py` → `get_talent()` for agent configuration loading
 
 ### The load_prompt() Function
 

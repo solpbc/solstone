@@ -1285,8 +1285,8 @@ document.addEventListener('DOMContentLoaded', function() {
   // Listen for cortex events (agent completion)
   if (window.appEvents) {
     window.appEvents.listen('cortex', msg => {
-      // Find button by agent_id
-      const btn = document.querySelector(`.facet-generate-btn[data-agent-id="${msg.agent_id}"]`);
+      // Find button by use_id
+      const btn = document.querySelector(`.facet-generate-btn[data-agent-id="${msg.use_id}"]`);
       if (!btn) return;
 
       if (msg.event === 'finish') {
@@ -1321,7 +1321,7 @@ document.addEventListener('DOMContentLoaded', function() {
       const day = btn.dataset.day;
       const facet = btn.dataset.facet;
 
-      // If already has agent_id, navigate to agents page
+      // If already has use_id, navigate to agents page
       if (btn.dataset.agentId) {
         window.location.href = btn.dataset.agentUrl;
         return;
@@ -1342,9 +1342,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const data = await response.json();
 
-        // Store agent_id for event matching and navigation
-        btn.dataset.agentId = data.agent_id;
-        btn.dataset.agentUrl = `/agents#${data.agent_id}`;
+        // Store use_id for event matching and navigation
+        btn.dataset.agentId = data.use_id;
+        btn.dataset.agentUrl = `/agents#${data.use_id}`;
 
       } catch (error) {
         showMessage('Failed to start todo generation', 'error');

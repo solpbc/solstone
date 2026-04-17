@@ -65,7 +65,7 @@ def run_generator_with_config(mod, config: dict, monkeypatch) -> list[dict]:
 
 def test_generate_output_ndjson(tmp_path, monkeypatch):
     """Test basic output generation via NDJSON protocol."""
-    mod = importlib.import_module("think.agents")
+    mod = importlib.import_module("think.talents")
     copy_day(tmp_path)
 
     import think.talent
@@ -111,7 +111,7 @@ def test_generate_output_ndjson(tmp_path, monkeypatch):
 
 def test_generate_hook_invoked_with_context(tmp_path, monkeypatch):
     """Test that hooks receive correct context including span flag."""
-    mod = importlib.import_module("think.agents")
+    mod = importlib.import_module("think.talents")
     copy_day(tmp_path)
 
     import think.talent
@@ -171,7 +171,7 @@ def post_process(result, context):
 
     # Read captured context
     captured_path = (
-        tmp_path / "chronicle" / "20240101" / "agents" / "context_captured.json"
+        tmp_path / "chronicle" / "20240101" / "talents" / "context_captured.json"
     )
     captured = json.loads(captured_path.read_text())
 
@@ -186,7 +186,7 @@ def post_process(result, context):
 
 def test_generate_without_hook_succeeds(tmp_path, monkeypatch):
     """Test that generators without hooks still work correctly."""
-    mod = importlib.import_module("think.agents")
+    mod = importlib.import_module("think.talents")
     copy_day(tmp_path)
 
     import think.talent
@@ -228,7 +228,7 @@ def test_generate_without_hook_succeeds(tmp_path, monkeypatch):
 
 def test_generate_error_event_on_missing_generator(tmp_path, monkeypatch):
     """Test that missing generator name emits error event."""
-    mod = importlib.import_module("think.agents")
+    mod = importlib.import_module("think.talents")
     copy_day(tmp_path)
 
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
@@ -249,7 +249,7 @@ def test_generate_error_event_on_missing_generator(tmp_path, monkeypatch):
 
 def test_generate_skipped_on_no_input(tmp_path, monkeypatch):
     """Test that generator emits skipped finish when no input."""
-    mod = importlib.import_module("think.agents")
+    mod = importlib.import_module("think.talents")
 
     # Create empty day directory (no transcripts)
     os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
@@ -286,7 +286,7 @@ def test_generate_skipped_on_no_input(tmp_path, monkeypatch):
 
 def test_cogitate_not_skipped_without_sources(tmp_path, monkeypatch):
     """Test that cogitate agents with day but no sources are not skipped."""
-    mod = importlib.import_module("think.agents")
+    mod = importlib.import_module("think.talents")
 
     # Create empty day directory (no transcripts)
     os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)

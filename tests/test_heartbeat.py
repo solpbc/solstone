@@ -25,7 +25,7 @@ def heartbeat_mocks(monkeypatch):
         "think.heartbeat.cortex_request", lambda *args, **kwargs: "agent-123"
     )
     monkeypatch.setattr(
-        "think.heartbeat.wait_for_agents",
+        "think.heartbeat.wait_for_uses",
         lambda *args, **kwargs: ({"agent-123": "finish"}, []),
     )
 
@@ -129,7 +129,7 @@ def test_pid_file_removed_on_timeout(journal_path, heartbeat_mocks):
     import think.heartbeat as mod
 
     pid_file = journal_path / "health" / "heartbeat.pid"
-    mod.wait_for_agents = lambda *a, **kw: ({}, ["agent-123"])
+    mod.wait_for_uses = lambda *a, **kw: ({}, ["agent-123"])
 
     with pytest.raises(SystemExit) as exc_info:
         mod.main()
@@ -246,7 +246,7 @@ def test_force_flag_bypasses_recency_check(journal_path, monkeypatch):
     )
     monkeypatch.setattr("think.heartbeat.ensure_sol_directory", lambda: None)
     monkeypatch.setattr(
-        "think.heartbeat.wait_for_agents",
+        "think.heartbeat.wait_for_uses",
         lambda *args, **kwargs: ({"agent-123": "finish"}, []),
     )
 

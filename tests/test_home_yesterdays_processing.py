@@ -58,11 +58,43 @@ def _seed_journal(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     journal.mkdir()
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
 
+    for day, transcript_seconds in (("20260415", 3600), ("20260414", 2700)):
+        facet_data = {"work": {"count": 1, "minutes": 15}}
+        if day == "20260414":
+            facet_data = {}
+        stats_path = journal / "chronicle" / day / "stats.json"
+        stats_path.parent.mkdir(parents=True, exist_ok=True)
+        stats_path.write_text(
+            json.dumps(
+                {
+                    "stats": {
+                        "transcript_segments": 3,
+                        "transcript_duration": transcript_seconds,
+                    },
+                    "facet_data": facet_data,
+                    "heatmap_data": {"weekday": 2, "hours": {"9": 45.0}},
+                }
+            ),
+            encoding="utf-8",
+        )
+
+    health_path = (
+        journal / "chronicle" / "20260415" / "health" / "100_daily_dream.jsonl"
+    )
+    health_path.parent.mkdir(parents=True, exist_ok=True)
+    health_path.write_text("", encoding="utf-8")
+    sparse_health_path = (
+        journal / "chronicle" / "20260414" / "health" / "100_daily_dream.jsonl"
+    )
+    sparse_health_path.parent.mkdir(parents=True, exist_ok=True)
+    sparse_health_path.write_text(
+        json.dumps({"event": "run.complete", "mode": "daily", "duration_ms": 10})
+        + "\n",
+        encoding="utf-8",
+    )
+
     for rel_path in [
-        "chronicle/20260415/stats.json",
-        "chronicle/20260415/agents/knowledge_graph.md",
-        "chronicle/20260415/health/100_daily_dream.jsonl",
-        "chronicle/20260414/stats.json",
+        "chronicle/20260415/talents/knowledge_graph.md",
     ]:
         _copy_fixture_file(journal, rel_path)
 
@@ -139,21 +171,21 @@ def _seed_entities(journal: Path, day: str = "20260415") -> None:
             VALUES (?, ?, NULL, NULL, NULL, ?, ?, NULL, NULL, ?)
             """,
             [
-                ("mention", "jane_doe", day, "work", f"{day}/agents/flow.md"),
-                ("mention", "alice_johnson", day, "work", f"{day}/agents/flow.md"),
+                ("mention", "jane_doe", day, "work", f"{day}/talents/flow.md"),
+                ("mention", "alice_johnson", day, "work", f"{day}/talents/flow.md"),
                 (
                     "mention",
                     "product_roadmap",
                     day,
                     "work",
-                    f"{day}/agents/knowledge_graph.md",
+                    f"{day}/talents/knowledge_graph.md",
                 ),
                 (
                     "mention",
                     "launch_decision",
                     day,
                     "work",
-                    f"{day}/agents/knowledge_graph.md",
+                    f"{day}/talents/knowledge_graph.md",
                 ),
             ],
         )
@@ -163,13 +195,18 @@ def _seed_entities(journal: Path, day: str = "20260415") -> None:
 
 
 def _append_dream_log(
-    journal: Path, day: str, name: str, *, facet: str | None = None
+    journal: Path,
+    day: str,
+    name: str,
+    *,
+    facet: str | None = None,
+    event: str = "talent.fail",
 ) -> None:
     path = journal / "chronicle" / day / "health" / "101_daily_dream.jsonl"
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as handle:
         record = {
-            "event": "agent.fail",
+            "event": event,
             "mode": "daily",
             "name": name,
             "state": "error",
@@ -220,6 +257,10 @@ def test_yesterdays_card_sparse_mode_copy(tmp_path, monkeypatch):
     _write_briefing(journal, "2026-04-15T06:45:00")
 
     monkeypatch.setattr("apps.home.routes._today", lambda: "20260415")
+    monkeypatch.setattr(
+        "apps.home.routes._knowledge_graph_freshness",
+        lambda _day: {"fresh": True},
+    )
 
     summary = _summarize_yesterday_processing("20260414", 2)
 
@@ -378,7 +419,7 @@ def test_knowledge_graph_refresh_detection_yesterday_and_overnight(
     tmp_path, monkeypatch
 ):
     journal = _seed_journal(tmp_path, monkeypatch)
-    path = journal / "chronicle" / "20260415" / "agents" / "knowledge_graph.md"
+    path = journal / "chronicle" / "20260415" / "talents" / "knowledge_graph.md"
 
     _set_mtime(path, datetime(2026, 4, 15, 12, 0, 0))
     assert _knowledge_graph_freshness("20260415")["fresh"] is True
@@ -411,7 +452,7 @@ def test_gap_bullets_show_specific_daily_and_activity_without_generic():
             "anomalies": [
                 {"kind": "daily_agents_missing"},
                 {"kind": "activity_agents_missing"},
-                {"kind": "agent_failure"},
+                {"kind": "talent_failure"},
             ]
         },
         {"fresh": True},
@@ -431,6 +472,19 @@ def test_newsletter_attempts_option_a_matches_facet_newsletter_failures_only(
     _append_dream_log(journal, "20260415", "facet_newsletter", facet="work")
     _append_dream_log(journal, "20260415", "knowledge_graph", facet="work")
     _append_dream_log(journal, "20260415", "facet_newsletter")
+
+    assert _newsletter_attempts_from_dream_logs("20260415") == (2, 3)
+
+
+def test_newsletter_attempts_accept_legacy_agent_fail(tmp_path, monkeypatch):
+    journal = _seed_journal(tmp_path, monkeypatch)
+    _append_dream_log(
+        journal,
+        "20260415",
+        "facet_newsletter",
+        facet="work",
+        event="agent.fail",
+    )
 
     assert _newsletter_attempts_from_dream_logs("20260415") == (2, 3)
 

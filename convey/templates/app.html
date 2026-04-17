@@ -452,16 +452,16 @@
           // Subscribe to WS first, then check GET
           if (window.appEvents) {
             recoveryCleanup = window.appEvents.listen('cortex', function(msg) {
-              if (msg.agent_id === agentId) {
+              if (msg.use_id === agentId) {
                 if (recoveryWatchdog) { clearTimeout(recoveryWatchdog); recoveryWatchdog = null; }
                 recoveryWatchdog = setTimeout(function() {
                   recoverDeliver('', 'panel', 'request timed out. the server took too long to respond. try a shorter question, or check if solstone services are running.');
                 }, 180000);
               }
-              if (msg.agent_id === agentId && msg.event === 'finish') {
+              if (msg.use_id === agentId && msg.event === 'finish') {
                 var resp = msg.result || '';
                 recoverDeliver(resp, msg.display || 'panel', null);
-              } else if (msg.agent_id === agentId && msg.event === 'error') {
+              } else if (msg.use_id === agentId && msg.event === 'error') {
                 recoverDeliver('', 'panel', 'something went wrong. the server returned an unexpected response. try sending your message again, or check the health page if it keeps happening.');
               }
             });
@@ -710,7 +710,7 @@
       }
 
       var data = await r.json();
-      var agentId = data.agent_id;
+      var agentId = data.use_id;
       if (!agentId) {
         deliverResult('', 'panel', 'something went wrong. the server returned an unexpected response. try sending your message again, or check the health page if it keeps happening.');
         return;
@@ -751,17 +751,17 @@
       if (window.appEvents) {
         cleanupCortex = window.appEvents.listen('cortex', function(msg) {
           // Reset inactivity watchdog and update thinking label for our agent
-          if (msg.agent_id === agentId) {
+          if (msg.use_id === agentId) {
             var label = getProgressLabel(msg);
             if (label) updateThinkingLabel(label);
             startWatchdog(agentId);
           }
 
           // Handle finish/error for our agent
-          if (msg.agent_id === agentId && msg.event === 'finish') {
+          if (msg.use_id === agentId && msg.event === 'finish') {
             var resp = msg.result || '';
             deliverResult(resp, msg.display || 'panel', null);
-          } else if (msg.agent_id === agentId && msg.event === 'error') {
+          } else if (msg.use_id === agentId && msg.event === 'error') {
             deliverResult('', 'panel', 'something went wrong. the server returned an unexpected response. try sending your message again, or check the health page if it keeps happening.');
           }
         });

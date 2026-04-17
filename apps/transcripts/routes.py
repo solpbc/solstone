@@ -224,7 +224,7 @@ def segment_content(day: str, stream: str, segment_key: str) -> Any:
     warnings = 0
 
     # Load speaker labels if available.
-    speaker_labels_path = Path(segment_dir) / "agents" / "speaker_labels.json"
+    speaker_labels_path = Path(segment_dir) / "talents" / "speaker_labels.json"
     speaker_map: dict[int, dict] = {}
     if speaker_labels_path.is_file():
         try:
@@ -414,13 +414,13 @@ def segment_content(day: str, stream: str, segment_key: str) -> Any:
     # Get cost data for this segment
     cost_data = get_usage_cost(day, segment=segment_key)
 
-    # Collect agent .md files
+    # Collect talent .md files
     md_files = {}
-    agents_dir = Path(segment_dir) / "agents"
-    if agents_dir.is_dir():
-        for md_path in sorted(agents_dir.rglob("*.md")):
+    talents_dir = Path(segment_dir) / "talents"
+    if talents_dir.is_dir():
+        for md_path in sorted(talents_dir.rglob("*.md")):
             try:
-                key = md_path.relative_to(agents_dir).with_suffix("").as_posix()
+                key = md_path.relative_to(talents_dir).with_suffix("").as_posix()
                 md_files[key] = md_path.read_text()
             except Exception:
                 continue

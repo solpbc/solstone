@@ -1,7 +1,7 @@
 # solstone Makefile
 # Python-based AI-driven desktop journaling toolkit
 
-.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format format-check ci clean clean-install coverage watch versions update update-prices pre-commit skills dev all sail upgrade sandbox sandbox-stop install-pinchtab verify-browser update-browser-baselines review verify-api update-api-baselines install-service uninstall-service service-logs
+.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format format-check ci clean clean-install coverage watch versions update update-prices pre-commit skills dev all sail upgrade sandbox sandbox-stop install-pinchtab verify-browser update-browser-baselines review verify-api update-api-baselines install-service uninstall-service service-logs gate-agents-rename
 
 # Default target - install package in editable mode
 all: install
@@ -404,6 +404,9 @@ ci: .installed
 	@echo "=== Running ruff ==="
 	@$(RUFF) check . || { echo "Run 'make format' to auto-fix"; exit 1; }
 	@echo ""
+	@echo "=== Running rename gate ==="
+	@$(MAKE) gate-agents-rename
+	@echo ""
 	@echo "=== Running mypy ==="
 	@$(MYPY) . || true
 	@echo ""
@@ -451,3 +454,6 @@ pre-commit: .installed
 	@$(UV) pip show pre-commit >/dev/null 2>&1 || { echo "Installing pre-commit..."; $(UV) pip install pre-commit; }
 	$(VENV_BIN)/pre-commit install
 	@echo "Pre-commit hooks installed!"
+# Rename guard for the agents -> talents transition
+gate-agents-rename: .installed
+	$(VENV_BIN)/python scripts/gate_agents_rename.py

@@ -32,7 +32,7 @@ Internal helpers called only by `_summarize_yesterday_processing`:
   Reads `stats_data["heatmap_data"]["hours"]`, keeps the top 3 non-zero hours, sorts by minutes desc then hour asc.
 
 - `_knowledge_graph_freshness(yesterday: str) -> dict`
-  Reads `chronicle/{yesterday}/agents/knowledge_graph.md`, checks existence and `st_mtime` freshness using the relaxed rule in section 4.
+  Reads `chronicle/{yesterday}/talents/knowledge_graph.md`, checks existence and `st_mtime` freshness using the relaxed rule in section 4.
 
 - `_briefing_freshness(today: str) -> dict`
   Reads `journal/sol/briefing.md` with local `frontmatter.load`. Valid only when frontmatter has `type: morning_briefing` and a parseable `generated` timestamp whose local date is `today`.
@@ -125,7 +125,7 @@ Recommended rendered content by mode:
 
 ### Ground truth
 
-- `agent.fail` records include `name`, `agent_id`, `state`, and optional `facet`, but `summarize_pipeline_day()` counts every failure and drops `facet` from `failed_list`. See `think/pipeline_health.py:81-99`.
+- `talent.fail` records include `name`, `use_id`, `state`, and optional `facet`, but `summarize_pipeline_day()` counts every failure and drops `facet` from `failed_list`. See `think/pipeline_health.py:81-99`.
 - `stats.json.facet_data` is not a newsletter ledger. It is built from `events.jsonl` durations in `think/journal_stats.py:296-319` and surfaced in `apps/home/routes.py:616-621`.
 - The facet newsletter writer is `sol call journal news`, implemented by `think/tools/facets.py:61-106`.
 - The newsletter prompt key is stable: `facet_newsletter`.
@@ -135,9 +135,9 @@ Recommended rendered content by mode:
 
 ### Option A — re-parse dream JSONL for newsletter-specific facet fails
 
-Read `chronicle/{yesterday}/health/*_daily_dream.jsonl` and count `agent.fail` records where:
+Read `chronicle/{yesterday}/health/*_daily_dream.jsonl` and count `talent.fail` records where:
 
-- `event == "agent.fail"`
+- `event == "talent.fail"`
 - `facet` is present
 - `name == "facet_newsletter"`
 
@@ -163,7 +163,7 @@ Cons:
 
 ### Option B — re-parse any facet-scoped fail
 
-Count every `agent.fail` with a `facet` field, regardless of `name`.
+Count every `talent.fail` with a `facet` field, regardless of `name`.
 
 Pros:
 
@@ -224,7 +224,7 @@ Do not require `mtime` to fall strictly within yesterday’s wall-clock day.
 
 Rationale:
 
-- Prep already found a real case where `chronicle/20260415/agents/knowledge_graph.md` had `mtime` on `2026-04-16 07:23:43`.
+- Prep already found a real case where `chronicle/20260415/talents/knowledge_graph.md` had `mtime` on `2026-04-16 07:23:43`.
 - The intent of the card is “did the overnight processing refresh yesterday’s graph?”, not “did the write finish before midnight”.
 - This rule admits same-day and overnight-after-midnight completions without introducing an arbitrary 36-hour window.
 
@@ -350,7 +350,7 @@ Supporting non-chronicle fixture:
 Fixture minimization rule:
 
 - Seed only the fields each test asserts on.
-- Keep dream logs to the minimum lines needed: `run.start`, `agent.dispatch`, `agent.complete` or `agent.fail`, `run.complete`.
+- Keep dream logs to the minimum lines needed: `run.start`, `talent.dispatch`, `talent.complete` or `talent.fail`, `run.complete`.
 
 ## 9. Non-goals
 
@@ -383,7 +383,7 @@ Fixture minimization rule:
 
 All three gate items resolved. Proceed to `implement` stage.
 
-- **Q2 denominator:** Go with **Option A** as recommended. Successes from `facets/*/news/{yesterday}.md`. Failures from dream-log `agent.fail` where `name == "facet_newsletter"` and `facet` is present. When current pipeline emits no `facet_newsletter` fails (which is the common case today), `M == N` and the `N of M` sentence degenerates into a simple `N` — that's fine, honest, and forward-compatible for when we start logging newsletter failures under that exact key. Use the sparse fallback "I didn't produce any facet newsletters." when both are zero.
+- **Q2 denominator:** Go with **Option A** as recommended. Successes from `facets/*/news/{yesterday}.md`. Failures from dream-log `talent.fail` where `name == "facet_newsletter"` and `facet` is present. When current pipeline emits no `facet_newsletter` fails (which is the common case today), `M == N` and the `N of M` sentence degenerates into a simple `N` — that's fine, honest, and forward-compatible for when we start logging newsletter failures under that exact key. Use the sparse fallback "I didn't produce any facet newsletters." when both are zero.
 - **Q3 knowledge-graph freshness:** Use the **relaxed rule**: fresh when `knowledge_graph.md` exists and `st_mtime >= start_of_yesterday_local`. Overnight-after-midnight completions count. Use local time boundaries. Don't use birth/ctime.
 - **First-week framing copy (verbatim):** The exact copy IS in the scope (top-level note) and in the approved CPO spec. Use this text, unchanged, when `journal_age_days <= 7` and `mode != "sparse"`:
 

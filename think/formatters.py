@@ -51,7 +51,7 @@ def extract_path_metadata(rel_path: str) -> dict[str, str]:
     by the formatter via meta["indexer"]["agent"].
 
     Args:
-        rel_path: Journal-relative path (e.g., "20240101/agents/flow.md")
+        rel_path: Journal-relative path (e.g., "20240101/talents/flow.md")
 
     Returns:
         Dict with keys: day, facet, agent
@@ -72,11 +72,11 @@ def extract_path_metadata(rel_path: str) -> dict[str, str]:
     if parts[0] and DATE_RE.fullmatch(parts[0]):
         day = parts[0]
 
-    # Extract facet from agents/{facet}/... paths
+    # Extract facet from talents/{facet}/... paths
     try:
-        agents_idx = parts.index("agents")
-        if agents_idx + 2 < len(parts):
-            facet = parts[agents_idx + 1]
+        talents_idx = parts.index("talents")
+        if talents_idx + 2 < len(parts):
+            facet = parts[talents_idx + 1]
     except ValueError:
         pass
 
@@ -191,15 +191,15 @@ FORMATTERS: dict[str, tuple[str, str, bool]] = {
     "*/*/*/*_transcript.jsonl": ("observe.hear", "format_audio", False),
     "*/*/*/screen.jsonl": ("observe.screen", "format_screen", False),
     "*/*/*/*_screen.jsonl": ("observe.screen", "format_screen", False),
-    # Markdown — day-level agents output and segment-level (day/stream/segment/agents/)
-    "*/agents/*.md": ("think.markdown", "format_markdown", True),
-    # Layout: day/stream/segment/agents/*.md
-    "*/*/*/agents/*.md": ("think.markdown", "format_markdown", True),
-    "*/*/*/agents/*/*.md": ("think.markdown", "format_markdown", True),
+    # Markdown — day-level agents output and segment-level (day/stream/segment/talents/)
+    "*/talents/*.md": ("think.markdown", "format_markdown", True),
+    # Layout: day/stream/segment/talents/*.md
+    "*/*/*/talents/*.md": ("think.markdown", "format_markdown", True),
+    "*/*/*/talents/*/*.md": ("think.markdown", "format_markdown", True),
     "facets/*/activities/*/*/*.md": ("think.markdown", "format_markdown", True),
     "facets/*/news/*.md": ("think.markdown", "format_markdown", True),
     "imports/*/summary.md": ("think.markdown", "format_markdown", True),
-    "apps/*/agents/*.md": ("think.markdown", "format_markdown", True),
+    "apps/*/talents/*.md": ("think.markdown", "format_markdown", True),
 }
 
 _DAY_ROOTED_PATTERNS = [p for p in FORMATTERS if p.startswith("*/")]
@@ -212,7 +212,7 @@ def get_formatter(file_path: str) -> Callable | None:
     Matches against registered glob patterns (regardless of indexed flag).
 
     Args:
-        file_path: Journal-relative path (e.g., "20240101/agents/flow.md")
+        file_path: Journal-relative path (e.g., "20240101/talents/flow.md")
 
     Returns:
         Formatter function or None if no pattern matches

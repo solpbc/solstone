@@ -8,7 +8,7 @@ Provides read and write access to ``{journal}/sol/self.md``,
 ``{journal}/sol/pulse.md``, and ``{journal}/sol/awareness.md`` — sol's
 identity and initiative files. Also provides read access to the morning
 briefing at
-``{journal}/YYYYMMDD/agents/morning_briefing.md``.
+``{journal}/YYYYMMDD/talents/morning_briefing.md``.
 
 Mounted by ``think.call`` as ``sol call identity ...``.
 """
@@ -318,9 +318,9 @@ def awareness_cmd(
 def briefing_cmd(
     day: str | None = typer.Option(None, "--day", "-d", help="Specific day YYYYMMDD."),
 ) -> None:
-    """Read the morning briefing from YYYYMMDD/agents/morning_briefing.md."""
+    """Read the morning briefing from YYYYMMDD/talents/morning_briefing.md."""
     if day:
-        path = day_path(day, create=False) / "agents" / "morning_briefing.md"
+        path = day_path(day, create=False) / "talents" / "morning_briefing.md"
         if not path.exists():
             typer.echo("No briefing found.", err=True)
             raise typer.Exit(1)
@@ -329,7 +329,7 @@ def briefing_cmd(
 
     # No day specified — find most recent
     for day in sorted(day_dirs().keys(), reverse=True):
-        agents_dir = day_path(day, create=False) / "agents"
+        agents_dir = day_path(day, create=False) / "talents"
         briefing = agents_dir / "morning_briefing.md"
         if briefing.exists() and briefing.stat().st_size > 0:
             typer.echo(briefing.read_text(encoding="utf-8"))

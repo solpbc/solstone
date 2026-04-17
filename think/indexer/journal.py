@@ -258,7 +258,7 @@ def _find_signal_files(journal: str) -> dict[str, tuple[str, str]]:
         else journal_path
     )
 
-    for path in day_root.glob("*/agents/knowledge_graph.md"):
+    for path in day_root.glob("*/talents/knowledge_graph.md"):
         if path.is_file():
             rel = path.relative_to(day_root).as_posix()
             files[rel] = (str(path), "kg")
@@ -972,7 +972,7 @@ def _extract_stream(journal: str, rel: str) -> str | None:
     """Extract stream name from a journal-relative path's segment directory.
 
     Reads stream.json from the segment dir if the path is inside a segment
-    (e.g., "20240101/142500_300/agents/facet/flow.md").
+    (e.g., "20240101/142500_300/talents/facet/flow.md").
 
     Returns stream name string or None for non-segment paths or pre-stream segments.
     """
@@ -1052,18 +1052,18 @@ def _index_segment_chunks(
 ) -> int:
     """Index concatenated markdown content for one segment."""
     segment_path = Path(segment_dir)
-    agent_files = sorted(
+    talent_files = sorted(
         [
-            *segment_path.glob("agents/*.md"),
-            *segment_path.glob("agents/*/*.md"),
+            *segment_path.glob("talents/*.md"),
+            *segment_path.glob("talents/*/*.md"),
         ],
         key=lambda path: str(path),
     )
-    if not agent_files:
+    if not talent_files:
         return 0
 
     content = "\n\n---\n\n".join(
-        path.read_text(encoding="utf-8") for path in agent_files
+        path.read_text(encoding="utf-8") for path in talent_files
     )
     chunks, _meta = format_markdown(content)
     day = rel_segment.replace("\\", "/").split("/")[0]
@@ -1324,7 +1324,7 @@ def scan_signals(
             for path in db_signal_paths
             if not _is_historical_signal_file(
                 path.split("#")[0],
-                "kg" if "/agents/knowledge_graph.md" in path else "event",
+                "kg" if "/talents/knowledge_graph.md" in path else "event",
             )
         }
         removed = {p for p in in_scope_db if p.split("#")[0] not in in_scope}
@@ -1506,7 +1506,7 @@ def consolidate_segment_entities(journal: str, full: bool = False) -> int:
 
     # Collect all matching segment entity files across day/stream/segment dirs
     segment_files = []
-    for path in day_root.glob("**/agents/entities.jsonl"):
+    for path in day_root.glob("**/talents/entities.jsonl"):
         if not path.is_file():
             continue
         try:

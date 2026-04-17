@@ -32,28 +32,28 @@ def _engage(
 
     from think.cortex_client import cortex_request
 
-    agent_id = cortex_request(prompt=prompt, name=name, config=config)
-    if agent_id is None:
+    use_id = cortex_request(prompt=prompt, name=name, config=config)
+    if use_id is None:
         typer.echo("Error: failed to send cortex request.", err=True)
         raise typer.Exit(1)
 
     if not wait:
-        typer.echo(agent_id)
+        typer.echo(use_id)
         return
 
-    from think.cortex_client import read_agent_events, wait_for_agents
+    from think.cortex_client import read_use_events, wait_for_uses
 
-    completed, timed_out = wait_for_agents([agent_id])
-    if agent_id in timed_out:
+    completed, timed_out = wait_for_uses([use_id])
+    if use_id in timed_out:
         typer.echo("Error: agent timed out.", err=True)
         raise typer.Exit(1)
 
-    end_state = completed.get(agent_id, "error")
+    end_state = completed.get(use_id, "error")
     if end_state != "finish":
         typer.echo(f"Error: agent ended with state: {end_state}", err=True)
         raise typer.Exit(1)
 
-    events = read_agent_events(agent_id)
+    events = read_use_events(use_id)
     result = ""
     for event in reversed(events):
         if event.get("event") == "finish":
@@ -81,7 +81,7 @@ def engage(
     """Delegate work to a cogitate agent.
 
     Reads a prompt from stdin, sends it to cortex as an agent request.
-    By default, prints the agent_id and exits immediately (fire-and-forget).
+    By default, prints the use_id and exits immediately (fire-and-forget).
 
     Example::
 

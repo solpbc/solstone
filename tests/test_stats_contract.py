@@ -20,7 +20,7 @@ CONTRACT_FIELDS = [
     ("tokens.by_model", "tokens.by_model"),
     ("tokens.by_day", "tokens.by_day"),
     ("facets.counts_by_day", "facets.counts_by_day"),
-    ("agents.counts_by_day", "agents.counts_by_day"),
+    ("talents.counts_by_day", "talents.counts_by_day"),
     ("days.*.transcript_duration", "transcript_duration"),
     ("days.*.percept_duration", "percept_duration"),
     ("tokens.by_day.*.*.input_tokens", "input_tokens"),
@@ -61,7 +61,7 @@ def _build_journal(base_path):
     seg2 = day / "default" / "134500_300"
     seg1.mkdir(parents=True)
     seg2.mkdir(parents=True)
-    (day / "agents").mkdir(parents=True)
+    (day / "talents").mkdir(parents=True)
 
     audio_lines = [
         {"raw": "raw.flac"},
@@ -82,7 +82,7 @@ def _build_journal(base_path):
     )
 
     (seg2 / "audio.flac").write_bytes(b"fLaC")
-    (day / "agents" / "flow.md").write_text("")
+    (day / "talents" / "flow.md").write_text("")
 
     events_dir = journal / "facets" / "work" / "events"
     events_dir.mkdir(parents=True)
@@ -98,7 +98,7 @@ def _build_journal(base_path):
         "facet": "work",
         "agent": "meetings",
         "occurred": True,
-        "source": "20240101/agents/meetings.md",
+        "source": "20240101/talents/meetings.md",
     }
     (events_dir / "20240101.jsonl").write_text(json.dumps(event) + "\n")
 
@@ -186,7 +186,7 @@ def test_schema_rejects_missing_required_key():
         "totals": {},
         "heatmap": [],
         "tokens": {},
-        "agents": {},
+        "talents": {},
         "facets": {},
     }
     del output["totals"]
@@ -209,7 +209,7 @@ def test_schema_rejects_wrong_version():
             "totals": {},
             "heatmap": [],
             "tokens": {},
-            "agents": {},
+            "talents": {},
             "facets": {},
         }
     )

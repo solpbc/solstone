@@ -10,7 +10,7 @@
   "thinking_budget": 4096,
   "max_output_tokens": 4096,
   "output": "json",
-  "load": {"transcripts": true, "percepts": true, "agents": false}
+  "load": {"transcripts": true, "percepts": true, "talents": false}
 }
 
 $facets

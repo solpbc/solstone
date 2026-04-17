@@ -346,7 +346,7 @@ def test_get_active_facets_from_segment_facets(monkeypatch, tmp_path):
     day_dir = journal / "chronicle" / "20240115"
 
     # Create segment with facets.json containing two facets (stream layout)
-    seg1 = day_dir / "archon" / "100000_300" / "agents"
+    seg1 = day_dir / "archon" / "100000_300" / "talents"
     seg1.mkdir(parents=True)
     (seg1 / "facets.json").write_text(
         json.dumps(
@@ -358,7 +358,7 @@ def test_get_active_facets_from_segment_facets(monkeypatch, tmp_path):
     )
 
     # Create another segment with overlapping + new facet
-    seg2 = day_dir / "archon" / "110000_300" / "agents"
+    seg2 = day_dir / "archon" / "110000_300" / "talents"
     seg2.mkdir(parents=True)
     (seg2 / "facets.json").write_text(
         json.dumps(
@@ -382,12 +382,12 @@ def test_get_active_facets_empty_segments(monkeypatch, tmp_path):
     day_dir = journal / "chronicle" / "20240115"
 
     # Segment with empty facets array (stream layout)
-    seg1 = day_dir / "archon" / "100000_300" / "agents"
+    seg1 = day_dir / "archon" / "100000_300" / "talents"
     seg1.mkdir(parents=True)
     (seg1 / "facets.json").write_text("[]")
 
     # Segment with empty file
-    seg2 = day_dir / "archon" / "110000_300" / "agents"
+    seg2 = day_dir / "archon" / "110000_300" / "talents"
     seg2.mkdir(parents=True)
     (seg2 / "facets.json").write_text("")
 
@@ -428,12 +428,12 @@ def test_get_active_facets_malformed_json(monkeypatch, tmp_path):
     day_dir = journal / "chronicle" / "20240115"
 
     # Malformed JSON segment (stream layout)
-    seg1 = day_dir / "archon" / "100000_300" / "agents"
+    seg1 = day_dir / "archon" / "100000_300" / "talents"
     seg1.mkdir(parents=True)
     (seg1 / "facets.json").write_text("{ invalid json")
 
     # Valid segment
-    seg2 = day_dir / "archon" / "110000_300" / "agents"
+    seg2 = day_dir / "archon" / "110000_300" / "talents"
     seg2.mkdir(parents=True)
     (seg2 / "facets.json").write_text(
         json.dumps(

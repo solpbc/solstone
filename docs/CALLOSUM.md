@@ -36,7 +36,7 @@ Callosum is a JSON-per-line message bus for real-time event distribution across 
 
 ### `cortex` - Agent execution events
 **Source:** `think/cortex.py`
-**Events:** `request`, `start`, `thinking`, `tool_start`, `tool_end`, `finish`, `error`, `agent_updated`, `info`, `status`
+**Events:** `request`, `start`, `thinking`, `tool_start`, `tool_end`, `finish`, `error`, `talent_updated`, `info`, `status`
 **Details:** See [CORTEX.md](CORTEX.md) for agent lifecycle, configuration, and event schemas
 
 ### `supervisor` - Process lifecycle management
@@ -105,7 +105,7 @@ Callosum is a JSON-per-line message bus for real-time event distribution across 
 
 ### `dream` - Generator and agent processing
 **Source:** `think/dream.py`
-**Events:** `started`, `status`, `group_started`, `group_completed`, `agent_started`, `agent_completed`, `completed`, `segments_started`, `segments_completed`
+**Events:** `started`, `status`, `group_started`, `group_completed`, `talent_started`, `talent_completed`, `completed`, `segments_started`, `segments_completed`
 **Key fields:** `mode` ("daily"/"segment"/"activity"/"flush"), `day`, `segment` (when mode="segment" or "flush"), `activity` and `facet` (when mode="activity")
 **Purpose:** Track dream processing from generators through scheduled agents
 **`status`** - Periodic progress (every ~5s). Fields: `mode`, `day`, `segment`, `stream`, `agents_completed`, `agents_total`, `current_group_priority`, `current_agents` (list of running agent names). In `--segments` batch mode, also includes `segments_completed`, `segments_total`. In activity mode, includes `activity`, `facet`.
@@ -257,7 +257,7 @@ emit("supervisor", "request", ref=task_id, cmd=["sol", "import", path])
 For agent requests, use the cortex client:
 ```python
 from think.cortex_client import cortex_request
-agent_id = cortex_request(prompt="...", name="default")
+use_id = cortex_request(prompt="...", name="default")
 ```
 
 See `think/cortex_client.py` for the full API.

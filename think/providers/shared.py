@@ -4,7 +4,7 @@
 """Shared utilities and types for AI providers.
 
 This module contains:
-- Event TypedDicts emitted by providers during agent execution
+- Event TypedDicts emitted by providers during talent execution
 - GenerateResult TypedDict returned by run_generate/run_agenerate
 - JSONEventCallback for event emission
 - Utility functions for common provider operations
@@ -48,7 +48,7 @@ class ToolEndEvent(TypedDict, total=False):
 
 
 class StartEvent(TypedDict, total=False):
-    """Event emitted when an agent run begins."""
+    """Event emitted when a talent run begins."""
 
     event: Required[Literal["start"]]
     ts: Required[int]
@@ -62,7 +62,7 @@ class StartEvent(TypedDict, total=False):
 
 
 class FinishEvent(TypedDict, total=False):
-    """Event emitted when an agent run finishes successfully."""
+    """Event emitted when a talent run finishes successfully."""
 
     event: Required[Literal["finish"]]
     ts: Required[int]
@@ -82,12 +82,12 @@ class ErrorEvent(TypedDict, total=False):
     raw: Optional[list[dict[str, Any]]]  # Original provider JSON event(s)
 
 
-class AgentUpdatedEvent(TypedDict, total=False):
-    """Event emitted when the agent context changes."""
+class TalentUpdatedEvent(TypedDict, total=False):
+    """Event emitted when the talent context changes."""
 
-    event: Required[Literal["agent_updated"]]
+    event: Required[Literal["talent_updated"]]
     ts: Required[int]
-    agent: Required[str]
+    talent: Required[str]
     raw: Optional[list[dict[str, Any]]]  # Original provider JSON event(s)
 
 
@@ -127,7 +127,7 @@ Event = Union[
     FinishEvent,
     ErrorEvent,
     ThinkingEvent,
-    AgentUpdatedEvent,
+    TalentUpdatedEvent,
     FallbackEvent,
 ]
 

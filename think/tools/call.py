@@ -606,7 +606,7 @@ def agents(
 
     if segment:
         # List outputs in a specific segment directory
-        seg_path = day_dir / segment / "agents"
+        seg_path = day_dir / segment / "talents"
         if not seg_path.is_dir():
             typer.echo(f"Segment {segment} not found for {day}.")
             return
@@ -614,7 +614,7 @@ def agents(
         return
 
     # List daily agent outputs
-    agents_path = day_dir / "agents"
+    agents_path = day_dir / "talents"
     if agents_path.is_dir():
         _list_outputs(agents_path, "Daily agents")
 
@@ -623,8 +623,8 @@ def agents(
     if seg_list:
         typer.echo(f"\nSegments: {len(seg_list)}")
         for stream_name, seg_key, seg_path_obj in seg_list:
-            agents_dir = seg_path_obj / "agents"
-            outputs = _get_output_names(agents_dir)
+            talents_dir = seg_path_obj / "talents"
+            outputs = _get_output_names(talents_dir)
             label = f"  {stream_name}/{seg_key}" if stream_name else f"  {seg_key}"
             if outputs:
                 typer.echo(f"{label}: {', '.join(outputs)}")
@@ -686,12 +686,12 @@ def read(
         raise typer.Exit(1)
 
     if segment:
-        base_dir = day_dir / segment / "agents"
+        base_dir = day_dir / segment / "talents"
     else:
-        base_dir = day_dir / "agents"
+        base_dir = day_dir / "talents"
 
     if not base_dir.is_dir():
-        location = f"segment {segment}" if segment else "agents"
+        location = f"segment {segment}" if segment else "talents"
         typer.echo(f"No {location} directory for {day}.", err=True)
         raise typer.Exit(1)
 

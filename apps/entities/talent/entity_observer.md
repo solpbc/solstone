@@ -12,7 +12,7 @@
   "output": "json",
   "thinking_budget": 2048,
   "hook": {"pre": "entities:entity_observer", "post": "entities:entity_observer"},
-  "load": {"transcripts": false, "percepts": false, "agents": false}
+  "load": {"transcripts": false, "percepts": false, "talents": false}
 }
 
 ## Core Mission

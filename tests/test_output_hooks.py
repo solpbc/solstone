@@ -18,9 +18,9 @@ from pathlib import Path
 
 import talent.occurrence as occurrence
 from tests.conftest import copytree_tracked
-from think.agents import _apply_template_vars
 from think.hooks import write_events_jsonl
 from think.talent import load_post_hook, load_pre_hook
+from think.talents import _apply_template_vars
 from think.utils import day_path
 
 FIXTURES = Path("tests/fixtures")
@@ -160,7 +160,7 @@ def test_prompt_metadata_no_hook_path(tmp_path):
 
 def test_output_hook_invocation(tmp_path, monkeypatch):
     """Test that agents.py invokes hook and uses transformed result."""
-    mod = importlib.import_module("think.agents")
+    mod = importlib.import_module("think.talents")
     copy_day(tmp_path)
 
     # Use tmp_path as talent directory to avoid polluting real talent/
@@ -215,7 +215,7 @@ def post_process(result, context):
 
 def test_output_hook_returns_none(tmp_path, monkeypatch):
     """Test that hook returning None uses original result."""
-    mod = importlib.import_module("think.agents")
+    mod = importlib.import_module("think.talents")
     copy_day(tmp_path)
 
     import think.talent
@@ -261,7 +261,7 @@ def post_process(result, context):
 
 def test_output_hook_error_fallback(tmp_path, monkeypatch):
     """Test that hook errors fall back to original result."""
-    mod = importlib.import_module("think.agents")
+    mod = importlib.import_module("think.talents")
     copy_day(tmp_path)
 
     import think.talent
@@ -658,7 +658,7 @@ def test_load_pre_hook_file_not_found(tmp_path):
 
 def test_pre_hook_invocation(tmp_path, monkeypatch):
     """Test that agents.py invokes pre-hook and uses modified inputs."""
-    mod = importlib.import_module("think.agents")
+    mod = importlib.import_module("think.talents")
     copy_day(tmp_path)
 
     import think.talent
@@ -824,7 +824,7 @@ def test_template_vars_popped_from_modifications():
 
 def test_pre_hook_template_vars_integration(tmp_path, monkeypatch):
     """Test pre-hook template_vars reach the model as substituted text."""
-    mod = importlib.import_module("think.agents")
+    mod = importlib.import_module("think.talents")
     copy_day(tmp_path)
 
     import think.talent
@@ -875,7 +875,7 @@ def pre_process(context):
 
 def test_pre_hook_template_vars_with_field_mods(tmp_path, monkeypatch):
     """Test pre-hook can return field mods and template_vars together."""
-    mod = importlib.import_module("think.agents")
+    mod = importlib.import_module("think.talents")
     copy_day(tmp_path)
 
     import think.talent
@@ -929,7 +929,7 @@ def pre_process(context):
 
 def test_both_pre_and_post_hooks(tmp_path, monkeypatch):
     """Test that both pre and post hooks can be configured together."""
-    mod = importlib.import_module("think.agents")
+    mod = importlib.import_module("think.talents")
     copy_day(tmp_path)
 
     import think.talent

@@ -7,7 +7,7 @@
   "activities": ["*"],
   "priority": 90,
   "output": "json",
-  "load": {"transcripts": false, "percepts": false, "agents": false}
+  "load": {"transcripts": false, "percepts": false, "talents": false}
 }
 
 You are analyzing recurring activity patterns to identify and document the owner's skills.

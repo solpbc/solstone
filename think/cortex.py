@@ -1,17 +1,17 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Callosum-based agent process manager for solstone.
+"""Callosum-based talent process manager for solstone.
 
-Cortex listens for agent requests via the Callosum message bus and manages
-agent process lifecycle:
+Cortex listens for talent requests via the Callosum message bus and manages
+talent process lifecycle:
 - Receives requests via Callosum (tract="cortex", event="request")
-- Creates <agent>/<timestamp>_active.jsonl files to track active agents
-- Spawns agent processes and captures their stdout events
-- Broadcasts all agent events back to Callosum
-- Renames to <agent>/<timestamp>.jsonl when complete
+- Creates <talent>/<timestamp>_active.jsonl files to track active uses
+- Spawns talent processes and captures their stdout events
+- Broadcasts all talent events back to Callosum
+- Renames to <talent>/<timestamp>.jsonl when complete
 
-Agent files provide persistence and historical record, while Callosum provides
+Talent files provide persistence and historical record, while Callosum provides
 real-time event distribution to all interested services.
 """
 
@@ -29,14 +29,15 @@ from typing import Any, Dict, Optional
 
 from think.callosum import CallosumConnection
 from think.runner import _atomic_symlink
+from think.talents import TALENT_EXECUTION_MODULE
 from think.utils import get_journal, get_project_root, get_rev, now_ms
 
 
-class AgentProcess:
-    """Manages a running agent subprocess."""
+class TalentProcess:
+    """Manages a running talent subprocess."""
 
-    def __init__(self, agent_id: str, process: subprocess.Popen, log_path: Path):
-        self.agent_id = agent_id
+    def __init__(self, use_id: str, process: subprocess.Popen, log_path: Path):
+        self.use_id = use_id
         self.process = process
         self.log_path = log_path
         self.stop_event = threading.Event()
@@ -62,23 +63,23 @@ class AgentProcess:
                 self.process.wait(timeout=10)  # Give more time for graceful shutdown
             except subprocess.TimeoutExpired:
                 logging.getLogger(__name__).warning(
-                    f"Agent {self.agent_id} didn't stop gracefully, killing"
+                    f"Talent {self.use_id} didn't stop gracefully, killing"
                 )
                 self.process.kill()
                 self.process.wait()  # Ensure zombie is reaped
 
 
 class CortexService:
-    """Callosum-based agent process manager."""
+    """Callosum-based talent process manager."""
 
     def __init__(self, journal_path: Optional[str] = None):
         self.journal_path = Path(journal_path or get_journal())
-        self.agents_dir = self.journal_path / "agents"
-        self.agents_dir.mkdir(parents=True, exist_ok=True)
+        self.talents_dir = self.journal_path / "talents"
+        self.talents_dir.mkdir(parents=True, exist_ok=True)
 
         self.logger = logging.getLogger(__name__)
-        self.running_agents: Dict[str, AgentProcess] = {}
-        self.agent_requests: Dict[str, Dict[str, Any]] = {}  # Store agent requests
+        self.running_uses: Dict[str, TalentProcess] = {}
+        self.use_requests: Dict[str, Dict[str, Any]] = {}  # Store use requests
         self.lock = threading.RLock()
         self.stop_event = threading.Event()
         self.shutdown_requested = threading.Event()
@@ -88,7 +89,7 @@ class CortexService:
 
     def _create_error_event(
         self,
-        agent_id: str,
+        use_id: str,
         error: str,
         trace: Optional[str] = None,
         exit_code: Optional[int] = None,
@@ -97,7 +98,7 @@ class CortexService:
         event = {
             "event": "error",
             "ts": now_ms(),
-            "agent_id": agent_id,
+            "use_id": use_id,
             "error": error,
         }
         if trace:
@@ -106,42 +107,44 @@ class CortexService:
             event["exit_code"] = exit_code
         return event
 
-    def _recover_orphaned_agents(self, active_files: list) -> None:
-        """Recover orphaned active agent files from a previous crash.
+    def _recover_orphaned_uses(self, active_files: list) -> None:
+        """Recover orphaned active talent files from a previous crash.
 
         Appends an error event to each file and renames to completed.
         """
         for file_path in active_files:
-            agent_id = file_path.stem.replace("_active", "")
+            use_id = file_path.stem.replace("_active", "")
             try:
                 error_event = self._create_error_event(
-                    agent_id, "Recovered: Cortex restarted while agent was running"
+                    use_id, "Recovered: Cortex restarted while talent was running"
                 )
                 with open(file_path, "a") as f:
                     f.write(json.dumps(error_event) + "\n")
 
-                completed_path = file_path.parent / f"{agent_id}.jsonl"
+                completed_path = file_path.parent / f"{use_id}.jsonl"
                 file_path.rename(completed_path)
-                self.logger.warning(f"Recovered orphaned agent: {agent_id}")
+                self.logger.warning(f"Recovered orphaned talent: {use_id}")
             except Exception as e:
-                self.logger.error(f"Failed to recover agent {agent_id}: {e}")
+                self.logger.error(f"Failed to recover talent {use_id}: {e}")
 
     def start(self) -> None:
-        """Start listening for agent requests via Callosum."""
+        """Start listening for talent requests via Callosum."""
         # Recover any orphaned active files from previous crash
-        active_files = list(self.agents_dir.glob("*/*_active.jsonl"))
+        active_files = list(self.talents_dir.glob("*/*_active.jsonl"))
         if active_files:
             self.logger.warning(
-                f"Found {len(active_files)} orphaned agent(s), recovering..."
+                f"Found {len(active_files)} orphaned talent use(s), recovering..."
             )
-            self._recover_orphaned_agents(active_files)
+            self._recover_orphaned_uses(active_files)
 
         # Connect to Callosum to receive requests
         try:
             self.callosum.start(callback=self._handle_callosum_message)
             self.logger.info("Connected to Callosum message bus")
-            self.callosum.emit("supervisor", "request", cmd=["sol", "agents", "check"])
-            self.logger.info("Requested agents health check via supervisor")
+            self.callosum.emit(
+                "supervisor", "request", cmd=["sol", "providers", "check"]
+            )
+            self.logger.info("Requested providers health check via supervisor")
         except Exception as e:
             self.logger.error(f"Failed to connect to Callosum: {e}")
             sys.exit(1)
@@ -153,7 +156,7 @@ class CortexService:
             daemon=True,
         ).start()
 
-        self.logger.info("Cortex service started, listening for agent requests")
+        self.logger.info("Cortex service started, listening for talent requests")
 
         while True:
             try:
@@ -162,9 +165,9 @@ class CortexService:
                     # Exit when idle during shutdown
                     if self.shutdown_requested.is_set():
                         with self.lock:
-                            if len(self.running_agents) == 0:
+                            if len(self.running_uses) == 0:
                                 self.logger.info(
-                                    "No agents running, exiting gracefully"
+                                    "No talent uses running, exiting gracefully"
                                 )
                                 return
                 break
@@ -185,36 +188,36 @@ class CortexService:
             self.logger.exception(f"Error handling request: {e}")
 
     def _handle_request(self, request: Dict[str, Any]) -> None:
-        """Handle a new agent request from Callosum.
+        """Handle a new talent request from Callosum.
 
         Cortex is a minimal process manager - it only handles:
-        - File lifecycle (<agent>/<id>_active.jsonl -> <agent>/<id>.jsonl)
+        - File lifecycle (<talent>/<id>_active.jsonl -> <talent>/<id>.jsonl)
         - Process spawning and monitoring
         - Event relay to Callosum
 
-        All config loading, validation, and hydration is done by agents.py.
+        All config loading, validation, and hydration is done by think.talents.
         Cortex only resolves talent cwd early so the child process starts in
         the correct working directory.
         """
-        agent_id = request.get("agent_id")
-        if not agent_id:
-            self.logger.error("Received request without agent_id")
+        use_id = request.get("use_id")
+        if not use_id:
+            self.logger.error("Received request without use_id")
             return
 
-        # Skip if this agent is already being processed
+        # Skip if this use is already being processed
         with self.lock:
-            if agent_id in self.running_agents:
-                self.logger.debug(f"Agent {agent_id} already running, skipping")
+            if use_id in self.running_uses:
+                self.logger.debug(f"Talent use {use_id} already running, skipping")
                 return
 
         # Create _active.jsonl file (exclusive creation to prevent race conditions)
         name = request.get("name", "unified")
         safe_name = name.replace(":", "--")
-        agent_subdir = self.agents_dir / safe_name
-        agent_subdir.mkdir(parents=True, exist_ok=True)
-        file_path = agent_subdir / f"{agent_id}_active.jsonl"
+        talent_subdir = self.talents_dir / safe_name
+        talent_subdir.mkdir(parents=True, exist_ok=True)
+        file_path = talent_subdir / f"{use_id}_active.jsonl"
         if file_path.exists():
-            self.logger.debug(f"Agent {agent_id} already claimed by another process")
+            self.logger.debug(f"Talent use {use_id} already claimed by another process")
             return
 
         try:
@@ -223,24 +226,28 @@ class CortexService:
         except FileExistsError:
             return
 
-        self.logger.info(f"Processing agent request: {agent_id}")
+        self.logger.info(f"Processing talent request: {use_id}")
 
         # Store request for later use (output writing)
         with self.lock:
-            self.agent_requests[agent_id] = request
+            self.use_requests[use_id] = request
 
-        # Spawn agent process - it handles all validation/hydration
+        # Spawn talent process - it handles all validation/hydration
         try:
             self._spawn_subprocess(
-                agent_id, file_path, request, ["sol", "agents"], "agent"
+                use_id,
+                file_path,
+                request,
+                [sys.executable, "-m", TALENT_EXECUTION_MODULE],
+                "talent",
             )
         except Exception as e:
-            self.logger.exception(f"Failed to spawn agent {agent_id}: {e}")
-            self._write_error_and_complete(file_path, f"Failed to spawn agent: {e}")
+            self.logger.exception(f"Failed to spawn talent {use_id}: {e}")
+            self._write_error_and_complete(file_path, f"Failed to spawn talent: {e}")
 
     def _spawn_subprocess(
         self,
-        agent_id: str,
+        use_id: str,
         file_path: Path,
         config: Dict[str, Any],
         cmd: list[str],
@@ -249,16 +256,16 @@ class CortexService:
         """Spawn a subprocess and monitor its output.
 
         Args:
-            agent_id: Unique identifier for this process
+            use_id: Unique identifier for this process
             file_path: Path to the JSONL log file
             config: Configuration dict to pass via NDJSON stdin
-            cmd: Command to run (e.g., ["sol", "agents"])
-            process_type: Label for logging ("agent")
+            cmd: Command to run (e.g., [sys.executable, "-m", TALENT_EXECUTION_MODULE])
+            process_type: Label for logging ("talent")
         """
         try:
             # Store the config for later use - thread safe
             with self.lock:
-                self.agent_requests[agent_id] = config
+                self.use_requests[use_id] = config
 
             # Pass the full config through as NDJSON
             ndjson_input = json.dumps(config)
@@ -280,16 +287,16 @@ class CortexService:
                 env.update({k: str(v) for k, v in env_overrides.items()})
 
             # Spawn the subprocess
-            self.logger.info(f"Spawning {process_type} {agent_id}: {cmd}")
+            self.logger.info(f"Spawning {process_type} {use_id}: {cmd}")
             self.logger.debug(f"NDJSON input: {ndjson_input}")
             subprocess_cwd = None
-            if process_type == "agent":
-                from think.talent import get_agent
+            if process_type == "talent":
+                from think.talent import get_talent
 
                 talent_key = str(config.get("name", "unified"))
-                talent_config = get_agent(talent_key)
+                talent_config = get_talent(talent_key)
                 if talent_config.get("type") == "cogitate":
-                    # Resolve here because prepare_config() runs inside sol agents.
+                    # Resolve here because prepare_config() runs inside think.talents.
                     cwd_value = talent_config.get("cwd")
                     if cwd_value == "journal":
                         try:
@@ -321,15 +328,15 @@ class CortexService:
             process.stdin.close()
 
             # Track the running process
-            agent = AgentProcess(agent_id, process, file_path)
+            agent = TalentProcess(use_id, process, file_path)
             with self.lock:
-                self.running_agents[agent_id] = agent
+                self.running_uses[use_id] = agent
 
             # Set up timeout (default to 10 minutes if not specified)
             timeout_seconds = config.get("timeout_seconds", 600)
             agent.timeout_timer = threading.Timer(
                 timeout_seconds,
-                lambda: self._timeout_agent(agent_id, agent, timeout_seconds),
+                lambda: self._timeout_talent(use_id, agent, timeout_seconds),
             )
             agent.timeout_timer.start()
 
@@ -343,26 +350,26 @@ class CortexService:
             ).start()
 
             self.logger.info(
-                f"{process_type.capitalize()} {agent_id} spawned successfully "
+                f"{process_type.capitalize()} {use_id} spawned successfully "
                 f"(PID: {process.pid})"
             )
 
         except Exception as e:
-            self.logger.exception(f"Failed to spawn {process_type} {agent_id}: {e}")
+            self.logger.exception(f"Failed to spawn {process_type} {use_id}: {e}")
             self._write_error_and_complete(
                 file_path, f"Failed to spawn {process_type}: {e}"
             )
 
-    def _timeout_agent(
-        self, agent_id: str, agent: AgentProcess, timeout_seconds: int
+    def _timeout_talent(
+        self, use_id: str, agent: TalentProcess, timeout_seconds: int
     ) -> None:
-        """Handle agent timeout."""
+        """Handle talent timeout."""
         if agent.is_running():
             self.logger.warning(
-                f"Agent {agent_id} timed out after {timeout_seconds} seconds"
+                f"Talent {use_id} timed out after {timeout_seconds} seconds"
             )
             error_event = self._create_error_event(
-                agent_id, f"Agent timed out after {timeout_seconds} seconds"
+                use_id, f"Talent timed out after {timeout_seconds} seconds"
             )
             try:
                 with open(agent.log_path, "a") as f:
@@ -370,7 +377,7 @@ class CortexService:
             except Exception as e:
                 self.logger.error(f"Failed to write timeout event: {e}")
 
-            # Broadcast to callosum so wait_for_agents detects immediately
+            # Broadcast to callosum so wait_for_uses detects immediately
             try:
                 event_copy = error_event.copy()
                 event_type = event_copy.pop("event", "error")
@@ -380,8 +387,8 @@ class CortexService:
 
             agent.stop()
 
-    def _monitor_stdout(self, agent: AgentProcess) -> None:
-        """Monitor agent stdout and append events to the JSONL file."""
+    def _monitor_stdout(self, agent: TalentProcess) -> None:
+        """Monitor talent stdout and append events to the JSONL file."""
         if not agent.process.stdout:
             return
 
@@ -399,18 +406,18 @@ class CortexService:
                         # Parse JSON event
                         event = json.loads(line)
 
-                        # Ensure event has timestamp and agent_id
+                        # Ensure event has timestamp and use_id
                         if "ts" not in event:
                             event["ts"] = now_ms()
-                        if "agent_id" not in event:
-                            event["agent_id"] = agent.agent_id
+                        if "use_id" not in event:
+                            event["use_id"] = agent.use_id
 
                         # Inject agent name for WebSocket consumers
                         with self.lock:
-                            _req = self.agent_requests.get(agent.agent_id)
+                            _req = self.use_requests.get(agent.use_id)
                         if _req and "name" not in event:
                             event["name"] = _req.get("name", "")
-                        # Inject display mode for triage agent finish events
+                        # Inject display mode for triage talent finish events
                         if event.get("event") == "finish" and _req:
                             try:
                                 from apps.home.events import TRIAGE_AGENT_NAMES
@@ -441,17 +448,15 @@ class CortexService:
                         if event.get("event") == "start":
                             # Capture model and provider for status reporting
                             with self.lock:
-                                if agent.agent_id in self.agent_requests:
+                                if agent.use_id in self.use_requests:
                                     model = event.get("model")
                                     if model:
-                                        self.agent_requests[agent.agent_id]["model"] = (
-                                            model
-                                        )
+                                        self.use_requests[agent.use_id]["model"] = model
                                     provider = event.get("provider")
                                     if provider:
-                                        self.agent_requests[agent.agent_id][
-                                            "provider"
-                                        ] = provider
+                                        self.use_requests[agent.use_id]["provider"] = (
+                                            provider
+                                        )
 
                         # Handle finish or error event
                         if event.get("event") in ["finish", "error"]:
@@ -461,8 +466,8 @@ class CortexService:
 
                                 # Get original request (thread-safe access)
                                 with self.lock:
-                                    original_request = self.agent_requests.get(
-                                        agent.agent_id
+                                    original_request = self.use_requests.get(
+                                        agent.use_id
                                     )
 
                                 # Log token usage if available
@@ -493,13 +498,13 @@ class CortexService:
                                         )
                                     except Exception as e:
                                         self.logger.warning(
-                                            f"Failed to log token usage for agent {agent.agent_id}: {e}"
+                                            f"Failed to log token usage for talent {agent.use_id}: {e}"
                                         )
 
                                 # Write output if requested
                                 if original_request and original_request.get("output"):
                                     self._write_output(
-                                        agent.agent_id,
+                                        agent.use_id,
                                         result,
                                         original_request,
                                     )
@@ -513,19 +518,17 @@ class CortexService:
                             "event": "info",
                             "ts": now_ms(),
                             "message": line,
-                            "agent_id": agent.agent_id,
+                            "use_id": agent.use_id,
                         }
                         with open(agent.log_path, "a") as f:
                             f.write(json.dumps(info_event) + "\n")
 
         except Exception as e:
-            self.logger.error(
-                f"Error monitoring stdout for agent {agent.agent_id}: {e}"
-            )
+            self.logger.error(f"Error monitoring stdout for agent {agent.use_id}: {e}")
         finally:
             # Wait for process to fully exit (reaps zombie)
             exit_code = agent.process.wait()
-            self.logger.info(f"Agent {agent.agent_id} exited with code {exit_code}")
+            self.logger.info(f"Talent {agent.use_id} exited with code {exit_code}")
 
             # Check if finish event was emitted
             has_finish = self._has_finish_event(agent.log_path)
@@ -533,26 +536,26 @@ class CortexService:
             if not has_finish:
                 # Write error event if no finish using standardized format
                 error_event = self._create_error_event(
-                    agent.agent_id,
-                    f"Agent exited with code {exit_code} without finish event",
+                    agent.use_id,
+                    f"Talent exited with code {exit_code} without finish event",
                     exit_code=exit_code,
                 )
                 with open(agent.log_path, "a") as f:
                     f.write(json.dumps(error_event) + "\n")
 
             # Complete the file (rename from _active.jsonl to .jsonl)
-            self._complete_agent_file(agent.agent_id, agent.log_path)
+            self._complete_use_file(agent.use_id, agent.log_path)
 
             # Remove from running agents and clean up stored request (thread-safe)
             with self.lock:
-                if agent.agent_id in self.running_agents:
-                    del self.running_agents[agent.agent_id]
+                if agent.use_id in self.running_uses:
+                    del self.running_uses[agent.use_id]
                 # Clean up stored request
-                if agent.agent_id in self.agent_requests:
-                    del self.agent_requests[agent.agent_id]
+                if agent.use_id in self.use_requests:
+                    del self.use_requests[agent.use_id]
 
-    def _monitor_stderr(self, agent: AgentProcess) -> None:
-        """Monitor agent stderr for errors."""
+    def _monitor_stderr(self, agent: TalentProcess) -> None:
+        """Monitor talent stderr for errors."""
         if not agent.process.stderr:
             return
 
@@ -565,24 +568,22 @@ class CortexService:
                     stripped = line.strip()
                     if stripped:
                         stderr_lines.append(stripped)
-                        # Pass through to cortex stderr with agent prefix for traceability
+                        # Pass through to cortex stderr with talent prefix for traceability
                         print(
-                            f"[agent:{agent.agent_id}:stderr] {stripped}",
+                            f"[talent:{agent.use_id}:stderr] {stripped}",
                             file=sys.stderr,
                             flush=True,
                         )
 
         except Exception as e:
-            self.logger.error(
-                f"Error monitoring stderr for agent {agent.agent_id}: {e}"
-            )
+            self.logger.error(f"Error monitoring stderr for agent {agent.use_id}: {e}")
         finally:
             # If process failed with stderr output, write error event
             if stderr_lines:
                 exit_code = agent.process.poll()
                 if exit_code is not None and exit_code != 0:
                     error_event = self._create_error_event(
-                        agent.agent_id,
+                        agent.use_id,
                         "Process failed with stderr output",
                         trace="\n".join(stderr_lines),
                         exit_code=exit_code,
@@ -608,45 +609,45 @@ class CortexService:
             pass
         return False
 
-    def _complete_agent_file(self, agent_id: str, file_path: Path) -> None:
-        """Complete an agent by renaming the file from _active.jsonl to .jsonl."""
+    def _complete_use_file(self, use_id: str, file_path: Path) -> None:
+        """Complete a talent use by renaming the file from _active.jsonl to .jsonl."""
         try:
-            completed_path = file_path.parent / f"{agent_id}.jsonl"
+            completed_path = file_path.parent / f"{use_id}.jsonl"
             file_path.rename(completed_path)
-            self.logger.info(f"Completed agent {agent_id}: {completed_path}")
+            self.logger.info(f"Completed talent use {use_id}: {completed_path}")
 
-            # Create convenience symlink: {name}.log -> {name}/{agent_id}.jsonl
-            request = self.agent_requests.get(agent_id)
+            # Create convenience symlink: {name}.log -> {name}/{use_id}.jsonl
+            request = self.use_requests.get(use_id)
             if request:
                 name = request.get("name")
                 if name:
                     safe_name = name.replace(":", "--")
-                    link_path = self.agents_dir / f"{safe_name}.log"
-                    _atomic_symlink(link_path, f"{safe_name}/{agent_id}.jsonl")
+                    link_path = self.talents_dir / f"{safe_name}.log"
+                    _atomic_symlink(link_path, f"{safe_name}/{use_id}.jsonl")
                     self.logger.debug(
-                        f"Symlinked {safe_name}.log -> {safe_name}/{agent_id}.jsonl"
+                        f"Symlinked {safe_name}.log -> {safe_name}/{use_id}.jsonl"
                     )
 
                     # Append summary to day index
-                    self._append_day_index(agent_id, request, completed_path)
+                    self._append_day_index(use_id, request, completed_path)
                 else:
                     self.logger.debug(
-                        f"No name in request for {agent_id}, skipping symlink"
+                        f"No name in request for {use_id}, skipping symlink"
                     )
         except Exception as e:
-            self.logger.error(f"Failed to complete agent file {agent_id}: {e}")
+            self.logger.error(f"Failed to complete talent file {use_id}: {e}")
 
     def _append_day_index(
-        self, agent_id: str, request: Dict[str, Any], completed_path: Path
+        self, use_id: str, request: Dict[str, Any], completed_path: Path
     ) -> None:
-        """Append agent summary to day index file."""
+        """Append talent-use summary to the day index file."""
         try:
-            # Determine day from request or agent_id timestamp
+            # Determine day from request or use_id timestamp
             day = request.get("day")
             if not day:
                 from datetime import datetime
 
-                ts_seconds = int(agent_id) / 1000
+                ts_seconds = int(use_id) / 1000
                 day = datetime.fromtimestamp(ts_seconds).strftime("%Y%m%d")
 
             start_ts = request.get("ts", 0)
@@ -681,7 +682,7 @@ class CortexService:
                 pass
 
             summary = {
-                "agent_id": agent_id,
+                "use_id": use_id,
                 "name": request.get("name", "unified"),
                 "day": day,
                 "facet": request.get("facet"),
@@ -693,33 +694,33 @@ class CortexService:
                 "schedule": request.get("schedule"),
             }
 
-            day_index_path = self.agents_dir / f"{day}.jsonl"
+            day_index_path = self.talents_dir / f"{day}.jsonl"
             with open(day_index_path, "a") as f:
                 f.write(json.dumps(summary) + "\n")
                 f.flush()
 
         except Exception as e:
-            self.logger.error(f"Failed to append day index for {agent_id}: {e}")
+            self.logger.error(f"Failed to append day index for {use_id}: {e}")
 
     def _write_error_and_complete(self, file_path: Path, error_message: str) -> None:
         """Write an error event to the file and mark it as complete."""
         try:
-            agent_id = file_path.stem.replace("_active", "")
-            error_event = self._create_error_event(agent_id, error_message)
+            use_id = file_path.stem.replace("_active", "")
+            error_event = self._create_error_event(use_id, error_message)
             with open(file_path, "a") as f:
                 f.write(json.dumps(error_event) + "\n")
 
             # Complete the file
-            self._complete_agent_file(agent_id, file_path)
+            self._complete_use_file(use_id, file_path)
         except Exception as e:
             self.logger.error(f"Failed to write error and complete: {e}")
 
-    def _write_output(self, agent_id: str, result: str, config: Dict[str, Any]) -> None:
-        """Write agent output to config["output_path"].
+    def _write_output(self, use_id: str, result: str, config: Dict[str, Any]) -> None:
+        """Write talent output to config["output_path"].
 
         The output path is set by the caller — either derived by
-        prepare_config in agents.py (day/segment agents) or computed
-        by dream.py via get_activity_output_path (activity agents).
+        prepare_config in think.talents (day/segment talents) or computed
+        by dream.py via get_activity_output_path (activity talents).
         Cortex does not derive paths itself.
         """
         output_path_str = config.get("output_path")
@@ -733,10 +734,10 @@ class CortexService:
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write(result)
 
-            self.logger.info(f"Wrote agent {agent_id} output to {output_path}")
+            self.logger.info(f"Wrote talent {use_id} output to {output_path}")
 
         except Exception as e:
-            self.logger.error(f"Failed to write agent {agent_id} output: {e}")
+            self.logger.error(f"Failed to write talent {use_id} output: {e}")
 
     def stop(self) -> None:
         """Stop the Cortex service."""
@@ -746,9 +747,9 @@ class CortexService:
         if self.callosum:
             self.callosum.stop()
 
-        # Stop all running agents
+        # Stop all running talent uses
         with self.lock:
-            for agent in self.running_agents.values():
+            for agent in self.running_uses.values():
                 agent.stop()
 
     def _emit_periodic_status(self) -> None:
@@ -756,12 +757,12 @@ class CortexService:
         while not self.stop_event.is_set():
             try:
                 with self.lock:
-                    agents = []
-                    for agent_id, agent_proc in self.running_agents.items():
-                        config = self.agent_requests.get(agent_id, {})
-                        agents.append(
+                    uses = []
+                    for use_id, agent_proc in self.running_uses.items():
+                        config = self.use_requests.get(use_id, {})
+                        uses.append(
                             {
-                                "agent_id": agent_id,
+                                "use_id": use_id,
                                 "name": config.get("name", "unknown"),
                                 "provider": config.get("provider", "unknown"),
                                 "elapsed_seconds": int(
@@ -770,13 +771,13 @@ class CortexService:
                             }
                         )
 
-                # Only emit status when there are active agents
-                if agents:
+                # Only emit status when there are active talent uses
+                if uses:
                     self.callosum.emit(
                         "cortex",
                         "status",
-                        running_agents=len(agents),
-                        agents=agents,
+                        running_uses=len(uses),
+                        uses=uses,
                     )
             except Exception as e:
                 self.logger.debug(f"Status emission failed: {e}")
@@ -787,8 +788,8 @@ class CortexService:
         """Get service status information."""
         with self.lock:
             return {
-                "running_agents": len(self.running_agents),
-                "agent_ids": list(self.running_agents.keys()),
+                "running_uses": len(self.running_uses),
+                "use_ids": list(self.running_uses.keys()),
             }
 
 
@@ -798,7 +799,7 @@ def main() -> None:
 
     from think.utils import require_solstone, setup_cli
 
-    parser = argparse.ArgumentParser(description="solstone Cortex Agent Manager")
+    parser = argparse.ArgumentParser(description="solstone Cortex Talent Manager")
     args = setup_cli(parser)
     require_solstone()
 

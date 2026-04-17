@@ -555,7 +555,7 @@ def merge_names(alias_name: str, canonical_name: str) -> dict[str, Any]:
     for day in sorted(day_dirs().keys()):
         for _stream, _seg_key, seg_path in iter_segments(day):
             segments_scanned += 1
-            agents_dir = seg_path / "agents"
+            agents_dir = seg_path / "talents"
 
             # Rewrite speaker_labels.json
             labels_path = agents_dir / "speaker_labels.json"

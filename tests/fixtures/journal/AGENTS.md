@@ -14,7 +14,7 @@ solstone transforms raw recordings into actionable understanding through a three
 ┌─────────────────────────────────────┐
 │  LAYER 3: AGENT OUTPUTS             │  Narrative summaries
 │  (Markdown files)                   │  "What it means"
-│  - agents/*.md (daily outputs)      │
+│  - talents/*.md (daily outputs)     │
 │  - *.md (segment outputs)           │
 └─────────────────────────────────────┘
          ↑ synthesized from
@@ -42,7 +42,7 @@ solstone transforms raw recordings into actionable understanding through a three
 |------|------------|----------|
 | **Capture** | Raw audio/video recording | `*.flac`, `*.ogg`, `*.opus`, `*.wav`, `*.webm` |
 | **Extract** | Structured data from captures | `*.jsonl` |
-| **Agent Output** | AI-generated narrative summary | `agents/*.md`, `HHMMSS_LEN/*.md` |
+| **Agent Output** | AI-generated narrative summary | `talents/*.md`, `HHMMSS_LEN/*.md` |
 
 **Organization**
 
@@ -67,7 +67,7 @@ solstone transforms raw recordings into actionable understanding through a three
 | `chronicle/` | Container for daily capture folders (`YYYYMMDD/`) containing segments, extracts, and agent outputs |
 | `entities/` | Journal-level entity identity records (`<id>/entity.json`) |
 | `facets/` | Facet-specific data: entity relationships, todos, events, news, action logs |
-| `agents/` | Agent run logs in per-agent subdirectories (`<name>/<id>.jsonl`), day indexes (`<day>.jsonl`), and latest-run symlinks (`<name>.log`) |
+| `talents/` | Talent run logs in per-talent subdirectories (`<name>/<id>.jsonl`), day indexes (`<day>.jsonl`), and latest-run symlinks (`<name>.log`) |
 | `apps/` | App-specific storage (distinct from codebase `apps/`) |
 | `streams/` | Per-stream state files (`<name>.json`) tracking segment chains and sequence numbers |
 | `imports/` | Imported audio files and processing artifacts |
@@ -186,14 +186,14 @@ Fields:
 
 "Raw media" means layer 1 capture files only: audio files (`.flac`, `.opus`, `.ogg`, `.m4a`, `.wav`), video files (`.webm`, `.mov`, `.mp4`), and screen diffs (`monitor_*_diff.png`).
 
-All layer 2 and layer 3 content is always preserved regardless of retention policy: transcripts (`audio.jsonl`, `screen.jsonl`), agent outputs (`agents/*.md`), speaker labels (`agents/speaker_labels.json`), facet events (`events/*.jsonl`), entity data, segment metadata (`stream.json`), and search index entries.
+All layer 2 and layer 3 content is always preserved regardless of retention policy: transcripts (`audio.jsonl`, `screen.jsonl`), talent outputs (`talents/*.md`), speaker labels (`talents/speaker_labels.json`), facet events (`events/*.jsonl`), entity data, segment metadata (`stream.json`), and search index entries.
 
 Raw media is never deleted from segments that haven't finished processing. A segment is considered complete only when all four checks pass:
 
-- No `_active.jsonl` files in `agents/` (no running agents)
+- No `_active.jsonl` files in `talents/` (no running talents)
 - `audio.jsonl` (or `*_audio.jsonl`) exists if audio raw media was captured
 - `screen.jsonl` (or `*_screen.jsonl`) exists if video raw media was captured
-- `agents/speaker_labels.json` exists if voice embeddings (`.npz`) are present
+- `talents/speaker_labels.json` exists if voice embeddings (`.npz`) are present
 
 Purged segments remain fully navigable in convey. Transcripts, entities, speaker labels, and summaries are all intact. The only difference is that audio/video playback is unavailable.
 
@@ -732,7 +732,7 @@ The `logs/` directory within each facet records facet-scoped actions. Logs are o
     "text": "Review project proposal"
   },
   "facet": "work",
-  "agent_id": "1765870373972"
+  "use_id": "1765870373972"
 }
 ```
 
@@ -746,7 +746,7 @@ Both log types share the same structure:
 - `action` – Action name (e.g., "todo_add", "identity_update")
 - `params` – Action-specific parameters
 - `facet` – Facet name (only present in facet-scoped logs)
-- `agent_id` – Agent ID (only present for agent tool actions)
+- `use_id` – Agent ID (only present for agent tool actions)
 
 These logs enable auditing, debugging, and potential rollback of automated actions.
 
@@ -777,7 +777,7 @@ Each line in a token log file is a JSON object with the following structure:
 Required fields:
 - `timestamp` – Unix timestamp in milliseconds (13 digits)
 - `model` – Model identifier (e.g., "gemini-2.5-flash", "gpt-5", "claude-sonnet-4-5")
-- `context` – Calling context (e.g., "agent.name.agent_id" or "module.function:line")
+- `context` – Calling context (e.g., "agent.name.use_id" or "module.function:line")
 - `usage` – Token counts dictionary with normalized field names
 
 Optional fields:
@@ -795,16 +795,16 @@ The logging system normalizes provider-specific formats (OpenAI, Gemini, Anthrop
 
 ## Agent Event Logs
 
-The `agents/` directory stores event logs for all AI agent sessions managed by Cortex. Each agent session produces a JSONL file containing the complete event history.
+The `talents/` directory stores event logs for all AI talent sessions managed by Cortex. Each talent session produces a JSONL file containing the complete event history.
 
 **Directory layout:**
 - `<name>/` – per-agent subdirectory (e.g., `default/`, `entities--observer/`)
-- `<name>/<agent_id>_active.jsonl` – currently running agent (renamed when complete)
-- `<name>/<agent_id>.jsonl` – completed agent session
+- `<name>/<use_id>_active.jsonl` – currently running agent (renamed when complete)
+- `<name>/<use_id>.jsonl` – completed agent session
 - `<name>.log` – symlink to the latest completed run for each agent name
 - `<day>.jsonl` – day index with one summary line per agent that completed on that day
 
-The `agent_id` is a Unix timestamp in milliseconds that uniquely identifies the session.
+The `use_id` is a Unix timestamp in milliseconds that uniquely identifies the session.
 
 **Event format (JSONL):**
 
@@ -1039,8 +1039,8 @@ There are two types of events:
 - **Anticipations** – future scheduled events extracted from calendar views (`occurred: false`)
 
 ```jsonl
-{"type": "meeting", "start": "09:00:00", "end": "09:30:00", "title": "Team stand-up", "summary": "Status update with the engineering team", "work": true, "participants": ["Jeremie Miller", "Alice", "Bob"], "facet": "work", "agent": "meetings", "occurred": true, "source": "20250101/agents/meetings.md", "details": "Sprint planning discussion"}
-{"type": "deadline", "date": "2025-01-15", "start": null, "end": null, "title": "Project milestone", "summary": "Q1 deliverable due", "work": true, "participants": [], "facet": "work", "agent": "schedule", "occurred": false, "source": "20250101/agents/schedule.md", "details": "Final review before release"}
+{"type": "meeting", "start": "09:00:00", "end": "09:30:00", "title": "Team stand-up", "summary": "Status update with the engineering team", "work": true, "participants": ["Jeremie Miller", "Alice", "Bob"], "facet": "work", "agent": "meetings", "occurred": true, "source": "20250101/talents/meetings.md", "details": "Sprint planning discussion"}
+{"type": "deadline", "date": "2025-01-15", "start": null, "end": null, "title": "Project milestone", "summary": "Q1 deliverable due", "work": true, "participants": [], "facet": "work", "agent": "schedule", "occurred": false, "source": "20250101/talents/schedule.md", "details": "Final review before release"}
 ```
 
 **Common fields:**
@@ -1068,7 +1068,7 @@ After captures are processed, segment-level outputs are generated within each se
 
 #### Daily outputs
 
-Post-processing generates day-level outputs in the `agents/` directory that synthesize all segments.
+Post-processing generates day-level outputs in the `talents/` directory that synthesize all segments.
 
 **Generator discovery:** Available generator types are discovered at runtime from:
 - `talent/*.md` – system generator templates (files with `schedule` field but no `tools` field)
@@ -1077,8 +1077,8 @@ Post-processing generates day-level outputs in the `agents/` directory that synt
 Each template is a `.md` file with JSON frontmatter containing metadata (title, description, schedule, output format). The `schedule` field is required and must be `"segment"` or `"daily"` - generators with missing or invalid schedule are skipped. Use `get_talent_configs(has_tools=False)` from `think/talent.py` to retrieve all available generators, or `get_talent_configs(has_tools=False, schedule="daily")` to get generators filtered by schedule.
 
 **Output naming:**
-- System outputs: `agents/{agent}.md` (e.g., `agents/flow.md`, `agents/meetings.md`)
-- App outputs: `agents/_{app}_{agent}.md` (e.g., `agents/_entities_observer.md`)
-- JSON output: `agents/{agent}.json` when metadata specifies `"output": "json"`
+- System outputs: `talents/{agent}.md` (e.g., `talents/flow.md`, `talents/meetings.md`)
+- App outputs: `talents/_{app}_{agent}.md` (e.g., `talents/_entities_observer.md`)
+- JSON output: `talents/{agent}.json` when metadata specifies `"output": "json"`
 
 Each generator type has a corresponding template file (`{name}.md`) that defines how the AI synthesizes extracts into narrative form.

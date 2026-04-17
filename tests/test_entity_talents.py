@@ -7,7 +7,7 @@ import os
 
 import pytest
 
-from think.talent import get_agent
+from think.talent import get_talent
 
 
 @pytest.fixture
@@ -21,7 +21,7 @@ def fixture_journal():
 def test_entities_agent_config(fixture_journal):
     """Test detection agent configuration loads correctly."""
     # Entity agents are in apps/entities/talent/ so use app-qualified name
-    config = get_agent("entities:entities")
+    config = get_talent("entities:entities")
 
     # Verify required fields
     assert config["name"] == "entities:entities"
@@ -38,7 +38,7 @@ def test_entities_agent_config(fixture_journal):
 def test_entities_review_agent_config(fixture_journal):
     """Test review agent configuration loads correctly."""
     # Entity agents are in apps/entities/talent/ so use app-qualified name
-    config = get_agent("entities:entities_review")
+    config = get_talent("entities:entities_review")
 
     # Verify required fields
     assert config["name"] == "entities:entities_review"
@@ -54,7 +54,7 @@ def test_entities_review_agent_config(fixture_journal):
 
 def test_entities_agent_instruction_content(fixture_journal):
     """Test detection agent instruction contains expected sections."""
-    config = get_agent("entities:entities")
+    config = get_talent("entities:entities")
     prompt = config["user_instruction"]
 
     # Check for key sections in the agent prompt
@@ -67,7 +67,7 @@ def test_entities_agent_instruction_content(fixture_journal):
 
 def test_entities_review_agent_instruction_content(fixture_journal):
     """Test review agent instruction contains expected sections."""
-    config = get_agent("entities:entities_review")
+    config = get_talent("entities:entities_review")
     prompt = config["user_instruction"]
 
     # Check for key sections in the agent prompt
@@ -80,7 +80,7 @@ def test_entities_review_agent_instruction_content(fixture_journal):
 
 def test_agent_context_includes_entities_by_facet(fixture_journal):
     """Test that agent context includes entities grouped by facet."""
-    config = get_agent("entities:entities")
+    config = get_talent("entities:entities")
 
     prompt = config["user_instruction"]
     assert "Available Facets" in prompt
@@ -97,8 +97,8 @@ def test_agent_context_includes_entities_by_facet(fixture_journal):
 
 
 def test_agent_context_with_facet_focus(fixture_journal):
-    """Test that get_agent with facet parameter uses focused single-facet context."""
-    config = get_agent("unified", facet="full-featured")
+    """Test that get_talent with facet parameter uses focused single-facet context."""
+    config = get_talent("unified", facet="full-featured")
 
     prompt = config["user_instruction"]
 
@@ -117,8 +117,8 @@ def test_agent_context_with_facet_focus(fixture_journal):
 
 def test_agent_priority_ordering(fixture_journal):
     """Test that entity agents have correct priority ordering."""
-    detection_config = get_agent("entities:entities")
-    review_config = get_agent("entities:entities_review")
+    detection_config = get_talent("entities:entities")
+    review_config = get_talent("entities:entities_review")
 
     detection_priority = detection_config["priority"]
     review_priority = review_config["priority"]

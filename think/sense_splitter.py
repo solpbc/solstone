@@ -28,7 +28,7 @@ def write_sense_outputs(
     sense_json: dict, seg_dir: Path, stream: str | None = None
 ) -> None:
     """Write unified Sense output into per-agent files."""
-    agents_dir = seg_dir / "agents"
+    agents_dir = seg_dir / "talents"
 
     density = sense_json.get("density") or "active"
     activity_summary = sense_json.get("activity_summary") or ""
@@ -56,7 +56,7 @@ def write_sense_outputs(
 def write_idle_stubs(seg_dir: Path) -> None:
     """Write minimal idle output files for a segment."""
     _write_json_atomic(
-        seg_dir / "agents" / "density.json",
+        seg_dir / "talents" / "density.json",
         {
             "classification": "idle",
             "transcript_lines": 0,

@@ -36,7 +36,7 @@ class TestPreProcessStub:
             tmp_path,
             {"error": "no_owner_centroid"},
         )
-        stub_path = tmp_path / "agents" / "speaker_labels.json"
+        stub_path = tmp_path / "talents" / "speaker_labels.json"
         assert stub_path.exists()
         data = json.loads(stub_path.read_text())
         assert data == {"labels": [], "skipped": True, "reason": "no_owner_centroid"}
@@ -49,7 +49,7 @@ class TestPreProcessStub:
             tmp_path,
             {"error": "no_owner_centroid"},
         )
-        stub_path = tmp_path / "agents" / "speaker_labels.json"
+        stub_path = tmp_path / "talents" / "speaker_labels.json"
         assert not stub_path.exists()
         assert result == {"skip_reason": "no_owner_centroid"}
 
@@ -61,7 +61,7 @@ class TestPreProcessStub:
             tmp_path,
             {"labels": []},
         )
-        stub_path = tmp_path / "agents" / "speaker_labels.json"
+        stub_path = tmp_path / "talents" / "speaker_labels.json"
         assert stub_path.exists()
         data = json.loads(stub_path.read_text())
         assert data == {"labels": [], "skipped": True, "reason": "no_embeddings"}
@@ -74,7 +74,7 @@ class TestPreProcessStub:
             tmp_path,
             {"labels": []},
         )
-        stub_path = tmp_path / "agents" / "speaker_labels.json"
+        stub_path = tmp_path / "talents" / "speaker_labels.json"
         assert not stub_path.exists()
         assert result == {"skip_reason": "no_embeddings"}
 
@@ -85,7 +85,7 @@ class TestPreProcessStub:
             from talent.speaker_attribution import pre_process
 
             result = pre_process({"stream": "default"})
-        stub_path = tmp_path / "agents" / "speaker_labels.json"
+        stub_path = tmp_path / "talents" / "speaker_labels.json"
         assert not stub_path.exists()
         assert result == {"skip_reason": "no_segment_context"}
 

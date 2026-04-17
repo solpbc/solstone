@@ -766,7 +766,7 @@
   padding: 0;
 }
 
-/* Flow events (agent_updated, continue) */
+/* Flow events (talent_updated, continue) */
 .event-flow {
   border-left-color: #f9a825;
   background: #fffde7;
@@ -1387,7 +1387,7 @@
       .catch(() => { banner.style.display = 'none'; });
   }
 
-  async function loadAgents() {
+  async function loadTalents() {
     currentDay = getDayFromUrl();
     if (!currentDay) return;
 
@@ -1396,29 +1396,29 @@
     document.getElementById('agents-status').textContent = '';
 
     try {
-      const response = await fetch(`api/agents/${currentDay}`);
+      const response = await fetch(`api/talents/${currentDay}`);
       const data = await response.json();
 
-      allRuns = data.runs || [];
-      agentsMeta = data.agents || {};
+      allRuns = data.uses || [];
+      agentsMeta = data.talents || {};
       facetsMeta = data.facets || {};
 
       renderGridView();
       document.getElementById('agents-status').textContent =
-        allRuns.length + ' agent run' + (allRuns.length !== 1 ? 's' : '') + ' loaded';
+        allRuns.length + ' talent run' + (allRuns.length !== 1 ? 's' : '') + ' loaded';
 
       // Restore hash-based view after data load
       if (location.hash) {
         handleHashChange();
       }
     } catch (error) {
-      console.error('Error loading agents:', error);
+      console.error('Error loading talents:', error);
       document.getElementById('loading-view').innerHTML =
         '<div class="empty-state" aria-live="polite">' +
           '<div class="empty-state-icon">⚠️</div>' +
-          '<div class="empty-state-text">Unable to load agents</div>' +
+          '<div class="empty-state-text">Unable to load talents</div>' +
           '<div class="empty-state-hint">The server may be temporarily unavailable. Check your connection and try again.</div>' +
-          '<button class="back-btn" onclick="loadAgents()" style="margin-top: 1rem;">Try again</button>' +
+          '<button class="back-btn" onclick="loadTalents()" style="margin-top: 1rem;">Try again</button>' +
         '</div>';
     }
   }
@@ -1533,7 +1533,7 @@
     const badges = document.createElement('div');
     badges.className = 'agent-card-badges';
 
-    const successCount = agent.run_count - agent.failed_count;
+    const successCount = agent.run_count - talent.failed_count;
     if (successCount > 0) {
       const successBadge = document.createElement('span');
       successBadge.className = 'badge badge-success';
@@ -1541,10 +1541,10 @@
       badges.appendChild(successBadge);
     }
 
-    if (agent.failed_count > 0) {
+    if (talent.failed_count > 0) {
       const failBadge = document.createElement('span');
       failBadge.className = 'badge badge-failed';
-      failBadge.textContent = '✗ ' + agent.failed_count;
+      failBadge.textContent = '✗ ' + talent.failed_count;
       badges.appendChild(failBadge);
     }
 
@@ -2204,10 +2204,10 @@
         timeline.appendChild(renderInfoEvent(event));
       } else if (type === 'finish') {
         timeline.appendChild(renderFinishEvent(event));
-      } else if (type === 'agent_updated') {
-        timeline.appendChild(renderFlowEvent('Switched to agent: ' + (event.agent || 'unknown'), event.ts));
+      } else if (type === 'talent_updated') {
+        timeline.appendChild(renderFlowEvent('Switched to talent: ' + (event.talent || 'unknown'), event.ts));
       } else if (type === 'continue') {
-        timeline.appendChild(renderFlowEvent('Continued in agent: ' + (event.to || 'unknown'), event.ts));
+        timeline.appendChild(renderFlowEvent('Continued in talent: ' + (event.to || 'unknown'), event.ts));
       }
     }
 
@@ -2527,12 +2527,12 @@
   // Listen for facet changes
   window.addEventListener('facet.switch', () => {
     loadUpdatedBanner();
-    loadAgents();
+    loadTalents();
   });
 
   // Initial load
   loadIdentity();
   loadUpdatedBanner();
-  loadAgents();
+  loadTalents();
 })();
 </script>

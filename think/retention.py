@@ -74,7 +74,7 @@ def is_segment_complete(segment_path: Path) -> bool:
     3. screen.jsonl exists if any video raw media was captured
     4. agents/speaker_labels.json exists if embeddings (.npz) are present
     """
-    agents_dir = segment_path / "agents"
+    agents_dir = segment_path / "talents"
 
     # Check 1: no active agent files
     if agents_dir.is_dir():
@@ -126,7 +126,7 @@ def _get_completion_files(segment_path: Path) -> list[Path]:
         if path.is_file()
     )
 
-    speaker_labels = segment_path / "agents" / "speaker_labels.json"
+    speaker_labels = segment_path / "talents" / "speaker_labels.json"
     if speaker_labels.exists():
         completion_files.append(speaker_labels)
 
