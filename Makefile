@@ -1,6 +1,12 @@
 # solstone Makefile
 # Python-based AI-driven desktop journaling toolkit
 
+# Route pytest tmp dirs to /var/tmp (disk) instead of default /tmp (tmpfs/RAM).
+# Combined with pytest's default per-run isolation (/var/tmp/pytest-of-$USER/pytest-N/),
+# concurrent test runs don't collide. Do not re-add --basetemp to pyproject — it pins
+# all runs to one path and pytest wipes it on startup, destroying concurrent state.
+export TMPDIR := /var/tmp
+
 .PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format format-check ci clean clean-install coverage watch versions update update-prices pre-commit skills dev all sail upgrade sandbox sandbox-stop install-pinchtab verify-browser update-browser-baselines review verify-api update-api-baselines install-service uninstall-service service-logs gate-agents-rename
 
 # Default target - install package in editable mode
