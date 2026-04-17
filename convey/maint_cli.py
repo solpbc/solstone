@@ -20,7 +20,7 @@ from pathlib import Path
 
 from think.utils import get_journal, setup_cli
 
-from .maint import (
+from think.maint import (
     get_state_file,
     get_task_by_name,
     get_task_status,

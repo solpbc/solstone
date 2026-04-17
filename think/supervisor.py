@@ -21,6 +21,7 @@ from desktop_notifier import DesktopNotifier, Urgency
 
 from think import routines, scheduler
 from think.callosum import CallosumConnection, CallosumServer
+from think.maint import run_pending_tasks
 from think.runner import DailyLogWriter
 from think.runner import ManagedProcess as RunnerManagedProcess
 from think.utils import (
@@ -1434,6 +1435,22 @@ def main() -> None:
 
     # Remote mode: run sync instead of local processing
     _is_remote_mode = bool(args.remote)
+
+    # Run pending journal-maintenance tasks before spawning any writer children.
+    # Callosum isn't up yet (emit_fn=None); migrations log through supervisor's logger only.
+    try:
+        ran, succeeded = run_pending_tasks(journal_path, emit_fn=None)
+        if ran > 0:
+            if ran == succeeded:
+                logging.info("Completed %d/%d maintenance task(s)", succeeded, ran)
+            else:
+                logging.error(
+                    "Maintenance tasks completed with failures: %d/%d succeeded",
+                    succeeded,
+                    ran,
+                )
+    except Exception:
+        logging.exception("Maintenance runner raised; continuing startup")
 
     # Start Callosum in-process first - it's the message bus that other services depend on
     try:

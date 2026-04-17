@@ -63,8 +63,6 @@ def run_service(
 
 def main() -> None:
     """Main CLI entry point for convey command."""
-    from pathlib import Path
-
     from think.utils import (
         get_journal,
         setup_cli,
@@ -72,7 +70,6 @@ def main() -> None:
     )
 
     from . import create_app
-    from .maint import run_pending_tasks
 
     parser = argparse.ArgumentParser(description="Convey web interface")
     parser.add_argument(
@@ -88,12 +85,6 @@ def main() -> None:
     )
     args = setup_cli(parser)
     journal = get_journal()
-
-    # Run pending maintenance tasks before starting
-    if not args.skip_maint:
-        ran, succeeded = run_pending_tasks(Path(journal))
-        if ran > 0:
-            logger.info(f"Completed {succeeded}/{ran} maintenance task(s)")
 
     app = create_app(journal)
     password = _resolve_config_password_hash()

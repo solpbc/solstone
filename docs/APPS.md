@@ -455,7 +455,7 @@ apps/my_app/talent/my-skill/
 
 ### 11. `maint/` - Maintenance Tasks
 
-Define one-time maintenance scripts that run automatically on Convey startup.
+Define one-time maintenance scripts that run automatically when supervisor starts.
 
 **Key Points:**
 - Create `maint/` directory with standalone Python scripts (each with a `main()` function)
@@ -468,7 +468,7 @@ Define one-time maintenance scripts that run automatically on Convey startup.
 
 **Reference implementations:**
 - Example task: `apps/entities/maint/001_migrate_to_journal_entities.py` - real migration task demonstrating maint patterns
-- Discovery logic: `convey/maint.py` - `discover_tasks()`, `run_task()`
+- Discovery logic: `think/maint.py` - `discover_tasks()`, `run_task()`
 
 ---
 
