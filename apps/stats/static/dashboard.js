@@ -576,7 +576,7 @@ const Dashboard = (function() {
     }
 
     // Required-field validation (blocking — stops rendering if fields missing)
-    const requiredFields = ['days', 'totals', 'heatmap', 'tokens', 'agents', 'facets'];
+    const requiredFields = ['days', 'totals', 'heatmap', 'tokens', 'talents', 'facets'];
     const missingFields = requiredFields.filter(f => !(f in stats));
     if (missingFields.length > 0) {
       document.getElementById('notice').appendChild(
@@ -725,7 +725,7 @@ const Dashboard = (function() {
     // Render Events stacked bar chart
     buildStackedCategoryChart(
       document.getElementById('eventsChart'),
-      stats.agents.counts_by_day || {},
+      stats.talents.counts_by_day || {},
       Object.assign({}, data.generators || {}, {
         emptyIcon: '⚡',
         emptyText: 'No event data recorded',

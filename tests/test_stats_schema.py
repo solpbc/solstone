@@ -55,7 +55,7 @@ def test_validate_rejects_missing_fields():
             "totals": {},
             "heatmap": [],
             "tokens": {},
-            "agents": {},
+            "talents": {},
             "facets": {},
         }
     )

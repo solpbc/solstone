@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 DAY_FIELDS = (
     "transcript_sessions",
@@ -39,13 +39,13 @@ REQUIRED_TOP_LEVEL = (
     "totals",
     "heatmap",
     "tokens",
-    "agents",
+    "talents",
     "facets",
 )
 
 
 def validate(data: dict) -> list[str]:
-    """Validate stats output against schema v2. Returns list of error strings (empty = valid)."""
+    """Validate stats output against schema v3. Returns list of errors."""
     errors = []
 
     # Check schema_version

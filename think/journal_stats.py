@@ -12,9 +12,9 @@ from typing import Dict
 
 from observe.sense import scan_day as sense_scan_day
 from observe.utils import VIDEO_EXTENSIONS, load_analysis_frames
-from think.agents import scan_day as generate_scan_day
 from think.stats_schema import DAY_FIELDS, SCHEMA_VERSION
 from think.stats_schema import validate as validate_stats
+from think.talents import scan_day as generate_scan_day
 from think.utils import day_dirs, get_journal, setup_cli
 
 logger = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ class JournalStats:
         self.totals: Counter[str] = Counter()
         self.total_transcript_duration = 0.0
         self.total_percept_duration = 0.0
-        self.agent_counts: Counter[str] = Counter()
+        self.talent_counts: Counter[str] = Counter()
         self.agent_minutes: Counter[str] = Counter()
         self.facet_counts: Counter[str] = Counter()
         self.facet_minutes: Counter[str] = Counter()
@@ -54,12 +54,12 @@ class JournalStats:
         for ext in VIDEO_EXTENSIONS:
             files.extend(day_dir.glob(f"*{ext}"))
 
-        agents_dir = day_dir / "agents"
-        if agents_dir.is_dir():
-            files.extend(agents_dir.glob("*.json"))
-            files.extend(agents_dir.glob("*.md"))
-            files.extend(agents_dir.glob("*/*.json"))
-            files.extend(agents_dir.glob("*/*.md"))
+        talents_dir = day_dir / "talents"
+        if talents_dir.is_dir():
+            files.extend(talents_dir.glob("*.json"))
+            files.extend(talents_dir.glob("*.md"))
+            files.extend(talents_dir.glob("*/*.json"))
+            files.extend(talents_dir.glob("*/*.md"))
 
         # Check facet event files for this day
         journal_root = Path(get_journal())
@@ -156,7 +156,7 @@ class JournalStats:
         day_agent_counts: Dict[str, int] = {}
         for agent, data in agent_data.items():
             count = data.get("count", 0)
-            self.agent_counts[agent] += count
+            self.talent_counts[agent] += count
             self.agent_minutes[agent] += data.get("minutes", 0.0)
             if count > 0:
                 day_agent_counts[agent] = count
@@ -524,8 +524,8 @@ class JournalStats:
                 "by_day": self.token_usage,
                 "by_model": self.token_totals,
             },
-            "agents": {
-                "counts": dict(self.agent_counts),
+            "talents": {
+                "counts": dict(self.talent_counts),
                 "minutes": {k: round(v, 2) for k, v in self.agent_minutes.items()},
                 "counts_by_day": self.agent_counts_by_day,
             },
