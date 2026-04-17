@@ -5,12 +5,14 @@
 
 import json
 import os
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from think.models import GPT_5
+from think.talents import TALENT_EXECUTION_MODULE
 
 
 class MockPipe:
@@ -41,8 +43,8 @@ def mock_journal(tmp_path, monkeypatch):
     """Set up a temporary journal directory."""
     journal_path = tmp_path / "journal"
     journal_path.mkdir()
-    agents_path = journal_path / "agents"
-    agents_path.mkdir()
+    talents_path = journal_path / "talents"
+    talents_path.mkdir()
 
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_path))
     return journal_path
@@ -57,17 +59,17 @@ def cortex_service(mock_journal):
 
 
 def test_agent_process_creation():
-    """Test AgentProcess class initialization and methods."""
-    from think.cortex import AgentProcess
+    """Test TalentProcess class initialization and methods."""
+    from think.cortex import TalentProcess
 
     mock_process = MagicMock()
     mock_process.poll.return_value = None  # Running
     mock_process.pid = 12345
 
     log_path = Path("/tmp/test.jsonl")
-    agent = AgentProcess("123456789", mock_process, log_path)
+    agent = TalentProcess("123456789", mock_process, log_path)
 
-    assert agent.agent_id == "123456789"
+    assert agent.use_id == "123456789"
     assert agent.process == mock_process
     assert agent.log_path == log_path
     assert agent.is_running() is True
@@ -81,9 +83,9 @@ def test_agent_process_creation():
 def test_cortex_service_initialization(cortex_service, mock_journal):
     """Test CortexService initialization."""
     assert cortex_service.journal_path == mock_journal
-    assert cortex_service.agents_dir == mock_journal / "agents"
-    assert cortex_service.running_agents == {}
-    assert cortex_service.agents_dir.exists()
+    assert cortex_service.talents_dir == mock_journal / "talents"
+    assert cortex_service.running_uses == {}
+    assert cortex_service.talents_dir.exists()
 
 
 @patch("think.cortex.subprocess.Popen")
@@ -105,8 +107,8 @@ def test_spawn_subprocess(
     mock_timer_instance = MagicMock()
     mock_timer.return_value = mock_timer_instance
 
-    agent_id = "123456789"
-    file_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
+    use_id = "123456789"
+    file_path = mock_journal / "talents" / f"{use_id}_active.jsonl"
 
     request = {
         "event": "request",
@@ -118,17 +120,17 @@ def test_spawn_subprocess(
     }
 
     cortex_service._spawn_subprocess(
-        agent_id,
+        use_id,
         file_path,
         request,
-        ["sol", "agents"],
-        "agent",
+        [sys.executable, "-m", "think.talents"],
+        "talent",
     )
 
     # Check subprocess was called
     mock_popen.assert_called_once()
     call_args = mock_popen.call_args
-    assert call_args[0][0] == ["sol", "agents"]
+    assert call_args[0][0] == [sys.executable, "-m", TALENT_EXECUTION_MODULE]
     assert call_args[1]["stdin"] is not None
     assert call_args[1]["stdout"] is not None
     assert call_args[1]["stderr"] is not None
@@ -147,9 +149,9 @@ def test_spawn_subprocess(
     mock_process.stdin.close.assert_called_once()
 
     # Check agent was tracked
-    assert agent_id in cortex_service.running_agents
-    agent = cortex_service.running_agents[agent_id]
-    assert agent.agent_id == agent_id
+    assert use_id in cortex_service.running_uses
+    agent = cortex_service.running_uses[use_id]
+    assert agent.use_id == use_id
     assert agent.log_path == file_path
 
     # Check monitoring threads were started
@@ -179,8 +181,8 @@ def test_spawn_generator_via_subprocess(
     mock_timer_instance = MagicMock()
     mock_timer.return_value = mock_timer_instance
 
-    agent_id = "987654321"
-    file_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
+    use_id = "987654321"
+    file_path = mock_journal / "talents" / f"{use_id}_active.jsonl"
 
     # Generator config has "output" instead of "tools"
     config = {
@@ -193,17 +195,17 @@ def test_spawn_generator_via_subprocess(
 
     # Generators route through _spawn_subprocess
     cortex_service._spawn_subprocess(
-        agent_id,
+        use_id,
         file_path,
         config,
-        ["sol", "agents"],
-        "agent",
+        [sys.executable, "-m", TALENT_EXECUTION_MODULE],
+        "talent",
     )
 
-    # Check subprocess was called with agents command (generators route through agents)
+    # Check subprocess was called with the talents execution module.
     mock_popen.assert_called_once()
     call_args = mock_popen.call_args
-    assert call_args[0][0] == ["sol", "agents"]
+    assert call_args[0][0] == [sys.executable, "-m", TALENT_EXECUTION_MODULE]
     assert call_args[1]["stdin"] is not None
     assert call_args[1]["stdout"] is not None
     assert call_args[1]["stderr"] is not None
@@ -221,9 +223,9 @@ def test_spawn_generator_via_subprocess(
     mock_process.stdin.close.assert_called_once()
 
     # Check generator was tracked
-    assert agent_id in cortex_service.running_agents
-    agent = cortex_service.running_agents[agent_id]
-    assert agent.agent_id == agent_id
+    assert use_id in cortex_service.running_uses
+    agent = cortex_service.running_uses[use_id]
+    assert agent.use_id == use_id
     assert agent.log_path == file_path
 
     # Check monitoring threads were started
@@ -234,7 +236,7 @@ def test_spawn_generator_via_subprocess(
     mock_timer_instance.start.assert_called_once()
 
 
-@patch("think.talent.get_agent")
+@patch("think.talent.get_talent")
 @patch("think.cortex.subprocess.Popen")
 @patch("think.cortex.threading.Thread")
 @patch("think.cortex.threading.Timer")
@@ -242,7 +244,7 @@ def test_spawn_subprocess_uses_cwd_from_talent(
     mock_timer,
     mock_thread,
     mock_popen,
-    mock_get_agent,
+    mock_get_talent,
     cortex_service,
     mock_journal,
 ):
@@ -253,13 +255,13 @@ def test_spawn_subprocess_uses_cwd_from_talent(
     mock_process.stdout = MagicMock()
     mock_process.stderr = MagicMock()
     mock_popen.return_value = mock_process
-    mock_get_agent.return_value = {"type": "cogitate", "cwd": "journal"}
+    mock_get_talent.return_value = {"type": "cogitate", "cwd": "journal"}
 
     mock_timer_instance = MagicMock()
     mock_timer.return_value = mock_timer_instance
 
-    agent_id = "24680"
-    file_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
+    use_id = "24680"
+    file_path = mock_journal / "talents" / f"{use_id}_active.jsonl"
     request = {
         "event": "request",
         "ts": 24680,
@@ -270,17 +272,17 @@ def test_spawn_subprocess_uses_cwd_from_talent(
     }
 
     cortex_service._spawn_subprocess(
-        agent_id,
+        use_id,
         file_path,
         request,
-        ["sol", "agents"],
-        "agent",
+        [sys.executable, "-m", TALENT_EXECUTION_MODULE],
+        "talent",
     )
 
     assert mock_popen.call_args.kwargs["cwd"] == str(mock_journal)
 
 
-@patch("think.talent.get_agent")
+@patch("think.talent.get_talent")
 @patch("think.cortex.subprocess.Popen")
 @patch("think.cortex.threading.Thread")
 @patch("think.cortex.threading.Timer")
@@ -288,7 +290,7 @@ def test_spawn_subprocess_skips_cwd_for_generate(
     mock_timer,
     mock_thread,
     mock_popen,
-    mock_get_agent,
+    mock_get_talent,
     cortex_service,
     mock_journal,
 ):
@@ -299,13 +301,13 @@ def test_spawn_subprocess_skips_cwd_for_generate(
     mock_process.stdout = MagicMock()
     mock_process.stderr = MagicMock()
     mock_popen.return_value = mock_process
-    mock_get_agent.return_value = {"type": "generate"}
+    mock_get_talent.return_value = {"type": "generate"}
 
     mock_timer_instance = MagicMock()
     mock_timer.return_value = mock_timer_instance
 
-    agent_id = "13579"
-    file_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
+    use_id = "13579"
+    file_path = mock_journal / "talents" / f"{use_id}_active.jsonl"
     request = {
         "event": "request",
         "ts": 13579,
@@ -315,11 +317,11 @@ def test_spawn_subprocess_skips_cwd_for_generate(
     }
 
     cortex_service._spawn_subprocess(
-        agent_id,
+        use_id,
         file_path,
         request,
-        ["sol", "agents"],
-        "agent",
+        [sys.executable, "-m", TALENT_EXECUTION_MODULE],
+        "talent",
     )
 
     assert mock_popen.call_args.kwargs["cwd"] is None
@@ -329,10 +331,10 @@ def test_monitor_stdout_json_events(cortex_service, mock_journal):
     """Test monitoring stdout with JSON events."""
     from io import StringIO
 
-    from think.cortex import AgentProcess
+    from think.cortex import TalentProcess
 
-    agent_id = "123456789"
-    log_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
+    use_id = "123456789"
+    log_path = mock_journal / "talents" / f"{use_id}_active.jsonl"
 
     mock_process = MagicMock()
     mock_process.poll.return_value = 0  # Process exits
@@ -341,8 +343,8 @@ def test_monitor_stdout_json_events(cortex_service, mock_journal):
         '{"event": "finish", "ts": 1234567891, "result": "Done"}\n'
     )
 
-    agent = AgentProcess(agent_id, mock_process, log_path)
-    cortex_service.running_agents[agent_id] = agent
+    agent = TalentProcess(use_id, mock_process, log_path)
+    cortex_service.running_uses[use_id] = agent
 
     with patch.object(cortex_service, "_complete_agent_file") as mock_complete:
         cortex_service._monitor_stdout(agent)
@@ -355,20 +357,20 @@ def test_monitor_stdout_json_events(cortex_service, mock_journal):
         assert json.loads(lines[1])["event"] == "finish"
 
         # Check file was completed
-        mock_complete.assert_called_once_with(agent_id, log_path)
+        mock_complete.assert_called_once_with(use_id, log_path)
 
     # Check agent was removed
-    assert agent_id not in cortex_service.running_agents
+    assert use_id not in cortex_service.running_uses
 
 
 def test_monitor_stdout_non_json_output(cortex_service, mock_journal):
     """Test monitoring stdout with non-JSON output."""
     from io import StringIO
 
-    from think.cortex import AgentProcess
+    from think.cortex import TalentProcess
 
-    agent_id = "123456789"
-    log_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
+    use_id = "123456789"
+    log_path = mock_journal / "talents" / f"{use_id}_active.jsonl"
 
     mock_process = MagicMock()
     mock_process.poll.return_value = 0
@@ -376,8 +378,8 @@ def test_monitor_stdout_non_json_output(cortex_service, mock_journal):
         'Plain text output\n{"event": "finish", "ts": 1234567890}\n'
     )
 
-    agent = AgentProcess(agent_id, mock_process, log_path)
-    cortex_service.running_agents[agent_id] = agent
+    agent = TalentProcess(use_id, mock_process, log_path)
+    cortex_service.running_uses[use_id] = agent
 
     with patch.object(cortex_service, "_complete_agent_file"):
         cortex_service._monitor_stdout(agent)
@@ -396,17 +398,17 @@ def test_monitor_stdout_no_finish_event(cortex_service, mock_journal):
     """Test monitoring stdout when process exits without finish event."""
     from io import StringIO
 
-    from think.cortex import AgentProcess
+    from think.cortex import TalentProcess
 
-    agent_id = "123456789"
-    log_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
+    use_id = "123456789"
+    log_path = mock_journal / "talents" / f"{use_id}_active.jsonl"
 
     mock_process = MagicMock()
     mock_process.wait.return_value = 1  # Non-zero exit
     mock_process.stdout = StringIO('{"event": "start", "ts": 1234567890}\n')
 
-    agent = AgentProcess(agent_id, mock_process, log_path)
-    cortex_service.running_agents[agent_id] = agent
+    agent = TalentProcess(use_id, mock_process, log_path)
+    cortex_service.running_uses[use_id] = agent
 
     with patch.object(cortex_service, "_complete_agent_file"):
         cortex_service._monitor_stdout(agent)
@@ -425,10 +427,10 @@ def test_monitor_stderr(cortex_service, mock_journal):
     """Test monitoring stderr for errors."""
     from io import StringIO
 
-    from think.cortex import AgentProcess
+    from think.cortex import TalentProcess
 
-    agent_id = "123456789"
-    log_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
+    use_id = "123456789"
+    log_path = mock_journal / "talents" / f"{use_id}_active.jsonl"
 
     mock_process = MagicMock()
     mock_process.poll.return_value = 1  # Error exit
@@ -436,7 +438,7 @@ def test_monitor_stderr(cortex_service, mock_journal):
         "Error: Something went wrong\nStack trace line 1\nStack trace line 2\n"
     )
 
-    agent = AgentProcess(agent_id, mock_process, log_path)
+    agent = TalentProcess(use_id, mock_process, log_path)
 
     cortex_service._monitor_stderr(agent)
 
@@ -454,7 +456,7 @@ def test_monitor_stderr(cortex_service, mock_journal):
 
 def test_has_finish_event(cortex_service, mock_journal):
     """Test checking for finish event in JSONL file."""
-    file_path = mock_journal / "agents" / "test.jsonl"
+    file_path = mock_journal / "talents" / "test.jsonl"
 
     # File with finish event
     file_path.write_text(
@@ -479,87 +481,87 @@ def test_has_finish_event(cortex_service, mock_journal):
 
 def test_complete_agent_file(cortex_service, mock_journal):
     """Test completing an agent file (rename from active to completed)."""
-    agent_id = "123456789"
-    unified_dir = mock_journal / "agents" / "unified"
+    use_id = "123456789"
+    unified_dir = mock_journal / "talents" / "unified"
     unified_dir.mkdir()
-    active_path = unified_dir / f"{agent_id}_active.jsonl"
+    active_path = unified_dir / f"{use_id}_active.jsonl"
     active_path.touch()
-    cortex_service.agent_requests[agent_id] = {"name": "unified", "agent_id": agent_id}
+    cortex_service.use_requests[use_id] = {"name": "unified", "use_id": use_id}
 
-    cortex_service._complete_agent_file(agent_id, active_path)
+    cortex_service._complete_agent_file(use_id, active_path)
 
     # Check file was renamed
     assert not active_path.exists()
-    completed_path = unified_dir / f"{agent_id}.jsonl"
+    completed_path = unified_dir / f"{use_id}.jsonl"
     assert completed_path.exists()
-    symlink_path = mock_journal / "agents" / "unified.log"
+    symlink_path = mock_journal / "talents" / "unified.log"
     assert symlink_path.is_symlink()
-    assert os.readlink(symlink_path) == f"unified/{agent_id}.jsonl"
+    assert os.readlink(symlink_path) == f"unified/{use_id}.jsonl"
 
 
 def test_complete_agent_file_replaces_symlink(cortex_service, mock_journal):
     """Test completing agent file replaces convenience symlink for same name."""
-    unified_dir = mock_journal / "agents" / "unified"
+    unified_dir = mock_journal / "talents" / "unified"
     unified_dir.mkdir()
 
     first_agent_id = "111"
     first_active_path = unified_dir / f"{first_agent_id}_active.jsonl"
     first_active_path.touch()
-    cortex_service.agent_requests[first_agent_id] = {"name": "unified"}
+    cortex_service.use_requests[first_agent_id] = {"name": "unified"}
 
     cortex_service._complete_agent_file(first_agent_id, first_active_path)
 
     second_agent_id = "222"
     second_active_path = unified_dir / f"{second_agent_id}_active.jsonl"
     second_active_path.touch()
-    cortex_service.agent_requests[second_agent_id] = {"name": "unified"}
+    cortex_service.use_requests[second_agent_id] = {"name": "unified"}
 
     cortex_service._complete_agent_file(second_agent_id, second_active_path)
 
-    symlink_path = mock_journal / "agents" / "unified.log"
+    symlink_path = mock_journal / "talents" / "unified.log"
     assert symlink_path.is_symlink()
     assert os.readlink(symlink_path) == f"unified/{second_agent_id}.jsonl"
 
 
 def test_complete_agent_file_colon_name(cortex_service, mock_journal):
     """Test completing agent file sanitizes colon in convenience symlink name."""
-    agent_id = "123456789"
-    entities_dir = mock_journal / "agents" / "entities--entity_assist"
+    use_id = "123456789"
+    entities_dir = mock_journal / "talents" / "entities--entity_assist"
     entities_dir.mkdir()
-    active_path = entities_dir / f"{agent_id}_active.jsonl"
+    active_path = entities_dir / f"{use_id}_active.jsonl"
     active_path.touch()
-    cortex_service.agent_requests[agent_id] = {"name": "entities:entity_assist"}
+    cortex_service.use_requests[use_id] = {"name": "entities:entity_assist"}
 
-    cortex_service._complete_agent_file(agent_id, active_path)
+    cortex_service._complete_agent_file(use_id, active_path)
 
-    symlink_path = mock_journal / "agents" / "entities--entity_assist.log"
+    symlink_path = mock_journal / "talents" / "entities--entity_assist.log"
     assert symlink_path.is_symlink()
-    assert os.readlink(symlink_path) == f"entities--entity_assist/{agent_id}.jsonl"
+    assert os.readlink(symlink_path) == f"entities--entity_assist/{use_id}.jsonl"
 
 
 def test_complete_agent_file_no_name(cortex_service, mock_journal):
     """Test completing agent file skips symlink when request name is missing."""
-    agent_id = "123456789"
-    active_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
+    use_id = "123456789"
+    active_path = mock_journal / "talents" / f"{use_id}_active.jsonl"
     active_path.touch()
 
-    cortex_service._complete_agent_file(agent_id, active_path)
+    cortex_service._complete_agent_file(use_id, active_path)
 
-    completed_path = mock_journal / "agents" / f"{agent_id}.jsonl"
+    completed_path = mock_journal / "talents" / f"{use_id}.jsonl"
     assert completed_path.exists()
-    assert not any(path.is_symlink() for path in (mock_journal / "agents").iterdir())
+    assert not any(path.is_symlink() for path in (mock_journal / "talents").iterdir())
 
 
 def test_write_error_and_complete(cortex_service, mock_journal):
     """Test writing error and completing file."""
-    agent_id = "123456789"
-    file_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
+    use_id = "123456789"
+    file_path = mock_journal / "talents" / f"{use_id}_active.jsonl"
     file_path.touch()
 
     cortex_service._write_error_and_complete(file_path, "Test error message")
 
     # Check error was written
-    completed_path = mock_journal / "agents" / f"{agent_id}.jsonl"
+    completed_path = mock_journal / "talents" / f"{use_id}.jsonl"
     assert completed_path.exists()
     assert not file_path.exists()
 
@@ -572,34 +574,34 @@ def test_write_error_and_complete(cortex_service, mock_journal):
 
 def test_get_status(cortex_service):
     """Test getting service status."""
-    from think.cortex import AgentProcess
+    from think.cortex import TalentProcess
 
     # Empty status
     status = cortex_service.get_status()
-    assert status["running_agents"] == 0
-    assert status["agent_ids"] == []
+    assert status["running_uses"] == 0
+    assert status["use_ids"] == []
 
     # Add running agents
     mock_process = MagicMock()
-    agent1 = AgentProcess("111", mock_process, Path("/tmp/1.jsonl"))
-    agent2 = AgentProcess("222", mock_process, Path("/tmp/2.jsonl"))
+    agent1 = TalentProcess("111", mock_process, Path("/tmp/1.jsonl"))
+    agent2 = TalentProcess("222", mock_process, Path("/tmp/2.jsonl"))
 
-    cortex_service.running_agents["111"] = agent1
-    cortex_service.running_agents["222"] = agent2
+    cortex_service.running_uses["111"] = agent1
+    cortex_service.running_uses["222"] = agent2
 
     status = cortex_service.get_status()
-    assert status["running_agents"] == 2
-    assert set(status["agent_ids"]) == {"111", "222"}
+    assert status["running_uses"] == 2
+    assert set(status["use_ids"]) == {"111", "222"}
 
 
 def test_write_output(cortex_service, mock_journal):
     """Test writing agent output using explicit output_path."""
-    agent_id = "test_agent"
+    use_id = "test_agent"
     result = "This is the agent result content"
-    expected_path = mock_journal / "20240115" / "agents" / "my_agent.md"
+    expected_path = mock_journal / "20240115" / "talents" / "my_agent.md"
     config = {"output": "md", "name": "my_agent", "output_path": str(expected_path)}
 
-    cortex_service._write_output(agent_id, result, config)
+    cortex_service._write_output(use_id, result, config)
 
     assert expected_path.exists()
     assert expected_path.read_text() == result
@@ -610,20 +612,20 @@ def test_write_output_with_error(cortex_service, mock_journal, caplog):
     """Test write output handles errors gracefully."""
     import logging
 
-    output_path = mock_journal / "20240115" / "agents" / "test.md"
+    output_path = mock_journal / "20240115" / "talents" / "test.md"
     with patch("builtins.open", side_effect=PermissionError("Cannot write")):
         with caplog.at_level(logging.ERROR):
             config = {"output": "md", "name": "test", "output_path": str(output_path)}
-            cortex_service._write_output("agent_id", "result", config)
+            cortex_service._write_output("use_id", "result", config)
 
     # Check error was logged but didn't raise
-    assert "Failed to write agent agent_id output" in caplog.text
+    assert "Failed to write agent use_id output" in caplog.text
 
 
 def test_write_output_missing_path_skips(cortex_service, mock_journal, caplog):
     """Test write output skips when output_path is missing."""
     config = {"output": "md", "name": "test"}
-    cortex_service._write_output("agent_id", "result", config)
+    cortex_service._write_output("use_id", "result", config)
 
     # No output written, no error — silent skip is expected
     assert "Failed to write" not in caplog.text
@@ -631,10 +633,10 @@ def test_write_output_missing_path_skips(cortex_service, mock_journal, caplog):
 
 def test_write_output_with_day_parameter(cortex_service, mock_journal):
     """Test writing agent output to a specific day directory."""
-    agent_id = "test_agent"
+    use_id = "test_agent"
     result = "This is the agent result content"
     specified_day = "20240201"
-    expected_path = mock_journal / specified_day / "agents" / "reporter.md"
+    expected_path = mock_journal / specified_day / "talents" / "reporter.md"
     config = {
         "output": "md",
         "name": "reporter",
@@ -642,7 +644,7 @@ def test_write_output_with_day_parameter(cortex_service, mock_journal):
         "output_path": str(expected_path),
     }
 
-    cortex_service._write_output(agent_id, result, config)
+    cortex_service._write_output(use_id, result, config)
 
     assert expected_path.exists()
     assert expected_path.read_text() == result
@@ -651,9 +653,9 @@ def test_write_output_with_day_parameter(cortex_service, mock_journal):
 
 def test_write_output_with_segment(cortex_service, mock_journal):
     """Test writing segment agent output to segment agents directory."""
-    agent_id = "segment_agent"
+    use_id = "segment_agent"
     result = "Segment analysis content"
-    expected_path = mock_journal / "20240115" / "143000_600" / "agents" / "analyzer.md"
+    expected_path = mock_journal / "20240115" / "143000_600" / "talents" / "analyzer.md"
     config = {
         "output": "md",
         "name": "analyzer",
@@ -661,7 +663,7 @@ def test_write_output_with_segment(cortex_service, mock_journal):
         "output_path": str(expected_path),
     }
 
-    cortex_service._write_output(agent_id, result, config)
+    cortex_service._write_output(use_id, result, config)
 
     assert expected_path.exists()
     assert expected_path.read_text() == result
@@ -669,16 +671,16 @@ def test_write_output_with_segment(cortex_service, mock_journal):
 
 def test_write_output_json_format(cortex_service, mock_journal):
     """Test writing agent output in JSON format."""
-    agent_id = "json_agent"
+    use_id = "json_agent"
     result = '{"key": "value"}'
-    expected_path = mock_journal / "20240115" / "agents" / "data_agent.json"
+    expected_path = mock_journal / "20240115" / "talents" / "data_agent.json"
     config = {
         "output": "json",
         "name": "data_agent",
         "output_path": str(expected_path),
     }
 
-    cortex_service._write_output(agent_id, result, config)
+    cortex_service._write_output(use_id, result, config)
 
     assert expected_path.exists()
     assert expected_path.read_text() == result
@@ -686,15 +688,15 @@ def test_write_output_json_format(cortex_service, mock_journal):
 
 def test_monitor_stdout_with_output(cortex_service, mock_journal):
     """Test monitor_stdout writes output when output_path is present."""
-    from think.cortex import AgentProcess
+    from think.cortex import TalentProcess
 
-    agent_id = "output_test"
-    active_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
-    output_path = mock_journal / "20240115" / "agents" / "test_agent.md"
+    use_id = "output_test"
+    active_path = mock_journal / "talents" / f"{use_id}_active.jsonl"
+    output_path = mock_journal / "20240115" / "talents" / "test_agent.md"
 
     # Store request with explicit output_path
-    cortex_service.agent_requests = {
-        agent_id: {
+    cortex_service.use_requests = {
+        use_id: {
             "event": "request",
             "prompt": "test",
             "output": "md",
@@ -711,7 +713,7 @@ def test_monitor_stdout_with_output(cortex_service, mock_journal):
     mock_process.stdout = MockPipe(mock_stdout)
     mock_process.wait.return_value = 0
 
-    agent = AgentProcess(agent_id, mock_process, active_path)
+    agent = TalentProcess(use_id, mock_process, active_path)
 
     with patch.object(cortex_service, "_complete_agent_file"):
         with patch.object(cortex_service, "_has_finish_event", return_value=True):
@@ -723,16 +725,16 @@ def test_monitor_stdout_with_output(cortex_service, mock_journal):
 
 def test_monitor_stdout_with_output_and_day(cortex_service, mock_journal):
     """Test monitor_stdout writes output to specific day via output_path."""
-    from think.cortex import AgentProcess
+    from think.cortex import TalentProcess
 
-    agent_id = "output_day_test"
-    active_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
+    use_id = "output_day_test"
+    active_path = mock_journal / "talents" / f"{use_id}_active.jsonl"
     specified_day = "20240220"
-    output_path = mock_journal / specified_day / "agents" / "daily_reporter.md"
+    output_path = mock_journal / specified_day / "talents" / "daily_reporter.md"
 
     # Store request with explicit output_path and day
-    cortex_service.agent_requests = {
-        agent_id: {
+    cortex_service.use_requests = {
+        use_id: {
             "event": "request",
             "prompt": "test",
             "output": "md",
@@ -750,7 +752,7 @@ def test_monitor_stdout_with_output_and_day(cortex_service, mock_journal):
     mock_process.stdout = MockPipe(mock_stdout)
     mock_process.wait.return_value = 0
 
-    agent = AgentProcess(agent_id, mock_process, active_path)
+    agent = TalentProcess(use_id, mock_process, active_path)
 
     with patch.object(cortex_service, "_complete_agent_file"):
         with patch.object(cortex_service, "_has_finish_event", return_value=True):
@@ -763,8 +765,8 @@ def test_monitor_stdout_with_output_and_day(cortex_service, mock_journal):
 def test_recover_orphaned_agents(cortex_service, mock_journal):
     """Test recovery of orphaned active agent files."""
     # Create orphaned active files
-    agents_dir = mock_journal / "agents"
-    unified_dir = agents_dir / "unified"
+    talents_dir = mock_journal / "talents"
+    unified_dir = talents_dir / "unified"
     unified_dir.mkdir()
     agent1_active = unified_dir / "111_active.jsonl"
     agent2_active = unified_dir / "222_active.jsonl"
@@ -788,7 +790,7 @@ def test_recover_orphaned_agents(cortex_service, mock_journal):
     error_event = json.loads(lines1[1])
     assert error_event["event"] == "error"
     assert "Recovered" in error_event["error"]
-    assert error_event["agent_id"] == "111"
+    assert error_event["use_id"] == "111"
 
     content2 = (unified_dir / "222.jsonl").read_text()
     lines2 = content2.strip().split("\n")

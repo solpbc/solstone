@@ -18,16 +18,16 @@ logger = logging.getLogger(__name__)
 _last_ts = 0
 
 
-def _find_agent_file(agents_dir: Path, agent_id: str) -> tuple[Path | None, str]:
+def _find_agent_file(talents_dir: Path, use_id: str) -> tuple[Path | None, str]:
     """Find an agent log file in per-agent subdirectories.
 
     Returns:
         Tuple of (file_path, status) where status is
         "completed", "running", or "not_found".
     """
-    for match in agents_dir.glob(f"*/{agent_id}.jsonl"):
+    for match in talents_dir.glob(f"*/{use_id}.jsonl"):
         return match, "completed"
-    for match in agents_dir.glob(f"*/{agent_id}_active.jsonl"):
+    for match in talents_dir.glob(f"*/{use_id}_active.jsonl"):
         return match, "running"
     return None, "not_found"
 
@@ -49,12 +49,12 @@ def cortex_request(
     Returns:
         Agent ID (timestamp-based string), or None if the Callosum send failed.
     """
-    # Get journal path (for agent_id uniqueness check)
+    # Get journal path (for use_id uniqueness check)
     journal_path = get_journal()
 
     # Create agents directory if it doesn't exist
-    agents_dir = Path(journal_path) / "agents"
-    agents_dir.mkdir(parents=True, exist_ok=True)
+    talents_dir = Path(journal_path) / "talents"
+    talents_dir.mkdir(parents=True, exist_ok=True)
 
     # Generate monotonic timestamp in milliseconds, ensuring uniqueness
     global _last_ts
@@ -65,13 +65,13 @@ def cortex_request(
         ts = _last_ts + 1
 
     _last_ts = ts
-    agent_id = str(ts)
+    use_id = str(ts)
 
     # Build request object
     request = {
         "event": "request",
         "ts": ts,
-        "agent_id": agent_id,
+        "use_id": use_id,
         "prompt": prompt,
         "provider": provider,
         "name": name,
@@ -94,27 +94,27 @@ def cortex_request(
         logger.info("Failed to send cortex request for agent '%s'", name)
         return None
 
-    return agent_id
+    return use_id
 
 
-def get_agent_log_status(agent_id: str) -> str:
+def get_use_log_status(use_id: str) -> str:
     """Get the status of a specific agent from its log file.
 
     Args:
-        agent_id: The agent ID (timestamp)
+        use_id: The agent ID (timestamp)
 
     Returns:
         "completed" - Agent finished (*.jsonl exists)
         "running" - Agent still active (*_active.jsonl exists)
         "not_found" - No agent file exists
     """
-    agents_dir = Path(get_journal()) / "agents"
-    _, status = _find_agent_file(agents_dir, agent_id)
+    talents_dir = Path(get_journal()) / "talents"
+    _, status = _find_agent_file(talents_dir, use_id)
     return status
 
 
 def wait_for_agents(
-    agent_ids: list[str],
+    use_ids: list[str],
     timeout: int | None = 600,
 ) -> tuple[dict[str, str], list[str]]:
     """Wait for agents to complete via Callosum events.
@@ -125,15 +125,15 @@ def wait_for_agents(
     any missed events.
 
     Args:
-        agent_ids: List of agent IDs to wait for
+        use_ids: List of agent IDs to wait for
         timeout: Maximum wait time in seconds (default 600 = 10 minutes)
 
     Returns:
         Tuple of (completed, timed_out) where completed is a dict mapping
-        agent_id to end state ("finish" or "error"), and timed_out is a
+        use_id to end state ("finish" or "error"), and timed_out is a
         list of agent IDs that did not complete within the timeout.
     """
-    pending = set(agent_ids)
+    pending = set(use_ids)
     completed: dict[str, str] = {}
     lock = threading.Lock()
     all_done = threading.Event()
@@ -141,16 +141,16 @@ def wait_for_agents(
     def on_message(msg: dict) -> None:
         if msg.get("tract") != "cortex":
             return
-        agent_id = msg.get("agent_id")
-        if not agent_id:
+        use_id = msg.get("use_id")
+        if not use_id:
             return
 
         event_type = msg.get("event")
         if event_type in ("finish", "error"):
             with lock:
-                if agent_id in pending:
-                    completed[agent_id] = event_type
-                    pending.discard(agent_id)
+                if use_id in pending:
+                    completed[use_id] = event_type
+                    pending.discard(use_id)
                     if not pending:
                         all_done.set()
 
@@ -161,11 +161,11 @@ def wait_for_agents(
     try:
         # Initial file check (with lock since callback may be running)
         with lock:
-            for agent_id in list(pending):
-                end_state = get_agent_end_state(agent_id)
+            for use_id in list(pending):
+                end_state = get_use_end_state(use_id)
                 if end_state in ("finish", "error"):
-                    completed[agent_id] = end_state
-                    pending.discard(agent_id)
+                    completed[use_id] = end_state
+                    pending.discard(use_id)
 
             if not pending:
                 return completed, []
@@ -178,26 +178,26 @@ def wait_for_agents(
 
     # Final file check for any remaining (backstop for missed events)
     # Listener is stopped, so no lock needed
-    for agent_id in list(pending):
-        end_state = get_agent_end_state(agent_id)
+    for use_id in list(pending):
+        end_state = get_use_end_state(use_id)
         if end_state in ("finish", "error"):
             logger.info(
-                f"Agent {agent_id} completion event not received but agent completed"
+                f"Agent {use_id} completion event not received but agent completed"
             )
-            completed[agent_id] = end_state
-            pending.discard(agent_id)
+            completed[use_id] = end_state
+            pending.discard(use_id)
 
     return completed, list(pending)
 
 
-def get_agent_end_state(agent_id: str) -> str:
+def get_use_end_state(use_id: str) -> str:
     """Get how a completed agent ended (finish or error).
 
     Checks file contents for terminal events even if file is still _active.jsonl,
     since Callosum broadcasts happen before file rename.
 
     Args:
-        agent_id: The agent ID (timestamp)
+        use_id: The agent ID (timestamp)
 
     Returns:
         "finish" - Agent completed successfully
@@ -205,14 +205,14 @@ def get_agent_end_state(agent_id: str) -> str:
         "running" - Agent is still active (no terminal event in file)
         "unknown" - Agent file not found
     """
-    status = get_agent_log_status(agent_id)
+    status = get_use_log_status(use_id)
     if status == "not_found":
         return "unknown"
 
     # Read events to find terminal state (even for "running" files that may
     # have finish event - Callosum broadcast happens before file rename)
     try:
-        events = read_agent_events(agent_id)
+        events = read_agent_events(use_id)
         # Find last finish or error event
         for event in reversed(events):
             event_type = event.get("event")
@@ -226,11 +226,11 @@ def get_agent_end_state(agent_id: str) -> str:
         return "unknown"
 
 
-def read_agent_events(agent_id: str) -> list[Dict[str, Any]]:
+def read_agent_events(use_id: str) -> list[Dict[str, Any]]:
     """Read all events from an agent's JSONL log file.
 
     Args:
-        agent_id: The agent ID (timestamp)
+        use_id: The agent ID (timestamp)
 
     Returns:
         List of event dictionaries in chronological order
@@ -238,10 +238,10 @@ def read_agent_events(agent_id: str) -> list[Dict[str, Any]]:
     Raises:
         FileNotFoundError: If agent log doesn't exist
     """
-    agents_dir = Path(get_journal()) / "agents"
-    agent_file, _status = _find_agent_file(agents_dir, agent_id)
+    talents_dir = Path(get_journal()) / "talents"
+    agent_file, _status = _find_agent_file(talents_dir, use_id)
     if agent_file is None:
-        raise FileNotFoundError(f"Agent log not found: {agent_id}")
+        raise FileNotFoundError(f"Agent log not found: {use_id}")
 
     events = []
     with open(agent_file, "r") as f:
@@ -281,10 +281,10 @@ def cortex_agents(
     limit = max(1, min(limit, 100))
     offset = max(0, offset)
 
-    agents_dir = Path(get_journal()) / "agents"
-    if not agents_dir.exists():
+    talents_dir = Path(get_journal()) / "talents"
+    if not talents_dir.exists():
         return {
-            "agents": [],
+            "talents": [],
             "pagination": {
                 "limit": limit,
                 "offset": offset,
@@ -300,7 +300,7 @@ def cortex_agents(
     live_count = 0
     historical_count = 0
 
-    for agent_file in agents_dir.glob("*/*.jsonl"):
+    for agent_file in talents_dir.glob("*/*.jsonl"):
         # Determine status from filename
         is_active = "_active.jsonl" in agent_file.name
         is_pending = "_pending.jsonl" in agent_file.name
@@ -324,7 +324,7 @@ def cortex_agents(
             continue
 
         # Extract agent ID from filename
-        agent_id = agent_file.stem.replace("_active", "")
+        use_id = agent_file.stem.replace("_active", "")
 
         # Read agent file to get request info and calculate runtime
         try:
@@ -351,7 +351,7 @@ def cortex_agents(
 
                 # Extract basic info
                 agent_info = {
-                    "id": agent_id,
+                    "id": use_id,
                     "name": request.get("name", "unified"),
                     "start": request.get("ts", 0),
                     "status": status,
@@ -393,7 +393,7 @@ def cortex_agents(
     paginated = all_agents[offset : offset + limit]
 
     return {
-        "agents": paginated,
+        "talents": paginated,
         "pagination": {
             "limit": limit,
             "offset": offset,

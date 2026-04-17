@@ -82,7 +82,7 @@ class ErrorEvent(TypedDict, total=False):
     raw: Optional[list[dict[str, Any]]]  # Original provider JSON event(s)
 
 
-class AgentUpdatedEvent(TypedDict, total=False):
+class TalentUpdatedEvent(TypedDict, total=False):
     """Event emitted when the agent context changes."""
 
     event: Required[Literal["agent_updated"]]
@@ -127,7 +127,7 @@ Event = Union[
     FinishEvent,
     ErrorEvent,
     ThinkingEvent,
-    AgentUpdatedEvent,
+    TalentUpdatedEvent,
     FallbackEvent,
 ]
 

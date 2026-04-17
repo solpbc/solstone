@@ -7,8 +7,8 @@ import pytest
 
 from think.talent import (
     _validate_cwd,
-    get_agent,
-    get_agent_filter,
+    get_talent,
+    get_talent_filter,
     source_is_enabled,
     source_is_required,
 )
@@ -52,21 +52,21 @@ def test_source_is_required_dict():
 
 
 def test_get_agent_filter_bool():
-    """Test get_agent_filter with bool values."""
-    assert get_agent_filter(True) is None
-    assert get_agent_filter(False) == {}
+    """Test get_talent_filter with bool values."""
+    assert get_talent_filter(True) is None
+    assert get_talent_filter(False) == {}
 
 
 def test_get_agent_filter_required_string():
-    """Test get_agent_filter with 'required' string."""
-    assert get_agent_filter("required") is None
+    """Test get_talent_filter with 'required' string."""
+    assert get_talent_filter("required") is None
 
 
 def test_get_agent_filter_dict():
-    """Test get_agent_filter with dict values."""
+    """Test get_talent_filter with dict values."""
     filter_dict = {"entities": True, "meetings": "required", "flow": False}
-    assert get_agent_filter(filter_dict) == filter_dict
-    assert get_agent_filter({}) == {}
+    assert get_talent_filter(filter_dict) == filter_dict
+    assert get_talent_filter({}) == {}
 
 
 def test_validate_cwd_defaults_cogitate_to_journal():
@@ -98,10 +98,10 @@ def test_validate_cwd_rejects_invalid_value():
 
 
 def test_get_agent_normalizes_cwd_for_cogitate():
-    config = get_agent("chat")
+    config = get_talent("chat")
     assert config["cwd"] == "journal"
 
 
 def test_get_agent_preserves_repo_cwd_for_coder():
-    config = get_agent("coder")
+    config = get_talent("coder")
     assert config["cwd"] == "repo"

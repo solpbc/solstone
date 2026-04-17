@@ -1,14 +1,14 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Talent agent and generator orchestration utilities.
+"""Talent and generator orchestration utilities.
 
 This module provides functionality for configuring and orchestrating talent agents
 and generators from talent/*.md and apps/*/talent/*.md.
 
 Key functions:
 - get_talent_configs(): Discover all talent configs with filtering
-- get_agent(): Load complete agent configuration by name
+- get_talent(): Load complete talent configuration by name
 - Hook loading: load_pre_hook(), load_post_hook()
 
 For simple prompt loading without orchestration (observe/, think/*.md prompts),
@@ -128,7 +128,7 @@ def get_output_path(
     facet: str | None = None,
     stream: str | None = None,
 ) -> Path:
-    """Return output path for generator agent output.
+    """Return output path for generator talent output.
 
     Shared utility for determining where to write generator results.
     Used by think/agents.py and think/cortex.py.
@@ -138,27 +138,27 @@ def get_output_path(
     day_dir:
         Day directory path (YYYYMMDD).
     key:
-        Generator key or agent name (e.g., "activity", "chat:sentiment",
+        Generator key or talent name (e.g., "activity", "chat:sentiment",
         "decisionalizer", "entities:observer").
     segment:
         Optional segment key (HHMMSS_LEN) for segment-level output.
     output_format:
         Output format - "json" for JSON, anything else for markdown.
     facet:
-        Optional facet name for multi-facet agents. When provided, output is
-        written under an agents/{facet}/ subdirectory.
+        Optional facet name for multi-facet talents. When provided, output is
+        written under a talents/{facet}/ subdirectory.
     stream:
         Optional stream name for segment-level output. When provided with
-        segment, constructs path as YYYYMMDD/{stream}/{segment}/agents/...
+        segment, constructs path as YYYYMMDD/{stream}/{segment}/talents/...
 
     Returns
     -------
     Path
         Output file path:
-        - Segment + no facet: YYYYMMDD/{stream}/{segment}/agents/{name}.{ext}
-        - Segment + facet: YYYYMMDD/{stream}/{segment}/agents/{facet}/{name}.{ext}
-        - Daily + no facet: YYYYMMDD/agents/{name}.{ext}
-        - Daily + facet: YYYYMMDD/agents/{facet}/{name}.{ext}
+        - Segment + no facet: YYYYMMDD/{stream}/{segment}/talents/{name}.{ext}
+        - Segment + facet: YYYYMMDD/{stream}/{segment}/talents/{facet}/{name}.{ext}
+        - Daily + no facet: YYYYMMDD/talents/{name}.{ext}
+        - Daily + facet: YYYYMMDD/talents/{facet}/{name}.{ext}
         Where name is derived from key and ext is "json" or "md".
     """
     day = Path(day_dir)
@@ -172,11 +172,11 @@ def get_output_path(
         else:
             seg_dir = day / segment
         if facet:
-            return seg_dir / "agents" / facet / filename
-        return seg_dir / "agents" / filename
+            return seg_dir / "talents" / facet / filename
+        return seg_dir / "talents" / filename
     if facet:
-        return day / "agents" / facet / filename
-    return day / "agents" / filename
+        return day / "talents" / facet / filename
+    return day / "talents" / filename
 
 
 def get_talent_configs(
@@ -332,7 +332,7 @@ def get_talent_configs(
 # ---------------------------------------------------------------------------
 
 
-def _resolve_agent_path(name: str) -> tuple[Path, str]:
+def _resolve_talent_path(name: str) -> tuple[Path, str]:
     """Resolve agent name to directory path and agent filename.
 
     Parameters
@@ -365,7 +365,7 @@ def _resolve_agent_path(name: str) -> tuple[Path, str]:
 _DEFAULT_LOAD = {
     "transcripts": False,
     "percepts": False,
-    "agents": False,
+    "talents": False,
 }
 
 
@@ -381,19 +381,19 @@ def source_is_enabled(value: bool | str | dict) -> bool:
     - False: don't load
     - True: load if available
     - "required": load (and generation will fail if none found)
-    - dict: for agents source, selective loading (e.g., {"entities": true})
+    - dict: for talents source, selective loading (e.g., {"entities": true})
 
     Both True and "required" mean the source should be loaded.
     A non-empty dict means the source should be loaded (with filtering).
 
     Args:
-        value: The source config value (bool, "required" string, or dict for agents)
+        value: The source config value (bool, "required" string, or dict for talents)
 
     Returns:
         True if the source should be loaded, False otherwise.
     """
     if isinstance(value, dict):
-        # Dict means selective loading - enabled if any agent is enabled
+        # Dict means selective loading - enabled if any talent is enabled
         return any(v is True or v == "required" for v in value.values())
     return value is True or value == "required"
 
@@ -402,44 +402,44 @@ def source_is_required(value: bool | str | dict) -> bool:
     """Check if a source must have content for generation to proceed.
 
     Args:
-        value: The source config value (bool, "required" string, or dict for agents)
+        value: The source config value (bool, "required" string, or dict for talents)
 
     Returns:
         True if the source is required (generation should skip if no content).
-        For dict values, returns True if any agent is marked "required".
+        For dict values, returns True if any talent is marked "required".
     """
     if isinstance(value, dict):
         return any(v == "required" for v in value.values())
     return value == "required"
 
 
-def get_agent_filter(value: bool | str | dict) -> dict[str, bool | str] | None:
-    """Extract agent filter from sources config.
+def get_talent_filter(value: bool | str | dict) -> dict[str, bool | str] | None:
+    """Extract talent filter from sources config.
 
-    When agents source is a dict, returns it as filter mapping agent names
-    to their enabled/required status. When agents source is bool or "required",
-    returns None to indicate all agents should be loaded.
+    When talents source is a dict, returns it as filter mapping talent names
+    to their enabled/required status. When talents source is bool or "required",
+    returns None to indicate all talents should be loaded.
 
     Args:
-        value: The agents source config value
+        value: The talents source config value
 
     Returns:
-        Dict mapping agent names to bool/"required", or None for all agents.
-        Returns empty dict if value is False (no agents).
+        Dict mapping talent names to bool/"required", or None for all talents.
+        Returns empty dict if value is False (no talents).
 
     Examples:
-        >>> get_agent_filter(True)
-        None  # All agents
-        >>> get_agent_filter(False)
-        {}  # No agents
-        >>> get_agent_filter({"entities": True, "meetings": "required"})
+        >>> get_talent_filter(True)
+        None  # All talents
+        >>> get_talent_filter(False)
+        {}  # No talents
+        >>> get_talent_filter({"entities": True, "meetings": "required"})
         {"entities": True, "meetings": "required"}
     """
     if isinstance(value, dict):
         return value
     if value is False:
-        return {}  # No agents
-    return None  # All agents (True or "required")
+        return {}  # No talents
+    return None  # All talents (True or "required")
 
 
 # ---------------------------------------------------------------------------
@@ -447,12 +447,12 @@ def get_agent_filter(value: bool | str | dict) -> dict[str, bool | str] | None:
 # ---------------------------------------------------------------------------
 
 
-def get_agent(
+def get_talent(
     name: str = "unified",
     facet: str | None = None,
     analysis_day: str | None = None,
 ) -> dict:
-    """Return complete agent configuration by name.
+    """Return complete talent configuration by name.
 
     Loads configuration from .md file with JSON frontmatter and instruction text.
     Template variables like $facets are resolved during prompt loading.
@@ -461,8 +461,8 @@ def get_agent(
     Parameters
     ----------
     name:
-        Agent name to load. Can be a system agent (e.g., "unified")
-        or an app-namespaced agent (e.g., "support:support" for apps/support/talent/support).
+        Talent name to load. Can be a system talent (e.g., "unified")
+        or an app-namespaced talent (e.g., "support:support" for apps/support/talent/support).
     facet:
         Optional facet name to focus on. Controls $facets template variable.
     analysis_day:
@@ -472,8 +472,8 @@ def get_agent(
     Returns
     -------
     dict
-        Complete agent configuration including:
-        - name: Agent name
+        Complete talent configuration including:
+        - name: Talent name
         - path: Path to the .md file
         - user_instruction: Composed prompt with template vars resolved
         - sources: Source config from 'load' key
@@ -481,11 +481,11 @@ def get_agent(
     """
     from think.prompts import _resolve_facets
 
-    # Resolve agent path based on namespace
-    agent_dir, agent_name = _resolve_agent_path(name)
+    # Resolve talent path based on namespace
+    talent_dir, talent_name = _resolve_talent_path(name)
 
-    # Verify agent prompt file exists
-    md_path = agent_dir / f"{agent_name}.md"
+    # Verify talent prompt file exists
+    md_path = talent_dir / f"{talent_name}.md"
     if not md_path.exists():
         raise FileNotFoundError(f"Agent not found: {name}")
 
@@ -508,10 +508,12 @@ def get_agent(
     prompt_context: dict[str, str] = {}
     prompt_context["facets"] = _resolve_facets(facet)
 
-    agent_prompt = load_prompt(agent_name, base_dir=agent_dir, context=prompt_context)
-    config["user_instruction"] = agent_prompt.text
+    talent_prompt = load_prompt(
+        talent_name, base_dir=talent_dir, context=prompt_context
+    )
+    config["user_instruction"] = talent_prompt.text
 
-    # Set agent name
+    # Set talent name
     config["name"] = name
 
     return config
