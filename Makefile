@@ -7,7 +7,7 @@
 # all runs to one path and pytest wipes it on startup, destroying concurrent state.
 export TMPDIR := /var/tmp
 
-.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format format-check ci clean clean-install coverage watch versions update update-prices pre-commit skills dev all sail sandbox sandbox-stop install-pinchtab verify-browser update-browser-baselines review verify-api update-api-baselines install-service uninstall-service service-logs gate-agents-rename
+.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format format-check ci clean clean-install coverage watch versions update update-prices pre-commit skills dev all sail sandbox sandbox-stop install-pinchtab verify-browser update-browser-baselines review verify-api update-api-baselines install-service uninstall-service service-logs gate-agents-rename check-layer-hygiene
 
 # Default target - install package in editable mode
 all: install
@@ -466,6 +466,9 @@ ci: .installed
 	@echo "=== Running rename gate ==="
 	@$(MAKE) gate-agents-rename
 	@echo ""
+	@echo "=== Running layer-hygiene check ==="
+	@$(MAKE) check-layer-hygiene
+	@echo ""
 	@echo "=== Running mypy ==="
 	@$(MYPY) . || true
 	@echo ""
@@ -516,3 +519,7 @@ pre-commit: .installed
 # Rename guard for the agents -> talents transition
 gate-agents-rename: .installed
 	$(VENV_BIN)/python scripts/gate_agents_rename.py
+
+# Low-bar layer-hygiene check (see docs/coding-standards.md § Layer Hygiene)
+check-layer-hygiene: .installed
+	$(VENV_BIN)/python scripts/check_layer_hygiene.py
