@@ -10,13 +10,13 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from think.agents import _is_retryable_error
 from think.models import (
     TYPE_DEFAULTS,
     get_backup_provider,
     is_provider_healthy,
     should_recheck_health,
 )
+from think.talents import _is_retryable_error
 
 
 def test_is_provider_healthy_all_failed():
@@ -100,7 +100,7 @@ def _mock_base_agent_config() -> dict:
 
 def _patch_prepare_config_dependencies(monkeypatch):
     monkeypatch.setattr(
-        "think.talent.get_agent", lambda *args, **kwargs: _mock_base_agent_config()
+        "think.talent.get_talent", lambda *args, **kwargs: _mock_base_agent_config()
     )
     monkeypatch.setattr(
         "think.talent.key_to_context", lambda _name: "talent.system.default"
@@ -112,7 +112,7 @@ def _patch_prepare_config_dependencies(monkeypatch):
 
 
 def test_preflight_swap_unhealthy_primary(monkeypatch):
-    from think.agents import prepare_config
+    from think.talents import prepare_config
 
     _patch_prepare_config_dependencies(monkeypatch)
     monkeypatch.setattr(
@@ -135,7 +135,7 @@ def test_preflight_swap_unhealthy_primary(monkeypatch):
 
 
 def test_preflight_no_swap_healthy_primary(monkeypatch):
-    from think.agents import prepare_config
+    from think.talents import prepare_config
 
     _patch_prepare_config_dependencies(monkeypatch)
     monkeypatch.setattr(
@@ -151,7 +151,7 @@ def test_preflight_no_swap_healthy_primary(monkeypatch):
 
 
 def test_preflight_no_swap_no_backup_key(monkeypatch):
-    from think.agents import prepare_config
+    from think.talents import prepare_config
 
     _patch_prepare_config_dependencies(monkeypatch)
     monkeypatch.setattr(
@@ -169,7 +169,7 @@ def test_preflight_no_swap_no_backup_key(monkeypatch):
 
 
 def test_on_failure_retry_cogitate(monkeypatch):
-    from think.agents import _execute_with_tools
+    from think.talents import _execute_with_tools
 
     events = []
     attempts = {"primary": 0, "backup": 0}
@@ -219,7 +219,7 @@ def test_on_failure_retry_cogitate(monkeypatch):
 
 
 def test_on_failure_retry_cogitate_uses_context_from_name(monkeypatch):
-    from think.agents import _execute_with_tools
+    from think.talents import _execute_with_tools
 
     events = []
     seen = {}
@@ -267,7 +267,7 @@ def test_on_failure_retry_cogitate_uses_context_from_name(monkeypatch):
 
 
 def test_on_failure_retry_generate(monkeypatch):
-    from think.agents import _execute_generate
+    from think.talents import _execute_generate
 
     events = []
     calls = {"count": 0}
@@ -310,7 +310,7 @@ def test_on_failure_retry_generate(monkeypatch):
 
 
 def test_on_failure_no_retry_value_error(monkeypatch):
-    from think.agents import _execute_generate
+    from think.talents import _execute_generate
 
     events = []
     assert _is_retryable_error(ValueError("bad input")) is False
@@ -338,7 +338,7 @@ def test_on_failure_no_retry_value_error(monkeypatch):
 
 
 def test_on_failure_both_fail_raises_original(monkeypatch):
-    from think.agents import _execute_generate
+    from think.talents import _execute_generate
 
     events = []
     calls = {"count": 0}
@@ -375,7 +375,7 @@ def test_on_failure_both_fail_raises_original(monkeypatch):
 
 
 def test_fallback_event_emitted():
-    from think.agents import _run_agent
+    from think.talents import _run_talent
 
     events = []
     config = {
@@ -387,7 +387,7 @@ def test_fallback_event_emitted():
         "fallback_from": "google",
     }
 
-    asyncio.run(_run_agent(config, events.append, dry_run=True))
+    asyncio.run(_run_talent(config, events.append, dry_run=True))
 
     fallback_events = [e for e in events if e.get("event") == "fallback"]
     assert len(fallback_events) == 1
@@ -395,7 +395,7 @@ def test_fallback_event_emitted():
 
 
 def test_recheck_requested_on_stale(monkeypatch):
-    from think.agents import _execute_with_tools
+    from think.talents import _execute_with_tools
 
     async def pass_cogitate(*_args, **kwargs):
         on_event = kwargs.get("on_event")
@@ -425,12 +425,12 @@ def test_recheck_requested_on_stale(monkeypatch):
 
 
 def test_main_async_no_duplicate_error_when_evented(monkeypatch, capsys):
-    from think.agents import main_async
+    from think.talents import main_async
 
     ndjson_input = json.dumps({"name": "unified", "prompt": "hello"})
     monkeypatch.setattr("sys.stdin", StringIO(ndjson_input))
 
-    async def fake_run_agent(_config, emit_event, dry_run=False):
+    async def fake_run_talent(_config, emit_event, dry_run=False):
         emit_event({"event": "error", "error": "provider failed"})
         exc = RuntimeError("provider failed")
         setattr(exc, "_evented", True)
@@ -441,16 +441,16 @@ def test_main_async_no_duplicate_error_when_evented(monkeypatch, capsys):
     mock_args.dry_run = False
     mock_args.subcommand = None
 
-    monkeypatch.setattr("think.agents.setup_cli", lambda _parser: mock_args)
+    monkeypatch.setattr("think.talents.setup_cli", lambda _parser: mock_args)
     monkeypatch.setattr(
-        "think.agents.setup_logging",
+        "think.talents.setup_logging",
         lambda _verbose=False: MagicMock(),
     )
     monkeypatch.setattr(
-        "think.agents.prepare_config", lambda _request: {"type": "cogitate"}
+        "think.talents.prepare_config", lambda _request: {"type": "cogitate"}
     )
-    monkeypatch.setattr("think.agents.validate_config", lambda _config: None)
-    monkeypatch.setattr("think.agents._run_agent", fake_run_agent)
+    monkeypatch.setattr("think.talents.validate_config", lambda _config: None)
+    monkeypatch.setattr("think.talents._run_talent", fake_run_talent)
 
     asyncio.run(main_async())
 

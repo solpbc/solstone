@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Unified agent CLI for solstone.
+"""Unified talent CLI for solstone.
 
-Spawned by cortex for all agent types:
-- Tool-using agents (with configured tools)
+Spawned by cortex for all talent types:
+- Tool-using talents (with configured tools)
 - Generators (transcript analysis, no tools)
 
 Both paths share unified config preparation and execution flow.
@@ -18,11 +18,9 @@ import asyncio
 import json
 import logging
 import os
-import shutil
 import sys
-import time
 import traceback
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from string import Template
 from typing import Any, Callable, Optional
@@ -30,9 +28,9 @@ from typing import Any, Callable, Optional
 from think.cluster import cluster, cluster_period, cluster_span
 from think.providers.shared import Event
 from think.talent import (
-    get_agent_filter,
     get_output_path,
     get_talent_configs,
+    get_talent_filter,
     load_post_hook,
     load_pre_hook,
     load_prompt,
@@ -52,14 +50,16 @@ from think.utils import (
     setup_cli,
 )
 
-LOG = logging.getLogger("think.agents")
+TALENT_EXECUTION_MODULE = "think.talents"
+
+LOG = logging.getLogger("think.talents")
 
 # Minimum content length for transcript-based generation
 MIN_INPUT_CHARS = 50
 
 
 def setup_logging(verbose: bool = False) -> logging.Logger:
-    """Configure logging for agent CLI."""
+    """Configure logging for the talent CLI."""
     level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(level=level, stream=sys.stdout)
     return LOG
@@ -395,8 +395,8 @@ def _load_transcript(
     # Convert sources config for clustering
     cluster_sources: dict = {}
     for k, v in sources.items():
-        if k == "agents":
-            agent_filter = get_agent_filter(v)
+        if k == "talents":
+            agent_filter = get_talent_filter(v)
             if agent_filter is None:
                 cluster_sources[k] = source_is_enabled(v)
             elif not agent_filter:
@@ -438,7 +438,7 @@ def prepare_config(request: dict) -> dict:
         Fully prepared config dict
     """
     from think.models import resolve_model_for_provider, resolve_provider
-    from think.talent import get_agent, key_to_context
+    from think.talent import get_talent, key_to_context
 
     name = request.get("name", "unified")
     facet = request.get("facet")
@@ -451,7 +451,7 @@ def prepare_config(request: dict) -> dict:
     user_prompt = request.get("prompt", "")
 
     # Load complete agent config
-    config = get_agent(name, facet=facet, analysis_day=day)
+    config = get_talent(name, facet=facet, analysis_day=day)
 
     # Config now contains all frontmatter fields plus:
     # - path: Path to the .md file
@@ -1030,14 +1030,14 @@ async def _execute_generate(
     emit_event(finish_event)
 
 
-async def _run_agent(
+async def _run_talent(
     config: dict,
     emit_event: Callable[[dict], None],
     dry_run: bool = False,
 ) -> None:
-    """Execute agent based on config.
+    """Execute talent based on config.
 
-    Unified execution path for all agent types. Handles:
+    Unified execution path for all talent types. Handles:
     - Skip conditions (disabled, no input, etc.)
     - Output existence checking (skip if exists unless refresh)
     - Pre/post hooks
@@ -1096,10 +1096,10 @@ async def _run_agent(
             }
         )
         if config.get("day"):
-            day_log(config["day"], f"agent {name} skipped ({skip_reason})")
+            day_log(config["day"], f"talent {name} skipped ({skip_reason})")
         return
 
-    # Check if output already exists (applies to both tool agents and generators)
+    # Check if output already exists (applies to both tool talents and generators)
     if output_path and not refresh and not dry_run:
         if output_path.exists() and output_path.stat().st_size > 0:
             LOG.info("Output exists, loading: %s", output_path)
@@ -1145,7 +1145,7 @@ async def _run_agent(
             }
         )
         if config.get("day"):
-            day_log(config["day"], f"agent {name} skipped ({skip_reason})")
+            day_log(config["day"], f"talent {name} skipped ({skip_reason})")
         return
 
     # Dry-run mode
@@ -1153,7 +1153,7 @@ async def _run_agent(
         emit_event(_build_dry_run_event(config, before_values))
         return
 
-    # Execute based on agent type
+    # Execute based on talent type
     if is_cogitate:
         await _execute_with_tools(config, emit_event)
     else:
@@ -1161,7 +1161,7 @@ async def _run_agent(
 
     # Log completion
     if config.get("day"):
-        day_log(config["day"], f"agent {name} ok")
+        day_log(config["day"], f"talent {name} ok")
 
 
 # =============================================================================
@@ -1185,291 +1185,10 @@ def scan_day(day: str) -> dict[str, list[str]]:
         output_format = meta.get("output")
         output_file = get_output_path(day_dir, key, output_format=output_format)
         if output_file.exists():
-            processed.append(os.path.join("agents", output_file.name))
+            processed.append(os.path.join("talents", output_file.name))
         else:
-            pending.append(os.path.join("agents", output_file.name))
+            pending.append(os.path.join("talents", output_file.name))
     return {"processed": sorted(processed), "repairable": sorted(pending)}
-
-
-def _check_generate(provider_name: str, tier: int, timeout: int) -> tuple[str, str]:
-    """Check generate interface for a provider."""
-    from think.models import PROVIDER_DEFAULTS
-    from think.providers import PROVIDER_METADATA, get_provider_module
-
-    env_key = PROVIDER_METADATA[provider_name]["env_key"]
-    if env_key and not os.getenv(env_key):
-        label = PROVIDER_METADATA[provider_name]["label"]
-        # Google Vertex AI can work without GOOGLE_API_KEY, but this health check
-        # treats missing env as "not configured" for the standard API path.
-        return "skip", f"{label} not configured (no {env_key})"
-
-    # For keyless providers (e.g., Ollama), check reachability instead
-    if not env_key:
-        from think.providers import validate_key
-
-        result = validate_key(provider_name, "")
-        if not result.get("valid"):
-            return (
-                "skip",
-                f"Ollama not reachable ({result.get('error', 'unreachable')})",
-            )
-
-    try:
-        module = get_provider_module(provider_name)
-        model = PROVIDER_DEFAULTS[provider_name][tier]
-        result = module.run_generate(
-            contents="Say OK",
-            model=model,
-            temperature=0,
-            max_output_tokens=16,
-            system_instruction=None,
-            json_output=False,
-            thinking_budget=None,
-            timeout_s=timeout,
-        )
-        text = result.get("text", "") if isinstance(result, dict) else ""
-        if text:
-            usage = result.get("usage") if isinstance(result, dict) else None
-            if usage:
-                from think.models import log_token_usage
-
-                log_token_usage(
-                    model=PROVIDER_DEFAULTS[provider_name][tier],
-                    usage=usage,
-                    context="health.check.generate",
-                    type="generate",
-                )
-            return "ok", "OK"
-        return "fail", "FAIL: empty response text"
-    except Exception as exc:
-        return "fail", f"FAIL: {exc}"
-
-
-async def _check_cogitate(
-    provider_name: str, tier: int, timeout: int
-) -> tuple[str, str]:
-    """Check cogitate interface for a provider by running a real prompt."""
-    from think.models import PROVIDER_DEFAULTS
-    from think.providers import PROVIDER_METADATA, get_provider_module
-
-    # Pre-flight: check provider is configured
-    env_key = PROVIDER_METADATA[provider_name]["env_key"]
-    if env_key and not os.getenv(env_key):
-        label = PROVIDER_METADATA[provider_name]["label"]
-        return "skip", f"{label} not configured (no {env_key})"
-
-    # For keyless providers (e.g., Ollama), check reachability
-    if not env_key:
-        from think.providers import validate_key
-
-        result = validate_key(provider_name, "")
-        if not result.get("valid"):
-            return (
-                "skip",
-                f"Ollama not reachable ({result.get('error', 'unreachable')})",
-            )
-
-    # Pre-flight: check cogitate CLI binary is installed
-    binary = PROVIDER_METADATA[provider_name].get("cogitate_cli", "")
-    if binary and not shutil.which(binary):
-        return "skip", f"{binary} CLI not installed"
-
-    try:
-        module = get_provider_module(provider_name)
-        model = PROVIDER_DEFAULTS[provider_name][tier]
-        config = {"prompt": "Say OK", "model": model}
-        result = await asyncio.wait_for(
-            module.run_cogitate(config=config, on_event=None),
-            timeout=timeout,
-        )
-        if result:
-            return "ok", "OK"
-        return "fail", "FAIL: empty response"
-    except asyncio.TimeoutError:
-        return "fail", f"FAIL: timed out after {timeout}s"
-    except Exception as exc:
-        return "fail", f"FAIL: {exc}"
-
-
-async def _run_check(args: argparse.Namespace) -> None:
-    """Run connectivity checks against AI providers."""
-    from think.models import PROVIDER_DEFAULTS, TIER_FLASH, TIER_LITE, TIER_PRO
-    from think.providers import PROVIDER_REGISTRY
-
-    # --targeted: only check configured provider+tier pairs
-    targeted_pairs = None
-    if args.targeted and not args.provider and not args.tier:
-        import fcntl
-
-        from think.models import TYPE_DEFAULTS, get_backup_provider
-        from think.utils import get_config
-
-        targeted_pairs = set()
-        config = get_config()
-        providers_config = config.get("providers", {})
-        for agent_type, defaults in TYPE_DEFAULTS.items():
-            type_config = providers_config.get(agent_type, {})
-            provider = type_config.get("provider", defaults["provider"])
-            tier = type_config.get("tier", defaults["tier"])
-            targeted_pairs.add((provider, tier))
-            backup = get_backup_provider(agent_type)
-            if backup:
-                targeted_pairs.add((backup, tier))
-
-        # flock dedup: only one targeted check runs at a time
-        lock_dir = Path(get_journal()) / "health"
-        lock_dir.mkdir(parents=True, exist_ok=True)
-        lock_fd = open(lock_dir / "recheck.lock", "w")
-        try:
-            fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except OSError:
-            lock_fd.close()
-            return
-
-    if args.provider:
-        providers = args.provider
-        for name in providers:
-            if name not in PROVIDER_REGISTRY:
-                available = ", ".join(PROVIDER_REGISTRY.keys())
-                print(
-                    f"Unknown provider: {name}. Available providers: {available}",
-                    file=sys.stderr,
-                )
-                sys.exit(1)
-    else:
-        providers = list(PROVIDER_REGISTRY.keys())
-
-    interfaces = [args.interface] if args.interface else ["generate", "cogitate"]
-
-    tier_names = {1: "pro", 2: "flash", 3: "lite"}
-    tiers = [args.tier] if args.tier else [TIER_PRO, TIER_FLASH, TIER_LITE]
-
-    # Pre-compute column widths
-    provider_width = max(len(n) for n in providers) if providers else 0
-    tier_width = max(len(tier_names[t]) for t in tiers)
-    # Resolve all model names to get max width
-    model_names = set()
-    for p in providers:
-        for t in tiers:
-            model_names.add(PROVIDER_DEFAULTS[p][t])
-    model_width = max(len(m) for m in model_names) if model_names else 0
-    interface_width = max(len(n) for n in interfaces) if interfaces else 0
-
-    total = 0
-    passed = 0
-    failed = 0
-    skipped = 0
-    results = []
-    cache = {}  # (provider, model, interface) -> (status, message, source_tier)
-
-    for provider_name in providers:
-        for tier in tiers:
-            if (
-                targeted_pairs is not None
-                and (provider_name, tier) not in targeted_pairs
-            ):
-                continue
-            model = PROVIDER_DEFAULTS[provider_name][tier]
-            for interface_name in interfaces:
-                cache_key = (provider_name, model, interface_name)
-                if cache_key in cache:
-                    status, message, source_tier = cache[cache_key]
-                    elapsed_s = 0.0
-                    elapsed_s_rounded = 0.0
-                    reused_from = source_tier
-                else:
-                    start = time.perf_counter()
-                    if interface_name == "generate":
-                        status, message = _check_generate(
-                            provider_name, tier, args.timeout
-                        )
-                    else:
-                        status, message = await _check_cogitate(
-                            provider_name, tier, args.timeout
-                        )
-                    elapsed_s = time.perf_counter() - start
-                    elapsed_s_rounded = round(elapsed_s, 1)
-                    cache[cache_key] = (status, message, tier_names[tier])
-                    reused_from = None
-
-                result = {
-                    "provider": provider_name,
-                    "tier": tier_names[tier],
-                    "model": model,
-                    "interface": interface_name,
-                    "ok": status != "fail",
-                    "status": status,
-                    "message": str(message),
-                    "elapsed_s": elapsed_s_rounded,
-                }
-                if reused_from:
-                    result["reused_from"] = reused_from
-                results.append(result)
-
-                if not args.json:
-                    if reused_from:
-                        mark = "="
-                        display_message = f"{message} (={reused_from})"
-                    else:
-                        if status == "ok":
-                            mark = "✓"
-                        elif status == "skip":
-                            mark = "-"
-                        else:
-                            mark = "✗"
-                        display_message = str(message)
-                    print(
-                        f"{mark} "
-                        f"{provider_name:<{provider_width}}  "
-                        f"{tier_names[tier]:<{tier_width}}  "
-                        f"{model:<{model_width}}  "
-                        f"{interface_name:<{interface_width}}  "
-                        f"{display_message} ({elapsed_s:.1f}s)"
-                    )
-
-                total += 1
-                if status == "ok":
-                    passed += 1
-                elif status == "skip":
-                    skipped += 1
-                else:
-                    failed += 1
-
-    any_failed = any(r["status"] == "fail" for r in results)
-
-    # Write results to health file
-    payload = {
-        "results": results,
-        "summary": {
-            "total": total,
-            "passed": passed,
-            "skipped": skipped,
-            "failed": failed,
-        },
-        "checked_at": datetime.now(timezone.utc).isoformat(),
-    }
-    health_dir = Path(get_journal()) / "health"
-    health_dir.mkdir(parents=True, exist_ok=True)
-    (health_dir / "agents.json").write_text(json.dumps(payload, indent=2))
-
-    if args.json:
-        print(
-            json.dumps(
-                {
-                    "results": results,
-                    "summary": {
-                        "total": total,
-                        "passed": passed,
-                        "skipped": skipped,
-                        "failed": failed,
-                    },
-                },
-                indent=2,
-            )
-        )
-    else:
-        print(f"{total} checks: {passed} passed, {skipped} skipped, {failed} failed")
-    sys.exit(1 if any_failed else 0)
 
 
 # =============================================================================
@@ -1478,58 +1197,17 @@ async def _run_check(args: argparse.Namespace) -> None:
 
 
 async def main_async() -> None:
-    """NDJSON-based CLI for agents."""
-    from think.providers import PROVIDER_REGISTRY
-
+    """NDJSON-based CLI for talents."""
     parser = argparse.ArgumentParser(
-        description="solstone Agent CLI - Accepts NDJSON input via stdin"
+        description="solstone Talent CLI - Accepts NDJSON input via stdin"
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Show what would be sent to the provider without calling the LLM",
     )
-    subparsers = parser.add_subparsers(dest="subcommand")
-    check_parser = subparsers.add_parser("check", help="Check AI provider connectivity")
-    check_parser.add_argument(
-        "--provider",
-        action="append",
-        help=f"Provider to check (repeatable). Available: {', '.join(PROVIDER_REGISTRY.keys())}",
-    )
-    check_parser.add_argument(
-        "--interface",
-        choices=["generate", "cogitate"],
-        default=None,
-        help="Interface to check (default: both)",
-    )
-    check_parser.add_argument(
-        "--timeout",
-        type=int,
-        default=30,
-        help="Timeout in seconds for generate checks (default: 30)",
-    )
-    check_parser.add_argument(
-        "--tier",
-        type=int,
-        choices=[1, 2, 3],
-        default=None,
-        help="Tier to check (1=pro, 2=flash, 3=lite; default: all)",
-    )
-    check_parser.add_argument(
-        "--json", action="store_true", help="Output results as JSON"
-    )
-    check_parser.add_argument(
-        "--targeted",
-        action="store_true",
-        help="Only check configured provider+tier pairs (used by automated rechecks)",
-    )
-
     args = setup_cli(parser)
     require_solstone()
-    if args.subcommand == "check":
-        await _run_check(args)
-        return
-
     dry_run = args.dry_run
 
     app_logger = setup_logging(args.verbose)
@@ -1556,7 +1234,7 @@ async def main_async() -> None:
                     emit_event({"event": "error", "error": error, "ts": now_ms()})
                     continue
 
-                await _run_agent(config, emit_event, dry_run=dry_run)
+                await _run_talent(config, emit_event, dry_run=dry_run)
 
             except json.JSONDecodeError as e:
                 emit_event(
@@ -1608,4 +1286,5 @@ __all__ = [
     "prepare_config",
     "validate_config",
     "scan_day",
+    "TALENT_EXECUTION_MODULE",
 ]

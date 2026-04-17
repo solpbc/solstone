@@ -4,7 +4,7 @@
 
 """OpenAI provider for agents and direct LLM generation.
 
-This module provides the OpenAI provider for the ``sol agents`` CLI
+This module provides the OpenAI provider for the ``python -m think.talents`` CLI
 and run_generate/run_agenerate functions returning GenerateResult.
 
 Common Parameters
@@ -54,7 +54,7 @@ from .shared import (
     safe_raw,
 )
 
-# Agent configuration is now loaded via get_agent() in cortex.py
+# Agent configuration is now loaded via get_talent() in cortex.py
 
 LOG = logging.getLogger("think.providers.openai")
 
@@ -166,7 +166,7 @@ async def run_cogitate(
     LOG.info("Running agent with model %s", model)
     cb = JSONEventCallback(on_event)
 
-    # Note: Start event is emitted by agents.py (unified event ownership)
+    # Note: Start event is emitted by talents.py (unified event ownership)
 
     # Assemble prompt — Codex has no --system-prompt flag, so prepend it
     prompt_body, system_instruction = assemble_prompt(config)

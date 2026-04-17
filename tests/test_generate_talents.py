@@ -6,8 +6,8 @@ from pathlib import Path
 
 def test_root_agents_md_is_hand_maintained():
     project_root = Path(__file__).resolve().parent.parent
-    agents_path = project_root / "AGENTS.md"
-    content = agents_path.read_text(encoding="utf-8")
+    talents_path = project_root / "AGENTS.md"
+    content = talents_path.read_text(encoding="utf-8")
 
     assert content.startswith("# solstone Developer Guide")
     assert "generated from sol/identity.md" not in content
