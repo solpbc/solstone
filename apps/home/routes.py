@@ -585,7 +585,9 @@ def _newsletter_attempts_from_dream_logs(yesterday: str) -> tuple[int, int]:
                         except json.JSONDecodeError:
                             continue
                         # HISTORICAL SHIM: accept legacy "agent.*" event names from chronicles
-                        # written before the 2026-04-17 agents -> talents rename.
+                        # written before the 2026-04-17 rename. Remove once all
+                        # in-retention chronicles post-date this ship (~14 days;
+                        # retention default is 7 days).
                         if (
                             record.get("event") in {"agent.fail", "talent.fail"}
                             and record.get("facet")

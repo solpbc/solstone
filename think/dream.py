@@ -544,8 +544,8 @@ def run_segment_sense(
         groups=1,
     )
 
-    sense_agent_id = _dispatch_agent("sense", sense_config)
-    if sense_agent_id is None:
+    sense_use_id = _dispatch_agent("sense", sense_config)
+    if sense_use_id is None:
         _log_skip(
             "sense",
             "send_failed",
@@ -573,7 +573,7 @@ def run_segment_sense(
         day=day,
         segment=segment,
         name="sense",
-        use_id=sense_agent_id,
+        use_id=sense_use_id,
     )
     _jsonl_log(
         "talent.dispatch",
@@ -581,12 +581,12 @@ def run_segment_sense(
         day=day,
         segment=segment,
         name="sense",
-        use_id=sense_agent_id,
+        use_id=sense_use_id,
     )
     _update_status(current_agents=["sense"])
 
     s, f, fn = _drain_priority_batch(
-        [(sense_agent_id, "sense", sense_config, None)],
+        [(sense_use_id, "sense", sense_config, None)],
         target_schedule,
         day,
         segment,
@@ -956,8 +956,8 @@ def run_segment_sense(
 
     awareness_tender_config = _cfg("awareness_tender")
     if awareness_tender_config:
-        at_agent_id = _dispatch_agent("awareness_tender", awareness_tender_config)
-        if at_agent_id is None:
+        at_use_id = _dispatch_agent("awareness_tender", awareness_tender_config)
+        if at_use_id is None:
             _log_skip(
                 "awareness_tender",
                 "send_failed",
@@ -976,7 +976,7 @@ def run_segment_sense(
                 day=day,
                 segment=segment,
                 name="awareness_tender",
-                use_id=at_agent_id,
+                use_id=at_use_id,
             )
             _jsonl_log(
                 "talent.dispatch",
@@ -984,11 +984,11 @@ def run_segment_sense(
                 day=day,
                 segment=segment,
                 name="awareness_tender",
-                use_id=at_agent_id,
+                use_id=at_use_id,
             )
             _update_status(current_agents=["awareness_tender"])
             s, f, fn = _drain_priority_batch(
-                [(at_agent_id, "awareness_tender", awareness_tender_config, None)],
+                [(at_use_id, "awareness_tender", awareness_tender_config, None)],
                 target_schedule,
                 day,
                 segment,
@@ -1004,8 +1004,8 @@ def run_segment_sense(
             )
 
     if recommend.get("pulse_update") and pulse_config:
-        pulse_agent_id = _dispatch_agent("pulse", pulse_config)
-        if pulse_agent_id is None:
+        pulse_use_id = _dispatch_agent("pulse", pulse_config)
+        if pulse_use_id is None:
             _log_skip(
                 "pulse",
                 "send_failed",
@@ -1024,7 +1024,7 @@ def run_segment_sense(
                 day=day,
                 segment=segment,
                 name="pulse",
-                use_id=pulse_agent_id,
+                use_id=pulse_use_id,
             )
             _jsonl_log(
                 "talent.dispatch",
@@ -1032,11 +1032,11 @@ def run_segment_sense(
                 day=day,
                 segment=segment,
                 name="pulse",
-                use_id=pulse_agent_id,
+                use_id=pulse_use_id,
             )
             _update_status(current_agents=["pulse"])
             s, f, fn = _drain_priority_batch(
-                [(pulse_agent_id, "pulse", pulse_config, None)],
+                [(pulse_use_id, "pulse", pulse_config, None)],
                 target_schedule,
                 day,
                 segment,

@@ -79,7 +79,9 @@ def summarize_pipeline_day(day: str) -> dict:
 
                     event = rec["event"]
                     # HISTORICAL SHIM: accept legacy "agent.*" event names from chronicles
-                    # written before the 2026-04-17 agents -> talents rename.
+                    # written before the 2026-04-17 rename. Remove once all
+                    # in-retention chronicles post-date this ship (~14 days;
+                    # retention default is 7 days).
                     if event in {"agent.dispatch", "talent.dispatch"}:
                         summary["talents"]["dispatched"] += 1
                     elif event in {"agent.complete", "talent.complete"}:

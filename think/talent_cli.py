@@ -13,9 +13,9 @@ Usage:
     sol talent show <name>              Show details for a specific prompt
     sol talent show <name> --json       Output a single prompt as JSONL
     sol talent show <name> --prompt     Show full prompt context (dry-run)
-    sol talent logs                     Show recent agent runs
-    sol talent logs <agent> -c 5        Show last 5 runs for an agent
-    sol talent log <id>                 Show events for an agent run
+    sol talent logs                     Show recent talent runs
+    sol talent logs <talent> -c 5       Show last 5 runs for a talent
+    sol talent log <id>                 Show events for a talent run
     sol talent log <id> --json          Output raw JSONL events
     sol talent log <id> --full          Show expanded event details
 """
@@ -729,7 +729,7 @@ def show_prompt_context(
 
 
 def _find_run_file(talents_dir: Path, use_id: str) -> Path | None:
-    """Locate an agent run JSONL file by ID."""
+    """Locate a talent run JSONL file by ID."""
     for match in talents_dir.glob(f"*/{use_id}.jsonl"):
         return match
     for match in talents_dir.glob(f"*/{use_id}_active.jsonl"):
@@ -823,7 +823,7 @@ def _get_output_size(request_event: dict[str, Any], journal_root: str) -> int | 
 
 
 def _print_summary(records: list[dict[str, Any]]) -> None:
-    """Print grouped summary of agent runs."""
+    """Print grouped summary of talent runs."""
     from collections import defaultdict
 
     groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
@@ -874,7 +874,7 @@ def logs_runs(
     errors: bool = False,
     summary: bool = False,
 ) -> None:
-    """Print one-line summaries of recent agent runs from day-index files."""
+    """Print one-line summaries of recent talent runs from day-index files."""
     from think.models import calc_agent_cost
     from think.utils import get_journal
 
@@ -1094,7 +1094,7 @@ def _format_event_line(event: dict[str, Any], *, full: bool = False) -> str:
 
 
 def log_run(use_id: str, *, json_mode: bool = False, full: bool = False) -> None:
-    """Show events for a single agent run."""
+    """Show events for a single talent run."""
     from think.utils import get_journal
 
     talents_dir = Path(get_journal()) / "talents"
@@ -1164,7 +1164,7 @@ def main() -> None:
     )
 
     # --- logs subcommand ---
-    logs_parser = subparsers.add_parser("logs", help="Show recent agent run log")
+    logs_parser = subparsers.add_parser("logs", help="Show recent talent run log")
     logs_parser.add_argument("agent", nargs="?", help="Filter to a specific agent")
     logs_parser.add_argument(
         "-c",
@@ -1187,7 +1187,7 @@ def main() -> None:
     )
 
     # --- log subcommand ---
-    log_parser = subparsers.add_parser("log", help="Show events for an agent run")
+    log_parser = subparsers.add_parser("log", help="Show events for a talent run")
     log_parser.add_argument("id", help="Talent use ID")
     log_parser.add_argument(
         "--json", action="store_true", dest="json_mode", help="Output raw JSONL"
