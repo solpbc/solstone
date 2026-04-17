@@ -18,8 +18,6 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from think.utils import get_journal, setup_cli
-
 from think.maint import (
     get_state_file,
     get_task_by_name,
@@ -28,6 +26,7 @@ from think.maint import (
     run_pending_tasks,
     run_task,
 )
+from think.utils import get_journal, setup_cli
 
 
 def _format_duration(ms: int) -> str:

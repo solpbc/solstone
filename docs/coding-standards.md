@@ -38,7 +38,7 @@ Use `//` comments for JavaScript files.
 - **Conciseness & Maintainability**: Clear code over clever code
 - **Robustness**: Minimize assumptions that must be kept in sync across the codebase, avoid fragility and increasing maintenance burden.
 - **Self-Contained Codebase**: All code that depends on this project lives within this repository—never add backwards-compatibility shims, fallback aliases, re-exports for moved symbols, deprecated parameter handling, or legacy support code. When renaming or removing something, update all usages directly. For journal data format changes, write a migration script (see [docs/APPS.md](docs/APPS.md) for `maint` commands) instead of adding compatibility layers.
-- **Trust system path resolution**: Never set `_SOLSTONE_JOURNAL_OVERRIDE` or bypass `get_journal()` from application code, agent prompts, subprocess environments, or service files. The env var exists only for tests and Makefile sandboxes. See `reference/environment.md`.
+- **Trust system path resolution**: Never set `_SOLSTONE_JOURNAL_OVERRIDE` or bypass `get_journal()` from application code, agent prompts, subprocess environments, or service files. The env var exists only for tests and Makefile sandboxes. See `environment.md`.
 - **Security**: Never expose secrets, validate/sanitize all inputs
 - **Performance**: Profile before optimizing
 - **Git**: Small focused commits, descriptive branch names. Run git commands directly (not `git -C`) since you're already in the repo.
