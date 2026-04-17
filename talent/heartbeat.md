@@ -20,9 +20,9 @@ check, maintain, close.
 
 ## Path notes
 
-- `sol call identity agency --write` writes to `journal/sol/agency.md`.
-- The git-tracked copy is `sol/agency.md` in the project root.
-- After writing via `sol call`, copy `journal/sol/agency.md` to `sol/agency.md` before committing.
+- `sol call identity agency --write` writes to `sol/agency.md` in the journal root.
+- The git-tracked copy is `../sol/agency.md` (in the project root).
+- After writing via `sol call`, copy `sol/agency.md` to `../sol/agency.md` before committing.
 
 ## Step 1: Check system health
 

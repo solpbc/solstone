@@ -40,6 +40,34 @@ APPS_DIR = Path(__file__).parent.parent / "apps"
 # ---------------------------------------------------------------------------
 
 
+def _validate_cwd(raw_cwd: Any, talent_type: Any, key: str) -> str | None:
+    """Validate and normalize the optional talent cwd setting."""
+    if talent_type == "cogitate":
+        if raw_cwd is None:
+            return "journal"
+        if raw_cwd in {"journal", "repo"}:
+            return raw_cwd
+        raise ValueError(
+            f"Prompt '{key}' has invalid 'cwd' value '{raw_cwd}' "
+            "(must be 'journal' or 'repo')"
+        )
+
+    if talent_type == "generate":
+        if raw_cwd is not None:
+            raise ValueError(
+                f"Prompt '{key}' sets 'cwd' but cwd is only valid for type: cogitate"
+            )
+        return None
+
+    if raw_cwd is None:
+        return None
+
+    raise ValueError(
+        f"Prompt '{key}' has invalid 'cwd' value '{raw_cwd}' "
+        "(must be 'journal' or 'repo')"
+    )
+
+
 def key_to_context(key: str) -> str:
     """Convert talent config key to context pattern.
 
@@ -288,6 +316,14 @@ def get_talent_configs(
                     f'(activity types to match, or ["*"] for all types).'
                 )
 
+    # Validate: cwd is only valid for cogitate prompts and defaults there
+    for key, info in configs.items():
+        normalized_cwd = _validate_cwd(info.get("cwd"), info.get("type"), key)
+        if normalized_cwd is None:
+            info.pop("cwd", None)
+        else:
+            info["cwd"] = normalized_cwd
+
     return {key: info for key, info in configs.items() if matches_filter(info)}
 
 
@@ -456,6 +492,11 @@ def get_agent(
     # Load config from frontmatter - preserve all fields
     post = frontmatter.load(md_path)
     config = dict(post.metadata) if post.metadata else {}
+    normalized_cwd = _validate_cwd(config.get("cwd"), config.get("type"), name)
+    if normalized_cwd is None:
+        config.pop("cwd", None)
+    else:
+        config["cwd"] = normalized_cwd
 
     # Store path for later use
     config["path"] = str(md_path)

@@ -365,6 +365,37 @@ class TestCLIRunnerExitCode:
         assert captured_env is provided_env
         assert sentinel_key not in captured_env
 
+    def test_cwd_passed_to_create_subprocess_exec(self):
+        events = []
+        callback = JSONEventCallback(events.append)
+        aggregator = ThinkingAggregator(callback, model="test-model")
+        captured_cwd = None
+
+        async def create_subprocess_exec(*args, **kwargs):
+            nonlocal captured_cwd
+            captured_cwd = kwargs["cwd"]
+            return _make_process([], [], 0)
+
+        runner = CLIRunner(
+            cmd=["fakecli", "--json"],
+            prompt_text="test",
+            translate=lambda _e, _a, _c: None,
+            callback=callback,
+            aggregator=aggregator,
+            cwd=Path("/tmp"),
+        )
+
+        with (
+            patch(
+                "think.providers.cli.asyncio.create_subprocess_exec",
+                AsyncMock(side_effect=create_subprocess_exec),
+            ),
+            patch("think.providers.cli.shutil.which", return_value="/usr/bin/fakecli"),
+        ):
+            asyncio.run(runner.run())
+
+        assert captured_cwd == "/tmp"
+
 
 class TestCLIRunnerFirstEventTimeout:
     def test_first_event_timeout_includes_stderr(self):

@@ -1,6 +1,7 @@
 {
   "type": "cogitate",
   "write": true,
+  "cwd": "repo",
   "title": "Coder",
   "description": "Developer agent with full repo read/write access"
 }

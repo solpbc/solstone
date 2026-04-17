@@ -34,6 +34,7 @@ from __future__ import annotations
 import logging
 import os
 import traceback
+from pathlib import Path
 from typing import Any, Callable
 
 from anthropic import AsyncAnthropic
@@ -273,12 +274,14 @@ async def run_cogitate(
         ) -> str | None:
             return _translate_claude(event, agg, cb, pending_tools, result_meta)
 
+        cwd_value = config.get("cwd")
         runner = CLIRunner(
             cmd=cmd,
             prompt_text=prompt_body,
             translate=translate,
             callback=callback,
             aggregator=aggregator,
+            cwd=Path(cwd_value) if cwd_value else None,
             env=build_cogitate_env("ANTHROPIC_API_KEY"),
         )
 

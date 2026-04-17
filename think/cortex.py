@@ -29,7 +29,7 @@ from typing import Any, Dict, Optional
 
 from think.callosum import CallosumConnection
 from think.runner import _atomic_symlink
-from think.utils import get_journal, get_rev, now_ms
+from think.utils import get_journal, get_project_root, get_rev, now_ms
 
 
 class AgentProcess:
@@ -193,6 +193,8 @@ class CortexService:
         - Event relay to Callosum
 
         All config loading, validation, and hydration is done by agents.py.
+        Cortex only resolves talent cwd early so the child process starts in
+        the correct working directory.
         """
         agent_id = request.get("agent_id")
         if not agent_id:
@@ -280,6 +282,28 @@ class CortexService:
             # Spawn the subprocess
             self.logger.info(f"Spawning {process_type} {agent_id}: {cmd}")
             self.logger.debug(f"NDJSON input: {ndjson_input}")
+            subprocess_cwd = None
+            if process_type == "agent":
+                from think.talent import get_agent
+
+                talent_key = str(config.get("name", "unified"))
+                talent_config = get_agent(talent_key)
+                if talent_config.get("type") == "cogitate":
+                    # Resolve here because prepare_config() runs inside sol agents.
+                    cwd_value = talent_config.get("cwd")
+                    if cwd_value == "journal":
+                        try:
+                            subprocess_cwd = str(Path(get_journal()))
+                        except Exception as exc:
+                            raise RuntimeError(
+                                f"Cannot resolve cwd for talent '{talent_key}'"
+                            ) from exc
+                    elif cwd_value == "repo":
+                        subprocess_cwd = get_project_root()
+                    else:
+                        raise RuntimeError(
+                            f"Cannot resolve cwd for talent '{talent_key}'"
+                        )
 
             process = subprocess.Popen(
                 cmd,
@@ -289,6 +313,7 @@ class CortexService:
                 text=True,
                 env=env,
                 bufsize=1,
+                cwd=subprocess_cwd,
             )
 
             # Send input and close stdin

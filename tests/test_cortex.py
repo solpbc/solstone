@@ -186,7 +186,7 @@ def test_spawn_generator_via_subprocess(
     config = {
         "event": "request",
         "ts": 987654321,
-        "name": "activity",
+        "name": "decisions",
         "day": "20240101",
         "output": "md",
     }
@@ -213,7 +213,7 @@ def test_spawn_generator_via_subprocess(
     written_data = mock_process.stdin.write.call_args[0][0]
     ndjson = json.loads(written_data.strip())
     assert ndjson["event"] == "request"
-    assert ndjson["name"] == "activity"
+    assert ndjson["name"] == "decisions"
     assert ndjson["day"] == "20240101"
     assert ndjson["output"] == "md"
 
@@ -232,6 +232,97 @@ def test_spawn_generator_via_subprocess(
     # Check timer was created and started
     mock_timer.assert_called_once()
     mock_timer_instance.start.assert_called_once()
+
+
+@patch("think.talent.get_agent")
+@patch("think.cortex.subprocess.Popen")
+@patch("think.cortex.threading.Thread")
+@patch("think.cortex.threading.Timer")
+def test_spawn_subprocess_uses_cwd_from_talent(
+    mock_timer,
+    mock_thread,
+    mock_popen,
+    mock_get_agent,
+    cortex_service,
+    mock_journal,
+):
+    mock_process = MagicMock()
+    mock_process.pid = 24680
+    mock_process.poll.return_value = None
+    mock_process.stdin = MagicMock()
+    mock_process.stdout = MagicMock()
+    mock_process.stderr = MagicMock()
+    mock_popen.return_value = mock_process
+    mock_get_agent.return_value = {"type": "cogitate", "cwd": "journal"}
+
+    mock_timer_instance = MagicMock()
+    mock_timer.return_value = mock_timer_instance
+
+    agent_id = "24680"
+    file_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
+    request = {
+        "event": "request",
+        "ts": 24680,
+        "prompt": "Test prompt",
+        "provider": "openai",
+        "name": "unified",
+        "model": GPT_5,
+    }
+
+    cortex_service._spawn_subprocess(
+        agent_id,
+        file_path,
+        request,
+        ["sol", "agents"],
+        "agent",
+    )
+
+    assert mock_popen.call_args.kwargs["cwd"] == str(mock_journal)
+
+
+@patch("think.talent.get_agent")
+@patch("think.cortex.subprocess.Popen")
+@patch("think.cortex.threading.Thread")
+@patch("think.cortex.threading.Timer")
+def test_spawn_subprocess_skips_cwd_for_generate(
+    mock_timer,
+    mock_thread,
+    mock_popen,
+    mock_get_agent,
+    cortex_service,
+    mock_journal,
+):
+    mock_process = MagicMock()
+    mock_process.pid = 13579
+    mock_process.poll.return_value = None
+    mock_process.stdin = MagicMock()
+    mock_process.stdout = MagicMock()
+    mock_process.stderr = MagicMock()
+    mock_popen.return_value = mock_process
+    mock_get_agent.return_value = {"type": "generate"}
+
+    mock_timer_instance = MagicMock()
+    mock_timer.return_value = mock_timer_instance
+
+    agent_id = "13579"
+    file_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
+    request = {
+        "event": "request",
+        "ts": 13579,
+        "name": "decisions",
+        "day": "20240101",
+        "output": "md",
+    }
+
+    cortex_service._spawn_subprocess(
+        agent_id,
+        file_path,
+        request,
+        ["sol", "agents"],
+        "agent",
+    )
+
+    assert mock_popen.call_args.kwargs["cwd"] is None
 
 
 def test_monitor_stdout_json_events(cortex_service, mock_journal):

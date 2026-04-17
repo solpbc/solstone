@@ -45,6 +45,7 @@ from think.utils import (
     format_day,
     format_segment_times,
     get_journal,
+    get_project_root,
     now_ms,
     require_solstone,
     segment_parse,
@@ -460,9 +461,32 @@ def prepare_config(request: dict) -> dict:
     # Convert path string to Path object for convenience
     agent_path = Path(config["path"]) if config.get("path") else None
     sources = config.get("sources", {})
+    talent_cwd = config.get("cwd")
 
     # Merge request values (request overrides agent defaults)
     config.update({k: v for k, v in request.items() if v is not None})
+    request_cwd = request.get("cwd")
+    if request_cwd is not None and request_cwd != talent_cwd:
+        raise ValueError(
+            f"Request overrides 'cwd' for talent '{name}' are not allowed "
+            f"({talent_cwd!r} != {request_cwd!r})"
+        )
+
+    cwd_value = config.get("cwd")
+    if cwd_value == "journal":
+        try:
+            journal_path = Path(get_journal())
+        except Exception as exc:
+            raise RuntimeError(
+                f"Cannot resolve cwd for talent '{name}' — journal path unavailable"
+            ) from exc
+        if not journal_path.exists():
+            raise RuntimeError(
+                f"Cannot resolve cwd for talent '{name}' — journal path unavailable"
+            )
+        config["cwd"] = str(journal_path)
+    elif cwd_value == "repo":
+        config["cwd"] = get_project_root()
 
     # Populate stream from env if not already in config (dream passes it as
     # SOL_STREAM env var but not as a top-level request key — hooks need it)

@@ -3,7 +3,15 @@
 
 """Tests for think.talent module."""
 
-from think.talent import get_agent_filter, source_is_enabled, source_is_required
+import pytest
+
+from think.talent import (
+    _validate_cwd,
+    get_agent,
+    get_agent_filter,
+    source_is_enabled,
+    source_is_required,
+)
 
 
 def test_source_is_enabled_bool():
@@ -59,3 +67,41 @@ def test_get_agent_filter_dict():
     filter_dict = {"entities": True, "meetings": "required", "flow": False}
     assert get_agent_filter(filter_dict) == filter_dict
     assert get_agent_filter({}) == {}
+
+
+def test_validate_cwd_defaults_cogitate_to_journal():
+    assert _validate_cwd(None, "cogitate", "test-agent") == "journal"
+
+
+def test_validate_cwd_accepts_repo():
+    assert _validate_cwd("repo", "cogitate", "test-agent") == "repo"
+
+
+def test_validate_cwd_accepts_journal():
+    assert _validate_cwd("journal", "cogitate", "test-agent") == "journal"
+
+
+def test_validate_cwd_rejects_generate_with_cwd():
+    with pytest.raises(
+        ValueError,
+        match="Prompt 'test-agent' sets 'cwd' but cwd is only valid for type: cogitate",
+    ):
+        _validate_cwd("journal", "generate", "test-agent")
+
+
+def test_validate_cwd_rejects_invalid_value():
+    with pytest.raises(
+        ValueError,
+        match="Prompt 'test-agent' has invalid 'cwd' value 'home'",
+    ):
+        _validate_cwd("home", "cogitate", "test-agent")
+
+
+def test_get_agent_normalizes_cwd_for_cogitate():
+    config = get_agent("chat")
+    assert config["cwd"] == "journal"
+
+
+def test_get_agent_preserves_repo_cwd_for_coder():
+    config = get_agent("coder")
+    assert config["cwd"] == "repo"

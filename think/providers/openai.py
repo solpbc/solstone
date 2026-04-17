@@ -36,6 +36,7 @@ import functools
 import logging
 import os
 import traceback
+from pathlib import Path
 from typing import Any, Callable
 
 from think.models import GPT_5, OPENAI_EFFORT_SUFFIXES
@@ -205,12 +206,14 @@ async def run_cogitate(
     usage_holder: list[dict[str, Any]] = [{}]
     aggregator = ThinkingAggregator(cb, model)
     translate = functools.partial(_translate_codex, usage_holder=usage_holder)
+    cwd_value = config.get("cwd")
     runner = CLIRunner(
         cmd=cmd,
         prompt_text=prompt_text,
         translate=translate,
         callback=cb,
         aggregator=aggregator,
+        cwd=Path(cwd_value) if cwd_value else None,
         env=build_cogitate_env("OPENAI_API_KEY"),
     )
 
