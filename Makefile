@@ -106,7 +106,6 @@ skills:
 	if [ "$$count" -gt 0 ]; then \
 		echo "Linked $$count skill(s) into $(SKILL_DIRS)"; \
 	fi
-	@$(PYTHON) scripts/generate_agents_md.py
 
 # Start local dev stack against fixture journal (no observers, no daily processing)
 dev: .installed
