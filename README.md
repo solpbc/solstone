@@ -105,7 +105,7 @@ Run `sol help` for the full command reference.
 | Topic | Document |
 |-------|----------|
 | Installation and setup | [docs/INSTALL.md](docs/INSTALL.md) |
-| Journal structure and data model | [docs/JOURNAL.md](docs/JOURNAL.md) |
+| Journal structure and data model | [talent/journal/SKILL.md](talent/journal/SKILL.md) |
 | Capture pipeline | [docs/OBSERVE.md](docs/OBSERVE.md) |
 | Processing and agents | [docs/THINK.md](docs/THINK.md) |
 | Web interface | [docs/CONVEY.md](docs/CONVEY.md) |

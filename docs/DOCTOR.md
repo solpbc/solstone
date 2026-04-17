@@ -329,6 +329,6 @@ sol describe /path/to/broken.mov -v
 
 ## See Also
 
-- [JOURNAL.md](JOURNAL.md) - Directory structure and file formats
+- [logs.md](../talent/journal/references/logs.md) - Journal logs, health files, and event formats
 - [CORTEX.md](CORTEX.md) - Agent system, events, configuration
 - [CALLOSUM.md](CALLOSUM.md) - Message bus protocol

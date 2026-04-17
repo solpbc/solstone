@@ -122,7 +122,7 @@ def extract_path_metadata(rel_path: str) -> dict[str, str]:
 # enough to use as Path.glob() arguments from the journal root.  The indexed
 # flag controls whether find_formattable_files() collects matching files for
 # the search index.  Adding a new journal content location requires a new
-# entry here — see docs/JOURNAL.md "Search Index" for details.
+# entry here — see talent/journal/references/storage.md "Search Index" for details.
 #
 # Order matters: first match wins, so place specific patterns before general ones.
 FORMATTERS: dict[str, tuple[str, str, bool]] = {

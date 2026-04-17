@@ -61,7 +61,7 @@ Identity variables come from the `identity` block in `config/journal.json`. Thes
 The flattening logic converts nested objects using underscore separators. For example, `identity.pronouns.subject` becomes `$pronouns_subject`.
 
 **References:**
-- Identity configuration: [JOURNAL.md](JOURNAL.md) (identity section)
+- Identity configuration: [config.md](../talent/journal/references/config.md) (identity section)
 - Flattening implementation: `think/prompts.py` → `_flatten_identity_to_template_vars()`
 
 ### Template Variables
@@ -186,7 +186,7 @@ load_prompt("myprompt", context={"custom_var": "value"})
 
 | Category | Authoritative Source |
 |----------|---------------------|
-| Identity config schema | [JOURNAL.md](JOURNAL.md) (identity section) |
+| Identity config schema | [config.md](../talent/journal/references/config.md) (identity section) |
 | Identity flattening | `think/prompts.py` (`_flatten_identity_to_template_vars`) |
 | Template loading | `think/prompts.py` (`_load_templates`) |
 | Core load function | `think/prompts.py` (`load_prompt`) |

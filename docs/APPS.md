@@ -406,7 +406,7 @@ Define [Agent Skills](https://agentskills.io/specification) as subdirectories wi
 - Create a subdirectory in `talent/` with a `SKILL.md` file (YAML frontmatter + markdown body)
 - The directory name must match the `name` field in the YAML frontmatter
 - Skill names must be unique across system `talent/` and all `apps/*/talent/` directories
-- `make skills` discovers all skills and symlinks them into `.agents/skills/` and `.claude/skills/`
+- `make skills` discovers all skills and symlinks them into `journal/.agents/skills/` and `journal/.claude/skills/`
 - Skills are standalone — they don't interact with the talent agent/generator system
 - The talent loader ignores subdirectories, so skills won't interfere with agent discovery
 
@@ -448,7 +448,7 @@ apps/my_app/talent/my-skill/
 └── references/
 ```
 
-**Running `make skills`:** Discovers all `SKILL.md` files under `talent/*/` and `apps/*/talent/*/`, then creates symlinks so that all supported coding agents see the same skills. Errors if two skills share the same directory name.
+**Running `make skills`:** Discovers all `SKILL.md` files under `talent/*/` and `apps/*/talent/*/`, then creates symlinks in `journal/.agents/skills/` and `journal/.claude/skills/` so that all supported coding agents see the same skills. Errors if two skills share the same directory name.
 
 ---
 
@@ -597,7 +597,7 @@ Available functions from the `think` module:
 ### Entities
 `think/entities/`: `load_entities(facet)` - Load entities for a facet
 
-See [JOURNAL.md](JOURNAL.md), [CORTEX.md](CORTEX.md), [CALLOSUM.md](CALLOSUM.md) for subsystem details.
+See [talent/journal/SKILL.md](../talent/journal/SKILL.md), [CORTEX.md](CORTEX.md), [CALLOSUM.md](CALLOSUM.md) for subsystem details.
 
 ---
 
@@ -811,7 +811,7 @@ Browse `apps/*/` directories for reference implementations. Apps range in comple
 - **`convey/static/app.js`** - AppServices framework
 - **`convey/static/websocket.js`** - WebSocket event system
 - [../AGENTS.md](../AGENTS.md) - Project development guidelines and standards
-- [JOURNAL.md](JOURNAL.md) - Journal directory structure and data organization
+- [storage.md](../talent/journal/references/storage.md) - Journal directory structure and data organization
 - [CORTEX.md](CORTEX.md) - Agent system architecture and spawning agents
 - [CALLOSUM.md](CALLOSUM.md) - Message bus protocol and WebSocket events
 
