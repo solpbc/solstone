@@ -45,9 +45,52 @@ home_bp = Blueprint(
     url_prefix="/app/home",
 )
 
+_FIRST_WEEK_FRAMING = "Most of what I learn becomes useful in the third or fourth week, when I've seen enough patterns to surface them. For now, here's what's already happening:"
+
+_ENTITY_TYPE_LABELS = {
+    "company": ("company", "companies"),
+    "decision": ("decision", "decisions"),
+    "person": ("person", "people"),
+    "place": ("place", "places"),
+    "project": ("project", "projects"),
+    "topic": ("topic", "topics"),
+    "tool": ("tool", "tools"),
+    "unknown": ("thing", "things"),
+}
+
 
 def _today() -> str:
     return datetime.now().strftime("%Y%m%d")
+
+
+def _yesterday() -> str:
+    return (datetime.now().astimezone() - timedelta(days=1)).strftime("%Y%m%d")
+
+
+def _count_journal_age_days(today: str) -> int:
+    chronicle_dir = Path(get_journal()) / "chronicle"
+    if not chronicle_dir.is_dir():
+        return 0
+
+    earliest: datetime | None = None
+    for child in chronicle_dir.iterdir():
+        if not child.is_dir() or not child.name.isdigit() or len(child.name) != 8:
+            continue
+        try:
+            day = datetime.strptime(child.name, "%Y%m%d")
+        except ValueError:
+            continue
+        if earliest is None or day < earliest:
+            earliest = day
+
+    if earliest is None:
+        return 0
+
+    try:
+        today_dt = datetime.strptime(today, "%Y%m%d")
+    except ValueError:
+        return 0
+    return max(0, (today_dt - earliest).days)
 
 
 def _load_flow_md(today: str) -> tuple[str | None, float | None]:
@@ -221,6 +264,21 @@ def _load_stats(today: str) -> dict[str, Any]:
     return {}
 
 
+def _load_yesterday_stats(yesterday: str) -> dict[str, Any] | None:
+    try:
+        stats_path = Path(get_journal()) / "chronicle" / yesterday / "stats.json"
+        if not stats_path.exists():
+            return None
+        return json.loads(stats_path.read_text(encoding="utf-8"))
+    except Exception:
+        logger.warning("home: failed to load yesterday stats", exc_info=True)
+        return None
+
+
+def _load_yesterday_pipeline_summary(yesterday: str) -> dict[str, Any]:
+    return summarize_pipeline_day(yesterday)
+
+
 def _collect_todos(today: str) -> list[dict[str, Any]]:
     """Collect pending todos across all facets."""
     from apps.todos.todo import get_todos
@@ -338,6 +396,528 @@ def _collect_entities_today(today: str) -> list[dict[str, Any]]:
     except Exception:
         logger.warning("home: failed to collect entities", exc_info=True)
         return []
+
+
+def _collect_entities_yesterday(yesterday: str) -> list[dict[str, Any]]:
+    """Get yesterday's entities from entity_signals table."""
+    try:
+        conn, _ = get_journal_index()
+        try:
+            rows = conn.execute(
+                """SELECT entity_name, COUNT(*) as signal_count,
+                          GROUP_CONCAT(DISTINCT signal_type) as types
+                   FROM entity_signals
+                   WHERE day = ?
+                   GROUP BY entity_name
+                   ORDER BY signal_count DESC""",
+                (yesterday,),
+            ).fetchall()
+
+            entity_meta = {}
+            meta_rows = conn.execute(
+                "SELECT entity_id, name, type FROM entities WHERE source='identity'"
+            ).fetchall()
+            for row in meta_rows:
+                entity_meta[row[0]] = {"name": row[1], "type": row[2] or "unknown"}
+                entity_meta[row[1].lower()] = {
+                    "name": row[1],
+                    "type": row[2] or "unknown",
+                }
+
+            entities = []
+            for row in rows:
+                name = row[0]
+                meta = entity_meta.get(name, entity_meta.get(name.lower(), {}))
+                entities.append(
+                    {
+                        "name": meta.get("name", name),
+                        "signal_count": row[1],
+                        "types": row[2] or "",
+                        "entity_type": meta.get("type", "unknown"),
+                    }
+                )
+            return entities
+        finally:
+            conn.close()
+    except Exception:
+        logger.warning("home: failed to collect yesterday entities", exc_info=True)
+        return []
+
+
+def _normalize_activity_title(record: dict[str, Any]) -> str:
+    title = str(record.get("description") or "").strip()
+    if title:
+        return title
+    activity = str(record.get("activity") or "").strip().replace("_", " ")
+    if activity:
+        return activity.title()
+    return "Untitled activity"
+
+
+def _collect_top_activities_yesterday(yesterday: str) -> list[dict[str, Any]]:
+    from think.activities import estimate_duration_minutes, load_activity_records
+
+    activities = []
+    try:
+        facets = get_enabled_facets()
+    except Exception:
+        logger.warning(
+            "home: failed to get enabled facets for yesterday activities",
+            exc_info=True,
+        )
+        return []
+
+    for facet_name in facets:
+        for record in load_activity_records(facet_name, yesterday):
+            segments = record.get("segments", [])
+            activities.append(
+                {
+                    **record,
+                    "facet": facet_name,
+                    "title": _normalize_activity_title(record),
+                    "duration_minutes": estimate_duration_minutes(segments),
+                }
+            )
+
+    activities.sort(
+        key=lambda record: (
+            -int(record.get("duration_minutes", 0)),
+            record.get("title", "").lower(),
+            record.get("facet", ""),
+        )
+    )
+    return activities
+
+
+def _top_heatmap_hours(stats_data: dict[str, Any]) -> list[int]:
+    hours = stats_data.get("heatmap_data", {}).get("hours", {})
+    ranked = []
+    for hour, minutes in hours.items():
+        try:
+            hour_int = int(hour)
+            minutes_value = float(minutes)
+        except (TypeError, ValueError):
+            continue
+        if minutes_value <= 0:
+            continue
+        ranked.append((hour_int, minutes_value))
+
+    ranked.sort(key=lambda item: (-item[1], item[0]))
+    return [hour for hour, _minutes in ranked[:3]]
+
+
+def _knowledge_graph_freshness(yesterday: str) -> dict[str, Any]:
+    path = (
+        Path(get_journal()) / "chronicle" / yesterday / "agents" / "knowledge_graph.md"
+    )
+    if not path.exists():
+        return {"exists": False, "fresh": False, "updated_label": None}
+
+    try:
+        start_of_yesterday_local = datetime.strptime(yesterday, "%Y%m%d").astimezone()
+        updated_at = datetime.fromtimestamp(path.stat().st_mtime).astimezone()
+    except Exception:
+        logger.warning(
+            "home: failed to inspect knowledge graph freshness", exc_info=True
+        )
+        return {"exists": True, "fresh": False, "updated_label": None}
+
+    return {
+        "exists": True,
+        "fresh": updated_at >= start_of_yesterday_local,
+        "updated_label": updated_at.strftime("%-I:%M%p").lower(),
+    }
+
+
+def _briefing_freshness(today: str) -> dict[str, Any]:
+    briefing_path = Path(get_journal()) / "sol" / "briefing.md"
+    if not briefing_path.exists():
+        return {"exists": False, "valid": False, "generated_label": None}
+
+    try:
+        post = frontmatter.load(str(briefing_path))
+    except Exception:
+        logger.warning("home: failed to load briefing freshness", exc_info=True)
+        return {"exists": True, "valid": False, "generated_label": None}
+
+    if post.metadata.get("type") != "morning_briefing":
+        return {"exists": True, "valid": False, "generated_label": None}
+
+    generated = post.metadata.get("generated")
+    if generated is None:
+        return {"exists": True, "valid": False, "generated_label": None}
+
+    try:
+        if isinstance(generated, str):
+            generated_dt = datetime.fromisoformat(generated)
+        else:
+            generated_dt = generated
+        if generated_dt.tzinfo is None:
+            generated_dt = generated_dt.astimezone()
+        else:
+            generated_dt = generated_dt.astimezone()
+    except Exception:
+        return {"exists": True, "valid": False, "generated_label": None}
+
+    return {
+        "exists": True,
+        "valid": generated_dt.strftime("%Y%m%d") == today,
+        "generated_label": generated_dt.strftime("%-I:%M%p").lower(),
+    }
+
+
+def _newsletter_attempts_from_dream_logs(yesterday: str) -> tuple[int, int]:
+    journal = Path(get_journal())
+    successful = len(list(journal.glob(f"facets/*/news/{yesterday}.md")))
+
+    failed = 0
+    health_dir = journal / "chronicle" / yesterday / "health"
+    if health_dir.is_dir():
+        for path in sorted(health_dir.glob("*_daily_dream.jsonl")):
+            try:
+                with path.open(encoding="utf-8") as handle:
+                    for raw_line in handle:
+                        line = raw_line.strip()
+                        if not line:
+                            continue
+                        try:
+                            record = json.loads(line)
+                        except json.JSONDecodeError:
+                            continue
+                        if (
+                            record.get("event") == "agent.fail"
+                            and record.get("facet")
+                            and record.get("name") == "facet_newsletter"
+                        ):
+                            failed += 1
+            except OSError:
+                logger.warning(
+                    "home: failed to read newsletter dream log %s",
+                    path,
+                    exc_info=True,
+                )
+
+    return successful, successful + failed
+
+
+def _format_duration(total_minutes: float) -> str:
+    rounded_minutes = int(round(total_minutes))
+    if rounded_minutes < 60:
+        return f"{rounded_minutes} min"
+
+    rounded_hours = round(total_minutes / 60, 1)
+    if float(rounded_hours).is_integer():
+        hours_int = int(rounded_hours)
+        return f"{hours_int} hour{'s' if hours_int != 1 else ''}"
+    return f"{rounded_hours:.1f} hours"
+
+
+def _format_hour_label(start_hour: int, end_hour: int) -> str:
+    def render(hour: int, *, include_meridiem: bool) -> str:
+        normalized = hour % 24
+        display_hour = normalized % 12 or 12
+        meridiem = "am" if normalized < 12 else "pm"
+        return f"{display_hour}{meridiem}" if include_meridiem else str(display_hour)
+
+    start_meridiem = "am" if start_hour % 24 < 12 else "pm"
+    end_meridiem = "am" if end_hour % 24 < 12 else "pm"
+    return (
+        f"{render(start_hour, include_meridiem=start_meridiem != end_meridiem)}-"
+        f"{render(end_hour, include_meridiem=True)}"
+    )
+
+
+def _join_phrases(parts: list[str]) -> str:
+    if not parts:
+        return ""
+    if len(parts) == 1:
+        return parts[0]
+    if len(parts) == 2:
+        return f"{parts[0]} and {parts[1]}"
+    return ", ".join(parts[:-1]) + f", and {parts[-1]}"
+
+
+def _format_entity_count(type_key: str, count: int) -> str:
+    singular, plural = _ENTITY_TYPE_LABELS.get(type_key, (type_key, f"{type_key}s"))
+    label = singular if count == 1 else plural
+    return f"{count} {label}"
+
+
+def _format_entity_summary(entities: list[dict[str, Any]]) -> str | None:
+    counts: dict[str, int] = {}
+    for entity in entities:
+        type_key = str(entity.get("entity_type") or "unknown").strip().lower()
+        counts[type_key] = counts.get(type_key, 0) + 1
+
+    if not counts:
+        return None
+
+    ordered_keys = []
+    if counts.get("person"):
+        ordered_keys.append("person")
+    ordered_keys.extend(
+        key
+        for key, _count in sorted(
+            (
+                (key, count)
+                for key, count in counts.items()
+                if key != "person" and count > 0
+            ),
+            key=lambda item: (-item[1], item[0]),
+        )
+    )
+
+    labels = [
+        _format_entity_count(key, counts[key]) for key in ordered_keys if counts[key]
+    ]
+    if not labels:
+        return None
+    return f"I recognized {_join_phrases(labels)}."
+
+
+def _format_activity_label(activity: dict[str, Any]) -> str:
+    return (
+        f"I took notes on {activity.get('title', 'Untitled activity')} "
+        f"for {_format_duration(activity.get('duration_minutes', 0))} in "
+        f"{activity.get('facet', 'unknown')}."
+    )
+
+
+def _format_newsletter_summary(successful: int, attempted: int) -> str:
+    if attempted == 0:
+        return "I didn't produce any facet newsletters."
+    if attempted > successful:
+        return (
+            f"I wrote {successful} of {attempted} newsletter"
+            f"{'s' if attempted != 1 else ''}."
+        )
+    return f"I wrote {successful} newsletter{'s' if successful != 1 else ''}."
+
+
+def _format_processing_summary(
+    mode: str,
+    successful_newsletters: int,
+    attempted_newsletters: int,
+    knowledge_graph: dict[str, Any],
+    briefing: dict[str, Any],
+) -> str:
+    if mode == "degraded":
+        if attempted_newsletters == 0 and successful_newsletters == 0:
+            return (
+                "I didn't produce any facet newsletters, and some overnight "
+                "processing didn't finish."
+            )
+        if attempted_newsletters > successful_newsletters:
+            return (
+                f"I wrote {successful_newsletters} of {attempted_newsletters} "
+                "newsletters, but some overnight processing didn't finish."
+            )
+        return (
+            f"I wrote {successful_newsletters} newsletter"
+            f"{'s' if successful_newsletters != 1 else ''}, but some overnight "
+            "processing didn't finish."
+        )
+
+    actions = []
+    if successful_newsletters > 0:
+        actions.append(
+            f"wrote {successful_newsletters} newsletter"
+            f"{'s' if successful_newsletters != 1 else ''}"
+        )
+    if knowledge_graph.get("fresh"):
+        actions.append("refreshed your knowledge graph")
+    if briefing.get("valid"):
+        actions.append("prepared your morning briefing")
+    if not actions:
+        return _format_newsletter_summary(successful_newsletters, attempted_newsletters)
+    return f"I {_join_phrases(actions)}."
+
+
+def _format_heatmap_summary(stats_data: dict[str, Any]) -> str | None:
+    hours = sorted(_top_heatmap_hours(stats_data))
+    if not hours:
+        return None
+
+    ranges = []
+    range_start = hours[0]
+    range_end = hours[0] + 1
+    for hour in hours[1:]:
+        if hour == range_end:
+            range_end += 1
+            continue
+        ranges.append(_format_hour_label(range_start, range_end))
+        range_start = hour
+        range_end = hour + 1
+    ranges.append(_format_hour_label(range_start, range_end))
+    return "I watched most closely during " + " · ".join(ranges) + "."
+
+
+def _format_gap_bullets(
+    pipeline_summary: dict[str, Any],
+    knowledge_graph: dict[str, Any],
+    briefing: dict[str, Any],
+) -> list[str]:
+    bullets = []
+    anomalies = pipeline_summary.get("anomalies", [])
+    has_daily = any(
+        anomaly.get("kind") == "daily_agents_missing" for anomaly in anomalies
+    )
+    has_activity = any(
+        anomaly.get("kind") == "activity_agents_missing" for anomaly in anomalies
+    )
+    has_failure = any(anomaly.get("kind") == "agent_failure" for anomaly in anomalies)
+
+    if has_daily:
+        bullets.append("I didn't finish the full overnight review.")
+    if has_activity:
+        bullets.append("I didn't finish writing all of yesterday's notes.")
+    if has_failure and not has_daily and not has_activity:
+        bullets.append("Some of my overnight work didn't finish.")
+
+    if not knowledge_graph.get("fresh"):
+        bullets.append("I didn't refresh your knowledge graph overnight.")
+    if not briefing.get("valid"):
+        bullets.append("I didn't prepare your morning briefing overnight.")
+    return bullets
+
+
+def _summarize_yesterday_processing(
+    yesterday: str, journal_age_days: int
+) -> dict[str, Any] | None:
+    stats_data = _load_yesterday_stats(yesterday)
+    if stats_data is None or journal_age_days == 0:
+        return None
+
+    stats = stats_data.get("stats", {})
+    transcript_seconds = float(stats.get("transcript_duration", 0) or 0)
+    transcript_segments = int(stats.get("transcript_segments", 0) or 0)
+    facet_data = stats_data.get("facet_data", {})
+    has_facet_activity = any(
+        float(facet.get("minutes", 0) or 0) > 0 or int(facet.get("count", 0) or 0) > 0
+        for facet in facet_data.values()
+    )
+
+    entities = _collect_entities_yesterday(yesterday)
+    activities = _collect_top_activities_yesterday(yesterday)
+    if (
+        transcript_seconds <= 0
+        and transcript_segments <= 0
+        and not has_facet_activity
+        and not activities
+        and not entities
+    ):
+        return None
+
+    pipeline_summary = _load_yesterday_pipeline_summary(yesterday)
+    knowledge_graph = _knowledge_graph_freshness(yesterday)
+    briefing = _briefing_freshness(_today())
+    successful_newsletters, attempted_newsletters = (
+        _newsletter_attempts_from_dream_logs(yesterday)
+    )
+
+    is_sparse = (
+        (transcript_seconds > 0 or transcript_segments > 0)
+        and not has_facet_activity
+        and not activities
+    )
+
+    status_reasons = []
+    if attempted_newsletters > successful_newsletters:
+        status_reasons.append("newsletter_partial")
+    if pipeline_summary.get("status") != "healthy":
+        status_reasons.append("pipeline_warning")
+    if not knowledge_graph.get("fresh"):
+        status_reasons.append("knowledge_graph_stale")
+    if not briefing.get("valid"):
+        status_reasons.append("briefing_missing")
+
+    if is_sparse:
+        mode = "sparse"
+    elif status_reasons:
+        mode = "degraded"
+    else:
+        mode = "healthy"
+
+    first_week_framing = (
+        _FIRST_WEEK_FRAMING if journal_age_days <= 7 and mode != "sparse" else None
+    )
+
+    if mode == "sparse":
+        summary_line = (
+            f"I watched {_format_duration(transcript_seconds / 60)} yesterday."
+        )
+        return {
+            "title": "Yesterday's processing",
+            "mode": mode,
+            "default_collapsed": False,
+            "first_week_framing": None,
+            "summary_line": summary_line,
+            "details": None,
+            "sparse_lines": [
+                "I didn't produce any facet newsletters.",
+                "There wasn't much else to process.",
+            ],
+            "status_reasons": status_reasons,
+        }
+
+    details = []
+    if mode == "degraded":
+        details.extend(_format_gap_bullets(pipeline_summary, knowledge_graph, briefing))
+
+    details.append(
+        _format_newsletter_summary(successful_newsletters, attempted_newsletters)
+    )
+    if knowledge_graph.get("fresh"):
+        details.append(
+            "I refreshed your knowledge graph"
+            + (
+                f" at {knowledge_graph['updated_label']}."
+                if knowledge_graph.get("updated_label")
+                else "."
+            )
+        )
+    if briefing.get("valid"):
+        details.append(
+            "I prepared your morning briefing"
+            + (
+                f" at {briefing['generated_label']}."
+                if briefing.get("generated_label")
+                else "."
+            )
+        )
+
+    heatmap_summary = _format_heatmap_summary(stats_data)
+    if heatmap_summary:
+        details.append(heatmap_summary)
+
+    for activity in activities[:2]:
+        details.append(_format_activity_label(activity))
+
+    entity_summary = _format_entity_summary(entities)
+    if entity_summary:
+        details.append(entity_summary)
+
+    default_collapsed = mode == "healthy" and journal_age_days >= 8
+    return {
+        "title": (
+            "⚠ Yesterday's processing"
+            if mode == "degraded"
+            else "Yesterday's processing"
+        ),
+        "mode": mode,
+        "default_collapsed": default_collapsed,
+        "first_week_framing": first_week_framing,
+        "summary_line": _format_processing_summary(
+            mode,
+            successful_newsletters,
+            attempted_newsletters,
+            knowledge_graph,
+            briefing,
+        ),
+        "details": details,
+        "sparse_lines": None,
+        "status_reasons": status_reasons,
+    }
 
 
 def _freshness_hours(cadence) -> int:
@@ -606,7 +1186,9 @@ def _collect_skills() -> list[dict[str, Any]]:
 def _build_pulse_context() -> dict[str, Any]:
     """Build the full Pulse page context."""
     today = _today()
+    yesterday = _yesterday()
     now = datetime.now()
+    journal_age_days = _count_journal_age_days(today)
 
     capture_status = get_capture_health()["status"]
     cached = get_cached_state()
@@ -775,6 +1357,8 @@ def _build_pulse_context() -> dict[str, Any]:
         logger.warning("pipeline_status unavailable", exc_info=True)
         pipeline_status = None
 
+    yesterday_processing = _summarize_yesterday_processing(yesterday, journal_age_days)
+
     return {
         "today": today,
         "now": now,
@@ -808,6 +1392,7 @@ def _build_pulse_context() -> dict[str, Any]:
         "briefing_needs_deduped": briefing_needs_deduped,
         "briefing_needs_shared_count": briefing_needs_shared_count,
         "briefing_needs_badge": briefing_needs_badge,
+        "yesterday_processing": yesterday_processing,
         "show_welcome": show_welcome,
         "narrative_summary": narrative_summary,
         "routines_summary": routines_summary,
