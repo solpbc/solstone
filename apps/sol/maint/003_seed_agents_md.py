@@ -36,7 +36,6 @@ def main() -> int:
 
     journal = Path(get_journal())
     repo_root = Path(__file__).resolve().parents[3]
-    journal_md = (repo_root / "docs" / "JOURNAL.md").read_text(encoding="utf-8")
 
     agents_path = journal / "AGENTS.md"
     claude_path = journal / "CLAUDE.md"
@@ -51,6 +50,8 @@ def main() -> int:
         return 0
 
     try:
+        journal_md = (repo_root / "docs" / "JOURNAL.md").read_text(encoding="utf-8")
+
         if not agents_path.exists():
             agents_path.write_text(journal_md, encoding="utf-8")
             print("created AGENTS.md")
