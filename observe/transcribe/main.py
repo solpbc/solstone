@@ -21,6 +21,7 @@ Configuration (journal config transcribe section):
 - transcribe.preserve_all: Keep audio files even when no speech detected (default: false)
 - transcribe.min_speech_seconds: Minimum speech duration to proceed. Default: 1.0
 - transcribe.noise_upgrade: Auto-switch to Rev.ai for noisy recordings (default: true)
+- transcribe.noise_upgrade_min_speech_ratio: Min speech/loud ratio required for noisy upgrade (default: 0.3). Filters out music and other non-speech noise.
 
 Whisper backend settings (transcribe.whisper):
 - device: Device for inference ("auto", "cpu", "cuda"). Default: "auto"
@@ -205,6 +206,12 @@ def _build_base_event(
     if vad_result.noisy_rms is not None:
         event["noisy_rms"] = round(vad_result.noisy_rms, 4)
         event["noisy_s"] = round(vad_result.noisy_s, 1)
+    if vad_result.loud_windows > 0:
+        event["loud_windows"] = vad_result.loud_windows
+        event["speech_loud_windows"] = vad_result.speech_loud_windows
+        ratio = vad_result.loud_speech_ratio
+        if ratio is not None:
+            event["loud_speech_ratio"] = round(ratio, 2)
 
     if day:
         event["day"] = day
@@ -359,6 +366,12 @@ def _statements_to_jsonl(
         if vad_result.noisy_rms is not None:
             metadata["noisy_rms"] = round(vad_result.noisy_rms, 4)
             metadata["noisy_s"] = round(vad_result.noisy_s, 1)
+        if vad_result.loud_windows > 0:
+            metadata["loud_windows"] = vad_result.loud_windows
+            metadata["speech_loud_windows"] = vad_result.speech_loud_windows
+            ratio = vad_result.loud_speech_ratio
+            if ratio is not None:
+                metadata["loud_speech_ratio"] = round(ratio, 2)
 
     # Add enrichment metadata if available
     if enrichment:
@@ -505,23 +518,6 @@ def process_audio(
         backend_module = get_backend(backend)
         model_info = backend_module.get_model_info(backend_config)
 
-        # Sanity check: if VAD detected speech but we got no statements, something is wrong
-        if vad_result.has_speech and not statements:
-            if vad_result.speech_duration < 5.0:
-                # Marginal speech detection — treat as silence rather than failure.
-                # VAD occasionally flags brief noise as speech; if the STT backend
-                # can't produce anything from it, that's expected, not an error.
-                logging.info(
-                    f"VAD detected {vad_result.speech_duration:.1f}s of marginal speech "
-                    f"but transcription produced 0 statements — treating as silence"
-                )
-            else:
-                raise RuntimeError(
-                    f"VAD detected {vad_result.speech_duration:.1f}s of speech "
-                    f"(from {vad_result.duration:.1f}s total) but transcription produced "
-                    f"0 statements. This indicates a transcription failure, not silence."
-                )
-
         # Load config for preserve_all setting
         config = get_config()
         preserve_all = config.get("transcribe", {}).get("preserve_all", False)
@@ -531,6 +527,12 @@ def process_audio(
 
         # Handle no speech detected
         if not statements:
+            logging.info(
+                "STT backend returned 0 statements, treating as silence "
+                "(VAD: %.1fs speech of %.1fs)",
+                vad_result.speech_duration,
+                vad_result.duration,
+            )
             if preserve_all:
                 event["outcome"] = "preserved"
                 logging.info(
@@ -706,6 +708,7 @@ def _process_one(
     # - Audio is noisy
     # - Rev.ai token is available
     noise_upgrade = transcribe_config.get("noise_upgrade", True)
+    min_ratio = transcribe_config.get("noise_upgrade_min_speech_ratio", 0.3)
     if (
         not args.backend
         and noise_upgrade
@@ -714,10 +717,20 @@ def _process_one(
     ):
         from observe.transcribe.revai import has_token
 
-        if has_token():
+        ratio = vad_result.loud_speech_ratio
+        if ratio is not None and ratio < min_ratio:
             logging.info(
-                f"Noisy audio detected (RMS={vad_result.noisy_rms:.4f}), "
-                f"upgrading to Rev.ai backend"
+                "Noisy audio (RMS=%.4f) looks like non-speech (loud_speech_ratio=%.2f < %.2f), "
+                "skipping Rev.ai upgrade",
+                vad_result.noisy_rms,
+                ratio,
+                min_ratio,
+            )
+        elif has_token():
+            logging.info(
+                "Noisy audio detected (RMS=%.4f, loud_speech_ratio=%s), upgrading to Rev.ai backend",
+                vad_result.noisy_rms,
+                f"{ratio:.2f}" if ratio is not None else "n/a",
             )
             backend = "revai"
 

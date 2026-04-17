@@ -113,6 +113,40 @@ def compute_nonspeech_rms(
     return float(np.mean(rms_values)), total_duration
 
 
+def compute_loud_speech_windows(
+    audio: np.ndarray,
+    speech_segments: list[tuple[float, float]],
+    sample_rate: int,
+    window_s: float = 1.0,
+    rms_threshold: float = 0.01,
+) -> tuple[int, int]:
+    """Count loud fixed-duration windows and those that overlap speech."""
+    window_samples = int(window_s * sample_rate)
+    if len(audio) < window_samples:
+        return 0, 0
+
+    loud_windows = 0
+    speech_loud_windows = 0
+
+    for i in range(len(audio) // window_samples):
+        start_sample = i * window_samples
+        end_sample = start_sample + window_samples
+        window_audio = audio[start_sample:end_sample]
+        rms = np.sqrt(np.mean(window_audio**2))
+        if rms <= rms_threshold:
+            continue
+
+        loud_windows += 1
+        window_start = i * window_s
+        window_end = window_start + window_s
+        if any(
+            window_start < end and window_end > start for start, end in speech_segments
+        ):
+            speech_loud_windows += 1
+
+    return loud_windows, speech_loud_windows
+
+
 @dataclass
 class SpeechSegment:
     """A segment of speech with original and reduced timestamps.
@@ -203,6 +237,9 @@ class VadResult:
         speech_segments: List of (start, end) tuples for each speech segment
         noisy_rms: RMS level of non-speech regions (None if not computable)
         noisy_s: Duration of non-speech audio used for RMS calculation
+        loud_windows: Number of 1s windows whose RMS exceeds the loud threshold
+        speech_loud_windows: Number of loud windows that overlap speech segments
+        loud_speech_ratio: Ratio of speech_loud_windows to loud_windows, or None
     """
 
     duration: float
@@ -211,6 +248,8 @@ class VadResult:
     speech_segments: list[tuple[float, float]] = field(default_factory=list)
     noisy_rms: float | None = None
     noisy_s: float = 0.0
+    loud_windows: int = 0
+    speech_loud_windows: int = 0
 
     def is_noisy(self, threshold: float = 0.01) -> bool:
         """Check if background noise level exceeds threshold.
@@ -229,6 +268,13 @@ class VadResult:
         if self.duration <= 0:
             return 0.0
         return self.speech_duration / self.duration
+
+    @property
+    def loud_speech_ratio(self) -> float | None:
+        """Ratio of speech-overlapping loud windows to all loud windows."""
+        if self.loud_windows <= 0:
+            return None
+        return self.speech_loud_windows / self.loud_windows
 
 
 def run_vad(
@@ -274,13 +320,22 @@ def run_vad(
 
     # Compute RMS of non-speech regions (for noise detection)
     noisy_rms, noisy_s = compute_nonspeech_rms(audio, speech_segments, SAMPLE_RATE)
+    loud_windows, speech_loud_windows = compute_loud_speech_windows(
+        audio, speech_segments, SAMPLE_RATE
+    )
 
     vad_time = time.perf_counter() - t0
     rms_str = f", rms={noisy_rms:.4f}" if noisy_rms is not None else ""
+    ratio = speech_loud_windows / loud_windows if loud_windows > 0 else None
+    loud_str = (
+        f", loud_windows={loud_windows}, speech_loud={speech_loud_windows}, ratio={ratio:.2f}"
+        if ratio is not None
+        else ""
+    )
     logging.info(
         f"  VAD complete in {vad_time:.2f}s: "
         f"{duration:.1f}s total, {speech_duration:.1f}s speech, "
-        f"{len(speech_chunks)} chunks, has_speech={has_speech}{rms_str}"
+        f"{len(speech_chunks)} chunks, has_speech={has_speech}{rms_str}{loud_str}"
     )
 
     return VadResult(
@@ -290,6 +345,8 @@ def run_vad(
         speech_segments=speech_segments,
         noisy_rms=noisy_rms,
         noisy_s=noisy_s,
+        loud_windows=loud_windows,
+        speech_loud_windows=speech_loud_windows,
     )
 
 

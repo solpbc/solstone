@@ -240,6 +240,7 @@ The `transcribe` block configures audio transcription settings for `sol transcri
     "backend": "whisper",
     "enrich": true,
     "preserve_all": false,
+    "noise_upgrade_min_speech_ratio": 0.3,
     "whisper": {
       "device": "auto",
       "model": "medium.en",
@@ -256,6 +257,7 @@ The `transcribe` block configures audio transcription settings for `sol transcri
 - `backend` (string) – STT backend to use: `"whisper"` (local processing) or `"revai"` (cloud with speaker diarization). Default: `"whisper"`.
 - `enrich` (boolean) – Enable LLM enrichment for topic extraction and transcript correction. Default: `true`.
 - `preserve_all` (boolean) – Keep audio files even when no speech is detected. When `false`, silent recordings are deleted to save disk space. Default: `false`.
+- `noise_upgrade_min_speech_ratio` (number) – Min speech/loud ratio required for noisy upgrade (default: `0.3`). Filters out music and other non-speech noise.
 
 **Whisper backend settings** (`transcribe.whisper`):
 - `device` (string) – Device for inference: `"auto"` (detect GPU, fall back to CPU), `"cpu"`, or `"cuda"`. Default: `"auto"`.
