@@ -9,8 +9,6 @@ description: >
 
 # Journal Skill
 
-> **First rule for AI agents in a journal**: before doing anything else, run `sol call identity` to hydrate Sol's self, partner, agency, and awareness. The output of that command tells you who you are, who you're working with, and what's currently on your plate. Everything below describes the journal's *layout* — the dynamic identity context comes from the CLI.
-
 Use this skill for both journal layout questions and `sol call journal` CLI work.
 
 ## Overview
