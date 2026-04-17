@@ -227,19 +227,19 @@ def _cortex_request_with_retry(**kwargs) -> str | None:
     """Call cortex_request with retries on Callosum send failure.
 
     Retries up to len(_SEND_RETRY_DELAYS) times with short sleeps in between.
-    Returns the agent_id on success, or None if all attempts failed.
+    Returns the use_id on success, or None if all attempts failed.
     """
-    agent_id = cortex_request(**kwargs)
-    if agent_id is not None:
-        return agent_id
+    use_id = cortex_request(**kwargs)
+    if use_id is not None:
+        return use_id
 
     name = kwargs.get("name", "unknown")
     for i, delay in enumerate(_SEND_RETRY_DELAYS, 1):
         logging.warning("Retrying cortex request for '%s' (attempt %d)", name, i + 1)
         time.sleep(delay)
-        agent_id = cortex_request(**kwargs)
-        if agent_id is not None:
-            return agent_id
+        use_id = cortex_request(**kwargs)
+        if use_id is not None:
+            return use_id
 
     logging.error("All cortex request attempts failed for '%s'", name)
     return None
@@ -259,7 +259,7 @@ def _drain_priority_batch(
     emits completion events, and runs incremental indexing for generators.
 
     Args:
-        spawned: List of (agent_id, prompt_name, config, facet) tuples
+        spawned: List of (use_id, prompt_name, config, facet) tuples
         target_schedule: "segment" or "daily"
         day: Day in YYYYMMDD format
         segment: Optional segment key
@@ -273,10 +273,10 @@ def _drain_priority_batch(
     if not spawned:
         return (0, 0, [])
 
-    agent_ids = [agent_id for agent_id, _, _, _ in spawned]
-    logging.info(f"Waiting for {len(agent_ids)} agents...")
+    use_ids = [use_id for use_id, _, _, _ in spawned]
+    logging.info(f"Waiting for {len(use_ids)} agents...")
 
-    completed, timed_out = wait_for_agents(agent_ids, timeout=timeout)
+    completed, timed_out = wait_for_agents(use_ids, timeout=timeout)
 
     success = 0
     failed = 0
@@ -285,59 +285,59 @@ def _drain_priority_batch(
     if timed_out:
         logging.warning(f"{len(timed_out)} agents timed out: {timed_out}")
         failed += len(timed_out)
-        for agent_id in timed_out:
+        for use_id in timed_out:
             timed_name = next(
-                (n for aid, n, _, _ in spawned if aid == agent_id), "unknown"
+                (n for aid, n, _, _ in spawned if aid == use_id), "unknown"
             )
-            timed_facet = next((f for aid, _, _, f in spawned if aid == agent_id), None)
+            timed_facet = next((f for aid, _, _, f in spawned if aid == use_id), None)
             label = f"{timed_name}/{timed_facet}" if timed_facet else timed_name
             failed_names.append(f"{label} (timeout)")
             emit(
-                "agent_completed",
+                "talent_completed",
                 mode=target_schedule,
                 day=day,
                 segment=segment,
                 name=timed_name,
-                agent_id=agent_id,
+                use_id=use_id,
                 state="timeout",
                 **({"facet": timed_facet} if timed_facet else {}),
             )
             _jsonl_log(
-                "agent.fail",
+                "talent.fail",
                 mode=target_schedule,
                 day=day,
                 segment=segment,
                 name=timed_name,
-                agent_id=agent_id,
+                use_id=use_id,
                 state="timeout",
                 **({"facet": timed_facet} if timed_facet else {}),
             )
 
-    for agent_id, prompt_name, config, agent_facet in spawned:
-        if agent_id in timed_out:
+    for use_id, prompt_name, config, agent_facet in spawned:
+        if use_id in timed_out:
             continue
 
-        end_state = completed.get(agent_id, "unknown")
+        end_state = completed.get(use_id, "unknown")
         if end_state == "finish":
             logging.info(f"{prompt_name} completed successfully")
             success += 1
             emit(
-                "agent_completed",
+                "talent_completed",
                 mode=target_schedule,
                 day=day,
                 segment=segment,
                 name=prompt_name,
-                agent_id=agent_id,
+                use_id=use_id,
                 state="finish",
                 **({"facet": agent_facet} if agent_facet else {}),
             )
             _jsonl_log(
-                "agent.complete",
+                "talent.complete",
                 mode=target_schedule,
                 day=day,
                 segment=segment,
                 name=prompt_name,
-                agent_id=agent_id,
+                use_id=use_id,
                 state="finish",
                 **({"facet": agent_facet} if agent_facet else {}),
             )
@@ -368,22 +368,22 @@ def _drain_priority_batch(
             failed += 1
             failed_names.append(f"{label} ({end_state})")
             emit(
-                "agent_completed",
+                "talent_completed",
                 mode=target_schedule,
                 day=day,
                 segment=segment,
                 name=prompt_name,
-                agent_id=agent_id,
+                use_id=use_id,
                 state=end_state,
                 **({"facet": agent_facet} if agent_facet else {}),
             )
             _jsonl_log(
-                "agent.fail",
+                "talent.fail",
                 mode=target_schedule,
                 day=day,
                 segment=segment,
                 name=prompt_name,
-                agent_id=agent_id,
+                use_id=use_id,
                 state=end_state,
                 **({"facet": agent_facet} if agent_facet else {}),
             )
@@ -568,20 +568,20 @@ def run_segment_sense(
         return (0, 1, ["sense (send)"])
 
     emit(
-        "agent_started",
+        "talent_started",
         mode=target_schedule,
         day=day,
         segment=segment,
         name="sense",
-        agent_id=sense_agent_id,
+        use_id=sense_agent_id,
     )
     _jsonl_log(
-        "agent.dispatch",
+        "talent.dispatch",
         mode=target_schedule,
         day=day,
         segment=segment,
         name="sense",
-        agent_id=sense_agent_id,
+        use_id=sense_agent_id,
     )
     _update_status(current_agents=["sense"])
 
@@ -822,8 +822,8 @@ def run_segment_sense(
 
     spawned: list[tuple[str, str, dict, str | None]] = []
     for agent_name, config in agents_to_run:
-        agent_id = _dispatch_agent(agent_name, config)
-        if agent_id is None:
+        use_id = _dispatch_agent(agent_name, config)
+        if use_id is None:
             _log_skip(
                 agent_name,
                 "send_failed",
@@ -837,22 +837,22 @@ def run_segment_sense(
             _update_status(agents_completed=total_success + total_failed)
             continue
 
-        spawned.append((agent_id, agent_name, config, None))
+        spawned.append((use_id, agent_name, config, None))
         emit(
-            "agent_started",
+            "talent_started",
             mode=target_schedule,
             day=day,
             segment=segment,
             name=agent_name,
-            agent_id=agent_id,
+            use_id=use_id,
         )
         _jsonl_log(
-            "agent.dispatch",
+            "talent.dispatch",
             mode=target_schedule,
             day=day,
             segment=segment,
             name=agent_name,
-            agent_id=agent_id,
+            use_id=use_id,
         )
 
         if max_concurrency and len(spawned) >= max_concurrency:
@@ -971,20 +971,20 @@ def run_segment_sense(
             _update_status(agents_completed=total_success + total_failed)
         else:
             emit(
-                "agent_started",
+                "talent_started",
                 mode=target_schedule,
                 day=day,
                 segment=segment,
                 name="awareness_tender",
-                agent_id=at_agent_id,
+                use_id=at_agent_id,
             )
             _jsonl_log(
-                "agent.dispatch",
+                "talent.dispatch",
                 mode=target_schedule,
                 day=day,
                 segment=segment,
                 name="awareness_tender",
-                agent_id=at_agent_id,
+                use_id=at_agent_id,
             )
             _update_status(current_agents=["awareness_tender"])
             s, f, fn = _drain_priority_batch(
@@ -1019,20 +1019,20 @@ def run_segment_sense(
             _update_status(agents_completed=total_success + total_failed)
         else:
             emit(
-                "agent_started",
+                "talent_started",
                 mode=target_schedule,
                 day=day,
                 segment=segment,
                 name="pulse",
-                agent_id=pulse_agent_id,
+                use_id=pulse_agent_id,
             )
             _jsonl_log(
-                "agent.dispatch",
+                "talent.dispatch",
                 mode=target_schedule,
                 day=day,
                 segment=segment,
                 name="pulse",
-                agent_id=pulse_agent_id,
+                use_id=pulse_agent_id,
             )
             _update_status(current_agents=["pulse"])
             s, f, fn = _drain_priority_batch(
@@ -1187,7 +1187,7 @@ def run_daily_prompts(
 
         spawned: list[
             tuple[str, str, dict, str | None]
-        ] = []  # (agent_id, name, config, facet)
+        ] = []  # (use_id, name, config, facet)
         group_success = 0
         group_failed = 0
 
@@ -1254,12 +1254,12 @@ def run_daily_prompts(
                             else f"Processing facet '{facet_name}' for {day_formatted}: {input_summary}. Use get_facet('{facet_name}') to load context."
                         )
 
-                        agent_id = _cortex_request_with_retry(
+                        use_id = _cortex_request_with_retry(
                             prompt=prompt,
                             name=prompt_name,
                             config=request_config,
                         )
-                        if agent_id is None:
+                        if use_id is None:
                             _log_skip(
                                 prompt_name,
                                 "send_failed",
@@ -1273,25 +1273,25 @@ def run_daily_prompts(
                                 f"{prompt_name}/{facet_name} (send)"
                             )
                             continue
-                        spawned.append((agent_id, prompt_name, config, facet_name))
+                        spawned.append((use_id, prompt_name, config, facet_name))
                         emit(
-                            "agent_started",
+                            "talent_started",
                             mode=target_schedule,
                             day=day,
                             name=prompt_name,
-                            agent_id=agent_id,
+                            use_id=use_id,
                             facet=facet_name,
                         )
                         _jsonl_log(
-                            "agent.dispatch",
+                            "talent.dispatch",
                             mode=target_schedule,
                             day=day,
                             name=prompt_name,
-                            agent_id=agent_id,
+                            use_id=use_id,
                             facet=facet_name,
                         )
                         logging.info(
-                            f"Started {prompt_name} for {facet_name} (ID: {agent_id})"
+                            f"Started {prompt_name} for {facet_name} (ID: {use_id})"
                         )
 
                         # Drain batch when concurrency limit reached
@@ -1338,12 +1338,12 @@ def run_daily_prompts(
                         else f"Running scheduled task for {day_formatted}: {input_summary}."
                     )
 
-                    agent_id = _cortex_request_with_retry(
+                    use_id = _cortex_request_with_retry(
                         prompt=prompt,
                         name=prompt_name,
                         config=request_config,
                     )
-                    if agent_id is None:
+                    if use_id is None:
                         _log_skip(
                             prompt_name,
                             "send_failed",
@@ -1354,22 +1354,22 @@ def run_daily_prompts(
                         group_failed += 1
                         all_failed_names.append(f"{prompt_name} (send)")
                         continue
-                    spawned.append((agent_id, prompt_name, config, None))
+                    spawned.append((use_id, prompt_name, config, None))
                     emit(
-                        "agent_started",
+                        "talent_started",
                         mode=target_schedule,
                         day=day,
                         name=prompt_name,
-                        agent_id=agent_id,
+                        use_id=use_id,
                     )
                     _jsonl_log(
-                        "agent.dispatch",
+                        "talent.dispatch",
                         mode=target_schedule,
                         day=day,
                         name=prompt_name,
-                        agent_id=agent_id,
+                        use_id=use_id,
                     )
-                    logging.info(f"Started {prompt_name} (ID: {agent_id})")
+                    logging.info(f"Started {prompt_name} (ID: {use_id})")
 
                     # Drain batch when concurrency limit reached
                     if max_concurrency and len(spawned) >= max_concurrency:
@@ -1543,7 +1543,7 @@ def run_weekly_prompts(
 
         spawned: list[
             tuple[str, str, dict, str | None]
-        ] = []  # (agent_id, name, config, facet)
+        ] = []  # (use_id, name, config, facet)
         group_success = 0
         group_failed = 0
 
@@ -1610,12 +1610,12 @@ def run_weekly_prompts(
                             else f"Processing facet '{facet_name}' for {day_formatted}: {input_summary}. Use get_facet('{facet_name}') to load context."
                         )
 
-                        agent_id = _cortex_request_with_retry(
+                        use_id = _cortex_request_with_retry(
                             prompt=prompt,
                             name=prompt_name,
                             config=request_config,
                         )
-                        if agent_id is None:
+                        if use_id is None:
                             _log_skip(
                                 prompt_name,
                                 "send_failed",
@@ -1629,25 +1629,25 @@ def run_weekly_prompts(
                                 f"{prompt_name}/{facet_name} (send)"
                             )
                             continue
-                        spawned.append((agent_id, prompt_name, config, facet_name))
+                        spawned.append((use_id, prompt_name, config, facet_name))
                         emit(
-                            "agent_started",
+                            "talent_started",
                             mode=target_schedule,
                             day=day,
                             name=prompt_name,
-                            agent_id=agent_id,
+                            use_id=use_id,
                             facet=facet_name,
                         )
                         _jsonl_log(
-                            "agent.dispatch",
+                            "talent.dispatch",
                             mode=target_schedule,
                             day=day,
                             name=prompt_name,
-                            agent_id=agent_id,
+                            use_id=use_id,
                             facet=facet_name,
                         )
                         logging.info(
-                            f"Started {prompt_name} for {facet_name} (ID: {agent_id})"
+                            f"Started {prompt_name} for {facet_name} (ID: {use_id})"
                         )
 
                         # Drain batch when concurrency limit reached
@@ -1694,12 +1694,12 @@ def run_weekly_prompts(
                         else f"Running scheduled task for {day_formatted}: {input_summary}."
                     )
 
-                    agent_id = _cortex_request_with_retry(
+                    use_id = _cortex_request_with_retry(
                         prompt=prompt,
                         name=prompt_name,
                         config=request_config,
                     )
-                    if agent_id is None:
+                    if use_id is None:
                         _log_skip(
                             prompt_name,
                             "send_failed",
@@ -1710,22 +1710,22 @@ def run_weekly_prompts(
                         group_failed += 1
                         all_failed_names.append(f"{prompt_name} (send)")
                         continue
-                    spawned.append((agent_id, prompt_name, config, None))
+                    spawned.append((use_id, prompt_name, config, None))
                     emit(
-                        "agent_started",
+                        "talent_started",
                         mode=target_schedule,
                         day=day,
                         name=prompt_name,
-                        agent_id=agent_id,
+                        use_id=use_id,
                     )
                     _jsonl_log(
-                        "agent.dispatch",
+                        "talent.dispatch",
                         mode=target_schedule,
                         day=day,
                         name=prompt_name,
-                        agent_id=agent_id,
+                        use_id=use_id,
                     )
-                    logging.info(f"Started {prompt_name} (ID: {agent_id})")
+                    logging.info(f"Started {prompt_name} (ID: {use_id})")
 
                     # Drain batch when concurrency limit reached
                     if max_concurrency and len(spawned) >= max_concurrency:
@@ -1942,7 +1942,7 @@ def run_activity_prompts(
             count=len(prompts_list),
         )
 
-        spawned: list[tuple[str, str, dict]] = []  # (agent_id, name, config)
+        spawned: list[tuple[str, str, dict]] = []  # (use_id, name, config)
         group_success = 0
         group_failed = 0
 
@@ -1952,44 +1952,44 @@ def run_activity_prompts(
             if not spawned:
                 return
 
-            agent_ids = [aid for aid, _, _ in spawned]
-            logging.info(f"Waiting for {len(agent_ids)} agents...")
+            use_ids = [aid for aid, _, _ in spawned]
+            logging.info(f"Waiting for {len(use_ids)} agents...")
 
-            completed, timed_out = wait_for_agents(agent_ids, timeout=610)
+            completed, timed_out = wait_for_agents(use_ids, timeout=610)
 
             if timed_out:
                 logging.warning(f"{len(timed_out)} agents timed out")
                 group_failed += len(timed_out)
-                for agent_id in timed_out:
+                for use_id in timed_out:
                     timed_name = next(
-                        (n for aid, n, _ in spawned if aid == agent_id), "unknown"
+                        (n for aid, n, _ in spawned if aid == use_id), "unknown"
                     )
                     emit(
-                        "agent_completed",
+                        "talent_completed",
                         mode="activity",
                         day=day,
                         activity=activity_id,
                         facet=facet,
                         name=timed_name,
-                        agent_id=agent_id,
+                        use_id=use_id,
                         state="timeout",
                     )
                     _jsonl_log(
-                        "agent.fail",
+                        "talent.fail",
                         mode="activity",
                         day=day,
                         activity=activity_id,
                         facet=facet,
                         name=timed_name,
-                        agent_id=agent_id,
+                        use_id=use_id,
                         state="timeout",
                     )
 
-            for agent_id, prompt_name, config in spawned:
-                if agent_id in timed_out:
+            for use_id, prompt_name, config in spawned:
+                if use_id in timed_out:
                     continue
 
-                end_state = completed.get(agent_id, "unknown")
+                end_state = completed.get(use_id, "unknown")
                 if end_state == "finish":
                     logging.info(f"{prompt_name} completed successfully")
                     group_success += 1
@@ -2017,23 +2017,23 @@ def run_activity_prompts(
                     group_failed += 1
 
                 emit(
-                    "agent_completed",
+                    "talent_completed",
                     mode="activity",
                     day=day,
                     activity=activity_id,
                     facet=facet,
                     name=prompt_name,
-                    agent_id=agent_id,
+                    use_id=use_id,
                     state=end_state,
                 )
                 _jsonl_log(
-                    "agent.complete" if end_state == "finish" else "agent.fail",
+                    "talent.complete" if end_state == "finish" else "talent.fail",
                     mode="activity",
                     day=day,
                     activity=activity_id,
                     facet=facet,
                     name=prompt_name,
-                    agent_id=agent_id,
+                    use_id=use_id,
                     state=end_state,
                 )
 
@@ -2078,12 +2078,12 @@ def run_activity_prompts(
                     else f"Processing activity '{activity_id}' ({activity_type}) in facet '{facet}' for {day_formatted}."
                 )
 
-                agent_id = _cortex_request_with_retry(
+                use_id = _cortex_request_with_retry(
                     prompt=prompt,
                     name=prompt_name,
                     config=request_config,
                 )
-                if agent_id is None:
+                if use_id is None:
                     _log_skip(
                         prompt_name,
                         "send_failed",
@@ -2095,26 +2095,26 @@ def run_activity_prompts(
                     )
                     total_failed += 1
                     continue
-                spawned.append((agent_id, prompt_name, config))
+                spawned.append((use_id, prompt_name, config))
                 emit(
-                    "agent_started",
+                    "talent_started",
                     mode="activity",
                     day=day,
                     activity=activity_id,
                     facet=facet,
                     name=prompt_name,
-                    agent_id=agent_id,
+                    use_id=use_id,
                 )
                 _jsonl_log(
-                    "agent.dispatch",
+                    "talent.dispatch",
                     mode="activity",
                     day=day,
                     activity=activity_id,
                     facet=facet,
                     name=prompt_name,
-                    agent_id=agent_id,
+                    use_id=use_id,
                 )
-                logging.info(f"Started {prompt_name} (ID: {agent_id})")
+                logging.info(f"Started {prompt_name} (ID: {use_id})")
 
                 # Drain batch when concurrency limit reached
                 if max_concurrency and len(spawned) >= max_concurrency:
@@ -2234,7 +2234,7 @@ def run_flush_prompts(
     total_success = 0
     total_failed = 0
 
-    spawned: list[tuple[str, str, dict]] = []  # (agent_id, name, config)
+    spawned: list[tuple[str, str, dict]] = []  # (use_id, name, config)
     _update_status(
         mode="flush",
         day=day,
@@ -2268,12 +2268,12 @@ def run_flush_prompts(
             if is_generate:
                 request_config["output"] = config.get("output", "md")
 
-            agent_id = _cortex_request_with_retry(
+            use_id = _cortex_request_with_retry(
                 prompt="",
                 name=prompt_name,
                 config=request_config,
             )
-            if agent_id is None:
+            if use_id is None:
                 _log_skip(
                     prompt_name,
                     "send_failed",
@@ -2284,24 +2284,24 @@ def run_flush_prompts(
                 )
                 total_failed += 1
                 continue
-            spawned.append((agent_id, prompt_name, config))
+            spawned.append((use_id, prompt_name, config))
             emit(
-                "agent_started",
+                "talent_started",
                 mode="flush",
                 day=day,
                 segment=segment,
                 name=prompt_name,
-                agent_id=agent_id,
+                use_id=use_id,
             )
             _jsonl_log(
-                "agent.dispatch",
+                "talent.dispatch",
                 mode="flush",
                 day=day,
                 segment=segment,
                 name=prompt_name,
-                agent_id=agent_id,
+                use_id=use_id,
             )
-            logging.info(f"Started flush agent {prompt_name} (ID: {agent_id})")
+            logging.info(f"Started flush agent {prompt_name} (ID: {use_id})")
 
         except Exception as e:
             logging.error(f"Failed to spawn flush agent {prompt_name}: {e}")
@@ -2309,30 +2309,30 @@ def run_flush_prompts(
 
     if spawned:
         _update_status(current_agents=[name for _, name, _ in spawned])
-        agent_ids = [aid for aid, _, _ in spawned]
-        completed, timed_out = wait_for_agents(agent_ids, timeout=610)
+        use_ids = [aid for aid, _, _ in spawned]
+        completed, timed_out = wait_for_agents(use_ids, timeout=610)
 
         if timed_out:
             logging.warning(f"Flush: {len(timed_out)} agents timed out")
             total_failed += len(timed_out)
-            for agent_id in timed_out:
+            for use_id in timed_out:
                 timed_name = next(
-                    (n for aid, n, _ in spawned if aid == agent_id), "unknown"
+                    (n for aid, n, _ in spawned if aid == use_id), "unknown"
                 )
                 _jsonl_log(
-                    "agent.fail",
+                    "talent.fail",
                     mode="flush",
                     day=day,
                     segment=segment,
                     name=timed_name,
-                    agent_id=agent_id,
+                    use_id=use_id,
                     state="timeout",
                 )
 
-        for agent_id, prompt_name, config in spawned:
-            if agent_id in timed_out:
+        for use_id, prompt_name, config in spawned:
+            if use_id in timed_out:
                 continue
-            end_state = completed.get(agent_id, "unknown")
+            end_state = completed.get(use_id, "unknown")
             if end_state == "finish":
                 logging.info(f"Flush agent {prompt_name} completed")
                 total_success += 1
@@ -2343,21 +2343,21 @@ def run_flush_prompts(
                 total_failed += 1
 
             emit(
-                "agent_completed",
+                "talent_completed",
                 mode="flush",
                 day=day,
                 segment=segment,
                 name=prompt_name,
-                agent_id=agent_id,
+                use_id=use_id,
                 state=end_state,
             )
             _jsonl_log(
-                "agent.complete" if end_state == "finish" else "agent.fail",
+                "talent.complete" if end_state == "finish" else "talent.fail",
                 mode="flush",
                 day=day,
                 segment=segment,
                 name=prompt_name,
-                agent_id=agent_id,
+                use_id=use_id,
                 state=end_state,
             )
         _update_status(

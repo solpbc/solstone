@@ -60,7 +60,7 @@ def _seed_journal(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
     for rel_path in [
         "chronicle/20260415/stats.json",
-        "chronicle/20260415/agents/knowledge_graph.md",
+        "chronicle/20260415/talents/knowledge_graph.md",
         "chronicle/20260415/health/100_daily_dream.jsonl",
         "chronicle/20260414/stats.json",
     ]:
@@ -139,21 +139,21 @@ def _seed_entities(journal: Path, day: str = "20260415") -> None:
             VALUES (?, ?, NULL, NULL, NULL, ?, ?, NULL, NULL, ?)
             """,
             [
-                ("mention", "jane_doe", day, "work", f"{day}/agents/flow.md"),
-                ("mention", "alice_johnson", day, "work", f"{day}/agents/flow.md"),
+                ("mention", "jane_doe", day, "work", f"{day}/talents/flow.md"),
+                ("mention", "alice_johnson", day, "work", f"{day}/talents/flow.md"),
                 (
                     "mention",
                     "product_roadmap",
                     day,
                     "work",
-                    f"{day}/agents/knowledge_graph.md",
+                    f"{day}/talents/knowledge_graph.md",
                 ),
                 (
                     "mention",
                     "launch_decision",
                     day,
                     "work",
-                    f"{day}/agents/knowledge_graph.md",
+                    f"{day}/talents/knowledge_graph.md",
                 ),
             ],
         )
@@ -378,7 +378,7 @@ def test_knowledge_graph_refresh_detection_yesterday_and_overnight(
     tmp_path, monkeypatch
 ):
     journal = _seed_journal(tmp_path, monkeypatch)
-    path = journal / "chronicle" / "20260415" / "agents" / "knowledge_graph.md"
+    path = journal / "chronicle" / "20260415" / "talents" / "knowledge_graph.md"
 
     _set_mtime(path, datetime(2026, 4, 15, 12, 0, 0))
     assert _knowledge_graph_freshness("20260415")["fresh"] is True
@@ -431,6 +431,27 @@ def test_newsletter_attempts_option_a_matches_facet_newsletter_failures_only(
     _append_dream_log(journal, "20260415", "facet_newsletter", facet="work")
     _append_dream_log(journal, "20260415", "knowledge_graph", facet="work")
     _append_dream_log(journal, "20260415", "facet_newsletter")
+
+    assert _newsletter_attempts_from_dream_logs("20260415") == (2, 3)
+
+
+def test_newsletter_attempts_accepts_talent_failures(tmp_path, monkeypatch):
+    journal = _seed_journal(tmp_path, monkeypatch)
+    path = journal / "chronicle" / "20260415" / "health" / "101_daily_dream.jsonl"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(
+            json.dumps(
+                {
+                    "event": "talent.fail",
+                    "mode": "daily",
+                    "name": "facet_newsletter",
+                    "state": "error",
+                    "facet": "work",
+                }
+            )
+            + "\n"
+        )
 
     assert _newsletter_attempts_from_dream_logs("20260415") == (2, 3)
 

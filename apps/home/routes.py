@@ -97,7 +97,7 @@ def _load_flow_md(today: str) -> tuple[str | None, float | None]:
     """Load today's flow.md content and mtime. Returns (content, mtime) or (None, None)."""
     try:
         journal = Path(get_journal())
-        flow_path = journal / today / "agents" / "flow.md"
+        flow_path = journal / today / "talents" / "flow.md"
         if flow_path.exists():
             return flow_path.read_text(), flow_path.stat().st_mtime
     except Exception:
@@ -508,7 +508,7 @@ def _top_heatmap_hours(stats_data: dict[str, Any]) -> list[int]:
 
 def _knowledge_graph_freshness(yesterday: str) -> dict[str, Any]:
     path = (
-        Path(get_journal()) / "chronicle" / yesterday / "agents" / "knowledge_graph.md"
+        Path(get_journal()) / "chronicle" / yesterday / "talents" / "knowledge_graph.md"
     )
     if not path.exists():
         return {"exists": False, "fresh": False, "updated_label": None}
@@ -584,8 +584,10 @@ def _newsletter_attempts_from_dream_logs(yesterday: str) -> tuple[int, int]:
                             record = json.loads(line)
                         except json.JSONDecodeError:
                             continue
+                        # HISTORICAL SHIM: accept legacy "agent.*" event names from chronicles
+                        # written before the 2026-04-17 agents -> talents rename.
                         if (
-                            record.get("event") == "agent.fail"
+                            record.get("event") in {"agent.fail", "talent.fail"}
                             and record.get("facet")
                             and record.get("name") == "facet_newsletter"
                         ):

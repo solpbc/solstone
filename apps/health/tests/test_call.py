@@ -57,7 +57,7 @@ def test_mutual_exclusion_error(health_env):
 def test_pipeline_with_real_fixture(health_env):
     env = health_env()
     day = "20260101"
-    health_path = env.journal / day / "health" / "123_segment_dream.jsonl"
+    health_path = env.journal / "chronicle" / day / "health" / "123_segment_dream.jsonl"
     health_path.parent.mkdir(parents=True, exist_ok=True)
     health_path.write_text(
         "\n".join(
@@ -79,4 +79,32 @@ def test_pipeline_with_real_fixture(health_env):
     assert result.exit_code == 0
     payload = json.loads(result.stdout)
     assert payload["runs"]["segment"]["count"] == 1
-    assert payload["agents"]["dispatched"] >= 1
+    assert payload["talents"]["dispatched"] >= 1
+
+
+def test_pipeline_with_talent_events_fixture(health_env):
+    env = health_env()
+    day = "20260102"
+    health_path = env.journal / "chronicle" / day / "health" / "123_segment_dream.jsonl"
+    health_path.parent.mkdir(parents=True, exist_ok=True)
+    health_path.write_text(
+        "\n".join(
+            [
+                json.dumps({"event": "run.start", "mode": "segment"}),
+                json.dumps({"event": "talent.dispatch", "mode": "segment"}),
+                json.dumps({"event": "talent.complete", "mode": "segment"}),
+                json.dumps(
+                    {"event": "run.complete", "mode": "segment", "duration_ms": 42}
+                ),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(app, ["--day", day])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["runs"]["segment"]["count"] == 1
+    assert payload["talents"]["dispatched"] >= 1
