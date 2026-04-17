@@ -61,7 +61,6 @@ USER_BIN := $(HOME)/.local/bin
 		echo ""; \
 		echo "Done! (worktree detected, skipping ~/.local/bin/sol symlink)"; \
 	fi
-	@$(MAKE) --no-print-directory skills
 	@if [ -d .git ] && [ -f skills/solstone/SKILL.md ]; then \
 		echo "Installing solstone skill user-wide..."; \
 		npx skills add ./skills/solstone -g -a claude-code -y; \
@@ -73,13 +72,14 @@ uv.lock: pyproject.toml
 	$(UV) lock
 
 # Install package in editable mode with isolated venv
-install: .installed
+install: skills .installed
 
 # Directories where AI coding agents look for skills
-SKILL_DIRS := .agents/skills .claude/skills
+SKILL_DIRS := journal/.agents/skills journal/.claude/skills
 
 # Discover SKILL.md files in talent/ and apps/*/talent/, symlink into agent skill dirs
 skills:
+	@rm -rf .agents/skills .claude/skills
 	@# Collect all skill directories (containing SKILL.md)
 	@SKILLS=""; \
 	for skill_md in talent/*/SKILL.md apps/*/talent/*/SKILL.md; do \
@@ -96,7 +96,11 @@ skills:
 	for dir in $(SKILL_DIRS); do \
 		mkdir -p "$$dir"; \
 		for link in "$$dir"/*; do \
-			[ -L "$$link" ] && rm -f "$$link"; \
+			([ -e "$$link" ] || [ -L "$$link" ]) || continue; \
+			skill_name=$$(basename "$$link"); \
+			if ! echo "$$SKILLS" | grep -qw "$$skill_name"; then \
+				rm -rf "$$link"; \
+			fi; \
 		done; \
 	done; \
 	count=0; \
@@ -105,7 +109,14 @@ skills:
 		skill_dir=$$(dirname "$$skill_md"); \
 		skill_name=$$(basename "$$skill_dir"); \
 		for dir in $(SKILL_DIRS); do \
-			ln -sf "../../$$skill_dir" "$$dir/$$skill_name"; \
+			target="../../../$$skill_dir"; \
+			link="$$dir/$$skill_name"; \
+			if [ -L "$$link" ] && [ "$$(readlink "$$link")" = "$$target" ]; then \
+				:; \
+			else \
+				rm -rf "$$link"; \
+				ln -s "$$target" "$$link"; \
+			fi; \
 		done; \
 		count=$$((count + 1)); \
 	done; \
@@ -369,7 +380,7 @@ clean:
 	@echo "Cleaning build artifacts and cache files..."
 	rm -rf build/ dist/ *.egg-info/
 	rm -rf .pytest_cache/ .coverage .mypy_cache/
-	rm -rf .agents/ .claude/
+	rm -rf journal/.agents/ journal/.claude/
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 	find . -type f -name "*.pyc" -delete
 	find . -type f -name "*.pyo" -delete
