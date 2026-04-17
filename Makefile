@@ -1,7 +1,7 @@
 # solstone Makefile
 # Python-based AI-driven desktop journaling toolkit
 
-.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format format-check ci clean clean-install coverage watch versions update update-prices pre-commit skills dev all sail sandbox sandbox-stop install-pinchtab verify-browser update-browser-baselines review verify-api update-api-baselines install-service uninstall-service
+.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format format-check ci clean clean-install coverage watch versions update update-prices pre-commit skills dev all sail upgrade sandbox sandbox-stop install-pinchtab verify-browser update-browser-baselines review verify-api update-api-baselines install-service uninstall-service service-logs
 
 # Default target - install package in editable mode
 all: install
@@ -114,6 +114,10 @@ dev: .installed
 
 # Restart solstone service (noop in dev mode)
 sail: .installed
+	$(VENV_BIN)/sol service restart --if-installed
+
+# Restart service after passing the full CI suite
+upgrade: ci
 	$(VENV_BIN)/sol service restart --if-installed
 
 # Start sandbox stack: fixture copy + background supervisor + readiness wait
@@ -372,6 +376,10 @@ install-service: .installed
 	$(VENV_BIN)/sol service install --port $(or $(PORT),5015)
 	$(VENV_BIN)/sol service start
 	$(VENV_BIN)/sol service status
+
+# Follow installed service logs
+service-logs:
+	$(VENV_BIN)/sol service logs -f
 
 uninstall-service:
 	-$(VENV_BIN)/sol service uninstall

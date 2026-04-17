@@ -91,6 +91,14 @@ git clone https://github.com/solpbc/solstone-macos.git
 ```
 then read `solstone-macos/INSTALL.md` and follow it.
 
+## updating after a code change
+
+```bash
+git pull && make upgrade
+```
+
+`make upgrade` runs the full CI suite first and aborts if anything fails, leaving the running service untouched.
+
 ## done
 
 once the observer is running, solstone captures screen and audio continuously, transcribes conversations, extracts people and projects, builds a knowledge graph, and makes everything searchable at http://localhost:5015. all data stays in `journal/` directories — one per day.
