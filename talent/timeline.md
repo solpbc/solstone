@@ -35,13 +35,13 @@ For each time block, capture notes such as:
 - **Primary Activity**: What was being actively worked on
 - **Tools & Applications**: All software/websites being used
 - **Files & Documents**: Specific files opened, edited, or referenced
-- **People**: Anyone interacted with via meeting, chat, or email
+- **Collaborator Context**: Mention collaborators in prose only when materially relevant to the activity; do not emit standalone lists of names
 - **Content Details**: Topics discussed, code written, problems solved
 - **Parallel Activities**: Background meetings, music, notifications
 - **Physical Context**: Any mentions of location, movement, breaks
 
 ### Level of Detail
-- Include specific project names, file names, and people's names
+- Include specific project names and file names; mention collaborators in prose only when materially relevant, never as standalone name lists
 - Describe the work or activity (what code was written, what was discussed)
 - Note transitions between activities, even small ones
 - Capture the substance of meetings and conversations
@@ -76,7 +76,7 @@ Output a nicely formatted markdown document with per-hour sections and sub-secti
 
 5. **Rich Context**
    - Include enough detail that someone could understand what was accomplished
-   - Note tools, files, people, and resources involved
+   - Note tools, files, collaborators, and resources involved in prose when materially relevant; do not emit standalone lists of names
    - Capture the substance of work, not just categories
 
 Remember: The goal is to create a detailed historical record of the day that captures not just what activities occurred, but the rich detail of how the work actually unfolded. This timeline should serve as a comprehensive reference that could help reconstruct any part of the day's work.

@@ -83,6 +83,19 @@ def post_process(result: str, context: dict) -> str | None:
         logging.error("Extraction did not return array")
         return None
 
+    filtered_events = []
+    for event in events:
+        if event.get("type") == "meeting" and len(event.get("participants", [])) > 25:
+            logging.warning(
+                "Dropping megameeting occurrence: title=%r agent=%s participants=%d",
+                event.get("title", ""),
+                name,
+                len(event.get("participants", [])),
+            )
+            continue
+        filtered_events.append(event)
+    events = filtered_events
+
     # Write to facet JSONL files
     source_output = compute_output_source(context)
     output_name = get_output_name(name)

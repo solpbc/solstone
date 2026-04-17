@@ -12,6 +12,8 @@ import logging
 import os
 from pathlib import Path
 
+from think.facets import get_facets
+
 # Minimum content length for meaningful event extraction
 MIN_EXTRACTION_CHARS = 50
 
@@ -122,14 +124,22 @@ def write_events_jsonl(
     from think.utils import get_journal
 
     journal = get_journal()
+    known_facets = set(get_facets().keys())
 
     # Group events by (facet, event_day)
     grouped: dict[tuple[str, str], list[dict]] = {}
 
     for event in events:
-        facet = event.get("facet", "")
-        if not facet:
-            continue  # Skip events without facet
+        raw_facet = event.get("facet", "")
+        facet = raw_facet.strip().lower()
+        if facet not in known_facets or raw_facet != facet:
+            logging.warning(
+                "Skipping event with unknown facet: facet=%r agent=%s source=%s",
+                raw_facet,
+                agent,
+                source_output,
+            )
+            continue
 
         # Determine the event day
         if occurred:

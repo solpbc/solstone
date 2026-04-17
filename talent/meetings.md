@@ -32,10 +32,10 @@ Use the Activity Context and Activity State Per Segment sections above to unders
 Prioritize the audio transcript as the primary source of truth:
 
 1. **Participants**
-   - Analyze the audio transcript for names of individuals speaking or referred to by name.
-   - Use screen activity to supplement: meeting software participant lists, chat names, etc.
-   - Consolidate names that overlap due to transcription errors.
-   - Include $name as a default participant.
+   - Use the meeting software participant panel (Zoom/Meet/Teams UI participant list) as the primary source of truth.
+   - If no reliable participant panel is visible, fall back to people who are visibly presenting or audibly speaking in the meeting.
+   - Exclude organizations, companies, products, projects, tools, topics, podcast guests, and people only mentioned in conversation but not present.
+   - Consolidate transcription variants of the same person and include $name as the default participant when unknown.
 
 2. **Topics Discussed**
    - Synthesize the conversation into a concise summary of key subjects.

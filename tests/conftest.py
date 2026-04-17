@@ -10,6 +10,10 @@ from unittest.mock import Mock
 import numpy as np
 import pytest
 
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 from tests._baseline_harness import copytree_tracked
 from think.entities.journal import clear_journal_entity_cache
 from think.entities.loading import clear_entity_loading_cache
