@@ -14,6 +14,7 @@ Mounted by ``think.call`` as ``sol call identity ...``.
 """
 
 import sys
+from pathlib import Path
 
 import typer
 
@@ -24,16 +25,35 @@ from think.awareness import (
     update_self_md_section,
 )
 from think.entities.core import atomic_write
-from think.utils import day_dirs, day_path, require_solstone
+from think.utils import day_dirs, day_path, get_journal, require_solstone
 
 app = typer.Typer(
-    help="Sol identity directory — self.md, partner.md, agency.md, pulse.md, awareness.md, and morning briefing."
+    help="Sol identity directory — self.md, partner.md, agency.md, pulse.md, awareness.md, and morning briefing.",
+    invoke_without_command=True,
+    no_args_is_help=False,
 )
 
 
-@app.callback()
-def _require_up() -> None:
+def _hydrate() -> str:
+    """Return the combined identity hydration document."""
+    sol_dir = Path(get_journal()) / "sol"
+    chunks = []
+    for stem in ("self", "partner", "agency", "awareness"):
+        path = sol_dir / f"{stem}.md"
+        content = (
+            path.read_text(encoding="utf-8").strip()
+            if path.exists()
+            else "(not present)"
+        )
+        chunks.append(f"# {stem}\n\n{content}\n")
+    return "\n".join(chunks)
+
+
+@app.callback(invoke_without_command=True)
+def _require_up(ctx: typer.Context) -> None:
     require_solstone()
+    if ctx.invoked_subcommand is None:
+        print(_hydrate(), end="")
 
 
 def _sol_dir():
