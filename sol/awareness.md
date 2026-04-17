@@ -1,21 +1,19 @@
-as of: 2026-04-16T15:00:00Z
-segment: segment-12345
-
-## capture
-- status: active
-- streams: ["audio", "screen", "cli"]
+as of: 2026-04-16T12:00:00
+segment: UNKNOWN
 
 ## calendar
-- Meeting with Team Lead at 10:00 AM
+- No events scheduled for today.
 
 ## activity
-- Idle
+- Imports: Last completed 2026-04-16T00:11:26.
+- Voiceprint: Confirmed status.
+- Journal: First daily ready since 2026-04-06.
 
 ## routines
-- Daily Review: Completed
+- No routines configured.
 
 ## entities
-- Jer: Recent Interaction
+- Recent entity activity search failed.
 
 ## partner
-- Last interaction: Today
+- Jer is focused on decentralized protocols, agentic systems, and data curation.
