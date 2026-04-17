@@ -76,7 +76,7 @@ make install
 # Configure API keys and password in journal.json
 # See docs/INSTALL.md for setup instructions
 
-# Install as a background service (starts on login, port 5015)
+# Install the CLI on PATH and start the background service (port 5015)
 make install-service
 
 # Or start manually for development

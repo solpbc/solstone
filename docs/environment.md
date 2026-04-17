@@ -6,7 +6,7 @@ The journal lives at `journal/` in the project root. `get_journal()` from `think
 
 ## Service Installation
 
-`make install-service` installs solstone as a systemd user service (Linux) or launchd agent (macOS) with convey on port 5015. Override with `make install-service PORT=8000`. Managed via `sol service <install|start|stop|restart|status|logs>`.
+`make install-service` installs the `sol` CLI alias in `~/.local/bin`, then installs solstone as a systemd user service (Linux) or launchd agent (macOS) with convey on port 5015. Override with `make install-service PORT=8000`. Managed via `sol service <install|start|stop|restart|status|logs>`.
 
 ## API Keys
 

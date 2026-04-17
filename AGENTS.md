@@ -30,7 +30,7 @@ This is the developer-facing documentation for the solstone codebase. If you're 
 ## Quick Commands
 
 ```bash
-make install   # Install package (includes all deps)
+make install   # Set up the repo-local dev environment and dependencies
 make skills    # Discover and symlink Anthropic Skills from talent/ dirs
 make format    # Auto-fix formatting, then report remaining issues
 make test      # Run unit tests

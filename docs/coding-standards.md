@@ -48,5 +48,5 @@ Use `//` comments for JavaScript files.
 - **Minimize Dependencies**: Use standard library when possible
 - **All Dependencies**: Add to `dependencies` in `pyproject.toml`
 - **Package Manager**: [uv](https://docs.astral.sh/uv/) — lock file (`uv.lock`) is committed, `make install` syncs from it
-- **Installation**: `make install` (creates isolated `.venv/`, syncs deps from lock file, symlinks `sol` to `~/.local/bin`)
+- **Installation**: `make install` (creates isolated `.venv/` and syncs deps from the lock file for repo-local development)
 - **Updating**: `make update` upgrades all deps to latest and regenerates the lock file

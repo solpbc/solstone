@@ -49,12 +49,18 @@ cd solstone
 make install
 ```
 
-This creates an isolated virtual environment in `.venv/` and symlinks the `sol` command to `~/.local/bin/sol`. Your system Python remains untouched.
+This creates an isolated virtual environment in `.venv/` for local development. Your system Python remains untouched, and no user-level CLI alias or service is installed yet.
 
-To uninstall:
+To remove installed user/system artifacts:
 
 ```bash
-make uninstall
+make uninstall-service
+```
+
+To reset the repo-local development environment:
+
+```bash
+make clean-install
 ```
 
 2. Your journal lives at `journal/` inside the solstone directory. It's created automatically on first run.
@@ -130,7 +136,7 @@ The recommended way to run solstone is as a system service that starts automatic
 make install-service
 ```
 
-This installs, enables, and starts a systemd user service (Linux) or launchd agent (macOS) with convey on port 5015. To use a custom port:
+This creates or refreshes the `~/.local/bin/sol` alias, installs the global `solstone` skill for claude-code, and installs, enables, and starts a systemd user service (Linux) or launchd agent (macOS) with convey on port 5015. Re-running it upgrades an existing install instead of conflicting. To use a custom port:
 
 ```bash
 make install-service PORT=8000

@@ -49,9 +49,9 @@ brew install git uv
 make install
 ```
 
-sets up the python environment, installs all dependencies, and symlinks `sol` to `~/.local/bin/sol`.
+sets up the repo-local python environment and installs all dependencies for development. it does not add `sol` to your PATH or install any user/system services.
 
-if `sol` isn't in PATH after install, use `.venv/bin/sol` — the human can add `~/.local/bin` to their shell profile later.
+for repo-local use after this step, run `.venv/bin/sol`.
 
 ## start solstone
 
@@ -59,7 +59,7 @@ if `sol` isn't in PATH after install, use `.venv/bin/sol` — the human can add 
 make install-service
 ```
 
-starts a background service (systemd on linux, launchd on macOS) with the web interface on port 5015.
+creates or refreshes the `~/.local/bin/sol` alias, installs the `solstone` skill for claude-code, and starts a background service (systemd on linux, launchd on macOS) with the web interface on port 5015. re-running it performs the upgrade path safely instead of conflicting with an existing install.
 
 let your human know: **open http://localhost:5015 in a browser.** the first-run setup wizard walks them through choosing a password, setting their identity, and connecting a Gemini API key. once they've completed it, solstone is configured and ready.
 
@@ -94,10 +94,10 @@ then read `solstone-macos/INSTALL.md` and follow it.
 ## updating after a code change
 
 ```bash
-git pull && make upgrade
+git pull && make install-service
 ```
 
-`make upgrade` runs the full CI suite first and aborts if anything fails, leaving the running service untouched.
+re-running `make install-service` handles both fresh installs and upgrades. on upgrade it runs the full CI suite first and aborts if anything fails, leaving the installed service untouched.
 
 ## done
 

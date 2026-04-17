@@ -7,7 +7,7 @@
 # all runs to one path and pytest wipes it on startup, destroying concurrent state.
 export TMPDIR := /var/tmp
 
-.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format format-check ci clean clean-install coverage watch versions update update-prices pre-commit skills dev all sail upgrade sandbox sandbox-stop install-pinchtab verify-browser update-browser-baselines review verify-api update-api-baselines install-service uninstall-service service-logs gate-agents-rename
+.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format format-check ci clean clean-install coverage watch versions update update-prices pre-commit skills dev all sail sandbox sandbox-stop install-pinchtab verify-browser update-browser-baselines review verify-api update-api-baselines install-service uninstall-service service-logs gate-agents-rename
 
 # Default target - install package in editable mode
 all: install
@@ -44,27 +44,7 @@ USER_BIN := $(HOME)/.local/bin
 	fi
 	@echo "Installing Playwright browser for sol screenshot..."
 	$(VENV_BIN)/playwright install chromium
-	@if [ -d .git ]; then \
-		mkdir -p $(USER_BIN); \
-		ln -sf $(CURDIR)/$(VENV_BIN)/sol $(USER_BIN)/sol; \
-		echo ""; \
-		echo "Done! 'sol' command installed to $(USER_BIN)/sol"; \
-		if ! echo "$$PATH" | grep -q "$(USER_BIN)"; then \
-			echo ""; \
-			echo "NOTE: $(USER_BIN) is not in your PATH."; \
-			echo "Add this to your shell profile (~/.bashrc, ~/.zshrc, etc.):"; \
-			echo "  export PATH=\"\$$HOME/.local/bin:\$$PATH\""; \
-			echo ""; \
-			echo "Or run sol directly: $(CURDIR)/$(VENV_BIN)/sol"; \
-		fi; \
-	else \
-		echo ""; \
-		echo "Done! (worktree detected, skipping ~/.local/bin/sol symlink)"; \
-	fi
-	@if [ -d .git ] && [ -f skills/solstone/SKILL.md ]; then \
-		echo "Installing solstone skill user-wide..."; \
-		npx skills add ./skills/solstone -g -a claude-code -y; \
-	fi
+	@$(MAKE) --no-print-directory skills
 	@touch .installed
 
 # Generate lock file if missing
@@ -130,10 +110,6 @@ dev: .installed
 
 # Restart solstone service (noop in dev mode)
 sail: .installed
-	$(VENV_BIN)/sol service restart --if-installed
-
-# Restart service after passing the full CI suite
-upgrade: ci
 	$(VENV_BIN)/sol service restart --if-installed
 
 # Start sandbox stack: fixture copy + background supervisor + readiness wait
@@ -389,8 +365,54 @@ clean:
 
 # Service management (override port: make install-service PORT=8000)
 install-service: .installed
-	$(VENV_BIN)/sol service install --port $(or $(PORT),5015)
-	$(VENV_BIN)/sol service start
+	@MODE=$$($(PYTHON) -m think.install_guard check); \
+	RC=$$?; \
+	case "$$MODE" in \
+		worktree) \
+			echo "mode: aborted — worktree"; \
+			exit $$RC; \
+			;; \
+		cross_repo) \
+			echo "mode: aborted — cross_repo"; \
+			exit $$RC; \
+			;; \
+		dangling) \
+			echo "mode: aborted — dangling"; \
+			exit $$RC; \
+			;; \
+		not_symlink) \
+			echo "mode: aborted — not_symlink"; \
+			exit $$RC; \
+			;; \
+		up""grade) \
+			echo "mode: up""grade"; \
+			$(MAKE) ci || exit $$?; \
+			;; \
+		fresh) \
+			echo "mode: fresh install"; \
+			;; \
+		*) \
+			echo "mode: aborted — unknown"; \
+			exit 2; \
+			;; \
+	esac; \
+	$(PYTHON) -m think.install_guard install; \
+	npx skills add ./skills/solstone -g -a claude-code -y; \
+	$(VENV_BIN)/sol service install --port $(or $(PORT),5015); \
+	$(VENV_BIN)/sol service start; \
+	echo "Waiting for service readiness..."; \
+	READY=false; \
+	for i in $$(seq 1 20); do \
+		if $(VENV_BIN)/sol health > /dev/null 2>&1; then \
+			READY=true; \
+			break; \
+		fi; \
+		sleep 1; \
+	done; \
+	if [ "$$READY" = "false" ]; then \
+		echo "Service readiness timeout after 20s" >&2; \
+		exit 1; \
+	fi; \
 	$(VENV_BIN)/sol service status
 
 # Follow installed service logs
@@ -398,19 +420,39 @@ service-logs:
 	$(VENV_BIN)/sol service logs -f
 
 uninstall-service:
-	-$(VENV_BIN)/sol service uninstall
+	@MODE=$$($(PYTHON) -m think.install_guard check); \
+	RC=$$?; \
+	HAS_SERVICE=false; \
+	HAS_SKILL=false; \
+	if [ -f "$$HOME/.config/systemd/user/solstone.service" ] || [ -f "$$HOME/Library/LaunchAgents/org.solpbc.solstone.plist" ]; then \
+		HAS_SERVICE=true; \
+	fi; \
+	if [ -e "$$HOME/.claude/skills/solstone" ]; then \
+		HAS_SKILL=true; \
+	fi; \
+	case "$$MODE" in \
+		worktree|cross_repo|dangling|not_symlink) \
+			echo "mode: aborted — $$MODE"; \
+			exit $$RC; \
+			;; \
+	esac; \
+	if [ "$$MODE" = "fresh" ] && [ "$$HAS_SERVICE" = "false" ] && [ "$$HAS_SKILL" = "false" ]; then \
+		echo "no artifacts to remove"; \
+		exit 0; \
+	fi; \
+	$(VENV_BIN)/sol service stop > /dev/null 2>&1 || true; \
+	$(VENV_BIN)/sol service uninstall; \
+	npx skills remove -g -a claude-code -y solstone; \
+	$(PYTHON) -m think.install_guard uninstall
 
-# Uninstall - remove venv and sol symlink
-uninstall: uninstall-service clean
-	@echo "Removing virtual environment..."
-	rm -rf $(VENV)
-	@if [ -L $(USER_BIN)/sol ]; then \
-		echo "Removing sol symlink from $(USER_BIN)..."; \
-		rm -f $(USER_BIN)/sol; \
-	fi
+uninstall:
+	@echo "Error: 'make uninstall' is disabled. Use the 'uninstall-service' target to remove installed user/system artifacts, or 'make clean-install' to rebuild the local dev environment." >&2
+	@exit 1
 
 # Clean everything and reinstall
-clean-install: uninstall install
+clean-install: clean
+	rm -rf $(VENV) .installed
+	$(MAKE) install
 
 # Run continuous integration checks (what CI would run)
 ci: .installed
@@ -446,7 +488,7 @@ coverage: .installed
 # Update all dependencies to latest versions and refresh genai-prices
 update: .installed
 	@echo "Updating all dependencies to latest versions..."
-	$(UV) lock --upgrade
+	$(UV) lock -U
 	$(UV) sync
 	@echo "Done. All packages updated to latest."
 
@@ -454,7 +496,7 @@ update: .installed
 # Run this when adding new models or if pricing tests fail
 update-prices: .installed
 	@echo "Updating genai-prices to latest version..."
-	$(UV) lock --upgrade-package genai-prices
+	$(UV) lock -P genai-prices
 	$(UV) sync
 	@echo "Done. Re-run tests to verify model pricing support."
 
