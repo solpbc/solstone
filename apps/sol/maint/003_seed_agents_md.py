@@ -42,7 +42,11 @@ def main() -> int:
     claude_path = journal / "CLAUDE.md"
     gemini_path = journal / "GEMINI.md"
 
-    if agents_path.exists() and _symlink_points_to_agents(claude_path) and _symlink_points_to_agents(gemini_path):
+    if (
+        agents_path.exists()
+        and _symlink_points_to_agents(claude_path)
+        and _symlink_points_to_agents(gemini_path)
+    ):
         print("all journal agent files already present")
         return 0
 

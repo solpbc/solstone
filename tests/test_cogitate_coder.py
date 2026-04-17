@@ -209,22 +209,19 @@ class TestCoderAgent:
         assert "description" in post.metadata
 
     def test_coder_references_coding_skill(self):
-        """coder.md must reference the coding skill instead of inlining guidelines."""
+        """coder.md must reference the developer docs instead of inlining guidelines."""
         from pathlib import Path
 
         coder_path = Path(__file__).parent.parent / "talent" / "coder.md"
         content = coder_path.read_text(encoding="utf-8")
 
-        # Should reference the coding skill, not inline dev guidelines
-        assert "coding" in content.lower()
+        # Should reference the developer guide/docs, not inline dev guidelines
+        assert "AGENTS.md" in content
+        assert "docs/project-structure.md" in content
         assert "single source of truth" in content
 
-        # The coding skill must exist with reference files
-        coding_skill = Path(__file__).parent.parent / "talent" / "coding" / "SKILL.md"
-        assert coding_skill.exists(), "talent/coding/SKILL.md not found"
-
-        coding_refs = Path(__file__).parent.parent / "talent" / "coding" / "reference"
-        assert (coding_refs / "coding-standards.md").exists()
-        assert (coding_refs / "project-structure.md").exists()
-        assert (coding_refs / "testing.md").exists()
-        assert (coding_refs / "environment.md").exists()
+        docs_dir = Path(__file__).parent.parent / "docs"
+        assert (docs_dir / "coding-standards.md").exists()
+        assert (docs_dir / "project-structure.md").exists()
+        assert (docs_dir / "testing.md").exists()
+        assert (docs_dir / "environment.md").exists()

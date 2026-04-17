@@ -40,7 +40,7 @@ Execute work through 5 sequential phases, each delegated to a sub-agent via the 
 ### Phase 3: Implement
 
 - **Purpose**: Execute the plan — write code and verify it works.
-- **Sub-agent instructions**: Execute the design plan. Write clean, focused code following the project's conventions (the coding skill provides standards). Make minimum changes needed. Run `make test` after changes. Fix any test failures. Add tests for new behavior. Do not refactor surrounding code or add features beyond the plan.
+- **Sub-agent instructions**: Execute the design plan. Write clean, focused code following the project's conventions (the repo-root `AGENTS.md` and `docs/` references provide standards). Make minimum changes needed. Run `make test` after changes. Fix any test failures. Add tests for new behavior. Do not refactor surrounding code or add features beyond the plan.
 - **Tool access**: Full tool access: Read, Edit, Write, Bash, Glob, Grep.
 - **Expected output**: Summary of all changes made, test results, and any deviations from the plan.
 
@@ -70,8 +70,8 @@ Execute work through 5 sequential phases, each delegated to a sub-agent via the 
 
 ## Development Context
 
-Sub-agents have access to the **coding** skill for solstone development
-guidelines, project structure, coding standards, testing, and environment.
-The implement and audit sub-agents will load it automatically when working
-with code. Do not inline development guidelines here — the coding skill
-is the single source of truth.
+Sub-agents should use the repo-root `AGENTS.md` developer guide plus the
+linked `docs/project-structure.md`, `docs/coding-standards.md`,
+`docs/testing.md`, and `docs/environment.md` references for solstone
+development guidance. Do not inline development guidelines here — those
+docs are the single source of truth.
