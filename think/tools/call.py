@@ -44,6 +44,7 @@ from think.utils import (
     day_path,
     get_journal,
     iter_segments,
+    require_solstone,
     resolve_sol_day,
     resolve_sol_facet,
     resolve_sol_segment,
@@ -52,6 +53,13 @@ from think.utils import (
 
 app = typer.Typer(help="Journal search and browsing.")
 facet_app = typer.Typer(help="Facet management.")
+
+
+@app.callback()
+def _require_up() -> None:
+    require_solstone()
+
+
 app.add_typer(facet_app, name="facet")
 retention_app = typer.Typer(help="Media retention management.")
 app.add_typer(retention_app, name="retention")

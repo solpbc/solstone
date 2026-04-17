@@ -12,9 +12,14 @@ import typer
 
 from apps.todos import todo
 from think.facets import log_call_action
-from think.utils import get_journal
+from think.utils import get_journal, require_solstone
 
 app = typer.Typer(help="Todo checklist management.")
+
+
+@app.callback()
+def _require_up() -> None:
+    require_solstone()
 
 
 def _print_day_facet(day: str, facet: str) -> bool:

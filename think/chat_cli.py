@@ -11,7 +11,7 @@ import threading
 
 from think.callosum import CallosumConnection
 from think.cortex_client import cortex_request, read_agent_events
-from think.utils import setup_cli
+from think.utils import require_solstone, setup_cli
 
 
 def main() -> None:
@@ -27,6 +27,7 @@ def main() -> None:
         "--talent", default="unified", help="Talent agent name (default: unified)"
     )
     args = setup_cli(parser)
+    require_solstone()
 
     from think.awareness import ensure_sol_directory
 

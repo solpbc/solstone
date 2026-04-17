@@ -46,6 +46,7 @@ from think.utils import (
     iso_date,
     iter_segments,
     now_ms,
+    require_solstone,
     setup_cli,
     updated_days,
 )
@@ -2764,6 +2765,7 @@ def main() -> None:
 
     parser = parse_args()
     args = setup_cli(parser)
+    require_solstone()
 
     from think.awareness import ensure_sol_directory
 

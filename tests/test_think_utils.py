@@ -6,6 +6,7 @@
 import argparse
 import json
 import os
+import socket
 import sys
 import tempfile
 from datetime import time
@@ -825,6 +826,101 @@ class TestPortDiscovery:
         # Now it should exist
         assert health_dir.exists()
         assert (health_dir / "new_service.port").read_text() == "9999"
+
+
+class TestSolstoneGuard:
+    """Tests for solstone availability guard helpers."""
+
+    def test_is_solstone_up_false_without_port_file(self, monkeypatch, tmp_path):
+        """Missing convey port file reports stack down."""
+        from think.utils import is_solstone_up
+
+        monkeypatch.delenv("SOL_SKIP_SUPERVISOR_CHECK", raising=False)
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+
+        assert is_solstone_up() is False
+
+    def test_is_solstone_up_false_with_closed_port(self, monkeypatch, tmp_path):
+        """Stale convey port file reports stack down."""
+        from think.utils import is_solstone_up, write_service_port
+
+        monkeypatch.delenv("SOL_SKIP_SUPERVISOR_CHECK", raising=False)
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+
+        with socket.socket() as sock:
+            sock.bind(("127.0.0.1", 0))
+            stale_port = sock.getsockname()[1]
+
+        write_service_port("convey", stale_port)
+        assert is_solstone_up() is False
+
+    def test_is_solstone_up_true_with_listening_server(self, monkeypatch, tmp_path):
+        """Listening convey port reports stack up."""
+        from think.utils import is_solstone_up, write_service_port
+
+        monkeypatch.delenv("SOL_SKIP_SUPERVISOR_CHECK", raising=False)
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+
+        with socket.socket() as server:
+            server.bind(("127.0.0.1", 0))
+            server.listen(1)
+            write_service_port("convey", server.getsockname()[1])
+            assert is_solstone_up() is True
+
+    def test_require_solstone_exits_with_message_when_down(
+        self, monkeypatch, tmp_path, capsys
+    ):
+        """Guard exits with the expected message when convey is unavailable."""
+        from think.utils import require_solstone
+
+        monkeypatch.delenv("SOL_SKIP_SUPERVISOR_CHECK", raising=False)
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+
+        with pytest.raises(SystemExit) as excinfo:
+            require_solstone()
+
+        captured = capsys.readouterr()
+        assert excinfo.value.code == 1
+        assert captured.out == ""
+        assert (
+            captured.err
+            == "sol: solstone isn't running. Start it with 'sol up' and retry.\n"
+        )
+
+    def test_require_solstone_returns_silently_when_up(
+        self, monkeypatch, tmp_path, capsys
+    ):
+        """Guard returns None without output when convey is reachable."""
+        from think.utils import require_solstone, write_service_port
+
+        monkeypatch.delenv("SOL_SKIP_SUPERVISOR_CHECK", raising=False)
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+
+        with socket.socket() as server:
+            server.bind(("127.0.0.1", 0))
+            server.listen(1)
+            write_service_port("convey", server.getsockname()[1])
+            assert require_solstone() is None
+
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert captured.err == ""
+
+    def test_require_solstone_skips_check_with_env_override(
+        self, monkeypatch, tmp_path
+    ):
+        """SOL_SKIP_SUPERVISOR_CHECK bypasses availability probing."""
+        import think.utils as utils
+
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+        monkeypatch.setenv("SOL_SKIP_SUPERVISOR_CHECK", "1")
+        monkeypatch.setattr(
+            utils,
+            "is_solstone_up",
+            lambda timeout=0.2: (_ for _ in ()).throw(AssertionError("should not run")),
+        )
+
+        assert utils.require_solstone() is None
 
 
 class TestIterSegments:

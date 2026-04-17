@@ -46,6 +46,7 @@ from think.utils import (
     format_segment_times,
     get_journal,
     now_ms,
+    require_solstone,
     segment_parse,
     setup_cli,
 )
@@ -1500,6 +1501,7 @@ async def main_async() -> None:
     )
 
     args = setup_cli(parser)
+    require_solstone()
     if args.subcommand == "check":
         await _run_check(args)
         return

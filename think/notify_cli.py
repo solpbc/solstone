@@ -5,7 +5,7 @@ import argparse
 import sys
 
 from think.callosum import callosum_send
-from think.utils import setup_cli
+from think.utils import require_solstone, setup_cli
 
 
 def main() -> None:
@@ -32,6 +32,7 @@ def main() -> None:
     )
 
     args = setup_cli(parser)
+    require_solstone()
 
     message = " ".join(args.message)
     kwargs = {"message": message}

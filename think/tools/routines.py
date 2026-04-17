@@ -18,9 +18,14 @@ import frontmatter
 import typer
 
 from think.routines import _run_routine, cron_matches, get_config, save_config
-from think.utils import get_journal
+from think.utils import get_journal, require_solstone
 
 app = typer.Typer(help="Manage custom routines.")
+
+
+@app.callback()
+def _require_up() -> None:
+    require_solstone()
 
 
 def _resolve_id(config: dict[str, dict], prefix: str) -> str:

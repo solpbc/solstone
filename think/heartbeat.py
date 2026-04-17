@@ -15,7 +15,7 @@ from pathlib import Path
 
 from think.awareness import ensure_sol_directory
 from think.cortex_client import cortex_request, wait_for_agents
-from think.utils import get_journal, setup_cli
+from think.utils import get_journal, require_solstone, setup_cli
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +54,7 @@ def main() -> None:
         help="Run full check regardless of recency",
     )
     args = setup_cli(parser)
+    require_solstone()
 
     journal = Path(get_journal())
     ensure_sol_directory()

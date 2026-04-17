@@ -25,7 +25,14 @@ from think.importers.shared import (
 from think.importers.text import _read_transcript, process_transcript
 from think.importers.utils import save_import_segments
 from think.streams import stream_name, update_stream, write_segment_stream
-from think.utils import day_path, get_journal, get_rev, segment_key, setup_cli
+from think.utils import (
+    day_path,
+    get_journal,
+    get_rev,
+    require_solstone,
+    segment_key,
+    setup_cli,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -323,6 +330,7 @@ def main() -> None:
         help="Output results as JSON (file importers only)",
     )
     args, extra = setup_cli(parser, parse_known=True)
+    require_solstone()
     if extra and not args.timestamp:
         args.timestamp = extra[0]
 

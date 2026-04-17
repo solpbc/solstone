@@ -41,6 +41,7 @@ from think.utils import (
     get_config,
     get_journal,
     journal_relative_path,
+    require_solstone,
     setup_cli,
 )
 
@@ -902,6 +903,7 @@ async def async_main():
         help="Reprocess file, overwriting existing outputs",
     )
     args = setup_cli(parser)
+    require_solstone()
 
     video_path = Path(args.video_path)
     if not video_path.exists():

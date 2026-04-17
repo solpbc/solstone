@@ -382,7 +382,7 @@ def main() -> None:
     """CLI entry point for sol streams."""
     import argparse
 
-    from think.utils import setup_cli
+    from think.utils import require_solstone, setup_cli
 
     parser = argparse.ArgumentParser(description="Inspect and manage stream identity")
     parser.add_argument(
@@ -397,6 +397,7 @@ def main() -> None:
     )
 
     args = setup_cli(parser)
+    require_solstone()
 
     if args.rebuild:
         summary = rebuild_stream_state(name=args.name)

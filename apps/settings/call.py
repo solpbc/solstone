@@ -14,9 +14,18 @@ from pathlib import Path
 
 import typer
 
+from think.utils import require_solstone
+
 app = typer.Typer(
     help="Journal settings — keys, providers, transcription, identity, and observer."
 )
+
+
+@app.callback()
+def _require_up() -> None:
+    require_solstone()
+
+
 keys_app = typer.Typer(help="API key management.")
 app.add_typer(keys_app, name="keys")
 providers_app = typer.Typer(help="AI provider configuration.")

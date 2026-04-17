@@ -15,8 +15,14 @@ import typer
 
 from apps.calendar import event
 from think.facets import log_call_action
+from think.utils import require_solstone
 
 app = typer.Typer(help="Calendar event management.")
+
+
+@app.callback()
+def _require_up() -> None:
+    require_solstone()
 
 
 def _print_day_facet(day: str, facet: str) -> bool:

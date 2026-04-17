@@ -78,6 +78,7 @@ from think.utils import (
     get_journal,
     iter_segments,
     journal_relative_path,
+    require_solstone,
     resolve_journal_path,
     setup_cli,
 )
@@ -806,6 +807,7 @@ def main():
         help=f"STT backend to use (overrides config, default: {DEFAULT_BACKEND})",
     )
     args = setup_cli(parser)
+    require_solstone()
 
     if args.all and args.audio_path:
         parser.error("--all and audio_path are mutually exclusive")

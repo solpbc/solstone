@@ -24,11 +24,16 @@ from think.awareness import (
     update_self_md_section,
 )
 from think.entities.core import atomic_write
-from think.utils import day_dirs, day_path
+from think.utils import day_dirs, day_path, require_solstone
 
 app = typer.Typer(
     help="Sol identity directory — self.md, partner.md, agency.md, pulse.md, awareness.md, and morning briefing."
 )
+
+
+@app.callback()
+def _require_up() -> None:
+    require_solstone()
 
 
 def _sol_dir():

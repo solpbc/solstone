@@ -29,9 +29,15 @@ from think.entities.relationships import (
     load_facet_relationship,
     save_facet_relationship,
 )
-from think.utils import get_journal
+from think.utils import get_journal, require_solstone
 
 app = typer.Typer(help="Import review and resolution.")
+
+
+@app.callback()
+def _require_up() -> None:
+    require_solstone()
+
 
 ingest = import_module("apps.import.ingest")
 journal_sources = import_module("apps.import.journal_sources")

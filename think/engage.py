@@ -10,6 +10,8 @@ import sys
 
 import typer
 
+from think.utils import require_solstone
+
 engage_app = typer.Typer(name="engage")
 
 
@@ -96,4 +98,8 @@ def engage(
 
 def main() -> None:
     """Entry point for ``sol engage``."""
+    if any(arg in {"-h", "--help"} for arg in sys.argv[1:]):
+        engage_app()
+        return
+    require_solstone()
     engage_app()

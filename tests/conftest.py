@@ -34,6 +34,7 @@ def set_test_journal_path(request, monkeypatch):
         "_SOLSTONE_JOURNAL_OVERRIDE",
         str(Path("tests/fixtures/journal").resolve()),
     )
+    monkeypatch.setenv("SOL_SKIP_SUPERVISOR_CHECK", "1")
 
 
 @pytest.fixture(autouse=True)

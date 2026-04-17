@@ -35,6 +35,7 @@ from think.utils import (
     get_journal,
     iter_segments,
     now_ms,
+    require_solstone,
     setup_cli,
 )
 
@@ -692,6 +693,7 @@ def main() -> None:
     )
 
     args = setup_cli(parser)
+    require_solstone()
 
     if args.command == "export":
         try:

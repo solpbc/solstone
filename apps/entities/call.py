@@ -42,9 +42,20 @@ from think.indexer.journal import (
     get_entity_strength,
     search_entities,
 )
-from think.utils import get_journal, now_ms, resolve_sol_day, resolve_sol_facet
+from think.utils import (
+    get_journal,
+    now_ms,
+    require_solstone,
+    resolve_sol_day,
+    resolve_sol_facet,
+)
 
 app = typer.Typer(help="Entity management.")
+
+
+@app.callback()
+def _require_up() -> None:
+    require_solstone()
 
 
 def _clear_all_caches():

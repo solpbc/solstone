@@ -26,6 +26,7 @@ from think.utils import (
     day_path,
     get_journal,
     iter_segments,
+    require_solstone,
     segment_parse,
     setup_cli,
 )
@@ -861,6 +862,7 @@ def main() -> None:
     )
 
     args = setup_cli(parser)
+    require_solstone()
 
     if args.subcommand is None:
         parser.print_help()

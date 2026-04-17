@@ -27,11 +27,18 @@ from __future__ import annotations
 
 import typer
 
+from think.utils import require_solstone
+
 app = typer.Typer(
     name="speakers",
     help="Speaker voiceprint management.",
     no_args_is_help=True,
 )
+
+
+@app.callback()
+def _require_up() -> None:
+    require_solstone()
 
 
 @app.command("status")

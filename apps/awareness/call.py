@@ -10,7 +10,14 @@ import json
 
 import typer
 
+from think.utils import require_solstone
+
 app = typer.Typer(help="Awareness system — solstone's self-knowledge.")
+
+
+@app.callback()
+def _require_up() -> None:
+    require_solstone()
 
 
 @app.command("status")

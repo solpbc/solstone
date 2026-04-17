@@ -771,10 +771,11 @@ def main() -> None:
     """CLI entry point for the Cortex service."""
     import argparse
 
-    from think.utils import setup_cli
+    from think.utils import require_solstone, setup_cli
 
     parser = argparse.ArgumentParser(description="solstone Cortex Agent Manager")
     args = setup_cli(parser)
+    require_solstone()
 
     # Set up logging
     logging.basicConfig(
