@@ -9,13 +9,8 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SHIM_FILES = {
-    Path("think/pipeline_health.py"),
-    Path("apps/home/routes.py"),
-}
 ALLOWLIST_RE = re.compile(r"^apps/sol/maint/00[0-4]_.+\.py$")
 PRODUCTION_PREFIXES = ("think/", "apps/", "talent/", "convey/", "observe/")
-SHIM_WINDOW = 20
 
 RULES = [
     (
@@ -73,19 +68,7 @@ def is_production(path: Path) -> bool:
 
 def iter_lines(path: Path) -> list[tuple[int, str]]:
     lines = (ROOT / path).read_text(encoding="utf-8").splitlines()
-    if path not in SHIM_FILES:
-        return list(enumerate(lines, start=1))
-
-    visible: list[tuple[int, str]] = []
-    suppress_until = 0
-    for line_no, line in enumerate(lines, start=1):
-        if line_no <= suppress_until:
-            continue
-        if "HISTORICAL SHIM:" in line:
-            suppress_until = line_no + SHIM_WINDOW
-            continue
-        visible.append((line_no, line))
-    return visible
+    return list(enumerate(lines, start=1))
 
 
 def main() -> int:

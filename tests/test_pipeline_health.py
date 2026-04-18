@@ -137,42 +137,6 @@ def test_agent_failure_promotes_warning(pipeline_journal):
     ]
 
 
-@pytest.mark.parametrize("event_name", ["agent.fail", "talent.fail"])
-def test_failure_reader_accepts_legacy_and_new_names(pipeline_journal, event_name):
-    day = "20990107"
-    _write_jsonl(
-        pipeline_journal / "chronicle" / day / "health" / "1_segment_dream.jsonl",
-        [{"event": event_name, "mode": "segment", "name": "screen", "use_id": "u-1"}],
-    )
-
-    summary = summarize_pipeline_day(day)
-
-    assert summary["talents"]["failed"] == 1
-
-
-@pytest.mark.parametrize(
-    ("event_name", "field"),
-    [
-        ("agent.dispatch", "dispatched"),
-        ("talent.dispatch", "dispatched"),
-        ("agent.complete", "completed"),
-        ("talent.complete", "completed"),
-        ("agent.skip", "skipped"),
-        ("talent.skip", "skipped"),
-    ],
-)
-def test_reader_accepts_legacy_and_new_event_names(pipeline_journal, event_name, field):
-    day = "20990108"
-    _write_jsonl(
-        pipeline_journal / "chronicle" / day / "health" / "1_segment_dream.jsonl",
-        [{"event": event_name, "mode": "segment"}],
-    )
-
-    summary = summarize_pipeline_day(day)
-
-    assert summary["talents"][field] == 1
-
-
 def test_failed_list_truncates_at_20(pipeline_journal):
     day = "20990103"
     events = [

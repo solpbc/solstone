@@ -584,9 +584,8 @@ def _newsletter_attempts_from_dream_logs(yesterday: str) -> tuple[int, int]:
                             record = json.loads(line)
                         except json.JSONDecodeError:
                             continue
-                        # HISTORICAL SHIM: accept legacy agent.* chronicle event names from before 2026-04-17; sunset 2026-05-01
                         if (
-                            record.get("event") in {"agent.fail", "talent.fail"}
+                            record.get("event") == "talent.fail"
                             and record.get("facet")
                             and record.get("name") == "facet_newsletter"
                         ):

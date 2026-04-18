@@ -78,12 +78,11 @@ def summarize_pipeline_day(day: str) -> dict:
                         continue
 
                     event = rec["event"]
-                    # HISTORICAL SHIM: accept legacy agent.* chronicle event names from before 2026-04-17; sunset 2026-05-01
-                    if event in {"agent.dispatch", "talent.dispatch"}:
+                    if event == "talent.dispatch":
                         summary["talents"]["dispatched"] += 1
-                    elif event in {"agent.complete", "talent.complete"}:
+                    elif event == "talent.complete":
                         summary["talents"]["completed"] += 1
-                    elif event in {"agent.fail", "talent.fail"}:
+                    elif event == "talent.fail":
                         summary["talents"]["failed"] += 1
                         if len(summary["talents"]["failed_list"]) < _FAILED_LIST_CAP:
                             summary["talents"]["failed_list"].append(
@@ -96,7 +95,7 @@ def summarize_pipeline_day(day: str) -> dict:
                             )
                         else:
                             summary["talents"]["failed_list_truncated"] = True
-                    elif event in {"agent.skip", "talent.skip"}:
+                    elif event == "talent.skip":
                         summary["talents"]["skipped"] += 1
                     elif event == "activity.detected":
                         summary["activities"]["detected"] += 1

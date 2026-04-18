@@ -476,19 +476,6 @@ def test_newsletter_attempts_option_a_matches_facet_newsletter_failures_only(
     assert _newsletter_attempts_from_dream_logs("20260415") == (2, 3)
 
 
-def test_newsletter_attempts_accept_legacy_agent_fail(tmp_path, monkeypatch):
-    journal = _seed_journal(tmp_path, monkeypatch)
-    _append_dream_log(
-        journal,
-        "20260415",
-        "facet_newsletter",
-        facet="work",
-        event="agent.fail",
-    )
-
-    assert _newsletter_attempts_from_dream_logs("20260415") == (2, 3)
-
-
 def test_build_pulse_context_includes_yesterday_processing(monkeypatch):
     monkeypatch.setattr(
         "apps.home.routes.get_capture_health",
