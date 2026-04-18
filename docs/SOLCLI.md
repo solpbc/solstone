@@ -82,7 +82,7 @@ COMMANDS: dict[str, str] = {
 **Auto-discovered apps** — scans `apps/*/call.py` at import time:
 ```
 apps/todos/call.py      → sol call todos ...
-apps/calendar/call.py   → sol call calendar ...
+apps/activities/call.py → sol call activities ...
 apps/entities/call.py   → sol call entities ...
 ```
 
@@ -265,8 +265,8 @@ solstone/
 │   │   ├── call.py                 # sol call todos (auto-discovered)
 │   │   ├── todo.py                 # Data models
 │   │   └── talent/todos/SKILL.md     # Agent skill doc
-│   ├── calendar/
-│   │   ├── call.py                 # sol call calendar (auto-discovered)
+│   ├── activities/
+│   │   ├── call.py                 # sol call activities (auto-discovered)
 │   │   └── talent/calendar/SKILL.md
 │   ├── entities/call.py
 │   ├── speakers/call.py
@@ -306,7 +306,7 @@ solstone/
 | App | Source | Commands |
 |-----|--------|----------|
 | `todos` | `apps/todos/call.py` | list, add, done, cancel, move, upcoming, list-nudges-due, dispatch-nudges |
-| `calendar` | `apps/calendar/call.py` | list, add, update, cancel, move, import-day |
+| `activities` | `apps/activities/call.py` | list, get, create, update, mute, unmute |
 | `entities` | `apps/entities/call.py` | list, show, search, observe, merge |
 | `speakers` | `apps/speakers/call.py` | list, show, detect-owner, confirm-owner, clusters, suggest |
 | `transcripts` | `apps/transcripts/call.py` | list, read, segments |

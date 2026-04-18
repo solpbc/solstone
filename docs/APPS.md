@@ -128,7 +128,7 @@ Define custom routes for your app (API endpoints, form handlers, navigation rout
 **Reference implementations:**
 - API endpoints: `apps/search/routes.py` (search APIs, no index route)
 - Form handlers: `apps/todos/routes.py` (POST handlers, validation, flash messages)
-- Navigation: `apps/calendar/routes.py` (date-based routes with custom context)
+- Navigation: `apps/activities/routes.py` (date-based routes with custom context)
 - Redirects: `apps/todos/routes.py` index route (redirects `/` to today's date)
 
 
@@ -703,7 +703,7 @@ def handle_action():
 
 **Examples:**
 - Standard: `apps/home/workspace.html`, `apps/todos/workspace.html`, `apps/entities/workspace.html`
-- Wide: `apps/search/workspace.html`, `apps/calendar/_day.html`, `apps/import/workspace.html`
+- Wide: `apps/search/workspace.html`, `apps/activities/_day.html`, `apps/import/workspace.html`
 
 ### CSS Variables
 

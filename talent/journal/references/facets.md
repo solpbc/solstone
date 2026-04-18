@@ -196,8 +196,8 @@ facets/work/activities/20260209/coding_095809_303/session_review.md  # Generated
 Each day file contains one JSON object per line, where each record represents a completed activity span:
 
 ```jsonl
-{"id": "coding_095809_303", "activity": "coding", "segments": ["095809_303", "100313_303", "100816_303", "101320_302"], "level_avg": 0.88, "description": "Developed extraction prompts using Claude Code and VS Code", "active_entities": ["Claude Code", "VS Code", "sunstone"], "created_at": 1770435619415}
-{"id": "meeting_090953_303", "activity": "meeting", "segments": ["090953_303", "091457_303", "092001_304", "092506_304", "093010_304"], "level_avg": 1.0, "description": "Sprint planning meeting with the engineering team", "active_entities": ["Alice", "Bob"], "created_at": 1770435619420}
+{"id": "coding_095809_303", "activity": "coding", "segments": ["095809_303", "100313_303", "100816_303", "101320_302"], "level_avg": 0.88, "title": "Prompt Refactor Session", "description": "Developed extraction prompts using Claude Code and VS Code", "details": "Iterated on the extraction flow and validated generated output paths.", "active_entities": ["Claude Code", "VS Code", "sunstone"], "hidden": false, "source": "cogitate", "edits": [{"timestamp": "2026-02-09T18:20:19Z", "actor": "cogitate:activities", "fields": ["title", "description", "details"], "note": "synthesized activity summary"}], "created_at": 1770435619415}
+{"id": "meeting_090953_303", "activity": "meeting", "segments": ["090953_303", "091457_303", "092001_304", "092506_304", "093010_304"], "level_avg": 1.0, "title": "Sprint Planning", "description": "Sprint planning meeting with the engineering team", "details": "", "active_entities": ["Alice", "Bob"], "hidden": false, "source": "user", "edits": [], "created_at": 1770435619420}
 ```
 
 ### Record ID scheme
@@ -210,8 +210,13 @@ Activity record IDs follow the format `{activity_type}_{segment_key}` where `seg
 - `activity` (string) – Activity type ID from the facet's configured activities
 - `segments` (array of strings) – Ordered list of segment keys where this activity was active
 - `level_avg` (float) – Average engagement level across all segments (high=1.0, medium=0.5, low=0.25)
+- `title` (string) – Human title for the activity span; newer records set this explicitly, older records may fall back to `description`
 - `description` (string) – AI-synthesized description of the full activity span
+- `details` (string) – Optional longer-form narrative detail for the span
 - `active_entities` (array of strings) – Merged and deduplicated entity names from all segments
+- `hidden` (boolean) – When `true`, the record is muted from default list views
+- `source` (string) – Origin of the record, currently `cogitate` or `user`
+- `edits` (array of objects) – Append-only edit history with `timestamp`, `actor`, `fields`, and `note`
 - `created_at` (integer) – Unix timestamp in milliseconds when the record was created
 
 ### Lifecycle
@@ -223,7 +228,8 @@ Activity records are created by the `activities` segment agent when it detects t
 3. When an activity ends (explicitly, implicitly, or via timeout), the agent walks the segment chain to collect all data
 4. A record is written to the facet's day file with preliminary description
 5. An LLM synthesizes all per-segment descriptions into a unified narrative
-6. The record description is updated with the synthesized version
+6. The synthesized summary updates the record's `description`, and may also fill `title` and `details`
+7. Later CLI edits append to the record's `edits` log and may hide/unhide the record without changing its ID
 
 **Segment flush:** If no new segments arrive for an extended period (1 hour), the supervisor triggers `sol think --flush` on the last segment. Agents that declare `hook.flush: true` (like `activities`) run with `flush=True` in their context, treating all remaining active activities as ended. This ensures activities are recorded promptly even when the owner stops working, and prevents cross-day data loss.
 
