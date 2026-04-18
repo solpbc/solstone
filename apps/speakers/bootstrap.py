@@ -34,8 +34,8 @@ import numpy as np
 from apps.speakers.owner import load_owner_centroid
 from think.entities import entity_slug, find_matching_entity, is_name_variant_match
 from think.entities.journal import (
+    create_journal_entity,
     ensure_journal_entity_memory,
-    get_or_create_journal_entity,
     load_all_journal_entities,
     load_journal_entity,
     save_journal_entity,
@@ -247,7 +247,7 @@ def bootstrap_voiceprints(dry_run: bool = False) -> dict[str, Any]:
                 # Create a new entity for this speaker
                 entity_id = entity_slug(speaker_name)
                 if not dry_run:
-                    entity = get_or_create_journal_entity(
+                    entity = load_journal_entity(entity_id) or create_journal_entity(
                         entity_id=entity_id,
                         name=speaker_name,
                         entity_type="Person",

@@ -376,8 +376,9 @@ def confirm_owner_candidate() -> dict[str, Any]:
     from think.entities import entity_slug
     from think.entities.core import get_identity_names
     from think.entities.journal import (
+        create_journal_entity,
         ensure_journal_entity_memory,
-        get_or_create_journal_entity,
+        load_journal_entity,
     )
 
     candidate_path = _owner_candidate_path()
@@ -400,8 +401,9 @@ def confirm_owner_candidate() -> dict[str, Any]:
         if not identity_names:
             return {"error": "No principal entity found"}
         principal_name = identity_names[0]
-        principal = get_or_create_journal_entity(
-            entity_id=entity_slug(principal_name),
+        principal_id = entity_slug(principal_name)
+        principal = load_journal_entity(principal_id) or create_journal_entity(
+            entity_id=principal_id,
             name=principal_name,
             entity_type="Person",
         )

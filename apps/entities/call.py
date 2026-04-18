@@ -15,7 +15,7 @@ import typer
 from think.entities.core import entity_slug, is_valid_entity_type
 from think.entities.journal import (
     clear_journal_entity_cache,
-    get_or_create_journal_entity,
+    create_journal_entity,
     load_journal_entity,
     save_journal_entity,
 )
@@ -282,7 +282,7 @@ def attach_entity(
     entity_id = entity_slug(name)
 
     # Create journal entity (identity record) if it doesn't exist
-    get_or_create_journal_entity(
+    load_journal_entity(entity_id) or create_journal_entity(
         entity_id=entity_id,
         name=name,
         entity_type=type_,

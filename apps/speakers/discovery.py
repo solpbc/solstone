@@ -343,7 +343,7 @@ def identify_cluster(
     from apps.speakers.routes import _load_speaker_corrections
     from think.entities import entity_slug, find_matching_entity
     from think.entities.journal import (
-        get_or_create_journal_entity,
+        create_journal_entity,
         load_all_journal_entities,
         load_journal_entity,
     )
@@ -370,7 +370,7 @@ def identify_cluster(
             entity_id = entity_slug(name)
             existing = load_journal_entity(entity_id)
             entity_created = existing is None
-            entity = get_or_create_journal_entity(
+            entity = existing or create_journal_entity(
                 entity_id=entity_id,
                 name=name,
                 entity_type="Person",

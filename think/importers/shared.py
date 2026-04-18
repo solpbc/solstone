@@ -667,8 +667,9 @@ def seed_entities(
     """
     from think.entities.core import entity_slug
     from think.entities.journal import (
-        get_or_create_journal_entity,
+        create_journal_entity,
         load_all_journal_entities,
+        load_journal_entity,
         save_journal_entity,
     )
     from think.entities.matching import find_entity_by_email, find_matching_entity
@@ -711,7 +712,7 @@ def seed_entities(
             # Create new entity
             eid = entity_slug(name)
             emails = [email.lower()] if email else None
-            new_entity = get_or_create_journal_entity(
+            new_entity = load_journal_entity(eid) or create_journal_entity(
                 entity_id=eid,
                 name=name,
                 entity_type=entity_type,

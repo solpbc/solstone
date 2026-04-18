@@ -49,10 +49,10 @@ from think.entities.formatting import format_entities, format_observations
 # Journal-level entity management
 from think.entities.journal import (
     block_journal_entity,
+    create_journal_entity,
     delete_journal_entity,
     ensure_journal_entity_memory,
     get_journal_principal,
-    get_or_create_journal_entity,
     has_journal_principal,
     journal_entity_memory_path,
     journal_entity_path,
@@ -124,10 +124,10 @@ __all__ = [
     "is_valid_entity_type",
     # Journal
     "block_journal_entity",
+    "create_journal_entity",
     "delete_journal_entity",
     "ensure_journal_entity_memory",
     "get_journal_principal",
-    "get_or_create_journal_entity",
     "has_journal_principal",
     "journal_entity_memory_path",
     "journal_entity_path",

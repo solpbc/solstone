@@ -186,7 +186,7 @@ def _should_be_principal(name: str, aka: list[str] | None) -> bool:
     return False
 
 
-def get_or_create_journal_entity(
+def create_journal_entity(
     entity_id: str,
     name: str,
     entity_type: str,
@@ -195,26 +195,24 @@ def get_or_create_journal_entity(
     *,
     skip_principal: bool = False,
 ) -> EntityDict:
-    """Get existing journal entity or create new one.
+    """Create and persist a new journal-level entity.
 
-    If entity exists, returns it unchanged (does not update fields).
-    If entity doesn't exist, creates it with provided values.
+    Caller must guarantee the entity does not already exist. Compose with
+    `load_journal_entity` at the call site:
+    `load_journal_entity(id) or create_journal_entity(id, ...)`.
 
     Args:
         entity_id: Entity ID (slug)
-        name: Entity name
-        entity_type: Entity type (e.g., "Person", "Company")
-        aka: Optional list of aliases
-        skip_principal: If True, don't flag as principal even if matches identity
+        name: Display name
+        entity_type: Entity type (e.g. "Person", "Organization")
+        aka: Optional list of alternate names
+        emails: Optional list of email addresses (lowercased on save)
+        skip_principal: If True, do not auto-flag as principal even when the
+            name/aka match identity and no principal exists yet.
 
     Returns:
-        The existing or newly created entity dict
+        The newly-created and persisted entity dict.
     """
-    existing = load_journal_entity(entity_id)
-    if existing:
-        return existing
-
-    # Create new entity
     entity: EntityDict = {
         "id": entity_id,
         "name": name,
@@ -226,8 +224,6 @@ def get_or_create_journal_entity(
     if emails:
         entity["emails"] = [e.lower() for e in emails]
 
-    # Check if this should be the principal
-    # Only flag if: matches identity, no existing principal, and not skipped
     if (
         not skip_principal
         and _should_be_principal(name, aka)
