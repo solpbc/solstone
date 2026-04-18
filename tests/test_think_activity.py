@@ -992,6 +992,73 @@ class TestActivityTemplateVars:
         # Invalid segment can't parse, should default to 1
         assert ctx["activity_duration"] == "1"
 
+    def test_facet_and_activity_md_dir_populated(self, monkeypatch, tmp_path):
+        from think.talents import _build_prompt_context
+
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+
+        ctx = _build_prompt_context(
+            day="20260418",
+            segment=None,
+            span=None,
+            facet="work",
+        )
+
+        assert ctx["facet"] == "work"
+        assert ctx["activity_md_dir"] == f"{tmp_path}/facets/work/activities/20260418/"
+
+    def test_activity_md_dir_omitted_without_facet(self):
+        from think.talents import _build_prompt_context
+
+        ctx = _build_prompt_context(day="20260418", segment=None, span=None)
+
+        assert "facet" not in ctx
+        assert "activity_md_dir" not in ctx
+
+
+def test_prepare_config_substitutes_facet_and_activity_md_dir_for_daily_cogitate(
+    tmp_path, monkeypatch
+):
+    import importlib
+
+    import think.talent
+    from think.utils import day_path
+
+    mod = importlib.import_module("think.talents")
+
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    day_dir = day_path("20260418")
+    day_dir.mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.setattr(think.talent, "TALENT_DIR", tmp_path)
+
+    test_agent = tmp_path / "test_activities_cogitate.md"
+    test_agent.write_text(
+        "{\n"
+        '  "type": "cogitate",\n'
+        '  "schedule": "daily",\n'
+        '  "priority": 30,\n'
+        '  "multi_facet": true\n'
+        "}\n\n"
+        "Facet: $facet\n"
+        "Dir: $activity_md_dir\n"
+    )
+
+    monkeypatch.setenv("GOOGLE_API_KEY", "x")
+
+    config = mod.prepare_config(
+        {
+            "name": "test_activities_cogitate",
+            "day": "20260418",
+            "facet": "work",
+        }
+    )
+
+    assert "Facet: work" in config["user_instruction"]
+    assert "facets/work/activities/20260418/" in config["user_instruction"]
+    assert "$facet" not in config["user_instruction"]
+    assert "$activity_md_dir" not in config["user_instruction"]
+
 
 # ---------------------------------------------------------------------------
 # Talent config validation for activity schedule

@@ -102,6 +102,14 @@
       "label": "Agent Prompt Generation",
       "tier": 2
     },
+    "talent.activities.activities_review": {
+      "disabled": false,
+      "group": "Activities",
+      "label": "Activities Review",
+      "schedule": "daily",
+      "tier": 3,
+      "type": "cogitate"
+    },
     "talent.entities.entities": {
       "disabled": false,
       "group": "Entities",

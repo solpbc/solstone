@@ -1,5 +1,16 @@
 {
   "talents": {
+    "activities:activities_review": {
+      "app": "activities",
+      "color": "#00695c",
+      "description": "Daily review for missed in-person meetings, calls, and brief interactions.",
+      "multi_facet": true,
+      "output_format": null,
+      "schedule": "daily",
+      "source": "app",
+      "title": "Activities Review",
+      "type": "cogitate"
+    },
     "anticipation": {
       "app": null,
       "color": "#4527a0",

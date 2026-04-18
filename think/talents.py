@@ -211,6 +211,7 @@ def _build_prompt_context(
     segment: str | None,
     span: list[str] | None,
     activity: dict | None = None,
+    facet: str | None = None,
 ) -> dict[str, str]:
     """Build context dict for prompt template substitution.
 
@@ -219,6 +220,7 @@ def _build_prompt_context(
         segment: Segment key (HHMMSS_LEN)
         span: List of segment keys
         activity: Optional activity record dict for activity-scheduled talents
+        facet: Optional facet name for daily multi-facet talents
 
     Returns:
         Dict with template variables:
@@ -227,6 +229,7 @@ def _build_prompt_context(
         - segment_start, segment_end: Time strings if segment/span provided
         - stream, content_description: Stream name and human-readable description
         - activity_*: Activity fields if activity record provided
+        - facet, activity_md_dir: Facet name and activity markdown dir for daily runs
     """
     context: dict[str, str] = {}
     if not day:
@@ -281,6 +284,20 @@ def _build_prompt_context(
         segments = activity.get("segments", [])
         context["activity_segments"] = ", ".join(segments) if segments else ""
         context["activity_duration"] = str(estimate_duration_minutes(segments))
+
+    if facet:
+        context["facet"] = facet
+        try:
+            context["activity_md_dir"] = (
+                f"{get_journal()}/facets/{facet}/activities/{day}/"
+            )
+        except Exception:
+            LOG.debug(
+                "Failed to build activity_md_dir for facet=%s day=%s",
+                facet,
+                day,
+                exc_info=True,
+            )
 
     return context
 
@@ -578,7 +595,7 @@ def prepare_config(request: dict) -> dict:
             from think.prompts import _resolve_facets
 
             prompt_context = _build_prompt_context(
-                day, segment, span, activity=activity
+                day, segment, span, activity=activity, facet=facet
             )
             prompt_context["facets"] = _resolve_facets(facet)
 
