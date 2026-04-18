@@ -70,10 +70,14 @@ def reset_routines_state():
     mod._config = {}
     mod._callosum = None
     mod._last_fired = {}
+    mod._fired_triggers = {}
+    mod._logged_unknown_cadence = set()
     yield
     mod._config = {}
     mod._callosum = None
     mod._last_fired = {}
+    mod._fired_triggers = {}
+    mod._logged_unknown_cadence = set()
 
 
 @pytest.fixture
@@ -1557,3 +1561,189 @@ class TestDeleteSuggestionReset:
         entry = config["_meta"]["suggestions"]["morning-briefing"]
         assert entry["response"] == "accepted"
         assert entry["trigger_count"] == 5
+
+
+class TestActivityAnticipation:
+    @staticmethod
+    def _make_routine(routine_id: str, offset_minutes: int) -> dict:
+        return {
+            "id": routine_id,
+            "name": "Meeting prep",
+            "instruction": "Prepare for the upcoming activity.",
+            "cadence": {
+                "type": "activity-anticipation",
+                "offset_minutes": offset_minutes,
+            },
+            "timezone": "UTC",
+            "enabled": True,
+            "facets": [],
+            "template": None,
+            "notify": False,
+            "last_run": None,
+        }
+
+    @staticmethod
+    def _make_anticipated_record(
+        activity_id: str,
+        start: str,
+        title: str = "Sync",
+        description: str = "Discuss current status.",
+        participation=None,
+        *,
+        facet: str = "work",
+    ) -> dict:
+        return {
+            "id": activity_id,
+            "activity": "meeting",
+            "target_date": "2026-04-18",
+            "start": start,
+            "end": "10:30:00",
+            "title": title,
+            "description": description,
+            "details": "Review open items.",
+            "facet": facet,
+            "source": "anticipated",
+            "participation": participation or [],
+            "hidden": False,
+        }
+
+    @staticmethod
+    def _seed_activity_record(facet: str, day: str, record: dict) -> None:
+        from think.activities import append_activity_record
+        from think.facets import create_facet
+
+        title = " ".join(part.capitalize() for part in facet.split("-"))
+        slug = create_facet(title)
+        assert slug == facet
+        written = append_activity_record(facet, day, record)
+        assert written is True
+
+    def test_dispatch_fires_and_injects_prompt(self, journal_path):
+        import think.routines as mod
+
+        save_config({"routine-1": self._make_routine("routine-1", -30)})
+        self._seed_activity_record(
+            "work",
+            "20260418",
+            self._make_anticipated_record(
+                "anticipated_meeting_100000_0418",
+                "10:00:00",
+                title="Roadmap Sync",
+                description="Discuss Q2 roadmap.",
+                participation=[
+                    {"role": "attendee", "name": "Alex Rivera"},
+                    {"role": "attendee", "name": "Jordan Lee"},
+                    {"role": "organizer", "name": "Morgan Shaw"},
+                ],
+            ),
+        )
+
+        dt = datetime(2026, 4, 18, 9, 30, tzinfo=timezone.utc)
+        with (
+            patch(
+                "think.routines.cortex_request", return_value="fake_agent_id"
+            ) as mock_req,
+            patch(
+                "think.routines.wait_for_uses",
+                return_value=({"fake_agent_id": "finish"}, []),
+            ),
+            patch("think.routines.callosum_send", return_value=True),
+            _fake_now(dt),
+        ):
+            mod.check()
+
+        mock_req.assert_called_once()
+        prompt = mock_req.call_args.kwargs["prompt"]
+        assert prompt.index("## Upcoming Activity") < prompt.index(
+            "Execute this routine now."
+        )
+        assert "Roadmap Sync" in prompt
+        assert "10:00:00" in prompt
+        assert "Discuss Q2 roadmap." in prompt
+        assert "Alex Rivera" in prompt
+        assert "Jordan Lee" in prompt
+        assert "Morgan Shaw" not in prompt
+
+    def test_same_minute_fires_only_once(self, journal_path):
+        import think.routines as mod
+
+        save_config({"routine-1": self._make_routine("routine-1", -30)})
+        self._seed_activity_record(
+            "work",
+            "20260418",
+            self._make_anticipated_record(
+                "anticipated_meeting_100000_0418",
+                "10:00:00",
+            ),
+        )
+
+        dt = datetime(2026, 4, 18, 9, 30, tzinfo=timezone.utc)
+        with (
+            patch(
+                "think.routines.cortex_request", return_value="fake_agent_id"
+            ) as mock_req,
+            patch(
+                "think.routines.wait_for_uses",
+                return_value=({"fake_agent_id": "finish"}, []),
+            ),
+            patch("think.routines.callosum_send", return_value=True),
+            _fake_now(dt),
+        ):
+            mod.check()
+            mod.check()
+
+        assert mock_req.call_count == 1
+
+    def test_hidden_records_are_skipped(self, journal_path):
+        import think.routines as mod
+
+        save_config({"routine-1": self._make_routine("routine-1", -30)})
+        record = self._make_anticipated_record(
+            "anticipated_meeting_100000_0418",
+            "10:00:00",
+        )
+        record["hidden"] = True
+        self._seed_activity_record("work", "20260418", record)
+
+        dt = datetime(2026, 4, 18, 9, 30, tzinfo=timezone.utc)
+        with (
+            patch(
+                "think.routines.cortex_request", return_value="fake_agent_id"
+            ) as mock_req,
+            patch(
+                "think.routines.wait_for_uses",
+                return_value=({"fake_agent_id": "finish"}, []),
+            ),
+            patch("think.routines.callosum_send", return_value=True),
+            _fake_now(dt),
+        ):
+            mod.check()
+
+        mock_req.assert_not_called()
+
+    def test_non_anticipated_records_are_skipped(self, journal_path):
+        import think.routines as mod
+
+        save_config({"routine-1": self._make_routine("routine-1", -30)})
+        record = self._make_anticipated_record(
+            "anticipated_meeting_100000_0418",
+            "10:00:00",
+        )
+        record["source"] = "completed"
+        self._seed_activity_record("work", "20260418", record)
+
+        dt = datetime(2026, 4, 18, 9, 30, tzinfo=timezone.utc)
+        with (
+            patch(
+                "think.routines.cortex_request", return_value="fake_agent_id"
+            ) as mock_req,
+            patch(
+                "think.routines.wait_for_uses",
+                return_value=({"fake_agent_id": "finish"}, []),
+            ),
+            patch("think.routines.callosum_send", return_value=True),
+            _fake_now(dt),
+        ):
+            mod.check()
+
+        mock_req.assert_not_called()

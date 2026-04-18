@@ -31,6 +31,8 @@ logger = logging.getLogger(__name__)
 _config: dict[str, dict[str, Any]] = {}
 _callosum: Any = None
 _last_fired: dict[str, str] = {}  # routine_id -> "YYYY-MM-DD HH:MM" of last fire
+_fired_triggers: dict[str, dict[str, str]] = {}
+_logged_unknown_cadence: set[str] = set()
 
 
 def _parse_cron_field(field: str, min_val: int, max_val: int) -> set[int]:
@@ -208,7 +210,45 @@ def _log_health(routine_id: str, name: str, duration: int, outcome: str) -> None
         )
 
 
-def _run_routine(routine: dict) -> None:
+def _render_upcoming_activity_block(activity: dict | None, facet: str) -> str:
+    """Render an upcoming activity context block for routine prompts."""
+    if not activity:
+        return ""
+
+    participation = activity.get("participation") or []
+    if not isinstance(participation, list):
+        participation = []
+    attendees = ", ".join(
+        str(entry.get("name") or "").strip()
+        for entry in participation
+        if isinstance(entry, dict)
+        and entry.get("role") == "attendee"
+        and str(entry.get("name") or "").strip()
+    )
+    attendees = attendees or "(none listed)"
+
+    title = str(activity.get("title") or "")
+    activity_type = str(activity.get("activity") or "(unknown)")
+    start = str(activity.get("start") or "(unknown)")
+    end = str(activity.get("end") or "(unknown)")
+    description = str(activity.get("description") or "(none)")
+    details = str(activity.get("details") or "(none)")
+    facet_display = str(facet or "(none)")
+
+    return (
+        "## Upcoming Activity\n\n"
+        f"- **Title:** {title}\n"
+        f"- **Type:** {activity_type}\n"
+        f"- **Facet:** {facet_display}\n"
+        f"- **Start:** {start}\n"
+        f"- **End:** {end}\n"
+        f"- **Description:** {description}\n"
+        f"- **Details:** {details}\n"
+        f"- **Attendees:** {attendees}\n\n"
+    )
+
+
+def _run_routine(routine: dict, trigger_context: dict | None = None) -> None:
     """Execute a single routine and persist its outcome."""
     routine_id = str(routine.get("id", "unknown"))
     name = str(routine.get("name", routine_id))
@@ -217,7 +257,6 @@ def _run_routine(routine: dict) -> None:
 
     try:
         instruction = str(routine.get("instruction", ""))
-        cadence = str(routine.get("cadence", ""))
         facets = routine.get("facets") or []
         _template = routine.get("template")
         _notify = bool(routine.get("notify", False))
@@ -238,12 +277,25 @@ def _run_routine(routine: dict) -> None:
         previous_line = (
             f"**Previous output:** {prev_output_path}" if prev_output_path else ""
         )
+        cadence_raw = routine.get("cadence")
+        if isinstance(cadence_raw, dict):
+            cadence_display = str(cadence_raw.get("type", ""))
+        else:
+            cadence_display = str(cadence_raw or "")
+
+        upcoming_block = ""
+        if trigger_context and "activity" in trigger_context:
+            upcoming_block = _render_upcoming_activity_block(
+                trigger_context["activity"], trigger_context.get("facet", "")
+            )
+
         prompt = (
             f"## Routine: {name}\n\n"
             f"**Instruction:** {instruction}\n\n"
-            f"**Cadence:** {cadence}\n"
+            f"**Cadence:** {cadence_display}\n"
             f"{facets_line}\n"
             f"{previous_line}\n\n"
+            f"{upcoming_block}"
             "Execute this routine now. Write your output as concise, actionable markdown.\n"
         )
 
@@ -312,10 +364,29 @@ def _run_routine(routine: dict) -> None:
             logger.exception("Failed to emit routine completion for %s", routine_id)
 
 
+def _prune_fired_triggers(*, now_utc: datetime) -> None:
+    """Drop in-memory activity trigger dedupe entries older than two days."""
+    from datetime import timedelta
+
+    cutoff = now_utc - timedelta(days=2)
+    for routine_id, fired_for_routine in list(_fired_triggers.items()):
+        for activity_id, fired_at in list(fired_for_routine.items()):
+            try:
+                fired_dt = real_datetime.fromisoformat(fired_at)
+            except ValueError:
+                del fired_for_routine[activity_id]
+                continue
+            if fired_dt < cutoff:
+                del fired_for_routine[activity_id]
+        if not fired_for_routine:
+            del _fired_triggers[routine_id]
+
+
 def check() -> None:
     """Reload config and run any due routines."""
     global _config
     _config = get_config()
+    _prune_fired_triggers(now_utc=datetime.now(timezone.utc))
 
     config_changed = False
     for routine in _config.values():
@@ -368,6 +439,80 @@ def check() -> None:
             if cron_matches(cadence, local_now):
                 _last_fired[routine_id] = minute_key
                 _run_routine(routine)
+        elif (
+            isinstance(cadence, dict) and cadence.get("type") == "activity-anticipation"
+        ):
+            from datetime import timedelta
+
+            from think.activities import load_activity_records
+            from think.facets import get_facets
+
+            offset_raw = cadence.get("offset_minutes", 0)
+            try:
+                offset_minutes = int(offset_raw)
+            except (TypeError, ValueError):
+                logger.warning(
+                    "Routine %s has invalid offset_minutes %r, skipping",
+                    routine_id,
+                    offset_raw,
+                )
+                continue
+
+            day_str = local_now.strftime("%Y%m%d")
+            fired_for_routine = _fired_triggers.setdefault(routine_id, {})
+
+            for facet_name in get_facets().keys():
+                try:
+                    records = load_activity_records(facet_name, day_str)
+                except Exception:
+                    logger.warning(
+                        "Failed loading activities for facet %s on %s",
+                        facet_name,
+                        day_str,
+                        exc_info=True,
+                    )
+                    continue
+
+                for record in records:
+                    if record.get("source") != "anticipated":
+                        continue
+                    activity_id = record.get("id")
+                    if not activity_id or activity_id in fired_for_routine:
+                        continue
+                    start_str = record.get("start")
+                    if not start_str:
+                        continue
+                    try:
+                        time_parts = [int(x) for x in str(start_str).split(":")]
+                    except (ValueError, AttributeError):
+                        continue
+                    if len(time_parts) == 2:
+                        h, m = time_parts
+                        s = 0
+                    elif len(time_parts) == 3:
+                        h, m, s = time_parts
+                    else:
+                        continue
+                    start_dt = local_now.replace(
+                        hour=h, minute=m, second=s, microsecond=0
+                    )
+                    trigger_dt = start_dt + timedelta(minutes=offset_minutes)
+                    if abs((local_now - trigger_dt).total_seconds()) > 60:
+                        continue
+                    fired_for_routine[activity_id] = now_utc.isoformat()
+                    _run_routine(
+                        routine,
+                        trigger_context={"activity": record, "facet": facet_name},
+                    )
+        elif isinstance(cadence, dict):
+            cadence_type = str(cadence.get("type", "unknown"))
+            if routine_id not in _logged_unknown_cadence:
+                logger.info(
+                    "Routine %s has unsupported cadence type %r, skipping",
+                    routine_id,
+                    cadence_type,
+                )
+                _logged_unknown_cadence.add(routine_id)
 
 
 def save_state() -> None:
