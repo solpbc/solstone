@@ -7,7 +7,7 @@
 # all runs to one path and pytest wipes it on startup, destroying concurrent state.
 export TMPDIR := /var/tmp
 
-.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format format-check ci clean clean-install coverage watch versions update update-prices pre-commit skills dev all sail sandbox sandbox-stop install-pinchtab verify-browser update-browser-baselines review verify-api update-api-baselines install-service uninstall-service service-logs gate-agents-rename check-layer-hygiene
+.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format format-check install-checks ci clean clean-install coverage watch versions update update-prices pre-commit skills dev all sail sandbox sandbox-stop install-pinchtab verify-browser update-browser-baselines review verify verify-api update-api-baselines install-service uninstall-service service-logs gate-agents-rename check-layer-hygiene
 
 # Default target - install package in editable mode
 all: install
@@ -386,7 +386,7 @@ install-service: .installed
 			;; \
 		up""grade) \
 			echo "mode: up""grade"; \
-			$(MAKE) ci || exit $$?; \
+			$(MAKE) install-checks || exit $$?; \
 			;; \
 		fresh) \
 			echo "mode: fresh install"; \
@@ -455,8 +455,7 @@ clean-install: clean
 	$(MAKE) install
 
 # Run continuous integration checks (what CI would run)
-ci: .installed
-	@echo "Running CI checks..."
+install-checks: .installed
 	@echo "=== Checking formatting ==="
 	@$(RUFF) format --check . || { echo "Run 'make format' to fix formatting"; exit 1; }
 	@echo ""
@@ -472,10 +471,18 @@ ci: .installed
 	@echo "=== Running mypy ==="
 	@$(MYPY) . || true
 	@echo ""
+
+ci: install-checks
 	@echo "=== Running tests ==="
 	@$(MAKE) test
 	@echo ""
 	@echo "All CI checks passed!"
+
+verify: install-checks
+	@echo "=== Running tests ==="
+	@$(MAKE) test
+	@echo ""
+	@echo "Verification complete!"
 
 # Watch for changes and run tests (requires pytest-watch)
 watch: .installed

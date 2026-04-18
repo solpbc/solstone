@@ -7,6 +7,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
+import pytest
+
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parent.parent
@@ -59,6 +61,7 @@ def test_journal_template_symlinks_resolve_inside_repo():
         _assert_inside_repo(path, repo_root)
 
 
+@pytest.mark.timeout(30)
 def test_make_skills_idempotent(tmp_path):
     repo_root = _repo_root()
     temp_root = tmp_path / "repo"

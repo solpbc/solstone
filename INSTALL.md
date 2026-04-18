@@ -97,7 +97,7 @@ then read `solstone-macos/INSTALL.md` and follow it.
 git pull && make install-service
 ```
 
-re-running `make install-service` handles both fresh installs and upgrades. on upgrade it runs the full CI suite first and aborts if anything fails, leaving the installed service untouched.
+re-running `make install-service` handles both fresh installs and upgrades. on upgrade it runs fast install-time gates (`make install-checks` — formatting, lint, layer hygiene, mypy) first and aborts if anything fails, leaving the installed service untouched. the full test suite is no longer gated on install, because tests can flake under real service load. for a high-confidence upgrade, run `make verify && make install-service` to execute install-checks plus the test suite before touching the running service.
 
 ## done
 
