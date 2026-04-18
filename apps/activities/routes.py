@@ -24,14 +24,14 @@ activities_bp = Blueprint(
 
 @activities_bp.route("/")
 def index():
-    """Redirect to today's calendar view."""
+    """Redirect to today's activities view."""
     today = date.today().strftime("%Y%m%d")
-    return redirect(url_for("app:activities.calendar_day", day=today))
+    return redirect(url_for("app:activities.activities_day", day=today))
 
 
 @activities_bp.route("/<day>")
-def calendar_day(day: str) -> str:
-    """Render events timeline for a specific day."""
+def activities_day(day: str) -> str:
+    """Render the day view for a specific day."""
     if not DATE_RE.fullmatch(day):
         return "", 404
 
@@ -45,8 +45,8 @@ def calendar_day(day: str) -> str:
 
 
 @activities_bp.route("/api/day/<day>/events")
-def calendar_day_events(day: str) -> Any:
-    """Return events for a specific day from facet event logs."""
+def activities_day_events(day: str) -> Any:
+    """Return timeline events for a specific day from facet event logs."""
     if not DATE_RE.fullmatch(day):
         return "", 404
 
@@ -89,7 +89,7 @@ def calendar_day_events(day: str) -> Any:
 
 
 @activities_bp.route("/api/stats/<month>")
-def calendar_stats(month: str) -> Any:
+def activities_stats(month: str) -> Any:
     """Return event counts per facet for a specific month.
 
     Scans event files directly (including future dates) rather than relying
@@ -113,7 +113,7 @@ def calendar_stats(month: str) -> Any:
 
 
 @activities_bp.route("/api/day/<day>/activities")
-def calendar_day_activities(day: str) -> Any:
+def activities_day_activities(day: str) -> Any:
     """Return enriched activity records for a specific day.
 
     Loads activity records from all facets (or a single facet if ``facet``
@@ -213,7 +213,7 @@ def calendar_day_activities(day: str) -> Any:
 
 
 @activities_bp.route("/api/activity_output/<path:filename>")
-def calendar_activity_output(filename: str) -> Any:
+def activities_activity_output(filename: str) -> Any:
     """Serve an activity output file.
 
     Only serves files under ``facets/`` in the journal directory.
@@ -259,7 +259,7 @@ _frame_cache: dict = {}
 
 
 @activities_bp.route("/<day>/screens")
-def _dev_calendar_screens_list(day: str) -> str:
+def _dev_activities_screens_list(day: str) -> str:
     """Render list of screen.jsonl files for a specific day."""
     if not DATE_RE.fullmatch(day):
         return "", 404
@@ -279,7 +279,7 @@ def _dev_calendar_screens_list(day: str) -> str:
 
 @activities_bp.route("/<day>/screens/<stream>/<timestamp>")
 @activities_bp.route("/<day>/screens/<stream>/<timestamp>/<filename>")
-def _dev_calendar_screens_detail(
+def _dev_activities_screens_detail(
     day: str, stream: str, timestamp: str, filename: str = "screen.jsonl"
 ) -> str:
     """Render detail view for a specific screen.jsonl file."""

@@ -87,7 +87,7 @@
 }
 </style>
 
-<div class="calendar-content">
+<div class="activities-content">
   <h1>{{ title }}</h1>
 
   <div class="screens-list">
@@ -97,7 +97,7 @@
     </h2>
     <p style="color: #6c757d; margin-top: 8px;">
       View raw screen.jsonl files and frame analysis data for {{ day }}.
-      <a href="{{ url_for('app:activities.calendar_day', day=day) }}" style="margin-left: 8px;">← Back to day view</a>
+      <a href="{{ url_for('app:activities.activities_day', day=day) }}" style="margin-left: 8px;">← Back to day view</a>
     </p>
 
     <div id="loading" class="loading">

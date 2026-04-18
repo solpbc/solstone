@@ -587,7 +587,7 @@ button.day-header {
 (function() {
   const searchUrl = '{{ url_for("app:search.search_journal_api") }}';
   const dayResultsUrl = '{{ url_for("app:search.day_results_api") }}';
-  const calendarDayBase = '{{ url_for("app:activities.calendar_day", day="") }}';
+  const activitiesDayBase = '{{ url_for("app:activities.activities_day", day="") }}';
 
   // State
   let currentQuery = '';
@@ -889,7 +889,7 @@ button.day-header {
       <span class="day-count">${dayData.total} match${dayData.total !== 1 ? 'es' : ''}</span>
     `;
     header.onclick = function() {
-      window.location.href = calendarDayBase + dayData.day;
+      window.location.href = activitiesDayBase + dayData.day;
     };
 
     const resultsDiv = document.createElement('div');
@@ -920,7 +920,7 @@ button.day-header {
   function createResultItem(result) {
     const item = document.createElement('a');
     item.className = 'result-item';
-    item.href = calendarDayBase + result.day;
+    item.href = activitiesDayBase + result.day;
 
     // Build facet badge
     let facetBadge = '';
