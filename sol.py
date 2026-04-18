@@ -10,8 +10,8 @@ Usage:
 
 Examples:
     sol import data.json    Import data into journal
-    sol dream 20250101      Run daily processing for a day
-    sol think.agents -h     Show help for specific module
+    sol think 20250101      Run daily processing for a day
+    sol think.talents -h    Show help for specific module
 """
 
 from __future__ import annotations
@@ -39,7 +39,7 @@ import setproctitle
 COMMANDS: dict[str, str] = {
     # think package - daily processing and analysis
     "import": "think.importers.cli",
-    "dream": "think.dream",
+    "think": "think.thinking",
     "indexer": "think.indexer",
     "supervisor": "think.supervisor",
     "schedule": "think.scheduler",
@@ -57,8 +57,8 @@ COMMANDS: dict[str, str] = {
     "transfer": "observe.transfer",
     "export": "observe.export",
     "observer": "observe.observer_cli",
-    # AI agents (talent package)
-    "agents": "think.agents",
+    # AI providers and talent execution
+    "providers": "think.providers_cli",
     "cortex": "think.cortex",
     "talent": "think.talent_cli",
     "call": "think.call",
@@ -91,9 +91,9 @@ ALIASES: dict[str, tuple[str, list[str]]] = {
 
 # Command groupings for help display
 GROUPS: dict[str, list[str]] = {
-    "Think (daily processing)": [
+    "Think (AI processing)": [
         "import",
-        "dream",
+        "think",
         "indexer",
         "supervisor",
         "schedule",
@@ -111,8 +111,8 @@ GROUPS: dict[str, list[str]] = {
         "export",
         "observer",
     ],
-    "Talent (AI agents)": [
-        "agents",
+    "Talent": [
+        "providers",
         "cortex",
         "talent",
         "engage",

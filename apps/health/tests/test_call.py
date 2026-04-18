@@ -57,14 +57,14 @@ def test_mutual_exclusion_error(health_env):
 def test_pipeline_with_real_fixture(health_env):
     env = health_env()
     day = "20260101"
-    health_path = env.journal / day / "health" / "123_segment_dream.jsonl"
+    health_path = env.journal / day / "health" / "123_segment.jsonl"
     health_path.parent.mkdir(parents=True, exist_ok=True)
     health_path.write_text(
         "\n".join(
             [
                 json.dumps({"event": "run.start", "mode": "segment"}),
-                json.dumps({"event": "agent.dispatch", "mode": "segment"}),
-                json.dumps({"event": "agent.complete", "mode": "segment"}),
+                json.dumps({"event": "talent.dispatch", "mode": "segment"}),
+                json.dumps({"event": "talent.complete", "mode": "segment"}),
                 json.dumps(
                     {"event": "run.complete", "mode": "segment", "duration_ms": 42}
                 ),

@@ -95,7 +95,7 @@ Both upload segments via the same HTTP ingest API used by the built-in Linux obs
 
 ## Output Formats
 
-See [JOURNAL.md](JOURNAL.md) for detailed extract schemas:
+See [captures.md](../talent/journal/references/captures.md) for detailed extract schemas:
 - Audio transcripts: `audio.jsonl` with timestamps (speaker detection not included)
 - Screen analysis: `screen.jsonl` with frame-by-frame categorization
 

@@ -70,12 +70,10 @@ def reset_routines_state():
     mod._config = {}
     mod._callosum = None
     mod._last_fired = {}
-    mod._events_fired = {}
     yield
     mod._config = {}
     mod._callosum = None
     mod._last_fired = {}
-    mod._events_fired = {}
 
 
 @pytest.fixture
@@ -201,7 +199,7 @@ class TestCheck:
                 "think.routines.cortex_request", return_value="fake_agent_id"
             ) as mock_req,
             patch(
-                "think.routines.wait_for_agents",
+                "think.routines.wait_for_uses",
                 return_value=({"fake_agent_id": "finish"}, []),
             ),
             patch("think.routines.callosum_send", return_value=True),
@@ -237,7 +235,7 @@ class TestCheck:
                 "think.routines.cortex_request", return_value="fake_agent_id"
             ) as mock_req,
             patch(
-                "think.routines.wait_for_agents",
+                "think.routines.wait_for_uses",
                 return_value=({"fake_agent_id": "finish"}, []),
             ),
             patch("think.routines.callosum_send", return_value=True),
@@ -273,7 +271,7 @@ class TestCheck:
                 "think.routines.cortex_request", return_value="fake_agent_id"
             ) as mock_req,
             patch(
-                "think.routines.wait_for_agents",
+                "think.routines.wait_for_uses",
                 return_value=({"fake_agent_id": "finish"}, []),
             ),
             patch("think.routines.callosum_send", return_value=True),
@@ -309,7 +307,7 @@ class TestCheck:
                 "think.routines.cortex_request", return_value="fake_agent_id"
             ) as mock_req,
             patch(
-                "think.routines.wait_for_agents",
+                "think.routines.wait_for_uses",
                 return_value=({"fake_agent_id": "finish"}, []),
             ),
             patch("think.routines.callosum_send", return_value=True),
@@ -439,7 +437,7 @@ class TestTemplateCreate:
         assert result.exit_code == 1
         assert "template 'nonexistent' not found" in result.stderr
 
-    def test_create_invalid_event_template_cadence(self, journal_path, monkeypatch):
+    def test_create_invalid_template_cadence_type(self, journal_path, monkeypatch):
         import think.tools.routines as routines_cli
 
         def _fake_template(name: str):
@@ -464,135 +462,7 @@ class TestTemplateCreate:
             ["routines", "create", "--template", "bad-template"],
         )
         assert result.exit_code == 1
-        assert "trigger must be 'calendar'" in result.stderr
-
-
-class TestEventTrigger:
-    def _write_calendar_event(self, journal_path, day="20260327"):
-        facet_cal_dir = journal_path / "facets" / "work" / "calendar"
-        facet_cal_dir.mkdir(parents=True)
-        (facet_cal_dir / f"{day}.jsonl").write_text(
-            '{"title":"Standup","start":"10:00","end":"10:30","participants":["Alice","Bob"],"cancelled":false}\n',
-            encoding="utf-8",
-        )
-
-    def _event_routine(self):
-        return {
-            "routine-1": {
-                "id": "routine-1",
-                "name": "Meeting prep",
-                "instruction": "Prepare for the meeting",
-                "cadence": {
-                    "type": "event",
-                    "trigger": "calendar",
-                    "offset_minutes": -30,
-                },
-                "timezone": "UTC",
-                "enabled": True,
-                "facets": ["work"],
-                "template": "meeting-prep",
-                "notify": False,
-                "last_run": None,
-            }
-        }
-
-    def test_event_cadence_fires(self, journal_path):
-        import think.routines as mod
-
-        self._write_calendar_event(journal_path)
-        save_config(self._event_routine())
-
-        dt = datetime(2026, 3, 27, 9, 35, tzinfo=timezone.utc)
-        with (
-            patch(
-                "think.routines.cortex_request", return_value="fake_agent_id"
-            ) as mock_req,
-            patch(
-                "think.routines.wait_for_agents",
-                return_value=({"fake_agent_id": "finish"}, []),
-            ),
-            patch("think.routines.callosum_send", return_value=True),
-            _fake_now(dt),
-        ):
-            mod.check()
-
-        mock_req.assert_called_once()
-
-    def test_event_cadence_dedup(self, journal_path):
-        import think.routines as mod
-
-        self._write_calendar_event(journal_path)
-        save_config(self._event_routine())
-
-        dt = datetime(2026, 3, 27, 9, 35, tzinfo=timezone.utc)
-        with (
-            patch(
-                "think.routines.cortex_request", return_value="fake_agent_id"
-            ) as mock_req,
-            patch(
-                "think.routines.wait_for_agents",
-                return_value=({"fake_agent_id": "finish"}, []),
-            ),
-            patch("think.routines.callosum_send", return_value=True),
-            _fake_now(dt),
-        ):
-            mod.check()
-            mod.check()
-
-        assert mock_req.call_count == 1
-
-    def test_event_cadence_no_events(self, journal_path):
-        import think.routines as mod
-
-        save_config(self._event_routine())
-
-        dt = datetime(2026, 3, 27, 9, 35, tzinfo=timezone.utc)
-        with (
-            patch(
-                "think.routines.cortex_request", return_value="fake_agent_id"
-            ) as mock_req,
-            patch(
-                "think.routines.wait_for_agents",
-                return_value=({"fake_agent_id": "finish"}, []),
-            ),
-            patch("think.routines.callosum_send", return_value=True),
-            _fake_now(dt),
-        ):
-            mod.check()
-
-        mock_req.assert_not_called()
-
-    def test_event_cadence_past_event(self, journal_path):
-        import think.routines as mod
-
-        self._write_calendar_event(journal_path)
-        save_config(self._event_routine())
-
-        dt = datetime(2026, 3, 27, 10, 30, tzinfo=timezone.utc)
-        with (
-            patch(
-                "think.routines.cortex_request", return_value="fake_agent_id"
-            ) as mock_req,
-            patch(
-                "think.routines.wait_for_agents",
-                return_value=({"fake_agent_id": "finish"}, []),
-            ),
-            patch("think.routines.callosum_send", return_value=True),
-            _fake_now(dt),
-        ):
-            mod.check()
-
-        mock_req.assert_not_called()
-
-
-class TestEventState:
-    def test_events_state_persistence(self, journal_path):
-        from think.routines import _load_events_state, _save_events_state
-
-        state = {"routine-1": {"20260327:work:1", "20260327:work:2"}}
-        _save_events_state(state)
-        loaded = _load_events_state()
-        assert loaded == state
+        assert "unsupported cadence type" in result.stderr
 
 
 class TestNameResolution:
@@ -786,7 +656,7 @@ class TestResumeDate:
         with (
             patch("think.routines.cortex_request", return_value="fake_agent_id"),
             patch(
-                "think.routines.wait_for_agents",
+                "think.routines.wait_for_uses",
                 return_value=({"fake_agent_id": "finish"}, []),
             ),
             patch("think.routines.callosum_send", return_value=True),
@@ -825,7 +695,7 @@ class TestResumeDate:
         with (
             patch("think.routines.cortex_request", return_value="fake_agent_id"),
             patch(
-                "think.routines.wait_for_agents",
+                "think.routines.wait_for_uses",
                 return_value=({"fake_agent_id": "finish"}, []),
             ),
             patch("think.routines.callosum_send", return_value=True),
@@ -1576,7 +1446,7 @@ class TestMetaFiltering:
                 "think.routines.cortex_request", return_value="fake_agent_id"
             ) as mock_req,
             patch(
-                "think.routines.wait_for_agents",
+                "think.routines.wait_for_uses",
                 return_value=({"fake_agent_id": "finish"}, []),
             ),
             patch("think.routines.callosum_send", return_value=True),

@@ -33,7 +33,7 @@ from apps.observer.utils import (
     save_observer,
 )
 from apps.utils import log_app_action
-from think.utils import now_ms, setup_cli
+from think.utils import now_ms, require_solstone, setup_cli
 
 logger = logging.getLogger(__name__)
 
@@ -458,6 +458,7 @@ def main() -> None:
     )
 
     args = setup_cli(parser)
+    require_solstone()
 
     # Bridge journal path to convey.state so apps.utils resolves correctly
     # (setup_cli initializes the journal, but convey.state needs it too)

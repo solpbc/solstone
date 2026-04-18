@@ -3,9 +3,32 @@
 
 """Tests for noise upgrade feature in transcription."""
 
+import argparse
 from unittest.mock import patch
 
+import numpy as np
+import pytest
+
+from observe.utils import SAMPLE_RATE
 from observe.vad import VadResult
+
+
+@pytest.fixture
+def audio_path(tmp_path):
+    path = tmp_path / "chronicle" / "20260416" / "default" / "120000_300" / "audio.m4a"
+    path.parent.mkdir(parents=True)
+    path.touch()
+    return path
+
+
+@pytest.fixture
+def args():
+    return argparse.Namespace(backend=None, cpu=False, model=None, redo=False)
+
+
+@pytest.fixture
+def audio_buffer():
+    return np.zeros(10 * SAMPLE_RATE, dtype=np.float32)
 
 
 class TestHasToken:
@@ -171,3 +194,129 @@ class TestBackendMetadata:
         lines = _statements_to_jsonl(statements, "audio.flac", base_dt, model_info)
         metadata = json.loads(lines[0])
         assert metadata["backend"] == "unknown"
+
+
+class TestNoiseUpgradeGate:
+    def test_gate_blocks_on_low_ratio(self, audio_path, args, audio_buffer):
+        from observe.transcribe.main import _process_one
+
+        vad = VadResult(
+            duration=10.0,
+            speech_duration=5.0,
+            has_speech=True,
+            speech_segments=[(1.0, 6.0)],
+            noisy_rms=0.02,
+            noisy_s=3.0,
+            loud_windows=200,
+            speech_loud_windows=10,
+        )
+        transcribe_config = {
+            "backend": "whisper",
+            "noise_upgrade": True,
+            "noise_upgrade_min_speech_ratio": 0.3,
+            "whisper": {},
+        }
+
+        with (
+            patch("observe.transcribe.main.load_audio", return_value=audio_buffer),
+            patch("observe.transcribe.main.run_vad", return_value=vad),
+            patch("observe.transcribe.main.reduce_audio", return_value=(None, None)),
+            patch("observe.transcribe.main.process_audio") as mock_process_audio,
+            patch("observe.transcribe.revai.has_token", return_value=True),
+        ):
+            _process_one(audio_path, args, transcribe_config, [])
+
+        assert mock_process_audio.call_args.kwargs["backend"] == "whisper"
+
+    def test_gate_admits_on_high_ratio(self, audio_path, args, audio_buffer):
+        from observe.transcribe.main import _process_one
+
+        vad = VadResult(
+            duration=10.0,
+            speech_duration=5.0,
+            has_speech=True,
+            speech_segments=[(1.0, 6.0)],
+            noisy_rms=0.02,
+            noisy_s=3.0,
+            loud_windows=100,
+            speech_loud_windows=90,
+        )
+        transcribe_config = {
+            "backend": "whisper",
+            "noise_upgrade": True,
+            "noise_upgrade_min_speech_ratio": 0.3,
+            "whisper": {},
+        }
+
+        with (
+            patch("observe.transcribe.main.load_audio", return_value=audio_buffer),
+            patch("observe.transcribe.main.run_vad", return_value=vad),
+            patch("observe.transcribe.main.reduce_audio", return_value=(None, None)),
+            patch("observe.transcribe.main.process_audio") as mock_process_audio,
+            patch("observe.transcribe.revai.has_token", return_value=True),
+        ):
+            _process_one(audio_path, args, transcribe_config, [])
+
+        assert mock_process_audio.call_args.kwargs["backend"] == "revai"
+
+    def test_gate_fallback_when_ratio_none(self, audio_path, args, audio_buffer):
+        from observe.transcribe.main import _process_one
+
+        vad = VadResult(
+            duration=10.0,
+            speech_duration=5.0,
+            has_speech=True,
+            speech_segments=[(1.0, 6.0)],
+            noisy_rms=0.02,
+            noisy_s=3.0,
+            loud_windows=0,
+            speech_loud_windows=0,
+        )
+        transcribe_config = {
+            "backend": "whisper",
+            "noise_upgrade": True,
+            "noise_upgrade_min_speech_ratio": 0.3,
+            "whisper": {},
+        }
+
+        with (
+            patch("observe.transcribe.main.load_audio", return_value=audio_buffer),
+            patch("observe.transcribe.main.run_vad", return_value=vad),
+            patch("observe.transcribe.main.reduce_audio", return_value=(None, None)),
+            patch("observe.transcribe.main.process_audio") as mock_process_audio,
+            patch("observe.transcribe.revai.has_token", return_value=True),
+        ):
+            _process_one(audio_path, args, transcribe_config, [])
+
+        assert mock_process_audio.call_args.kwargs["backend"] == "revai"
+
+    def test_gate_blocks_when_not_noisy(self, audio_path, args, audio_buffer):
+        from observe.transcribe.main import _process_one
+
+        vad = VadResult(
+            duration=10.0,
+            speech_duration=5.0,
+            has_speech=True,
+            speech_segments=[(1.0, 6.0)],
+            noisy_rms=0.005,
+            noisy_s=3.0,
+            loud_windows=100,
+            speech_loud_windows=90,
+        )
+        transcribe_config = {
+            "backend": "whisper",
+            "noise_upgrade": True,
+            "noise_upgrade_min_speech_ratio": 0.3,
+            "whisper": {},
+        }
+
+        with (
+            patch("observe.transcribe.main.load_audio", return_value=audio_buffer),
+            patch("observe.transcribe.main.run_vad", return_value=vad),
+            patch("observe.transcribe.main.reduce_audio", return_value=(None, None)),
+            patch("observe.transcribe.main.process_audio") as mock_process_audio,
+            patch("observe.transcribe.revai.has_token", return_value=True),
+        ):
+            _process_one(audio_path, args, transcribe_config, [])
+
+        assert mock_process_audio.call_args.kwargs["backend"] == "whisper"

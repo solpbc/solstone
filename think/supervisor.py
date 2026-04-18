@@ -21,6 +21,7 @@ from desktop_notifier import DesktopNotifier, Urgency
 
 from think import routines, scheduler
 from think.callosum import CallosumConnection, CallosumServer
+from think.maint import run_pending_tasks
 from think.runner import DailyLogWriter
 from think.runner import ManagedProcess as RunnerManagedProcess
 from think.utils import (
@@ -454,7 +455,7 @@ _restart_requests: dict[str, tuple[float, subprocess.Popen]] = {}
 # Track whether running in remote mode (upload-only, no local processing)
 _is_remote_mode: bool = False
 
-# State for daily processing (tracks day boundary for midnight dream trigger)
+# State for daily processing (tracks day boundary for midnight think trigger)
 _daily_state = {
     "last_day": None,  # Track which day we last processed
 }
@@ -970,14 +971,14 @@ async def handle_runner_exits(
 
 
 def handle_daily_tasks() -> None:
-    """Check for day change and submit daily dream for updated days (non-blocking).
+    """Check for day change and submit daily think for updated days (non-blocking).
 
     Triggers once when the day rolls over at midnight.  Queries ``updated_days()``
     for journal days that have new stream data but haven't completed a daily
-    dream yet, then submits up to ``MAX_UPDATED_CATCHUP`` dreams in chronological
+    think yet, then submits up to ``MAX_UPDATED_CATCHUP`` thinks in chronological
     order (oldest first, yesterday last) via the TaskQueue.
 
-    Dream auto-detects updated state and enables ``--refresh`` internally, so we
+    Think auto-detects updated state and enables ``--refresh`` internally, so we
     don't pass it here.
 
     Skipped in remote mode (no local data to process).
@@ -1004,7 +1005,7 @@ def handle_daily_tasks() -> None:
         # Update state for new day
         _daily_state["last_day"] = today
 
-        # Flush any dangling segment state from the previous day before daily dream
+        # Flush any dangling segment state from the previous day before daily think
         if not _flush_state["flushed"] and _flush_state["day"] == prev_day_str:
             _check_segment_flush(force=True)
 
@@ -1028,7 +1029,7 @@ def handle_daily_tasks() -> None:
             )
 
         logging.info(
-            "Day changed to %s, queuing daily dream for %d updated day(s): %s",
+            "Day changed to %s, queuing daily think for %d updated day(s): %s",
             today,
             len(days_to_process),
             days_to_process,
@@ -1036,10 +1037,10 @@ def handle_daily_tasks() -> None:
 
         # Submit oldest-first so yesterday is processed last
         for day_str in days_to_process:
-            cmd = ["sol", "dream", "-v", "--day", day_str]
+            cmd = ["sol", "think", "-v", "--day", day_str]
             if _task_queue:
                 _task_queue.submit(cmd, day=day_str)
-                logging.debug("Submitted daily dream for %s", day_str)
+                logging.debug("Submitted daily think for %s", day_str)
             else:
                 logging.warning(
                     "No task queue available for daily processing: %s", day_str
@@ -1049,7 +1050,7 @@ def handle_daily_tasks() -> None:
 def _handle_segment_observed(message: dict) -> None:
     """Handle segment completion events (from live observation or imports).
 
-    Submits sol dream in segment mode via task queue, which handles both
+    Submits sol think in segment mode via task queue, which handles both
     generators and segment agents. Also updates flush state to track
     segment recency.
     """
@@ -1074,8 +1075,8 @@ def _handle_segment_observed(message: dict) -> None:
 
     logging.info(f"Segment observed: {day}/{segment}, submitting processing...")
 
-    # Submit via task queue — serializes with other dream invocations
-    cmd = ["sol", "dream", "-v", "--day", day, "--segment", segment]
+    # Submit via task queue — serializes with other think invocations
+    cmd = ["sol", "think", "-v", "--day", day, "--segment", segment]
     if stream:
         cmd.extend(["--stream", stream])
     if _task_queue:
@@ -1090,12 +1091,12 @@ def _check_segment_flush(force: bool = False) -> None:
     """Check if the last observed segment needs flushing.
 
     If no new segments have arrived within FLUSH_TIMEOUT seconds, runs
-    ``sol dream --flush`` on the last segment to let flush-enabled agents
+    ``sol think --flush`` on the last segment to let flush-enabled agents
     close out dangling state (e.g., end active activities).
 
     Args:
         force: Skip timeout check (used at day boundary to flush
-               before daily dream regardless of elapsed time).
+               before daily think regardless of elapsed time).
 
     Skipped in remote mode (no local processing).
     """
@@ -1117,7 +1118,7 @@ def _check_segment_flush(force: bool = False) -> None:
     _flush_state["flushed"] = True
 
     stream = _flush_state.get("stream")
-    cmd = ["sol", "dream", "-v", "--day", day, "--segment", segment, "--flush"]
+    cmd = ["sol", "think", "-v", "--day", day, "--segment", segment, "--flush"]
     if stream:
         cmd.extend(["--stream", stream])
     if _task_queue:
@@ -1130,12 +1131,12 @@ def _check_segment_flush(force: bool = False) -> None:
 
 
 def _handle_segment_event_log(message: dict) -> None:
-    """Log observe, dream, and activity events with day+segment to segment/events.jsonl.
+    """Log observe, think, and activity events with day+segment to segment/events.jsonl.
 
-    Any observe, dream, or activity tract message with both day and segment fields
+    Any observe, think, or activity tract message with both day and segment fields
     gets logged to journal/day/segment/events.jsonl if that directory exists.
     """
-    if message.get("tract") not in {"observe", "dream", "activity"}:
+    if message.get("tract") not in {"observe", "think", "activity"}:
         return
 
     day = message.get("day")
@@ -1167,9 +1168,9 @@ def _handle_segment_event_log(message: dict) -> None:
 
 
 def _handle_activity_recorded(message: dict) -> None:
-    """Queue a per-activity dream task when an activity is recorded.
+    """Queue a per-activity think task when an activity is recorded.
 
-    Listens for activity.recorded events and submits a queued dream task
+    Listens for activity.recorded events and submits a queued think task
     for per-activity agent processing (serialized via TaskQueue).
     """
     if message.get("tract") != "activity" or message.get("event") != "recorded":
@@ -1183,22 +1184,22 @@ def _handle_activity_recorded(message: dict) -> None:
         logging.warning("activity.recorded event missing required fields")
         return
 
-    cmd = ["sol", "dream", "--activity", record_id, "--facet", facet, "--day", day]
+    cmd = ["sol", "think", "--activity", record_id, "--facet", facet, "--day", day]
 
     if _task_queue:
         _task_queue.submit(cmd, day=day)
-        logging.info(f"Queued activity dream: {record_id} for #{facet}")
+        logging.info(f"Queued activity think: {record_id} for #{facet}")
     else:
-        logging.warning("No task queue available for activity dream: %s", record_id)
+        logging.warning("No task queue available for activity think: %s", record_id)
 
 
-def _handle_dream_daily_complete(message: dict) -> None:
-    """Submit a heartbeat task after daily dream processing completes.
+def _handle_think_daily_complete(message: dict) -> None:
+    """Submit a heartbeat task after daily think processing completes.
 
-    Listens for dream.daily_complete events. Skips if a heartbeat process
+    Listens for think.daily_complete events. Skips if a heartbeat process
     is already running (PID file guard).
     """
-    if message.get("tract") != "dream" or message.get("event") != "daily_complete":
+    if message.get("tract") != "think" or message.get("event") != "daily_complete":
         return
 
     # Check if heartbeat is already running via PID file
@@ -1222,7 +1223,7 @@ def _handle_dream_daily_complete(message: dict) -> None:
     cmd = ["sol", "heartbeat"]
     if _task_queue:
         _task_queue.submit(cmd)
-        logging.info("Queued heartbeat after daily dream completion")
+        logging.info("Queued heartbeat after daily think completion")
     else:
         logging.warning("No task queue available for heartbeat submission")
 
@@ -1233,7 +1234,7 @@ def _handle_callosum_message(message: dict) -> None:
     _handle_supervisor_request(message)
     _handle_segment_observed(message)
     _handle_activity_recorded(message)
-    _handle_dream_daily_complete(message)
+    _handle_think_daily_complete(message)
     _handle_segment_event_log(message)
 
 
@@ -1435,6 +1436,22 @@ def main() -> None:
     # Remote mode: run sync instead of local processing
     _is_remote_mode = bool(args.remote)
 
+    # Run pending journal-maintenance tasks before spawning any writer children.
+    # Callosum isn't up yet (emit_fn=None); migrations log through supervisor's logger only.
+    try:
+        ran, succeeded = run_pending_tasks(journal_path, emit_fn=None)
+        if ran > 0:
+            if ran == succeeded:
+                logging.info("Completed %d/%d maintenance task(s)", succeeded, ran)
+            else:
+                logging.error(
+                    "Maintenance tasks completed with failures: %d/%d succeeded",
+                    succeeded,
+                    ran,
+                )
+    except Exception:
+        logging.exception("Maintenance runner raised; continuing startup")
+
     # Start Callosum in-process first - it's the message bus that other services depend on
     try:
         start_callosum_in_process()
@@ -1489,7 +1506,7 @@ def main() -> None:
     # Make procs accessible to restart handler
     _managed_procs = procs
 
-    # Initialize daily state to today - dream only triggers at midnight when day changes
+    # Initialize daily state to today - think only triggers at midnight when day changes
     _daily_state["last_day"] = datetime.now().date()
 
     # Initialize periodic task scheduler
@@ -1508,7 +1525,7 @@ def main() -> None:
     if daily_enabled:
         logging.info("Daily processing scheduled for midnight")
 
-    # Startup catchup: submit dreams for days with pending stream data
+    # Startup catchup: submit thinks for days with pending stream data
     if daily_enabled:
         all_updated = updated_days()
         if all_updated:
@@ -1530,10 +1547,10 @@ def main() -> None:
             )
 
             for day_str in days_to_process:
-                cmd = ["sol", "dream", "-v", "--day", day_str]
+                cmd = ["sol", "think", "-v", "--day", day_str]
                 if _task_queue:
                     _task_queue.submit(cmd, day=day_str)
-                    logging.debug("Startup catchup: submitted dream for %s", day_str)
+                    logging.debug("Startup catchup: submitted think for %s", day_str)
                 else:
                     logging.warning(
                         "No task queue available for startup catchup: %s", day_str

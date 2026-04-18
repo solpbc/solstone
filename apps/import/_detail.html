@@ -284,7 +284,7 @@ function renderContentItems(items) {
       note: 'Note',
     }[item.type] || item.type;
     const date = item.date ? `${item.date.slice(0, 4)}-${item.date.slice(4, 6)}-${item.date.slice(6, 8)}` : '';
-    const calLink = item.date ? `/app/calendar/${item.date}` : '';
+    const calLink = item.date ? `/app/activities/${item.date}` : '';
     html += `
       <div class="import-content-item" data-item-id="${item.id}" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleContentItem(this)}">
         <div class="import-content-item-header" onclick="toggleContentItem(this.parentElement)">
@@ -300,7 +300,7 @@ function renderContentItems(items) {
           ${item.meta?.location ? ` · ${escapeContentHtml(item.meta.location)}` : ''}
           ${item.meta?.author ? `· ${escapeContentHtml(item.meta.author)}` : ''}
           ${item.meta?.tags?.length ? `· ${item.meta.tags.map(t => escapeContentHtml(t)).join(', ')}` : ''}
-          ${calLink ? ` · <a href="${calLink}" class="import-content-cal-link" onclick="event.stopPropagation();">View in calendar →</a>` : ''}
+          ${calLink ? ` · <a href="${calLink}" class="import-content-cal-link" onclick="event.stopPropagation();">View in activities →</a>` : ''}
         </div>
         ${item.preview ? `<div class="import-content-item-preview">${escapeContentHtml(stripMarkdown(item.preview))}</div>` : ''}
         <div class="import-content-item-body"><div class="no-data">Loading...</div></div>
@@ -522,7 +522,7 @@ fetch('/app/import/api/{{ timestamp }}')
         linksSection.style.display = 'block';
 
         let linksHtml = '';
-        linksHtml += `<div class="link-item">📅 <a href="/app/calendar/${data.imported_json.target_day}">View Day in Calendar</a></div>`;
+        linksHtml += `<div class="link-item">📅 <a href="/app/activities/${data.imported_json.target_day}">View Day in Activities</a></div>`;
         linksHtml += `<div class="link-item">💬 <a href="/app/transcripts/${data.imported_json.target_day}">View Transcript</a></div>`;
         quickLinks.innerHTML = linksHtml;
       }

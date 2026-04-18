@@ -1,3 +1,0 @@
-{"agent_id": "1772726400001", "name": "flow", "day": "20260305", "facet": null, "ts": 1772762400000, "status": "completed", "runtime_seconds": 4.8, "provider": "google", "model": "gemini-2.5-flash", "schedule": "segment"}
-{"agent_id": "1772726400002", "name": "meetings", "day": "20260305", "facet": null, "ts": 1772762460000, "status": "completed", "runtime_seconds": 2.9, "provider": "google", "model": "gemini-2.5-flash", "schedule": "daily"}
-{"agent_id": "1772737200001", "name": "default", "day": "20260305", "facet": "verona", "ts": 1772737200000, "status": "completed", "runtime_seconds": 12.3, "provider": "openai", "model": "gpt-4o", "schedule": "segment"}

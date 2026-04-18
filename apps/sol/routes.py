@@ -1,11 +1,12 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Agents app - browse historical agent runs by day and facet."""
+"""Talents app - browse historical talent uses by day and facet."""
 
 from __future__ import annotations
 
 import json
+import logging
 import re
 from datetime import date, datetime
 from functools import lru_cache
@@ -73,19 +74,19 @@ def _get_facet_filter() -> str | None:
     return facet
 
 
-def _agent_id_to_day(agent_id: str) -> str:
-    """Convert agent_id (millisecond timestamp) to YYYYMMDD day string."""
+def _use_id_to_day(use_id: str) -> str:
+    """Convert use_id (millisecond timestamp) to YYYYMMDD day string."""
     try:
-        ts = int(agent_id) / 1000
+        ts = int(use_id) / 1000
         return datetime.fromtimestamp(ts).strftime("%Y%m%d")
     except (ValueError, OSError):
         return ""
 
 
-def _parse_agent_events(
+def _parse_use_events(
     lines: list[str], *, collect_events: bool = False
 ) -> dict[str, Any]:
-    """Parse agent event lines and extract counts and cost data.
+    """Parse use event lines and extract counts and cost data.
 
     Args:
         lines: List of JSONL lines
@@ -142,18 +143,18 @@ def _parse_agent_events(
     return result
 
 
-def _parse_agent_file(agent_file: Path) -> dict[str, Any] | None:
-    """Parse agent JSONL file and extract metadata.
+def _parse_use_file(use_file: Path) -> dict[str, Any] | None:
+    """Parse a use JSONL file and extract metadata.
 
     Returns dict with: id, name, start, status, prompt, facet, failed,
     runtime_seconds, thinking_count, tool_count, cost, model, provider,
     error_message.
     Returns None if file cannot be parsed.
     """
-    from think.cortex_client import get_agent_end_state
+    from think.cortex_client import get_use_end_state
 
     try:
-        with open(agent_file, "r") as f:
+        with open(use_file, "r") as f:
             lines = f.readlines()
 
         if not lines:
@@ -167,15 +168,14 @@ def _parse_agent_file(agent_file: Path) -> dict[str, Any] | None:
         if request_event.get("event") != "request":
             return None
 
-        # Extract agent ID from filename
-        is_active = "_active.jsonl" in agent_file.name
-        agent_id = agent_file.stem.replace("_active", "")
+        is_active = "_active.jsonl" in use_file.name
+        use_id = use_file.stem.replace("_active", "")
 
         # Parse events using shared helper
-        event_data = _parse_agent_events(lines[1:])
+        event_data = _parse_use_events(lines[1:])
 
-        agent_info: dict[str, Any] = {
-            "id": agent_id,
+        use_info: dict[str, Any] = {
+            "id": use_id,
             "name": request_event.get("name", "unified"),
             "start": request_event.get("ts", 0),
             "status": "running" if is_active else "completed",
@@ -203,38 +203,36 @@ def _parse_agent_file(agent_file: Path) -> dict[str, Any] | None:
                     output_file = str(out_path.relative_to(day_dir))
                 else:
                     output_file = str(out_path.relative_to(state.journal_root))
-        agent_info["output_file"] = output_file
+        use_info["output_file"] = output_file
 
-        # For completed agents, determine end state and calculate cost
+        # For completed uses, determine end state and calculate cost
         if not is_active:
-            end_state = get_agent_end_state(agent_id)
-            agent_info["failed"] = end_state in ("error", "unknown")
+            end_state = get_use_end_state(use_id)
+            use_info["failed"] = end_state in ("error", "unknown")
 
             # Calculate runtime from finish or error timestamp
             end_ts = event_data["finish_ts"] or event_data["error_ts"]
-            if end_ts and agent_info["start"]:
-                agent_info["runtime_seconds"] = (end_ts - agent_info["start"]) / 1000.0
+            if end_ts and use_info["start"]:
+                use_info["runtime_seconds"] = (end_ts - use_info["start"]) / 1000.0
 
             # Calculate cost
-            agent_info["cost"] = calc_agent_cost(
-                event_data["model"], event_data["usage"]
-            )
+            use_info["cost"] = calc_agent_cost(event_data["model"], event_data["usage"])
 
-        return agent_info
+        return use_info
     except (json.JSONDecodeError, IOError):
         return None
 
 
-def _get_agent_day(agent_file: Path) -> str:
-    """Get the logical day for an agent from its request event.
+def _get_use_day(use_file: Path) -> str:
+    """Get the logical day for a use from its request event.
 
     Prefers the ``day`` field from the request event (the day being processed)
-    over the agent_id timestamp (when the agent actually ran).  This ensures
-    overnight dream agents appear under the day they processed.
+    over the use_id timestamp (when the agent actually ran).  This ensures
+    overnight think uses appear under the day they processed.
     """
-    agent_id = agent_file.stem.replace("_active", "")
+    use_id = use_file.stem.replace("_active", "")
     try:
-        with open(agent_file, "r") as f:
+        with open(use_file, "r") as f:
             first_line = f.readline().strip()
             if first_line:
                 request_event = json.loads(first_line)
@@ -243,29 +241,29 @@ def _get_agent_day(agent_file: Path) -> str:
                     return req_day
     except (json.JSONDecodeError, IOError):
         pass
-    return _agent_id_to_day(agent_id)
+    return _use_id_to_day(use_id)
 
 
-def _get_agents_for_day(day: str, facet_filter: str | None = None) -> list[dict]:
-    """Get all agent runs for a specific day.
+def _get_uses_for_day(day: str, facet_filter: str | None = None) -> list[dict]:
+    """Get all talent uses for a specific day.
 
-    Uses the day index file for fast lookup instead of scanning all agent files.
+    Uses the day index file for fast lookup instead of scanning all use files.
 
     Args:
         day: YYYYMMDD day string
         facet_filter: Optional facet to filter by (None = all facets)
 
     Returns:
-        List of agent info dicts sorted by start time (newest first)
+        List of use info dicts sorted by start time (newest first)
     """
-    agents_dir = Path(state.journal_root) / "agents"
-    if not agents_dir.exists():
+    talents_dir = Path(state.journal_root) / "talents"
+    if not talents_dir.exists():
         return []
 
-    agents = []
+    uses = []
 
-    # Read day index for completed agents
-    day_index_path = agents_dir / f"{day}.jsonl"
+    # Read day index for completed uses
+    day_index_path = talents_dir / f"{day}.jsonl"
     if day_index_path.exists():
         try:
             with open(day_index_path, "r") as f:
@@ -283,53 +281,53 @@ def _get_agents_for_day(day: str, facet_filter: str | None = None) -> list[dict]
                         continue
 
                     # Locate the actual file for full parsing
-                    agent_id = entry.get("agent_id", "")
+                    use_id = entry.get("use_id", "")
                     name = entry.get("name", "unified")
                     safe_name = name.replace(":", "--")
-                    agent_file = agents_dir / safe_name / f"{agent_id}.jsonl"
-                    if not agent_file.exists():
+                    use_file = talents_dir / safe_name / f"{use_id}.jsonl"
+                    if not use_file.exists():
                         continue
 
-                    agent_info = _parse_agent_file(agent_file)
-                    if agent_info:
-                        agents.append(agent_info)
-        except IOError:
-            pass
+                    use_info = _parse_use_file(use_file)
+                    if use_info:
+                        uses.append(use_info)
+        except OSError as exc:
+            logging.warning("Failed to read use day index %s: %s", day_index_path, exc)
 
-    # Also check for running agents (only have _active files, no day index entry yet)
-    for agent_file in agents_dir.glob("*/*_active.jsonl"):
-        if "_pending" in agent_file.name:
+    # Also check for running uses (only have _active files, no day index entry yet)
+    for use_file in talents_dir.glob("*/*_active.jsonl"):
+        if "_pending" in use_file.name:
             continue
-        if _get_agent_day(agent_file) != day:
-            continue
-
-        agent_info = _parse_agent_file(agent_file)
-        if not agent_info:
+        if _get_use_day(use_file) != day:
             continue
 
-        if facet_filter is not None and agent_info.get("facet") != facet_filter:
+        use_info = _parse_use_file(use_file)
+        if not use_info:
             continue
 
-        agents.append(agent_info)
+        if facet_filter is not None and use_info.get("facet") != facet_filter:
+            continue
+
+        uses.append(use_info)
 
     # Sort by start time (newest first)
-    agents.sort(key=lambda x: x["start"], reverse=True)
-    return agents
+    uses.sort(key=lambda x: x["start"], reverse=True)
+    return uses
 
 
 @lru_cache(maxsize=1)
-def _build_agents_meta() -> dict[str, dict[str, Any]]:
-    """Build agent metadata dict from all talent configs.
+def _build_talents_meta() -> dict[str, dict[str, Any]]:
+    """Build talent metadata dict from all talent configs.
 
-    Returns dict mapping agent name to metadata with capability fields
+    Returns dict mapping talent name to metadata with capability fields
     for frontend display. Cached for process lifetime since talent configs
     are static.
     """
     configs = get_talent_configs(include_disabled=True)
-    agents: dict[str, dict[str, Any]] = {}
+    talents: dict[str, dict[str, Any]] = {}
 
     for name, config in configs.items():
-        agents[name] = {
+        talents[name] = {
             "title": config.get("title", name),
             "description": config.get("description"),
             "color": config.get("color", "#6c757d"),
@@ -341,7 +339,7 @@ def _build_agents_meta() -> dict[str, dict[str, Any]]:
             "multi_facet": bool(config.get("multi_facet")),
         }
 
-    return agents
+    return talents
 
 
 # =============================================================================
@@ -351,14 +349,14 @@ def _build_agents_meta() -> dict[str, dict[str, Any]]:
 
 @sol_bp.route("/")
 def index() -> Any:
-    """Redirect to today's agent history."""
+    """Redirect to today's talent history."""
     today = date.today().strftime("%Y%m%d")
-    return redirect(url_for("app:sol.agents_day", day=today))
+    return redirect(url_for("app:sol.talents_day", day=today))
 
 
 @sol_bp.route("/<day>")
-def agents_day(day: str) -> str:
-    """Render agent history viewer for a specific day."""
+def talents_day(day: str) -> str:
+    """Render talent history viewer for a specific day."""
     if not DATE_RE.fullmatch(day):
         return "", 404
 
@@ -372,9 +370,9 @@ def agents_day(day: str) -> str:
 # =============================================================================
 
 
-@sol_bp.route("/api/agents/<day>")
-def api_agents_day(day: str) -> Any:
-    """Get agent runs and metadata for a specific day.
+@sol_bp.route("/api/talents/<day>")
+def api_talents_day(day: str) -> Any:
+    """Get talent uses and metadata for a specific day.
 
     Returns flat data for frontend grouping/rendering.
 
@@ -383,8 +381,8 @@ def api_agents_day(day: str) -> Any:
 
     Returns:
         {
-            "runs": [run objects...],
-            "agents": {name: metadata...},
+            "uses": [use objects...],
+            "talents": {name: metadata...},
             "facets": {name: {title, color}...}
         }
     """
@@ -393,8 +391,8 @@ def api_agents_day(day: str) -> Any:
 
     facet_filter = _get_facet_filter()
 
-    runs = _get_agents_for_day(day, facet_filter)
-    agents = _build_agents_meta()
+    uses = _get_uses_for_day(day, facet_filter)
+    talents = _build_talents_meta()
     facets = {
         name: {"title": f.get("title", name), "color": f.get("color")}
         for name, f in get_facets().items()
@@ -402,49 +400,48 @@ def api_agents_day(day: str) -> Any:
 
     return jsonify(
         {
-            "runs": runs,
-            "agents": agents,
+            "uses": uses,
+            "talents": talents,
             "facets": facets,
         }
     )
 
 
-@sol_bp.route("/api/run/<agent_id>")
-def api_agent_run(agent_id: str) -> Any:
-    """Return full agent run detail with metadata and parsed events."""
-    # Locate the agent JSONL file
+@sol_bp.route("/api/run/<use_id>")
+def api_agent_run(use_id: str) -> Any:
+    """Return full talent-use detail with metadata and parsed events."""
+    # Locate the use JSONL file
     journal_path = Path(state.journal_root)
-    agents_dir = journal_path / "agents"
-    # Search subdirectories for the agent file
-    agent_file = None
-    for match in agents_dir.glob(f"*/{agent_id}.jsonl"):
-        agent_file = match
+    talents_dir = journal_path / "talents"
+    # Search subdirectories for the use file
+    use_file = None
+    for match in talents_dir.glob(f"*/{use_id}.jsonl"):
+        use_file = match
         break
 
-    if not agent_file:
-        # Check if the agent is still running
-        for match in agents_dir.glob(f"*/{agent_id}_active.jsonl"):
-            return jsonify({"error": "Agent run is still in progress"}), 202
-        return jsonify({"error": f"Agent run {agent_id} not found"}), 404
+    if not use_file:
+        for match in talents_dir.glob(f"*/{use_id}_active.jsonl"):
+            return jsonify({"error": "Talent run is still in progress"}), 202
+        return jsonify({"error": f"Talent run {use_id} not found"}), 404
 
     try:
-        from think.cortex_client import get_agent_end_state
+        from think.cortex_client import get_use_end_state
 
-        with open(agent_file, "r", encoding="utf-8") as f:
+        with open(use_file, "r", encoding="utf-8") as f:
             lines = f.readlines()
 
         if not lines:
-            return jsonify({"error": f"Agent run {agent_id} is malformed"}), 500
+            return jsonify({"error": f"Talent run {use_id} is malformed"}), 500
 
         first_line = lines[0].strip()
         if not first_line:
-            return jsonify({"error": f"Agent run {agent_id} is malformed"}), 500
+            return jsonify({"error": f"Talent run {use_id} is malformed"}), 500
 
         request_event = json.loads(first_line)
         if request_event.get("event") != "request":
-            return jsonify({"error": f"Agent run {agent_id} is malformed"}), 500
+            return jsonify({"error": f"Talent run {use_id} is malformed"}), 500
 
-        event_data = _parse_agent_events(lines[1:], collect_events=True)
+        event_data = _parse_use_events(lines[1:], collect_events=True)
 
         output_file = None
         req_output = request_event.get("output")
@@ -464,10 +461,10 @@ def api_agent_run(agent_id: str) -> Any:
         if end_ts and start_ts:
             runtime_seconds = (end_ts - start_ts) / 1000.0
 
-        end_state = get_agent_end_state(agent_id)
+        end_state = get_use_end_state(use_id)
 
         run: dict[str, Any] = {
-            "id": agent_id,
+            "id": use_id,
             "name": request_event.get("name", "unified"),
             "start": start_ts,
             "status": "completed",
@@ -484,7 +481,7 @@ def api_agent_run(agent_id: str) -> Any:
             "output_file": output_file,
             "events": event_data.get("events", []),
         }
-        run["day"] = request_event.get("day") or _agent_id_to_day(agent_id)
+        run["day"] = request_event.get("day") or _use_id_to_day(use_id)
         return jsonify(run)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -498,7 +495,7 @@ def api_output_file(day: str, filename: str) -> Any:
     Path is validated to stay within the journal directory.
 
     Supports two path styles:
-    - Day-relative: ``agents/flow.md`` → resolved under ``{day}/``
+    - Day-relative: ``talents/flow.md`` → resolved under ``{day}/``
     - Journal-relative: ``facets/work/activities/...`` → resolved under journal root
     """
     if not DATE_RE.fullmatch(day):
@@ -550,9 +547,9 @@ def api_preview_prompt(name: str) -> Any:
         }
     """
     try:
-        from think.talent import get_agent
+        from think.talent import get_talent
 
-        config = get_agent(name)
+        config = get_talent(name)
 
         system_instruction = config.get("system_instruction", "")
         extra_context = config.get("extra_context", "")
@@ -576,14 +573,14 @@ def api_preview_prompt(name: str) -> Any:
             }
         )
     except FileNotFoundError:
-        return jsonify({"error": f"Agent '{name}' not found"}), 404
+        return jsonify({"error": f"Talent '{name}' not found"}), 404
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
 @sol_bp.route("/api/stats/<month>")
 def api_stats(month: str) -> Any:
-    """Return agent run counts per day per facet for a month.
+    """Return talent-use counts per day per facet for a month.
 
     Args:
         month: YYYYMM format month string
@@ -595,14 +592,14 @@ def api_stats(month: str) -> Any:
     if not re.fullmatch(r"\d{6}", month):
         return jsonify({"error": "Invalid month format, expected YYYYMM"}), 400
 
-    agents_dir = Path(state.journal_root) / "agents"
-    if not agents_dir.exists():
+    talents_dir = Path(state.journal_root) / "talents"
+    if not talents_dir.exists():
         return jsonify({})
 
     stats: dict[str, dict[str, int]] = {}
 
     # Read day index files for the month
-    for day_index_file in agents_dir.glob(f"{month}*.jsonl"):
+    for day_index_file in talents_dir.glob(f"{month}*.jsonl"):
         day = day_index_file.stem
         if not re.fullmatch(r"\d{8}", day):
             continue
@@ -630,10 +627,10 @@ def api_stats(month: str) -> Any:
 
 @sol_bp.route("/api/badge-count")
 def api_badge_count() -> Any:
-    """Get count of failed agent runs for today (for app icon badge)."""
+    """Get count of failed talent runs for today (for app icon badge)."""
     today = date.today().strftime("%Y%m%d")
-    agents = _get_agents_for_day(today, facet_filter=None)
-    failed_count = sum(1 for a in agents if a.get("failed"))
+    uses = _get_uses_for_day(today, facet_filter=None)
+    failed_count = sum(1 for a in uses if a.get("failed"))
     return jsonify({"count": failed_count})
 
 
@@ -649,7 +646,7 @@ def api_updated_days() -> Any:
 
 @sol_bp.route("/api/identity")
 def api_identity() -> Any:
-    """Return agent identity and thickness signals."""
+    """Return talent identity and thickness signals."""
     try:
         from think.awareness import compute_thickness
         from think.utils import get_config

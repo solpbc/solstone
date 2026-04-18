@@ -80,7 +80,7 @@ List recent agent runs.
 
 Flags compose with AND logic. For example, `--daily --errors` shows only daily runs that errored.
 
-Output columns: agent_id, time, name, status, runtime, cost, events, tools, output_size, model, facet.
+Output columns: use_id, time, name, status, runtime, cost, events, tools, output_size, model, facet.
 
 Examples:
 

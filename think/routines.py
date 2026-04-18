@@ -22,10 +22,8 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from apps.calendar.event import EventDay
 from think.callosum import callosum_send
-from think.cortex_client import cortex_request, wait_for_agents
-from think.facets import get_facets
+from think.cortex_client import cortex_request, wait_for_uses
 from think.utils import get_journal
 
 logger = logging.getLogger(__name__)
@@ -33,7 +31,6 @@ logger = logging.getLogger(__name__)
 _config: dict[str, dict[str, Any]] = {}
 _callosum: Any = None
 _last_fired: dict[str, str] = {}  # routine_id -> "YYYY-MM-DD HH:MM" of last fire
-_events_fired: dict[str, set[str]] = {}  # routine_id -> set of fired event keys
 
 
 def _parse_cron_field(field: str, min_val: int, max_val: int) -> set[int]:
@@ -150,9 +147,6 @@ def save_config(config: dict[str, dict[str, Any]]) -> None:
 
 def _format_cadence_human(cadence: object) -> str:
     """Format a cadence for human display in routine state."""
-    if isinstance(cadence, dict):
-        offset = cadence.get("offset_minutes", 0)
-        return f"event:calendar:{offset}m"
     return str(cadence)
 
 
@@ -194,43 +188,11 @@ def get_routine_state() -> list[dict[str, Any]]:
     return result
 
 
-def _load_events_state() -> dict[str, set[str]]:
-    """Load event trigger de-duplication state."""
-    state_path = Path(get_journal()) / "routines" / "events_state.json"
-    if not state_path.exists():
-        return {}
-    try:
-        with open(state_path, "r", encoding="utf-8") as f:
-            raw = json.load(f)
-        return {k: set(v) for k, v in raw.items()}
-    except (json.JSONDecodeError, OSError) as exc:
-        logger.warning("Failed to load events state: %s", exc)
-        return {}
-
-
-def _save_events_state(state: dict[str, set[str]]) -> None:
-    """Persist event trigger de-duplication state."""
-    routines_dir = Path(get_journal()) / "routines"
-    routines_dir.mkdir(parents=True, exist_ok=True)
-    state_path = routines_dir / "events_state.json"
-    serializable = {k: sorted(v) for k, v in state.items()}
-    fd, tmp_path = tempfile.mkstemp(dir=routines_dir, suffix=".tmp", prefix=".events_")
-    tmp_file = Path(tmp_path)
-    try:
-        with open(fd, "w", encoding="utf-8") as f:
-            json.dump(serializable, f, indent=2)
-        tmp_file.replace(state_path)
-    except BaseException:
-        tmp_file.unlink(missing_ok=True)
-        raise
-
-
 def init(callosum: Any) -> None:
     """Initialize routines runtime state."""
-    global _callosum, _config, _events_fired
+    global _callosum, _config
     _callosum = callosum
     _config = get_config()
-    _events_fired = _load_events_state()
     logger.info("Routines initialized with %d routine(s)", len(_config))
 
 
@@ -246,7 +208,7 @@ def _log_health(routine_id: str, name: str, duration: int, outcome: str) -> None
         )
 
 
-def _run_routine(routine: dict, event_context: dict | None = None) -> None:
+def _run_routine(routine: dict) -> None:
     """Execute a single routine and persist its outcome."""
     routine_id = str(routine.get("id", "unknown"))
     name = str(routine.get("name", routine_id))
@@ -255,10 +217,7 @@ def _run_routine(routine: dict, event_context: dict | None = None) -> None:
 
     try:
         instruction = str(routine.get("instruction", ""))
-        raw_cadence = routine.get("cadence", "")
-        cadence = (
-            "event-triggered" if isinstance(raw_cadence, dict) else str(raw_cadence)
-        )
+        cadence = str(routine.get("cadence", ""))
         facets = routine.get("facets") or []
         _template = routine.get("template")
         _notify = bool(routine.get("notify", False))
@@ -279,36 +238,23 @@ def _run_routine(routine: dict, event_context: dict | None = None) -> None:
         previous_line = (
             f"**Previous output:** {prev_output_path}" if prev_output_path else ""
         )
-        event_section = ""
-        if event_context:
-            title = event_context.get("title", "")
-            start = event_context.get("start", "")
-            participants = event_context.get("participants") or []
-            parts_line = ", ".join(participants) if participants else "none listed"
-            event_section = (
-                "\n**Upcoming Event:**\n"
-                f"- Title: {title}\n"
-                f"- Start: {start}\n"
-                f"- Participants: {parts_line}\n"
-            )
         prompt = (
             f"## Routine: {name}\n\n"
             f"**Instruction:** {instruction}\n\n"
             f"**Cadence:** {cadence}\n"
             f"{facets_line}\n"
-            f"{previous_line}"
-            f"{event_section}\n\n"
+            f"{previous_line}\n\n"
             "Execute this routine now. Write your output as concise, actionable markdown.\n"
         )
 
         callosum_send("routines", "started", routine_id=routine_id, name=name)
-        agent_id = cortex_request(
+        use_id = cortex_request(
             prompt=prompt,
             name="routine",
             config={"output_path": str(output_path), "output": "md"},
         )
 
-        if agent_id is None:
+        if use_id is None:
             duration = int(time.monotonic() - start_time)
             logger.error("Failed to start routine %s", routine_id)
             _log_health(routine_id, name, duration, "error")
@@ -323,11 +269,11 @@ def _run_routine(routine: dict, event_context: dict | None = None) -> None:
             )
             return
 
-        completed, timed_out = wait_for_agents([agent_id], timeout=600)
-        if agent_id in timed_out:
+        completed, timed_out = wait_for_uses([use_id], timeout=600)
+        if use_id in timed_out:
             outcome = "timeout"
         else:
-            end_state = completed.get(agent_id, "error")
+            end_state = completed.get(use_id, "error")
             outcome = "success" if end_state == "finish" else "error"
 
         duration = int(time.monotonic() - start_time)
@@ -422,73 +368,8 @@ def check() -> None:
             if cron_matches(cadence, local_now):
                 _last_fired[routine_id] = minute_key
                 _run_routine(routine)
-        elif isinstance(cadence, dict) and cadence.get("type") == "event":
-            _check_event_cadence(routine, str(routine_id), cadence, local_now)
-
-
-def _check_event_cadence(
-    routine: dict, routine_id: str, cadence: dict, local_now: datetime
-) -> None:
-    """Check calendar events and fire routine if within trigger window."""
-    if cadence.get("trigger") != "calendar":
-        logger.warning(
-            "Routine %s has unsupported event trigger %r", routine_id, cadence
-        )
-        return
-
-    offset_minutes = cadence.get("offset_minutes", -30)
-    if not isinstance(offset_minutes, int):
-        logger.warning(
-            "Routine %s has invalid event offset %r", routine_id, offset_minutes
-        )
-        return
-
-    facets_list = routine.get("facets") or []
-    if not facets_list:
-        try:
-            facets_list = list(get_facets().keys())
-        except Exception:
-            logger.warning("Failed to discover facets for routine %s", routine_id)
-            return
-
-    today = local_now.strftime("%Y%m%d")
-    now_minutes = local_now.hour * 60 + local_now.minute
-    fired = _events_fired.setdefault(routine_id, set())
-
-    for facet in facets_list:
-        try:
-            event_day = EventDay.load(today, facet)
-        except Exception:
-            logger.debug("Failed to load calendar for %s/%s", today, facet)
-            continue
-
-        for event in event_day.items:
-            if event.cancelled:
-                continue
-
-            event_key = f"{today}:{facet}:{event.index}"
-            if event_key in fired:
-                continue
-
-            try:
-                parts = event.start.split(":")
-                event_start_minutes = int(parts[0]) * 60 + int(parts[1])
-            except (ValueError, IndexError):
-                continue
-
-            trigger_minutes = event_start_minutes + offset_minutes
-            if trigger_minutes <= now_minutes < event_start_minutes:
-                fired.add(event_key)
-                event_context = {
-                    "title": event.title,
-                    "start": event.start,
-                    "participants": event.participants,
-                    "facet": facet,
-                }
-                _run_routine(routine, event_context=event_context)
 
 
 def save_state() -> None:
     """Persist routines state."""
     save_config(_config)
-    _save_events_state(_events_fired)

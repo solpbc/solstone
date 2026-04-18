@@ -335,6 +335,14 @@
       "tier": 2,
       "type": null
     },
+    "talent.system.participation": {
+      "disabled": false,
+      "group": "Think",
+      "label": "Participation",
+      "schedule": "activity",
+      "tier": 3,
+      "type": "generate"
+    },
     "talent.system.partner": {
       "disabled": false,
       "group": "Think",

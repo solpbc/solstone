@@ -25,7 +25,7 @@ def heartbeat_mocks(monkeypatch):
         "think.heartbeat.cortex_request", lambda *args, **kwargs: "agent-123"
     )
     monkeypatch.setattr(
-        "think.heartbeat.wait_for_agents",
+        "think.heartbeat.wait_for_uses",
         lambda *args, **kwargs: ({"agent-123": "finish"}, []),
     )
 
@@ -129,7 +129,7 @@ def test_pid_file_removed_on_timeout(journal_path, heartbeat_mocks):
     import think.heartbeat as mod
 
     pid_file = journal_path / "health" / "heartbeat.pid"
-    mod.wait_for_agents = lambda *a, **kw: ({}, ["agent-123"])
+    mod.wait_for_uses = lambda *a, **kw: ({}, ["agent-123"])
 
     with pytest.raises(SystemExit) as exc_info:
         mod.main()
@@ -246,7 +246,7 @@ def test_force_flag_bypasses_recency_check(journal_path, monkeypatch):
     )
     monkeypatch.setattr("think.heartbeat.ensure_sol_directory", lambda: None)
     monkeypatch.setattr(
-        "think.heartbeat.wait_for_agents",
+        "think.heartbeat.wait_for_uses",
         lambda *args, **kwargs: ({"agent-123": "finish"}, []),
     )
 
@@ -311,21 +311,21 @@ def test_last_success_time_returns_none_for_no_successes(journal_path):
     assert result is None
 
 
-def test_dream_emit_daily_complete_shape(monkeypatch):
-    """dream.emit('daily_complete', ...) calls _callosum.emit with correct tract and fields."""
+def test_think_emit_daily_complete_shape(monkeypatch):
+    """think.emit('daily_complete', ...) calls _callosum.emit with correct tract and fields."""
     from unittest.mock import Mock
 
-    import think.dream as dream_mod
+    import think.thinking as think_mod
 
     mock_conn = Mock()
-    monkeypatch.setattr(dream_mod, "_callosum", mock_conn)
+    monkeypatch.setattr(think_mod, "_callosum", mock_conn)
 
-    dream_mod.emit(
+    think_mod.emit(
         "daily_complete", day="20260318", success=3, failed=0, duration_ms=5000
     )
 
     mock_conn.emit.assert_called_once_with(
-        "dream",
+        "think",
         "daily_complete",
         day="20260318",
         success=3,
@@ -334,9 +334,9 @@ def test_dream_emit_daily_complete_shape(monkeypatch):
     )
 
 
-def test_dream_emit_noop_without_callosum(monkeypatch):
-    """dream.emit() does nothing when _callosum is None."""
-    import think.dream as dream_mod
+def test_think_emit_noop_without_callosum(monkeypatch):
+    """think.emit() does nothing when _callosum is None."""
+    import think.thinking as think_mod
 
-    monkeypatch.setattr(dream_mod, "_callosum", None)
-    dream_mod.emit("daily_complete", day="20260318")
+    monkeypatch.setattr(think_mod, "_callosum", None)
+    think_mod.emit("daily_complete", day="20260318")

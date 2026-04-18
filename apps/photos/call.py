@@ -5,11 +5,18 @@ import sys
 
 import typer
 
+from think.utils import require_solstone
+
 app = typer.Typer(
     name="photos",
     help="Photo intelligence from macOS Photos library.",
     no_args_is_help=True,
 )
+
+
+@app.callback()
+def _require_up() -> None:
+    require_solstone()
 
 
 @app.command("sync")

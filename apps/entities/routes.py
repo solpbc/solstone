@@ -521,15 +521,15 @@ def generate_description(facet_name: str) -> Any:
             f"Current Description: {current_desc}"
         )
 
-        agent_id = spawn_agent(
+        use_id = spawn_agent(
             prompt=prompt,
             name="entities:entity_describe",
             provider="google",
         )
-        if agent_id is None:
+        if use_id is None:
             return jsonify({"error": "Failed to connect to agent service"}), 503
 
-        return jsonify({"success": True, "agent_id": agent_id})
+        return jsonify({"success": True, "use_id": use_id})
 
     except Exception as e:
         return (
@@ -556,14 +556,14 @@ def assist_add(facet_name: str) -> Any:
         prompt = f"For the '{facet_name}' facet, this is the user's request to attach a new entity: {name}"
 
         # Create agent request - entity_assist agent already has provider configured
-        agent_id = spawn_agent(
+        use_id = spawn_agent(
             prompt=prompt,
             name="entities:entity_assist",
         )
-        if agent_id is None:
+        if use_id is None:
             return jsonify({"error": "Failed to connect to agent service"}), 503
 
-        return jsonify({"success": True, "agent_id": agent_id})
+        return jsonify({"success": True, "use_id": use_id})
 
     except Exception as e:
         return jsonify({"error": f"Failed to start entity assistant: {str(e)}"}), 500

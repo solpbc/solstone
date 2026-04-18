@@ -134,7 +134,7 @@ constraint-dependencies = ["numba>=0.60"]
 override-dependencies = ["webrtcvad>=99; python_version < '0'"]
 
 [tool.pytest.ini_options]
-addopts = "--import-mode=importlib --basetemp=/var/tmp/pytest-solstone"
+addopts = "--import-mode=importlib"
 testpaths = ["tests", "apps"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
@@ -142,7 +142,7 @@ python_functions = ["test_*"]
 markers = [
     "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
 ]
-timeout = 5
+timeout = 15
 tmp_path_retention_policy = "none"
 filterwarnings = [
     # Third-party deprecation warnings (Python 3.14+)

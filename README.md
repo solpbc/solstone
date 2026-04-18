@@ -76,7 +76,7 @@ make install
 # Configure API keys and password in journal.json
 # See docs/INSTALL.md for setup instructions
 
-# Install as a background service (starts on login, port 5015)
+# Install the CLI on PATH and start the background service (port 5015)
 make install-service
 
 # Or start manually for development
@@ -105,7 +105,7 @@ Run `sol help` for the full command reference.
 | Topic | Document |
 |-------|----------|
 | Installation and setup | [docs/INSTALL.md](docs/INSTALL.md) |
-| Journal structure and data model | [docs/JOURNAL.md](docs/JOURNAL.md) |
+| Journal structure and data model | [talent/journal/SKILL.md](talent/journal/SKILL.md) |
 | Capture pipeline | [docs/OBSERVE.md](docs/OBSERVE.md) |
 | Processing and agents | [docs/THINK.md](docs/THINK.md) |
 | Web interface | [docs/CONVEY.md](docs/CONVEY.md) |

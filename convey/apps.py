@@ -95,7 +95,7 @@ def _resolve_attention(awareness_current: dict) -> AttentionItem | None:
 
         journal = Path(get_journal())
         today = datetime.now().strftime("%Y%m%d")
-        day_index = journal / "agents" / f"{today}.jsonl"
+        day_index = journal / "talents" / f"{today}.jsonl"
         if day_index.exists():
             errors: dict[str, float] = {}
             successes: dict[str, float] = {}
@@ -174,7 +174,7 @@ def _resolve_attention(awareness_current: dict) -> AttentionItem | None:
 
             journal = Path(get_journal())
             today = datetime.now().strftime("%Y%m%d")
-            agents_dir = journal / today / "agents"
+            agents_dir = journal / today / "talents"
             if agents_dir.is_dir():
                 outputs = sorted(p.stem for p in agents_dir.glob("*.md"))
                 if outputs:

@@ -198,7 +198,7 @@ def test_get_command_name():
     # sol X -> X
     assert get(["sol", "indexer", "--rescan"]) == "indexer"
     assert get(["sol", "insight", "20240101"]) == "insight"
-    assert get(["sol", "dream", "--day", "20240101"]) == "dream"
+    assert get(["sol", "think", "--day", "20240101"]) == "think"
 
     # Other commands -> basename
     assert get(["/usr/bin/python", "script.py"]) == "python"
@@ -597,6 +597,9 @@ def test_supervisor_singleton_lock_acquired(tmp_path, monkeypatch):
     def stop_after_lock():
         raise SystemExit(0)
 
+    # Skip maint discovery/subprocess runs — unrelated to lock acquisition and
+    # slow enough on a fresh tmp_path to blow the 5s pytest-timeout under load.
+    monkeypatch.setattr(mod, "run_pending_tasks", lambda *a, **k: (0, 0))
     monkeypatch.setattr(mod, "start_callosum_in_process", stop_after_lock)
 
     with pytest.raises(SystemExit) as exc:

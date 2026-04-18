@@ -119,7 +119,7 @@ def _write_action_log(
     source: str,
     actor: str,
     day: str | None = None,
-    agent_id: str | None = None,
+    use_id: str | None = None,
 ) -> None:
     """Write action to the daily audit log.
 
@@ -136,7 +136,7 @@ def _write_action_log(
         source: Origin type - "tool" for agents, "app" for web UI
         actor: For tools: agent name. For apps: app name
         day: Day in YYYYMMDD format (defaults to today)
-        agent_id: Optional agent ID (only for tool actions)
+        use_id: Optional agent ID (only for tool actions)
     """
     journal = get_journal()
 
@@ -165,9 +165,9 @@ def _write_action_log(
     if facet is not None:
         entry["facet"] = facet
 
-    # Add agent_id only if available
-    if agent_id is not None:
-        entry["agent_id"] = agent_id
+    # Add use_id only if available
+    if use_id is not None:
+        entry["use_id"] = use_id
 
     # Append to log file
     with open(log_path, "a", encoding="utf-8") as f:
@@ -243,8 +243,11 @@ def get_facets() -> dict[str, dict[str, object]]:
                 }
 
                 facets[facet_name] = facet_info
-        except Exception as exc:  # pragma: no cover - metadata optional
-            logging.debug("Error reading %s: %s", facet_json, exc)
+        except (
+            OSError,
+            json.JSONDecodeError,
+        ) as exc:  # pragma: no cover - metadata optional
+            logging.warning("Failed to read facet metadata %s: %s", facet_json, exc)
 
     return facets
 
@@ -476,13 +479,13 @@ def load_segment_facets(day: str, segment: str, stream: str | None = None) -> li
         List of facet ID strings found in the segment's facets.json
     """
     if stream:
-        candidates = [day_path(day) / stream / segment / "agents" / "facets.json"]
+        candidates = [day_path(day) / stream / segment / "talents" / "facets.json"]
     else:
         # Search all streams for this segment
         candidates = []
         for _s, seg_key, seg_path in iter_segments(day):
             if seg_key == segment:
-                candidates.append(seg_path / "agents" / "facets.json")
+                candidates.append(seg_path / "talents" / "facets.json")
 
     for facets_file in candidates:
         if not facets_file.exists():
@@ -564,7 +567,7 @@ def aggregate_speculative_facets(days: list[str] | None = None) -> list[dict]:
 
     for day in scan_days:
         for _stream, _seg_key, seg_path in iter_segments(day):
-            facets_file = seg_path / "agents" / "facets.json"
+            facets_file = seg_path / "talents" / "facets.json"
             if not facets_file.exists():
                 continue
 
@@ -1066,7 +1069,7 @@ def format_logs(
         source = entry.get("source", "unknown")
         actor = entry.get("actor", "unknown")
         params = entry.get("params", {})
-        agent_id = entry.get("agent_id")
+        use_id = entry.get("use_id")
 
         # Format action name for display (e.g., "todo_add" -> "Todo Add")
         action_display = action.replace("_", " ").title()
@@ -1081,8 +1084,8 @@ def format_logs(
         lines.append(" | ".join(meta_parts))
 
         # Agent link if present
-        if agent_id:
-            lines.append(f"**Agent:** [{agent_id}](/app/sol/{agent_id})")
+        if use_id:
+            lines.append(f"**Talent:** [{use_id}](/app/sol/{use_id})")
 
         lines.append("")
 

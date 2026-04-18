@@ -11,7 +11,7 @@ Tactical work items prioritized for implementation.
 
 ## Agents
 
-- [ ] Update supervisor/dream interaction to use dynamic daily schedule from daily schedule agent output
+- [ ] Update supervisor/think interaction to use dynamic daily schedule from daily schedule agent output
 - [ ] Create segment agent for voiceprint detection and updating via hooks
 - [ ] Surface named hook outputs in agents app and sol talent CLI
 - [ ] Make daily schedule agents idempotent with state tracking (show existing vs new segments)

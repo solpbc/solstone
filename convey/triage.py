@@ -37,10 +37,10 @@ def triage() -> Any:
     """Accept a message from the conversation panel and spawn a triage agent.
 
     Expects JSON: {message, app, path, facet}
-    Returns JSON: {agent_id}
+    Returns JSON: {use_id}
 
     The agent runs asynchronously. The browser receives the result via
-    WebSocket (cortex/finish event). For reload recovery, use GET /result/<agent_id>.
+    WebSocket (cortex/finish event). For reload recovery, use GET /result/<use_id>.
 
     All journals route to the unified talent.
     """
@@ -96,33 +96,33 @@ def triage() -> Any:
         config["path"] = path
         config["user_message"] = message
 
-        agent_id = spawn_agent(
+        use_id = spawn_agent(
             prompt=full_prompt,
             name=agent_name,
             provider=None,
             config=config,
         )
-        if agent_id is None:
+        if use_id is None:
             return error_response("Failed to connect to agent service", 503)
 
-        return jsonify(agent_id=agent_id)
+        return jsonify(use_id=use_id)
 
     except Exception:
         logger.exception("Triage request failed")
         return error_response("Failed to process triage request", 500)
 
 
-@bp.route("/result/<agent_id>", methods=["GET"])
-def triage_result(agent_id: str) -> Any:
+@bp.route("/result/<use_id>", methods=["GET"])
+def triage_result(use_id: str) -> Any:
     """Return the result of a completed triage agent.
 
     Returns {response, display} if the agent has finished, 404 otherwise.
     Used for page-reload recovery when the WebSocket may have missed the finish event.
     """
     try:
-        from think.cortex_client import read_agent_events
+        from think.cortex_client import read_use_events
 
-        events = read_agent_events(agent_id)
+        events = read_use_events(use_id)
         for event in reversed(events):
             if event.get("event") == "finish":
                 result = event.get("result", "")
@@ -130,5 +130,5 @@ def triage_result(agent_id: str) -> Any:
     except FileNotFoundError:
         pass
     except Exception:
-        logger.debug("Failed to read triage result for %s", agent_id, exc_info=True)
+        logger.debug("Failed to read triage result for %s", use_id, exc_info=True)
     return jsonify(error="not found"), 404

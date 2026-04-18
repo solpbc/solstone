@@ -327,7 +327,7 @@ def test_load_segment_speakers_invalid_json(speakers_env):
 
     env = speakers_env()
     segment_dir = env.journal / "20240101" / "test" / "143022_300"
-    agents_dir = segment_dir / "agents"
+    agents_dir = segment_dir / "talents"
     agents_dir.mkdir(parents=True)
 
     # Write invalid JSON
@@ -346,7 +346,7 @@ def test_load_segment_speakers_not_list(speakers_env):
 
     env = speakers_env()
     segment_dir = env.journal / "20240101" / "test" / "143022_300"
-    agents_dir = segment_dir / "agents"
+    agents_dir = segment_dir / "talents"
     agents_dir.mkdir(parents=True)
 
     # Write object instead of list
@@ -583,7 +583,7 @@ def test_api_review_corrections_excludes_confirmed(speakers_env):
         / "20240101"
         / "test"
         / "143022_300"
-        / "agents"
+        / "talents"
         / "speaker_corrections.json"
     )
     corr_path.write_text(
@@ -668,7 +668,7 @@ def test_api_confirm_attribution(speakers_env):
         / "20240101"
         / "test"
         / "143022_300"
-        / "agents"
+        / "talents"
         / "speaker_labels.json"
     )
     with open(labels_path) as f:
@@ -682,7 +682,7 @@ def test_api_confirm_attribution(speakers_env):
         / "20240101"
         / "test"
         / "143022_300"
-        / "agents"
+        / "talents"
         / "speaker_corrections.json"
     )
     assert corr_path.exists()
@@ -826,7 +826,7 @@ def test_api_correct_attribution(speakers_env):
         / "20240101"
         / "test"
         / "143022_300"
-        / "agents"
+        / "talents"
         / "speaker_labels.json"
     )
     with open(labels_path) as f:
@@ -969,7 +969,7 @@ def test_api_assign_attribution(speakers_env):
         / "20240101"
         / "test"
         / "143022_300"
-        / "agents"
+        / "talents"
         / "speaker_labels.json"
     )
     with open(labels_path) as f:

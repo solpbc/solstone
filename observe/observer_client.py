@@ -46,7 +46,7 @@ def finalize_draft(draft_dir: str, segment_key: str) -> str | None:
     """Rename a draft directory to its final segment name.
 
     Preserves captured data locally when observer upload fails, so the
-    dream pipeline can process it later.
+    think pipeline can process it later.
 
     Args:
         draft_dir: Path to the draft directory (e.g. .../HHMMSS_draft/)

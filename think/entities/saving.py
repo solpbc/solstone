@@ -14,7 +14,11 @@ import random
 import time
 
 from think.entities.core import EntityDict, atomic_write, entity_slug
-from think.entities.journal import get_or_create_journal_entity, save_journal_entity
+from think.entities.journal import (
+    create_journal_entity,
+    load_journal_entity,
+    save_journal_entity,
+)
 from think.entities.loading import (
     clear_entity_loading_cache,
     detected_entities_path,
@@ -90,9 +94,9 @@ def _save_entities_attached(facet: str, entities: list[EntityDict]) -> None:
         aka = entity.get("aka")
         is_detached = entity.get("detached", False)
 
-        # Ensure journal entity exists (creates if needed, preserves if exists)
-        # Skip principal flagging for detached entities
-        journal_entity = get_or_create_journal_entity(
+        # Load existing journal entity, or create one. Skip principal
+        # flagging for detached entities.
+        journal_entity = load_journal_entity(entity_id) or create_journal_entity(
             entity_id=entity_id,
             name=name,
             entity_type=entity_type,

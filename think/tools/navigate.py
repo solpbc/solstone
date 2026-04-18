@@ -8,6 +8,8 @@ Mounted by ``think.call`` as ``sol call navigate ...``.
 
 import typer
 
+from think.utils import require_solstone
+
 app = typer.Typer()
 
 
@@ -17,6 +19,7 @@ def navigate(
     facet: str = typer.Option(None, "--facet", "-f", help="Facet to switch to."),
 ) -> None:
     """Navigate the browser to a path and/or switch facet."""
+    require_solstone()
     if not path and not facet:
         typer.echo("Error: provide a path and/or --facet", err=True)
         raise typer.Exit(1)

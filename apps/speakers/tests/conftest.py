@@ -6,15 +6,30 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import numpy as np
 import pytest
 
+ROOT = Path(__file__).resolve().parents[3]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 from think.entities import entity_slug
+from think.entities.journal import clear_journal_entity_cache
+from think.entities.loading import clear_entity_loading_cache
+from think.entities.observations import clear_observation_cache
+from think.entities.relationships import clear_relationship_caches
 
 # Default stream name for test fixtures
 STREAM = "test"
+
+
+@pytest.fixture(autouse=True)
+def _skip_supervisor_check(monkeypatch):
+    """Allow app CLI tests to run without a live solstone supervisor."""
+    monkeypatch.setenv("SOL_SKIP_SUPERVISOR_CHECK", "1")
 
 
 @pytest.fixture
@@ -37,6 +52,32 @@ def speakers_env(tmp_path, monkeypatch):
         def __init__(self, journal_path: Path):
             self.journal = journal_path
             monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_path))
+            monkeypatch.setenv("SOL_SKIP_SUPERVISOR_CHECK", "1")
+            clear_journal_entity_cache()
+            clear_entity_loading_cache()
+            clear_relationship_caches()
+            clear_observation_cache()
+            import think.utils
+
+            think.utils._journal_path_cache = None
+
+        def _segment_dirs(
+            self,
+            day: str,
+            segment_key: str,
+            *,
+            stream: str | None = None,
+        ) -> tuple[Path, Path]:
+            stream_name = stream or STREAM
+            chronicle_day = self.journal / "chronicle" / day
+            chronicle_day.mkdir(parents=True, exist_ok=True)
+            flat_day = self.journal / day
+            if not flat_day.exists():
+                flat_day.symlink_to(chronicle_day, target_is_directory=True)
+            flat_dir = flat_day / stream_name / segment_key
+            chronicle_dir = chronicle_day / stream_name / segment_key
+            chronicle_dir.mkdir(parents=True, exist_ok=True)
+            return flat_dir, chronicle_dir
 
         def create_segment(
             self,
@@ -58,16 +99,17 @@ def speakers_env(tmp_path, monkeypatch):
                 sources: List of audio sources (e.g., ["mic_audio", "sys_audio"])
                 num_sentences: Number of sentences to create
             """
-            segment_dir = self.journal / day / (stream or STREAM) / segment_key
-            segment_dir.mkdir(parents=True, exist_ok=True)
+            flat_dir, chronicle_dir = self._segment_dirs(
+                day,
+                segment_key,
+                stream=stream,
+            )
 
             sentence_count = (
                 embeddings.shape[0] if embeddings is not None else num_sentences
             )
 
             for source in sources:
-                # Create JSONL transcript
-                jsonl_path = segment_dir / f"{source}.jsonl"
                 lines = [json.dumps({"raw": f"{source}.flac", "model": "medium.en"})]
 
                 # Parse segment_key to get base time (e.g., "143022_300" -> 14:30:22)
@@ -92,10 +134,12 @@ def speakers_env(tmp_path, monkeypatch):
                             }
                         )
                     )
-                jsonl_path.write_text("\n".join(lines) + "\n")
+                for segment_dir in (flat_dir, chronicle_dir):
+                    (segment_dir / f"{source}.jsonl").write_text(
+                        "\n".join(lines) + "\n"
+                    )
 
                 # Create NPZ embeddings
-                npz_path = segment_dir / f"{source}.npz"
                 if embeddings is None:
                     source_embeddings = np.random.randn(sentence_count, 256).astype(
                         np.float32
@@ -105,17 +149,15 @@ def speakers_env(tmp_path, monkeypatch):
                 else:
                     source_embeddings = embeddings.astype(np.float32)
                 statement_ids = np.arange(1, sentence_count + 1, dtype=np.int32)
-                np.savez_compressed(
-                    npz_path,
-                    embeddings=source_embeddings,
-                    statement_ids=statement_ids,
-                )
+                for segment_dir in (flat_dir, chronicle_dir):
+                    np.savez_compressed(
+                        segment_dir / f"{source}.npz",
+                        embeddings=source_embeddings,
+                        statement_ids=statement_ids,
+                    )
+                    (segment_dir / f"{source}.flac").write_bytes(b"")
 
-                # Create dummy audio file
-                audio_path = segment_dir / f"{source}.flac"
-                audio_path.write_bytes(b"")  # Empty placeholder
-
-            return segment_dir
+            return flat_dir
 
         def create_embedding(self, vector: list[float] | None = None) -> np.ndarray:
             """Create a normalized 256-dim embedding."""
@@ -188,14 +230,17 @@ def speakers_env(tmp_path, monkeypatch):
                 segment_key: Segment key (HHMMSS_LEN)
                 speakers: List of speaker names
             """
-            agents_dir = self.journal / day / STREAM / segment_key / "agents"
-            agents_dir.mkdir(parents=True, exist_ok=True)
+            flat_dir, chronicle_dir = self._segment_dirs(day, segment_key)
+            paths = []
+            for segment_dir in (flat_dir, chronicle_dir):
+                agents_dir = segment_dir / "talents"
+                agents_dir.mkdir(parents=True, exist_ok=True)
+                speakers_path = agents_dir / "speakers.json"
+                with open(speakers_path, "w", encoding="utf-8") as f:
+                    json.dump(speakers, f)
+                paths.append(speakers_path)
 
-            speakers_path = agents_dir / "speakers.json"
-            with open(speakers_path, "w", encoding="utf-8") as f:
-                json.dump(speakers, f)
-
-            return speakers_path
+            return paths[0]
 
         def create_speaker_labels(
             self,
@@ -214,21 +259,23 @@ def speakers_env(tmp_path, monkeypatch):
                 metadata: Optional extra metadata (owner_centroid_version,
                     voiceprint_versions)
             """
-            agents_dir = self.journal / day / STREAM / segment_key / "agents"
-            agents_dir.mkdir(parents=True, exist_ok=True)
-
             data = {"labels": labels}
             if metadata:
                 data.update(metadata)
             else:
                 data["owner_centroid_version"] = None
                 data["voiceprint_versions"] = {}
+            flat_dir, chronicle_dir = self._segment_dirs(day, segment_key)
+            paths = []
+            for segment_dir in (flat_dir, chronicle_dir):
+                agents_dir = segment_dir / "talents"
+                agents_dir.mkdir(parents=True, exist_ok=True)
+                labels_path = agents_dir / "speaker_labels.json"
+                with open(labels_path, "w", encoding="utf-8") as f:
+                    json.dump(data, f)
+                paths.append(labels_path)
 
-            labels_path = agents_dir / "speaker_labels.json"
-            with open(labels_path, "w", encoding="utf-8") as f:
-                json.dump(data, f)
-
-            return labels_path
+            return paths[0]
 
         def create_speaker_corrections(
             self,
@@ -247,17 +294,22 @@ def speakers_env(tmp_path, monkeypatch):
                     original_speaker, corrected_speaker, timestamp
                 stream: Optional stream name (defaults to STREAM)
             """
-            agents_dir = (
-                self.journal / day / (stream or STREAM) / segment_key / "agents"
-            )
-            agents_dir.mkdir(parents=True, exist_ok=True)
-
             data = {"corrections": corrections}
-            corrections_path = agents_dir / "speaker_corrections.json"
-            with open(corrections_path, "w", encoding="utf-8") as f:
-                json.dump(data, f)
+            flat_dir, chronicle_dir = self._segment_dirs(
+                day,
+                segment_key,
+                stream=stream,
+            )
+            paths = []
+            for segment_dir in (flat_dir, chronicle_dir):
+                agents_dir = segment_dir / "talents"
+                agents_dir.mkdir(parents=True, exist_ok=True)
+                corrections_path = agents_dir / "speaker_corrections.json"
+                with open(corrections_path, "w", encoding="utf-8") as f:
+                    json.dump(data, f)
+                paths.append(corrections_path)
 
-            return corrections_path
+            return paths[0]
 
         def create_facet_relationship(
             self,
@@ -330,8 +382,11 @@ def speakers_env(tmp_path, monkeypatch):
                 stream: Import stream name (default: import.granola)
                 embeddings: Optional pre-built embeddings array (num_sentences x 256)
             """
-            segment_dir = self.journal / day / stream / segment_key
-            segment_dir.mkdir(parents=True, exist_ok=True)
+            flat_dir, chronicle_dir = self._segment_dirs(
+                day,
+                segment_key,
+                stream=stream,
+            )
 
             num_sentences = len(speakers)
 
@@ -360,8 +415,10 @@ def speakers_env(tmp_path, monkeypatch):
                         }
                     )
                 )
-            ct_path = segment_dir / "conversation_transcript.jsonl"
-            ct_path.write_text("\n".join(ct_lines) + "\n")
+            for segment_dir in (flat_dir, chronicle_dir):
+                (segment_dir / "conversation_transcript.jsonl").write_text(
+                    "\n".join(ct_lines) + "\n"
+                )
 
             audio_lines = [
                 json.dumps({"raw": "imported_audio.flac", "model": "medium.en"})
@@ -380,8 +437,10 @@ def speakers_env(tmp_path, monkeypatch):
                         }
                     )
                 )
-            audio_jsonl_path = segment_dir / "imported_audio.jsonl"
-            audio_jsonl_path.write_text("\n".join(audio_lines) + "\n")
+            for segment_dir in (flat_dir, chronicle_dir):
+                (segment_dir / "imported_audio.jsonl").write_text(
+                    "\n".join(audio_lines) + "\n"
+                )
 
             if embeddings is None:
                 source_embeddings = np.random.randn(num_sentences, 256).astype(
@@ -392,17 +451,24 @@ def speakers_env(tmp_path, monkeypatch):
             else:
                 source_embeddings = embeddings.astype(np.float32)
             statement_ids = np.arange(1, num_sentences + 1, dtype=np.int32)
-            np.savez_compressed(
-                segment_dir / "imported_audio.npz",
-                embeddings=source_embeddings,
-                statement_ids=statement_ids,
-            )
+            for segment_dir in (flat_dir, chronicle_dir):
+                np.savez_compressed(
+                    segment_dir / "imported_audio.npz",
+                    embeddings=source_embeddings,
+                    statement_ids=statement_ids,
+                )
+                (segment_dir / "imported_audio.flac").write_bytes(b"")
 
-            (segment_dir / "imported_audio.flac").write_bytes(b"")
-
-            return segment_dir
+            return flat_dir
 
     def _create():
         return SpeakersEnv(tmp_path)
 
-    return _create
+    yield _create
+    clear_journal_entity_cache()
+    clear_entity_loading_cache()
+    clear_relationship_caches()
+    clear_observation_cache()
+    import think.utils
+
+    think.utils._journal_path_cache = None

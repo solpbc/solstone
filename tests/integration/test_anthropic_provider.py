@@ -62,8 +62,8 @@ def test_anthropic_provider_basic():
         }
     )
 
-    # Run the sol agents command
-    cmd = ["sol", "agents"]
+    # Run the sol think.talents command
+    cmd = ["sol", "providers", "check"]
     result = subprocess.run(
         cmd,
         env=env,
@@ -170,8 +170,8 @@ def test_anthropic_provider_with_thinking():
         }
     )
 
-    # Run the sol agents command
-    cmd = ["sol", "agents"]
+    # Run the sol think.talents command
+    cmd = ["sol", "providers", "check"]
     result = subprocess.run(
         cmd,
         env=env,

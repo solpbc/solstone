@@ -138,7 +138,7 @@ def search_journal_api() -> Any:
         - total: Total match count
         - days: List of day groups, each with date info and results
         - facets: List of facets with counts for filter sidebar
-        - agents: List of agents with counts for filter sidebar
+        - talents: List of talents with counts for filter sidebar
     """
     query = request.args.get("q", "").strip()
 
@@ -233,7 +233,7 @@ def search_journal_api() -> Any:
             "showing_days": len(days_response),
             "days": days_response,
             "facets": facets_list,
-            "agents": agents_list,
+            "talents": agents_list,
         }
     )
 

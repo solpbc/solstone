@@ -6,12 +6,15 @@ stats.json
 
 # Dream / supervisor runtime markers and logs
 */health/daily.updated
+chronicle/*/health/daily.updated
 */health/dream.log
+chronicle/*/health/dream.log
 health/dream.log
 task_log.txt
 
 # Health check logs (timestamped + symlinks) from make dev
 */health/*.log
+chronicle/*/health/*.log
 health/*.log
 
 # Service port files from make dev

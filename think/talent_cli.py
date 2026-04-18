@@ -13,9 +13,9 @@ Usage:
     sol talent show <name>              Show details for a specific prompt
     sol talent show <name> --json       Output a single prompt as JSONL
     sol talent show <name> --prompt     Show full prompt context (dry-run)
-    sol talent logs                     Show recent agent runs
-    sol talent logs <agent> -c 5        Show last 5 runs for an agent
-    sol talent log <id>                 Show events for an agent run
+    sol talent logs                     Show recent talent runs
+    sol talent logs <agent> -c 5        Show last 5 runs for a talent
+    sol talent log <id>                 Show events for a talent run
     sol talent log <id> --json          Output raw JSONL events
     sol talent log <id> --full          Show expanded event details
 """
@@ -79,14 +79,14 @@ def _scan_variables(body: str) -> list[str]:
     return result
 
 
-def _format_last_run(key: str, agents_dir: Path) -> tuple[str, bool]:
+def _format_last_run(key: str, talents_dir: Path) -> tuple[str, bool]:
     """Format age of last run with optional runtime duration.
 
     Returns (display_string, failed) where failed is True if the last
     event in the log was an error.
     """
     safe_name = key.replace(":", "--")
-    link_path = agents_dir / f"{safe_name}.log"
+    link_path = talents_dir / f"{safe_name}.log"
     if not link_path.exists():
         return "-", False
 
@@ -197,7 +197,7 @@ def list_prompts(
     )
     from think.utils import get_journal
 
-    agents_dir = Path(get_journal()) / "agents"
+    talents_dir = Path(get_journal()) / "talents"
 
     if not configs:
         print("No prompts found matching filters.")
@@ -248,7 +248,7 @@ def list_prompts(
 
         for key, info in items:
             title = info.get("title", "")[:title_width]
-            last_run_str, failed = _format_last_run(key, agents_dir)
+            last_run_str, failed = _format_last_run(key, talents_dir)
             last_run = last_run_str[:last_run_width]
             tags = _format_tags(info, failed=failed)
             src = ""
@@ -420,7 +420,7 @@ def show_prompt_context(
 ) -> None:
     """Show full prompt context via dry-run.
 
-    Builds config and pipes to `sol agents --dry-run` to show exactly
+    Builds config and pipes to `sol think.talents --dry-run` to show exactly
     what would be sent to the LLM provider.
     """
     # Load prompt metadata
@@ -531,7 +531,7 @@ def show_prompt_context(
     config: dict[str, Any] = {"name": name}
 
     if schedule == "activity":
-        # Build activity config matching dream.py:run_activity_prompts()
+        # Build activity config matching thinking.py:run_activity_prompts()
         from think.activities import get_activity_output_path, load_activity_records
 
         records = load_activity_records(facet, day)
@@ -570,14 +570,14 @@ def show_prompt_context(
         if facet:
             config["facet"] = facet
     else:
-        # Cogitate prompt - use get_agent() to build full config with instructions
-        from think.talent import get_agent
+        # Cogitate prompt - use get_talent() to build full config with instructions
+        from think.talent import get_talent
 
         try:
-            agent_config = get_agent(name, facet=facet)
+            agent_config = get_talent(name, facet=facet)
             config.update(agent_config)
         except Exception as e:
-            print(f"Failed to load agent config: {e}", file=sys.stderr)
+            print(f"Failed to load talent config: {e}", file=sys.stderr)
             sys.exit(1)
 
         # Override prompt with user query
@@ -586,11 +586,11 @@ def show_prompt_context(
         else:
             config["prompt"] = "(no --query provided)"
 
-    # Run sol agents --dry-run
+    # Run sol think.talents --dry-run
     config_json = json.dumps(config)
     try:
         result = subprocess.run(
-            ["sol", "agents", "--dry-run"],
+            ["sol", "think.talents", "--dry-run"],
             input=config_json + "\n",
             capture_output=True,
             text=True,
@@ -728,11 +728,11 @@ def show_prompt_context(
     print()
 
 
-def _find_run_file(agents_dir: Path, agent_id: str) -> Path | None:
-    """Locate an agent run JSONL file by ID."""
-    for match in agents_dir.glob(f"*/{agent_id}.jsonl"):
+def _find_run_file(talents_dir: Path, use_id: str) -> Path | None:
+    """Locate a talent run JSONL file by ID."""
+    for match in talents_dir.glob(f"*/{use_id}.jsonl"):
         return match
-    for match in agents_dir.glob(f"*/{agent_id}_active.jsonl"):
+    for match in talents_dir.glob(f"*/{use_id}_active.jsonl"):
         return match
     return None
 
@@ -823,7 +823,7 @@ def _get_output_size(request_event: dict[str, Any], journal_root: str) -> int | 
 
 
 def _print_summary(records: list[dict[str, Any]]) -> None:
-    """Print grouped summary of agent runs."""
+    """Print grouped summary of talent runs."""
     from collections import defaultdict
 
     groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
@@ -874,13 +874,13 @@ def logs_runs(
     errors: bool = False,
     summary: bool = False,
 ) -> None:
-    """Print one-line summaries of recent agent runs from day-index files."""
+    """Print one-line summaries of recent talent runs from day-index files."""
     from think.models import calc_agent_cost
     from think.utils import get_journal
 
     journal_root = get_journal()
-    agents_dir = Path(journal_root) / "agents"
-    if not agents_dir.is_dir():
+    talents_dir = Path(journal_root) / "talents"
+    if not talents_dir.is_dir():
         return
 
     # Validate --day format
@@ -894,10 +894,10 @@ def logs_runs(
 
     # Find day-index files, most recent first
     if day:
-        day_file = agents_dir / f"{day}.jsonl"
+        day_file = talents_dir / f"{day}.jsonl"
         day_files = [day_file] if day_file.is_file() else []
     else:
-        day_files = sorted(agents_dir.glob("????????.jsonl"), reverse=True)
+        day_files = sorted(talents_dir.glob("????????.jsonl"), reverse=True)
     if not day_files:
         return
 
@@ -948,9 +948,9 @@ def logs_runs(
     name_width = max(name_width, 10)
 
     for r in records:
-        agent_id = r.get("agent_id")
+        use_id = r.get("use_id")
         run_file = (
-            _find_run_file(agents_dir, agent_id) if isinstance(agent_id, str) else None
+            _find_run_file(talents_dir, use_id) if isinstance(use_id, str) else None
         )
         stats: dict[str, Any] = {
             "event_count": 0,
@@ -980,7 +980,7 @@ def logs_runs(
         stats = r.get("_stats") or {}
         cost_usd = r.get("_cost_usd")
         output_size = r.get("_output_size")
-        agent_id = r.get("agent_id", "")
+        use_id = r.get("use_id", "")
 
         ts = r.get("ts", 0)
         dt = datetime.fromtimestamp(ts / 1000)
@@ -1014,7 +1014,7 @@ def logs_runs(
 
         facet_part = f"  {facet}" if facet else ""
         line = (
-            f"{agent_id:<15}{time_str:>12}  {name:<{name_width}}  {status_sym}  "
+            f"{use_id:<15}{time_str:>12}  {name:<{name_width}}  {status_sym}  "
             f"{runtime_str:>7}  {cost_str:>4}  {events_str:>3}  {tools_str:>3}  "
             f"{output_str:>5}  {model}{facet_part}"
         )
@@ -1046,8 +1046,8 @@ def _event_detail(event: dict[str, Any], etype: str) -> str:
         tool = event.get("tool", "")
         result = event.get("result", "")
         return f"{tool} → {result}"
-    elif etype == "agent_updated":
-        return event.get("agent", "")
+    elif etype == "talent_updated":
+        return event.get("talent", "")
     elif etype == "finish":
         result = event.get("result", "")
         usage = event.get("usage")
@@ -1074,7 +1074,7 @@ def _format_event_line(event: dict[str, Any], *, full: bool = False) -> str:
         "thinking": "think",
         "tool_start": "tool",
         "tool_end": "tool_end",
-        "agent_updated": "updated",
+        "talent_updated": "updated",
         "finish": "finish",
         "error": "error",
     }
@@ -1093,14 +1093,14 @@ def _format_event_line(event: dict[str, Any], *, full: bool = False) -> str:
     return f"{time_str}  {label:<8}  {detail}"
 
 
-def log_run(agent_id: str, *, json_mode: bool = False, full: bool = False) -> None:
-    """Show events for a single agent run."""
+def log_run(use_id: str, *, json_mode: bool = False, full: bool = False) -> None:
+    """Show events for a single talent run."""
     from think.utils import get_journal
 
-    agents_dir = Path(get_journal()) / "agents"
-    run_file = _find_run_file(agents_dir, agent_id)
+    talents_dir = Path(get_journal()) / "talents"
+    run_file = _find_run_file(talents_dir, use_id)
     if run_file is None:
-        print(f"Agent run not found: {agent_id}", file=sys.stderr)
+        print(f"Talent run not found: {use_id}", file=sys.stderr)
         sys.exit(1)
 
     if json_mode:
@@ -1164,7 +1164,7 @@ def main() -> None:
     )
 
     # --- logs subcommand ---
-    logs_parser = subparsers.add_parser("logs", help="Show recent agent run log")
+    logs_parser = subparsers.add_parser("logs", help="Show recent talent run log")
     logs_parser.add_argument("agent", nargs="?", help="Filter to a specific agent")
     logs_parser.add_argument(
         "-c",

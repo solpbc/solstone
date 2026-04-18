@@ -11,8 +11,6 @@
   "group": "Entities"
 }
 
-$sol_identity
-
 $facets
 
 ## Core Mission

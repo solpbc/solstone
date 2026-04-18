@@ -68,12 +68,9 @@ speakers_bp = Blueprint(
 
 
 def _normalize_embedding(emb: np.ndarray) -> np.ndarray | None:
-    """L2-normalize an embedding vector. Returns None if norm is zero."""
-    emb = emb.astype(np.float32)
-    norm = np.linalg.norm(emb)
-    if norm > 0:
-        return emb / norm
-    return None
+    from think.entities import normalize_embedding
+
+    return normalize_embedding(emb)
 
 
 def _parse_time_to_seconds(time_str: str) -> int:
@@ -118,7 +115,7 @@ def _load_segment_speakers(segment_dir: Path) -> list[str]:
     Returns:
         List of speaker name strings, or empty list if not found/invalid.
     """
-    speakers_path = segment_dir / "agents" / "speakers.json"
+    speakers_path = segment_dir / "talents" / "speakers.json"
     if not speakers_path.exists():
         return []
 
@@ -140,42 +137,9 @@ def _load_segment_speakers(segment_dir: Path) -> list[str]:
 def _load_entity_voiceprints_file(
     entity_id: str,
 ) -> tuple[np.ndarray, list[dict]] | None:
-    """Load voiceprints for an entity from journal-level voiceprints.npz.
+    from think.entities import load_entity_voiceprints_file
 
-    Voiceprints are stored at the journal level (entities/<id>/voiceprints.npz)
-    since a person's voice is the same across all facets.
-
-    Args:
-        entity_id: Entity ID (slug)
-
-    Returns:
-        Tuple of (embeddings, metadata_list) or None if not found.
-        - embeddings: (N, 256) float32 array
-        - metadata_list: List of dicts parsed from JSON metadata strings
-    """
-    try:
-        folder = journal_entity_memory_path(entity_id)
-    except (RuntimeError, ValueError):
-        return None
-
-    npz_path = folder / "voiceprints.npz"
-    if not npz_path.exists():
-        return None
-
-    try:
-        data = np.load(npz_path, allow_pickle=False)
-        embeddings = data.get("embeddings")
-        metadata_arr = data.get("metadata")
-
-        if embeddings is None or metadata_arr is None:
-            return None
-
-        # Parse JSON metadata strings
-        metadata_list = [json.loads(m) for m in metadata_arr]
-        return embeddings, metadata_list
-    except Exception as e:
-        logger.warning("Failed to load voiceprints for entity %s: %s", entity_id, e)
-        return None
+    return load_entity_voiceprints_file(entity_id)
 
 
 def _save_voiceprint(
@@ -303,11 +267,11 @@ def _remove_voiceprint(
 
 
 def _load_speaker_labels(segment_dir: Path) -> dict | None:
-    """Load speaker_labels.json from a segment's agents/ directory.
+    """Load speaker_labels.json from a segment's talents/ directory.
 
     Returns the parsed JSON dict, or None if not found/invalid.
     """
-    labels_path = segment_dir / "agents" / "speaker_labels.json"
+    labels_path = segment_dir / "talents" / "speaker_labels.json"
     if not labels_path.is_file():
         return None
     try:
@@ -318,10 +282,10 @@ def _load_speaker_labels(segment_dir: Path) -> dict | None:
 
 
 def _save_speaker_labels(segment_dir: Path, labels_data: dict) -> None:
-    """Atomically write speaker_labels.json to a segment's agents/ directory."""
-    agents_dir = segment_dir / "agents"
-    agents_dir.mkdir(parents=True, exist_ok=True)
-    out_path = agents_dir / "speaker_labels.json"
+    """Atomically write speaker_labels.json to a segment's talents/ directory."""
+    talents_dir = segment_dir / "talents"
+    talents_dir.mkdir(parents=True, exist_ok=True)
+    out_path = talents_dir / "speaker_labels.json"
     tmp_path = out_path.with_suffix(".tmp")
     with open(tmp_path, "w", encoding="utf-8") as f:
         json.dump(labels_data, f, indent=2)
@@ -329,11 +293,11 @@ def _save_speaker_labels(segment_dir: Path, labels_data: dict) -> None:
 
 
 def _load_speaker_corrections(segment_dir: Path) -> list[dict]:
-    """Load speaker_corrections.json from a segment's agents/ directory.
+    """Load speaker_corrections.json from a segment's talents/ directory.
 
     Returns list of correction entries, or empty list if not found.
     """
-    corr_path = segment_dir / "agents" / "speaker_corrections.json"
+    corr_path = segment_dir / "talents" / "speaker_corrections.json"
     if not corr_path.is_file():
         return []
     try:
@@ -348,9 +312,9 @@ def _append_speaker_correction(segment_dir: Path, correction: dict) -> None:
     """Append a correction entry to speaker_corrections.json (atomic write)."""
     corrections = _load_speaker_corrections(segment_dir)
     corrections.append(correction)
-    agents_dir = segment_dir / "agents"
-    agents_dir.mkdir(parents=True, exist_ok=True)
-    out_path = agents_dir / "speaker_corrections.json"
+    talents_dir = segment_dir / "talents"
+    talents_dir.mkdir(parents=True, exist_ok=True)
+    out_path = talents_dir / "speaker_corrections.json"
     tmp_path = out_path.with_suffix(".tmp")
     with open(tmp_path, "w", encoding="utf-8") as f:
         json.dump({"corrections": corrections}, f, indent=2)

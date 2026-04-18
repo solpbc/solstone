@@ -50,6 +50,7 @@ from __future__ import annotations
 import logging
 import os
 import traceback
+from pathlib import Path
 from typing import Any, Callable
 
 import httpx
@@ -523,12 +524,14 @@ async def run_cogitate(
             return _translate_opencode(event, agg, cb, usage)
 
         aggregator = ThinkingAggregator(callback, model=model)
+        cwd_value = config.get("cwd")
         runner = CLIRunner(
             cmd=cmd,
             prompt_text=prompt_body,
             translate=translate,
             callback=callback,
             aggregator=aggregator,
+            cwd=Path(cwd_value) if cwd_value else None,
             env=_build_opencode_env(),
             # Local models are slower than cloud APIs; allow more time for
             # the first event (model loading + initial inference).

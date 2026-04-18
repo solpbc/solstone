@@ -348,11 +348,6 @@ def test_new_facet_all_types(ingest_env):
                     "content": _jsonl_bytes([{"text": "Ship it", "created_at": 10}]),
                 },
                 {
-                    "path": "calendar/20260305.jsonl",
-                    "type": "calendar",
-                    "content": _jsonl_bytes([{"title": "Standup", "start": "09:00"}]),
-                },
-                {
                     "path": "news/20260305.md",
                     "type": "news",
                     "content": b"# News\n",
@@ -373,7 +368,7 @@ def test_new_facet_all_types(ingest_env):
 
     assert response.status_code == 200
     assert response.get_json() == {
-        "created": 11,
+        "created": 10,
         "merged": 0,
         "skipped": 0,
         "staged": 0,
@@ -412,10 +407,6 @@ def test_new_facet_all_types(ingest_env):
     assert (
         _read_jsonl_file(facet_root / "todos" / "20260305.jsonl")[0]["text"]
         == "Ship it"
-    )
-    assert (
-        _read_jsonl_file(facet_root / "calendar" / "20260305.jsonl")[0]["title"]
-        == "Standup"
     )
     assert (facet_root / "news" / "20260305.md").read_text(
         encoding="utf-8"
@@ -733,41 +724,6 @@ def test_existing_facet_merge_todos(ingest_env):
     assert _read_jsonl_file(target_path) == [
         {"text": "Ship it", "created_at": 1},
         {"text": "Review PR", "created_at": 2},
-    ]
-
-
-def test_existing_facet_merge_calendar(ingest_env):
-    env = ingest_env
-    target_path = env["root"] / "facets" / "work" / "calendar" / "20260305.jsonl"
-    _write_jsonl(target_path, [{"title": "Standup", "start": "09:00"}])
-
-    facets = [
-        {
-            "name": "work",
-            "files": [
-                {
-                    "path": "calendar/20260305.jsonl",
-                    "type": "calendar",
-                    "content": _jsonl_bytes(
-                        [
-                            {"title": "Standup", "start": "09:00"},
-                            {"title": "Demo", "start": "14:00"},
-                        ]
-                    ),
-                }
-            ],
-        }
-    ]
-    metadata, file_map = _build_request(facets)
-    response = _post_facets(
-        env["client"], env["key"], env["key_prefix"], metadata, file_map
-    )
-
-    assert response.status_code == 200
-    assert response.get_json()["merged"] == 1
-    assert _read_jsonl_file(target_path) == [
-        {"title": "Standup", "start": "09:00"},
-        {"title": "Demo", "start": "14:00"},
     ]
 
 

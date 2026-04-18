@@ -124,7 +124,7 @@ def _extract_screen_participants(seg_dir: Path) -> list[str]:
     screen.md captures video-call participant panels.  The content is
     free-form markdown so extraction is best-effort.
     """
-    screen_path = seg_dir / "agents" / "screen.md"
+    screen_path = seg_dir / "talents" / "screen.md"
     if not screen_path.exists():
         return []
     try:
@@ -159,7 +159,7 @@ def _extract_screen_participants(seg_dir: Path) -> list[str]:
 
 def _extract_meeting_participants(day: str, segment_key: str) -> list[str]:
     """Extract participant names from daily meetings.md."""
-    meetings_path = day_path(day) / "agents" / "meetings.md"
+    meetings_path = day_path(day) / "talents" / "meetings.md"
     if not meetings_path.exists():
         return []
     try:
@@ -468,7 +468,7 @@ def save_speaker_labels(
     sentence that was corrected by the user keeps the corrected attribution
     rather than being overwritten by a fresh pipeline run.
     """
-    agents_dir = seg_dir / "agents"
+    agents_dir = seg_dir / "talents"
     agents_dir.mkdir(parents=True, exist_ok=True)
 
     # Load existing corrections to preserve user overrides
@@ -547,9 +547,9 @@ def accumulate_voiceprints(
 
     Returns dict mapping entity_id -> number of new embeddings saved.
     """
-    from apps.speakers.bootstrap import (
-        _load_existing_voiceprint_keys,
-        _save_voiceprints_batch,
+    from think.entities import (
+        load_existing_voiceprint_keys,
+        save_voiceprints_batch,
     )
 
     (
@@ -612,7 +612,7 @@ def accumulate_voiceprints(
 
         # Idempotency check
         if speaker not in entity_existing:
-            entity_existing[speaker] = _load_existing_voiceprint_keys(speaker)
+            entity_existing[speaker] = load_existing_voiceprint_keys(speaker)
         vp_key = (day, segment_key, source, sid)
         if vp_key in entity_existing[speaker]:
             continue
@@ -630,7 +630,7 @@ def accumulate_voiceprints(
 
     for eid, items in entity_new.items():
         try:
-            count = _save_voiceprints_batch(eid, items)
+            count = save_voiceprints_batch(eid, items)
             saved_counts[eid] = count
         except Exception as exc:
             logger.warning("Failed to accumulate voiceprints for %s: %s", eid, exc)
@@ -653,7 +653,7 @@ def _has_audio_embeddings(seg_dir: Path) -> bool:
 
 def _has_speaker_labels(seg_dir: Path) -> bool:
     """Check if the segment already has speaker_labels.json."""
-    return (seg_dir / "agents" / "speaker_labels.json").exists()
+    return (seg_dir / "talents" / "speaker_labels.json").exists()
 
 
 def backfill_segments(

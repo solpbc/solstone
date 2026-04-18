@@ -171,7 +171,7 @@ def test_layer2_single_speaker(speakers_env):
     seg_dir = _write_controlled_segment(env, "20240101", "090000_300", embeddings)
 
     # speakers.json with exactly 1 speaker
-    agents_dir = seg_dir / "agents"
+    agents_dir = seg_dir / "talents"
     agents_dir.mkdir(parents=True, exist_ok=True)
     (agents_dir / "speakers.json").write_text(json.dumps(["Ryan Bennett"]))
 
@@ -535,7 +535,7 @@ def test_backfill_skips_already_labeled(speakers_env):
         env, "20260201", "090000_300", np.vstack([_normalized([1.0, 0.0])])
     )
     # Pre-create speaker_labels.json
-    agents_dir = seg_dir / "agents"
+    agents_dir = seg_dir / "talents"
     agents_dir.mkdir(parents=True, exist_ok=True)
     (agents_dir / "speaker_labels.json").write_text('{"labels": []}')
 
@@ -584,7 +584,7 @@ def test_backfill_processes_chronologically(speakers_env):
     # Labels written
     for day, seg_key in [("20260201", "080000_300"), ("20260210", "090000_300")]:
         labels_path = (
-            env.journal / day / STREAM / seg_key / "agents" / "speaker_labels.json"
+            env.journal / day / STREAM / seg_key / "talents" / "speaker_labels.json"
         )
         assert labels_path.exists()
 

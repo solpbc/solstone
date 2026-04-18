@@ -12,7 +12,7 @@ import threading
 import time
 
 from think.callosum import CallosumConnection
-from think.utils import read_service_port, setup_cli
+from think.utils import read_service_port, require_solstone, setup_cli
 
 
 def _format_log(timestamp: float, stream: str, line: str) -> str:
@@ -178,6 +178,7 @@ def main() -> None:
     )
 
     args = setup_cli(parser)
+    require_solstone()
 
     from think.utils import get_journal
 

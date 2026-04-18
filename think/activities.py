@@ -10,10 +10,15 @@ Also provides utilities for activity records — completed activity spans
 stored as facets/{facet}/activities/{day}.jsonl.
 """
 
+import fcntl
 import json
 import logging
 import os
+import random
 import re
+import tempfile
+import time
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -266,11 +271,11 @@ def _load_activities_jsonl(facet: str) -> list[dict[str, Any]]:
 def _save_activities_jsonl(facet: str, activities: list[dict[str, Any]]) -> None:
     """Save activities to a facet's JSONL file."""
     path = _get_activities_path(facet)
-    path.parent.mkdir(parents=True, exist_ok=True)
 
-    with open(path, "w", encoding="utf-8") as f:
-        for activity in activities:
-            f.write(json.dumps(activity, ensure_ascii=False) + "\n")
+    def modify_fn(_existing: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        return [dict(activity) for activity in activities]
+
+    locked_modify(path, modify_fn, create_if_missing=True)
 
 
 def get_facet_activities(facet: str) -> list[dict[str, Any]]:
@@ -639,7 +644,7 @@ def load_segment_activity_state(
     if not seg_dir:
         return None
 
-    state_path = seg_dir / "agents" / facet / "activity_state.json"
+    state_path = seg_dir / "talents" / facet / "activity_state.json"
     if not state_path.exists():
         return None
 
@@ -681,6 +686,138 @@ def _get_records_path(facet: str, day: str) -> Path:
     return Path(get_journal()) / "facets" / facet / "activities" / f"{day}.jsonl"
 
 
+def _read_jsonl_records(path: Path) -> list[dict[str, Any]]:
+    """Load JSONL entries from *path*, skipping malformed lines."""
+    if not path.exists():
+        return []
+
+    records: list[dict[str, Any]] = []
+    with open(path, "r", encoding="utf-8") as handle:
+        for line_num, line in enumerate(handle, 1):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                data = json.loads(line)
+            except json.JSONDecodeError as exc:
+                logger.warning(
+                    "Skipping malformed line %d in %s: %s", line_num, path, exc
+                )
+                continue
+            if isinstance(data, dict):
+                records.append(data)
+    return records
+
+
+def _write_jsonl_records(path: Path, records: list[dict[str, Any]]) -> None:
+    """Atomically write JSONL entries to *path*."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            for record in records:
+                handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+        os.replace(tmp_name, path)
+    except BaseException:
+        if os.path.exists(tmp_name):
+            os.unlink(tmp_name)
+        raise
+
+
+def _fallback_activity_title(record: dict[str, Any]) -> str:
+    """Return the best available title for an activity record."""
+    title = str(record.get("title") or "").strip()
+    if title:
+        return title
+
+    description = str(record.get("description") or "").strip()
+    if description:
+        return description
+
+    activity = str(record.get("activity") or record.get("id") or "").strip()
+    if activity:
+        return activity.replace("_", " ").title()
+
+    return "Untitled activity"
+
+
+def _normalize_activity_record(record: dict[str, Any]) -> dict[str, Any]:
+    """Return a normalized activity record copy with schema defaults."""
+    normalized = dict(record)
+    normalized["title"] = _fallback_activity_title(record)
+    normalized["details"] = str(record.get("details") or "")
+    normalized["hidden"] = bool(record.get("hidden", False))
+
+    edits = record.get("edits")
+    normalized["edits"] = (
+        [dict(edit) for edit in edits if isinstance(edit, dict)]
+        if isinstance(edits, list)
+        else []
+    )
+    return normalized
+
+
+def locked_modify(
+    path: Path,
+    modify_fn: Any,
+    *,
+    create_if_missing: bool = False,
+    max_retries: int = 3,
+) -> None:
+    """Perform a locked load-modify-save cycle on a JSONL file."""
+    lock_path = path.parent / f"{path.name}.lock"
+
+    last_error: OSError | None = None
+    for attempt in range(max_retries):
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with open(lock_path, "w", encoding="utf-8") as lock_file:
+                fcntl.flock(lock_file, fcntl.LOCK_EX)
+                try:
+                    existed = path.exists()
+                    if not existed and not create_if_missing:
+                        raise FileNotFoundError(path)
+                    current = _read_jsonl_records(path) if existed else []
+                    updated = modify_fn([dict(item) for item in current])
+                    if not isinstance(updated, list):
+                        raise TypeError("modify_fn must return list[dict]")
+                    if not existed and not updated:
+                        return
+                    if existed and updated == current:
+                        return
+                    _write_jsonl_records(path, updated)
+                finally:
+                    fcntl.flock(lock_file, fcntl.LOCK_UN)
+            return
+        except (FileNotFoundError, TypeError, ValueError):
+            raise
+        except OSError as exc:
+            last_error = exc
+            if attempt < max_retries - 1:
+                time.sleep(random.uniform(0.05, 0.3) * (attempt + 1))
+
+    if last_error is not None:
+        raise last_error
+
+
+def append_edit(
+    record: dict[str, Any], *, actor: str, fields: list[str], note: str
+) -> dict[str, Any]:
+    """Append an edit entry to an activity record and return the record."""
+    normalized = _normalize_activity_record(record)
+    edits = [dict(edit) for edit in normalized.get("edits", [])]
+    edits.append(
+        {
+            "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+            "actor": actor,
+            "fields": list(fields),
+            "note": note,
+        }
+    )
+    normalized["edits"] = edits
+    return normalized
+
+
 def get_activity_output_path(
     facet: str,
     day: str,
@@ -720,30 +857,29 @@ def get_activity_output_path(
     )
 
 
-def load_activity_records(facet: str, day: str) -> list[dict[str, Any]]:
+def load_activity_records(
+    facet: str, day: str, *, include_hidden: bool = False
+) -> list[dict[str, Any]]:
     """Load activity records for a facet and day.
 
     Returns list of record dicts, empty list if file doesn't exist.
     """
     path = _get_records_path(facet, day)
-    if not path.exists():
-        return []
-
-    records = []
-    with open(path, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                try:
-                    records.append(json.loads(line))
-                except json.JSONDecodeError:
-                    continue
-    return records
+    records = [
+        _normalize_activity_record(record) for record in _read_jsonl_records(path)
+    ]
+    if include_hidden:
+        return records
+    return [record for record in records if not record.get("hidden", False)]
 
 
 def load_record_ids(facet: str, day: str) -> set[str]:
     """Load just the IDs of existing activity records for idempotency checks."""
-    return {r["id"] for r in load_activity_records(facet, day) if "id" in r}
+    return {
+        r["id"]
+        for r in load_activity_records(facet, day, include_hidden=True)
+        if "id" in r
+    }
 
 
 def append_activity_record(
@@ -762,67 +898,215 @@ def append_activity_record(
     Returns:
         True if record was written, False if duplicate ID found.
     """
+    del _checked  # retained for compatibility; duplicate checks now happen under lock
     path = _get_records_path(facet, day)
+    written = False
 
-    if not _checked:
-        # Check for existing ID
-        existing_ids = load_record_ids(facet, day)
-        if record.get("id") in existing_ids:
-            return False
+    def modify_fn(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        nonlocal written
+        record_id = record.get("id")
+        if record_id and any(item.get("id") == record_id for item in records):
+            return records
+        written = True
+        return records + [_normalize_activity_record(record)]
 
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "a", encoding="utf-8") as f:
-        f.write(json.dumps(record, ensure_ascii=False) + "\n")
-    return True
+    locked_modify(path, modify_fn, create_if_missing=True)
+    return written
 
 
-def update_record_description(
-    facet: str, day: str, record_id: str, description: str
+def update_record_fields(
+    facet: str, day: str, record_id: str, fields: dict[str, Any]
 ) -> bool:
-    """Update the description of an existing activity record.
+    """Update fields on an existing activity record.
 
     Rewrites the JSONL file atomically (write temp + rename) with the updated
-    description for the matching record.
+    fields for the matching record.
 
     Returns True if record was found and updated, False otherwise.
     """
-    import tempfile
-
     path = _get_records_path(facet, day)
-    if not path.exists():
+    updated = False
+
+    try:
+
+        def modify_fn(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+            nonlocal updated
+            new_records: list[dict[str, Any]] = []
+            for record in records:
+                if record.get("id") == record_id:
+                    merged = dict(record)
+                    merged.update(fields)
+                    new_records.append(_normalize_activity_record(merged))
+                    updated = True
+                else:
+                    new_records.append(record)
+            return new_records
+
+        locked_modify(path, modify_fn)
+    except FileNotFoundError:
         return False
 
-    lines = path.read_text(encoding="utf-8").splitlines()
-    updated = False
-    new_lines = []
-    for line in lines:
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            record = json.loads(line)
-        except json.JSONDecodeError:
-            new_lines.append(line)
-            continue
-
-        if record.get("id") == record_id:
-            record["description"] = description
-            updated = True
-
-        new_lines.append(json.dumps(record, ensure_ascii=False))
-
-    if updated:
-        content = "\n".join(new_lines) + "\n"
-        fd, tmp = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                f.write(content)
-            os.replace(tmp, path)
-        except BaseException:
-            os.unlink(tmp)
-            raise
-
     return updated
+
+
+def update_record_description(
+    facet: str,
+    day: str,
+    record_id: str,
+    description: str,
+    *,
+    title: str | None = None,
+    details: str | None = None,
+) -> bool:
+    """Update the description of an existing activity record."""
+    patch: dict[str, Any] = {"description": description}
+    current = get_activity_record(facet, day, record_id)
+    if title is not None:
+        patch["title"] = title
+    elif current is not None:
+        current_title = str(current.get("title") or "").strip()
+        current_description = str(current.get("description") or "").strip()
+        if not current_title or current_title == current_description:
+            patch["title"] = description
+    if details is not None:
+        patch["details"] = details
+    return update_record_fields(facet, day, record_id, patch)
+
+
+def get_activity_record(facet: str, day: str, record_id: str) -> dict[str, Any] | None:
+    """Return one activity record by ID, including hidden records."""
+    for record in load_activity_records(facet, day, include_hidden=True):
+        if record.get("id") == record_id:
+            return record
+    return None
+
+
+def update_activity_record(
+    facet: str,
+    day: str,
+    record_id: str,
+    patch: dict[str, Any],
+    *,
+    actor: str,
+    note: str,
+) -> dict[str, Any] | None:
+    """Apply a shallow patch to an activity record and append one edit."""
+    allowed_fields = {"title", "description", "details"}
+    if not patch:
+        raise ValueError("patch cannot be empty")
+
+    disallowed = sorted(set(patch) - allowed_fields)
+    if disallowed:
+        raise ValueError(f"patch contains disallowed fields: {', '.join(disallowed)}")
+
+    updated_record: dict[str, Any] | None = None
+
+    def modify_fn(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        nonlocal updated_record
+        new_records: list[dict[str, Any]] = []
+        for record in records:
+            if record.get("id") == record_id:
+                merged = _normalize_activity_record({**record, **patch})
+                merged = append_edit(
+                    merged,
+                    actor=actor,
+                    fields=list(patch.keys()),
+                    note=note,
+                )
+                updated_record = merged
+                new_records.append(merged)
+            else:
+                new_records.append(record)
+        return new_records
+
+    try:
+        locked_modify(_get_records_path(facet, day), modify_fn)
+    except FileNotFoundError:
+        return None
+
+    return updated_record
+
+
+def _set_activity_hidden_state(
+    facet: str,
+    day: str,
+    record_id: str,
+    *,
+    hidden: bool,
+    actor: str,
+    reason: str | None,
+) -> dict[str, Any] | None:
+    updated_record: dict[str, Any] | None = None
+
+    def modify_fn(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        nonlocal updated_record
+        new_records: list[dict[str, Any]] = []
+        for record in records:
+            if record.get("id") != record_id:
+                new_records.append(record)
+                continue
+
+            normalized = _normalize_activity_record(record)
+            if normalized.get("hidden", False) == hidden:
+                updated_record = normalized
+                new_records.append(normalized)
+                continue
+
+            normalized["hidden"] = hidden
+            normalized = append_edit(
+                normalized,
+                actor=actor,
+                fields=["hidden"],
+                note=reason or ("muted" if hidden else "unmuted"),
+            )
+            updated_record = normalized
+            new_records.append(normalized)
+        return new_records
+
+    try:
+        locked_modify(_get_records_path(facet, day), modify_fn)
+    except FileNotFoundError:
+        return None
+
+    return updated_record
+
+
+def mute_activity_record(
+    facet: str,
+    day: str,
+    record_id: str,
+    *,
+    actor: str,
+    reason: str | None,
+) -> dict[str, Any] | None:
+    """Hide an activity record without deleting it."""
+    return _set_activity_hidden_state(
+        facet,
+        day,
+        record_id,
+        hidden=True,
+        actor=actor,
+        reason=reason,
+    )
+
+
+def unmute_activity_record(
+    facet: str,
+    day: str,
+    record_id: str,
+    *,
+    actor: str,
+    reason: str | None,
+) -> dict[str, Any] | None:
+    """Restore a previously hidden activity record."""
+    return _set_activity_hidden_state(
+        facet,
+        day,
+        record_id,
+        hidden=False,
+        actor=actor,
+        reason=reason,
+    )
 
 
 def estimate_duration_minutes(segments: list[str]) -> int:
@@ -853,3 +1137,118 @@ def level_avg(levels: list[str]) -> float:
         return 0.5
     values = [LEVEL_VALUES.get(level, 0.5) for level in levels]
     return round(sum(values) / len(values), 2)
+
+
+def _extract_activity_header(file_path: str | os.PathLike[str] | None) -> str:
+    """Build a formatter header from an activities file path."""
+    if not file_path:
+        return "# Activities"
+
+    path = Path(file_path)
+    parts = path.parts
+    try:
+        facet_idx = parts.index("facets")
+        facet_name = parts[facet_idx + 1]
+    except (ValueError, IndexError):
+        facet_name = "unknown"
+
+    stem = path.stem
+    if stem.isdigit() and len(stem) == 8:
+        return f"# Activities: {facet_name} ({stem[:4]}-{stem[4:6]}-{stem[6:8]})"
+    return f"# Activities: {facet_name}"
+
+
+def _activity_time_range(segments: list[str]) -> str | None:
+    """Return a compact HH:MM-HH:MM label for a list of segment keys."""
+    if not segments:
+        return None
+
+    start_time, _ = segment_parse(segments[0])
+    _, end_time = segment_parse(segments[-1])
+    if start_time is None or end_time is None:
+        return None
+
+    return f"{start_time.strftime('%H:%M')}-{end_time.strftime('%H:%M')}"
+
+
+def _format_participation(record: dict[str, Any]) -> str | None:
+    """Format participation names for display."""
+    participation = record.get("participation")
+    if not isinstance(participation, list) or not participation:
+        return None
+
+    names = []
+    for entry in participation:
+        if not isinstance(entry, dict):
+            continue
+        name = str(entry.get("name") or entry.get("entity_id") or "").strip()
+        if name:
+            names.append(name)
+
+    if not names:
+        return None
+    return ", ".join(names)
+
+
+def format_activities(
+    entries: list[dict],
+    context: dict | None = None,
+) -> tuple[list[dict], dict]:
+    """Format activity JSONL entries into markdown chunks."""
+    ctx = context or {}
+    meta: dict[str, Any] = {
+        "header": _extract_activity_header(ctx.get("file_path")),
+        "indexer": {"agent": "activity"},
+    }
+    chunks: list[dict[str, Any]] = []
+
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+
+        record = _normalize_activity_record(entry)
+        lines = [f"### {_fallback_activity_title(record)}"]
+
+        activity_type = str(record.get("activity") or record.get("id") or "").strip()
+        if activity_type:
+            lines.append(f"- Activity: {activity_type}")
+
+        facet = str(record.get("facet") or "").strip()
+        if facet:
+            lines.append(f"- Facet: {facet}")
+
+        day = str(record.get("day") or "").strip()
+        if day:
+            lines.append(f"- Day: {day}")
+
+        time_range = _activity_time_range(record.get("segments", []))
+        if time_range:
+            lines.append(f"- Time: {time_range}")
+
+        if "level_avg" in record:
+            lines.append(f"- Level: {record['level_avg']}")
+
+        description = str(record.get("description") or "").strip()
+        if description:
+            lines.append(f"- Description: {description}")
+
+        details = str(record.get("details") or "").strip()
+        if details:
+            lines.append(f"- Details: {details}")
+
+        participants = _format_participation(record)
+        if participants:
+            lines.append(f"- Participation: {participants}")
+
+        if record.get("hidden", False):
+            lines.append("- Hidden: yes")
+
+        chunks.append(
+            {
+                "timestamp": int(record.get("created_at", 0) or 0),
+                "markdown": "\n".join(lines),
+                "source": record,
+            }
+        )
+
+    return chunks, meta

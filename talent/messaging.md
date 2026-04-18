@@ -10,7 +10,7 @@
   "activities": ["messaging", "email"],
   "priority": 10,
   "output": "md",
-  "load": {"transcripts": true, "percepts": false, "agents": {"screen": true}}
+  "load": {"transcripts": true, "percepts": false, "talents": {"screen": true}}
 }
 
 $facets

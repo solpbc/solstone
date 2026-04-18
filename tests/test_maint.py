@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from convey.maint import (
+from think.maint import (
     MaintTask,
     get_state_file,
     get_task_status,
@@ -115,7 +115,7 @@ class TestListTasks:
         def mock_discover_tasks():
             return tasks
 
-        monkeypatch.setattr("convey.maint.discover_tasks", mock_discover_tasks)
+        monkeypatch.setattr("think.maint.discover_tasks", mock_discover_tasks)
 
         # Success task with timestamp
         success_file = get_state_file(temp_journal, "chat", "done")
@@ -164,7 +164,7 @@ class TestListTasks:
         def mock_discover_tasks():
             return tasks
 
-        monkeypatch.setattr("convey.maint.discover_tasks", mock_discover_tasks)
+        monkeypatch.setattr("think.maint.discover_tasks", mock_discover_tasks)
 
         # Success task with line events and duration
         success_file = get_state_file(temp_journal, "chat", "done")
@@ -199,7 +199,7 @@ class TestListTasks:
         def mock_discover_tasks():
             return tasks
 
-        monkeypatch.setattr("convey.maint.discover_tasks", mock_discover_tasks)
+        monkeypatch.setattr("think.maint.discover_tasks", mock_discover_tasks)
 
         # In-progress task: exec event but no exit event
         state_file = get_state_file(temp_journal, "chat", "running")

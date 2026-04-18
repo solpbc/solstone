@@ -720,7 +720,7 @@ def test_observations_source_day(tmp_path, monkeypatch):
 
 def test_seed_entities_without_observations(tmp_path, monkeypatch):
     """seed_entities() works unchanged when no observations are provided."""
-    from think.importers.shared import seed_entities
+    from think.entities.seeding import seed_entities
 
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
@@ -735,7 +735,7 @@ def test_seed_entities_without_observations(tmp_path, monkeypatch):
 def test_seed_entities_observation_formatting(tmp_path, monkeypatch):
     """seed_entities() creates observations with correct formatting for all field combos."""
     from think.entities.observations import load_observations
-    from think.importers.shared import seed_entities
+    from think.entities.seeding import seed_entities
 
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
@@ -793,7 +793,7 @@ def test_seed_entities_observation_formatting(tmp_path, monkeypatch):
 def test_seed_entities_observation_dedup(tmp_path, monkeypatch):
     """seed_entities() does not duplicate observations on re-call."""
     from think.entities.observations import load_observations
-    from think.importers.shared import seed_entities
+    from think.entities.seeding import seed_entities
 
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 

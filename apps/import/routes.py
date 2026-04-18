@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 import time
 from pathlib import Path
@@ -290,8 +291,8 @@ def import_save() -> Any:
                 "entry_count": existing.get("entry_count", 0),
                 "import_id": existing.get("import_id", ""),
             }
-    except Exception:
-        pass  # dedup check is best-effort
+    except OSError as exc:
+        logging.warning("Dedup check failed for %s: %s", file_path, exc)
 
     result: dict[str, Any] = {
         "path": str(file_path),

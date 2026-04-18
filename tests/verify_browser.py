@@ -33,10 +33,10 @@ SCENARIOS: list[dict[str, Any]] = [
         ],
     },
     {
-        "app": "calendar",
+        "app": "activities",
         "name": "smoke",
         "steps": [
-            {"do": "navigate", "path": "/app/calendar/20260304"},
+            {"do": "navigate", "path": "/app/activities/20260304"},
             {"do": "wait", "ms": 1000},
             {"do": "screenshot"},
         ],

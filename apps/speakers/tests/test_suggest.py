@@ -18,7 +18,7 @@ from apps.speakers.suggest import (
 
 
 def create_meetings_md(env, day: str, content: str) -> Path:
-    meetings_path = env.journal / day / "agents" / "meetings.md"
+    meetings_path = env.journal / day / "talents" / "meetings.md"
     meetings_path.parent.mkdir(parents=True, exist_ok=True)
     meetings_path.write_text(content, encoding="utf-8")
     return meetings_path

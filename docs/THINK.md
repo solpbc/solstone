@@ -16,15 +16,15 @@ The package exposes several commands:
 
 - `sol call transcripts read` groups audio and screen transcripts into report sections. Use `--start` and
   `--length` to limit the report to a specific time range. See `sol call transcripts --help` for additional commands.
-- `sol dream` runs generators and agents for a single day via Cortex.
-- `sol agents` is the unified CLI for tool agents and generators (spawned by Cortex, NDJSON protocol).
+- `sol think` runs generators and agents for a single day via Cortex.
+- `python -m think.talents` is the unified execution module for tool talents and generators spawned by Cortex (NDJSON protocol).
 - `sol supervisor` monitors observation heartbeats. Use `--no-observers` to disable local capture (sense still runs for observer uploads and imports).
 - `sol cortex` starts a Callosum-based service for managing AI agent instances and generators.
 - `sol talent` lists available agents and generators with their configuration. Use `sol talent show <name>` to see details, and `sol talent show <name> --prompt` to see the fully composed prompt that would be sent to the LLM.
 
 ```bash
 sol call transcripts read YYYYMMDD [--start HHMMSS --length MINUTES]
-sol dream [--day YYYYMMDD] [--segment HHMMSS_LEN] [--stream NAME] [--refresh] [--flush]
+sol think [--day YYYYMMDD] [--segment HHMMSS_LEN] [--stream NAME] [--refresh] [--flush]
 sol supervisor [--no-observers]
 sol cortex [--host HOST] [--port PORT] [--path PATH]
 sol talent list [--schedule daily|segment] [--json]
@@ -45,7 +45,7 @@ Tool access is command-based via the `sol call` CLI framework.
 
 ## Automating daily processing
 
-The `sol dream` command can be triggered by a systemd timer. Below is a
+The `sol think` command can be triggered by a systemd timer. Below is a
 minimal service and timer that process yesterday's folder every morning at
 06:00:
 
@@ -55,7 +55,7 @@ Description=Process solstone journal
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/sol dream
+ExecStart=/usr/local/bin/sol think
 
 [Install]
 WantedBy=multi-user.target
@@ -63,12 +63,12 @@ WantedBy=multi-user.target
 
 ```ini
 [Unit]
-Description=Run sol dream daily
+Description=Run sol think daily
 
 [Timer]
 OnCalendar=*-*-* 06:00:00
 Persistent=true
-Unit=sol-dream.service
+Unit=sol-think.service
 
 [Install]
 WantedBy=timers.target
@@ -78,7 +78,7 @@ WantedBy=timers.target
 
 ### Unified Priority Execution
 
-All scheduled prompts (both generators and tool-using agents) share a unified priority system. The `sol dream` command executes prompts ordered by priority, from lowest (runs first) to highest (runs last).
+All scheduled prompts (both generators and tool-using agents) share a unified priority system. The `sol think` command executes prompts ordered by priority, from lowest (runs first) to highest (runs last).
 
 **Priority is required for all scheduled prompts.** Prompts without a `priority` field will fail validation. Suggested priority bands:
 
@@ -91,30 +91,30 @@ All scheduled prompts (both generators and tool-using agents) share a unified pr
 
 After each generator completes and creates output, the indexer runs `--rescan-file` for incremental indexing. A full `--rescan` runs in the post phase.
 
-### Cortex: Central Agent Manager
+### Cortex: Central Talent Manager
 
-The Cortex service (`sol cortex`) is the central system for managing AI agent instances and generators. It monitors the journal's `agents/` directory for new requests and manages execution. All agent spawning should go through Cortex for proper event tracking and management.
+The Cortex service (`sol cortex`) is the central system for managing AI talent instances and generators. It monitors the journal's `talents/` directory for new requests and manages execution. All talent spawning should go through Cortex for proper event tracking and management.
 
 Cortex routes requests based on configuration:
-- Requests with `tools` field → tool-using agents (`sol agents`)
-- Requests with `output` field (no `tools`) → generators (`sol agents`)
+- Requests with `tools` field → tool-using talents (`python -m think.talents`)
+- Requests with `output` field (no `tools`) → generators (`python -m think.talents`)
 
-Both types are handled by the unified `sol agents` CLI which routes internally.
+Both types are handled by the unified `python -m think.talents` execution module.
 
-To spawn agents programmatically, use the cortex_client functions:
+To spawn talents programmatically, use the cortex_client functions:
 
 ```python
 from think.cortex_client import cortex_request
 from think.callosum import CallosumConnection
 
 # Create a request
-agent_id = cortex_request(
+use_id = cortex_request(
     prompt="Your task here",
     name="default",
     provider="openai"  # or "google", "anthropic", "claude"
 )
 
-# Watch for agent events via Callosum
+# Watch for talent events via Callosum
 def on_event(message):
     # Filter for cortex tract events
     if message.get('tract') != 'cortex':
@@ -135,10 +135,10 @@ watcher.stop()
 Generators can also be spawned via `cortex_request` by including an `output` field:
 
 ```python
-from think.cortex_client import cortex_request, wait_for_agents
+from think.cortex_client import cortex_request, wait_for_uses
 
 # Spawn a generator
-agent_id = cortex_request(
+use_id = cortex_request(
     prompt="",  # Generators don't use prompts
     name="activity",
     config={
@@ -149,15 +149,15 @@ agent_id = cortex_request(
 )
 
 # Wait for completion
-completed, timed_out = wait_for_agents([agent_id], timeout=300)
+completed, timed_out = wait_for_uses([use_id], timeout=300)
 ```
 
 ### Direct CLI Usage (Testing Only)
 
-The `sol agents` command is primarily used internally by Cortex. For testing purposes, it can be invoked directly:
+The `sol providers check` command is an ad-hoc provider check CLI. Cortex does not use it as the talent spawn path. For testing purposes, it can be invoked directly:
 
 ```bash
-sol agents [TASK_FILE] [--provider PROVIDER] [--model MODEL] [--max-tokens N] [-o OUT_FILE]
+sol providers check [TASK_FILE] [--provider PROVIDER] [--model MODEL] [--max-tokens N] [-o OUT_FILE]
 ```
 
 The provider can be ``openai`` (default), ``google``, ``anthropic``, or ``ollama``. Configure the corresponding API key in the ``env`` section of ``journal/config/journal.json`` (e.g., ``OPENAI_API_KEY``, ``GOOGLE_API_KEY``, or ``ANTHROPIC_API_KEY``). The ``ollama`` provider requires no API key — it connects to a local Ollama instance. Keys are loaded into ``os.environ`` by ``setup_cli()`` at process startup.
@@ -196,7 +196,7 @@ Cortex is the central agent management system that all agent spawning should go 
 The `think.cortex_client` module provides functions for interacting with Cortex:
 
 ```python
-from think.cortex_client import cortex_request, cortex_agents
+from think.cortex_client import cortex_request, cortex_uses
 
 # Create an agent request
 request_file = cortex_request(
@@ -206,7 +206,7 @@ request_file = cortex_request(
 )
 
 # List running and completed agents
-agents_info = cortex_agents(limit=10, agent_type="live")
+agents_info = cortex_uses(limit=10, use_type="live")
 print(f"Found {agents_info['live_count']} running agents")
 ```
 # Talent Module
@@ -218,7 +218,7 @@ AI agent system and tool-calling support for solstone.
 | Command | Purpose |
 |---------|---------|
 | `sol cortex` | Agent orchestration service |
-| `sol agents` | Direct agent invocation (testing only) |
+| `sol providers check` | Ad-hoc provider check (testing only) |
 
 ## Architecture
 
@@ -245,7 +245,7 @@ Providers implement `run_generate()`, `run_agenerate()`, and `run_cogitate()` fu
 ## Key Components
 
 - **cortex.py** - Central agent manager, file watcher, event distribution, spawns agents.py
-- **cortex_client.py** - Client functions: `cortex_request()`, `cortex_agents()`, `wait_for_agents()`
+- **cortex_client.py** - Client functions: `cortex_request()`, `cortex_uses()`, `wait_for_uses()`
 - **agents.py** - Unified CLI entry point for both tool-using agents and generators (NDJSON protocol)
 - **models.py** - Unified `generate()`/`agenerate()` API, provider routing, token logging
 - **batch.py** - `Batch` class for concurrent LLM requests with dynamic queuing
@@ -254,7 +254,7 @@ Providers implement `run_generate()`, `run_agenerate()`, and `run_cogitate()` fu
 
 System prompts in `talent/*.md` (markdown with JSON frontmatter). Apps can add custom agents in `apps/{app}/talent/`.
 
-JSON metadata supports `title`, `provider`, `model`, `tools`, `schedule`, `priority`, `multi_facet`, and `load` keys.
+JSON metadata supports `title`, `provider`, `model`, `tools`, `schedule`, `priority`, `multi_facet`, and `load` keys. Cogitate prompts may also set `cwd: "journal"` or `cwd: "repo"`; when omitted they default to `journal`, while repo-root agents such as `coder` should set `repo`. Generators reject `cwd`.
 
 **Important:** The `priority` field is **required** for all prompts with a `schedule`. Prompts without explicit priority will fail validation. See the [Unified Priority Execution](#unified-priority-execution) section for priority bands.
 

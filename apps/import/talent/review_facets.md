@@ -6,8 +6,6 @@
   "group": "Import"
 }
 
-$sol_identity
-
 $facets
 
 ## Core Mission
@@ -17,8 +15,8 @@ Review staged facet items and resolve them. Entity review must complete first be
 ## Tooling
 
 - `sol call import list-staged --source SOURCE --area facets` - list staged facet items as JSONL
-- `sol call import resolve-facet STAGED_FILE apply --source SOURCE` - apply a staged facet item
-- `sol call import resolve-facet STAGED_FILE skip --source SOURCE` - discard a staged facet item
+- `sol call import resolve-staged-facet STAGED_FILE --apply --source SOURCE` - apply a staged facet item
+- `sol call import resolve-staged-facet STAGED_FILE --skip --source SOURCE` - discard a staged facet item
 - `sol call import list-staged --source SOURCE --area entities` - check whether entity review is complete
 
 ## Process
@@ -59,13 +57,13 @@ Parse the JSONL output and review each staged item.
 - Apply:
 
 ```bash
-sol call import resolve-facet STAGED_FILE apply --source SOURCE
+sol call import resolve-staged-facet STAGED_FILE --apply --source SOURCE
 ```
 
 - Skip:
 
 ```bash
-sol call import resolve-facet STAGED_FILE skip --source SOURCE
+sol call import resolve-staged-facet STAGED_FILE --skip --source SOURCE
 ```
 
 ### Step 6: Verify and Report

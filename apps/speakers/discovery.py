@@ -48,16 +48,6 @@ def _routes_helpers():
     )
 
 
-def _bootstrap_helpers():
-    """Load bootstrap helpers lazily to avoid import cycles."""
-    from apps.speakers.bootstrap import (
-        _load_existing_voiceprint_keys,
-        _save_voiceprints_batch,
-    )
-
-    return _load_existing_voiceprint_keys, _save_voiceprints_batch
-
-
 def _owner_helpers():
     """Load owner helpers lazily to avoid import cycles."""
     from apps.speakers.owner import load_owner_centroid
@@ -315,6 +305,11 @@ def identify_cluster(
     cluster_id: int, name: str, entity_id: str | None = None
 ) -> dict[str, Any]:
     """Identify a discovered unknown speaker cluster."""
+    from think.entities import (
+        load_existing_voiceprint_keys,
+        save_voiceprints_batch,
+    )
+
     (
         load_embeddings_file,
         load_speaker_labels,
@@ -324,7 +319,6 @@ def identify_cluster(
         append_speaker_correction,
         check_owner_contamination,
     ) = _routes_helpers()
-    load_existing_voiceprint_keys, save_voiceprints_batch = _bootstrap_helpers()
 
     cache_path = _discovery_cache_path()
     if not cache_path.exists():
@@ -343,7 +337,7 @@ def identify_cluster(
     from apps.speakers.routes import _load_speaker_corrections
     from think.entities import entity_slug, find_matching_entity
     from think.entities.journal import (
-        get_or_create_journal_entity,
+        create_journal_entity,
         load_all_journal_entities,
         load_journal_entity,
     )
@@ -370,7 +364,7 @@ def identify_cluster(
             entity_id = entity_slug(name)
             existing = load_journal_entity(entity_id)
             entity_created = existing is None
-            entity = get_or_create_journal_entity(
+            entity = existing or create_journal_entity(
                 entity_id=entity_id,
                 name=name,
                 entity_type="Person",

@@ -20,7 +20,7 @@ def _make_segment(
     stream_json=None,
     audio=True,
     screen=True,
-    agents=None,
+    talents=None,
 ):
     """Create a minimal segment fixture directory."""
     seg_dir = base / "chronicle" / day / stream / segment
@@ -31,11 +31,11 @@ def _make_segment(
         (seg_dir / "audio.jsonl").write_text('{"t":0}\n')
     if screen:
         (seg_dir / "screen.jsonl").write_text('{"t":0}\n')
-    if agents:
-        agents_dir = seg_dir / "agents"
-        agents_dir.mkdir()
-        for name in agents:
-            (agents_dir / name).write_text("# agent output\n")
+    if talents:
+        talents_dir = seg_dir / "talents"
+        talents_dir.mkdir()
+        for name in talents:
+            (talents_dir / name).write_text("# talent output\n")
     return seg_dir
 
 
@@ -52,7 +52,7 @@ def test_list_basic(tmp_path, monkeypatch, capsys):
             "prev_segment": None,
             "seq": 1,
         },
-        agents=["audio.md"],
+        talents=["audio.md"],
     )
     _make_segment(
         tmp_path,
@@ -65,7 +65,7 @@ def test_list_basic(tmp_path, monkeypatch, capsys):
             "prev_segment": "090000_300",
             "seq": 2,
         },
-        agents=["audio.md", "screen.md"],
+        talents=["audio.md", "screen.md"],
     )
 
     args = argparse.Namespace(
@@ -131,7 +131,7 @@ def test_list_json(tmp_path, monkeypatch, capsys):
             "prev_segment": None,
             "seq": 1,
         },
-        agents=["audio.md"],
+        talents=["audio.md"],
     )
 
     args = argparse.Namespace(
@@ -143,7 +143,7 @@ def test_list_json(tmp_path, monkeypatch, capsys):
     assert isinstance(data, list)
     assert data[0]["stream"] == "default"
     assert data[0]["segment"] == "090000_300"
-    assert data[0]["agents"] == 1
+    assert data[0]["talents"] == 1
 
 
 def test_list_empty_day(tmp_path, monkeypatch, capsys):
@@ -171,7 +171,7 @@ def test_inspect_basic(tmp_path, monkeypatch, capsys):
             "prev_segment": None,
             "seq": 1,
         },
-        agents=["audio.md"],
+        talents=["audio.md"],
     )
 
     args = argparse.Namespace(
@@ -226,7 +226,7 @@ def test_inspect_json(tmp_path, monkeypatch, capsys):
             "prev_segment": None,
             "seq": 1,
         },
-        agents=["audio.md"],
+        talents=["audio.md"],
     )
 
     args = argparse.Namespace(
@@ -848,7 +848,7 @@ def test_move_rewrites_events_jsonl(tmp_path, monkeypatch, capsys):
             "day": "20240101",
             "segment": "090000_300",
         },
-        {"tract": "dream", "event": "done", "day": "20240101", "segment": "090000_300"},
+        {"tract": "think", "event": "done", "day": "20240101", "segment": "090000_300"},
     ]
     (seg_dir / "events.jsonl").write_text(
         "\n".join(json.dumps(e) for e in events) + "\n"

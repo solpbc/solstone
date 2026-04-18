@@ -1,5 +1,7 @@
 ## system
-- [x] 2026-04-16 heartbeat: timeouts (00:29, 01:00) resolved by current run.
+- [x] 2026-04-17 heartbeat: timeouts (2026-04-16 18:06) resolved by current run.
+- [ ] 2026-04-17 agent failure: morning_briefing error (2026-04-16 15:35).
+- [ ] 2026-04-17 agent failure: sense errors (2026-04-16 14:00-14:40).
 - [ ] 2026-04-16 agent failure: pulse timing out (08:33, 08:42) (10m).
 - [ ] 2026-04-16 agent failure: entities:entities_review (all facets) timing out (10m).
 - [ ] 2026-04-16 agent failure: entities:entities timeout on solstone (00:16) and personal (00:10).
@@ -8,15 +10,26 @@
 - [ ] 2026-04-15 dream failure: Segment 20260415/fedora/231333_302 missing capture files (sense failed).
 - [x] 2026-04-16 capture status: Stale since April 1st — root-caused to fossilized `awareness.capture` cache read after observer externalization. Fixed by unifying capture-health on `think/capture_health.py` (lode s4lmgy7h, commit a27ad8c2).
 - [ ] 2026-04-16 routine health: `sol call routines list` returns no configured routines.
-- [ ] 2026-04-16 dream queue: 13 tasks pending.
+- [ ] 2026-04-16 dream queue: 35 tasks pending.
+- [x] 2026-04-16 reprocessed: fedora/130325_301 and fedora.tmux/123810_301 (sense max_tokens failures).
 
 ## curation
+- [ ] 2026-04-17 speaker curation: cluster 157 (67 samples) in import.plaud.
+- [ ] 2026-04-17 speaker curation: cluster 79 (53 samples) in import.plaud.
+- [ ] 2026-04-17 speaker curation: cluster 81 (46 samples) in import.plaud.
+- [ ] 2026-04-17 speaker curation: cluster 22 (38 samples) in fedora.
+- [ ] 2026-04-17 speaker curation: cluster 138 (36 samples) in import.plaud.
 - [x] 2026-04-15 entity duplicates: _Sunstone vs Solstone.
 - [x] 2026-04-15 entity duplicates: Zoey.
 - [x] 2026-04-15 speaker voiceprints: Rebuilt after NPZ corruption.
+- [ ] 2026-04-16 speaker curation: cluster 76 (143 samples) in import.plaud.
+- [ ] 2026-04-16 speaker curation: cluster 70 (56 samples) in ja1r.
+- [ ] 2026-04-16 speaker curation: cluster 72 (55 samples) in import.plaud.
+- [ ] 2026-04-16 speaker curation: cluster 135 (48 samples) in import.plaud.
+- [ ] 2026-04-16 speaker curation: cluster 170 (46 samples) in import.plaud.
 - [ ] 2026-04-16 speaker curation: cluster 149 (59 samples) in import.plaud.
 - [ ] 2026-04-16 speaker curation: cluster 94 (56 samples) in import.plaud.
-- [ ] 2026-04-16 speaker curation: cluster 179 (53 samples) in import.plaud.
+- [ ] 2026-04-17 speaker curation: cluster 179 (53 samples) in import.plaud.
 - [ ] 2026-04-16 speaker curation: cluster 143 (45 samples) in import.plaud.
 - [ ] 2026-04-16 speaker curation: cluster 17 (42 samples) in pro5e.
 - [ ] 2026-04-15 speaker curation: cluster 159 (87 samples) in import.plaud.

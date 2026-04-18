@@ -415,11 +415,22 @@
   outline: 2px solid #6366f1;
   outline-offset: 2px;
 }
+.pulse-yesterday-header:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+}
 .pulse-briefing-header:hover {
   background: #f8fafc;
   border-radius: 6px;
 }
+.pulse-yesterday-header:hover {
+  background: #f8fafc;
+  border-radius: 6px;
+}
 .pulse-briefing-header:active {
+  background: #f1f5f9;
+}
+.pulse-yesterday-header:active {
   background: #f1f5f9;
 }
 .pulse-tell-more {
@@ -663,6 +674,55 @@
   flex-direction: column;
   gap: 1rem;
 }
+.pulse-yesterday {
+  padding: 1.25rem;
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+.pulse-yesterday-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.pulse-yesterday-summary {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin-top: 0.5rem;
+}
+.pulse-yesterday[data-collapsed="false"] .pulse-yesterday-header {
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.pulse-yesterday[data-collapsed="false"] .pulse-yesterday-summary { display: none; }
+.pulse-yesterday[data-collapsed="true"] .pulse-yesterday-body { display: none; }
+.pulse-yesterday-body {
+  margin-top: 1rem;
+  color: #334155;
+}
+.pulse-yesterday-body p {
+  margin: 0 0 0.75rem;
+  line-height: 1.6;
+}
+.pulse-yesterday-body p:last-child {
+  margin-bottom: 0;
+}
+.pulse-yesterday-framing {
+  font-size: 0.9rem;
+  color: #475569;
+}
+.pulse-yesterday-details {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: #334155;
+}
+.pulse-yesterday-details li {
+  margin: 0.35rem 0;
+  line-height: 1.55;
+}
 .pulse-briefing-section-toggle {
   font-size: 0.75rem;
   font-weight: 600;
@@ -799,6 +859,7 @@
 .pulse-routines,
 .pulse-skills,
 .pulse-network,
+.pulse-yesterday,
 .pulse-briefing-card,
 .pulse-empty-state {
   padding-left: 2rem;
@@ -877,6 +938,7 @@
   .pulse-today,
   .pulse-needs,
   .pulse-network,
+  .pulse-yesterday,
   .pulse-briefing-card,
   .pulse-empty-state {
     padding: 0.75rem;
@@ -894,6 +956,7 @@
   .pulse-routines,
   .pulse-skills,
   .pulse-network,
+  .pulse-yesterday,
   .pulse-briefing-card,
   .pulse-empty-state {
     padding-left: 0.75rem;
@@ -951,6 +1014,31 @@
     {% endif %}
     <a href="/app/health">health →</a>
   </div>
+
+  {% if yesterday_processing %}
+  <section class="pulse-yesterday" id="pulse-yesterday" data-collapsed="{{ 'true' if yesterday_processing.default_collapsed else 'false' }}">
+    <div class="pulse-yesterday-header" role="button" tabindex="0" aria-expanded="{{ 'false' if yesterday_processing.default_collapsed else 'true' }}">
+      <h2 class="pulse-section-header">{{ yesterday_processing.title }}</h2>
+    </div>
+    <div class="pulse-yesterday-summary">{{ yesterday_processing.summary_line }}</div>
+    <div class="pulse-yesterday-body">
+      {% if yesterday_processing.first_week_framing %}
+      <p class="pulse-yesterday-framing">{{ yesterday_processing.first_week_framing }}</p>
+      {% endif %}
+      {% if yesterday_processing.mode == 'sparse' %}
+        {% for line in yesterday_processing.sparse_lines %}
+        <p>{{ line }}</p>
+        {% endfor %}
+      {% elif yesterday_processing.details %}
+      <ul class="pulse-yesterday-details">
+        {% for line in yesterday_processing.details %}
+        <li>{{ line }}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </div>
+  </section>
+  {% endif %}
 
   <!-- Welcome -->
   {% if show_welcome %}
@@ -1353,6 +1441,19 @@
     });
   }
 
+  var yesterdayHeader = document.querySelector('.pulse-yesterday-header');
+  if (yesterdayHeader) {
+    yesterdayHeader.addEventListener('click', function() {
+      toggleYesterdayCard();
+    });
+    yesterdayHeader.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggleYesterdayCard();
+      }
+    });
+  }
+
   // WebSocket live updates
   if (window.appEvents) {
     // Vital signs: supervisor.status, observe.observed, observe.status
@@ -1381,6 +1482,14 @@
     if (!card || card.dataset.phase === 'pending') return;
     card.dataset.collapsed = card.dataset.collapsed === 'true' ? 'false' : 'true';
     var header = card.querySelector('.pulse-briefing-header');
+    if (header) header.setAttribute('aria-expanded', card.dataset.collapsed === 'false' ? 'true' : 'false');
+  };
+
+  window.toggleYesterdayCard = function() {
+    var card = document.getElementById('pulse-yesterday');
+    if (!card) return;
+    card.dataset.collapsed = card.dataset.collapsed === 'true' ? 'false' : 'true';
+    var header = card.querySelector('.pulse-yesterday-header');
     if (header) header.setAttribute('aria-expanded', card.dataset.collapsed === 'false' ? 'true' : 'false');
   };
 

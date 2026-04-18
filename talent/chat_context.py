@@ -248,7 +248,6 @@ def pre_process(context: dict) -> dict:
         "recent_conversation": "",
         "active_routines": "",
         "routine_suggestion": "",
-        "sol_awareness": "",
     }
 
     try:
@@ -325,19 +324,5 @@ def pre_process(context: dict) -> dict:
             template_vars["routine_suggestion"] = hint
     except Exception:
         logger.debug("Routine suggestion eligibility check failed", exc_info=True)
-
-    try:
-        from pathlib import Path
-
-        from think.utils import get_journal
-
-        awareness_path = Path(get_journal()) / "sol" / "awareness.md"
-        if awareness_path.exists():
-            content = awareness_path.read_text(encoding="utf-8")
-            # Cold-start gating: don't inject placeholder content
-            if content.strip() != "not yet updated":
-                template_vars["sol_awareness"] = f"## Awareness\n\n{content}"
-    except Exception:
-        logger.debug("Awareness context loading failed", exc_info=True)
 
     return {"template_vars": template_vars}

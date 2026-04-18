@@ -281,6 +281,6 @@ class TestCommandRegistry:
 
     def test_critical_commands_registered(self):
         """Test that critical commands are registered."""
-        critical = ["import", "agents", "dream", "indexer", "transcribe"]
+        critical = ["import", "providers", "think", "indexer", "transcribe"]
         for cmd in critical:
             assert cmd in sol.COMMANDS, f"Critical command '{cmd}' not registered"

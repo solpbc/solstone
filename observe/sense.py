@@ -33,6 +33,7 @@ from think.utils import (
     iter_segments,
     journal_relative_path,
     now_ms,
+    require_solstone,
     resolve_journal_path,
     setup_cli,
 )
@@ -1069,6 +1070,7 @@ def main():
         help="Show what would be processed (or deleted with --reprocess) without making changes",
     )
     args = setup_cli(parser)
+    require_solstone()
 
     journal = Path(get_journal())
 

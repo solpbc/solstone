@@ -11,7 +11,7 @@ import logging
 
 from apps.events import EventContext, on_event
 from think.conversation import record_exchange
-from think.cortex_client import read_agent_events
+from think.cortex_client import read_use_events
 
 logger = logging.getLogger(__name__)
 
@@ -25,12 +25,12 @@ def record_triage_exchange(ctx: EventContext) -> None:
     if name not in TRIAGE_AGENT_NAMES:
         return
 
-    agent_id = ctx.msg.get("agent_id")
-    if not agent_id:
+    use_id = ctx.msg.get("use_id")
+    if not use_id:
         return
 
     try:
-        events = read_agent_events(agent_id)
+        events = read_use_events(use_id)
         facet = ""
         app = ""
         path = ""
@@ -51,11 +51,11 @@ def record_triage_exchange(ctx: EventContext) -> None:
             user_message=user_message,
             agent_response=result,
             talent=name,
-            agent_id=agent_id,
+            use_id=use_id,
         )
     except Exception:
         logger.debug(
             "Failed to record conversation exchange for agent %s",
-            agent_id,
+            use_id,
             exc_info=True,
         )

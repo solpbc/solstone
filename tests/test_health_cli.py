@@ -28,7 +28,7 @@ def test_health_check_prints_status(capsys):
             {"name": "observer", "pid": 2002, "uptime_seconds": 5},
         ],
         "crashed": [{"name": "sync", "restart_attempts": 2}],
-        "tasks": [{"name": "dream", "duration_seconds": 12}],
+        "tasks": [{"name": "daily", "duration_seconds": 12}],
         "queues": {"indexer": 3, "planner": 0},
         "stale_heartbeats": [],
         "callosum_clients": 5,
@@ -44,7 +44,7 @@ def test_health_check_prints_status(capsys):
     assert "Crashed:" in output
     assert "sync" in output
     assert "Tasks:" in output
-    assert "dream" in output
+    assert "daily" in output
     assert "queued indexer" in output
     assert "Heartbeat: ok" in output
     assert "Callosum: 5 clients" in output

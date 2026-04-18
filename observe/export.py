@@ -197,9 +197,6 @@ def _classify_facet_file(relative: PurePosixPath) -> str | None:
     if len(parts) == 2 and parts[0] == "todos" and _DAY_JSONL_RE.match(parts[1]):
         return "todos"
 
-    if len(parts) == 2 and parts[0] == "calendar" and _DAY_JSONL_RE.match(parts[1]):
-        return "calendar"
-
     if len(parts) == 2 and parts[0] == "news" and _DAY_MD_RE.match(parts[1]):
         return "news"
 

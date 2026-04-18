@@ -6,7 +6,7 @@
 import argparse
 from typing import Any
 
-from think.utils import get_journal, journal_log, setup_cli
+from think.utils import get_journal, journal_log, require_solstone, setup_cli
 
 from .journal import (
     index_file,
@@ -155,6 +155,7 @@ def main() -> None:
     )
 
     args = setup_cli(parser)
+    require_solstone()
     journal = get_journal()
 
     if (

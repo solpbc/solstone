@@ -12,7 +12,7 @@ import pytest
 
 from think.callosum import CallosumServer
 from think.cortex import CortexService
-from think.cortex_client import cortex_agents, cortex_request
+from think.cortex_client import cortex_request, cortex_uses
 from think.utils import now_ms
 
 
@@ -47,13 +47,13 @@ def test_cortex_service_startup(integration_journal_path, callosum_server):
     cortex = CortexService(journal_path=str(integration_journal_path))
 
     # Verify agents directory was created
-    agents_dir = integration_journal_path / "agents"
+    agents_dir = integration_journal_path / "talents"
     assert agents_dir.exists()
     assert agents_dir.is_dir()
 
     # Verify service initializes correctly
     status = cortex.get_status()
-    assert status["running_agents"] == 0
+    assert status["running_uses"] == 0
     assert status["agent_ids"] == []
 
 
@@ -75,7 +75,7 @@ def test_cortex_request_creation(integration_journal_path, callosum_server):
     time.sleep(0.1)
 
     # Create a request
-    agent_id = cortex_request(prompt="Test prompt", name="default", provider="openai")
+    use_id = cortex_request(prompt="Test prompt", name="default", provider="openai")
 
     time.sleep(0.2)
 
@@ -85,7 +85,7 @@ def test_cortex_request_creation(integration_journal_path, callosum_server):
     assert request["prompt"] == "Test prompt"
     assert request["name"] == "default"
     assert request["provider"] == "openai"
-    assert request["agent_id"] == agent_id
+    assert request["use_id"] == use_id
 
     listener.stop()
 
@@ -96,7 +96,7 @@ def test_cortex_end_to_end_with_echo_agent(integration_journal_path, callosum_se
     os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(integration_journal_path)
 
     # Create a mock agent script that just echoes
-    agents_dir = integration_journal_path / "agents"
+    agents_dir = integration_journal_path / "talents"
     agents_dir.mkdir(parents=True, exist_ok=True)
 
     # Start Cortex service in background
@@ -124,9 +124,7 @@ def test_cortex_end_to_end_with_echo_agent(integration_journal_path, callosum_se
     time.sleep(0.2)
 
     # Make a request (this will fail because no real agent, but we can verify the flow)
-    agent_id = cortex_request(
-        prompt="Test end-to-end", name="default", provider="openai"
-    )
+    use_id = cortex_request(prompt="Test end-to-end", name="default", provider="openai")
 
     # Wait for at least request event
     time.sleep(1.0)
@@ -134,23 +132,23 @@ def test_cortex_end_to_end_with_echo_agent(integration_journal_path, callosum_se
     # Should have received the request event
     request_events = [e for e in received_events if e.get("event") == "request"]
     assert len(request_events) >= 1
-    assert request_events[0]["agent_id"] == agent_id
+    assert request_events[0]["use_id"] == use_id
 
     watcher.stop()
     cortex.stop()
 
 
 @pytest.mark.integration
-def test_cortex_agents_listing(integration_journal_path):
-    """Test listing agents from the cortex_agents function."""
+def test_cortex_uses_listing(integration_journal_path):
+    """Test listing agents from the cortex_uses function."""
     os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(integration_journal_path)
 
     # Create some test agent files
-    agents_dir = integration_journal_path / "agents"
+    agents_dir = integration_journal_path / "talents"
     agents_dir.mkdir(parents=True, exist_ok=True)
 
     # Get initial count
-    initial_result = cortex_agents()
+    initial_result = cortex_uses()
     initial_count = len(initial_result["agents"])
 
     ts = now_ms()
@@ -175,7 +173,7 @@ def test_cortex_agents_listing(integration_journal_path):
         f.write("\n")
 
     # List agents
-    result = cortex_agents()
+    result = cortex_uses()
 
     # Should have one more than before
     assert len(result["agents"]) == initial_count + 1

@@ -9,8 +9,6 @@
   "output": "md"
 }
 
-$sol_identity
-
 $facets
 
 You are generating the morning briefing for $agent_name — a structured daily digest that synthesizes all agent outputs, calendar, todos, and entity intelligence into an actionable start-of-day view.
@@ -72,8 +70,8 @@ Build five sections from the gathered data. **Omit any section entirely if it ha
 **Source attribution.** Attribute high-consequence factual claims to their source using inline parenthetical links with `sol://` URIs. Not every claim needs attribution — calendar events are self-evident and the Reading section is inherently attributed.
 
 `sol://` URI construction:
-- **Search results:** The header includes an `id` (e.g. `20260304/archon/143022_300/agents/followups.md:2`). Strip `:idx`, then strip `/agents/{agent}.md` → `sol://20260304/archon/143022_300`.
-- **Entity intelligence:** `activity[].path` contains a journal-relative path. Strip `/agents/{agent}.md` to get the segment or day path. If no stream/segment_key: `sol://{day}/agents/{agent}`.
+- **Search results:** The header includes an `id` (e.g. `20260304/archon/143022_300/talents/followups.md:2`). Strip `:idx`, then strip `/talents/{agent}.md` → `sol://20260304/archon/143022_300`.
+- **Entity intelligence:** `activity[].path` contains a journal-relative path. Strip `/talents/{agent}.md` to get the segment or day path. If no stream/segment_key: `sol://{day}/talents/{agent}`.
 - **Facet newsletters:** `sol://facets/{facet}/news/{day_YYYYMMDD}`.
 
 **Your Day** — What's ahead today. Lead with calendar events in chronological order. For each meeting, include who's attending and one line of entity-informed context (e.g., "last met 2 weeks ago, discussed product roadmap"). Include relevant todos due today. If no calendar events exist, lead with the highest-priority todos.
@@ -92,7 +90,7 @@ Grade highlights by evidence strength. **High** (corroborated by multiple source
   4. Unscheduled todos (action items with no calendar time blocked)
   Pipeline gaps owner-facing phrasings (from `pipeline_anomalies`). Use these verbatim, substituting real counts and agent names from the summary:
   - `activity_agents_missing` → "**Pipeline gap:** N activities ended yesterday but activity agents didn't fire — meeting notes, decisions, and follow-ups may be missing."
-  - `agent_failure` → "**Pipeline issue:** N agents timed out during yesterday's processing (name1, name2). Some insights may be incomplete." (Use "timed out" when every failed agent has `state == "timeout"`; otherwise use "failed".)
+  - `talent_failure` → "**Pipeline issue:** N agents timed out during yesterday's processing (name1, name2). Some insights may be incomplete." (Use "timed out" when every failed agent has `state == "timeout"`; otherwise use "failed".)
   - `daily_agents_missing` → "**Pipeline gap:** Daily agents didn't run yesterday despite journal data. Facet newsletters and digest may be missing."
 
   Do NOT include this section when pipeline status is `healthy` (status == "healthy" or anomalies list is empty). Zero noise on normal days.
@@ -143,7 +141,7 @@ gaps: [list of gap descriptions, or empty list [] if none]
 
 ## Forward Look
 - Board meeting Thursday — slides need review (confirmed on [calendar](sol://20260327/calendar))
-- May want to prepare quarterly metrics based on last quarter's timing (from [anticipation](sol://20260327/agents/anticipation))
+- May want to prepare quarterly metrics based on last quarter's timing (from [anticipation](sol://20260327/talents/anticipation))
 [more items...]
 
 ## Reading

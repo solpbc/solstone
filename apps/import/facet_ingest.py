@@ -129,15 +129,6 @@ def _parse_path(path_str: str, file_type: str) -> tuple[PurePosixPath, dict[str,
             raise ValueError("todos path must be todos/YYYYMMDD.jsonl")
         return path, {"day_file": parts[1]}
 
-    if file_type == "calendar":
-        if (
-            len(parts) != 2
-            or parts[0] != "calendar"
-            or not _DAY_JSONL_RE.match(parts[1])
-        ):
-            raise ValueError("calendar path must be calendar/YYYYMMDD.jsonl")
-        return path, {"day_file": parts[1]}
-
     if file_type == "news":
         if len(parts) != 2 or parts[0] != "news" or not _DAY_MD_RE.match(parts[1]):
             raise ValueError("news path must be news/YYYYMMDD.md")
@@ -452,25 +443,6 @@ def _merge_todos(
     }
 
 
-def _merge_calendar(
-    target_path: Path,
-    raw_bytes: bytes,
-    *,
-    new_facet: bool,
-) -> dict[str, Any]:
-    source_items = _parse_jsonl_bytes(raw_bytes)
-    target_items = [] if new_facet else _read_jsonl(target_path)
-    seen = {(item["title"], item.get("start")) for item in target_items}
-    new_items = [
-        item for item in source_items if (item["title"], item.get("start")) not in seen
-    ]
-    _append_jsonl(target_path, new_items)
-    return {
-        "status": "written",
-        "reason": "new_facet" if new_facet else "overlap_merged",
-    }
-
-
 def _merge_news(
     target_path: Path,
     raw_bytes: bytes,
@@ -627,7 +599,6 @@ def process_facet(
                 "activity_config",
                 "activity_records",
                 "todos",
-                "calendar",
                 "logs",
             }:
                 parsed_data = _parse_jsonl_bytes(raw_bytes)
@@ -720,10 +691,6 @@ def process_facet(
                 )
             elif file_type == "todos":
                 merge_result = _merge_todos(target_path, raw_bytes, new_facet=new_facet)
-            elif file_type == "calendar":
-                merge_result = _merge_calendar(
-                    target_path, raw_bytes, new_facet=new_facet
-                )
             elif file_type == "news":
                 merge_result = _merge_news(target_path, raw_bytes, new_facet=new_facet)
             elif file_type == "logs":

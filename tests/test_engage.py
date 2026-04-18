@@ -50,11 +50,11 @@ class TestEngage:
         with (
             patch("think.cortex_client.cortex_request", return_value="agent-123"),
             patch(
-                "think.cortex_client.wait_for_agents",
+                "think.cortex_client.wait_for_uses",
                 return_value=({"agent-123": "finish"}, []),
             ),
             patch(
-                "think.cortex_client.read_agent_events",
+                "think.cortex_client.read_use_events",
                 return_value=[{"event": "finish", "result": "All fixed!"}],
             ),
         ):
@@ -67,7 +67,7 @@ class TestEngage:
         with (
             patch("think.cortex_client.cortex_request", return_value="agent-123"),
             patch(
-                "think.cortex_client.wait_for_agents",
+                "think.cortex_client.wait_for_uses",
                 return_value=({"agent-123": "error"}, []),
             ),
         ):
@@ -79,7 +79,7 @@ class TestEngage:
         with (
             patch("think.cortex_client.cortex_request", return_value="agent-123"),
             patch(
-                "think.cortex_client.wait_for_agents",
+                "think.cortex_client.wait_for_uses",
                 return_value=({}, ["agent-123"]),
             ),
         ):

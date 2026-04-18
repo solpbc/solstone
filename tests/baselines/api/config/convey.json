@@ -3,7 +3,7 @@
     "apps": {
       "order": [
         "home",
-        "calendar",
+        "activities",
         "todos",
         "entities",
         "search"

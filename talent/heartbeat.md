@@ -7,8 +7,6 @@
   "priority": 10
 }
 
-$sol_identity
-
 $facets
 
 # Heartbeat
@@ -22,9 +20,9 @@ check, maintain, close.
 
 ## Path notes
 
-- `sol call identity agency --write` writes to `journal/sol/agency.md`.
-- The git-tracked copy is `sol/agency.md` in the project root.
-- After writing via `sol call`, copy `journal/sol/agency.md` to `sol/agency.md` before committing.
+- `sol call identity agency --write` writes to `sol/agency.md` in the journal root.
+- The git-tracked copy is `../sol/agency.md` (in the project root).
+- After writing via `sol call`, copy `sol/agency.md` to `../sol/agency.md` before committing.
 
 ## Step 1: Check system health
 
@@ -36,14 +34,14 @@ If you find issues: update agency.md's `## system` section via
 
 ## Step 2: Check journal quality
 
-Run `sol talent logs --daily -c 10` to review recent agent runs and
+Run `sol talent logs --daily -c 10` to review recent talent runs and
 `sol talent logs --errors -c 10` for recent errors. Look for:
-- Broken segments (transcription failures, missing agent output)
-- Processing gaps (capture with no dream processing)
+- Broken segments (transcription failures, missing talent output)
+- Processing gaps (capture with no think processing)
 - Orphaned entities (zero observations after 7+ days)
 
 If you find reprocessable issues (broken segments): reprocess them directly
-with `sol dream --segment`. Log the action in agency.md.
+with `sol think --segment`. Log the action in agency.md.
 
 If you find issues that are NOT reprocessable segments: add to agency.md only.
 

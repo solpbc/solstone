@@ -128,7 +128,7 @@ Define custom routes for your app (API endpoints, form handlers, navigation rout
 **Reference implementations:**
 - API endpoints: `apps/search/routes.py` (search APIs, no index route)
 - Form handlers: `apps/todos/routes.py` (POST handlers, validation, flash messages)
-- Navigation: `apps/calendar/routes.py` (date-based routes with custom context)
+- Navigation: `apps/activities/routes.py` (date-based routes with custom context)
 - Redirects: `apps/todos/routes.py` index route (redirects `/` to today's date)
 
 
@@ -281,9 +281,9 @@ Define custom generator prompts that integrate with solstone's output generation
 - Create `talent/` directory with `.md` files containing JSON frontmatter
 - App generators are automatically discovered alongside system generators
 - Keys are namespaced as `{app}:{agent}` (e.g., `my_app:weekly_summary`)
-- Outputs go to `JOURNAL/YYYYMMDD/agents/_<app>_<agent>.md` (or `.json` if `output: "json"`)
+- Outputs go to `JOURNAL/YYYYMMDD/talents/_<app>_<agent>.md` (or `.json` if `output: "json"`)
 
-**Metadata format:** Same schema as system generators in `talent/*.md` - JSON frontmatter includes `title`, `description`, `color`, `schedule` (required), `priority` (required for scheduled prompts), `hook`, `output`, `max_output_tokens`, and `thinking_budget` fields. The `schedule` field must be `"segment"` or `"daily"`. The `priority` field is required for all scheduled prompts - prompts without explicit priority will fail validation. Set `output: "json"` for structured JSON output instead of markdown. Optional `max_output_tokens` sets the maximum response length; `thinking_budget` sets the model's thinking token budget (provider-specific defaults apply if omitted).
+**Metadata format:** Same schema as system generators in `talent/*.md` - JSON frontmatter includes `title`, `description`, `color`, `schedule` (required), `priority` (required for scheduled prompts), `hook`, `output`, `max_output_tokens`, and `thinking_budget` fields. The `schedule` field must be `"segment"` or `"daily"`. The `priority` field is required for all scheduled prompts - prompts without explicit priority will fail validation. Set `output: "json"` for structured JSON output instead of markdown. Optional `max_output_tokens` sets the maximum response length; `thinking_budget` sets the model's thinking token budget (provider-specific defaults apply if omitted). Generators reject a `cwd` field entirely; working-directory control is only available for `type: "cogitate"` prompts.
 
 **Priority bands:** Prompts run in priority order (lowest first). Recommended bands:
 - 10-30: Generators (content-producing prompts)
@@ -307,7 +307,7 @@ The `occurrences` field (optional string) provides agent-specific extraction gui
 }
 ```
 
-**App-data outputs:** For outputs from app-specific data (not transcripts), store in `JOURNAL/apps/{app}/agents/*.md` - these are automatically indexed.
+**App-data outputs:** For outputs from app-specific data (not transcripts), store in `JOURNAL/apps/{app}/talents/*.md` - these are automatically indexed.
 
 **Template variables:** Generator prompts can use template variables like `$name`, `$preferred`, `$daily_preamble`, and context variables like `$day` and `$day_YYYYMMDD`. See [PROMPT_TEMPLATES.md](PROMPT_TEMPLATES.md) for the complete template system documentation.
 
@@ -321,16 +321,16 @@ The `occurrences` field (optional string) provides agent-specific extraction gui
 - Resolution: `"name"` → `talent/{name}.py`, `"app:name"` → `apps/{app}/talent/{name}.py`, or explicit path
 
 **Pre-hooks** (`pre_process`): Modify inputs before the LLM call
-- `context` is the full config dict with: `name`, `agent_id`, `provider`, `model`, `prompt`, `system_instruction` (if set), `user_instruction`, `output`, `meta`, and for generators: `day`, `segment`, `span`, `span_mode`, `transcript`, `output_path`
+- `context` is the full config dict with: `name`, `use_id`, `provider`, `model`, `prompt`, `system_instruction` (if set), `user_instruction`, `output`, `meta`, and for generators: `day`, `segment`, `span`, `span_mode`, `transcript`, `output_path`
 - Return a dict of modified fields to merge back (e.g., `{"prompt": "modified"}`)
 - Return `None` for no changes
 
 **Post-hooks** (`post_process`): Transform output after the LLM call
 - `result` is the LLM output (markdown or JSON string)
-- `context` is the full config dict with: `name`, `agent_id`, `provider`, `model`, `prompt`, `output`, `meta`, and for generators: `day`, `segment`, `span`, `span_mode`, `transcript`, `output_path`
+- `context` is the full config dict with: `name`, `use_id`, `provider`, `model`, `prompt`, `output`, `meta`, and for generators: `day`, `segment`, `span`, `span_mode`, `transcript`, `output_path`
 - Return modified string, or `None` to use original result
 
-**Flush hooks:** Segment agents can declare `"hook": {"flush": true}` to participate in segment flush. When no new segments arrive for an extended period, the supervisor triggers `sol dream --flush --segment <last>`, which runs only flush-enabled agents with `context["flush"] = True` and `context["refresh"] = True`. This lets agents close out dangling state (e.g., end active activities that would otherwise wait indefinitely for the next segment). The timeout is managed by the supervisor — agents should trust the flush signal without their own timeout logic.
+**Flush hooks:** Segment agents can declare `"hook": {"flush": true}` to participate in segment flush. When no new segments arrive for an extended period, the supervisor triggers `sol think --flush --segment <last>`, which runs only flush-enabled agents with `context["flush"] = True` and `context["refresh"] = True`. This lets agents close out dangling state (e.g., end active activities that would otherwise wait indefinitely for the next segment). The timeout is managed by the supervisor — agents should trust the flush signal without their own timeout logic.
 
 Hook errors are logged but don't crash the pipeline (graceful degradation).
 
@@ -344,6 +344,15 @@ def post_process(result: str, context: dict) -> str | None:
     # Transform output after LLM call
     return result + "\n\n## Generated by hook"
 ```
+
+**Hook idempotency:** Post-hooks that write to shared journal state must be safe to run more than once on the same inputs. `sol think --refresh` bypasses the "output already exists" early-return in `think/talents.py` and re-executes the talent, which re-fires `post_process` against a fresh LLM result — so any side-effect the hook performs (writing events, appending to a log, updating an index file) will happen again. Pick one of these two patterns:
+
+- **Natural-key dedup.** Read the existing output, compute a natural key per row (e.g., `(facet, event_day, title, start, end)` for facet events), skip rows already present, and append only the new ones. Use this when the output is append-only history and you want to preserve prior writes from other agents.
+- **Atomic replace.** Recompute the full output, write it to a temp file, and rename into place. `atomic_write()` in `think/entities/core.py` is the established helper for text outputs; for JSONL, write the full set of lines to a tempfile and `os.replace()`. Use this when the hook owns the file end-to-end.
+
+An earlier `write_events_jsonl` hook in `think/hooks.py` opened facet-event logs in `"a"` mode with no dedup and doubled row counts on every `sol think --refresh` — see the 2026-04-17 layer-violations audit (V6) in the sol pbc internal extro repo (`vpe/workspace/solstone-layer-violations-audit.md`) for the full write-up.
+
+See `docs/coding-standards.md` L8/L9 for the broader principles.
 
 **Reference implementations:**
 - System generator templates: `talent/*.md` (files with `schedule` field but no `tools` field)
@@ -365,13 +374,13 @@ Define custom agents and generator templates that integrate with solstone's Cort
 - Keys are namespaced as `{app}:{name}` (e.g., `my_app:helper`)
 - Agents inherit all system agent capabilities (tools, scheduling, multi-facet)
 
-**Metadata format:** Same schema as system agents in `talent/*.md` - JSON frontmatter includes `title`, `provider`, `model`, `tools`, `schedule`, `priority`, `multi_facet`, `max_output_tokens`, and `thinking_budget` fields. The `priority` field is **required** for all scheduled prompts - prompts without explicit priority will fail validation. See the priority bands documentation in [THINK.md](THINK.md#unified-priority-execution). Optional `max_output_tokens` sets the maximum response length; `thinking_budget` sets the model's thinking token budget (provider-specific defaults apply if omitted; OpenAI uses fixed reasoning and ignores this field). See [CORTEX.md](CORTEX.md) for agent configuration details.
+**Metadata format:** Same schema as system agents in `talent/*.md` - JSON frontmatter includes `title`, `provider`, `model`, `tools`, `schedule`, `priority`, `multi_facet`, `max_output_tokens`, and `thinking_budget` fields. The `priority` field is **required** for all scheduled prompts - prompts without explicit priority will fail validation. See the priority bands documentation in [THINK.md](THINK.md#unified-priority-execution). Optional `max_output_tokens` sets the maximum response length; `thinking_budget` sets the model's thinking token budget (provider-specific defaults apply if omitted; OpenAI uses fixed reasoning and ignores this field). Cogitate agents may also declare `cwd: "journal"` or `cwd: "repo"`; when omitted they default to `journal`, and repo-oriented prompts like `coder` should opt into `repo`. See [CORTEX.md](CORTEX.md) for agent configuration details.
 
 **Template variables:** Agent prompts can use template variables like `$name`, `$preferred`, and pronoun variables. See [PROMPT_TEMPLATES.md](PROMPT_TEMPLATES.md) for the complete template system documentation.
 
 **Reference implementations:**
 - System agent examples: `talent/*.md` (files with `tools` field)
-- Discovery logic: `think/talent.py` - `get_talent_configs(has_tools=True)`, `get_agent()`
+- Discovery logic: `think/talent.py` - `get_talent_configs(has_tools=True)`, `get_talent()`
 
 #### Prompt Context Configuration
 
@@ -379,7 +388,7 @@ Both generators and agents support an optional `load` key for configuring source
 
 ```json
 {
-  "load": {"transcripts": true, "percepts": false, "agents": {"screen": true}}
+  "load": {"transcripts": true, "percepts": false, "talents": {"screen": true}}
 }
 ```
 
@@ -391,11 +400,10 @@ Both generators and agents support an optional `load` key for configuring source
 
 Context is provided inline in the `.md` body via template variables:
 
-- `$sol_identity` - core identity from `sol/identity.md`
 - `$facets` - focused facet context or all available facets
 - `$activity_context` - activity metadata, segment state, and analysis focus sections
 
-**Authoritative source:** `think/talent.py` - `_DEFAULT_LOAD`, `source_is_enabled()`, `source_is_required()`, `get_agent_filter()`
+**Authoritative source:** `think/talent.py` - `_DEFAULT_LOAD`, `source_is_enabled()`, `source_is_required()`, `get_talent_filter()`
 
 ---
 
@@ -407,7 +415,7 @@ Define [Agent Skills](https://agentskills.io/specification) as subdirectories wi
 - Create a subdirectory in `talent/` with a `SKILL.md` file (YAML frontmatter + markdown body)
 - The directory name must match the `name` field in the YAML frontmatter
 - Skill names must be unique across system `talent/` and all `apps/*/talent/` directories
-- `make skills` discovers all skills and symlinks them into `.agents/skills/` and `.claude/skills/`
+- `make skills` discovers all skills and symlinks them into `journal/.agents/skills/` and `journal/.claude/skills/`
 - Skills are standalone — they don't interact with the talent agent/generator system
 - The talent loader ignores subdirectories, so skills won't interfere with agent discovery
 
@@ -449,13 +457,13 @@ apps/my_app/talent/my-skill/
 └── references/
 ```
 
-**Running `make skills`:** Discovers all `SKILL.md` files under `talent/*/` and `apps/*/talent/*/`, then creates symlinks so that all supported coding agents see the same skills. Errors if two skills share the same directory name.
+**Running `make skills`:** Discovers all `SKILL.md` files under `talent/*/` and `apps/*/talent/*/`, then creates symlinks in `journal/.agents/skills/` and `journal/.claude/skills/` so that all supported coding agents see the same skills. Errors if two skills share the same directory name.
 
 ---
 
 ### 11. `maint/` - Maintenance Tasks
 
-Define one-time maintenance scripts that run automatically on Convey startup.
+Define one-time maintenance scripts that run automatically when supervisor starts.
 
 **Key Points:**
 - Create `maint/` directory with standalone Python scripts (each with a `main()` function)
@@ -468,7 +476,7 @@ Define one-time maintenance scripts that run automatically on Convey startup.
 
 **Reference implementations:**
 - Example task: `apps/entities/maint/001_migrate_to_journal_entities.py` - real migration task demonstrating maint patterns
-- Discovery logic: `convey/maint.py` - `discover_tasks()`, `run_task()`
+- Discovery logic: `think/maint.py` - `discover_tasks()`, `run_task()`
 
 ---
 
@@ -536,7 +544,7 @@ Available in `convey/utils.py`:
 - `format_date(date_str)` - Format YYYYMMDD as "Wednesday January 14th"
 
 ### Agent Spawning
-- `spawn_agent(prompt, name, provider, config)` - Spawn Cortex agent, returns agent_id
+- `spawn_agent(prompt, name, provider, config)` - Spawn Cortex agent, returns use_id
 
 ### JSON Utilities
 - `load_json(path)` - Load JSON file with error handling (returns None on error)
@@ -598,7 +606,7 @@ Available functions from the `think` module:
 ### Entities
 `think/entities/`: `load_entities(facet)` - Load entities for a facet
 
-See [JOURNAL.md](JOURNAL.md), [CORTEX.md](CORTEX.md), [CALLOSUM.md](CALLOSUM.md) for subsystem details.
+See [talent/journal/SKILL.md](../talent/journal/SKILL.md), [CORTEX.md](CORTEX.md), [CALLOSUM.md](CALLOSUM.md) for subsystem details.
 
 ---
 
@@ -695,7 +703,7 @@ def handle_action():
 
 **Examples:**
 - Standard: `apps/home/workspace.html`, `apps/todos/workspace.html`, `apps/entities/workspace.html`
-- Wide: `apps/search/workspace.html`, `apps/calendar/_day.html`, `apps/import/workspace.html`
+- Wide: `apps/search/workspace.html`, `apps/activities/_day.html`, `apps/import/workspace.html`
 
 ### CSS Variables
 
@@ -812,7 +820,7 @@ Browse `apps/*/` directories for reference implementations. Apps range in comple
 - **`convey/static/app.js`** - AppServices framework
 - **`convey/static/websocket.js`** - WebSocket event system
 - [../AGENTS.md](../AGENTS.md) - Project development guidelines and standards
-- [JOURNAL.md](JOURNAL.md) - Journal directory structure and data organization
+- [storage.md](../talent/journal/references/storage.md) - Journal directory structure and data organization
 - [CORTEX.md](CORTEX.md) - Agent system architecture and spawning agents
 - [CALLOSUM.md](CALLOSUM.md) - Message bus protocol and WebSocket events
 

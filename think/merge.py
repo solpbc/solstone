@@ -12,12 +12,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from think.activities import locked_modify
 from think.entities.core import entity_slug
 from think.entities.journal import (
     load_all_journal_entities,
     save_journal_entity,
 )
 from think.entities.matching import find_matching_entity
+from think.entities.merge import _dedupe_akas, _dedupe_emails, _dedupe_observations
 from think.entities.observations import save_observations
 from think.entities.relationships import save_facet_relationship
 from think.utils import CHRONICLE_DIR, iter_segments
@@ -268,36 +270,17 @@ def _merge_entities(
             target_entity = dict(target_entities.get(target_id, match))
             pre_merge_snapshot = dict(target_entity)
 
-            aka_by_lower: dict[str, str] = {}
-            for values in (target_entity.get("aka", []), source_entity.get("aka", [])):
-                if not isinstance(values, list):
-                    continue
-                for value in values:
-                    if not value:
-                        continue
-                    key = str(value).lower()
-                    if key not in aka_by_lower:
-                        aka_by_lower[key] = str(value)
-            if aka_by_lower:
-                target_entity["aka"] = sorted(aka_by_lower.values(), key=str.lower)
+            merged_akas = _dedupe_akas(
+                target_entity.get("aka", []),
+                source_entity.get("aka", []),
+            )
+            if merged_akas:
+                target_entity["aka"] = merged_akas
 
-            merged_emails: list[str] = []
-            seen_emails: set[str] = set()
-            for values in (
+            merged_emails = _dedupe_emails(
                 target_entity.get("emails", []),
                 source_entity.get("emails", []),
-            ):
-                if not isinstance(values, list):
-                    continue
-                for value in values:
-                    if not value:
-                        continue
-                    email = str(value)
-                    key = email.lower()
-                    if key in seen_emails:
-                        continue
-                    seen_emails.add(key)
-                    merged_emails.append(email)
+            )
             if merged_emails:
                 target_entity["emails"] = merged_emails
 
@@ -424,17 +407,10 @@ def _merge_overlapping_facet(
                     target_observations = _read_jsonl(
                         target_entity_dir / "observations.jsonl"
                     )
-                    seen = {
-                        (item.get("content", ""), item.get("observed_at"))
-                        for item in target_observations
-                    }
-                    merged_observations = list(target_observations)
-                    for item in source_observations:
-                        key = (item.get("content", ""), item.get("observed_at"))
-                        if key in seen:
-                            continue
-                        seen.add(key)
-                        merged_observations.append(item)
+                    merged_observations = _dedupe_observations(
+                        source_observations,
+                        target_observations,
+                    )
 
                     if not dry_run:
                         save_facet_relationship(
@@ -547,46 +523,6 @@ def _merge_overlapping_facet(
                     f"facet {facet_name} todo {source_todo_file.name}: {exc}"
                 )
 
-    source_calendar_dir = source_facet_dir / "calendar"
-    if source_calendar_dir.is_dir():
-        for source_calendar_file in sorted(source_calendar_dir.glob("*.jsonl")):
-            try:
-                target_calendar_file = (
-                    target_facet_dir / "calendar" / source_calendar_file.name
-                )
-                target_items = _read_jsonl(target_calendar_file)
-                seen = {(item["title"], item.get("start")) for item in target_items}
-                new_items = []
-                for item in _read_jsonl(source_calendar_file):
-                    log_id = f"{facet_name}/calendar/{source_calendar_file.name}/{item.get('title', '')}"
-                    if (item["title"], item.get("start")) in seen:
-                        _log_decision(
-                            log_path,
-                            {
-                                "action": "facet_calendar_merged",
-                                "item_type": "calendar",
-                                "item_id": log_id,
-                                "reason": "duplicate_skip",
-                            },
-                        )
-                    else:
-                        new_items.append(item)
-                        _log_decision(
-                            log_path,
-                            {
-                                "action": "facet_calendar_merged",
-                                "item_type": "calendar",
-                                "item_id": log_id,
-                                "reason": "appended",
-                            },
-                        )
-                if new_items and not dry_run:
-                    _append_jsonl(target_calendar_file, new_items)
-            except Exception as exc:
-                summary.errors.append(
-                    f"facet {facet_name} calendar {source_calendar_file.name}: {exc}"
-                )
-
     source_activities_dir = source_facet_dir / "activities"
     if source_activities_dir.is_dir():
         source_config_file = source_activities_dir / "activities.jsonl"
@@ -621,7 +557,7 @@ def _merge_overlapping_facet(
                             },
                         )
                 if new_config and not dry_run:
-                    _append_jsonl(target_config_file, new_config)
+                    _append_jsonl_locked(target_config_file, new_config)
             except Exception as exc:
                 summary.errors.append(f"facet {facet_name} activities config: {exc}")
 
@@ -658,7 +594,7 @@ def _merge_overlapping_facet(
                             },
                         )
                 if new_records and not dry_run:
-                    _append_jsonl(target_day_file, new_records)
+                    _append_jsonl_locked(target_day_file, new_records)
             except Exception as exc:
                 summary.errors.append(
                     f"facet {facet_name} activities {source_day_file.name}: {exc}"
@@ -846,6 +782,16 @@ def _append_jsonl(path: Path, items: list[dict[str, Any]]) -> None:
     with open(path, "a", encoding="utf-8") as handle:
         for item in items:
             handle.write(json.dumps(item, ensure_ascii=False) + "\n")
+
+
+def _append_jsonl_locked(path: Path, items: list[dict[str, Any]]) -> None:
+    if not items:
+        return
+
+    def modify_fn(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        return records + [dict(item) for item in items]
+
+    locked_modify(path, modify_fn, create_if_missing=True)
 
 
 __all__ = ["MergeSummary", "merge_journals"]

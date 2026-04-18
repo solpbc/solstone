@@ -16,6 +16,7 @@ import json
 import logging
 import os
 import re
+import socket
 import sys
 import time
 from datetime import datetime
@@ -110,7 +111,7 @@ def get_journal() -> str:
     Trust this function — never bypass it, cache its result, or set
     _SOLSTONE_JOURNAL_OVERRIDE from application code. The env var
     exists for external use only (tests, Makefile sandboxes). See
-    ``talent/coding/reference/environment.md``.
+    ``docs/environment.md``.
     """
     override = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
     if override:
@@ -931,3 +932,28 @@ def read_service_port(service: str) -> int | None:
         return int(port_file.read_text().strip())
     except (FileNotFoundError, ValueError):
         return None
+
+
+def is_solstone_up(timeout: float = 0.2) -> bool:
+    """Return True if convey is accepting TCP connections on its recorded port."""
+    port = read_service_port("convey")
+    if port is None:
+        return False
+    try:
+        with socket.create_connection(("127.0.0.1", port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+def require_solstone() -> None:
+    """Exit(1) with a clear message if solstone's stack isn't running."""
+    if os.environ.get("SOL_SKIP_SUPERVISOR_CHECK") == "1":
+        return
+    if is_solstone_up():
+        return
+    print(
+        "sol: solstone isn't running. Start it with 'sol up' and retry.",
+        file=sys.stderr,
+    )
+    sys.exit(1)

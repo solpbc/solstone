@@ -69,10 +69,10 @@ class ServiceManager:
         self.last_active_ts = 0.0  # When we last saw an active mode
         self.MODE_IDLE_DELAY = 10  # Seconds before showing IDLE after going idle
 
-        # Dream status tracking (from dream tract events)
-        self.dream_status = {}  # Latest dream/status event fields (merged)
-        self.dream_last_completed = {}  # Last dream/completed event
-        self.dream_running = False  # Whether a dream run is active
+        # Think status tracking (from think tract events)
+        self.think_status = {}  # Latest think/status event fields (merged)
+        self.think_last_completed = {}  # Last think/completed event
+        self.think_running = False  # Whether a think run is active
 
         # Agents health tracking (from health/agents.json file)
         self.agents_health = None  # Parsed agents.json dict, or None
@@ -406,22 +406,22 @@ class ServiceManager:
                     # Keep only last 3
                     self.recent_segments = self.recent_segments[:3]
 
-        elif tract == "dream":
+        elif tract == "think":
             if event == "started":
-                self.dream_running = True
-                self.dream_status = {}
+                self.think_running = True
+                self.think_status = {}
             elif event == "status":
                 for key, value in message.items():
                     if key not in ("tract", "event", "ts"):
-                        self.dream_status[key] = value
+                        self.think_status[key] = value
             elif event == "completed":
-                self.dream_running = False
-                self.dream_last_completed = {
+                self.think_running = False
+                self.think_last_completed = {
                     k: v
                     for k, v in message.items()
                     if k not in ("tract", "event", "ts")
                 }
-                self.dream_status = {}
+                self.think_status = {}
                 self._load_agents_health()
 
     def format_uptime(self, seconds: int) -> str:
@@ -863,21 +863,21 @@ class ServiceManager:
 
         return output
 
-    def render_dream_section(self) -> list[str]:
-        """Render the dream status section.
+    def render_think_section(self) -> list[str]:
+        """Render the think status section.
 
         Returns:
-            List of output lines for the dream section
+            List of output lines for the think section
         """
         t = self.term
         output = []
 
         output.append("─" * t.width)
-        output.append(f"  {t.bold}Dream{t.normal}")
+        output.append(f"  {t.bold}Think{t.normal}")
 
-        if self.dream_running:
-            if self.dream_status:
-                ds = self.dream_status
+        if self.think_running:
+            if self.think_status:
+                ds = self.think_status
                 mode = ds.get("mode", "").upper()
                 day = ds.get("day", "")
                 segment = ds.get("segment", "")
@@ -902,8 +902,8 @@ class ServiceManager:
             else:
                 output.append(t.dim + "  (waiting for status)" + t.normal)
 
-        elif self.dream_last_completed:
-            dc = self.dream_last_completed
+        elif self.think_last_completed:
+            dc = self.think_last_completed
             success = dc.get("success", 0)
             failed = dc.get("failed", 0)
             duration_s = dc.get("duration_ms", 0) // 1000
@@ -920,7 +920,7 @@ class ServiceManager:
             output.append(line)
 
         else:
-            output.append(t.dim + "  (waiting for dream)" + t.normal)
+            output.append(t.dim + "  (waiting for think)" + t.normal)
 
         return output
 
@@ -1042,9 +1042,9 @@ class ServiceManager:
         observe_output = self.render_observe_section()
         output.extend(observe_output)
 
-        # Dream status section
-        dream_output = self.render_dream_section()
-        output.extend(dream_output)
+        # Think status section
+        think_output = self.render_think_section()
+        output.extend(think_output)
 
         # Running tasks table (from logs tract)
         tasks_output = self.render_tasks_table()

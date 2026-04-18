@@ -121,7 +121,7 @@ async def run_cogitate(
 - `extra_context`: Runtime context (facets, insights list, datetime) as first user message
 - `user_instruction`: Agent-specific prompt as second user message
 - `tools`: Optional list of allowed tool names
-- `agent_id`, `name`: Identity for logging and tool calls
+- `use_id`, `name`: Identity for logging and tool calls
 - `session_id`: CLI session ID for conversation continuation
 - `chat_id`: Chat ID for reverse lookup from agent to chat
 

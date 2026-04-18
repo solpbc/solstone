@@ -10,8 +10,6 @@
   "hook": {"pre": "decisionalizer"}
 }
 
-$sol_identity
-
 $facets
 
 ## Mission

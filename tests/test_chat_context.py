@@ -1,16 +1,24 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
+import importlib.util
 from pathlib import Path
-
-from talent.chat_context import pre_process
 
 TEMPLATE_VAR_KEYS = {
     "recent_conversation",
     "active_routines",
     "routine_suggestion",
-    "sol_awareness",
 }
+
+
+def _load_chat_context_module():
+    path = Path(__file__).resolve().parents[1] / "talent" / "chat_context.py"
+    spec = importlib.util.spec_from_file_location("test_chat_context_local", path)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def _assert_template_vars_result(result):
@@ -41,7 +49,9 @@ def test_chat_context_appends_conversation_memory(monkeypatch, tmp_path):
         talent="unified",
     )
 
-    result = pre_process({"user_instruction": "Base instruction.", "facet": "work"})
+    result = _load_chat_context_module().pre_process(
+        {"user_instruction": "Base instruction.", "facet": "work"}
+    )
 
     template_vars = _assert_template_vars_result(result)
     assert "## Recent Conversation" in template_vars["recent_conversation"]
@@ -53,7 +63,9 @@ def test_chat_context_no_memory(monkeypatch, tmp_path):
     """Recent conversation is empty when no conversation history exists."""
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
-    result = pre_process({"user_instruction": "Base instruction."})
+    result = _load_chat_context_module().pre_process(
+        {"user_instruction": "Base instruction."}
+    )
 
     template_vars = _assert_template_vars_result(result)
     assert template_vars["recent_conversation"] == ""
@@ -102,43 +114,31 @@ def test_chat_context_awareness_error_graceful(monkeypatch):
     )
     monkeypatch.setattr("think.utils.get_journal", lambda: "/nonexistent")
 
-    result = pre_process({"user_instruction": "Base instruction."})
+    result = _load_chat_context_module().pre_process(
+        {"user_instruction": "Base instruction."}
+    )
 
     template_vars = _assert_template_vars_result(result)
     assert all(template_vars[key] == "" for key in TEMPLATE_VAR_KEYS)
 
 
-def test_chat_context_sol_awareness_injected(monkeypatch, tmp_path):
-    """Sol awareness is injected when awareness.md has content."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+def test_chat_context_does_not_return_sol_awareness(monkeypatch):
+    """sol_awareness is no longer part of the chat pre-hook output."""
     monkeypatch.setattr("think.conversation.build_memory_context", lambda **kw: "")
-
-    sol_dir = tmp_path / "sol"
-    sol_dir.mkdir()
-    (sol_dir / "awareness.md").write_text(
-        "as of: 2026-04-05T10:00:00\n\n## activity\n- focused on work\n"
+    monkeypatch.setattr("think.routines.get_routine_state", lambda: [])
+    monkeypatch.setattr(
+        "think.routines.get_config", lambda: {"_meta": {"suggestions": {}}}
+    )
+    monkeypatch.setattr(
+        "think.utils.get_config",
+        lambda: {"agent": {"name": "aria", "name_status": "default"}},
     )
 
-    result = pre_process({"user_instruction": "Base instruction."})
+    result = _load_chat_context_module().pre_process(
+        {"user_instruction": "Base instruction."}
+    )
 
-    template_vars = _assert_template_vars_result(result)
-    assert "## Awareness" in template_vars["sol_awareness"]
-    assert "activity" in template_vars["sol_awareness"]
-
-
-def test_chat_context_sol_awareness_cold_start(monkeypatch, tmp_path):
-    """Sol awareness is empty when awareness.md has placeholder content."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
-    monkeypatch.setattr("think.conversation.build_memory_context", lambda **kw: "")
-
-    sol_dir = tmp_path / "sol"
-    sol_dir.mkdir()
-    (sol_dir / "awareness.md").write_text("not yet updated\n")
-
-    result = pre_process({"user_instruction": "Base instruction."})
-
-    template_vars = _assert_template_vars_result(result)
-    assert template_vars["sol_awareness"] == ""
+    assert "sol_awareness" not in result["template_vars"]
 
 
 def test_chat_context_routines_injected(monkeypatch):
@@ -158,7 +158,9 @@ def test_chat_context_routines_injected(monkeypatch):
         ],
     )
 
-    result = pre_process({"user_instruction": "Base instruction."})
+    result = _load_chat_context_module().pre_process(
+        {"user_instruction": "Base instruction."}
+    )
 
     template_vars = _assert_template_vars_result(result)
     assert "## Active Routines" in template_vars["active_routines"]
@@ -170,7 +172,9 @@ def test_chat_context_routines_omitted_when_empty(monkeypatch):
     monkeypatch.setattr("think.conversation.build_memory_context", lambda **kw: "")
     monkeypatch.setattr("think.routines.get_routine_state", lambda: [])
 
-    result = pre_process({"user_instruction": "Base instruction."})
+    result = _load_chat_context_module().pre_process(
+        {"user_instruction": "Base instruction."}
+    )
 
     template_vars = _assert_template_vars_result(result)
     assert template_vars["active_routines"] == ""
@@ -191,7 +195,9 @@ def test_chat_context_routines_error_graceful(monkeypatch):
         lambda: {"agent": {"name": "aria", "name_status": "default"}},
     )
 
-    result = pre_process({"user_instruction": "Base instruction."})
+    result = _load_chat_context_module().pre_process(
+        {"user_instruction": "Base instruction."}
+    )
 
     template_vars = _assert_template_vars_result(result)
     assert template_vars["active_routines"] == ""

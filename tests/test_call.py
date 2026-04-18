@@ -4,13 +4,11 @@
 """Tests for think/call.py CLI dispatcher and app discovery."""
 
 import json
-from pathlib import Path
 
 import pytest
 import typer
 from typer.testing import CliRunner
 
-from tests.conftest import copytree_tracked
 from think.call import call_app
 from think.utils import resolve_sol_day, resolve_sol_facet, resolve_sol_segment
 
@@ -99,23 +97,6 @@ def merge_journal(tmp_path, monkeypatch):
     src_todos_dir.mkdir(parents=True)
     (src_todos_dir / "20260101.jsonl").write_text(
         json.dumps({"text": "Move the roadmap", "created_at": 1000}) + "\n",
-        encoding="utf-8",
-    )
-
-    src_calendar_dir = src_dir / "calendar"
-    src_calendar_dir.mkdir(parents=True)
-    (src_calendar_dir / "20260101.jsonl").write_text(
-        json.dumps(
-            {
-                "title": "Merge planning",
-                "start": "09:00",
-                "end": "10:00",
-                "summary": "Review the merge sequence",
-                "participants": ["Alex", "Blair"],
-                "created_at": 2000,
-            }
-        )
-        + "\n",
         encoding="utf-8",
     )
 
@@ -281,11 +262,8 @@ class TestJournal:
 
     def test_journal_news_write(self, tmp_path, monkeypatch):
         """News --write saves content from stdin."""
-        # Copy fixtures to tmp so we can write
         journal = tmp_path / "journal"
-        copytree_tracked(
-            Path("tests/fixtures/journal/facets/work"), journal / "facets" / "work"
-        )
+        (journal / "facets" / "work").mkdir(parents=True)
         monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
         # Clear cached journal path
         import think.utils
@@ -757,38 +735,6 @@ class TestFacetMerge:
         assert src_payloads[0]["cancelled_reason"] == "moved_to_facet"
         assert src_payloads[0]["moved_to"] == "dst-facet"
 
-    def test_merge_moves_open_calendar_events(self, merge_journal, monkeypatch):
-        """Merge appends open events to destination and cancels them in source."""
-        self._mock_indexer(monkeypatch)
-        import think.tools.call as call_module
-
-        monkeypatch.setattr(call_module, "delete_facet", lambda *args, **kwargs: None)
-
-        result = runner.invoke(
-            call_app,
-            ["journal", "facet", "merge", "src-facet", "--into", "dst-facet"],
-        )
-
-        assert result.exit_code == 0
-        dst_events = (
-            (merge_journal / "facets" / "dst-facet" / "calendar" / "20260101.jsonl")
-            .read_text(encoding="utf-8")
-            .splitlines()
-        )
-        payloads = [json.loads(line) for line in dst_events]
-        assert any(item["title"] == "Merge planning" for item in payloads)
-        src_payloads = [
-            json.loads(line)
-            for line in (
-                merge_journal / "facets" / "src-facet" / "calendar" / "20260101.jsonl"
-            )
-            .read_text(encoding="utf-8")
-            .splitlines()
-        ]
-        assert src_payloads[0]["cancelled"] is True
-        assert src_payloads[0]["cancelled_reason"] == "moved_to_facet"
-        assert src_payloads[0]["moved_to"] == "dst-facet"
-
     def test_merge_copies_news_skips_conflicts(self, merge_journal, monkeypatch):
         """Merge copies unique news files and preserves destination conflicts."""
         self._mock_indexer(monkeypatch)
@@ -845,7 +791,6 @@ class TestFacetMerge:
         assert merge_entry["params"]["dest"] == "dst-facet"
         assert merge_entry["params"]["entity_count"] == 1
         assert merge_entry["params"]["todo_count"] == 1
-        assert merge_entry["params"]["calendar_count"] == 1
         assert merge_entry["params"]["news_count"] == 1
 
     def test_merge_same_facet_error(self, merge_journal):

@@ -129,7 +129,7 @@ def format_events(
         # For anticipations, show when it was created (from source path)
         if not occurred:
             source = event.get("source", "")
-            # Extract YYYYMMDD from source path like "20240101/agents/schedule.md"
+            # Extract YYYYMMDD from source path like "20240101/talents/schedule.md"
             source_match = re.match(r"(\d{8})/", source)
             if source_match:
                 created_day = source_match.group(1)
@@ -177,9 +177,8 @@ def format_events(
 def get_month_event_counts(month: str) -> dict[str, dict[str, int]]:
     """Get event counts per day per facet for a month by scanning event files.
 
-    Scans both facets/*/events/*.jsonl (AI-generated events) and
-    facets/*/calendar/*.jsonl (user-created events), including future dates
-    that don't yet have day directories.
+    Scans facets/*/events/*.jsonl, including future dates that don't yet
+    have day directories.
 
     Args:
         month: YYYYMM format month string
@@ -226,36 +225,6 @@ def get_month_event_counts(month: str) -> dict[str, dict[str, int]]:
                         if day not in stats:
                             stats[day] = {}
                         stats[day][facet_name] = count
-
-                except (OSError, IOError):
-                    continue
-
-        # Also scan calendar/ subdir for user-created events
-        calendar_dir = facet_path / "calendar"
-        if calendar_dir.is_dir():
-            for cal_file in calendar_dir.glob(f"{month}*.jsonl"):
-                day = cal_file.stem
-                if not re.fullmatch(r"\d{8}", day):
-                    continue
-
-                try:
-                    count = 0
-                    with open(cal_file, "r", encoding="utf-8") as f:
-                        for line in f:
-                            line = line.strip()
-                            if not line:
-                                continue
-                            try:
-                                ev = json.loads(line)
-                                if ev.get("title") and not ev.get("cancelled"):
-                                    count += 1
-                            except json.JSONDecodeError:
-                                continue
-
-                    if count > 0:
-                        if day not in stats:
-                            stats[day] = {}
-                        stats[day][facet_name] = stats[day].get(facet_name, 0) + count
 
                 except (OSError, IOError):
                     continue

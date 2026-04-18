@@ -24,7 +24,7 @@ Optional extraction prompt content goes here...
 | `description` | Yes | - | Single-line description used in the categorization prompt |
 | `output` | No | `"markdown"` | Response format for extraction: `"json"` or `"markdown"` |
 
-Model selection is handled via the providers configuration in `journal.json`. Each category uses the context pattern `observe.describe.<category>` for routing. See [JOURNAL.md](JOURNAL.md) for details on configuring providers per context.
+Model selection is handled via the providers configuration in `journal.json`. Each category uses the context pattern `observe.describe.<category>` for routing. See [config.md](../talent/journal/references/config.md) for details on configuring providers per context.
 
 Categories with prompt content after the frontmatter are "extractable" - they can receive detailed content extraction after initial categorization. The prompt is sent to the model for analysis and should instruct the model to:
 - Analyze the screenshot for this specific category

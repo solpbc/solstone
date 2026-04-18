@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from apps.sol.routes import _resolve_output_path
-from think.talent import _resolve_agent_path, get_agent, get_talent_configs
+from think.talent import _resolve_talent_path, get_talent, get_talent_configs
 
 
 @pytest.fixture
@@ -69,16 +69,16 @@ def app_with_agent(tmp_path, monkeypatch):
 
 
 def test_resolve_agent_path_system_agent():
-    """Test _resolve_agent_path returns correct path for system agents."""
-    agent_dir, agent_name = _resolve_agent_path("unified")
+    """Test _resolve_talent_path returns correct path for system agents."""
+    agent_dir, agent_name = _resolve_talent_path("unified")
 
     assert agent_name == "chat"
     assert agent_dir.name == "talent"
 
 
 def test_resolve_agent_path_app_agent():
-    """Test _resolve_agent_path returns correct path for app agents."""
-    agent_dir, agent_name = _resolve_agent_path("support:support")
+    """Test _resolve_talent_path returns correct path for app agents."""
+    agent_dir, agent_name = _resolve_talent_path("support:support")
 
     assert agent_name == "support"
     assert agent_dir.name == "talent"
@@ -87,16 +87,16 @@ def test_resolve_agent_path_app_agent():
 
 
 def test_resolve_agent_path_app_agent_with_underscores():
-    """Test _resolve_agent_path handles app names with underscores."""
-    agent_dir, agent_name = _resolve_agent_path("my_app:my_agent")
+    """Test _resolve_talent_path handles app names with underscores."""
+    agent_dir, agent_name = _resolve_talent_path("my_app:my_agent")
 
     assert agent_name == "my_agent"
     assert agent_dir.parent.name == "my_app"
 
 
 def test_get_agent_system_agent(fixture_journal):
-    """Test get_agent loads system agents correctly."""
-    config = get_agent("unified")
+    """Test get_talent loads system agents correctly."""
+    config = get_talent("unified")
 
     assert config["name"] == "unified"
     assert "user_instruction" in config
@@ -104,17 +104,17 @@ def test_get_agent_system_agent(fixture_journal):
 
 
 def test_get_agent_nonexistent_raises():
-    """Test get_agent raises FileNotFoundError for nonexistent agents."""
+    """Test get_talent raises FileNotFoundError for nonexistent agents."""
     with pytest.raises(FileNotFoundError) as exc_info:
-        get_agent("nonexistent_agent_xyz")
+        get_talent("nonexistent_agent_xyz")
 
     assert "nonexistent_agent_xyz" in str(exc_info.value)
 
 
 def test_get_agent_nonexistent_app_agent_raises():
-    """Test get_agent raises FileNotFoundError for nonexistent app agents."""
+    """Test get_talent raises FileNotFoundError for nonexistent app agents."""
     with pytest.raises(FileNotFoundError) as exc_info:
-        get_agent("fakeapp:fakeagent")
+        get_talent("fakeapp:fakeagent")
 
     assert "fakeapp:fakeagent" in str(exc_info.value)
 
@@ -147,7 +147,7 @@ def test_get_talent_configs_excludes_private_apps(
 ):
     """Test get_talent_configs skips apps starting with underscore."""
     # Create a private app with an agent
-    private_app = tmp_path / "_private_app" / "agents"
+    private_app = tmp_path / "_private_app" / "talents"
     private_app.mkdir(parents=True)
     (private_app / "secret.md").write_text("Secret agent")
 
@@ -258,8 +258,8 @@ def agents_client(tmp_path):
     # Create test files
     day_dir = tmp_path / "chronicle" / "20260214"
     day_dir.mkdir(parents=True)
-    (day_dir / "agents" / "flow.md").parent.mkdir(parents=True)
-    (day_dir / "agents" / "flow.md").write_text("# Day agent output")
+    (day_dir / "talents" / "flow.md").parent.mkdir(parents=True)
+    (day_dir / "talents" / "flow.md").write_text("# Day agent output")
 
     facet_dir = tmp_path / "facets" / "work" / "activities" / "20260214" / "coding_100"
     facet_dir.mkdir(parents=True)
@@ -273,7 +273,7 @@ class TestApiOutputFile:
 
     def test_serves_day_relative_file(self, agents_client):
         """Day-relative paths resolve under {journal}/{day}/."""
-        resp = agents_client.get("/app/sol/api/output/20260214/agents/flow.md")
+        resp = agents_client.get("/app/sol/api/output/20260214/talents/flow.md")
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["content"] == "# Day agent output"
@@ -293,7 +293,7 @@ class TestApiOutputFile:
 
     def test_rejects_invalid_day_format(self, agents_client):
         """Non-YYYYMMDD day returns 400."""
-        resp = agents_client.get("/app/sol/api/output/bad-day/agents/flow.md")
+        resp = agents_client.get("/app/sol/api/output/bad-day/talents/flow.md")
         assert resp.status_code == 400
 
     def test_rejects_path_traversal(self, agents_client):
@@ -303,5 +303,5 @@ class TestApiOutputFile:
 
     def test_missing_file_returns_404(self, agents_client):
         """Non-existent file returns 404."""
-        resp = agents_client.get("/app/sol/api/output/20260214/agents/nonexistent.md")
+        resp = agents_client.get("/app/sol/api/output/20260214/talents/nonexistent.md")
         assert resp.status_code == 404

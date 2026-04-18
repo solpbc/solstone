@@ -12,7 +12,7 @@ pgrep -af "sol:observer|sol:sense|sol:supervisor"
 ls -la journal/health/callosum.sock
 
 # Check for stuck agents (should be empty or short-lived)
-ls journal/agents/*/*_active.jsonl 2>/dev/null
+ls journal/talents/*/*_active.jsonl 2>/dev/null
 ```
 
 **Healthy state:**
@@ -45,7 +45,7 @@ See [CALLOSUM.md](CALLOSUM.md) for message protocol and [CORTEX.md](CORTEX.md) f
 |------|-------|
 | Current service logs | `journal/health/{service}.log` (symlinks) |
 | Day's process logs | `journal/{YYYYMMDD}/health/{ref}_{name}.log` |
-| Agent execution | `journal/agents/<name>/*.jsonl` |
+| Agent execution | `journal/talents/<name>/*.jsonl` |
 | Journal task log | `journal/task_log.txt` |
 
 **Symlink structure:** Journal-level symlinks point to current day's logs. Day-level symlinks point to current process instance (by ref).
@@ -89,7 +89,7 @@ See [CALLOSUM.md](CALLOSUM.md) Tract Registry for event schemas.
 
 ## Reading Agent Files
 
-**Location:** `journal/agents/`
+**Location:** `journal/talents/`
 
 **File states:**
 - `{name}/{timestamp}_active.jsonl` - Agent currently running
@@ -105,10 +105,10 @@ See [CALLOSUM.md](CALLOSUM.md) Tract Registry for event schemas.
 
 ```bash
 # View an agent's final result
-jq -r 'select(.event=="finish") | .result' journal/agents/default/1234567890123.jsonl
+jq -r 'select(.event=="finish") | .result' journal/talents/default/1234567890123.jsonl
 
 # List today's agents with their prompts
-for id in $(jq -r '.agent_id' journal/agents/$(date +%Y%m%d).jsonl 2>/dev/null); do
+for id in $(jq -r '.use_id' journal/talents/$(date +%Y%m%d).jsonl 2>/dev/null); do
   f=$(find journal/agents -maxdepth 2 -path "*/${id}.jsonl" -print -quit)
   [ -n "$f" ] || continue
   echo "=== $(basename "$f") ==="
@@ -138,10 +138,10 @@ Causes: DBus issues, screencast permissions, audio device unavailable.
 
 ```bash
 # Find active agents
-ls -la journal/agents/*/*_active.jsonl
+ls -la journal/talents/*/*_active.jsonl
 
 # Check last event in active agent
-tail -1 journal/agents/*/*_active.jsonl | jq .
+tail -1 journal/talents/*/*_active.jsonl | jq .
 ```
 
 Causes: Backend timeout, tool hanging, network issues.
@@ -176,11 +176,11 @@ Causes: Slow transcription, describe API rate limits.
 tail -f journal/health/*.log
 
 # Count today's agents by status
-echo "Completed: $([ -f journal/agents/$(date +%Y%m%d).jsonl ] && wc -l < journal/agents/$(date +%Y%m%d).jsonl || echo 0)"
-echo "Running: $(ls journal/agents/*/*_active.jsonl 2>/dev/null | wc -l)"
+echo "Completed: $([ -f journal/talents/$(date +%Y%m%d).jsonl ] && wc -l < journal/talents/$(date +%Y%m%d).jsonl || echo 0)"
+echo "Running: $(ls journal/talents/*/*_active.jsonl 2>/dev/null | wc -l)"
 
 # Find agents that errored today
-jq -r 'select(.status=="error") | .agent_id' journal/agents/$(date +%Y%m%d).jsonl 2>/dev/null
+jq -r 'select(.status=="error") | .use_id' journal/talents/$(date +%Y%m%d).jsonl 2>/dev/null
 
 # Check token usage for today
 wc -l journal/tokens/$(date +%Y%m%d).jsonl
@@ -329,6 +329,6 @@ sol describe /path/to/broken.mov -v
 
 ## See Also
 
-- [JOURNAL.md](JOURNAL.md) - Directory structure and file formats
+- [logs.md](../talent/journal/references/logs.md) - Journal logs, health files, and event formats
 - [CORTEX.md](CORTEX.md) - Agent system, events, configuration
 - [CALLOSUM.md](CALLOSUM.md) - Message bus protocol

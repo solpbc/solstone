@@ -26,7 +26,7 @@ def test_google_thinking_events(monkeypatch, tmp_path, capsys):
 
     sys.modules.pop("think.providers.google", None)
     importlib.reload(importlib.import_module("think.providers.google"))
-    mod = importlib.reload(importlib.import_module("think.agents"))
+    mod = importlib.reload(importlib.import_module("think.talents"))
 
     journal = tmp_path / "journal"
     journal.mkdir()
@@ -109,7 +109,7 @@ def test_google_thinking_events(monkeypatch, tmp_path, capsys):
             "tools": ["search_insights"],
         }
     )
-    asyncio.run(run_main(mod, ["sol agents"], stdin_data=ndjson_input))
+    asyncio.run(run_main(mod, ["sol think.talents"], stdin_data=ndjson_input))
 
     out_lines = capsys.readouterr().out.strip().splitlines()
     events = [json.loads(line) for line in out_lines]

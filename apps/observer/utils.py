@@ -15,6 +15,7 @@ import os
 from pathlib import Path
 
 from apps.utils import get_app_storage_path
+from think.entities.core import atomic_write
 
 logger = logging.getLogger(__name__)
 
@@ -78,8 +79,7 @@ def save_observer(data: dict) -> bool:
     observers_dir = get_observers_dir()
     observer_path = observers_dir / f"{key[:8]}.json"
     try:
-        with open(observer_path, "w") as f:
-            json.dump(data, f, indent=2)
+        atomic_write(observer_path, json.dumps(data, indent=2))
         os.chmod(observer_path, 0o600)
         return True
     except OSError:
@@ -179,8 +179,7 @@ def increment_stat(key_prefix: str, stat_name: str) -> None:
 
         data["stats"][stat_name] = data["stats"].get(stat_name, 0) + 1
 
-        with open(observer_path, "w") as f:
-            json.dump(data, f, indent=2)
+        atomic_write(observer_path, json.dumps(data, indent=2))
         os.chmod(observer_path, 0o600)
     except (json.JSONDecodeError, OSError, KeyError) as e:
         logger.warning(f"Failed to update {stat_name} for {key_prefix}: {e}")

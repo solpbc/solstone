@@ -20,9 +20,9 @@ def _run_triage():
     app = Flask(__name__)
     with (
         patch("convey.utils.spawn_agent", return_value="agent-1") as mock_spawn,
-        patch("think.cortex_client.wait_for_agents", return_value=({}, [])),
+        patch("think.cortex_client.wait_for_uses", return_value=({}, [])),
         patch(
-            "think.cortex_client.read_agent_events",
+            "think.cortex_client.read_use_events",
             return_value=[{"event": "finish", "result": "ok"}],
         ),
     ):
@@ -140,13 +140,13 @@ class TestAttentionResolution:
         monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
         today = datetime.now().strftime("%Y%m%d")
-        agents_dir = tmp_path / "agents"
+        agents_dir = tmp_path / "talents"
         agents_dir.mkdir()
         day_index = agents_dir / f"{today}.jsonl"
         day_index.write_text(
             json.dumps(
                 {
-                    "agent_id": "1",
+                    "use_id": "1",
                     "name": "flow",
                     "day": today,
                     "ts": 1000,
@@ -156,7 +156,7 @@ class TestAttentionResolution:
             + "\n"
             + json.dumps(
                 {
-                    "agent_id": "2",
+                    "use_id": "2",
                     "name": "meetings",
                     "day": today,
                     "ts": 1001,
@@ -182,13 +182,13 @@ class TestAttentionResolution:
         monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
         today = datetime.now().strftime("%Y%m%d")
-        agents_dir = tmp_path / "agents"
+        agents_dir = tmp_path / "talents"
         agents_dir.mkdir()
         day_index = agents_dir / f"{today}.jsonl"
         day_index.write_text(
             json.dumps(
                 {
-                    "agent_id": "1",
+                    "use_id": "1",
                     "name": "flow",
                     "day": today,
                     "ts": 1000,
@@ -198,7 +198,7 @@ class TestAttentionResolution:
             + "\n"
             + json.dumps(
                 {
-                    "agent_id": "3",
+                    "use_id": "3",
                     "name": "flow",
                     "day": today,
                     "ts": 2000,
@@ -221,13 +221,13 @@ class TestAttentionResolution:
         monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
         today = datetime.now().strftime("%Y%m%d")
-        agents_dir = tmp_path / "agents"
+        agents_dir = tmp_path / "talents"
         agents_dir.mkdir()
         day_index = agents_dir / f"{today}.jsonl"
         day_index.write_text(
             json.dumps(
                 {
-                    "agent_id": "1",
+                    "use_id": "1",
                     "name": "flow",
                     "day": today,
                     "ts": 1000,
@@ -266,11 +266,11 @@ class TestAttentionResolution:
         monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
         today = datetime.now().strftime("%Y%m%d")
-        agents_dir = tmp_path / "agents"
+        agents_dir = tmp_path / "talents"
         agents_dir.mkdir()
         day_index = agents_dir / f"{today}.jsonl"
         day_index.write_text(
-            json.dumps({"agent_id": "1", "name": "flow", "ts": 1000, "status": "error"})
+            json.dumps({"use_id": "1", "name": "flow", "ts": 1000, "status": "error"})
             + "\n"
         )
         result = _resolve_attention({})
@@ -299,7 +299,7 @@ class TestAttentionResolution:
         monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
         today = datetime.now().strftime("%Y%m%d")
-        agents_dir = tmp_path / today / "agents"
+        agents_dir = tmp_path / today / "talents"
         agents_dir.mkdir(parents=True)
         (agents_dir / "flow.md").write_text("# Flow")
         (agents_dir / "meetings.md").write_text("# Meetings")

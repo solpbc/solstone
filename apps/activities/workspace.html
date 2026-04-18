@@ -1,0 +1,13 @@
+{# Activities app workspace - routes to different views based on view parameter #}
+
+{% set view = view|default('day') %}
+
+{% if view == 'day' %}
+  {% include 'activities/_day.html' %}
+{% elif view == '_dev_screens_list' %}
+  {% include 'activities/_dev_screens_list.html' %}
+{% elif view == '_dev_screens_detail' %}
+  {% include 'activities/_dev_screens_detail.html' %}
+{% else %}
+  <p>Unknown view: {{ view }}</p>
+{% endif %}

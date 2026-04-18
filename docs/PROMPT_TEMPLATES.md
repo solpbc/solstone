@@ -61,7 +61,7 @@ Identity variables come from the `identity` block in `config/journal.json`. Thes
 The flattening logic converts nested objects using underscore separators. For example, `identity.pronouns.subject` becomes `$pronouns_subject`.
 
 **References:**
-- Identity configuration: [JOURNAL.md](JOURNAL.md) (identity section)
+- Identity configuration: [config.md](../talent/journal/references/config.md) (identity section)
 - Flattening implementation: `think/prompts.py` → `_flatten_identity_to_template_vars()`
 
 ### Template Variables
@@ -146,13 +146,9 @@ Agent prompts are `.md` files with configuration in frontmatter:
 You are a helpful assistant...
 ```
 
-Agent prompts use `$sol_identity` for core identity context, loaded automatically
-from `sol/identity.md` via `_load_sol_vars()`. Each agent's `.md` file includes
-`$sol_identity` as a template variable alongside `$facets` and agent-specific content.
-
 **Optional model configuration:** Add `max_output_tokens` (response length limit) and `thinking_budget` (model thinking token budget) to override provider defaults. Note: OpenAI uses fixed reasoning and ignores `thinking_budget`.
 
-**Reference:** `think/talent.py` → `get_agent()` for agent configuration loading
+**Reference:** `think/talent.py` → `get_talent()` for agent configuration loading
 
 ### The load_prompt() Function
 
@@ -190,7 +186,7 @@ load_prompt("myprompt", context={"custom_var": "value"})
 
 | Category | Authoritative Source |
 |----------|---------------------|
-| Identity config schema | [JOURNAL.md](JOURNAL.md) (identity section) |
+| Identity config schema | [config.md](../talent/journal/references/config.md) (identity section) |
 | Identity flattening | `think/prompts.py` (`_flatten_identity_to_template_vars`) |
 | Template loading | `think/prompts.py` (`_load_templates`) |
 | Core load function | `think/prompts.py` (`load_prompt`) |

@@ -1,0 +1,538 @@
+{
+  "talents": {
+    "anticipation": {
+      "app": null,
+      "color": "#4527a0",
+      "description": "Extracts structured anticipation events (future scheduled items) from insight summaries.",
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": null,
+      "source": "system",
+      "title": "Anticipation Extraction",
+      "type": null
+    },
+    "awareness_tender": {
+      "app": null,
+      "color": "#6c757d",
+      "description": "Maintains sol/awareness.md — a compact situational awareness snapshot",
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": "segment",
+      "source": "system",
+      "title": "Awareness Tender",
+      "type": "cogitate"
+    },
+    "chat": {
+      "app": null,
+      "color": "#6c757d",
+      "description": "Sol — the journal itself, as a conversational partner",
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": null,
+      "source": "system",
+      "title": "Sol",
+      "type": "cogitate"
+    },
+    "coder": {
+      "app": null,
+      "color": "#6c757d",
+      "description": "Developer agent with full repo read/write access",
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": null,
+      "source": "system",
+      "title": "Coder",
+      "type": "cogitate"
+    },
+    "daily_schedule": {
+      "app": null,
+      "color": "#455a64",
+      "description": "Analyzes activity patterns to identify optimal times for scheduled maintenance tasks.",
+      "multi_facet": false,
+      "output_format": "json",
+      "schedule": "daily",
+      "source": "system",
+      "title": "Maintenance Window",
+      "type": "generate"
+    },
+    "decisionalizer": {
+      "app": null,
+      "color": "#c62828",
+      "description": "Analyzes the day's top decision-actions to create detailed dossiers identifying gaps and stakeholder impacts",
+      "multi_facet": false,
+      "output_format": "md",
+      "schedule": "daily",
+      "source": "system",
+      "title": "Decision Dossier Generator",
+      "type": "cogitate"
+    },
+    "decisions": {
+      "app": null,
+      "color": "#dc3545",
+      "description": "Tracks consequential decision-actions that change state, plans, resources, responsibilities, or timing in ways that affect other people.",
+      "multi_facet": false,
+      "output_format": "md",
+      "schedule": "activity",
+      "source": "system",
+      "title": "Decision Actions",
+      "type": "generate"
+    },
+    "documents": {
+      "app": null,
+      "color": "#5c6bc0",
+      "description": "Extracts structured intelligence from imported documents",
+      "multi_facet": false,
+      "output_format": "md",
+      "schedule": "segment",
+      "source": "system",
+      "title": "Document Analysis",
+      "type": "generate"
+    },
+    "entities": {
+      "app": null,
+      "color": "#2e7d32",
+      "description": "Extracts people, companies, projects, and tools from segment content",
+      "multi_facet": false,
+      "output_format": "md",
+      "schedule": "segment",
+      "source": "system",
+      "title": "Entity Extraction",
+      "type": "generate"
+    },
+    "entities:entities": {
+      "app": "entities",
+      "color": "#00897b",
+      "description": "Mines journal for entity mentions and records facet-scoped detections with day-specific context",
+      "multi_facet": true,
+      "output_format": null,
+      "schedule": "daily",
+      "source": "app",
+      "title": "Entity Detector",
+      "type": "cogitate"
+    },
+    "entities:entities_review": {
+      "app": "entities",
+      "color": "#00796b",
+      "description": "Reviews detected entities and promotes recurring ones to attached status",
+      "multi_facet": true,
+      "output_format": null,
+      "schedule": "daily",
+      "source": "app",
+      "title": "Entity Reviewer",
+      "type": "cogitate"
+    },
+    "entities:entity_assist": {
+      "app": "entities",
+      "color": "#00695c",
+      "description": "Quick entity addition with intelligent type detection and automatic description generation",
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": null,
+      "source": "app",
+      "title": "Entity Assistant",
+      "type": "cogitate"
+    },
+    "entities:entity_describe": {
+      "app": "entities",
+      "color": "#26a69a",
+      "description": "Research and generate single-sentence descriptions for attached entities",
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": null,
+      "source": "app",
+      "title": "Entity Description",
+      "type": "cogitate"
+    },
+    "entities:entity_observer": {
+      "app": "entities",
+      "color": "#004d40",
+      "description": "Extracts durable factoids about attached entities from journal content",
+      "multi_facet": true,
+      "output_format": "json",
+      "schedule": "daily",
+      "source": "app",
+      "title": "Entity Observer",
+      "type": "generate"
+    },
+    "facet_newsletter": {
+      "app": null,
+      "color": "#6c757d",
+      "description": null,
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": null,
+      "source": "system",
+      "title": "facet_newsletter",
+      "type": null
+    },
+    "flow": {
+      "app": null,
+      "color": "#17a2b8",
+      "description": "Summarizes the overall flow of the workday. Looks for patterns in focus, energy, context switching and highlights productivity insights in a Markdown report.",
+      "multi_facet": false,
+      "output_format": "md",
+      "schedule": "daily",
+      "source": "system",
+      "title": "Day Overview",
+      "type": "generate"
+    },
+    "followups": {
+      "app": null,
+      "color": "#ffc107",
+      "description": "Detects promised tasks, commitments, and reminders for future action within each activity. Outputs a concise Markdown list of follow-ups with context.",
+      "multi_facet": false,
+      "output_format": "md",
+      "schedule": "activity",
+      "source": "system",
+      "title": "Follow-Up Items",
+      "type": "generate"
+    },
+    "heartbeat": {
+      "app": null,
+      "color": "#6c757d",
+      "description": "Sol's periodic self-awareness — journal health, agency tending, curation scan",
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": "none",
+      "source": "system",
+      "title": "Heartbeat",
+      "type": "cogitate"
+    },
+    "import:review": {
+      "app": "import",
+      "color": "#37474f",
+      "description": "Unified import review: resolves staged entities, then facets, then config in dependency order.",
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": null,
+      "source": "app",
+      "title": "Import Review",
+      "type": "cogitate"
+    },
+    "import:review_config": {
+      "app": "import",
+      "color": "#6a1b9a",
+      "description": "Reviews and resolves staged config field differences from journal-to-journal import.",
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": null,
+      "source": "app",
+      "title": "Import Config Reviewer",
+      "type": "cogitate"
+    },
+    "import:review_entities": {
+      "app": "import",
+      "color": "#1565c0",
+      "description": "Reviews and resolves staged entities from journal-to-journal import, handling low-confidence matches, ID collisions, and principal conflicts.",
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": null,
+      "source": "app",
+      "title": "Import Entity Reviewer",
+      "type": "cogitate"
+    },
+    "import:review_facets": {
+      "app": "import",
+      "color": "#2e7d32",
+      "description": "Reviews and resolves staged facet items from journal-to-journal import, handling unmapped entities and facet.json conflicts.",
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": null,
+      "source": "app",
+      "title": "Import Facet Reviewer",
+      "type": "cogitate"
+    },
+    "joke_bot": {
+      "app": null,
+      "color": "#f9a825",
+      "description": "Mines the analysis day's journal for poignant moments and crafts a personalized joke delivered via message",
+      "multi_facet": false,
+      "output_format": "md",
+      "schedule": "daily",
+      "source": "system",
+      "title": "Joke Bot",
+      "type": "cogitate"
+    },
+    "knowledge_graph": {
+      "app": null,
+      "color": "#6f42c1",
+      "description": "Extracts people, projects, tools and other entities from the transcript and maps how they relate. Produces a Markdown report plus narrative describing network hubs and bridges discovered during the day.",
+      "multi_facet": false,
+      "output_format": "md",
+      "schedule": "daily",
+      "source": "system",
+      "title": "Knowledge Graph",
+      "type": "generate"
+    },
+    "meetings": {
+      "app": null,
+      "color": "#e83e8c",
+      "description": "Produces detailed meeting notes for each meeting activity, including participants, topics discussed, action items, and presentation details.",
+      "multi_facet": false,
+      "output_format": "md",
+      "schedule": "activity",
+      "source": "system",
+      "title": "Meeting Notes",
+      "type": "generate"
+    },
+    "messaging": {
+      "app": null,
+      "color": "#78909c",
+      "description": "Extracts contacts, channels, apps, and message content from completed messaging and email activities.",
+      "multi_facet": false,
+      "output_format": "md",
+      "schedule": "activity",
+      "source": "system",
+      "title": "Messaging Summary",
+      "type": "generate"
+    },
+    "morning_briefing": {
+      "app": null,
+      "color": "#1565c0",
+      "description": "Synthesizes all daily agent outputs into a structured five-section morning briefing with entity intelligence",
+      "multi_facet": false,
+      "output_format": "md",
+      "schedule": "daily",
+      "source": "system",
+      "title": "Morning Briefing",
+      "type": "cogitate"
+    },
+    "naming": {
+      "app": null,
+      "color": "#6c757d",
+      "description": "Proposes a personalized name for the owner's journal assistant",
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": null,
+      "source": "system",
+      "title": "Naming",
+      "type": "cogitate"
+    },
+    "occurrence": {
+      "app": null,
+      "color": "#37474f",
+      "description": "Extracts structured occurrence events from insight summaries.",
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": null,
+      "source": "system",
+      "title": "Occurrence Extraction",
+      "type": null
+    },
+    "participation": {
+      "app": null,
+      "color": "#6c757d",
+      "description": "Consolidates per-segment Sense entity drafts into a structured per-activity participation list.",
+      "multi_facet": false,
+      "output_format": "json",
+      "schedule": "activity",
+      "source": "system",
+      "title": "Participation",
+      "type": "generate"
+    },
+    "partner": {
+      "app": null,
+      "color": "#6c757d",
+      "description": "Weekly observation of the journal owner's behavioral patterns — work style, communication, priorities, decision-making, expertise",
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": "weekly",
+      "source": "system",
+      "title": "Partner Profile",
+      "type": "cogitate"
+    },
+    "pulse": {
+      "app": null,
+      "color": "#6c757d",
+      "description": "Living narrative of the owner's day — updated each segment",
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": "segment",
+      "source": "system",
+      "title": "Pulse",
+      "type": "cogitate"
+    },
+    "routine": {
+      "app": null,
+      "color": "#6c757d",
+      "description": "User-defined routine execution — runs owner instructions on schedule",
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": "none",
+      "source": "system",
+      "title": "Routine",
+      "type": "cogitate"
+    },
+    "schedule": {
+      "app": null,
+      "color": "#5e35b1",
+      "description": "Identifies all future calendar events and scheduled activities noted in transcripts. Extracts dates, times, participants, and event details for anything scheduled beyond today.",
+      "multi_facet": false,
+      "output_format": "md",
+      "schedule": "daily",
+      "source": "system",
+      "title": "Upcoming Schedule",
+      "type": "generate"
+    },
+    "screen": {
+      "app": null,
+      "color": "#9c27b0",
+      "description": "Creates a detailed documentary record of screen activity. Focuses on the 'what' - chronological account with preserved details, excerpts, and entities.",
+      "multi_facet": false,
+      "output_format": "md",
+      "schedule": "segment",
+      "source": "system",
+      "title": "Screen Record",
+      "type": "generate"
+    },
+    "sense": {
+      "app": null,
+      "color": "#ff6f00",
+      "description": "Unified segment understanding — density, content type, entities, facets, speakers, and routing recommendations in a single pass",
+      "multi_facet": false,
+      "output_format": "json",
+      "schedule": "segment",
+      "source": "system",
+      "title": "Segment Sense",
+      "type": "generate"
+    },
+    "skills": {
+      "app": null,
+      "color": "#6c757d",
+      "description": "Detects recurring activity patterns and generates structured skill documents describing what the owner does, how, and why.",
+      "multi_facet": false,
+      "output_format": "json",
+      "schedule": "activity",
+      "source": "system",
+      "title": "Skill Observer",
+      "type": "generate"
+    },
+    "speaker_attribution": {
+      "app": null,
+      "color": "#d84315",
+      "description": "Identifies who said what in each transcript segment. Layers 1-3 (owner, structural, acoustic) run computationally via hook; Layer 4 uses contextual LLM analysis for remaining unmatched sentences.",
+      "multi_facet": false,
+      "output_format": "json",
+      "schedule": "segment",
+      "source": "system",
+      "title": "Speaker Attribution",
+      "type": "generate"
+    },
+    "support:support": {
+      "app": "support",
+      "color": "#0288d1",
+      "description": "Files and monitors support requests with sol pbc — consent-gated, never sends data without explicit owner approval",
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": null,
+      "source": "app",
+      "title": "Support",
+      "type": "cogitate"
+    },
+    "test_missing_type_output_1568d299dc474aa9ba42401c7b1b75e2": {
+      "app": null,
+      "color": "#6c757d",
+      "description": null,
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": null,
+      "source": "system",
+      "title": "test_missing_type_output_1568d299dc474aa9ba42401c7b1b75e2",
+      "type": null
+    },
+    "timeline": {
+      "app": null,
+      "color": "#7b1fa2",
+      "description": "Constructs a detailed chronological timeline documenting every activity, task shift, and event throughout the workday. Creates a comprehensive historical record with rich descriptions of what happened when.",
+      "multi_facet": false,
+      "output_format": "md",
+      "schedule": "daily",
+      "source": "system",
+      "title": "Day Timeline",
+      "type": "generate"
+    },
+    "todos:daily": {
+      "app": "todos",
+      "color": "#6c757d",
+      "description": null,
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": null,
+      "source": "app",
+      "title": "todos:daily",
+      "type": null
+    },
+    "todos:todo": {
+      "app": "todos",
+      "color": "#e65100",
+      "description": "Detects todo items from activity transcripts and validates existing todos against activity evidence via sol call commands.",
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": "activity",
+      "source": "app",
+      "title": "TODO Detector",
+      "type": "cogitate"
+    },
+    "todos:weekly": {
+      "app": "todos",
+      "color": "#f4511e",
+      "description": "Audits the past week's journal follow-ups to confirm completions and surface the next five high-impact todos for today.",
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": null,
+      "source": "app",
+      "title": "TODO Weekly Scout",
+      "type": "cogitate"
+    },
+    "triage": {
+      "app": null,
+      "color": "#6c757d",
+      "description": "Quick-action assistant for the chat bar — handles navigation, todos, calendar, and entity lookups",
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": null,
+      "source": "system",
+      "title": "Triage",
+      "type": "cogitate"
+    }
+  },
+  "facets": {
+    "capulet": {
+      "color": "#dc143c",
+      "title": "Capulet Industries"
+    },
+    "empty-entities": {
+      "color": "",
+      "title": "Empty Entities Test"
+    },
+    "full-featured": {
+      "color": "#28a745",
+      "title": "Full Featured Facet"
+    },
+    "minimal-facet": {
+      "color": "",
+      "title": "Minimal Facet"
+    },
+    "montague": {
+      "color": "#1e90ff",
+      "title": "Montague Tech"
+    },
+    "muted-test": {
+      "color": "",
+      "title": "Muted Test"
+    },
+    "priority-test": {
+      "color": "",
+      "title": "Priority Test"
+    },
+    "test-facet": {
+      "color": "#007bff",
+      "title": "Test Facet"
+    },
+    "verona": {
+      "color": "#9370db",
+      "title": "Verona"
+    }
+  },
+  "uses": []
+}

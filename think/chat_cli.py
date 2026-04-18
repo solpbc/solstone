@@ -10,8 +10,8 @@ import sys
 import threading
 
 from think.callosum import CallosumConnection
-from think.cortex_client import cortex_request, read_agent_events
-from think.utils import setup_cli
+from think.cortex_client import cortex_request, read_use_events
+from think.utils import require_solstone, setup_cli
 
 
 def main() -> None:
@@ -27,6 +27,7 @@ def main() -> None:
         "--talent", default="unified", help="Talent agent name (default: unified)"
     )
     args = setup_cli(parser)
+    require_solstone()
 
     from think.awareness import ensure_sol_directory
 
@@ -42,13 +43,13 @@ def main() -> None:
     if args.facet:
         config["facet"] = args.facet
 
-    agent_id = cortex_request(
+    use_id = cortex_request(
         prompt=message,
         name=args.talent,
         provider=args.provider,
         config=config if config else None,
     )
-    if agent_id is None:
+    if use_id is None:
         print(
             "Error: failed to connect to cortex (is the stack running?)",
             file=sys.stderr,
@@ -62,7 +63,7 @@ def main() -> None:
     def on_event(msg: dict) -> None:
         if msg.get("tract") != "cortex":
             return
-        if msg.get("agent_id") != agent_id:
+        if msg.get("use_id") != use_id:
             return
 
         event_type = msg.get("event")
@@ -121,7 +122,7 @@ def main() -> None:
         sys.exit(1)
 
     try:
-        events = read_agent_events(agent_id)
+        events = read_use_events(use_id)
         for event in reversed(events):
             event_type = event.get("event")
             if event_type == "finish":

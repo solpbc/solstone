@@ -4,6 +4,7 @@
 import asyncio
 import functools
 import importlib
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from think.models import GPT_5
@@ -346,6 +347,36 @@ class TestRunCogitate:
         assert MockCLIRunner.last_instance is not None
         assert "resume" in MockCLIRunner.last_instance.cmd
         assert "thread-abc" in MockCLIRunner.last_instance.cmd
+
+    def test_run_cogitate_passes_cwd_to_cli_runner(self):
+        provider = _openai_provider()
+        events = []
+
+        class MockCLIRunner:
+            last_instance = None
+
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+                self.cmd = kwargs["cmd"]
+                self.prompt_text = kwargs["prompt_text"]
+                self.cli_session_id = "test-session-id"
+                self.run = AsyncMock(return_value="test result")
+                MockCLIRunner.last_instance = self
+
+        with patch("think.providers.openai.CLIRunner", MockCLIRunner):
+            asyncio.run(
+                provider.run_cogitate(
+                    {
+                        "prompt": "hello",
+                        "model": GPT_5,
+                        "cwd": "/fake/journal",
+                    },
+                    events.append,
+                )
+            )
+
+        assert MockCLIRunner.last_instance is not None
+        assert MockCLIRunner.last_instance.kwargs["cwd"] == Path("/fake/journal")
 
     def test_system_instruction_prepended(self):
         provider = _openai_provider()

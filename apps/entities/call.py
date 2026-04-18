@@ -6,16 +6,18 @@
 Auto-discovered by ``think.call`` and mounted as ``sol call entities ...``.
 """
 
+import json
 import re
 import shutil
 from pathlib import Path
 
 import typer
 
+from think.entities.consolidation import consolidate_detected_entities
 from think.entities.core import entity_slug, is_valid_entity_type
 from think.entities.journal import (
     clear_journal_entity_cache,
-    get_or_create_journal_entity,
+    create_journal_entity,
     load_journal_entity,
     save_journal_entity,
 )
@@ -42,9 +44,20 @@ from think.indexer.journal import (
     get_entity_strength,
     search_entities,
 )
-from think.utils import get_journal, now_ms, resolve_sol_day, resolve_sol_facet
+from think.utils import (
+    get_journal,
+    now_ms,
+    require_solstone,
+    resolve_sol_day,
+    resolve_sol_facet,
+)
 
 app = typer.Typer(help="Entity management.")
+
+
+@app.callback()
+def _require_up() -> None:
+    require_solstone()
 
 
 def _clear_all_caches():
@@ -271,7 +284,7 @@ def attach_entity(
     entity_id = entity_slug(name)
 
     # Create journal entity (identity record) if it doesn't exist
-    get_or_create_journal_entity(
+    load_journal_entity(entity_id) or create_journal_entity(
         entity_id=entity_id,
         name=name,
         entity_type=type_,
@@ -415,6 +428,42 @@ def add_aka(
         params={"entity": entity, "name": resolved_name, "aka": aka_value},
     )
     typer.echo(f"Added alias '{aka_value}' to '{resolved_name}'.")
+
+
+@app.command()
+def consolidate(
+    full: bool = typer.Option(False, "--full", help="Scan all days, not just today."),
+) -> None:
+    """Consolidate segment-detected entities into journal identities."""
+    n = consolidate_detected_entities(get_journal(), full=full)
+    typer.echo(f"Wrote {n} new entities.")
+
+
+@app.command("merge")
+def merge(
+    source_slug: str = typer.Argument(help="Source entity slug to merge from."),
+    target_slug: str = typer.Argument(help="Target entity slug to merge into."),
+    commit: bool = typer.Option(False, "--commit/--no-commit"),
+    keep_source_as_aka: bool = typer.Option(
+        True,
+        "--keep-source-as-aka/--no-keep-source-as-aka",
+    ),
+) -> None:
+    """Plan or commit a journal-entity merge."""
+    from think.entities import merge_entity
+
+    result = merge_entity(
+        source_slug,
+        target_slug,
+        keep_source_as_aka=keep_source_as_aka,
+        commit=commit,
+        caller="entities.merge",
+    )
+    output = json.dumps(result, indent=2, default=str)
+    if "error" in result:
+        typer.echo(output, err=True)
+        raise typer.Exit(1)
+    typer.echo(output)
 
 
 @app.command("observations")

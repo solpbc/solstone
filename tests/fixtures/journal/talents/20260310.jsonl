@@ -1,0 +1,4 @@
+{"use_id": "1773158400001", "name": "flow", "day": "20260310", "facet": null, "ts": 1773194400000, "status": "completed", "runtime_seconds": 6.4, "provider": "google", "model": "gemini-2.5-flash", "schedule": "segment"}
+{"use_id": "1773158400002", "name": "meetings", "day": "20260310", "facet": null, "ts": 1773194460000, "status": "completed", "runtime_seconds": 3.8, "provider": "google", "model": "gemini-2.5-flash", "schedule": "daily"}
+{"use_id": "1773158400003", "name": "knowledge_graph", "day": "20260310", "facet": null, "ts": 1773194520000, "status": "completed", "runtime_seconds": 10.2, "provider": "anthropic", "model": "claude-sonnet-4-5", "schedule": "daily"}
+{"use_id": "1773187200001", "name": "default", "day": "20260310", "facet": "verona", "ts": 1773187200000, "status": "completed", "runtime_seconds": 15.7, "provider": "openai", "model": "gpt-4o", "schedule": "segment"}

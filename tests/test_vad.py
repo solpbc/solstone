@@ -6,6 +6,7 @@
 from unittest.mock import patch
 
 import numpy as np
+import pytest
 
 from observe.utils import SAMPLE_RATE
 from observe.vad import (
@@ -13,12 +14,18 @@ from observe.vad import (
     AudioReduction,
     SpeechSegment,
     VadResult,
+    compute_loud_speech_windows,
     compute_nonspeech_rms,
     get_nonspeech_segments,
     reduce_audio,
     restore_statement_timestamps,
     run_vad,
 )
+
+
+@pytest.fixture
+def rng():
+    return np.random.default_rng(42)
 
 
 class TestVadResult:
@@ -37,6 +44,9 @@ class TestVadResult:
         assert result.speech_duration == 5.0
         assert result.has_speech is True
         assert result.speech_segments == [(1.0, 3.0), (5.0, 8.0)]
+        assert result.loud_windows == 0
+        assert result.speech_loud_windows == 0
+        assert result.loud_speech_ratio is None
 
     def test_vad_result_no_speech(self):
         """VadResult with no speech should have has_speech=False."""
@@ -401,6 +411,57 @@ class TestRunVad:
 
         assert result.noisy_rms is None
         assert result.noisy_s == 0.0
+
+    def test_loud_speech_ratio_music_like_fixture(self, rng):
+        audio = rng.normal(0.0, 0.1, 30 * SAMPLE_RATE).astype(np.float32)
+        speech_segments = [(5.0, 6.0), (20.0, 21.0)]
+
+        loud_windows, speech_loud_windows = compute_loud_speech_windows(
+            audio, speech_segments, SAMPLE_RATE
+        )
+
+        assert loud_windows >= 25
+        assert speech_loud_windows <= 3
+        assert speech_loud_windows / loud_windows < 0.15
+
+    def test_loud_speech_ratio_meeting_like_fixture(self):
+        audio = np.zeros(30 * SAMPLE_RATE, dtype=np.float32)
+        audio[0 : 10 * SAMPLE_RATE] = 0.1
+        audio[15 * SAMPLE_RATE : 25 * SAMPLE_RATE] = 0.1
+        speech_segments = [(0.0, 10.0), (15.0, 25.0)]
+
+        loud_windows, speech_loud_windows = compute_loud_speech_windows(
+            audio, speech_segments, SAMPLE_RATE
+        )
+
+        assert loud_windows == 20
+        assert speech_loud_windows == 20
+        assert speech_loud_windows / loud_windows == pytest.approx(1.0, rel=0.01)
+
+    def test_loud_speech_ratio_all_silent(self):
+        audio = np.zeros(10 * SAMPLE_RATE, dtype=np.float32)
+
+        loud_windows, speech_loud_windows = compute_loud_speech_windows(
+            audio, [], SAMPLE_RATE
+        )
+
+        assert loud_windows == 0
+        assert speech_loud_windows == 0
+        assert (
+            VadResult(
+                duration=10.0,
+                speech_duration=0.0,
+                has_speech=False,
+                loud_windows=0,
+                speech_loud_windows=0,
+            ).loud_speech_ratio
+            is None
+        )
+
+    def test_loud_speech_ratio_short_audio(self):
+        audio = np.zeros(SAMPLE_RATE // 2, dtype=np.float32)
+
+        assert compute_loud_speech_windows(audio, [], SAMPLE_RATE) == (0, 0)
 
 
 class TestSpeechSegment:

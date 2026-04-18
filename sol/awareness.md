@@ -1,21 +1,17 @@
-as of: 2026-04-16T15:00:00Z
-segment: segment-12345
-
-## capture
-- status: active
-- streams: ["audio", "screen", "cli"]
+as of: 2026-04-16T10:00:00Z
+segment: 355
 
 ## calendar
-- Meeting with Team Lead at 10:00 AM
+- No events found for today.
 
 ## activity
-- Idle
+- Journal first daily ready: True (since 20260406T17:19:27)
 
 ## routines
-- Daily Review: Completed
+- No routines configured.
 
 ## entities
-- Jer: Recent Interaction
+- Information unavailable. sol call entities search failed.
 
 ## partner
-- Last interaction: Today
+- Information unavailable. sol call identity self and sol/self.md are inaccessible.

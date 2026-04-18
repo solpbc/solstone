@@ -9,10 +9,10 @@ import zipfile
 from pathlib import Path
 from typing import Any, Callable
 
+from think.entities.seeding import seed_entities
 from think.importers.file_importer import ImportPreview, ImportResult
 from think.importers.shared import (
     map_items_to_segments,
-    seed_entities,
     window_items,
     write_content_manifest,
     write_markdown_segments,

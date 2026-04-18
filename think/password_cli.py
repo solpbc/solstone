@@ -19,7 +19,7 @@ from pathlib import Path
 
 from werkzeug.security import generate_password_hash
 
-from think.utils import get_config, get_journal, setup_cli
+from think.utils import get_config, get_journal, require_solstone, setup_cli
 
 
 def _set_password() -> None:
@@ -54,6 +54,7 @@ def main() -> None:
     subparsers.add_parser("reset", help="Reset the convey password")
 
     args = setup_cli(parser)
+    require_solstone()
 
     if args.subcommand in ("set", "reset"):
         _set_password()

@@ -4,7 +4,7 @@
 
 """Gemini provider for agents and direct LLM generation.
 
-This module provides the Google Gemini provider for the ``sol agents`` CLI
+This module provides the Google Gemini provider for the ``sol providers check`` CLI
 and run_generate/run_agenerate functions returning GenerateResult.
 
 Common Parameters
@@ -34,6 +34,7 @@ from __future__ import annotations
 import logging
 import os
 import traceback
+from pathlib import Path
 from typing import Any, Callable
 
 from google import genai
@@ -726,12 +727,14 @@ async def run_cogitate(
             return _translate_gemini(event, agg, cb, usage, pending_tools)
 
         aggregator = ThinkingAggregator(callback, model=model)
+        cwd_value = config.get("cwd")
         runner = CLIRunner(
             cmd=cmd,
             prompt_text=prompt_body,
             translate=translate,
             callback=callback,
             aggregator=aggregator,
+            cwd=Path(cwd_value) if cwd_value else None,
             env=build_cogitate_env("GOOGLE_API_KEY"),
         )
 

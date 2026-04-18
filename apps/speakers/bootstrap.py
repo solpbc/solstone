@@ -24,7 +24,6 @@ from __future__ import annotations
 import bisect
 import json
 import logging
-import shutil
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
@@ -34,136 +33,17 @@ import numpy as np
 from apps.speakers.owner import load_owner_centroid
 from think.entities import entity_slug, find_matching_entity, is_name_variant_match
 from think.entities.journal import (
-    ensure_journal_entity_memory,
-    get_or_create_journal_entity,
+    create_journal_entity,
     load_all_journal_entities,
     load_journal_entity,
     save_journal_entity,
 )
-from think.utils import day_dirs, get_journal, iter_segments, now_ms, segment_path
+from think.utils import day_dirs, now_ms, segment_path
 
 logger = logging.getLogger(__name__)
 
 # Cosine similarity threshold for name variant merging (validated in Experiment B)
 NAME_MERGE_THRESHOLD = 0.90
-
-
-def _routes_helpers():
-    """Load speakers route helpers lazily to avoid import cycles."""
-    from apps.speakers.routes import (
-        _load_embeddings_file,
-        _load_entity_voiceprints_file,
-        _normalize_embedding,
-        _scan_segment_embeddings,
-    )
-
-    return (
-        _load_embeddings_file,
-        _normalize_embedding,
-        _scan_segment_embeddings,
-        _load_entity_voiceprints_file,
-    )
-
-
-def _load_existing_voiceprint_keys(entity_id: str) -> set[tuple]:
-    """Load already-saved voiceprint keys for idempotency.
-
-    Returns set of (day, segment_key, source, sentence_id) tuples.
-    """
-    _, _, _, load_entity_voiceprints_file = _routes_helpers()
-
-    result = load_entity_voiceprints_file(entity_id)
-    if result is None:
-        return set()
-
-    _, metadata_list = result
-    return {
-        (m.get("day"), m.get("segment_key"), m.get("source"), m.get("sentence_id"))
-        for m in metadata_list
-    }
-
-
-def _save_voiceprints_batch(
-    entity_id: str,
-    new_items: list[tuple[np.ndarray, dict]],
-) -> int:
-    """Save multiple voiceprints to an entity's voiceprints.npz in one write.
-
-    Args:
-        entity_id: Entity ID (slug)
-        new_items: List of (normalized_embedding, metadata_dict) tuples
-
-    Returns:
-        Number of embeddings saved
-    """
-    if not new_items:
-        return 0
-
-    folder = ensure_journal_entity_memory(entity_id)
-    npz_path = folder / "voiceprints.npz"
-
-    # Load existing voiceprints
-    if npz_path.exists():
-        try:
-            # Use np.load with allow_pickle=False for safety, adjust if metadata requires it.
-            with np.load(npz_path, allow_pickle=False) as data:
-                existing_emb = data["embeddings"]
-                # Existing metadata was likely saved as JSON strings. Deserialize them.
-                # Assuming np.load returns an array of strings if saved as dtype=str.
-                existing_meta_strings = data["metadata"]
-                existing_meta_dicts = [json.loads(m) for m in existing_meta_strings]
-        except (FileNotFoundError, ValueError, np.lib.npyio.NpzFile) as e:
-            logger.warning(
-                f"Failed to load existing voiceprints for {entity_id} from {npz_path}: {e}. Starting fresh."
-            )
-            existing_emb = np.empty((0, 256), dtype=np.float32)
-            existing_meta_dicts = []
-        except Exception as e:  # Catch other potential errors during loading
-            logger.error(
-                f"Unexpected error loading existing voiceprints for {entity_id} from {npz_path}: {e}"
-            )
-            raise
-    else:
-        existing_emb = np.empty((0, 256), dtype=np.float32)
-        existing_meta_dicts = []
-
-    # Prepare new embeddings and metadata dicts
-    new_emb_list = []
-    new_meta_dicts = []
-    for emb, meta_dict in new_items:
-        new_emb_list.append(emb.reshape(1, -1).astype(np.float32))
-        new_meta_dicts.append(meta_dict)
-
-    # Combine existing and new data
-    if new_emb_list:
-        new_emb_np = np.vstack(new_emb_list)
-        combined_emb = (
-            np.vstack([existing_emb, new_emb_np])
-            if len(existing_emb) > 0
-            else new_emb_np
-        )
-        # Combine the metadata dictionaries
-        combined_meta_dicts = existing_meta_dicts + new_meta_dicts
-    else:  # Should not happen if new_items is not empty, but for safety
-        combined_emb = existing_emb
-        combined_meta_dicts = existing_meta_dicts
-
-    # Use the new safe saving utility
-    try:
-        # Import the utility function
-        from apps.speakers.voiceprint_io import save_voiceprints_safely
-
-        save_voiceprints_safely(
-            npz_path=npz_path,
-            embeddings=combined_emb,
-            metadata=combined_meta_dicts,  # Pass metadata as a list of dicts
-        )
-        return len(new_items)
-    except Exception as e:
-        logger.error(f"Failed to safely save voiceprints for {entity_id}: {e}")
-        # The save_voiceprints_safely function already logs critical errors and re-raises.
-        # We re-raise here to propagate the failure.
-        raise
 
 
 def bootstrap_voiceprints(dry_run: bool = False) -> dict[str, Any]:
@@ -186,12 +66,15 @@ def bootstrap_voiceprints(dry_run: bool = False) -> dict[str, Any]:
     Returns:
         Dict with statistics about the bootstrap run
     """
-    (
-        load_embeddings_file,
+    from apps.speakers.routes import _load_embeddings_file, _scan_segment_embeddings
+    from think.entities import (
+        load_existing_voiceprint_keys,
         normalize_embedding,
-        scan_segment_embeddings,
-        _,
-    ) = _routes_helpers()
+        save_voiceprints_batch,
+    )
+
+    load_embeddings_file = _load_embeddings_file
+    scan_segment_embeddings = _scan_segment_embeddings
 
     # Load owner centroid — required for owner subtraction
     centroid_data = load_owner_centroid()
@@ -247,7 +130,7 @@ def bootstrap_voiceprints(dry_run: bool = False) -> dict[str, Any]:
                 # Create a new entity for this speaker
                 entity_id = entity_slug(speaker_name)
                 if not dry_run:
-                    entity = get_or_create_journal_entity(
+                    entity = load_journal_entity(entity_id) or create_journal_entity(
                         entity_id=entity_id,
                         name=speaker_name,
                         entity_type="Person",
@@ -262,7 +145,7 @@ def bootstrap_voiceprints(dry_run: bool = False) -> dict[str, Any]:
 
             # Load existing voiceprint keys for idempotency (once per entity)
             if entity_id not in entity_existing:
-                entity_existing[entity_id] = _load_existing_voiceprint_keys(entity_id)
+                entity_existing[entity_id] = load_existing_voiceprint_keys(entity_id)
 
             existing_keys = entity_existing[entity_id]
             seg_dir = segment_path(day, seg_key, stream)
@@ -320,7 +203,7 @@ def bootstrap_voiceprints(dry_run: bool = False) -> dict[str, Any]:
     if not dry_run:
         for entity_id, emb_list in entity_embeddings.items():
             try:
-                saved = _save_voiceprints_batch(entity_id, emb_list)
+                saved = save_voiceprints_batch(entity_id, emb_list)
                 stats["embeddings_saved"] += saved
             except Exception as e:
                 name = entity_names.get(entity_id, entity_id)
@@ -333,26 +216,12 @@ def bootstrap_voiceprints(dry_run: bool = False) -> dict[str, Any]:
 
 
 def merge_names(alias_name: str, canonical_name: str) -> dict[str, Any]:
-    """Deep merge a speaker entity into a canonical entity.
-
-    Performs a phased deep merge: identity data, voiceprints, facet
-    relationships, speaker references, then deletes the alias entity.
-    Designed for interrupt safety — delete-last ordering ensures the
-    system is never in an unrecoverable state. Every phase is idempotent.
-
-    Args:
-        alias_name: The alias/variant name to merge from
-        canonical_name: The canonical/full name to merge into
-
-    Returns:
-        Dict with merge statistics or error
-    """
-    _, normalize_embedding, _, load_entity_voiceprints_file = _routes_helpers()
+    """Deep merge a speaker entity into a canonical entity."""
+    from think.entities import merge_entity
 
     journal_entities = load_all_journal_entities()
     entities_list = list(journal_entities.values())
 
-    # --- Phase 0: Resolve and validate ---
     alias_entity = find_matching_entity(alias_name, entities_list)
     if not alias_entity:
         return {"error": f"No entity found for alias: {alias_name}"}
@@ -377,254 +246,39 @@ def merge_names(alias_name: str, canonical_name: str) -> dict[str, Any]:
 
     if alias.get("is_principal") or canonical.get("is_principal"):
         return {"error": "Cannot merge the principal entity."}
-    if alias.get("blocked"):
-        return {"error": f"Cannot merge blocked entity: {alias_id}"}
-    if canonical.get("blocked"):
-        return {"error": f"Cannot merge blocked entity: {canonical_id}"}
+    result = merge_entity(
+        alias_id,
+        canonical_id,
+        keep_source_as_aka=True,
+        commit=True,
+        caller="speakers.merge_names",
+    )
+    if "error" in result:
+        return result
 
-    alias_display = alias.get("name", alias_name)
-
-    # Set merged_into resume marker on alias
-    alias["merged_into"] = canonical_id
-    alias["updated_at"] = now_ms()
-    save_journal_entity(alias)
-
-    # --- Phase 1: Merge identity data ---
-    akas_added: list[str] = []
-    existing_aka = set(canonical.get("aka", []))
-    canonical_name_val = canonical.get("name", "")
-
-    # Add alias display name as aka
-    if alias_display not in existing_aka and alias_display != canonical_name_val:
-        existing_aka.add(alias_display)
-        akas_added.append(alias_display)
-
-    # Merge alias's akas
-    for aka in alias.get("aka", []):
-        if aka not in existing_aka and aka != canonical_name_val:
-            existing_aka.add(aka)
-            akas_added.append(aka)
-
-    canonical["aka"] = sorted(existing_aka)
-
-    # Merge emails
-    canonical_emails = {e.lower() for e in canonical.get("emails", [])}
-    for email in alias.get("emails", []):
-        canonical_emails.add(email.lower())
-    if canonical_emails:
-        canonical["emails"] = sorted(canonical_emails)
-
-    canonical["updated_at"] = now_ms()
-    save_journal_entity(canonical)
-
-    # --- Phase 2: Merge voiceprints ---
-    alias_vp = load_entity_voiceprints_file(alias_id)
-    voiceprints_merged = 0
-
-    if alias_vp is not None:
-        alias_embeddings, alias_metadata = alias_vp
-        existing_keys = _load_existing_voiceprint_keys(canonical_id)
-
-        new_items: list[tuple[np.ndarray, dict]] = []
-        for emb, meta in zip(alias_embeddings, alias_metadata):
-            key = (
-                meta.get("day"),
-                meta.get("segment_key"),
-                meta.get("source"),
-                meta.get("sentence_id"),
-            )
-            if key in existing_keys:
-                continue
-            normalized = normalize_embedding(emb)
-            if normalized is not None:
-                new_items.append((normalized, meta))
-                existing_keys.add(key)
-
-        if new_items:
-            voiceprints_merged = _save_voiceprints_batch(canonical_id, new_items)
-
-    canonical_vp = load_entity_voiceprints_file(canonical_id)
-    voiceprints_total = len(canonical_vp[0]) if canonical_vp else 0
-
-    # --- Phase 3: Merge facet relationships ---
-    facets_merged: list[str] = []
-    facets_moved: list[str] = []
-    journal = get_journal()
-    facets_dir = Path(journal) / "facets"
-
-    if facets_dir.exists():
-        for facet_entry in sorted(facets_dir.iterdir()):
-            if not facet_entry.is_dir():
-                continue
-            facet_name = facet_entry.name
-            alias_rel_dir = facet_entry / "entities" / alias_id
-            alias_rel_path = alias_rel_dir / "entity.json"
-            if not alias_rel_path.is_file():
-                continue
-
-            canonical_rel_dir = facet_entry / "entities" / canonical_id
-            canonical_rel_path = canonical_rel_dir / "entity.json"
-
-            if not canonical_rel_path.is_file():
-                # Move: rename alias relationship dir to canonical
-                if canonical_rel_dir.exists():
-                    shutil.rmtree(canonical_rel_dir)
-                alias_rel_dir.rename(canonical_rel_dir)
-                # Update entity_id inside the moved entity.json
-                moved_path = canonical_rel_dir / "entity.json"
-                try:
-                    with open(moved_path, encoding="utf-8") as f:
-                        rel_data = json.load(f)
-                    rel_data["entity_id"] = canonical_id
-                    tmp = moved_path.with_suffix(".tmp")
-                    with open(tmp, "w", encoding="utf-8") as f:
-                        json.dump(rel_data, f, ensure_ascii=False, indent=2)
-                        f.write("\n")
-                    tmp.rename(moved_path)
-                except (json.JSONDecodeError, OSError):
-                    pass
-                facets_moved.append(facet_name)
-            else:
-                # Both have relationships: merge timestamps and data
-                try:
-                    with open(alias_rel_path, encoding="utf-8") as f:
-                        alias_rel = json.load(f)
-                    with open(canonical_rel_path, encoding="utf-8") as f:
-                        canonical_rel = json.load(f)
-                except (json.JSONDecodeError, OSError):
-                    continue
-
-                # Merge timestamps: earliest attached_at
-                alias_attached = alias_rel.get("attached_at")
-                canonical_attached = canonical_rel.get("attached_at")
-                if alias_attached and (
-                    not canonical_attached or alias_attached < canonical_attached
-                ):
-                    canonical_rel["attached_at"] = alias_attached
-
-                # Latest updated_at and last_seen
-                for ts_field in ("updated_at", "last_seen"):
-                    alias_ts = alias_rel.get(ts_field)
-                    canonical_ts = canonical_rel.get(ts_field)
-                    if alias_ts and (not canonical_ts or alias_ts > canonical_ts):
-                        canonical_rel[ts_field] = alias_ts
-
-                # Merge description: keep canonical's if non-empty
-                if not canonical_rel.get("description") and alias_rel.get(
-                    "description"
-                ):
-                    canonical_rel["description"] = alias_rel["description"]
-
-                # Save merged relationship (atomic write)
-                canonical_rel["entity_id"] = canonical_id
-                content = json.dumps(canonical_rel, ensure_ascii=False, indent=2) + "\n"
-                tmp = canonical_rel_path.with_suffix(".tmp")
-                with open(tmp, "w", encoding="utf-8") as f:
-                    f.write(content)
-                tmp.rename(canonical_rel_path)
-
-                # Merge observations: append alias's to canonical's
-                alias_obs_path = alias_rel_dir / "observations.jsonl"
-                if alias_obs_path.exists():
-                    alias_obs = alias_obs_path.read_text(encoding="utf-8")
-                    if alias_obs.strip():
-                        canonical_obs_path = canonical_rel_dir / "observations.jsonl"
-                        existing_obs = ""
-                        if canonical_obs_path.exists():
-                            existing_obs = canonical_obs_path.read_text(
-                                encoding="utf-8"
-                            )
-                        with open(canonical_obs_path, "a", encoding="utf-8") as f:
-                            if existing_obs and not existing_obs.endswith("\n"):
-                                f.write("\n")
-                            f.write(alias_obs)
-                            if not alias_obs.endswith("\n"):
-                                f.write("\n")
-
-                # Delete alias relationship directory
-                shutil.rmtree(alias_rel_dir)
-                facets_merged.append(facet_name)
-
-    # --- Phase 4: Rewrite speaker references ---
-    segments_scanned = 0
-    labels_rewritten = 0
-    corrections_rewritten = 0
-    errors: list[str] = []
-    alias_id_bytes = alias_id.encode("utf-8")
-
-    for day in sorted(day_dirs().keys()):
-        for _stream, _seg_key, seg_path in iter_segments(day):
-            segments_scanned += 1
-            agents_dir = seg_path / "agents"
-
-            # Rewrite speaker_labels.json
-            labels_path = agents_dir / "speaker_labels.json"
-            if labels_path.is_file():
-                try:
-                    raw = labels_path.read_bytes()
-                    if alias_id_bytes in raw:
-                        data = json.loads(raw)
-                        changed = False
-                        for label in data.get("labels", []):
-                            if label.get("speaker") == alias_id:
-                                label["speaker"] = canonical_id
-                                changed = True
-                        if changed:
-                            tmp = labels_path.with_suffix(".tmp")
-                            with open(tmp, "w", encoding="utf-8") as f:
-                                json.dump(data, f, indent=2)
-                            tmp.rename(labels_path)
-                            labels_rewritten += 1
-                except Exception as e:
-                    errors.append(f"{labels_path}: {e}")
-
-            # Rewrite speaker_corrections.json
-            corrections_path = agents_dir / "speaker_corrections.json"
-            if corrections_path.is_file():
-                try:
-                    raw = corrections_path.read_bytes()
-                    if alias_id_bytes in raw:
-                        data = json.loads(raw)
-                        changed = False
-                        for correction in data.get("corrections", []):
-                            if correction.get("original_speaker") == alias_id:
-                                correction["original_speaker"] = canonical_id
-                                changed = True
-                            if correction.get("corrected_speaker") == alias_id:
-                                correction["corrected_speaker"] = canonical_id
-                                changed = True
-                        if changed:
-                            tmp = corrections_path.with_suffix(".tmp")
-                            with open(tmp, "w", encoding="utf-8") as f:
-                                json.dump(data, f, indent=2)
-                            tmp.rename(corrections_path)
-                            corrections_rewritten += 1
-                except Exception as e:
-                    errors.append(f"{corrections_path}: {e}")
-
-    # --- Phase 5: Cleanup ---
-    alias_entity_dir = Path(journal) / "entities" / alias_id
-    if alias_entity_dir.exists():
-        shutil.rmtree(alias_entity_dir)
-
-    discovery_cache = Path(journal) / "awareness" / "discovery_clusters.json"
-    if discovery_cache.exists():
-        discovery_cache.unlink()
+    errors = []
+    for error in result["segments"]["errors"]:
+        path = error.get("path")
+        message = error.get("message", "")
+        if path:
+            errors.append(f"{path}: {message}")
+        else:
+            errors.append(str(message))
 
     return {
         "merged": True,
-        "alias": alias_display,
+        "alias": alias.get("name", alias_name),
         "alias_id": alias_id,
         "canonical_name": canonical.get("name", canonical_name),
         "canonical_id": canonical_id,
-        "akas_added": akas_added,
-        "voiceprints_merged": voiceprints_merged,
-        "voiceprints_total": voiceprints_total,
-        "facets_merged": facets_merged,
-        "facets_moved": facets_moved,
-        "segments_scanned": segments_scanned,
-        "labels_rewritten": labels_rewritten,
-        "corrections_rewritten": corrections_rewritten,
+        "akas_added": result["identity"]["akas_added"],
+        "voiceprints_merged": result["voiceprints"]["added"],
+        "voiceprints_total": result["voiceprints"]["target_total"],
+        "facets_merged": result["facets"]["merged"],
+        "facets_moved": result["facets"]["moved"],
+        "segments_scanned": result["segments"]["files_scanned"],
+        "labels_rewritten": result["segments"]["labels_rewritten"],
+        "corrections_rewritten": result["segments"]["corrections_rewritten"],
         "errors": errors,
     }
 
@@ -649,7 +303,10 @@ def resolve_name_variants(dry_run: bool = False) -> dict[str, Any]:
     Returns:
         Dict with merge statistics
     """
-    _, normalize_embedding, _, load_entity_voiceprints_file = _routes_helpers()
+    from think.entities import (
+        load_entity_voiceprints_file,
+        normalize_embedding,
+    )
 
     journal_entities = load_all_journal_entities()
 
@@ -909,12 +566,15 @@ def link_import(name: str, entity_id: str) -> dict[str, Any]:
 
 def seed_from_imports(dry_run: bool = False) -> dict[str, Any]:
     """Seed voiceprints from import segments with speaker-attributed transcripts."""
-    (
-        load_embeddings_file,
+    from apps.speakers.routes import _load_embeddings_file, _scan_segment_embeddings
+    from think.entities import (
+        load_existing_voiceprint_keys,
         normalize_embedding,
-        scan_segment_embeddings,
-        _,
-    ) = _routes_helpers()
+        save_voiceprints_batch,
+    )
+
+    load_embeddings_file = _load_embeddings_file
+    scan_segment_embeddings = _scan_segment_embeddings
 
     centroid_data = load_owner_centroid()
     if centroid_data is None:
@@ -1015,7 +675,7 @@ def seed_from_imports(dry_run: bool = False) -> dict[str, Any]:
                     stats["speakers_found"].setdefault(entity_name, 0)
 
                     if entity_id not in entity_existing:
-                        entity_existing[entity_id] = _load_existing_voiceprint_keys(
+                        entity_existing[entity_id] = load_existing_voiceprint_keys(
                             entity_id
                         )
 
@@ -1060,7 +720,7 @@ def seed_from_imports(dry_run: bool = False) -> dict[str, Any]:
     if not dry_run:
         for entity_id, emb_list in entity_embeddings.items():
             try:
-                saved = _save_voiceprints_batch(entity_id, emb_list)
+                saved = save_voiceprints_batch(entity_id, emb_list)
                 stats["embeddings_saved"] += saved
             except Exception as e:
                 stats["errors"].append(f"Failed to save for {entity_id}: {e}")

@@ -1,7 +1,13 @@
 # solstone Makefile
 # Python-based AI-driven desktop journaling toolkit
 
-.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format format-check ci clean clean-install coverage watch versions update update-prices pre-commit skills dev all sail sandbox sandbox-stop install-pinchtab verify-browser update-browser-baselines review verify-api update-api-baselines install-service uninstall-service
+# Route pytest tmp dirs to /var/tmp (disk) instead of default /tmp (tmpfs/RAM).
+# Combined with pytest's default per-run isolation (/var/tmp/pytest-of-$USER/pytest-N/),
+# concurrent test runs don't collide. Do not re-add --basetemp to pyproject — it pins
+# all runs to one path and pytest wipes it on startup, destroying concurrent state.
+export TMPDIR := /var/tmp
+
+.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format format-check install-checks ci clean clean-install coverage watch versions update update-prices pre-commit skills dev all sail sandbox sandbox-stop install-pinchtab verify-browser update-browser-baselines review verify verify-api update-api-baselines install-service uninstall-service service-logs gate-agents-rename check-layer-hygiene
 
 # Default target - install package in editable mode
 all: install
@@ -38,28 +44,7 @@ USER_BIN := $(HOME)/.local/bin
 	fi
 	@echo "Installing Playwright browser for sol screenshot..."
 	$(VENV_BIN)/playwright install chromium
-	@if [ -d .git ]; then \
-		mkdir -p $(USER_BIN); \
-		ln -sf $(CURDIR)/$(VENV_BIN)/sol $(USER_BIN)/sol; \
-		echo ""; \
-		echo "Done! 'sol' command installed to $(USER_BIN)/sol"; \
-		if ! echo "$$PATH" | grep -q "$(USER_BIN)"; then \
-			echo ""; \
-			echo "NOTE: $(USER_BIN) is not in your PATH."; \
-			echo "Add this to your shell profile (~/.bashrc, ~/.zshrc, etc.):"; \
-			echo "  export PATH=\"\$$HOME/.local/bin:\$$PATH\""; \
-			echo ""; \
-			echo "Or run sol directly: $(CURDIR)/$(VENV_BIN)/sol"; \
-		fi; \
-	else \
-		echo ""; \
-		echo "Done! (worktree detected, skipping ~/.local/bin/sol symlink)"; \
-	fi
 	@$(MAKE) --no-print-directory skills
-	@if [ -d .git ] && [ -f skills/solstone/SKILL.md ]; then \
-		echo "Installing solstone skill user-wide..."; \
-		npx skills add ./skills/solstone -g -a claude-code -y; \
-	fi
 	@touch .installed
 
 # Generate lock file if missing
@@ -67,13 +52,14 @@ uv.lock: pyproject.toml
 	$(UV) lock
 
 # Install package in editable mode with isolated venv
-install: .installed
+install: skills .installed
 
 # Directories where AI coding agents look for skills
-SKILL_DIRS := .agents/skills .claude/skills
+SKILL_DIRS := journal/.agents/skills journal/.claude/skills
 
 # Discover SKILL.md files in talent/ and apps/*/talent/, symlink into agent skill dirs
 skills:
+	@rm -rf .agents/skills .claude/skills
 	@# Collect all skill directories (containing SKILL.md)
 	@SKILLS=""; \
 	for skill_md in talent/*/SKILL.md apps/*/talent/*/SKILL.md; do \
@@ -90,7 +76,11 @@ skills:
 	for dir in $(SKILL_DIRS); do \
 		mkdir -p "$$dir"; \
 		for link in "$$dir"/*; do \
-			[ -L "$$link" ] && rm -f "$$link"; \
+			([ -e "$$link" ] || [ -L "$$link" ]) || continue; \
+			skill_name=$$(basename "$$link"); \
+			if ! echo "$$SKILLS" | grep -qw "$$skill_name"; then \
+				rm -rf "$$link"; \
+			fi; \
 		done; \
 	done; \
 	count=0; \
@@ -99,14 +89,20 @@ skills:
 		skill_dir=$$(dirname "$$skill_md"); \
 		skill_name=$$(basename "$$skill_dir"); \
 		for dir in $(SKILL_DIRS); do \
-			ln -sf "../../$$skill_dir" "$$dir/$$skill_name"; \
+			target="../../../$$skill_dir"; \
+			link="$$dir/$$skill_name"; \
+			if [ -L "$$link" ] && [ "$$(readlink "$$link")" = "$$target" ]; then \
+				:; \
+			else \
+				rm -rf "$$link"; \
+				ln -s "$$target" "$$link"; \
+			fi; \
 		done; \
 		count=$$((count + 1)); \
 	done; \
 	if [ "$$count" -gt 0 ]; then \
 		echo "Linked $$count skill(s) into $(SKILL_DIRS)"; \
 	fi
-	@$(PYTHON) scripts/generate_agents_md.py
 
 # Start local dev stack against fixture journal (no observers, no daily processing)
 dev: .installed
@@ -360,7 +356,7 @@ clean:
 	@echo "Cleaning build artifacts and cache files..."
 	rm -rf build/ dist/ *.egg-info/
 	rm -rf .pytest_cache/ .coverage .mypy_cache/
-	rm -rf .agents/ .claude/
+	rm -rf journal/.agents/ journal/.claude/
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 	find . -type f -name "*.pyc" -delete
 	find . -type f -name "*.pyo" -delete
@@ -369,41 +365,124 @@ clean:
 
 # Service management (override port: make install-service PORT=8000)
 install-service: .installed
-	$(VENV_BIN)/sol service install --port $(or $(PORT),5015)
-	$(VENV_BIN)/sol service start
+	@MODE=$$($(PYTHON) -m think.install_guard check); \
+	RC=$$?; \
+	case "$$MODE" in \
+		worktree) \
+			echo "mode: aborted — worktree"; \
+			exit $$RC; \
+			;; \
+		cross_repo) \
+			echo "mode: aborted — cross_repo"; \
+			exit $$RC; \
+			;; \
+		dangling) \
+			echo "mode: aborted — dangling"; \
+			exit $$RC; \
+			;; \
+		not_symlink) \
+			echo "mode: aborted — not_symlink"; \
+			exit $$RC; \
+			;; \
+		up""grade) \
+			echo "mode: up""grade"; \
+			$(MAKE) install-checks || exit $$?; \
+			;; \
+		fresh) \
+			echo "mode: fresh install"; \
+			;; \
+		*) \
+			echo "mode: aborted — unknown"; \
+			exit 2; \
+			;; \
+	esac; \
+	$(PYTHON) -m think.install_guard install; \
+	npx skills add ./skills/solstone -g -a claude-code -y; \
+	$(VENV_BIN)/sol service install --port $(or $(PORT),5015); \
+	$(VENV_BIN)/sol service start; \
+	echo "Waiting for service readiness..."; \
+	READY=false; \
+	for i in $$(seq 1 20); do \
+		if $(VENV_BIN)/sol health > /dev/null 2>&1; then \
+			READY=true; \
+			break; \
+		fi; \
+		sleep 1; \
+	done; \
+	if [ "$$READY" = "false" ]; then \
+		echo "Service readiness timeout after 20s" >&2; \
+		exit 1; \
+	fi; \
 	$(VENV_BIN)/sol service status
 
-uninstall-service:
-	-$(VENV_BIN)/sol service uninstall
+# Follow installed service logs
+service-logs:
+	$(VENV_BIN)/sol service logs -f
 
-# Uninstall - remove venv and sol symlink
-uninstall: uninstall-service clean
-	@echo "Removing virtual environment..."
-	rm -rf $(VENV)
-	@if [ -L $(USER_BIN)/sol ]; then \
-		echo "Removing sol symlink from $(USER_BIN)..."; \
-		rm -f $(USER_BIN)/sol; \
-	fi
+uninstall-service:
+	@MODE=$$($(PYTHON) -m think.install_guard check); \
+	RC=$$?; \
+	HAS_SERVICE=false; \
+	HAS_SKILL=false; \
+	if [ -f "$$HOME/.config/systemd/user/solstone.service" ] || [ -f "$$HOME/Library/LaunchAgents/org.solpbc.solstone.plist" ]; then \
+		HAS_SERVICE=true; \
+	fi; \
+	if [ -e "$$HOME/.claude/skills/solstone" ]; then \
+		HAS_SKILL=true; \
+	fi; \
+	case "$$MODE" in \
+		worktree|cross_repo|dangling|not_symlink) \
+			echo "mode: aborted — $$MODE"; \
+			exit $$RC; \
+			;; \
+	esac; \
+	if [ "$$MODE" = "fresh" ] && [ "$$HAS_SERVICE" = "false" ] && [ "$$HAS_SKILL" = "false" ]; then \
+		echo "no artifacts to remove"; \
+		exit 0; \
+	fi; \
+	$(VENV_BIN)/sol service stop > /dev/null 2>&1 || true; \
+	$(VENV_BIN)/sol service uninstall; \
+	npx skills remove -g -a claude-code -y solstone; \
+	$(PYTHON) -m think.install_guard uninstall
+
+uninstall:
+	@echo "Error: 'make uninstall' is disabled. Use the 'uninstall-service' target to remove installed user/system artifacts, or 'make clean-install' to rebuild the local dev environment." >&2
+	@exit 1
 
 # Clean everything and reinstall
-clean-install: uninstall install
+clean-install: clean
+	rm -rf $(VENV) .installed
+	$(MAKE) install
 
 # Run continuous integration checks (what CI would run)
-ci: .installed
-	@echo "Running CI checks..."
+install-checks: .installed
 	@echo "=== Checking formatting ==="
 	@$(RUFF) format --check . || { echo "Run 'make format' to fix formatting"; exit 1; }
 	@echo ""
 	@echo "=== Running ruff ==="
 	@$(RUFF) check . || { echo "Run 'make format' to auto-fix"; exit 1; }
 	@echo ""
+	@echo "=== Running rename gate ==="
+	@$(MAKE) gate-agents-rename
+	@echo ""
+	@echo "=== Running layer-hygiene check ==="
+	@$(MAKE) check-layer-hygiene
+	@echo ""
 	@echo "=== Running mypy ==="
 	@$(MYPY) . || true
 	@echo ""
+
+ci: install-checks
 	@echo "=== Running tests ==="
 	@$(MAKE) test
 	@echo ""
 	@echo "All CI checks passed!"
+
+verify: install-checks
+	@echo "=== Running tests ==="
+	@$(MAKE) test
+	@echo ""
+	@echo "Verification complete!"
 
 # Watch for changes and run tests (requires pytest-watch)
 watch: .installed
@@ -419,7 +498,7 @@ coverage: .installed
 # Update all dependencies to latest versions and refresh genai-prices
 update: .installed
 	@echo "Updating all dependencies to latest versions..."
-	$(UV) lock --upgrade
+	$(UV) lock -U
 	$(UV) sync
 	@echo "Done. All packages updated to latest."
 
@@ -427,7 +506,7 @@ update: .installed
 # Run this when adding new models or if pricing tests fail
 update-prices: .installed
 	@echo "Updating genai-prices to latest version..."
-	$(UV) lock --upgrade-package genai-prices
+	$(UV) lock -P genai-prices
 	$(UV) sync
 	@echo "Done. Re-run tests to verify model pricing support."
 
@@ -444,3 +523,10 @@ pre-commit: .installed
 	@$(UV) pip show pre-commit >/dev/null 2>&1 || { echo "Installing pre-commit..."; $(UV) pip install pre-commit; }
 	$(VENV_BIN)/pre-commit install
 	@echo "Pre-commit hooks installed!"
+# Rename guard for the agents -> talents transition
+gate-agents-rename: .installed
+	$(VENV_BIN)/python scripts/gate_agents_rename.py
+
+# Low-bar layer-hygiene check (see docs/coding-standards.md § Layer Hygiene)
+check-layer-hygiene: .installed
+	$(VENV_BIN)/python scripts/check_layer_hygiene.py

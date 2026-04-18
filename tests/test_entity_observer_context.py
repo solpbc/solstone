@@ -13,7 +13,7 @@ from think.entities.journal import clear_journal_entity_cache
 from think.entities.loading import clear_entity_loading_cache
 from think.entities.observations import clear_observation_cache, load_observations
 from think.entities.relationships import clear_relationship_caches
-from think.talent import get_agent
+from think.talent import get_talent
 
 
 def _set_journal(path: str) -> None:
@@ -323,7 +323,7 @@ def test_post_process_handles_malformed_json():
 def test_entity_observer_agent_config():
     _set_journal("tests/fixtures/journal")
 
-    config = get_agent("entities:entity_observer")
+    config = get_talent("entities:entity_observer")
 
     assert config["type"] == "generate"
     assert config.get("output") == "json"

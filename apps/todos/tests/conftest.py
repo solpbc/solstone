@@ -15,6 +15,12 @@ from datetime import datetime
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _skip_supervisor_check(monkeypatch):
+    """Allow app CLI tests to run without a live solstone supervisor."""
+    monkeypatch.setenv("SOL_SKIP_SUPERVISOR_CHECK", "1")
+
+
 @pytest.fixture
 def todo_env(tmp_path, monkeypatch):
     """Create a temporary journal facet with optional todo entries.

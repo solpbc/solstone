@@ -10,7 +10,8 @@ logs/
 .coverage
 tests/fixtures/journal/agents/*/*.jsonl
 tests/fixtures/journal/tokens/*.json
-tests/fixtures/journal/*/health/*_dream.jsonl
+tests/fixtures/journal/*/health/*.jsonl
+tests/fixtures/journal/chronicle/*/health/*.jsonl
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
@@ -18,7 +19,7 @@ tests/fixtures/journal/*/health/*_dream.jsonl
 *.port
 /config*.py
 .installed
-/journal
+/journal/*
 .agents/
 .claude/
 .sandbox.pid
@@ -34,3 +35,12 @@ counts.txt
 counts_all.txt
 detections_7days.txt
 search_ping_identity.py
+!/journal/AGENTS.md
+!/journal/CLAUDE.md
+!/journal/GEMINI.md
+!/journal/.claude/
+!/journal/.claude/skills/
+!/journal/.claude/skills/**
+!/journal/.agents/
+!/journal/.agents/skills/
+!/journal/.agents/skills/**

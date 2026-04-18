@@ -29,9 +29,15 @@ from think.entities.relationships import (
     load_facet_relationship,
     save_facet_relationship,
 )
-from think.utils import get_journal
+from think.utils import get_journal, require_solstone
 
 app = typer.Typer(help="Import review and resolution.")
+
+
+@app.callback()
+def _require_up() -> None:
+    require_solstone()
+
 
 ingest = import_module("apps.import.ingest")
 journal_sources = import_module("apps.import.journal_sources")
@@ -458,18 +464,21 @@ def resolve_entity(
     typer.echo(f"Skipped staged entity {source_id}.")
 
 
-@app.command("resolve-facet")
-def resolve_facet(
+@app.command("resolve-staged-facet")
+def apply_staged_facet(
     staged_file: str = typer.Argument(
         help="Staged file path relative to facets/staged/."
     ),
-    action: str = typer.Argument(help="Action: apply or skip."),
+    apply: bool = typer.Option(
+        False, "--apply", help="Apply the staged item into the journal."
+    ),
+    skip: bool = typer.Option(False, "--skip", help="Discard the staged item."),
     source: str = typer.Option(..., "--source", help="Import source name."),
 ) -> None:
-    _, _, state_dir = _resolve_source(source)
+    if apply == skip:
+        _fail("Exactly one of --apply or --skip is required.")
 
-    if action not in {"apply", "skip"}:
-        _fail("Action must be 'apply' or 'skip'.")
+    _, _, state_dir = _resolve_source(source)
 
     staged_dir = state_dir / "facets" / "staged"
     staged_path = staged_dir / staged_file
@@ -494,7 +503,7 @@ def resolve_facet(
     else:
         item_id = f"{facet_name}/{payload.get('source_path', staged_file)}"
 
-    if action == "skip":
+    if skip:
         staged_path.unlink()
         _log_resolution(
             log_path,

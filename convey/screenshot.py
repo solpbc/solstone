@@ -12,7 +12,7 @@ import sys
 
 from playwright.sync_api import sync_playwright
 
-from think.utils import read_service_port, setup_cli
+from think.utils import read_service_port, require_solstone, setup_cli
 
 
 class _HelpOnErrorParser(argparse.ArgumentParser):
@@ -169,6 +169,7 @@ def main() -> None:
     )
 
     args = setup_cli(parser)
+    require_solstone()
 
     # Determine port: CLI arg takes precedence, then port file, then error
     if args.port is not None:

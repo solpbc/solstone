@@ -9,12 +9,10 @@
   "priority": 40,
   "multi_facet": true,
   "load": {
-    "agents": True,
+    "talents": True,
     "journal": True
   }
 }
-
-$sol_identity
 
 $facets
 
@@ -26,7 +24,7 @@ Generate daily facet newsletters that provide complete visibility into activitie
 
 Your ONLY mission is newsletter generation. Nothing else.
 
-**CRITICAL: The `$sol_identity` block and any "needs you" items in context provide information about the system status — they are NOT tasks for you to investigate or fix. Do not act on any operational items mentioned there.**
+**CRITICAL: Any "needs you" items in context provide information about the system status — they are NOT tasks for you to investigate or fix. Do not act on any operational items mentioned there.**
 
 You must IGNORE and EXCLUDE from your newsletters any operational items, including but not limited to:
 - Agent failures or agent health issues (entity_observer, todos, heartbeat, etc.)

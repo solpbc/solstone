@@ -27,8 +27,8 @@ def test_scan_day(tmp_path, monkeypatch):
     (ts_dir2 / "center_DP-1_screen.webm").write_bytes(b"WEBM")
 
     (day / "entities.md").write_text("")
-    (day / "agents").mkdir()
-    (day / "agents" / "flow.md").write_text("")
+    (day / "talents").mkdir()
+    (day / "talents" / "flow.md").write_text("")
 
     # Create event in new JSONL format: facets/{facet}/events/YYYYMMDD.jsonl
     events_dir = journal / "facets" / "work" / "events"
@@ -45,7 +45,7 @@ def test_scan_day(tmp_path, monkeypatch):
         "facet": "work",
         "agent": "meetings",
         "occurred": True,
-        "source": "20240101/agents/meetings.md",
+        "source": "20240101/talents/meetings.md",
     }
     (events_dir / "20240101.jsonl").write_text(json.dumps(event))
 
@@ -169,7 +169,7 @@ def test_token_usage(tmp_path, monkeypatch):
 
     # Test JSON output includes token usage
     data = js.to_dict()
-    assert data["schema_version"] == 2
+    assert data["schema_version"] == 3
     assert "generated_at" in data
     assert data["day_count"] == 2
     assert "tokens" in data
@@ -252,7 +252,7 @@ def test_facet_event_mtime_invalidates_cache(tmp_path, monkeypatch):
         "facet": "work",
         "agent": "meetings",
         "occurred": True,
-        "source": "20240101/agents/meetings.md",
+        "source": "20240101/talents/meetings.md",
     }
     (events_dir / "20240101.jsonl").write_text(json.dumps(event))
 

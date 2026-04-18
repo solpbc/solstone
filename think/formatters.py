@@ -51,7 +51,7 @@ def extract_path_metadata(rel_path: str) -> dict[str, str]:
     by the formatter via meta["indexer"]["agent"].
 
     Args:
-        rel_path: Journal-relative path (e.g., "20240101/agents/flow.md")
+        rel_path: Journal-relative path (e.g., "20240101/talents/flow.md")
 
     Returns:
         Dict with keys: day, facet, agent
@@ -72,11 +72,11 @@ def extract_path_metadata(rel_path: str) -> dict[str, str]:
     if parts[0] and DATE_RE.fullmatch(parts[0]):
         day = parts[0]
 
-    # Extract facet from agents/{facet}/... paths
+    # Extract facet from talents/{facet}/... paths
     try:
-        agents_idx = parts.index("agents")
-        if agents_idx + 2 < len(parts):
-            facet = parts[agents_idx + 1]
+        talents_idx = parts.index("talents")
+        if talents_idx + 2 < len(parts):
+            facet = parts[talents_idx + 1]
     except ValueError:
         pass
 
@@ -122,7 +122,7 @@ def extract_path_metadata(rel_path: str) -> dict[str, str]:
 # enough to use as Path.glob() arguments from the journal root.  The indexed
 # flag controls whether find_formattable_files() collects matching files for
 # the search index.  Adding a new journal content location requires a new
-# entry here — see docs/JOURNAL.md "Search Index" for details.
+# entry here — see talent/journal/references/storage.md "Search Index" for details.
 #
 # Order matters: first match wins, so place specific patterns before general ones.
 FORMATTERS: dict[str, tuple[str, str, bool]] = {
@@ -140,7 +140,7 @@ FORMATTERS: dict[str, tuple[str, str, bool]] = {
         False,  # Indexed via _index_entity_search_chunks (enriched with relationship data)
     ),
     "facets/*/events/*.jsonl": ("think.events", "format_events", True),
-    "facets/*/calendar/*.jsonl": ("think.events", "format_events", True),
+    "facets/*/activities/*.jsonl": ("think.activities", "format_activities", True),
     "facets/*/todos/*.jsonl": ("apps.todos.todo", "format_todos", True),
     "facets/*/logs/*.jsonl": ("think.facets", "format_logs", True),
     # Structured file imports (indexed)
@@ -191,15 +191,15 @@ FORMATTERS: dict[str, tuple[str, str, bool]] = {
     "*/*/*/*_transcript.jsonl": ("observe.hear", "format_audio", False),
     "*/*/*/screen.jsonl": ("observe.screen", "format_screen", False),
     "*/*/*/*_screen.jsonl": ("observe.screen", "format_screen", False),
-    # Markdown — day-level agents output and segment-level (day/stream/segment/agents/)
-    "*/agents/*.md": ("think.markdown", "format_markdown", True),
-    # Layout: day/stream/segment/agents/*.md
-    "*/*/*/agents/*.md": ("think.markdown", "format_markdown", True),
-    "*/*/*/agents/*/*.md": ("think.markdown", "format_markdown", True),
+    # Markdown — day-level agents output and segment-level (day/stream/segment/talents/)
+    "*/talents/*.md": ("think.markdown", "format_markdown", True),
+    # Layout: day/stream/segment/talents/*.md
+    "*/*/*/talents/*.md": ("think.markdown", "format_markdown", True),
+    "*/*/*/talents/*/*.md": ("think.markdown", "format_markdown", True),
     "facets/*/activities/*/*/*.md": ("think.markdown", "format_markdown", True),
     "facets/*/news/*.md": ("think.markdown", "format_markdown", True),
     "imports/*/summary.md": ("think.markdown", "format_markdown", True),
-    "apps/*/agents/*.md": ("think.markdown", "format_markdown", True),
+    "apps/*/talents/*.md": ("think.markdown", "format_markdown", True),
 }
 
 _DAY_ROOTED_PATTERNS = [p for p in FORMATTERS if p.startswith("*/")]
@@ -212,7 +212,7 @@ def get_formatter(file_path: str) -> Callable | None:
     Matches against registered glob patterns (regardless of indexed flag).
 
     Args:
-        file_path: Journal-relative path (e.g., "20240101/agents/flow.md")
+        file_path: Journal-relative path (e.g., "20240101/talents/flow.md")
 
     Returns:
         Formatter function or None if no pattern matches

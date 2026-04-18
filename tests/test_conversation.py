@@ -37,7 +37,7 @@ def test_record_exchange_writes_jsonl(journal_dir):
         user_message="what's our history with adrian?",
         agent_response="You met Adrian at betaworks.",
         talent="unified",
-        agent_id="12345",
+        use_id="12345",
     )
 
     jsonl_path = journal_dir / "conversation" / "exchanges.jsonl"
@@ -54,7 +54,7 @@ def test_record_exchange_writes_jsonl(journal_dir):
     assert ex["user_message"] == "what's our history with adrian?"
     assert ex["agent_response"] == "You met Adrian at betaworks."
     assert ex["talent"] == "unified"
-    assert ex["agent_id"] == "12345"
+    assert ex["use_id"] == "12345"
 
 
 def test_record_exchange_writes_journal_segment(journal_dir):
@@ -67,15 +67,15 @@ def test_record_exchange_writes_journal_segment(journal_dir):
     record_exchange(
         ts=ts,
         facet="work",
-        app="calendar",
-        path="/app/calendar",
+        app="activities",
+        path="/app/activities",
         user_message="move my 3pm to 4pm",
         agent_response="Done — moved 'DVD sync' to 4pm.",
         talent="unified",
-        agent_id="67890",
+        use_id="67890",
     )
 
-    # Check journal segment directory: YYYYMMDD/conversation/HHMMSS_1/agents/
+    # Check journal segment directory: YYYYMMDD/conversation/HHMMSS_1/talents/
     day = datetime.fromtimestamp(ts / 1000).strftime("%Y%m%d")
     time_key = datetime.fromtimestamp(ts / 1000).strftime("%H%M%S")
     md_path = (
@@ -84,7 +84,7 @@ def test_record_exchange_writes_journal_segment(journal_dir):
         / day
         / "conversation"
         / f"{time_key}_1"
-        / "agents"
+        / "talents"
         / "conversation.md"
     )
 
@@ -93,7 +93,7 @@ def test_record_exchange_writes_journal_segment(journal_dir):
     assert "move my 3pm to 4pm" in content
     assert "Done — moved 'DVD sync' to 4pm." in content
     assert "**Facet:** work" in content
-    assert "calendar" in content
+    assert "activities" in content
 
 
 def test_record_exchange_appends_multiple(journal_dir):
@@ -372,7 +372,7 @@ def test_format_exchange_compact():
 
     ex = {
         "ts": 1710000000000,
-        "app": "calendar",
+        "app": "activities",
         "facet": "work",
         "user_message": "what's on my schedule today?",
         "agent_response": "You have 3 meetings.",

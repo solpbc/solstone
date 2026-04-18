@@ -9,6 +9,11 @@ Three retention modes:
 - days: delete raw media after N days, once processing is complete (default: 7)
 - processed: delete raw media as soon as processing completes
 
+Scope: raw media ONLY. Chronicle JSONL, derived outputs, talents/ directories,
+and all other journal content persist indefinitely and are never touched by
+retention. Do not extrapolate the "7 days" default to any other data — it is
+specific to raw media purging.
+
 Safety invariant: never delete raw media from segments that haven't finished
 processing. All completion checks must pass before any deletion.
 """
@@ -74,7 +79,7 @@ def is_segment_complete(segment_path: Path) -> bool:
     3. screen.jsonl exists if any video raw media was captured
     4. agents/speaker_labels.json exists if embeddings (.npz) are present
     """
-    agents_dir = segment_path / "agents"
+    agents_dir = segment_path / "talents"
 
     # Check 1: no active agent files
     if agents_dir.is_dir():
@@ -126,7 +131,7 @@ def _get_completion_files(segment_path: Path) -> list[Path]:
         if path.is_file()
     )
 
-    speaker_labels = segment_path / "agents" / "speaker_labels.json"
+    speaker_labels = segment_path / "talents" / "speaker_labels.json"
     if speaker_labels.exists():
         completion_files.append(speaker_labels)
 

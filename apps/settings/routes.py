@@ -97,7 +97,7 @@ def update_config() -> Any:
     - env: API keys (GOOGLE_API_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY, REVAI_ACCESS_TOKEN, PLAUD_ACCESS_TOKEN)
 
     Note: Model/provider configuration is done via the 'providers' section in
-    journal.json. See docs/JOURNAL.md for the providers config format.
+    journal.json. See talent/journal/references/config.md for the providers config format.
     """
     try:
         request_data = request.get_json()
@@ -1671,8 +1671,8 @@ def _get_logs_from_dir(logs_dir: Path, cursor: str | None) -> dict:
                 line = line.strip()
                 if line:
                     entries.append(json.loads(line))
-    except Exception:
-        pass
+    except (OSError, json.JSONDecodeError) as exc:
+        logger.warning("Failed to read settings log %s: %s", target_file, exc)
 
     # Reverse to show newest first within the day
     entries.reverse()

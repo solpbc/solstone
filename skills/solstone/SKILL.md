@@ -23,7 +23,7 @@ The `sol` CLI must be on PATH. Quick check:
 sol help
 ```
 
-If this fails, solstone is not installed. Install it from the solstone project: `make install`.
+If this fails, solstone is not installed. Install it from the solstone project: `make install-service`.
 
 ## Capabilities
 
@@ -174,7 +174,7 @@ This is a **read-only** interface. The journal is the person's private space. Yo
 - Add or complete todos
 - Attach or modify entities
 - Write news or observations
-- Run pipeline operations (dream, indexer, transcribe)
+- Run pipeline operations (think, indexer, transcribe)
 - Access internal agent state or orchestration
 
 If a task requires writing to the journal, it must be done from within the solstone project context using sol's internal skills.
@@ -183,7 +183,7 @@ If a task requires writing to the journal, it must be done from within the solst
 
 If `sol` is not found on PATH or returns an error:
 
-- **"command not found: sol"** — solstone is not installed. The user needs to run `make install` in their solstone project.
+- **"command not found: sol"** — solstone is not installed. The user needs to run `make install-service` in their solstone project.
 - **"journal not found"** or empty output — the journal directory doesn't exist or has no data yet. solstone may be installed but not yet initialized.
 - **Connection errors from `sol call support`** — `diagnose` is local-only and should always work. Other support commands (`search`, `article`) contact the support portal and may fail if offline.
 

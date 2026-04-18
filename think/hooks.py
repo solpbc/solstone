@@ -12,6 +12,8 @@ import logging
 import os
 from pathlib import Path
 
+from think.facets import get_facets
+
 # Minimum content length for meaningful event extraction
 MIN_EXTRACTION_CHARS = 50
 
@@ -122,14 +124,22 @@ def write_events_jsonl(
     from think.utils import get_journal
 
     journal = get_journal()
+    known_facets = set(get_facets().keys())
 
     # Group events by (facet, event_day)
     grouped: dict[tuple[str, str], list[dict]] = {}
 
     for event in events:
-        facet = event.get("facet", "")
-        if not facet:
-            continue  # Skip events without facet
+        raw_facet = event.get("facet", "")
+        facet = raw_facet.strip().lower()
+        if facet not in known_facets or raw_facet != facet:
+            logging.warning(
+                "Skipping event with unknown facet: facet=%r agent=%s source=%s",
+                raw_facet,
+                agent,
+                source_output,
+            )
+            continue
 
         # Determine the event day
         if occurred:
@@ -180,7 +190,7 @@ def compute_output_source(context: dict) -> str:
         context: Hook context dict with day, segment, name, output_path, meta.
 
     Returns:
-        Relative path like "20240101/agents/meetings.md".
+        Relative path like "20240101/talents/meetings.md".
     """
     from think.talent import get_output_name
     from think.utils import CHRONICLE_DIR, get_journal
@@ -196,14 +206,14 @@ def compute_output_source(context: dict) -> str:
     except ValueError:
         segment = context.get("segment")
         output_name = get_output_name(name)
-        # Check for facet in meta (for multi-facet agents)
+        # Check for facet in meta (for multi-facet talents)
         meta = context.get("meta", {})
         facet = meta.get("facet") if meta else None
         filename = f"{output_name}.md"
         if segment and facet:
-            return os.path.join(day, segment, "agents", facet, filename)
+            return os.path.join(day, segment, "talents", facet, filename)
         if segment:
-            return os.path.join(day, segment, "agents", filename)
+            return os.path.join(day, segment, "talents", filename)
         if facet:
-            return os.path.join(day, "agents", facet, filename)
-        return os.path.join(day, "agents", filename)
+            return os.path.join(day, "talents", facet, filename)
+        return os.path.join(day, "talents", filename)

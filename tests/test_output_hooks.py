@@ -12,12 +12,15 @@ Tests cover:
 import importlib
 import io
 import json
+import logging
 import os
 from pathlib import Path
 
+import talent.occurrence as occurrence
 from tests.conftest import copytree_tracked
-from think.agents import _apply_template_vars
+from think.hooks import write_events_jsonl
 from think.talent import load_post_hook, load_pre_hook
+from think.talents import _apply_template_vars
 from think.utils import day_path
 
 FIXTURES = Path("tests/fixtures")
@@ -157,7 +160,7 @@ def test_prompt_metadata_no_hook_path(tmp_path):
 
 def test_output_hook_invocation(tmp_path, monkeypatch):
     """Test that agents.py invokes hook and uses transformed result."""
-    mod = importlib.import_module("think.agents")
+    mod = importlib.import_module("think.talents")
     copy_day(tmp_path)
 
     # Use tmp_path as talent directory to avoid polluting real talent/
@@ -212,7 +215,7 @@ def post_process(result, context):
 
 def test_output_hook_returns_none(tmp_path, monkeypatch):
     """Test that hook returning None uses original result."""
-    mod = importlib.import_module("think.agents")
+    mod = importlib.import_module("think.talents")
     copy_day(tmp_path)
 
     import think.talent
@@ -258,7 +261,7 @@ def post_process(result, context):
 
 def test_output_hook_error_fallback(tmp_path, monkeypatch):
     """Test that hook errors fall back to original result."""
-    mod = importlib.import_module("think.agents")
+    mod = importlib.import_module("think.talents")
     copy_day(tmp_path)
 
     import think.talent
@@ -301,6 +304,286 @@ def post_process(result, context):
     finish_events = [e for e in events if e["event"] == "finish"]
     assert len(finish_events) == 1
     assert finish_events[0]["result"] == MOCK_RESULT["text"]
+
+
+def test_occurrence_post_process_drops_meeting_with_26_participants(
+    monkeypatch, caplog
+):
+    """Test megameeting occurrences are dropped before writing."""
+    captured = {}
+    participants = [f"Person {i}" for i in range(26)]
+
+    def mock_generate(**kwargs):
+        return json.dumps(
+            [
+                {
+                    "type": "meeting",
+                    "title": "All Hands",
+                    "summary": "Large meeting",
+                    "work": True,
+                    "participants": participants,
+                    "facet": "capulet",
+                    "details": "",
+                }
+            ]
+        )
+
+    def mock_write_events_jsonl(**kwargs):
+        captured.update(kwargs)
+        return []
+
+    monkeypatch.setattr(occurrence, "generate", mock_generate)
+    monkeypatch.setattr(
+        occurrence, "compute_output_source", lambda context: "source.md"
+    )
+    monkeypatch.setattr(occurrence, "write_events_jsonl", mock_write_events_jsonl)
+    caplog.set_level(logging.WARNING)
+
+    result = occurrence.post_process(
+        "x" * 60,
+        {
+            "name": "meetings",
+            "day": "20240101",
+            "meta": {},
+            "output_path": "ignored",
+        },
+    )
+
+    assert result is None
+    assert captured["events"] == []
+    assert "Dropping megameeting occurrence" in caplog.text
+    assert "All Hands" in caplog.text
+    assert "meetings" in caplog.text
+    assert "26" in caplog.text
+
+
+def test_occurrence_post_process_keeps_meeting_with_25_participants(
+    monkeypatch, caplog
+):
+    """Test meetings at the participant threshold are preserved."""
+    captured = {}
+    event = {
+        "type": "meeting",
+        "title": "Planning",
+        "summary": "Planning meeting",
+        "work": True,
+        "participants": [f"Person {i}" for i in range(25)],
+        "facet": "capulet",
+        "details": "",
+    }
+
+    monkeypatch.setattr(occurrence, "generate", lambda **kwargs: json.dumps([event]))
+    monkeypatch.setattr(
+        occurrence, "compute_output_source", lambda context: "source.md"
+    )
+    monkeypatch.setattr(
+        occurrence,
+        "write_events_jsonl",
+        lambda **kwargs: captured.update(kwargs) or [],
+    )
+    caplog.set_level(logging.WARNING)
+
+    result = occurrence.post_process(
+        "x" * 60,
+        {
+            "name": "meetings",
+            "day": "20240101",
+            "meta": {},
+            "output_path": "ignored",
+        },
+    )
+
+    assert result is None
+    assert captured["events"] == [event]
+    assert "Dropping megameeting occurrence" not in caplog.text
+
+
+def test_occurrence_post_process_keeps_non_meeting_with_large_participants_list(
+    monkeypatch, caplog
+):
+    """Test non-meeting events are not filtered by participant count."""
+    captured = {}
+    event = {
+        "type": "message",
+        "title": "Inbox review",
+        "summary": "Reviewed messages",
+        "work": True,
+        "participants": [f"Person {i}" for i in range(100)],
+        "facet": "capulet",
+        "details": "",
+    }
+
+    monkeypatch.setattr(occurrence, "generate", lambda **kwargs: json.dumps([event]))
+    monkeypatch.setattr(
+        occurrence, "compute_output_source", lambda context: "source.md"
+    )
+    monkeypatch.setattr(
+        occurrence,
+        "write_events_jsonl",
+        lambda **kwargs: captured.update(kwargs) or [],
+    )
+    caplog.set_level(logging.WARNING)
+
+    result = occurrence.post_process(
+        "x" * 60,
+        {
+            "name": "timeline",
+            "day": "20240101",
+            "meta": {},
+            "output_path": "ignored",
+        },
+    )
+
+    assert result is None
+    assert captured["events"] == [event]
+    assert "Dropping megameeting occurrence" not in caplog.text
+
+
+def test_write_events_jsonl_skips_trailing_comma_facet(journal_copy, caplog):
+    """Test invalid trailing punctuation facets are rejected."""
+    caplog.set_level(logging.WARNING)
+
+    written = write_events_jsonl(
+        events=[
+            {
+                "type": "message",
+                "title": "Chat",
+                "summary": "Sent a chat",
+                "work": True,
+                "participants": [],
+                "facet": "kognova,",
+                "details": "",
+            }
+        ],
+        agent="timeline",
+        occurred=True,
+        source_output="20240101/agents/timeline.md",
+        capture_day="20240101",
+    )
+
+    assert written == []
+    assert "Skipping event with unknown facet" in caplog.text
+    assert "kognova," in caplog.text
+    assert "timeline" in caplog.text
+    assert "20240101/agents/timeline.md" in caplog.text
+    assert not (journal_copy / "facets" / "kognova," / "events").exists()
+
+
+def test_write_events_jsonl_skips_unknown_person_facet(journal_copy, caplog):
+    """Test unknown person-like facet names are rejected."""
+    caplog.set_level(logging.WARNING)
+
+    written = write_events_jsonl(
+        events=[
+            {
+                "type": "message",
+                "title": "Chat",
+                "summary": "Sent a chat",
+                "work": True,
+                "participants": [],
+                "facet": "Person",
+                "details": "",
+            }
+        ],
+        agent="timeline",
+        occurred=True,
+        source_output="20240101/agents/timeline.md",
+        capture_day="20240101",
+    )
+
+    assert written == []
+    assert "Skipping event with unknown facet" in caplog.text
+    assert "Person" in caplog.text
+    assert not (journal_copy / "facets" / "Person" / "events").exists()
+
+
+def test_write_events_jsonl_skips_mixed_case_known_facet(journal_copy, caplog):
+    """Test mixed-case facet values are rejected when not exact registry matches."""
+    caplog.set_level(logging.WARNING)
+
+    written = write_events_jsonl(
+        events=[
+            {
+                "type": "message",
+                "title": "Chat",
+                "summary": "Sent a chat",
+                "work": True,
+                "participants": [],
+                "facet": "Capulet",
+                "details": "",
+            }
+        ],
+        agent="timeline",
+        occurred=True,
+        source_output="20240101/agents/timeline.md",
+        capture_day="20240101",
+    )
+
+    assert written == []
+    assert "Skipping event with unknown facet" in caplog.text
+    assert "Capulet" in caplog.text
+    assert not (journal_copy / "facets" / "Capulet" / "events").exists()
+
+
+def test_write_events_jsonl_writes_valid_registry_facet(journal_copy):
+    """Test valid registry facets are written normally."""
+    written = write_events_jsonl(
+        events=[
+            {
+                "type": "message",
+                "title": "Chat",
+                "summary": "Sent a chat",
+                "work": True,
+                "participants": [],
+                "facet": "capulet",
+                "details": "",
+            }
+        ],
+        agent="timeline",
+        occurred=True,
+        source_output="20240101/agents/timeline.md",
+        capture_day="20240101",
+    )
+
+    jsonl_path = journal_copy / "facets" / "capulet" / "events" / "20240101.jsonl"
+
+    assert written == [jsonl_path]
+    rows = [
+        json.loads(line)
+        for line in jsonl_path.read_text(encoding="utf-8").splitlines()
+        if line
+    ]
+    assert len(rows) == 1
+    assert rows[0]["facet"] == "capulet"
+    assert rows[0]["agent"] == "timeline"
+    assert rows[0]["source"] == "20240101/agents/timeline.md"
+
+
+def test_write_events_jsonl_skips_empty_facet(journal_copy, caplog):
+    """Test missing facets are skipped and logged."""
+    caplog.set_level(logging.WARNING)
+
+    written = write_events_jsonl(
+        events=[
+            {
+                "type": "message",
+                "title": "Chat",
+                "summary": "Sent a chat",
+                "work": True,
+                "participants": [],
+                "details": "",
+            }
+        ],
+        agent="timeline",
+        occurred=True,
+        source_output="20240101/agents/timeline.md",
+        capture_day="20240101",
+    )
+
+    assert written == []
+    assert "Skipping event with unknown facet" in caplog.text
+    assert "timeline" in caplog.text
+    assert not (journal_copy / "facets" / "" / "events").exists()
 
 
 # =============================================================================
@@ -375,7 +658,7 @@ def test_load_pre_hook_file_not_found(tmp_path):
 
 def test_pre_hook_invocation(tmp_path, monkeypatch):
     """Test that agents.py invokes pre-hook and uses modified inputs."""
-    mod = importlib.import_module("think.agents")
+    mod = importlib.import_module("think.talents")
     copy_day(tmp_path)
 
     import think.talent
@@ -541,7 +824,7 @@ def test_template_vars_popped_from_modifications():
 
 def test_pre_hook_template_vars_integration(tmp_path, monkeypatch):
     """Test pre-hook template_vars reach the model as substituted text."""
-    mod = importlib.import_module("think.agents")
+    mod = importlib.import_module("think.talents")
     copy_day(tmp_path)
 
     import think.talent
@@ -592,7 +875,7 @@ def pre_process(context):
 
 def test_pre_hook_template_vars_with_field_mods(tmp_path, monkeypatch):
     """Test pre-hook can return field mods and template_vars together."""
-    mod = importlib.import_module("think.agents")
+    mod = importlib.import_module("think.talents")
     copy_day(tmp_path)
 
     import think.talent
@@ -646,7 +929,7 @@ def pre_process(context):
 
 def test_both_pre_and_post_hooks(tmp_path, monkeypatch):
     """Test that both pre and post hooks can be configured together."""
-    mod = importlib.import_module("think.agents")
+    mod = importlib.import_module("think.talents")
     copy_day(tmp_path)
 
     import think.talent

@@ -22,7 +22,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from think.utils import get_journal, now_ms, setup_cli
+from think.utils import get_journal, now_ms, require_solstone, setup_cli
 
 logger = logging.getLogger(__name__)
 
@@ -347,7 +347,7 @@ def register_defaults() -> None:
 
     if need_weekly and "weekly-agents" not in raw:
         raw["weekly-agents"] = {
-            "cmd": ["sol", "dream", "--weekly", "-v"],
+            "cmd": ["sol", "think", "--weekly", "-v"],
             "every": "weekly",
             "enabled": True,
         }
@@ -546,6 +546,7 @@ def main() -> None:
     """CLI entry point for sol schedule."""
     parser = argparse.ArgumentParser(description="Show scheduled tasks")
     setup_cli(parser)
+    require_solstone()
 
     journal = Path(get_journal())
     config_path = journal / "config" / "schedules.json"

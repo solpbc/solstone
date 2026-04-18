@@ -46,8 +46,8 @@ ENDPOINTS = [
     # apps/sol/routes.py
     {
         "app": "sol",
-        "name": "agents-day",
-        "path": "/app/sol/api/agents/20260304",
+        "name": "talents-day",
+        "path": "/app/sol/api/talents/20260304",
         "params": {"facet": "work"},
         "status": 200,
     },
@@ -87,32 +87,32 @@ ENDPOINTS = [
         "status": 200,
         "sandbox_only": True,  # live indexer computes differently than Flask test client
     },
-    # apps/calendar/routes.py
+    # apps/activities/routes.py
     {
-        "app": "calendar",
+        "app": "activities",
         "name": "day-events",
-        "path": "/app/calendar/api/day/20260304/events",
+        "path": "/app/activities/api/day/20260304/events",
         "params": {},
         "status": 200,
     },
     {
-        "app": "calendar",
+        "app": "activities",
         "name": "stats-month",
-        "path": "/app/calendar/api/stats/202603",
+        "path": "/app/activities/api/stats/202603",
         "params": {},
         "status": 200,
     },
     {
-        "app": "calendar",
+        "app": "activities",
         "name": "day-activities",
-        "path": "/app/calendar/api/day/20260304/activities",
+        "path": "/app/activities/api/day/20260304/activities",
         "params": {"facet": "work"},
         "status": 200,
     },
     {
-        "app": "calendar",
+        "app": "activities",
         "name": "screen-files",
-        "path": "/app/calendar/api/screen_files/20260304",
+        "path": "/app/activities/api/screen_files/20260304",
         "params": {},
         "status": 200,
     },

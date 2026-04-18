@@ -62,8 +62,8 @@ def test_openai_provider_basic():
         }
     )
 
-    # Run the sol agents command
-    cmd = ["sol", "agents"]
+    # Run the sol think.talents command
+    cmd = ["sol", "providers", "check"]
     result = subprocess.run(
         cmd,
         env=env,
@@ -162,8 +162,8 @@ def test_openai_provider_with_reasoning():
         }
     )
 
-    # Run the sol agents command
-    cmd = ["sol", "agents"]
+    # Run the sol think.talents command
+    cmd = ["sol", "providers", "check"]
     result = subprocess.run(
         cmd,
         env=env,
@@ -236,7 +236,7 @@ def test_openai_provider_with_extra_context():
     env["_SOLSTONE_JOURNAL_OVERRIDE"] = journal_path
     env["OPENAI_API_KEY"] = api_key
 
-    # Include extra_context like get_agent() does in production
+    # Include extra_context like get_talent() does in production
     # This exercises the _convert_turns_to_items() code path
     ndjson_input = json.dumps(
         {
@@ -249,8 +249,8 @@ def test_openai_provider_with_extra_context():
         }
     )
 
-    # Run the sol agents command
-    cmd = ["sol", "agents"]
+    # Run the sol think.talents command
+    cmd = ["sol", "providers", "check"]
     result = subprocess.run(
         cmd,
         env=env,

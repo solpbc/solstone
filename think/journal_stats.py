@@ -12,9 +12,9 @@ from typing import Dict
 
 from observe.sense import scan_day as sense_scan_day
 from observe.utils import VIDEO_EXTENSIONS, load_analysis_frames
-from think.agents import scan_day as generate_scan_day
 from think.stats_schema import DAY_FIELDS, SCHEMA_VERSION
 from think.stats_schema import validate as validate_stats
+from think.talents import scan_day as generate_scan_day
 from think.utils import day_dirs, get_journal, setup_cli
 
 logger = logging.getLogger(__name__)
@@ -54,12 +54,12 @@ class JournalStats:
         for ext in VIDEO_EXTENSIONS:
             files.extend(day_dir.glob(f"*{ext}"))
 
-        agents_dir = day_dir / "agents"
-        if agents_dir.is_dir():
-            files.extend(agents_dir.glob("*.json"))
-            files.extend(agents_dir.glob("*.md"))
-            files.extend(agents_dir.glob("*/*.json"))
-            files.extend(agents_dir.glob("*/*.md"))
+        talents_dir = day_dir / "talents"
+        if talents_dir.is_dir():
+            files.extend(talents_dir.glob("*.json"))
+            files.extend(talents_dir.glob("*.md"))
+            files.extend(talents_dir.glob("*/*.json"))
+            files.extend(talents_dir.glob("*/*.md"))
 
         # Check facet event files for this day
         journal_root = Path(get_journal())
@@ -524,7 +524,7 @@ class JournalStats:
                 "by_day": self.token_usage,
                 "by_model": self.token_totals,
             },
-            "agents": {
+            "talents": {
                 "counts": dict(self.agent_counts),
                 "minutes": {k: round(v, 2) for k, v in self.agent_minutes.items()},
                 "counts_by_day": self.agent_counts_by_day,

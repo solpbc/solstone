@@ -6,15 +6,23 @@
 Auto-discovered by ``think.call`` and mounted as ``sol call todos ...``.
 """
 
+import json
+import subprocess
+from datetime import datetime
 from pathlib import Path
 
 import typer
 
 from apps.todos import todo
 from think.facets import log_call_action
-from think.utils import get_journal
+from think.utils import get_journal, require_solstone
 
 app = typer.Typer(help="Todo checklist management.")
+
+
+@app.callback()
+def _require_up() -> None:
+    require_solstone()
 
 
 def _print_day_facet(day: str, facet: str) -> bool:
@@ -393,20 +401,10 @@ def upcoming_todos(
     typer.echo(result)
 
 
-@app.command("check-nudges")
-def check_nudges(
-    facet: str | None = typer.Option(
-        None,
-        "--facet",
-        "-f",
-        help="Facet name (or set SOL_FACET). Omit to check all facets.",
-    ),
-) -> None:
-    """Check for un-notified past nudges and send notifications."""
-    import subprocess
-    from datetime import datetime
-    from pathlib import Path
-
+def _due_nudges(
+    facet: str | None,
+) -> list[tuple[str, todo.TodoChecklist, todo.TodoItem]]:
+    """Return due, unnotified nudges for today without mutating state."""
     from think.utils import get_journal, resolve_sol_facet
 
     journal = get_journal()
@@ -415,7 +413,7 @@ def check_nudges(
 
     facets_dir = Path(journal) / "facets"
     if not facets_dir.is_dir():
-        return
+        return []
 
     if facet is not None:
         facet = resolve_sol_facet(facet)
@@ -423,12 +421,11 @@ def check_nudges(
     else:
         facet_names = [d.name for d in facets_dir.iterdir() if d.is_dir()]
 
+    due: list[tuple[str, todo.TodoChecklist, todo.TodoItem]] = []
     for facet_name in facet_names:
         checklist = todo.TodoChecklist.load(today, facet_name)
         if not checklist.exists:
             continue
-
-        modified = False
         for item in checklist.items:
             if (
                 item.nudge
@@ -437,32 +434,102 @@ def check_nudges(
                 and not item.completed
                 and not item.cancelled
             ):
-                # Send notification via sol notify
-                try:
-                    subprocess.run(
-                        [
-                            "sol",
-                            "notify",
-                            item.text,
-                            "--title",
-                            "Todo Reminder",
-                            "--icon",
-                            "✅",
-                            "--app",
-                            "todos",
-                            "--facet",
-                            facet_name,
-                            "--action",
-                            f"/app/todos/{today}",
-                        ],
-                        check=False,
-                        capture_output=True,
-                    )
-                except FileNotFoundError:
-                    pass  # sol not available
-                item.notified = True
-                modified = True
-                typer.echo(f"Notified: [{facet_name}] {item.text}")
+                due.append((facet_name, checklist, item))
+    return due
 
-        if modified:
-            checklist.save()
+
+@app.command("list-nudges-due")
+def list_nudges_due(
+    facet: str | None = typer.Option(
+        None,
+        "--facet",
+        "-f",
+        help="Facet name (or set SOL_FACET). Omit to check all facets.",
+    ),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON."),
+) -> None:
+    """List due, unnotified todo nudges."""
+    due = _due_nudges(facet)
+    now = datetime.now()
+    if json_output:
+        payload = [
+            {
+                "day": datetime.now().strftime("%Y%m%d"),
+                "facet": facet_name,
+                "index": item.index,
+                "text": item.text,
+                "nudge": item.nudge,
+                "nudge_display": todo.format_nudge(item.nudge or "", now=now),
+            }
+            for facet_name, _checklist, item in due
+        ]
+        typer.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+        return
+
+    if not due:
+        typer.echo("No nudges due.")
+        return
+
+    grouped: dict[str, list[todo.TodoItem]] = {}
+    for facet_name, _checklist, item in due:
+        grouped.setdefault(facet_name, []).append(item)
+
+    if len(grouped) == 1:
+        items = next(iter(grouped.values()))
+        for item in items:
+            typer.echo(f"{item.index}: {item.display_line()}")
+        return
+
+    for facet_name, items in grouped.items():
+        typer.echo(f"## {facet_name}")
+        for item in items:
+            typer.echo(f"{item.index}: {item.display_line()}")
+        typer.echo()
+
+
+@app.command("dispatch-nudges")
+def dispatch_nudges(
+    facet: str | None = typer.Option(
+        None,
+        "--facet",
+        "-f",
+        help="Facet name (or set SOL_FACET). Omit to check all facets.",
+    ),
+) -> None:
+    """Dispatch due, unnotified todo nudges."""
+    due = _due_nudges(facet)
+    today = datetime.now().strftime("%Y%m%d")
+    modified_checklists: dict[str, todo.TodoChecklist] = {}
+    dispatched = 0
+
+    for facet_name, checklist, item in due:
+        try:
+            subprocess.run(
+                [
+                    "sol",
+                    "notify",
+                    item.text,
+                    "--title",
+                    "Todo Reminder",
+                    "--icon",
+                    "✅",
+                    "--app",
+                    "todos",
+                    "--facet",
+                    facet_name,
+                    "--action",
+                    f"/app/todos/{today}",
+                ],
+                check=False,
+                capture_output=True,
+            )
+        except FileNotFoundError:
+            pass
+        item.notified = True
+        modified_checklists[facet_name] = checklist
+        dispatched += 1
+
+    for checklist in modified_checklists.values():
+        checklist.save()
+
+    typer.echo(f"dispatched {dispatched} nudge(s)")

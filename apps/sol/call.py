@@ -14,7 +14,14 @@ from pathlib import Path
 
 import typer
 
+from think.utils import require_solstone
+
 app = typer.Typer(help="Agent identity — name and status.")
+
+
+@app.callback()
+def _require_up() -> None:
+    require_solstone()
 
 
 def _get_agent_config() -> dict:
