@@ -102,7 +102,7 @@ def activities_stats(month: str) -> Any:
         JSON dict mapping day (YYYYMMDD) to facet counts dict.
         Frontend handles filtering by selected facet or summing for all-facet mode.
     """
-    from think.events import get_month_event_counts
+    from think.event_formatter import get_month_event_counts
 
     # Validate month format (YYYYMM)
     if not re.fullmatch(r"\d{6}", month):

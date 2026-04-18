@@ -6,7 +6,7 @@ import json
 
 def test_get_month_event_counts(tmp_path, monkeypatch):
     """Test get_month_event_counts scans event files correctly."""
-    from think.events import get_month_event_counts
+    from think.event_formatter import get_month_event_counts
 
     journal = tmp_path
 
@@ -46,7 +46,7 @@ def test_get_month_event_counts(tmp_path, monkeypatch):
 
 def test_get_month_event_counts_future_dates(tmp_path, monkeypatch):
     """Test that future dates without day directories are included."""
-    from think.events import get_month_event_counts
+    from think.event_formatter import get_month_event_counts
 
     journal = tmp_path
 
@@ -78,7 +78,7 @@ def test_get_month_event_counts_future_dates(tmp_path, monkeypatch):
 
 def test_get_month_event_counts_skips_entries_without_title(tmp_path, monkeypatch):
     """Test that entries without title are not counted."""
-    from think.events import get_month_event_counts
+    from think.event_formatter import get_month_event_counts
 
     journal = tmp_path
 
@@ -106,7 +106,7 @@ def test_get_month_event_counts_skips_entries_without_title(tmp_path, monkeypatc
 
 def test_get_month_event_counts_empty_month(tmp_path, monkeypatch):
     """Test that empty month returns empty dict."""
-    from think.events import get_month_event_counts
+    from think.event_formatter import get_month_event_counts
 
     journal = tmp_path
 
@@ -123,7 +123,7 @@ def test_get_month_event_counts_empty_month(tmp_path, monkeypatch):
 
 def test_get_month_event_counts_empty_journal(tmp_path, monkeypatch):
     """Test that empty journal directory returns empty dict."""
-    from think.events import get_month_event_counts
+    from think.event_formatter import get_month_event_counts
 
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 

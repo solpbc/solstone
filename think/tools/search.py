@@ -10,7 +10,6 @@ tests, or other internal modules.
 from datetime import datetime, timedelta
 from typing import Any
 
-from think.indexer.journal import get_events as get_events_impl
 from think.indexer.journal import search_counts as search_counts_impl
 from think.indexer.journal import search_journal as search_journal_impl
 
@@ -199,42 +198,4 @@ def search_journal(
         return {
             "error": f"Failed to search journal: {exc}",
             "suggestion": "try adjusting the query or ensure the index exists (run sol indexer --rescan)",
-        }
-
-
-def get_events(
-    day: str,
-    facet: str | None = None,
-) -> dict[str, Any]:
-    """Get structured events for a specific day.
-
-    This tool retrieves full event data including titles, summaries,
-    start/end times, and participants. Use this when you need complete
-    event information rather than text search results.
-
-    Args:
-        day: Day in ``YYYYMMDD`` format
-        facet: Optional facet name to filter by
-
-    Returns:
-        Dictionary containing:
-        - day: The requested day
-        - facet: The facet filter (if any)
-        - events: List of event objects with full structured data
-
-    Examples:
-        - get_events("20240101")
-        - get_events("20240101", facet="work")
-    """
-    try:
-        events = get_events_impl(day, facet)
-        return {
-            "day": day,
-            "facet": facet or "",
-            "events": events,
-        }
-    except Exception as exc:
-        return {
-            "error": f"Failed to get events: {exc}",
-            "suggestion": "verify the day parameter is valid",
         }
