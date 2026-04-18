@@ -453,7 +453,7 @@ class TestWeeklyTime:
             {
                 "weekly_day": "sunday",
                 "weekly_time": "04:00",
-                "w": {"cmd": ["sol", "dream", "--weekly"], "every": "weekly"},
+                "w": {"cmd": ["sol", "think", "--weekly"], "every": "weekly"},
             },
         )
         entries = mod.load_config()
@@ -587,7 +587,7 @@ class TestWeeklyTime:
             {
                 "weekly_day": "sunday",
                 "weekly_time": "03:00",
-                "w": {"cmd": ["sol", "dream", "--weekly"], "every": "weekly"},
+                "w": {"cmd": ["sol", "think", "--weekly"], "every": "weekly"},
             },
         )
 
@@ -601,7 +601,7 @@ class TestWeeklyTime:
             mod.check()
 
         callosum.emit.assert_called_once()
-        assert callosum.emit.call_args[1]["cmd"] == ["sol", "dream", "--weekly"]
+        assert callosum.emit.call_args[1]["cmd"] == ["sol", "think", "--weekly"]
 
     def test_check_no_fire_before_weekly_boundary(self, journal_path):
         """check() does not fire weekly tasks before the weekly boundary."""
@@ -615,7 +615,7 @@ class TestWeeklyTime:
             {
                 "weekly_day": "sunday",
                 "weekly_time": "03:00",
-                "w": {"cmd": ["sol", "dream", "--weekly"], "every": "weekly"},
+                "w": {"cmd": ["sol", "think", "--weekly"], "every": "weekly"},
             },
         )
 
@@ -647,7 +647,7 @@ class TestWeeklyTime:
             {
                 "weekly_day": "sunday",
                 "weekly_time": "03:00",
-                "w": {"cmd": ["sol", "dream", "--weekly"], "every": "weekly"},
+                "w": {"cmd": ["sol", "think", "--weekly"], "every": "weekly"},
             },
         )
 

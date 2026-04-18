@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Tests for segment orchestration in dream."""
+"""Tests for segment orchestration in think."""
 
 import importlib
 import json
@@ -123,7 +123,7 @@ class TestLoadSegmentFacets:
 
 class TestRunSegmentSense:
     def test_sense_runs_first(self, segment_dir, monkeypatch):
-        from think import dream
+        from think import thinking as think
 
         spawned = []
         _write_sense_output(
@@ -132,23 +132,23 @@ class TestRunSegmentSense:
         )
 
         monkeypatch.setattr(
-            dream,
+            think,
             "get_talent_configs",
             lambda schedule=None, **kwargs: _segment_configs("sense", "entities"),
         )
         monkeypatch.setattr(
-            dream,
+            think,
             "cortex_request",
             lambda prompt, name, config=None: spawned.append(name) or f"agent-{name}",
         )
         monkeypatch.setattr(
-            dream,
+            think,
             "wait_for_uses",
             lambda agent_ids, timeout=600: ({aid: "finish" for aid in agent_ids}, []),
         )
-        monkeypatch.setattr(dream, "_callosum", None)
+        monkeypatch.setattr(think, "_callosum", None)
 
-        success, failed, failed_names = dream.run_segment_sense(
+        success, failed, failed_names = think.run_segment_sense(
             "20240115",
             "120000_300",
             refresh=False,
@@ -162,7 +162,7 @@ class TestRunSegmentSense:
         assert failed_names == []
 
     def test_idle_segment_returns_early(self, segment_dir, monkeypatch):
-        from think import dream
+        from think import thinking as think
 
         spawned = []
         updates = []
@@ -184,25 +184,25 @@ class TestRunSegmentSense:
         )
 
         monkeypatch.setattr(
-            dream,
+            think,
             "get_talent_configs",
             lambda schedule=None, **kwargs: _segment_configs(
                 "sense", "entities", "screen"
             ),
         )
         monkeypatch.setattr(
-            dream,
+            think,
             "cortex_request",
             lambda prompt, name, config=None: spawned.append(name) or f"agent-{name}",
         )
         monkeypatch.setattr(
-            dream,
+            think,
             "wait_for_uses",
             lambda agent_ids, timeout=600: ({aid: "finish" for aid in agent_ids}, []),
         )
-        monkeypatch.setattr(dream, "_callosum", None)
+        monkeypatch.setattr(think, "_callosum", None)
 
-        success, failed, _ = dream.run_segment_sense(
+        success, failed, _ = think.run_segment_sense(
             "20240115",
             "120000_300",
             refresh=False,
@@ -233,7 +233,7 @@ class TestRunSegmentSense:
         assert state_data == []
 
     def test_conditional_screen_dispatch(self, segment_dir, monkeypatch):
-        from think import dream
+        from think import thinking as think
 
         spawned = []
         _write_sense_output(
@@ -242,25 +242,25 @@ class TestRunSegmentSense:
         )
 
         monkeypatch.setattr(
-            dream,
+            think,
             "get_talent_configs",
             lambda schedule=None, **kwargs: _segment_configs(
                 "sense", "entities", "screen"
             ),
         )
         monkeypatch.setattr(
-            dream,
+            think,
             "cortex_request",
             lambda prompt, name, config=None: spawned.append(name) or f"agent-{name}",
         )
         monkeypatch.setattr(
-            dream,
+            think,
             "wait_for_uses",
             lambda agent_ids, timeout=600: ({aid: "finish" for aid in agent_ids}, []),
         )
-        monkeypatch.setattr(dream, "_callosum", None)
+        monkeypatch.setattr(think, "_callosum", None)
 
-        dream.run_segment_sense(
+        think.run_segment_sense(
             "20240115",
             "120000_300",
             refresh=False,
@@ -284,7 +284,7 @@ class TestRunSegmentSense:
         has_embeddings,
         expected,
     ):
-        from think import dream
+        from think import thinking as think
 
         spawned = []
         if has_embeddings:
@@ -300,7 +300,7 @@ class TestRunSegmentSense:
         )
 
         monkeypatch.setattr(
-            dream,
+            think,
             "get_talent_configs",
             lambda schedule=None, **kwargs: _segment_configs(
                 "sense",
@@ -309,18 +309,18 @@ class TestRunSegmentSense:
             ),
         )
         monkeypatch.setattr(
-            dream,
+            think,
             "cortex_request",
             lambda prompt, name, config=None: spawned.append(name) or f"agent-{name}",
         )
         monkeypatch.setattr(
-            dream,
+            think,
             "wait_for_uses",
             lambda agent_ids, timeout=600: ({aid: "finish" for aid in agent_ids}, []),
         )
-        monkeypatch.setattr(dream, "_callosum", None)
+        monkeypatch.setattr(think, "_callosum", None)
 
-        dream.run_segment_sense(
+        think.run_segment_sense(
             "20240115",
             "120000_300",
             refresh=False,
@@ -331,7 +331,7 @@ class TestRunSegmentSense:
         assert spawned == expected
 
     def test_refresh_bypasses_idle(self, segment_dir, monkeypatch):
-        from think import dream
+        from think import thinking as think
 
         spawned = []
         _write_sense_output(
@@ -340,23 +340,23 @@ class TestRunSegmentSense:
         )
 
         monkeypatch.setattr(
-            dream,
+            think,
             "get_talent_configs",
             lambda schedule=None, **kwargs: _segment_configs("sense", "entities"),
         )
         monkeypatch.setattr(
-            dream,
+            think,
             "cortex_request",
             lambda prompt, name, config=None: spawned.append(name) or f"agent-{name}",
         )
         monkeypatch.setattr(
-            dream,
+            think,
             "wait_for_uses",
             lambda agent_ids, timeout=600: ({aid: "finish" for aid in agent_ids}, []),
         )
-        monkeypatch.setattr(dream, "_callosum", None)
+        monkeypatch.setattr(think, "_callosum", None)
 
-        success, failed, failed_names = dream.run_segment_sense(
+        success, failed, failed_names = think.run_segment_sense(
             "20240115",
             "120000_300",
             refresh=True,
@@ -370,7 +370,7 @@ class TestRunSegmentSense:
         assert failed_names == []
 
     def test_entities_always_runs(self, segment_dir, monkeypatch):
-        from think import dream
+        from think import thinking as think
 
         spawned = []
         _write_sense_output(
@@ -379,25 +379,25 @@ class TestRunSegmentSense:
         )
 
         monkeypatch.setattr(
-            dream,
+            think,
             "get_talent_configs",
             lambda schedule=None, **kwargs: _segment_configs(
                 "sense", "entities", "screen"
             ),
         )
         monkeypatch.setattr(
-            dream,
+            think,
             "cortex_request",
             lambda prompt, name, config=None: spawned.append(name) or f"agent-{name}",
         )
         monkeypatch.setattr(
-            dream,
+            think,
             "wait_for_uses",
             lambda agent_ids, timeout=600: ({aid: "finish" for aid in agent_ids}, []),
         )
-        monkeypatch.setattr(dream, "_callosum", None)
+        monkeypatch.setattr(think, "_callosum", None)
 
-        dream.run_segment_sense(
+        think.run_segment_sense(
             "20240115",
             "120000_300",
             refresh=False,
@@ -409,7 +409,7 @@ class TestRunSegmentSense:
         assert "screen" not in spawned
 
     def test_pulse_dispatch(self, segment_dir, monkeypatch):
-        from think import dream
+        from think import thinking as think
 
         spawned = []
         _write_sense_output(
@@ -418,25 +418,25 @@ class TestRunSegmentSense:
         )
 
         monkeypatch.setattr(
-            dream,
+            think,
             "get_talent_configs",
             lambda schedule=None, **kwargs: _segment_configs(
                 "sense", "entities", "pulse"
             ),
         )
         monkeypatch.setattr(
-            dream,
+            think,
             "cortex_request",
             lambda prompt, name, config=None: spawned.append(name) or f"agent-{name}",
         )
         monkeypatch.setattr(
-            dream,
+            think,
             "wait_for_uses",
             lambda agent_ids, timeout=600: ({aid: "finish" for aid in agent_ids}, []),
         )
-        monkeypatch.setattr(dream, "_callosum", None)
+        monkeypatch.setattr(think, "_callosum", None)
 
-        dream.run_segment_sense(
+        think.run_segment_sense(
             "20240115",
             "120000_300",
             refresh=False,
@@ -447,7 +447,7 @@ class TestRunSegmentSense:
         assert spawned == ["sense", "entities", "pulse"]
 
     def test_sense_failure_stops_orchestrator(self, segment_dir, monkeypatch):
-        from think import dream
+        from think import thinking as think
 
         spawned = []
         _write_sense_output(
@@ -456,12 +456,12 @@ class TestRunSegmentSense:
         )
 
         monkeypatch.setattr(
-            dream,
+            think,
             "get_talent_configs",
             lambda schedule=None, **kwargs: _segment_configs("sense", "entities"),
         )
         monkeypatch.setattr(
-            dream,
+            think,
             "cortex_request",
             lambda prompt, name, config=None: spawned.append(name) or f"agent-{name}",
         )
@@ -469,10 +469,10 @@ class TestRunSegmentSense:
         def mock_wait_for_agents(agent_ids, timeout=600):
             return ({agent_ids[0]: "error"}, [])
 
-        monkeypatch.setattr(dream, "wait_for_uses", mock_wait_for_agents)
-        monkeypatch.setattr(dream, "_callosum", None)
+        monkeypatch.setattr(think, "wait_for_uses", mock_wait_for_agents)
+        monkeypatch.setattr(think, "_callosum", None)
 
-        success, failed, failed_names = dream.run_segment_sense(
+        success, failed, failed_names = think.run_segment_sense(
             "20240115",
             "120000_300",
             refresh=False,
@@ -486,7 +486,7 @@ class TestRunSegmentSense:
         assert failed_names == ["sense (error)"]
 
     def test_activity_state_machine_updated(self, segment_dir, monkeypatch):
-        from think import dream
+        from think import thinking as think
 
         updates = []
         activity_calls = []
@@ -518,28 +518,28 @@ class TestRunSegmentSense:
         )
 
         monkeypatch.setattr(
-            dream,
+            think,
             "get_talent_configs",
             lambda schedule=None, **kwargs: _segment_configs("sense", "entities"),
         )
         monkeypatch.setattr(
-            dream,
+            think,
             "cortex_request",
             lambda prompt, name, config=None: f"agent-{name}",
         )
         monkeypatch.setattr(
-            dream,
+            think,
             "wait_for_uses",
             lambda agent_ids, timeout=600: ({aid: "finish" for aid in agent_ids}, []),
         )
         monkeypatch.setattr(
-            dream,
+            think,
             "run_activity_prompts",
             lambda **kwargs: activity_calls.append(kwargs) or True,
         )
-        monkeypatch.setattr(dream, "_callosum", None)
+        monkeypatch.setattr(think, "_callosum", None)
 
-        dream.run_segment_sense(
+        think.run_segment_sense(
             "20240115",
             "120000_300",
             refresh=False,
@@ -575,7 +575,7 @@ class TestRunSegmentSense:
         ]
 
     def test_generator_triggers_incremental_indexing(self, segment_dir, monkeypatch):
-        from think import dream
+        from think import thinking as think
 
         indexer_calls = []
         _write_sense_output(
@@ -587,7 +587,7 @@ class TestRunSegmentSense:
         )
 
         monkeypatch.setattr(
-            dream,
+            think,
             "get_talent_configs",
             lambda schedule=None, **kwargs: {
                 **_segment_configs("sense"),
@@ -600,23 +600,23 @@ class TestRunSegmentSense:
             },
         )
         monkeypatch.setattr(
-            dream,
+            think,
             "cortex_request",
             lambda prompt, name, config=None: f"agent-{name}",
         )
         monkeypatch.setattr(
-            dream,
+            think,
             "wait_for_uses",
             lambda agent_ids, timeout=600: ({aid: "finish" for aid in agent_ids}, []),
         )
         monkeypatch.setattr(
-            dream,
+            think,
             "run_queued_command",
             lambda cmd, day, timeout=60: indexer_calls.append(cmd) or True,
         )
-        monkeypatch.setattr(dream, "_callosum", None)
+        monkeypatch.setattr(think, "_callosum", None)
 
-        dream.run_segment_sense(
+        think.run_segment_sense(
             "20240115",
             "120000_300",
             refresh=False,
@@ -629,7 +629,7 @@ class TestRunSegmentSense:
         assert "--rescan-file" in indexer_calls[0]
 
     def test_send_failure_counted(self, segment_dir, monkeypatch):
-        from think import dream
+        from think import thinking as think
 
         calls = []
         _write_sense_output(
@@ -644,20 +644,20 @@ class TestRunSegmentSense:
             return None
 
         monkeypatch.setattr(
-            dream,
+            think,
             "get_talent_configs",
             lambda schedule=None, **kwargs: _segment_configs("sense", "entities"),
         )
-        monkeypatch.setattr(dream, "cortex_request", mock_cortex_request)
-        monkeypatch.setattr(dream, "_SEND_RETRY_DELAYS", (0.0, 0.0))
+        monkeypatch.setattr(think, "cortex_request", mock_cortex_request)
+        monkeypatch.setattr(think, "_SEND_RETRY_DELAYS", (0.0, 0.0))
         monkeypatch.setattr(
-            dream,
+            think,
             "wait_for_uses",
             lambda agent_ids, timeout=600: ({aid: "finish" for aid in agent_ids}, []),
         )
-        monkeypatch.setattr(dream, "_callosum", None)
+        monkeypatch.setattr(think, "_callosum", None)
 
-        success, failed, failed_names = dream.run_segment_sense(
+        success, failed, failed_names = think.run_segment_sense(
             "20240115",
             "120000_300",
             refresh=False,
@@ -676,7 +676,7 @@ class TestCortexRequestRetry:
     """Tests for _cortex_request_with_retry."""
 
     def test_succeeds_on_first_try(self, monkeypatch):
-        from think import dream
+        from think import thinking as think
 
         calls = []
 
@@ -684,15 +684,15 @@ class TestCortexRequestRetry:
             calls.append(kwargs)
             return "agent-1"
 
-        monkeypatch.setattr(dream, "cortex_request", mock_cortex_request)
+        monkeypatch.setattr(think, "cortex_request", mock_cortex_request)
 
-        result = dream._cortex_request_with_retry(prompt="hi", name="test")
+        result = think._cortex_request_with_retry(prompt="hi", name="test")
 
         assert result == "agent-1"
         assert len(calls) == 1
 
     def test_succeeds_on_retry(self, monkeypatch):
-        from think import dream
+        from think import thinking as think
 
         calls = []
 
@@ -700,16 +700,16 @@ class TestCortexRequestRetry:
             calls.append(kwargs)
             return None if len(calls) <= 1 else "agent-2"
 
-        monkeypatch.setattr(dream, "cortex_request", mock_cortex_request)
-        monkeypatch.setattr(dream, "_SEND_RETRY_DELAYS", (0.0, 0.0))
+        monkeypatch.setattr(think, "cortex_request", mock_cortex_request)
+        monkeypatch.setattr(think, "_SEND_RETRY_DELAYS", (0.0, 0.0))
 
-        result = dream._cortex_request_with_retry(prompt="hi", name="test")
+        result = think._cortex_request_with_retry(prompt="hi", name="test")
 
         assert result == "agent-2"
         assert len(calls) == 2
 
     def test_returns_none_after_all_retries(self, monkeypatch):
-        from think import dream
+        from think import thinking as think
 
         calls = []
 
@@ -717,10 +717,10 @@ class TestCortexRequestRetry:
             calls.append(kwargs)
             return None
 
-        monkeypatch.setattr(dream, "cortex_request", mock_cortex_request)
-        monkeypatch.setattr(dream, "_SEND_RETRY_DELAYS", (0.0, 0.0))
+        monkeypatch.setattr(think, "cortex_request", mock_cortex_request)
+        monkeypatch.setattr(think, "_SEND_RETRY_DELAYS", (0.0, 0.0))
 
-        result = dream._cortex_request_with_retry(prompt="hi", name="test")
+        result = think._cortex_request_with_retry(prompt="hi", name="test")
 
         assert result is None
         assert len(calls) == 3
@@ -730,7 +730,7 @@ class TestStreamAutoResolution:
     """Tests for stream resolution in segment mode."""
 
     def test_auto_resolves_stream_from_filesystem(self, segment_dir, monkeypatch):
-        mod = importlib.import_module("think.dream")
+        mod = importlib.import_module("think.thinking")
         calls: list[dict] = []
 
         class MockCallosumConnection:
@@ -772,7 +772,7 @@ class TestStreamAutoResolution:
         monkeypatch.setattr(mod, "CallosumConnection", MockCallosumConnection)
         monkeypatch.setattr(
             "sys.argv",
-            ["sol dream", "--day", "20240115", "--segment", "120000_300"],
+            ["sol think", "--day", "20240115", "--segment", "120000_300"],
         )
 
         mod.main()
@@ -781,7 +781,7 @@ class TestStreamAutoResolution:
         assert calls[0]["stream"] == "mystream"
 
     def test_segment_not_found_exits(self, segment_dir, monkeypatch):
-        mod = importlib.import_module("think.dream")
+        mod = importlib.import_module("think.thinking")
 
         class MockCallosumConnection:
             def __init__(self, *args, **kwargs):
@@ -805,7 +805,7 @@ class TestStreamAutoResolution:
         monkeypatch.setattr(mod, "CallosumConnection", MockCallosumConnection)
         monkeypatch.setattr(
             "sys.argv",
-            ["sol dream", "--day", "20240115", "--segment", "999999_300"],
+            ["sol think", "--day", "20240115", "--segment", "999999_300"],
         )
 
         with pytest.raises(SystemExit) as excinfo:
@@ -814,7 +814,7 @@ class TestStreamAutoResolution:
         assert excinfo.value.code != 0
 
     def test_explicit_stream_skips_filesystem_lookup(self, segment_dir, monkeypatch):
-        mod = importlib.import_module("think.dream")
+        mod = importlib.import_module("think.thinking")
         iter_calls = 0
         calls: list[dict] = []
 
@@ -851,7 +851,7 @@ class TestStreamAutoResolution:
         monkeypatch.setattr(
             "sys.argv",
             [
-                "sol dream",
+                "sol think",
                 "--day",
                 "20240115",
                 "--segment",
@@ -868,23 +868,23 @@ class TestStreamAutoResolution:
         assert calls[0]["stream"] == "explicit_stream"
 
 
-class TestDreamJSONLWriter:
-    """Tests for DreamJSONLWriter."""
+class TestThinkJSONLWriter:
+    """Tests for ThinkingJSONLWriter."""
 
     def test_noop_when_no_path(self):
-        from think.dream import DreamJSONLWriter
+        from think.thinking import ThinkingJSONLWriter
 
-        writer = DreamJSONLWriter(None)
+        writer = ThinkingJSONLWriter(None)
         writer.log("test.event", foo="bar")
         writer.close()
 
         assert writer.skip_count == 0
 
     def test_writes_jsonl_to_file(self, tmp_path):
-        from think.dream import DreamJSONLWriter
+        from think.thinking import ThinkingJSONLWriter
 
         path = tmp_path / "test.jsonl"
-        writer = DreamJSONLWriter(str(path))
+        writer = ThinkingJSONLWriter(str(path))
         writer.log("run.start", mode="segment", day="20240115")
         writer.log(
             "talent.skip", name="screen", reason="not_recommended", detail="test"
@@ -905,26 +905,26 @@ class TestDreamJSONLWriter:
         assert writer.skip_count == 1
 
     def test_creates_parent_dirs(self, tmp_path):
-        from think.dream import DreamJSONLWriter
+        from think.thinking import ThinkingJSONLWriter
 
         path = tmp_path / "nested" / "dir" / "test.jsonl"
-        writer = DreamJSONLWriter(str(path))
+        writer = ThinkingJSONLWriter(str(path))
         writer.log("test.event")
         writer.close()
 
         assert path.exists()
 
 
-class TestDreamJSONLEvents:
+class TestThinkJSONLEvents:
     """Tests for JSONL event emission during segment orchestration."""
 
     def test_density_idle_skip_event(self, segment_dir, monkeypatch):
         """JSONL emits talent.skip with reason=density_idle for idle segments."""
-        from think import dream
-        from think.dream import DreamJSONLWriter
+        from think import thinking as think
+        from think.thinking import ThinkingJSONLWriter
 
         jsonl_path = segment_dir.parent.parent / "health" / "test_idle.jsonl"
-        writer = DreamJSONLWriter(str(jsonl_path))
+        writer = ThinkingJSONLWriter(str(jsonl_path))
 
         _write_sense_output(
             segment_dir,
@@ -932,24 +932,24 @@ class TestDreamJSONLEvents:
         )
 
         monkeypatch.setattr(
-            dream,
+            think,
             "get_talent_configs",
             lambda schedule=None, **kwargs: _segment_configs("sense"),
         )
         monkeypatch.setattr(
-            dream,
+            think,
             "cortex_request",
             lambda prompt, name, config=None: "agent-sense",
         )
         monkeypatch.setattr(
-            dream,
+            think,
             "wait_for_uses",
             lambda agent_ids, timeout=600: ({aid: "finish" for aid in agent_ids}, []),
         )
-        monkeypatch.setattr(dream, "_callosum", None)
-        monkeypatch.setattr(dream, "_jsonl", writer)
+        monkeypatch.setattr(think, "_callosum", None)
+        monkeypatch.setattr(think, "_jsonl", writer)
 
-        dream.run_segment_sense(
+        think.run_segment_sense(
             "20240115",
             "120000_300",
             refresh=False,
@@ -967,11 +967,11 @@ class TestDreamJSONLEvents:
         assert any(skip["reason"] == "density_idle" for skip in skips)
 
     def test_sense_complete_and_skip_events(self, segment_dir, monkeypatch):
-        from think import dream
-        from think.dream import DreamJSONLWriter
+        from think import thinking as think
+        from think.thinking import ThinkingJSONLWriter
 
-        jsonl_path = segment_dir.parent.parent / "health" / "test_dream.jsonl"
-        writer = DreamJSONLWriter(str(jsonl_path))
+        jsonl_path = segment_dir.parent.parent / "health" / "test_think.jsonl"
+        writer = ThinkingJSONLWriter(str(jsonl_path))
 
         _write_sense_output(
             segment_dir,
@@ -987,24 +987,24 @@ class TestDreamJSONLEvents:
         )
 
         monkeypatch.setattr(
-            dream,
+            think,
             "get_talent_configs",
             lambda schedule=None, **kwargs: _segment_configs("sense", "entities"),
         )
         monkeypatch.setattr(
-            dream,
+            think,
             "cortex_request",
             lambda prompt, name, config=None: f"agent-{name}",
         )
         monkeypatch.setattr(
-            dream,
+            think,
             "wait_for_uses",
             lambda agent_ids, timeout=600: ({aid: "finish" for aid in agent_ids}, []),
         )
-        monkeypatch.setattr(dream, "_callosum", None)
-        monkeypatch.setattr(dream, "_jsonl", writer)
+        monkeypatch.setattr(think, "_callosum", None)
+        monkeypatch.setattr(think, "_jsonl", writer)
 
-        dream.run_segment_sense(
+        think.run_segment_sense(
             "20240115",
             "120000_300",
             refresh=False,

@@ -31,7 +31,7 @@ def set_today(monkeypatch):
 
 def daily_complete_message(**overrides):
     message = {
-        "tract": "dream",
+        "tract": "think",
         "event": "daily_complete",
         "day": "20260318",
         "success": 3,
@@ -76,7 +76,7 @@ def daily_complete_message(**overrides):
         ),
     ],
 )
-def test_handle_daily_tasks_submits_dreams_on_day_change(
+def test_handle_daily_tasks_submits_think_runs_on_day_change(
     mock_callosum,
     monkeypatch,
     submit_mock,
@@ -93,7 +93,7 @@ def test_handle_daily_tasks_submits_dreams_on_day_change(
     mod.handle_daily_tasks()
 
     assert submit_mock.call_args_list == [
-        call(["sol", "dream", "-v", "--day", day], day=day) for day in expected_days
+        call(["sol", "think", "-v", "--day", day], day=day) for day in expected_days
     ]
     assert mod._daily_state["last_day"] == today
 
@@ -143,13 +143,13 @@ def test_excludes_today(mock_callosum, monkeypatch, set_today):
     assert updated_days.call_args.kwargs["exclude"] == {"20250102"}
 
 
-def test_handle_dream_daily_complete_submits_heartbeat(
+def test_handle_think_daily_complete_submits_heartbeat(
     mock_callosum, tmp_path, monkeypatch, submit_mock
 ):
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     (tmp_path / "health").mkdir(exist_ok=True)
 
-    mod._handle_dream_daily_complete(daily_complete_message())
+    mod._handle_think_daily_complete(daily_complete_message())
 
     submit_mock.assert_called_once_with(["sol", "heartbeat"])
 
@@ -160,17 +160,17 @@ def test_handle_dream_daily_complete_submits_heartbeat(
         pytest.param(
             {"tract": "supervisor", "event": "daily_complete"}, id="wrong-tract"
         ),
-        pytest.param({"tract": "dream", "event": "started"}, id="wrong-event"),
+        pytest.param({"tract": "think", "event": "started"}, id="wrong-event"),
         pytest.param({}, id="empty-message"),
     ],
 )
-def test_ignores_non_dream_daily_complete(
+def test_ignores_non_think_daily_complete(
     mock_callosum, tmp_path, monkeypatch, submit_mock, message
 ):
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     (tmp_path / "health").mkdir(exist_ok=True)
 
-    mod._handle_dream_daily_complete(message)
+    mod._handle_think_daily_complete(message)
 
     submit_mock.assert_not_called()
 
@@ -181,7 +181,7 @@ def test_skips_when_pid_alive(mock_callosum, tmp_path, monkeypatch, submit_mock)
     health.mkdir(exist_ok=True)
     (health / "heartbeat.pid").write_text(str(os.getpid()))
 
-    mod._handle_dream_daily_complete(daily_complete_message())
+    mod._handle_think_daily_complete(daily_complete_message())
 
     submit_mock.assert_not_called()
 
@@ -192,6 +192,6 @@ def test_proceeds_on_dead_pid(mock_callosum, tmp_path, monkeypatch, submit_mock)
     health.mkdir(exist_ok=True)
     (health / "heartbeat.pid").write_text("99999999")
 
-    mod._handle_dream_daily_complete(daily_complete_message())
+    mod._handle_think_daily_complete(daily_complete_message())
 
     submit_mock.assert_called_once_with(["sol", "heartbeat"])

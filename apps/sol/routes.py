@@ -228,7 +228,7 @@ def _get_use_day(use_file: Path) -> str:
 
     Prefers the ``day`` field from the request event (the day being processed)
     over the use_id timestamp (when the agent actually ran).  This ensures
-    overnight dream uses appear under the day they processed.
+    overnight think uses appear under the day they processed.
     """
     use_id = use_file.stem.replace("_active", "")
     try:

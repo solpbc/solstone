@@ -848,7 +848,7 @@ def test_move_rewrites_events_jsonl(tmp_path, monkeypatch, capsys):
             "day": "20240101",
             "segment": "090000_300",
         },
-        {"tract": "dream", "event": "done", "day": "20240101", "segment": "090000_300"},
+        {"tract": "think", "event": "done", "day": "20240101", "segment": "090000_300"},
     ]
     (seg_dir / "events.jsonl").write_text(
         "\n".join(json.dumps(e) for e in events) + "\n"

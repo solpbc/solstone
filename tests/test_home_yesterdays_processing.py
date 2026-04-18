@@ -22,7 +22,7 @@ from apps.home.routes import (
     _format_gap_bullets,
     _format_heatmap_summary,
     _knowledge_graph_freshness,
-    _newsletter_attempts_from_dream_logs,
+    _newsletter_attempts_from_think_logs,
     _summarize_yesterday_processing,
 )
 from think.indexer.journal import get_journal_index
@@ -78,13 +78,11 @@ def _seed_journal(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
             encoding="utf-8",
         )
 
-    health_path = (
-        journal / "chronicle" / "20260415" / "health" / "100_daily_dream.jsonl"
-    )
+    health_path = journal / "chronicle" / "20260415" / "health" / "100_daily.jsonl"
     health_path.parent.mkdir(parents=True, exist_ok=True)
     health_path.write_text("", encoding="utf-8")
     sparse_health_path = (
-        journal / "chronicle" / "20260414" / "health" / "100_daily_dream.jsonl"
+        journal / "chronicle" / "20260414" / "health" / "100_daily.jsonl"
     )
     sparse_health_path.parent.mkdir(parents=True, exist_ok=True)
     sparse_health_path.write_text(
@@ -194,7 +192,7 @@ def _seed_entities(journal: Path, day: str = "20260415") -> None:
         conn.close()
 
 
-def _append_dream_log(
+def _append_think_log(
     journal: Path,
     day: str,
     name: str,
@@ -202,7 +200,7 @@ def _append_dream_log(
     facet: str | None = None,
     event: str = "talent.fail",
 ) -> None:
-    path = journal / "chronicle" / day / "health" / "101_daily_dream.jsonl"
+    path = journal / "chronicle" / day / "health" / "101_daily.jsonl"
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as handle:
         record = {
@@ -319,7 +317,7 @@ def test_yesterdays_card_degraded_shows_warning_and_partial_count(
     journal = _seed_journal(tmp_path, monkeypatch)
     _write_briefing(journal, "2026-04-16T06:45:00")
     _seed_entities(journal)
-    _append_dream_log(journal, "20260415", "facet_newsletter", facet="personal")
+    _append_think_log(journal, "20260415", "facet_newsletter", facet="personal")
 
     monkeypatch.setattr("apps.home.routes._today", lambda: "20260416")
 
@@ -469,11 +467,11 @@ def test_newsletter_attempts_option_a_matches_facet_newsletter_failures_only(
     tmp_path, monkeypatch
 ):
     journal = _seed_journal(tmp_path, monkeypatch)
-    _append_dream_log(journal, "20260415", "facet_newsletter", facet="work")
-    _append_dream_log(journal, "20260415", "knowledge_graph", facet="work")
-    _append_dream_log(journal, "20260415", "facet_newsletter")
+    _append_think_log(journal, "20260415", "facet_newsletter", facet="work")
+    _append_think_log(journal, "20260415", "knowledge_graph", facet="work")
+    _append_think_log(journal, "20260415", "facet_newsletter")
 
-    assert _newsletter_attempts_from_dream_logs("20260415") == (2, 3)
+    assert _newsletter_attempts_from_think_logs("20260415") == (2, 3)
 
 
 def test_build_pulse_context_includes_yesterday_processing(monkeypatch):

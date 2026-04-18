@@ -566,14 +566,14 @@ def _briefing_freshness(today: str) -> dict[str, Any]:
     }
 
 
-def _newsletter_attempts_from_dream_logs(yesterday: str) -> tuple[int, int]:
+def _newsletter_attempts_from_think_logs(yesterday: str) -> tuple[int, int]:
     journal = Path(get_journal())
     successful = len(list(journal.glob(f"facets/*/news/{yesterday}.md")))
 
     failed = 0
     health_dir = journal / "chronicle" / yesterday / "health"
     if health_dir.is_dir():
-        for path in sorted(health_dir.glob("*_daily_dream.jsonl")):
+        for path in sorted(health_dir.glob("*_daily.jsonl")):
             try:
                 with path.open(encoding="utf-8") as handle:
                     for raw_line in handle:
@@ -592,7 +592,7 @@ def _newsletter_attempts_from_dream_logs(yesterday: str) -> tuple[int, int]:
                             failed += 1
             except OSError:
                 logger.warning(
-                    "home: failed to read newsletter dream log %s",
+                    "home: failed to read newsletter think log %s",
                     path,
                     exc_info=True,
                 )
@@ -812,7 +812,7 @@ def _summarize_yesterday_processing(
     knowledge_graph = _knowledge_graph_freshness(yesterday)
     briefing = _briefing_freshness(_today())
     successful_newsletters, attempted_newsletters = (
-        _newsletter_attempts_from_dream_logs(yesterday)
+        _newsletter_attempts_from_think_logs(yesterday)
     )
 
     is_sparse = (

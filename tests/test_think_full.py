@@ -1,14 +1,14 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Tests for the dream module unified priority system."""
+"""Tests for the think module unified priority system."""
 
 import importlib
 
 
 def test_main_runs_with_mocked_prompts(journal_copy, monkeypatch):
     """Test that main() runs pre/post phases and prompts by priority."""
-    mod = importlib.import_module("think.dream")
+    mod = importlib.import_module("think.thinking")
 
     commands_run = []
     prompts_run = False
@@ -31,7 +31,7 @@ def test_main_runs_with_mocked_prompts(journal_copy, monkeypatch):
     monkeypatch.setattr(mod, "run_daily_prompts", mock_run_daily_prompts)
     monkeypatch.setattr(
         "sys.argv",
-        ["sol dream", "--day", "20240101", "--refresh", "--verbose"],
+        ["sol think", "--day", "20240101", "--refresh", "--verbose"],
     )
 
     mod.main()
@@ -50,7 +50,7 @@ def test_main_runs_with_mocked_prompts(journal_copy, monkeypatch):
 
 def test_segment_mode_skips_pre_post_phases(journal_copy, monkeypatch):
     """Test that segment mode skips sense and journal-stats."""
-    mod = importlib.import_module("think.dream")
+    mod = importlib.import_module("think.thinking")
 
     # Create segment directory
     segment_dir = journal_copy / "chronicle" / "20240101" / "default" / "120000_300"
@@ -74,7 +74,7 @@ def test_segment_mode_skips_pre_post_phases(journal_copy, monkeypatch):
     monkeypatch.setattr(mod, "run_segment_sense", mock_run_segment_sense)
     monkeypatch.setattr(
         "sys.argv",
-        ["sol dream", "--day", "20240101", "--segment", "120000_300"],
+        ["sol think", "--day", "20240101", "--segment", "120000_300"],
     )
 
     mod.main()

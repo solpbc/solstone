@@ -14,7 +14,7 @@ PRODUCTION_PREFIXES = ("think/", "apps/", "talent/", "convey/", "observe/")
 
 RULES = [
     (
-        "legacy dream emitter",
+        "legacy think emitter",
         re.compile(r'_jsonl_log\(\s*["\']agent\.(fail|dispatch|complete|skip)["\']'),
         None,
     ),

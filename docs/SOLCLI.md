@@ -27,7 +27,7 @@ The CLI has two tiers with distinct purposes:
 
 ```python
 COMMANDS: dict[str, str] = {
-    "dream": "think.dream",
+    "think": "think.thinking",
     "import": "think.importers.cli",
     ...
 }
@@ -293,7 +293,7 @@ solstone/
 
 | Group | Commands |
 |-------|----------|
-| Think (processing) | `import`, `dream`, `planner`, `indexer`, `supervisor`, `schedule`, `top`, `health`, `callosum`, `notify`, `heartbeat` |
+| Think (processing) | `import`, `think`, `planner`, `indexer`, `supervisor`, `schedule`, `top`, `health`, `callosum`, `notify`, `heartbeat` |
 | Service | `service` (+ aliases `up`, `down`, `start`) |
 | Observe (capture) | `transcribe`, `describe`, `sense`, `transfer`, `observer` |
 | Talent (AI agents) | `agents`, `cortex`, `talent`, `call`, `engage` |

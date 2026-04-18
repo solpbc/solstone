@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Unified prompt execution pipeline for solstone.
+"""Unified think execution pipeline for solstone.
 
 Segment-scheduled agents use the Sense-first linear orchestrator:
 Sense runs first, then remaining agents dispatch based on Sense output.
@@ -59,7 +59,7 @@ _status_lock = threading.Lock()
 _stop_status = threading.Event()
 
 
-class DreamJSONLWriter:
+class ThinkingJSONLWriter:
     """Write JSONL events to a file. File-only, fail-silent."""
 
     def __init__(self, path: str | None = None) -> None:
@@ -70,7 +70,7 @@ class DreamJSONLWriter:
                 Path(path).parent.mkdir(parents=True, exist_ok=True)
                 self.file = open(path, "a", encoding="utf-8")
             except OSError as exc:
-                logging.warning("Failed to open dream JSONL sidecar %s: %s", path, exc)
+                logging.warning("Failed to open think JSONL sidecar %s: %s", path, exc)
 
     def log(self, event: str, **fields) -> None:
         if not self.file:
@@ -83,7 +83,7 @@ class DreamJSONLWriter:
             self.file.flush()
         except OSError as exc:
             logging.warning(
-                "Failed to write dream JSONL sidecar %s: %s", self.file.name, exc
+                "Failed to write think JSONL sidecar %s: %s", self.file.name, exc
             )
 
     def close(self) -> None:
@@ -92,11 +92,11 @@ class DreamJSONLWriter:
                 self.file.close()
             except OSError as exc:
                 logging.warning(
-                    "Failed to close dream JSONL sidecar %s: %s", self.file.name, exc
+                    "Failed to close think JSONL sidecar %s: %s", self.file.name, exc
                 )
 
 
-_jsonl: DreamJSONLWriter | None = None
+_jsonl: ThinkingJSONLWriter | None = None
 
 
 def _jsonl_log(event: str, **fields) -> None:
@@ -123,7 +123,7 @@ def _clear_status() -> None:
 
 
 def _emit_periodic_status() -> None:
-    """Emit dream.status every 5 seconds while active (runs in daemon thread)."""
+    """Emit think.status every 5 seconds while active (runs in daemon thread)."""
     while not _stop_status.is_set():
         _stop_status.wait(5)
         if _stop_status.is_set():
@@ -164,7 +164,7 @@ def run_queued_command(cmd: list[str], day: str, timeout: int = 600) -> bool:
 
     cmd_name = cmd[1] if cmd[0] == "sol" else cmd[0]
     cmd_name_log = cmd_name.replace("-", "_")
-    ref = f"dream-{uuid.uuid4().hex[:8]}"
+    ref = f"think-{uuid.uuid4().hex[:8]}"
 
     logging.info("==> %s (queued, ref=%s)", " ".join(cmd), ref)
 
@@ -213,9 +213,9 @@ def run_queued_command(cmd: list[str], day: str, timeout: int = 600) -> bool:
 
 
 def emit(event: str, **fields) -> None:
-    """Emit a dream tract event if callosum is connected."""
+    """Emit a think tract event if callosum is connected."""
     if _callosum:
-        _callosum.emit("dream", event, **fields)
+        _callosum.emit("think", event, **fields)
 
 
 def check_callosum_available() -> bool:
@@ -2187,7 +2187,7 @@ def run_activity_prompts(
         f"Activity agents completed: {total_success} succeeded, {total_failed} failed"
     )
 
-    msg = f"dream --activity {activity_id}"
+    msg = f"think --activity {activity_id}"
     if total_failed:
         msg += f" failed={total_failed}"
     day_log(day, msg)
@@ -2387,7 +2387,7 @@ def run_flush_prompts(
         f"{total_success} succeeded, {total_failed} failed"
     )
 
-    msg = f"dream --flush {segment}"
+    msg = f"think --flush {segment}"
     if total_failed:
         msg += f" failed={total_failed}"
     day_log(day, msg)
@@ -2407,7 +2407,7 @@ def dry_run(
     stream: str | None = None,
     weekly: bool = False,
 ) -> None:
-    """Print what dream would execute without spawning any agents."""
+    """Print what think would execute without spawning any agents."""
     day_formatted = iso_date(day)
 
     def _print_segment_orchestrator(
@@ -2874,8 +2874,8 @@ def main() -> None:
     _run_ref = str(now_ms())
     _run_start_time = time.time()
     _run_result = {"success": 0, "failed": 0}
-    jsonl_path = str(day_path(day) / "health" / f"{_run_ref}_{_run_mode}_dream.jsonl")
-    _jsonl = DreamJSONLWriter(jsonl_path)
+    jsonl_path = str(day_path(day) / "health" / f"{_run_ref}_{_run_mode}.jsonl")
+    _jsonl = ThinkingJSONLWriter(jsonl_path)
 
     # Start callosum connection
     _callosum = CallosumConnection(defaults={"rev": get_rev()})
@@ -2981,9 +2981,9 @@ def main() -> None:
             )
 
             if args.refresh:
-                day_log(day, f"dream --segments --refresh failed={batch_failed}")
+                day_log(day, f"think --segments --refresh failed={batch_failed}")
             else:
-                day_log(day, f"dream --segments failed={batch_failed}")
+                day_log(day, f"think --segments failed={batch_failed}")
 
             _run_result["success"] = batch_success
             _run_result["failed"] = batch_failed
@@ -3009,10 +3009,10 @@ def main() -> None:
 
             duration_ms = int((time.time() - start_time) * 1000)
             logging.info(
-                f"Weekly dream completed in {duration_ms}ms: "
+                f"Weekly think completed in {duration_ms}ms: "
                 f"{success_count} succeeded, {fail_count} failed"
             )
-            day_log(day, f"dream --weekly failed={fail_count}")
+            day_log(day, f"think --weekly failed={fail_count}")
             _run_result["success"] = success_count
             _run_result["failed"] = fail_count
 
@@ -3179,7 +3179,7 @@ def main() -> None:
             except Exception:
                 pass
 
-            # Notify supervisor that daily dream processing is complete
+            # Notify supervisor that daily think processing is complete
             emit(
                 "daily_complete",
                 day=day,
@@ -3189,7 +3189,7 @@ def main() -> None:
             )
 
         # Build log message
-        msg = "dream"
+        msg = "think"
         if args.refresh:
             msg += " --refresh"
         if fail_count:
@@ -3198,7 +3198,7 @@ def main() -> None:
 
         duration_ms = int((time.time() - start_time) * 1000)
         logging.info(
-            f"Dream completed in {duration_ms}ms: {success_count} succeeded, {fail_count} failed"
+            f"Think completed in {duration_ms}ms: {success_count} succeeded, {fail_count} failed"
         )
 
         if fail_count > 0:

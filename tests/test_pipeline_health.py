@@ -66,7 +66,7 @@ def test_healthy_day_with_all_modes(pipeline_journal):
     day = "20990101"
     base = pipeline_journal / "chronicle" / day / "health"
     _write_jsonl(
-        base / "1_segment_dream.jsonl",
+        base / "1_segment.jsonl",
         [
             {"event": "run.start", "mode": "segment"},
             {"event": "talent.dispatch", "mode": "segment"},
@@ -75,7 +75,7 @@ def test_healthy_day_with_all_modes(pipeline_journal):
         ],
     )
     _write_jsonl(
-        base / "2_daily_dream.jsonl",
+        base / "2_daily.jsonl",
         [
             {"event": "run.start", "mode": "daily"},
             {"event": "talent.dispatch", "mode": "daily"},
@@ -84,7 +84,7 @@ def test_healthy_day_with_all_modes(pipeline_journal):
         ],
     )
     _write_jsonl(
-        base / "3_activity_dream.jsonl",
+        base / "3_activity.jsonl",
         [
             {"event": "run.start", "mode": "activity"},
             {"event": "talent.dispatch", "mode": "activity"},
@@ -107,7 +107,7 @@ def test_healthy_day_with_all_modes(pipeline_journal):
 def test_agent_failure_promotes_warning(pipeline_journal):
     day = "20990102"
     _write_jsonl(
-        pipeline_journal / "chronicle" / day / "health" / "1_segment_dream.jsonl",
+        pipeline_journal / "chronicle" / day / "health" / "1_segment.jsonl",
         [
             {
                 "event": "talent.fail",
@@ -150,7 +150,7 @@ def test_failed_list_truncates_at_20(pipeline_journal):
         for idx in range(25)
     ]
     _write_jsonl(
-        pipeline_journal / "chronicle" / day / "health" / "1_daily_dream.jsonl", events
+        pipeline_journal / "chronicle" / day / "health" / "1_daily.jsonl", events
     )
 
     summary = summarize_pipeline_day(day)
@@ -164,7 +164,7 @@ def test_failed_list_truncates_at_20(pipeline_journal):
 def test_activity_detected_without_run_is_stale(pipeline_journal):
     day = "20990104"
     _write_jsonl(
-        pipeline_journal / "chronicle" / day / "health" / "1_segment_dream.jsonl",
+        pipeline_journal / "chronicle" / day / "health" / "1_segment.jsonl",
         [{"event": "activity.detected", "mode": "segment"}],
     )
 
@@ -177,7 +177,7 @@ def test_activity_detected_without_run_is_stale(pipeline_journal):
 def test_past_day_without_daily_run_is_stale(pipeline_journal, monkeypatch):
     day = "20200101"
     _write_jsonl(
-        pipeline_journal / "chronicle" / day / "health" / "1_segment_dream.jsonl",
+        pipeline_journal / "chronicle" / day / "health" / "1_segment.jsonl",
         [{"event": "run.start", "mode": "segment"}],
     )
     monkeypatch.setattr(
@@ -247,7 +247,7 @@ def test_invalid_day_returns_healthy_empty(pipeline_journal):
 
 def test_malformed_json_lines_skipped(pipeline_journal):
     day = "20990106"
-    path = pipeline_journal / "chronicle" / day / "health" / "1_segment_dream.jsonl"
+    path = pipeline_journal / "chronicle" / day / "health" / "1_segment.jsonl"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         json.dumps({"event": "run.start", "mode": "segment"})

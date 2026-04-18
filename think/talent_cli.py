@@ -531,7 +531,7 @@ def show_prompt_context(
     config: dict[str, Any] = {"name": name}
 
     if schedule == "activity":
-        # Build activity config matching dream.py:run_activity_prompts()
+        # Build activity config matching thinking.py:run_activity_prompts()
         from think.activities import get_activity_output_path, load_activity_records
 
         records = load_activity_records(facet, day)

@@ -784,16 +784,16 @@
   color: #a78bfa;
 }
 
-/* Dream Card */
-.dream-card {
+/* Think Card */
+.think-card {
   border-left: 4px solid #f59e0b;
 }
 
-.dream-card.hidden {
+.think-card.hidden {
   display: none;
 }
 
-.dream-info {
+.think-info {
   display: flex;
   flex-wrap: wrap;
   gap: 1.5em;
@@ -812,17 +812,17 @@
   color: #6b7280;
 }
 
-.dream-progress {
+.think-progress {
   margin-bottom: 0.75em;
 }
 
-.dream-progress-label {
+.think-progress-label {
   font-size: 0.85em;
   color: #374151;
   margin-bottom: 0.3em;
 }
 
-.dream-progress-bar {
+.think-progress-bar {
   width: 100%;
   height: 6px;
   background: #e5e7eb;
@@ -830,13 +830,13 @@
   overflow: hidden;
 }
 
-.dream-progress-fill {
+.think-progress-fill {
   height: 100%;
   background: #f59e0b;
   transition: width 0.3s ease;
 }
 
-.dream-agents {
+.think-agents {
   font-size: 0.85em;
   color: #6b7280;
   margin-top: 0.5em;
@@ -1211,14 +1211,14 @@
     </div>
   </div>
 
-  <!-- Dream Card (hidden when idle) -->
-  <div class="dashboard-card dream-card hidden" id="dreamCard">
+  <!-- Think Card (hidden when idle) -->
+  <div class="dashboard-card think-card hidden" id="thinkCard">
     <div class="card-header">
       <div class="card-title">Background analysis</div>
     </div>
-    <div class="dream-info" id="dreamInfo"></div>
-    <div id="dreamProgress"></div>
-    <div class="dream-agents" id="dreamAgents"></div>
+    <div class="think-info" id="thinkInfo"></div>
+    <div id="thinkProgress"></div>
+    <div class="think-agents" id="thinkAgents"></div>
   </div>
 
   <!-- Sync Card (hidden when idle) -->
@@ -1290,8 +1290,8 @@
     agents: new Map(),
     agentCount: 0,              // Quick count from cortex.status
     imports: new Map(),
-    dream: null,                // Dream status snapshot (null when idle)
-    dreamActive: false,         // Whether dream is currently running
+    think: null,                // Think status snapshot (null when idle)
+    thinkActive: false,         // Whether think is currently running
     sync: null,                 // Sync status snapshot (null when idle)
     serviceLogs: new Map(),     // service name -> array of {ts, stream, line}
     logFollow: true,            // Auto-scroll log viewport
@@ -1342,10 +1342,10 @@
     errorSummaryContent: document.getElementById('errorSummaryContent'),
     allQuietCard: document.getElementById('allQuietCard'),
     idleCardStats: document.getElementById('idleCardStats'),
-    dreamCard: document.getElementById('dreamCard'),
-    dreamInfo: document.getElementById('dreamInfo'),
-    dreamProgress: document.getElementById('dreamProgress'),
-    dreamAgents: document.getElementById('dreamAgents'),
+    thinkCard: document.getElementById('thinkCard'),
+    thinkInfo: document.getElementById('thinkInfo'),
+    thinkProgress: document.getElementById('thinkProgress'),
+    thinkAgents: document.getElementById('thinkAgents'),
     syncCard: document.getElementById('syncCard'),
     syncInfo: document.getElementById('syncInfo'),
     queuesSection: document.getElementById('queuesSection'),
@@ -1374,7 +1374,7 @@
     cortex: 'AI Engine',
     sense: 'Media Processor',
     observe: 'Screen & Audio',
-    dream: 'Background Analysis',
+    think: 'Background Analysis',
     sync: 'Cloud Sync',
     importer: 'File Importer',
     schedule: 'Task Scheduler',
@@ -1502,7 +1502,7 @@
   function updateAllQuiet() {
     const allHidden = elements.cortexSection.classList.contains('hidden') &&
       elements.importerSection.classList.contains('hidden') &&
-      elements.dreamCard.classList.contains('hidden') &&
+      elements.thinkCard.classList.contains('hidden') &&
       elements.syncCard.classList.contains('hidden');
     if (allHidden) updateAllQuietContent();
     elements.allQuietCard.classList.toggle('hidden', !allHidden);
@@ -2417,35 +2417,35 @@
     updateStatusSummary();
   }
 
-  function handleDreamEvent(msg) {
+  function handleThinkEvent(msg) {
     if (msg.event === 'started') {
-      state.dreamActive = true;
-      state.dream = { mode: msg.mode, day: msg.day };
-      updateDreamCard();
+      state.thinkActive = true;
+      state.think = { mode: msg.mode, day: msg.day };
+      updateThinkCard();
     } else if (msg.event === 'status') {
-      state.dreamActive = true;
-      state.dream = { ...state.dream, ...msg };
-      updateDreamCard();
+      state.thinkActive = true;
+      state.think = { ...state.think, ...msg };
+      updateThinkCard();
     } else if (msg.event === 'completed') {
-      state.dreamActive = false;
-      state.dream = null;
-      updateDreamCard();
+      state.thinkActive = false;
+      state.think = null;
+      updateThinkCard();
     }
   }
 
-  function updateDreamCard() {
-    if (!state.dreamActive || !state.dream) {
-      elements.dreamCard.classList.add('hidden');
+  function updateThinkCard() {
+    if (!state.thinkActive || !state.think) {
+      elements.thinkCard.classList.add('hidden');
       updateAllQuiet();
       updateStatusSummary();
       return;
     }
 
-    elements.dreamCard.classList.remove('hidden');
-    const d = state.dream;
+    elements.thinkCard.classList.remove('hidden');
+    const d = state.think;
 
     // Info fields
-    renderInfoItems(elements.dreamInfo, [
+    renderInfoItems(elements.thinkInfo, [
       { label: 'mode', value: d.mode || null },
       { label: 'day', value: d.day || null },
       { label: 'facet', value: d.facet || null },
@@ -2460,7 +2460,7 @@
     if (d.segments_total > 0) {
       progressItems.push({ label: 'Segments: ' + (d.segments_completed || 0) + ' / ' + d.segments_total, pct: Math.round((d.segments_completed || 0) / d.segments_total * 100) });
     }
-    const progContainer = elements.dreamProgress;
+    const progContainer = elements.thinkProgress;
     while (progContainer.children.length > progressItems.length) {
       progContainer.removeChild(progContainer.lastChild);
     }
@@ -2468,14 +2468,14 @@
       let wrap = progContainer.children[i];
       if (!wrap) {
         wrap = document.createElement('div');
-        wrap.className = 'dream-progress';
+        wrap.className = 'think-progress';
         const label = document.createElement('div');
-        label.className = 'dream-progress-label';
+        label.className = 'think-progress-label';
         wrap.appendChild(label);
         const bar = document.createElement('div');
-        bar.className = 'dream-progress-bar';
+        bar.className = 'think-progress-bar';
         const fill = document.createElement('div');
-        fill.className = 'dream-progress-fill';
+        fill.className = 'think-progress-fill';
         bar.appendChild(fill);
         wrap.appendChild(bar);
         progContainer.appendChild(wrap);
@@ -2486,9 +2486,9 @@
 
     // Current agents
     if (d.current_agents && d.current_agents.length > 0) {
-      elements.dreamAgents.textContent = 'Running: ' + d.current_agents.join(', ');
+      elements.thinkAgents.textContent = 'Running: ' + d.current_agents.join(', ');
     } else {
-      elements.dreamAgents.textContent = '';
+      elements.thinkAgents.textContent = '';
     }
 
     updateAllQuiet();
@@ -2857,7 +2857,7 @@
     else if (tract === 'cortex') handleCortexEvent(msg);
     else if (tract === 'observe') handleObserveEvent(msg);
     else if (tract === 'importer') handleImporterEvent(msg);
-    else if (tract === 'dream') handleDreamEvent(msg);
+    else if (tract === 'think') handleThinkEvent(msg);
     else if (tract === 'sync') handleSyncEvent(msg);
     else if (tract === 'logs') handleLogsEvent(msg);
   }
@@ -2947,7 +2947,7 @@
 
     // Hide dashboard cards and suppress live log rendering
     const dashboard = document.querySelector('.health-dashboard');
-    dashboard.querySelectorAll('.vitals-bar, .observe-card, .observers-card, .activity-grids, .dream-card, .sync-card').forEach(el => el.style.display = 'none');
+    dashboard.querySelectorAll('.vitals-bar, .observe-card, .observers-card, .activity-grids, .think-card, .sync-card').forEach(el => el.style.display = 'none');
     state.deepLinkMode = true;
     elements.logsSummaryBadge.style.display = 'none';
 

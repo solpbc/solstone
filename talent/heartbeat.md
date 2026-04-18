@@ -37,11 +37,11 @@ If you find issues: update agency.md's `## system` section via
 Run `sol talent logs --daily -c 10` to review recent talent runs and
 `sol talent logs --errors -c 10` for recent errors. Look for:
 - Broken segments (transcription failures, missing talent output)
-- Processing gaps (capture with no dream processing)
+- Processing gaps (capture with no think processing)
 - Orphaned entities (zero observations after 7+ days)
 
 If you find reprocessable issues (broken segments): reprocess them directly
-with `sol dream --segment`. Log the action in agency.md.
+with `sol think --segment`. Log the action in agency.md.
 
 If you find issues that are NOT reprocessable segments: add to agency.md only.
 

@@ -174,7 +174,7 @@ This is a **read-only** interface. The journal is the person's private space. Yo
 - Add or complete todos
 - Attach or modify entities
 - Write news or observations
-- Run pipeline operations (dream, indexer, transcribe)
+- Run pipeline operations (think, indexer, transcribe)
 - Access internal agent state or orchestration
 
 If a task requires writing to the journal, it must be done from within the solstone project context using sol's internal skills.

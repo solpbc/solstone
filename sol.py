@@ -10,7 +10,7 @@ Usage:
 
 Examples:
     sol import data.json    Import data into journal
-    sol dream 20250101      Run daily processing for a day
+    sol think 20250101      Run daily processing for a day
     sol think.talents -h    Show help for specific module
 """
 
@@ -39,7 +39,7 @@ import setproctitle
 COMMANDS: dict[str, str] = {
     # think package - daily processing and analysis
     "import": "think.importers.cli",
-    "dream": "think.dream",
+    "think": "think.thinking",
     "indexer": "think.indexer",
     "supervisor": "think.supervisor",
     "schedule": "think.scheduler",
@@ -93,7 +93,7 @@ ALIASES: dict[str, tuple[str, list[str]]] = {
 GROUPS: dict[str, list[str]] = {
     "Think (daily processing)": [
         "import",
-        "dream",
+        "think",
         "indexer",
         "supervisor",
         "schedule",

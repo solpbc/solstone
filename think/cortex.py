@@ -281,7 +281,7 @@ class CortexService:
             if config.get("day"):
                 env["SOL_DAY"] = str(config["day"])
 
-            # Apply explicit env overrides (from dream.py etc.) — these win
+            # Apply explicit env overrides (from thinking.py etc.) — these win
             env_overrides = config.get("env")
             if env_overrides and isinstance(env_overrides, dict):
                 env.update({k: str(v) for k, v in env_overrides.items()})
@@ -729,7 +729,7 @@ class CortexService:
 
         The output path is set by the caller — either derived by
         prepare_config in think.talents (day/segment talents) or computed
-        by dream.py via get_activity_output_path (activity talents).
+        by thinking.py via get_activity_output_path (activity talents).
         Cortex does not derive paths itself.
         """
         output_path_str = config.get("output_path")

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Tests for dream --activity mode and activity template variables."""
+"""Tests for think --activity mode and activity template variables."""
 
 import json
 import tempfile
@@ -15,7 +15,7 @@ import pytest
 
 
 class TestRunActivityPrompts:
-    """Tests for dream.run_activity_prompts."""
+    """Tests for think.run_activity_prompts."""
 
     def _write_record(self, tmpdir, facet, day, record):
         """Helper to write an activity record to the journal."""
@@ -25,7 +25,7 @@ class TestRunActivityPrompts:
             f.write(json.dumps(record) + "\n")
 
     def test_not_found_returns_false(self, monkeypatch):
-        from think.dream import run_activity_prompts
+        from think.thinking import run_activity_prompts
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
@@ -38,7 +38,7 @@ class TestRunActivityPrompts:
             assert result is False
 
     def test_no_matching_agents_returns_true(self, monkeypatch):
-        from think.dream import run_activity_prompts
+        from think.thinking import run_activity_prompts
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
@@ -58,7 +58,9 @@ class TestRunActivityPrompts:
             )
 
             # No activity-scheduled agents
-            monkeypatch.setattr("think.dream.get_talent_configs", lambda schedule: {})
+            monkeypatch.setattr(
+                "think.thinking.get_talent_configs", lambda schedule: {}
+            )
 
             result = run_activity_prompts(
                 day="20260209",
@@ -68,7 +70,7 @@ class TestRunActivityPrompts:
             assert result is True
 
     def test_filters_by_activity_type(self, monkeypatch):
-        from think.dream import run_activity_prompts
+        from think.thinking import run_activity_prompts
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
@@ -103,7 +105,7 @@ class TestRunActivityPrompts:
             }
 
             monkeypatch.setattr(
-                "think.dream.get_talent_configs", lambda schedule: configs
+                "think.thinking.get_talent_configs", lambda schedule: configs
             )
 
             spawned_requests = []
@@ -112,9 +114,9 @@ class TestRunActivityPrompts:
                 spawned_requests.append((name, config))
                 return f"agent-{name}"
 
-            monkeypatch.setattr("think.dream.cortex_request", mock_cortex_request)
+            monkeypatch.setattr("think.thinking.cortex_request", mock_cortex_request)
             monkeypatch.setattr(
-                "think.dream.wait_for_uses",
+                "think.thinking.wait_for_uses",
                 lambda ids, timeout: ({aid: "finish" for aid in ids}, []),
             )
 
@@ -130,7 +132,7 @@ class TestRunActivityPrompts:
             assert spawned_requests[0][0] == "code_review"
 
     def test_wildcard_matches_all_types(self, monkeypatch):
-        from think.dream import run_activity_prompts
+        from think.thinking import run_activity_prompts
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
@@ -159,7 +161,7 @@ class TestRunActivityPrompts:
             }
 
             monkeypatch.setattr(
-                "think.dream.get_talent_configs", lambda schedule: configs
+                "think.thinking.get_talent_configs", lambda schedule: configs
             )
 
             spawned = []
@@ -168,9 +170,9 @@ class TestRunActivityPrompts:
                 spawned.append(name)
                 return f"agent-{name}"
 
-            monkeypatch.setattr("think.dream.cortex_request", mock_cortex_request)
+            monkeypatch.setattr("think.thinking.cortex_request", mock_cortex_request)
             monkeypatch.setattr(
-                "think.dream.wait_for_uses",
+                "think.thinking.wait_for_uses",
                 lambda ids, timeout: ({aid: "finish" for aid in ids}, []),
             )
 
@@ -184,7 +186,7 @@ class TestRunActivityPrompts:
             assert spawned == ["activity_summary"]
 
     def test_passes_span_and_activity_in_request(self, monkeypatch):
-        from think.dream import run_activity_prompts
+        from think.thinking import run_activity_prompts
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
@@ -209,7 +211,7 @@ class TestRunActivityPrompts:
             }
 
             monkeypatch.setattr(
-                "think.dream.get_talent_configs", lambda schedule: configs
+                "think.thinking.get_talent_configs", lambda schedule: configs
             )
 
             captured_config = {}
@@ -218,9 +220,9 @@ class TestRunActivityPrompts:
                 captured_config.update(config)
                 return "agent-1"
 
-            monkeypatch.setattr("think.dream.cortex_request", mock_cortex_request)
+            monkeypatch.setattr("think.thinking.cortex_request", mock_cortex_request)
             monkeypatch.setattr(
-                "think.dream.wait_for_uses",
+                "think.thinking.wait_for_uses",
                 lambda ids, timeout: ({aid: "finish" for aid in ids}, []),
             )
 
@@ -247,7 +249,7 @@ class TestRunActivityPrompts:
             assert output_path.endswith("code_review.md")
 
     def test_failed_agent_returns_false(self, monkeypatch):
-        from think.dream import run_activity_prompts
+        from think.thinking import run_activity_prompts
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
@@ -275,14 +277,14 @@ class TestRunActivityPrompts:
             }
 
             monkeypatch.setattr(
-                "think.dream.get_talent_configs", lambda schedule: configs
+                "think.thinking.get_talent_configs", lambda schedule: configs
             )
             monkeypatch.setattr(
-                "think.dream.cortex_request",
+                "think.thinking.cortex_request",
                 lambda prompt, name, config: "agent-1",
             )
             monkeypatch.setattr(
-                "think.dream.wait_for_uses",
+                "think.thinking.wait_for_uses",
                 lambda ids, timeout: ({aid: "error" for aid in ids}, []),
             )
 
@@ -295,7 +297,7 @@ class TestRunActivityPrompts:
             assert result is False
 
     def test_empty_segments_returns_false(self, monkeypatch):
-        from think.dream import run_activity_prompts
+        from think.thinking import run_activity_prompts
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
@@ -322,8 +324,8 @@ class TestRunActivityPrompts:
 
             assert result is False
 
-    def test_emits_dream_events(self, monkeypatch):
-        from think.dream import run_activity_prompts
+    def test_emits_think_events(self, monkeypatch):
+        from think.thinking import run_activity_prompts
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
@@ -351,20 +353,20 @@ class TestRunActivityPrompts:
             }
 
             monkeypatch.setattr(
-                "think.dream.get_talent_configs", lambda schedule: configs
+                "think.thinking.get_talent_configs", lambda schedule: configs
             )
             monkeypatch.setattr(
-                "think.dream.cortex_request",
+                "think.thinking.cortex_request",
                 lambda prompt, name, config: "agent-1",
             )
             monkeypatch.setattr(
-                "think.dream.wait_for_uses",
+                "think.thinking.wait_for_uses",
                 lambda ids, timeout: ({aid: "finish" for aid in ids}, []),
             )
 
             emitted = []
             monkeypatch.setattr(
-                "think.dream.emit", lambda event, **kw: emitted.append((event, kw))
+                "think.thinking.emit", lambda event, **kw: emitted.append((event, kw))
             )
 
             run_activity_prompts(
@@ -440,7 +442,7 @@ class TestActivityPersistence:
             assert len(ended) == 1
             facet = ended[0]["_facet"]
 
-            # Persist completed record (what dream.py now does)
+            # Persist completed record (what thinking.py now does)
             completed = sm.get_completed_activities()
             assert len(completed) == 1
             rec = completed[0]
@@ -499,7 +501,7 @@ class TestActivityPersistenceRoundTrip:
             ended = [c for c in changes if c.get("state") == "ended"]
             assert len(ended) == 1
 
-            # Simulate dream.py facet_by_id logic
+            # Simulate thinking.py facet_by_id logic
             facet_by_id = {
                 c["id"]: c.get("_facet", "__")
                 for c in changes
@@ -698,7 +700,7 @@ class TestActivityPersistenceRoundTrip:
             # Both end via idle
             changes = sm.update(self._sense(density="idle"), "091000_300", "20260304")
 
-            # Use the fixed ended_pairs approach (matches dream.py)
+            # Use the fixed ended_pairs approach (matches thinking.py)
             ended_pairs = [
                 (c["id"], c.get("_facet", "__"))
                 for c in changes
@@ -1042,16 +1044,16 @@ class TestTalentActivityValidation:
 
 
 class TestActivityCLIArgs:
-    """Tests for dream CLI argument validation."""
+    """Tests for think CLI argument validation."""
 
     def test_activity_requires_facet(self, monkeypatch):
-        from think.dream import parse_args
+        from think.thinking import parse_args
 
         parser = parse_args()
 
         monkeypatch.setattr(
             "sys.argv",
-            ["sol dream", "--activity", "coding_100000_300", "--day", "20260209"],
+            ["sol think", "--activity", "coding_100000_300", "--day", "20260209"],
         )
 
         # parse_args returns the parser, not args — need to test via main()
@@ -1063,7 +1065,7 @@ class TestActivityCLIArgs:
         assert args.facet is None  # Validation happens in main()
 
     def test_activity_args_parsed(self):
-        from think.dream import parse_args
+        from think.thinking import parse_args
 
         parser = parse_args()
         args = parser.parse_args(

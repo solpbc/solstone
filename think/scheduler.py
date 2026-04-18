@@ -347,7 +347,7 @@ def register_defaults() -> None:
 
     if need_weekly and "weekly-agents" not in raw:
         raw["weekly-agents"] = {
-            "cmd": ["sol", "dream", "--weekly", "-v"],
+            "cmd": ["sol", "think", "--weekly", "-v"],
             "every": "weekly",
             "enabled": True,
         }

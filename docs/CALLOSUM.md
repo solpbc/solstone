@@ -94,7 +94,7 @@ Callosum is a JSON-per-line message bus for real-time event distribution across 
 - `errors` (list[str], optional): Error descriptions for failed handlers (e.g., `["transcribe exit 1"]`)
 
 **Correlation:** `detected.ref` matches `logs.exec.ref`; `segment` groups files from same capture window
-**Event Log:** Observe, dream, and activity tract events with `day` + `segment` are logged to `<day>/<segment>/events.jsonl` by supervisor
+**Event Log:** Observe, think, and activity tract events with `day` + `segment` are logged to `<day>/<segment>/events.jsonl` by supervisor
 
 ### `importer` - Media import processing
 **Source:** `think/importers/cli.py`
@@ -103,11 +103,11 @@ Callosum is a JSON-per-line message bus for real-time event distribution across 
 **Stages:** `initialization`, `segmenting`, `transcribing`, `summarizing`
 **Purpose:** Track media file import from upload through transcription to segment creation
 
-### `dream` - Generator and agent processing
-**Source:** `think/dream.py`
+### `think` - Generator and agent processing
+**Source:** `think/thinking.py`
 **Events:** `started`, `status`, `group_started`, `group_completed`, `talent_started`, `talent_completed`, `completed`, `segments_started`, `segments_completed`
 **Key fields:** `mode` ("daily"/"segment"/"activity"/"flush"), `day`, `segment` (when mode="segment" or "flush"), `activity` and `facet` (when mode="activity")
-**Purpose:** Track dream processing from generators through scheduled agents
+**Purpose:** Track think processing from generators through scheduled agents
 **`status`** - Periodic progress (every ~5s). Fields: `mode`, `day`, `segment`, `stream`, `agents_completed`, `agents_total`, `current_group_priority`, `current_agents` (list of running agent names). In `--segments` batch mode, also includes `segments_completed`, `segments_total`. In activity mode, includes `activity`, `facet`.
 
 ### `activity` - Activity lifecycle events
@@ -118,7 +118,7 @@ Callosum is a JSON-per-line message bus for real-time event distribution across 
 **`live`** - Emitted per active activity per segment (new or continuing). Provides real-time activity tracking.
 **Key fields:** `facet`, `day`, `segment`, `id`, `activity` (type), `since`, `description`, `level`, `active_entities`
 
-**`recorded`** - Emitted when a completed activity record is written to journal. Supervisor queues a per-activity dream task on receipt.
+**`recorded`** - Emitted when a completed activity record is written to journal. Supervisor queues a per-activity think task on receipt.
 **Key fields:** `facet`, `day`, `segment`, `id`, `activity` (type), `segments` (full span), `level_avg`, `description`, `active_entities`
 
 ### `sync` - Observer segment synchronization
@@ -223,19 +223,19 @@ observe.detected (handler spawned)
 observe.described / observe.transcribed (processing complete)
     ↓ sense tracks completion
 observe.observed (segment fully processed)
-    ↓ supervisor triggers dream, tracks flush timer
-dream.completed
+    ↓ supervisor triggers think, tracks flush timer
+think.completed
     ↓ apps/entities/events.py updates entity activity
 activity.recorded (activity span completed)
-    ↓ supervisor queues per-activity dream
-dream --activity (runs schedule="activity" agents)
+    ↓ supervisor queues per-activity think
+think --activity (runs schedule="activity" agents)
 
 [If no new segments for FLUSH_TIMEOUT (1h):]
     ↓ supervisor queues flush
-dream --flush (runs hook.flush agents to close dangling state)
+think --flush (runs hook.flush agents to close dangling state)
 ```
 
-See `think/supervisor.py:_handle_segment_observed()` for the observe→dream trigger and `_handle_activity_recorded()` for activity→dream.
+See `think/supervisor.py:_handle_segment_observed()` for the observe→think trigger and `_handle_activity_recorded()` for activity→think.
 
 **Activity-scheduled agents** declare `schedule: "activity"` with a required `activities` list (activity types to match, or `["*"]` for all). They receive the activity's segment span as transcript source and `$activity_*` template variables in their prompts.
 

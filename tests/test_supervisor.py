@@ -198,7 +198,7 @@ def test_get_command_name():
     # sol X -> X
     assert get(["sol", "indexer", "--rescan"]) == "indexer"
     assert get(["sol", "insight", "20240101"]) == "insight"
-    assert get(["sol", "dream", "--day", "20240101"]) == "dream"
+    assert get(["sol", "think", "--day", "20240101"]) == "think"
 
     # Other commands -> basename
     assert get(["/usr/bin/python", "script.py"]) == "python"

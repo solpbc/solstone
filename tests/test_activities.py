@@ -1447,7 +1447,7 @@ class TestPostProcessEvents:
 class TestHandleActivityRecorded:
     """Tests for supervisor's _handle_activity_recorded handler."""
 
-    def test_queues_dream_task(self):
+    def test_queues_think_task(self):
         from unittest.mock import MagicMock, patch
 
         from think.supervisor import _handle_activity_recorded
@@ -1467,7 +1467,7 @@ class TestHandleActivityRecorded:
             mock_queue.submit.assert_called_once_with(
                 [
                     "sol",
-                    "dream",
+                    "think",
                     "--activity",
                     "coding_100000_300",
                     "--facet",
@@ -1487,7 +1487,7 @@ class TestHandleActivityRecorded:
         with patch("think.supervisor._task_queue", mock_queue):
             _handle_activity_recorded(
                 {
-                    "tract": "dream",
+                    "tract": "think",
                     "event": "recorded",
                     "id": "x",
                     "facet": "w",
@@ -1805,7 +1805,7 @@ class TestCheckSegmentFlush:
         mock_queue.submit.assert_called_once_with(
             [
                 "sol",
-                "dream",
+                "think",
                 "-v",
                 "--day",
                 "20260209",

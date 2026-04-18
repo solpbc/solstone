@@ -311,21 +311,21 @@ def test_last_success_time_returns_none_for_no_successes(journal_path):
     assert result is None
 
 
-def test_dream_emit_daily_complete_shape(monkeypatch):
-    """dream.emit('daily_complete', ...) calls _callosum.emit with correct tract and fields."""
+def test_think_emit_daily_complete_shape(monkeypatch):
+    """think.emit('daily_complete', ...) calls _callosum.emit with correct tract and fields."""
     from unittest.mock import Mock
 
-    import think.dream as dream_mod
+    import think.thinking as think_mod
 
     mock_conn = Mock()
-    monkeypatch.setattr(dream_mod, "_callosum", mock_conn)
+    monkeypatch.setattr(think_mod, "_callosum", mock_conn)
 
-    dream_mod.emit(
+    think_mod.emit(
         "daily_complete", day="20260318", success=3, failed=0, duration_ms=5000
     )
 
     mock_conn.emit.assert_called_once_with(
-        "dream",
+        "think",
         "daily_complete",
         day="20260318",
         success=3,
@@ -334,9 +334,9 @@ def test_dream_emit_daily_complete_shape(monkeypatch):
     )
 
 
-def test_dream_emit_noop_without_callosum(monkeypatch):
-    """dream.emit() does nothing when _callosum is None."""
-    import think.dream as dream_mod
+def test_think_emit_noop_without_callosum(monkeypatch):
+    """think.emit() does nothing when _callosum is None."""
+    import think.thinking as think_mod
 
-    monkeypatch.setattr(dream_mod, "_callosum", None)
-    dream_mod.emit("daily_complete", day="20260318")
+    monkeypatch.setattr(think_mod, "_callosum", None)
+    think_mod.emit("daily_complete", day="20260318")

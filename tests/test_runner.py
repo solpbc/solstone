@@ -330,16 +330,16 @@ def test_run_task_day_override(journal_path, mock_callosum):
 @pytest.mark.parametrize(
     ("cmd", "expected_name"),
     [
-        (["sol", "dream", "--day", "20240115"], "daily_dream"),
+        (["sol", "think", "--day", "20240115"], "daily"),
         (
-            ["sol", "dream", "--day", "20240115", "--segment", "120000_300"],
-            "segment_dream",
+            ["sol", "think", "--day", "20240115", "--segment", "120000_300"],
+            "segment",
         ),
-        (["sol", "dream", "--weekly"], "weekly_dream"),
+        (["sol", "think", "--weekly"], "weekly"),
         (
             [
                 "sol",
-                "dream",
+                "think",
                 "--activity",
                 "id",
                 "--facet",
@@ -347,19 +347,19 @@ def test_run_task_day_override(journal_path, mock_callosum):
                 "--day",
                 "20240115",
             ],
-            "activity_dream",
+            "activity",
         ),
         (
-            ["sol", "dream", "--day", "20240115", "--segment", "120000_300", "--flush"],
-            "flush_dream",
+            ["sol", "think", "--day", "20240115", "--segment", "120000_300", "--flush"],
+            "flush",
         ),
-        (["sol", "dream", "--day", "20240115", "--segments"], "segment_dream"),
+        (["sol", "think", "--day", "20240115", "--segments"], "segment"),
     ],
 )
-def test_dream_mode_name_derivation(
+def test_think_mode_name_derivation(
     journal_path, mock_callosum, monkeypatch, cmd, expected_name
 ):
-    """Dream commands produce mode-aware log names."""
+    """Think commands produce mode-aware log names."""
 
     class FakePopen:
         def __init__(self, *args, **kwargs):

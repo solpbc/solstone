@@ -43,7 +43,7 @@ make dev       # Start stack (Ctrl+C to stop)
 Cogitate talents have access to all `sol` commands. The following infrastructure commands must never be called by talents because they manage services and data pipelines that should only be operated by the supervisor or a human operator:
 
 - `sol supervisor` / `sol start`
-- `sol dream` except heartbeat's targeted `sol dream --segment`
+- `sol think` except heartbeat's targeted `sol think --segment`
 - `sol import`
 - `sol config`
 - `sol cortex`

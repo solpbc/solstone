@@ -245,7 +245,7 @@ class ManagedProcess:
         # Derive name from command - use subcommand if invoked via sol
         if cmd[0] == "sol" and len(cmd) > 1:
             name = cmd[1]
-            if name == "dream":
+            if name == "think":
                 for flag, mode in [
                     ("--activity", "activity"),
                     ("--flush", "flush"),
@@ -254,10 +254,10 @@ class ManagedProcess:
                     ("--segment", "segment"),
                 ]:
                     if flag in cmd:
-                        name = f"{mode}_dream"
+                        name = mode
                         break
                 else:
-                    name = "daily_dream"
+                    name = "daily"
         else:
             name = Path(cmd[0]).name
 

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Summarize dream pipeline health from daily JSONL logs."""
+"""Summarize think pipeline health from daily JSONL logs."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ _FAILED_LIST_CAP = 20
 
 
 def summarize_pipeline_day(day: str) -> dict:
-    """Return a day-level summary of dream pipeline health."""
+    """Return a day-level summary of think pipeline health."""
     summary = {
         "day": day,
         "generated_at": now_ms(),
@@ -51,7 +51,7 @@ def summarize_pipeline_day(day: str) -> dict:
         for path in sorted(health_dir.glob("*.jsonl")):
             mode = None
             for candidate in _MODES:
-                if path.name.endswith(f"_{candidate}_dream.jsonl"):
+                if path.name.endswith(f"_{candidate}.jsonl"):
                     mode = candidate
                     break
             if mode is None:

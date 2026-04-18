@@ -16,7 +16,7 @@ The package exposes several commands:
 
 - `sol call transcripts read` groups audio and screen transcripts into report sections. Use `--start` and
   `--length` to limit the report to a specific time range. See `sol call transcripts --help` for additional commands.
-- `sol dream` runs generators and agents for a single day via Cortex.
+- `sol think` runs generators and agents for a single day via Cortex.
 - `python -m think.talents` is the unified execution module for tool talents and generators spawned by Cortex (NDJSON protocol).
 - `sol supervisor` monitors observation heartbeats. Use `--no-observers` to disable local capture (sense still runs for observer uploads and imports).
 - `sol cortex` starts a Callosum-based service for managing AI agent instances and generators.
@@ -24,7 +24,7 @@ The package exposes several commands:
 
 ```bash
 sol call transcripts read YYYYMMDD [--start HHMMSS --length MINUTES]
-sol dream [--day YYYYMMDD] [--segment HHMMSS_LEN] [--stream NAME] [--refresh] [--flush]
+sol think [--day YYYYMMDD] [--segment HHMMSS_LEN] [--stream NAME] [--refresh] [--flush]
 sol supervisor [--no-observers]
 sol cortex [--host HOST] [--port PORT] [--path PATH]
 sol talent list [--schedule daily|segment] [--json]
@@ -45,7 +45,7 @@ Tool access is command-based via the `sol call` CLI framework.
 
 ## Automating daily processing
 
-The `sol dream` command can be triggered by a systemd timer. Below is a
+The `sol think` command can be triggered by a systemd timer. Below is a
 minimal service and timer that process yesterday's folder every morning at
 06:00:
 
@@ -55,7 +55,7 @@ Description=Process solstone journal
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/sol dream
+ExecStart=/usr/local/bin/sol think
 
 [Install]
 WantedBy=multi-user.target
@@ -63,12 +63,12 @@ WantedBy=multi-user.target
 
 ```ini
 [Unit]
-Description=Run sol dream daily
+Description=Run sol think daily
 
 [Timer]
 OnCalendar=*-*-* 06:00:00
 Persistent=true
-Unit=sol-dream.service
+Unit=sol-think.service
 
 [Install]
 WantedBy=timers.target
@@ -78,7 +78,7 @@ WantedBy=timers.target
 
 ### Unified Priority Execution
 
-All scheduled prompts (both generators and tool-using agents) share a unified priority system. The `sol dream` command executes prompts ordered by priority, from lowest (runs first) to highest (runs last).
+All scheduled prompts (both generators and tool-using agents) share a unified priority system. The `sol think` command executes prompts ordered by priority, from lowest (runs first) to highest (runs last).
 
 **Priority is required for all scheduled prompts.** Prompts without a `priority` field will fail validation. Suggested priority bands:
 

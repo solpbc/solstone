@@ -37,8 +37,8 @@ Internal helpers called only by `_summarize_yesterday_processing`:
 - `_briefing_freshness(today: str) -> dict`
   Reads `journal/sol/briefing.md` with local `frontmatter.load`. Valid only when frontmatter has `type: morning_briefing` and a parseable `generated` timestamp whose local date is `today`.
 
-- `_newsletter_attempts_from_dream_logs(yesterday: str) -> tuple[int, int]`
-  Option A helper from section 3. Counts successful facet newsletters from files plus failed facet newsletter attempts from dream logs.
+- `_newsletter_attempts_from_think_logs(yesterday: str) -> tuple[int, int]`
+  Option A helper from section 3. Counts successful facet newsletters from files plus failed facet newsletter attempts from think logs.
 
 - Formatting helpers
   `_format_duration`, `_format_hour_label`, `_format_entity_summary`, `_format_activity_label`, `_format_newsletter_summary`, `_format_processing_summary`.
@@ -131,11 +131,11 @@ Recommended rendered content by mode:
 - The newsletter prompt key is stable: `facet_newsletter`.
   Reason:
   system talent config keys come from `talent/*.md` filename stems in `think/talent.py:228-235`, and the file is `talent/facet_newsletter.md:1-15`.
-  Dream logs emit `name=prompt_name` unchanged for dispatch and fail/complete events in `think/dream.py:1277-1292` and `think/dream.py:365-389`.
+  Think logs emit `name=prompt_name` unchanged for dispatch and fail/complete events in `think/thinking.py:1277-1292` and `think/thinking.py:365-389`.
 
-### Option A — re-parse dream JSONL for newsletter-specific facet fails
+### Option A — re-parse think JSONL for newsletter-specific facet fails
 
-Read `chronicle/{yesterday}/health/*_daily_dream.jsonl` and count `talent.fail` records where:
+Read `chronicle/{yesterday}/health/*_daily.jsonl` and count `talent.fail` records where:
 
 - `event == "talent.fail"`
 - `facet` is present
@@ -158,7 +158,7 @@ Pros:
 
 Cons:
 
-- If the runtime is not currently dispatching `facet_newsletter` into daily dream logs, `failed_facet_newsletter_attempts` will often be `0`.
+- If the runtime is not currently dispatching `facet_newsletter` into daily think logs, `failed_facet_newsletter_attempts` will often be `0`.
 - Non-newsletter pipeline failures still need separate degraded copy.
 
 ### Option B — re-parse any facet-scoped fail
@@ -205,7 +205,7 @@ Pick **Option A**.
 Implementation details:
 
 - Success path reads `facets/*/news/{yesterday}.md`.
-- Failure path reads `chronicle/{yesterday}/health/*_daily_dream.jsonl`.
+- Failure path reads `chronicle/{yesterday}/health/*_daily.jsonl`.
 - Exact agent-name match: `facet_newsletter`.
 
 Fallback behavior inside Option A:
@@ -328,7 +328,7 @@ Fixture plan:
 - `tests/fixtures/journal/chronicle/20260415/`
   Dense day fixture with:
   `stats.json`,
-  one or two `health/*_daily_dream.jsonl` files,
+  one or two `health/*_daily.jsonl` files,
   one activity file under `facets/*/activities/20260415.jsonl`,
   `agents/knowledge_graph.md`.
 
@@ -350,7 +350,7 @@ Supporting non-chronicle fixture:
 Fixture minimization rule:
 
 - Seed only the fields each test asserts on.
-- Keep dream logs to the minimum lines needed: `run.start`, `talent.dispatch`, `talent.complete` or `talent.fail`, `run.complete`.
+- Keep think logs to the minimum lines needed: `run.start`, `talent.dispatch`, `talent.complete` or `talent.fail`, `run.complete`.
 
 ## 9. Non-goals
 
@@ -375,7 +375,7 @@ Fixture minimization rule:
 
 ## Review gate — decisions for jer
 
-- **Q2 denominator choice:** Recommend **Option A**. Match failed newsletter attempts by exact dream-log agent name `facet_newsletter`; count successes from `facets/*/news/{yesterday}.md`.
+- **Q2 denominator choice:** Recommend **Option A**. Match failed newsletter attempts by exact think-log agent name `facet_newsletter`; count successes from `facets/*/news/{yesterday}.md`.
 - **Q3 knowledge-graph freshness rule:** Recommend **fresh when `mtime >= start_of_yesterday_local`**. This intentionally counts overnight-after-midnight completions as fresh.
 - **First-week framing copy:** Exact scope text was not recoverable from checked-in artifacts I could search. Need Jer to confirm the verbatim copy before implementation.
 
@@ -383,7 +383,7 @@ Fixture minimization rule:
 
 All three gate items resolved. Proceed to `implement` stage.
 
-- **Q2 denominator:** Go with **Option A** as recommended. Successes from `facets/*/news/{yesterday}.md`. Failures from dream-log `talent.fail` where `name == "facet_newsletter"` and `facet` is present. When current pipeline emits no `facet_newsletter` fails (which is the common case today), `M == N` and the `N of M` sentence degenerates into a simple `N` — that's fine, honest, and forward-compatible for when we start logging newsletter failures under that exact key. Use the sparse fallback "I didn't produce any facet newsletters." when both are zero.
+- **Q2 denominator:** Go with **Option A** as recommended. Successes from `facets/*/news/{yesterday}.md`. Failures from think-log `talent.fail` where `name == "facet_newsletter"` and `facet` is present. When current pipeline emits no `facet_newsletter` fails (which is the common case today), `M == N` and the `N of M` sentence degenerates into a simple `N` — that's fine, honest, and forward-compatible for when we start logging newsletter failures under that exact key. Use the sparse fallback "I didn't produce any facet newsletters." when both are zero.
 - **Q3 knowledge-graph freshness:** Use the **relaxed rule**: fresh when `knowledge_graph.md` exists and `st_mtime >= start_of_yesterday_local`. Overnight-after-midnight completions count. Use local time boundaries. Don't use birth/ctime.
 - **First-week framing copy (verbatim):** The exact copy IS in the scope (top-level note) and in the approved CPO spec. Use this text, unchanged, when `journal_age_days <= 7` and `mode != "sparse"`:
 

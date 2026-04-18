@@ -25,7 +25,7 @@ def pipeline(
         False, "--yesterday", help="Summarize yesterday's pipeline."
     ),
 ) -> None:
-    """Summarize dream pipeline health for one day."""
+    """Summarize think pipeline health for one day."""
     if day is not None and yesterday:
         typer.echo("--day and --yesterday are mutually exclusive", err=True)
         raise typer.Exit(1)

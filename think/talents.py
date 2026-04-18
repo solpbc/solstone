@@ -490,7 +490,7 @@ def prepare_config(request: dict) -> dict:
     elif cwd_value == "repo":
         config["cwd"] = get_project_root()
 
-    # Populate stream from env if not already in config (dream passes it as
+    # Populate stream from env if not already in config (think passes it as
     # SOL_STREAM env var but not as a top-level request key — hooks need it)
     if "stream" not in config:
         sol_stream = os.environ.get("SOL_STREAM")

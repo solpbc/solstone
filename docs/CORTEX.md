@@ -313,12 +313,12 @@ All providers:
 
 ## Scheduled Agents and Generators
 
-Both agents and generators support scheduling via `sol dream`. Agents have `"schedule": "daily"` and generators have `"schedule": "segment"` or `"schedule": "daily"`.
+Both agents and generators support scheduling via `sol think`. Agents have `"schedule": "daily"` and generators have `"schedule": "segment"` or `"schedule": "daily"`.
 
 ### Execution Order
 Scheduled items run in priority order (lower numbers first):
 1. Items are sorted by their `priority` field (required for all scheduled prompts)
-2. Items with the same priority run in parallel, then dream waits for completion
+2. Items with the same priority run in parallel, then think waits for completion
 3. After each generator completes, incremental indexing runs for its output
 
 **Priority bands (recommended):**
@@ -388,6 +388,6 @@ The `sol supervisor` command provides process management for the Cortex ecosyste
 - Starts and monitors the Cortex file watcher service
 - Handles process restarts on failure
 - Monitors system health indicators
-- Triggers `sol dream` at midnight for daily processing (generators + agents)
+- Triggers `sol think` at midnight for daily processing (generators + agents)
 
 This is distinct from agent lifecycle management, which Cortex handles internally through file state transitions.

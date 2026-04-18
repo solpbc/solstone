@@ -101,7 +101,7 @@ You can inspect and manage the speaker identification system — the subsystem t
 
 ### When to check
 
-**Check speaker status during dream processing or when the owner asks about speakers.** Don't check on every conversation — speaker state changes slowly.
+**Check speaker status during think processing or when the owner asks about speakers.** Don't check on every conversation — speaker state changes slowly.
 
 ### Owner detection
 
@@ -116,7 +116,7 @@ If the owner rejects, discard and wait for more data before trying again.
 
 ### Speaker curation
 
-Check for speaker suggestions after dream processing completes, or when the owner is engaging with transcripts or observed media. Surface suggestions conversationally based on type:
+Check for speaker suggestions after think processing completes, or when the owner is engaging with transcripts or observed media. Surface suggestions conversationally based on type:
 
 - **Unknown recurring voice:** "I keep hearing a voice in your [day/context] observed media. They said things like '[sample text]'. Do you know who that is?"
 - **Name variant:** "I noticed 'Mitch' and 'Mitch Baumgartner' sound identical in your observed media. Should I merge them?"

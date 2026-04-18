@@ -1,14 +1,14 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Tests for dream --dry-run."""
+"""Tests for think --dry-run."""
 
 import importlib
 
 
 def test_dry_run_daily(journal_copy, capsys):
     """Dry-run daily mode prints prompts without spawning agents."""
-    mod = importlib.import_module("think.dream")
+    mod = importlib.import_module("think.thinking")
 
     mod.dry_run("20240101")
 
@@ -22,7 +22,7 @@ def test_dry_run_daily(journal_copy, capsys):
 
 def test_dry_run_segment(journal_copy, capsys):
     """Dry-run segment mode skips pre/post phases."""
-    mod = importlib.import_module("think.dream")
+    mod = importlib.import_module("think.thinking")
 
     mod.dry_run("20240101", segment="120000_300")
 
@@ -35,7 +35,7 @@ def test_dry_run_segment(journal_copy, capsys):
 
 def test_dry_run_segments_lists_all(journal_copy, capsys):
     """Dry-run --segments lists discovered segments."""
-    mod = importlib.import_module("think.dream")
+    mod = importlib.import_module("think.thinking")
 
     mod.dry_run("20240101", segments=True)
 
@@ -45,7 +45,7 @@ def test_dry_run_segments_lists_all(journal_copy, capsys):
 
 def test_dry_run_flush(journal_copy, capsys):
     """Dry-run --flush shows flush-eligible agents."""
-    mod = importlib.import_module("think.dream")
+    mod = importlib.import_module("think.thinking")
 
     mod.dry_run("20240101", flush=True, segment="120000_300")
 
@@ -55,7 +55,7 @@ def test_dry_run_flush(journal_copy, capsys):
 
 def test_dry_run_shows_refresh(journal_copy, capsys):
     """Dry-run indicates refresh mode in header."""
-    mod = importlib.import_module("think.dream")
+    mod = importlib.import_module("think.thinking")
 
     mod.dry_run("20240101", refresh=True)
 
@@ -65,7 +65,7 @@ def test_dry_run_shows_refresh(journal_copy, capsys):
 
 def test_dry_run_no_callosum(journal_copy, monkeypatch, capsys):
     """Dry-run works without callosum connection."""
-    mod = importlib.import_module("think.dream")
+    mod = importlib.import_module("think.thinking")
 
     # Save and clear _callosum to verify dry_run doesn't create one
     prev = mod._callosum

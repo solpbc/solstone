@@ -609,7 +609,7 @@ def cmd_move(args: argparse.Namespace) -> None:
     _touch_health_marker(to_day)
     print(f"  touched health markers: {src_day}, {to_day}")
     if verbose:
-        print("    dream will re-run daily talents on both days")
+        print("    think will re-run daily talents on both days")
 
     # Post-move verify is informational — the move already completed.
     print()
