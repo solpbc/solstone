@@ -20,9 +20,9 @@ from typing import Any
 
 import frontmatter
 
+from think.entities.seeding import seed_entities
 from think.importers.shared import (
     _window_messages,
-    seed_entities,
     write_segment,
 )
 from think.importers.sync import load_sync_state, save_sync_state

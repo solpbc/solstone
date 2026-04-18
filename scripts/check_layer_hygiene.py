@@ -109,11 +109,6 @@ READ_VERBS: frozenset[str] = frozenset(
 #
 # Audit ref: vpe/workspace/solstone-layer-violations-audit.md (extro repo).
 ALLOWLIST: dict[str, str] = {
-    # TODO(V2): seed_entities() creates entities from importer shared code.
-    # Indirect writes go through save_journal_entity(), so the direct-write
-    # grep does not flag the file today. Keep the entry so the file is
-    # named alongside V1 as a known audit target; remove after Bundle A.
-    "think/importers/shared.py": "V2",
     # TODO(import-resolve-facet): apps/import/call.py's `resolve-facet`
     # command uses a read-verb name ("resolve_*" per L3) but writes to
     # journal/facets and unlinks staged files. Not in the audit's V1-V14,

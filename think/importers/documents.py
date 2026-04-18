@@ -24,8 +24,9 @@ try:
 except ImportError:  # pragma: no cover - optional dependency
     pytesseract = None
 
+from think.entities.seeding import seed_entities
 from think.importers.file_importer import ImportPreview, ImportResult
-from think.importers.shared import seed_entities, write_content_manifest
+from think.importers.shared import write_content_manifest
 from think.models import generate
 from think.utils import day_path
 
