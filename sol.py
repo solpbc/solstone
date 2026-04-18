@@ -91,7 +91,7 @@ ALIASES: dict[str, tuple[str, list[str]]] = {
 
 # Command groupings for help display
 GROUPS: dict[str, list[str]] = {
-    "Think (daily processing)": [
+    "Think (AI processing)": [
         "import",
         "think",
         "indexer",
