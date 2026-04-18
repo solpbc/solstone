@@ -602,8 +602,8 @@ def test_wait_for_agents_missed_event_recovery(tmp_path, monkeypatch, caplog):
     def wait_and_complete():
         # Wait a bit then "complete" the agent by renaming file
         time.sleep(0.3)
-        (unified_dir / f"{use_id}_active.jsonl").unlink()
         (unified_dir / f"{use_id}.jsonl").write_text('{"event": "finish"}\n')
+        (unified_dir / f"{use_id}_active.jsonl").unlink()
 
     completer = threading.Thread(target=wait_and_complete)
     completer.start()

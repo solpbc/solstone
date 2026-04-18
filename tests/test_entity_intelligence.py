@@ -1,21 +1,19 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-import os
-
 import pytest
 
 from think.indexer.journal import (
     get_entity_intelligence,
     get_entity_strength,
+    scan_journal,
     search_entities,
 )
 
 
 @pytest.fixture(autouse=True)
-def fixture_journal():
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = "tests/fixtures/journal"
-    yield
+def indexed_journal(journal_copy):
+    scan_journal(str(journal_copy), full=True)
 
 
 class TestEntityStrength:
