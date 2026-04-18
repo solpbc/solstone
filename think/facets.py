@@ -243,8 +243,11 @@ def get_facets() -> dict[str, dict[str, object]]:
                 }
 
                 facets[facet_name] = facet_info
-        except Exception as exc:  # pragma: no cover - metadata optional
-            logging.debug("Error reading %s: %s", facet_json, exc)
+        except (
+            OSError,
+            json.JSONDecodeError,
+        ) as exc:  # pragma: no cover - metadata optional
+            logging.warning("Failed to read facet metadata %s: %s", facet_json, exc)
 
     return facets
 

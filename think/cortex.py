@@ -603,10 +603,19 @@ class CortexService:
                         event = json.loads(line)
                         if event.get("event") in ["finish", "error"]:
                             return True
-                    except json.JSONDecodeError:
+                    except json.JSONDecodeError as exc:
+                        self.logger.warning(
+                            "Malformed event in %s while scanning for finish: %s",
+                            file_path,
+                            exc,
+                        )
                         continue
-        except Exception:
-            pass
+        except FileNotFoundError:
+            self.logger.debug("Use log disappeared before finish scan: %s", file_path)
+        except OSError as exc:
+            self.logger.warning(
+                "Failed to scan %s for finish events: %s", file_path, exc
+            )
         return False
 
     def _complete_use_file(self, use_id: str, file_path: Path) -> None:

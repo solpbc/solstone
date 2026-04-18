@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from datetime import date, datetime
 from functools import lru_cache
@@ -290,8 +291,8 @@ def _get_uses_for_day(day: str, facet_filter: str | None = None) -> list[dict]:
                     use_info = _parse_use_file(use_file)
                     if use_info:
                         uses.append(use_info)
-        except IOError:
-            pass
+        except OSError as exc:
+            logging.warning("Failed to read use day index %s: %s", day_index_path, exc)
 
     # Also check for running uses (only have _active files, no day index entry yet)
     for use_file in talents_dir.glob("*/*_active.jsonl"):

@@ -75,8 +75,8 @@ class JSONEventWriter:
             try:
                 Path(path).parent.mkdir(parents=True, exist_ok=True)
                 self.file = open(path, "a", encoding="utf-8")
-            except Exception:
-                pass  # Fail silently if can't open file
+            except OSError as exc:
+                LOG.warning("Failed to open JSON event sidecar %s: %s", path, exc)
 
     def emit(self, data: Event) -> None:
         line = json.dumps(data, ensure_ascii=False)
@@ -86,15 +86,15 @@ class JSONEventWriter:
             try:
                 self.file.write(line + "\n")
                 self.file.flush()
-            except Exception:
-                pass  # Fail silently on write errors
+            except OSError as exc:
+                LOG.warning("Failed to write JSON event sidecar %s: %s", self.path, exc)
 
     def close(self) -> None:
         if self.file:
             try:
                 self.file.close()
-            except Exception:
-                pass
+            except OSError as exc:
+                LOG.warning("Failed to close JSON event sidecar %s: %s", self.path, exc)
 
 
 # =============================================================================

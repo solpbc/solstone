@@ -69,8 +69,8 @@ class DreamJSONLWriter:
             try:
                 Path(path).parent.mkdir(parents=True, exist_ok=True)
                 self.file = open(path, "a", encoding="utf-8")
-            except Exception:
-                pass
+            except OSError as exc:
+                logging.warning("Failed to open dream JSONL sidecar %s: %s", path, exc)
 
     def log(self, event: str, **fields) -> None:
         if not self.file:
@@ -81,15 +81,19 @@ class DreamJSONLWriter:
         try:
             self.file.write(json.dumps(data, ensure_ascii=False) + "\n")
             self.file.flush()
-        except Exception:
-            pass
+        except OSError as exc:
+            logging.warning(
+                "Failed to write dream JSONL sidecar %s: %s", self.file.name, exc
+            )
 
     def close(self) -> None:
         if self.file:
             try:
                 self.file.close()
-            except Exception:
-                pass
+            except OSError as exc:
+                logging.warning(
+                    "Failed to close dream JSONL sidecar %s: %s", self.file.name, exc
+                )
 
 
 _jsonl: DreamJSONLWriter | None = None

@@ -1671,8 +1671,8 @@ def _get_logs_from_dir(logs_dir: Path, cursor: str | None) -> dict:
                 line = line.strip()
                 if line:
                     entries.append(json.loads(line))
-    except Exception:
-        pass
+    except (OSError, json.JSONDecodeError) as exc:
+        logger.warning("Failed to read settings log %s: %s", target_file, exc)
 
     # Reverse to show newest first within the day
     entries.reverse()
