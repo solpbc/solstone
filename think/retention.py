@@ -9,6 +9,11 @@ Three retention modes:
 - days: delete raw media after N days, once processing is complete (default: 7)
 - processed: delete raw media as soon as processing completes
 
+Scope: raw media ONLY. Chronicle JSONL, derived outputs, talents/ directories,
+and all other journal content persist indefinitely and are never touched by
+retention. Do not extrapolate the "7 days" default to any other data — it is
+specific to raw media purging.
+
 Safety invariant: never delete raw media from segments that haven't finished
 processing. All completion checks must pass before any deletion.
 """
