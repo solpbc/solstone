@@ -22,12 +22,6 @@ You are given context about the owner's current app, URL path, and facet. Use th
 - `sol call todos cancel LINE --day DAY --facet FACET` — Cancel a todo.
 - `sol call todos upcoming --facet FACET [--limit N]` — Show upcoming todos.
 
-### Calendar
-- `sol call calendar list [DAY] --facet FACET` — List events for a day.
-- `sol call calendar create TITLE --start HH:MM --day DAY --facet FACET [--end HH:MM] [--summary TEXT] [--participants NAMES]` — Create a calendar event.
-- `sol call calendar update LINE --day DAY --facet FACET [--title TEXT] [--start HH:MM] [--end HH:MM] [--summary TEXT] [--participants NAMES]` — Update an event.
-- `sol call calendar cancel LINE --day DAY --facet FACET` — Cancel an event.
-
 ### Entities
 - `sol call entities list [FACET]` — List entities for a facet.
 - `sol call entities observations ENTITY --facet FACET` — List observations for an entity.

@@ -32,6 +32,16 @@
     },
     {
       "app": null,
+      "description": "Extracts future scheduled events and calendar activities into structured anticipation records. Captures dates, times, participants, and cancellation state.",
+      "disabled": false,
+      "extract": null,
+      "has_extraction": false,
+      "key": "schedule",
+      "source": "system",
+      "title": "Upcoming Schedule"
+    },
+    {
+      "app": null,
       "description": "Extracts people, projects, tools and other entities from the transcript and maps how they relate. Produces a Markdown report plus narrative describing network hubs and bridges discovered during the day.",
       "disabled": false,
       "extract": true,
@@ -39,16 +49,6 @@
       "key": "knowledge_graph",
       "source": "system",
       "title": "Knowledge Graph"
-    },
-    {
-      "app": null,
-      "description": "Identifies all future calendar events and scheduled activities noted in transcripts. Extracts dates, times, participants, and event details for anything scheduled beyond today.",
-      "disabled": false,
-      "extract": true,
-      "has_extraction": true,
-      "key": "schedule",
-      "source": "system",
-      "title": "Upcoming Schedule"
     },
     {
       "app": null,

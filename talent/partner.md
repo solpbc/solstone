@@ -36,7 +36,7 @@ and query each source. If a source returns empty or errors, skip it — gaps are
 
 1. `sol call entities strength --since YYYYMMDD` (7 days back) — relationship activity
 2. For each of the past 7 days:
-   - `sol call calendar list YYYYMMDD` — schedule patterns
+   - `sol call activities list --source anticipated --day YYYYMMDD` — scheduled activity patterns
    - `sol call todos list -d YYYYMMDD` — task patterns
 3. For each active facet (from `sol call journal facets`):
    - `sol call journal news FACET --day YYYYMMDD` (most recent day available) — work themes

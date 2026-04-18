@@ -21,14 +21,14 @@ Call all sources upfront. Some may return empty — that's expected, especially 
 
 1. `sol call journal facets` — list active facets
 2. For each facet: `sol call journal news FACET --day $day_YYYYMMDD` — facet newsletter
-3. `sol call calendar list $day_YYYYMMDD` — today's events with participants
+3. `sol call activities list --source anticipated --day $day_YYYYMMDD` — today's scheduled items with participants
 4. `sol call todos list` — pending action items across all facets
 5. `sol call identity pulse` — current pulse narrative and needs-you items
 6. `sol call identity partner` — owner behavioral profile (informs tone and emphasis)
 7. `sol call journal search "" -d $day_YYYYMMDD -a followups -n 10` — follow-up items from today
-8. `sol call journal search "" --day-from $day_YYYYMMDD -a anticipation -n 5` — forward-looking anticipations
+8. `sol call activities list --source anticipated --from $day_YYYYMMDD --to <+7>` — forward-looking scheduled items
 9. `sol call journal search "" -d $day_YYYYMMDD -a decisions -n 10` — yesterday's consequential decisions
-10. For each of the next 7 days after today: `sol call calendar list YYYYMMDD` — upcoming events for forward look
+10. For each of the next 7 days after today: `sol call activities list --source anticipated --day YYYYMMDD` — upcoming scheduled items for forward look
 
 For each person appearing in today's calendar events, also run:
 11. `sol call entities intelligence PERSON --brief` — relationship context, recent interactions, observations (brief mode: last 20 signals + top 20 network, ~95% smaller payload)
@@ -97,9 +97,9 @@ Grade highlights by evidence strength. **High** (corroborated by multiple source
 Attribute commitments and follow-ups to the originating segment: `(committed [date](sol://...))`, `(flagged [date](sol://...))`. For relationship items: `(last interaction [date])`. For inferred items: `(inferred from [source](sol://...))`.
 Grade action items by evidence strength. **High** (explicit commitment with date, or overdue todo): state assertively — "Follow up on Series A term sheet — committed March 20, now overdue." **Medium** (flagged by followups agent with moderate confidence, or clear single-source item): present with attribution — "Review CI pipeline logs (flagged yesterday)." **Low** (inferred obligation from ambiguous mention, or low-confidence followup): hedge — "Possible commitment to send deck to investors" or "May need to follow up on the API discussion." When upstream followup output includes a `Confidence:` score, use it: 0.85+ high, 0.50–0.84 medium, below 0.50 low. Never hedge explicit commitments with clear dates; never present inferred obligations as definite action items.
 
-**Forward Look** — What's coming. Draw from anticipation agent output and upcoming calendar events (next 7 days). Note preparation needed for upcoming meetings or deadlines.
-Attribute anticipation items: `(from [anticipation](sol://...))`. Data source: anticipation search result `id` path.
-Grade forward items by evidence strength. **High** (confirmed calendar event or explicit deadline): state assertively — "Board meeting Thursday — slides due Wednesday." **Medium** (anticipation agent item with clear basis): attribute and present — "Anticipation agent flagged quarterly review prep based on last quarter's timing." **Low** (speculative anticipation, inferred deadline, or pattern-based prediction): hedge — "Possible need to prepare for investor update" or "May want to schedule design review based on sprint cadence." Never hedge confirmed calendar events or explicit deadlines; never state pattern-based predictions as confirmed plans.
+**Forward Look** — What's coming. Draw from anticipated activity records and upcoming scheduled items (next 7 days). Note preparation needed for upcoming meetings or deadlines.
+Attribute schedule-derived items: `(from [schedule](sol://...))`. Data source: `sol call activities list --source anticipated` or the schedule talent output path.
+Grade forward items by evidence strength. **High** (confirmed scheduled item or explicit deadline): state assertively — "Board meeting Thursday — slides due Wednesday." **Medium** (schedule-derived activity record with clear basis): attribute and present — "Schedule extraction flagged quarterly review prep based on last quarter's timing." **Low** (speculative schedule inference or pattern-based prediction): hedge — "Possible need to prepare for investor update" or "May want to schedule design review based on sprint cadence." Never hedge confirmed scheduled items or explicit deadlines; never state pattern-based predictions as confirmed plans.
 
 **Reading** — Links to full facet newsletters for deep dives. List each active facet that has a newsletter for the analysis day, with a brief one-line description of what it covers. This is the "detailed edition" for owners who want the full picture. Only include if facet newsletters exist.
 
@@ -141,7 +141,7 @@ gaps: [list of gap descriptions, or empty list [] if none]
 
 ## Forward Look
 - Board meeting Thursday — slides need review (confirmed on [calendar](sol://20260327/calendar))
-- May want to prepare quarterly metrics based on last quarter's timing (from [anticipation](sol://20260327/talents/anticipation))
+- May want to prepare quarterly metrics based on last quarter's timing (from [schedule](sol://20260327/talents/schedule))
 [more items...]
 
 ## Reading

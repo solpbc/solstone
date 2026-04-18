@@ -10,6 +10,7 @@ Also provides utilities for activity records — completed activity spans
 stored as facets/{facet}/activities/{day}.jsonl.
 """
 
+import difflib
 import fcntl
 import json
 import logging
@@ -25,6 +26,7 @@ from typing import Any
 from think.utils import get_journal, segment_parse
 
 logger = logging.getLogger(__name__)
+ANTICIPATION_FUZZY_THRESHOLD = 0.85
 
 # ---------------------------------------------------------------------------
 # Default Activities
@@ -871,6 +873,66 @@ def load_activity_records(
     if include_hidden:
         return records
     return [record for record in records if not record.get("hidden", False)]
+
+
+def make_anticipation_id(
+    activity_type: str,
+    start: str | None,
+    target_date: str,
+) -> str:
+    """Build the stable ID used for schedule-generated anticipated records."""
+    activity_key = str(activity_type or "").strip()
+    if not activity_key:
+        raise ValueError("activity_type must be non-empty")
+
+    try:
+        parsed_target = datetime.strptime(target_date, "%Y-%m-%d")
+    except ValueError as exc:
+        raise ValueError("target_date must match YYYY-MM-DD") from exc
+
+    if start is None:
+        start_key = "000000"
+    else:
+        if not re.fullmatch(r"\d{2}:\d{2}:\d{2}", start):
+            raise ValueError("start must match HH:MM:SS")
+        start_key = start.replace(":", "")
+
+    return f"anticipated_{activity_key}_{start_key}_{parsed_target.strftime('%m%d')}"
+
+
+def dedup_anticipation(
+    facet: str,
+    target_day: str,
+    new_record: dict[str, Any],
+    *,
+    threshold: float = ANTICIPATION_FUZZY_THRESHOLD,
+) -> tuple[bool, list[str]]:
+    """Check a new anticipated record for collisions and fuzzy supersedes."""
+
+    new_id = str(new_record.get("id") or "").strip()
+    if not new_id:
+        raise ValueError("new_record.id is required")
+
+    def _normalize_title(value: Any) -> str:
+        return " ".join(str(value or "").lower().split())
+
+    new_title = _normalize_title(new_record.get("title"))
+    superseded_ids: list[str] = []
+
+    for record in load_activity_records(facet, target_day, include_hidden=False):
+        if record.get("source") != "anticipated":
+            continue
+
+        existing_id = str(record.get("id") or "").strip()
+        if existing_id == new_id:
+            return False, []
+
+        existing_title = _normalize_title(record.get("title"))
+        ratio = difflib.SequenceMatcher(None, new_title, existing_title).ratio()
+        if ratio >= threshold:
+            superseded_ids.append(existing_id)
+
+    return True, superseded_ids
 
 
 def load_record_ids(facet: str, day: str) -> set[str]:

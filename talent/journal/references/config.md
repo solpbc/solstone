@@ -298,7 +298,7 @@ Other contexts follow the pattern `{module}.{feature}[.{operation}]`:
 - `tier` (integer) – Tier number (optional).
 - `model` (string) – Explicit model name (optional, overrides tier).
 - `disabled` (boolean) – Disable this talent config (optional, talent contexts only).
-- `extract` (boolean) – Enable/disable event extraction for generators with occurrence/anticipation hooks (optional).
+- `extract` (boolean) – Enable/disable event extraction for generators with occurrence hooks (optional).
 
 **models** – Per-provider tier overrides. Maps provider name to tier-model mappings:
 ```json

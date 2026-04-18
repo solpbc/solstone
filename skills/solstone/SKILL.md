@@ -69,7 +69,7 @@ sol call journal events
 sol call todos upcoming
 
 # Calendar events for today
-sol call calendar list
+sol call activities list --source anticipated
 
 # Latest facet news
 sol call journal news "<facet>"
@@ -144,7 +144,7 @@ For richer answers, combine multiple commands:
 ```bash
 sol call journal events
 sol call todos upcoming
-sol call calendar list
+sol call activities list --source anticipated
 sol call entities strength --since $(date +%Y%m%d)
 ```
 

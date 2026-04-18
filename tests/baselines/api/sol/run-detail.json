@@ -4,16 +4,15 @@
   "error_message": null,
   "events": [
     {
-      "use_id": "1700000000001",
       "args": null,
       "call_id": "call_001",
       "event": "tool_end",
       "result": "{\"total\": 2, \"results\": [{\"title\": \"Project Update Meeting\", \"day\": \"20231114\"}, {\"title\": \"Weekly Status\", \"day\": \"20231115\"}]}",
       "tool": "tool",
-      "ts": 1700000000500
+      "ts": 1700000000500,
+      "use_id": "1700000000001"
     },
     {
-      "use_id": "1700000000001",
       "args": {
         "limit": 5,
         "query": "project updates"
@@ -21,38 +20,39 @@
       "call_id": "call_001",
       "event": "tool_start",
       "tool": "search_events",
-      "ts": 1700000000400
+      "ts": 1700000000400,
+      "use_id": "1700000000001"
     },
     {
-      "use_id": "1700000000001",
       "content": "The user wants to search for meetings about project updates.\nI should use the search_events tool to find relevant meetings.",
       "event": "thinking",
-      "ts": 1700000000300
+      "ts": 1700000000300,
+      "use_id": "1700000000001"
     },
     {
-      "use_id": "1700000000001",
       "event": "finish",
       "result": "I found 2 meetings about project updates:\n\n1. **Project Update Meeting** on 2023-11-14\n2. **Weekly Status** on 2023-11-15",
       "ts": 1700000000600,
       "usage": {
         "input_tokens": 150,
         "output_tokens": 80
-      }
+      },
+      "use_id": "1700000000001"
     },
     {
-      "use_id": "1700000000001",
       "event": "start",
       "model": "gpt-4o",
       "name": "default",
       "prompt": "Search for meetings about project updates",
       "provider": "openai",
-      "ts": 1700000000100
+      "ts": 1700000000100,
+      "use_id": "1700000000001"
     },
     {
-      "talent": "solstone",
-      "use_id": "1700000000001",
       "event": "talent_updated",
-      "ts": 1700000000200
+      "talent": "solstone",
+      "ts": 1700000000200,
+      "use_id": "1700000000001"
     }
   ],
   "facet": null,

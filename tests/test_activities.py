@@ -2181,3 +2181,212 @@ class TestCheckSegmentFlush:
         assert _flush_state["day"] == "20260209"
         assert _flush_state["segment"] == "110000_300"
         assert _flush_state["last_segment_ts"] > 0
+
+
+def _seed_activity_records(
+    tmpdir: str, facet: str, day: str, records: list[dict]
+) -> None:
+    from think.activities import append_activity_record
+
+    for record in records:
+        append_activity_record(facet, day, record)
+
+
+def test_make_anticipation_id_builds_stable_id():
+    from think.activities import make_anticipation_id
+
+    assert make_anticipation_id("meeting", "16:30:00", "2026-04-20") == (
+        "anticipated_meeting_163000_0420"
+    )
+    assert make_anticipation_id("deadline", None, "2026-05-05") == (
+        "anticipated_deadline_000000_0505"
+    )
+
+
+@pytest.mark.parametrize(
+    ("activity_type", "start", "target_date"),
+    [
+        ("meeting", "9:00", "2026-04-20"),
+        ("meeting", "09:00:00", "2026/04/20"),
+        ("", "09:00:00", "2026-04-20"),
+    ],
+)
+def test_make_anticipation_id_rejects_malformed_inputs(
+    activity_type,
+    start,
+    target_date,
+):
+    from think.activities import make_anticipation_id
+
+    with pytest.raises(ValueError):
+        make_anticipation_id(activity_type, start, target_date)
+
+
+def test_dedup_anticipation_returns_empty_for_first_record(monkeypatch):
+    from think.activities import dedup_anticipation
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+
+        should_write, superseded_ids = dedup_anticipation(
+            "work",
+            "20260420",
+            {"id": "anticipated_meeting_163000_0420", "title": "Yuri intro"},
+        )
+
+    assert should_write is True
+    assert superseded_ids == []
+
+
+def test_dedup_anticipation_rejects_exact_id_collision(monkeypatch):
+    from think.activities import dedup_anticipation
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+        _seed_activity_records(
+            tmpdir,
+            "work",
+            "20260420",
+            [
+                {
+                    "id": "anticipated_meeting_163000_0420",
+                    "activity": "meeting",
+                    "title": "Yuri intro",
+                    "description": "Original",
+                    "source": "anticipated",
+                }
+            ],
+        )
+
+        should_write, superseded_ids = dedup_anticipation(
+            "work",
+            "20260420",
+            {"id": "anticipated_meeting_163000_0420", "title": "Yuri intro"},
+        )
+
+    assert should_write is False
+    assert superseded_ids == []
+
+
+def test_dedup_anticipation_returns_fuzzy_supersede_matches(monkeypatch):
+    from think.activities import dedup_anticipation
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+        _seed_activity_records(
+            tmpdir,
+            "work",
+            "20260420",
+            [
+                {
+                    "id": "anticipated_meeting_160000_0420",
+                    "activity": "meeting",
+                    "title": "Yuri Namikawa intro call",
+                    "description": "Original",
+                    "source": "anticipated",
+                }
+            ],
+        )
+
+        should_write, superseded_ids = dedup_anticipation(
+            "work",
+            "20260420",
+            {
+                "id": "anticipated_meeting_163000_0420",
+                "title": "Yuri Namikawa intro call",
+            },
+        )
+
+    assert should_write is True
+    assert superseded_ids == ["anticipated_meeting_160000_0420"]
+
+
+def test_dedup_anticipation_ignores_below_threshold_and_hidden_rows(monkeypatch):
+    from think.activities import dedup_anticipation
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+        _seed_activity_records(
+            tmpdir,
+            "work",
+            "20260420",
+            [
+                {
+                    "id": "anticipated_meeting_090000_0420",
+                    "activity": "meeting",
+                    "title": "Quarterly planning summit",
+                    "description": "Visible",
+                    "source": "anticipated",
+                },
+                {
+                    "id": "anticipated_meeting_100000_0420",
+                    "activity": "meeting",
+                    "title": "Yuri Namikawa intro call",
+                    "description": "Hidden",
+                    "source": "anticipated",
+                    "hidden": True,
+                },
+            ],
+        )
+
+        should_write, superseded_ids = dedup_anticipation(
+            "work",
+            "20260420",
+            {
+                "id": "anticipated_meeting_163000_0420",
+                "title": "Scott Ward standup",
+            },
+        )
+
+    assert should_write is True
+    assert superseded_ids == []
+
+
+def test_dedup_anticipation_returns_all_matching_supersedes(monkeypatch):
+    from think.activities import dedup_anticipation
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+        _seed_activity_records(
+            tmpdir,
+            "work",
+            "20260420",
+            [
+                {
+                    "id": "anticipated_call_090000_0420",
+                    "activity": "call",
+                    "title": "Mari Zumbro intro",
+                    "description": "Old 1",
+                    "source": "anticipated",
+                },
+                {
+                    "id": "anticipated_call_093000_0420",
+                    "activity": "call",
+                    "title": "Mari Zumbro intro",
+                    "description": "Old 2",
+                    "source": "anticipated",
+                },
+                {
+                    "id": "cogitate_call_100000_300",
+                    "activity": "call",
+                    "title": "Mari Zumbro intro",
+                    "description": "Non-anticipated",
+                    "source": "cogitate",
+                },
+            ],
+        )
+
+        should_write, superseded_ids = dedup_anticipation(
+            "work",
+            "20260420",
+            {
+                "id": "anticipated_call_103000_0420",
+                "title": "Mari Zumbro intro",
+            },
+        )
+
+    assert should_write is True
+    assert superseded_ids == [
+        "anticipated_call_090000_0420",
+        "anticipated_call_093000_0420",
+    ]

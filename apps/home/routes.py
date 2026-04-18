@@ -303,6 +303,7 @@ def _collect_todos(today: str) -> list[dict[str, Any]]:
 
 def _collect_events(today: str) -> list[dict[str, Any]]:
     """Collect calendar events across all facets."""
+    from think.activities import load_activity_records
     from think.indexer.journal import get_events
 
     try:
@@ -312,6 +313,30 @@ def _collect_events(today: str) -> list[dict[str, Any]]:
                 event["start"] = ""
             if event.get("end") is None:
                 event["end"] = ""
+
+        for facet_name in get_facets():
+            for record in load_activity_records(facet_name, today):
+                if record.get("source") != "anticipated":
+                    continue
+
+                participants = []
+                for entry in record.get("participation", []):
+                    if not isinstance(entry, dict) or entry.get("role") != "attendee":
+                        continue
+                    name = str(entry.get("name") or "").strip()
+                    if name:
+                        participants.append(name)
+
+                events.append(
+                    {
+                        "title": record.get("title", ""),
+                        "start": record.get("start") or "",
+                        "end": record.get("end") or "",
+                        "facet": facet_name,
+                        "occurred": False,
+                        "participants": participants,
+                    }
+                )
         return events
     except Exception:
         logger.warning("home: failed to collect events", exc_info=True)
@@ -335,6 +360,8 @@ def _collect_activities(today: str) -> list[dict[str, Any]]:
     for facet_name in facets:
         records = load_activity_records(facet_name, today)
         for record in records:
+            if record.get("source") == "anticipated":
+                continue
             created_at = record.get("created_at", 0)
             if created_at < cutoff_ts:
                 continue

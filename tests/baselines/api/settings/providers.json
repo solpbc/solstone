@@ -183,13 +183,6 @@
       "tier": 2,
       "type": "cogitate"
     },
-    "talent.system.anticipation": {
-      "disabled": false,
-      "group": "Think",
-      "label": "Anticipation Extraction",
-      "tier": 2,
-      "type": null
-    },
     "talent.system.awareness_tender": {
       "disabled": false,
       "group": "Think",
@@ -377,7 +370,6 @@
     },
     "talent.system.schedule": {
       "disabled": false,
-      "extract": true,
       "group": "Think",
       "label": "Upcoming Schedule",
       "schedule": "daily",

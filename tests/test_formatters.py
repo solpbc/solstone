@@ -1006,8 +1006,8 @@ class TestFormatEvents:
         assert "Daily sync" in chunks[0]["markdown"]
         assert "Task: Code review" in chunks[1]["markdown"]
 
-    def test_format_events_anticipation_labels(self):
-        """Test that anticipations use 'Planned', 'Scheduled', 'Expected' labels."""
+    def test_format_events_planned_labels(self):
+        """Test that planned future events use 'Planned', 'Scheduled', 'Expected' labels."""
         from think.events import format_events
 
         entries = [

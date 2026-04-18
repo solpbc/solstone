@@ -8,8 +8,8 @@
         "pre": "daily_schedule"
       },
       "load": {
-        "talents": false,
         "percepts": false,
+        "talents": false,
         "transcripts": false
       },
       "max_output_tokens": 512,
@@ -36,10 +36,10 @@
         "post": "occurrence"
       },
       "load": {
+        "percepts": false,
         "talents": {
           "screen": true
         },
-        "percepts": false,
         "transcripts": true
       },
       "mtime": 0,
@@ -59,8 +59,8 @@
         "pre": "documents"
       },
       "load": {
-        "talents": false,
         "percepts": false,
+        "talents": false,
         "transcripts": true
       },
       "max_output_tokens": 8192,
@@ -81,8 +81,8 @@
         "post": "entities"
       },
       "load": {
-        "talents": false,
         "percepts": true,
+        "talents": false,
         "transcripts": true
       },
       "max_output_tokens": 1024,
@@ -106,8 +106,8 @@
         "pre": "entities:entity_observer"
       },
       "load": {
-        "talents": false,
         "percepts": false,
+        "talents": false,
         "transcripts": false
       },
       "mtime": 0,
@@ -129,10 +129,10 @@
         "post": "occurrence"
       },
       "load": {
+        "percepts": false,
         "talents": {
           "screen": true
         },
-        "percepts": false,
         "transcripts": true
       },
       "mtime": 0,
@@ -158,10 +158,10 @@
         "post": "occurrence"
       },
       "load": {
+        "percepts": false,
         "talents": {
           "screen": true
         },
-        "percepts": false,
         "transcripts": true
       },
       "mtime": 0,
@@ -181,10 +181,10 @@
         "post": "occurrence"
       },
       "load": {
+        "percepts": false,
         "talents": {
           "screen": true
         },
-        "percepts": false,
         "transcripts": true
       },
       "mtime": 0,
@@ -207,10 +207,10 @@
         "post": "occurrence"
       },
       "load": {
+        "percepts": false,
         "talents": {
           "screen": true
         },
-        "percepts": false,
         "transcripts": true
       },
       "mtime": 0,
@@ -234,10 +234,10 @@
         "post": "occurrence"
       },
       "load": {
+        "percepts": false,
         "talents": {
           "screen": true
         },
-        "percepts": false,
         "transcripts": true
       },
       "mtime": 0,
@@ -278,19 +278,19 @@
     },
     "schedule": {
       "color": "#5e35b1",
-      "description": "Identifies all future calendar events and scheduled activities noted in transcripts. Extracts dates, times, participants, and event details for anything scheduled beyond today.",
+      "description": "Extracts future scheduled events and calendar activities into structured anticipation records. Captures dates, times, participants, and cancellation state.",
       "hook": {
-        "post": "anticipation"
+        "post": "schedule"
       },
       "load": {
+        "percepts": false,
         "talents": {
           "screen": true
         },
-        "percepts": false,
         "transcripts": true
       },
       "mtime": 0,
-      "output": "md",
+      "output": "json",
       "path": "<PROJECT>/talent/schedule.md",
       "priority": 10,
       "schedule": "daily",
@@ -302,8 +302,8 @@
       "color": "#9c27b0",
       "description": "Creates a detailed documentary record of screen activity. Focuses on the 'what' - chronological account with preserved details, excerpts, and entities.",
       "load": {
-        "talents": false,
         "percepts": "required",
+        "talents": false,
         "transcripts": true
       },
       "mtime": 0,
@@ -319,8 +319,8 @@
       "color": "#ff6f00",
       "description": "Unified segment understanding — density, content type, entities, facets, speakers, and routing recommendations in a single pass",
       "load": {
-        "talents": false,
         "percepts": true,
+        "talents": false,
         "transcripts": true
       },
       "max_output_tokens": 4096,
@@ -346,8 +346,8 @@
         "pre": "skills"
       },
       "load": {
-        "talents": false,
         "percepts": false,
+        "talents": false,
         "transcripts": false
       },
       "mtime": 0,
@@ -389,10 +389,10 @@
         "post": "occurrence"
       },
       "load": {
+        "percepts": false,
         "talents": {
           "screen": true
         },
-        "percepts": false,
         "transcripts": true
       },
       "mtime": 0,

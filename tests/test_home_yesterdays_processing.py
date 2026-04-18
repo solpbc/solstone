@@ -16,6 +16,8 @@ import pytest
 from apps.home.routes import (
     _briefing_freshness,
     _build_pulse_context,
+    _collect_activities,
+    _collect_events,
     _format_activity_label,
     _format_duration,
     _format_entity_summary,
@@ -35,6 +37,14 @@ def _copy_fixture_file(journal: Path, rel_path: str) -> None:
     dst = journal / rel_path
     dst.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(src, dst)
+
+
+def _write_jsonl(path: Path, rows: list[dict]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows),
+        encoding="utf-8",
+    )
 
 
 def _write_facet_meta(journal: Path, facet: str, title: str) -> None:
@@ -248,6 +258,81 @@ def test_yesterdays_card_hidden_when_all_zero(tmp_path, monkeypatch):
     monkeypatch.setattr("apps.home.routes._today", lambda: "20260417")
 
     assert _summarize_yesterday_processing("20260416", 9) is None
+
+
+def test_collectors_merge_anticipated_events_without_double_counting(
+    tmp_path,
+    monkeypatch,
+):
+    journal = tmp_path / "journal"
+    journal.mkdir()
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+
+    today = "20260418"
+    now_ms = int(datetime.now().timestamp() * 1000)
+
+    _write_facet_meta(journal, "work", "Work")
+    _write_jsonl(
+        journal / "facets" / "work" / "events" / f"{today}.jsonl",
+        [
+            {
+                "type": "meeting",
+                "title": "Team standup",
+                "start": "09:00:00",
+                "end": "09:30:00",
+                "participants": ["Alice"],
+                "occurred": True,
+            }
+        ],
+    )
+    _write_jsonl(
+        journal / "facets" / "work" / "activities" / f"{today}.jsonl",
+        [
+            {
+                "id": "anticipated_call_103000_0418",
+                "activity": "call",
+                "title": "Mari intro",
+                "description": "Planned intro call",
+                "target_date": "2026-04-18",
+                "start": "10:30:00",
+                "end": "11:00:00",
+                "source": "anticipated",
+                "created_at": now_ms,
+                "participation": [
+                    {
+                        "name": "Mari Zumbro",
+                        "role": "attendee",
+                        "source": "screen",
+                        "confidence": 0.9,
+                        "context": "calendar invite",
+                    },
+                    {
+                        "name": "Ramon",
+                        "role": "mentioned",
+                        "source": "screen",
+                        "confidence": 0.6,
+                        "context": "note",
+                    },
+                ],
+            },
+            {
+                "id": "coding_090000_300",
+                "activity": "coding",
+                "title": "Focused coding",
+                "description": "Recent work",
+                "created_at": now_ms,
+                "source": "user",
+            },
+        ],
+    )
+
+    events = _collect_events(today)
+    activities = _collect_activities(today)
+
+    assert [event["title"] for event in events] == ["Team standup", "Mari intro"]
+    assert events[1]["occurred"] is False
+    assert events[1]["participants"] == ["Mari Zumbro"]
+    assert [activity["id"] for activity in activities] == ["coding_090000_300"]
 
 
 def test_yesterdays_card_sparse_mode_copy(tmp_path, monkeypatch):

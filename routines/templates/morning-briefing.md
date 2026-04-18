@@ -13,7 +13,7 @@ This is not a conversation. Gather the information, synthesize it, and write a c
 ## Gather
 
 1. Call `sol call journal facets` to see the active facets if you need broader context.
-2. Call `sol call calendar list $day_YYYYMMDD` to review today's events and participants.
+2. Call `sol call activities list --source anticipated --day $day_YYYYMMDD` to review today's scheduled items and participants.
 3. Call `sol call todos list` to see pending action items across facets.
 4. Call `sol call identity pulse` to capture current narrative, priorities, and needs-you items.
 5. Call `sol call journal search "" -a followups -n 10` to find recent follow-up items.

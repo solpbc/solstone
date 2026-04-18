@@ -294,7 +294,7 @@ Define custom generator prompts that integrate with solstone's output generation
 **Event extraction via hooks:** To extract structured events from generator output, use the `hook` field:
 
 - `"hook": {"post": "occurrence"}` - Extracts past events to `facets/{facet}/events/{day}.jsonl`
-- `"hook": {"post": "anticipation"}` - Extracts future scheduled events
+- `"hook": {"post": "schedule"}` - Writes future scheduled items as anticipated activity records
 
 The `occurrences` field (optional string) provides agent-specific extraction guidance when using the occurrence hook. Example:
 
@@ -356,7 +356,7 @@ See `docs/coding-standards.md` L8/L9 for the broader principles.
 
 **Reference implementations:**
 - System generator templates: `talent/*.md` (files with `schedule` field but no `tools` field)
-- Extraction hooks: `talent/occurrence.py`, `talent/anticipation.py`
+- Event/schedule hooks: `talent/occurrence.py`, `talent/schedule.py`
 - Discovery logic: `think/talent.py` - `get_talent_configs(has_tools=False)`, `get_output_name()`
 - Hook loading: `think/talent.py` - `load_pre_hook()`, `load_post_hook()`
 

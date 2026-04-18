@@ -126,10 +126,10 @@ def format_events(
             )
             lines.append(f"**{participants_label}:** {', '.join(participants)}")
 
-        # For anticipations, show when it was created (from source path)
+        # For future-dated event rows, show when they were created (from source path)
         if not occurred:
             source = event.get("source", "")
-            # Extract YYYYMMDD from source path like "20240101/talents/schedule.md"
+            # Extract YYYYMMDD from source path like "20240101/talents/agent.md"
             source_match = re.match(r"(\d{8})/", source)
             if source_match:
                 created_day = source_match.group(1)

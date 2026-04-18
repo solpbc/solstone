@@ -1,4 +1,42 @@
 {
+  "facets": {
+    "capulet": {
+      "color": "#dc143c",
+      "title": "Capulet Industries"
+    },
+    "empty-entities": {
+      "color": "",
+      "title": "Empty Entities Test"
+    },
+    "full-featured": {
+      "color": "#28a745",
+      "title": "Full Featured Facet"
+    },
+    "minimal-facet": {
+      "color": "",
+      "title": "Minimal Facet"
+    },
+    "montague": {
+      "color": "#1e90ff",
+      "title": "Montague Tech"
+    },
+    "muted-test": {
+      "color": "",
+      "title": "Muted Test"
+    },
+    "priority-test": {
+      "color": "",
+      "title": "Priority Test"
+    },
+    "test-facet": {
+      "color": "#007bff",
+      "title": "Test Facet"
+    },
+    "verona": {
+      "color": "#9370db",
+      "title": "Verona"
+    }
+  },
   "talents": {
     "activities:activities_review": {
       "app": "activities",
@@ -10,17 +48,6 @@
       "source": "app",
       "title": "Activities Review",
       "type": "cogitate"
-    },
-    "anticipation": {
-      "app": null,
-      "color": "#4527a0",
-      "description": "Extracts structured anticipation events (future scheduled items) from insight summaries.",
-      "multi_facet": false,
-      "output_format": null,
-      "schedule": null,
-      "source": "system",
-      "title": "Anticipation Extraction",
-      "type": null
     },
     "awareness_tender": {
       "app": null,
@@ -377,9 +404,9 @@
     "schedule": {
       "app": null,
       "color": "#5e35b1",
-      "description": "Identifies all future calendar events and scheduled activities noted in transcripts. Extracts dates, times, participants, and event details for anything scheduled beyond today.",
+      "description": "Extracts future scheduled events and calendar activities into structured anticipation records. Captures dates, times, participants, and cancellation state.",
       "multi_facet": false,
-      "output_format": "md",
+      "output_format": "json",
       "schedule": "daily",
       "source": "system",
       "title": "Upcoming Schedule",
@@ -505,44 +532,6 @@
       "source": "system",
       "title": "Triage",
       "type": "cogitate"
-    }
-  },
-  "facets": {
-    "capulet": {
-      "color": "#dc143c",
-      "title": "Capulet Industries"
-    },
-    "empty-entities": {
-      "color": "",
-      "title": "Empty Entities Test"
-    },
-    "full-featured": {
-      "color": "#28a745",
-      "title": "Full Featured Facet"
-    },
-    "minimal-facet": {
-      "color": "",
-      "title": "Minimal Facet"
-    },
-    "montague": {
-      "color": "#1e90ff",
-      "title": "Montague Tech"
-    },
-    "muted-test": {
-      "color": "",
-      "title": "Muted Test"
-    },
-    "priority-test": {
-      "color": "",
-      "title": "Priority Test"
-    },
-    "test-facet": {
-      "color": "#007bff",
-      "title": "Test Facet"
-    },
-    "verona": {
-      "color": "#9370db",
-      "title": "Verona"
     }
   },
   "uses": []

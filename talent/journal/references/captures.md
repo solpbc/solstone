@@ -229,25 +229,20 @@ The vision analysis uses multi-stage conditional processing:
 
 ### Event extracts
 
-Generator output processing extracts time-based events from the day's transcripts—meetings, messages, follow-ups, file activity and more. Events are stored per-facet in JSONL files at `facets/{facet}/events/{day}.jsonl`.
-
-There are two types of events:
-- **Occurrences** – events that happened on the capture day (`occurred: true`)
-- **Anticipations** – future scheduled events extracted from calendar views (`occurred: false`)
+Generator output processing extracts time-based events from the day's transcripts—meetings, messages, follow-ups, file activity and more. Occurrence events are stored per-facet in JSONL files at `facets/{facet}/events/{day}.jsonl`. Future scheduled items from the schedule talent are stored as anticipated activity records under `facets/{facet}/activities/{target_day}.jsonl` with `source: "anticipated"`.
 
 ```jsonl
 {"type": "meeting", "start": "09:00:00", "end": "09:30:00", "title": "Team stand-up", "summary": "Status update with the engineering team", "work": true, "participants": ["Jeremie Miller", "Alice", "Bob"], "facet": "work", "agent": "meetings", "occurred": true, "source": "20250101/talents/meetings.md", "details": "Sprint planning discussion"}
-{"type": "deadline", "date": "2025-01-15", "start": null, "end": null, "title": "Project milestone", "summary": "Q1 deliverable due", "work": true, "participants": [], "facet": "work", "agent": "schedule", "occurred": false, "source": "20250101/talents/schedule.md", "details": "Final review before release"}
+{"id": "anticipated_deadline_000000_0115", "activity": "deadline", "target_date": "2025-01-15", "start": null, "end": null, "title": "Project milestone", "description": "Q1 deliverable due.", "details": "Final review before release", "facet": "work", "source": "anticipated", "active_entities": [], "participation": [], "participation_confidence": 0.5, "cancelled": false}
 ```
 
 **Common fields:**
 - **type** – event kind: `meeting`, `message`, `file`, `followup`, `documentation`, `research`, `media`, `deadline`, `appointment`, etc.
-- **start** and **end** – HH:MM:SS timestamps (or `null` for anticipations without specific times)
-- **date** – ISO date YYYY-MM-DD (anticipations only, indicates scheduled date)
+- **start** and **end** – HH:MM:SS timestamps (or `null` when a time is not known)
 - **title** and **summary** – short text for display and search
 - **facet** – facet name the event belongs to (required)
-- **agent** – source generator type (e.g., "meetings", "schedule", "flow")
-- **occurred** – `true` for occurrences, `false` for anticipations
+- **agent** – source generator type for occurrence events (e.g., "meetings", "flow")
+- **occurred** – `true` for occurrence event rows in `facets/*/events/*.jsonl`
 - **source** – path to the output file that generated this event
 - **work** – boolean, work vs. personal classification
 - **participants** – optional list of people or entities involved

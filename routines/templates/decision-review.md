@@ -15,7 +15,7 @@ This is not a summary — it's a mirror. The goal is to help the owner see their
 1. Use `sol call journal search "" -a decisions --day-from START --day-to END -n 20` for the past 30 days of decision agent output.
 2. Use `sol call journal search "" -a pulse --day-from START --day-to END -n 15` for narrative context around major decisions.
 3. Use `sol call entities intelligence PERSON` for people involved in the most consequential decisions.
-4. Use `sol call calendar list YYYYMMDD` for days with major decisions to see what else was happening.
+4. Use `sol call activities list --source anticipated --day YYYYMMDD` for days with major decisions to see what else was happening.
 5. Use `sol call identity partner` for the owner's known decision style.
 
 ## Synthesize

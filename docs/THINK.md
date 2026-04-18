@@ -183,7 +183,7 @@ returns a dictionary keyed by generator name. Each entry contains:
 - `mtime` – modification time of the `.md` file
 - Additional keys from JSON frontmatter such as `title`, `description`, `hook`, or `load`
 
-The `hook` field enables event extraction by invoking named hooks like `"occurrence"` or `"anticipation"`.
+The `hook` field enables output processing by invoking named hooks like `"occurrence"` or `"schedule"`.
 The `load` key controls transcript/percept/agent source filtering for generators.
 See [APPS.md](APPS.md#prompt-context-configuration) for the full schema.
 

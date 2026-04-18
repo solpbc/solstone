@@ -1,11 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Shared utilities for output extraction hooks.
-
-This module provides common functions used by extraction hooks like
-occurrence.py and anticipation.py in the talent/ directory.
-"""
+"""Shared utilities for output-side event hooks."""
 
 import json
 import logging
@@ -113,8 +109,8 @@ def write_events_jsonl(
 
     Args:
         events: List of event dictionaries from extraction.
-        agent: Source generator agent (e.g., "meetings", "schedule").
-        occurred: True for occurrences, False for anticipations.
+        agent: Source generator agent (e.g., "meetings", "flow").
+        occurred: True for occurrence rows, False for future-dated event rows.
         source_output: Relative path to source output file.
         capture_day: Day the output was captured (YYYYMMDD).
 
@@ -146,7 +142,7 @@ def write_events_jsonl(
             # Occurrences use capture day
             event_day = capture_day
         else:
-            # Anticipations use their scheduled date
+            # Future-dated event rows use their scheduled date
             event_date = event.get("date", "")
             # Convert YYYY-MM-DD to YYYYMMDD
             event_day = event_date.replace("-", "") if event_date else capture_day

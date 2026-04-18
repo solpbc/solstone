@@ -109,6 +109,59 @@ def test_list_filters_by_entity(activities_env):
     assert [item["id"] for item in payload] == ["coding_090000_300"]
 
 
+def test_list_filters_by_source(activities_env):
+    activities_env(
+        [
+            {
+                "id": "anticipated_call_103000_0421",
+                "activity": "call",
+                "title": "Mari intro",
+                "description": "Planned",
+                "target_date": "2026-04-21",
+                "source": "anticipated",
+                "created_at": 1,
+            },
+            {
+                "id": "coding_090000_300",
+                "activity": "coding",
+                "title": "Focused coding",
+                "description": "User created",
+                "source": "user",
+                "created_at": 2,
+            },
+            {
+                "id": "meeting_100000_300",
+                "activity": "meeting",
+                "title": "Synthesized meeting",
+                "description": "Cogitate created",
+                "source": "cogitate",
+                "created_at": 3,
+            },
+        ]
+    )
+
+    result = runner.invoke(
+        call_app,
+        ["activities", "list", "--facet", "work", "--source", "anticipated", "--json"],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert [item["id"] for item in payload] == ["anticipated_call_103000_0421"]
+
+
+def test_list_rejects_unknown_source(activities_env):
+    activities_env([])
+
+    result = runner.invoke(
+        call_app,
+        ["activities", "list", "--facet", "work", "--source", "calendar"],
+    )
+
+    assert result.exit_code == 1
+    assert "--source must be 'anticipated', 'cogitate', or 'user'" in result.output
+
+
 def test_get_returns_hidden_record_with_json_output(activities_env):
     activities_env(
         [

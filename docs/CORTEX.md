@@ -336,7 +336,7 @@ When an agent has `"multi_facet": true`:
 
 #### Daily Multi-Facet Agents
 
-**Active Facet Detection**: By default, daily multi-facet agents only run for facets that had activity the previous day. Activity is determined by the presence of occurrence events (not anticipations) in `facets/{facet}/events/{day}.jsonl`. This prevents unnecessary agent runs for inactive facets.
+**Active Facet Detection**: By default, daily multi-facet agents only run for facets that had activity the previous day. Activity is determined by the presence of occurrence events in `facets/{facet}/events/{day}.jsonl`. This prevents unnecessary agent runs for inactive facets.
 
 To force an agent to run for all facets regardless of activity, set `"always": true`:
 
