@@ -93,3 +93,6 @@ def test_participation_post_hook_resolves_entity_ids_without_mutating_entities(
     record = load_activity_records(facet, day)[0]
     assert record["participation"][0]["entity_id"] == "john_borthwick"
     assert record["participation"][1]["entity_id"] is None
+    assert record["title"] == "Team sync"
+    assert record["details"] == ""
+    assert record["hidden"] is False

@@ -489,8 +489,17 @@ def post_process(result: str, context: dict) -> str | None:
             for activity in activities:
                 record_id = activity.get("id", "")
                 description = activity.get("description", "")
+                title = activity.get("title") or None
+                details = activity.get("details") or None
                 if record_id and description:
-                    if update_record_description(facet, day, record_id, description):
+                    if update_record_description(
+                        facet,
+                        day,
+                        record_id,
+                        description,
+                        title=title,
+                        details=details,
+                    ):
                         updated_count += 1
                         llm_descriptions.setdefault(facet, {})[record_id] = description
 

@@ -8,6 +8,8 @@ import os
 import tempfile
 from pathlib import Path
 
+import pytest
+
 
 def test_get_default_activities():
     """Test that default activities are returned correctly."""
@@ -529,6 +531,10 @@ class TestActivityRecordIO:
             assert len(records) == 1
             assert records[0]["id"] == "coding_100000_300"
             assert records[0]["segments"] == ["100000_300", "100500_300"]
+            assert records[0]["title"] == "Test coding session"
+            assert records[0]["details"] == ""
+            assert records[0]["hidden"] is False
+            assert records[0]["edits"] == []
 
     def test_append_idempotent(self, monkeypatch):
         from think.activities import append_activity_record, load_activity_records
@@ -582,6 +588,85 @@ class TestActivityRecordIO:
 
             records = load_activity_records("work", "20260209")
             assert records[0]["description"] == "Updated description"
+            assert records[0]["title"] == "Updated description"
+            assert records[0]["details"] == ""
+
+    def test_update_description_with_title_and_details(self, monkeypatch):
+        from think.activities import (
+            append_activity_record,
+            load_activity_records,
+            update_record_description,
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+
+            record = {
+                "id": "coding_100000_300",
+                "activity": "coding",
+                "description": "Original description",
+                "segments": ["100000_300"],
+                "created_at": 1234567890000,
+            }
+
+            append_activity_record("work", "20260209", record)
+            result = update_record_description(
+                "work",
+                "20260209",
+                "coding_100000_300",
+                "Updated description",
+                title="Focused coding",
+                details="Pairing with Alex on tests.",
+            )
+
+            assert result is True
+            records = load_activity_records("work", "20260209")
+            assert records[0]["description"] == "Updated description"
+            assert records[0]["title"] == "Focused coding"
+            assert records[0]["details"] == "Pairing with Alex on tests."
+
+    def test_update_description_none_title_and_details_only_updates_description(
+        self, monkeypatch
+    ):
+        from think.activities import (
+            append_activity_record,
+            load_activity_records,
+            update_record_description,
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+
+            append_activity_record(
+                "work",
+                "20260209",
+                {
+                    "id": "coding_100000_300",
+                    "activity": "coding",
+                    "title": "Existing title",
+                    "details": "Existing details",
+                    "description": "Original description",
+                    "segments": ["100000_300"],
+                    "created_at": 1234567890000,
+                },
+            )
+
+            assert (
+                update_record_description(
+                    "work",
+                    "20260209",
+                    "coding_100000_300",
+                    "Updated description",
+                    title=None,
+                    details=None,
+                )
+                is True
+            )
+
+            records = load_activity_records("work", "20260209")
+            assert records[0]["description"] == "Updated description"
+            assert records[0]["title"] == "Existing title"
+            assert records[0]["details"] == "Existing details"
 
     def test_update_nonexistent_returns_false(self, monkeypatch):
         from think.activities import update_record_description
@@ -629,6 +714,136 @@ class TestActivityRecordIO:
             assert len(records) == 2
             assert records[0]["description"] == "Updated first"
             assert records[1]["description"] == "Second"
+
+    def test_update_activity_record_appends_edit(self, monkeypatch):
+        from think.activities import (
+            append_activity_record,
+            load_activity_records,
+            update_activity_record,
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+
+            append_activity_record(
+                "work",
+                "20260209",
+                {
+                    "id": "coding_100000_300",
+                    "activity": "coding",
+                    "description": "Original description",
+                    "segments": ["100000_300"],
+                    "created_at": 1234567890000,
+                },
+            )
+
+            updated = update_activity_record(
+                "work",
+                "20260209",
+                "coding_100000_300",
+                {"title": "Focused coding", "details": "Updated details"},
+                actor="cli:update",
+                note="updated fields: details, title",
+            )
+
+            assert updated is not None
+            assert updated["title"] == "Focused coding"
+            assert updated["details"] == "Updated details"
+            assert updated["edits"][-1]["actor"] == "cli:update"
+            assert updated["edits"][-1]["fields"] == ["title", "details"]
+
+            records = load_activity_records("work", "20260209")
+            assert records[0]["edits"][-1]["note"] == "updated fields: details, title"
+
+    def test_update_activity_record_validates_patch(self, monkeypatch):
+        from think.activities import update_activity_record
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+
+            with pytest.raises(ValueError, match="patch cannot be empty"):
+                update_activity_record(
+                    "work",
+                    "20260209",
+                    "coding_100000_300",
+                    {},
+                    actor="cli:update",
+                    note="no-op",
+                )
+
+            with pytest.raises(ValueError, match="disallowed fields"):
+                update_activity_record(
+                    "work",
+                    "20260209",
+                    "coding_100000_300",
+                    {"activity": "meeting"},
+                    actor="cli:update",
+                    note="bad field",
+                )
+
+    def test_hidden_records_filtered_by_default(self, monkeypatch):
+        from think.activities import (
+            append_activity_record,
+            load_activity_records,
+            mute_activity_record,
+            unmute_activity_record,
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+
+            append_activity_record(
+                "work",
+                "20260209",
+                {
+                    "id": "coding_100000_300",
+                    "activity": "coding",
+                    "description": "Original description",
+                    "segments": ["100000_300"],
+                    "created_at": 1234567890000,
+                },
+            )
+
+            muted = mute_activity_record(
+                "work",
+                "20260209",
+                "coding_100000_300",
+                actor="cli:mute",
+                reason="too noisy",
+            )
+            assert muted is not None
+            assert muted["hidden"] is True
+            assert muted["edits"][-1]["note"] == "too noisy"
+
+            assert load_activity_records("work", "20260209") == []
+            hidden_records = load_activity_records(
+                "work", "20260209", include_hidden=True
+            )
+            assert len(hidden_records) == 1
+            assert hidden_records[0]["hidden"] is True
+
+            hidden_count = len(hidden_records[0]["edits"])
+            muted_again = mute_activity_record(
+                "work",
+                "20260209",
+                "coding_100000_300",
+                actor="cli:mute",
+                reason="still noisy",
+            )
+            assert muted_again is not None
+            assert len(muted_again["edits"]) == hidden_count
+
+            unmuted = unmute_activity_record(
+                "work",
+                "20260209",
+                "coding_100000_300",
+                actor="cli:unmute",
+                reason=None,
+            )
+            assert unmuted is not None
+            assert unmuted["hidden"] is False
+            assert unmuted["edits"][-1]["note"] == "unmuted"
+            assert len(load_activity_records("work", "20260209")) == 1
 
 
 # ---------------------------------------------------------------------------
@@ -1149,6 +1364,8 @@ class TestPostProcess:
                     "work": [
                         {
                             "id": "coding_100000_300",
+                            "title": "Coding summary",
+                            "details": "Worked through test failures and cleanup.",
                             "description": "Synthesized full description of coding session",
                         }
                     ]
@@ -1162,6 +1379,47 @@ class TestPostProcess:
                 records[0]["description"]
                 == "Synthesized full description of coding session"
             )
+            assert records[0]["title"] == "Coding summary"
+            assert records[0]["details"] == "Worked through test failures and cleanup."
+
+    def test_updates_descriptions_without_optional_fields(self, monkeypatch):
+        from talent.activities import post_process
+        from think.activities import append_activity_record, load_activity_records
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+
+            append_activity_record(
+                "work",
+                "20260209",
+                {
+                    "id": "coding_100000_300",
+                    "activity": "coding",
+                    "title": "Existing title",
+                    "details": "Existing details",
+                    "description": "Preliminary description",
+                    "segments": ["100000_300"],
+                    "created_at": 1,
+                },
+            )
+
+            llm_result = json.dumps(
+                {
+                    "work": [
+                        {
+                            "id": "coding_100000_300",
+                            "description": "Only description changed",
+                        }
+                    ]
+                }
+            )
+
+            post_process(llm_result, {"day": "20260209"})
+
+            records = load_activity_records("work", "20260209")
+            assert records[0]["description"] == "Only description changed"
+            assert records[0]["title"] == "Existing title"
+            assert records[0]["details"] == "Existing details"
 
     def test_handles_invalid_json(self):
         from talent.activities import post_process

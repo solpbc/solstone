@@ -82,6 +82,9 @@ def test_participation_post_hook_merges_fields_and_preserves_active_entities(
     assert record["participation_confidence"] == 0.77
     assert record["participation"][0]["entity_id"] == "john_borthwick"
     assert record["participation"][1]["entity_id"] is None
+    assert record["title"] == "Team sync"
+    assert record["details"] == ""
+    assert record["hidden"] is False
 
 
 def test_participation_post_hook_leaves_file_unchanged_on_malformed_json(

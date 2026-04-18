@@ -296,7 +296,7 @@ class TestRunActivityPrompts:
 
             assert result is False
 
-    def test_empty_segments_returns_false(self, monkeypatch):
+    def test_empty_segments_returns_true_for_synthetic_record(self, monkeypatch):
         from think.thinking import run_activity_prompts
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -322,7 +322,41 @@ class TestRunActivityPrompts:
                 facet="work",
             )
 
-            assert result is False
+            assert result is True
+
+    def test_cogitate_source_returns_true_without_running_agents(self, monkeypatch):
+        from think.thinking import run_activity_prompts
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+
+            self._write_record(
+                tmpdir,
+                "work",
+                "20260209",
+                {
+                    "id": "coding_100000_300",
+                    "activity": "coding",
+                    "source": "cogitate",
+                    "segments": ["100000_300"],
+                    "level_avg": 0.5,
+                    "description": "Synthetic",
+                    "active_entities": [],
+                },
+            )
+
+            monkeypatch.setattr(
+                "think.thinking.get_talent_configs",
+                lambda schedule: {"session_review": {"activities": ["*"]}},
+            )
+
+            result = run_activity_prompts(
+                day="20260209",
+                activity_id="coding_100000_300",
+                facet="work",
+            )
+
+            assert result is True
 
     def test_emits_think_events(self, monkeypatch):
         from think.thinking import run_activity_prompts

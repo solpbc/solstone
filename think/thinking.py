@@ -23,6 +23,7 @@ from pathlib import Path
 from think.activities import (
     append_activity_record,
     get_activity_output_path,
+    get_activity_record,
     load_activity_records,
 )
 from think.activity_state_machine import ActivityStateMachine
@@ -1834,12 +1835,7 @@ def run_activity_prompts(
         True if all agents succeeded, False if any failed
     """
     # Load activity record
-    records = load_activity_records(facet, day)
-    record = None
-    for r in records:
-        if r.get("id") == activity_id:
-            record = r
-            break
+    record = get_activity_record(facet, day, activity_id)
 
     if not record:
         logging.error(
@@ -1853,9 +1849,13 @@ def run_activity_prompts(
     activity_type = record.get("activity", "")
     segments = record.get("segments", [])
 
-    if not segments:
-        logging.error("Activity record %s has no segments", activity_id)
-        return False
+    if record.get("source") == "cogitate" or not segments:
+        logging.info(
+            "Skipping activity-scheduled generators for synthetic activity %s (source=%s)",
+            activity_id,
+            record.get("source"),
+        )
+        return True
 
     # Load activity-scheduled agents
     all_prompts = get_talent_configs(schedule="activity")

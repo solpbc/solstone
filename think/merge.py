@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from think.activities import locked_modify
 from think.entities.core import entity_slug
 from think.entities.journal import (
     load_all_journal_entities,
@@ -596,7 +597,7 @@ def _merge_overlapping_facet(
                             },
                         )
                 if new_config and not dry_run:
-                    _append_jsonl(target_config_file, new_config)
+                    _append_jsonl_locked(target_config_file, new_config)
             except Exception as exc:
                 summary.errors.append(f"facet {facet_name} activities config: {exc}")
 
@@ -633,7 +634,7 @@ def _merge_overlapping_facet(
                             },
                         )
                 if new_records and not dry_run:
-                    _append_jsonl(target_day_file, new_records)
+                    _append_jsonl_locked(target_day_file, new_records)
             except Exception as exc:
                 summary.errors.append(
                     f"facet {facet_name} activities {source_day_file.name}: {exc}"
@@ -821,6 +822,16 @@ def _append_jsonl(path: Path, items: list[dict[str, Any]]) -> None:
     with open(path, "a", encoding="utf-8") as handle:
         for item in items:
             handle.write(json.dumps(item, ensure_ascii=False) + "\n")
+
+
+def _append_jsonl_locked(path: Path, items: list[dict[str, Any]]) -> None:
+    if not items:
+        return
+
+    def modify_fn(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        return records + [dict(item) for item in items]
+
+    locked_modify(path, modify_fn, create_if_missing=True)
 
 
 __all__ = ["MergeSummary", "merge_journals"]
