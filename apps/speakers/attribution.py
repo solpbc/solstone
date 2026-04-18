@@ -547,9 +547,9 @@ def accumulate_voiceprints(
 
     Returns dict mapping entity_id -> number of new embeddings saved.
     """
-    from apps.speakers.bootstrap import (
-        _load_existing_voiceprint_keys,
-        _save_voiceprints_batch,
+    from think.entities import (
+        load_existing_voiceprint_keys,
+        save_voiceprints_batch,
     )
 
     (
@@ -612,7 +612,7 @@ def accumulate_voiceprints(
 
         # Idempotency check
         if speaker not in entity_existing:
-            entity_existing[speaker] = _load_existing_voiceprint_keys(speaker)
+            entity_existing[speaker] = load_existing_voiceprint_keys(speaker)
         vp_key = (day, segment_key, source, sid)
         if vp_key in entity_existing[speaker]:
             continue
@@ -630,7 +630,7 @@ def accumulate_voiceprints(
 
     for eid, items in entity_new.items():
         try:
-            count = _save_voiceprints_batch(eid, items)
+            count = save_voiceprints_batch(eid, items)
             saved_counts[eid] = count
         except Exception as exc:
             logger.warning("Failed to accumulate voiceprints for %s: %s", eid, exc)

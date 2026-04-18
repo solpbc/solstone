@@ -68,12 +68,9 @@ speakers_bp = Blueprint(
 
 
 def _normalize_embedding(emb: np.ndarray) -> np.ndarray | None:
-    """L2-normalize an embedding vector. Returns None if norm is zero."""
-    emb = emb.astype(np.float32)
-    norm = np.linalg.norm(emb)
-    if norm > 0:
-        return emb / norm
-    return None
+    from think.entities import normalize_embedding
+
+    return normalize_embedding(emb)
 
 
 def _parse_time_to_seconds(time_str: str) -> int:
@@ -140,42 +137,9 @@ def _load_segment_speakers(segment_dir: Path) -> list[str]:
 def _load_entity_voiceprints_file(
     entity_id: str,
 ) -> tuple[np.ndarray, list[dict]] | None:
-    """Load voiceprints for an entity from journal-level voiceprints.npz.
+    from think.entities import load_entity_voiceprints_file
 
-    Voiceprints are stored at the journal level (entities/<id>/voiceprints.npz)
-    since a person's voice is the same across all facets.
-
-    Args:
-        entity_id: Entity ID (slug)
-
-    Returns:
-        Tuple of (embeddings, metadata_list) or None if not found.
-        - embeddings: (N, 256) float32 array
-        - metadata_list: List of dicts parsed from JSON metadata strings
-    """
-    try:
-        folder = journal_entity_memory_path(entity_id)
-    except (RuntimeError, ValueError):
-        return None
-
-    npz_path = folder / "voiceprints.npz"
-    if not npz_path.exists():
-        return None
-
-    try:
-        data = np.load(npz_path, allow_pickle=False)
-        embeddings = data.get("embeddings")
-        metadata_arr = data.get("metadata")
-
-        if embeddings is None or metadata_arr is None:
-            return None
-
-        # Parse JSON metadata strings
-        metadata_list = [json.loads(m) for m in metadata_arr]
-        return embeddings, metadata_list
-    except Exception as e:
-        logger.warning("Failed to load voiceprints for entity %s: %s", entity_id, e)
-        return None
+    return load_entity_voiceprints_file(entity_id)
 
 
 def _save_voiceprint(

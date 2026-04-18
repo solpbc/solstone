@@ -84,6 +84,7 @@ from think.entities.matching import (
     resolve_entity,
     validate_aka_uniqueness,
 )
+from think.entities.merge import merge_entity
 
 # Observations
 from think.entities.observations import (
@@ -109,6 +110,14 @@ from think.entities.saving import (
     save_detected_entity,
     save_entities,
     update_detected_entity,
+)
+from think.entities.voiceprints import (
+    load_entity_voiceprints_file,
+    load_existing_voiceprint_keys,
+    normalize_embedding,
+    save_voiceprints_batch,
+    save_voiceprints_safely,
+    voiceprint_file_path,
 )
 
 __all__ = [
@@ -150,11 +159,15 @@ __all__ = [
     "load_entities",
     "load_entity_names",
     "load_recent_entity_names",
+    "merge_entity",
     "parse_entity_file",
     # Saving
     "save_detected_entity",
     "save_entities",
+    "save_voiceprints_batch",
+    "save_voiceprints_safely",
     "update_detected_entity",
+    "voiceprint_file_path",
     # Matching
     "MatchResult",
     "MatchTier",
@@ -174,6 +187,9 @@ __all__ = [
     "load_observations",
     "observations_file_path",
     "save_observations",
+    "load_entity_voiceprints_file",
+    "load_existing_voiceprint_keys",
+    "normalize_embedding",
     # Formatting
     "format_entities",
     "format_observations",

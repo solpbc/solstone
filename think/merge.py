@@ -18,6 +18,7 @@ from think.entities.journal import (
     save_journal_entity,
 )
 from think.entities.matching import find_matching_entity
+from think.entities.merge import _dedupe_akas, _dedupe_emails, _dedupe_observations
 from think.entities.observations import save_observations
 from think.entities.relationships import save_facet_relationship
 from think.utils import CHRONICLE_DIR, iter_segments
@@ -268,36 +269,17 @@ def _merge_entities(
             target_entity = dict(target_entities.get(target_id, match))
             pre_merge_snapshot = dict(target_entity)
 
-            aka_by_lower: dict[str, str] = {}
-            for values in (target_entity.get("aka", []), source_entity.get("aka", [])):
-                if not isinstance(values, list):
-                    continue
-                for value in values:
-                    if not value:
-                        continue
-                    key = str(value).lower()
-                    if key not in aka_by_lower:
-                        aka_by_lower[key] = str(value)
-            if aka_by_lower:
-                target_entity["aka"] = sorted(aka_by_lower.values(), key=str.lower)
+            merged_akas = _dedupe_akas(
+                target_entity.get("aka", []),
+                source_entity.get("aka", []),
+            )
+            if merged_akas:
+                target_entity["aka"] = merged_akas
 
-            merged_emails: list[str] = []
-            seen_emails: set[str] = set()
-            for values in (
+            merged_emails = _dedupe_emails(
                 target_entity.get("emails", []),
                 source_entity.get("emails", []),
-            ):
-                if not isinstance(values, list):
-                    continue
-                for value in values:
-                    if not value:
-                        continue
-                    email = str(value)
-                    key = email.lower()
-                    if key in seen_emails:
-                        continue
-                    seen_emails.add(key)
-                    merged_emails.append(email)
+            )
             if merged_emails:
                 target_entity["emails"] = merged_emails
 
@@ -424,17 +406,10 @@ def _merge_overlapping_facet(
                     target_observations = _read_jsonl(
                         target_entity_dir / "observations.jsonl"
                     )
-                    seen = {
-                        (item.get("content", ""), item.get("observed_at"))
-                        for item in target_observations
-                    }
-                    merged_observations = list(target_observations)
-                    for item in source_observations:
-                        key = (item.get("content", ""), item.get("observed_at"))
-                        if key in seen:
-                            continue
-                        seen.add(key)
-                        merged_observations.append(item)
+                    merged_observations = _dedupe_observations(
+                        source_observations,
+                        target_observations,
+                    )
 
                     if not dry_run:
                         save_facet_relationship(

@@ -6,11 +6,30 @@
 from __future__ import annotations
 
 import json
+import sys
+from pathlib import Path
 
 import pytest
 
-from think.entities.observations import add_observation, save_observations
+ROOT = Path(__file__).resolve().parents[3]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from apps.speakers.tests.conftest import speakers_env as _speakers_env
+from think.entities.journal import clear_journal_entity_cache
+from think.entities.loading import clear_entity_loading_cache
+from think.entities.observations import (
+    add_observation,
+    clear_observation_cache,
+    save_observations,
+)
+from think.entities.relationships import clear_relationship_caches
 from think.entities.saving import save_entities
+
+
+@pytest.fixture
+def speakers_env(tmp_path, monkeypatch):
+    yield from _speakers_env.__wrapped__(tmp_path, monkeypatch)
 
 
 @pytest.fixture
@@ -25,6 +44,13 @@ def entity_env(tmp_path, monkeypatch):
             # _SOLSTONE_JOURNAL_OVERRIDE is set, entity files exist
     """
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    clear_journal_entity_cache()
+    clear_entity_loading_cache()
+    clear_relationship_caches()
+    clear_observation_cache()
+    import think.utils
+
+    think.utils._journal_path_cache = None
 
     def _create(
         attached: list[dict] | None = None,
@@ -43,13 +69,27 @@ def entity_env(tmp_path, monkeypatch):
                 add_observation(facet, observation_entity, content, i)
         return tmp_path
 
-    return _create
+    yield _create
+    clear_journal_entity_cache()
+    clear_entity_loading_cache()
+    clear_relationship_caches()
+    clear_observation_cache()
+    import think.utils
+
+    think.utils._journal_path_cache = None
 
 
 @pytest.fixture
 def entity_move_env(tmp_path, monkeypatch):
     """Create a two-facet environment for entity move tests."""
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    clear_journal_entity_cache()
+    clear_entity_loading_cache()
+    clear_relationship_caches()
+    clear_observation_cache()
+    import think.utils
+
+    think.utils._journal_path_cache = None
 
     def _create(
         entity_name: str = "Alice Johnson",
@@ -87,4 +127,11 @@ def entity_move_env(tmp_path, monkeypatch):
 
         return tmp_path, src_facet, dst_facet, entity_name
 
-    return _create
+    yield _create
+    clear_journal_entity_cache()
+    clear_entity_loading_cache()
+    clear_relationship_caches()
+    clear_observation_cache()
+    import think.utils
+
+    think.utils._journal_path_cache = None

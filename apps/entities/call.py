@@ -6,6 +6,7 @@
 Auto-discovered by ``think.call`` and mounted as ``sol call entities ...``.
 """
 
+import json
 import re
 import shutil
 from pathlib import Path
@@ -436,6 +437,33 @@ def consolidate(
     """Consolidate segment-detected entities into journal identities."""
     n = consolidate_detected_entities(get_journal(), full=full)
     typer.echo(f"Wrote {n} new entities.")
+
+
+@app.command("merge")
+def merge(
+    source_slug: str = typer.Argument(help="Source entity slug to merge from."),
+    target_slug: str = typer.Argument(help="Target entity slug to merge into."),
+    commit: bool = typer.Option(False, "--commit/--no-commit"),
+    keep_source_as_aka: bool = typer.Option(
+        True,
+        "--keep-source-as-aka/--no-keep-source-as-aka",
+    ),
+) -> None:
+    """Plan or commit a journal-entity merge."""
+    from think.entities import merge_entity
+
+    result = merge_entity(
+        source_slug,
+        target_slug,
+        keep_source_as_aka=keep_source_as_aka,
+        commit=commit,
+        caller="entities.merge",
+    )
+    output = json.dumps(result, indent=2, default=str)
+    if "error" in result:
+        typer.echo(output, err=True)
+        raise typer.Exit(1)
+    typer.echo(output)
 
 
 @app.command("observations")
