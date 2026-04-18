@@ -17,7 +17,7 @@ from apps.home.routes import (
     _briefing_freshness,
     _build_pulse_context,
     _collect_activities,
-    _collect_events,
+    _collect_anticipated_activities,
     _format_activity_label,
     _format_duration,
     _format_entity_summary,
@@ -260,7 +260,7 @@ def test_yesterdays_card_hidden_when_all_zero(tmp_path, monkeypatch):
     assert _summarize_yesterday_processing("20260416", 9) is None
 
 
-def test_collectors_merge_anticipated_events_without_double_counting(
+def test_collect_anticipated_activities_surfaces_only_anticipated_records(
     tmp_path,
     monkeypatch,
 ):
@@ -272,19 +272,6 @@ def test_collectors_merge_anticipated_events_without_double_counting(
     now_ms = int(datetime.now().timestamp() * 1000)
 
     _write_facet_meta(journal, "work", "Work")
-    _write_jsonl(
-        journal / "facets" / "work" / "events" / f"{today}.jsonl",
-        [
-            {
-                "type": "meeting",
-                "title": "Team standup",
-                "start": "09:00:00",
-                "end": "09:30:00",
-                "participants": ["Alice"],
-                "occurred": True,
-            }
-        ],
-    )
     _write_jsonl(
         journal / "facets" / "work" / "activities" / f"{today}.jsonl",
         [
@@ -326,12 +313,12 @@ def test_collectors_merge_anticipated_events_without_double_counting(
         ],
     )
 
-    events = _collect_events(today)
+    anticipated_activities = _collect_anticipated_activities(today)
     activities = _collect_activities(today)
 
-    assert [event["title"] for event in events] == ["Team standup", "Mari intro"]
-    assert events[1]["occurred"] is False
-    assert events[1]["participants"] == ["Mari Zumbro"]
+    assert [item["title"] for item in anticipated_activities] == ["Mari intro"]
+    assert anticipated_activities[0]["occurred"] is False
+    assert anticipated_activities[0]["participants"] == ["Mari Zumbro"]
     assert [activity["id"] for activity in activities] == ["coding_090000_300"]
 
 
@@ -576,7 +563,9 @@ def test_build_pulse_context_includes_yesterday_processing(monkeypatch):
     monkeypatch.setattr(
         "apps.home.routes._load_briefing_md", lambda today: ({}, None, [])
     )
-    monkeypatch.setattr("apps.home.routes._collect_events", lambda today: [])
+    monkeypatch.setattr(
+        "apps.home.routes._collect_anticipated_activities", lambda today: []
+    )
     monkeypatch.setattr("apps.home.routes._collect_activities", lambda today: [])
     monkeypatch.setattr("apps.home.routes._collect_todos", lambda today: [])
     monkeypatch.setattr("apps.home.routes._collect_entities_today", lambda today: [])

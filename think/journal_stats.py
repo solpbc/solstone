@@ -61,16 +61,6 @@ class JournalStats:
             files.extend(talents_dir.glob("*/*.json"))
             files.extend(talents_dir.glob("*/*.md"))
 
-        # Check facet event files for this day
-        journal_root = Path(get_journal())
-        day = day_dir.name
-        facets_dir = journal_root / "facets"
-        if facets_dir.is_dir():
-            for facet_name in os.listdir(facets_dir):
-                event_file = facets_dir / facet_name / "events" / f"{day}.jsonl"
-                if event_file.is_file():
-                    files.append(event_file)
-
         if not files:
             return 0.0
         return max(f.stat().st_mtime for f in files)

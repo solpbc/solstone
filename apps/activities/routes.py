@@ -3,8 +3,8 @@
 
 from __future__ import annotations
 
+import calendar
 import os
-import re
 from datetime import date, datetime
 from typing import Any
 
@@ -44,72 +44,39 @@ def activities_day(day: str) -> str:
     )
 
 
-@activities_bp.route("/api/day/<day>/events")
-def activities_day_events(day: str) -> Any:
-    """Return timeline events for a specific day from facet event logs."""
-    if not DATE_RE.fullmatch(day):
-        return "", 404
+def _month_activity_counts(month: str) -> dict[str, dict[str, int]]:
+    from think.activities import load_activity_records
+    from think.facets import get_facets
 
-    from think.indexer.journal import get_events
-    from think.talent import get_talent_configs
+    year = int(month[:4])
+    month_num = int(month[4:6])
+    _, days_in_month = calendar.monthrange(year, month_num)
+    facet_names = list(get_facets().keys())
+    stats: dict[str, dict[str, int]] = {}
 
-    generators = get_talent_configs(type="generate")
+    for day_num in range(1, days_in_month + 1):
+        day = f"{month}{day_num:02d}"
+        day_counts: dict[str, int] = {}
+        for facet in facet_names:
+            count = len(load_activity_records(facet, day))
+            if count:
+                day_counts[facet] = count
+        if day_counts:
+            stats[day] = day_counts
 
-    # Get full event objects from source files
-    raw_events = get_events(day)
-
-    # Transform events into timeline format
-    result = []
-    for event in raw_events:
-        agent = event.get("agent", "other")
-        agent_color = generators.get(agent, {}).get("color", "#6c757d")
-
-        formatted = {
-            "title": event.get("title", ""),
-            "summary": event.get("summary", ""),
-            "subject": event.get("subject", ""),
-            "details": event.get("details", event.get("description", "")),
-            "participants": event.get("participants", []),
-            "agent": agent,
-            "color": agent_color,
-            "facet": event.get("facet", ""),
-            "occurred": event.get("occurred", True),
-            "source": event.get("source", ""),
-        }
-
-        # Convert time strings to ISO timestamps
-        if event.get("start"):
-            formatted["startTime"] = f"{day[:4]}-{day[4:6]}-{day[6:]}T{event['start']}"
-        if event.get("end"):
-            formatted["endTime"] = f"{day[:4]}-{day[4:6]}-{day[6:]}T{event['end']}"
-
-        result.append(formatted)
-
-    return jsonify(result)
+    return stats
 
 
 @activities_bp.route("/api/stats/<month>")
 def activities_stats(month: str) -> Any:
-    """Return event counts per facet for a specific month.
-
-    Scans event files directly (including future dates) rather than relying
-    on cached stats.json files which only exist for past days.
-
-    Args:
-        month: YYYYMM format month string
-
-    Returns:
-        JSON dict mapping day (YYYYMMDD) to facet counts dict.
-        Frontend handles filtering by selected facet or summing for all-facet mode.
-    """
-    from think.event_formatter import get_month_event_counts
-
-    # Validate month format (YYYYMM)
-    if not re.fullmatch(r"\d{6}", month):
+    """Return activity counts per facet for a specific month."""
+    if len(month) != 6 or not month.isdigit():
         return jsonify({"error": "Invalid month format, expected YYYYMM"}), 400
 
-    stats = get_month_event_counts(month)
-    return jsonify(stats)
+    try:
+        return jsonify(_month_activity_counts(month))
+    except ValueError:
+        return jsonify({"error": "Invalid month format, expected YYYYMM"}), 400
 
 
 @activities_bp.route("/api/day/<day>/activities")

@@ -1,21 +1,13 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Event formatting and utilities for the journal.
+"""Event formatting for journal event JSONL files."""
 
-This module provides:
-- Formatter function for converting event JSONL entries to markdown chunks
-- Utilities for scanning event files and counting by facet
-"""
-
-import json
 import logging
 import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-
-from think.utils import get_journal
 
 
 def format_events(
@@ -172,61 +164,3 @@ def format_events(
     meta["indexer"] = {"agent": "event"}
 
     return chunks, meta
-
-
-def get_month_event_counts(month: str) -> dict[str, dict[str, int]]:
-    """Get event counts per day per facet for a month by scanning event files.
-
-    Scans facets/*/events/*.jsonl, including future dates that don't yet
-    have day directories.
-
-    Args:
-        month: YYYYMM format month string
-
-    Returns:
-        Dict mapping day (YYYYMMDD) to facet counts dict.
-        Example: {"20250115": {"work": 3, "personal": 1}, ...}
-    """
-    facets_dir = Path(get_journal()) / "facets"
-    if not facets_dir.is_dir():
-        return {}
-
-    stats: dict[str, dict[str, int]] = {}
-
-    for facet_path in facets_dir.iterdir():
-        if not facet_path.is_dir():
-            continue
-
-        facet_name = facet_path.name
-        events_dir = facet_path / "events"
-
-        if events_dir.is_dir():
-            # Scan all JSONL files matching the requested month
-            for events_file in events_dir.glob(f"{month}*.jsonl"):
-                day = events_file.stem
-                if not re.fullmatch(r"\d{8}", day):
-                    continue
-
-                try:
-                    count = 0
-                    with open(events_file, "r", encoding="utf-8") as f:
-                        for line in f:
-                            line = line.strip()
-                            if not line:
-                                continue
-                            try:
-                                event = json.loads(line)
-                                if event.get("title"):
-                                    count += 1
-                            except json.JSONDecodeError:
-                                continue
-
-                    if count > 0:
-                        if day not in stats:
-                            stats[day] = {}
-                        stats[day][facet_name] = count
-
-                except (OSError, IOError):
-                    continue
-
-    return stats

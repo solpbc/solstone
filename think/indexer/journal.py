@@ -33,7 +33,6 @@ from think.formatters import (
     find_formattable_files,
     format_file,
     get_formatter,
-    load_jsonl,
 )
 from think.markdown import format_markdown
 from think.utils import (
@@ -2002,48 +2001,6 @@ def search_counts(
         "days": Counter(r[2] for r in rows if r[2]),
         "streams": Counter(r[3] for r in rows if r[3]),
     }
-
-
-def get_events(
-    day: str,
-    facet: str | None = None,
-) -> list[dict[str, Any]]:
-    """Get structured events for a day, re-hydrated from source files.
-
-    This function reads source JSONL files directly from
-    facets/*/events/{day}.jsonl to return full event objects with all fields
-    (title, summary, start, end, participants, etc.).
-
-    Args:
-        day: Day in YYYYMMDD format
-        facet: Optional facet name to filter by
-
-    Returns:
-        List of event dicts with full structured data
-    """
-    events = []
-    facets_dir = Path(get_journal()) / "facets"
-
-    if not facets_dir.is_dir():
-        return events
-
-    for facet_dir in facets_dir.iterdir():
-        if not facet_dir.is_dir():
-            continue
-
-        facet_name = facet_dir.name
-        if facet and facet_name.lower() != facet.lower():
-            continue
-
-        events_file = facet_dir / "events" / f"{day}.jsonl"
-        if events_file.is_file():
-            entries = load_jsonl(str(events_file))
-            for entry in entries:
-                # Add facet to event if not present
-                entry.setdefault("facet", facet_name)
-                events.append(entry)
-
-    return events
 
 
 def _load_index_entity_dicts(
