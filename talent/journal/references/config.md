@@ -99,7 +99,7 @@ Fields:
 
 "Raw media" means layer 1 capture files only: audio files (`.flac`, `.opus`, `.ogg`, `.m4a`, `.wav`), video files (`.webm`, `.mov`, `.mp4`), and screen diffs (`monitor_*_diff.png`).
 
-All layer 2 and layer 3 content is always preserved regardless of retention policy: transcripts (`audio.jsonl`, `screen.jsonl`), talent outputs (`talents/*.md`), speaker labels (`talents/speaker_labels.json`), facet events (`events/*.jsonl`), entity data, segment metadata (`stream.json`), and search index entries.
+All layer 2 and layer 3 content is always preserved regardless of retention policy: transcripts (`audio.jsonl`, `screen.jsonl`), talent outputs (`talents/*.md`), speaker labels (`talents/speaker_labels.json`), historical facet events (`events/*.jsonl`), entity data, segment metadata (`stream.json`), and search index entries.
 
 Raw media is never deleted from segments that haven't finished processing. A segment is considered complete only when all four checks pass:
 
@@ -243,7 +243,7 @@ The `providers` block enables fine-grained control over which LLM provider and m
       "observe.*": {"provider": "google", "tier": 3},
       "talent.system.*": {"tier": 1},
       "talent.system.meetings": {"provider": "anthropic", "disabled": true},
-      "talent.entities.observer": {"tier": 2, "extract": false}
+      "talent.entities.observer": {"tier": 2}
     },
     "models": {
       "google": {
@@ -298,7 +298,6 @@ Other contexts follow the pattern `{module}.{feature}[.{operation}]`:
 - `tier` (integer) – Tier number (optional).
 - `model` (string) – Explicit model name (optional, overrides tier).
 - `disabled` (boolean) – Disable this talent config (optional, talent contexts only).
-- `extract` (boolean) – Enable/disable event extraction for generators with occurrence hooks (optional).
 
 **models** – Per-provider tier overrides. Maps provider name to tier-model mappings:
 ```json

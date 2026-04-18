@@ -291,19 +291,17 @@ Define custom generator prompts that integrate with solstone's output generation
 - 90+: Late-stage agents
 - 99: Fun/optional prompts
 
-**Event extraction via hooks:** To extract structured events from generator output, use the `hook` field:
+**Schedule extraction via hooks:** The live built-in extraction hook is `schedule`:
 
-- `"hook": {"post": "occurrence"}` - Extracts past events to `facets/{facet}/events/{day}.jsonl`
-- `"hook": {"post": "schedule"}` - Writes future scheduled items as anticipated activity records
+- `"hook": {"post": "schedule"}` - Writes future scheduled items to `facets/{facet}/activities/{target_day}.jsonl` as anticipated activity records
 
-The `occurrences` field (optional string) provides agent-specific extraction guidance when using the occurrence hook. Example:
+Example:
 
 ```json
 {
-  "title": "Meeting Summary",
+  "title": "Schedule Extractor",
   "schedule": "daily",
-  "hook": {"post": "occurrence"},
-  "occurrences": "Each meeting should generate an occurrence with start and end times, participants, and summary."
+  "hook": {"post": "schedule"}
 }
 ```
 
@@ -350,13 +348,13 @@ def post_process(result: str, context: dict) -> str | None:
 - **Natural-key dedup.** Read the existing output, compute a natural key per row (e.g., `(facet, event_day, title, start, end)` for facet events), skip rows already present, and append only the new ones. Use this when the output is append-only history and you want to preserve prior writes from other agents.
 - **Atomic replace.** Recompute the full output, write it to a temp file, and rename into place. `atomic_write()` in `think/entities/core.py` is the established helper for text outputs; for JSONL, write the full set of lines to a tempfile and `os.replace()`. Use this when the hook owns the file end-to-end.
 
-An earlier `write_events_jsonl` hook in `think/hooks.py` opened facet-event logs in `"a"` mode with no dedup and doubled row counts on every `sol think --refresh` — see the 2026-04-17 layer-violations audit (V6) in the sol pbc internal extro repo (`vpe/workspace/solstone-layer-violations-audit.md`) for the full write-up.
+(Retired 2026-04-18 Sprint 4.) An earlier `write_events_jsonl` hook in `think/hooks.py` opened facet-event logs in `"a"` mode with no dedup and doubled row counts on every `sol think --refresh` — see the 2026-04-17 layer-violations audit (V6) in the sol pbc internal extro repo (`vpe/workspace/solstone-layer-violations-audit.md`) for the full write-up.
 
 See `docs/coding-standards.md` L8/L9 for the broader principles.
 
 **Reference implementations:**
 - System generator templates: `talent/*.md` (files with `schedule` field but no `tools` field)
-- Event/schedule hooks: `talent/occurrence.py`, `talent/schedule.py`
+- Schedule hook: `talent/schedule.py`
 - Discovery logic: `think/talent.py` - `get_talent_configs(has_tools=False)`, `get_output_name()`
 - Hook loading: `think/talent.py` - `load_pre_hook()`, `load_post_hook()`
 

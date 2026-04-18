@@ -57,7 +57,7 @@ SOL_DAY and SOL_FACET are set in your environment. Commands default to the curre
 Discovery tools (note facet scoping):
 - `sol call journal read AGENT` - read full agent output (e.g., knowledge_graph, followups) - GLOBAL
 - `sol call journal search QUERY -d DAY -a AGENT -f FACET -n LIMIT` - unified search across all journal content - facet-scopable
-- `sol call journal events [-f FACET]` - get structured events - **FACET-SCOPED when facet parameter provided**
+- `sol call journal search QUERY -d DAY -a meetings -f FACET -n LIMIT` - search historical meetings - **FACET-SCOPED when facet parameter provided**
 
 **IMPORTANT**: When using GLOBAL search tools, you must actively filter results to find ONLY entities that participated in THIS facet's activities. Seeing an entity in a global search result does NOT automatically mean it belongs to this facet.
 
@@ -79,7 +79,7 @@ Seeing an entity in a global search does NOT mean it belongs to this facet.
 **Search Strategy - Facet-First Approach:**
 
 **Priority 1: Facet-Scoped Events** (start here - most facet-specific)
-- `sol call journal events -f your_facet` - **FACET-SCOPED** when facet parameter provided
+- `sol call journal search "" -d $day_YYYYMMDD -a meetings -f your_facet` - **FACET-SCOPED** when facet parameter provided
 - Events tagged to this facet are your most reliable source
 - Extract ALL entities that participated in this facet's events
 

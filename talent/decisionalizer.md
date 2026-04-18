@@ -22,10 +22,9 @@ From the day's decision-action outputs (produced per-activity), you will:
 
 ## Available Commands
 
-SOL_DAY is set in your environment. Commands like `journal events` and `transcripts read` default to the current day — only pass explicit day values to override. Note: `journal search` requires explicit `-d DAY`.
+SOL_DAY is set in your environment. Commands like `transcripts read` default to the current day — only pass explicit day values to override. Note: `journal search` requires explicit `-d DAY`.
 
 - `sol call journal search` for discovery across journal content
-- `sol call journal events [-f FACET]` for structured event data
 - `sol call transcripts read --start HHMMSS --length MINUTES --full|--audio|--screen` for transcript windows
 
 **Query syntax**: Searches match ALL words by default; use `OR` between words to match ANY (e.g., `apple OR orange`), quote phrases for exact matches (e.g., `"project meeting"`), and append `*` for prefix matching (e.g., `debug*`).
@@ -73,7 +72,7 @@ Use these tools in sequence:
    - Goal: Find all people, teams, projects mentioned
 
 2. **Map meeting participants:**
-   - `sol call journal events` or `sol call journal search "[keywords]" -d $day_YYYYMMDD -a event`
+   - `sol call journal search "[keywords]" -d $day_YYYYMMDD -a meetings`
    - `sol call journal search "[keywords]" -a news -f work -d $day_YYYYMMDD` for public announcements
    - Goal: Identify who needs to know about this decision
 
@@ -95,7 +94,7 @@ Use these tools in sequence:
    - Goal: Find follow-up notifications or discussions
 
 2. **Review meetings:**
-   - `sol call journal search "[keywords]" -d $day_YYYYMMDD -a event`
+   - `sol call journal search "[keywords]" -d $day_YYYYMMDD -a meetings`
    - Goal: See if decision was discussed
 
 3. **Check messaging:**

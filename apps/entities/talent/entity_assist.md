@@ -41,7 +41,7 @@ Research tools (use sparingly, be quick):
 - `sol call journal search QUERY -n 3` - find entity mentions in all journal content
 - `sol call journal search QUERY -a audio -n 3` - find entity in transcripts
 - `sol call journal search QUERY -a news -n 3` - find entity in facet news
-- `sol call journal events -d DAY` - find entity in events for a specific day
+- `sol call journal search QUERY -d DAY -a meetings -n 3` - find entity in meetings for a specific day
 - `sol call journal read AGENT` - read full agent output when snippet search is insufficient
 
 ## Quick Addition Process

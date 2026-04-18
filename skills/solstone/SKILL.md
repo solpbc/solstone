@@ -62,9 +62,6 @@ sol call entities observations "<entity_name>" --facet "<facet>"
 Combine these commands to get a full picture of the current day:
 
 ```bash
-# Today's events (imports, captures, activity)
-sol call journal events
-
 # Upcoming todos
 sol call todos upcoming
 
@@ -142,7 +139,6 @@ For richer answers, combine multiple commands:
 
 **"Brief me on today"** — events + todos + calendar + recent entity strength:
 ```bash
-sol call journal events
 sol call todos upcoming
 sol call activities list --source anticipated
 sol call entities strength --since $(date +%Y%m%d)
@@ -157,7 +153,7 @@ sol call entities strength --since 20260301
 
 **"What did I miss yesterday?"** — yesterday's events + transcripts + news:
 ```bash
-sol call journal events --day 20260326
+sol call journal search "" -d 20260326 -a meetings
 sol call transcripts scan 20260326
 sol call journal news "<facet>" --day 20260326
 ```

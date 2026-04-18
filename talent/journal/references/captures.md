@@ -17,7 +17,7 @@ solstone transforms raw recordings into actionable understanding through a three
 │  (JSON/JSONL files)                 │  "What happened"
 │  - audio.jsonl, *_audio.jsonl       │
 │  - screen.jsonl, *_screen.jsonl     │
-│  - events/*.jsonl (per-facet)       │
+│  - events/*.jsonl (historical)      │
 └─────────────────────────────────────┘
          ↑ derived from
 ┌─────────────────────────────────────┐
@@ -52,7 +52,7 @@ solstone transforms raw recordings into actionable understanding through a three
 | Term | Definition | Examples |
 |------|------------|----------|
 | **Entity** | Tracked person/project/concept | People, companies, tools |
-| **Occurrence** | Time-based event | Meetings, messages, files |
+| **Occurrence** | Historical term; occurrence hook retired 2026-04-18 Sprint 4. Produced `facets/{facet}/events/{day}.jsonl`, still searchable via `search_journal(agent="event")`. | Meetings, messages, files |
 
 ## Imported Audio
 
@@ -227,28 +227,27 @@ The vision analysis uses multi-stage conditional processing:
 2. Category-specific follow-up prompts are discovered from `observe/categories/*.md` files
 3. Follow-ups are triggered for categories that have extraction content in their `.md` file (currently: messaging, browsing, reading, productivity output markdown; meeting outputs JSON)
 
-### Event extracts
+### Historical event extracts
 
-Generator output processing extracts time-based events from the day's transcripts—meetings, messages, follow-ups, file activity and more. Occurrence events are stored per-facet in JSONL files at `facets/{facet}/events/{day}.jsonl`. Future scheduled items from the schedule talent are stored as anticipated activity records under `facets/{facet}/activities/{target_day}.jsonl` with `source: "anticipated"`.
+The retired occurrence hook previously extracted time-based events from the day's transcripts—meetings, messages, follow-ups, file activity, and more. Those historical event rows were stored per-facet in JSONL files at `facets/{facet}/events/{day}.jsonl`. These files persist for historical search via `search_journal(agent="event")`. Live future scheduled items are stored separately as anticipated activity records under `facets/{facet}/activities/{target_day}.jsonl` with `source: "anticipated"`.
 
 ```jsonl
 {"type": "meeting", "start": "09:00:00", "end": "09:30:00", "title": "Team stand-up", "summary": "Status update with the engineering team", "work": true, "participants": ["Jeremie Miller", "Alice", "Bob"], "facet": "work", "agent": "meetings", "occurred": true, "source": "20250101/talents/meetings.md", "details": "Sprint planning discussion"}
-{"id": "anticipated_deadline_000000_0115", "activity": "deadline", "target_date": "2025-01-15", "start": null, "end": null, "title": "Project milestone", "description": "Q1 deliverable due.", "details": "Final review before release", "facet": "work", "source": "anticipated", "active_entities": [], "participation": [], "participation_confidence": 0.5, "cancelled": false}
 ```
 
-**Common fields:**
-- **type** – event kind: `meeting`, `message`, `file`, `followup`, `documentation`, `research`, `media`, `deadline`, `appointment`, etc.
-- **start** and **end** – HH:MM:SS timestamps (or `null` when a time is not known)
+**Common historical fields:**
+- **type** – event kind such as `meeting`, `message`, `file`, `followup`, `documentation`, `research`, `media`, `deadline`, or `appointment`
+- **start** and **end** – HH:MM:SS timestamps (or `null` when a time was not known)
 - **title** and **summary** – short text for display and search
-- **facet** – facet name the event belongs to (required)
-- **agent** – source generator type for occurrence events (e.g., "meetings", "flow")
-- **occurred** – `true` for occurrence event rows in `facets/*/events/*.jsonl`
-- **source** – path to the output file that generated this event
+- **facet** – facet name the event belonged to
+- **agent** – source generator type for the historical event row (for example `"meetings"`)
+- **occurred** – `true` for historical event rows in `facets/*/events/*.jsonl`
+- **source** – path to the output file that generated the event row
 - **work** – boolean, work vs. personal classification
 - **participants** – optional list of people or entities involved
 - **details** – free-form string with additional context
 
-This structure allows the indexer to collect and search events across all facets and days.
+These persisted historical files still allow the indexer to collect and search event rows across all facets and days.
 
 ## Layer 3: Agent Outputs
 
@@ -269,7 +268,7 @@ Post-processing generates day-level outputs in the `talents/` directory that syn
 Each template is a `.md` file with JSON frontmatter containing metadata (title, description, schedule, output format). The `schedule` field is required and must be `"segment"` or `"daily"` - generators with missing or invalid schedule are skipped. Use `get_talent_configs(has_tools=False)` from `think/talent.py` to retrieve all available generators, or `get_talent_configs(has_tools=False, schedule="daily")` to get generators filtered by schedule.
 
 **Output naming:**
-- System outputs: `talents/{agent}.md` (e.g., `talents/flow.md`, `talents/meetings.md`)
+- System outputs: `talents/{agent}.md` (e.g., `talents/meetings.md`, `talents/briefing.md`)
 - App outputs: `talents/_{app}_{agent}.md` (e.g., `talents/_entities_observer.md`)
 - JSON output: `talents/{agent}.json` when metadata specifies `"output": "json"`
 

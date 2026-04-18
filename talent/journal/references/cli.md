@@ -10,7 +10,7 @@ Common pattern:
 sol call journal <command> [args...]
 ```
 
-**Typical workflow**: `search` to find content across all types → `events` or `facet` for structured detail on a specific day or project.
+**Typical workflow**: `search` to find content across all types → `facet` for project detail. For future scheduled items, use `sol call activities list`.
 
 ## search
 
@@ -18,7 +18,7 @@ sol call journal <command> [args...]
 sol call journal search [QUERY] [-n LIMIT] [--offset N] [-d DAY] [--day-from DAY] [--day-to DAY] [-f FACET] [-a AGENT]
 ```
 
-Search the journal index across insights, transcripts, events, entities, and todos.
+Search the journal index across insights, transcripts, historical event extracts, activity records, entities, and todos.
 
 - `QUERY`: optional text query. Defaults to empty string (`""`), which works as browse mode when filters are provided.
 - `-n, --limit`: max results (default `10`).
@@ -26,7 +26,7 @@ Search the journal index across insights, transcripts, events, entities, and tod
 - `-d, --day`: exact day filter (`YYYYMMDD`).
 - `--day-from`, `--day-to`: inclusive date-range filters (`YYYYMMDD`).
 - `-f, --facet`: facet filter (for example `work`, `personal`).
-- `-a, --agent`: agent/content filter (for example `flow`, `event`, `news`, `entity:detected`).
+- `-a, --agent`: agent/content filter (for example `meetings`, historical `event`, `news`, `entity:detected`).
 
 Behavior notes:
 
@@ -43,26 +43,6 @@ Examples:
 sol call journal search "incident review" -n 20 -f work
 sol call journal search "standup OR sync" --day-from 20260101 --day-to 20260107
 sol call journal search "" -d 20260115 -a audio
-```
-
-## events
-
-```bash
-sol call journal events [DAY] [-f FACET]
-```
-
-List structured events for a day.
-
-- `DAY`: day in `YYYYMMDD` (default: `SOL_DAY` env).
-- `-f, --facet`: optional facet filter.
-
-Use this when you need full event records (titles, summaries, times, participants), not just search snippets.
-
-Examples:
-
-```bash
-sol call journal events 20260115
-sol call journal events 20260115 -f work
 ```
 
 ## facet show
@@ -247,7 +227,7 @@ sol call journal read AGENT [-d DAY] [-s SEGMENT] [--max BYTES]
 
 Read full content of an agent output.
 
-- `AGENT`: agent name, e.g. `flow`, `meetings`, `activity` (positional argument).
+- `AGENT`: agent name, e.g. `meetings`, `briefing`, `activity` (positional argument).
 - `-d, --day`: day in `YYYYMMDD` (default: `SOL_DAY` env).
 - `-s, --segment`: optional segment key (default: `SOL_SEGMENT` env).
 - `--max`: max output bytes (default `16384`, `0` for unlimited).
@@ -257,7 +237,7 @@ Without `--segment`, reads from the daily agents directory. With `--segment`, re
 Examples:
 
 ```bash
-sol call journal read flow -d 20260115
+sol call journal read briefing -d 20260115
 sol call journal read meetings
 sol call journal read activity -s 091500_300
 ```

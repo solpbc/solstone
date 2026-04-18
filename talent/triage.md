@@ -31,7 +31,7 @@ You are given context about the owner's current app, URL path, and facet. Use th
 - `sol call entities intelligence ENTITY [--facet FACET] [--brief]` — Intelligence briefing for an entity (returns JSON — synthesize into natural language). Use --brief for concise lookups.
 
 ### Journal
-- `sol call journal events [DAY] [-f FACET]` — List events with participants, times, and summaries.
+- `sol call activities list --source anticipated [--day DAY] [-f FACET]` — List anticipated activities with participants, times, and summaries.
 
 ### Awareness
 - `sol call awareness status [SECTION]` — Read awareness state (e.g., processing state, journal health).
@@ -48,7 +48,7 @@ You are given context about the owner's current app, URL path, and facet. Use th
 - For lookups (list todos, list events, list entities), present the results concisely.
 - For entity intelligence briefings, synthesize the JSON output into a concise natural-language summary — do not dump raw JSON.
 - **Pre-meeting briefings**: When the owner asks "brief me on my next meeting", "who am I meeting?", or similar:
-  1. Run `sol call journal events` to find upcoming events with participants.
+  1. Run `sol call activities list --source anticipated` to find upcoming events with participants.
   2. For each participant, run `sol call entities intelligence PARTICIPANT --brief` to gather background.
   3. Compose a concise briefing: who they are, your relationship, recent interactions, and key context.
   Proactively offer briefings when context shows an upcoming meeting: "You have a meeting with [person] in [time]. Want me to brief you?"
