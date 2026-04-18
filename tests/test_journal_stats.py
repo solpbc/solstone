@@ -30,24 +30,18 @@ def test_scan_day(tmp_path, monkeypatch):
     (day / "talents").mkdir()
     (day / "talents" / "flow.md").write_text("")
 
-    # Create event in new JSONL format: facets/{facet}/events/YYYYMMDD.jsonl
-    events_dir = journal / "facets" / "work" / "events"
-    events_dir.mkdir(parents=True)
-    event = {
-        "type": "meeting",
-        "start": "00:00:00",
-        "end": "00:05:00",
-        "title": "t",
-        "summary": "s",
-        "work": True,
-        "participants": [],
-        "details": "",
-        "facet": "work",
-        "agent": "meetings",
-        "occurred": True,
-        "source": "20240101/talents/meetings.md",
+    facet_dir = journal / "facets" / "work"
+    facet_dir.mkdir(parents=True)
+    (facet_dir / "facet.json").write_text(json.dumps({"title": "Work"}))
+    activities_dir = facet_dir / "activities"
+    activities_dir.mkdir(parents=True)
+    activity = {
+        "id": "meeting_000000_300",
+        "activity": "meeting",
+        "segments": ["000000_300"],
+        "description": "Project sync",
     }
-    (events_dir / "20240101.jsonl").write_text(json.dumps(event))
+    (activities_dir / "20240101.jsonl").write_text(json.dumps(activity) + "\n")
 
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
     js = stats_mod.JournalStats()
@@ -58,7 +52,7 @@ def test_scan_day(tmp_path, monkeypatch):
     assert (
         js.days["20240101"]["pending_segments"] == 1
     )  # Both files belong to same segment
-    assert js.agent_counts["meetings"] == 1
+    assert js.agent_counts["meeting"] == 1
     assert js.facet_counts["work"] == 1
     assert js.facet_minutes["work"] == 5.0
     assert js.heatmap[0][0] == 5
@@ -169,7 +163,7 @@ def test_token_usage(tmp_path, monkeypatch):
 
     # Test JSON output includes token usage
     data = js.to_dict()
-    assert data["schema_version"] == 3
+    assert data["schema_version"] == 4
     assert "generated_at" in data
     assert data["day_count"] == 2
     assert "tokens" in data

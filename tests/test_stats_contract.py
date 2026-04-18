@@ -84,23 +84,18 @@ def _build_journal(base_path):
     (seg2 / "audio.flac").write_bytes(b"fLaC")
     (day / "talents" / "schedule.json").write_text("[]")
 
-    events_dir = journal / "facets" / "work" / "events"
-    events_dir.mkdir(parents=True)
-    event = {
-        "type": "meeting",
-        "start": "09:00:00",
-        "end": "09:30:00",
-        "title": "standup",
-        "summary": "daily sync",
-        "work": True,
-        "participants": [],
-        "details": "",
-        "facet": "work",
-        "agent": "meetings",
-        "occurred": True,
-        "source": "20240101/talents/meetings.md",
+    facet_dir = journal / "facets" / "work"
+    facet_dir.mkdir(parents=True)
+    (facet_dir / "facet.json").write_text(json.dumps({"title": "Work"}))
+    activities_dir = facet_dir / "activities"
+    activities_dir.mkdir(parents=True)
+    activity = {
+        "id": "meeting_090000_300",
+        "activity": "meeting",
+        "segments": ["090000_300"],
+        "description": "daily sync",
     }
-    (events_dir / "20240101.jsonl").write_text(json.dumps(event) + "\n")
+    (activities_dir / "20240101.jsonl").write_text(json.dumps(activity) + "\n")
 
     tokens_dir = journal / "tokens"
     tokens_dir.mkdir()

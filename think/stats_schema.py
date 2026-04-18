@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 DAY_FIELDS = (
     "transcript_sessions",
