@@ -69,6 +69,46 @@ def test_list_filters_hidden_by_default_and_allows_all(activities_env):
     assert any(item["hidden"] for item in payload)
 
 
+def test_list_filters_by_entity(activities_env):
+    activities_env(
+        [
+            {
+                "id": "coding_090000_300",
+                "activity": "coding",
+                "description": "Entity match",
+                "segments": ["090000_300"],
+                "created_at": 1,
+                "active_entities": ["Ada Lovelace"],
+            },
+            {
+                "id": "meeting_100000_300",
+                "activity": "meeting",
+                "description": "Different entity",
+                "segments": ["100000_300"],
+                "created_at": 2,
+                "active_entities": ["Grace Hopper"],
+            },
+        ]
+    )
+
+    result = runner.invoke(
+        call_app,
+        [
+            "activities",
+            "list",
+            "--facet",
+            "work",
+            "--entity",
+            "lovel",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert [item["id"] for item in payload] == ["coding_090000_300"]
+
+
 def test_get_returns_hidden_record_with_json_output(activities_env):
     activities_env(
         [

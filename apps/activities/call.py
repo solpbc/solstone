@@ -130,9 +130,11 @@ def _list_records_for_days(
     days: list[str],
     *,
     activity: str | None,
+    entity: str | None,
     include_hidden: bool,
 ) -> list[dict[str, Any]]:
     matches: list[dict[str, Any]] = []
+    entity_query = entity.lower() if entity else None
     for facet_name in facets:
         for day in days:
             for record in load_activity_records(
@@ -140,6 +142,13 @@ def _list_records_for_days(
             ):
                 if activity and record.get("activity") != activity:
                     continue
+                if entity_query:
+                    active_entities = record.get("active_entities", [])
+                    if not any(
+                        entity_query in str(active_entity).lower()
+                        for active_entity in active_entities
+                    ):
+                        continue
                 enriched = dict(record)
                 enriched["facet"] = facet_name
                 enriched["day"] = day
@@ -186,6 +195,11 @@ def list_records(
         "-a",
         help="Filter by activity type.",
     ),
+    entity: str | None = typer.Option(
+        None,
+        "--entity",
+        help="Filter by active entity.",
+    ),
     include_all: bool = typer.Option(
         False,
         "--all",
@@ -212,6 +226,7 @@ def list_records(
         facets,
         resolved_days,
         activity=activity,
+        entity=entity,
         include_hidden=include_all,
     )
 
