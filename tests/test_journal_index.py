@@ -3,6 +3,7 @@
 
 """Tests for the unified journal index."""
 
+import hashlib
 import json
 import os
 from datetime import datetime
@@ -1742,3 +1743,41 @@ class TestSegmentChunks:
         ).fetchone()[0]
         conn.close()
         assert count1 == count2
+
+
+def test_scan_journal_is_pure_wrt_entity_state(journal_copy):
+    """scan_journal must not mutate journal/entities/ state."""
+    from think.indexer.journal import scan_journal
+
+    journal_path = Path(journal_copy)
+    today = datetime.now().strftime("%Y%m%d")
+    segment_dir = (
+        journal_path / "chronicle" / today / "default" / "120000_300" / "talents"
+    )
+    segment_dir.mkdir(parents=True)
+    (segment_dir / "entities.jsonl").write_text(
+        '{"name":"Zephyr Quartz Index","type":"Project","description":"Unique regression seed"}\n',
+        encoding="utf-8",
+    )
+
+    def snapshot_entities(root: Path) -> list[tuple[str, str]]:
+        entries = []
+        for path in sorted((root / "entities").rglob("*")):
+            if not path.is_file():
+                continue
+            rel = path.relative_to(root).as_posix()
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            entries.append((rel, digest))
+        return entries
+
+    snap_before = snapshot_entities(journal_path)
+    scan_journal(str(journal_path), full=True)
+    snap_between = snapshot_entities(journal_path)
+    scan_journal(str(journal_path), full=True)
+    snap_after = snapshot_entities(journal_path)
+
+    assert snap_before == snap_between == snap_after, (
+        "scan_journal() mutated journal/entities/ — see "
+        "vpe/workspace/plan-bundle-a-entity-write-ownership.md and "
+        "docs/coding-standards.md § L6"
+    )

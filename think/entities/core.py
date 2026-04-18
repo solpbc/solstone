@@ -42,6 +42,15 @@ ENTITY_TYPES = [
 # Maximum length for entity slug before truncation
 MAX_ENTITY_SLUG_LENGTH = 200
 
+# Noise entity patterns — transcript artifacts that should not be indexed.
+# Matches "Speaker N", "Unknown/Unidentified <word>" (single-word role).
+# Multi-word patterns ("Speaker Diarization") and bare "Unknown" are kept.
+_NOISE_ENTITY_RE = re.compile(
+    r"^Speaker \d+(?:\s*\(.*\))?$"
+    r"|^(?:Unknown|Unidentified) \w+(?:\s*\d+)?(?:\s*\(.*\))?$",
+    re.IGNORECASE,
+)
+
 
 def get_identity_names() -> list[str]:
     """Get all names/aliases for the journal principal from identity config.
@@ -137,6 +146,11 @@ def is_valid_entity_type(etype: str) -> bool:
     return bool(
         re.match(r"^[A-Za-z0-9 ]+$", etype) and re.search(r"[A-Za-z0-9]", etype)
     )
+
+
+def is_noise_entity(name: str) -> bool:
+    """Return True if the entity name is a transcript artifact."""
+    return bool(_NOISE_ENTITY_RE.match(name))
 
 
 def entity_slug(name: str) -> str:

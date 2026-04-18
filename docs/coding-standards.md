@@ -67,7 +67,7 @@ Each domain has exactly **one** write-owning module. No other module may call `a
 
 | Domain | Write-owning module(s) |
 |--------|------------------------|
-| Entities (`entities/*/entity.json`, `entities/*/*.npz`) | `think/entities/saving.py` + `apps/entities/call.py` |
+| Entities (`entities/*/entity.json`, `entities/*/*.npz`) | `think/entities/journal.py` + `think/entities/consolidation.py` + `think/entities/saving.py` + `apps/entities/call.py` |
 | Facets (`facets/*/facet.json`, `facets/*/relationships/`) | `think/facets.py` + `apps/facets/*` (if/when created) |
 | Observations (`observations.jsonl`) | `think/entities/observations.py` |
 | Activities (`facets/*/activities/*.jsonl`) | `think/activities.py` |

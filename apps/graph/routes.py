@@ -11,12 +11,12 @@ from typing import Any
 
 from flask import Blueprint, jsonify, render_template, request
 
+from think.entities.core import is_noise_entity
 from think.indexer.journal import (
     get_entity_intelligence,
     get_entity_strength,
     get_journal_index,
     get_principal_entity_names,
-    is_noise_entity,
 )
 
 graph_bp = Blueprint(

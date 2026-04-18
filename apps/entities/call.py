@@ -12,6 +12,7 @@ from pathlib import Path
 
 import typer
 
+from think.entities.consolidation import consolidate_detected_entities
 from think.entities.core import entity_slug, is_valid_entity_type
 from think.entities.journal import (
     clear_journal_entity_cache,
@@ -426,6 +427,15 @@ def add_aka(
         params={"entity": entity, "name": resolved_name, "aka": aka_value},
     )
     typer.echo(f"Added alias '{aka_value}' to '{resolved_name}'.")
+
+
+@app.command()
+def consolidate(
+    full: bool = typer.Option(False, "--full", help="Scan all days, not just today."),
+) -> None:
+    """Consolidate segment-detected entities into journal identities."""
+    n = consolidate_detected_entities(get_journal(), full=full)
+    typer.echo(f"Wrote {n} new entities.")
 
 
 @app.command("observations")

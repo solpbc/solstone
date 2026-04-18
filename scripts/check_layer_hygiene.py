@@ -109,9 +109,6 @@ READ_VERBS: frozenset[str] = frozenset(
 #
 # Audit ref: vpe/workspace/solstone-layer-violations-audit.md (extro repo).
 ALLOWLIST: dict[str, str] = {
-    # TODO(V1): consolidate_segment_entities() stealth-writes entities from
-    # the indexer. Remove after Bundle A (entity-write ownership) lands.
-    "think/indexer/journal.py": "V1",
     # TODO(V2): seed_entities() creates entities from importer shared code.
     # Indirect writes go through save_journal_entity(), so the direct-write
     # grep does not flag the file today. Keep the entry so the file is
