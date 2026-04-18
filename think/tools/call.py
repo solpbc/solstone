@@ -360,7 +360,6 @@ def merge(
     ),
 ) -> None:
     """Merge all data from SOURCE facet into DEST facet, then delete SOURCE."""
-    from apps.activities import event as event_module
     from apps.todos import todo as todo_module
     from think.entities.observations import load_observations, save_observations
     from think.entities.relationships import (
@@ -394,15 +393,6 @@ def merge(
                 if not item.completed and not item.cancelled:
                     open_todos.append((todo_file.stem, item.index, item))
 
-    open_events: list[tuple[str, int, event_module.CalendarEvent]] = []
-    calendar_dir = src_path / "calendar"
-    if calendar_dir.is_dir():
-        for calendar_file in sorted(calendar_dir.glob("*.jsonl")):
-            event_day = event_module.EventDay.load(calendar_file.stem, source)
-            for item in event_day.items:
-                if not item.cancelled:
-                    open_events.append((calendar_file.stem, item.index, item))
-
     news_to_copy: list[tuple[Path, Path]] = []
     src_news_dir = src_path / "news"
     dst_news_dir = dst_path / "news"
@@ -415,8 +405,7 @@ def merge(
     typer.echo(
         f"Merging '{source}' into '{dest}': "
         f"{len(entity_slugs)} entities, {len(open_todos)} open todos, "
-        f"{len(open_events)} calendar events, {len(news_to_copy)} news files. "
-        f"This cannot be undone. Proceeding..."
+        f"{len(news_to_copy)} news files. This cannot be undone. Proceeding..."
     )
 
     for entity_id in entity_slugs:
@@ -476,38 +465,6 @@ def merge(
         todo_module.TodoChecklist.locked_modify(day, dest, _append_todo)
         todo_module.TodoChecklist.locked_modify(day, source, _cancel_todo)
 
-    for day, line_number, item in open_events:
-        captured_item = item
-
-        def _append_event(
-            event_day: event_module.EventDay,
-        ) -> tuple[event_module.EventDay, event_module.CalendarEvent]:
-            new_item = event_day.append_event(
-                captured_item.title,
-                captured_item.start,
-                captured_item.end,
-                captured_item.summary,
-                captured_item.participants,
-                created_at=captured_item.created_at,
-            )
-            return event_day, new_item
-
-        captured_line_number = line_number
-        captured_dest = dest
-
-        def _cancel_event(
-            event_day: event_module.EventDay,
-        ) -> tuple[event_module.EventDay, event_module.CalendarEvent]:
-            cancelled_item = event_day.cancel_event(
-                captured_line_number,
-                cancelled_reason="moved_to_facet",
-                moved_to=captured_dest,
-            )
-            return event_day, cancelled_item
-
-        event_module.EventDay.locked_modify(day, dest, _append_event)
-        event_module.EventDay.locked_modify(day, source, _cancel_event)
-
     if news_to_copy:
         dst_news_dir.mkdir(parents=True, exist_ok=True)
     for src_file, dest_file in news_to_copy:
@@ -518,7 +475,6 @@ def merge(
         "dest": dest,
         "entity_count": len(entity_slugs),
         "todo_count": len(open_todos),
-        "calendar_count": len(open_events),
         "news_count": len(news_to_copy),
     }
     if consent:

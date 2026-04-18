@@ -523,46 +523,6 @@ def _merge_overlapping_facet(
                     f"facet {facet_name} todo {source_todo_file.name}: {exc}"
                 )
 
-    source_calendar_dir = source_facet_dir / "calendar"
-    if source_calendar_dir.is_dir():
-        for source_calendar_file in sorted(source_calendar_dir.glob("*.jsonl")):
-            try:
-                target_calendar_file = (
-                    target_facet_dir / "calendar" / source_calendar_file.name
-                )
-                target_items = _read_jsonl(target_calendar_file)
-                seen = {(item["title"], item.get("start")) for item in target_items}
-                new_items = []
-                for item in _read_jsonl(source_calendar_file):
-                    log_id = f"{facet_name}/calendar/{source_calendar_file.name}/{item.get('title', '')}"
-                    if (item["title"], item.get("start")) in seen:
-                        _log_decision(
-                            log_path,
-                            {
-                                "action": "facet_calendar_merged",
-                                "item_type": "calendar",
-                                "item_id": log_id,
-                                "reason": "duplicate_skip",
-                            },
-                        )
-                    else:
-                        new_items.append(item)
-                        _log_decision(
-                            log_path,
-                            {
-                                "action": "facet_calendar_merged",
-                                "item_type": "calendar",
-                                "item_id": log_id,
-                                "reason": "appended",
-                            },
-                        )
-                if new_items and not dry_run:
-                    _append_jsonl(target_calendar_file, new_items)
-            except Exception as exc:
-                summary.errors.append(
-                    f"facet {facet_name} calendar {source_calendar_file.name}: {exc}"
-                )
-
     source_activities_dir = source_facet_dir / "activities"
     if source_activities_dir.is_dir():
         source_config_file = source_activities_dir / "activities.jsonl"

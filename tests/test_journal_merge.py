@@ -333,20 +333,6 @@ def test_facet_merge_overlapping(merge_journals_fixture, monkeypatch):
             {"text": "Target todo", "created_at": 12},
         ],
     )
-    _write_jsonl(
-        paths["source"] / "facets" / "work" / "calendar" / "20260101.jsonl",
-        [
-            {"title": "Duplicate event", "start": "09:00"},
-            {"title": "Source event", "start": "10:00"},
-        ],
-    )
-    _write_jsonl(
-        paths["target"] / "facets" / "work" / "calendar" / "20260101.jsonl",
-        [
-            {"title": "Duplicate event", "start": "09:00"},
-            {"title": "Target event", "start": "11:00"},
-        ],
-    )
     (paths["source"] / "facets" / "work" / "news").mkdir(parents=True)
     (paths["target"] / "facets" / "work" / "news").mkdir(parents=True)
     (paths["source"] / "facets" / "work" / "news" / "20260101.md").write_text(
@@ -460,15 +446,6 @@ def test_facet_merge_overlapping(merge_journals_fixture, monkeypatch):
         "Duplicate todo",
         "Source todo",
         "Target todo",
-    }
-
-    events = _read_jsonl(
-        paths["target"] / "facets" / "work" / "calendar" / "20260101.jsonl"
-    )
-    assert {(item["title"], item["start"]) for item in events} == {
-        ("Duplicate event", "09:00"),
-        ("Source event", "10:00"),
-        ("Target event", "11:00"),
     }
 
     assert (paths["target"] / "facets" / "work" / "news" / "20260102.md").read_text(

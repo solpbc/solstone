@@ -141,7 +141,6 @@ FORMATTERS: dict[str, tuple[str, str, bool]] = {
     ),
     "facets/*/events/*.jsonl": ("think.events", "format_events", True),
     "facets/*/activities/*.jsonl": ("think.activities", "format_activities", True),
-    "facets/*/calendar/*.jsonl": ("think.events", "format_events", True),
     "facets/*/todos/*.jsonl": ("apps.todos.todo", "format_todos", True),
     "facets/*/logs/*.jsonl": ("think.facets", "format_logs", True),
     # Structured file imports (indexed)

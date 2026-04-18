@@ -99,9 +99,6 @@ def _load_template(name: str) -> tuple[dict, str]:
 
 def _format_cadence(cadence: object) -> str:
     """Format a cadence value for display."""
-    if isinstance(cadence, dict):
-        offset = cadence.get("offset_minutes", 0)
-        return f"event:calendar:{offset}m"
     return str(cadence)
 
 
@@ -112,29 +109,6 @@ def _validate_routine_cadence(cadence: object) -> None:
             cron_matches(cadence, datetime.now())
         except ValueError as exc:
             typer.echo(f"Error: invalid cadence: {exc}", err=True)
-            raise typer.Exit(1)
-        return
-
-    if isinstance(cadence, dict):
-        required_keys = {"type", "trigger", "offset_minutes"}
-        missing = required_keys - set(cadence)
-        if missing:
-            typer.echo(
-                f"Error: invalid cadence: missing keys: {', '.join(sorted(missing))}",
-                err=True,
-            )
-            raise typer.Exit(1)
-        if cadence.get("type") != "event":
-            typer.echo("Error: invalid cadence: type must be 'event'", err=True)
-            raise typer.Exit(1)
-        if cadence.get("trigger") != "calendar":
-            typer.echo("Error: invalid cadence: trigger must be 'calendar'", err=True)
-            raise typer.Exit(1)
-        if not isinstance(cadence.get("offset_minutes"), int):
-            typer.echo(
-                "Error: invalid cadence: offset_minutes must be an integer",
-                err=True,
-            )
             raise typer.Exit(1)
         return
 
