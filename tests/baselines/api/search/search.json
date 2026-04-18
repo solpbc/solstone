@@ -1,5 +1,4 @@
 {
-  "talents": [],
   "days": [],
   "facets": [
     {
@@ -60,6 +59,7 @@
     }
   ],
   "showing_days": 0,
+  "talents": [],
   "total": 0,
   "total_days": 0
 }

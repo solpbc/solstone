@@ -273,14 +273,6 @@ def add_module_stubs(request, monkeypatch):
 
         cv2_mod.cvtColor = cvtColor
         sys.modules["cv2"] = cv2_mod
-    if "soundfile" not in sys.modules:
-        sf_mod = types.ModuleType("soundfile")
-
-        def write(buf, data, samplerate, format=None):
-            buf.write(b"fLaCfake")
-
-        sf_mod.write = write
-        sys.modules["soundfile"] = sf_mod
     for name in [
         "noisereduce",
     ]:

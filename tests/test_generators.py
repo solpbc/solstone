@@ -13,13 +13,13 @@ def test_get_talent_configs_generators():
     """Test that system generators are discovered with source field."""
     talent = importlib.import_module("think.talent")
     generators = talent.get_talent_configs(type="generate")
-    assert "flow" in generators
-    info = generators["flow"]
-    assert os.path.basename(info["path"]) == "flow.md"
+    assert "schedule" in generators
+    info = generators["schedule"]
+    assert os.path.basename(info["path"]) == "schedule.md"
     assert isinstance(info["color"], str)
     assert isinstance(info["mtime"], int)
     assert "title" in info
-    assert "occurrences" in info
+    assert "occurrences" not in info
     # New: check source field
     assert info.get("source") == "system"
 

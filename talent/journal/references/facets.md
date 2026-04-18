@@ -10,7 +10,7 @@ Each facet is organized as `facets/<facet>/` where `<facet>` is a descriptive sh
 - `activities/` – configured activities and completed activity records (see [activity records](#activity-records)).
 - `entities/` – entity relationships and detected entities (see [facet entities](#facet-entities)).
 - `todos/` – daily todo lists (see [facet-scoped todos](#facet-scoped-todos)).
-- `events/` – extracted events per day (see [event extracts](captures.md#event-extracts)).
+- `events/` – historical extracted events per day (see [historical event extracts](captures.md#historical-event-extracts)).
 - `news/` – daily news and updates relevant to the facet (optional).
 - `logs/` – action audit logs for tool calls (optional, see [action logs](logs.md#action-logs)).
 

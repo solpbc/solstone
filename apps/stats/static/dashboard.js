@@ -5,7 +5,7 @@
 const Dashboard = (function() {
   'use strict';
 
-  const EXPECTED_SCHEMA_VERSION = 3;
+  const EXPECTED_SCHEMA_VERSION = 4;
   const DISPLAY_LABELS = { transcript: 'Audio', percept: 'Screen' };
 
   // DOM element factory
@@ -401,7 +401,7 @@ const Dashboard = (function() {
     return palette[index % palette.length];
   }
 
-  // Build stacked category chart (for Events or Facets)
+  // Build stacked category chart (for Activities or Facets)
   function buildStackedCategoryChart(container, countsByDay, meta = {}) {
     container.innerHTML = '';
 
@@ -722,15 +722,15 @@ const Dashboard = (function() {
       }
     );
 
-    // Render Events stacked bar chart
+    // Render Activities stacked bar chart
     buildStackedCategoryChart(
-      document.getElementById('eventsChart'),
+      document.getElementById('activitiesChart'),
       stats.talents.counts_by_day || {},
-      Object.assign({}, data.generators || {}, {
+      {
         emptyIcon: '⚡',
-        emptyText: 'No event data recorded',
-        ariaLabel: 'Events bar chart showing agent event counts over the last 30 days'
-      })  // Use generator metadata for titles/colors
+        emptyText: 'No activity data recorded',
+        ariaLabel: 'Activities bar chart showing activity counts over the last 30 days'
+      }
     );
     
     // Render repairs if needed

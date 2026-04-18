@@ -2,73 +2,163 @@
   "type": "generate",
 
   "title": "Upcoming Schedule",
-  "description": "Identifies all future calendar events and scheduled activities noted in transcripts. Extracts dates, times, participants, and event details for anything scheduled beyond today.",
-  "hook": {"post": "anticipation"},
+  "description": "Extracts future scheduled events and calendar activities into structured anticipation records. Captures dates, times, participants, and cancellation state.",
+  "hook": {"post": "schedule"},
   "color": "#5e35b1",
   "schedule": "daily",
   "priority": 10,
-  "output": "md",
+  "output": "json",
   "load": {"transcripts": true, "percepts": false, "talents": {"screen": true}}
-
 }
 
 $daily_preamble
 
 # Future Schedule Extraction
 
-**Input:** A markdown file containing chronologically ordered transcripts of a workday. The transcript combines audio recordings and screen activity organized by recording segments.
+**Input:** A markdown file containing chronologically ordered transcripts of a workday plus the screen agent's output for the same day. Calendar views, meeting invitations, scheduling UIs, and project-management interfaces are captured in the screen content; verbal mentions of future plans appear in transcripts.
 
-**Objective:** Identify and extract all future scheduled events and calendar entries visible or mentioned throughout the day. Focus exclusively on events scheduled for dates beyond today - not current day or historical events.
+**Your task:** Identify every future scheduled item (dated after today) visible in the day's screen or transcript content and emit a JSON array of anticipation objects.
 
-**Instructions:**
+## What to capture
 
-1. **Scan for Calendar Views:** Review all screen activity descriptions for:
-   - Calendar applications (Google Calendar, Outlook, Apple Calendar, etc.)
-   - Scheduling interfaces (Calendly, meeting schedulers, etc.)
-   - Email invitations showing future dates
-   - Project management tools with scheduled deadlines
-   - Any interface displaying future dates and times
+Look for:
+- Calendar applications (Google Calendar, Outlook, Apple Calendar, Fantastical, etc.)
+- Scheduling interfaces (Calendly, meeting schedulers, SavvyCal, meet.solpbc.org)
+- Email invitations or confirmations showing future dates
+- Project management tools (Linear, Jira, Asana, Trello) with scheduled deadlines or milestones
+- Travel bookings (flights, reservations, itineraries)
+- Any UI element displaying a future date, time, or deadline
+- Verbal mentions of firm future commitments ("I'm meeting Ramon on Tuesday at 3", "flight leaves Friday morning")
 
-2. **Extract Event Details:** For each future scheduled item identified, capture:
-   - **Date & Time:** Full date and time information if available
-   - **Event Title:** The name or subject of the scheduled event
-   - **Participants:** Meeting attendees or people involved if visible
-   - **Location:** Physical location or meeting link/platform
-   - **Duration:** Expected length of the event
-   - **Description:** Any additional context or agenda items visible
+**Include cancelled items too.** Calendar views often show cancelled events with a strikethrough, a "Cancelled" label, a declined-invite indicator, or a greyed-out style. Emit these with `"cancelled": true` — the downstream pipeline needs to know a previously-scheduled item dropped off.
 
-3. **Organize Chronologically:** Sort all identified events by their scheduled date and time, nearest future events first.
+Do NOT capture:
+- Past events (anything on today or earlier — future only)
+- Vague intent without a date ("we should catch up sometime")
+- Recurring-series headers with no specific upcoming instance visible (capture the next specific instance if visible; otherwise skip)
+- Tentative suggestions that haven't been confirmed
 
-4. **Focus on the Future:**
-   - Include only events scheduled for tomorrow and beyond
-   - Exclude today's events (already happened or happening)
-   - Exclude past events visible in calendar history
-   - Include recurring events' future instances if visible
+## Output schema
 
-## Output Format
+Return **only** a JSON array. Each element is an anticipation object with these fields:
 
-Produce a clean Markdown document with:
+```json
+[
+  {
+    "activity": "meeting",
+    "target_date": "2026-04-20",
+    "start": "16:30:00",
+    "end": "17:30:00",
+    "title": "Yuri Namikawa intro call",
+    "description": "Intro call with Yuri from Offline Ventures about solstone.",
+    "details": "Google Meet; prep one-pager + demo backup",
+    "participation": [
+      {
+        "name": "Yuri Namikawa",
+        "role": "attendee",
+        "source": "screen",
+        "confidence": 0.9,
+        "context": "visible on calendar invite; Offline Ventures"
+      }
+    ],
+    "participation_confidence": 0.9,
+    "facet": "solstone",
+    "cancelled": false
+  }
+]
+```
 
-### Header Section
-A brief overview stating the date range of scheduled events found and total count.
+### Field-by-field
 
-### Event Listings
-For each future event, create a formatted entry with:
-- **Date:** [Day, Full Date]
-- **Time:** [Start - End time with timezone if available]
-- **Event:** [Title/Subject]
-- **Participants:** [List of attendees if visible]
-- **Location:** [Physical/Virtual location]
-- **Notes:** [Any additional context, agenda items, or preparation needed]
+- **`activity`** — Short descriptive string for the kind of scheduled item. Pick the best fit for what you're seeing. Common examples: `meeting`, `call`, `deadline`, `appointment`, `event`, `travel`, `reminder`, `errand`, `celebration`. **Not a restricted enum** — use whatever label best describes the item. Lowercase, underscore-separated if multi-word (e.g., `doctor_appointment`).
 
-### Summary
-Conclude with a brief summary highlighting:
-- The next upcoming event
-- Any particularly important or unusual scheduled items
-- General schedule density for the upcoming segment
+- **`target_date`** — ISO date `YYYY-MM-DD`. The day the item is scheduled for. Must be strictly after today.
 
-## Important Notes
-- Only extract what is clearly visible on screen or captured in a transcript
-- Don't infer or guess event details
-- Focus on definite scheduled items, not tentative plans mentioned in conversation
-- Include both personal and professional scheduled events if visible
+- **`start`** — `HH:MM:SS` (24-hour). If the time is vague ("morning", "afternoon") or unknown, use `null` and mention the vagueness in `details`. For all-day items, use `null`.
+
+- **`end`** — `HH:MM:SS`. Use `null` if not known.
+
+- **`title`** — Short descriptive title for the anticipation (one phrase — what a human would call this item at a glance).
+
+- **`description`** — One-sentence description: what is planned and any context that's evident. Written to read naturally.
+
+- **`details`** — Free-form string. Location, meeting platform, agenda hints, prep notes, recurrence pattern, anything else relevant. May be empty string `""`.
+
+- **`participation`** — Array of participant objects. Each entry:
+  - `name` — Full name if visible, otherwise the best form available.
+  - `role` — `"attendee"` for people expected to be live in the meeting/call; `"mentioned"` otherwise.
+  - `source` — Where the evidence came from: `"voice"`, `"speaker_label"`, `"transcript"`, `"screen"`, or `"other"`.
+  - `confidence` — `0.0`–`1.0` — your confidence the person will actually be there.
+  - `context` — Short string explaining why this person belongs here.
+  - For deadlines, reminders, or solo items with no one else involved, `participation` is `[]`.
+
+- **`participation_confidence`** — `0.0`–`1.0` — overall confidence in the participation list for this item. Lower when many attendees are inferred rather than confirmed.
+
+- **`facet`** — Facet ID from the configured facets context. Required. If no facet fits cleanly, skip the item rather than miscategorizing.
+
+- **`cancelled`** — Boolean. `true` when the screen shows this item as cancelled (strikethrough, "Cancelled" label, declined, greyed out). `false` otherwise.
+
+## Rules
+
+1. **Return only valid JSON.** An array, possibly empty (`[]`). No commentary, no prose.
+2. **ISO dates.** `YYYY-MM-DD` for `target_date`; `HH:MM:SS` or `null` for `start`/`end`.
+3. **Be specific.** Don't invent details. If information isn't visible, use `null` or omit the field per the schema.
+4. **Future only.** Items with `target_date <= today` get dropped.
+5. **Cancelled events included.** Emit them with `"cancelled": true`.
+6. **Dedupe within the run.** If the same item appears on multiple screens throughout the day (e.g., seen at 9am in calendar and again at 3pm in email), emit it once with the strongest evidence.
+7. **Skip uncertain items.** If you can't tell whether an item is future-dated or has an identifiable date, skip it rather than guessing.
+8. **One facet per item.** If an item spans facets, pick the dominant one.
+
+## Examples
+
+Valid output with three future items (one cancelled):
+
+```json
+[
+  {
+    "activity": "call",
+    "target_date": "2026-04-21",
+    "start": "10:30:00",
+    "end": "11:00:00",
+    "title": "Mari Zumbro intro",
+    "description": "First call with Mari Zumbro per mutual intro from Ramon.",
+    "details": "Google Meet; prep one-liner on solstone",
+    "participation": [
+      {"name": "Mari Zumbro", "role": "attendee", "source": "screen", "confidence": 0.95, "context": "calendar invite"}
+    ],
+    "participation_confidence": 0.9,
+    "facet": "solstone",
+    "cancelled": false
+  },
+  {
+    "activity": "deadline",
+    "target_date": "2026-05-05",
+    "start": null,
+    "end": null,
+    "title": "Demo Day",
+    "description": "Betaworks Camp Demo Day.",
+    "details": "Live demo presentation to cohort investors",
+    "participation": [],
+    "participation_confidence": 0.5,
+    "facet": "solstone",
+    "cancelled": false
+  },
+  {
+    "activity": "meeting",
+    "target_date": "2026-04-24",
+    "start": "09:00:00",
+    "end": "10:00:00",
+    "title": "Scott Ward standup",
+    "description": "Weekly standup with Scott Ward.",
+    "details": "Recurring; previously showing strikethrough on calendar",
+    "participation": [
+      {"name": "Scott Ward", "role": "attendee", "source": "screen", "confidence": 0.85, "context": "recurring invite, now declined"}
+    ],
+    "participation_confidence": 0.85,
+    "facet": "solstone",
+    "cancelled": true
+  }
+]
+```
+
+If no future items are found, return `[]`.

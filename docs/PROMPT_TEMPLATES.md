@@ -86,6 +86,8 @@ Context variables are passed at runtime by the code calling `load_prompt()`. The
 **Common generator context:**
 - `$day` - Human-readable date (e.g., "Friday, January 24, 2026")
 - `$day_YYYYMMDD` - Day in YYYYMMDD format (e.g., "20260124")
+- `$facet` - Focused facet name when the prompt is dispatched per-facet (bare name, e.g. `work`)
+- `$activity_md_dir` - Directory path containing per-activity narrative `.md` outputs for the focused facet/day, with trailing slash
 - `$now` - Current date and time with timezone (e.g., "Monday, February 3, 2025 at 10:30 AM PST")
 - `$segment` - Segment key (e.g., "143022_300")
 - `$segment_start` - Formatted start time (e.g., "2:30 PM")

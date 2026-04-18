@@ -432,12 +432,11 @@ def get_providers() -> Any:
                 if "schedule" in info:
                     context_defaults[context_key]["schedule"] = info["schedule"]
                 context_defaults[context_key]["disabled"] = info.get("disabled", False)
-                # Include extract for generators with occurrence/anticipation hooks
+                # Include extract for generators with occurrence hooks
                 hook = info.get("hook")
                 has_extraction = (
-                    isinstance(hook, dict)
-                    and hook.get("post") in ("occurrence", "anticipation")
-                ) or hook in ("occurrence", "anticipation")
+                    isinstance(hook, dict) and hook.get("post") in ("occurrence",)
+                ) or hook in ("occurrence",)
                 if has_extraction:
                     context_defaults[context_key]["extract"] = info.get("extract", True)
 
@@ -929,11 +928,11 @@ def _build_generator_info(key: str, info: dict) -> dict:
     Transforms talent config metadata into the format expected by the
     Settings UI Insights section.
     """
-    # Determine if extraction is supported (occurrence/anticipation hooks)
+    # Determine if extraction is supported (occurrence hooks)
     hook = info.get("hook")
     has_extraction = (
-        isinstance(hook, dict) and hook.get("post") in ("occurrence", "anticipation")
-    ) or hook in ("occurrence", "anticipation")
+        isinstance(hook, dict) and hook.get("post") in ("occurrence",)
+    ) or hook in ("occurrence",)
 
     return {
         "key": key,

@@ -37,7 +37,6 @@ from think.importers.utils import (
     get_import_details,
     list_import_timestamps,
 )
-from think.indexer.journal import get_events as get_events_impl
 from think.indexer.journal import search_counts as search_counts_impl
 from think.indexer.journal import search_journal as search_journal_impl
 from think.utils import (
@@ -128,37 +127,6 @@ def search(
             f"\n--- {meta['day']} | {meta['facet']} | {meta['agent']}{stream_tag} | {r['id']} ---"
         )
         typer.echo(r["text"].strip())
-
-
-@app.command()
-def events(
-    day: str | None = typer.Argument(
-        default=None, help="Day YYYYMMDD (default: SOL_DAY env)."
-    ),
-    facet: str | None = typer.Option(None, "--facet", "-f", help="Filter by facet."),
-) -> None:
-    """List events for a day."""
-    day = resolve_sol_day(day)
-    items = get_events_impl(day, facet)
-    if not items:
-        typer.echo("No events found.")
-        return
-    for ev in items:
-        time_range = ""
-        if ev.get("start"):
-            time_range = ev["start"]
-            if ev.get("end"):
-                time_range += f"-{ev['end']}"
-            time_range = f" ({time_range})"
-        facet_tag = f" [{ev.get('facet', '')}]" if ev.get("facet") else ""
-        typer.echo(f"- {ev.get('title', 'Untitled')}{time_range}{facet_tag}")
-        if ev.get("summary"):
-            typer.echo(f"  {ev['summary']}")
-        participants = ev.get("participants", [])
-        if participants:
-            typer.echo(f"  Participants: {', '.join(participants)}")
-        if ev.get("details"):
-            typer.echo(f"  Details: {ev['details']}")
 
 
 @facet_app.command()

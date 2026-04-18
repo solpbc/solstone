@@ -373,8 +373,14 @@ def test_file_sensor_spawn_handler(mock_popen, mock_day, mock_journal, tmp_path)
     assert len(log_files) == 1, f"Expected 1 echo log file, found {len(log_files)}"
 
 
-def test_file_sensor_spawn_handler_duplicate(tmp_path, mock_callosum):
+@patch("think.runner._current_day")
+def test_file_sensor_spawn_handler_duplicate(
+    mock_day, tmp_path, monkeypatch, mock_callosum
+):
     """Test that duplicate file processing is prevented."""
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    mock_day.return_value = "20250101"
+
     # Create journal/day structure
     day_dir = tmp_path / "chronicle" / "20250101"
     day_dir.mkdir(parents=True)
@@ -399,14 +405,12 @@ def test_file_sensor_spawn_handler_duplicate(tmp_path, mock_callosum):
         mock_popen.assert_not_called()
 
 
-@patch("think.runner._get_journal_path")
 @patch("think.runner._current_day")
 def test_file_sensor_spawn_handler_real_process(
-    mock_day, mock_journal, tmp_path, mock_callosum
+    mock_day, tmp_path, monkeypatch, mock_callosum
 ):
     """Test spawning a real process and monitoring completion."""
-    # Mock runner functions to use tmp_path
-    mock_journal.return_value = tmp_path
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     mock_day.return_value = "20241101"
 
     sensor = FileSensor(tmp_path)
@@ -434,8 +438,12 @@ def test_file_sensor_spawn_handler_real_process(
     assert "[echo:stdout]" in log_content
 
 
-def test_file_sensor_spawn_handler_failing_process(tmp_path):
+@patch("think.runner._current_day")
+def test_file_sensor_spawn_handler_failing_process(mock_day, tmp_path, monkeypatch):
     """Test handling of failing process."""
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    mock_day.return_value = "20241101"
+
     sensor = FileSensor(tmp_path)
 
     test_file = tmp_path / "test.txt"
@@ -451,8 +459,12 @@ def test_file_sensor_spawn_handler_failing_process(tmp_path):
     assert test_file not in sensor.running
 
 
-def test_file_sensor_failing_process_notifies(tmp_path):
+@patch("think.runner._current_day")
+def test_file_sensor_failing_process_notifies(mock_day, tmp_path, monkeypatch):
     """Test that a failing handler process emits a notification event."""
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    mock_day.return_value = "20241101"
+
     sensor = FileSensor(tmp_path)
     # Mock callosum on sensor to capture emitted events
     sensor.callosum = MagicMock()
@@ -613,9 +625,15 @@ def test_file_sensor_handle_callosum_message_invalid_event(tmp_path):
         mock_handle.assert_not_called()
 
 
-def test_file_sensor_segment_observed_includes_day(tmp_path, mock_callosum):
+@patch("think.runner._current_day")
+def test_file_sensor_segment_observed_includes_day(
+    mock_day, tmp_path, monkeypatch, mock_callosum
+):
     """Test that observe.observed event includes day field."""
     from think.callosum import CallosumConnection
+
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    mock_day.return_value = "20250101"
 
     # Create journal/day/stream/segment structure
     day_dir = tmp_path / "chronicle" / "20250101"
@@ -662,13 +680,15 @@ def test_file_sensor_segment_observed_includes_day(tmp_path, mock_callosum):
     assert observed_events[0].get("segment") == "143022_300"
 
 
-def test_file_sensor_segment_observed_no_handlers(tmp_path, mock_callosum):
+def test_file_sensor_segment_observed_no_handlers(tmp_path, monkeypatch, mock_callosum):
     """Test that observe.observed is emitted immediately for segments with no matching handlers.
 
     This covers the case of tmux-only segments where files like .jsonl don't match
     any registered patterns (*.flac, *.webm, etc.).
     """
     from think.callosum import CallosumConnection
+
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
     # Create journal/day/stream/segment structure
     day_dir = tmp_path / "chronicle" / "20250101"

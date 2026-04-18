@@ -301,20 +301,38 @@ def _collect_todos(today: str) -> list[dict[str, Any]]:
     return todos
 
 
-def _collect_events(today: str) -> list[dict[str, Any]]:
-    """Collect calendar events across all facets."""
-    from think.indexer.journal import get_events
+def _collect_anticipated_activities(today: str) -> list[dict[str, Any]]:
+    """Collect anticipated activities across all facets."""
+    from think.activities import load_activity_records
 
     try:
-        events = get_events(today)
-        for event in events:
-            if event.get("start") is None:
-                event["start"] = ""
-            if event.get("end") is None:
-                event["end"] = ""
-        return events
+        anticipated_activities = []
+        for facet_name in get_facets():
+            for record in load_activity_records(facet_name, today):
+                if record.get("source") != "anticipated":
+                    continue
+
+                participants = []
+                for entry in record.get("participation", []):
+                    if not isinstance(entry, dict) or entry.get("role") != "attendee":
+                        continue
+                    name = str(entry.get("name") or "").strip()
+                    if name:
+                        participants.append(name)
+
+                anticipated_activities.append(
+                    {
+                        "title": record.get("title", ""),
+                        "start": record.get("start") or "",
+                        "end": record.get("end") or "",
+                        "facet": facet_name,
+                        "occurred": False,
+                        "participants": participants,
+                    }
+                )
+        return anticipated_activities
     except Exception:
-        logger.warning("home: failed to collect events", exc_info=True)
+        logger.warning("home: failed to collect anticipated activities", exc_info=True)
         return []
 
 
@@ -335,6 +353,8 @@ def _collect_activities(today: str) -> list[dict[str, Any]]:
     for facet_name in facets:
         records = load_activity_records(facet_name, today)
         for record in records:
+            if record.get("source") == "anticipated":
+                continue
             created_at = record.get("created_at", 0)
             if created_at < cutoff_ts:
                 continue
@@ -1230,7 +1250,7 @@ def _build_pulse_context() -> dict[str, Any]:
         narrative_updated_at = flow_updated_at
         pulse_needs = []
 
-    events = _collect_events(today)
+    anticipated_activities = _collect_anticipated_activities(today)
     activities = _collect_activities(today)
     todos = _collect_todos(today)
     entities = _collect_entities_today(today)
@@ -1262,7 +1282,7 @@ def _build_pulse_context() -> dict[str, Any]:
     unseen_skills = [s for s in skills if not s["seen"]]
     show_welcome = (
         narrative_content is None
-        and not events
+        and not anticipated_activities
         and not activities
         and not todos
         and not entities
@@ -1297,9 +1317,9 @@ def _build_pulse_context() -> dict[str, Any]:
     skills_content = {s["id"]: s["content"] for s in skills}
 
     today_summary_parts = []
-    if events:
-        n = len(events)
-        today_summary_parts.append(f"{n} event{'s' if n != 1 else ''}")
+    if anticipated_activities:
+        n = len(anticipated_activities)
+        today_summary_parts.append(f"{n} anticipated activit{'ies' if n != 1 else 'y'}")
     if activities:
         n = len(activities)
         today_summary_parts.append(f"{n} {'activities' if n != 1 else 'activity'}")
@@ -1376,7 +1396,7 @@ def _build_pulse_context() -> dict[str, Any]:
         "pulse_needs": pulse_needs,
         "flow_content": flow_content,
         "flow_updated_at": flow_updated_at,
-        "events": events,
+        "anticipated_activities": anticipated_activities,
         "activities": activities,
         "todos": todos,
         "entities": entities,

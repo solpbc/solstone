@@ -26,6 +26,7 @@ import time
 from dataclasses import dataclass, field
 
 import numpy as np
+from faster_whisper.vad import VadOptions, get_speech_timestamps
 
 from observe.utils import SAMPLE_RATE
 
@@ -295,8 +296,6 @@ def run_vad(
         VadResult with duration info, has_speech flag, speech segment boundaries,
         and non-speech RMS level for noise detection
     """
-    from faster_whisper.vad import VadOptions, get_speech_timestamps
-
     logging.info("Running VAD...")
     t0 = time.perf_counter()
 

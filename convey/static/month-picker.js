@@ -188,7 +188,7 @@ window.MonthPicker = (function() {
       const rawIntensity = maxCount > 0 ? count / maxCount : 0;
       const intensity = count > 0 ? 0.2 + (rawIntensity * 0.8) : 0;
       const dateLabel = formatDayLabel(dateStr);
-      const countText = count === 1 ? '1 event' : count > 0 ? `${count} events` : 'no events';
+      const countText = count === 1 ? '1 item' : count > 0 ? `${count} items` : 'no items';
 
       let attrs = `class="${classes.join(' ')}" role="gridcell" data-day="${dateStr}" style="--intensity: ${intensity}" aria-label="${dateLabel}, ${countText}"`;
       if (dateStr === TODAY) attrs += ' aria-current="date"';

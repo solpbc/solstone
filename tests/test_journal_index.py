@@ -535,30 +535,6 @@ def test_time_bucket_non_segment_empty(journal_fixture):
     conn.close()
 
 
-def test_get_events(journal_fixture):
-    """Test get_events returns structured event data."""
-    from think.indexer.journal import get_events
-
-    events = get_events("20240101")
-    assert len(events) == 1
-    assert events[0]["title"] == "Standup"
-    assert events[0]["start"] == "09:00:00"
-    assert events[0]["facet"] == "work"
-
-
-def test_get_events_filter_by_facet(journal_fixture):
-    """Test get_events with facet filter."""
-    from think.indexer.journal import get_events
-
-    # Should find work facet events
-    events = get_events("20240101", facet="work")
-    assert len(events) == 1
-
-    # Should not find nonexistent facet
-    events = get_events("20240101", facet="personal")
-    assert len(events) == 0
-
-
 def test_reset_journal_index(journal_fixture):
     """Test resetting the journal index."""
     from think.indexer.journal import reset_journal_index, scan_journal

@@ -90,13 +90,6 @@ ENDPOINTS = [
     # apps/activities/routes.py
     {
         "app": "activities",
-        "name": "day-events",
-        "path": "/app/activities/api/day/20260304/events",
-        "params": {},
-        "status": 200,
-    },
-    {
-        "app": "activities",
         "name": "stats-month",
         "path": "/app/activities/api/stats/202603",
         "params": {},

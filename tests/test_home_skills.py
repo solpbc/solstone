@@ -211,7 +211,9 @@ def test_api_pulse_includes_skills(monkeypatch, home_client):
     monkeypatch.setattr("apps.home.routes._load_stats", lambda today: {})
     monkeypatch.setattr("apps.home.routes._load_flow_md", lambda today: (None, None))
     monkeypatch.setattr("apps.home.routes._load_pulse_md", lambda: (None, None, []))
-    monkeypatch.setattr("apps.home.routes._collect_events", lambda today: [])
+    monkeypatch.setattr(
+        "apps.home.routes._collect_anticipated_activities", lambda today: []
+    )
     monkeypatch.setattr("apps.home.routes._collect_activities", lambda today: [])
     monkeypatch.setattr("apps.home.routes._collect_todos", lambda today: [])
     monkeypatch.setattr("apps.home.routes._collect_entities_today", lambda today: [])

@@ -102,6 +102,14 @@
       "label": "Agent Prompt Generation",
       "tier": 2
     },
+    "talent.activities.activities_review": {
+      "disabled": false,
+      "group": "Activities",
+      "label": "Activities Review",
+      "schedule": "daily",
+      "tier": 3,
+      "type": "cogitate"
+    },
     "talent.entities.entities": {
       "disabled": false,
       "group": "Entities",
@@ -175,13 +183,6 @@
       "tier": 2,
       "type": "cogitate"
     },
-    "talent.system.anticipation": {
-      "disabled": false,
-      "group": "Think",
-      "label": "Anticipation Extraction",
-      "tier": 2,
-      "type": null
-    },
     "talent.system.awareness_tender": {
       "disabled": false,
       "group": "Think",
@@ -222,7 +223,6 @@
     },
     "talent.system.decisions": {
       "disabled": false,
-      "extract": true,
       "group": "Think",
       "label": "Decision Actions",
       "schedule": "activity",
@@ -252,18 +252,8 @@
       "tier": 2,
       "type": null
     },
-    "talent.system.flow": {
-      "disabled": false,
-      "extract": true,
-      "group": "Think",
-      "label": "Day Overview",
-      "schedule": "daily",
-      "tier": 2,
-      "type": "generate"
-    },
     "talent.system.followups": {
       "disabled": false,
-      "extract": true,
       "group": "Think",
       "label": "Follow-Up Items",
       "schedule": "activity",
@@ -286,18 +276,8 @@
       "tier": 2,
       "type": "cogitate"
     },
-    "talent.system.knowledge_graph": {
-      "disabled": false,
-      "extract": true,
-      "group": "Think",
-      "label": "Knowledge Graph",
-      "schedule": "daily",
-      "tier": 2,
-      "type": "generate"
-    },
     "talent.system.meetings": {
       "disabled": false,
-      "extract": true,
       "group": "Think",
       "label": "Meeting Notes",
       "schedule": "activity",
@@ -306,7 +286,6 @@
     },
     "talent.system.messaging": {
       "disabled": false,
-      "extract": true,
       "group": "Think",
       "label": "Messaging Summary",
       "schedule": "activity",
@@ -327,13 +306,6 @@
       "label": "Naming",
       "tier": 2,
       "type": "cogitate"
-    },
-    "talent.system.occurrence": {
-      "disabled": false,
-      "group": "Think",
-      "label": "Occurrence Extraction",
-      "tier": 2,
-      "type": null
     },
     "talent.system.participation": {
       "disabled": false,
@@ -369,7 +341,6 @@
     },
     "talent.system.schedule": {
       "disabled": false,
-      "extract": true,
       "group": "Think",
       "label": "Upcoming Schedule",
       "schedule": "daily",
@@ -414,15 +385,6 @@
       "label": "test_missing_type_output_1568d299dc474aa9ba42401c7b1b75e2",
       "tier": 2,
       "type": null
-    },
-    "talent.system.timeline": {
-      "disabled": false,
-      "extract": true,
-      "group": "Think",
-      "label": "Day Timeline",
-      "schedule": "daily",
-      "tier": 2,
-      "type": "generate"
     },
     "talent.system.triage": {
       "disabled": false,

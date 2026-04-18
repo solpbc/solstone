@@ -10,7 +10,6 @@ tests, or other internal modules.
 from datetime import datetime, timedelta
 from typing import Any
 
-from think.indexer.journal import get_events as get_events_impl
 from think.indexer.journal import search_counts as search_counts_impl
 from think.indexer.journal import search_journal as search_journal_impl
 
@@ -103,7 +102,7 @@ def search_journal(
         day_from: Filter by date range start (``YYYYMMDD``, inclusive)
         day_to: Filter by date range end (``YYYYMMDD``, inclusive)
         facet: Filter by facet name (e.g., "work", "personal")
-        agent: Filter by agent (e.g., "flow", "event", "entity:detected", "news")
+        agent: Filter by agent (e.g., "meetings", "event", "entity:detected", "news")
         stream: Filter by stream name (e.g., "archon", "import.apple")
         time_bucket: Filter by time of day — "morning" (06:00–11:59),
             "afternoon" (12:00–16:59), "evening" (17:00–20:59), or "night" (21:00–05:59)
@@ -123,7 +122,7 @@ def search_journal(
         - search_journal("project planning", facet="work")
         - search_journal("standup", agent="event")
         - search_journal("weekly sync", day_from="20241201", day_to="20241207")
-        - search_journal(agent="flow", day="20240101")  # Browse all flow for a day
+        - search_journal(agent="meetings", day="20240101")  # Browse all meetings for a day
         - search_journal("meeting", stream="archon")  # Filter by stream
         - search_journal("standup", time_bucket="morning")  # Morning meetings
     """
@@ -199,42 +198,4 @@ def search_journal(
         return {
             "error": f"Failed to search journal: {exc}",
             "suggestion": "try adjusting the query or ensure the index exists (run sol indexer --rescan)",
-        }
-
-
-def get_events(
-    day: str,
-    facet: str | None = None,
-) -> dict[str, Any]:
-    """Get structured events for a specific day.
-
-    This tool retrieves full event data including titles, summaries,
-    start/end times, and participants. Use this when you need complete
-    event information rather than text search results.
-
-    Args:
-        day: Day in ``YYYYMMDD`` format
-        facet: Optional facet name to filter by
-
-    Returns:
-        Dictionary containing:
-        - day: The requested day
-        - facet: The facet filter (if any)
-        - events: List of event objects with full structured data
-
-    Examples:
-        - get_events("20240101")
-        - get_events("20240101", facet="work")
-    """
-    try:
-        events = get_events_impl(day, facet)
-        return {
-            "day": day,
-            "facet": facet or "",
-            "events": events,
-        }
-    except Exception as exc:
-        return {
-            "error": f"Failed to get events: {exc}",
-            "suggestion": "verify the day parameter is valid",
         }

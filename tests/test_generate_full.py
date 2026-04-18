@@ -320,8 +320,8 @@ def test_named_hook_resolution(tmp_path, monkeypatch):
     from think.talent import load_post_hook
 
     # Config with named hook (new format)
-    config = {"hook": {"post": "occurrence"}}
+    config = {"hook": {"post": "schedule"}}
     hook_fn = load_post_hook(config)
 
-    # Should resolve to talent/occurrence.py and be callable
+    # Should resolve to talent/schedule.py and be callable
     assert callable(hook_fn)

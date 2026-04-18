@@ -1188,16 +1188,16 @@
   {% endif %}
 
   <!-- Today -->
-  {% if events or activities %}
+  {% if anticipated_activities or activities %}
   <div class="pulse-today" id="pulse-today" data-section-collapsed="true">
     <div class="pulse-section-toggle" role="button" tabindex="0" aria-expanded="false" onclick="toggleSection(this.parentElement)">
       <h2 class="pulse-section-header">today</h2>
       <span class="pulse-section-summary">{{ today_summary }}</span>
     </div>
     <div class="pulse-section-body">
-    {% if events %}
+    {% if anticipated_activities %}
     <div class="pulse-events">
-      {% for event in events %}
+      {% for event in anticipated_activities %}
       {% set is_past = event.get('occurred', false) or (event.get('end', '') and event['end'] < now.strftime('%H:%M:%S')) %}
       <div class="pulse-event{% if is_past %} past{% endif %}" role="button" tabindex="0" data-conversation="Tell me about {{ event.get('title', 'Untitled') }} at {{ event.get('start', '')[:5] }}">
         <span class="pulse-event-time">{{ event.get('start', '')[:5] }}</span>
@@ -1227,10 +1227,10 @@
     </div>
   </div>
   {% endif %}
-  {% if not events and not activities and not show_welcome %}
+  {% if not anticipated_activities and not activities and not show_welcome %}
   <div class="pulse-empty-state">
     <h2 class="pulse-section-header">today</h2>
-    <div class="pulse-empty-message">no events or activity yet today.</div>
+    <div class="pulse-empty-message">no anticipated activities or recent activity yet today.</div>
   </div>
   {% endif %}
 

@@ -5,7 +5,7 @@ generated: "2026-03-27T06:45:00"
 model: "claude-sonnet-4-20250514"
 sources:
   segments: 14
-  calendar_events: 3
+  anticipated_activities: 3
   entities_consulted: 3
   facet_newsletters: 2
   followups: 5
@@ -13,7 +13,7 @@ sources:
 gaps: []
 ---
 
-> Built from 14 transcript segments, 3 calendar events, 3 entity profiles, 2 facet newsletters, 5 follow-ups, 8 todos. No gaps.
+> Built from 14 transcript segments, 3 anticipated activities, 3 entity profiles, 2 facet newsletters, 5 follow-ups, 8 todos. No gaps.
 
 ## Your Day
 
@@ -36,9 +36,9 @@ gaps: []
 
 ## Forward Look
 
-- **Monday** — All-hands presentation on Q1 results. Slides need final review by Friday (from [anticipation](sol://20260327/talents/anticipation)).
+- **Monday** — All-hands presentation on Q1 results. Slides need final review by Friday (from [schedule](sol://20260327/talents/schedule)).
 - **Wednesday** — Deadline for the compliance audit documentation.
-- Sarah mentioned wanting to discuss the API rate limiting strategy next week (from [anticipation](sol://20260327/talents/anticipation)).
+- Sarah mentioned wanting to discuss the API rate limiting strategy next week (from [schedule](sol://20260327/talents/schedule)).
 
 ## Reading
 

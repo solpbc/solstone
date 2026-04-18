@@ -148,33 +148,11 @@ class TestDiscovery:
 class TestJournal:
     """Tests for 'sol call journal' commands."""
 
-    def test_journal_app_discovered(self):
-        """Journal sub-app is registered and shows help."""
-        result = runner.invoke(call_app, ["journal", "--help"])
-        assert result.exit_code == 0
-        for cmd in ("search", "events", "facet", "facets", "news", "agents", "read"):
-            assert cmd in result.output
-
     def test_journal_search(self):
         """Search command runs without error."""
         result = runner.invoke(call_app, ["journal", "search", "test", "--limit", "5"])
         assert result.exit_code == 0
         assert "results" in result.output
-
-    def test_journal_events(self):
-        """Events command returns fixture data."""
-        result = runner.invoke(call_app, ["journal", "events", "20240101"])
-        assert result.exit_code == 0
-        # Fixture has work + personal events for this day
-        assert "Team standup" in result.output
-
-    def test_journal_events_with_facet(self):
-        """Events command filters by facet."""
-        result = runner.invoke(
-            call_app, ["journal", "events", "20240101", "--facet", "work"]
-        )
-        assert result.exit_code == 0
-        assert "Team standup" in result.output
 
     def test_journal_facet(self):
         """Facet command shows summary for test-facet."""
@@ -199,14 +177,6 @@ class TestJournal:
         output = result.output
         if "0 results" not in output:
             assert "Facets:" in output or "Agents:" in output
-
-    def test_journal_events_shows_details(self):
-        """Events output includes participants and details."""
-        result = runner.invoke(call_app, ["journal", "events", "20240101"])
-        assert result.exit_code == 0
-        assert "Participants:" in result.output
-        assert "Alice" in result.output
-        assert "Details:" in result.output
 
     def test_journal_facets(self):
         """Facets command lists available facets."""
@@ -914,26 +884,6 @@ class TestResolveHelpers:
 
 class TestJournalSolEnv:
     """Tests for journal commands resolving SOL_* env vars."""
-
-    def test_events_from_sol_day(self, monkeypatch):
-        """events with SOL_DAY env and no arg works."""
-        monkeypatch.setenv("SOL_DAY", "20240101")
-        result = runner.invoke(call_app, ["journal", "events"])
-        assert result.exit_code == 0
-        assert "Team standup" in result.output
-
-    def test_events_arg_overrides_env(self, monkeypatch):
-        """events with both env and arg — arg wins."""
-        monkeypatch.setenv("SOL_DAY", "19990101")
-        result = runner.invoke(call_app, ["journal", "events", "20240101"])
-        assert result.exit_code == 0
-        assert "Team standup" in result.output
-
-    def test_events_no_day_exits(self, monkeypatch):
-        """events with neither arg nor env exits with error."""
-        monkeypatch.delenv("SOL_DAY", raising=False)
-        result = runner.invoke(call_app, ["journal", "events"])
-        assert result.exit_code != 0
 
     def test_agents_from_sol_day(self, monkeypatch):
         """agents with SOL_DAY env and no arg works."""

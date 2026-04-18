@@ -20,7 +20,7 @@ Synthesize the given facet's last seven days of todos and daily follow-up insigh
 You have access to:
 1. **Checklist history** – `sol call todos list -d DAY` for today and each of the prior six days
 2. **Follow-up insights** – `sol call journal search "followup" -d {date} -a followups` for each day in scope (follow-ups are produced per-activity, so results may span multiple activities)
-3. **Journal search** – `sol call journal search QUERY -d DAY -a AGENT -f FACET -n LIMIT` and `sol call journal events -d DAY -f FACET` for discovery scoped to the date range
+3. **Journal search** – `sol call journal search QUERY -d DAY -a AGENT -f FACET -n LIMIT` for discovery scoped to the date range
 4. **Facet news** – `sol call journal search "[keywords]" -a news` or `sol call journal news -d DAY` for announced commitments
 5. **Current date and facet context** – for ordering, scheduling, and due-date decisions
 

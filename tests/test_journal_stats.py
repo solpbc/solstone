@@ -30,24 +30,18 @@ def test_scan_day(tmp_path, monkeypatch):
     (day / "talents").mkdir()
     (day / "talents" / "flow.md").write_text("")
 
-    # Create event in new JSONL format: facets/{facet}/events/YYYYMMDD.jsonl
-    events_dir = journal / "facets" / "work" / "events"
-    events_dir.mkdir(parents=True)
-    event = {
-        "type": "meeting",
-        "start": "00:00:00",
-        "end": "00:05:00",
-        "title": "t",
-        "summary": "s",
-        "work": True,
-        "participants": [],
-        "details": "",
-        "facet": "work",
-        "agent": "meetings",
-        "occurred": True,
-        "source": "20240101/talents/meetings.md",
+    facet_dir = journal / "facets" / "work"
+    facet_dir.mkdir(parents=True)
+    (facet_dir / "facet.json").write_text(json.dumps({"title": "Work"}))
+    activities_dir = facet_dir / "activities"
+    activities_dir.mkdir(parents=True)
+    activity = {
+        "id": "meeting_000000_300",
+        "activity": "meeting",
+        "segments": ["000000_300"],
+        "description": "Project sync",
     }
-    (events_dir / "20240101.jsonl").write_text(json.dumps(event))
+    (activities_dir / "20240101.jsonl").write_text(json.dumps(activity) + "\n")
 
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
     js = stats_mod.JournalStats()
@@ -58,7 +52,7 @@ def test_scan_day(tmp_path, monkeypatch):
     assert (
         js.days["20240101"]["pending_segments"] == 1
     )  # Both files belong to same segment
-    assert js.agent_counts["meetings"] == 1
+    assert js.agent_counts["meeting"] == 1
     assert js.facet_counts["work"] == 1
     assert js.facet_minutes["work"] == 5.0
     assert js.heatmap[0][0] == 5
@@ -169,7 +163,7 @@ def test_token_usage(tmp_path, monkeypatch):
 
     # Test JSON output includes token usage
     data = js.to_dict()
-    assert data["schema_version"] == 3
+    assert data["schema_version"] == 4
     assert "generated_at" in data
     assert data["day_count"] == 2
     assert "tokens" in data
@@ -221,66 +215,6 @@ def test_caching(tmp_path, monkeypatch):
     js3 = stats_mod.JournalStats()
     js3.scan(str(journal), verbose=False, use_cache=False)
     assert js3.days["20240101"]["transcript_sessions"] == 1
-
-
-def test_facet_event_mtime_invalidates_cache(tmp_path, monkeypatch):
-    """Modifying a facet event file invalidates that day's cache."""
-    stats_mod = importlib.import_module("think.journal_stats")
-    journal = tmp_path
-    day = journal / "chronicle" / "20240101"
-    day.mkdir(parents=True)
-
-    # Create minimal day content
-    ts_dir = day / "default" / "123456_300"
-    ts_dir.mkdir(parents=True)
-    (ts_dir / "audio.jsonl").write_text(
-        '{"raw": "raw.flac"}\n{"start": "10:00:00", "text": "hello"}\n'
-    )
-
-    # Create facet event file
-    events_dir = journal / "facets" / "work" / "events"
-    events_dir.mkdir(parents=True)
-    event = {
-        "type": "meeting",
-        "start": "00:00:00",
-        "end": "00:05:00",
-        "title": "t",
-        "summary": "s",
-        "work": True,
-        "participants": [],
-        "details": "",
-        "facet": "work",
-        "agent": "meetings",
-        "occurred": True,
-        "source": "20240101/talents/meetings.md",
-    }
-    (events_dir / "20240101.jsonl").write_text(json.dumps(event))
-
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
-
-    # First scan - creates cache
-    js1 = stats_mod.JournalStats()
-    js1.scan(str(journal), use_cache=True)
-    assert js1.agent_counts["meetings"] == 1
-    assert (day / "stats.json").exists()
-
-    # Record cache mtime
-    import time
-
-    cache_mtime = (day / "stats.json").stat().st_mtime
-    time.sleep(0.05)
-
-    # Modify the facet event file (add a second event)
-    event2 = dict(event, start="01:00:00", end="01:10:00", agent="summarize")
-    with open(events_dir / "20240101.jsonl", "a") as f:
-        f.write("\n" + json.dumps(event2))
-
-    # Second scan - cache should be invalidated because facet event mtime > cache mtime
-    js2 = stats_mod.JournalStats()
-    js2.scan(str(journal), use_cache=True)
-    assert (day / "stats.json").stat().st_mtime > cache_mtime
-    assert js2.agent_counts["meetings"] == 1
-    assert js2.agent_counts["summarize"] == 1
 
 
 def test_token_usage_new_format(tmp_path, monkeypatch):

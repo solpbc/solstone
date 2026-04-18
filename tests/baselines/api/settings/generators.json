@@ -22,43 +22,13 @@
     },
     {
       "app": null,
-      "description": "Constructs a detailed chronological timeline documenting every activity, task shift, and event throughout the workday. Creates a comprehensive historical record with rich descriptions of what happened when.",
+      "description": "Extracts future scheduled events and calendar activities into structured anticipation records. Captures dates, times, participants, and cancellation state.",
       "disabled": false,
-      "extract": true,
-      "has_extraction": true,
-      "key": "timeline",
-      "source": "system",
-      "title": "Day Timeline"
-    },
-    {
-      "app": null,
-      "description": "Extracts people, projects, tools and other entities from the transcript and maps how they relate. Produces a Markdown report plus narrative describing network hubs and bridges discovered during the day.",
-      "disabled": false,
-      "extract": true,
-      "has_extraction": true,
-      "key": "knowledge_graph",
-      "source": "system",
-      "title": "Knowledge Graph"
-    },
-    {
-      "app": null,
-      "description": "Identifies all future calendar events and scheduled activities noted in transcripts. Extracts dates, times, participants, and event details for anything scheduled beyond today.",
-      "disabled": false,
-      "extract": true,
-      "has_extraction": true,
+      "extract": null,
+      "has_extraction": false,
       "key": "schedule",
       "source": "system",
       "title": "Upcoming Schedule"
-    },
-    {
-      "app": null,
-      "description": "Summarizes the overall flow of the workday. Looks for patterns in focus, energy, context switching and highlights productivity insights in a Markdown report.",
-      "disabled": false,
-      "extract": true,
-      "has_extraction": true,
-      "key": "flow",
-      "source": "system",
-      "title": "Day Overview"
     }
   ],
   "segment": [

@@ -3,6 +3,7 @@
 
 """Tests for activities app routes — activities API and output serving."""
 
+import json
 import os
 
 import pytest
@@ -98,3 +99,52 @@ class TestActivitiesOutputRoutes:
             "/app/activities/api/activity_output/20260214/talents/flow.md"
         )
         assert resp.status_code == 400
+
+
+class TestActivitiesStatsRoutes:
+    def test_returns_month_activity_counts(self, tmp_path, monkeypatch):
+        from flask import Flask
+
+        from convey import state
+
+        journal = tmp_path / "journal"
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+
+        for facet in ("work", "personal"):
+            facet_dir = journal / "facets" / facet
+            facet_dir.mkdir(parents=True)
+            (facet_dir / "facet.json").write_text(
+                json.dumps({"title": facet.title()}), encoding="utf-8"
+            )
+            (facet_dir / "activities").mkdir()
+
+        (journal / "facets" / "work" / "activities" / "20260418.jsonl").write_text(
+            json.dumps({"id": "coding_1", "activity": "coding", "segments": []})
+            + "\n"
+            + json.dumps({"id": "coding_2", "activity": "coding", "segments": []})
+            + "\n",
+            encoding="utf-8",
+        )
+        (journal / "facets" / "personal" / "activities" / "20260418.jsonl").write_text(
+            json.dumps({"id": "walk_1", "activity": "walking", "segments": []}) + "\n",
+            encoding="utf-8",
+        )
+        (journal / "facets" / "work" / "activities" / "20260419.jsonl").write_text(
+            json.dumps({"id": "coding_3", "activity": "coding", "segments": []}) + "\n",
+            encoding="utf-8",
+        )
+
+        app = Flask(__name__)
+        app.register_blueprint(activities_bp)
+        monkeypatch.setattr(state, "journal_root", str(journal), raising=False)
+        client = app.test_client()
+
+        resp = client.get("/app/activities/api/stats/202604")
+
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data == {
+            "20260418": {"personal": 1, "work": 2},
+            "20260419": {"work": 1},
+        }
+        assert "20260420" not in data

@@ -131,6 +131,7 @@ def _list_records_for_days(
     *,
     activity: str | None,
     entity: str | None,
+    source: str | None,
     include_hidden: bool,
 ) -> list[dict[str, Any]]:
     matches: list[dict[str, Any]] = []
@@ -141,6 +142,8 @@ def _list_records_for_days(
                 facet_name, day, include_hidden=include_hidden
             ):
                 if activity and record.get("activity") != activity:
+                    continue
+                if source and record.get("source") != source:
                     continue
                 if entity_query:
                     active_entities = record.get("active_entities", [])
@@ -200,6 +203,11 @@ def list_records(
         "--entity",
         help="Filter by active entity.",
     ),
+    source: str | None = typer.Option(
+        None,
+        "--source",
+        help="Filter by record source: anticipated, user, or cogitate.",
+    ),
     include_all: bool = typer.Option(
         False,
         "--all",
@@ -221,12 +229,20 @@ def list_records(
     else:
         resolved_days = [resolve_sol_day(None)]
 
+    if source and source not in {"anticipated", "cogitate", "user"}:
+        typer.echo(
+            "Error: --source must be 'anticipated', 'cogitate', or 'user'.",
+            err=True,
+        )
+        raise typer.Exit(1)
+
     facets = _resolve_list_facets(facet)
     records = _list_records_for_days(
         facets,
         resolved_days,
         activity=activity,
         entity=entity,
+        source=source,
         include_hidden=include_all,
     )
 

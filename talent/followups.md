@@ -3,8 +3,6 @@
 
   "title": "Follow-Up Items",
   "description": "Detects promised tasks, commitments, and reminders for future action within each activity. Outputs a concise Markdown list of follow-ups with context.",
-  "occurrences": "Whenever a future task or commitment is mentioned, create an occurrence with the expected action and deadline if known. Note who requested it and whether it is work or personal.",
-  "hook": {"post": "occurrence"},
   "color": "#ffc107",
   "schedule": "activity",
   "activities": ["meeting", "call", "messaging", "email"],

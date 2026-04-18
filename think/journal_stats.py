@@ -12,10 +12,12 @@ from typing import Dict
 
 from observe.sense import scan_day as sense_scan_day
 from observe.utils import VIDEO_EXTENSIONS, load_analysis_frames
+from think.activities import estimate_duration_minutes, load_activity_records
+from think.facets import get_facets
 from think.stats_schema import DAY_FIELDS, SCHEMA_VERSION
 from think.stats_schema import validate as validate_stats
 from think.talents import scan_day as generate_scan_day
-from think.utils import day_dirs, get_journal, setup_cli
+from think.utils import day_dirs, get_journal, segment_parse, setup_cli
 
 logger = logging.getLogger(__name__)
 
@@ -60,16 +62,6 @@ class JournalStats:
             files.extend(talents_dir.glob("*.md"))
             files.extend(talents_dir.glob("*/*.json"))
             files.extend(talents_dir.glob("*/*.md"))
-
-        # Check facet event files for this day
-        journal_root = Path(get_journal())
-        day = day_dir.name
-        facets_dir = journal_root / "facets"
-        if facets_dir.is_dir():
-            for facet_name in os.listdir(facets_dir):
-                event_file = facets_dir / facet_name / "events" / f"{day}.jsonl"
-                if event_file.is_file():
-                    files.append(event_file)
 
         if not files:
             return 0.0
@@ -268,70 +260,57 @@ class JournalStats:
         stats["outputs_processed"] = len(output_info["processed"])
         stats["outputs_pending"] = len(output_info["repairable"])
 
-        # --- Events and heatmap from facets/*/events/YYYYMMDD.jsonl ---
+        # --- Activities and heatmap from facets/*/activities/YYYYMMDD.jsonl ---
         weekday = datetime.strptime(day, "%Y%m%d").weekday()
-        journal_root = Path(get_journal())
-        facets_dir = journal_root / "facets"
+        for facet_name, _facet_meta in get_facets().items():
+            activities_file = (
+                Path(get_journal())
+                / "facets"
+                / facet_name
+                / "activities"
+                / f"{day}.jsonl"
+            )
+            try:
+                records = load_activity_records(facet_name, day)
+                for record in records:
+                    activity_type = record.get("activity") or "unknown"
+                    segments = record.get("segments") or []
+                    if not segments:
+                        continue
 
-        if facets_dir.is_dir():
-            for facet_name in os.listdir(facets_dir):
-                events_dir = facets_dir / facet_name / "events"
-                if not events_dir.is_dir():
-                    continue
-                events_file = events_dir / f"{day}.jsonl"
-                if not events_file.exists():
-                    continue
+                    if activity_type not in agent_data:
+                        agent_data[activity_type] = {"count": 0, "minutes": 0.0}
+                    agent_data[activity_type]["count"] += 1
 
-                try:
-                    with open(events_file, "r", encoding="utf-8") as f:
-                        for line in f:
-                            line = line.strip()
-                            if not line:
-                                continue
-                            try:
-                                event = json.loads(line)
-                            except json.JSONDecodeError:
-                                continue
+                    duration_minutes = float(estimate_duration_minutes(segments))
+                    agent_data[activity_type]["minutes"] += duration_minutes
 
-                            agent = event.get("agent", "unknown")
-                            if agent not in agent_data:
-                                agent_data[agent] = {"count": 0, "minutes": 0.0}
-                            agent_data[agent]["count"] += 1
+                    if facet_name not in facet_data:
+                        facet_data[facet_name] = {"count": 0, "minutes": 0.0}
+                    facet_data[facet_name]["count"] += 1
+                    facet_data[facet_name]["minutes"] += duration_minutes
 
-                            start = event.get("start")
-                            end = event.get("end")
-                            try:
-                                sh, sm, ss = map(int, start.split(":"))
-                                eh, em, es = map(int, end.split(":"))
-                            except (ValueError, AttributeError, TypeError):
-                                continue
+                    # Build heatmap hours for this day
+                    for seg in segments:
+                        start, end = segment_parse(seg)
+                        if start is None or end is None:
+                            continue
 
-                            start_sec = sh * 3600 + sm * 60 + ss
-                            end_sec = eh * 3600 + em * 60 + es
-                            duration = max(0, end_sec - start_sec)
-                            agent_data[agent]["minutes"] += duration / 60
-
-                            # Track facet stats
-                            facet = event.get("facet", facet_name)
-                            if facet not in facet_data:
-                                facet_data[facet] = {"count": 0, "minutes": 0.0}
-                            facet_data[facet]["count"] += 1
-                            facet_data[facet]["minutes"] += duration / 60
-
-                            # Build heatmap hours for this day
-                            cur = start_sec
-                            while cur < end_sec:
-                                hour = cur // 3600
-                                if hour >= 24:
-                                    break
-                                next_tick = min((hour + 1) * 3600, end_sec)
-                                minutes = (next_tick - cur) / 60
-                                heatmap_hours[str(hour)] = (
-                                    heatmap_hours.get(str(hour), 0.0) + minutes
-                                )
-                                cur = next_tick
-                except (OSError, IOError) as e:
-                    logger.warning(f"Error reading {events_file}: {e}")
+                        start_sec = start.hour * 3600 + start.minute * 60 + start.second
+                        end_sec = end.hour * 3600 + end.minute * 60 + end.second
+                        cur = start_sec
+                        while cur < end_sec:
+                            hour = cur // 3600
+                            if hour >= 24:
+                                break
+                            next_tick = min((hour + 1) * 3600, end_sec)
+                            minutes = (next_tick - cur) / 60
+                            heatmap_hours[str(hour)] = (
+                                heatmap_hours.get(str(hour), 0.0) + minutes
+                            )
+                            cur = next_tick
+            except (OSError, IOError) as e:
+                logger.warning(f"Error reading {activities_file}: {e}")
 
         # --- Disk usage ---
         stats["day_bytes"] = sum(
@@ -344,6 +323,7 @@ class JournalStats:
 
         return {
             "stats": dict(stats),
+            # NOTE: agent_data keys are now activity types (e.g., "meeting", "coding"), not extractor agent names. Key name retained for cache-format compatibility.
             "agent_data": agent_data,
             "facet_data": facet_data,
             "heatmap_data": {"weekday": weekday, "hours": heatmap_hours},

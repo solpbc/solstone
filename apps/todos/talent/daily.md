@@ -55,7 +55,7 @@ SOL_DAY and SOL_FACET are set in your environment. Commands default to the curre
 - `sol call todos done LINE_NUMBER` – mark an entry complete
 - `sol call todos upcoming -l LIMIT` – view upcoming todos
 
-You may combine these with discovery calls (`sol call journal search`, `sol call journal events`, `sol call journal read AGENT`) to gather supporting evidence. Line numbers are stable identifiers—todos are never deleted, only cancelled.
+You may combine these with discovery calls (`sol call journal search`, `sol call activities list --source anticipated`, `sol call journal read AGENT`) to gather supporting evidence. Line numbers are stable identifiers—todos are never deleted, only cancelled.
 
 ## Process
 

@@ -976,7 +976,7 @@ class TestFormatEvents:
 
     def test_format_events_direct(self):
         """Test format_events function directly."""
-        from think.events import format_events
+        from think.event_formatter import format_events
 
         entries = [
             {
@@ -1006,9 +1006,9 @@ class TestFormatEvents:
         assert "Daily sync" in chunks[0]["markdown"]
         assert "Task: Code review" in chunks[1]["markdown"]
 
-    def test_format_events_anticipation_labels(self):
-        """Test that anticipations use 'Planned', 'Scheduled', 'Expected' labels."""
-        from think.events import format_events
+    def test_format_events_planned_labels(self):
+        """Test that planned future events use 'Planned', 'Scheduled', 'Expected' labels."""
+        from think.event_formatter import format_events
 
         entries = [
             {
@@ -1031,7 +1031,7 @@ class TestFormatEvents:
 
     def test_format_events_occurrence_no_created_on(self):
         """Test that occurrences do NOT show 'Created on' or 'Planned' prefix."""
-        from think.events import format_events
+        from think.event_formatter import format_events
 
         entries = [
             {
@@ -1055,7 +1055,7 @@ class TestFormatEvents:
 
     def test_format_events_header_facet_from_path(self):
         """Test that facet name and day are extracted from file path."""
-        from think.events import format_events
+        from think.event_formatter import format_events
 
         entries = [{"type": "task", "title": "Test", "occurred": True}]
         context = {"file_path": "/journal/facets/personal/events/20251215.jsonl"}
@@ -1066,7 +1066,7 @@ class TestFormatEvents:
 
     def test_format_events_timestamp_calculation(self):
         """Test that timestamp is calculated from day + start time."""
-        from think.events import format_events
+        from think.event_formatter import format_events
 
         entries = [
             {
@@ -1091,7 +1091,7 @@ class TestFormatEvents:
 
     def test_format_events_skipped_entries_error(self):
         """Test that entries without 'title' field are skipped and reported."""
-        from think.events import format_events
+        from think.event_formatter import format_events
 
         entries = [
             {"type": "meeting", "title": "Valid", "occurred": True},
@@ -1108,7 +1108,7 @@ class TestFormatEvents:
 
     def test_format_events_mixed_occurred_anticipated(self):
         """Test header counts for mixed occurred/anticipated events."""
-        from think.events import format_events
+        from think.event_formatter import format_events
 
         entries = [
             {"type": "meeting", "title": "Past event", "occurred": True},
@@ -1123,7 +1123,7 @@ class TestFormatEvents:
 
     def test_format_events_time_display_24h(self):
         """Test that times are displayed in 24-hour format without seconds."""
-        from think.events import format_events
+        from think.event_formatter import format_events
 
         entries = [
             {
@@ -1143,7 +1143,7 @@ class TestFormatEvents:
 
     def test_format_events_with_details(self):
         """Test that details field is included in output."""
-        from think.events import format_events
+        from think.event_formatter import format_events
 
         entries = [
             {
@@ -1515,7 +1515,7 @@ class TestFormatterIndexerMetadata:
 
     def test_format_events_returns_indexer(self):
         """Test format_events returns indexer with agent."""
-        from think.events import format_events
+        from think.event_formatter import format_events
 
         entries = [{"type": "meeting", "title": "Test", "occurred": True}]
         chunks, meta = format_events(entries)
@@ -1621,7 +1621,7 @@ class TestFormatterSourceKey:
 
     def test_format_events_returns_source(self):
         """Test format_events returns source with original event."""
-        from think.events import format_events
+        from think.event_formatter import format_events
 
         event = {"type": "meeting", "title": "Test", "occurred": True, "custom": "data"}
         entries = [event]

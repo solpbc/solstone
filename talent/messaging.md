@@ -3,8 +3,6 @@
 
   "title": "Messaging Summary",
   "description": "Extracts contacts, channels, apps, and message content from completed messaging and email activities.",
-  "occurrences": "Create an occurrence for every distinct message interaction. Include the time block, app name, contacts or channels involved, whether $preferred was reading or replying, and a summary of visible content.",
-  "hook": {"post": "occurrence"},
   "color": "#78909c",
   "schedule": "activity",
   "activities": ["messaging", "email"],

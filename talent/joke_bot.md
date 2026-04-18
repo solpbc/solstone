@@ -25,7 +25,7 @@ The strategy is to conduct a three-phase data sweep of the analysis day's journa
 3.  **Contextual Analysis**: Use transcript/insight retrieval to pull full context for the most promising findings from the previous phases. This raw material will be analyzed for comedic elements like irony, juxtaposition, or absurdity.
 4.  **Creative Synthesis & Delivery**: The final phase involves brainstorming joke concepts from the analyzed material, selecting the best one, and delivering it as the final response.
 
-SOL_DAY is set in your environment. Commands like `journal events`, `journal read`, and `transcripts read` default to the current day — only pass explicit day values to override. Note: `journal search` requires explicit `-d DAY`.
+SOL_DAY is set in your environment. Commands like `journal read` and `transcripts read` default to the current day — only pass explicit day values to override. Note: `journal search` requires explicit `-d DAY`.
 
 ### Detailed Research Steps
 
@@ -39,7 +39,7 @@ SOL_DAY is set in your environment. Commands like `journal events`, `journal rea
     -   **Expected Outcomes**: A list of all agent insights from the day, which will help identify recurring themes or unusual combinations of activities.
 
 2.  **List All Structured Events**:
-    -   **Command**: `sol call journal events`
+    -   **Command**: `sol call journal search "" -d $day_YYYYMMDD -a meetings`
     -   **Purpose**: To identify all formal meetings, calls, or tasks. Corporate jargon, meeting mishaps, or task-related struggles are excellent sources of humor.
     -   **Expected Outcomes**: A timeline of the day's key events, such as "Project Phoenix Sync," "API Debugging Session," or "Team Standup."
 

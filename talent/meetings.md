@@ -3,8 +3,6 @@
 
   "title": "Meeting Notes",
   "description": "Produces detailed meeting notes for each meeting activity, including participants, topics discussed, action items, and presentation details.",
-  "occurrences": "Each meeting should generate an occurrence with start and end times, list of participants and a concise summary. If slides are present, mention them in the details field.",
-  "hook": {"post": "occurrence"},
   "color": "#e83e8c",
   "schedule": "activity",
   "activities": ["meeting"],

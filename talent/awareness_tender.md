@@ -21,7 +21,7 @@ Read current state using these tools:
 
 1. `sol call awareness status` — processing, import, and journal state
 2. `sol call identity self` — identity summary (skim for key changes)
-3. `sol call calendar list` — today's events
+3. `sol call activities list --source anticipated` — today's scheduled activity records
 4. `sol call routines list` — active routines and recent outputs
 5. `sol call entities search --since --limit 5` — recent entity activity
 ## Write awareness.md

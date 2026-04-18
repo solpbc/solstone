@@ -8,7 +8,7 @@ This document describes the layout of a **journal** directory where all captures
 |----------------|---------|
 | `chronicle/` | Container for daily capture folders (`YYYYMMDD/`) containing segments, extracts, and agent outputs |
 | `entities/` | Journal-level entity identity records (`<id>/entity.json`) |
-| `facets/` | Facet-specific data: entity relationships, todos, events, news, action logs |
+| `facets/` | Facet-specific data: activities, entity relationships, todos, historical events, news, action logs |
 | `talents/` | Talent run logs in per-talent subdirectories (`<name>/<id>.jsonl`), day indexes (`<day>.jsonl`), and latest-run symlinks (`<name>.log`) |
 | `apps/` | App-specific storage (distinct from codebase `apps/`) |
 | `streams/` | Per-stream state files (`<name>.json`) tracking segment chains and sequence numbers |
@@ -38,7 +38,7 @@ Apps typically use `config.json` for journal-specific settings and create subdir
 The `indexer/` directory contains the full-text search index built from journal content.
 
 **Files:**
-- `indexer/journal.sqlite` – FTS5 SQLite database containing indexed chunks from agent outputs, events, entities, todos, and action logs
+- `indexer/journal.sqlite` – FTS5 SQLite database containing indexed chunks from agent outputs, activities, historical events, entities, todos, and action logs
 
 The indexer converts content to markdown chunks via the formatters framework, then indexes with metadata fields (day, facet, agent) for filtering. Raw audio/screen transcripts are formattable but not indexed — agent outputs provide more useful search results. Use `get_journal_index()` from `think/indexer/journal.py` to access the database programmatically.
 
