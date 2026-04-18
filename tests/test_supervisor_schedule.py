@@ -132,7 +132,7 @@ def test_advances_state_with_no_updated_days(
     assert mod._daily_state["last_day"] == date(2025, 1, 2)
 
 
-def test_excludes_today(mock_callosum, monkeypatch, set_today):
+def test_excludes_today(mock_callosum, monkeypatch, submit_mock, set_today):
     mod._daily_state["last_day"] = date(2025, 1, 1)
     set_today(date(2025, 1, 2))
     updated_days = MagicMock(return_value=["20250101"])
