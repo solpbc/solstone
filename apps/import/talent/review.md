@@ -21,8 +21,8 @@ Run the full import review pipeline in the correct dependency order: entities fi
 - `sol call import resolve-entity SOURCE_ID merge --source SOURCE --target TARGET_ID`
 - `sol call import resolve-entity SOURCE_ID create --source SOURCE`
 - `sol call import resolve-entity SOURCE_ID skip --source SOURCE`
-- `sol call import resolve-facet STAGED_FILE apply --source SOURCE`
-- `sol call import resolve-facet STAGED_FILE skip --source SOURCE`
+- `sol call import resolve-staged-facet STAGED_FILE --apply --source SOURCE`
+- `sol call import resolve-staged-facet STAGED_FILE --skip --source SOURCE`
 - `sol call import resolve-config FIELD apply --source SOURCE`
 - `sol call import resolve-config FIELD keep --source SOURCE`
 - `sol call import resolve-config-all --source SOURCE --category transferable`

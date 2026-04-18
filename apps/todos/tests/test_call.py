@@ -4,9 +4,11 @@
 """Tests for todos CLI commands (sol call todos ...)."""
 
 import json
+from datetime import datetime
 
 from typer.testing import CliRunner
 
+import apps.todos.call as todos_call
 from think.call import call_app
 
 runner = CliRunner()
@@ -197,6 +199,149 @@ class TestTodosUpcoming:
         result = runner.invoke(call_app, ["todos", "upcoming"])
         assert result.exit_code == 0
         assert "No upcoming todos" in result.output
+
+
+class TestTodosNudges:
+    class _FixedDateTime:
+        @classmethod
+        def now(cls):
+            return datetime(2026, 3, 10, 12, 0)
+
+    def test_list_nudges_due_is_readonly(self, todo_env, monkeypatch):
+        day, facet, todo_path = todo_env(
+            [{"text": "Follow up", "nudge": "20260310T09:00"}],
+            day="20260310",
+        )
+        before = todo_path.read_text(encoding="utf-8")
+        monkeypatch.setattr(todos_call, "datetime", self._FixedDateTime)
+
+        result = runner.invoke(call_app, ["todos", "list-nudges-due", "--facet", facet])
+
+        assert result.exit_code == 0
+        assert "Follow up" in result.output
+        assert todo_path.read_text(encoding="utf-8") == before
+
+    def test_list_nudges_due_json_all_facets(self, todo_env, monkeypatch):
+        todo_env(
+            [{"text": "Work ping", "nudge": "20260310T08:00"}],
+            day="20260310",
+            facet="work",
+        )
+        todo_env(
+            [{"text": "Home ping", "nudge": "20260310T09:00"}],
+            day="20260310",
+            facet="home",
+        )
+        monkeypatch.setattr(todos_call, "datetime", self._FixedDateTime)
+
+        result = runner.invoke(call_app, ["todos", "list-nudges-due", "--json"])
+
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload == [
+            {
+                "day": "20260310",
+                "facet": "work",
+                "index": 1,
+                "text": "Work ping",
+                "nudge": "20260310T08:00",
+                "nudge_display": "4h ago",
+            },
+            {
+                "day": "20260310",
+                "facet": "home",
+                "index": 1,
+                "text": "Home ping",
+                "nudge": "20260310T09:00",
+                "nudge_display": "3h ago",
+            },
+        ]
+
+    def test_list_nudges_due_empty(self, todo_env, monkeypatch):
+        todo_env([], day="20260310")
+        monkeypatch.setattr(todos_call, "datetime", self._FixedDateTime)
+
+        human = runner.invoke(call_app, ["todos", "list-nudges-due"])
+        json_result = runner.invoke(call_app, ["todos", "list-nudges-due", "--json"])
+
+        assert human.exit_code == 0
+        assert human.output.strip() == "No nudges due."
+        assert json_result.exit_code == 0
+        assert json.loads(json_result.output) == []
+
+    def test_dispatch_nudges_notifies_and_marks(self, todo_env, monkeypatch):
+        _day, facet, todo_path = todo_env(
+            [{"text": "Follow up", "nudge": "20260310T09:00"}],
+            day="20260310",
+        )
+        calls: list[tuple[list[str], dict]] = []
+
+        def fake_run(argv, **kwargs):
+            calls.append((argv, kwargs))
+            return None
+
+        monkeypatch.setattr(todos_call, "datetime", self._FixedDateTime)
+        monkeypatch.setattr(todos_call.subprocess, "run", fake_run)
+
+        result = runner.invoke(call_app, ["todos", "dispatch-nudges", "--facet", facet])
+
+        assert result.exit_code == 0
+        assert result.output.strip() == "dispatched 1 nudge(s)"
+        assert calls == [
+            (
+                [
+                    "sol",
+                    "notify",
+                    "Follow up",
+                    "--title",
+                    "Todo Reminder",
+                    "--icon",
+                    "✅",
+                    "--app",
+                    "todos",
+                    "--facet",
+                    facet,
+                    "--action",
+                    "/app/todos/20260310",
+                ],
+                {"check": False, "capture_output": True},
+            )
+        ]
+        saved = [
+            json.loads(line)
+            for line in todo_path.read_text(encoding="utf-8").splitlines()
+        ]
+        assert saved == [
+            {
+                "text": "Follow up",
+                "nudge": "20260310T09:00",
+                "notified": True,
+            }
+        ]
+
+    def test_dispatch_nudges_noop_when_nothing_due(self, todo_env, monkeypatch):
+        todo_env([], day="20260310")
+        calls: list[tuple[list[str], dict]] = []
+
+        def fake_run(argv, **kwargs):
+            calls.append((argv, kwargs))
+            return None
+
+        monkeypatch.setattr(todos_call, "datetime", self._FixedDateTime)
+        monkeypatch.setattr(todos_call.subprocess, "run", fake_run)
+
+        result = runner.invoke(call_app, ["todos", "dispatch-nudges"])
+
+        assert result.exit_code == 0
+        assert result.output.strip() == "dispatched 0 nudge(s)"
+        assert calls == []
+
+    def test_legacy_nudge_command_removed(self, todo_env):
+        todo_env([], day="20260310")
+
+        result = runner.invoke(call_app, ["todos", "check" + "-nudges"])
+
+        assert result.exit_code != 0
 
 
 class TestTodosMove:

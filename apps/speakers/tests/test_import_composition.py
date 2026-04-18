@@ -227,7 +227,7 @@ def test_seed_from_imports_cli_json_success(speakers_env, monkeypatch):
     )
     _mock_owner(monkeypatch, _normalized_vector(22), threshold=0.99)
 
-    result = _runner.invoke(speakers_app, ["seed-from-imports", "--json"])
+    result = _runner.invoke(speakers_app, ["seed-from-imports", "--commit", "--json"])
 
     assert result.exit_code == 0
     data = json.loads(result.output)

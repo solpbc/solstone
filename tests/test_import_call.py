@@ -618,7 +618,14 @@ def test_resolve_facet_apply_unmapped_entity(import_env):
 
     result = runner.invoke(
         call_app,
-        ["import", "resolve-facet", staged_file, "apply", "--source", "test-source"],
+        [
+            "import",
+            "resolve-staged-facet",
+            staged_file,
+            "--apply",
+            "--source",
+            "test-source",
+        ],
     )
 
     assert result.exit_code == 0
@@ -657,7 +664,14 @@ def test_resolve_facet_apply_facet_json_conflict(import_env):
 
     result = runner.invoke(
         call_app,
-        ["import", "resolve-facet", staged_file, "apply", "--source", "test-source"],
+        [
+            "import",
+            "resolve-staged-facet",
+            staged_file,
+            "--apply",
+            "--source",
+            "test-source",
+        ],
     )
 
     assert result.exit_code == 0
@@ -699,7 +713,14 @@ def test_resolve_facet_unmapped_entity_fails_without_mapping(import_env):
 
     result = runner.invoke(
         call_app,
-        ["import", "resolve-facet", staged_file, "apply", "--source", "test-source"],
+        [
+            "import",
+            "resolve-staged-facet",
+            staged_file,
+            "--apply",
+            "--source",
+            "test-source",
+        ],
     )
 
     assert result.exit_code == 1
@@ -737,12 +758,98 @@ def test_resolve_facet_skip(import_env):
 
     result = runner.invoke(
         call_app,
-        ["import", "resolve-facet", staged_file, "skip", "--source", "test-source"],
+        [
+            "import",
+            "resolve-staged-facet",
+            staged_file,
+            "--skip",
+            "--source",
+            "test-source",
+        ],
     )
 
     assert result.exit_code == 0
     assert not staged_path.exists()
     assert load_facet_relationship("personal", "source_entity") is None
+
+
+def test_resolve_staged_facet_requires_exactly_one_mode_flag(import_env):
+    staged_file = "personal/facet_json/facet.json.staged.json"
+    staged_path = (
+        get_state_directory(import_env["key_prefix"])
+        / "facets"
+        / "staged"
+        / staged_file
+    )
+    _write_json(
+        staged_path,
+        {
+            "reason": "facet_json_conflict",
+            "source_content": {"title": "Remote"},
+            "target_content": {"title": "Local"},
+            "staged_at": "2026-04-14T00:00:00+00:00",
+        },
+    )
+
+    result = runner.invoke(
+        call_app,
+        ["import", "resolve-staged-facet", staged_file, "--source", "test-source"],
+    )
+
+    assert result.exit_code == 1
+    assert "Exactly one of --apply or --skip is required." in result.stderr
+
+
+def test_resolve_staged_facet_rejects_both_apply_and_skip(import_env):
+    staged_file = "personal/facet_json/facet.json.staged.json"
+    staged_path = (
+        get_state_directory(import_env["key_prefix"])
+        / "facets"
+        / "staged"
+        / staged_file
+    )
+    _write_json(
+        staged_path,
+        {
+            "reason": "facet_json_conflict",
+            "source_content": {"title": "Remote"},
+            "target_content": {"title": "Local"},
+            "staged_at": "2026-04-14T00:00:00+00:00",
+        },
+    )
+
+    result = runner.invoke(
+        call_app,
+        [
+            "import",
+            "resolve-staged-facet",
+            staged_file,
+            "--apply",
+            "--skip",
+            "--source",
+            "test-source",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Exactly one of --apply or --skip is required." in result.stderr
+
+
+def test_resolve_facet_command_removed(import_env):
+    legacy_command = "resolve" + "-facet"
+    result = runner.invoke(
+        call_app,
+        [
+            "import",
+            legacy_command,
+            "personal/facet_json/facet.json.staged.json",
+            "--apply",
+            "--source",
+            "test-source",
+        ],
+    )
+
+    assert result.exit_code != 0
 
 
 def test_resolve_source_not_found(import_env):

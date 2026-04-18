@@ -71,9 +71,8 @@ TARGET_PATH_PATTERNS: tuple[re.Pattern[str], ...] = (
     ),
 )
 
-# Read verbs per docs/coding-standards.md § L3. Matched against any
-# underscore-split segment of the function name, so ``keys_validate`` and
-# ``check_nudges`` both trip the rule.
+# Read verbs per docs/coding-standards.md § L3. Match against any
+# underscore-split segment of the function name.
 READ_VERBS: frozenset[str] = frozenset(
     {
         "load",
@@ -103,20 +102,10 @@ READ_VERBS: frozenset[str] = frozenset(
     }
 )
 
-# Known violations from the solstone layer-violations audit (2026-04-17).
-# Each entry silences the lint for an entire file until the underlying
-# violation is fixed. Remove the entry when its bundle ships.
-#
-# Audit ref: vpe/workspace/solstone-layer-violations-audit.md (extro repo).
-ALLOWLIST: dict[str, str] = {
-    # TODO(import-resolve-facet): apps/import/call.py's `resolve-facet`
-    # command uses a read-verb name ("resolve_*" per L3) but writes to
-    # journal/facets and unlinks staged files. Not in the audit's V1-V14,
-    # but surfaced by this lint on first run. Needs CPO/VPE disposition:
-    # rename to a write verb (e.g. `apply-staged-facet` + `skip-staged-facet`)
-    # or accept as a V13-class dual-mode verb.
-    "apps/import/call.py": "import-resolve-facet",
-}
+# Temporary, file-scoped exceptions for known layer-hygiene violations.
+# Keep this empty by default; add entries only with a tracking identifier
+# and remove them in the same bundle that fixes the violation.
+ALLOWLIST: dict[str, str] = {}
 
 CONTEXT_WINDOW = 8  # lines above and below each write to search for paths
 

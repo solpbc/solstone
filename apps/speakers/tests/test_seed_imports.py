@@ -131,7 +131,7 @@ def test_seed_from_imports_happy_path(speakers_env):
         embeddings=embs,
     )
 
-    result = _runner.invoke(speakers_app, ["seed-from-imports", "--json"])
+    result = _runner.invoke(speakers_app, ["seed-from-imports", "--commit", "--json"])
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)
     assert data["segments_scanned"] >= 1
@@ -230,21 +230,21 @@ def test_seed_from_imports_dedup(speakers_env):
     )
 
     # First run
-    result1 = _runner.invoke(speakers_app, ["seed-from-imports", "--json"])
+    result1 = _runner.invoke(speakers_app, ["seed-from-imports", "--commit", "--json"])
     assert result1.exit_code == 0
     data1 = json.loads(result1.output)
     assert data1["embeddings_saved"] == 1
 
     # Second run — should be all duplicates
-    result2 = _runner.invoke(speakers_app, ["seed-from-imports", "--json"])
+    result2 = _runner.invoke(speakers_app, ["seed-from-imports", "--commit", "--json"])
     assert result2.exit_code == 0
     data2 = json.loads(result2.output)
     assert data2["embeddings_saved"] == 0
     assert data2["embeddings_skipped_duplicate"] == 1
 
 
-def test_seed_from_imports_dry_run(speakers_env):
-    """seed-from-imports --dry-run reports stats but doesn't write."""
+def test_seed_from_imports_default_is_preview(speakers_env):
+    """seed-from-imports defaults to preview mode and doesn't write."""
     env = speakers_env()
     _create_owner_centroid(env)
     env.create_entity("Alice Johnson")
@@ -261,7 +261,7 @@ def test_seed_from_imports_dry_run(speakers_env):
 
     result = _runner.invoke(
         speakers_app,
-        ["seed-from-imports", "--dry-run", "--json"],
+        ["seed-from-imports", "--json"],
     )
     assert result.exit_code == 0
     data = json.loads(result.output)

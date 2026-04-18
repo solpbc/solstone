@@ -246,7 +246,7 @@ This is for audit trail — it records that the agent confirmed user consent bef
 @app.command("create")    # CRUD verbs
 ```
 
-Use lowercase, single-word names. Hyphenated names for multi-word (`check-nudges`, `set-name`).
+Use lowercase, single-word names. Hyphenated names for multi-word (`list-nudges-due`, `set-name`).
 
 ## Directory Structure
 
@@ -305,7 +305,7 @@ solstone/
 
 | App | Source | Commands |
 |-----|--------|----------|
-| `todos` | `apps/todos/call.py` | list, add, done, cancel, move, upcoming, check-nudges |
+| `todos` | `apps/todos/call.py` | list, add, done, cancel, move, upcoming, list-nudges-due, dispatch-nudges |
 | `calendar` | `apps/calendar/call.py` | list, add, update, cancel, move, import-day |
 | `entities` | `apps/entities/call.py` | list, show, search, observe, merge |
 | `speakers` | `apps/speakers/call.py` | list, show, detect-owner, confirm-owner, clusters, suggest |

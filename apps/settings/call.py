@@ -229,8 +229,12 @@ def keys_clear(
 
 
 @keys_app.command("validate")
-def keys_validate() -> None:
-    """Re-validate all configured API keys."""
+def keys_validate(
+    cache_result: bool = typer.Option(
+        False, "--cache-result", help="Persist results to providers.key_validation."
+    ),
+) -> None:
+    """Validate all configured API keys without persisting by default."""
     from think.providers import PROVIDER_METADATA, validate_key
     from think.providers.google import validate_vertex_credentials
 
@@ -258,9 +262,10 @@ def keys_validate() -> None:
         result["timestamp"] = datetime.now(timezone.utc).isoformat()
         key_validation["google"] = result
 
-    config.setdefault("providers", {})
-    config["providers"]["key_validation"] = key_validation
-    _write_config(config)
+    if cache_result:
+        config.setdefault("providers", {})
+        config["providers"]["key_validation"] = key_validation
+        _write_config(config)
     typer.echo(json.dumps({"key_validation": key_validation}, indent=2))
 
 

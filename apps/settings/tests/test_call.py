@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import datetime, timezone
 from unittest.mock import patch
 
 from typer.testing import CliRunner
@@ -85,6 +86,96 @@ class TestKeysClear:
         saved = json.loads((tmp_path / "config" / "journal.json").read_text())
         assert "GOOGLE_API_KEY" not in saved["env"]
         assert saved["providers"]["auth"]["google"] == "platform"
+
+
+class TestKeysValidate:
+    class _FixedDateTime:
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2026, 4, 17, 12, 0, tzinfo=tz or timezone.utc)
+
+    def test_keys_validate_default_does_not_write_config(self, settings_env):
+        tmp_path, _config = settings_env()
+        config_path = tmp_path / "config" / "journal.json"
+        before = config_path.read_text(encoding="utf-8")
+
+        with (
+            patch("apps.settings.call.datetime", self._FixedDateTime),
+            patch(
+                "think.providers.validate_key",
+                side_effect=[
+                    {"valid": True, "provider": "google"},
+                    {"valid": True, "provider": "openai"},
+                ],
+            ),
+        ):
+            result = runner.invoke(call_app, ["settings", "keys", "validate"])
+
+        assert result.exit_code == 0
+        assert config_path.read_text(encoding="utf-8") == before
+        payload = json.loads(result.output)
+        assert payload == {
+            "key_validation": {
+                "google": {
+                    "valid": True,
+                    "provider": "google",
+                    "timestamp": "2026-04-17T12:00:00+00:00",
+                },
+                "openai": {
+                    "valid": True,
+                    "provider": "openai",
+                    "timestamp": "2026-04-17T12:00:00+00:00",
+                },
+            }
+        }
+
+    def test_keys_validate_cache_result_persists(self, settings_env):
+        tmp_path, _config = settings_env()
+        config_path = tmp_path / "config" / "journal.json"
+
+        with (
+            patch("apps.settings.call.datetime", self._FixedDateTime),
+            patch(
+                "think.providers.validate_key",
+                side_effect=[
+                    {"valid": True, "provider": "google"},
+                    {"valid": True, "provider": "openai"},
+                ],
+            ),
+        ):
+            result = runner.invoke(
+                call_app,
+                ["settings", "keys", "validate", "--cache-result"],
+            )
+
+        assert result.exit_code == 0
+        assert json.loads(result.output) == {
+            "key_validation": {
+                "google": {
+                    "valid": True,
+                    "provider": "google",
+                    "timestamp": "2026-04-17T12:00:00+00:00",
+                },
+                "openai": {
+                    "valid": True,
+                    "provider": "openai",
+                    "timestamp": "2026-04-17T12:00:00+00:00",
+                },
+            }
+        }
+        saved = json.loads(config_path.read_text(encoding="utf-8"))
+        assert saved["providers"]["key_validation"] == {
+            "google": {
+                "valid": True,
+                "provider": "google",
+                "timestamp": "2026-04-17T12:00:00+00:00",
+            },
+            "openai": {
+                "valid": True,
+                "provider": "openai",
+                "timestamp": "2026-04-17T12:00:00+00:00",
+            },
+        }
 
 
 class TestProvidersShow:

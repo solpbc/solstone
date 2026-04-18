@@ -17,6 +17,12 @@ from think.entities import entity_slug
 STREAM = "test"
 
 
+@pytest.fixture(autouse=True)
+def _skip_supervisor_check(monkeypatch):
+    """Allow app CLI tests to run without a live solstone supervisor."""
+    monkeypatch.setenv("SOL_SKIP_SUPERVISOR_CHECK", "1")
+
+
 @pytest.fixture
 def speakers_env(tmp_path, monkeypatch):
     """Create a temporary journal environment for speaker tests.

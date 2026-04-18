@@ -3,20 +3,22 @@
 
 """CLI interface for speaker voiceprint management.
 
-Provides:
+Speaker writer commands preview by default; pass ``--commit`` to persist.
+For ``attribute-segment``, ``--save`` / ``--accumulate`` only take effect
+when ``--commit`` is also passed.
+
+Commands:
     sol call speakers status [section]
-    sol call speakers bootstrap [--dry-run] [--json]
-    sol call speakers resolve-names [--dry-run] [--json]
-    sol call speakers attribute-segment <day> <stream> <segment> [--json]
-    sol call speakers backfill [--dry-run] [--json]
+    sol call speakers bootstrap [--commit] [--json]
+    sol call speakers resolve-names [--commit] [--json]
+    sol call speakers attribute-segment <day> <stream> <segment> [--commit] [--json]
+    sol call speakers backfill [--commit] [--json]
     sol call speakers discover [--json]
     sol call speakers identify <cluster-id> <name> [--entity-id ID]
     sol call speakers merge-names <alias> <canonical>
     sol call speakers link-import <name> --entity-id <ID>
-    sol call speakers seed-from-imports [--dry-run] [--json]
+    sol call speakers seed-from-imports [--commit] [--json]
     sol call speakers suggest [--limit N] [--json]
-    sol call speakers link-import <name> --entity-id <ID>
-    sol call speakers seed-from-imports [--dry-run] [--json]
     sol call speakers detect [--json]
     sol call speakers confirm-owner [--backfill] [--json]
     sol call speakers reject-owner
@@ -62,8 +64,10 @@ def status(
 
 @app.command("bootstrap")
 def bootstrap(
-    dry_run: bool = typer.Option(
-        False, "--dry-run", help="Show what would be saved without saving."
+    commit: bool = typer.Option(
+        False,
+        "--commit",
+        help="Persist results. Without this flag the command only reports what would happen.",
     ),
     json_output: bool = typer.Option(
         False, "--json", help="Output full result as JSON."
@@ -78,12 +82,12 @@ def bootstrap(
     """
     from apps.speakers.bootstrap import bootstrap_voiceprints
 
-    if dry_run and not json_output:
-        typer.echo("DRY RUN — no voiceprints will be saved\n")
+    if not commit and not json_output:
+        typer.echo("REPORT ONLY — pass --commit to persist.\n")
 
     if not json_output:
         typer.echo("Bootstrapping voiceprints from single-speaker segments...")
-    stats = bootstrap_voiceprints(dry_run=dry_run)
+    stats = bootstrap_voiceprints(dry_run=not commit)
 
     if "error" in stats:
         typer.echo(f"Error: {stats['error']}", err=True)
@@ -122,8 +126,10 @@ def bootstrap(
 
 @app.command("resolve-names")
 def resolve_names(
-    dry_run: bool = typer.Option(
-        False, "--dry-run", help="Show merges without applying them."
+    commit: bool = typer.Option(
+        False,
+        "--commit",
+        help="Persist results. Without this flag the command only reports what would happen.",
     ),
     json_output: bool = typer.Option(
         False, "--json", help="Output full result as JSON."
@@ -138,12 +144,12 @@ def resolve_names(
     """
     from apps.speakers.bootstrap import resolve_name_variants
 
-    if dry_run and not json_output:
-        typer.echo("DRY RUN — no merges will be applied\n")
+    if not commit and not json_output:
+        typer.echo("REPORT ONLY — pass --commit to persist.\n")
 
     if not json_output:
         typer.echo("Resolving speaker name variants...")
-    stats = resolve_name_variants(dry_run=dry_run)
+    stats = resolve_name_variants(dry_run=not commit)
 
     if json_output:
         import json as json_mod
@@ -181,6 +187,9 @@ def attribute_segment_cmd(
     day: str = typer.Argument(..., help="Day in YYYYMMDD format."),
     stream: str = typer.Argument(..., help="Stream name."),
     segment: str = typer.Argument(..., help="Segment key (HHMMSS_LEN)."),
+    commit: bool = typer.Option(
+        False, "--commit", help="Persist speaker labels and voiceprint accumulation."
+    ),
     save: bool = typer.Option(
         True, "--save/--no-save", help="Write speaker_labels.json."
     ),
@@ -210,6 +219,9 @@ def attribute_segment_cmd(
 
     result = attribute_segment(day, stream, segment)
 
+    if not commit and not json_output:
+        typer.echo("REPORT ONLY — pass --commit to persist.\n")
+
     if result.get("error"):
         typer.echo(f"Error: {result['error']}", err=True)
         raise typer.Exit(1)
@@ -235,13 +247,13 @@ def attribute_segment_cmd(
         for method, count in sorted(methods.items()):
             typer.echo(f"  {method}: {count}")
 
-    if save:
+    if commit and save:
         seg_dir = segment_path(day, segment, stream)
         out_path = save_speaker_labels(seg_dir, labels, metadata)
         if not json_output:
             typer.echo(f"\nWrote: {out_path}")
 
-    if accumulate and source:
+    if commit and accumulate and source:
         saved = accumulate_voiceprints(day, stream, segment, labels, source)
         if saved and not json_output:
             typer.echo("\nAccumulated voiceprints:")
@@ -251,8 +263,10 @@ def attribute_segment_cmd(
 
 @app.command("backfill")
 def backfill(
-    dry_run: bool = typer.Option(
-        False, "--dry-run", help="Enumerate segments without processing."
+    commit: bool = typer.Option(
+        False,
+        "--commit",
+        help="Persist results. Without this flag the command only reports what would happen.",
     ),
     json_output: bool = typer.Option(
         False, "--json", help="Output full result as JSON."
@@ -267,8 +281,8 @@ def backfill(
 
     from apps.speakers.attribution import backfill_segments
 
-    if dry_run and not json_output:
-        typer.echo("DRY RUN — no labels will be written\n")
+    if not commit and not json_output:
+        typer.echo("REPORT ONLY — pass --commit to persist.\n")
 
     if not json_output:
         typer.echo("Scanning journal for segments with embeddings...")
@@ -288,8 +302,8 @@ def backfill(
             typer.echo(f" [{processed}/{total}]", nl=False)
 
     stats = backfill_segments(
-        dry_run=dry_run,
-        progress_callback=None if dry_run or json_output else on_progress,
+        dry_run=not commit,
+        progress_callback=None if not commit or json_output else on_progress,
     )
 
     elapsed = time.monotonic() - start
@@ -420,8 +434,10 @@ def link_import_cmd(
 
 @app.command("seed-from-imports")
 def seed_from_imports_cmd(
-    dry_run: bool = typer.Option(
-        False, "--dry-run", help="Show what would be saved without saving."
+    commit: bool = typer.Option(
+        False,
+        "--commit",
+        help="Persist results. Without this flag the command only reports what would happen.",
     ),
     json_output: bool = typer.Option(
         False, "--json", help="Output full result as JSON."
@@ -436,12 +452,12 @@ def seed_from_imports_cmd(
     """
     from apps.speakers.bootstrap import seed_from_imports
 
-    if dry_run and not json_output:
-        typer.echo("DRY RUN — no voiceprints will be saved\n")
+    if not commit and not json_output:
+        typer.echo("REPORT ONLY — pass --commit to persist.\n")
 
     if not json_output:
         typer.echo("Seeding voiceprints from import segments...")
-    stats = seed_from_imports(dry_run=dry_run)
+    stats = seed_from_imports(dry_run=not commit)
 
     if "error" in stats:
         typer.echo(f"Error: {stats['error']}", err=True)
