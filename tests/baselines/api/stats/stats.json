@@ -32,9 +32,6 @@
       ],
       "color": "#dc3545",
       "description": "Tracks consequential decision-actions that change state, plans, resources, responsibilities, or timing in ways that affect other people.",
-      "hook": {
-        "post": "occurrence"
-      },
       "load": {
         "percepts": false,
         "talents": {
@@ -43,7 +40,6 @@
         "transcripts": true
       },
       "mtime": 0,
-      "occurrences": "Create an occurrence for every decision-action observed. Include the time span, decision type, actors involved, entities affected, and impact assessment. Each occurrence should capture both the intent and enactment of the decision.",
       "output": "md",
       "path": "<PROJECT>/talent/decisions.md",
       "priority": 10,
@@ -122,29 +118,6 @@
       "title": "Entity Observer",
       "type": "generate"
     },
-    "flow": {
-      "color": "#17a2b8",
-      "description": "Summarizes the overall flow of the workday. Looks for patterns in focus, energy, context switching and highlights productivity insights in a Markdown report.",
-      "hook": {
-        "post": "occurrence"
-      },
-      "load": {
-        "percepts": false,
-        "talents": {
-          "screen": true
-        },
-        "transcripts": true
-      },
-      "mtime": 0,
-      "occurrences": "Create an occurrence for noteworthy shifts in work rhythms or focus. Include timestamps when deep work starts or ends, or when energy levels noticeably change. Classify each as work or personal based on the surrounding context.",
-      "output": "md",
-      "path": "<PROJECT>/talent/flow.md",
-      "priority": 10,
-      "schedule": "daily",
-      "source": "system",
-      "title": "Day Overview",
-      "type": "generate"
-    },
     "followups": {
       "activities": [
         "meeting",
@@ -154,9 +127,6 @@
       ],
       "color": "#ffc107",
       "description": "Detects promised tasks, commitments, and reminders for future action within each activity. Outputs a concise Markdown list of follow-ups with context.",
-      "hook": {
-        "post": "occurrence"
-      },
       "load": {
         "percepts": false,
         "talents": {
@@ -165,7 +135,6 @@
         "transcripts": true
       },
       "mtime": 0,
-      "occurrences": "Whenever a future task or commitment is mentioned, create an occurrence with the expected action and deadline if known. Note who requested it and whether it is work or personal.",
       "output": "md",
       "path": "<PROJECT>/talent/followups.md",
       "priority": 10,
@@ -174,38 +143,12 @@
       "title": "Follow-Up Items",
       "type": "generate"
     },
-    "knowledge_graph": {
-      "color": "#6f42c1",
-      "description": "Extracts people, projects, tools and other entities from the transcript and maps how they relate. Produces a Markdown report plus narrative describing network hubs and bridges discovered during the day.",
-      "hook": {
-        "post": "occurrence"
-      },
-      "load": {
-        "percepts": false,
-        "talents": {
-          "screen": true
-        },
-        "transcripts": true
-      },
-      "mtime": 0,
-      "occurrences": "For each entity interaction or relationship mentioned, create an occurrence describing the connection. Include start and end times when the relationship is visible, and capture the type of link such as works-on or discusses-with.",
-      "output": "md",
-      "path": "<PROJECT>/talent/knowledge_graph.md",
-      "priority": 10,
-      "schedule": "daily",
-      "source": "system",
-      "title": "Knowledge Graph",
-      "type": "generate"
-    },
     "meetings": {
       "activities": [
         "meeting"
       ],
       "color": "#e83e8c",
       "description": "Produces detailed meeting notes for each meeting activity, including participants, topics discussed, action items, and presentation details.",
-      "hook": {
-        "post": "occurrence"
-      },
       "load": {
         "percepts": false,
         "talents": {
@@ -214,7 +157,6 @@
         "transcripts": true
       },
       "mtime": 0,
-      "occurrences": "Each meeting should generate an occurrence with start and end times, list of participants and a concise summary. If slides are present, mention them in the details field.",
       "output": "md",
       "path": "<PROJECT>/talent/meetings.md",
       "priority": 10,
@@ -230,9 +172,6 @@
       ],
       "color": "#78909c",
       "description": "Extracts contacts, channels, apps, and message content from completed messaging and email activities.",
-      "hook": {
-        "post": "occurrence"
-      },
       "load": {
         "percepts": false,
         "talents": {
@@ -241,7 +180,6 @@
         "transcripts": true
       },
       "mtime": 0,
-      "occurrences": "Create an occurrence for every distinct message interaction. Include the time block, app name, contacts or channels involved, whether $preferred was reading or replying, and a summary of visible content.",
       "output": "md",
       "path": "<PROJECT>/talent/messaging.md",
       "priority": 10,
@@ -380,29 +318,6 @@
       "schedule": "segment",
       "source": "system",
       "title": "Speaker Attribution",
-      "type": "generate"
-    },
-    "timeline": {
-      "color": "#7b1fa2",
-      "description": "Constructs a detailed chronological timeline documenting every activity, task shift, and event throughout the workday. Creates a comprehensive historical record with rich descriptions of what happened when.",
-      "hook": {
-        "post": "occurrence"
-      },
-      "load": {
-        "percepts": false,
-        "talents": {
-          "screen": true
-        },
-        "transcripts": true
-      },
-      "mtime": 0,
-      "occurrences": "Create an occurrence for each hour segment, don't break down hours into any smaller segments the goal for timeline occurrences is for them to capture whatever happened within each hour of the day where there was activity.",
-      "output": "md",
-      "path": "<PROJECT>/talent/timeline.md",
-      "priority": 10,
-      "schedule": "daily",
-      "source": "system",
-      "title": "Day Timeline",
       "type": "generate"
     }
   },

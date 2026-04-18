@@ -1276,7 +1276,7 @@ async def main_async() -> None:
                     "ts": now_ms(),
                 }
                 if isinstance(e, IncompleteJSONError):
-                    from think.hooks import log_extraction_failure
+                    from think._extraction_utils import log_extraction_failure
 
                     event["partial_text_length"] = len(e.partial_text)
                     event["partial_text_tail"] = e.partial_text[-500:]

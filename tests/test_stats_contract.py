@@ -82,7 +82,7 @@ def _build_journal(base_path):
     )
 
     (seg2 / "audio.flac").write_bytes(b"fLaC")
-    (day / "talents" / "flow.md").write_text("")
+    (day / "talents" / "schedule.json").write_text("[]")
 
     events_dir = journal / "facets" / "work" / "events"
     events_dir.mkdir(parents=True)

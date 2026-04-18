@@ -71,7 +71,6 @@ Each domain has exactly **one** write-owning module. No other module may call `a
 | Facets (`facets/*/facet.json`, `facets/*/relationships/`) | `think/facets.py` + `apps/facets/*` (if/when created) |
 | Observations (`observations.jsonl`) | `think/entities/observations.py` |
 | Activities (`facets/*/activities/*.jsonl`) | `think/activities.py` |
-| Facet events (`facets/*/events/*.jsonl`) | `think/hooks.py::write_events_jsonl`, called only via declared hook contract |
 | Chronicle day content (`chronicle/YYYYMMDD/**`) | The capturing module (observer, importer) per its declared outputs |
 | Index (SQLite, `indexer/*`) | `think/indexer/*` |
 

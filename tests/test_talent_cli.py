@@ -25,7 +25,7 @@ from think.talent_cli import (
 def test_collect_configs_returns_prompts():
     """All configs include known system prompts."""
     configs = _collect_configs(include_disabled=True)
-    assert "flow" in configs
+    assert "schedule" in configs
     assert "sense" in configs
     assert "chat" in configs
 
@@ -36,8 +36,8 @@ def test_collect_configs_excludes_disabled_by_default():
     with_disabled = _collect_configs(include_disabled=True)
     # include_disabled should return at least as many configs
     assert len(with_disabled) >= len(without)
-    assert "flow" in without
-    assert "flow" in with_disabled
+    assert "schedule" in without
+    assert "schedule" in with_disabled
 
 
 def test_collect_configs_filter_schedule():
@@ -128,7 +128,7 @@ def test_list_prompts_output(capsys):
 
     # Prompt names
     assert "activity" in output
-    assert "flow" in output
+    assert "schedule" in output
 
     # Last run column is present
     assert "LAST RUN" in output
@@ -150,20 +150,20 @@ def test_list_prompts_disabled_shown(capsys):
     output = capsys.readouterr().out
 
     # all agents should appear in the listing
-    assert "flow" in output
+    assert "schedule" in output
 
 
 def test_show_prompt_known(capsys):
     """Detail view shows expected fields for a known prompt."""
-    show_prompt("flow")
+    show_prompt("schedule")
     output = capsys.readouterr().out
 
-    assert "talent/flow.md" in output
+    assert "talent/schedule.md" in output
     assert "title:" in output
     assert "schedule:" in output
     assert "daily" in output
     assert "hook:" in output
-    assert "occurrence" in output
+    assert "schedule" in output
     assert "variables:" in output
     assert "$daily_preamble" in output
     assert "body:" in output
@@ -200,13 +200,13 @@ def test_json_output_contains_known_prompts(capsys):
 
     records = [json.loads(x) for x in output.strip().splitlines() if x.strip()]
     files = {r["file"] for r in records}
-    assert any("flow.md" in f for f in files)
+    assert any("schedule.md" in f for f in files)
     assert any("sense.md" in f for f in files)
 
     # Check a specific record has expected fields
-    flow = next(r for r in records if "flow.md" in r["file"])
-    assert "title" in flow
-    assert "schedule" in flow
+    schedule = next(r for r in records if "schedule.md" in r["file"])
+    assert "title" in schedule
+    assert "schedule" in schedule
 
 
 def test_json_output_schedule_filter(capsys):
@@ -221,14 +221,14 @@ def test_json_output_schedule_filter(capsys):
 
 def test_show_prompt_as_json(capsys):
     """Detail view with --json outputs single JSONL record."""
-    show_prompt("flow", as_json=True)
+    show_prompt("schedule", as_json=True)
     output = capsys.readouterr().out
 
     lines = [x for x in output.strip().splitlines() if x.strip()]
     assert len(lines) == 1
 
     record = json.loads(lines[0])
-    assert record["file"].endswith("flow.md")
+    assert record["file"].endswith("schedule.md")
     assert "title" in record
     assert "schedule" in record
     # Should not contain expanded instruction text
@@ -291,14 +291,14 @@ def test_show_prompt_context_day_format_validation(capsys):
 
     # Too short
     with pytest.raises(SystemExit):
-        show_prompt_context("flow", day="2026")
+        show_prompt_context("schedule", day="2026")
 
     output = capsys.readouterr().err
     assert "invalid --day format" in output.lower()
 
     # Non-numeric
     with pytest.raises(SystemExit):
-        show_prompt_context("flow", day="abcdefgh")
+        show_prompt_context("schedule", day="abcdefgh")
 
     output = capsys.readouterr().err
     assert "invalid --day format" in output.lower()

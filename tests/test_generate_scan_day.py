@@ -18,7 +18,7 @@ def copy_day(tmp_path: Path) -> Path:
     copytree_tracked(src, dest)
     talents_dir = dest / "talents"
     talents_dir.mkdir(exist_ok=True)  # Allow existing directory
-    (talents_dir / "flow.md").write_text("done")
+    (talents_dir / "schedule.json").write_text("[]")
     return dest
 
 
@@ -28,10 +28,10 @@ def test_scan_day(tmp_path, monkeypatch):
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
     info = mod.scan_day("20240101")
-    assert "talents/flow.md" in info["processed"]
-    assert "talents/timeline.md" in info["repairable"]
+    assert "talents/schedule.json" in info["processed"]
+    assert "talents/daily_schedule.json" in info["repairable"]
 
-    (day_dir / "talents" / "timeline.md").write_text("done")
+    (day_dir / "talents" / "daily_schedule.json").write_text("[]")
     info_after = mod.scan_day("20240101")
-    assert "talents/timeline.md" in info_after["processed"]
-    assert "talents/timeline.md" not in info_after["repairable"]
+    assert "talents/daily_schedule.json" in info_after["processed"]
+    assert "talents/daily_schedule.json" not in info_after["repairable"]

@@ -203,17 +203,6 @@
       "title": "facet_newsletter",
       "type": null
     },
-    "flow": {
-      "app": null,
-      "color": "#17a2b8",
-      "description": "Summarizes the overall flow of the workday. Looks for patterns in focus, energy, context switching and highlights productivity insights in a Markdown report.",
-      "multi_facet": false,
-      "output_format": "md",
-      "schedule": "daily",
-      "source": "system",
-      "title": "Day Overview",
-      "type": "generate"
-    },
     "followups": {
       "app": null,
       "color": "#ffc107",
@@ -291,17 +280,6 @@
       "title": "Joke Bot",
       "type": "cogitate"
     },
-    "knowledge_graph": {
-      "app": null,
-      "color": "#6f42c1",
-      "description": "Extracts people, projects, tools and other entities from the transcript and maps how they relate. Produces a Markdown report plus narrative describing network hubs and bridges discovered during the day.",
-      "multi_facet": false,
-      "output_format": "md",
-      "schedule": "daily",
-      "source": "system",
-      "title": "Knowledge Graph",
-      "type": "generate"
-    },
     "meetings": {
       "app": null,
       "color": "#e83e8c",
@@ -345,17 +323,6 @@
       "source": "system",
       "title": "Naming",
       "type": "cogitate"
-    },
-    "occurrence": {
-      "app": null,
-      "color": "#37474f",
-      "description": "Extracts structured occurrence events from insight summaries.",
-      "multi_facet": false,
-      "output_format": null,
-      "schedule": null,
-      "source": "system",
-      "title": "Occurrence Extraction",
-      "type": null
     },
     "participation": {
       "app": null,
@@ -477,17 +444,6 @@
       "source": "system",
       "title": "test_missing_type_output_1568d299dc474aa9ba42401c7b1b75e2",
       "type": null
-    },
-    "timeline": {
-      "app": null,
-      "color": "#7b1fa2",
-      "description": "Constructs a detailed chronological timeline documenting every activity, task shift, and event throughout the workday. Creates a comprehensive historical record with rich descriptions of what happened when.",
-      "multi_facet": false,
-      "output_format": "md",
-      "schedule": "daily",
-      "source": "system",
-      "title": "Day Timeline",
-      "type": "generate"
     },
     "todos:daily": {
       "app": "todos",
