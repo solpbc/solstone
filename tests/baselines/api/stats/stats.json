@@ -250,6 +250,32 @@
       "title": "Messaging Summary",
       "type": "generate"
     },
+    "participation": {
+      "activities": [
+        "*"
+      ],
+      "color": "#6c757d",
+      "description": "Consolidates per-segment Sense entity drafts into a structured per-activity participation list.",
+      "hook": {
+        "post": "participation"
+      },
+      "load": {
+        "percepts": true,
+        "talents": {
+          "sense": true
+        },
+        "transcripts": true
+      },
+      "mtime": 0,
+      "output": "json",
+      "path": "<PROJECT>/talent/participation.md",
+      "priority": 10,
+      "schedule": "activity",
+      "source": "system",
+      "tier": 3,
+      "title": "Participation",
+      "type": "generate"
+    },
     "schedule": {
       "color": "#5e35b1",
       "description": "Identifies all future calendar events and scheduled activities noted in transcripts. Extracts dates, times, participants, and event details for anything scheduled beyond today.",

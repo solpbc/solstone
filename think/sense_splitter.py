@@ -32,6 +32,7 @@ def write_sense_outputs(
 
     density = sense_json.get("density") or "active"
     activity_summary = sense_json.get("activity_summary") or ""
+    entities = sense_json.get("entities") or []
     facets = sense_json.get("facets") or []
     meeting_detected = bool(sense_json.get("meeting_detected"))
     speakers = sense_json.get("speakers") or []
@@ -48,6 +49,20 @@ def write_sense_outputs(
         },
     )
     _write_json_atomic(agents_dir / "sense.json", sense_json)
+
+    if entities:
+        lines = ["# Sense Entities", ""]
+        for entity in entities:
+            if not isinstance(entity, dict):
+                continue
+            lines.append(
+                "- "
+                f"{entity.get('type', '')} — {entity.get('name', '')} "
+                f"(role={entity.get('role', '')}, source={entity.get('source', '')}) "
+                f"— {entity.get('context', '')}"
+            )
+        if len(lines) > 2:
+            _write_text_atomic(agents_dir / "sense.md", "\n".join(lines))
 
     if meeting_detected:
         _write_json_atomic(agents_dir / "speakers.json", speakers)

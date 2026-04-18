@@ -14,7 +14,13 @@ def _make_sense_output(**overrides):
         "content_type": "coding",
         "activity_summary": "Writing unit tests for the API module.",
         "entities": [
-            {"type": "Project", "name": "SolAPI", "context": "main project"},
+            {
+                "type": "Project",
+                "name": "SolAPI",
+                "role": "mentioned",
+                "source": "screen",
+                "context": "main project",
+            },
         ],
         "facets": [
             {"facet": "work", "activity": "coding", "level": "high"},
@@ -80,6 +86,48 @@ class TestWriteSenseOutputs:
         stored = json.loads((seg_dir / "talents" / "sense.json").read_text("utf-8"))
         assert stored["foo"] == "bar"
         assert stored == sense_json
+
+    def test_writes_sense_markdown_when_entities_exist(self, tmp_path):
+        from think.sense_splitter import write_sense_outputs
+
+        seg_dir = Path(tmp_path) / "20260304" / "default" / "090000_300"
+        sense_json = _make_sense_output(
+            entities=[
+                {
+                    "type": "Project",
+                    "name": "SolAPI",
+                    "role": "mentioned",
+                    "source": "screen",
+                    "context": "main project",
+                },
+                {
+                    "type": "Person",
+                    "name": "John Borthwick",
+                    "role": "attendee",
+                    "source": "voice",
+                    "context": "active meeting participant",
+                },
+            ]
+        )
+
+        write_sense_outputs(sense_json, seg_dir)
+
+        sense_md = (seg_dir / "talents" / "sense.md").read_text(encoding="utf-8")
+        assert sense_md == (
+            "# Sense Entities\n\n"
+            "- Project — SolAPI (role=mentioned, source=screen) — main project\n"
+            "- Person — John Borthwick (role=attendee, source=voice) "
+            "— active meeting participant"
+        )
+
+    def test_skips_sense_markdown_when_entities_empty(self, tmp_path):
+        from think.sense_splitter import write_sense_outputs
+
+        seg_dir = Path(tmp_path) / "20260304" / "default" / "090000_300"
+
+        write_sense_outputs(_make_sense_output(entities=[]), seg_dir)
+
+        assert not (seg_dir / "talents" / "sense.md").exists()
 
 
 class TestMeetingDetection:

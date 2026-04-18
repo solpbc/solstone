@@ -319,6 +319,17 @@
       "title": "Occurrence Extraction",
       "type": null
     },
+    "participation": {
+      "app": null,
+      "color": "#6c757d",
+      "description": "Consolidates per-segment Sense entity drafts into a structured per-activity participation list.",
+      "multi_facet": false,
+      "output_format": "json",
+      "schedule": "activity",
+      "source": "system",
+      "title": "Participation",
+      "type": "generate"
+    },
     "partner": {
       "app": null,
       "color": "#6c757d",

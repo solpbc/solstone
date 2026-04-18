@@ -776,13 +776,13 @@ def append_activity_record(
     return True
 
 
-def update_record_description(
-    facet: str, day: str, record_id: str, description: str
+def update_record_fields(
+    facet: str, day: str, record_id: str, fields: dict[str, Any]
 ) -> bool:
-    """Update the description of an existing activity record.
+    """Update fields on an existing activity record.
 
     Rewrites the JSONL file atomically (write temp + rename) with the updated
-    description for the matching record.
+    fields for the matching record.
 
     Returns True if record was found and updated, False otherwise.
     """
@@ -806,7 +806,7 @@ def update_record_description(
             continue
 
         if record.get("id") == record_id:
-            record["description"] = description
+            record.update(fields)
             updated = True
 
         new_lines.append(json.dumps(record, ensure_ascii=False))
@@ -823,6 +823,13 @@ def update_record_description(
             raise
 
     return updated
+
+
+def update_record_description(
+    facet: str, day: str, record_id: str, description: str
+) -> bool:
+    """Update the description of an existing activity record."""
+    return update_record_fields(facet, day, record_id, {"description": description})
 
 
 def estimate_duration_minutes(segments: list[str]) -> int:

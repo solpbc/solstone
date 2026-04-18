@@ -33,7 +33,7 @@ Read the transcript and screen data. Produce a JSON object with ALL of the follo
   "content_type": "meeting|coding|browsing|email|messaging|reading|idle|mixed",
   "activity_summary": "1-3 sentence description of what happened",
   "entities": [
-    {"type": "Person|Company|Project|Tool", "name": "Full Name", "context": "Why this entity matters in this segment"}
+    {"type": "Person|Company|Project|Tool", "name": "Full Name", "role": "attendee|mentioned", "source": "voice|speaker_label|transcript|screen|other", "context": "Why this entity matters in this segment"}
   ],
   "facets": [
     {"facet": "facet_id", "activity": "1-sentence description for this facet", "level": "high|medium|low"}
@@ -81,6 +81,19 @@ Extract ALL named entities mentioned in the content. Be thorough — extract eve
 **For screen content specifically:** Extract entities from visible text in screen descriptions — article headlines, page titles, product names, people mentioned in articles, organizations referenced. If the user is browsing a website about the Renaissance, extract the specific historical figures, art movements, and institutions mentioned.
 
 Skip URLs, domains, filenames, paths. Each entity needs type, name, and context (brief description of the entity's role in this segment).
+
+#### role
+- **attendee**: The entity was directly participating in the live interaction during this segment. Use only for people who were actively present in the meeting or call.
+- **mentioned**: The entity was referenced, quoted, shown on screen, or otherwise relevant, but was not directly participating.
+
+Contamination guard: tool or product names visible on screen must be `source: screen` and `role: mentioned`, never `attendee`. Video-conference app names such as Google Meet or Zoom are platform/tool entities, not attendees. People quoted or referenced in transcripts are `role: mentioned` unless they were actively speaking as participants in the live meeting.
+
+#### source
+- **voice**: Use when the entity is identified from spoken audio content.
+- **speaker_label**: Use when the entity comes from an explicit speaker/participant label in meeting UI or transcript metadata.
+- **transcript**: Use when the entity appears in transcript text but not as an actively speaking participant signal.
+- **screen**: Use when the entity is visible in screen content such as UI, documents, headlines, or app chrome.
+- **other**: Use only when the entity is grounded in another clear signal that does not fit the categories above.
 
 ### facets
 Classify into the owner's configured facets. Only include facets with clear, direct evidence of activity. Be precise — assign exactly ONE primary facet in most cases. Only add a second facet if there is genuinely distinct secondary activity. For each:
