@@ -533,7 +533,7 @@
         if (query) return 'searching: ' + query.substring(0, 50) + '\u2026';
         return 'searching your journal\u2026';
       }
-      if (cmd.includes('sol call journal events') || cmd.includes('sol call calendar list')) return 'looking up events\u2026';
+      if (cmd.includes('sol call journal events') || cmd.includes('sol call activities list')) return 'looking up events\u2026';
       if (cmd.includes('sol call navigate')) return 'navigating\u2026';
       if (cmd.includes('sol call transcripts')) return 'reading transcripts\u2026';
       if (cmd.includes('sol call entity') || cmd.includes('sol call entities')) {

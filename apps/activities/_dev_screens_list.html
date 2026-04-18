@@ -97,7 +97,7 @@
     </h2>
     <p style="color: #6c757d; margin-top: 8px;">
       View raw screen.jsonl files and frame analysis data for {{ day }}.
-      <a href="{{ url_for('app:calendar.calendar_day', day=day) }}" style="margin-left: 8px;">← Back to day view</a>
+      <a href="{{ url_for('app:activities.calendar_day', day=day) }}" style="margin-left: 8px;">← Back to day view</a>
     </p>
 
     <div id="loading" class="loading">
@@ -134,7 +134,7 @@ function formatFileSize(bytes) {
 }
 
 function loadScreenFiles() {
-  fetch(`/app/calendar/api/screen_files/${day}`)
+  fetch(`/app/activities/api/screen_files/${day}`)
     .then(r => r.json())
     .then(data => {
       document.getElementById('loading').style.display = 'none';
@@ -170,7 +170,7 @@ function loadScreenFiles() {
         // Actions column
         const actionsCell = document.createElement('td');
         const link = document.createElement('a');
-        link.href = `/app/calendar/${day}/screens/${file.timestamp}`;
+        link.href = `/app/activities/${day}/screens/${file.timestamp}`;
         link.textContent = 'View Frames →';
         actionsCell.appendChild(link);
         row.appendChild(actionsCell);

@@ -1,6 +1,6 @@
 {
   "icon": "📅",
-  "label": "Calendar",
+  "label": "Activities",
   "date_nav": true,
   "allow_future_dates": true
 }

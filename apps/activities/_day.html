@@ -779,7 +779,7 @@ button.activity-detail-back {
         label = diffDays < 0 ? months + ' months ago' : 'in ' + months + ' months';
       }
       todayChip.textContent = '\u21a9 today (' + label + ')';
-      todayChip.href = '/app/calendar/' + todayStr;
+      todayChip.href = '/app/activities/' + todayStr;
       todayChip.style.display = '';
     }
   }
@@ -1308,7 +1308,7 @@ button.activity-detail-back {
 
     const encodedPath = out.path.split('/').map(p => encodeURIComponent(p)).join('/');
     try {
-      const resp = await fetch(`/app/calendar/api/activity_output/${encodedPath}`);
+      const resp = await fetch(`/app/activities/api/activity_output/${encodedPath}`);
       const data = await resp.json();
       if (data.error) {
         pane.innerHTML = `<div class="ad-output-loading">Error: ${escapeHtml(data.error)}</div>`;
@@ -1362,8 +1362,8 @@ button.activity-detail-back {
 
   function loadData() {
     Promise.all([
-      fetch(`/app/calendar/api/day/${day}/events`).then(r => r.json()),
-      fetch(`/app/calendar/api/day/${day}/activities`).then(r => r.json()),
+      fetch(`/app/activities/api/day/${day}/events`).then(r => r.json()),
+      fetch(`/app/activities/api/day/${day}/activities`).then(r => r.json()),
     ]).then(([evts, acts]) => {
       allEvents = evts || [];
       allActivities = acts || [];

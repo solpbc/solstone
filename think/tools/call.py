@@ -360,7 +360,7 @@ def merge(
     ),
 ) -> None:
     """Merge all data from SOURCE facet into DEST facet, then delete SOURCE."""
-    from apps.calendar import event as event_module
+    from apps.activities import event as event_module
     from apps.todos import todo as todo_module
     from think.entities.observations import load_observations, save_observations
     from think.entities.relationships import (

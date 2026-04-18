@@ -15,21 +15,21 @@ from observe.utils import VIDEO_EXTENSIONS
 from think.utils import day_path, iter_segments, segment_parse
 from think.utils import segment_path as get_segment_path
 
-calendar_bp = Blueprint(
-    "app:calendar",
+activities_bp = Blueprint(
+    "app:activities",
     __name__,
-    url_prefix="/app/calendar",
+    url_prefix="/app/activities",
 )
 
 
-@calendar_bp.route("/")
+@activities_bp.route("/")
 def index():
     """Redirect to today's calendar view."""
     today = date.today().strftime("%Y%m%d")
-    return redirect(url_for("app:calendar.calendar_day", day=today))
+    return redirect(url_for("app:activities.calendar_day", day=today))
 
 
-@calendar_bp.route("/<day>")
+@activities_bp.route("/<day>")
 def calendar_day(day: str) -> str:
     """Render events timeline for a specific day."""
     if not DATE_RE.fullmatch(day):
@@ -44,7 +44,7 @@ def calendar_day(day: str) -> str:
     )
 
 
-@calendar_bp.route("/api/day/<day>/events")
+@activities_bp.route("/api/day/<day>/events")
 def calendar_day_events(day: str) -> Any:
     """Return events for a specific day from facet event logs."""
     if not DATE_RE.fullmatch(day):
@@ -88,7 +88,7 @@ def calendar_day_events(day: str) -> Any:
     return jsonify(result)
 
 
-@calendar_bp.route("/api/stats/<month>")
+@activities_bp.route("/api/stats/<month>")
 def calendar_stats(month: str) -> Any:
     """Return event counts per facet for a specific month.
 
@@ -112,7 +112,7 @@ def calendar_stats(month: str) -> Any:
     return jsonify(stats)
 
 
-@calendar_bp.route("/api/day/<day>/activities")
+@activities_bp.route("/api/day/<day>/activities")
 def calendar_day_activities(day: str) -> Any:
     """Return enriched activity records for a specific day.
 
@@ -212,7 +212,7 @@ def calendar_day_activities(day: str) -> Any:
     return jsonify(result)
 
 
-@calendar_bp.route("/api/activity_output/<path:filename>")
+@activities_bp.route("/api/activity_output/<path:filename>")
 def calendar_activity_output(filename: str) -> Any:
     """Serve an activity output file.
 
@@ -258,7 +258,7 @@ def calendar_activity_output(filename: str) -> Any:
 _frame_cache: dict = {}
 
 
-@calendar_bp.route("/<day>/screens")
+@activities_bp.route("/<day>/screens")
 def _dev_calendar_screens_list(day: str) -> str:
     """Render list of screen.jsonl files for a specific day."""
     if not DATE_RE.fullmatch(day):
@@ -277,8 +277,8 @@ def _dev_calendar_screens_list(day: str) -> str:
     )
 
 
-@calendar_bp.route("/<day>/screens/<stream>/<timestamp>")
-@calendar_bp.route("/<day>/screens/<stream>/<timestamp>/<filename>")
+@activities_bp.route("/<day>/screens/<stream>/<timestamp>")
+@activities_bp.route("/<day>/screens/<stream>/<timestamp>/<filename>")
 def _dev_calendar_screens_detail(
     day: str, stream: str, timestamp: str, filename: str = "screen.jsonl"
 ) -> str:
@@ -316,7 +316,7 @@ def _dev_calendar_screens_detail(
     )
 
 
-@calendar_bp.route("/api/screen_files/<day>")
+@activities_bp.route("/api/screen_files/<day>")
 def _dev_screen_files(day: str) -> Any:
     """Return list of *screen.jsonl files for a day."""
     if not DATE_RE.fullmatch(day):
@@ -370,8 +370,8 @@ def _dev_screen_files(day: str) -> Any:
     return jsonify({"files": files})
 
 
-@calendar_bp.route("/api/screen_frames/<day>/<stream>/<timestamp>")
-@calendar_bp.route("/api/screen_frames/<day>/<stream>/<timestamp>/<filename>")
+@activities_bp.route("/api/screen_frames/<day>/<stream>/<timestamp>")
+@activities_bp.route("/api/screen_frames/<day>/<stream>/<timestamp>/<filename>")
 def _dev_screen_frames(
     day: str, stream: str, timestamp: str, filename: str = "screen.jsonl"
 ) -> Any:
@@ -474,7 +474,9 @@ def _dev_screen_frames(
         return jsonify({"error": str(e)}), 500
 
 
-@calendar_bp.route("/api/screen_frame_image/<day>/<stream>/<timestamp>/<int:frame_id>")
+@activities_bp.route(
+    "/api/screen_frame_image/<day>/<stream>/<timestamp>/<int:frame_id>"
+)
 def _dev_screen_frame_image(
     day: str, stream: str, timestamp: str, frame_id: int
 ) -> Any:

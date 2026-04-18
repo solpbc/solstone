@@ -1213,6 +1213,14 @@ def format_activities(
         if activity_type:
             lines.append(f"- Activity: {activity_type}")
 
+        facet = str(record.get("facet") or "").strip()
+        if facet:
+            lines.append(f"- Facet: {facet}")
+
+        day = str(record.get("day") or "").strip()
+        if day:
+            lines.append(f"- Day: {day}")
+
         time_range = _activity_time_range(record.get("segments", []))
         if time_range:
             lines.append(f"- Time: {time_range}")

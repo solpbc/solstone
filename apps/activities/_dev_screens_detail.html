@@ -237,7 +237,7 @@
   <h1>{{ title }}</h1>
 
   <div class="screens-detail">
-    <a href="{{ url_for('app:calendar._dev_calendar_screens_list', day=day) }}" class="back-link">
+    <a href="{{ url_for('app:activities._dev_calendar_screens_list', day=day) }}" class="back-link">
       ← Back to screens list
     </a>
 
@@ -337,7 +337,7 @@ function createFrameCard(frame, index) {
 
   const img = document.createElement('img');
   img.className = 'frame-image';
-  img.src = `/app/calendar/api/screen_frame_image/${day}/${timestamp}/${frame.frame_id}`;
+  img.src = `/app/activities/api/screen_frame_image/${day}/${timestamp}/${frame.frame_id}`;
   img.alt = `Frame ${frame.frame_id}`;
   img.loading = 'lazy';
   img.onclick = function() {
@@ -397,7 +397,7 @@ function createFrameCard(frame, index) {
 }
 
 function loadFrames() {
-  fetch(`/app/calendar/api/screen_frames/${day}/${timestamp}`)
+  fetch(`/app/activities/api/screen_frames/${day}/${timestamp}`)
     .then(r => r.json())
     .then(data => {
       document.getElementById('loading').style.display = 'none';

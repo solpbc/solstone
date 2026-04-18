@@ -67,8 +67,8 @@ def test_record_exchange_writes_journal_segment(journal_dir):
     record_exchange(
         ts=ts,
         facet="work",
-        app="calendar",
-        path="/app/calendar",
+        app="activities",
+        path="/app/activities",
         user_message="move my 3pm to 4pm",
         agent_response="Done — moved 'DVD sync' to 4pm.",
         talent="unified",
@@ -93,7 +93,7 @@ def test_record_exchange_writes_journal_segment(journal_dir):
     assert "move my 3pm to 4pm" in content
     assert "Done — moved 'DVD sync' to 4pm." in content
     assert "**Facet:** work" in content
-    assert "calendar" in content
+    assert "activities" in content
 
 
 def test_record_exchange_appends_multiple(journal_dir):
@@ -372,7 +372,7 @@ def test_format_exchange_compact():
 
     ex = {
         "ts": 1710000000000,
-        "app": "calendar",
+        "app": "activities",
         "facet": "work",
         "user_message": "what's on my schedule today?",
         "agent_response": "You have 3 meetings.",

@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from apps.calendar.event import EventDay
+from apps.activities.event import EventDay
 from think.callosum import callosum_send
 from think.cortex_client import cortex_request, wait_for_uses
 from think.facets import get_facets

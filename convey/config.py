@@ -257,7 +257,7 @@ def update_config() -> tuple[Any, int]:
             "selected": "work"
         },
         "apps": {
-            "order": ["home", "calendar"]
+            "order": ["home", "activities"]
         }
     }
 
@@ -345,7 +345,7 @@ def update_facet_order() -> tuple[Any, int]:
 def update_app_order() -> tuple[Any, int]:
     """POST /api/config/apps/order - Update app ordering.
 
-    Request body: {"order": ["home", "calendar", "todos"]}
+    Request body: {"order": ["home", "activities", "todos"]}
 
     Returns:
         JSON success/error response
@@ -384,7 +384,7 @@ def update_app_order() -> tuple[Any, int]:
 def toggle_app_star() -> tuple[Any, int]:
     """POST /api/config/apps/star - Toggle starred status of an app.
 
-    Request body: {"app": "calendar", "starred": true}
+    Request body: {"app": "activities", "starred": true}
 
     Returns:
         JSON success/error response
