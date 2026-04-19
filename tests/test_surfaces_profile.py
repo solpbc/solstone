@@ -289,7 +289,7 @@ def test_cadence_multi_day(tmp_path, monkeypatch):
 
     cadence = profile_surface.cadence("Ravi")
     assert cadence is not None
-    assert cadence.interactions_90d == 3
+    assert cadence.recent_interactions_count_30d == 3
     assert cadence.last_seen == "20260418"
     assert cadence.avg_interval_days == 4.0
     assert cadence.gone_quiet_since is None
@@ -337,9 +337,57 @@ def test_cadence_gone_quiet_threshold(tmp_path, monkeypatch):
     boundary = profile_surface.cadence("Boundary Person")
 
     assert quiet is not None
-    assert quiet.gone_quiet_since == "20260406"
+    assert quiet.gone_quiet_since == 14
     assert boundary is not None
     assert boundary.gone_quiet_since is None
+
+
+def test_cadence_gone_quiet_returns_int_days(tmp_path, monkeypatch):
+    from think.surfaces import profile as profile_surface
+
+    _configure_env(tmp_path, monkeypatch)
+    _minimal_facet_tree(
+        tmp_path,
+        journal_entities=(
+            {"id": "far_person", "name": "Far Person", "type": "Person"},
+            {"id": "equal_person", "name": "Equal Person", "type": "Person"},
+            {"id": "recent_person", "name": "Recent Person", "type": "Person"},
+        ),
+    )
+    for entity_id, description in (
+        ("far_person", "Far"),
+        ("equal_person", "Equal"),
+        ("recent_person", "Recent"),
+    ):
+        _write_facet_relationship(tmp_path, "work", entity_id, description=description)
+    monkeypatch.setattr(profile_surface, "_today_day", lambda: "20260420")
+
+    for entity_id, days in (
+        ("far_person", ("20260330", "20260404")),
+        ("equal_person", ("20260405", "20260410")),
+        ("recent_person", ("20260406", "20260411")),
+    ):
+        for day in days:
+            _append_activity(
+                "work",
+                day,
+                _activity_record(
+                    day,
+                    [_participant(entity_id, name=entity_id.replace("_", " ").title())],
+                    record_id=f"{entity_id}_{day}",
+                ),
+            )
+
+    far = profile_surface.cadence("Far Person")
+    equal = profile_surface.cadence("Equal Person")
+    recent = profile_surface.cadence("Recent Person")
+
+    assert far is not None
+    assert far.gone_quiet_since == 16
+    assert equal is not None
+    assert equal.gone_quiet_since is None
+    assert recent is not None
+    assert recent.gone_quiet_since is None
 
 
 def test_cadence_distinct_days_vs_record_count(tmp_path, monkeypatch):
@@ -422,7 +470,7 @@ def test_facets_filter_narrows_display_not_cadence(tmp_path, monkeypatch):
     assert profile is not None
     assert profile.facets == ()
     assert profile.description is None
-    assert profile.cadence.interactions_90d == 1
+    assert profile.cadence.recent_interactions_count_30d == 1
 
 
 def test_include_mentions_toggle(tmp_path, monkeypatch):
@@ -602,17 +650,38 @@ def test_full_composes_ledger_decisions(tmp_path, monkeypatch):
         decisions=[_decision(owner="Ravi", owner_entity_id="ravi")],
     )
 
-    expected = tuple(
-        ledger_surface.decisions(
-            involving="ravi",
-            since=profile_surface._day_minus(30),  # noqa: SLF001
-        )
-    )
+    expected = tuple(ledger_surface.decisions(involving="ravi"))
     profile = profile_surface.full("Ravi")
 
     assert profile is not None
     assert profile.decisions_involving_them == expected
     assert len(profile.decisions_involving_them) >= 1
+
+
+def test_full_decisions_involving_them_includes_old(tmp_path, monkeypatch):
+    from think.surfaces import profile as profile_surface
+
+    _configure_env(tmp_path, monkeypatch)
+    _minimal_facet_tree(
+        tmp_path,
+        journal_entities=({"id": "ravi", "name": "Ravi", "type": "Person"},),
+    )
+    _write_facet_relationship(tmp_path, "work", "ravi", description="Customer")
+    monkeypatch.setattr(profile_surface, "_today_day", lambda: "20260420")
+    _write_story_activity(
+        "work",
+        "20260301",
+        "meeting_090000_300",
+        _utc_ms("20260301", 9),
+        decisions=[_decision(owner="Ravi", owner_entity_id="ravi")],
+    )
+
+    profile = profile_surface.full("Ravi")
+
+    assert profile is not None
+    assert any(
+        decision.day == "20260301" for decision in profile.decisions_involving_them
+    )
 
 
 def test_not_found_returns_none(tmp_path, monkeypatch):
@@ -659,13 +728,28 @@ def test_brief_shape_and_counts(tmp_path, monkeypatch):
     brief = profile_surface.brief("Ravi")
 
     assert brief is not None
+    assert tuple(brief.__dataclass_fields__) == (
+        "entity_id",
+        "name",
+        "type",
+        "description",
+        "last_seen",
+        "open_loop_count",
+        "decisions_count_30d",
+    )
+    assert brief.entity_id == "ravi"
+    assert brief.name == "Ravi"
+    assert brief.type == "Person"
+    assert brief.description == "Customer"
+    assert brief.last_seen is None
     assert brief.open_loop_count == len(
         ledger_surface.list(state="open", counterparty="ravi")
     )
     assert brief.decisions_count_30d == len(
         ledger_surface.decisions(involving="ravi", since="20260321")
     )
-    assert brief.last_seen is None
+    assert not hasattr(brief, "is_self")
+    assert not hasattr(brief, "generated_at")
 
 
 def test_list_active_sort_dedup_window(tmp_path, monkeypatch):

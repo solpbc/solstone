@@ -40,6 +40,19 @@ class _ResolvedTarget:
     is_principal: bool
     facets_with_desc: dict[str, str]
 
+    def description_for(self, facets: tuple[str, ...] | None) -> str | None:
+        selected_facets = (
+            tuple(self.facets_with_desc.keys())
+            if facets is None
+            else tuple(facet for facet in facets if facet in self.facets_with_desc)
+        )
+        descriptions = [
+            self.facets_with_desc[facet]
+            for facet in selected_facets
+            if self.facets_with_desc[facet]
+        ]
+        return " | ".join(descriptions) if descriptions else None
+
 
 def _today_day() -> str:
     return datetime.now(UTC).strftime("%Y%m%d")
@@ -175,7 +188,9 @@ def _compute_cadence(
     distinct_days = sorted(set(interaction_days))
     last_seen = distinct_days[-1]
     avg_interval_days: float | None = None
-    gone_quiet_since: str | None = None
+    gone_quiet_since: int | None = None
+    recent_since = _day_minus(30)
+    recent_count = sum(1 for day in interaction_days if day >= recent_since)
 
     if len(distinct_days) >= 2:
         first_ordinal = _day_to_ordinal(distinct_days[0])
@@ -183,14 +198,9 @@ def _compute_cadence(
         avg_interval_days = (last_ordinal - first_ordinal) / (len(distinct_days) - 1)
         quiet_gap_days = _day_to_ordinal(_today_day()) - last_ordinal
         if quiet_gap_days > avg_interval_days * 2:
-            gone_quiet_since = last_seen
+            gone_quiet_since = quiet_gap_days
 
-    cadence = Cadence(
-        interactions_90d=len(interaction_days),
-        last_seen=last_seen,
-        avg_interval_days=avg_interval_days,
-        gone_quiet_since=gone_quiet_since,
-    )
+    cadence = Cadence(recent_count, last_seen, avg_interval_days, gone_quiet_since)
     return cadence, tuple(sorted(sources, key=_source_sort_key))
 
 
@@ -210,13 +220,6 @@ def full(
         selected_facets = tuple(
             facet for facet in facets if facet in target.facets_with_desc
         )
-
-    descriptions = [
-        target.facets_with_desc[facet]
-        for facet in selected_facets
-        if target.facets_with_desc[facet]
-    ]
-    description = " | ".join(descriptions) if descriptions else None
     closed_since = _day_minus(30)
 
     return Profile(
@@ -226,7 +229,7 @@ def full(
         aka=target.aka,
         is_self=target.is_principal,
         facets=selected_facets,
-        description=description,
+        description=target.description_for(None if facets is None else tuple(facets)),
         cadence=cadence,
         open_with_them=tuple(ledger.list(state="open", counterparty=target.entity_id)),
         closed_with_them_30d=tuple(
@@ -236,11 +239,9 @@ def full(
                 counterparty=target.entity_id,
             )
         ),
-        decisions_involving_them=tuple(
-            ledger.decisions(involving=target.entity_id, since=closed_since)
-        ),
+        decisions_involving_them=tuple(ledger.decisions(involving=target.entity_id)),
         sources=sources,
-        generated_at=datetime.now(UTC).isoformat(),
+        generated_at=int(datetime.now(UTC).timestamp() * 1000),
     )
 
 
@@ -250,17 +251,17 @@ def brief(name: str) -> ProfileBrief | None:
         return None
 
     cadence, _ = _compute_cadence(target.entity_id, include_mentions=False)
-    closed_since = _day_minus(30)
+    decision_since = _day_minus(30)
     return ProfileBrief(
         entity_id=target.entity_id,
         name=target.name,
-        is_self=target.is_principal,
+        type=target.type,
+        description=target.description_for(None),
+        last_seen=cadence.last_seen,
         open_loop_count=len(ledger.list(state="open", counterparty=target.entity_id)),
         decisions_count_30d=len(
-            ledger.decisions(involving=target.entity_id, since=closed_since)
+            ledger.decisions(involving=target.entity_id, since=decision_since)
         ),
-        last_seen=cadence.last_seen,
-        generated_at=datetime.now(UTC).isoformat(),
     )
 
 

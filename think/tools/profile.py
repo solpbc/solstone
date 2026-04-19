@@ -60,7 +60,10 @@ def _render_full(profile: Profile) -> None:
     typer.echo("")
     typer.echo("Cadence:")
     typer.echo(f"  last_seen: {profile.cadence.last_seen}")
-    typer.echo(f"  interactions_90d: {profile.cadence.interactions_90d}")
+    typer.echo(
+        "  recent_interactions_count_30d: "
+        f"{profile.cadence.recent_interactions_count_30d}"
+    )
     typer.echo(f"  avg_interval_days: {profile.cadence.avg_interval_days}")
     typer.echo(f"  gone_quiet_since: {profile.cadence.gone_quiet_since}")
     typer.echo("")
@@ -114,15 +117,17 @@ def _render_full(profile: Profile) -> None:
 def _render_brief(profile_brief: profile_surface.ProfileBrief) -> None:
     typer.echo(f"entity_id: {profile_brief.entity_id}")
     typer.echo(f"name: {profile_brief.name}")
-    typer.echo(f"is_self: {profile_brief.is_self}")
+    typer.echo(f"type: {profile_brief.type}")
+    typer.echo(f"description: {profile_brief.description}")
+    typer.echo(f"last_seen: {profile_brief.last_seen}")
     typer.echo(f"open_loop_count: {profile_brief.open_loop_count}")
     typer.echo(f"decisions_count_30d: {profile_brief.decisions_count_30d}")
-    typer.echo(f"last_seen: {profile_brief.last_seen}")
-    typer.echo(f"generated_at: {profile_brief.generated_at}")
 
 
 def _render_cadence(cadence: profile_surface.Cadence) -> None:
-    typer.echo(f"interactions_90d: {cadence.interactions_90d}")
+    typer.echo(
+        f"recent_interactions_count_30d: {cadence.recent_interactions_count_30d}"
+    )
     typer.echo(f"last_seen: {cadence.last_seen}")
     typer.echo(f"avg_interval_days: {cadence.avg_interval_days}")
     typer.echo(f"gone_quiet_since: {cadence.gone_quiet_since}")

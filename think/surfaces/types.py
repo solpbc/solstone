@@ -45,21 +45,21 @@ class Decision:
 
 @dataclass(frozen=True)
 class Cadence:
-    interactions_90d: int
+    recent_interactions_count_30d: int
     last_seen: str | None
     avg_interval_days: float | None
-    gone_quiet_since: str | None
+    gone_quiet_since: int | None
 
 
 @dataclass(frozen=True)
 class ProfileBrief:
     entity_id: str
     name: str
-    is_self: bool
+    type: str
+    description: str | None
+    last_seen: str | None
     open_loop_count: int
     decisions_count_30d: int
-    last_seen: str | None
-    generated_at: str
 
 
 @dataclass(frozen=True)
@@ -76,4 +76,4 @@ class Profile:
     closed_with_them_30d: tuple[LedgerItem, ...]
     decisions_involving_them: tuple[Decision, ...]
     sources: tuple[ActivitySourceRef, ...]
-    generated_at: str
+    generated_at: int
