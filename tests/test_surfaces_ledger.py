@@ -5,15 +5,17 @@ import json
 from datetime import UTC, datetime
 
 import pytest
+from typer.testing import CliRunner
 
 _DAY_MS = 86_400_000
+_RUNNER = CliRunner()
 
 
 def _utc_ms(value: str) -> int:
     return int(datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp() * 1000)
 
 
-def _minimal_facet_tree(tmp_path, facets=("work",)) -> None:
+def _minimal_facet_tree(tmp_path, facets=("work",), *, muted_facets=()) -> None:
     for facet in facets:
         facet_dir = tmp_path / "facets" / facet
         facet_dir.mkdir(parents=True, exist_ok=True)
@@ -25,7 +27,7 @@ def _minimal_facet_tree(tmp_path, facets=("work",)) -> None:
                     "description": "",
                     "color": "",
                     "emoji": "",
-                    "muted": False,
+                    "muted": facet in set(muted_facets),
                 }
             ),
             encoding="utf-8",
@@ -349,6 +351,34 @@ def test_close_as_dropped(tmp_path, monkeypatch):
     assert dropped.state == "dropped"
 
 
+def test_close_with_new_as_state_appends_and_first_close_wins(tmp_path, monkeypatch):
+    from think.activities import load_activity_records
+    from think.surfaces import ledger as ledger_surface
+
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    _minimal_facet_tree(tmp_path)
+    _write_story_activity(
+        "work",
+        "20260410",
+        "meeting_090000_300",
+        _utc_ms("2026-04-10T09:00:00Z"),
+        commitments=[_commitment()],
+    )
+
+    item = ledger_surface.list(state="open")[0]
+    ledger_surface.close(item.id, note="done", as_state="closed")
+    dropped = ledger_surface.close(item.id, note="actually dropped", as_state="dropped")
+
+    assert dropped.state == "closed"
+    record = load_activity_records("work", "20260410", include_hidden=True)[0]
+    closes = [
+        edit["ledger_close"]["as_state"]
+        for edit in record["edits"]
+        if edit.get("fields") == ["ledger_close"]
+    ]
+    assert closes == ["closed", "dropped"]
+
+
 def test_decisions_dedup(tmp_path, monkeypatch):
     from think.surfaces import ledger as ledger_surface
 
@@ -421,6 +451,61 @@ def test_missing_entity_id_pairing(tmp_path, monkeypatch):
     )
     open_items = ledger_surface.list(state="open")
     assert any(item.action == "draft status update" for item in open_items)
+
+
+def test_missing_counterparty_id_pairing_falls_back_to_text(tmp_path, monkeypatch):
+    from think.surfaces import ledger as ledger_surface
+
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    _minimal_facet_tree(tmp_path, facets=("work", "personal"))
+    _write_story_activity(
+        "work",
+        "20260410",
+        "meeting_090000_300",
+        _utc_ms("2026-04-10T09:00:00Z"),
+        commitments=[
+            _commitment(
+                counterparty="Finance Team",
+                counterparty_entity_id=None,
+                owner_entity_id=None,
+            )
+        ],
+    )
+    _write_story_activity(
+        "personal",
+        "20260411",
+        "meeting_100000_300",
+        _utc_ms("2026-04-11T10:00:00Z"),
+        closures=[
+            _closure(
+                action="sent the proposal",
+                counterparty="Finance Team",
+                counterparty_entity_id=None,
+                owner_entity_id=None,
+            )
+        ],
+    )
+
+    items = ledger_surface.list(state="closed")
+    assert len(items) == 1
+
+
+def test_explicit_facets_include_muted_facet(tmp_path, monkeypatch):
+    from think.surfaces import ledger as ledger_surface
+
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    _minimal_facet_tree(tmp_path, facets=("work", "quiet"), muted_facets=("quiet",))
+    _write_story_activity(
+        "quiet",
+        "20260410",
+        "meeting_090000_300",
+        _utc_ms("2026-04-10T09:00:00Z"),
+        commitments=[_commitment(action="muted facet item")],
+    )
+
+    assert ledger_surface.list(state="open") == []
+    explicit = ledger_surface.list(state="open", facets=["quiet"])
+    assert [item.action for item in explicit] == ["muted facet item"]
 
 
 def test_hidden_record_exclusion(tmp_path, monkeypatch):
@@ -496,3 +581,127 @@ def test_sort_default_varies_by_state(tmp_path, monkeypatch):
 
     closed_items = ledger_surface.list(state="closed")
     assert [item.action for item in closed_items] == ["newer closed", "older closed"]
+
+
+def test_manual_dropped_does_not_override_earlier_story_closure(tmp_path, monkeypatch):
+    from think.surfaces import ledger as ledger_surface
+
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    _minimal_facet_tree(tmp_path)
+    _write_story_activity(
+        "work",
+        "20260410",
+        "meeting_090000_300",
+        _utc_ms("2026-04-10T09:00:00Z"),
+        commitments=[_commitment()],
+    )
+    _write_story_activity(
+        "work",
+        "20260411",
+        "meeting_100000_300",
+        _utc_ms("2026-04-11T10:00:00Z"),
+        closures=[_closure()],
+    )
+
+    item = ledger_surface.list(state="closed")[0]
+    refreshed = ledger_surface.close(
+        item.id, note="operator says drop", as_state="dropped"
+    )
+
+    assert refreshed.state == "closed"
+    assert any(
+        source.field == "edits" and source.activity_id == "meeting_090000_300"
+        for source in refreshed.sources
+    )
+
+
+def test_cli_list_smoke(tmp_path, monkeypatch):
+    from think.tools.ledger import app
+
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOL_SKIP_SUPERVISOR_CHECK", "1")
+    _minimal_facet_tree(tmp_path)
+    _write_story_activity(
+        "work",
+        "20260410",
+        "meeting_090000_300",
+        _utc_ms("2026-04-10T09:00:00Z"),
+        commitments=[_commitment()],
+    )
+
+    result = _RUNNER.invoke(app, ["list", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert isinstance(payload, list)
+    assert payload[0]["summary"] == "send proposal"
+
+
+def test_cli_get_smoke(tmp_path, monkeypatch):
+    from think.surfaces import ledger as ledger_surface
+    from think.tools.ledger import app
+
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOL_SKIP_SUPERVISOR_CHECK", "1")
+    _minimal_facet_tree(tmp_path)
+    _write_story_activity(
+        "work",
+        "20260410",
+        "meeting_090000_300",
+        _utc_ms("2026-04-10T09:00:00Z"),
+        commitments=[_commitment()],
+    )
+    item = ledger_surface.list(state="open")[0]
+
+    result = _RUNNER.invoke(app, ["get", item.id, "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert isinstance(payload, list)
+    assert payload[0]["id"] == item.id
+
+
+def test_cli_close_smoke(tmp_path, monkeypatch):
+    from think.surfaces import ledger as ledger_surface
+    from think.tools.ledger import app
+
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOL_SKIP_SUPERVISOR_CHECK", "1")
+    _minimal_facet_tree(tmp_path)
+    _write_story_activity(
+        "work",
+        "20260410",
+        "meeting_090000_300",
+        _utc_ms("2026-04-10T09:00:00Z"),
+        commitments=[_commitment()],
+    )
+    item = ledger_surface.list(state="open")[0]
+
+    result = _RUNNER.invoke(app, ["close", item.id, "--note", "done", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert isinstance(payload, list)
+    assert payload[0]["state"] == "closed"
+
+
+def test_cli_decisions_smoke(tmp_path, monkeypatch):
+    from think.tools.ledger import app
+
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOL_SKIP_SUPERVISOR_CHECK", "1")
+    _minimal_facet_tree(tmp_path)
+    _write_story_activity(
+        "work",
+        "20260410",
+        "meeting_090000_300",
+        _utc_ms("2026-04-10T09:00:00Z"),
+        decisions=[_decision()],
+    )
+
+    result = _RUNNER.invoke(app, ["decisions", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert isinstance(payload, list)
+    assert payload[0]["action"] == "move launch review"

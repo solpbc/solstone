@@ -27,6 +27,10 @@ def _echo_json(payload: object) -> None:
     typer.echo(jsonlib.dumps(payload, indent=2, sort_keys=False))
 
 
+def _echo_json_items(items: list[object]) -> None:
+    _echo_json([dataclasses.asdict(item) for item in items])
+
+
 def _render_table(headers: list[str], rows: list[list[str]]) -> None:
     if not rows:
         return
@@ -117,7 +121,7 @@ def list_cmd(
     except ValueError as exc:
         raise typer.BadParameter(str(exc)) from exc
     if json:
-        _echo_json([dataclasses.asdict(item) for item in items])
+        _echo_json_items(items)
         return
     _render_items(items)
 
@@ -130,7 +134,7 @@ def get_cmd(item_id: str, json: bool = typer.Option(False, "--json")) -> None:
         typer.echo(f"ledger item not found: {item_id}", err=True)
         raise typer.Exit(1)
     if json:
-        _echo_json(dataclasses.asdict(item))
+        _echo_json_items([item])
         return
     _render_items([item])
 
@@ -153,7 +157,7 @@ def close_cmd(
     except ValueError as exc:
         raise typer.BadParameter(str(exc)) from exc
     if json:
-        _echo_json(dataclasses.asdict(item))
+        _echo_json_items([item])
         return
     _render_items([item])
 
@@ -179,6 +183,6 @@ def decisions_cmd(
     except ValueError as exc:
         raise typer.BadParameter(str(exc)) from exc
     if json:
-        _echo_json([dataclasses.asdict(item) for item in items])
+        _echo_json_items(items)
         return
     _render_decisions(items)

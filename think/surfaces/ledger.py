@@ -220,6 +220,7 @@ def _build_ledger_items(
                 continue
             owner = str(raw_commitment.get("owner") or "").strip()
             action = str(raw_commitment.get("action") or "").strip()
+            # Skip malformed story data rather than minting unusable ledger items with blank actions.
             if not owner or not action:
                 continue
 
@@ -283,6 +284,7 @@ def _build_ledger_items(
             if not isinstance(raw_closure, dict):
                 continue
             action = str(raw_closure.get("action") or "").strip()
+            # Skip malformed story data rather than pairing closures with an empty fuzzy-match target.
             if not action:
                 continue
             owner_entity_id = raw_closure.get("owner_entity_id")
@@ -357,6 +359,7 @@ def _build_ledger_items(
             consumed_story_closures.add(index)
 
         closure_sources = matched_story_sources + manual_closes.get(entry["id"], [])
+        # State/closed_at follow the earliest close across story and manual sources; later manual edits remain visible in sources but do not rewrite the first close.
         closure_sources.sort(key=lambda candidate: candidate["sort_key"])
         first_close = closure_sources[0] if closure_sources else None
         state = first_close["state"] if first_close is not None else "open"
