@@ -3,6 +3,8 @@
 
 """Tests for home pulse skill surfacing."""
 
+from __future__ import annotations
+
 import json
 from datetime import datetime, timedelta
 
@@ -26,158 +28,184 @@ def home_client():
     return app.test_client()
 
 
-def _write_skill_fixtures(tmp_path, facet_name, patterns, skill_files):
-    """Write patterns.jsonl and skill .md files for a facet.
-
-    Parameters
-    ----------
-    patterns : list[dict]
-        Each dict is one line in patterns.jsonl.
-    skill_files : dict[str, str]
-        Mapping of {slug: markdown_content} for skill files.
-    """
-    skills_dir = tmp_path / "facets" / facet_name / "skills"
+def _write_skill_fixtures(tmp_path, patterns, skill_files):
+    """Write owner-wide skill patterns and markdown profiles."""
+    skills_dir = tmp_path / "skills"
     skills_dir.mkdir(parents=True, exist_ok=True)
-
-    # Write facet.json so get_enabled_facets() finds this facet
-    facet_dir = tmp_path / "facets" / facet_name
-    (facet_dir / "facet.json").write_text(
-        json.dumps(
-            {
-                "title": facet_name.title(),
-                "description": "",
-                "color": "#000",
-                "emoji": "📁",
-            }
-        ),
+    lines = [json.dumps(pattern) for pattern in patterns]
+    (skills_dir / "patterns.jsonl").write_text(
+        "\n".join(lines) + ("\n" if lines else ""),
         encoding="utf-8",
     )
-
-    # Write patterns.jsonl
-    lines = [json.dumps(p) for p in patterns]
-    (skills_dir / "patterns.jsonl").write_text(
-        "\n".join(lines) + "\n", encoding="utf-8"
-    )
-
-    # Write skill markdown files
     for slug, content in skill_files.items():
         (skills_dir / f"{slug}.md").write_text(content, encoding="utf-8")
 
 
-def test_collect_skills_no_facets(monkeypatch, tmp_path):
-    """No facets directory yields empty skills list."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
-
-    assert _collect_skills() == []
-
-
-def test_collect_skills_no_skills_dir(monkeypatch, tmp_path):
-    """Facet exists but has no skills directory."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
-
-    facet_dir = tmp_path / "facets" / "work"
-    facet_dir.mkdir(parents=True)
-    (facet_dir / "facet.json").write_text(
-        json.dumps(
-            {"title": "Work", "description": "", "color": "#000", "emoji": "💼"}
+def _pattern(
+    *,
+    slug: str,
+    name: str,
+    status: str = "mature",
+    observations: list[dict] | None = None,
+) -> dict:
+    rows = observations or [
+        {
+            "day": "2026-04-10",
+            "facet": "work",
+            "activity_ids": ["act_1"],
+            "notes": "",
+            "recorded_at": "2026-04-10T09:15:00Z",
+        }
+    ]
+    return {
+        "slug": slug,
+        "name": name,
+        "status": status,
+        "observations": rows,
+        "facets_touched": sorted(
+            {
+                str(observation.get("facet") or "")
+                for observation in rows
+                if observation.get("facet")
+            }
         ),
-        encoding="utf-8",
-    )
+        "first_seen": rows[0]["day"],
+        "last_seen": rows[-1]["day"],
+        "needs_profile": False,
+        "needs_refresh": False,
+        "profile_generated_at": "2026-04-11T10:00:00Z",
+        "created_at": "2026-04-10T09:20:00Z",
+        "updated_at": "2026-04-11T10:00:00Z",
+    }
 
-    assert _collect_skills() == []
 
-
-def test_collect_skills_with_mature_skill(monkeypatch, tmp_path):
-    """Mature skill (skill_generated: true) is collected with correct fields."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
-
-    skill_md = """---
-name: Morning Standup
-activity_type: meeting
-facet: work
-observations: 5
-first_seen: "2026-03-01T09:00:00"
-last_seen: "2026-04-10T09:15:00"
-typical_duration: 15m
-typical_time: "9:00 AM"
-key_entities:
-  - Engineering Team
+def _profile_markdown(
+    *,
+    name: str,
+    display_name: str,
+    description: str,
+    category: str = "coordination",
+    confidence: float = 0.7,
+    body: str = "## Overview\n\nProfile body.",
+) -> str:
+    return f"""---
+name: "{name}"
+display_name: "{display_name}"
+description: "{description}"
+category: "{category}"
+confidence: {confidence}
 ---
 
-## when this happens
-
-Daily morning standup with the engineering team.
-
-## what the owner does
-
-Gives status updates and listens to blockers.
+{body}
 """
+
+
+def test_collect_skills_no_facets(monkeypatch, tmp_path):
+    """No owner-wide skills directory yields an empty list."""
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+
+    assert _collect_skills() == []
+
+
+def test_collect_skills_no_patterns(monkeypatch, tmp_path):
+    """An empty owner-wide skills directory yields an empty list."""
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+
+    (tmp_path / "skills").mkdir(parents=True)
+
+    assert _collect_skills() == []
+
+
+def test_collect_skills_with_owner_wide_profile(monkeypatch, tmp_path):
+    """Pulse collects owner-wide profiles with the new payload shape."""
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
     _write_skill_fixtures(
         tmp_path,
-        "work",
-        [{"id": "morning-standup", "skill_generated": True, "observation_count": 5}],
-        {"morning-standup": skill_md},
+        [
+            _pattern(
+                slug="morning-standup",
+                name="Standup Pattern",
+                observations=[
+                    {
+                        "day": "2026-03-01",
+                        "facet": "work",
+                        "activity_ids": ["act_1"],
+                        "notes": "",
+                        "recorded_at": "2026-03-01T09:00:00Z",
+                    },
+                    {
+                        "day": "2026-04-10",
+                        "facet": "work",
+                        "activity_ids": ["act_2"],
+                        "notes": "",
+                        "recorded_at": "2026-04-10T09:15:00Z",
+                    },
+                ],
+            )
+        ],
+        {
+            "morning-standup": _profile_markdown(
+                name="morning-standup",
+                display_name="Morning Standup",
+                description="Daily engineering sync for blockers and updates.",
+                category="coordination",
+                confidence=0.9,
+                body="## when this happens\n\nDaily morning standup with the engineering team.",
+            )
+        },
     )
 
     skills = _collect_skills()
 
     assert len(skills) == 1
     assert skills[0]["id"] == "morning-standup"
+    assert skills[0]["slug"] == "morning-standup"
     assert skills[0]["name"] == "Morning Standup"
-    assert skills[0]["facet"] == "work"
-    assert skills[0]["observations"] == 5
-    assert "meeting" in skills[0]["summary"]
-    assert "9:00 AM" in skills[0]["summary"]
+    assert (
+        skills[0]["description"] == "Daily engineering sync for blockers and updates."
+    )
+    assert skills[0]["category"] == "coordination"
+    assert skills[0]["confidence"] == 0.9
+    assert skills[0]["status"] == "mature"
+    assert skills[0]["facets"] == ["work"]
+    assert skills[0]["observations"] == 2
+    assert skills[0]["first_seen"] == "2026-03-01T09:00:00Z"
+    assert skills[0]["last_seen"] == "2026-04-10T09:15:00Z"
     assert "when this happens" in skills[0]["content"]
     assert skills[0]["seen"] is False
 
 
-def test_collect_skills_immature_excluded(monkeypatch, tmp_path):
-    """Patterns with skill_generated: false are excluded."""
+def test_collect_skills_hides_pattern_without_profile(monkeypatch, tmp_path):
+    """Observer-only patterns stay hidden until a profile exists."""
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
-
-    skill_md = """---
-name: Random Chat
-activity_type: conversation
-observations: 1
----
-
-Some content.
-"""
 
     _write_skill_fixtures(
         tmp_path,
-        "work",
-        [{"id": "random-chat", "skill_generated": False, "observation_count": 1}],
-        {"random-chat": skill_md},
+        [_pattern(slug="random-chat", name="Random Chat")],
+        {},
     )
 
     assert _collect_skills() == []
 
 
 def test_collect_skills_seen_flag(monkeypatch, tmp_path):
-    """Skills modified before skills_last_seen are marked seen."""
+    """Profiles older than the last seen marker are marked seen."""
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
-
-    skill_md = """---
-name: Daily Review
-activity_type: review
-observations: 3
-last_seen: "2026-04-09T17:00:00"
----
-
-Review content.
-"""
 
     _write_skill_fixtures(
         tmp_path,
-        "work",
-        [{"id": "daily-review", "skill_generated": True, "observation_count": 3}],
-        {"daily-review": skill_md},
+        [_pattern(slug="daily-review", name="Daily Review")],
+        {
+            "daily-review": _profile_markdown(
+                name="daily-review",
+                display_name="Daily Review",
+                description="End-of-day review habit.",
+                body="Review content.",
+            )
+        },
     )
 
-    # Mark as seen AFTER the file was written (file mtime < skills_last_seen)
     _save_skills_state(
         {"skills_last_seen": (datetime.now() + timedelta(minutes=5)).isoformat()}
     )
@@ -186,6 +214,113 @@ Review content.
 
     assert len(skills) == 1
     assert skills[0]["seen"] is True
+
+
+def test_collect_skills_shows_dormant(monkeypatch, tmp_path):
+    """Dormant skills stay visible in Pulse."""
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+
+    _write_skill_fixtures(
+        tmp_path,
+        [_pattern(slug="deep-work", name="Deep Work", status="dormant")],
+        {
+            "deep-work": _profile_markdown(
+                name="deep-work",
+                display_name="Deep Work",
+                description="Focused solo execution work.",
+            )
+        },
+    )
+
+    skills = _collect_skills()
+
+    assert len(skills) == 1
+    assert skills[0]["status"] == "dormant"
+
+
+def test_collect_skills_hides_retired(monkeypatch, tmp_path):
+    """Retired skills are excluded from Pulse."""
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+
+    _write_skill_fixtures(
+        tmp_path,
+        [_pattern(slug="legacy", name="Legacy Skill", status="retired")],
+        {
+            "legacy": _profile_markdown(
+                name="legacy",
+                display_name="Legacy Skill",
+                description="Old profile.",
+            )
+        },
+    )
+
+    assert _collect_skills() == []
+
+
+def test_collect_skills_sorts_by_confidence_then_last_seen(monkeypatch, tmp_path):
+    """Skills sort by confidence first, then recency."""
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+
+    _write_skill_fixtures(
+        tmp_path,
+        [
+            _pattern(slug="high-confidence", name="High Confidence"),
+            _pattern(
+                slug="recent-mid",
+                name="Recent Mid",
+                observations=[
+                    {
+                        "day": "2026-04-12",
+                        "facet": "work",
+                        "activity_ids": ["act_2"],
+                        "notes": "",
+                        "recorded_at": "2026-04-12T08:00:00Z",
+                    }
+                ],
+            ),
+            _pattern(
+                slug="older-mid",
+                name="Older Mid",
+                observations=[
+                    {
+                        "day": "2026-04-05",
+                        "facet": "work",
+                        "activity_ids": ["act_3"],
+                        "notes": "",
+                        "recorded_at": "2026-04-05T08:00:00Z",
+                    }
+                ],
+            ),
+        ],
+        {
+            "high-confidence": _profile_markdown(
+                name="high-confidence",
+                display_name="High Confidence",
+                description="High confidence skill.",
+                confidence=0.95,
+            ),
+            "recent-mid": _profile_markdown(
+                name="recent-mid",
+                display_name="Recent Mid",
+                description="Recent mid confidence skill.",
+                confidence=0.6,
+            ),
+            "older-mid": _profile_markdown(
+                name="older-mid",
+                display_name="Older Mid",
+                description="Older mid confidence skill.",
+                confidence=0.6,
+            ),
+        },
+    )
+
+    skills = _collect_skills()
+
+    assert [skill["id"] for skill in skills] == [
+        "high-confidence",
+        "recent-mid",
+        "older-mid",
+    ]
 
 
 def test_api_skills_seen(monkeypatch, tmp_path, home_client):
@@ -223,11 +358,16 @@ def test_api_pulse_includes_skills(monkeypatch, home_client):
         lambda: [
             {
                 "id": "morning-standup",
+                "slug": "morning-standup",
                 "name": "Morning Standup",
-                "facet": "work",
-                "summary": "meeting · 9:00 AM",
+                "description": "Daily engineering sync for blockers and updates.",
+                "category": "coordination",
+                "confidence": 0.9,
+                "status": "mature",
+                "facets": ["work"],
                 "observations": 5,
-                "last_seen": "2026-04-10T09:15:00",
+                "first_seen": "2026-03-01T09:00:00Z",
+                "last_seen": "2026-04-10T09:15:00Z",
                 "content": "# Standup\n\nDaily standup.",
                 "seen": False,
             }
@@ -240,6 +380,7 @@ def test_api_pulse_includes_skills(monkeypatch, home_client):
     data = resp.get_json()
     assert "skills" in data
     assert data["skills"][0]["name"] == "Morning Standup"
+    assert data["skills"][0]["facets"] == ["work"]
     assert "skills_summary" in data
     assert "skills_content" in data
     assert "morning-standup" in data["skills_content"]

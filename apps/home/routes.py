@@ -19,6 +19,7 @@ from flask import Blueprint, jsonify, render_template
 
 from convey.apps import _resolve_attention
 from convey.bridge import get_cached_state
+from think import skills as think_skills
 from think.awareness import get_current
 from think.capture_health import get_capture_health
 from think.facets import get_enabled_facets, get_facets
@@ -1112,91 +1113,105 @@ def _collect_routines() -> list[dict[str, Any]]:
 
 
 def _collect_skills() -> list[dict[str, Any]]:
-    """Collect mature skills from all enabled facets."""
+    """Collect owner-wide skill profiles for the Pulse view."""
     try:
-        journal = Path(get_journal())
         state = _load_skills_state()
         last_seen = state.get("skills_last_seen")
         last_seen_dt = datetime.fromisoformat(last_seen) if last_seen else None
 
-        skills = []
-        for facet_name in get_enabled_facets():
-            skills_dir = journal / "facets" / facet_name / "skills"
-            if not skills_dir.exists():
-                continue
-
-            # Read patterns.jsonl for mature skills (skill_generated: true)
-            patterns_path = skills_dir / "patterns.jsonl"
-            if not patterns_path.exists():
-                continue
-
-            mature_ids = set()
+        skills: list[dict[str, Any]] = []
+        for pattern in think_skills.load_patterns():
             try:
-                with open(patterns_path, encoding="utf-8") as f:
-                    for line in f:
-                        line = line.strip()
-                        if not line:
-                            continue
-                        try:
-                            pattern = json.loads(line)
-                            if pattern.get("skill_generated"):
-                                mature_ids.add(pattern.get("id", ""))
-                        except json.JSONDecodeError:
-                            continue
-            except OSError:
+                slug = str(pattern.get("slug") or "").strip()
+                status = str(pattern.get("status") or "").strip() or "emerging"
+                if not slug or status == "retired":
+                    continue
+
+                profile_markdown = think_skills.load_profile(slug)
+                if profile_markdown is None:
+                    continue
+
+                post = frontmatter.loads(profile_markdown)
+                meta = post.metadata
+                observations = [
+                    observation
+                    for observation in pattern.get("observations", [])
+                    if isinstance(observation, dict)
+                ]
+                observation_times = sorted(
+                    str(observation.get("recorded_at") or observation.get("day") or "")
+                    for observation in observations
+                    if observation.get("recorded_at") or observation.get("day")
+                )
+                facets = sorted(
+                    {
+                        str(item).strip()
+                        for item in pattern.get("facets_touched", [])
+                        if str(item).strip()
+                    }
+                    or {
+                        str(observation.get("facet") or "").strip()
+                        for observation in observations
+                        if str(observation.get("facet") or "").strip()
+                    }
+                )
+                confidence = meta.get("confidence", 0.0)
+                if isinstance(confidence, (int, float)) and not isinstance(
+                    confidence, bool
+                ):
+                    confidence_value = float(confidence)
+                else:
+                    confidence_value = 0.0
+
+                try:
+                    profile_mtime = datetime.fromtimestamp(
+                        think_skills.profile_path(slug).stat().st_mtime
+                    )
+                except OSError:
+                    profile_mtime = None
+
+                seen = (
+                    last_seen_dt is not None
+                    and profile_mtime is not None
+                    and profile_mtime <= last_seen_dt
+                )
+
+                skills.append(
+                    {
+                        "id": slug,
+                        "slug": slug,
+                        "name": (
+                            str(meta.get("display_name") or "").strip()
+                            or str(pattern.get("name") or "").strip()
+                            or slug
+                        ),
+                        "description": str(meta.get("description") or "").strip(),
+                        "category": str(meta.get("category") or "").strip(),
+                        "confidence": confidence_value,
+                        "status": status,
+                        "facets": facets,
+                        "observations": len(observations),
+                        "first_seen": observation_times[0] if observation_times else "",
+                        "last_seen": observation_times[-1] if observation_times else "",
+                        "content": post.content,
+                        "seen": seen,
+                    }
+                )
+            except Exception:
+                logger.warning(
+                    "home: failed to load skill %s",
+                    pattern.get("slug"),
+                    exc_info=True,
+                )
                 continue
 
-            for skill_id in sorted(mature_ids):
-                skill_path = skills_dir / f"{skill_id}.md"
-                if not skill_path.exists():
-                    continue
-                try:
-                    post = frontmatter.load(str(skill_path))
-                    meta = post.metadata
-
-                    summary = meta.get("activity_type", "")
-                    typical_time = meta.get("typical_time", "")
-                    if typical_time:
-                        summary = (
-                            f"{summary} · {typical_time}" if summary else typical_time
-                        )
-
-                    observations = meta.get("observations", 0)
-                    last_seen_str = meta.get("last_seen", "")
-
-                    try:
-                        mtime_dt = datetime.fromtimestamp(skill_path.stat().st_mtime)
-                    except OSError:
-                        mtime_dt = None
-
-                    seen = (
-                        last_seen_dt is not None
-                        and mtime_dt is not None
-                        and mtime_dt <= last_seen_dt
-                    )
-
-                    skills.append(
-                        {
-                            "id": skill_id,
-                            "name": meta.get("name", skill_id),
-                            "facet": facet_name,
-                            "summary": summary,
-                            "observations": observations,
-                            "last_seen": last_seen_str,
-                            "content": post.content,
-                            "seen": seen,
-                        }
-                    )
-                except Exception:
-                    logger.warning(
-                        "home: failed to load skill %s/%s",
-                        facet_name,
-                        skill_id,
-                        exc_info=True,
-                    )
-                    continue
-
-        skills.sort(key=lambda s: s.get("last_seen", ""), reverse=True)
+        skills.sort(
+            key=lambda skill: (
+                float(skill.get("confidence") or 0.0),
+                str(skill.get("last_seen") or ""),
+            ),
+            reverse=True,
+        )
         return skills
     except Exception:
         logger.warning("home: failed to collect skills", exc_info=True)
