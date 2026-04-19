@@ -77,3 +77,51 @@ class Profile:
     decisions_involving_them: tuple[Decision, ...]
     sources: tuple[ActivitySourceRef, ...]
     generated_at: int
+
+
+@dataclass(frozen=True)
+class CaptureHealth:
+    hours_with_capture: int
+    hours_total: int
+    coverage_ratio: float | None
+    facets_with_recent_capture: tuple[str, ...]
+    facets_silent_24h: tuple[str, ...]
+    last_segment_at: int | None
+
+
+@dataclass(frozen=True)
+class SynthesisHealth:
+    activities_count: int
+    activities_with_participation: int
+    activities_with_story: int
+    activities_user_edited: int
+    activities_anticipated_unfilled: int
+    talent_run_failures_24h: int | None
+    indexer_last_rebuild_at: int | None
+
+
+@dataclass(frozen=True)
+class ConsumerSignalHealth:
+    ledger_open_items_total: int
+    ledger_stale_items_count: int
+    profile_entities_total: int
+
+
+@dataclass(frozen=True)
+class HealthNote:
+    severity: str
+    category: str
+    message: str
+    detected_at: int
+    detail_pointer: str | None
+
+
+@dataclass(frozen=True)
+class HealthReport:
+    generated_at: int
+    range: tuple[str, str]
+    facets: tuple[str, ...]
+    capture_health: CaptureHealth
+    synthesis_health: SynthesisHealth
+    consumer_signal: ConsumerSignalHealth
+    notes: tuple[HealthNote, ...]
