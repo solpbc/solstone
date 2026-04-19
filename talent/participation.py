@@ -7,10 +7,31 @@ import json
 import logging
 
 from think.activities import update_record_fields
+from think.cluster import _find_segment_dir
 from think.entities.loading import load_entities
 from think.entities.matching import find_matching_entity
 
 logger = logging.getLogger(__name__)
+
+
+def _segment_meeting_detected(day: str, segment_key: str) -> bool:
+    """Return True iff a segment's sense.json reports meeting_detected=True."""
+    seg_dir = _find_segment_dir(day, segment_key, stream=None)
+    if seg_dir is None:
+        return False
+
+    sense_path = seg_dir / "talents" / "sense.json"
+    try:
+        data = json.loads(sense_path.read_text())
+    except (FileNotFoundError, OSError, ValueError):
+        return False
+
+    return bool(data.get("meeting_detected"))
+
+
+def _any_activity_segment_meeting_detected(day: str, segments: list[str]) -> bool:
+    """Return True when any contributing segment is marked as a meeting."""
+    return any(_segment_meeting_detected(day, segment) for segment in segments)
 
 
 def post_process(result: str, context: dict) -> str | None:
@@ -58,6 +79,22 @@ def post_process(result: str, context: dict) -> str | None:
         match = find_matching_entity(resolved_entry.get("name", ""), entities_list)
         resolved_entry["entity_id"] = match.get("id") if match else None
         resolved_entries.append(resolved_entry)
+
+    segments = activity.get("segments") or []
+    if segments and not _any_activity_segment_meeting_detected(day, segments):
+        clamped_count = 0
+        for entry in resolved_entries:
+            if entry.get("role") == "attendee":
+                entry["role"] = "mentioned"
+                clamped_count += 1
+        if clamped_count:
+            logger.warning(
+                "participation hook: clamped %d attendee entries to mentioned on activity %s (facet=%s day=%s); no contributing sense segment had meeting_detected=true",
+                clamped_count,
+                record_id,
+                facet,
+                day,
+            )
 
     payload = {"participation": resolved_entries}
     participation_confidence = data.get("participation_confidence")

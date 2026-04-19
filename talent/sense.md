@@ -86,7 +86,7 @@ Skip URLs, domains, filenames, paths. Each entity needs type, name, and context 
 - **attendee**: The entity was directly participating in the live interaction during this segment. Use only for people who were actively present in the meeting or call.
 - **mentioned**: The entity was referenced, quoted, shown on screen, or otherwise relevant, but was not directly participating.
 
-Contamination guard: tool or product names visible on screen must be `source: screen` and `role: mentioned`, never `attendee`. Video-conference app names such as Google Meet or Zoom are platform/tool entities, not attendees. People quoted or referenced in transcripts are `role: mentioned` unless they were actively speaking as participants in the live meeting.
+Contamination guard: tool or product names visible on screen must be `source: screen` and `role: mentioned`, never `attendee`. Video-conference app names such as Google Meet or Zoom are platform/tool entities, not attendees. `role: attendee` requires `meeting_detected: true` for this same segment; when `meeting_detected: false`, every Person must be `role: mentioned` even if they spoke, were quoted, or were referenced in the transcript.
 
 #### source
 - **voice**: Use when the entity is identified from spoken audio content.
