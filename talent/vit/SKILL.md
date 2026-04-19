@@ -1,16 +1,26 @@
 ---
 name: vit
 description: >-
-  Ship solstone features as vit caps to the social capability network.
-  Activates when shipping caps, publishing capabilities, or working with the
-  vit CLI after a feature ships through hopper.
+  Ship solstone features as vit caps to the social capability network
+  after a feature lands through hopper. Scoped to the publish/ship
+  workflow that runs at the end of the VPE playbook; discovery, vetting,
+  and consumption commands live in the user-wide `using-vit` skill.
+  TRIGGER: ship a cap, publish solstone cap, vit ship, after hopper ship,
+  final lode ship, capworthy feature, three-word ref, vit beacon,
+  vit:github.com/solpbc/solstone.
 ---
+
+# Vit Ship Skill
+
+Publish solstone capabilities as vit caps. Invoke via Bash: `vit ship ...` (other vit commands are covered by the `using-vit` skill).
 
 ## overview
 
 vit is a CLI for publishing software capabilities (caps) to a decentralized social network built on ATProto. solstone participates in the vit network — when a capworthy feature ships, the VPE session publishes it as a cap so other projects and agents can discover, vet, and remix it.
 
 **beacon:** `vit:github.com/solpbc/solstone`
+
+**Scope**: this skill is intentionally narrow — VPE-session ship workflow only. For `vit skim`, `vit follow`, `vit learn`, `vit remix`, `vit vet`, and general vit usage, the `using-vit` skill has full coverage. Don't duplicate that reference here.
 
 ## when to ship a cap
 
@@ -55,19 +65,15 @@ the three-word ref should be descriptive and memorable:
 - good: `entity-signal-indexing`, `speaker-voice-attribution`, `routine-progressive-discovery`
 - bad: `update-fix-three`, `new-feature-impl`, `march-twentyseven-ship`
 
-## other commands
+## pre-ship diagnostics
 
 ### `vit init`
 already done — beacon is set. run `vit init` to check current beacon status, or `vit init --beacon <url>` to change it.
 
 ### `vit doctor`
-read-only diagnostic. run to check setup and beacon status before shipping.
+read-only diagnostic. run to verify setup and beacon status before shipping when something looks off.
 
-### `vit skim`
-browse caps from followed accounts, filtered by beacon. use `vit skim --json` for structured output.
-
-### `vit follow <handle>`
-add an account to follow. their caps will appear in `vit skim`.
+For `vit skim`, `vit follow`, `vit learn`, `vit remix`, and other discovery/consumption commands, see the `using-vit` skill.
 
 ## troubleshooting
 
