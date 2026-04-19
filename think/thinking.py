@@ -1849,7 +1849,7 @@ def run_activity_prompts(
     activity_type = record.get("activity", "")
     segments = record.get("segments", [])
 
-    if record.get("source") == "cogitate" or not segments:
+    if record.get("source") in ("cogitate", "anticipated") or not segments:
         logging.info(
             "Skipping activity-scheduled generators for synthetic activity %s (source=%s)",
             activity_id,
@@ -2048,6 +2048,17 @@ def run_activity_prompts(
 
             try:
                 logging.info(f"Spawning {prompt_name} for activity {activity_id}")
+
+                if prompt_name == "work" and activity_type in ("browsing", "reading"):
+                    level_avg = float(record.get("level_avg", 0.0) or 0.0)
+                    if level_avg < 0.4:
+                        logging.info(
+                            "skipping work talent for low-level %s activity %s (level_avg=%.2f)",
+                            activity_type,
+                            record.get("id"),
+                            level_avg,
+                        )
+                        continue
 
                 output_format = config.get("output", "md")
                 request_config: dict = {
@@ -2771,9 +2782,9 @@ def main() -> None:
     args = setup_cli(parser)
     require_solstone()
 
-    from think.awareness import ensure_sol_directory
+    from think.identity import ensure_identity_directory
 
-    ensure_sol_directory()
+    ensure_identity_directory()
 
     if args.updated:
         incompatible = []

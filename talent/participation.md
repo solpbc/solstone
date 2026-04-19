@@ -8,6 +8,7 @@
   "priority": 10,
   "tier": 3,
   "output": "json",
+  "schema": "participation.schema.json",
   "load": {
     "transcripts": true,
     "percepts": true,

@@ -1,11 +1,15 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
+import json
 from pathlib import Path
 
 import frontmatter
 
+from think.talent import get_talent
+
 SENSE_PATH = Path(__file__).resolve().parents[1] / "talent" / "sense.md"
+SENSE_SCHEMA_PATH = SENSE_PATH.with_suffix(".schema.json")
 
 
 def _section(text: str, start: str, end: str | None = None) -> str:
@@ -21,15 +25,32 @@ def test_sense_prompt_parses_and_documents_role_and_source():
 
     assert post.metadata["tier"] == 3
 
-    schema = _section(
+    output_schema = _section(
         post.content, "## Output Schema", "## Field-by-Field Instructions"
     )
     entities = _section(post.content, "### entities", "### facets")
+    entity_props = get_talent("sense")["json_schema"]["properties"]["entities"][
+        "items"
+    ]["properties"]
 
-    assert '"role": "attendee|mentioned"' in schema
-    assert '"source": "voice|speaker_label|transcript|screen|other"' in schema
+    assert post.metadata["schema"] == "sense.schema.json"
+    assert "Authoritative schema: `sense.schema.json`." in output_schema
+    assert set(entity_props["role"]["enum"]) == {"attendee", "mentioned"}
+    assert set(entity_props["source"]["enum"]) == {
+        "voice",
+        "speaker_label",
+        "transcript",
+        "screen",
+        "other",
+    }
     assert "#### role" in entities
     assert "#### source" in entities
+
+
+def test_sense_loaded_json_schema_matches_on_disk_schema():
+    on_disk = json.loads(SENSE_SCHEMA_PATH.read_text(encoding="utf-8"))
+
+    assert get_talent("sense")["json_schema"] == on_disk
 
 
 def test_role_and_source_do_not_leak_into_other_sense_sections():

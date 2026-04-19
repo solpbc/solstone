@@ -10,6 +10,7 @@
   "thinking_budget": 4096,
   "max_output_tokens": 4096,
   "output": "json",
+  "schema": "sense.schema.json",
   "load": {"transcripts": true, "percepts": true, "talents": false}
 }
 
@@ -27,27 +28,7 @@ Read the transcript and screen data. Produce a JSON object with ALL of the follo
 
 ## Output Schema
 
-```json
-{
-  "density": "active|low_change|idle",
-  "content_type": "meeting|coding|browsing|email|messaging|reading|idle|mixed",
-  "activity_summary": "1-3 sentence description of what happened",
-  "entities": [
-    {"type": "Person|Company|Project|Tool", "name": "Full Name", "role": "attendee|mentioned", "source": "voice|speaker_label|transcript|screen|other", "context": "Why this entity matters in this segment"}
-  ],
-  "facets": [
-    {"facet": "facet_id", "activity": "1-sentence description for this facet", "level": "high|medium|low"}
-  ],
-  "meeting_detected": false,
-  "speakers": [],
-  "recommend": {
-    "screen_record": false,
-    "speaker_attribution": false,
-    "pulse_update": false
-  },
-  "emotional_register": "high_energy|tense|focused|collaborative|flat|celebratory|strained|neutral"
-}
-```
+Authoritative schema: `sense.schema.json`. The output is a single JSON object with these top-level fields: `density`, `content_type`, `activity_summary`, `entities`, `facets`, `meeting_detected`, `speakers`, `recommend`, `emotional_register`. See Field-by-Field Instructions below for semantics and enum values.
 
 ## Field-by-Field Instructions
 
@@ -86,7 +67,7 @@ Skip URLs, domains, filenames, paths. Each entity needs type, name, and context 
 - **attendee**: The entity was directly participating in the live interaction during this segment. Use only for people who were actively present in the meeting or call.
 - **mentioned**: The entity was referenced, quoted, shown on screen, or otherwise relevant, but was not directly participating.
 
-Contamination guard: tool or product names visible on screen must be `source: screen` and `role: mentioned`, never `attendee`. Video-conference app names such as Google Meet or Zoom are platform/tool entities, not attendees. People quoted or referenced in transcripts are `role: mentioned` unless they were actively speaking as participants in the live meeting.
+Contamination guard: tool or product names visible on screen must be `source: screen` and `role: mentioned`, never `attendee`. Video-conference app names such as Google Meet or Zoom are platform/tool entities, not attendees. `role: attendee` requires `meeting_detected: true` for this same segment; when `meeting_detected: false`, every Person must be `role: mentioned` even if they spoke, were quoted, or were referenced in the transcript.
 
 #### source
 - **voice**: Use when the entity is identified from spoken audio content.

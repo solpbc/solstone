@@ -20,7 +20,7 @@ def heartbeat_mocks(monkeypatch):
         "think.heartbeat.setup_cli",
         lambda parser: argparse.Namespace(force=False),
     )
-    monkeypatch.setattr("think.heartbeat.ensure_sol_directory", lambda: None)
+    monkeypatch.setattr("think.heartbeat.ensure_identity_directory", lambda: None)
     monkeypatch.setattr(
         "think.heartbeat.cortex_request", lambda *args, **kwargs: "agent-123"
     )
@@ -244,7 +244,7 @@ def test_force_flag_bypasses_recency_check(journal_path, monkeypatch):
         "think.heartbeat.setup_cli",
         lambda parser: argparse.Namespace(force=True),
     )
-    monkeypatch.setattr("think.heartbeat.ensure_sol_directory", lambda: None)
+    monkeypatch.setattr("think.heartbeat.ensure_identity_directory", lambda: None)
     monkeypatch.setattr(
         "think.heartbeat.wait_for_uses",
         lambda *args, **kwargs: ({"agent-123": "finish"}, []),

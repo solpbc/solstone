@@ -112,8 +112,8 @@ def merge_journals_fixture(tmp_path, monkeypatch):
         {"title": "Work"},
     )
 
-    (source / "sol").mkdir(parents=True)
-    (source / "sol" / "self.md").write_text("source sol\n", encoding="utf-8")
+    (source / "identity").mkdir(parents=True)
+    (source / "identity" / "self.md").write_text("source identity\n", encoding="utf-8")
     (source / "config").mkdir(parents=True)
     (source / "config" / "source-only.json").write_text("{}", encoding="utf-8")
 
@@ -516,14 +516,14 @@ def test_import_skip(merge_journals_fixture, monkeypatch):
     ).read_text(encoding="utf-8") == '{"manifest": "target"}\n'
 
 
-def test_source_sol_skipped(merge_journals_fixture, monkeypatch):
+def test_source_identity_skipped(merge_journals_fixture, monkeypatch):
     paths = merge_journals_fixture
     _mock_indexer(monkeypatch)
 
     result = runner.invoke(call_app, ["journal", "merge", str(paths["source"])])
 
     assert result.exit_code == 0
-    assert not (paths["target"] / "sol" / "self.md").exists()
+    assert not (paths["target"] / "identity" / "self.md").exists()
 
 
 def test_source_config_skipped(merge_journals_fixture, monkeypatch):

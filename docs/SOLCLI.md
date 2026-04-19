@@ -309,13 +309,14 @@ solstone/
 | `activities` | `apps/activities/call.py` | list, get, create, update, mute, unmute |
 | `entities` | `apps/entities/call.py` | list, show, search, observe, merge |
 | `speakers` | `apps/speakers/call.py` | list, show, detect-owner, confirm-owner, clusters, suggest |
+| `skills` | `apps/skills/call.py` | list, show, observe, seed, promote, refresh, mark-dormant, retire, edit-request, rename |
 | `transcripts` | `apps/transcripts/call.py` | list, read, segments |
 | `support` | `apps/support/call.py` | register, search, article, create, list, show, reply, attach, feedback, announcements, diagnose |
 | `sol` | `apps/sol/call.py` | name, set-name, reset, thickness, set-owner, sol-init |
 | `awareness` | `apps/awareness/call.py` | status, imports, log, log-read |
 | `journal` | `think/tools/call.py` | search, events, facets, facet (show/create/update/rename/mute/unmute/delete/merge), news, agents, read, imports, import, retention purge, storage-summary |
 | `routines` | `think/tools/routines.py` | list, templates, create, edit, delete, run, output, suggestions, suggest-respond, suggest-state |
-| `identity` | `think/tools/sol.py` | self, partner, agency, pulse, briefing |
+| `identity` | `think/tools/sol.py` | self, partner, agency, pulse, awareness, briefing |
 | `navigate` | `think/tools/navigate.py` | *(single command)* |
 
 ## Skill System

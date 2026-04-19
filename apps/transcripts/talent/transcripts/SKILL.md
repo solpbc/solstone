@@ -7,12 +7,14 @@ description: >
   Use when the owner asks about recordings, transcripts, what was said,
   conversation content, or wants to review captured audio or screen activity.
   TRIGGER: transcript, recording, audio, what was said, conversation,
-  segment, screen capture, recording coverage, monthly stats.
+  segment, screen capture, recording coverage, monthly stats,
+  sol call transcripts scan, sol call transcripts segments,
+  sol call transcripts read, sol call transcripts stats.
 ---
 
 # Transcripts CLI Skill
 
-Use these commands to inspect transcript availability and content from the terminal.
+Inspect transcript availability and content. Invoke via Bash: `sol call transcripts <command> [args...]`.
 
 **Environment defaults**: When `SOL_DAY` is set, commands that take a DAY argument will use it automatically. `SOL_SEGMENT` and `SOL_STREAM` provide defaults for `--segment` and `--stream` options.
 
@@ -30,7 +32,7 @@ sol call transcripts <command> [args...]
 sol call transcripts scan [DAY]
 ```
 
-Show audio and screen coverage ranges.
+Show transcript and percept coverage ranges. Output groups ranges under `Transcripts:` (microphone/system audio) and `Percepts:` (screen activity).
 
 - `DAY`: day in `YYYYMMDD` (default: `SOL_DAY` env).
 
@@ -68,7 +70,7 @@ sol call transcripts segments 20260115
 ## read
 
 ```bash
-sol call transcripts read [DAY] [--start HHMMSS --length MINUTES] [--segment KEY] [--segments KEYS] [--stream NAME] [--full] [--raw] [--audio] [--screen] [--agents]
+sol call transcripts read [DAY] [--start HHMMSS --length MINUTES] [--segment KEY] [--segments KEYS] [--stream NAME] [--full] [--raw] [--transcripts] [--percepts] [--agents]
 ```
 
 Read transcript content for a day, time range, segment, or span.
@@ -84,12 +86,14 @@ Read modes (mutually exclusive):
 
 Source flags:
 
-- `--full`: audio + screen + agents.
-- `--raw`: audio + screen only (no agents).
-- `--audio`: audio only.
-- `--screen`: screen only.
+- `--full`: transcripts + percepts + agents.
+- `--raw`: transcripts + percepts (no agents).
+- `--transcripts`: transcript content only.
+- `--percepts`: screen percepts only.
 - `--agents`: agent outputs only.
-- Default with no source flags: audio + agents (no screen).
+- Default with no source flags: transcripts + agents (no percepts).
+
+`--audio` and `--screen` are hidden aliases for `--transcripts` and `--percepts` respectively. Prefer the primary flags in new code.
 
 Rules:
 
@@ -98,8 +102,8 @@ Rules:
 
 Source type meanings:
 
-- **Audio**: spoken-word transcripts from microphone/system audio.
-- **Screen**: frame-level screen activity transcription.
+- **Transcripts**: spoken-word transcripts from microphone/system audio.
+- **Percepts**: frame-level screen activity transcription.
 - **Agents**: AI-generated summaries and insights.
 
 Examples:
@@ -109,7 +113,7 @@ sol call transcripts read 20260115
 sol call transcripts read 20260115 --start 090000 --length 30 --raw
 sol call transcripts read 20260115 --segment 091500_300 --full
 sol call transcripts read 20260115 --segments 091500_300,092000_300,092500_300 --transcripts --agents
-sol call transcripts read 20260115 --audio
+sol call transcripts read 20260115 --transcripts
 ```
 
 ## stats

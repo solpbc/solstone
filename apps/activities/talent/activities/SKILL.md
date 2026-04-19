@@ -7,12 +7,15 @@ description: >
   completed spans, muted activity records, or wants to review or edit an
   activity entry.
   TRIGGER: activity, activities, work session, completed span, mute activity,
-  unmute activity, activity record.
+  unmute activity, activity record, meeting attendees, participation,
+  sol call activities list, sol call activities create,
+  sol call activities update, sol call activities mute,
+  sol call activities unmute, sol call activities get.
 ---
 
 # Activities CLI Skill
 
-Use these commands to manage completed activity records from the terminal.
+Manage completed activity records. Invoke via Bash: `sol call activities <command> [args...]`.
 
 **Environment defaults**: When `SOL_DAY` is set, commands that take `DAY` use it automatically. Same for `SOL_FACET` where `FACET` is accepted.
 
@@ -25,7 +28,7 @@ sol call activities <command> [args...]
 ## list
 
 ```bash
-sol call activities list [-d DAY | --from DAY --to DAY] [-f FACET] [-a ACTIVITY] [--entity ENTITY] [--all] [--json]
+sol call activities list [-d DAY | --from DAY --to DAY] [-f FACET] [-a ACTIVITY] [--entity ENTITY] [--source SOURCE] [--all] [--json]
 ```
 
 List activity records for one day or an inclusive day range.
@@ -35,6 +38,7 @@ List activity records for one day or an inclusive day range.
 - `-f, --facet`: optional facet filter. Omit to include all facets.
 - `-a, --activity`: optional activity-type filter.
 - `--entity`: optional active-entity filter.
+- `--source`: optional record-source filter (`anticipated`, `user`, or `cogitate`). Omit to include all sources.
 - `--all`: include hidden activity records.
 - `--json`: emit raw JSON instead of formatted text.
 
@@ -82,13 +86,31 @@ Create a new activity record from a JSON object on stdin.
 Stdin JSON requirements:
 
 - Required: `title`, `activity`
-- Optional: `description`, `details`
+- Optional: `description`, `details`, `participation`
+
+`participation` is an array of participant objects. Each entry must include:
+
+- `name`: non-empty string.
+- `role`: `"attendee"` or `"mentioned"`.
+- `source`: one of `"voice"`, `"speaker_label"`, `"transcript"`, `"screen"`, `"other"`.
+- `confidence`: number (typically 0.0-1.0).
+- `context`: string describing where the detection came from.
+
+Names are resolved against journal entities after validation; any caller-supplied `entity_id` is ignored.
 
 Examples:
 
 ```bash
 echo '{"title":"Deep work","activity":"coding"}' | sol call activities create -f work
 echo '{"title":"Session review","activity":"coding","details":"Retrospective notes"}' | sol call activities create -f work --since-segment 090000_300 --source cogitate --json
+echo '{
+  "title":"Sync with Alicia",
+  "activity":"meeting",
+  "participation":[
+    {"name":"Alicia Chen","role":"attendee","source":"voice","confidence":0.95,"context":"voice detected start of segment"},
+    {"name":"You","role":"attendee","source":"screen","confidence":1.0,"context":"screen share"}
+  ]
+}' | sol call activities create -f work
 ```
 
 ## update

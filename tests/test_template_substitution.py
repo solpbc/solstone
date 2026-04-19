@@ -253,8 +253,8 @@ def test_load_prompt_empty_context(mock_journal_with_config, mock_prompt_dir):
     assert result_none.text == result_empty.text
 
 
-def test_load_prompt_sol_vars_follow_journal_override(monkeypatch, tmp_path):
-    """Journal sol/ content should not leak across journal overrides."""
+def test_load_prompt_identity_vars_follow_journal_override(monkeypatch, tmp_path):
+    """Journal identity/ content should not leak across journal overrides."""
 
     def write_journal(journal_dir, awareness_text):
         config_dir = journal_dir / "config"
@@ -267,13 +267,13 @@ def test_load_prompt_sol_vars_follow_journal_override(monkeypatch, tmp_path):
                 }
             )
         )
-        sol_dir = journal_dir / "sol"
-        sol_dir.mkdir()
-        (sol_dir / "awareness.md").write_text(awareness_text)
+        identity_dir = journal_dir / "identity"
+        identity_dir.mkdir()
+        (identity_dir / "awareness.md").write_text(awareness_text)
 
     prompt_dir = tmp_path / "prompts"
     prompt_dir.mkdir()
-    (prompt_dir / "sol_vars.md").write_text("Awareness:\n$sol_awareness\n")
+    (prompt_dir / "identity_vars.md").write_text("Awareness:\n$identity_awareness\n")
 
     journal_one = tmp_path / "journal-one"
     journal_two = tmp_path / "journal-two"
@@ -281,10 +281,10 @@ def test_load_prompt_sol_vars_follow_journal_override(monkeypatch, tmp_path):
     write_journal(journal_two, "second awareness")
 
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_one))
-    first = load_prompt("sol_vars", base_dir=prompt_dir)
+    first = load_prompt("identity_vars", base_dir=prompt_dir)
     assert "first awareness" in first.text
 
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_two))
-    second = load_prompt("sol_vars", base_dir=prompt_dir)
+    second = load_prompt("identity_vars", base_dir=prompt_dir)
     assert "second awareness" in second.text
     assert "first awareness" not in second.text

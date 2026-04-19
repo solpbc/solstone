@@ -26,7 +26,7 @@ Search the journal index across insights, transcripts, historical event extracts
 - `-d, --day`: exact day filter (`YYYYMMDD`).
 - `--day-from`, `--day-to`: inclusive date-range filters (`YYYYMMDD`).
 - `-f, --facet`: facet filter (for example `work`, `personal`).
-- `-a, --agent`: agent/content filter (for example `meetings`, historical `event`, `news`, `entity:detected`).
+- `-a, --agent`: agent/content filter (for example `span`, historical `event`, `news`, `entity:detected`).
 
 Behavior notes:
 
@@ -227,7 +227,7 @@ sol call journal read AGENT [-d DAY] [-s SEGMENT] [--max BYTES]
 
 Read full content of an agent output.
 
-- `AGENT`: agent name, e.g. `meetings`, `briefing`, `activity` (positional argument).
+- `AGENT`: agent name, e.g. `briefing`, `activity`, `screen` (positional argument).
 - `-d, --day`: day in `YYYYMMDD` (default: `SOL_DAY` env).
 - `-s, --segment`: optional segment key (default: `SOL_SEGMENT` env).
 - `--max`: max output bytes (default `16384`, `0` for unlimited).
@@ -238,7 +238,7 @@ Examples:
 
 ```bash
 sol call journal read briefing -d 20260115
-sol call journal read meetings
+sol call journal read briefing
 sol call journal read activity -s 091500_300
 ```
 
@@ -268,3 +268,21 @@ sol call journal news work -n 3
 sol call journal news -d 20260115          # uses SOL_FACET
 sol call journal news work --cursor 20260110 -n 5
 ```
+
+## Talent CLI Boundaries
+
+Cogitate talents have access to all `sol` commands. The following infrastructure commands must never be called by talents, because they manage services and data pipelines that should only be operated by the supervisor or a human operator:
+
+- `sol supervisor` / `sol start`
+- `sol think` except heartbeat's targeted `sol think --segment`
+- `sol import`
+- `sol config`
+- `sol cortex`
+- `sol providers check`
+- `sol callosum`
+- `sol observer` / `sol observe-*`
+- `sol sense`
+- `sol transcribe` / `sol describe`
+- `sol indexer --reset`
+
+Talents should use `sol call` commands for journal interaction and `sol health` / `sol talent logs` for diagnostics.

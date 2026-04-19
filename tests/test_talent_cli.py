@@ -57,8 +57,7 @@ def test_collect_configs_filter_schedule():
     for key, info in activity.items():
         assert info.get("schedule") == "activity", f"{key} should be activity"
 
-    # decisions is activity-scheduled
-    assert "decisions" in activity
+    assert "work" in activity
 
 
 def test_collect_configs_filter_source():
@@ -80,7 +79,7 @@ def test_format_tags_hook():
     assert _format_tags({}) == ""
 
     # Hook tags (compact, no =name suffix)
-    assert _format_tags({"hook": {"post": "occurrence"}}) == "post"
+    assert _format_tags({"hook": {"post": "schedule"}}) == "post"
     assert _format_tags({"hook": {"pre": "prep"}}) == "pre"
     assert _format_tags({"hook": {"pre": "prep", "post": "process"}}) == "pre post"
 
@@ -93,7 +92,7 @@ def test_format_tags_hook():
 
     # Combined: output + hooks + disabled + FAIL
     tags = _format_tags(
-        {"output": "md", "hook": {"post": "occurrence"}, "disabled": True},
+        {"output": "md", "hook": {"post": "schedule"}, "disabled": True},
         failed=True,
     )
     assert tags == "md post disabled FAIL"
@@ -603,7 +602,7 @@ def test_show_prompt_context_activity_requires_facet(capsys):
     from think.talent_cli import show_prompt_context
 
     with pytest.raises(SystemExit):
-        show_prompt_context("decisions", day="20260214")
+        show_prompt_context("work", day="20260214")
 
     output = capsys.readouterr().err
     assert "activity-scheduled" in output.lower()
@@ -615,7 +614,7 @@ def test_show_prompt_context_activity_requires_activity_id(capsys):
     from think.talent_cli import show_prompt_context
 
     with pytest.raises(SystemExit):
-        show_prompt_context("decisions", day="20260214", facet="full-featured")
+        show_prompt_context("work", day="20260214", facet="full-featured")
 
     output = capsys.readouterr().err
     assert "--activity" in output
@@ -629,7 +628,7 @@ def test_show_prompt_context_activity_not_found(capsys):
 
     with pytest.raises(SystemExit):
         show_prompt_context(
-            "decisions",
+            "work",
             day="20260214",
             facet="full-featured",
             activity="nonexistent_999",
@@ -640,9 +639,11 @@ def test_show_prompt_context_activity_not_found(capsys):
 
 
 def test_list_prompts_activity_group(capsys):
-    """List view includes activity group with decisions agent."""
+    """List view includes activity group with storytelling talents."""
     list_prompts()
     output = capsys.readouterr().out
 
     assert "activity:" in output
-    assert "decisions" in output
+    assert "conversation" in output
+    assert "work" in output
+    assert "event" in output

@@ -3,8 +3,12 @@
 
 """Tests for think.talent module."""
 
+import json
+from pathlib import Path
+
 import pytest
 
+from think import talent as talent_module
 from think.talent import (
     _validate_cwd,
     get_talent,
@@ -105,3 +109,162 @@ def test_get_agent_normalizes_cwd_for_cogitate():
 def test_get_agent_preserves_repo_cwd_for_coder():
     config = get_talent("coder")
     assert config["cwd"] == "repo"
+
+
+def _write_talent_file(tmp_path: Path, name: str, metadata: dict) -> Path:
+    md_path = tmp_path / f"{name}.md"
+    md_path.write_text(
+        f"{json.dumps(metadata, indent=2)}\n\nTest prompt\n",
+        encoding="utf-8",
+    )
+    return md_path
+
+
+def _write_schema_file(path: Path, schema: dict) -> None:
+    path.write_text(json.dumps(schema, indent=2), encoding="utf-8")
+
+
+def test_schema_absent_no_json_schema_key(tmp_path, monkeypatch):
+    monkeypatch.setattr(talent_module, "TALENT_DIR", tmp_path)
+    _write_talent_file(
+        tmp_path, "schema_absent", {"type": "generate", "output": "json"}
+    )
+
+    config = get_talent("schema_absent")
+
+    assert "json_schema" not in config
+    assert "schema" not in config
+
+
+def test_schema_loads_valid_file(tmp_path, monkeypatch):
+    monkeypatch.setattr(talent_module, "TALENT_DIR", tmp_path)
+    schema = {"type": "object", "properties": {"value": {"type": "string"}}}
+    _write_schema_file(tmp_path / "schema.json", schema)
+    _write_talent_file(
+        tmp_path,
+        "schema_valid",
+        {"type": "generate", "output": "json", "schema": "schema.json"},
+    )
+
+    config = get_talent("schema_valid")
+
+    assert config["json_schema"] == schema
+    assert "schema" not in config
+
+
+def test_schema_absolute_path_rejected(tmp_path, monkeypatch):
+    monkeypatch.setattr(talent_module, "TALENT_DIR", tmp_path)
+    _write_talent_file(
+        tmp_path,
+        "schema_absolute",
+        {"type": "generate", "output": "json", "schema": "/etc/passwd"},
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=r"talent schema_absolute: schema path must be relative: /etc/passwd",
+    ):
+        get_talent("schema_absolute")
+
+
+def test_schema_parent_traversal_rejected(tmp_path, monkeypatch):
+    monkeypatch.setattr(talent_module, "TALENT_DIR", tmp_path)
+    _write_talent_file(
+        tmp_path,
+        "schema_parent",
+        {"type": "generate", "output": "json", "schema": "../escape.json"},
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=r"talent schema_parent: schema path must not contain '\.\.': \.\./escape\.json",
+    ):
+        get_talent("schema_parent")
+
+
+def test_schema_symlink_escape_rejected(tmp_path, monkeypatch):
+    monkeypatch.setattr(talent_module, "TALENT_DIR", tmp_path)
+    outside_schema = tmp_path.parent / "outside_schema.json"
+    _write_schema_file(outside_schema, {"type": "object"})
+    try:
+        (tmp_path / "schema.json").symlink_to(outside_schema)
+    except (NotImplementedError, OSError) as exc:
+        pytest.skip(f"symlinks unavailable on this filesystem: {exc}")
+
+    _write_talent_file(
+        tmp_path,
+        "schema_symlink",
+        {"type": "generate", "output": "json", "schema": "schema.json"},
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=r"talent schema_symlink: schema path escapes talent directory:",
+    ):
+        get_talent("schema_symlink")
+
+
+def test_schema_missing_file(tmp_path, monkeypatch):
+    monkeypatch.setattr(talent_module, "TALENT_DIR", tmp_path)
+    _write_talent_file(
+        tmp_path,
+        "schema_missing",
+        {"type": "generate", "output": "json", "schema": "missing.json"},
+    )
+
+    with pytest.raises(
+        FileNotFoundError,
+        match=r"talent schema_missing: schema file not found: .*missing\.json",
+    ):
+        get_talent("schema_missing")
+
+
+def test_schema_malformed_json(tmp_path, monkeypatch):
+    monkeypatch.setattr(talent_module, "TALENT_DIR", tmp_path)
+    schema_path = tmp_path / "broken.json"
+    schema_path.write_text("{\n", encoding="utf-8")
+    _write_talent_file(
+        tmp_path,
+        "schema_malformed",
+        {"type": "generate", "output": "json", "schema": "broken.json"},
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=r"talent schema_malformed: schema file is not valid JSON: .*broken\.json",
+    ):
+        get_talent("schema_malformed")
+
+
+def test_schema_invalid_schema_draft(tmp_path, monkeypatch):
+    monkeypatch.setattr(talent_module, "TALENT_DIR", tmp_path)
+    _write_schema_file(tmp_path / "invalid_schema.json", {"type": 3})
+    _write_talent_file(
+        tmp_path,
+        "schema_invalid",
+        {"type": "generate", "output": "json", "schema": "invalid_schema.json"},
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            r"talent schema_invalid: schema file is not a valid JSON Schema: "
+            r".*invalid_schema\.json"
+        ),
+    ):
+        get_talent("schema_invalid")
+
+
+def test_schema_not_string(tmp_path, monkeypatch):
+    monkeypatch.setattr(talent_module, "TALENT_DIR", tmp_path)
+    _write_talent_file(
+        tmp_path,
+        "schema_not_string",
+        {"type": "generate", "output": "json", "schema": 42},
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=r"talent schema_not_string: schema must be a string, got int: 42",
+    ):
+        get_talent("schema_not_string")

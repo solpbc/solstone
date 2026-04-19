@@ -187,7 +187,7 @@ def test_spawn_generator_via_subprocess(
     config = {
         "event": "request",
         "ts": 987654321,
-        "name": "decisions",
+        "name": "work",
         "day": "20240101",
         "output": "md",
     }
@@ -214,7 +214,7 @@ def test_spawn_generator_via_subprocess(
     written_data = mock_process.stdin.write.call_args[0][0]
     ndjson = json.loads(written_data.strip())
     assert ndjson["event"] == "request"
-    assert ndjson["name"] == "decisions"
+    assert ndjson["name"] == "work"
     assert ndjson["day"] == "20240101"
     assert ndjson["output"] == "md"
 

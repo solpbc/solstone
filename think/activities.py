@@ -803,19 +803,34 @@ def locked_modify(
 
 
 def append_edit(
-    record: dict[str, Any], *, actor: str, fields: list[str], note: str
+    record: dict[str, Any],
+    *,
+    actor: str,
+    fields: list[str],
+    note: str | None,
+    payload: dict[str, Any]
+    | None = None,  # Additive: Ledger close writes a `ledger_close` sub-dict alongside the audit edit; keep spread so edit readers see a flat entry.
 ) -> dict[str, Any]:
     """Append an edit entry to an activity record and return the record."""
     normalized = _normalize_activity_record(record)
     edits = [dict(edit) for edit in normalized.get("edits", [])]
-    edits.append(
-        {
-            "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
-            "actor": actor,
-            "fields": list(fields),
-            "note": note,
-        }
-    )
+    edit_entry: dict[str, Any] = {
+        "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        "actor": actor,
+        "fields": list(fields),
+        "note": note,
+    }
+    if payload is not None:
+        if not isinstance(payload, dict):
+            raise TypeError("payload must be dict[str, Any] when provided")
+        collision_keys = sorted(set(payload) & set(edit_entry))
+        if collision_keys:
+            raise ValueError(
+                "payload cannot overwrite canonical edit fields: "
+                + ", ".join(collision_keys)
+            )
+        edit_entry = {**edit_entry, **payload}
+    edits.append(edit_entry)
     normalized["edits"] = edits
     return normalized
 
@@ -1089,6 +1104,109 @@ def update_activity_record(
     return updated_record
 
 
+def merge_story_fields(
+    facet: str,
+    day: str,
+    record_id: str,
+    *,
+    story: dict,
+    commitments: list[dict],
+    closures: list[dict],
+    decisions: list[dict],
+    actor: str,
+    note: str | None = None,
+) -> bool:
+    """Replace story-derived fields on an activity record and append one edit."""
+    updated = False
+    path = _get_records_path(facet, day)
+
+    def modify_fn(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        nonlocal updated
+        new_records: list[dict[str, Any]] = []
+        for record in records:
+            if record.get("id") == record_id:
+                merged = _normalize_activity_record(record)
+                merged["story"] = dict(story)
+                merged["commitments"] = [dict(entry) for entry in commitments]
+                merged["closures"] = [dict(entry) for entry in closures]
+                merged["decisions"] = [dict(entry) for entry in decisions]
+                merged = append_edit(
+                    merged,
+                    actor=actor,
+                    fields=["story", "commitments", "closures", "decisions"],
+                    note=note,
+                )
+                new_records.append(merged)
+                updated = True
+            else:
+                new_records.append(record)
+        return new_records
+
+    try:
+        locked_modify(path, modify_fn, create_if_missing=False)
+    except FileNotFoundError:
+        logger.warning("story hook: activity record not found: %s", record_id)
+        return False
+
+    if not updated:
+        logger.warning("story hook: activity record not found: %s", record_id)
+    return updated
+
+
+def append_ledger_close_edit(
+    facet: str,
+    day: str,
+    record_id: str,
+    *,
+    item_id: str,
+    note: str,
+    as_state: str,
+) -> dict[str, Any] | None:
+    """Append one ledger-close audit edit to an activity record."""
+    updated_record: dict[str, Any] | None = None
+
+    def modify_fn(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        nonlocal updated_record
+        new_records: list[dict[str, Any]] = []
+        for record in records:
+            if record.get("id") != record_id:
+                new_records.append(record)
+                continue
+
+            normalized = _normalize_activity_record(record)
+            edits = normalized.get("edits", [])
+            already_closed = any(
+                edit.get("fields") == ["ledger_close"]
+                and isinstance(edit.get("ledger_close"), dict)
+                and edit["ledger_close"].get("item_id") == item_id
+                and edit["ledger_close"].get("as_state") == as_state
+                for edit in edits
+                if isinstance(edit, dict)
+            )
+            if already_closed:
+                updated_record = normalized
+                new_records.append(normalized)
+                continue
+
+            normalized = append_edit(
+                normalized,
+                actor="cli:ledger_close",
+                fields=["ledger_close"],
+                note=note,
+                payload={"ledger_close": {"item_id": item_id, "as_state": as_state}},
+            )
+            updated_record = normalized
+            new_records.append(normalized)
+        return new_records
+
+    try:
+        locked_modify(_get_records_path(facet, day), modify_fn)
+    except FileNotFoundError:
+        return None
+
+    return updated_record
+
+
 def _set_activity_hidden_state(
     facet: str,
     day: str,
@@ -1301,6 +1419,23 @@ def format_activities(
         participants = _format_participation(record)
         if participants:
             lines.append(f"- Participation: {participants}")
+
+        story = record.get("story")
+        if isinstance(story, dict):
+            body = story.get("body")
+            if isinstance(body, str) and body.strip():
+                lines.append("")
+                lines.append(body.strip())
+
+            topics = story.get("topics")
+            if isinstance(topics, list):
+                topic_values = [
+                    topic.strip()
+                    for topic in topics
+                    if isinstance(topic, str) and topic.strip()
+                ]
+                if topic_values:
+                    lines.append(f"Topics: {', '.join(topic_values)}")
 
         if record.get("hidden", False):
             lines.append("- Hidden: yes")

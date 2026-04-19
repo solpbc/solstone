@@ -32,6 +32,7 @@ def _make_sense_output(**overrides):
             "speaker_attribution": False,
             "pulse_update": False,
         },
+        "emotional_register": "neutral",
     }
     base.update(overrides)
     return base
@@ -75,10 +76,11 @@ class TestWriteSenseOutputs:
             sense_json
         )
 
-    def test_preserves_raw_payload_in_sense_json(self, tmp_path):
+    def test_preserves_raw_payload_with_extra_keys_for_defensive_replay(self, tmp_path):
         from think.sense_splitter import write_sense_outputs
 
         seg_dir = Path(tmp_path) / "20260304" / "default" / "090000_300"
+        # Advisory validation means unexpected keys can still reach the splitter.
         sense_json = _make_sense_output(foo="bar")
 
         write_sense_outputs(sense_json, seg_dir)
@@ -174,6 +176,7 @@ class TestEdgeCases:
 
         seg_dir = Path(tmp_path) / "20260304" / "default" / "090000_300"
 
+        # Advisory schema validation means the splitter must still tolerate degraded input.
         write_sense_outputs({}, seg_dir)
 
         agents_dir = seg_dir / "talents"
@@ -202,6 +205,7 @@ class TestEdgeCases:
             "speakers": None,
         }
 
+        # Advisory schema validation means the splitter must still tolerate degraded input.
         write_sense_outputs(sense_json, seg_dir)
 
         agents_dir = seg_dir / "talents"

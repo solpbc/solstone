@@ -52,13 +52,8 @@ def _reapply_isolated_override(_baseline_journal, monkeypatch):
     gitignored `indexer/journal.sqlite` contains populated data from live use,
     breaking both determinism and the module-scoped `isolated_app_env` harness.
     """
-    import think.prompts as prompts_mod
-    from think.prompts import reset_sol_vars_cache
-
     journal = _baseline_journal.resolve()
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
-    monkeypatch.setattr(prompts_mod, "SOL_DIR", journal / "sol")
-    reset_sol_vars_cache()
 
 
 @pytest.mark.parametrize(

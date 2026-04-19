@@ -1172,11 +1172,11 @@
       {% for skill in skills %}
       <div class="pulse-skill-item{{ ' is-new' if not skill.seen else '' }}" role="button" tabindex="0" data-skill-click="true" data-skill-id="{{ skill.id }}">
         <span>
-          <span class="pulse-skill-name">{{ skill.name }}</span>
+          <span class="pulse-skill-name">{{ skill.name }}{{ ' (dormant)' if skill.status == 'dormant' else '' }}</span>
           <span class="pulse-skill-badge">{{ skill.observations }} obs</span>
-          <span class="pulse-skill-facet">{{ skill.facet }}</span>
-          {% if skill.summary %}
-          <span class="pulse-skill-summary">— {{ skill.summary }}</span>
+          <span class="pulse-skill-facet">{{ skill.facets[0] if skill.facets else '' }}</span>
+          {% if skill.description %}
+          <span class="pulse-skill-summary">— {{ skill.description }}</span>
           {% endif %}
         </span>
       </div>
@@ -1692,13 +1692,14 @@
         html += '<div class="pulse-section-body">';
         html += '<div class="pulse-skills-list">';
         skills.forEach(function(s) {
-          var name = esc(s.name);
+          var name = esc(s.name + (s.status === 'dormant' ? ' (dormant)' : ''));
+          var facet = esc((s.facets && s.facets.length > 0) ? s.facets[0] : '');
           var newClass = s.seen ? '' : ' is-new';
           html += '<div class="pulse-skill-item' + newClass + '" role="button" tabindex="0" data-skill-click="true" data-skill-id="' + esc(s.id) + '"><span>';
           html += '<span class="pulse-skill-name">' + name + '</span> ';
           html += '<span class="pulse-skill-badge">' + (s.observations || 0) + ' obs</span> ';
-          html += '<span class="pulse-skill-facet">' + esc(s.facet) + '</span>';
-          if (s.summary) html += ' <span class="pulse-skill-summary">— ' + esc(s.summary) + '</span>';
+          html += '<span class="pulse-skill-facet">' + facet + '</span>';
+          if (s.description) html += ' <span class="pulse-skill-summary">— ' + esc(s.description) + '</span>';
           html += '</span></div>';
           html += '<div class="pulse-skill-detail" id="skill-detail-' + esc(s.id) + '" style="display: none;"></div>';
         });

@@ -30,6 +30,7 @@ from media import MIME_TYPES
 DATE_RE = re.compile(r"\d{8}")
 CHRONICLE_DIR = "chronicle"
 DEFAULT_STREAM = "_default"
+EXIT_TEMPFAIL = 75
 
 
 def now_ms() -> int:
@@ -952,6 +953,8 @@ def require_solstone() -> None:
         return
     if is_solstone_up():
         return
+    if os.environ.get("SOL_SUPERVISOR_SPAWNED") == "1":
+        sys.exit(EXIT_TEMPFAIL)
     print(
         "sol: solstone isn't running. Start it with 'sol up' and retry.",
         file=sys.stderr,

@@ -1,16 +1,23 @@
 ---
 name: routines
 description: >
-  Create, manage, and inspect scheduled routines. List available templates,
-  create routines from templates or custom instructions, edit timing and scope,
-  pause/resume, delete, run immediately, and read output history.
-  TRIGGER: routine, routines, schedule, recurring, automate, morning briefing setup,
-  weekly review setup, domain watch, meeting prep, commitment audit.
+  Set up recurring routines — daily briefings, weekly reviews, domain
+  watches, commitment audits, meeting prep — or custom automations.
+  Create from templates with sensible defaults or from custom
+  instructions, adjust timing and scope, pause/resume, delete, run
+  immediately to test, respond to routine suggestions, and read past
+  output.
+  TRIGGER: routine, routines, schedule, recurring, automate, daily brief,
+  morning briefing, weekly review, domain watch, meeting prep,
+  commitment audit, routine output, pause routine, run immediately,
+  routine suggestions, sol call routines create, sol call routines list,
+  sol call routines edit, sol call routines run, sol call routines output,
+  sol call routines suggest-respond, sol call routines suggest-state.
 ---
 
 # Routines CLI Skill
 
-Use these commands to manage routines. Never expose cron syntax, UUIDs, or CLI internals to the owner.
+Manage recurring routines. Invoke via Bash: `sol call routines <command> [args...]`. Never expose cron syntax, UUIDs, or CLI internals to the owner.
 
 ## Template guidance
 
@@ -44,5 +51,23 @@ Meeting-prep is event-triggered, not clock-scheduled. Explain this naturally: "I
 | Run immediately | `sol call routines run {name}` |
 | Read output | `sol call routines output {name}` (add `--date YYYY-MM-DD` for a specific day) |
 | Toggle suggestions | `sol call routines suggestions --enable` or `sol call routines suggestions --disable` |
+| Record response to a suggestion | `sol call routines suggest-respond {template} --accepted` or `--declined` |
+| Show suggestion state | `sol call routines suggest-state` |
 
 Use the routine's name for identification, never UUIDs.
+
+## Responding to suggestions
+
+When the system surfaces a routine suggestion and the owner accepts or declines it, record their response so the suggestion engine doesn't re-surface the same template prematurely:
+
+```bash
+sol call routines suggest-respond morning-briefing --accepted
+sol call routines suggest-respond weekly-review --declined
+```
+
+Exactly one of `--accepted` or `--declined` is required. `suggest-state` prints the full JSON state for all templates if you need to inspect what the engine already knows.
+
+## Gotchas
+
+- **Timezone must be an IANA name.** `--timezone America/Denver` works; `--timezone MDT` does not. The CLI rejects the latter with a terse error.
+- **Suggestion responses are idempotent within a day.** Calling `suggest-respond` twice in the same day overwrites the previous response. Don't loop on it.

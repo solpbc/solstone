@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""CLI commands for sol/ identity directory.
+"""CLI commands for the journal identity directory.
 
-Provides read and write access to ``{journal}/sol/self.md``,
-``{journal}/sol/partner.md``, ``{journal}/sol/agency.md``, and
-``{journal}/sol/pulse.md``, and ``{journal}/sol/awareness.md`` — sol's
+Provides read and write access to ``{journal}/identity/self.md``,
+``{journal}/identity/partner.md``, ``{journal}/identity/agency.md``, and
+``{journal}/identity/pulse.md``, and ``{journal}/identity/awareness.md`` — sol's
 identity and initiative files. Also provides read access to the morning
 briefing at
 ``{journal}/YYYYMMDD/talents/morning_briefing.md``.
@@ -19,17 +19,16 @@ from pathlib import Path
 
 import typer
 
-from think.awareness import (
-    _log_identity_change,
-    ensure_sol_directory,
+from think.identity import (
+    ensure_identity_directory,
     update_identity_section,
     update_self_md_section,
+    write_identity,
 )
-from think.entities.core import atomic_write
 from think.utils import day_dirs, day_path, get_journal, require_solstone
 
 app = typer.Typer(
-    help="Sol identity directory — self.md, partner.md, agency.md, pulse.md, awareness.md, and morning briefing.",
+    help="Journal identity directory — self.md, partner.md, agency.md, pulse.md, awareness.md, and morning briefing.",
     invoke_without_command=True,
     no_args_is_help=False,
 )
@@ -70,10 +69,10 @@ def _strip_section_heading(stem: str, text: str) -> str:
 
 def _hydrate() -> str:
     """Return the combined identity hydration document."""
-    sol_dir = Path(get_journal()) / "sol"
+    identity_dir = Path(get_journal()) / "identity"
     chunks = [f"# species\n\n{_SPECIES_PREAMBLE}\n"]
     for stem in ("self", "partner", "agency", "awareness"):
-        path = sol_dir / f"{stem}.md"
+        path = identity_dir / f"{stem}.md"
         content = (
             path.read_text(encoding="utf-8").strip()
             if path.exists()
@@ -91,9 +90,13 @@ def _require_up(ctx: typer.Context) -> None:
         print(_hydrate(), end="")
 
 
-def _sol_dir():
-    """Return the sol/ directory path, creating it if needed."""
-    return ensure_sol_directory()
+def _identity_dir():
+    """Return the identity/ directory path, creating it if needed."""
+    return ensure_identity_directory()
+
+
+def _actor_for_cmd(command: str, flag: str) -> str:
+    return f"sol call identity {command} {flag}"
 
 
 def _resolve_content(value: str | None) -> str:
@@ -122,13 +125,18 @@ def self_cmd(
         None, "--value", help="Content to write (alternative to stdin)."
     ),
 ) -> None:
-    """Read or write sol/self.md."""
-    sol_dir = _sol_dir()
-    self_path = sol_dir / "self.md"
+    """Read or write identity/self.md."""
+    identity_dir = _identity_dir()
+    self_path = identity_dir / "self.md"
 
     if update_section:
         content = _resolve_content(value)
-        if update_self_md_section(update_section, content.strip()):
+        if update_self_md_section(
+            update_section,
+            content.strip(),
+            actor=_actor_for_cmd("self", "--update-section <heading>"),
+            reason="manual section update",
+        ):
             typer.echo(f"Updated ## {update_section} in self.md.")
         else:
             typer.echo(f"Error: section '## {update_section}' not found.", err=True)
@@ -137,12 +145,13 @@ def self_cmd(
 
     if write:
         content = _resolve_content(value)
-        old_content = (
-            self_path.read_text(encoding="utf-8") if self_path.exists() else ""
-        )
-        atomic_write(self_path, content)
-        _log_identity_change(
-            "self.md", old_content, content, section=None, source="cli"
+        write_identity(
+            "self.md",
+            actor=_actor_for_cmd("self", "--write"),
+            op="replace",
+            section=None,
+            content=content,
+            reason="manual replace",
         )
         typer.echo("self.md updated.")
         return
@@ -171,13 +180,19 @@ def partner_cmd(
         None, "--value", help="Content to write (alternative to stdin)."
     ),
 ) -> None:
-    """Read or write sol/partner.md."""
-    sol_dir = _sol_dir()
-    partner_path = sol_dir / "partner.md"
+    """Read or write identity/partner.md."""
+    identity_dir = _identity_dir()
+    partner_path = identity_dir / "partner.md"
 
     if update_section:
         content = _resolve_content(value)
-        if update_identity_section("partner.md", update_section, content.strip()):
+        if update_identity_section(
+            "partner.md",
+            update_section,
+            content.strip(),
+            actor=_actor_for_cmd("partner", "--update-section <heading>"),
+            reason="manual section update",
+        ):
             typer.echo(f"Updated ## {update_section} in partner.md.")
         else:
             typer.echo(f"Error: section '## {update_section}' not found.", err=True)
@@ -186,12 +201,13 @@ def partner_cmd(
 
     if write:
         content = _resolve_content(value)
-        old_content = (
-            partner_path.read_text(encoding="utf-8") if partner_path.exists() else ""
-        )
-        atomic_write(partner_path, content)
-        _log_identity_change(
-            "partner.md", old_content, content, section=None, source="cli"
+        write_identity(
+            "partner.md",
+            actor=_actor_for_cmd("partner", "--write"),
+            op="replace",
+            section=None,
+            content=content,
+            reason="manual replace",
         )
         typer.echo("partner.md updated.")
         return
@@ -215,22 +231,19 @@ def agency_cmd(
         None, "--value", help="Content to write (alternative to stdin)."
     ),
 ) -> None:
-    """Read or write sol/agency.md."""
-    sol_dir = _sol_dir()
-    agency_path = sol_dir / "agency.md"
+    """Read or write identity/agency.md."""
+    identity_dir = _identity_dir()
+    agency_path = identity_dir / "agency.md"
 
     if write:
         content = _resolve_content(value)
-        old_content = (
-            agency_path.read_text(encoding="utf-8") if agency_path.exists() else ""
-        )
-        atomic_write(agency_path, content)
-        _log_identity_change(
+        write_identity(
             "agency.md",
-            old_content,
-            content,
+            actor=_actor_for_cmd("agency", "--write"),
+            op="replace",
             section=None,
-            source="cli",
+            content=content,
+            reason="manual replace",
         )
         typer.echo("agency.md updated.")
         return
@@ -254,18 +267,19 @@ def pulse_cmd(
         None, "--value", help="Content to write (alternative to stdin)."
     ),
 ) -> None:
-    """Read or write sol/pulse.md."""
-    sol_dir = _sol_dir()
-    pulse_path = sol_dir / "pulse.md"
+    """Read or write identity/pulse.md."""
+    identity_dir = _identity_dir()
+    pulse_path = identity_dir / "pulse.md"
 
     if write:
         content = _resolve_content(value)
-        old_content = (
-            pulse_path.read_text(encoding="utf-8") if pulse_path.exists() else ""
-        )
-        atomic_write(pulse_path, content)
-        _log_identity_change(
-            "pulse.md", old_content, content, section=None, source="cli"
+        write_identity(
+            "pulse.md",
+            actor=_actor_for_cmd("pulse", "--write"),
+            op="replace",
+            section=None,
+            content=content,
+            reason="manual replace",
         )
         typer.echo("pulse.md updated.")
         return
@@ -289,20 +303,19 @@ def awareness_cmd(
         None, "--value", help="Content to write (alternative to stdin)."
     ),
 ) -> None:
-    """Read or write sol/awareness.md."""
-    sol_dir = _sol_dir()
-    awareness_path = sol_dir / "awareness.md"
+    """Read or write identity/awareness.md."""
+    identity_dir = _identity_dir()
+    awareness_path = identity_dir / "awareness.md"
 
     if write:
         content = _resolve_content(value)
-        old_content = (
-            awareness_path.read_text(encoding="utf-8")
-            if awareness_path.exists()
-            else ""
-        )
-        atomic_write(awareness_path, content)
-        _log_identity_change(
-            "awareness.md", old_content, content, section=None, source="cli"
+        write_identity(
+            "awareness.md",
+            actor=_actor_for_cmd("awareness", "--write"),
+            op="replace",
+            section=None,
+            content=content,
+            reason="manual replace",
         )
         typer.echo("awareness.md updated.")
         return

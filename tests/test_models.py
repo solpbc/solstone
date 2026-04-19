@@ -3,6 +3,11 @@
 
 """Tests for think.models module."""
 
+import asyncio
+import logging
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 
 from think.models import (
@@ -21,7 +26,12 @@ from think.models import (
     TIER_LITE,
     TIER_PRO,
     TYPE_DEFAULTS,
+    IncompleteJSONError,
+    _validate_schema,
+    agenerate,
     calc_token_cost,
+    generate,
+    generate_with_result,
     get_context_registry,
     get_usage_cost,
     iter_token_log,
@@ -738,3 +748,244 @@ def test_log_token_usage_passes_through_cache_creation_tokens(tmp_path, monkeypa
     entry = json.loads(log_file.read_text().strip())
     assert entry["usage"]["cache_creation_tokens"] == 2000
     assert entry["usage"]["cached_tokens"] == 3000
+
+
+class TestValidateSchema:
+    def test_valid_instance(self):
+        schema = {
+            "type": "object",
+            "properties": {"field": {"type": "string"}},
+            "required": ["field"],
+        }
+
+        result = _validate_schema('{"field": "ok"}', schema)
+
+        assert result == {"valid": True, "errors": []}
+
+    def test_schema_violation_type(self):
+        schema = {
+            "type": "object",
+            "properties": {"field": {"type": "integer"}},
+            "required": ["field"],
+        }
+
+        result = _validate_schema('{"field": "ok"}', schema)
+
+        assert result["valid"] is False
+        assert len(result["errors"]) == 1
+        assert result["errors"][0]["path"] == "/field"
+        assert result["errors"][0]["constraint"] == "type"
+        assert result["errors"][0]["message"]
+
+    def test_schema_violation_required(self):
+        schema = {"type": "object", "required": ["field"]}
+
+        result = _validate_schema("{}", schema)
+
+        assert result["valid"] is False
+        assert len(result["errors"]) == 1
+        assert result["errors"][0]["path"] == ""
+        assert result["errors"][0]["constraint"] == "required"
+
+    def test_multiple_violations(self):
+        schema = {
+            "type": "object",
+            "properties": {
+                "field": {"type": "integer"},
+                "other": {"type": "string"},
+            },
+            "required": ["field", "other"],
+        }
+
+        result = _validate_schema('{"field": "bad"}', schema)
+
+        assert result["valid"] is False
+        assert len(result["errors"]) == 2
+        assert {error["constraint"] for error in result["errors"]} == {
+            "required",
+            "type",
+        }
+
+    def test_parse_failure(self):
+        schema = {"type": "object"}
+
+        result = _validate_schema("{", schema)
+
+        assert result["valid"] is False
+        assert result["errors"] == [
+            {
+                "path": "",
+                "constraint": "json_parse",
+                "message": result["errors"][0]["message"],
+            }
+        ]
+
+    def test_json_pointer_escape(self):
+        schema = {
+            "type": "object",
+            "properties": {
+                "a/b": {
+                    "type": "object",
+                    "properties": {"c~d": {"type": "integer"}},
+                }
+            },
+        }
+
+        result = _validate_schema('{"a/b": {"c~d": "bad"}}', schema)
+
+        assert result["valid"] is False
+        assert result["errors"][0]["path"] == "/a~1b/c~0d"
+
+    def test_warning_logged_for_violations(self, caplog):
+        schema = {
+            "type": "object",
+            "properties": {"field": {"type": "integer"}},
+        }
+
+        with caplog.at_level(logging.WARNING):
+            _validate_schema('{"field": "bad"}', schema)
+
+        assert any(
+            record.levelno == logging.WARNING
+            and "schema_validation:" in record.getMessage()
+            for record in caplog.records
+        )
+
+    def test_invalid_schema_does_not_raise(self):
+        result = _validate_schema('{"field": "ok"}', {"type": "not-a-real-type"})
+
+        assert result["valid"] is False
+        assert len(result["errors"]) == 1
+        assert result["errors"][0]["constraint"] == "schema_validation"
+
+
+class TestGenerateJsonSchemaPlumbing:
+    def test_generate_forces_json_output_with_schema(self):
+        schema = {"type": "object"}
+        provider_module = SimpleNamespace(
+            run_generate=MagicMock(return_value={"text": "{}", "finish_reason": "stop"})
+        )
+
+        with (
+            patch("think.models.resolve_provider", return_value=("fake", "model")),
+            patch("think.providers.get_provider_module", return_value=provider_module),
+        ):
+            result = generate("hello", "test.context", json_schema=schema)
+
+        assert result == "{}"
+        call_kwargs = provider_module.run_generate.call_args.kwargs
+        assert call_kwargs["json_output"] is True
+        assert call_kwargs["json_schema"] == schema
+
+    def test_agenerate_forces_json_output_with_schema(self):
+        schema = {"type": "object"}
+        provider_module = SimpleNamespace(
+            run_agenerate=AsyncMock(
+                return_value={"text": "{}", "finish_reason": "stop"}
+            )
+        )
+
+        with (
+            patch("think.models.resolve_provider", return_value=("fake", "model")),
+            patch("think.providers.get_provider_module", return_value=provider_module),
+        ):
+            result = asyncio.run(agenerate("hello", "test.context", json_schema=schema))
+
+        assert result == "{}"
+        call_kwargs = provider_module.run_agenerate.call_args.kwargs
+        assert call_kwargs["json_output"] is True
+        assert call_kwargs["json_schema"] == schema
+
+    def test_generate_with_result_adds_schema_validation(self):
+        provider_module = SimpleNamespace(
+            run_generate=MagicMock(return_value={"text": "{}", "finish_reason": "stop"})
+        )
+        validation = {"valid": True, "errors": []}
+
+        with (
+            patch("think.models.resolve_provider", return_value=("fake", "model")),
+            patch("think.providers.get_provider_module", return_value=provider_module),
+            patch("think.models._validate_schema", return_value=validation),
+        ):
+            result = generate_with_result(
+                "hello",
+                "test.context",
+                json_schema={"type": "object"},
+            )
+
+        assert result["schema_validation"] == validation
+
+    def test_generate_with_result_omits_schema_validation_without_schema(self):
+        provider_module = SimpleNamespace(
+            run_generate=MagicMock(return_value={"text": "{}", "finish_reason": "stop"})
+        )
+
+        with (
+            patch("think.models.resolve_provider", return_value=("fake", "model")),
+            patch("think.providers.get_provider_module", return_value=provider_module),
+            patch("think.models._validate_schema") as mock_validate_schema,
+        ):
+            result = generate_with_result("hello", "test.context")
+
+        assert "schema_validation" not in result
+        mock_validate_schema.assert_not_called()
+
+    def test_generate_and_agenerate_do_not_surface_schema_validation(self):
+        sync_provider = SimpleNamespace(
+            run_generate=MagicMock(return_value={"text": "{}", "finish_reason": "stop"})
+        )
+        async_provider = SimpleNamespace(
+            run_agenerate=AsyncMock(
+                return_value={"text": "{}", "finish_reason": "stop"}
+            )
+        )
+
+        with (
+            patch("think.models.resolve_provider", return_value=("fake", "model")),
+            patch("think.providers.get_provider_module", return_value=sync_provider),
+            patch(
+                "think.models._validate_schema",
+                return_value={"valid": True, "errors": []},
+            ) as mock_validate_schema,
+        ):
+            sync_result = generate(
+                "hello", "test.context", json_schema={"type": "object"}
+            )
+
+        with (
+            patch("think.models.resolve_provider", return_value=("fake", "model")),
+            patch("think.providers.get_provider_module", return_value=async_provider),
+            patch(
+                "think.models._validate_schema",
+                return_value={"valid": True, "errors": []},
+            ) as mock_async_validate,
+        ):
+            async_result = asyncio.run(
+                agenerate("hello", "test.context", json_schema={"type": "object"})
+            )
+
+        assert sync_result == "{}"
+        assert async_result == "{}"
+        mock_validate_schema.assert_called_once()
+        mock_async_validate.assert_called_once()
+
+    def test_truncation_raises_before_schema_validation(self):
+        provider_module = SimpleNamespace(
+            run_generate=MagicMock(return_value={"text": "{}", "finish_reason": "stop"})
+        )
+
+        with (
+            patch("think.models.resolve_provider", return_value=("fake", "model")),
+            patch("think.providers.get_provider_module", return_value=provider_module),
+            patch(
+                "think.models._validate_json_response",
+                side_effect=IncompleteJSONError("max_tokens", "{}"),
+            ),
+            patch("think.models._validate_schema") as mock_validate_schema,
+        ):
+            with pytest.raises(IncompleteJSONError):
+                generate_with_result(
+                    "hello", "test.context", json_schema={"type": "object"}
+                )
+
+        mock_validate_schema.assert_not_called()

@@ -169,6 +169,7 @@ class GenerateResult(TypedDict, total=False):
     usage: Optional[dict]  # Normalized usage dict (input_tokens, output_tokens, etc.)
     finish_reason: Optional[str]  # Normalized: "stop", "max_tokens", "safety", etc.
     thinking: Optional[list]  # List of thinking block dicts
+    schema_validation: Optional[dict]  # Validation result when json_schema is supplied
 
 
 # ---------------------------------------------------------------------------

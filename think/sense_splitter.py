@@ -48,6 +48,11 @@ def write_sense_outputs(
             "timestamp": datetime.now(tz=timezone.utc).isoformat(),
         },
     )
+    # Write both structured and human-readable Sense outputs here.
+    # think/cluster.py discovers talent outputs by globbing
+    # {segment}/talents/**/*.md for load.talents.{name} consumers.
+    # Dropping sense.md would silently break downstream talents such as
+    # participation that rely on the sense markdown file being present.
     _write_json_atomic(agents_dir / "sense.json", sense_json)
 
     if entities:

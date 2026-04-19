@@ -1,15 +1,18 @@
 ---
 name: journal
 description: >
-  Search, find, list, and show journal data, and explain journal layout,
-  structure, architecture, storage, facets, and `sol call journal` CLI
-  commands. Use when the owner asks what a journal is, where content is
-  stored, to search for meetings, list facets, or show agent output.
+  Search the journal, list facets, and explain how the journal is laid out
+  on disk — captures, extracts, talent outputs, apps, facets, and the
+  search index. Also covers the `sol call journal` CLI.
+  TRIGGER: journal, journal layout, search journal, find meeting, list
+  facets, show agent output, captures, extracts, talents, apps, facet,
+  indexer, activity records, sol call journal, sol call journal search,
+  sol call journal facet.
 ---
 
 # Journal Skill
 
-Use this skill for both journal layout questions and `sol call journal` CLI work.
+Explore journal layout and run `sol call journal` CLI work. Invoke via Bash: `sol call journal <command> [args...]`.
 
 ## Overview
 
@@ -35,7 +38,7 @@ For the full pipeline, see [captures](references/captures.md).
 | **Segment** | Timestamped capture window | `143022_300/` |
 | **Facet** | Project/context scope | `#work`, `#personal` |
 | **Entity** | Tracked person/project/tool | People, companies, tools |
-| **Occurrence** | Time-based event | Meetings, messages, files |
+| **Activity** | Completed span of one activity type | Meeting, coding session, review |
 
 ## Top-Level Layout
 

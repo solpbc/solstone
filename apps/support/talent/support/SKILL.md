@@ -5,17 +5,22 @@ description: >
   sol pbc. Manage open tickets, attach files, check announcements, and run
   local diagnostics. Use when the owner needs help with solstone, wants to
   report a bug, request a feature, check for known issues, or give feedback.
-  TRIGGER: support, bug report, feature request, feedback, help, knowledge
-  base, file a ticket, known issues, announcements, diagnostics.
+  TRIGGER: any support task — filing bug reports, requesting features,
+  submitting feedback, searching the knowledge base, checking announcements,
+  managing open tickets, running local diagnostics. Commands:
+  sol call support create, sol call support search, sol call support article,
+  sol call support attach, sol call support feedback, sol call support list,
+  sol call support show, sol call support reply, sol call support announcements,
+  sol call support diagnose.
 ---
 
 # sol support
 
-CLI for filing support tickets, searching the knowledge base, and submitting feedback to sol pbc.
+File tickets, search the knowledge base, and submit feedback. Invoke via Bash: `sol call support <command> [flags]`.
 
 ## Before You Start
 
-1. **Read the TOS first.** A local copy is cached at the portal storage directory after first registration. Check `apps/support/portal/tos.txt` in the journal's app storage. If it doesn't exist, run `sol call support register` to fetch and cache it.
+1. **Read the TOS first.** The TOS is cached locally at `<journal_root>/apps/support/portal/tos.txt` after first registration (the actual path resolves via the journal's app storage). If it doesn't exist yet, run `sol call support register` to fetch and cache it.
 
 2. **Always search the KB before filing a ticket.** Run `sol call support search "your question"` first. Many common issues are already documented. Only file a ticket if the KB doesn't answer the question.
 
@@ -178,3 +183,10 @@ sol call support show 15
 # Quick system health check
 sol call support diagnose
 ```
+
+## Gotchas
+
+- **KB-first is automatic on `create`.** The `create` command always searches the KB and shows matches for owner review before filing. Pass `--skip-kb` only if the issue is clearly unique — it's there for edge cases, not as a speed-up.
+- **`--product` defaults to solstone.** Support handles other sol pbc products too. Confirm with the owner before filing a non-solstone ticket; don't assume the default.
+- **Diagnostics can leak configuration.** The auto-collector strips secrets, but the full diagnostic payload is shown at the consent gate — review before approving.
+- **Attachments follow ticket creation.** Create first, then `attach` — attachments can't be included in the initial create call.

@@ -31,14 +31,18 @@ timeout_s : float, optional
 
 from __future__ import annotations
 
+import json
 import logging
 import os
+import re
 import traceback
 from pathlib import Path
 from typing import Any, Callable
 
-from anthropic import AsyncAnthropic
+from anthropic import AsyncAnthropic, BadRequestError
+from anthropic._constants import MODEL_NONSTREAMING_TOKENS
 from anthropic.types import (
+    Message,
     MessageParam,
     RedactedThinkingBlock,
     ThinkingBlock,
@@ -64,10 +68,18 @@ from .shared import (
 _DEFAULT_MODEL = CLAUDE_SONNET_4
 
 logger = logging.getLogger(__name__)
+_TOOL_NAME_RE = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
 
 _DEFAULT_MAX_TOKENS = 8096 * 2
 _MIN_THINKING_BUDGET = 1024  # Anthropic minimum
 _DEFAULT_THINKING_BUDGET = 10000
+_MAX_TOKENS_BUFFER = (
+    1000  # Anthropic rejects requests where max_tokens <= thinking.budget_tokens.
+)
+_NONSTREAMING_TIME_CAP_TOKENS = (
+    21_333  # SDK time formula: 60*60*max_tokens/128_000 > 600 ≈ 21,333.
+)
+# anthropic._constants.MODEL_NONSTREAMING_TOKENS adds per-model non-streaming caps on top of this threshold.
 
 
 def _compute_thinking_params(max_tokens: int) -> tuple[int, int]:
@@ -393,6 +405,71 @@ def _extract_text_and_thinking(response: Any) -> tuple[str, list | None]:
     return text, thinking_blocks if thinking_blocks else None
 
 
+def _derive_tool_name(schema: dict | None) -> str:
+    """Return a valid tool name for Anthropic schema output requests."""
+    if isinstance(schema, dict):
+        title = schema.get("title")
+        if isinstance(title, str) and title and _TOOL_NAME_RE.fullmatch(title):
+            return title
+    return "response"
+
+
+def _extract_first_tool_use_json(response: Any) -> str:
+    """Serialize the first tool_use block input from an Anthropic response."""
+    for block in getattr(response, "content", []):
+        if getattr(block, "type", None) == "tool_use":
+            return json.dumps(getattr(block, "input", None))
+    raise ValueError("Anthropic schema fallback response missing tool_use block")
+
+
+def _adjust_budget_for_thinking(request_kwargs: dict[str, Any]) -> None:
+    """Lift max_tokens when thinking budget would otherwise collide with Anthropic validation."""
+    thinking = request_kwargs.get("thinking")
+    if not thinking:
+        return
+
+    budget_tokens = thinking.get("budget_tokens")
+    if not budget_tokens or budget_tokens <= 0:
+        return
+
+    max_tokens = request_kwargs["max_tokens"]
+    minimum_max_tokens = budget_tokens + _MAX_TOKENS_BUFFER + 1
+    if max_tokens <= budget_tokens + _MAX_TOKENS_BUFFER:
+        logger.info(
+            "Adjusted Anthropic max_tokens for thinking budget: %s -> %s",
+            max_tokens,
+            minimum_max_tokens,
+        )
+        # Anthropic requires max_tokens > thinking.budget_tokens; lift rather than clamp thinking so the caller's stated output floor is preserved.
+        request_kwargs["max_tokens"] = minimum_max_tokens
+
+
+def _requires_streaming(model: str, max_tokens: int) -> bool:
+    """Return whether the Anthropic SDK would require streaming for this request."""
+    if max_tokens > _NONSTREAMING_TIME_CAP_TOKENS:
+        return True
+    cap = MODEL_NONSTREAMING_TOKENS.get(model)
+    if cap is not None and max_tokens > cap:
+        return True
+    return False
+
+
+def _send_message(client: Any, request_kwargs: dict[str, Any]) -> Message:
+    """Dispatch sync message requests via create or stream based on Anthropic limits."""
+    if _requires_streaming(request_kwargs["model"], request_kwargs["max_tokens"]):
+        with client.messages.stream(**request_kwargs) as stream:
+            return stream.get_final_message()
+    return client.messages.create(**request_kwargs)
+
+
+async def _asend_message(client: Any, request_kwargs: dict[str, Any]) -> Message:
+    """Dispatch async message requests via create or stream based on Anthropic limits."""
+    if _requires_streaming(request_kwargs["model"], request_kwargs["max_tokens"]):
+        async with client.messages.stream(**request_kwargs) as stream:
+            return await stream.get_final_message()
+    return await client.messages.create(**request_kwargs)
+
+
 # Cache for Anthropic clients
 _anthropic_client = None
 _async_anthropic_client = None
@@ -447,6 +524,7 @@ def run_generate(
     system_instruction: str | None = None,
     json_output: bool = False,
     thinking_budget: int | None = None,
+    json_schema: dict | None = None,
     timeout_s: float | None = None,
     **kwargs: Any,
 ) -> GenerateResult:
@@ -460,7 +538,7 @@ def run_generate(
 
     # Handle JSON output by adding to system instruction
     system = system_instruction or ""
-    if json_output:
+    if json_schema is None and json_output:
         json_instruction = "Respond with valid JSON only. No explanation or markdown."
         system = f"{system}\n\n{json_instruction}" if system else json_instruction
 
@@ -483,13 +561,42 @@ def run_generate(
         }
     else:
         request_kwargs["temperature"] = temperature
+    _adjust_budget_for_thinking(request_kwargs)
 
     if timeout_s:
         request_kwargs["timeout"] = timeout_s
 
-    response = client.messages.create(**request_kwargs)
+    if json_schema is not None:
+        tool_name = _derive_tool_name(json_schema)
+        request_kwargs["output_config"] = {
+            "format": {"type": "json_schema", "schema": json_schema}
+        }
+        try:
+            response = _send_message(client, request_kwargs)
+            text, thinking = _extract_text_and_thinking(response)
+        except BadRequestError:
+            retry_kwargs = dict(request_kwargs)
+            retry_kwargs.pop("output_config", None)
+            # Anthropic rejects `tool_choice` forcing combined with `thinking`.
+            # When falling back to forced tool use, drop thinking and restore
+            # the temperature path that thinking originally displaced.
+            if retry_kwargs.pop("thinking", None) is not None:
+                retry_kwargs.setdefault("temperature", temperature)
+            retry_kwargs["tools"] = [
+                {
+                    "name": tool_name,
+                    "description": "Generate the requested JSON response.",
+                    "input_schema": json_schema,
+                }
+            ]
+            retry_kwargs["tool_choice"] = {"type": "tool", "name": tool_name}
+            response = _send_message(client, retry_kwargs)
+            text = _extract_first_tool_use_json(response)
+            _, thinking = _extract_text_and_thinking(response)
+    else:
+        response = _send_message(client, request_kwargs)
+        text, thinking = _extract_text_and_thinking(response)
 
-    text, thinking = _extract_text_and_thinking(response)
     return GenerateResult(
         text=text,
         usage=_extract_usage_dict(response),
@@ -506,6 +613,7 @@ async def run_agenerate(
     system_instruction: str | None = None,
     json_output: bool = False,
     thinking_budget: int | None = None,
+    json_schema: dict | None = None,
     timeout_s: float | None = None,
     **kwargs: Any,
 ) -> GenerateResult:
@@ -519,7 +627,7 @@ async def run_agenerate(
 
     # Handle JSON output by adding to system instruction
     system = system_instruction or ""
-    if json_output:
+    if json_schema is None and json_output:
         json_instruction = "Respond with valid JSON only. No explanation or markdown."
         system = f"{system}\n\n{json_instruction}" if system else json_instruction
 
@@ -542,13 +650,42 @@ async def run_agenerate(
         }
     else:
         request_kwargs["temperature"] = temperature
+    _adjust_budget_for_thinking(request_kwargs)
 
     if timeout_s:
         request_kwargs["timeout"] = timeout_s
 
-    response = await client.messages.create(**request_kwargs)
+    if json_schema is not None:
+        tool_name = _derive_tool_name(json_schema)
+        request_kwargs["output_config"] = {
+            "format": {"type": "json_schema", "schema": json_schema}
+        }
+        try:
+            response = await _asend_message(client, request_kwargs)
+            text, thinking = _extract_text_and_thinking(response)
+        except BadRequestError:
+            retry_kwargs = dict(request_kwargs)
+            retry_kwargs.pop("output_config", None)
+            # Anthropic rejects `tool_choice` forcing combined with `thinking`.
+            # When falling back to forced tool use, drop thinking and restore
+            # the temperature path that thinking originally displaced.
+            if retry_kwargs.pop("thinking", None) is not None:
+                retry_kwargs.setdefault("temperature", temperature)
+            retry_kwargs["tools"] = [
+                {
+                    "name": tool_name,
+                    "description": "Generate the requested JSON response.",
+                    "input_schema": json_schema,
+                }
+            ]
+            retry_kwargs["tool_choice"] = {"type": "tool", "name": tool_name}
+            response = await _asend_message(client, retry_kwargs)
+            text = _extract_first_tool_use_json(response)
+            _, thinking = _extract_text_and_thinking(response)
+    else:
+        response = await _asend_message(client, request_kwargs)
+        text, thinking = _extract_text_and_thinking(response)
 
-    text, thinking = _extract_text_and_thinking(response)
     return GenerateResult(
         text=text,
         usage=_extract_usage_dict(response),

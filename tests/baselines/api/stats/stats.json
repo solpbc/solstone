@@ -1,5 +1,32 @@
 {
   "generators": {
+    "conversation": {
+      "activities": [
+        "meeting",
+        "call",
+        "messaging",
+        "email"
+      ],
+      "color": "#00796b",
+      "description": "Generates a conversation story, topics, and structured commitments, closures, and decisions to merge onto the activity record.",
+      "hook": {
+        "post": "story"
+      },
+      "load": {
+        "percepts": true,
+        "talents": false,
+        "transcripts": true
+      },
+      "mtime": 0,
+      "output": "json",
+      "path": "<PROJECT>/talent/conversation.md",
+      "priority": 20,
+      "schedule": "activity",
+      "schema": "story.schema.json",
+      "source": "system",
+      "title": "Conversation Story",
+      "type": "generate"
+    },
     "daily_schedule": {
       "color": "#455a64",
       "description": "Analyzes activity patterns to identify optimal times for scheduled maintenance tasks.",
@@ -18,34 +45,10 @@
       "path": "<PROJECT>/talent/daily_schedule.md",
       "priority": 10,
       "schedule": "daily",
+      "schema": "daily_schedule.schema.json",
       "source": "system",
       "thinking_budget": 4096,
       "title": "Maintenance Window",
-      "type": "generate"
-    },
-    "decisions": {
-      "activities": [
-        "meeting",
-        "call",
-        "messaging",
-        "email"
-      ],
-      "color": "#dc3545",
-      "description": "Tracks consequential decision-actions that change state, plans, resources, responsibilities, or timing in ways that affect other people.",
-      "load": {
-        "percepts": false,
-        "talents": {
-          "screen": true
-        },
-        "transcripts": true
-      },
-      "mtime": 0,
-      "output": "md",
-      "path": "<PROJECT>/talent/decisions.md",
-      "priority": 10,
-      "schedule": "activity",
-      "source": "system",
-      "title": "Decision Actions",
       "type": "generate"
     },
     "documents": {
@@ -118,74 +121,34 @@
       "title": "Entity Observer",
       "type": "generate"
     },
-    "followups": {
+    "event": {
       "activities": [
-        "meeting",
-        "call",
-        "messaging",
-        "email"
+        "appointment",
+        "event",
+        "travel",
+        "errand",
+        "celebration",
+        "deadline",
+        "reminder"
       ],
-      "color": "#ffc107",
-      "description": "Detects promised tasks, commitments, and reminders for future action within each activity. Outputs a concise Markdown list of follow-ups with context.",
+      "color": "#ff7043",
+      "description": "Generates an event story, topics, and structured commitments, closures, and decisions to merge onto the activity record.",
+      "hook": {
+        "post": "story"
+      },
       "load": {
-        "percepts": false,
-        "talents": {
-          "screen": true
-        },
+        "percepts": true,
+        "talents": false,
         "transcripts": true
       },
       "mtime": 0,
-      "output": "md",
-      "path": "<PROJECT>/talent/followups.md",
-      "priority": 10,
+      "output": "json",
+      "path": "<PROJECT>/talent/event.md",
+      "priority": 20,
       "schedule": "activity",
+      "schema": "story.schema.json",
       "source": "system",
-      "title": "Follow-Up Items",
-      "type": "generate"
-    },
-    "meetings": {
-      "activities": [
-        "meeting"
-      ],
-      "color": "#e83e8c",
-      "description": "Produces detailed meeting notes for each meeting activity, including participants, topics discussed, action items, and presentation details.",
-      "load": {
-        "percepts": false,
-        "talents": {
-          "screen": true
-        },
-        "transcripts": true
-      },
-      "mtime": 0,
-      "output": "md",
-      "path": "<PROJECT>/talent/meetings.md",
-      "priority": 10,
-      "schedule": "activity",
-      "source": "system",
-      "title": "Meeting Notes",
-      "type": "generate"
-    },
-    "messaging": {
-      "activities": [
-        "messaging",
-        "email"
-      ],
-      "color": "#78909c",
-      "description": "Extracts contacts, channels, apps, and message content from completed messaging and email activities.",
-      "load": {
-        "percepts": false,
-        "talents": {
-          "screen": true
-        },
-        "transcripts": true
-      },
-      "mtime": 0,
-      "output": "md",
-      "path": "<PROJECT>/talent/messaging.md",
-      "priority": 10,
-      "schedule": "activity",
-      "source": "system",
-      "title": "Messaging Summary",
+      "title": "Event Story",
       "type": "generate"
     },
     "participation": {
@@ -209,6 +172,7 @@
       "path": "<PROJECT>/talent/participation.md",
       "priority": 10,
       "schedule": "activity",
+      "schema": "participation.schema.json",
       "source": "system",
       "tier": 3,
       "title": "Participation",
@@ -216,7 +180,7 @@
     },
     "schedule": {
       "color": "#5e35b1",
-      "description": "Extracts future scheduled events and calendar activities into structured anticipation records. Captures dates, times, participants, and cancellation state.",
+      "description": "Extracts future scheduled items from screen and transcript content into anticipated activity records. Captures dates, times, participants, and cancellation state.",
       "hook": {
         "post": "schedule"
       },
@@ -232,6 +196,7 @@
       "path": "<PROJECT>/talent/schedule.md",
       "priority": 10,
       "schedule": "daily",
+      "schema": "schedule.schema.json",
       "source": "system",
       "title": "Upcoming Schedule",
       "type": "generate"
@@ -267,21 +232,20 @@
       "path": "<PROJECT>/talent/sense.md",
       "priority": 5,
       "schedule": "segment",
+      "schema": "sense.schema.json",
       "source": "system",
       "thinking_budget": 4096,
       "tier": 3,
       "title": "Segment Sense",
       "type": "generate"
     },
-    "skills": {
-      "activities": [
-        "*"
-      ],
-      "color": "#6c757d",
-      "description": "Detects recurring activity patterns and generates structured skill documents describing what the owner does, how, and why.",
+    "skills:skill_editor": {
+      "app": "skills",
+      "color": "#8e24aa",
+      "description": "Writes or refreshes one skill profile per day from observer-flagged patterns or chat edit requests.",
       "hook": {
-        "post": "skills",
-        "pre": "skills"
+        "post": "skills:skill_editor",
+        "pre": "skills:skill_editor"
       },
       "load": {
         "percepts": false,
@@ -289,12 +253,13 @@
         "transcripts": false
       },
       "mtime": 0,
-      "output": "json",
-      "path": "<PROJECT>/talent/skills.md",
-      "priority": 90,
-      "schedule": "activity",
-      "source": "system",
-      "title": "Skill Observer",
+      "multi_facet": false,
+      "output": "md",
+      "path": "<PROJECT>/apps/skills/talent/skill_editor.md",
+      "priority": 60,
+      "schedule": "daily",
+      "source": "app",
+      "title": "Skill Editor",
       "type": "generate"
     },
     "speaker_attribution": {
@@ -318,6 +283,32 @@
       "schedule": "segment",
       "source": "system",
       "title": "Speaker Attribution",
+      "type": "generate"
+    },
+    "work": {
+      "activities": [
+        "coding",
+        "browsing",
+        "reading"
+      ],
+      "color": "#6d4c41",
+      "description": "Generates a work story, topics, and structured commitments, closures, and decisions to merge onto the activity record.",
+      "hook": {
+        "post": "story"
+      },
+      "load": {
+        "percepts": true,
+        "talents": false,
+        "transcripts": true
+      },
+      "mtime": 0,
+      "output": "json",
+      "path": "<PROJECT>/talent/work.md",
+      "priority": 20,
+      "schedule": "activity",
+      "schema": "story.schema.json",
+      "source": "system",
+      "title": "Work Story",
       "type": "generate"
     }
   },

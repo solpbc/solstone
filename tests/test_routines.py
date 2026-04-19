@@ -46,9 +46,9 @@ def _load_routines_cli_module():
 def _fake_now(dt: datetime):
     """Temporarily replace think.routines.datetime with a fake that returns dt."""
 
-    class _FakeDatetime:
-        @staticmethod
-        def now(tz=None):
+    class _FakeDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
             if tz is None:
                 return dt
             if dt.tzinfo is None:
@@ -441,6 +441,38 @@ class TestTemplateCreate:
         assert result.exit_code == 1
         assert "template 'nonexistent' not found" in result.stderr
 
+    def test_create_template_dict_cadence_persisted(self, journal_path):
+        result = runner.invoke(
+            call_app,
+            ["routines", "create", "--template", "meeting-prep"],
+        )
+        assert result.exit_code == 0
+        config = get_config()
+        assert len(config) == 1
+        routine = next(iter(config.values()))
+        assert routine["cadence"] == {
+            "type": "activity-anticipation",
+            "offset_minutes": -30,
+        }
+
+    def test_create_template_dict_cadence_overridden_by_string(self, journal_path):
+        result = runner.invoke(
+            call_app,
+            [
+                "routines",
+                "create",
+                "--template",
+                "meeting-prep",
+                "--cadence",
+                "0 9 * * *",
+            ],
+        )
+        assert result.exit_code == 0
+        config = get_config()
+        assert len(config) == 1
+        routine = next(iter(config.values()))
+        assert routine["cadence"] == "0 9 * * *"
+
     def test_create_invalid_template_cadence_type(self, journal_path, monkeypatch):
         import think.tools.routines as routines_cli
 
@@ -467,6 +499,58 @@ class TestTemplateCreate:
         )
         assert result.exit_code == 1
         assert "unsupported cadence type" in result.stderr
+
+    def test_create_template_dict_cadence_missing_type(self, journal_path, monkeypatch):
+        import think.tools.routines as routines_cli
+
+        def _fake_template(name: str):
+            return (
+                {
+                    "name": name,
+                    "description": "missing cadence type",
+                    "default_cadence": {"offset_minutes": -30},
+                    "default_timezone": "UTC",
+                    "default_facets": [],
+                },
+                "Instruction body",
+            )
+
+        monkeypatch.setattr(routines_cli, "_load_template", _fake_template)
+        result = runner.invoke(
+            call_app,
+            ["routines", "create", "--template", "bad-template"],
+        )
+        assert result.exit_code == 1
+        assert "type" in result.stderr
+        assert "missing" in result.stderr
+
+    def test_create_template_dict_cadence_bad_offset_minutes(
+        self, journal_path, monkeypatch
+    ):
+        import think.tools.routines as routines_cli
+
+        def _fake_template(name: str):
+            return (
+                {
+                    "name": name,
+                    "description": "bad cadence offset",
+                    "default_cadence": {
+                        "type": "activity-anticipation",
+                        "offset_minutes": "not-a-number",
+                    },
+                    "default_timezone": "UTC",
+                    "default_facets": [],
+                },
+                "Instruction body",
+            )
+
+        monkeypatch.setattr(routines_cli, "_load_template", _fake_template)
+        result = runner.invoke(
+            call_app,
+            ["routines", "create", "--template", "bad-template"],
+        )
+        assert result.exit_code == 1
+        assert "offset_minutes" in result.stderr
 
 
 class TestNameResolution:
@@ -1747,3 +1831,60 @@ class TestActivityAnticipation:
             mod.check()
 
         mock_req.assert_not_called()
+
+    def test_late_evening_fires_for_next_day_activity(self, journal_path):
+        """Pre-alert for a 00:15 activity on D+1 must fire at 23:45 on D."""
+        import think.routines as mod
+
+        save_config({"routine-1": self._make_routine("routine-1", -30)})
+        record = self._make_anticipated_record(
+            "anticipated_meeting_001500_0419",
+            "00:15",
+        )
+        record["target_date"] = "2026-04-19"
+        self._seed_activity_record("work", "20260419", record)
+
+        dt = datetime(2026, 4, 18, 23, 45, tzinfo=timezone.utc)
+        with (
+            patch(
+                "think.routines.cortex_request", return_value="fake_agent_id"
+            ) as mock_req,
+            patch(
+                "think.routines.wait_for_uses",
+                return_value=({"fake_agent_id": "finish"}, []),
+            ),
+            patch("think.routines.callosum_send", return_value=True),
+            _fake_now(dt),
+        ):
+            mod.check()
+            mod.check()
+
+        assert mock_req.call_count == 1
+
+    def test_early_morning_fires_for_previous_day_activity(self, journal_path):
+        """Post-start anticipation for a 23:45 activity on D-1 fires at 00:15 on D."""
+        import think.routines as mod
+
+        save_config({"routine-1": self._make_routine("routine-1", 30)})
+        record = self._make_anticipated_record(
+            "anticipated_meeting_234500_0417",
+            "23:45",
+        )
+        record["target_date"] = "2026-04-17"
+        self._seed_activity_record("work", "20260417", record)
+
+        dt = datetime(2026, 4, 18, 0, 15, tzinfo=timezone.utc)
+        with (
+            patch(
+                "think.routines.cortex_request", return_value="fake_agent_id"
+            ) as mock_req,
+            patch(
+                "think.routines.wait_for_uses",
+                return_value=({"fake_agent_id": "finish"}, []),
+            ),
+            patch("think.routines.callosum_send", return_value=True),
+            _fake_now(dt),
+        ):
+            mod.check()
+
+        assert mock_req.call_count == 1

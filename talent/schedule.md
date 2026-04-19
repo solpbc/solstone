@@ -2,12 +2,13 @@
   "type": "generate",
 
   "title": "Upcoming Schedule",
-  "description": "Extracts future scheduled events and calendar activities into structured anticipation records. Captures dates, times, participants, and cancellation state.",
+  "description": "Extracts future scheduled items from screen and transcript content into anticipated activity records. Captures dates, times, participants, and cancellation state.",
   "hook": {"post": "schedule"},
   "color": "#5e35b1",
   "schedule": "daily",
   "priority": 10,
   "output": "json",
+  "schema": "schedule.schema.json",
   "load": {"transcripts": true, "percepts": false, "talents": {"screen": true}}
 }
 
@@ -17,7 +18,7 @@ $daily_preamble
 
 **Input:** A markdown file containing chronologically ordered transcripts of a workday plus the screen agent's output for the same day. Calendar views, meeting invitations, scheduling UIs, and project-management interfaces are captured in the screen content; verbal mentions of future plans appear in transcripts.
 
-**Your task:** Identify every future scheduled item (dated after today) visible in the day's screen or transcript content and emit a JSON array of anticipation objects.
+**Your task:** Identify every future scheduled item (dated after today) visible in the day's screen or transcript content and emit a JSON array of anticipated activity objects.
 
 ## What to capture
 
@@ -70,7 +71,7 @@ Return **only** a JSON array. Each element is an anticipation object with these 
 
 ### Field-by-field
 
-- **`activity`** — Short descriptive string for the kind of scheduled item. Pick the best fit for what you're seeing. Common examples: `meeting`, `call`, `deadline`, `appointment`, `event`, `travel`, `reminder`, `errand`, `celebration`. **Not a restricted enum** — use whatever label best describes the item. Lowercase, underscore-separated if multi-word (e.g., `doctor_appointment`).
+- **`activity`** — Short descriptive string for the kind of scheduled item. One of: `meeting`, `call`, `deadline`, `appointment`, `event`, `travel`, `reminder`, `errand`, `celebration`, `doctor_appointment`. Lowercase, underscore-separated when multi-word.
 
 - **`target_date`** — ISO date `YYYY-MM-DD`. The day the item is scheduled for. Must be strictly after today.
 

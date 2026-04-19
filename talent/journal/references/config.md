@@ -58,7 +58,7 @@ Fields:
 ```json
 {
   "facets": {"order": ["work", "personal"], "selected": "work"},
-  "apps": {"order": ["home", "calendar", "todos"], "starred": ["home", "todos"]}
+  "apps": {"order": ["home", "activities", "todos"], "starred": ["home", "todos"]}
 }
 ```
 
@@ -242,7 +242,7 @@ The `providers` block enables fine-grained control over which LLM provider and m
     "contexts": {
       "observe.*": {"provider": "google", "tier": 3},
       "talent.system.*": {"tier": 1},
-      "talent.system.meetings": {"provider": "anthropic", "disabled": true},
+      "talent.system.conversation": {"provider": "anthropic", "disabled": true},
       "talent.entities.observer": {"tier": 2}
     },
     "models": {
@@ -273,14 +273,14 @@ If a requested tier is unavailable for a provider, the system falls back to more
 ### Context matching
 
 Contexts are matched in order of specificity:
-1. **Exact match** – `"talent.system.meetings"` matches only that exact context
+1. **Exact match** – `"talent.system.conversation"` matches only that exact context
 2. **Glob pattern** – `"observe.*"` matches any context starting with `observe.`
 3. **Default** – Falls back to the `default` configuration
 
 ### Context naming convention
 
 Talent configs (agents and generators) use the pattern `talent.{source}.{name}`:
-- System configs: `talent.system.{name}` (e.g., `talent.system.meetings`, `talent.system.default`)
+- System configs: `talent.system.{name}` (e.g., `talent.system.conversation`, `talent.system.default`)
 - App configs: `talent.{app}.{name}` (e.g., `talent.entities.observer`, `talent.support.support`)
 
 Other contexts follow the pattern `{module}.{feature}[.{operation}]`:

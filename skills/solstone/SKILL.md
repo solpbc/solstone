@@ -2,18 +2,24 @@
 name: solstone
 version: 1.0.0
 description: >
-  Query your solstone journal — search memories, look up people and relationships,
-  check today's events and todos, read meeting transcripts, and get relationship
-  briefings from your co-brain. Requires solstone to be installed with the sol CLI
-  on PATH (~/.local/bin/sol).
-  TRIGGER: solstone, my journal, what happened, who is, meeting with, search my
-  memory, what do I know about, entity, co-brain, look up, recall, remember,
-  transcript, relationship, who have I been talking to, what's on my plate.
+  Query and search your solstone journal from any project. Look up people
+  and relationships, check today's events and todos, read meeting
+  transcripts, and get intelligence briefings on entities from your
+  co-brain. Read-only — no write operations.
+  TRIGGER: solstone, my journal, search my memory, what happened, who is,
+  meeting with, what do I know about, entity, co-brain, look up, recall,
+  remember, transcript, relationship strength, who have I been talking to,
+  what's on my plate, sol call journal, sol call entities,
+  sol call transcripts, sol call todos, sol call activities,
+  sol call journal search, sol call entities intelligence,
+  sol call entities strength.
 ---
 
 # solstone — journal query interface
 
-Read-only query interface to your solstone journal. Use this skill to search memories, look up people, check today's events, read transcripts, and get relationship briefings — all from any project context.
+Read-only query interface to your solstone journal. Invoke via Bash: `sol call <subcommand> [flags]`.
+
+Use this skill to search memories, look up people, check today's events, read transcripts, and get relationship briefings — all from any project context.
 
 ## Prerequisites
 

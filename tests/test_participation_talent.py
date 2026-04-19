@@ -15,6 +15,7 @@ def test_participation_talent_frontmatter_and_placeholders():
     assert post.metadata["activities"] == ["*"]
     assert post.metadata["tier"] == 3
     assert post.metadata["output"] == "json"
+    assert post.metadata["schema"] == "participation.schema.json"
     assert post.metadata["priority"] == 10
     assert post.metadata["load"]["talents"]["sense"] is True
 

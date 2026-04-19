@@ -27,6 +27,8 @@ from think.activities import (
     unmute_activity_record,
     update_activity_record,
 )
+from think.entities.loading import load_entities
+from think.entities.matching import find_matching_entity
 from think.facets import get_facets, log_call_action
 from think.utils import (
     get_sol_facet,
@@ -36,6 +38,9 @@ from think.utils import (
     resolve_sol_facet,
     segment_parse,
 )
+
+_PARTICIPATION_ROLES = {"attendee", "mentioned"}
+_PARTICIPATION_SOURCES = {"voice", "speaker_label", "transcript", "screen", "other"}
 
 app = typer.Typer(help="Completed activity record management.")
 
@@ -123,6 +128,85 @@ def _validate_segment_key(segment: str) -> str:
         )
         raise typer.Exit(1)
     return segment
+
+
+def _validate_participation(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        typer.echo("Error: participation must be an array", err=True)
+        raise typer.Exit(1)
+
+    cleaned_entries: list[dict[str, Any]] = []
+    for i, entry in enumerate(value):
+        if not isinstance(entry, dict):
+            typer.echo(f"Error: participation[{i}] must be an object", err=True)
+            raise typer.Exit(1)
+
+        name = entry.get("name")
+        if not isinstance(name, str) or not name.strip():
+            typer.echo(
+                f"Error: participation[{i}] requires a non-empty string 'name'",
+                err=True,
+            )
+            raise typer.Exit(1)
+
+        role = entry.get("role")
+        if role not in _PARTICIPATION_ROLES:
+            typer.echo(
+                f"Error: participation[{i}] has invalid role '{role}' "
+                f"(must be one of {sorted(_PARTICIPATION_ROLES)})",
+                err=True,
+            )
+            raise typer.Exit(1)
+
+        source = entry.get("source")
+        if source not in _PARTICIPATION_SOURCES:
+            typer.echo(
+                f"Error: participation[{i}] has invalid source '{source}' "
+                f"(must be one of {sorted(_PARTICIPATION_SOURCES)})",
+                err=True,
+            )
+            raise typer.Exit(1)
+
+        confidence = entry.get("confidence")
+        if isinstance(confidence, bool) or not isinstance(confidence, (int, float)):
+            typer.echo(
+                f"Error: participation[{i}] 'confidence' must be a number",
+                err=True,
+            )
+            raise typer.Exit(1)
+
+        context = entry.get("context")
+        if not isinstance(context, str):
+            typer.echo(
+                f"Error: participation[{i}] 'context' must be a string",
+                err=True,
+            )
+            raise typer.Exit(1)
+
+        cleaned_entry = {key: item for key, item in entry.items() if key != "entity_id"}
+        cleaned_entry["name"] = name.strip()
+        cleaned_entry["role"] = role
+        cleaned_entry["source"] = source
+        cleaned_entry["confidence"] = confidence
+        cleaned_entry["context"] = context
+        cleaned_entries.append(cleaned_entry)
+
+    return cleaned_entries
+
+
+def _resolve_participation_entity_ids(
+    entries: list[dict[str, Any]], *, facet: str, day: str
+) -> list[dict[str, Any]]:
+    entities_list = load_entities(facet=facet, day=day)
+
+    resolved_entries = []
+    for entry in entries:
+        resolved = dict(entry)
+        match = find_matching_entity(resolved["name"], entities_list)
+        resolved["entity_id"] = match.get("id") if match else None
+        resolved_entries.append(resolved)
+
+    return resolved_entries
 
 
 def _list_records_for_days(
@@ -317,6 +401,7 @@ def create_record(
     resolved_facet = resolve_sol_facet(facet)
     resolved_day = resolve_sol_day(day)
     payload = _read_stdin_json()
+    participation_provided = "participation" in payload
 
     title = str(payload.get("title") or "").strip()
     if not title:
@@ -344,24 +429,39 @@ def create_record(
 
     description = str(payload.get("description") or title).strip() or title
     details = str(payload.get("details") or "")
+    participation: list[dict[str, Any]] = []
+    if participation_provided:
+        participation = _validate_participation(payload["participation"])
+        participation = _resolve_participation_entity_ids(
+            participation, facet=resolved_facet, day=resolved_day
+        )
+
     actor = "cogitate:activities" if source == "cogitate" else "cli:create"
     span_id = make_activity_id(activity_type, anchor)
+    record = {
+        "id": span_id,
+        "activity": activity_type,
+        "title": title,
+        "description": description,
+        "details": details,
+        "segments": segments,
+        "active_entities": [],
+        "created_at": now_ms(),
+        "source": source,
+        "hidden": False,
+        "edits": [],
+    }
+    if participation_provided:
+        record["participation"] = participation
+
+    edit_fields = ["activity", "title", "description", "details", "source"]
+    if participation_provided:
+        edit_fields.append("participation")
+
     record = append_edit(
-        {
-            "id": span_id,
-            "activity": activity_type,
-            "title": title,
-            "description": description,
-            "details": details,
-            "segments": segments,
-            "active_entities": [],
-            "created_at": now_ms(),
-            "source": source,
-            "hidden": False,
-            "edits": [],
-        },
+        record,
         actor=actor,
-        fields=["activity", "title", "description", "details", "source"],
+        fields=edit_fields,
         note="created",
     )
 

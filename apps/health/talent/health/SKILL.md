@@ -1,21 +1,26 @@
 ---
 name: health
 description: >
-  Diagnose solstone service health, inspect agent run logs, and check system
-  status. View service uptimes, crashes, queue depths, recent errors, and
-  agent run costs. Includes a journal layout reference for navigating data
-  files. Use when the owner reports issues, asks about service health, agent
-  costs, pipeline status, or when troubleshooting capture gaps and processing
-  failures.
+  Monitor service uptime, troubleshoot capture gaps and processing failures,
+  review agent run costs and errors, and summarize think-pipeline health
+  for a day. Covers three CLI surfaces: `sol health` (service supervisor
+  status + logs), `sol talent` (agent run logs + details), and
+  `sol call health pipeline` (per-day pipeline summary). Includes a journal
+  layout reference for navigating data files.
   TRIGGER: health, status, is it running, something broke, service down,
-  errors, agent runs, costs, logs, pipeline, diagnostics, system check.
+  uptime, errors, agent runs, costs, logs, pipeline, pipeline anomalies,
+  diagnostics, system check, troubleshoot capture gap, sol health,
+  sol health logs, sol talent logs, sol talent log,
+  sol call health pipeline.
 ---
 
 # Health CLI Skill
 
-Use these commands to check service health, view logs, and inspect agent runs.
+Monitor solstone service uptime, troubleshoot failures, and inspect agent runs. Invoke via Bash: `sol health ...`, `sol talent ...`, or `sol call health <command>`.
 
-**Typical workflow**: `sol health` to check service status → `sol health logs` to inspect recent log output → `sol talent logs` to review agent runs → `sol talent log <ID>` for run details.
+**Scope note**: Three CLI surfaces live here: `sol health*` (supervisor/service level), `sol talent*` (agent run level), and `sol call health <command>` (app-level pipeline health). They're grouped together because health troubleshooting routinely crosses the three levels.
+
+**Typical workflow**: `sol health` → `sol health logs` → `sol talent logs` → `sol talent log <ID>` for agent-run detail → `sol call health pipeline` for a day-level pipeline summary.
 
 ## status
 
@@ -115,6 +120,27 @@ sol talent log 1700000000001 --json
 sol talent log 1700000000001 --full
 ```
 
+## pipeline summary
+
+```bash
+sol call health pipeline [--day YYYYMMDD | --yesterday]
+```
+
+Summarize think-pipeline health for one day — anomalies, performance metrics, and per-stage outcomes across the day's processing runs. Emits JSON.
+
+- `--day YYYYMMDD`: target day. Defaults to today.
+- `--yesterday`: shortcut for yesterday. Mutually exclusive with `--day`.
+
+Use this when you want a day-level view after daily processing completes, rather than a per-run drilldown via `sol talent log`.
+
+Examples:
+
+```bash
+sol call health pipeline
+sol call health pipeline --yesterday
+sol call health pipeline --day 20260115
+```
+
 ## journal layout
 
 Reference map of key paths. `journal/` is the journal root.
@@ -183,3 +209,9 @@ Run `sol talent log <ID> --full` to see the complete event timeline including th
 
 ### High agent costs
 Run `sol talent logs --summary` for aggregated cost view. Filter by agent: `sol talent logs <agent-name> --summary`.
+
+## Gotchas
+
+- **`sol health` times out at 10 seconds.** If the supervisor is slow or hung, you'll hit the timeout before seeing results. Confirm the supervisor process is alive (`ps` / `sol supervisor` status) before assuming the service is down.
+- **Talent log IDs are millisecond timestamps.** `sol talent log 1700000000001` expects the full ID from `sol talent logs`, not a seconds-precision value.
+- **`sol call health pipeline` needs today's processing to have run.** Running it at 6am before the daily pipeline has executed will return sparse results for today; use `--yesterday` instead.

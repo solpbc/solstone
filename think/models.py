@@ -13,8 +13,11 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 import frontmatter
+from jsonschema import Draft202012Validator
 
 from think.utils import get_config, get_journal
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Tier constants
@@ -908,6 +911,83 @@ def _validate_json_response(result: Dict[str, Any], json_output: bool) -> None:
         )
 
 
+def _validate_schema(text: str, schema: dict) -> dict:
+    """Validate JSON text against a JSON Schema and log any violations."""
+
+    def truncate_repr(value: Any) -> str:
+        value_repr = repr(value)
+        if len(value_repr) <= 80:
+            return value_repr
+        return value_repr[:77] + "..."
+
+    def build_pointer(path: Any) -> str:
+        segments = list(path)
+        if not segments:
+            return ""
+        escaped_segments = []
+        for segment in segments:
+            escaped = str(segment).replace("~", "~0").replace("/", "~1")
+            escaped_segments.append(escaped)
+        return "/" + "/".join(escaped_segments)
+
+    try:
+        parsed = json.loads(text)
+    except ValueError as exc:
+        error = {
+            "path": "",
+            "constraint": "json_parse",
+            "message": str(exc),
+        }
+        logger.warning(
+            "schema_validation: %s: %s: %s (value=%s)",
+            "",
+            "json_parse",
+            str(exc),
+            truncate_repr(text),
+        )
+        return {"valid": False, "errors": [error]}
+
+    errors = []
+    try:
+        validator = Draft202012Validator(schema)
+        validation_errors = list(validator.iter_errors(parsed))
+    except Exception as exc:
+        error = {
+            "path": "",
+            "constraint": "schema_validation",
+            "message": str(exc),
+        }
+        logger.warning(
+            "schema_validation: %s: %s: %s (value=%s)",
+            "",
+            "schema_validation",
+            str(exc),
+            truncate_repr(parsed),
+        )
+        return {"valid": False, "errors": [error]}
+
+    for error in validation_errors:
+        path = build_pointer(error.absolute_path)
+        constraint = str(error.validator)
+        message = error.message
+        errors.append(
+            {
+                "path": path,
+                "constraint": constraint,
+                "message": message,
+            }
+        )
+        logger.warning(
+            "schema_validation: %s: %s: %s (value=%s)",
+            path,
+            constraint,
+            message,
+            truncate_repr(error.instance),
+        )
+
+    return {"valid": len(errors) == 0, "errors": errors}
+
+
 def generate(
     contents: Union[str, List[Any]],
     context: str,
@@ -915,6 +995,8 @@ def generate(
     max_output_tokens: int = 8192 * 2,
     system_instruction: Optional[str] = None,
     json_output: bool = False,
+    *,
+    json_schema: dict | None = None,
     thinking_budget: Optional[int] = None,
     timeout_s: Optional[float] = None,
     **kwargs: Any,
@@ -939,6 +1021,10 @@ def generate(
         System instruction for the model.
     json_output : bool
         Whether to request JSON response format.
+    json_schema : dict, optional
+        JSON Schema to request structured output from the provider. When supplied,
+        this forces json_output=True and runs advisory local validation on the
+        returned text after truncation checks.
     thinking_budget : int, optional
         Token budget for model thinking (ignored by providers that don't support it).
     timeout_s : float, optional
@@ -960,6 +1046,9 @@ def generate(
     """
     from think.providers import get_provider_module
 
+    if json_schema is not None:
+        json_output = True
+
     # Allow model override via kwargs (used by callers with explicit model selection)
     model_override = kwargs.pop("model", None)
 
@@ -978,6 +1067,7 @@ def generate(
         max_output_tokens=max_output_tokens,
         system_instruction=system_instruction,
         json_output=json_output,
+        json_schema=json_schema,
         thinking_budget=thinking_budget,
         timeout_s=timeout_s,
         **kwargs,
@@ -995,6 +1085,9 @@ def generate(
 
     # Validate JSON output if requested
     _validate_json_response(result, json_output)
+
+    if json_schema is not None:
+        _validate_schema(result["text"], json_schema)
 
     return result["text"]
 
@@ -1099,6 +1192,8 @@ def generate_with_result(
     max_output_tokens: int = 8192 * 2,
     system_instruction: Optional[str] = None,
     json_output: bool = False,
+    *,
+    json_schema: dict | None = None,
     thinking_budget: Optional[int] = None,
     timeout_s: Optional[float] = None,
     **kwargs: Any,
@@ -1109,12 +1204,42 @@ def generate_with_result(
     just the text. Used by cortex-managed generators that need usage data
     for event emission.
 
+    Parameters
+    ----------
+    contents : str or List
+        The content to send to the model.
+    context : str
+        Context string for routing and token logging.
+    temperature : float
+        Temperature for generation (default: 0.3).
+    max_output_tokens : int
+        Maximum tokens for the model's response output.
+    system_instruction : str, optional
+        System instruction for the model.
+    json_output : bool
+        Whether to request JSON response format.
+    json_schema : dict, optional
+        JSON Schema to request structured output from the provider. When supplied,
+        this forces json_output=True and runs advisory local validation on the
+        returned text after truncation checks.
+    thinking_budget : int, optional
+        Token budget for model thinking (ignored by providers that don't support it).
+    timeout_s : float, optional
+        Request timeout in seconds.
+    **kwargs
+        Additional provider-specific options passed through to the backend.
+
     Returns
     -------
     dict
-        GenerateResult with: text, usage, finish_reason, thinking.
+        GenerateResult with: text, usage, finish_reason, thinking, and
+        schema_validation when json_schema is supplied. Validation is advisory
+        and runs after truncation checks succeed.
     """
     from think.providers import get_provider_module
+
+    if json_schema is not None:
+        json_output = True
 
     model_override = kwargs.pop("model", None)
     provider_override = kwargs.pop("provider", None)
@@ -1136,6 +1261,7 @@ def generate_with_result(
         max_output_tokens=max_output_tokens,
         system_instruction=system_instruction,
         json_output=json_output,
+        json_schema=json_schema,
         thinking_budget=thinking_budget,
         timeout_s=timeout_s,
         **kwargs,
@@ -1154,6 +1280,9 @@ def generate_with_result(
     # Validate JSON output if requested
     _validate_json_response(result, json_output)
 
+    if json_schema is not None:
+        result["schema_validation"] = _validate_schema(result["text"], json_schema)
+
     return result
 
 
@@ -1164,6 +1293,8 @@ async def agenerate(
     max_output_tokens: int = 8192 * 2,
     system_instruction: Optional[str] = None,
     json_output: bool = False,
+    *,
+    json_schema: dict | None = None,
     thinking_budget: Optional[int] = None,
     timeout_s: Optional[float] = None,
     **kwargs: Any,
@@ -1188,6 +1319,10 @@ async def agenerate(
         System instruction for the model.
     json_output : bool
         Whether to request JSON response format.
+    json_schema : dict, optional
+        JSON Schema to request structured output from the provider. When supplied,
+        this forces json_output=True and runs advisory local validation on the
+        returned text after truncation checks.
     thinking_budget : int, optional
         Token budget for model thinking (ignored by providers that don't support it).
     timeout_s : float, optional
@@ -1209,6 +1344,9 @@ async def agenerate(
     """
     from think.providers import get_provider_module
 
+    if json_schema is not None:
+        json_output = True
+
     # Allow model override via kwargs (used by Batch for explicit model selection)
     model_override = kwargs.pop("model", None)
 
@@ -1227,6 +1365,7 @@ async def agenerate(
         max_output_tokens=max_output_tokens,
         system_instruction=system_instruction,
         json_output=json_output,
+        json_schema=json_schema,
         thinking_budget=thinking_budget,
         timeout_s=timeout_s,
         **kwargs,
@@ -1244,6 +1383,9 @@ async def agenerate(
 
     # Validate JSON output if requested
     _validate_json_response(result, json_output)
+
+    if json_schema is not None:
+        _validate_schema(result["text"], json_schema)
 
     return result["text"]
 

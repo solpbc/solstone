@@ -781,6 +781,44 @@ class TestActivityRecordIO:
                     note="bad field",
                 )
 
+    def test_format_activities_renders_story(self):
+        from think.activities import format_activities
+
+        chunks, _meta = format_activities(
+            [
+                {
+                    "id": "meeting_090000_300",
+                    "activity": "meeting",
+                    "description": "Team sync",
+                    "segments": ["090000_300"],
+                    "created_at": 1,
+                    "participation": [{"name": "Mina"}],
+                    "story": {
+                        "body": "Aligned on the launch plan and assigned owners.",
+                        "topics": ["launch", "owners"],
+                        "confidence": 0.9,
+                    },
+                },
+                {
+                    "id": "coding_100000_300",
+                    "activity": "coding",
+                    "description": "Implementation block",
+                    "segments": ["100000_300"],
+                    "created_at": 2,
+                },
+            ]
+        )
+
+        assert (
+            "Aligned on the launch plan and assigned owners." in chunks[0]["markdown"]
+        )
+        assert "Topics: launch, owners" in chunks[0]["markdown"]
+        assert "Topics:" not in chunks[1]["markdown"]
+        assert (
+            "Aligned on the launch plan and assigned owners."
+            not in chunks[1]["markdown"]
+        )
+
     def test_hidden_records_filtered_by_default(self, monkeypatch):
         from think.activities import (
             append_activity_record,
