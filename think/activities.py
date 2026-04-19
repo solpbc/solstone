@@ -1153,6 +1153,60 @@ def merge_story_fields(
     return updated
 
 
+def append_ledger_close_edit(
+    facet: str,
+    day: str,
+    record_id: str,
+    *,
+    item_id: str,
+    note: str,
+    as_state: str,
+) -> dict[str, Any] | None:
+    """Append one ledger-close audit edit to an activity record."""
+    updated_record: dict[str, Any] | None = None
+
+    def modify_fn(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        nonlocal updated_record
+        new_records: list[dict[str, Any]] = []
+        for record in records:
+            if record.get("id") != record_id:
+                new_records.append(record)
+                continue
+
+            normalized = _normalize_activity_record(record)
+            edits = normalized.get("edits", [])
+            already_closed = any(
+                edit.get("fields") == ["ledger_close"]
+                and isinstance(edit.get("ledger_close"), dict)
+                and edit["ledger_close"].get("item_id") == item_id
+                and edit["ledger_close"].get("as_state") == as_state
+                for edit in edits
+                if isinstance(edit, dict)
+            )
+            if already_closed:
+                updated_record = normalized
+                new_records.append(normalized)
+                continue
+
+            normalized = append_edit(
+                normalized,
+                actor="cli:ledger_close",
+                fields=["ledger_close"],
+                note=note,
+                payload={"ledger_close": {"item_id": item_id, "as_state": as_state}},
+            )
+            updated_record = normalized
+            new_records.append(normalized)
+        return new_records
+
+    try:
+        locked_modify(_get_records_path(facet, day), modify_fn)
+    except FileNotFoundError:
+        return None
+
+    return updated_record
+
+
 def _set_activity_hidden_state(
     facet: str,
     day: str,
