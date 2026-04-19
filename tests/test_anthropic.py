@@ -496,6 +496,46 @@ class TestRunGenerateJsonSchema:
         assert "output_config" not in retry_kwargs
         assert result["text"] == json.dumps({"key": "value"})
 
+    def test_fallback_drops_thinking_when_forcing_tool_use(self, monkeypatch):
+        # Anthropic rejects `tool_choice` forcing combined with `thinking`.
+        # Verify the fallback strips thinking and restores temperature.
+        provider = importlib.reload(
+            importlib.import_module("think.providers.anthropic")
+        )
+        mock_client = MagicMock()
+
+        class DummyBadRequestError(Exception):
+            pass
+
+        fallback_response = MagicMock()
+        fallback_response.content = [
+            SimpleNamespace(type="tool_use", input={"key": "value"}),
+        ]
+        fallback_response.usage = None
+        fallback_response.stop_reason = "end_turn"
+        mock_client.messages.create.side_effect = [
+            DummyBadRequestError("bad schema"),
+            fallback_response,
+        ]
+
+        monkeypatch.setattr(provider, "BadRequestError", DummyBadRequestError)
+        monkeypatch.setattr(provider, "_get_anthropic_client", lambda: mock_client)
+        schema = {"type": "object"}
+
+        provider.run_generate(
+            "hello", json_schema=schema, thinking_budget=4096, temperature=0.5
+        )
+
+        primary_kwargs = mock_client.messages.create.call_args_list[0].kwargs
+        assert primary_kwargs.get("thinking") == {
+            "type": "enabled",
+            "budget_tokens": 4096,
+        }
+        retry_kwargs = mock_client.messages.create.call_args_list[1].kwargs
+        assert "thinking" not in retry_kwargs
+        assert retry_kwargs.get("temperature") == 0.5
+        assert retry_kwargs["tool_choice"] == {"type": "tool", "name": "response"}
+
     def test_async_with_schema_uses_output_config(self, monkeypatch):
         provider = importlib.reload(
             importlib.import_module("think.providers.anthropic")

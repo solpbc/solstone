@@ -519,6 +519,11 @@ def run_generate(
         except BadRequestError:
             retry_kwargs = dict(request_kwargs)
             retry_kwargs.pop("output_config", None)
+            # Anthropic rejects `tool_choice` forcing combined with `thinking`.
+            # When falling back to forced tool use, drop thinking and restore
+            # the temperature path that thinking originally displaced.
+            if retry_kwargs.pop("thinking", None) is not None:
+                retry_kwargs.setdefault("temperature", temperature)
             retry_kwargs["tools"] = [
                 {
                     "name": tool_name,
@@ -602,6 +607,11 @@ async def run_agenerate(
         except BadRequestError:
             retry_kwargs = dict(request_kwargs)
             retry_kwargs.pop("output_config", None)
+            # Anthropic rejects `tool_choice` forcing combined with `thinking`.
+            # When falling back to forced tool use, drop thinking and restore
+            # the temperature path that thinking originally displaced.
+            if retry_kwargs.pop("thinking", None) is not None:
+                retry_kwargs.setdefault("temperature", temperature)
             retry_kwargs["tools"] = [
                 {
                     "name": tool_name,
