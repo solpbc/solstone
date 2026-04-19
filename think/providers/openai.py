@@ -35,6 +35,7 @@ from __future__ import annotations
 import functools
 import logging
 import os
+import re
 import traceback
 from pathlib import Path
 from typing import Any, Callable
@@ -57,6 +58,7 @@ from .shared import (
 # Agent configuration is now loaded via get_talent() in cortex.py
 
 LOG = logging.getLogger("think.providers.openai")
+_SCHEMA_NAME_RE = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
 
 
 def _parse_model_effort(model: str) -> tuple[str, str | None]:
@@ -296,6 +298,15 @@ def _build_input(
     return str(contents), system_instruction
 
 
+def _derive_schema_name(schema: dict | None) -> str:
+    """Return a valid schema name for OpenAI structured outputs."""
+    if isinstance(schema, dict):
+        title = schema.get("title")
+        if isinstance(title, str) and title and _SCHEMA_NAME_RE.fullmatch(title):
+            return title
+    return "response"
+
+
 def _normalize_finish_reason(response: Any) -> str | None:
     """Normalize OpenAI finish_reason to standard values.
 
@@ -370,6 +381,7 @@ def run_generate(
     max_output_tokens: int = 8192 * 2,
     system_instruction: str | None = None,
     json_output: bool = False,
+    json_schema: dict | None = None,
     timeout_s: float | None = None,
     **kwargs: Any,
 ) -> GenerateResult:
@@ -395,7 +407,16 @@ def run_generate(
     if effort is not None:
         request_kwargs["reasoning"] = {"effort": effort}
 
-    if json_output:
+    if json_schema is not None:
+        request_kwargs["text"] = {
+            "format": {
+                "type": "json_schema",
+                "name": _derive_schema_name(json_schema),
+                "schema": json_schema,
+                "strict": True,
+            }
+        }
+    elif json_output:
         request_kwargs["text"] = {"format": {"type": "json_object"}}
 
     if timeout_s:
@@ -416,6 +437,7 @@ async def run_agenerate(
     max_output_tokens: int = 8192 * 2,
     system_instruction: str | None = None,
     json_output: bool = False,
+    json_schema: dict | None = None,
     timeout_s: float | None = None,
     **kwargs: Any,
 ) -> GenerateResult:
@@ -441,7 +463,16 @@ async def run_agenerate(
     if effort is not None:
         request_kwargs["reasoning"] = {"effort": effort}
 
-    if json_output:
+    if json_schema is not None:
+        request_kwargs["text"] = {
+            "format": {
+                "type": "json_schema",
+                "name": _derive_schema_name(json_schema),
+                "schema": json_schema,
+                "strict": True,
+            }
+        }
+    elif json_output:
         request_kwargs["text"] = {"format": {"type": "json_object"}}
 
     if timeout_s:

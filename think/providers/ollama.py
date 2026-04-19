@@ -163,6 +163,7 @@ def _build_request_body(
     max_output_tokens: int,
     json_output: bool,
     thinking_budget: int | None,
+    json_schema: dict | None = None,
 ) -> dict[str, Any]:
     """Build the native Ollama /api/chat request body.
 
@@ -203,7 +204,9 @@ def _build_request_body(
     else:
         body["think"] = False
 
-    if json_output:
+    if json_schema is not None:
+        body["format"] = json_schema
+    elif json_output:
         body["format"] = "json"
 
     return body
@@ -281,6 +284,7 @@ def run_generate(
     system_instruction: str | None = None,
     json_output: bool = False,
     thinking_budget: int | None = None,
+    json_schema: dict | None = None,
     timeout_s: float | None = None,
     **kwargs: Any,
 ) -> GenerateResult:
@@ -299,6 +303,7 @@ def run_generate(
         max_output_tokens,
         json_output,
         thinking_budget,
+        json_schema,
     )
 
     response = client.post(
@@ -318,6 +323,7 @@ async def run_agenerate(
     system_instruction: str | None = None,
     json_output: bool = False,
     thinking_budget: int | None = None,
+    json_schema: dict | None = None,
     timeout_s: float | None = None,
     **kwargs: Any,
 ) -> GenerateResult:
@@ -336,6 +342,7 @@ async def run_agenerate(
         max_output_tokens,
         json_output,
         thinking_budget,
+        json_schema,
     )
 
     response = await client.post(

@@ -31,13 +31,15 @@ timeout_s : float, optional
 
 from __future__ import annotations
 
+import json
 import logging
 import os
+import re
 import traceback
 from pathlib import Path
 from typing import Any, Callable
 
-from anthropic import AsyncAnthropic
+from anthropic import AsyncAnthropic, BadRequestError
 from anthropic.types import (
     MessageParam,
     RedactedThinkingBlock,
@@ -64,6 +66,7 @@ from .shared import (
 _DEFAULT_MODEL = CLAUDE_SONNET_4
 
 logger = logging.getLogger(__name__)
+_TOOL_NAME_RE = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
 
 _DEFAULT_MAX_TOKENS = 8096 * 2
 _MIN_THINKING_BUDGET = 1024  # Anthropic minimum
@@ -393,6 +396,23 @@ def _extract_text_and_thinking(response: Any) -> tuple[str, list | None]:
     return text, thinking_blocks if thinking_blocks else None
 
 
+def _derive_tool_name(schema: dict | None) -> str:
+    """Return a valid tool name for Anthropic schema output requests."""
+    if isinstance(schema, dict):
+        title = schema.get("title")
+        if isinstance(title, str) and title and _TOOL_NAME_RE.fullmatch(title):
+            return title
+    return "response"
+
+
+def _extract_first_tool_use_json(response: Any) -> str:
+    """Serialize the first tool_use block input from an Anthropic response."""
+    for block in getattr(response, "content", []):
+        if getattr(block, "type", None) == "tool_use":
+            return json.dumps(getattr(block, "input", None))
+    raise ValueError("Anthropic schema fallback response missing tool_use block")
+
+
 # Cache for Anthropic clients
 _anthropic_client = None
 _async_anthropic_client = None
@@ -447,6 +467,7 @@ def run_generate(
     system_instruction: str | None = None,
     json_output: bool = False,
     thinking_budget: int | None = None,
+    json_schema: dict | None = None,
     timeout_s: float | None = None,
     **kwargs: Any,
 ) -> GenerateResult:
@@ -460,7 +481,7 @@ def run_generate(
 
     # Handle JSON output by adding to system instruction
     system = system_instruction or ""
-    if json_output:
+    if json_schema is None and json_output:
         json_instruction = "Respond with valid JSON only. No explanation or markdown."
         system = f"{system}\n\n{json_instruction}" if system else json_instruction
 
@@ -487,9 +508,32 @@ def run_generate(
     if timeout_s:
         request_kwargs["timeout"] = timeout_s
 
-    response = client.messages.create(**request_kwargs)
+    if json_schema is not None:
+        tool_name = _derive_tool_name(json_schema)
+        request_kwargs["output_config"] = {
+            "format": {"type": "json_schema", "schema": json_schema}
+        }
+        try:
+            response = client.messages.create(**request_kwargs)
+            text, thinking = _extract_text_and_thinking(response)
+        except BadRequestError:
+            retry_kwargs = dict(request_kwargs)
+            retry_kwargs.pop("output_config", None)
+            retry_kwargs["tools"] = [
+                {
+                    "name": tool_name,
+                    "description": "Generate the requested JSON response.",
+                    "input_schema": json_schema,
+                }
+            ]
+            retry_kwargs["tool_choice"] = {"type": "tool", "name": tool_name}
+            response = client.messages.create(**retry_kwargs)
+            text = _extract_first_tool_use_json(response)
+            _, thinking = _extract_text_and_thinking(response)
+    else:
+        response = client.messages.create(**request_kwargs)
+        text, thinking = _extract_text_and_thinking(response)
 
-    text, thinking = _extract_text_and_thinking(response)
     return GenerateResult(
         text=text,
         usage=_extract_usage_dict(response),
@@ -506,6 +550,7 @@ async def run_agenerate(
     system_instruction: str | None = None,
     json_output: bool = False,
     thinking_budget: int | None = None,
+    json_schema: dict | None = None,
     timeout_s: float | None = None,
     **kwargs: Any,
 ) -> GenerateResult:
@@ -519,7 +564,7 @@ async def run_agenerate(
 
     # Handle JSON output by adding to system instruction
     system = system_instruction or ""
-    if json_output:
+    if json_schema is None and json_output:
         json_instruction = "Respond with valid JSON only. No explanation or markdown."
         system = f"{system}\n\n{json_instruction}" if system else json_instruction
 
@@ -546,9 +591,32 @@ async def run_agenerate(
     if timeout_s:
         request_kwargs["timeout"] = timeout_s
 
-    response = await client.messages.create(**request_kwargs)
+    if json_schema is not None:
+        tool_name = _derive_tool_name(json_schema)
+        request_kwargs["output_config"] = {
+            "format": {"type": "json_schema", "schema": json_schema}
+        }
+        try:
+            response = await client.messages.create(**request_kwargs)
+            text, thinking = _extract_text_and_thinking(response)
+        except BadRequestError:
+            retry_kwargs = dict(request_kwargs)
+            retry_kwargs.pop("output_config", None)
+            retry_kwargs["tools"] = [
+                {
+                    "name": tool_name,
+                    "description": "Generate the requested JSON response.",
+                    "input_schema": json_schema,
+                }
+            ]
+            retry_kwargs["tool_choice"] = {"type": "tool", "name": tool_name}
+            response = await client.messages.create(**retry_kwargs)
+            text = _extract_first_tool_use_json(response)
+            _, thinking = _extract_text_and_thinking(response)
+    else:
+        response = await client.messages.create(**request_kwargs)
+        text, thinking = _extract_text_and_thinking(response)
 
-    text, thinking = _extract_text_and_thinking(response)
     return GenerateResult(
         text=text,
         usage=_extract_usage_dict(response),

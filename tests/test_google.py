@@ -6,7 +6,7 @@ import importlib
 import json
 import sys
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 from tests.conftest import setup_google_genai_stub
 from think.models import GEMINI_FLASH
@@ -257,3 +257,106 @@ def test_format_completion_message_none():
     """Test message when finish_reason is None."""
     msg = _format_completion_message(None, had_tool_calls=False)
     assert msg == "Completed (unknown)."
+
+
+class TestRunGenerateJsonSchema:
+    def test_no_schema_kwargs_unchanged(self, monkeypatch):
+        setup_google_genai_stub(monkeypatch, with_thinking=False)
+        sys.modules.pop("think.providers.google", None)
+        provider = importlib.reload(importlib.import_module("think.providers.google"))
+
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = SimpleNamespace(
+            text="[]",
+            candidates=[],
+            usage_metadata=None,
+        )
+        monkeypatch.setattr(
+            provider, "get_or_create_client", lambda _client=None: mock_client
+        )
+
+        provider.run_generate("hello", model=GEMINI_FLASH, json_output=True)
+
+        config = mock_client.models.generate_content.call_args.kwargs["config"]
+        assert config.response_mime_type == "application/json"
+        assert getattr(config, "response_json_schema", None) is None
+
+    def test_with_schema_adds_json_schema(self, monkeypatch):
+        setup_google_genai_stub(monkeypatch, with_thinking=False)
+        sys.modules.pop("think.providers.google", None)
+        provider = importlib.reload(importlib.import_module("think.providers.google"))
+
+        schema = {"type": "object"}
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = SimpleNamespace(
+            text="[]",
+            candidates=[],
+            usage_metadata=None,
+        )
+        monkeypatch.setattr(
+            provider, "get_or_create_client", lambda _client=None: mock_client
+        )
+
+        provider.run_generate(
+            "hello", model=GEMINI_FLASH, json_output=True, json_schema=schema
+        )
+
+        config = mock_client.models.generate_content.call_args.kwargs["config"]
+        assert config.response_mime_type == "application/json"
+        assert config.response_json_schema == schema
+
+    def test_async_no_schema_kwargs_unchanged(self, monkeypatch):
+        setup_google_genai_stub(monkeypatch, with_thinking=False)
+        sys.modules.pop("think.providers.google", None)
+        provider = importlib.reload(importlib.import_module("think.providers.google"))
+
+        mock_client = MagicMock()
+        mock_client.aio.models.generate_content = AsyncMock(
+            return_value=SimpleNamespace(
+                text="[]",
+                candidates=[],
+                usage_metadata=None,
+            )
+        )
+        monkeypatch.setattr(
+            provider, "get_or_create_client", lambda _client=None: mock_client
+        )
+
+        asyncio.run(
+            provider.run_agenerate("hello", model=GEMINI_FLASH, json_output=True)
+        )
+
+        config = mock_client.aio.models.generate_content.call_args.kwargs["config"]
+        assert config.response_mime_type == "application/json"
+        assert getattr(config, "response_json_schema", None) is None
+
+    def test_async_with_schema_adds_json_schema(self, monkeypatch):
+        setup_google_genai_stub(monkeypatch, with_thinking=False)
+        sys.modules.pop("think.providers.google", None)
+        provider = importlib.reload(importlib.import_module("think.providers.google"))
+
+        schema = {"type": "object"}
+        mock_client = MagicMock()
+        mock_client.aio.models.generate_content = AsyncMock(
+            return_value=SimpleNamespace(
+                text="[]",
+                candidates=[],
+                usage_metadata=None,
+            )
+        )
+        monkeypatch.setattr(
+            provider, "get_or_create_client", lambda _client=None: mock_client
+        )
+
+        asyncio.run(
+            provider.run_agenerate(
+                "hello",
+                model=GEMINI_FLASH,
+                json_output=True,
+                json_schema=schema,
+            )
+        )
+
+        config = mock_client.aio.models.generate_content.call_args.kwargs["config"]
+        assert config.response_mime_type == "application/json"
+        assert config.response_json_schema == schema

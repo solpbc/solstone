@@ -7,6 +7,7 @@ import json
 import sys
 import types
 from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock
 
 from think.models import CLAUDE_SONNET_4
 
@@ -93,8 +94,12 @@ def _setup_anthropic_stub(
             else:
                 self.messages = DummyMessages()
 
+    class DummyBadRequestError(Exception):
+        pass
+
     anthropic_stub.Anthropic = DummyClient
     anthropic_stub.AsyncAnthropic = DummyClient  # Add async version
+    anthropic_stub.BadRequestError = DummyBadRequestError
 
     # Add types to the types module
     anthropic_types_stub.MessageParam = dict
@@ -401,3 +406,122 @@ def test_claude_outfile_error(monkeypatch, tmp_path, capsys):
         events = [json.loads(line) for line in out_lines if line]
         if events:
             assert any(e["event"] == "error" for e in events)
+
+
+class TestRunGenerateJsonSchema:
+    def test_no_schema_keeps_prompt_append(self, monkeypatch):
+        provider = importlib.reload(
+            importlib.import_module("think.providers.anthropic")
+        )
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.content = [SimpleNamespace(type="text", text="{}")]
+        mock_response.usage = None
+        mock_response.stop_reason = "end_turn"
+        mock_client.messages.create.return_value = mock_response
+        monkeypatch.setattr(provider, "_get_anthropic_client", lambda: mock_client)
+
+        provider.run_generate(
+            "hello",
+            json_output=True,
+            system_instruction="base",
+        )
+
+        call_kwargs = mock_client.messages.create.call_args.kwargs
+        assert call_kwargs["system"].endswith(
+            "Respond with valid JSON only. No explanation or markdown."
+        )
+
+    def test_with_schema_uses_output_config(self, monkeypatch):
+        provider = importlib.reload(
+            importlib.import_module("think.providers.anthropic")
+        )
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.content = [SimpleNamespace(type="text", text="{}")]
+        mock_response.usage = None
+        mock_response.stop_reason = "end_turn"
+        mock_client.messages.create.return_value = mock_response
+        monkeypatch.setattr(provider, "_get_anthropic_client", lambda: mock_client)
+        schema = {"type": "object"}
+
+        provider.run_generate(
+            "hello",
+            system_instruction="base",
+            json_schema=schema,
+        )
+
+        call_kwargs = mock_client.messages.create.call_args.kwargs
+        assert call_kwargs["output_config"] == {
+            "format": {"type": "json_schema", "schema": schema}
+        }
+        assert call_kwargs["system"] == "base"
+
+    def test_fallback_on_bad_request(self, monkeypatch):
+        provider = importlib.reload(
+            importlib.import_module("think.providers.anthropic")
+        )
+        mock_client = MagicMock()
+
+        class DummyBadRequestError(Exception):
+            pass
+
+        fallback_response = MagicMock()
+        fallback_response.content = [
+            SimpleNamespace(type="tool_use", input={"key": "value"}),
+        ]
+        fallback_response.usage = None
+        fallback_response.stop_reason = "end_turn"
+        mock_client.messages.create.side_effect = [
+            DummyBadRequestError("bad schema"),
+            fallback_response,
+        ]
+
+        monkeypatch.setattr(provider, "BadRequestError", DummyBadRequestError)
+        monkeypatch.setattr(provider, "_get_anthropic_client", lambda: mock_client)
+        schema = {"type": "object"}
+
+        result = provider.run_generate("hello", json_schema=schema)
+
+        assert mock_client.messages.create.call_count == 2
+        retry_kwargs = mock_client.messages.create.call_args_list[1].kwargs
+        assert retry_kwargs["tools"] == [
+            {
+                "name": "response",
+                "description": "Generate the requested JSON response.",
+                "input_schema": schema,
+            }
+        ]
+        assert retry_kwargs["tool_choice"] == {"type": "tool", "name": "response"}
+        assert "output_config" not in retry_kwargs
+        assert result["text"] == json.dumps({"key": "value"})
+
+    def test_async_with_schema_uses_output_config(self, monkeypatch):
+        provider = importlib.reload(
+            importlib.import_module("think.providers.anthropic")
+        )
+        mock_client = MagicMock()
+        mock_client.messages.create = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.content = [SimpleNamespace(type="text", text="{}")]
+        mock_response.usage = None
+        mock_response.stop_reason = "end_turn"
+        mock_client.messages.create.return_value = mock_response
+        monkeypatch.setattr(
+            provider, "_get_async_anthropic_client", lambda: mock_client
+        )
+        schema = {"type": "object"}
+
+        asyncio.run(
+            provider.run_agenerate(
+                "hello",
+                system_instruction="base",
+                json_schema=schema,
+            )
+        )
+
+        call_kwargs = mock_client.messages.create.call_args.kwargs
+        assert call_kwargs["output_config"] == {
+            "format": {"type": "json_schema", "schema": schema}
+        }
+        assert call_kwargs["system"] == "base"

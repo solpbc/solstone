@@ -141,6 +141,20 @@ class TestBuildRequestBody:
         )
         assert body["format"] == "json"
 
+    def test_json_schema_dict(self):
+        provider = _ollama_provider()
+        schema = {"type": "object"}
+        body = provider._build_request_body(
+            "m",
+            [{"role": "user", "content": "hi"}],
+            0.3,
+            1024,
+            True,
+            None,
+            schema,
+        )
+        assert body["format"] == schema
+
     def test_no_json_output(self):
         provider = _ollama_provider()
         body = provider._build_request_body(
@@ -421,6 +435,26 @@ class TestRunGenerate:
         body = call_kwargs.kwargs["json"]
         assert body["format"] == "json"
 
+    def test_json_schema_dict(self):
+        provider = _ollama_provider()
+        mock_response = MagicMock()
+        mock_response.json.return_value = _make_ollama_response(
+            content='{"key": "value"}'
+        )
+        mock_response.raise_for_status = MagicMock()
+        schema = {"type": "object"}
+
+        with patch.object(provider, "_get_client") as mock_get:
+            mock_client = MagicMock()
+            mock_client.post.return_value = mock_response
+            mock_get.return_value = mock_client
+
+            provider.run_generate("hello", model=OLLAMA_FLASH, json_schema=schema)
+
+        call_kwargs = mock_client.post.call_args
+        body = call_kwargs.kwargs["json"]
+        assert body["format"] == schema
+
     def test_system_instruction(self):
         provider = _ollama_provider()
         mock_response = MagicMock()
@@ -480,6 +514,28 @@ class TestRunAgenerate:
 
         assert result["text"] == "Hello!"
         assert result["finish_reason"] == "stop"
+
+    def test_async_json_schema_dict(self):
+        provider = _ollama_provider()
+        mock_response = MagicMock()
+        mock_response.json.return_value = _make_ollama_response(
+            content='{"key": "value"}'
+        )
+        mock_response.raise_for_status = MagicMock()
+        schema = {"type": "object"}
+
+        with patch.object(provider, "_get_async_client") as mock_get:
+            mock_client = MagicMock()
+            mock_client.post = AsyncMock(return_value=mock_response)
+            mock_get.return_value = mock_client
+
+            asyncio.run(
+                provider.run_agenerate("hello", model=OLLAMA_FLASH, json_schema=schema)
+            )
+
+        call_kwargs = mock_client.post.call_args
+        body = call_kwargs.kwargs["json"]
+        assert body["format"] == schema
 
 
 # ---------------------------------------------------------------------------

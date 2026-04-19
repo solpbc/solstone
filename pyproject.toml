@@ -51,6 +51,7 @@ dependencies = [
     "openai-agents>=0.1.0",
     "anthropic",
     "httpx",
+    "jsonschema>=4.26,<5",
     "genai-prices",
     "pypdf",
     "pdf2image",

@@ -212,6 +212,7 @@ def _build_generate_config(
     system_instruction: str | None,
     json_output: bool,
     thinking_budget: int | None,
+    json_schema: dict | None = None,
     timeout_s: float | None = None,
 ) -> types.GenerateContentConfig:
     """Build the GenerateContentConfig.
@@ -232,6 +233,8 @@ def _build_generate_config(
 
     if json_output:
         config_args["response_mime_type"] = "application/json"
+        if json_schema is not None:
+            config_args["response_json_schema"] = json_schema
 
     # Set thinking config when caller explicitly specified a budget.
     # thinking_budget=0 must explicitly disable thinking (not omit config),
@@ -456,6 +459,7 @@ def run_generate(
     system_instruction: str | None = None,
     json_output: bool = False,
     thinking_budget: int | None = None,
+    json_schema: dict | None = None,
     timeout_s: float | None = None,
     **kwargs: Any,
 ) -> GenerateResult:
@@ -475,6 +479,7 @@ def run_generate(
         system_instruction=system_instruction,
         json_output=json_output,
         thinking_budget=thinking_budget,
+        json_schema=json_schema,
         timeout_s=timeout_s,
     )
 
@@ -500,6 +505,7 @@ async def run_agenerate(
     system_instruction: str | None = None,
     json_output: bool = False,
     thinking_budget: int | None = None,
+    json_schema: dict | None = None,
     timeout_s: float | None = None,
     **kwargs: Any,
 ) -> GenerateResult:
@@ -519,6 +525,7 @@ async def run_agenerate(
         system_instruction=system_instruction,
         json_output=json_output,
         thinking_budget=thinking_budget,
+        json_schema=json_schema,
         timeout_s=timeout_s,
     )
 

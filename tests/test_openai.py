@@ -726,6 +726,107 @@ class TestRunGenerate:
         called_kwargs = mock_client.responses.create.call_args.kwargs
         assert called_kwargs["text"] == {"format": {"type": "json_object"}}
 
+    def test_no_schema_format_unchanged(self):
+        provider = _openai_provider()
+        mock_client = MagicMock()
+        mock_client.responses.create = MagicMock()
+        mock_response = MagicMock()
+        mock_response.output_text = "Hello"
+        mock_response.status = "completed"
+        mock_response.incomplete_details = None
+        mock_response.usage = None
+        mock_response.output = []
+        mock_client.responses.create.return_value = mock_response
+
+        with patch(
+            "think.providers.openai._get_openai_client", return_value=mock_client
+        ):
+            provider.run_generate(
+                "hello",
+                model="gpt-5.2",
+                json_output=True,
+                json_schema=None,
+            )
+
+        called_kwargs = mock_client.responses.create.call_args.kwargs
+        assert called_kwargs["text"] == {"format": {"type": "json_object"}}
+
+    def test_with_schema_format_shape(self):
+        provider = _openai_provider()
+        mock_client = MagicMock()
+        mock_client.responses.create = MagicMock()
+        mock_response = MagicMock()
+        mock_response.output_text = "{}"
+        mock_response.status = "completed"
+        mock_response.incomplete_details = None
+        mock_response.usage = None
+        mock_response.output = []
+        mock_client.responses.create.return_value = mock_response
+        schema = {"type": "object"}
+
+        with patch(
+            "think.providers.openai._get_openai_client", return_value=mock_client
+        ):
+            provider.run_generate("hello", model="gpt-5.2", json_schema=schema)
+
+        called_kwargs = mock_client.responses.create.call_args.kwargs
+        assert called_kwargs["text"] == {
+            "format": {
+                "type": "json_schema",
+                "name": "response",
+                "schema": schema,
+                "strict": True,
+            }
+        }
+
+    def test_schema_title_becomes_name(self):
+        provider = _openai_provider()
+        mock_client = MagicMock()
+        mock_client.responses.create = MagicMock()
+        mock_response = MagicMock()
+        mock_response.output_text = "{}"
+        mock_response.status = "completed"
+        mock_response.incomplete_details = None
+        mock_response.usage = None
+        mock_response.output = []
+        mock_client.responses.create.return_value = mock_response
+
+        with patch(
+            "think.providers.openai._get_openai_client", return_value=mock_client
+        ):
+            provider.run_generate(
+                "hello",
+                model="gpt-5.2",
+                json_schema={"title": "MyThing", "type": "object"},
+            )
+
+        called_kwargs = mock_client.responses.create.call_args.kwargs
+        assert called_kwargs["text"]["format"]["name"] == "MyThing"
+
+    def test_schema_bad_title_falls_back(self):
+        provider = _openai_provider()
+        mock_client = MagicMock()
+        mock_client.responses.create = MagicMock()
+        mock_response = MagicMock()
+        mock_response.output_text = "{}"
+        mock_response.status = "completed"
+        mock_response.incomplete_details = None
+        mock_response.usage = None
+        mock_response.output = []
+        mock_client.responses.create.return_value = mock_response
+
+        with patch(
+            "think.providers.openai._get_openai_client", return_value=mock_client
+        ):
+            provider.run_generate(
+                "hello",
+                model="gpt-5.2",
+                json_schema={"title": "bad name with spaces", "type": "object"},
+            )
+
+        called_kwargs = mock_client.responses.create.call_args.kwargs
+        assert called_kwargs["text"]["format"]["name"] == "response"
+
     def test_with_system_instruction(self):
         provider = _openai_provider()
         mock_client = MagicMock()
@@ -821,3 +922,112 @@ class TestRunAgenerate:
             result = asyncio.run(provider.run_agenerate("hello", model="gpt-5.2"))
 
         assert result["thinking"] == [{"summary": "Let me think..."}]
+
+    def test_no_schema_format_unchanged(self):
+        provider = _openai_provider()
+        mock_client = MagicMock()
+        mock_client.responses.create = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.output_text = "Hello"
+        mock_response.status = "completed"
+        mock_response.incomplete_details = None
+        mock_response.usage = None
+        mock_response.output = []
+        mock_client.responses.create.return_value = mock_response
+
+        with patch(
+            "think.providers.openai._get_async_openai_client", return_value=mock_client
+        ):
+            asyncio.run(
+                provider.run_agenerate(
+                    "hello",
+                    model="gpt-5.2",
+                    json_output=True,
+                    json_schema=None,
+                )
+            )
+
+        called_kwargs = mock_client.responses.create.call_args.kwargs
+        assert called_kwargs["text"] == {"format": {"type": "json_object"}}
+
+    def test_with_schema_format_shape(self):
+        provider = _openai_provider()
+        mock_client = MagicMock()
+        mock_client.responses.create = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.output_text = "{}"
+        mock_response.status = "completed"
+        mock_response.incomplete_details = None
+        mock_response.usage = None
+        mock_response.output = []
+        mock_client.responses.create.return_value = mock_response
+        schema = {"type": "object"}
+
+        with patch(
+            "think.providers.openai._get_async_openai_client", return_value=mock_client
+        ):
+            asyncio.run(
+                provider.run_agenerate("hello", model="gpt-5.2", json_schema=schema)
+            )
+
+        called_kwargs = mock_client.responses.create.call_args.kwargs
+        assert called_kwargs["text"] == {
+            "format": {
+                "type": "json_schema",
+                "name": "response",
+                "schema": schema,
+                "strict": True,
+            }
+        }
+
+    def test_schema_title_becomes_name(self):
+        provider = _openai_provider()
+        mock_client = MagicMock()
+        mock_client.responses.create = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.output_text = "{}"
+        mock_response.status = "completed"
+        mock_response.incomplete_details = None
+        mock_response.usage = None
+        mock_response.output = []
+        mock_client.responses.create.return_value = mock_response
+
+        with patch(
+            "think.providers.openai._get_async_openai_client", return_value=mock_client
+        ):
+            asyncio.run(
+                provider.run_agenerate(
+                    "hello",
+                    model="gpt-5.2",
+                    json_schema={"title": "MyThing", "type": "object"},
+                )
+            )
+
+        called_kwargs = mock_client.responses.create.call_args.kwargs
+        assert called_kwargs["text"]["format"]["name"] == "MyThing"
+
+    def test_schema_bad_title_falls_back(self):
+        provider = _openai_provider()
+        mock_client = MagicMock()
+        mock_client.responses.create = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.output_text = "{}"
+        mock_response.status = "completed"
+        mock_response.incomplete_details = None
+        mock_response.usage = None
+        mock_response.output = []
+        mock_client.responses.create.return_value = mock_response
+
+        with patch(
+            "think.providers.openai._get_async_openai_client", return_value=mock_client
+        ):
+            asyncio.run(
+                provider.run_agenerate(
+                    "hello",
+                    model="gpt-5.2",
+                    json_schema={"title": "bad name with spaces", "type": "object"},
+                )
+            )
+
+        called_kwargs = mock_client.responses.create.call_args.kwargs
+        assert called_kwargs["text"]["format"]["name"] == "response"
