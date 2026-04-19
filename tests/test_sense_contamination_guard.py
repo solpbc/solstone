@@ -3,6 +3,45 @@
 
 import json
 import logging
+from pathlib import Path
+
+import frontmatter
+
+SENSE_PATH = Path(__file__).resolve().parents[1] / "talent" / "sense.md"
+
+
+def _role_section() -> str:
+    content = frontmatter.load(SENSE_PATH).content
+    start = content.index("#### role")
+    end = content.index("#### source", start)
+    return content[start:end]
+
+
+def test_sense_role_section_contains_contamination_guard():
+    role_section = _role_section()
+
+    assert "tool or product names visible on screen" in role_section
+    assert "`source: screen`" in role_section
+    assert "`role: mentioned`" in role_section
+    assert "Google Meet" in role_section
+    assert "Zoom" in role_section
+
+
+def test_sense_role_section_has_screen_and_mentioned_guidance_for_tools_and_apps():
+    role_section = _role_section()
+
+    assert "screen" in role_section
+    assert "mentioned" in role_section
+    assert "tool" in role_section
+    assert "Video-conference app names" in role_section
+
+
+def test_sense_role_section_gates_attendee_on_meeting_detected():
+    role_section = _role_section()
+
+    assert "`meeting_detected: true`" in role_section
+    assert "`meeting_detected: false`" in role_section
+    assert "`role: attendee`" in role_section
 
 
 def _write_detected_entities(tmp_path, facet: str, day: str, rows: list[dict]) -> None:
