@@ -2,6 +2,7 @@
 # Copyright (c) 2026 sol pbc
 
 import json
+import logging
 from pathlib import Path
 
 
@@ -30,10 +31,12 @@ def _context(
     facet: str = "work",
     day: str = "20260418",
     record_id: str = "meeting_090000_300",
+    name: str = "conversation",
 ) -> dict:
     return {
         "facet": facet,
         "day": day,
+        "name": name,
         "activity": {"id": record_id},
         "output_path": str(
             tmp_path / "facets" / facet / "activities" / day / record_id / "story.json"
@@ -98,6 +101,7 @@ def test_story_hook_parses_and_writes(tmp_path, monkeypatch):
     record = _load_record("work", "20260418")
     assert returned == ""
     assert record["story"] == {
+        "talent": "conversation",
         "body": "Wrapped the launch prep and assigned follow-up.",
         "topics": ["launch", "follow-up"],
         "confidence": 0.82,
@@ -326,6 +330,7 @@ def test_story_hook_idempotent_rerun(tmp_path, monkeypatch):
 
     second = _load_record("work", "20260418")
     assert second["story"] == {
+        "talent": "conversation",
         "body": "Second pass with a clearer summary.",
         "topics": ["handoff"],
         "confidence": 0.82,
@@ -341,6 +346,90 @@ def test_story_hook_idempotent_rerun(tmp_path, monkeypatch):
         }
     ]
     assert len(second["edits"]) == 2
+
+
+def test_story_hook_normalizes_topics(tmp_path, monkeypatch):
+    from talent.story import post_process
+    from think.activities import append_activity_record
+
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    append_activity_record("work", "20260418", _activity_record())
+
+    post_process(
+        _valid_result(
+            topics=["Launch Plan", "follow-up", "LAUNCH plan", "   ", "follow-up"]
+        ),
+        _context(tmp_path),
+    )
+
+    record = _load_record("work", "20260418")
+    assert record["story"]["topics"] == ["launch plan", "follow-up"]
+
+
+def test_story_hook_clamps_confidence(tmp_path, monkeypatch, caplog):
+    from talent.story import post_process
+    from think.activities import append_activity_record, load_activity_records
+
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    caplog.set_level(logging.WARNING)
+
+    append_activity_record(
+        "work",
+        "20260418",
+        _activity_record(record_id="meeting_090000_300"),
+    )
+    post_process(_valid_result(confidence=1.4), _context(tmp_path))
+    first = _load_record("work", "20260418")
+    assert first["story"]["confidence"] == 1.0
+    assert "clamped" in caplog.text
+
+    append_activity_record(
+        "work",
+        "20260418",
+        _activity_record(record_id="meeting_100000_300"),
+    )
+    post_process(
+        _valid_result(confidence=-0.2),
+        _context(tmp_path, record_id="meeting_100000_300"),
+    )
+    records = load_activity_records("work", "20260418", include_hidden=True)
+    by_id = {record["id"]: record for record in records}
+    assert by_id["meeting_090000_300"]["story"]["confidence"] == 1.0
+    assert by_id["meeting_100000_300"]["story"]["confidence"] == 0.0
+
+
+def test_story_hook_rejects_nan_confidence(tmp_path, monkeypatch):
+    from talent.story import post_process
+    from think.activities import append_activity_record
+
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    append_activity_record("work", "20260418", _activity_record())
+
+    returned = post_process(
+        _valid_result(confidence=float("nan")),
+        _context(tmp_path),
+    )
+
+    record = _load_record("work", "20260418")
+    assert returned == ""
+    assert "story" not in record
+
+
+def test_story_hook_rejects_non_numeric_confidence(tmp_path, monkeypatch):
+    from talent.story import post_process
+    from think.activities import append_activity_record
+
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    append_activity_record("work", "20260418", _activity_record())
+
+    returned = post_process(
+        _valid_result(confidence="high"),
+        _context(tmp_path),
+    )
+
+    record = _load_record("work", "20260418")
+    assert returned == ""
+    assert "story" not in record
 
 
 def test_story_hook_missing_record_logs_and_returns(tmp_path, monkeypatch, caplog):

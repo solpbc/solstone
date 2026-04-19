@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 from typing import Any
 
 from think.activities import merge_story_fields
@@ -16,6 +17,48 @@ from think.entities.matching import find_matching_entity
 logger = logging.getLogger(__name__)
 
 ALLOWED_RESOLUTIONS = frozenset({"sent", "done", "signed", "dropped", "deferred"})
+
+
+def _normalize_topics(value: Any) -> list[str] | None:
+    if not isinstance(value, list):
+        logger.warning("story hook: missing topics list")
+        return None
+
+    topics: list[str] = []
+    seen: set[str] = set()
+    for item in value:
+        if not isinstance(item, str):
+            logger.warning("story hook: invalid topics list")
+            return None
+        topic = item.strip().lower()
+        if not topic or topic in seen:
+            continue
+        seen.add(topic)
+        topics.append(topic)
+        if len(topics) >= 10:
+            break
+
+    if not topics:
+        logger.warning("story hook: empty topics after normalization")
+        return None
+
+    return topics
+
+
+def _normalize_confidence(value: Any) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        logger.warning("story hook: invalid confidence value")
+        return None
+
+    confidence = float(value)
+    if math.isnan(confidence):
+        logger.warning("story hook: invalid confidence value")
+        return None
+
+    clamped = min(1.0, max(0.0, confidence))
+    if clamped != confidence:
+        logger.warning("story hook: clamped confidence %s to %s", confidence, clamped)
+    return clamped
 
 
 def _resolve_entity_id(name: str, entities: list[dict[str, Any]]) -> str | None:
@@ -57,17 +100,11 @@ def post_process(result: str, context: dict) -> str:
     if not isinstance(body, str) or not body.strip():
         logger.warning("story hook: missing body")
         return ""
-    if not isinstance(topics, list) or any(
-        not isinstance(topic, str) for topic in topics
-    ):
-        logger.warning("story hook: invalid topics")
+    topics = _normalize_topics(topics)
+    if topics is None:
         return ""
-    if (
-        isinstance(confidence, bool)
-        or not isinstance(confidence, (int, float))
-        or not 0.0 <= float(confidence) <= 1.0
-    ):
-        logger.warning("story hook: invalid confidence")
+    confidence = _normalize_confidence(confidence)
+    if confidence is None:
         return ""
     if not isinstance(commitments, list):
         logger.warning("story hook: missing commitments list")
@@ -170,10 +207,15 @@ def post_process(result: str, context: dict) -> str:
         )
         resolved_decisions.append(resolved_decision)
 
+    talent_name = context.get("name") or ""
+    if not talent_name:
+        logger.warning("story hook: missing talent name in context")
+
     story = {
+        "talent": talent_name,
         "body": body.strip(),
-        "topics": list(topics),
-        "confidence": float(confidence),
+        "topics": topics,
+        "confidence": confidence,
     }
 
     merge_story_fields(
