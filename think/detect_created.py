@@ -15,6 +15,10 @@ from typing import Optional
 
 from .prompts import load_prompt
 
+_SCHEMA = json.loads(
+    (Path(__file__).parent / "detect_created.schema.json").read_text(encoding="utf-8")
+)
+
 
 def _load_system_prompt() -> str:
     """Load the system prompt from detect_created.txt file."""
@@ -99,6 +103,7 @@ def detect_created(
         thinking_budget=4096,
         system_instruction=_load_system_prompt(),
         json_output=True,
+        json_schema=_SCHEMA,
     )
 
     try:

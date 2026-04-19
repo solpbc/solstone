@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["day", "time", "confidence", "source", "utc"],
+  "properties": {
+    "day": {
+      "type": "string",
+      "pattern": "^\\d{8}$"
+    },
+    "time": {
+      "type": "string",
+      "pattern": "^\\d{6}$"
+    },
+    "confidence": {
+      "type": "string",
+      "enum": ["high", "medium", "low"]
+    },
+    "source": {
+      "type": "string",
+      "minLength": 1
+    },
+    "utc": {
+      "type": "boolean"
+    }
+  }
+}
