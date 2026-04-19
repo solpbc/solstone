@@ -2,17 +2,22 @@
 name: entities
 description: >
   Manage tracked entities for people, companies, projects, and tools within
-  facets. Detect, attach, update, alias, search, and record observations.
-  Query relationship strength and get full intelligence briefings.
+  facets. Detect, attach, move, merge, consolidate, update, alias, search,
+  and record observations. Query relationship strength and get full
+  intelligence briefings.
   Use when the owner asks about people, contacts, companies, or projects
-  tracked in the journal, or wants to add, update, or search entities.
+  tracked in the journal, or wants to add, update, merge, or search entities.
   TRIGGER: entity, person, company, project, relationship, observation,
-  who is, contact, knowledge graph, intelligence briefing.
+  who is, contact, knowledge graph, intelligence briefing, consolidate,
+  merge, move, deduplicate, sol call entities detect,
+  sol call entities attach, sol call entities merge,
+  sol call entities move, sol call entities consolidate,
+  sol call entities intelligence.
 ---
 
 # Entities CLI Skill
 
-Use these commands to maintain facet-scoped entity memory from the terminal.
+Maintain facet-scoped entity memory. Invoke via Bash: `sol call entities <command> [args...]`.
 
 **Environment defaults**: When `SOL_FACET` is set, all commands use it automatically. Same for `SOL_DAY` where DAY is accepted.
 
@@ -128,6 +133,33 @@ Examples:
 ```bash
 sol call entities update "acme_corp" "Primary vendor for identity services" -f work
 sol call entities update "Alicia Chen" "Discussed migration plan" -f work -d 20260115
+```
+
+## move
+
+```bash
+sol call entities move ENTITY --from FACET --to FACET [--merge] [--consent]
+```
+
+Move an attached entity from one facet to another.
+
+- `ENTITY`: entity name or partial match.
+- `--from`: source facet.
+- `--to`: destination facet.
+- `--merge`: merge observations and relationship if an entity already exists in the destination.
+- `--consent`: assert that explicit owner approval was obtained before the move (agent audit trail).
+
+Behavior notes:
+
+- Without `--merge`: fails if the entity already exists in the destination facet.
+- With `--merge`: combines observations (deduplicated by content + observed_at) and preserves an existing relationship record; the source directory is removed afterwards.
+- Both facets must exist.
+
+Examples:
+
+```bash
+sol call entities move "Alex Chen" --from personal --to work
+sol call entities move "Alex Chen" --from personal --to work --merge --consent
 ```
 
 ## aka
@@ -266,3 +298,59 @@ Example:
 ```bash
 sol call entities intelligence "Alicia Chen" -f work
 ```
+
+## consolidate
+
+```bash
+sol call entities consolidate [--full]
+```
+
+Roll up segment-level entity detections into journal-level entity records.
+
+- `--full`: scan all days. Default scans today only.
+
+Behavior notes:
+
+- Uses 85% fuzzy-name matching to merge duplicates. Threshold is not configurable.
+- Noise-filter entities are skipped.
+- Reports the number of new entities written; existing entities are updated in place with richer descriptions.
+
+Example:
+
+```bash
+sol call entities consolidate
+sol call entities consolidate --full
+```
+
+## merge
+
+```bash
+sol call entities merge SOURCE_SLUG TARGET_SLUG [--commit/--no-commit] [--keep-source-as-aka/--no-keep-source-as-aka]
+```
+
+Plan or execute a merge of two journal entities (e.g., collapse duplicates after consolidation).
+
+- `SOURCE_SLUG`: entity slug to merge from (removed on `--commit`).
+- `TARGET_SLUG`: entity slug to merge into (canonical).
+- `--commit/--no-commit`: default `--no-commit`. Returns a JSON plan with no mutations. Pass `--commit` to persist.
+- `--keep-source-as-aka/--no-keep-source-as-aka`: default `--keep-source-as-aka`. Preserve the source display name as an alias on the target.
+
+Behavior notes:
+
+- Observations and aliases from source are merged into target with deduplication.
+- If any other entity references `SOURCE_SLUG` in its alias list, the merge is rejected and the offenders are listed.
+- If both entities have principals assigned, the merge is rejected.
+
+Examples:
+
+```bash
+sol call entities merge jeremy-miller jeremie-miller
+sol call entities merge jeremy-miller jeremie-miller --commit
+```
+
+## Gotchas
+
+- **`merge` previews by default.** Default is `--no-commit`: it emits a JSON plan without mutating anything. Pass `--commit` when you actually want the merge to happen.
+- **`consolidate` auto-merges at 85%.** Fuzzy-name matching runs unattended; review the output whenever it reports new entities to catch unexpected consolidations.
+- **`detect` requires TYPE ≥ 3 chars.** Shorter types are silently rejected.
+- **`observe` is for durable traits, `detect` is for day-scoped sightings.** Mixing them skews relationship-strength scoring.
