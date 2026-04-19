@@ -19,10 +19,24 @@ SEGMENTS = [
             "density": "active",
             "content_type": "coding",
             "activity_summary": "Implementing auth module",
-            "facets": [{"facet": "work", "level": "high"}],
+            "facets": [{"facet": "work", "activity": "coding", "level": "high"}],
             "meeting_detected": False,
-            "recommend": {},
-            "entities": [{"name": "Acme"}],
+            "speakers": [],
+            "recommend": {
+                "screen_record": False,
+                "speaker_attribution": False,
+                "pulse_update": False,
+            },
+            "entities": [
+                {
+                    "type": "Company",
+                    "name": "Acme",
+                    "role": "mentioned",
+                    "source": "screen",
+                    "context": "Codebase referenced during implementation work",
+                }
+            ],
+            "emotional_register": "focused",
         },
     ),
     (
@@ -31,10 +45,24 @@ SEGMENTS = [
             "density": "active",
             "content_type": "coding",
             "activity_summary": "Implementing auth module",
-            "facets": [{"facet": "work", "level": "high"}],
+            "facets": [{"facet": "work", "activity": "coding", "level": "high"}],
             "meeting_detected": False,
-            "recommend": {},
-            "entities": [{"name": "Acme"}],
+            "speakers": [],
+            "recommend": {
+                "screen_record": False,
+                "speaker_attribution": False,
+                "pulse_update": False,
+            },
+            "entities": [
+                {
+                    "type": "Company",
+                    "name": "Acme",
+                    "role": "mentioned",
+                    "source": "screen",
+                    "context": "Codebase referenced during implementation work",
+                }
+            ],
+            "emotional_register": "focused",
         },
     ),
     (
@@ -43,11 +71,24 @@ SEGMENTS = [
             "density": "active",
             "content_type": "meeting",
             "activity_summary": "Sprint planning standup",
-            "facets": [{"facet": "work", "level": "medium"}],
+            "facets": [{"facet": "work", "activity": "meeting", "level": "medium"}],
             "meeting_detected": True,
             "speakers": ["Alice", "Bob"],
-            "recommend": {},
-            "entities": [{"name": "Acme"}],
+            "recommend": {
+                "screen_record": False,
+                "speaker_attribution": False,
+                "pulse_update": False,
+            },
+            "entities": [
+                {
+                    "type": "Company",
+                    "name": "Acme",
+                    "role": "mentioned",
+                    "source": "screen",
+                    "context": "Organization discussed during standup",
+                }
+            ],
+            "emotional_register": "collaborative",
         },
     ),
     (
@@ -56,11 +97,24 @@ SEGMENTS = [
             "density": "active",
             "content_type": "meeting",
             "activity_summary": "Sprint planning standup",
-            "facets": [{"facet": "work", "level": "medium"}],
+            "facets": [{"facet": "work", "activity": "meeting", "level": "medium"}],
             "meeting_detected": True,
             "speakers": ["Alice", "Bob"],
-            "recommend": {},
-            "entities": [{"name": "Acme"}],
+            "recommend": {
+                "screen_record": False,
+                "speaker_attribution": False,
+                "pulse_update": False,
+            },
+            "entities": [
+                {
+                    "type": "Company",
+                    "name": "Acme",
+                    "role": "mentioned",
+                    "source": "screen",
+                    "context": "Organization discussed during standup",
+                }
+            ],
+            "emotional_register": "collaborative",
         },
     ),
     (
@@ -68,11 +122,17 @@ SEGMENTS = [
         {
             "density": "idle",
             "content_type": "idle",
-            "activity_summary": "",
+            "activity_summary": "Idle segment.",
             "facets": [],
             "meeting_detected": False,
-            "recommend": {},
+            "speakers": [],
+            "recommend": {
+                "screen_record": False,
+                "speaker_attribution": False,
+                "pulse_update": False,
+            },
             "entities": [],
+            "emotional_register": "neutral",
         },
     ),
     (
@@ -81,10 +141,24 @@ SEGMENTS = [
             "density": "active",
             "content_type": "coding",
             "activity_summary": "Reviewing PR feedback",
-            "facets": [{"facet": "work", "level": "low"}],
+            "facets": [{"facet": "work", "activity": "coding", "level": "low"}],
             "meeting_detected": False,
-            "recommend": {},
-            "entities": [{"name": "Acme"}],
+            "speakers": [],
+            "recommend": {
+                "screen_record": False,
+                "speaker_attribution": False,
+                "pulse_update": False,
+            },
+            "entities": [
+                {
+                    "type": "Company",
+                    "name": "Acme",
+                    "role": "mentioned",
+                    "source": "screen",
+                    "context": "Project organization referenced in review feedback",
+                }
+            ],
+            "emotional_register": "focused",
         },
     ),
 ]

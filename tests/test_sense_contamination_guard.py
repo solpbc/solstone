@@ -66,6 +66,24 @@ def _write_sense_json(
         (talents_dir / "sense.json").write_text(json.dumps(payload), encoding="utf-8")
 
 
+def _sense_payload(*, meeting_detected: bool) -> dict:
+    return {
+        "density": "idle",
+        "content_type": "idle",
+        "activity_summary": "Idle segment.",
+        "entities": [],
+        "facets": [],
+        "meeting_detected": meeting_detected,
+        "speakers": [],
+        "recommend": {
+            "screen_record": False,
+            "speaker_attribution": False,
+            "pulse_update": False,
+        },
+        "emotional_register": "neutral",
+    }
+
+
 def _activity_record(segments: list[str]) -> dict:
     return {
         "id": "meeting_090000_300",
@@ -115,7 +133,7 @@ def test_participation_clamps_attendees_when_all_segments_are_non_meetings(
     )
     for segment_key in segments:
         _write_sense_json(
-            tmp_path, day, stream, segment_key, {"meeting_detected": False}
+            tmp_path, day, stream, segment_key, _sense_payload(meeting_detected=False)
         )
 
     activity = _activity_record(segments)
@@ -155,8 +173,12 @@ def test_participation_preserves_attendees_when_any_segment_is_meeting(
         day,
         [{"id": "guest_speaker", "type": "Person", "name": "Guest Speaker"}],
     )
-    _write_sense_json(tmp_path, day, stream, segments[0], {"meeting_detected": False})
-    _write_sense_json(tmp_path, day, stream, segments[1], {"meeting_detected": True})
+    _write_sense_json(
+        tmp_path, day, stream, segments[0], _sense_payload(meeting_detected=False)
+    )
+    _write_sense_json(
+        tmp_path, day, stream, segments[1], _sense_payload(meeting_detected=True)
+    )
 
     activity = _activity_record(segments)
     append_activity_record(facet, day, activity)
@@ -193,7 +215,7 @@ def test_participation_clamp_is_idempotent_on_second_pass(
     )
     for segment_key in segments:
         _write_sense_json(
-            tmp_path, day, stream, segment_key, {"meeting_detected": False}
+            tmp_path, day, stream, segment_key, _sense_payload(meeting_detected=False)
         )
 
     activity = _activity_record(segments)
@@ -243,7 +265,9 @@ def test_participation_treats_missing_sense_json_as_non_meeting(
         [{"id": "guest_speaker", "type": "Person", "name": "Guest Speaker"}],
     )
     _write_sense_json(tmp_path, day, stream, segments[0], None)
-    _write_sense_json(tmp_path, day, stream, segments[1], {"meeting_detected": False})
+    _write_sense_json(
+        tmp_path, day, stream, segments[1], _sense_payload(meeting_detected=False)
+    )
 
     activity = _activity_record(segments)
     append_activity_record(facet, day, activity)

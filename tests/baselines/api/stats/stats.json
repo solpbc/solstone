@@ -227,6 +227,7 @@
       "path": "<PROJECT>/talent/sense.md",
       "priority": 5,
       "schedule": "segment",
+      "schema": "sense.schema.json",
       "source": "system",
       "thinking_budget": 4096,
       "tier": 3,
