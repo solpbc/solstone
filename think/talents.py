@@ -1311,3 +1311,6 @@ __all__ = [
     "validate_config",
     "scan_day",
 ]
+
+if __name__ == "__main__":
+    main()
