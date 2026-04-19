@@ -196,6 +196,7 @@
       "path": "<PROJECT>/talent/schedule.md",
       "priority": 10,
       "schedule": "daily",
+      "schema": "schedule.schema.json",
       "source": "system",
       "title": "Upcoming Schedule",
       "type": "generate"

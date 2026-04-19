@@ -8,6 +8,7 @@
   "schedule": "daily",
   "priority": 10,
   "output": "json",
+  "schema": "schedule.schema.json",
   "load": {"transcripts": true, "percepts": false, "talents": {"screen": true}}
 }
 
@@ -70,7 +71,7 @@ Return **only** a JSON array. Each element is an anticipation object with these 
 
 ### Field-by-field
 
-- **`activity`** — Short descriptive string for the kind of scheduled item. Pick the best fit for what you're seeing. Common examples: `meeting`, `call`, `deadline`, `appointment`, `event`, `travel`, `reminder`, `errand`, `celebration`. **Not a restricted enum** — use whatever label best describes the item. Lowercase, underscore-separated if multi-word (e.g., `doctor_appointment`).
+- **`activity`** — Short descriptive string for the kind of scheduled item. One of: `meeting`, `call`, `deadline`, `appointment`, `event`, `travel`, `reminder`, `errand`, `celebration`, `doctor_appointment`. Lowercase, underscore-separated when multi-word.
 
 - **`target_date`** — ISO date `YYYY-MM-DD`. The day the item is scheduled for. Must be strictly after today.
 
