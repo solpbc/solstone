@@ -7,6 +7,7 @@
   "activities": ["meeting", "call", "messaging", "email"],
   "priority": 20,
   "output": "json",
+  "schema": "story.schema.json",
   "hook": {"post": "story"},
   "load": {
     "transcripts": true,

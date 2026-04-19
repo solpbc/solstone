@@ -7,6 +7,7 @@
   "activities": ["appointment", "event", "travel", "errand", "celebration", "deadline", "reminder"],
   "priority": 20,
   "output": "json",
+  "schema": "story.schema.json",
   "hook": {"post": "story"},
   "load": {
     "transcripts": true,

@@ -22,6 +22,7 @@
       "path": "<PROJECT>/talent/conversation.md",
       "priority": 20,
       "schedule": "activity",
+      "schema": "story.schema.json",
       "source": "system",
       "title": "Conversation Story",
       "type": "generate"
@@ -144,6 +145,7 @@
       "path": "<PROJECT>/talent/event.md",
       "priority": 20,
       "schedule": "activity",
+      "schema": "story.schema.json",
       "source": "system",
       "title": "Event Story",
       "type": "generate"
@@ -301,6 +303,7 @@
       "path": "<PROJECT>/talent/work.md",
       "priority": 20,
       "schedule": "activity",
+      "schema": "story.schema.json",
       "source": "system",
       "title": "Work Story",
       "type": "generate"
