@@ -441,6 +441,38 @@ class TestTemplateCreate:
         assert result.exit_code == 1
         assert "template 'nonexistent' not found" in result.stderr
 
+    def test_create_template_dict_cadence_persisted(self, journal_path):
+        result = runner.invoke(
+            call_app,
+            ["routines", "create", "--template", "meeting-prep"],
+        )
+        assert result.exit_code == 0
+        config = get_config()
+        assert len(config) == 1
+        routine = next(iter(config.values()))
+        assert routine["cadence"] == {
+            "type": "activity-anticipation",
+            "offset_minutes": -30,
+        }
+
+    def test_create_template_dict_cadence_overridden_by_string(self, journal_path):
+        result = runner.invoke(
+            call_app,
+            [
+                "routines",
+                "create",
+                "--template",
+                "meeting-prep",
+                "--cadence",
+                "0 9 * * *",
+            ],
+        )
+        assert result.exit_code == 0
+        config = get_config()
+        assert len(config) == 1
+        routine = next(iter(config.values()))
+        assert routine["cadence"] == "0 9 * * *"
+
     def test_create_invalid_template_cadence_type(self, journal_path, monkeypatch):
         import think.tools.routines as routines_cli
 
@@ -467,6 +499,58 @@ class TestTemplateCreate:
         )
         assert result.exit_code == 1
         assert "unsupported cadence type" in result.stderr
+
+    def test_create_template_dict_cadence_missing_type(self, journal_path, monkeypatch):
+        import think.tools.routines as routines_cli
+
+        def _fake_template(name: str):
+            return (
+                {
+                    "name": name,
+                    "description": "missing cadence type",
+                    "default_cadence": {"offset_minutes": -30},
+                    "default_timezone": "UTC",
+                    "default_facets": [],
+                },
+                "Instruction body",
+            )
+
+        monkeypatch.setattr(routines_cli, "_load_template", _fake_template)
+        result = runner.invoke(
+            call_app,
+            ["routines", "create", "--template", "bad-template"],
+        )
+        assert result.exit_code == 1
+        assert "type" in result.stderr
+        assert "missing" in result.stderr
+
+    def test_create_template_dict_cadence_bad_offset_minutes(
+        self, journal_path, monkeypatch
+    ):
+        import think.tools.routines as routines_cli
+
+        def _fake_template(name: str):
+            return (
+                {
+                    "name": name,
+                    "description": "bad cadence offset",
+                    "default_cadence": {
+                        "type": "activity-anticipation",
+                        "offset_minutes": "not-a-number",
+                    },
+                    "default_timezone": "UTC",
+                    "default_facets": [],
+                },
+                "Instruction body",
+            )
+
+        monkeypatch.setattr(routines_cli, "_load_template", _fake_template)
+        result = runner.invoke(
+            call_app,
+            ["routines", "create", "--template", "bad-template"],
+        )
+        assert result.exit_code == 1
+        assert "offset_minutes" in result.stderr
 
 
 class TestNameResolution:

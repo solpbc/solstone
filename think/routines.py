@@ -439,6 +439,7 @@ def check() -> None:
             if cron_matches(cadence, local_now):
                 _last_fired[routine_id] = minute_key
                 _run_routine(routine)
+        # Keep this cadence-object dispatch in sync with think.tools.routines._validate_routine_cadence().
         elif (
             isinstance(cadence, dict) and cadence.get("type") == "activity-anticipation"
         ):

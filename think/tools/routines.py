@@ -112,7 +112,38 @@ def _validate_routine_cadence(cadence: object) -> None:
             raise typer.Exit(1)
         return
 
-    typer.echo("Error: invalid cadence: unsupported cadence type", err=True)
+    # Keep this cadence-object validation in sync with think.routines.check().
+    if isinstance(cadence, dict):
+        if "type" not in cadence:
+            typer.echo("Error: invalid cadence: missing 'type' field", err=True)
+            raise typer.Exit(1)
+
+        cadence_type = cadence["type"]
+        if not isinstance(cadence_type, str):
+            typer.echo("Error: invalid cadence: 'type' must be a string", err=True)
+            raise typer.Exit(1)
+
+        if cadence_type == "activity-anticipation":
+            if "offset_minutes" in cadence:
+                try:
+                    int(cadence["offset_minutes"])
+                except (TypeError, ValueError):
+                    typer.echo(
+                        "Error: invalid cadence: offset_minutes must be an integer",
+                        err=True,
+                    )
+                    raise typer.Exit(1)
+            return
+
+        typer.echo(
+            f"Error: invalid cadence: unsupported cadence type {cadence_type!r}",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    typer.echo(
+        "Error: invalid cadence: must be a cron string or cadence object", err=True
+    )
     raise typer.Exit(1)
 
 
