@@ -2,7 +2,7 @@
   "type": "generate",
 
   "title": "Upcoming Schedule",
-  "description": "Extracts future scheduled events and calendar activities into structured anticipation records. Captures dates, times, participants, and cancellation state.",
+  "description": "Extracts future scheduled items from screen and transcript content into anticipated activity records. Captures dates, times, participants, and cancellation state.",
   "hook": {"post": "schedule"},
   "color": "#5e35b1",
   "schedule": "daily",
@@ -17,7 +17,7 @@ $daily_preamble
 
 **Input:** A markdown file containing chronologically ordered transcripts of a workday plus the screen agent's output for the same day. Calendar views, meeting invitations, scheduling UIs, and project-management interfaces are captured in the screen content; verbal mentions of future plans appear in transcripts.
 
-**Your task:** Identify every future scheduled item (dated after today) visible in the day's screen or transcript content and emit a JSON array of anticipation objects.
+**Your task:** Identify every future scheduled item (dated after today) visible in the day's screen or transcript content and emit a JSON array of anticipated activity objects.
 
 ## What to capture
 

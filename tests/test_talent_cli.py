@@ -80,7 +80,7 @@ def test_format_tags_hook():
     assert _format_tags({}) == ""
 
     # Hook tags (compact, no =name suffix)
-    assert _format_tags({"hook": {"post": "occurrence"}}) == "post"
+    assert _format_tags({"hook": {"post": "schedule"}}) == "post"
     assert _format_tags({"hook": {"pre": "prep"}}) == "pre"
     assert _format_tags({"hook": {"pre": "prep", "post": "process"}}) == "pre post"
 
@@ -93,7 +93,7 @@ def test_format_tags_hook():
 
     # Combined: output + hooks + disabled + FAIL
     tags = _format_tags(
-        {"output": "md", "hook": {"post": "occurrence"}, "disabled": True},
+        {"output": "md", "hook": {"post": "schedule"}, "disabled": True},
         failed=True,
     )
     assert tags == "md post disabled FAIL"

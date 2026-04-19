@@ -379,7 +379,7 @@ def get_providers() -> Any:
         - cogitate: Current cogitate provider, tier, and backup
         - contexts: Configured context overrides from journal.json
         - context_defaults: Context registry with labels/groups for UI
-          (includes talent configs with type, schedule, disabled, extract)
+          (includes talent configs with type, schedule, and disabled state)
         - api_keys: Boolean status for each provider's API key
         - auth: Per-provider auth mode for cogitate ("platform" or "api_key")
     """
@@ -432,13 +432,6 @@ def get_providers() -> Any:
                 if "schedule" in info:
                     context_defaults[context_key]["schedule"] = info["schedule"]
                 context_defaults[context_key]["disabled"] = info.get("disabled", False)
-                # Include extract for generators with occurrence hooks
-                hook = info.get("hook")
-                has_extraction = (
-                    isinstance(hook, dict) and hook.get("post") in ("occurrence",)
-                ) or hook in ("occurrence",)
-                if has_extraction:
-                    context_defaults[context_key]["extract"] = info.get("extract", True)
 
         # Get providers list from registry
         providers_list = get_provider_list()
@@ -928,12 +921,6 @@ def _build_generator_info(key: str, info: dict) -> dict:
     Transforms talent config metadata into the format expected by the
     Settings UI Insights section.
     """
-    # Determine if extraction is supported (occurrence hooks)
-    hook = info.get("hook")
-    has_extraction = (
-        isinstance(hook, dict) and hook.get("post") in ("occurrence",)
-    ) or hook in ("occurrence",)
-
     return {
         "key": key,
         "title": info.get("title", info.get("label", key)),
@@ -941,8 +928,6 @@ def _build_generator_info(key: str, info: dict) -> dict:
         "source": info.get("source", "system"),
         "app": info.get("app"),
         "disabled": info.get("disabled", False),
-        "extract": info.get("extract", True) if has_extraction else None,
-        "has_extraction": has_extraction,
     }
 
 

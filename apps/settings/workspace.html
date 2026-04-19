@@ -2500,7 +2500,7 @@ button:focus:not(:focus-visible) {
     <!-- Insights Section -->
     <section class="settings-section" id="section-insights" role="tabpanel" aria-labelledby="tab-insights">
       <h2>insights</h2>
-      <p class="settings-section-desc">Configure which AI insights run and whether they extract events to your timeline.</p>
+      <p class="settings-section-desc">Configure which AI insights run.</p>
 
       <form class="settings-form" onsubmit="return false;">
 
@@ -5332,8 +5332,6 @@ function renderInsightsList(insights) {
 
     for (const insight of sourceInsights) {
       const isDisabled = insight.disabled;
-      const hasExtraction = insight.has_extraction;
-      const extractEnabled = insight.extract !== false;
 
       html += `<div class="insight-row${isDisabled ? ' insight-disabled' : ''}" data-insight="${insight.key}">`;
       html += `<div class="insight-info">`;
@@ -5344,17 +5342,6 @@ function renderInsightsList(insights) {
       html += `</div>`;
 
       html += `<div class="insight-controls">`;
-
-      // Extract toggle (only if insight supports extraction)
-      if (hasExtraction) {
-        html += `<div class="insight-toggle-group">`;
-        html += `<span class="insight-toggle-label">Extract</span>`;
-        html += `<label class="insight-toggle">`;
-        html += `<input type="checkbox" data-insight="${insight.key}" data-field="extract" ${extractEnabled ? 'checked' : ''} ${isDisabled ? 'disabled' : ''}>`;
-        html += `<span class="slider"></span>`;
-        html += `</label>`;
-        html += `</div>`;
-      }
 
       // Enabled toggle
       html += `<div class="insight-toggle-group">`;
@@ -5389,12 +5376,6 @@ function setupInsightsEventListeners() {
 
         // Update row styling and disable/enable other toggles
         row.classList.toggle('insight-disabled', disabled);
-        const extractToggle = row.querySelector('input[data-field="extract"]');
-        if (extractToggle) {
-          extractToggle.disabled = disabled;
-        }
-      } else if (field === 'extract') {
-        await saveInsightSetting(insightKey, 'extract', e.target.checked);
       }
     });
   });

@@ -58,7 +58,7 @@ Fields:
 ```json
 {
   "facets": {"order": ["work", "personal"], "selected": "work"},
-  "apps": {"order": ["home", "calendar", "todos"], "starred": ["home", "todos"]}
+  "apps": {"order": ["home", "activities", "todos"], "starred": ["home", "todos"]}
 }
 ```
 

@@ -216,7 +216,7 @@
     },
     "schedule": {
       "color": "#5e35b1",
-      "description": "Extracts future scheduled events and calendar activities into structured anticipation records. Captures dates, times, participants, and cancellation state.",
+      "description": "Extracts future scheduled items from screen and transcript content into anticipated activity records. Captures dates, times, participants, and cancellation state.",
       "hook": {
         "post": "schedule"
       },
