@@ -5,7 +5,8 @@
 
 Dropped/deferred talent resolutions: any matched closure -> state="closed"
 regardless of its `resolution` field. CLI `--as dropped` is the only path to
-state="dropped".
+state="dropped". Manual `ledger_close` edits override talent-extracted
+closures for state computation. Among manual edits, latest wins.
 """
 
 from __future__ import annotations
@@ -201,6 +202,22 @@ def _list_all_facets() -> builtins.list[str]:
     return builtins.list(get_facets().keys())
 
 
+def _resolve_close_state(
+    story_closes: builtins.list[dict[str, Any]],
+    manual_closes: builtins.list[dict[str, Any]],
+) -> tuple[str, int | None]:
+    if manual_closes:
+        # Manual ledger_close edits override storyteller closures; latest manual wins so operators can close -> dropped.
+        latest_manual = max(
+            manual_closes, key=lambda candidate: candidate["manual_order_key"]
+        )
+        return latest_manual["state"], latest_manual["closed_at"]
+    if story_closes:
+        earliest_story = min(story_closes, key=lambda candidate: candidate["sort_key"])
+        return earliest_story["state"], earliest_story["closed_at"]
+    return "open", None
+
+
 def _build_ledger_items(
     records: Iterable[tuple[str, str, dict[str, Any]]],
 ) -> builtins.list[LedgerItem]:
@@ -314,7 +331,7 @@ def _build_ledger_items(
                 }
             )
 
-        for raw_edit in record.get("edits", []):
+        for edit_index, raw_edit in enumerate(record.get("edits", [])):
             if not isinstance(raw_edit, dict):
                 continue
             if raw_edit.get("fields") != ["ledger_close"]:
@@ -334,6 +351,13 @@ def _build_ledger_items(
                     "closed_at": closed_at,
                     "state": as_state,
                     "sort_key": _chronological_key(closed_at, facet, day, record_id),
+                    "manual_order_key": (
+                        closed_at,
+                        facet,
+                        day,
+                        record_id,
+                        edit_index,
+                    ),
                     "source": _source_ref(
                         facet=facet,
                         day=day,
@@ -358,12 +382,12 @@ def _build_ledger_items(
             matched_story_sources.append(candidate)
             consumed_story_closures.add(index)
 
-        closure_sources = matched_story_sources + manual_closes.get(entry["id"], [])
-        # State/closed_at follow the earliest close across story and manual sources; later manual edits remain visible in sources but do not rewrite the first close.
+        item_manual_closes = manual_closes.get(entry["id"], [])
+        closure_sources = matched_story_sources + item_manual_closes
         closure_sources.sort(key=lambda candidate: candidate["sort_key"])
-        first_close = closure_sources[0] if closure_sources else None
-        state = first_close["state"] if first_close is not None else "open"
-        closed_at = first_close["closed_at"] if first_close is not None else None
+        state, closed_at = _resolve_close_state(
+            matched_story_sources, item_manual_closes
+        )
         sources = builtins.list(entry["sources"])
         sources.extend(candidate["source"] for candidate in closure_sources)
         sources.sort(key=_source_sort_key)

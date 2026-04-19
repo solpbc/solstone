@@ -15,6 +15,14 @@ def _utc_ms(value: str) -> int:
     return int(datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp() * 1000)
 
 
+def _ledger_close_edits(record: dict) -> list[dict]:
+    return [
+        edit
+        for edit in record.get("edits", [])
+        if isinstance(edit, dict) and edit.get("fields") == ["ledger_close"]
+    ]
+
+
 def _minimal_facet_tree(tmp_path, facets=("work",), *, muted_facets=()) -> None:
     for facet in facets:
         facet_dir = tmp_path / "facets" / facet
@@ -286,6 +294,7 @@ def test_cross_facet_dedup(tmp_path, monkeypatch):
 
 
 def test_manual_close_round_trip(tmp_path, monkeypatch):
+    from think.activities import load_activity_records
     from think.surfaces import ledger as ledger_surface
 
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
@@ -300,11 +309,15 @@ def test_manual_close_round_trip(tmp_path, monkeypatch):
 
     item = ledger_surface.list(state="open")[0]
     closed = ledger_surface.close(item.id, note="done")
+    record = load_activity_records("work", "20260410", include_hidden=True)[0]
+    manual_edit = _ledger_close_edits(record)[0]
 
     assert closed.state == "closed"
+    assert closed.closed_at == _utc_ms(manual_edit["timestamp"])
     refreshed = ledger_surface.get(item.id)
     assert refreshed is not None
     assert refreshed.state == "closed"
+    assert refreshed.closed_at == closed.closed_at
     assert any(source.field == "edits" for source in refreshed.sources)
 
 
@@ -351,7 +364,7 @@ def test_close_as_dropped(tmp_path, monkeypatch):
     assert dropped.state == "dropped"
 
 
-def test_close_with_new_as_state_appends_and_first_close_wins(tmp_path, monkeypatch):
+def test_close_with_new_as_state_appends_and_latest_manual_wins(tmp_path, monkeypatch):
     from think.activities import load_activity_records
     from think.surfaces import ledger as ledger_surface
 
@@ -369,14 +382,14 @@ def test_close_with_new_as_state_appends_and_first_close_wins(tmp_path, monkeypa
     ledger_surface.close(item.id, note="done", as_state="closed")
     dropped = ledger_surface.close(item.id, note="actually dropped", as_state="dropped")
 
-    assert dropped.state == "closed"
+    assert dropped.state == "dropped"
     record = load_activity_records("work", "20260410", include_hidden=True)[0]
-    closes = [
-        edit["ledger_close"]["as_state"]
-        for edit in record["edits"]
-        if edit.get("fields") == ["ledger_close"]
+    closes = _ledger_close_edits(record)
+    assert [edit["ledger_close"]["as_state"] for edit in closes] == [
+        "closed",
+        "dropped",
     ]
-    assert closes == ["closed", "dropped"]
+    assert dropped.closed_at == _utc_ms(closes[-1]["timestamp"])
 
 
 def test_decisions_dedup(tmp_path, monkeypatch):
@@ -583,7 +596,8 @@ def test_sort_default_varies_by_state(tmp_path, monkeypatch):
     assert [item.action for item in closed_items] == ["newer closed", "older closed"]
 
 
-def test_manual_dropped_does_not_override_earlier_story_closure(tmp_path, monkeypatch):
+def test_manual_dropped_overrides_earlier_story_closure(tmp_path, monkeypatch):
+    from think.activities import load_activity_records
     from think.surfaces import ledger as ledger_surface
 
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
@@ -607,8 +621,13 @@ def test_manual_dropped_does_not_override_earlier_story_closure(tmp_path, monkey
     refreshed = ledger_surface.close(
         item.id, note="operator says drop", as_state="dropped"
     )
+    record = load_activity_records("work", "20260410", include_hidden=True)[0]
+    manual_edit = _ledger_close_edits(record)[-1]
 
-    assert refreshed.state == "closed"
+    assert refreshed.state == "dropped"
+    assert refreshed.closed_at == _utc_ms(manual_edit["timestamp"])
+    assert refreshed.closed_at != _utc_ms("2026-04-11T10:00:00Z")
+    assert any(source.field == "closures" for source in refreshed.sources)
     assert any(
         source.field == "edits" and source.activity_id == "meeting_090000_300"
         for source in refreshed.sources
