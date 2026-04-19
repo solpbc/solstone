@@ -9,6 +9,14 @@
       "title": "Entity Observer"
     },
     {
+      "app": "skills",
+      "description": "Writes or refreshes one skill profile per day from observer-flagged patterns or chat edit requests.",
+      "disabled": false,
+      "key": "skills:skill_editor",
+      "source": "app",
+      "title": "Skill Editor"
+    },
+    {
       "app": null,
       "description": "Analyzes activity patterns to identify optimal times for scheduled maintenance tasks.",
       "disabled": false,

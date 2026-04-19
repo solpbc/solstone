@@ -271,6 +271,8 @@ app = typer.Typer(help="Description of your app commands.")
 - Discovery logic: `think/call.py` - `_discover_app_calls()` function
 - App CLI example: `apps/todos/call.py` - Todo list command
 
+**Skills app reference:** `apps/skills/call.py` is the current owner-wide pattern for a data-backed app CLI. It exposes `sol call skills list|show|observe|seed|promote|refresh|mark-dormant|retire|edit-request|rename` and routes all writes through `think/skills.py`, which owns `journal/skills/patterns.jsonl`, `journal/skills/edit_requests.jsonl`, and `journal/skills/{slug}.md`. The shipped daily talents for this app live in `apps/skills/talent/skill_observer.md` (daily cogitate, priority 41) and `apps/skills/talent/skill_editor.md` + `skill_editor.py` (daily generate, priority 60). The observer marks patterns for creation/refresh, and the editor consumes those flags or pending `edit-request` rows to write/update exactly one owner-wide profile per run.
+
 ---
 
 ### 8. `talent/` - App Generators

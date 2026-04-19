@@ -176,6 +176,22 @@
       "tier": 2,
       "type": "cogitate"
     },
+    "talent.skills.skill_editor": {
+      "disabled": false,
+      "group": "Think",
+      "label": "Skill Editor",
+      "schedule": "daily",
+      "tier": 2,
+      "type": "generate"
+    },
+    "talent.skills.skill_observer": {
+      "disabled": false,
+      "group": "Skills",
+      "label": "Skill Observer",
+      "schedule": "daily",
+      "tier": 3,
+      "type": "cogitate"
+    },
     "talent.support.support": {
       "disabled": false,
       "group": "Think",
@@ -337,14 +353,6 @@
       "label": "Segment Sense",
       "schedule": "segment",
       "tier": 3,
-      "type": "generate"
-    },
-    "talent.system.skills": {
-      "disabled": false,
-      "group": "Think",
-      "label": "Skill Observer",
-      "schedule": "activity",
-      "tier": 2,
       "type": "generate"
     },
     "talent.system.speaker_attribution": {

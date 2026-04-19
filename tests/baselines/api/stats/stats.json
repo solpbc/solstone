@@ -233,15 +233,13 @@
       "title": "Segment Sense",
       "type": "generate"
     },
-    "skills": {
-      "activities": [
-        "*"
-      ],
-      "color": "#6c757d",
-      "description": "Detects recurring activity patterns and generates structured skill documents describing what the owner does, how, and why.",
+    "skills:skill_editor": {
+      "app": "skills",
+      "color": "#8e24aa",
+      "description": "Writes or refreshes one skill profile per day from observer-flagged patterns or chat edit requests.",
       "hook": {
-        "post": "skills",
-        "pre": "skills"
+        "post": "skills:skill_editor",
+        "pre": "skills:skill_editor"
       },
       "load": {
         "percepts": false,
@@ -249,12 +247,13 @@
         "transcripts": false
       },
       "mtime": 0,
-      "output": "json",
-      "path": "<PROJECT>/talent/skills.md",
-      "priority": 90,
-      "schedule": "activity",
-      "source": "system",
-      "title": "Skill Observer",
+      "multi_facet": false,
+      "output": "md",
+      "path": "<PROJECT>/apps/skills/talent/skill_editor.md",
+      "priority": 60,
+      "schedule": "daily",
+      "source": "app",
+      "title": "Skill Editor",
       "type": "generate"
     },
     "speaker_attribution": {
