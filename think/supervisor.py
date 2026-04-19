@@ -25,12 +25,15 @@ from think.maint import run_pending_tasks
 from think.runner import DailyLogWriter
 from think.runner import ManagedProcess as RunnerManagedProcess
 from think.utils import (
+    EXIT_TEMPFAIL,
     day_path,
     find_available_port,
     get_journal,
     get_journal_info,
     get_rev,
+    is_solstone_up,
     now_ms,
+    read_service_port,
     setup_cli,
     updated_days,
 )
@@ -38,7 +41,6 @@ from think.utils import (
 DEFAULT_THRESHOLD = 60
 CHECK_INTERVAL = 30
 MAX_UPDATED_CATCHUP = 4
-EXIT_TEMPFAIL = 75  # EX_TEMPFAIL: service prerequisites not ready
 TEMPFAIL_DELAY = 15  # seconds to wait before retrying a tempfail exit
 
 # Global shutdown flag
@@ -137,7 +139,7 @@ class TaskQueue:
     The lock only protects state mutations, never held during I/O operations.
     """
 
-    def __init__(self, on_queue_change: callable = None):
+    def __init__(self, on_queue_change: callable = None, ready: bool = True):
         """Initialize task queue.
 
         Args:
@@ -149,6 +151,8 @@ class TaskQueue:
         ] = {}  # command_name -> {"ref": str, "thread": Thread}
         self._queues: dict[str, list] = {}  # command_name -> list of {refs, cmd} dicts
         self._active: dict[str, RunnerManagedProcess] = {}  # ref -> process
+        self._pending: list[dict] = []
+        self._ready = ready
         self._lock = threading.Lock()
         self._on_queue_change = on_queue_change
 
@@ -168,9 +172,13 @@ class TaskQueue:
             return
 
         with self._lock:
-            queue = list(self._queues.get(cmd_name, []))
-            entry = self._running.get(cmd_name)
-            running_ref = entry["ref"] if entry else None
+            if cmd_name == "pending":
+                queue = list(self._pending)
+                running_ref = None
+            else:
+                queue = list(self._queues.get(cmd_name, []))
+                entry = self._running.get(cmd_name)
+                running_ref = entry["ref"] if entry else None
 
         self._on_queue_change(cmd_name, running_ref, queue)
 
@@ -195,6 +203,17 @@ class TaskQueue:
         """
         ref = ref or str(now_ms())
         cmd_name = self.get_command_name(cmd)
+
+        with self._lock:
+            if not self._ready:
+                self._pending.append({"refs": [ref], "cmd": cmd, "day": day})
+                should_notify_pending = True
+            else:
+                should_notify_pending = False
+
+        if should_notify_pending:
+            self._notify_queue_change("pending")
+            return ref
 
         should_notify = False
         should_start = False
@@ -253,6 +272,20 @@ class TaskQueue:
             return ref
 
         return None
+
+    def set_ready(self) -> None:
+        """Allow buffered tasks to start dispatching through the normal queue path."""
+        with self._lock:
+            if self._ready:
+                return
+            self._ready = True
+            pending = list(self._pending)
+            self._pending.clear()
+
+        if pending:
+            self._notify_queue_change("pending")
+        for entry in pending:
+            self.submit(entry["cmd"], ref=entry["refs"][0], day=entry.get("day"))
 
     def _run_task(
         self,
@@ -429,11 +462,14 @@ class TaskQueue:
     def collect_queue_counts(self) -> dict[str, int]:
         """Snapshot per-command queue depths for status reporting."""
         with self._lock:
-            return {
+            counts = {
                 cmd_name: len(queue)
                 for cmd_name, queue in self._queues.items()
                 if queue
             }
+            if self._pending:
+                counts["pending"] = len(self._pending)
+            return counts
 
 
 # Global task queue instance (initialized in main())
@@ -828,6 +864,34 @@ def start_callosum_in_process() -> CallosumServer:
         time.sleep(0.01)
 
     raise RuntimeError("Callosum server failed to create socket within 500ms")
+
+
+def wait_for_convey_ready(
+    convey_mp, *, timeout: float = 30.0, interval: float = 0.1
+) -> bool:
+    """Poll until Convey accepts TCP connections, or fail fast on death/timeout."""
+    start = time.monotonic()
+    deadline = start + timeout
+    while time.monotonic() < deadline:
+        rc = convey_mp.process.poll()
+        if rc is not None:
+            logging.error(
+                "Convey process exited during startup (rc=%d); continuing into supervise loop",
+                rc,
+            )
+            return False
+        if is_solstone_up(timeout=0.1):
+            logging.info("Convey ready after %.1fs", time.monotonic() - start)
+            return True
+        time.sleep(interval)
+    alive = convey_mp.process.poll() is None
+    logging.error(
+        "Convey not ready after %.1fs (port=%s, pid alive=%s); continuing into supervise loop",
+        time.monotonic() - start,
+        read_service_port("convey"),
+        alive,
+    )
+    return False
 
 
 def stop_callosum_in_process() -> None:
@@ -1484,7 +1548,7 @@ def main() -> None:
             pass
 
     # Initialize task queue with callosum event callback
-    _task_queue = TaskQueue(on_queue_change=_emit_queue_event)
+    _task_queue = TaskQueue(on_queue_change=_emit_queue_event, ready=False)
 
     # Now start other services (their startup events will be captured)
     if _is_remote_mode:
@@ -1492,11 +1556,13 @@ def main() -> None:
         pass
     else:
         # Local mode: convey first, then sense for file processing
+        os.environ["SOL_SUPERVISOR_SPAWNED"] = "1"
         if not args.no_convey:
             proc, convey_port = start_convey_server(
                 verbose=args.verbose, debug=args.debug, port=args.port
             )
             procs.append(proc)
+            wait_for_convey_ready(proc)
         # Sense handles file processing
         procs.append(start_sense())
         # Cortex for agent execution
@@ -1515,6 +1581,9 @@ def main() -> None:
         scheduler.init(_supervisor_callosum)
         scheduler.register_defaults()
         routines.init(_supervisor_callosum)
+
+    if _task_queue:
+        _task_queue.set_ready()
 
     # Show Convey URL if running
     if convey_port:

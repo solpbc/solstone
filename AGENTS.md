@@ -1,12 +1,14 @@
-# solstone coder guide
+# solstone Developer Guide
 
-This file is the **coder guide** for the solstone repository. Read it before writing code.
+This file is the **developer guide** for the solstone repository. Read it before writing code.
 
 Audience:
 
 - **Coders** (cwd = repo root, editing `observe/`, `think/`, `convey/`, `apps/`, `talent/`, `tests/`) — you're in the right place.
 - **Cogitate talents** (cwd = `journal/`, running inside the live system) — your entry is `talent/journal/SKILL.md`, installed into `journal/.claude/skills/journal/` and `journal/.agents/skills/journal/`.
 - **Operators** debugging a running system — see `docs/DOCTOR.md`.
+
+For the journal-side runtime entry point, see `journal/AGENTS.md`.
 
 `CLAUDE.md` and `GEMINI.md` at the repo root are symlinks to this file.
 
