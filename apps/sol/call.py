@@ -92,17 +92,29 @@ def set_name(
         }
     )
     typer.echo(json.dumps(agent, indent=2))
-    # Update sol/self.md with new name
-    from think.awareness import update_self_md_opening, update_self_md_section
+    # Update identity/self.md with new name
+    from think.identity import update_self_md_opening, update_self_md_section
 
     named_date = agent.get("named_date", "")
     update_self_md_opening(
-        f"I am {name}. this is a new journal — we're just getting started."
+        f"I am {name}. this is a new journal — we're just getting started.",
+        actor="sol call sol set-name",
+        reason="agent name updated",
     )
     if named_date:
-        update_self_md_section("my name", f"{name} (named {named_date})")
+        update_self_md_section(
+            "my name",
+            f"{name} (named {named_date})",
+            actor="sol call sol set-name",
+            reason="agent name updated",
+        )
     else:
-        update_self_md_section("my name", name)
+        update_self_md_section(
+            "my name",
+            name,
+            actor="sol call sol set-name",
+            reason="agent name updated",
+        )
     project_root = Path(__file__).resolve().parent.parent.parent
     subprocess.run(
         ["make", "skills"], cwd=project_root, check=False, capture_output=True
@@ -140,7 +152,7 @@ def set_owner(
     bio: str = typer.Option(None, "--bio", "-b", help="Short owner bio."),
 ) -> None:
     """Set the journal owner's name (and optional bio)."""
-    from think.awareness import update_self_md_section
+    from think.identity import update_self_md_section
     from think.utils import get_config, get_journal
 
     config = get_config()
@@ -157,11 +169,16 @@ def set_owner(
         f.write("\n")
     os.chmod(config_path, 0o600)
 
-    # Update sol/self.md
+    # Update identity/self.md
     owner_content = name
     if bio:
         owner_content += f"\n{bio}"
-    update_self_md_section("who I'm here for", owner_content)
+    update_self_md_section(
+        "who I'm here for",
+        owner_content,
+        actor="sol call sol set-owner",
+        reason="owner identity updated",
+    )
 
     typer.echo(json.dumps({"name": name, "bio": bio or ""}, indent=2))
     project_root = Path(__file__).resolve().parent.parent.parent
@@ -172,8 +189,10 @@ def set_owner(
 
 @app.command("sol-init")
 def sol_init() -> None:
-    """Initialize the sol directory with self.md and agency.md."""
-    from think.awareness import ensure_sol_directory
+    """Initialize the identity directory with self.md and agency.md."""
+    from think.identity import ensure_identity_directory
 
-    sol_dir = ensure_sol_directory()
-    typer.echo(json.dumps({"sol_dir": str(sol_dir), "status": "ok"}, indent=2))
+    identity_dir = ensure_identity_directory()
+    typer.echo(
+        json.dumps({"identity_dir": str(identity_dir), "status": "ok"}, indent=2)
+    )

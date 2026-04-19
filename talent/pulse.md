@@ -70,17 +70,6 @@ sol call identity pulse --write --value $'---\nupdated: 2026-03-22T14:35:00\nseg
 The `updated` field must be an ISO 8601 datetime (no timezone). The `segment`
 field is the current segment key from $SOL_SEGMENT.
 
-Then append a log entry to `sol/pulse-log.jsonl` (same directory as pulse.md):
-
-```bash
-JOURNAL=$(sol config env | head -1)
-echo '{"ts": 1742680500, "segment": "143022_300", "narrative": "...", "needs_you": ["Item 1", "Item 2"]}' >> "$JOURNAL/sol/pulse-log.jsonl"
-```
-
-Use the current epoch timestamp for `ts`. Keep the narrative value brief (first
-sentence or two). The needs_you array should match the items from the ## needs you
-section.
-
 ## Guidelines
 
 - Be concise. The owner sees this on their landing page.

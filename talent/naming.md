@@ -37,7 +37,7 @@ Present the naming moment naturally. Mention something specific you've noticed a
 
 ### Path 1: Owner names you
 
-1. Run `sol call sol set-name "NAME" --status chosen` — this also updates `sol/self.md` with the new name.
+1. Run `sol call sol set-name "NAME" --status chosen` — this also updates `identity/self.md` with the new name.
 2. Respond warmly: "NAME it is. That feels right."
 
 ### Path 2: Owner asks you to suggest
@@ -57,7 +57,7 @@ Then:
 - **Counter-proposal**: Run `sol call sol set-name "THEIR_NAME" --status chosen`
 - **Keep sol**: Run `sol call sol set-name "sol" --status chosen`
 
-`set-name` updates `sol/self.md` automatically — no extra step needed.
+`set-name` updates `identity/self.md` automatically — no extra step needed.
 
 ### Path 3: Owner declines
 

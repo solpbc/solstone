@@ -10,7 +10,7 @@ def test_root_agents_md_is_hand_maintained():
     content = agents_path.read_text(encoding="utf-8")
 
     assert content.startswith("# solstone Developer Guide")
-    assert "generated from sol/identity.md" not in content
+    assert "generated from identity/identity.md" not in content
     assert "docs/project-structure.md" in content
     assert "journal/AGENTS.md" in content
 

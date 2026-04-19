@@ -47,9 +47,9 @@ def triage() -> Any:
     payload = request.get_json(force=True)
     message = payload.get("message", "").strip()
 
-    from think.awareness import ensure_sol_directory
+    from think.identity import ensure_identity_directory
 
-    ensure_sol_directory()
+    ensure_identity_directory()
 
     if not message:
         return error_response("message is required", 400)

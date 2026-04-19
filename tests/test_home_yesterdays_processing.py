@@ -123,7 +123,7 @@ def _seed_journal(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 def _write_briefing(
     journal: Path, generated: str, *, metadata_type: str = "morning_briefing"
 ) -> None:
-    path = journal / "sol" / "briefing.md"
+    path = journal / "identity" / "briefing.md"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         (

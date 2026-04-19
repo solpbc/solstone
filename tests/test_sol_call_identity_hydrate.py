@@ -37,12 +37,12 @@ def _run_identity_hydrate(journal_path):
 
 
 def test_identity_hydrate_reads_all_sections(journal_path):
-    sol_dir = journal_path / "sol"
-    sol_dir.mkdir()
-    (sol_dir / "self.md").write_text("self body")
-    (sol_dir / "partner.md").write_text("partner body")
-    (sol_dir / "agency.md").write_text("agency body")
-    (sol_dir / "awareness.md").write_text("awareness body")
+    identity_dir = journal_path / "identity"
+    identity_dir.mkdir()
+    (identity_dir / "self.md").write_text("self body")
+    (identity_dir / "partner.md").write_text("partner body")
+    (identity_dir / "agency.md").write_text("agency body")
+    (identity_dir / "awareness.md").write_text("awareness body")
 
     result = _run_identity_hydrate(journal_path)
 
@@ -57,11 +57,11 @@ def test_identity_hydrate_reads_all_sections(journal_path):
 
 
 def test_identity_hydrate_marks_missing_sections(journal_path):
-    sol_dir = journal_path / "sol"
-    sol_dir.mkdir()
-    (sol_dir / "self.md").write_text("self body")
-    (sol_dir / "partner.md").write_text("partner body")
-    (sol_dir / "awareness.md").write_text("awareness body")
+    identity_dir = journal_path / "identity"
+    identity_dir.mkdir()
+    (identity_dir / "self.md").write_text("self body")
+    (identity_dir / "partner.md").write_text("partner body")
+    (identity_dir / "awareness.md").write_text("awareness body")
 
     result = _run_identity_hydrate(journal_path)
 
@@ -69,7 +69,7 @@ def test_identity_hydrate_marks_missing_sections(journal_path):
     assert "# agency\n\n(not present)\n" in result.stdout
 
 
-def test_identity_hydrate_handles_empty_sol_directory(journal_path):
+def test_identity_hydrate_handles_empty_identity_directory(journal_path):
     result = _run_identity_hydrate(journal_path)
 
     assert result.returncode == 0
@@ -78,12 +78,12 @@ def test_identity_hydrate_handles_empty_sol_directory(journal_path):
 
 
 def test_identity_hydrate_starts_with_species_preamble(journal_path):
-    sol_dir = journal_path / "sol"
-    sol_dir.mkdir()
-    (sol_dir / "self.md").write_text("self body")
-    (sol_dir / "partner.md").write_text("partner body")
-    (sol_dir / "agency.md").write_text("agency body")
-    (sol_dir / "awareness.md").write_text("awareness body")
+    identity_dir = journal_path / "identity"
+    identity_dir.mkdir()
+    (identity_dir / "self.md").write_text("self body")
+    (identity_dir / "partner.md").write_text("partner body")
+    (identity_dir / "agency.md").write_text("agency body")
+    (identity_dir / "awareness.md").write_text("awareness body")
 
     result = _run_identity_hydrate(journal_path)
 
@@ -96,12 +96,12 @@ def test_identity_hydrate_starts_with_species_preamble(journal_path):
 
 
 def test_identity_hydrate_strips_duplicate_section_heading(journal_path):
-    sol_dir = journal_path / "sol"
-    sol_dir.mkdir()
-    (sol_dir / "self.md").write_text("# self\n\nself body\n")
-    (sol_dir / "partner.md").write_text("partner body")
-    (sol_dir / "agency.md").write_text("agency body")
-    (sol_dir / "awareness.md").write_text("awareness body")
+    identity_dir = journal_path / "identity"
+    identity_dir.mkdir()
+    (identity_dir / "self.md").write_text("# self\n\nself body\n")
+    (identity_dir / "partner.md").write_text("partner body")
+    (identity_dir / "agency.md").write_text("agency body")
+    (identity_dir / "awareness.md").write_text("awareness body")
 
     result = _run_identity_hydrate(journal_path)
 
@@ -111,12 +111,12 @@ def test_identity_hydrate_strips_duplicate_section_heading(journal_path):
 
 
 def test_identity_hydrate_preserves_non_matching_heading(journal_path):
-    sol_dir = journal_path / "sol"
-    sol_dir.mkdir()
-    (sol_dir / "self.md").write_text("# My Custom Heading\n\nself body\n")
-    (sol_dir / "partner.md").write_text("partner body")
-    (sol_dir / "agency.md").write_text("agency body")
-    (sol_dir / "awareness.md").write_text("awareness body")
+    identity_dir = journal_path / "identity"
+    identity_dir.mkdir()
+    (identity_dir / "self.md").write_text("# My Custom Heading\n\nself body\n")
+    (identity_dir / "partner.md").write_text("partner body")
+    (identity_dir / "agency.md").write_text("agency body")
+    (identity_dir / "awareness.md").write_text("awareness body")
 
     result = _run_identity_hydrate(journal_path)
 

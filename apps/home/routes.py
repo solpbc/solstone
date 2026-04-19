@@ -106,13 +106,13 @@ def _load_flow_md(today: str) -> tuple[str | None, float | None]:
 
 
 def _load_pulse_md() -> tuple[str | None, dict | None, list[str]]:
-    """Load sol/pulse.md if current for today.
+    """Load identity/pulse.md if current for today.
 
     Returns (content, metadata, needs_you) or (None, None, []).
     """
     try:
         journal = Path(get_journal())
-        pulse_path = journal / "sol" / "pulse.md"
+        pulse_path = journal / "identity" / "pulse.md"
         if not pulse_path.exists():
             return None, None, []
         post = frontmatter.load(str(pulse_path))
@@ -152,7 +152,7 @@ def _load_briefing_md(
     try:
         today = today or _today()
         journal = Path(get_journal())
-        briefing_path = journal / "sol" / "briefing.md"
+        briefing_path = journal / "identity" / "briefing.md"
         if not briefing_path.exists():
             return {}, None, []
 
@@ -550,7 +550,7 @@ def _knowledge_graph_freshness(yesterday: str) -> dict[str, Any]:
 
 
 def _briefing_freshness(today: str) -> dict[str, Any]:
-    briefing_path = Path(get_journal()) / "sol" / "briefing.md"
+    briefing_path = Path(get_journal()) / "identity" / "briefing.md"
     if not briefing_path.exists():
         return {"exists": False, "valid": False, "generated_label": None}
 

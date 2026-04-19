@@ -315,7 +315,7 @@ solstone/
 | `awareness` | `apps/awareness/call.py` | status, imports, log, log-read |
 | `journal` | `think/tools/call.py` | search, events, facets, facet (show/create/update/rename/mute/unmute/delete/merge), news, agents, read, imports, import, retention purge, storage-summary |
 | `routines` | `think/tools/routines.py` | list, templates, create, edit, delete, run, output, suggestions, suggest-respond, suggest-state |
-| `identity` | `think/tools/sol.py` | self, partner, agency, pulse, briefing |
+| `identity` | `think/tools/sol.py` | self, partner, agency, pulse, awareness, briefing |
 | `navigate` | `think/tools/navigate.py` | *(single command)* |
 
 ## Skill System

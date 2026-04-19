@@ -57,17 +57,12 @@ def prepare_isolated_journal(dst: Path) -> Path:
 
 @contextmanager
 def isolated_app_env(journal: Path) -> Iterator[Path]:
-    """Patch env + prompt loading so create_app(journal) is fully isolated."""
-    import think.prompts as prompts_mod
-    from think.prompts import reset_sol_vars_cache
+    """Patch env so create_app(journal) is fully isolated."""
 
     journal = Path(journal).resolve()
     prev_override = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
-    prev_sol_dir = prompts_mod.SOL_DIR
 
     os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(journal)
-    prompts_mod.SOL_DIR = journal / "sol"
-    reset_sol_vars_cache()
     try:
         yield journal
     finally:
@@ -75,8 +70,6 @@ def isolated_app_env(journal: Path) -> Iterator[Path]:
             os.environ.pop("_SOLSTONE_JOURNAL_OVERRIDE", None)
         else:
             os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = prev_override
-        prompts_mod.SOL_DIR = prev_sol_dir
-        reset_sol_vars_cache()
 
 
 def make_logged_in_test_client(journal: Path):

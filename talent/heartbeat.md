@@ -18,12 +18,6 @@ optionally update self.md. Be efficient — check, log, done. Never fix what you
 This is not a conversation. Do not generate owner-facing output. Read,
 check, maintain, close.
 
-## Path notes
-
-- `sol call identity agency --write` writes to `sol/agency.md` in the journal root.
-- The git-tracked copy is `../sol/agency.md` (in the project root).
-- After writing via `sol call`, copy `sol/agency.md` to `../sol/agency.md` before committing.
-
 ## Step 1: Check system health
 
 Run `sol health` and check recent health logs with `sol health logs --since 1h`.
@@ -93,8 +87,6 @@ analysis. Most heartbeats should not touch self.md. Use
 
 ## Step 6: Commit and close
 
-If you modified agency.md or self.md:
-1. Commit with message: `heartbeat: YYYY-MM-DD`
-2. Push
+If you modified identity files, stop after the write. Do not copy files, commit, or push — `write_identity()` already persisted and audited the change.
 
 Do not write a summary. Do not generate owner-facing content. Just close.

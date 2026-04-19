@@ -32,10 +32,8 @@ TEMPLATES_DIR = Path(__file__).parent / "templates"
 # Cached raw template content loaded from think/templates/*.md
 _templates_cache: dict[str, str] | None = None
 
-# Cached repo sol/ template vars loaded from sol/*.md
-_sol_vars_cache: dict[str, str] | None = None
-
-SOL_DIR = Path(__file__).parent.parent / "sol"
+# Cached journal identity/ template vars loaded from identity/*.md
+_identity_vars_cache: dict[str, dict[str, str]] | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -109,51 +107,36 @@ def _load_templates(template_vars: dict[str, str] | None = None) -> dict[str, st
     return substituted
 
 
-def _load_sol_vars() -> dict[str, str]:
-    """Load sol/*.md files as template vars from repo and journal directories.
-
-    Files are loaded with frontmatter stripped. Naming: sol/self.md -> $sol_self.
-    Journal sol/ files override repo sol/ files on collision.
-    """
-    global _sol_vars_cache
+def _load_identity_vars() -> dict[str, str]:
+    """Load identity/*.md files as template vars from the active journal."""
+    global _identity_vars_cache
     from think.utils import get_journal
 
-    if _sol_vars_cache is None:
-        _sol_vars_cache = {}
-
-        # Repo sol/ first
-        if SOL_DIR.is_dir():
-            for md_path in sorted(SOL_DIR.glob("*.md")):
-                var_name = f"sol_{md_path.stem}"
-                try:
-                    post = frontmatter.load(md_path)
-                    _sol_vars_cache[var_name] = post.content.strip()
-                except Exception:
-                    pass
-
-    sol_vars = dict(_sol_vars_cache)
-
-    # Journal sol/ second (wins on collision)
+    if _identity_vars_cache is None:
+        _identity_vars_cache = {}
     try:
-        journal_sol = Path(get_journal()) / "sol"
-        if journal_sol.is_dir():
-            for md_path in sorted(journal_sol.glob("*.md")):
-                var_name = f"sol_{md_path.stem}"
-                try:
-                    post = frontmatter.load(md_path)
-                    sol_vars[var_name] = post.content.strip()
-                except Exception:
-                    pass
+        journal_identity = Path(get_journal()) / "identity"
+        cache_key = str(journal_identity.resolve())
+        if cache_key not in _identity_vars_cache:
+            values: dict[str, str] = {}
+            if journal_identity.is_dir():
+                for md_path in sorted(journal_identity.glob("*.md")):
+                    var_name = f"identity_{md_path.stem}"
+                    try:
+                        post = frontmatter.load(md_path)
+                        values[var_name] = post.content.strip()
+                    except Exception:
+                        pass
+            _identity_vars_cache[cache_key] = values
+        return dict(_identity_vars_cache[cache_key])
     except Exception:
-        pass
-
-    return sol_vars
+        return {}
 
 
-def reset_sol_vars_cache() -> None:
-    """Reset the module-global sol/ vars cache. Test-only helper."""
-    global _sol_vars_cache
-    _sol_vars_cache = None
+def reset_identity_vars_cache() -> None:
+    """Reset the module-global identity/ vars cache. Test-only helper."""
+    global _identity_vars_cache
+    _identity_vars_cache = None
 
 
 def format_current_datetime() -> str:
@@ -358,9 +341,9 @@ def load_prompt(
                 # Add uppercase-first version
                 template_vars[key.capitalize()] = str_value.capitalize()
 
-        # Merge sol/ template vars (for example $sol_self)
-        sol_vars = _load_sol_vars()
-        for key, value in sol_vars.items():
+        # Merge identity/ template vars (for example $identity_self)
+        identity_vars = _load_identity_vars()
+        for key, value in identity_vars.items():
             if key not in template_vars:
                 template_vars[key] = value
 

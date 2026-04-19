@@ -2771,9 +2771,9 @@ def main() -> None:
     args = setup_cli(parser)
     require_solstone()
 
-    from think.awareness import ensure_sol_directory
+    from think.identity import ensure_identity_directory
 
-    ensure_sol_directory()
+    ensure_identity_directory()
 
     if args.updated:
         incompatible = []

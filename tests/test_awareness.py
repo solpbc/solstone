@@ -4,6 +4,7 @@
 """Tests for the awareness system."""
 
 import json
+import re
 import unittest.mock
 
 import pytest
@@ -13,6 +14,32 @@ import pytest
 def _temp_journal(monkeypatch, tmp_path):
     """Isolate all tests to a temporary journal."""
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+
+
+def _read_identity_history(journal_path):
+    path = journal_path / "identity" / "history.jsonl"
+    return [json.loads(line) for line in path.read_text().splitlines()]
+
+
+def _assert_identity_history(record, *, file_name, actor, op, section, reason):
+    assert list(record) == [
+        "ts",
+        "file",
+        "actor",
+        "op",
+        "section",
+        "reason",
+        "before_hash",
+        "after_hash",
+        "bytes_before",
+        "bytes_after",
+    ]
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z", record["ts"])
+    assert record["file"] == file_name
+    assert record["actor"] == actor
+    assert record["op"] == op
+    assert record["section"] == section
+    assert record["reason"] == reason
 
 
 class TestCurrentState:
@@ -593,48 +620,48 @@ class TestOwnerReadyCLI:
         assert data["reason"] == "candidate_found"
 
 
-class TestEnsureSolDirectory:
-    """Tests for ensure_sol_directory()."""
+class TestEnsureIdentityDirectory:
+    """Tests for ensure_identity_directory()."""
 
     def test_creates_default_templates(self, tmp_path):
-        from think.awareness import ensure_sol_directory
+        from think.identity import ensure_identity_directory
 
-        sol_dir = ensure_sol_directory()
-        assert sol_dir == tmp_path / "sol"
-        assert (sol_dir / "self.md").exists()
-        assert (sol_dir / "agency.md").exists()
+        identity_dir = ensure_identity_directory()
+        assert identity_dir == tmp_path / "identity"
+        assert (identity_dir / "self.md").exists()
+        assert (identity_dir / "agency.md").exists()
 
-        self_content = (sol_dir / "self.md").read_text()
+        self_content = (identity_dir / "self.md").read_text()
         assert self_content.startswith("# self\n")
         assert "I am sol." in self_content
         assert "sol (default)" in self_content
         assert "[getting to know you]" in self_content
 
-        agency_content = (sol_dir / "agency.md").read_text()
+        agency_content = (identity_dir / "agency.md").read_text()
         assert agency_content.startswith("# agency\n")
         assert "[nothing yet" in agency_content
 
-        assert (sol_dir / "awareness.md").exists()
-        awareness_content = (sol_dir / "awareness.md").read_text()
+        assert (identity_dir / "awareness.md").exists()
+        awareness_content = (identity_dir / "awareness.md").read_text()
         assert awareness_content.strip() == "not yet updated"
 
     def test_idempotent_does_not_overwrite(self, tmp_path):
-        from think.awareness import ensure_sol_directory
+        from think.identity import ensure_identity_directory
 
-        sol_dir = ensure_sol_directory()
+        identity_dir = ensure_identity_directory()
         # Modify self.md
-        self_path = sol_dir / "self.md"
+        self_path = identity_dir / "self.md"
         self_path.write_text("custom content", encoding="utf-8")
 
         # Call again — should NOT overwrite
-        ensure_sol_directory()
+        ensure_identity_directory()
         assert self_path.read_text() == "custom content"
 
     def test_creates_partner_md(self, tmp_path):
-        from think.awareness import ensure_sol_directory
+        from think.identity import ensure_identity_directory
 
-        sol_dir = ensure_sol_directory()
-        partner_path = sol_dir / "partner.md"
+        identity_dir = ensure_identity_directory()
+        partner_path = identity_dir / "partner.md"
         assert partner_path.exists()
         content = partner_path.read_text()
         assert "# partner" in content
@@ -645,15 +672,15 @@ class TestEnsureSolDirectory:
         assert "## expertise domains" in content
 
     def test_does_not_overwrite_existing_partner_md(self, tmp_path):
-        from think.awareness import ensure_sol_directory
+        from think.identity import ensure_identity_directory
 
-        sol_dir = tmp_path / "sol"
-        sol_dir.mkdir()
+        identity_dir = tmp_path / "identity"
+        identity_dir.mkdir()
         custom = "# partner\n\n## work patterns\nCustom content.\n"
-        (sol_dir / "partner.md").write_text(custom)
+        (identity_dir / "partner.md").write_text(custom)
 
-        ensure_sol_directory()
-        assert (sol_dir / "partner.md").read_text() == custom
+        ensure_identity_directory()
+        assert (identity_dir / "partner.md").read_text() == custom
 
     def test_migration_named_agent(self, tmp_path, monkeypatch):
         """Named agent config populates self.md name and opening."""
@@ -671,10 +698,10 @@ class TestEnsureSolDirectory:
         }
         (config_dir / "journal.json").write_text(json.dumps(config), encoding="utf-8")
 
-        from think.awareness import ensure_sol_directory
+        from think.identity import ensure_identity_directory
 
-        sol_dir = ensure_sol_directory()
-        content = (sol_dir / "self.md").read_text()
+        identity_dir = ensure_identity_directory()
+        content = (identity_dir / "self.md").read_text()
         assert "I am aria." in content
         assert "aria (named 2026-01-15)" in content
         # Owner should still be default
@@ -695,10 +722,10 @@ class TestEnsureSolDirectory:
         }
         (config_dir / "journal.json").write_text(json.dumps(config), encoding="utf-8")
 
-        from think.awareness import ensure_sol_directory
+        from think.identity import ensure_identity_directory
 
-        sol_dir = ensure_sol_directory()
-        content = (sol_dir / "self.md").read_text()
+        identity_dir = ensure_identity_directory()
+        content = (identity_dir / "self.md").read_text()
         # Agent should be default
         assert "I am sol." in content
         assert "sol (default)" in content
@@ -721,10 +748,10 @@ class TestEnsureSolDirectory:
         }
         (config_dir / "journal.json").write_text(json.dumps(config), encoding="utf-8")
 
-        from think.awareness import ensure_sol_directory
+        from think.identity import ensure_identity_directory
 
-        sol_dir = ensure_sol_directory()
-        content = (sol_dir / "self.md").read_text()
+        identity_dir = ensure_identity_directory()
+        content = (identity_dir / "self.md").read_text()
         assert "I am iris." in content
         assert "iris" in content  # name section (no named_date)
         assert "Alex" in content
@@ -737,9 +764,9 @@ class TestUpdateSelfMd:
 
     def _setup_self_md(self, tmp_path):
         """Create a minimal journal with self.md for testing."""
-        sol_dir = tmp_path / "sol"
-        sol_dir.mkdir()
-        self_md = sol_dir / "self.md"
+        identity_dir = tmp_path / "identity"
+        identity_dir.mkdir()
+        self_md = identity_dir / "self.md"
         self_md.write_text(
             "# self\n"
             "\n"
@@ -765,9 +792,14 @@ class TestUpdateSelfMd:
 
     def test_update_section_name(self, tmp_path):
         self_md = self._setup_self_md(tmp_path)
-        from think.awareness import update_self_md_section
+        from think.identity import update_self_md_section
 
-        result = update_self_md_section("my name", "aria (named 2026-03-19)")
+        result = update_self_md_section(
+            "my name",
+            "aria (named 2026-03-19)",
+            actor="test update self section",
+            reason="test",
+        )
         assert result is True
         content = self_md.read_text()
         assert "aria (named 2026-03-19)" in content
@@ -779,9 +811,14 @@ class TestUpdateSelfMd:
 
     def test_update_section_owner(self, tmp_path):
         self_md = self._setup_self_md(tmp_path)
-        from think.awareness import update_self_md_section
+        from think.identity import update_self_md_section
 
-        result = update_self_md_section("who I'm here for", "Jer\nSoftware engineer")
+        result = update_self_md_section(
+            "who I'm here for",
+            "Jer\nSoftware engineer",
+            actor="test update self section",
+            reason="test",
+        )
         assert result is True
         content = self_md.read_text()
         assert "Jer\nSoftware engineer" in content
@@ -792,23 +829,35 @@ class TestUpdateSelfMd:
 
     def test_update_section_logs_history(self, tmp_path):
         self._setup_self_md(tmp_path)
-        from think.awareness import update_self_md_section
+        from think.identity import update_self_md_section
 
-        update_self_md_section("my name", "aria (named 2026-03-19)")
-        history = tmp_path / "sol" / "history.jsonl"
-        assert history.exists()
-        records = [json.loads(line) for line in history.read_text().strip().split("\n")]
+        update_self_md_section(
+            "my name",
+            "aria (named 2026-03-19)",
+            actor="test update self section",
+            reason="test",
+        )
+        records = _read_identity_history(tmp_path)
         assert len(records) == 1
-        assert records[0]["file"] == "self.md"
-        assert records[0]["section"] == "my name"
-        assert records[0]["source"] == "api"
-        assert "diff" in records[0]
+        _assert_identity_history(
+            records[0],
+            file_name="self.md",
+            actor="test update self section",
+            op="update_section",
+            section="my name",
+            reason="test",
+        )
 
     def test_update_section_last_section(self, tmp_path):
         self_md = self._setup_self_md(tmp_path)
-        from think.awareness import update_self_md_section
+        from think.identity import update_self_md_section
 
-        result = update_self_md_section("what I find interesting", "music and patterns")
+        result = update_self_md_section(
+            "what I find interesting",
+            "music and patterns",
+            actor="test update self section",
+            reason="test",
+        )
         assert result is True
         content = self_md.read_text()
         assert "music and patterns" in content
@@ -816,23 +865,35 @@ class TestUpdateSelfMd:
 
     def test_update_section_missing_heading(self, tmp_path):
         self._setup_self_md(tmp_path)
-        from think.awareness import update_self_md_section
+        from think.identity import update_self_md_section
 
-        result = update_self_md_section("nonexistent", "content")
+        result = update_self_md_section(
+            "nonexistent",
+            "content",
+            actor="test update self section",
+            reason="test",
+        )
         assert result is False
 
     def test_update_section_no_file(self):
-        from think.awareness import update_self_md_section
+        from think.identity import update_self_md_section
 
-        result = update_self_md_section("my name", "content")
+        result = update_self_md_section(
+            "my name",
+            "content",
+            actor="test update self section",
+            reason="test",
+        )
         assert result is False
 
     def test_update_opening(self, tmp_path):
         self_md = self._setup_self_md(tmp_path)
-        from think.awareness import update_self_md_opening
+        from think.identity import update_self_md_opening
 
         result = update_self_md_opening(
-            "I am aria. this is a new journal — we're just getting started."
+            "I am aria. this is a new journal — we're just getting started.",
+            actor="test update self opening",
+            reason="test",
         )
         assert result is True
         content = self_md.read_text()
@@ -844,21 +905,32 @@ class TestUpdateSelfMd:
 
     def test_update_opening_logs_history(self, tmp_path):
         self._setup_self_md(tmp_path)
-        from think.awareness import update_self_md_opening
+        from think.identity import update_self_md_opening
 
-        update_self_md_opening("I am aria.")
-        history = tmp_path / "sol" / "history.jsonl"
-        assert history.exists()
-        records = [json.loads(line) for line in history.read_text().strip().split("\n")]
+        update_self_md_opening(
+            "I am aria.",
+            actor="test update self opening",
+            reason="test",
+        )
+        records = _read_identity_history(tmp_path)
         assert len(records) == 1
-        assert records[0]["file"] == "self.md"
-        assert records[0]["section"] is None
-        assert records[0]["source"] == "api"
+        _assert_identity_history(
+            records[0],
+            file_name="self.md",
+            actor="test update self opening",
+            op="update_opening",
+            section=None,
+            reason="test",
+        )
 
     def test_update_opening_no_file(self):
-        from think.awareness import update_self_md_opening
+        from think.identity import update_self_md_opening
 
-        result = update_self_md_opening("content")
+        result = update_self_md_opening(
+            "content",
+            actor="test update self opening",
+            reason="test",
+        )
         assert result is False
 
 
@@ -866,46 +938,61 @@ class TestUpdateIdentitySection:
     """Tests for update_identity_section generic helper."""
 
     def test_update_partner_section(self, tmp_path):
-        from think.awareness import update_identity_section
+        from think.identity import update_identity_section
 
         partner_md = "# partner\n\n## work patterns\n[observing]\n\n## communication style\n[observing]\n"
-        (tmp_path / "sol").mkdir(exist_ok=True)
-        (tmp_path / "sol" / "partner.md").write_text(partner_md)
+        (tmp_path / "identity").mkdir(exist_ok=True)
+        (tmp_path / "identity" / "partner.md").write_text(partner_md)
 
         result = update_identity_section(
-            "partner.md", "work patterns", "Prefers mornings"
+            "partner.md",
+            "work patterns",
+            "Prefers mornings",
+            actor="test update identity section",
+            reason="test",
         )
         assert result is True
 
-        content = (tmp_path / "sol" / "partner.md").read_text()
+        content = (tmp_path / "identity" / "partner.md").read_text()
         assert "Prefers mornings" in content
         assert "## communication style" in content
         assert "[observing]" in content  # other section preserved
 
     def test_update_nonexistent_file_returns_false(self, tmp_path):
-        from think.awareness import update_identity_section
+        from think.identity import update_identity_section
 
-        (tmp_path / "sol").mkdir(exist_ok=True)
-        result = update_identity_section("nonexistent.md", "heading", "content")
+        (tmp_path / "identity").mkdir(exist_ok=True)
+        result = update_identity_section(
+            "nonexistent.md",
+            "heading",
+            "content",
+            actor="test update identity section",
+            reason="test",
+        )
         assert result is False
 
     def test_self_md_wrapper_still_works(self, tmp_path):
-        from think.awareness import update_self_md_section
+        from think.identity import update_self_md_section
 
         self_md = (
             "# self\n\n## my name\nsol (default)\n\n## who I'm here for\nTest User\n"
         )
-        (tmp_path / "sol").mkdir(exist_ok=True)
-        (tmp_path / "sol" / "self.md").write_text(self_md)
+        (tmp_path / "identity").mkdir(exist_ok=True)
+        (tmp_path / "identity" / "self.md").write_text(self_md)
 
-        result = update_self_md_section("my name", "aria")
+        result = update_self_md_section(
+            "my name",
+            "aria",
+            actor="test update self section",
+            reason="test",
+        )
         assert result is True
-        content = (tmp_path / "sol" / "self.md").read_text()
+        content = (tmp_path / "identity" / "self.md").read_text()
         assert "aria" in content
         assert "## who I'm here for" in content
 
     def test_partner_update_prunes_getting_started(self, tmp_path):
-        from think.awareness import update_identity_section
+        from think.identity import update_identity_section
 
         partner_md = (
             "# partner\n\n"
@@ -913,15 +1000,19 @@ class TestUpdateIdentitySection:
             "## work patterns\n[not yet observed]\n\n"
             "## communication style\n[not yet observed]\n"
         )
-        (tmp_path / "sol").mkdir(exist_ok=True)
-        (tmp_path / "sol" / "partner.md").write_text(partner_md)
+        (tmp_path / "identity").mkdir(exist_ok=True)
+        (tmp_path / "identity" / "partner.md").write_text(partner_md)
 
         result = update_identity_section(
-            "partner.md", "work patterns", "Prefers mornings"
+            "partner.md",
+            "work patterns",
+            "Prefers mornings",
+            actor="test update identity section",
+            reason="test",
         )
         assert result is True
 
-        content = (tmp_path / "sol" / "partner.md").read_text()
+        content = (tmp_path / "identity" / "partner.md").read_text()
         assert "Prefers mornings" in content
         assert "## communication style" in content
         assert "## getting started" not in content
@@ -940,8 +1031,9 @@ class TestSolInitCLI:
         assert result.exit_code == 0
         output = json.loads(result.output)
         assert output["status"] == "ok"
-        assert (tmp_path / "sol" / "self.md").exists()
-        assert (tmp_path / "sol" / "agency.md").exists()
+        assert output["identity_dir"] == str(tmp_path / "identity")
+        assert (tmp_path / "identity" / "self.md").exists()
+        assert (tmp_path / "identity" / "agency.md").exists()
 
 
 class TestSetOwnerCLI:
@@ -953,10 +1045,10 @@ class TestSetOwnerCLI:
         config_dir = tmp_path / "config"
         config_dir.mkdir()
         (config_dir / "journal.json").write_text("{}", encoding="utf-8")
-        # Create sol/self.md
-        sol_dir = tmp_path / "sol"
-        sol_dir.mkdir()
-        (sol_dir / "self.md").write_text(
+        # Create identity/self.md
+        identity_dir = tmp_path / "identity"
+        identity_dir.mkdir()
+        (identity_dir / "self.md").write_text(
             "# self\n\nI am sol.\n\n## my name\nsol\n\n## who I'm here for\n[getting to know you]\n",
             encoding="utf-8",
         )
@@ -977,7 +1069,7 @@ class TestSetOwnerCLI:
         assert config["identity"]["name"] == "Jer"
 
         # Verify self.md was updated
-        self_content = (sol_dir / "self.md").read_text()
+        self_content = (identity_dir / "self.md").read_text()
         assert "Jer" in self_content
         assert "[getting to know you]" not in self_content
 
@@ -986,9 +1078,9 @@ class TestSetOwnerCLI:
         config_dir = tmp_path / "config"
         config_dir.mkdir()
         (config_dir / "journal.json").write_text("{}", encoding="utf-8")
-        sol_dir = tmp_path / "sol"
-        sol_dir.mkdir()
-        (sol_dir / "self.md").write_text(
+        identity_dir = tmp_path / "identity"
+        identity_dir.mkdir()
+        (identity_dir / "self.md").write_text(
             "# self\n\nI am sol.\n\n## my name\nsol\n\n## who I'm here for\n[getting to know you]\n",
             encoding="utf-8",
         )
@@ -1008,21 +1100,21 @@ class TestSetOwnerCLI:
         assert output["bio"] == "Building solstone"
 
         # Verify self.md
-        self_content = (sol_dir / "self.md").read_text()
+        self_content = (identity_dir / "self.md").read_text()
         assert "Jer" in self_content
         assert "Building solstone" in self_content
 
 
 class TestSetNameUpdatesSelfMd:
-    """Tests that set-name updates sol/self.md."""
+    """Tests that set-name updates identity/self.md."""
 
     def test_set_name_updates_self_md(self, tmp_path):
         config_dir = tmp_path / "config"
         config_dir.mkdir()
         (config_dir / "journal.json").write_text("{}", encoding="utf-8")
-        sol_dir = tmp_path / "sol"
-        sol_dir.mkdir()
-        (sol_dir / "self.md").write_text(
+        identity_dir = tmp_path / "identity"
+        identity_dir.mkdir()
+        (identity_dir / "self.md").write_text(
             "# self\n\nI am sol. this is a new journal — we're just getting started.\n\n"
             "## my name\nsol (default)\n\n## who I'm here for\n[getting to know you]\n",
             encoding="utf-8",
@@ -1040,7 +1132,7 @@ class TestSetNameUpdatesSelfMd:
             )
         assert result.exit_code == 0
 
-        self_content = (sol_dir / "self.md").read_text()
+        self_content = (identity_dir / "self.md").read_text()
         assert "I am aria." in self_content
         assert "I am sol." not in self_content
         assert "aria (named" in self_content

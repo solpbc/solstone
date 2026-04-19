@@ -28,7 +28,7 @@ apps/support/portal/
 build/
 tmp/
 filter_vconic_activity.py
-sol/history.jsonl
+/sol/
 .sol/
 attached_names.txt
 counts.txt

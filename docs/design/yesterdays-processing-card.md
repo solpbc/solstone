@@ -35,7 +35,7 @@ Internal helpers called only by `_summarize_yesterday_processing`:
   Reads `chronicle/{yesterday}/talents/knowledge_graph.md`, checks existence and `st_mtime` freshness using the relaxed rule in section 4.
 
 - `_briefing_freshness(today: str) -> dict`
-  Reads `journal/sol/briefing.md` with local `frontmatter.load`. Valid only when frontmatter has `type: morning_briefing` and a parseable `generated` timestamp whose local date is `today`.
+  Reads `journal/identity/briefing.md` with local `frontmatter.load`. Valid only when frontmatter has `type: morning_briefing` and a parseable `generated` timestamp whose local date is `today`.
 
 - `_newsletter_attempts_from_think_logs(yesterday: str) -> tuple[int, int]`
   Option A helper from section 3. Counts successful facet newsletters from files plus failed facet newsletter attempts from think logs.
@@ -343,7 +343,7 @@ Fixture plan:
 
 Supporting non-chronicle fixture:
 
-- `tests/fixtures/journal/sol/briefing.md`
+- `tests/fixtures/journal/identity/briefing.md`
   Valid morning-briefing frontmatter fixture for healthy cases.
   Tests that need missing/invalid frontmatter can overwrite or delete it in `tmp_path`.
 

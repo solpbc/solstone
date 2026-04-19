@@ -13,8 +13,8 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from think.awareness import ensure_sol_directory
 from think.cortex_client import cortex_request, wait_for_uses
+from think.identity import ensure_identity_directory
 from think.utils import get_journal, require_solstone, setup_cli
 
 logger = logging.getLogger(__name__)
@@ -57,7 +57,7 @@ def main() -> None:
     require_solstone()
 
     journal = Path(get_journal())
-    ensure_sol_directory()
+    ensure_identity_directory()
     health_dir = journal / "health"
     health_dir.mkdir(parents=True, exist_ok=True)
 

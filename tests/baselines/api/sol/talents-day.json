@@ -52,7 +52,7 @@
     "awareness_tender": {
       "app": null,
       "color": "#6c757d",
-      "description": "Maintains sol/awareness.md — a compact situational awareness snapshot",
+      "description": "Maintains identity/awareness.md — a compact situational awareness snapshot",
       "multi_facet": false,
       "output_format": null,
       "schedule": "segment",

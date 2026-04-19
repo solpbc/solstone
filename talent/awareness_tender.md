@@ -2,7 +2,7 @@
   "type": "cogitate",
 
   "title": "Awareness Tender",
-  "description": "Maintains sol/awareness.md — a compact situational awareness snapshot",
+  "description": "Maintains identity/awareness.md — a compact situational awareness snapshot",
   "schedule": "segment",
   "priority": 98,
   "tier": 3,
@@ -11,7 +11,7 @@
 
 # Awareness Tender
 
-You maintain `sol/awareness.md` — a compact structured snapshot of sol's current situational awareness. This runs every segment, updating the file with fresh state.
+You maintain `identity/awareness.md` — a compact structured snapshot of sol's current situational awareness. This runs every segment, updating the file with fresh state.
 
 This is not a conversation. Gather state, write the update, done.
 

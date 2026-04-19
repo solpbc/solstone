@@ -10,8 +10,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from think.activities import get_activity_output_path
-from think.awareness import update_identity_section
 from think.entities.core import atomic_write
+from think.identity import update_identity_section
 from think.utils import get_journal
 
 logger = logging.getLogger(__name__)
@@ -341,7 +341,7 @@ def _load_previous_outputs(facet: str, observations: list[dict]) -> str:
 def _read_agency_observations() -> str:
     """Read the current ## observations section from agency.md."""
     try:
-        path = Path(get_journal()) / "sol" / "agency.md"
+        path = Path(get_journal()) / "identity" / "agency.md"
         text = path.read_text(encoding="utf-8")
     except (FileNotFoundError, OSError):
         return ""
@@ -536,6 +536,12 @@ def post_process(result: str, context: dict) -> str | None:
             content = existing.rstrip("\n") + "\n" + new_line
         else:
             content = new_line
-        update_identity_section("agency.md", "observations", content)
+        update_identity_section(
+            "agency.md",
+            "observations",
+            content,
+            actor="agency-observations-tender",
+            reason="agency observations refresh",
+        )
 
     return None
