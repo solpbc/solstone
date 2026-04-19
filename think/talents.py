@@ -970,6 +970,7 @@ async def _execute_generate(
             thinking_budget=thinking_budget,
             system_instruction=system_instruction,
             json_output=is_json_output,
+            json_schema=config.get("json_schema"),
             timeout_s=timeout_s,
         )
     except Exception as exc:
@@ -1015,6 +1016,7 @@ async def _execute_generate(
                 thinking_budget=thinking_budget,
                 system_instruction=system_instruction,
                 json_output=is_json_output,
+                json_schema=config.get("json_schema"),
                 timeout_s=timeout_s,
                 provider=backup,
                 model=backup_model,
@@ -1046,6 +1048,8 @@ async def _execute_generate(
     }
     if usage_data:
         finish_event["usage"] = usage_data
+    if "schema_validation" in gen_result:
+        finish_event["schema_validation"] = gen_result["schema_validation"]
     emit_event(finish_event)
 
 

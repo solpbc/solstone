@@ -18,11 +18,13 @@ use think.prompts.load_prompt() directly.
 from __future__ import annotations
 
 import importlib.util
+import json
 import os
 from pathlib import Path
 from typing import Any, Callable
 
 import frontmatter
+from jsonschema import Draft202012Validator, SchemaError
 
 # Import core prompt utilities from think.prompts
 from think.prompts import _load_prompt_metadata, load_prompt
@@ -447,6 +449,54 @@ def get_talent_filter(value: bool | str | dict) -> dict[str, bool | str] | None:
 # ---------------------------------------------------------------------------
 
 
+def _load_talent_schema(
+    *,
+    name: str,
+    md_path: Path,
+    raw_schema: Any,
+) -> dict[str, Any]:
+    """Load and validate a talent JSON Schema from a relative file path."""
+    if not isinstance(raw_schema, str):
+        raise ValueError(
+            f"talent {name}: schema must be a string, got {type(raw_schema).__name__}: "
+            f"{raw_schema!r}"
+        )
+
+    raw_path = Path(raw_schema)
+    if raw_path.is_absolute():
+        raise ValueError(f"talent {name}: schema path must be relative: {raw_schema}")
+    if ".." in raw_path.parts:
+        raise ValueError(
+            f"talent {name}: schema path must not contain '..': {raw_schema}"
+        )
+
+    talent_dir = md_path.parent.resolve()
+    schema_path = (md_path.parent / raw_schema).resolve()
+    if not schema_path.is_relative_to(talent_dir):
+        raise ValueError(
+            f"talent {name}: schema path escapes talent directory: {schema_path}"
+        )
+    if not schema_path.exists():
+        raise FileNotFoundError(f"talent {name}: schema file not found: {schema_path}")
+
+    try:
+        with open(schema_path, encoding="utf-8") as f:
+            parsed = json.load(f)
+    except json.JSONDecodeError as exc:
+        raise ValueError(
+            f"talent {name}: schema file is not valid JSON: {schema_path}"
+        ) from exc
+
+    try:
+        Draft202012Validator.check_schema(parsed)
+    except SchemaError as exc:
+        raise ValueError(
+            f"talent {name}: schema file is not a valid JSON Schema: {schema_path}"
+        ) from exc
+
+    return parsed
+
+
 def get_talent(
     name: str = "unified",
     facet: str | None = None,
@@ -500,6 +550,14 @@ def get_talent(
 
     # Store path for later use
     config["path"] = str(md_path)
+
+    if "schema" in config:
+        config["json_schema"] = _load_talent_schema(
+            name=name,
+            md_path=md_path,
+            raw_schema=config["schema"],
+        )
+        del config["schema"]
 
     # Extract source config from 'load' key (replaces instructions.sources)
     config["sources"] = config.pop("load", _DEFAULT_LOAD.copy())

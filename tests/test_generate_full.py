@@ -14,6 +14,7 @@ import io
 import json
 import os
 from pathlib import Path
+from unittest.mock import MagicMock
 
 from tests.conftest import copytree_tracked
 from think.utils import day_path
@@ -63,6 +64,22 @@ def run_generator_with_config(mod, config: dict, monkeypatch) -> list[dict]:
     return events
 
 
+def _write_generator_file(
+    tmp_path: Path,
+    name: str,
+    metadata: dict,
+    body: str = "Test prompt",
+) -> None:
+    (tmp_path / f"{name}.md").write_text(
+        f"{json.dumps(metadata, indent=2)}\n\n{body}\n",
+        encoding="utf-8",
+    )
+
+
+def _write_schema_file(tmp_path: Path, name: str, schema: dict) -> None:
+    (tmp_path / name).write_text(json.dumps(schema, indent=2), encoding="utf-8")
+
+
 def test_generate_output_ndjson(tmp_path, monkeypatch):
     """Test basic output generation via NDJSON protocol."""
     mod = importlib.import_module("think.talents")
@@ -107,6 +124,200 @@ def test_generate_output_ndjson(tmp_path, monkeypatch):
     finish_events = [e for e in events if e["event"] == "finish"]
     assert len(finish_events) == 1
     assert finish_events[0]["result"] == MOCK_RESULT["text"]
+
+
+def test_dispatcher_passes_json_schema(tmp_path, monkeypatch):
+    """Test that generator execution forwards json_schema to the model layer."""
+    mod = importlib.import_module("think.talents")
+    copy_day(tmp_path)
+
+    import think.models
+    import think.talent
+
+    monkeypatch.setattr(think.talent, "TALENT_DIR", tmp_path)
+    schema = {"type": "object", "properties": {"summary": {"type": "string"}}}
+    _write_schema_file(tmp_path, "schema.json", schema)
+    _write_generator_file(
+        tmp_path,
+        "schema_gen",
+        {
+            "type": "generate",
+            "schedule": "daily",
+            "priority": 10,
+            "output": "json",
+            "schema": "schema.json",
+            "load": {"transcripts": True, "percepts": True},
+        },
+    )
+
+    mock_generate = MagicMock(
+        return_value={
+            "text": '{"summary":"ok"}',
+            "usage": {"input_tokens": 10, "output_tokens": 5},
+        }
+    )
+    monkeypatch.setattr(think.models, "generate_with_result", mock_generate)
+    monkeypatch.setenv("GOOGLE_API_KEY", "x")
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+
+    events = run_generator_with_config(
+        mod,
+        {
+            "name": "schema_gen",
+            "day": "20240101",
+            "output": "json",
+            "provider": "google",
+            "model": "gemini-2.0-flash",
+        },
+        monkeypatch,
+    )
+
+    assert mock_generate.call_args.kwargs["json_schema"] == schema
+    finish_events = [e for e in events if e["event"] == "finish"]
+    assert len(finish_events) == 1
+
+
+def test_dispatcher_omits_json_schema_when_absent(tmp_path, monkeypatch):
+    """Test that generator execution passes json_schema=None when absent."""
+    mod = importlib.import_module("think.talents")
+    copy_day(tmp_path)
+
+    import think.models
+    import think.talent
+
+    monkeypatch.setattr(think.talent, "TALENT_DIR", tmp_path)
+    _write_generator_file(
+        tmp_path,
+        "plain_gen",
+        {
+            "type": "generate",
+            "schedule": "daily",
+            "priority": 10,
+            "output": "md",
+            "load": {"transcripts": True, "percepts": True},
+        },
+    )
+
+    mock_generate = MagicMock(return_value=MOCK_RESULT)
+    monkeypatch.setattr(think.models, "generate_with_result", mock_generate)
+    monkeypatch.setenv("GOOGLE_API_KEY", "x")
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+
+    run_generator_with_config(
+        mod,
+        {
+            "name": "plain_gen",
+            "day": "20240101",
+            "output": "md",
+            "provider": "google",
+            "model": "gemini-2.0-flash",
+        },
+        monkeypatch,
+    )
+
+    assert mock_generate.call_args.kwargs["json_schema"] is None
+
+
+def test_finish_event_includes_schema_validation(tmp_path, monkeypatch):
+    """Test that finish events surface schema_validation when returned."""
+    mod = importlib.import_module("think.talents")
+    copy_day(tmp_path)
+
+    import think.models
+    import think.talent
+
+    monkeypatch.setattr(think.talent, "TALENT_DIR", tmp_path)
+    schema = {"type": "object", "properties": {"summary": {"type": "string"}}}
+    validation = {"valid": True, "errors": []}
+    _write_schema_file(tmp_path, "schema.json", schema)
+    _write_generator_file(
+        tmp_path,
+        "schema_validation_gen",
+        {
+            "type": "generate",
+            "schedule": "daily",
+            "priority": 10,
+            "output": "json",
+            "schema": "schema.json",
+            "load": {"transcripts": True, "percepts": True},
+        },
+    )
+
+    monkeypatch.setattr(
+        think.models,
+        "generate_with_result",
+        MagicMock(
+            return_value={
+                "text": '{"summary":"ok"}',
+                "usage": {"input_tokens": 10, "output_tokens": 5},
+                "schema_validation": validation,
+            }
+        ),
+    )
+    monkeypatch.setenv("GOOGLE_API_KEY", "x")
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+
+    events = run_generator_with_config(
+        mod,
+        {
+            "name": "schema_validation_gen",
+            "day": "20240101",
+            "output": "json",
+            "provider": "google",
+            "model": "gemini-2.0-flash",
+        },
+        monkeypatch,
+    )
+
+    finish_events = [e for e in events if e["event"] == "finish"]
+    assert len(finish_events) == 1
+    assert finish_events[0]["schema_validation"] == validation
+
+
+def test_finish_event_omits_schema_validation_when_absent(tmp_path, monkeypatch):
+    """Test that finish events omit schema_validation when not returned."""
+    mod = importlib.import_module("think.talents")
+    copy_day(tmp_path)
+
+    import think.models
+    import think.talent
+
+    monkeypatch.setattr(think.talent, "TALENT_DIR", tmp_path)
+    _write_generator_file(
+        tmp_path,
+        "no_schema_validation_gen",
+        {
+            "type": "generate",
+            "schedule": "daily",
+            "priority": 10,
+            "output": "md",
+            "load": {"transcripts": True, "percepts": True},
+        },
+    )
+
+    monkeypatch.setattr(
+        think.models,
+        "generate_with_result",
+        MagicMock(return_value=MOCK_RESULT),
+    )
+    monkeypatch.setenv("GOOGLE_API_KEY", "x")
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+
+    events = run_generator_with_config(
+        mod,
+        {
+            "name": "no_schema_validation_gen",
+            "day": "20240101",
+            "output": "md",
+            "provider": "google",
+            "model": "gemini-2.0-flash",
+        },
+        monkeypatch,
+    )
+
+    finish_events = [e for e in events if e["event"] == "finish"]
+    assert len(finish_events) == 1
+    assert "schema_validation" not in finish_events[0]
 
 
 def test_generate_hook_invoked_with_context(tmp_path, monkeypatch):
