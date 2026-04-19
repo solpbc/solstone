@@ -79,6 +79,41 @@ class TestRegistry:
         formatter = get_formatter("random/path/unknown.jsonl")
         assert formatter is None
 
+    def test_no_spans_formatter_registered(self):
+        """Spans JSONL is no longer registered after the story refactor."""
+        from think.formatters import FORMATTERS, get_formatter
+
+        assert "facets/*/spans/*.jsonl" not in FORMATTERS
+        assert get_formatter("facets/work/spans/20260418.jsonl") is None
+
+    def test_no_spans_writes(self):
+        """No spans formatter or spans JSONL write targets remain in source dirs."""
+        repo_root = Path(__file__).resolve().parent.parent
+        patterns = [
+            "format_spans",
+            "talent.spans",
+            "think.spans",
+            ' / "spans" / ',
+            "facets/*/spans",
+            "spans/{day}.jsonl",
+        ]
+
+        hits: list[str] = []
+        for directory in ("think", "talent", "apps"):
+            for path in (repo_root / directory).rglob("*"):
+                if not path.is_file() or path.suffix not in {".py", ".md"}:
+                    continue
+                for lineno, line in enumerate(
+                    path.read_text(encoding="utf-8").splitlines(), start=1
+                ):
+                    for pattern in patterns:
+                        if pattern in line:
+                            hits.append(
+                                f"{path.relative_to(repo_root)}:{lineno}:{pattern}"
+                            )
+
+        assert hits == []
+
 
 class TestLoadJsonl:
     """Tests for JSONL loading utility."""

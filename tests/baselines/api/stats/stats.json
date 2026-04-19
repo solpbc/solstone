@@ -8,9 +8,9 @@
         "email"
       ],
       "color": "#00796b",
-      "description": "Writes a structured narrative span row for meeting, call, messaging, and email activities.",
+      "description": "Generates a conversation story, topics, and structured commitments, closures, and decisions to merge onto the activity record.",
       "hook": {
-        "post": "spans"
+        "post": "story"
       },
       "load": {
         "percepts": true,
@@ -20,7 +20,7 @@
       "mtime": 0,
       "output": "json",
       "path": "<PROJECT>/talent/conversation.md",
-      "priority": 10,
+      "priority": 20,
       "schedule": "activity",
       "source": "system",
       "title": "Conversation Story",
@@ -130,9 +130,9 @@
         "reminder"
       ],
       "color": "#ff7043",
-      "description": "Writes a structured narrative span row for appointment, event, travel, errand, celebration, deadline, and reminder activities.",
+      "description": "Generates an event story, topics, and structured commitments, closures, and decisions to merge onto the activity record.",
       "hook": {
-        "post": "spans"
+        "post": "story"
       },
       "load": {
         "percepts": true,
@@ -142,7 +142,7 @@
       "mtime": 0,
       "output": "json",
       "path": "<PROJECT>/talent/event.md",
-      "priority": 10,
+      "priority": 20,
       "schedule": "activity",
       "source": "system",
       "title": "Event Story",
@@ -287,9 +287,9 @@
         "reading"
       ],
       "color": "#6d4c41",
-      "description": "Writes a structured narrative span row for coding, browsing, and reading activities.",
+      "description": "Generates a work story, topics, and structured commitments, closures, and decisions to merge onto the activity record.",
       "hook": {
-        "post": "spans"
+        "post": "story"
       },
       "load": {
         "percepts": true,
@@ -299,7 +299,7 @@
       "mtime": 0,
       "output": "json",
       "path": "<PROJECT>/talent/work.md",
-      "priority": 10,
+      "priority": 20,
       "schedule": "activity",
       "source": "system",
       "title": "Work Story",

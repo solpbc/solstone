@@ -140,7 +140,6 @@ FORMATTERS: dict[str, tuple[str, str, bool]] = {
         False,  # Indexed via _index_entity_search_chunks (enriched with relationship data)
     ),
     "facets/*/events/*.jsonl": ("think.event_formatter", "format_events", True),
-    "facets/*/spans/*.jsonl": ("think.spans", "format_spans", True),
     "facets/*/activities/*.jsonl": ("think.activities", "format_activities", True),
     "facets/*/todos/*.jsonl": ("apps.todos.todo", "format_todos", True),
     "facets/*/logs/*.jsonl": ("think.facets", "format_logs", True),

@@ -85,7 +85,7 @@
     "conversation": {
       "app": null,
       "color": "#00796b",
-      "description": "Writes a structured narrative span row for meeting, call, messaging, and email activities.",
+      "description": "Generates a conversation story, topics, and structured commitments, closures, and decisions to merge onto the activity record.",
       "multi_facet": false,
       "output_format": "json",
       "schedule": "activity",
@@ -184,7 +184,7 @@
     "event": {
       "app": null,
       "color": "#ff7043",
-      "description": "Writes a structured narrative span row for appointment, event, travel, errand, celebration, deadline, and reminder activities.",
+      "description": "Generates an event story, topics, and structured commitments, closures, and decisions to merge onto the activity record.",
       "multi_facet": false,
       "output_format": "json",
       "schedule": "activity",
@@ -459,7 +459,7 @@
     "work": {
       "app": null,
       "color": "#6d4c41",
-      "description": "Writes a structured narrative span row for coding, browsing, and reading activities.",
+      "description": "Generates a work story, topics, and structured commitments, closures, and decisions to merge onto the activity record.",
       "multi_facet": false,
       "output_format": "json",
       "schedule": "activity",
