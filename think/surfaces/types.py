@@ -41,3 +41,39 @@ class Decision:
     day: str
     created_at: int
     source: ActivitySourceRef
+
+
+@dataclass(frozen=True)
+class Cadence:
+    interactions_90d: int
+    last_seen: str | None
+    avg_interval_days: float | None
+    gone_quiet_since: str | None
+
+
+@dataclass(frozen=True)
+class ProfileBrief:
+    entity_id: str
+    name: str
+    is_self: bool
+    open_loop_count: int
+    decisions_count_30d: int
+    last_seen: str | None
+    generated_at: str
+
+
+@dataclass(frozen=True)
+class Profile:
+    entity_id: str
+    name: str
+    type: str
+    aka: tuple[str, ...]
+    is_self: bool
+    facets: tuple[str, ...]
+    description: str | None
+    cadence: Cadence
+    open_with_them: tuple[LedgerItem, ...]
+    closed_with_them_30d: tuple[LedgerItem, ...]
+    decisions_involving_them: tuple[Decision, ...]
+    sources: tuple[ActivitySourceRef, ...]
+    generated_at: str
