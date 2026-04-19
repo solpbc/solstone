@@ -81,6 +81,7 @@ def _setup_anthropic_stub(
 ):
     # Create mock Anthropic client
     anthropic_stub = types.ModuleType("anthropic")
+    anthropic_constants_stub = types.ModuleType("anthropic._constants")
     anthropic_types_stub = types.ModuleType("anthropic.types")
 
     class DummyClient:
@@ -100,8 +101,19 @@ def _setup_anthropic_stub(
     anthropic_stub.Anthropic = DummyClient
     anthropic_stub.AsyncAnthropic = DummyClient  # Add async version
     anthropic_stub.BadRequestError = DummyBadRequestError
+    anthropic_constants_stub.MODEL_NONSTREAMING_TOKENS = {
+        "claude-opus-4-20250514": 8192,
+        "claude-opus-4-0": 8192,
+        "claude-4-opus-20250514": 8192,
+        "anthropic.claude-opus-4-20250514-v1:0": 8192,
+        "claude-opus-4@20250514": 8192,
+        "claude-opus-4-1-20250805": 8192,
+        "anthropic.claude-opus-4-1-20250805-v1:0": 8192,
+        "claude-opus-4-1@20250805": 8192,
+    }
 
     # Add types to the types module
+    anthropic_types_stub.Message = SimpleNamespace
     anthropic_types_stub.MessageParam = dict
     anthropic_types_stub.ToolParam = dict
     anthropic_types_stub.ToolUseBlock = SimpleNamespace
@@ -115,9 +127,12 @@ def _setup_anthropic_stub(
     # Stub out the anthropic module
     if "anthropic" in sys.modules:
         sys.modules.pop("anthropic")
+    if "anthropic._constants" in sys.modules:
+        sys.modules.pop("anthropic._constants")
     if "anthropic.types" in sys.modules:
         sys.modules.pop("anthropic.types")
     sys.modules["anthropic"] = anthropic_stub
+    sys.modules["anthropic._constants"] = anthropic_constants_stub
     sys.modules["anthropic.types"] = anthropic_types_stub
 
 
@@ -565,3 +580,263 @@ class TestRunGenerateJsonSchema:
             "format": {"type": "json_schema", "schema": schema}
         }
         assert call_kwargs["system"] == "base"
+
+
+def _make_response(content=None, stop_reason="end_turn"):
+    response = MagicMock()
+    response.content = (
+        content if content is not None else [SimpleNamespace(type="text", text="ok")]
+    )
+    response.usage = None
+    response.stop_reason = stop_reason
+    return response
+
+
+def _make_stream_cm(final_message, *, enter_side_effect=None):
+    cm = MagicMock()
+    if enter_side_effect is None:
+        stream = MagicMock()
+        stream.get_final_message = MagicMock(return_value=final_message)
+        cm.__enter__ = MagicMock(return_value=stream)
+    else:
+        cm.__enter__ = MagicMock(side_effect=enter_side_effect)
+    cm.__exit__ = MagicMock(return_value=False)
+    return cm
+
+
+def _make_async_stream_cm(final_message):
+    cm = MagicMock()
+    stream = MagicMock()
+    stream.get_final_message = AsyncMock(return_value=final_message)
+    cm.__aenter__ = AsyncMock(return_value=stream)
+    cm.__aexit__ = AsyncMock(return_value=False)
+    return cm
+
+
+class TestBudgetAdjustment:
+    def test_lifts_max_tokens_when_collides_with_thinking_budget(self, monkeypatch):
+        provider = importlib.reload(
+            importlib.import_module("think.providers.anthropic")
+        )
+        mock_client = MagicMock()
+        mock_client.messages.create.return_value = _make_response()
+        monkeypatch.setattr(provider, "_get_anthropic_client", lambda: mock_client)
+
+        provider.run_generate(
+            "hello",
+            thinking_budget=4096,
+            max_output_tokens=4096,
+        )
+
+        call_kwargs = mock_client.messages.create.call_args.kwargs
+        assert call_kwargs["max_tokens"] == 4096 + 1000 + 1
+        assert call_kwargs["thinking"]["budget_tokens"] == 4096
+
+    def test_leaves_max_tokens_when_buffer_satisfied(self, monkeypatch):
+        provider = importlib.reload(
+            importlib.import_module("think.providers.anthropic")
+        )
+        mock_client = MagicMock()
+        mock_client.messages.create.return_value = _make_response()
+        monkeypatch.setattr(provider, "_get_anthropic_client", lambda: mock_client)
+
+        provider.run_generate(
+            "hello",
+            thinking_budget=4096,
+            max_output_tokens=8192,
+        )
+
+        call_kwargs = mock_client.messages.create.call_args.kwargs
+        assert call_kwargs["max_tokens"] == 8192
+
+    def test_no_adjustment_without_thinking(self, monkeypatch):
+        provider = importlib.reload(
+            importlib.import_module("think.providers.anthropic")
+        )
+        mock_client = MagicMock()
+        mock_client.messages.create.return_value = _make_response()
+        monkeypatch.setattr(provider, "_get_anthropic_client", lambda: mock_client)
+
+        provider.run_generate(
+            "hello",
+            thinking_budget=0,
+            max_output_tokens=4096,
+        )
+
+        call_kwargs = mock_client.messages.create.call_args.kwargs
+        assert call_kwargs["max_tokens"] == 4096
+        assert "thinking" not in call_kwargs
+
+    def test_async_lifts_max_tokens_when_collides(self, monkeypatch):
+        provider = importlib.reload(
+            importlib.import_module("think.providers.anthropic")
+        )
+        mock_client = MagicMock()
+        mock_client.messages.create = AsyncMock(return_value=_make_response())
+        monkeypatch.setattr(
+            provider, "_get_async_anthropic_client", lambda: mock_client
+        )
+
+        asyncio.run(
+            provider.run_agenerate(
+                "hello",
+                thinking_budget=4096,
+                max_output_tokens=4096,
+            )
+        )
+
+        call_kwargs = mock_client.messages.create.call_args.kwargs
+        assert call_kwargs["max_tokens"] == 4096 + 1000 + 1
+        assert call_kwargs["thinking"]["budget_tokens"] == 4096
+
+
+class TestStreamingDispatch:
+    def test_streams_when_max_tokens_exceeds_time_formula(self, monkeypatch):
+        provider = importlib.reload(
+            importlib.import_module("think.providers.anthropic")
+        )
+        mock_client = MagicMock()
+        mock_client.messages.stream.return_value = _make_stream_cm(_make_response())
+        monkeypatch.setattr(provider, "_get_anthropic_client", lambda: mock_client)
+
+        provider.run_generate(
+            "hello",
+            model="claude-sonnet-4-5",
+            max_output_tokens=49152,
+        )
+
+        assert mock_client.messages.stream.call_count == 1
+        assert mock_client.messages.create.call_count == 0
+
+    def test_uses_create_below_threshold(self, monkeypatch):
+        provider = importlib.reload(
+            importlib.import_module("think.providers.anthropic")
+        )
+        mock_client = MagicMock()
+        mock_client.messages.create.return_value = _make_response()
+        monkeypatch.setattr(provider, "_get_anthropic_client", lambda: mock_client)
+
+        provider.run_generate(
+            "hello",
+            model="claude-sonnet-4-5",
+            max_output_tokens=8192,
+        )
+
+        assert mock_client.messages.create.call_count == 1
+        assert mock_client.messages.stream.call_count == 0
+
+    def test_streams_when_per_model_cap_exceeded(self, monkeypatch):
+        provider = importlib.reload(
+            importlib.import_module("think.providers.anthropic")
+        )
+        mock_client = MagicMock()
+        mock_client.messages.stream.return_value = _make_stream_cm(_make_response())
+        monkeypatch.setattr(provider, "_get_anthropic_client", lambda: mock_client)
+
+        provider.run_generate(
+            "hello",
+            model="claude-opus-4-1-20250805",
+            max_output_tokens=16384,
+        )
+
+        assert mock_client.messages.stream.call_count == 1
+        assert mock_client.messages.create.call_count == 0
+
+    def test_async_streams_when_max_tokens_exceeds_time_formula(self, monkeypatch):
+        provider = importlib.reload(
+            importlib.import_module("think.providers.anthropic")
+        )
+        mock_client = MagicMock()
+        mock_client.messages.stream.return_value = _make_async_stream_cm(
+            _make_response()
+        )
+        monkeypatch.setattr(
+            provider, "_get_async_anthropic_client", lambda: mock_client
+        )
+
+        asyncio.run(
+            provider.run_agenerate(
+                "hello",
+                model="claude-sonnet-4-5",
+                max_output_tokens=49152,
+            )
+        )
+
+        assert mock_client.messages.stream.call_count == 1
+        assert mock_client.messages.create.call_count == 0
+
+    def test_async_uses_create_below_threshold(self, monkeypatch):
+        provider = importlib.reload(
+            importlib.import_module("think.providers.anthropic")
+        )
+        mock_client = MagicMock()
+        mock_client.messages.create = AsyncMock(return_value=_make_response())
+        monkeypatch.setattr(
+            provider, "_get_async_anthropic_client", lambda: mock_client
+        )
+
+        asyncio.run(
+            provider.run_agenerate(
+                "hello",
+                model="claude-sonnet-4-5",
+                max_output_tokens=8192,
+            )
+        )
+
+        assert mock_client.messages.create.call_count == 1
+        assert mock_client.messages.stream.call_count == 0
+
+    def test_streams_tool_use_fallback_extracts_json(self, monkeypatch):
+        provider = importlib.reload(
+            importlib.import_module("think.providers.anthropic")
+        )
+        mock_client = MagicMock()
+
+        class DummyBadRequestError(Exception):
+            pass
+
+        fallback_response = _make_response(
+            content=[SimpleNamespace(type="tool_use", input={"key": "value"})]
+        )
+        # Raising from __enter__ is a sufficient stand-in for the SDK surfacing
+        # the BadRequestError before a streaming response is available.
+        mock_client.messages.stream.side_effect = [
+            _make_stream_cm(
+                None,
+                enter_side_effect=DummyBadRequestError("bad schema"),
+            ),
+            _make_stream_cm(fallback_response),
+        ]
+
+        monkeypatch.setattr(provider, "BadRequestError", DummyBadRequestError)
+        monkeypatch.setattr(provider, "_get_anthropic_client", lambda: mock_client)
+
+        result = provider.run_generate(
+            "hello",
+            model="claude-sonnet-4-5",
+            json_schema={"type": "object"},
+            max_output_tokens=49152,
+        )
+
+        assert mock_client.messages.stream.call_count == 2
+        assert mock_client.messages.create.call_count == 0
+        assert json.loads(result["text"]) == {"key": "value"}
+
+    def test_interaction_thinking_and_streaming(self, monkeypatch):
+        provider = importlib.reload(
+            importlib.import_module("think.providers.anthropic")
+        )
+        mock_client = MagicMock()
+        mock_client.messages.stream.return_value = _make_stream_cm(_make_response())
+        monkeypatch.setattr(provider, "_get_anthropic_client", lambda: mock_client)
+
+        provider.run_generate(
+            "hello",
+            model="claude-sonnet-4-5",
+            thinking_budget=24576,
+            max_output_tokens=24576,
+        )
+
+        assert mock_client.messages.stream.call_count == 1
+        call_kwargs = mock_client.messages.stream.call_args.kwargs
+        assert call_kwargs["max_tokens"] == 25577
