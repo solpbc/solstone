@@ -16,7 +16,7 @@ import json
 import logging
 import tempfile
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from datetime import datetime as real_datetime
 from pathlib import Path
 from typing import Any
@@ -32,6 +32,9 @@ _config: dict[str, dict[str, Any]] = {}
 _callosum: Any = None
 _last_fired: dict[str, str] = {}  # routine_id -> "YYYY-MM-DD HH:MM" of last fire
 _fired_triggers: dict[str, dict[str, str]] = {}
+# Crossover band for anticipation scan: load adjacent-day activity files when
+# local_now is within this many minutes of midnight. Covers offset_minutes up to ~2h.
+_ACTIVITY_ANTICIPATION_CROSSDAY_WINDOW_MINUTES = 120
 _logged_unknown_cadence: set[str] = set()
 
 
@@ -364,6 +367,25 @@ def _run_routine(routine: dict, trigger_context: dict | None = None) -> None:
             logger.exception("Failed to emit routine completion for %s", routine_id)
 
 
+def _activity_anticipation_candidate_days(
+    local_now: datetime, window_minutes: int
+) -> list[str]:
+    """Return chronological YYYYMMDD strings to scan for anticipation triggers.
+
+    Always includes today. Adds yesterday when local_now falls within the first
+    `window_minutes` after midnight, and tomorrow when local_now falls within the
+    last `window_minutes` before midnight.
+    """
+    minutes_since_midnight = local_now.hour * 60 + local_now.minute
+    days: list[str] = []
+    if minutes_since_midnight < window_minutes:
+        days.append((local_now - timedelta(days=1)).strftime("%Y%m%d"))
+    days.append(local_now.strftime("%Y%m%d"))
+    if minutes_since_midnight >= 24 * 60 - window_minutes:
+        days.append((local_now + timedelta(days=1)).strftime("%Y%m%d"))
+    return days
+
+
 def _prune_fired_triggers(*, now_utc: datetime) -> None:
     """Drop in-memory activity trigger dedupe entries older than two days."""
     from datetime import timedelta
@@ -459,52 +481,61 @@ def check() -> None:
                 )
                 continue
 
-            day_str = local_now.strftime("%Y%m%d")
+            candidate_days = _activity_anticipation_candidate_days(
+                local_now, _ACTIVITY_ANTICIPATION_CROSSDAY_WINDOW_MINUTES
+            )
             fired_for_routine = _fired_triggers.setdefault(routine_id, {})
 
             for facet_name in get_facets().keys():
-                try:
-                    records = load_activity_records(facet_name, day_str)
-                except Exception:
-                    logger.warning(
-                        "Failed loading activities for facet %s on %s",
-                        facet_name,
-                        day_str,
-                        exc_info=True,
-                    )
-                    continue
-
-                for record in records:
-                    if record.get("source") != "anticipated":
-                        continue
-                    activity_id = record.get("id")
-                    if not activity_id or activity_id in fired_for_routine:
-                        continue
-                    start_str = record.get("start")
-                    if not start_str:
-                        continue
+                for day_str in candidate_days:
                     try:
-                        time_parts = [int(x) for x in str(start_str).split(":")]
-                    except (ValueError, AttributeError):
+                        records = load_activity_records(facet_name, day_str)
+                    except Exception:
+                        logger.warning(
+                            "Failed loading activities for facet %s on %s",
+                            facet_name,
+                            day_str,
+                            exc_info=True,
+                        )
                         continue
-                    if len(time_parts) == 2:
-                        h, m = time_parts
-                        s = 0
-                    elif len(time_parts) == 3:
-                        h, m, s = time_parts
-                    else:
-                        continue
-                    start_dt = local_now.replace(
-                        hour=h, minute=m, second=s, microsecond=0
-                    )
-                    trigger_dt = start_dt + timedelta(minutes=offset_minutes)
-                    if abs((local_now - trigger_dt).total_seconds()) > 60:
-                        continue
-                    fired_for_routine[activity_id] = now_utc.isoformat()
-                    _run_routine(
-                        routine,
-                        trigger_context={"activity": record, "facet": facet_name},
-                    )
+
+                    for record in records:
+                        if record.get("source") != "anticipated":
+                            continue
+                        activity_id = record.get("id")
+                        if not activity_id or activity_id in fired_for_routine:
+                            continue
+                        start_str = record.get("start")
+                        if not start_str:
+                            continue
+                        try:
+                            time_parts = [int(x) for x in str(start_str).split(":")]
+                        except (ValueError, AttributeError):
+                            continue
+                        if len(time_parts) == 2:
+                            h, m = time_parts
+                            s = 0
+                        elif len(time_parts) == 3:
+                            h, m, s = time_parts
+                        else:
+                            continue
+                        start_dt = datetime(
+                            int(day_str[:4]),
+                            int(day_str[4:6]),
+                            int(day_str[6:8]),
+                            h,
+                            m,
+                            s,
+                            tzinfo=local_now.tzinfo,
+                        )
+                        trigger_dt = start_dt + timedelta(minutes=offset_minutes)
+                        if abs((local_now - trigger_dt).total_seconds()) > 60:
+                            continue
+                        fired_for_routine[activity_id] = now_utc.isoformat()
+                        _run_routine(
+                            routine,
+                            trigger_context={"activity": record, "facet": facet_name},
+                        )
         elif isinstance(cadence, dict):
             cadence_type = str(cadence.get("type", "unknown"))
             if routine_id not in _logged_unknown_cadence:
