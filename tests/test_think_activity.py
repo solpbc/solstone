@@ -424,6 +424,246 @@ class TestRunActivityPrompts:
             assert started_kw["activity"] == "coding_100000_300"
             assert started_kw["facet"] == "work"
 
+    @pytest.mark.parametrize(
+        ("activity_type", "expected_name"),
+        [
+            ("meeting", "conversation"),
+            ("call", "conversation"),
+            ("messaging", "conversation"),
+            ("email", "conversation"),
+            ("appointment", "event"),
+            ("event", "event"),
+            ("travel", "event"),
+            ("errand", "event"),
+            ("celebration", "event"),
+            ("deadline", "event"),
+            ("reminder", "event"),
+        ],
+    )
+    def test_dispatches_storytelling_talents_by_activity_type(
+        self, monkeypatch, activity_type, expected_name
+    ):
+        from think.thinking import run_activity_prompts
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+
+            activity_id = f"{activity_type}_100000_300"
+            self._write_record(
+                tmpdir,
+                "work",
+                "20260209",
+                {
+                    "id": activity_id,
+                    "activity": activity_type,
+                    "segments": ["100000_300"],
+                    "description": f"{activity_type} session",
+                    "active_entities": [],
+                },
+            )
+
+            configs = {
+                "conversation": {
+                    "type": "generate",
+                    "priority": 50,
+                    "activities": ["meeting", "call", "messaging", "email"],
+                    "output": "json",
+                },
+                "work": {
+                    "type": "generate",
+                    "priority": 50,
+                    "activities": ["coding", "browsing", "reading"],
+                    "output": "json",
+                },
+                "event": {
+                    "type": "generate",
+                    "priority": 50,
+                    "activities": [
+                        "appointment",
+                        "event",
+                        "travel",
+                        "errand",
+                        "celebration",
+                        "deadline",
+                        "reminder",
+                    ],
+                    "output": "json",
+                },
+            }
+
+            monkeypatch.setattr(
+                "think.thinking.get_talent_configs", lambda schedule: configs
+            )
+
+            spawned: list[str] = []
+
+            def mock_cortex_request(prompt, name, config):
+                spawned.append(name)
+                return f"agent-{name}"
+
+            monkeypatch.setattr("think.thinking.cortex_request", mock_cortex_request)
+            monkeypatch.setattr(
+                "think.thinking.wait_for_uses",
+                lambda ids, timeout: ({aid: "finish" for aid in ids}, []),
+            )
+
+            result = run_activity_prompts(
+                day="20260209",
+                activity_id=activity_id,
+                facet="work",
+            )
+
+            assert result is True
+            assert spawned == [expected_name]
+
+    def test_dispatches_work_talent_with_level_gate(self, monkeypatch):
+        from think.thinking import run_activity_prompts
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+
+            configs = {
+                "work": {
+                    "type": "generate",
+                    "priority": 50,
+                    "activities": ["coding", "browsing", "reading"],
+                    "output": "json",
+                }
+            }
+            monkeypatch.setattr(
+                "think.thinking.get_talent_configs", lambda schedule: configs
+            )
+            monkeypatch.setattr(
+                "think.thinking.wait_for_uses",
+                lambda ids, timeout: ({aid: "finish" for aid in ids}, []),
+            )
+
+            cases = [
+                ("coding_100000_300", "coding", None, True),
+                ("browsing_100000_300", "browsing", 0.4, True),
+                ("reading_100000_300", "reading", 0.8, True),
+                ("browsing_100500_300", "browsing", 0.39, False),
+                ("reading_101000_300", "reading", None, False),
+            ]
+
+            for activity_id, activity_type, level_avg, should_spawn in cases:
+                self._write_record(
+                    tmpdir,
+                    "work",
+                    "20260209",
+                    {
+                        "id": activity_id,
+                        "activity": activity_type,
+                        "segments": ["100000_300"],
+                        "level_avg": level_avg,
+                        "description": activity_type,
+                        "active_entities": [],
+                    },
+                )
+
+            spawned: list[str] = []
+
+            def mock_cortex_request(prompt, name, config):
+                spawned.append(config["activity"]["id"])
+                return f"agent-{config['activity']['id']}"
+
+            monkeypatch.setattr("think.thinking.cortex_request", mock_cortex_request)
+
+            for activity_id, _activity_type, _level_avg, _should_spawn in cases:
+                result = run_activity_prompts(
+                    day="20260209",
+                    activity_id=activity_id,
+                    facet="work",
+                )
+                assert result is True
+
+            assert spawned == [
+                "coding_100000_300",
+                "browsing_100000_300",
+                "reading_100000_300",
+            ]
+
+    @pytest.mark.parametrize(
+        "record",
+        [
+            {
+                "id": "coding_100000_300",
+                "activity": "coding",
+                "source": "cogitate",
+                "segments": ["100000_300"],
+            },
+            {
+                "id": "coding_100500_300",
+                "activity": "coding",
+                "source": "anticipated",
+                "segments": ["100500_300"],
+            },
+            {
+                "id": "coding_101000_300",
+                "activity": "coding",
+                "segments": [],
+            },
+        ],
+    )
+    def test_storytelling_talents_skip_synthetic_or_empty_records(
+        self, monkeypatch, record
+    ):
+        from think.thinking import run_activity_prompts
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+
+            full_record = {
+                "description": "skip me",
+                "active_entities": [],
+                **record,
+            }
+            self._write_record(tmpdir, "work", "20260209", full_record)
+
+            monkeypatch.setattr(
+                "think.thinking.get_talent_configs",
+                lambda schedule: {
+                    "conversation": {
+                        "type": "generate",
+                        "priority": 50,
+                        "activities": ["meeting", "call", "messaging", "email"],
+                        "output": "json",
+                    },
+                    "work": {
+                        "type": "generate",
+                        "priority": 50,
+                        "activities": ["coding", "browsing", "reading"],
+                        "output": "json",
+                    },
+                    "event": {
+                        "type": "generate",
+                        "priority": 50,
+                        "activities": [
+                            "appointment",
+                            "event",
+                            "travel",
+                            "errand",
+                            "celebration",
+                            "deadline",
+                            "reminder",
+                        ],
+                        "output": "json",
+                    },
+                },
+            )
+            monkeypatch.setattr(
+                "think.thinking.cortex_request",
+                lambda prompt, name, config: pytest.fail("should not dispatch"),
+            )
+
+            result = run_activity_prompts(
+                day="20260209",
+                activity_id=record["id"],
+                facet="work",
+            )
+
+            assert result is True
+
 
 class TestActivityPersistence:
     """Verify state machine completed records persist and load correctly."""

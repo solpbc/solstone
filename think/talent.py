@@ -139,7 +139,7 @@ def get_output_path(
         Day directory path (YYYYMMDD).
     key:
         Generator key or talent name (e.g., "activity", "chat:sentiment",
-        "decisionalizer", "entities:observer").
+        "entities:observer").
     segment:
         Optional segment key (HHMMSS_LEN) for segment-level output.
     output_format:

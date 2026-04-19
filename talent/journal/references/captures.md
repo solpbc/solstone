@@ -268,8 +268,9 @@ Post-processing generates day-level outputs in the `talents/` directory that syn
 Each template is a `.md` file with JSON frontmatter containing metadata (title, description, schedule, output format). The `schedule` field is required and must be `"segment"` or `"daily"` - generators with missing or invalid schedule are skipped. Use `get_talent_configs(has_tools=False)` from `think/talent.py` to retrieve all available generators, or `get_talent_configs(has_tools=False, schedule="daily")` to get generators filtered by schedule.
 
 **Output naming:**
-- System outputs: `talents/{agent}.md` (e.g., `talents/meetings.md`, `talents/briefing.md`)
+- System outputs: `talents/{agent}.md` (e.g., `talents/briefing.md`, `talents/default.md`)
 - App outputs: `talents/_{app}_{agent}.md` (e.g., `talents/_entities_observer.md`)
 - JSON output: `talents/{agent}.json` when metadata specifies `"output": "json"`
+- Story span rows: `facets/{facet}/spans/{day}.jsonl`
 
 Each generator type has a corresponding template file (`{name}.md`) that defines how the AI synthesizes extracts into narrative form.

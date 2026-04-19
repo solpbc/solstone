@@ -205,27 +205,19 @@
       "tier": 2,
       "type": "cogitate"
     },
+    "talent.system.conversation": {
+      "disabled": false,
+      "group": "Think",
+      "label": "Conversation Story",
+      "schedule": "activity",
+      "tier": 2,
+      "type": "generate"
+    },
     "talent.system.daily_schedule": {
       "disabled": false,
       "group": "Think",
       "label": "Maintenance Window",
       "schedule": "daily",
-      "tier": 2,
-      "type": "generate"
-    },
-    "talent.system.decisionalizer": {
-      "disabled": false,
-      "group": "Think",
-      "label": "Decision Dossier Generator",
-      "schedule": "daily",
-      "tier": 2,
-      "type": "cogitate"
-    },
-    "talent.system.decisions": {
-      "disabled": false,
-      "group": "Think",
-      "label": "Decision Actions",
-      "schedule": "activity",
       "tier": 2,
       "type": "generate"
     },
@@ -245,20 +237,20 @@
       "tier": 2,
       "type": "generate"
     },
+    "talent.system.event": {
+      "disabled": false,
+      "group": "Think",
+      "label": "Event Story",
+      "schedule": "activity",
+      "tier": 2,
+      "type": "generate"
+    },
     "talent.system.facet_newsletter": {
       "disabled": false,
       "group": "Think",
       "label": "facet_newsletter",
       "tier": 2,
       "type": null
-    },
-    "talent.system.followups": {
-      "disabled": false,
-      "group": "Think",
-      "label": "Follow-Up Items",
-      "schedule": "activity",
-      "tier": 2,
-      "type": "generate"
     },
     "talent.system.heartbeat": {
       "disabled": false,
@@ -275,22 +267,6 @@
       "schedule": "daily",
       "tier": 2,
       "type": "cogitate"
-    },
-    "talent.system.meetings": {
-      "disabled": false,
-      "group": "Think",
-      "label": "Meeting Notes",
-      "schedule": "activity",
-      "tier": 2,
-      "type": "generate"
-    },
-    "talent.system.messaging": {
-      "disabled": false,
-      "group": "Think",
-      "label": "Messaging Summary",
-      "schedule": "activity",
-      "tier": 2,
-      "type": "generate"
     },
     "talent.system.morning_briefing": {
       "disabled": false,
@@ -392,6 +368,14 @@
       "label": "Triage",
       "tier": 2,
       "type": "cogitate"
+    },
+    "talent.system.work": {
+      "disabled": false,
+      "group": "Think",
+      "label": "Work Story",
+      "schedule": "activity",
+      "tier": 2,
+      "type": "generate"
     },
     "talent.todos.daily": {
       "disabled": false,
