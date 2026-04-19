@@ -172,6 +172,7 @@
       "path": "<PROJECT>/talent/participation.md",
       "priority": 10,
       "schedule": "activity",
+      "schema": "participation.schema.json",
       "source": "system",
       "tier": 3,
       "title": "Participation",
