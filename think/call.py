@@ -73,11 +73,13 @@ _discover_app_calls()
 
 # Mount built-in CLIs (not auto-discovered since they live under think/)
 from think.tools.call import app as journal_app
+from think.tools.ledger import app as ledger_app
 from think.tools.navigate import app as navigate_app
 from think.tools.routines import app as routines_app
 from think.tools.sol import app as sol_app
 
 call_app.add_typer(journal_app, name="journal")
+call_app.add_typer(ledger_app, name="ledger")
 call_app.add_typer(navigate_app, name="navigate")
 call_app.add_typer(routines_app, name="routines")
 call_app.add_typer(sol_app, name="identity")
