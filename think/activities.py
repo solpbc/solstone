@@ -803,19 +803,34 @@ def locked_modify(
 
 
 def append_edit(
-    record: dict[str, Any], *, actor: str, fields: list[str], note: str | None
+    record: dict[str, Any],
+    *,
+    actor: str,
+    fields: list[str],
+    note: str | None,
+    payload: dict[str, Any]
+    | None = None,  # Additive: Ledger close writes a `ledger_close` sub-dict alongside the audit edit; keep spread so edit readers see a flat entry.
 ) -> dict[str, Any]:
     """Append an edit entry to an activity record and return the record."""
     normalized = _normalize_activity_record(record)
     edits = [dict(edit) for edit in normalized.get("edits", [])]
-    edits.append(
-        {
-            "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
-            "actor": actor,
-            "fields": list(fields),
-            "note": note,
-        }
-    )
+    edit_entry: dict[str, Any] = {
+        "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        "actor": actor,
+        "fields": list(fields),
+        "note": note,
+    }
+    if payload is not None:
+        if not isinstance(payload, dict):
+            raise TypeError("payload must be dict[str, Any] when provided")
+        collision_keys = sorted(set(payload) & set(edit_entry))
+        if collision_keys:
+            raise ValueError(
+                "payload cannot overwrite canonical edit fields: "
+                + ", ".join(collision_keys)
+            )
+        edit_entry = {**edit_entry, **payload}
+    edits.append(edit_entry)
     normalized["edits"] = edits
     return normalized
 
