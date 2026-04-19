@@ -45,6 +45,7 @@
       "path": "<PROJECT>/talent/daily_schedule.md",
       "priority": 10,
       "schedule": "daily",
+      "schema": "daily_schedule.schema.json",
       "source": "system",
       "thinking_budget": 4096,
       "title": "Maintenance Window",
