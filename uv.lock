@@ -2592,6 +2592,19 @@ crypto = [
 ]
 
 [[package]]
+name = "pyopenssl"
+version = "26.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cryptography" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/8e/11/a62e1d33b373da2b2c2cd9eb508147871c80f12b1cacde3c5d314922afdd/pyopenssl-26.0.0.tar.gz", hash = "sha256:f293934e52936f2e3413b89c6ce36df66a0b34ae1ea3a053b8c5020ff2f513fc", size = 185534, upload-time = "2026-03-15T14:28:26.353Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/fb/7d/d4f7d908fa8415571771b30669251d57c3cf313b36a856e6d7548ae01619/pyopenssl-26.0.0-py3-none-any.whl", hash = "sha256:df94d28498848b98cc1c0ffb8ef1e71e40210d3b0a8064c9d29571ed2904bf81", size = 57969, upload-time = "2026-03-15T14:28:24.864Z" },
+]
+
+[[package]]
 name = "pypdf"
 version = "6.7.0"
 source = { registry = "https://pypi.org/simple" }
@@ -3540,6 +3553,7 @@ dependencies = [
     { name = "pillow" },
     { name = "playwright" },
     { name = "psutil" },
+    { name = "pyopenssl" },
     { name = "pypdf" },
     { name = "pytesseract" },
     { name = "pytest" },
@@ -3559,6 +3573,7 @@ dependencies = [
     { name = "typer" },
     { name = "tzlocal" },
     { name = "webrtcvad-wheels" },
+    { name = "websockets" },
 ]
 
 [package.metadata]
@@ -3587,6 +3602,7 @@ requires-dist = [
     { name = "pillow" },
     { name = "playwright", specifier = ">=1.40.0" },
     { name = "psutil" },
+    { name = "pyopenssl", specifier = ">=24.0" },
     { name = "pypdf" },
     { name = "pytesseract" },
     { name = "pytest" },
@@ -3606,6 +3622,7 @@ requires-dist = [
     { name = "typer" },
     { name = "tzlocal" },
     { name = "webrtcvad-wheels", specifier = ">=2.0.12" },
+    { name = "websockets", specifier = ">=13.0" },
 ]
 
 [[package]]
