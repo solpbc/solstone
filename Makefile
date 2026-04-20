@@ -106,7 +106,7 @@ skills:
 
 # Start local dev stack against fixture journal (no observers, no daily processing)
 dev: .installed
-	$(TEST_ENV) PATH=$(CURDIR)/$(VENV_BIN):$$PATH $(VENV_BIN)/sol supervisor 0 --no-observers --no-daily
+	$(TEST_ENV) PATH=$(CURDIR)/$(VENV_BIN):$$PATH $(VENV_BIN)/sol supervisor 0 --no-daily
 
 # Restart solstone service (noop in dev mode)
 sail: .installed
@@ -132,7 +132,7 @@ sandbox: .installed
 	echo "Sandbox journal: $$SANDBOX_JOURNAL"; \
 	# Boot supervisor in background \
 	_SOLSTONE_JOURNAL_OVERRIDE="$$SANDBOX_JOURNAL" PATH=$(CURDIR)/$(VENV_BIN):$$PATH \
-		$(VENV_BIN)/sol supervisor 0 --no-observers --no-daily \
+		$(VENV_BIN)/sol supervisor 0 --no-daily \
 		> "$$SANDBOX_JOURNAL/health/supervisor.log" 2>&1 & \
 	echo $$! > .sandbox.pid; \
 	echo "Supervisor PID: $$(cat .sandbox.pid)"; \
