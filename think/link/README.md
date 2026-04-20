@@ -12,7 +12,7 @@ The `spl` repo's `home/` continues as the open-source reference implementation o
 |------|---------|
 | `service.py` | Entry point + runtime. `sol link` runs `main()` here. |
 | `relay_client.py` | Listen-WS + per-tunnel TLS pump. Spawns a task per incoming tunnel. |
-| `wsgi_bridge.py` | HTTP/1.1 ⇄ WSGI adapter that pipes tunnel bytes to convey's real Flask app. |
+| `tcp_pipe.py` | Byte pump that opens a loopback TCP connection to convey and forwards stream bytes both ways. |
 | `tls_adapter.py` | pyOpenSSL memory-BIO adapter. Runs TLS 1.3 over opaque byte streams. |
 | `ca.py` | Local CA lifecycle + CSR signing + home-attestation minting. |
 | `auth.py` | `authorized_clients.json` reader/writer with mtime-reload and last-seen tracking. |
@@ -28,4 +28,4 @@ The `spl` repo's `home/` continues as the open-source reference implementation o
 
 ## privacy
 
-No payload bytes are ever logged. The tunnel pump only emits rendezvous metadata (tunnel_id, stream_id, method, path, status, byte counts) to logs and callosum. The CA private key never leaves `journal/link/ca/private.pem`; account tokens live in `journal/link/tokens/` and device tokens live on the phone.
+No payload bytes are ever logged. The tunnel pump only emits rendezvous metadata (tunnel_id, stream_id, bytes_in, bytes_out, closed_reason) to logs and callosum. The CA private key never leaves `journal/link/ca/private.pem`; account tokens live in `journal/link/tokens/` and device tokens live on the phone.

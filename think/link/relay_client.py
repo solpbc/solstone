@@ -9,7 +9,7 @@ On startup:
   3. Loop: wait for {"type":"incoming","tunnel_id":...} control messages.
      On each signal, spawn a tunnel task that opens /tunnel/<id>, drives
      pyOpenSSL TLS 1.3 in memory-BIO mode, and hands the plaintext byte
-     stream to the multiplexer + WSGI bridge.
+     stream to the multiplexer + loopback TCP pipe into convey.
   4. On disconnect, reconnect with exponential backoff (1s → 60s, ±25%).
 
 All WebSocket I/O uses the `websockets` library in asyncio mode. The TLS
@@ -17,7 +17,7 @@ state machine runs inline on the event loop — each tunnel is a dedicated
 task pumping bytes between the WS and the TLS engine.
 
 Privacy invariant: NO payload bytes ever appear in logs. Only rendezvous
-metadata (tunnel_id, stream_id, byte_count, status code, duration) is
+metadata (tunnel_id, stream_id, bytes_in, bytes_out, closed_reason) is
 eligible for logging, and everything emitted to callosum is the same
 rendezvous-only subset.
 """
@@ -40,6 +40,7 @@ from websockets.exceptions import ConnectionClosed
 from .auth import AuthorizedClients
 from .ca import LoadedCa
 from .mux import Multiplexer, StreamWriter
+from .tcp_pipe import ConveyUnreachable, PipeMetadata, pump_stream
 from .tls_adapter import (
     TlsError,
     build_server_context,
@@ -47,7 +48,6 @@ from .tls_adapter import (
     issue_server_cert,
     new_server,
 )
-from .wsgi_bridge import serve_request
 
 log = logging.getLogger("link.relay_client")
 
@@ -70,7 +70,6 @@ class RelayClient:
         on_account_token: Callable[[str], None],
         ca: LoadedCa,
         authorized: AuthorizedClients,
-        wsgi_app: Callable[..., Any],
         callosum_emit: CallosumEmit | None = None,
     ) -> None:
         self._instance_id = instance_id
@@ -80,7 +79,6 @@ class RelayClient:
         self._on_account_token = on_account_token
         self._ca = ca
         self._authorized = authorized
-        self._wsgi_app = wsgi_app
         self._emit = callosum_emit or (lambda _event, _fields: None)
         self._running = False
         self._listen_state = "offline"
@@ -228,22 +226,22 @@ class RelayClient:
             reader: asyncio.StreamReader,
             writer: StreamWriter,
         ) -> None:
-            meta = await serve_request(
-                reader,
-                writer,
-                self._wsgi_app,
-                peer_fingerprint=tls.peer_fingerprint,
-                tunnel_id=tunnel_id,
-            )
-            await writer.close()
+            try:
+                meta: PipeMetadata = await pump_stream(
+                    reader,
+                    writer,
+                    tunnel_id=tunnel_id,
+                    stream_id=writer.stream_id,
+                )
+            except ConveyUnreachable:
+                raise
             log.debug(
-                "tunnel %s exchange: method=%s path=%s status=%s in=%s out=%s",
-                tunnel_id,
-                meta.method,
-                meta.path,
-                meta.status,
-                meta.request_bytes,
-                meta.response_bytes,
+                "link stream closed tunnel=%s stream_id=%d bytes_in=%d bytes_out=%d reason=%s",
+                meta.tunnel_id,
+                meta.stream_id,
+                meta.bytes_in,
+                meta.bytes_out,
+                meta.closed_reason,
             )
 
         mux = Multiplexer(send_frame, handle_stream, is_listener=True)

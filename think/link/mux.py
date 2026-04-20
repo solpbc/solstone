@@ -73,6 +73,7 @@ class StreamWriter:
     def __init__(self, mux: Multiplexer, state: _StreamState) -> None:
         self._mux = mux
         self._state = state
+        self.stream_id = state.stream_id
 
     async def write(self, data: bytes) -> None:
         if self._state.writer_closed:

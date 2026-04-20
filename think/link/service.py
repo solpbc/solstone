@@ -9,7 +9,7 @@ convey, etc. Service lifecycle:
 
   start → load state + CA → ensure account_token (enroll once) →
     open listen WS to spl-relay → accept tunnel pairs → pump bytes through
-    TLS → convey WSGI. On disconnect, reconnect with exponential backoff.
+    TLS → convey (TCP pipe). On disconnect, reconnect with exponential backoff.
 
 Exits on SIGINT/SIGTERM with a clean close of the listen WS and all
 in-flight tunnel WSes.
@@ -55,8 +55,6 @@ async def run_service() -> None:
     authorized = AuthorizedClients(authorized_clients_path())
     token = load_account_token()
 
-    wsgi_app = _build_convey_wsgi()
-
     callosum = CallosumConnection()
     callosum.start()
 
@@ -74,7 +72,6 @@ async def run_service() -> None:
         on_account_token=save_account_token,
         ca=ca,
         authorized=authorized,
-        wsgi_app=wsgi_app,
         callosum_emit=emit,
     )
 
@@ -96,18 +93,6 @@ async def run_service() -> None:
         except asyncio.CancelledError:
             pass
         callosum.stop()
-
-
-def _build_convey_wsgi() -> Any:
-    """Return convey's Flask app as a WSGI callable.
-
-    Imported lazily so `sol call link status` (and other dry reads) don't
-    pay the convey import cost. The returned object is the Flask app —
-    calling it as `app(environ, start_response)` invokes its WSGI entry.
-    """
-    from convey import create_app
-
-    return create_app()
 
 
 class _suppress_not_implemented:
