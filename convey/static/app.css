@@ -2299,6 +2299,248 @@ a:focus-visible {
   outline-offset: 2px;
 }
 
+/* chat app */
+.chat-app {
+  height: calc(100dvh - var(--facet-bar-height) - 16px);
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 16px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+body.has-date-nav .chat-app {
+  height: calc(100dvh - var(--facet-bar-height) - var(--date-nav-height) - 16px);
+}
+
+.chat-app-search {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding-top: 4px;
+  background: white;
+}
+
+.chat-search-form input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--facet-border, #e5e0db);
+  border-radius: 12px;
+  font: inherit;
+  background: #fffdf9;
+}
+
+.chat-search-results {
+  margin-top: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--facet-border, #e5e0db);
+  border-radius: 12px;
+  background: white;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  max-height: 240px;
+  overflow: auto;
+}
+
+.chat-search-result-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chat-search-result-link {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.chat-search-result-day,
+.chat-search-status,
+.chat-composer-past,
+.chat-empty,
+.chat-time-sep {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.chat-search-result-text {
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.chat-transcript {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0 16px;
+  flex: 1 1 auto;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chat-event {
+  display: flex;
+}
+
+.chat-event--owner {
+  justify-content: flex-end;
+}
+
+.chat-event--sol {
+  justify-content: flex-start;
+}
+
+.chat-event--talent,
+.chat-event--error {
+  justify-content: center;
+}
+
+.chat-bubble {
+  max-width: 70%;
+  padding: 10px 12px;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.06);
+}
+
+.chat-bubble--owner {
+  background: var(--facet-color, #b06a1a);
+  color: white;
+  border-bottom-right-radius: 6px;
+}
+
+.chat-bubble--sol {
+  background: #f6efe7;
+  color: #1f2937;
+  border-bottom-left-radius: 6px;
+}
+
+.chat-bubble-author {
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+.chat-bubble-text {
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+.chat-time-sep,
+.chat-empty {
+  text-align: center;
+}
+
+.chat-talent-card {
+  max-width: 70%;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--facet-border, #e5e0db);
+  background: white;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.chat-talent-card--spawned {
+  border-color: rgba(176, 106, 26, 0.22);
+  background: rgba(176, 106, 26, 0.08);
+}
+
+.chat-talent-card--finished {
+  border-color: rgba(15, 23, 42, 0.08);
+  background: rgba(15, 23, 42, 0.03);
+}
+
+.chat-talent-card--errored,
+.chat-error-block {
+  border-color: rgba(180, 35, 24, 0.2);
+  background: rgba(180, 35, 24, 0.08);
+  color: #b42318;
+}
+
+.chat-talent-card-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.chat-talent-card-task,
+.chat-talent-card-summary,
+.chat-talent-card-reason,
+.chat-talent-card-detail {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.chat-error-block {
+  max-width: 70%;
+  padding: 10px 12px;
+  border: 1px solid rgba(180, 35, 24, 0.2);
+  border-radius: 14px;
+}
+
+.chat-composer {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  gap: 8px;
+  padding-top: 8px;
+  background: linear-gradient(to top, white 70%, rgba(255, 255, 255, 0));
+}
+
+.chat-composer textarea {
+  flex: 1;
+  resize: none;
+  max-height: 120px;
+  padding: 10px 12px;
+  border: 1px solid var(--facet-border, #e5e0db);
+  border-radius: 12px;
+  font: inherit;
+  line-height: 1.4;
+  background: #fffdf9;
+}
+
+.chat-composer button {
+  padding: 10px 14px;
+  border: 1px solid var(--facet-border, #e5e0db);
+  border-radius: 12px;
+  background: white;
+  font: inherit;
+  cursor: pointer;
+}
+
+.chat-composer button:disabled,
+.chat-composer textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .chat-app {
+    padding: 0 12px 16px;
+  }
+
+  .chat-bubble,
+  .chat-talent-card,
+  .chat-error-block {
+    max-width: 88%;
+  }
+
+  .chat-composer {
+    flex-direction: column;
+  }
+}
+
 /* Visually hidden — accessible to screen readers */
 .visually-hidden {
   position: absolute;

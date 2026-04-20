@@ -1,0 +1,39 @@
+{% if ev.kind == "owner_message" %}
+  <article class="chat-bubble chat-bubble--owner" aria-label="{{ owner_name }}: {{ ev.text }}">
+    <span class="chat-bubble-author">{{ owner_name }}</span>
+    <span class="chat-bubble-text">{{ ev.text }}</span>
+  </article>
+{% elif ev.kind == "sol_message" %}
+  <article class="chat-bubble chat-bubble--sol"
+           {% if ev.notes %}title="{{ ev.notes }}"{% endif %}
+           aria-label="{{ agent_name }}: {{ ev.text }}">
+    <span class="chat-bubble-author">{{ agent_name }}</span>
+    <span class="chat-bubble-text">{{ ev.text }}</span>
+  </article>
+{% elif ev.kind == "talent_spawned" %}
+  <button type="button"
+          class="chat-talent-card chat-talent-card--spawned"
+          data-talent-use-id="{{ ev.use_id }}"
+          data-talent-status="active">
+    <span class="chat-talent-card-label">{{ ev.name }} started</span>
+    {% if ev.task %}<span class="chat-talent-card-task">{{ ev.task }}</span>{% endif %}
+  </button>
+{% elif ev.kind == "talent_finished" %}
+  <button type="button"
+          class="chat-talent-card chat-talent-card--finished"
+          data-talent-use-id="{{ ev.use_id }}"
+          data-talent-status="completed">
+    <span class="chat-talent-card-label">{{ ev.name }} finished</span>
+    {% if ev.summary %}<span class="chat-talent-card-summary">{{ ev.summary }}</span>{% endif %}
+  </button>
+{% elif ev.kind == "talent_errored" %}
+  <button type="button"
+          class="chat-talent-card chat-talent-card--errored"
+          data-talent-use-id="{{ ev.use_id }}"
+          data-talent-status="errored">
+    <span class="chat-talent-card-label">{{ ev.name }} errored</span>
+    {% if ev.reason %}<span class="chat-talent-card-reason">{{ ev.reason }}</span>{% endif %}
+  </button>
+{% elif ev.kind == "chat_error" %}
+  <div class="chat-error-block">chat had trouble — try again</div>
+{% endif %}

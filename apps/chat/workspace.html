@@ -1,0 +1,376 @@
+<section class="chat-app" data-day="{{ day }}" data-today="{{ today_day }}">
+  <header class="chat-app-search">
+    <form id="chatSearchForm" class="chat-search-form" role="search">
+      <label class="visually-hidden" for="chatSearchInput">search chat</label>
+      <input id="chatSearchInput" type="search" placeholder="search chat history" autocomplete="off">
+    </form>
+    <div id="chatSearchResults" class="chat-search-results" hidden></div>
+  </header>
+
+  <ol id="chatTranscript" class="chat-transcript" data-owner-name="{{ owner_name }}" data-agent-name="{{ agent_name }}">
+    {% if not events %}
+      <li class="chat-empty">no chat yet on this day</li>
+    {% endif %}
+    {% for ev in events %}
+      <li
+        id="event-{{ loop.index0 }}"
+        class="chat-event {% if ev.kind == 'owner_message' %}chat-event--owner{% elif ev.kind == 'sol_message' %}chat-event--sol{% elif ev.kind == 'chat_error' %}chat-event--error{% else %}chat-event--talent{% endif %}"
+        data-kind="{{ ev.kind }}"
+        data-ts="{{ ev.ts }}"
+        {% if ev.kind == "sol_message" and ev.notes %}data-notes="{{ ev.notes }}"{% endif %}
+      >
+        {% include "chat/_chat_event.html" %}
+      </li>
+    {% endfor %}
+  </ol>
+
+  {% if day == today_day %}
+    <form id="chatComposerForm" class="chat-composer">
+      <textarea id="chatComposerInput" rows="1" placeholder="{{ chat_bar_placeholder }}" aria-label="chat input"></textarea>
+      <button id="chatComposerSend" type="submit" aria-label="send">Send</button>
+    </form>
+  {% else %}
+    <p class="chat-composer-past">past-day view — new messages go to <a href="{{ url_for('app:chat.day', day=today_day) }}">today</a></p>
+  {% endif %}
+</section>
+
+<script>
+(function () {
+  const root = document.querySelector('.chat-app');
+  if (!root) return;
+
+  const day = root.dataset.day;
+  const todayDay = root.dataset.today;
+  const isToday = day === todayDay;
+  const transcript = document.getElementById('chatTranscript');
+  const ownerName = transcript.dataset.ownerName;
+  const agentName = transcript.dataset.agentName;
+  const searchInput = document.getElementById('chatSearchInput');
+  const searchResults = document.getElementById('chatSearchResults');
+  const timeFormatter = new Intl.DateTimeFormat([], {
+    hour: 'numeric',
+    minute: '2-digit'
+  });
+  let searchTimer = null;
+
+  insertTimeSeparators(transcript);
+  decorateBubbles(transcript);
+
+  if (isToday && window.appEvents) {
+    const off = window.appEvents.listen('chat', (msg) => {
+      appendEventFromLive(msg, transcript);
+    });
+    window.addEventListener('beforeunload', off, { once: true });
+  }
+
+  transcript.addEventListener('click', (event) => {
+    const target = event.target.closest('[data-talent-use-id]');
+    if (!target) return;
+    event.preventDefault();
+    window.openTalentView?.(target.dataset.talentUseId, {
+      live: target.dataset.talentStatus === 'active'
+    });
+  });
+
+  const form = document.getElementById('chatComposerForm');
+  if (form) {
+    const input = document.getElementById('chatComposerInput');
+    resizeComposer(input);
+    input.addEventListener('input', () => resizeComposer(input));
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const text = (input.value || '').trim();
+      if (!text) return;
+      postChat(text, form);
+    });
+  }
+
+  wireSearch();
+
+  if (location.hash && location.hash.startsWith('#event-')) {
+    document.getElementById(location.hash.slice(1))?.scrollIntoView({ block: 'center' });
+  } else {
+    transcript.scrollTop = transcript.scrollHeight;
+  }
+
+  function insertTimeSeparators(list) {
+    Array.from(list.querySelectorAll('.chat-time-sep')).forEach((node) => node.remove());
+    const items = Array.from(list.children).filter((node) => node.classList.contains('chat-event'));
+    let previousTs = null;
+
+    items.forEach((item) => {
+      const ts = Number(item.dataset.ts || 0);
+      if (previousTs && ts && ts - previousTs > 20 * 60 * 1000) {
+        const separator = document.createElement('li');
+        separator.className = 'chat-time-sep';
+        separator.textContent = timeFormatter.format(new Date(ts));
+        list.insertBefore(separator, item);
+      }
+      if (ts) previousTs = ts;
+    });
+  }
+
+  function decorateBubbles(list) {
+    const items = Array.from(list.children).filter((node) => node.classList.contains('chat-event'));
+    items.forEach((item) => {
+      item.classList.remove(
+        'chat-event--owner',
+        'chat-event--sol',
+        'chat-event--talent',
+        'chat-event--error'
+      );
+
+      const kind = item.dataset.kind || '';
+      if (kind === 'owner_message') {
+        item.classList.add('chat-event--owner');
+      } else if (kind === 'sol_message') {
+        item.classList.add('chat-event--sol');
+        const bubble = item.querySelector('.chat-bubble--sol');
+        if (bubble && item.dataset.notes) {
+          bubble.title = item.dataset.notes;
+        }
+      } else if (kind === 'chat_error') {
+        item.classList.add('chat-event--error');
+      } else {
+        item.classList.add('chat-event--talent');
+      }
+    });
+  }
+
+  function appendEventFromLive(msg, list) {
+    const kind = String(msg.kind || msg.event || '').trim();
+    if (!kind) return;
+
+    const ts = Number(msg.ts || Date.now());
+    if (formatDay(ts) !== day) return;
+
+    const item = renderEventItem({
+      kind: kind,
+      ts: ts,
+      text: msg.text || '',
+      notes: msg.notes || '',
+      use_id: msg.use_id || '',
+      name: msg.name || '',
+      task: msg.task || '',
+      summary: msg.summary || '',
+      reason: msg.reason || ''
+    });
+    if (!item) return;
+
+    list.querySelector('.chat-empty')?.remove();
+    list.appendChild(item);
+    decorateBubbles(list);
+    insertTimeSeparators(list);
+    list.scrollTop = list.scrollHeight;
+  }
+
+  function renderEventItem(event) {
+    if (![
+      'owner_message',
+      'sol_message',
+      'talent_spawned',
+      'talent_finished',
+      'talent_errored',
+      'chat_error'
+    ].includes(event.kind)) {
+      return null;
+    }
+
+    const item = document.createElement('li');
+    item.id = 'event-' + transcript.querySelectorAll('.chat-event').length;
+    item.className = 'chat-event';
+    item.dataset.kind = event.kind;
+    item.dataset.ts = String(event.ts);
+    if (event.kind === 'sol_message' && event.notes) {
+      item.dataset.notes = event.notes;
+    }
+    item.appendChild(renderEventBody(event));
+    return item;
+  }
+
+  function renderEventBody(event) {
+    if (event.kind === 'owner_message') {
+      return buildBubble(ownerName, event.text, 'owner', '');
+    }
+    if (event.kind === 'sol_message') {
+      return buildBubble(agentName, event.text, 'sol', event.notes || '');
+    }
+    if (event.kind === 'talent_spawned') {
+      return buildTalentCard(event.name + ' started', event.task || '', event.use_id, 'active', 'chat-talent-card--spawned');
+    }
+    if (event.kind === 'talent_finished') {
+      return buildTalentCard(event.name + ' finished', event.summary || '', event.use_id, 'completed', 'chat-talent-card--finished');
+    }
+    if (event.kind === 'talent_errored') {
+      return buildTalentCard(event.name + ' errored', event.reason || '', event.use_id, 'errored', 'chat-talent-card--errored');
+    }
+
+    const block = document.createElement('div');
+    block.className = 'chat-error-block';
+    block.textContent = 'chat had trouble — try again';
+    return block;
+  }
+
+  function buildBubble(author, text, side, notes) {
+    const bubble = document.createElement('article');
+    bubble.className = 'chat-bubble chat-bubble--' + side;
+    bubble.setAttribute('aria-label', author + ': ' + text);
+    if (notes) bubble.title = notes;
+
+    const authorNode = document.createElement('span');
+    authorNode.className = 'chat-bubble-author';
+    authorNode.textContent = author;
+
+    const textNode = document.createElement('span');
+    textNode.className = 'chat-bubble-text';
+    textNode.textContent = text;
+
+    bubble.appendChild(authorNode);
+    bubble.appendChild(textNode);
+    return bubble;
+  }
+
+  function buildTalentCard(label, detail, useId, status, variantClass) {
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'chat-talent-card ' + variantClass;
+    card.dataset.talentUseId = useId;
+    card.dataset.talentStatus = status;
+
+    const labelNode = document.createElement('span');
+    labelNode.className = 'chat-talent-card-label';
+    labelNode.textContent = label;
+    card.appendChild(labelNode);
+
+    if (detail) {
+      const detailNode = document.createElement('span');
+      detailNode.className = 'chat-talent-card-detail';
+      detailNode.textContent = detail;
+      card.appendChild(detailNode);
+    }
+
+    return card;
+  }
+
+  async function postChat(text, formNode) {
+    const button = formNode.querySelector('button[type=submit]');
+    const input = formNode.querySelector('textarea');
+    button.disabled = true;
+    input.disabled = true;
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: text,
+          app: 'chat',
+          path: window.location.pathname,
+          facet: window.selectedFacet || ''
+        })
+      });
+      if (!response.ok) throw new Error('chat post failed');
+      input.value = '';
+      resizeComposer(input);
+    } finally {
+      button.disabled = false;
+      input.disabled = false;
+      input.focus();
+    }
+  }
+
+  function wireSearch() {
+    if (!searchInput || !searchResults) return;
+    searchInput.addEventListener('input', () => {
+      const query = searchInput.value.trim();
+      window.clearTimeout(searchTimer);
+      if (!query) {
+        searchResults.hidden = true;
+        searchResults.innerHTML = '';
+        return;
+      }
+
+      searchTimer = window.setTimeout(() => {
+        runSearch(query);
+      }, 150);
+    });
+  }
+
+  async function runSearch(query) {
+    searchResults.hidden = false;
+    searchResults.innerHTML = '<p class="chat-search-status">searching…</p>';
+
+    try {
+      const params = new URLSearchParams({
+        q: query,
+        stream: 'chat',
+        day_from: '00000000',
+        day_to: '99999999'
+      });
+      const response = await fetch('/app/search/api/search?' + params.toString());
+      if (!response.ok) throw new Error('search failed');
+      const payload = await response.json();
+      renderSearchResults(payload);
+    } catch (_error) {
+      searchResults.innerHTML = '<p class="chat-search-status">search failed</p>';
+    }
+  }
+
+  function renderSearchResults(payload) {
+    const rows = [];
+    (payload.days || []).forEach((group) => {
+      (group.results || []).forEach((row) => {
+        rows.push({
+          day: row.day || group.day,
+          date: group.date || row.day,
+          idx: row.idx,
+          text: row.text || ''
+        });
+      });
+    });
+
+    searchResults.innerHTML = '';
+    if (!rows.length) {
+      searchResults.innerHTML = '<p class="chat-search-status">no matches</p>';
+      return;
+    }
+
+    const list = document.createElement('ul');
+    list.className = 'chat-search-result-list';
+
+    rows.forEach((row) => {
+      const item = document.createElement('li');
+      const link = document.createElement('a');
+      const meta = document.createElement('span');
+      const text = document.createElement('span');
+
+      link.href = '/app/chat/' + row.day + '#event-' + row.idx;
+      link.className = 'chat-search-result-link';
+
+      meta.className = 'chat-search-result-day';
+      meta.textContent = row.date;
+
+      text.className = 'chat-search-result-text';
+      text.innerHTML = row.text;
+
+      link.appendChild(meta);
+      link.appendChild(text);
+      item.appendChild(link);
+      list.appendChild(item);
+    });
+
+    searchResults.appendChild(list);
+  }
+
+  function resizeComposer(input) {
+    input.style.height = 'auto';
+    input.style.height = Math.min(120, input.scrollHeight) + 'px';
+  }
+
+  function formatDay(ts) {
+    const value = new Date(ts);
+    return value.getFullYear() +
+      String(value.getMonth() + 1).padStart(2, '0') +
+      String(value.getDate()).padStart(2, '0');
+  }
+})();
+</script>

@@ -1,0 +1,7 @@
+{
+  "icon": "💬",
+  "label": "Chat",
+  "date_nav": true,
+  "allow_future_dates": false,
+  "app_bar": false
+}
