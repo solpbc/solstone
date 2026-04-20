@@ -111,7 +111,9 @@ class AuthorizedClients:
             self._entries = current
             return True
 
-    def touch_last_seen(self, fingerprint: str, *, now: dt.datetime | None = None) -> bool:
+    def touch_last_seen(
+        self, fingerprint: str, *, now: dt.datetime | None = None
+    ) -> bool:
         """Update last_seen_at for a paired device. Returns False if not paired."""
         ts = (now or dt.datetime.now(dt.UTC)).strftime("%Y-%m-%dT%H:%M:%SZ")
         with self._lock:
