@@ -104,6 +104,17 @@
       "title": "Maintenance Window",
       "type": "generate"
     },
+    "digest": {
+      "app": null,
+      "color": "#6c757d",
+      "description": "Synthesize a plain-English digest of who sol is and what's happening now.",
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": "none",
+      "source": "system",
+      "title": "Digest",
+      "type": "cogitate"
+    },
     "documents": {
       "app": null,
       "color": "#5c6bc0",

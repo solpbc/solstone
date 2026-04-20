@@ -5,9 +5,9 @@
 
 Provides read and write access to ``{journal}/identity/self.md``,
 ``{journal}/identity/partner.md``, ``{journal}/identity/agency.md``, and
-``{journal}/identity/pulse.md``, and ``{journal}/identity/awareness.md`` — sol's
-identity and initiative files. Also provides read access to the morning
-briefing at
+``{journal}/identity/pulse.md``, ``{journal}/identity/awareness.md``, and
+``{journal}/identity/digest.md`` — sol's identity and initiative files. Also
+provides read access to the morning briefing at
 ``{journal}/YYYYMMDD/talents/morning_briefing.md``.
 
 Mounted by ``think.call`` as ``sol call identity ...``.
@@ -19,6 +19,7 @@ from pathlib import Path
 
 import typer
 
+from think.cortex_client import cortex_request, wait_for_uses
 from think.identity import (
     ensure_identity_directory,
     update_identity_section,
@@ -28,7 +29,7 @@ from think.identity import (
 from think.utils import day_dirs, day_path, get_journal, require_solstone
 
 app = typer.Typer(
-    help="Journal identity directory — self.md, partner.md, agency.md, pulse.md, awareness.md, and morning briefing.",
+    help="Journal identity directory — self.md, partner.md, agency.md, pulse.md, awareness.md, digest.md, and morning briefing.",
     invoke_without_command=True,
     no_args_is_help=False,
 )
@@ -99,13 +100,13 @@ def _actor_for_cmd(command: str, flag: str) -> str:
     return f"sol call identity {command} {flag}"
 
 
-def _resolve_content(value: str | None) -> str:
-    """Return *value* if provided, else read stdin. Exit 1 if empty."""
+def _resolve_content(value: str | None, *, allow_empty: bool = False) -> str:
+    """Return *value* if provided, else read stdin."""
     if value is not None:
         content = value
     else:
         content = sys.stdin.read()
-    if not content.strip():
+    if not allow_empty and not content.strip():
         typer.echo("Error: no content provided.", err=True)
         raise typer.Exit(1)
     return content
@@ -325,6 +326,63 @@ def awareness_cmd(
         typer.echo("awareness.md not found.", err=True)
         raise typer.Exit(1)
     typer.echo(awareness_path.read_text(encoding="utf-8"))
+
+
+@app.command("digest")
+def digest_cmd(
+    write: bool = typer.Option(
+        False,
+        "--write",
+        "-w",
+        help="Persist digest text (used by the digest talent).",
+    ),
+    value: str | None = typer.Option(
+        None, "--value", help="Digest text to persist (alternative to stdin)."
+    ),
+) -> None:
+    """Regenerate the identity digest (synchronous)."""
+    identity_dir = _identity_dir()
+    digest_path = identity_dir / "digest.md"
+
+    if write:
+        content = _resolve_content(value, allow_empty=True)
+        write_identity(
+            "digest.md",
+            actor=_actor_for_cmd("digest", "--write"),
+            op="replace",
+            section=None,
+            content=content,
+            reason="manual replace",
+        )
+        typer.echo(f"wrote {digest_path} ({digest_path.stat().st_size} bytes)")
+        return
+
+    before_mtime_ns = digest_path.stat().st_mtime_ns if digest_path.exists() else None
+    use_id = cortex_request(prompt="", name="digest")
+    if use_id is None:
+        typer.echo("Error: failed to send digest request to cortex.", err=True)
+        raise typer.Exit(1)
+
+    completed, timed_out = wait_for_uses([use_id], timeout=600)
+    if use_id in timed_out:
+        typer.echo("Error: digest request timed out.", err=True)
+        raise typer.Exit(1)
+
+    end_state = completed.get(use_id, "unknown")
+    if end_state != "finish":
+        typer.echo(f"Error: digest request failed: {end_state}.", err=True)
+        raise typer.Exit(1)
+
+    if not digest_path.exists():
+        typer.echo("Error: digest.md was not written.", err=True)
+        raise typer.Exit(1)
+
+    after_mtime_ns = digest_path.stat().st_mtime_ns
+    if before_mtime_ns is not None and after_mtime_ns <= before_mtime_ns:
+        typer.echo("Error: digest.md was not updated.", err=True)
+        raise typer.Exit(1)
+
+    typer.echo(f"regenerated {digest_path} ({digest_path.stat().st_size} bytes)")
 
 
 @app.command("briefing")

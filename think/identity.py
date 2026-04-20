@@ -105,6 +105,7 @@ responses. Nothing gets sent without their review.
 """
 
 _AWARENESS_MD = "not yet updated\n"
+_DIGEST_MD = "not yet generated\n"
 
 
 def _build_self_md(config: dict) -> str:
@@ -470,6 +471,7 @@ def ensure_identity_directory() -> Path:
         "agency.md": _AGENCY_MD,
         "partner.md": _PARTNER_MD,
         "awareness.md": _AWARENESS_MD,
+        "digest.md": _DIGEST_MD,
     }
     for file_name, content in defaults.items():
         target = identity_dir / file_name

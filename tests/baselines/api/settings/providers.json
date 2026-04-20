@@ -237,6 +237,14 @@
       "tier": 2,
       "type": "generate"
     },
+    "talent.system.digest": {
+      "disabled": false,
+      "group": "Think",
+      "label": "Digest",
+      "schedule": "none",
+      "tier": 3,
+      "type": "cogitate"
+    },
     "talent.system.documents": {
       "disabled": false,
       "group": "Think",

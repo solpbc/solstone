@@ -195,3 +195,32 @@ def test_require_solstone_skip_env_still_honored(monkeypatch):
         side_effect=AssertionError("should not run"),
     ):
         assert utils.require_solstone() is None
+
+
+def test_startup_submits_digest_once():
+    mod = importlib.reload(importlib.import_module("think.supervisor"))
+    submit = mock.Mock()
+
+    mod._task_queue = SimpleNamespace(submit=submit)
+    mod._is_remote_mode = False
+    mod._digest_submitted_this_boot = False
+
+    mod._maybe_submit_startup_digest(no_cortex=False)
+    mod._maybe_submit_startup_digest(no_cortex=False)
+
+    submit.assert_called_once_with(["sol", "call", "identity", "digest"])
+    assert mod._digest_submitted_this_boot is True
+
+
+def test_startup_skips_digest_when_no_cortex():
+    mod = importlib.reload(importlib.import_module("think.supervisor"))
+    submit = mock.Mock()
+
+    mod._task_queue = SimpleNamespace(submit=submit)
+    mod._is_remote_mode = False
+    mod._digest_submitted_this_boot = False
+
+    mod._maybe_submit_startup_digest(no_cortex=True)
+
+    submit.assert_not_called()
+    assert mod._digest_submitted_this_boot is False

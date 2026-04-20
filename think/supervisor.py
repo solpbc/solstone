@@ -490,6 +490,7 @@ _restart_requests: dict[str, tuple[float, subprocess.Popen]] = {}
 
 # Track whether running in remote mode (upload-only, no local processing)
 _is_remote_mode: bool = False
+_digest_submitted_this_boot = False
 
 # State for daily processing (tracks day boundary for midnight think trigger)
 _daily_state = {
@@ -678,6 +679,23 @@ def _emit_queue_event(cmd_name: str, running_ref: str, queue: list) -> None:
         queued=len(queue),
         queue=queue,
     )
+
+
+def _maybe_submit_startup_digest(*, no_cortex: bool) -> None:
+    """Submit the startup digest once when a local cortex substrate exists."""
+    global _digest_submitted_this_boot
+
+    if (
+        _digest_submitted_this_boot
+        or no_cortex
+        or _is_remote_mode
+        or _task_queue is None
+    ):
+        return
+
+    _task_queue.submit(["sol", "call", "identity", "digest"])
+    _digest_submitted_this_boot = True
+    logging.info("startup: submitted identity digest")
 
 
 def _handle_task_request(message: dict) -> None:
@@ -1504,12 +1522,14 @@ def main() -> None:
     logging.info("Supervisor starting...")
 
     global _managed_procs, _supervisor_callosum, _is_remote_mode
+    global _digest_submitted_this_boot
     global _task_queue
     procs: list[ManagedProcess] = []
     convey_port = None
 
     # Remote mode: run sync instead of local processing
     _is_remote_mode = bool(args.remote)
+    _digest_submitted_this_boot = False
 
     # Run pending journal-maintenance tasks before spawning any writer children.
     # Callosum isn't up yet (emit_fn=None); migrations log through supervisor's logger only.
@@ -1598,6 +1618,7 @@ def main() -> None:
 
     if _task_queue:
         _task_queue.set_ready()
+        _maybe_submit_startup_digest(no_cortex=args.no_cortex)
 
     # Show Convey URL if running
     if convey_port:

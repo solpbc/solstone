@@ -122,6 +122,7 @@ adapt its responses, timing, and initiative to how this person actually works.
 """
     (identity_dir / "partner.md").write_text(partner_md)
     (identity_dir / "awareness.md").write_text("not yet updated\n")
+    (identity_dir / "digest.md").write_text("not yet generated\n")
 
     return tmp_path
 
