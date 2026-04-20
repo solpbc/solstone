@@ -27,6 +27,10 @@ from think.prompts import load_prompt
 
 logger = logging.getLogger(__name__)
 
+_SCHEMA = json.loads(
+    (Path(__file__).parent / "enrich.schema.json").read_text(encoding="utf-8")
+)
+
 
 def _statement_to_flac_bytes(
     wav: np.ndarray, start: float, end: float, sample_rate: int
@@ -112,16 +116,11 @@ def enrich_transcript(
             max_output_tokens=16384,
             thinking_budget=4096,
             json_output=True,
+            json_schema=_SCHEMA,
         )
 
         result = json.loads(response_text)
         logger.info(f"  Enrichment complete in {time.perf_counter() - t0:.2f}s")
-
-        # Normalize response — Gemini sometimes returns a bare list of
-        # statement dicts instead of the expected wrapper object.
-        if isinstance(result, list):
-            logger.warning("Enrichment returned bare list, wrapping as statements")
-            result = {"statements": result, "topics": "", "setting": "", "warning": ""}
 
         if not isinstance(result, dict):
             logger.warning(f"Enrichment returned unexpected type: {type(result)}")
