@@ -103,12 +103,20 @@ def test_validate_cwd_rejects_invalid_value():
 
 def test_get_agent_normalizes_cwd_for_cogitate():
     config = get_talent("chat")
-    assert config["cwd"] == "journal"
+    assert config["type"] == "generate"
+    assert "cwd" not in config
 
 
 def test_get_agent_preserves_repo_cwd_for_coder():
     config = get_talent("coder")
     assert config["cwd"] == "repo"
+
+
+def test_get_talent_defaults_to_chat():
+    config = get_talent()
+    assert config["name"] == "chat"
+    assert config["type"] == "generate"
+    assert Path(config["path"]).name == "chat.md"
 
 
 def _write_talent_file(tmp_path: Path, name: str, metadata: dict) -> Path:

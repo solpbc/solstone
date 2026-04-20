@@ -1,5 +1,22 @@
 {
   "generators": {
+    "chat": {
+      "color": "#6c757d",
+      "description": "Structured conversational reply planner for the chat backend rewrite",
+      "hook": {
+        "pre": "chat_context"
+      },
+      "max_output_tokens": 2048,
+      "mtime": 0,
+      "output": "json",
+      "path": "<PROJECT>/talent/chat.md",
+      "schema": "chat.schema.json",
+      "source": "system",
+      "thinking_budget": 4096,
+      "tier": 3,
+      "title": "Chat",
+      "type": "generate"
+    },
     "conversation": {
       "activities": [
         "meeting",

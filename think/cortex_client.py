@@ -42,7 +42,7 @@ def cortex_request(
 
     Args:
         prompt: The task or question for the talent
-        name: Talent name - system (e.g., "unified") or app-qualified (e.g., "entities:entity_assist")
+        name: Talent name - system (e.g., "chat") or app-qualified (e.g., "entities:entity_assist")
         provider: AI provider - openai, google, or anthropic
         config: Provider-specific configuration (model, max_output_tokens, thinking_budget, etc.)
 
@@ -267,6 +267,8 @@ def cortex_uses(
 ) -> Dict[str, Any]:
     """List talent uses from the journal with pagination and filtering.
 
+    Legacy unnamed run logs predate the chat rename and are surfaced as chat.
+
     Args:
         limit: Maximum number of uses to return (1-100)
         offset: Number of uses to skip
@@ -352,7 +354,8 @@ def cortex_uses(
                 # Extract basic info
                 use_info = {
                     "id": use_id,
-                    "name": request.get("name", "unified"),
+                    # Legacy unnamed run logs predate the chat rename; treat them as chat.
+                    "name": request.get("name", "chat"),
                     "start": request.get("ts", 0),
                     "status": status,
                     "prompt": request.get("prompt", ""),

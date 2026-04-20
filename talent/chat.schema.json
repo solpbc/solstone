@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["message", "notes", "talent_request"],
+  "properties": {
+    "message": {"type": ["string", "null"]},
+    "notes": {"type": "string"},
+    "talent_request": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["task"],
+          "properties": {
+            "task": {"type": "string", "minLength": 1},
+            "context": {"type": "object"}
+          }
+        }
+      ]
+    }
+  }
+}

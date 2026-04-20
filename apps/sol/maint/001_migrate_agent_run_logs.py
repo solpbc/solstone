@@ -9,6 +9,9 @@ Changes applied:
 - Build day index files (agents/<day>.jsonl) from migrated data
 
 Use --dry-run to preview without writing changes.
+
+Legacy unnamed run logs are treated as chat during migration so they land in the
+post-refactor system talent bucket.
 """
 
 from __future__ import annotations
@@ -118,7 +121,8 @@ def migrate(agents_dir: Path, dry_run: bool = False) -> MigrationSummary:
             summary.skipped += 1
             continue
 
-        name = first_line.get("name", "unified")
+        # Legacy unnamed run logs predate the chat rename; treat them as chat.
+        name = first_line.get("name", "chat")
         safe_name = name.replace(":", "--")
 
         # Move to subdirectory

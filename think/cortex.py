@@ -211,7 +211,7 @@ class CortexService:
                 return
 
         # Create _active.jsonl file (exclusive creation to prevent race conditions)
-        name = request.get("name", "unified")
+        name = request["name"]
         safe_name = name.replace(":", "--")
         talent_subdir = self.talents_dir / safe_name
         talent_subdir.mkdir(parents=True, exist_ok=True)
@@ -293,7 +293,7 @@ class CortexService:
             if process_type == "talent":
                 from think.talent import get_talent
 
-                talent_key = str(config.get("name", "unified"))
+                talent_key = str(config["name"])
                 talent_config = get_talent(talent_key)
                 if talent_config.get("type") == "cogitate":
                     # Resolve here because prepare_config() runs inside think.talents.
@@ -692,7 +692,7 @@ class CortexService:
 
             summary = {
                 "use_id": use_id,
-                "name": request.get("name", "unified"),
+                "name": request["name"],
                 "day": day,
                 "facet": request.get("facet"),
                 "ts": start_ts,

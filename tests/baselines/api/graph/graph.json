@@ -1,10 +1,621 @@
 {
-  "edges": [],
-  "nodes": [],
+  "edges": [
+    {
+      "edge_type": "co_occurrence",
+      "frequency": 2,
+      "from": "benvolio_montague",
+      "from_name": "Benvolio Montague",
+      "to": "paris_duke",
+      "to_name": "Paris Duke"
+    },
+    {
+      "edge_type": "co_occurrence",
+      "frequency": 2,
+      "from": "benvolio_montague",
+      "from_name": "Benvolio Montague",
+      "to": "prince_escalus",
+      "to_name": "Prince Escalus"
+    },
+    {
+      "edge_type": "co_occurrence",
+      "frequency": 2,
+      "from": "benvolio_montague",
+      "from_name": "Benvolio Montague",
+      "to": "tybalt_capulet",
+      "to_name": "Tybalt Capulet"
+    },
+    {
+      "edge_type": "co_occurrence",
+      "frequency": 2,
+      "from": "benvolio_montague",
+      "from_name": "Benvolio Montague",
+      "to": "verona_platform",
+      "to_name": "Verona Platform"
+    },
+    {
+      "edge_type": "co_occurrence",
+      "frequency": 2,
+      "from": "friar_lawrence",
+      "from_name": "Friar Lawrence",
+      "to": "mercutio_escalus",
+      "to_name": "Mercutio Escalus"
+    },
+    {
+      "edge_type": "co_occurrence",
+      "frequency": 2,
+      "from": "friar_lawrence",
+      "from_name": "Friar Lawrence",
+      "to": "nurse_angela",
+      "to_name": "Nurse Angela"
+    },
+    {
+      "edge_type": "co_occurrence",
+      "frequency": 2,
+      "from": "friar_lawrence",
+      "from_name": "Friar Lawrence",
+      "to": "prince_escalus",
+      "to_name": "Prince Escalus"
+    },
+    {
+      "edge_type": "co_occurrence",
+      "frequency": 2,
+      "from": "juliet_capulet",
+      "from_name": "Juliet Capulet",
+      "to": "montague_tech",
+      "to_name": "Montague Tech"
+    },
+    {
+      "edge_type": "co_occurrence",
+      "frequency": 2,
+      "from": "juliet_capulet",
+      "from_name": "Juliet Capulet",
+      "to": "prince_escalus",
+      "to_name": "Prince Escalus"
+    },
+    {
+      "edge_type": "co_occurrence",
+      "frequency": 2,
+      "from": "mercutio_escalus",
+      "from_name": "Mercutio Escalus",
+      "to": "montague_tech",
+      "to_name": "Montague Tech"
+    },
+    {
+      "edge_type": "co_occurrence",
+      "frequency": 2,
+      "from": "mercutio_escalus",
+      "from_name": "Mercutio Escalus",
+      "to": "prince_escalus",
+      "to_name": "Prince Escalus"
+    },
+    {
+      "edge_type": "co_occurrence",
+      "frequency": 2,
+      "from": "montague_tech",
+      "from_name": "Montague Tech",
+      "to": "tybalt_capulet",
+      "to_name": "Tybalt Capulet"
+    },
+    {
+      "edge_type": "co_occurrence",
+      "frequency": 2,
+      "from": "prince_escalus",
+      "from_name": "Prince Escalus",
+      "to": "tybalt_capulet",
+      "to_name": "Tybalt Capulet"
+    },
+    {
+      "edge_type": "co_occurrence",
+      "frequency": 2,
+      "from": "prince_escalus",
+      "from_name": "Prince Escalus",
+      "to": "verona_platform",
+      "to_name": "Verona Platform"
+    },
+    {
+      "edge_type": "co_occurrence",
+      "frequency": 3,
+      "from": "benvolio_montague",
+      "from_name": "Benvolio Montague",
+      "to": "friar_lawrence",
+      "to_name": "Friar Lawrence"
+    },
+    {
+      "edge_type": "co_occurrence",
+      "frequency": 3,
+      "from": "benvolio_montague",
+      "from_name": "Benvolio Montague",
+      "to": "nurse_angela",
+      "to_name": "Nurse Angela"
+    },
+    {
+      "edge_type": "co_occurrence",
+      "frequency": 3,
+      "from": "juliet_capulet",
+      "from_name": "Juliet Capulet",
+      "to": "mercutio_escalus",
+      "to_name": "Mercutio Escalus"
+    },
+    {
+      "edge_type": "co_occurrence",
+      "frequency": 4,
+      "from": "benvolio_montague",
+      "from_name": "Benvolio Montague",
+      "to": "juliet_capulet",
+      "to_name": "Juliet Capulet"
+    },
+    {
+      "edge_type": "co_occurrence",
+      "frequency": 4,
+      "from": "benvolio_montague",
+      "from_name": "Benvolio Montague",
+      "to": "mercutio_escalus",
+      "to_name": "Mercutio Escalus"
+    },
+    {
+      "edge_type": "co_occurrence",
+      "frequency": 4,
+      "from": "paris_duke",
+      "from_name": "Paris Duke",
+      "to": "tybalt_capulet",
+      "to_name": "Tybalt Capulet"
+    },
+    {
+      "edge_type": "co_occurrence",
+      "frequency": 5,
+      "from": "friar_lawrence",
+      "from_name": "Friar Lawrence",
+      "to": "paris_duke",
+      "to_name": "Paris Duke"
+    },
+    {
+      "edge_type": "co_occurrence",
+      "frequency": 5,
+      "from": "friar_lawrence",
+      "from_name": "Friar Lawrence",
+      "to": "tybalt_capulet",
+      "to_name": "Tybalt Capulet"
+    },
+    {
+      "edge_type": "co_occurrence",
+      "frequency": 5,
+      "from": "juliet_capulet",
+      "from_name": "Juliet Capulet",
+      "to": "paris_duke",
+      "to_name": "Paris Duke"
+    },
+    {
+      "edge_type": "co_occurrence",
+      "frequency": 5,
+      "from": "mercutio_escalus",
+      "from_name": "Mercutio Escalus",
+      "to": "tybalt_capulet",
+      "to_name": "Tybalt Capulet"
+    },
+    {
+      "edge_type": "co_occurrence",
+      "frequency": 6,
+      "from": "juliet_capulet",
+      "from_name": "Juliet Capulet",
+      "to": "tybalt_capulet",
+      "to_name": "Tybalt Capulet"
+    },
+    {
+      "edge_type": "co_occurrence",
+      "frequency": 7,
+      "from": "friar_lawrence",
+      "from_name": "Friar Lawrence",
+      "to": "juliet_capulet",
+      "to_name": "Juliet Capulet"
+    },
+    {
+      "edge_type": "explicit",
+      "frequency": 1,
+      "from": "benvolio_montague",
+      "from_name": "Benvolio Montague",
+      "relationship_type": "suspicious-of",
+      "to": "romeo_montague",
+      "to_name": "Romeo Montague"
+    },
+    {
+      "edge_type": "explicit",
+      "frequency": 1,
+      "from": "friar_lawrence",
+      "from_name": "Friar Lawrence",
+      "relationship_type": "advocates-for",
+      "to": "verona_platform",
+      "to_name": "Verona Platform"
+    },
+    {
+      "edge_type": "explicit",
+      "frequency": 1,
+      "from": "friar_lawrence",
+      "from_name": "Friar Lawrence",
+      "relationship_type": "endorses",
+      "to": "verona_platform",
+      "to_name": "Verona Platform"
+    },
+    {
+      "edge_type": "explicit",
+      "frequency": 1,
+      "from": "juliet_capulet",
+      "from_name": "Juliet Capulet",
+      "relationship_type": "co-leads",
+      "to": "verona_platform",
+      "to_name": "Verona Platform"
+    },
+    {
+      "edge_type": "explicit",
+      "frequency": 1,
+      "from": "mercutio_escalus",
+      "from_name": "Mercutio Escalus",
+      "relationship_type": "covers-for",
+      "to": "romeo_montague",
+      "to_name": "Romeo Montague"
+    },
+    {
+      "edge_type": "explicit",
+      "frequency": 1,
+      "from": "mercutio_escalus",
+      "from_name": "Mercutio Escalus",
+      "relationship_type": "security-lead",
+      "to": "verona_platform",
+      "to_name": "Verona Platform"
+    },
+    {
+      "edge_type": "explicit",
+      "frequency": 1,
+      "from": "montague_tech",
+      "from_name": "Montague Tech",
+      "relationship_type": "competes-with",
+      "to": "capulet_industries",
+      "to_name": "Capulet Industries"
+    },
+    {
+      "edge_type": "explicit",
+      "frequency": 1,
+      "from": "paris_duke",
+      "from_name": "Paris Duke",
+      "relationship_type": "competed-with",
+      "to": "verona_platform",
+      "to_name": "Verona Platform"
+    },
+    {
+      "edge_type": "explicit",
+      "frequency": 1,
+      "from": "paris_duke",
+      "from_name": "Paris Duke",
+      "relationship_type": "competes-with",
+      "to": "verona_platform",
+      "to_name": "Verona Platform"
+    },
+    {
+      "edge_type": "explicit",
+      "frequency": 1,
+      "from": "prince_escalus",
+      "from_name": "Prince Escalus",
+      "relationship_type": "evaluates",
+      "to": "montague_tech",
+      "to_name": "Montague Tech"
+    },
+    {
+      "edge_type": "explicit",
+      "frequency": 1,
+      "from": "romeo_montague",
+      "from_name": "Romeo Montague",
+      "relationship_type": "co-leads",
+      "to": "verona_platform",
+      "to_name": "Verona Platform"
+    },
+    {
+      "edge_type": "explicit",
+      "frequency": 1,
+      "from": "romeo_montague",
+      "from_name": "Romeo Montague",
+      "relationship_type": "collaborates-with",
+      "to": "juliet_capulet",
+      "to_name": "Juliet Capulet"
+    },
+    {
+      "edge_type": "explicit",
+      "frequency": 1,
+      "from": "romeo_montague",
+      "from_name": "Romeo Montague",
+      "relationship_type": "collaborates-with",
+      "to": "mercutio_escalus",
+      "to_name": "Mercutio Escalus"
+    },
+    {
+      "edge_type": "explicit",
+      "frequency": 1,
+      "from": "romeo_montague",
+      "from_name": "Romeo Montague",
+      "relationship_type": "mentors",
+      "to": "balthasar_davi",
+      "to_name": "Balthasar Davi"
+    },
+    {
+      "edge_type": "explicit",
+      "frequency": 1,
+      "from": "romeo_montague",
+      "from_name": "Romeo Montague",
+      "relationship_type": "met-at-conference",
+      "to": "juliet_capulet",
+      "to_name": "Juliet Capulet"
+    },
+    {
+      "edge_type": "explicit",
+      "frequency": 1,
+      "from": "schema_bridge",
+      "from_name": "Schema Bridge",
+      "relationship_type": "integrates-with",
+      "to": "mesh_routing",
+      "to_name": "Mesh Routing"
+    },
+    {
+      "edge_type": "explicit",
+      "frequency": 1,
+      "from": "tybalt_capulet",
+      "from_name": "Tybalt Capulet",
+      "relationship_type": "hostile-to",
+      "to": "romeo_montague",
+      "to_name": "Romeo Montague"
+    },
+    {
+      "edge_type": "explicit",
+      "frequency": 1,
+      "from": "tybalt_capulet",
+      "from_name": "Tybalt Capulet",
+      "relationship_type": "opposes",
+      "to": "verona_platform",
+      "to_name": "Verona Platform"
+    },
+    {
+      "edge_type": "explicit",
+      "frequency": 1,
+      "from": "tybalt_capulet",
+      "from_name": "Tybalt Capulet",
+      "relationship_type": "reconciled-with",
+      "to": "romeo_montague",
+      "to_name": "Romeo Montague"
+    },
+    {
+      "edge_type": "explicit",
+      "frequency": 2,
+      "from": "nurse_angela",
+      "from_name": "Nurse Angela",
+      "relationship_type": "supports",
+      "to": "juliet_capulet",
+      "to_name": "Juliet Capulet"
+    }
+  ],
+  "nodes": [
+    {
+      "appearance": 1,
+      "co_occurrence": 13,
+      "facet_breadth": 1,
+      "id": "balthasar_davi",
+      "is_principal": false,
+      "kg_edge_count": 1,
+      "name": "Balthasar Davi",
+      "observation_depth": 2,
+      "recency": 0.4,
+      "score": 63.1,
+      "type": "person"
+    },
+    {
+      "appearance": 1,
+      "co_occurrence": 13,
+      "facet_breadth": 1,
+      "id": "mesh_routing",
+      "is_principal": false,
+      "kg_edge_count": 1,
+      "name": "Mesh Routing",
+      "observation_depth": 3,
+      "recency": 0.4,
+      "score": 65.1,
+      "type": "project"
+    },
+    {
+      "appearance": 1,
+      "co_occurrence": 13,
+      "facet_breadth": 1,
+      "id": "verona_ventures",
+      "is_principal": false,
+      "kg_edge_count": 0,
+      "name": "Verona Ventures",
+      "observation_depth": 2,
+      "recency": 0.4,
+      "score": 58.1,
+      "type": "company"
+    },
+    {
+      "appearance": 1,
+      "co_occurrence": 4,
+      "facet_breadth": 1,
+      "id": "capulet_industries",
+      "is_principal": false,
+      "kg_edge_count": 1,
+      "name": "Capulet Industries",
+      "observation_depth": 0,
+      "recency": 0.3,
+      "score": 23.0,
+      "type": "company"
+    },
+    {
+      "appearance": 11,
+      "co_occurrence": 16,
+      "facet_breadth": 2,
+      "id": "mercutio_escalus",
+      "is_principal": false,
+      "kg_edge_count": 3,
+      "name": "Mercutio Escalus",
+      "observation_depth": 3,
+      "recency": 0.4,
+      "score": 88.2,
+      "type": "person"
+    },
+    {
+      "appearance": 12,
+      "co_occurrence": 16,
+      "facet_breadth": 3,
+      "id": "tybalt_capulet",
+      "is_principal": false,
+      "kg_edge_count": 3,
+      "name": "Tybalt Capulet",
+      "observation_depth": 4,
+      "recency": 0.4,
+      "score": 91.2,
+      "type": "person"
+    },
+    {
+      "appearance": 16,
+      "co_occurrence": 16,
+      "facet_breadth": 3,
+      "id": "juliet_capulet",
+      "is_principal": false,
+      "kg_edge_count": 4,
+      "name": "Juliet Capulet",
+      "observation_depth": 2,
+      "recency": 0.4,
+      "score": 92.2,
+      "type": "person"
+    },
+    {
+      "appearance": 2,
+      "co_occurrence": 13,
+      "facet_breadth": 1,
+      "id": "schema_bridge",
+      "is_principal": false,
+      "kg_edge_count": 1,
+      "name": "Schema Bridge",
+      "observation_depth": 2,
+      "recency": 0.4,
+      "score": 63.1,
+      "type": "project"
+    },
+    {
+      "appearance": 25,
+      "co_occurrence": 0,
+      "facet_breadth": 3,
+      "id": "romeo_montague",
+      "is_principal": true,
+      "kg_edge_count": 9,
+      "name": "Romeo Montague",
+      "observation_depth": 2,
+      "recency": 0.4,
+      "score": 53.2,
+      "type": "person"
+    },
+    {
+      "appearance": 3,
+      "co_occurrence": 13,
+      "facet_breadth": 1,
+      "id": "rosaline_prince",
+      "is_principal": false,
+      "kg_edge_count": 1,
+      "name": "Rosaline Prince",
+      "observation_depth": 2,
+      "recency": 0.4,
+      "score": 63.2,
+      "type": "person"
+    },
+    {
+      "appearance": 3,
+      "co_occurrence": 14,
+      "facet_breadth": 1,
+      "id": "montague_tech",
+      "is_principal": false,
+      "kg_edge_count": 2,
+      "name": "Montague Tech",
+      "observation_depth": 3,
+      "recency": 0.4,
+      "score": 74.1,
+      "type": "company"
+    },
+    {
+      "appearance": 3,
+      "co_occurrence": 15,
+      "facet_breadth": 1,
+      "id": "prince_escalus",
+      "is_principal": false,
+      "kg_edge_count": 2,
+      "name": "Prince Escalus",
+      "observation_depth": 2,
+      "recency": 0.4,
+      "score": 76.2,
+      "type": "person"
+    },
+    {
+      "appearance": 3,
+      "co_occurrence": 15,
+      "facet_breadth": 2,
+      "id": "verona_platform",
+      "is_principal": false,
+      "kg_edge_count": 8,
+      "name": "Verona Platform",
+      "observation_depth": 3,
+      "recency": 0.4,
+      "score": 109.2,
+      "type": "project"
+    },
+    {
+      "appearance": 5,
+      "co_occurrence": 14,
+      "facet_breadth": 2,
+      "id": "nurse_angela",
+      "is_principal": false,
+      "kg_edge_count": 1,
+      "name": "Nurse Angela",
+      "observation_depth": 2,
+      "recency": 0.4,
+      "score": 68.1,
+      "type": "person"
+    },
+    {
+      "appearance": 7,
+      "co_occurrence": 9,
+      "facet_breadth": 3,
+      "id": "paris_duke",
+      "is_principal": false,
+      "kg_edge_count": 2,
+      "name": "Paris Duke",
+      "observation_depth": 2,
+      "recency": 0.4,
+      "score": 54.2,
+      "type": "person"
+    },
+    {
+      "appearance": 9,
+      "co_occurrence": 15,
+      "facet_breadth": 2,
+      "id": "benvolio_montague",
+      "is_principal": false,
+      "kg_edge_count": 1,
+      "name": "Benvolio Montague",
+      "observation_depth": 3,
+      "recency": 0.4,
+      "score": 74.2,
+      "type": "person"
+    },
+    {
+      "appearance": 9,
+      "co_occurrence": 15,
+      "facet_breadth": 3,
+      "id": "friar_lawrence",
+      "is_principal": false,
+      "kg_edge_count": 2,
+      "name": "Friar Lawrence",
+      "observation_depth": 2,
+      "recency": 0.4,
+      "score": 78.2,
+      "type": "person"
+    }
+  ],
   "stats": {
-    "co_occurrence_edge_count": 0,
-    "explicit_edge_count": 0,
-    "total_entities": 0,
-    "total_signals": 0
+    "co_occurrence_edge_count": 26,
+    "explicit_edge_count": 20,
+    "total_entities": 33,
+    "total_signals": 124
   }
 }

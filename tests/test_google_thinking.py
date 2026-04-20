@@ -103,6 +103,7 @@ def test_google_thinking_events(monkeypatch, tmp_path, capsys):
 
     ndjson_input = json.dumps(
         {
+            "name": "exec",
             "prompt": "hello",
             "provider": "google",
             "model": GEMINI_FLASH,

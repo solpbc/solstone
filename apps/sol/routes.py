@@ -50,7 +50,7 @@ def _resolve_output_path(
     day_dir = Path(journal_root) / req_day
     req_segment = request_event.get("segment")
     req_facet = request_event.get("facet")
-    req_name = request_event.get("name", "unified")
+    req_name = request_event["name"]
     req_env = request_event.get("env") or {}
     req_stream = req_env.get("SOL_STREAM") if req_env else None
     return get_output_path(
@@ -176,7 +176,7 @@ def _parse_use_file(use_file: Path) -> dict[str, Any] | None:
 
         use_info: dict[str, Any] = {
             "id": use_id,
-            "name": request_event.get("name", "unified"),
+            "name": request_event["name"],
             "start": request_event.get("ts", 0),
             "status": "running" if is_active else "completed",
             "prompt": request_event.get("prompt", ""),
@@ -282,7 +282,7 @@ def _get_uses_for_day(day: str, facet_filter: str | None = None) -> list[dict]:
 
                     # Locate the actual file for full parsing
                     use_id = entry.get("use_id", "")
-                    name = entry.get("name", "unified")
+                    name = entry["name"]
                     safe_name = name.replace(":", "--")
                     use_file = talents_dir / safe_name / f"{use_id}.jsonl"
                     if not use_file.exists():
@@ -465,7 +465,7 @@ def api_agent_run(use_id: str) -> Any:
 
         run: dict[str, Any] = {
             "id": use_id,
-            "name": request_event.get("name", "unified"),
+            "name": request_event["name"],
             "start": start_ts,
             "status": "completed",
             "prompt": request_event.get("prompt", ""),

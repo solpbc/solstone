@@ -63,13 +63,13 @@
     "chat": {
       "app": null,
       "color": "#6c757d",
-      "description": "Sol — the journal itself, as a conversational partner",
+      "description": "Structured conversational reply planner for the chat backend rewrite",
       "multi_facet": false,
-      "output_format": null,
+      "output_format": "json",
       "schedule": null,
       "source": "system",
-      "title": "Sol",
-      "type": "cogitate"
+      "title": "Chat",
+      "type": "generate"
     },
     "coder": {
       "app": null,
@@ -202,6 +202,17 @@
       "source": "system",
       "title": "Event Story",
       "type": "generate"
+    },
+    "exec": {
+      "app": null,
+      "color": "#6c757d",
+      "description": "Sol — the journal itself, as a conversational partner",
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": null,
+      "source": "system",
+      "title": "Exec",
+      "type": "cogitate"
     },
     "facet_newsletter": {
       "app": null,
@@ -465,17 +476,6 @@
       "schedule": null,
       "source": "app",
       "title": "TODO Weekly Scout",
-      "type": "cogitate"
-    },
-    "triage": {
-      "app": null,
-      "color": "#6c757d",
-      "description": "Quick-action assistant for the chat bar — handles navigation, todos, calendar, and entity lookups",
-      "multi_facet": false,
-      "output_format": null,
-      "schedule": null,
-      "source": "system",
-      "title": "Triage",
       "type": "cogitate"
     },
     "work": {

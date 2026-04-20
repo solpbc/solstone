@@ -124,10 +124,10 @@ def test_get_talent_configs_includes_system_agents(fixture_journal):
     agents = get_talent_configs(type="cogitate")
 
     # Should include known system agents with frontmatter metadata
-    assert "chat" in agents
-    assert agents["chat"]["source"] == "system"
-    assert "title" in agents["chat"]
-    assert "path" in agents["chat"]
+    assert "exec" in agents
+    assert agents["exec"]["source"] == "system"
+    assert "title" in agents["exec"]
+    assert "path" in agents["exec"]
 
 
 def test_get_talent_configs_system_agents_have_metadata(fixture_journal):
@@ -135,11 +135,11 @@ def test_get_talent_configs_system_agents_have_metadata(fixture_journal):
     agents = get_talent_configs(type="cogitate")
 
     # Check a known system agent
-    chat = agents.get("chat")
-    assert chat is not None
-    assert chat["source"] == "system"
-    assert "title" in chat
-    assert "color" in chat
+    exec_talent = agents.get("exec")
+    assert exec_talent is not None
+    assert exec_talent["source"] == "system"
+    assert "title" in exec_talent
+    assert "color" in exec_talent
 
 
 def test_digest_talent_discovery_and_schedule_exclusion(fixture_journal):

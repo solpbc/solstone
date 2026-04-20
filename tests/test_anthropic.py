@@ -235,6 +235,7 @@ def test_claude_main(monkeypatch, tmp_path, capsys):
 
     ndjson_input = json.dumps(
         {
+            "name": "exec",
             "prompt": "hello",
             "provider": "anthropic",
             "model": CLAUDE_SONNET_4,
@@ -249,7 +250,7 @@ def test_claude_main(monkeypatch, tmp_path, capsys):
     assert isinstance(events[0]["ts"], int)
     # Prompt includes system instruction prepended during enrichment
     assert "hello" in events[0]["prompt"]
-    assert events[0]["name"] == "unified"
+    assert events[0]["name"] == "exec"
     assert events[0]["model"] == CLAUDE_SONNET_4
     assert events[-1]["event"] == "finish"
     assert isinstance(events[-1]["ts"], int)
@@ -278,6 +279,7 @@ def test_claude_outfile(monkeypatch, tmp_path, capsys):
 
     ndjson_input = json.dumps(
         {
+            "name": "exec",
             "prompt": "hello",
             "provider": "anthropic",
             "model": CLAUDE_SONNET_4,
@@ -294,7 +296,7 @@ def test_claude_outfile(monkeypatch, tmp_path, capsys):
     assert isinstance(events[0]["ts"], int)
     # Prompt includes system instruction prepended during enrichment
     assert "hello" in events[0]["prompt"]
-    assert events[0]["name"] == "unified"
+    assert events[0]["name"] == "exec"
     assert events[0]["model"] == CLAUDE_SONNET_4
     assert events[-1]["event"] == "finish"
     assert isinstance(events[-1]["ts"], int)
@@ -325,6 +327,7 @@ def test_claude_thinking_events(monkeypatch, tmp_path, capsys):
 
     ndjson_input = json.dumps(
         {
+            "name": "exec",
             "prompt": "hello",
             "provider": "anthropic",
             "model": CLAUDE_SONNET_4,
@@ -367,6 +370,7 @@ def test_claude_redacted_thinking_events(monkeypatch, tmp_path, capsys):
 
     ndjson_input = json.dumps(
         {
+            "name": "exec",
             "prompt": "hello",
             "provider": "anthropic",
             "model": CLAUDE_SONNET_4,
@@ -407,6 +411,7 @@ def test_claude_outfile_error(monkeypatch, tmp_path, capsys):
 
     ndjson_input = json.dumps(
         {
+            "name": "exec",
             "prompt": "hello",
             "provider": "anthropic",
             "model": CLAUDE_SONNET_4,

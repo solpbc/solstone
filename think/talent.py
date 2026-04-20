@@ -35,6 +35,7 @@ from think.prompts import _load_prompt_metadata, load_prompt
 
 TALENT_DIR = Path(__file__).parent.parent / "talent"
 APPS_DIR = Path(__file__).parent.parent / "apps"
+_UNDISCOVERED_SYSTEM_TALENTS = {"triage"}
 
 
 # ---------------------------------------------------------------------------
@@ -231,6 +232,8 @@ def get_talent_configs(
     if TALENT_DIR.is_dir():
         for md_path in sorted(TALENT_DIR.glob("*.md")):
             name = md_path.stem
+            if name in _UNDISCOVERED_SYSTEM_TALENTS:
+                continue
             info = _load_prompt_metadata(md_path)
 
             info["source"] = "system"
@@ -340,7 +343,7 @@ def _resolve_talent_path(name: str) -> tuple[Path, str]:
     Parameters
     ----------
     name:
-        Talent name - either system talent (e.g., "unified") or
+        Talent name - either system talent (e.g., "chat") or
         app-namespaced talent (e.g., "support:support").
 
     Returns
@@ -498,7 +501,7 @@ def _load_talent_schema(
 
 
 def get_talent(
-    name: str = "unified",
+    name: str = "chat",
     facet: str | None = None,
     analysis_day: str | None = None,
 ) -> dict:
@@ -511,7 +514,7 @@ def get_talent(
     Parameters
     ----------
     name:
-        Talent name to load. Can be a system talent (e.g., "unified")
+        Talent name to load. Can be a system talent (e.g., "chat")
         or an app-namespaced talent (e.g., "support:support" for apps/support/talent/support).
     facet:
         Optional facet name to focus on. Controls $facets template variable.

@@ -459,7 +459,7 @@ def prepare_config(request: dict) -> dict:
     from think.models import resolve_model_for_provider, resolve_provider
     from think.talent import get_talent, key_to_context
 
-    name = request.get("name", "unified")
+    name = request["name"]
     facet = request.get("facet")
     day = request.get("day")
     segment = request.get("segment")
@@ -755,7 +755,7 @@ def _build_dry_run_event(config: dict, before_values: dict) -> dict:
         "event": "dry_run",
         "ts": now_ms(),
         "type": talent_type,
-        "name": config.get("name", "unified"),
+        "name": config["name"],
         "provider": config.get("provider", ""),
         "model": config.get("model") or "unknown",
         "system_instruction": config.get("system_instruction", ""),
@@ -872,7 +872,7 @@ async def _execute_with_tools(
         if not context:
             from think.talent import key_to_context
 
-            context = key_to_context(config.get("name", "unified"))
+            context = key_to_context(config["name"])
         backup_model = resolve_model_for_provider(context, backup, "cogitate")
 
         emit_event(
@@ -928,7 +928,7 @@ async def _execute_generate(
     from think.models import generate_with_result
     from think.talent import key_to_context
 
-    name = config.get("name", "unified")
+    name = config["name"]
     transcript = config.get("transcript", "")
     user_instruction = config.get("user_instruction", "")
     prompt = config.get("prompt", "")
@@ -1072,7 +1072,7 @@ async def _run_talent(
         emit_event: Callback to emit JSONL events
         dry_run: If True, emit dry_run event instead of calling LLM
     """
-    name = config.get("name", "unified")
+    name = config["name"]
     provider = config.get("provider", "google")
     model = config.get("model")
     is_cogitate = config["type"] == "cogitate"

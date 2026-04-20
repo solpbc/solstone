@@ -24,7 +24,7 @@ def main() -> None:
     parser.add_argument("--facet", help="Facet context")
     parser.add_argument("--provider", help="AI provider override")
     parser.add_argument(
-        "--talent", default="unified", help="Talent agent name (default: unified)"
+        "--talent", default="chat", help="Talent agent name (default: chat)"
     )
     args = setup_cli(parser)
     require_solstone()
