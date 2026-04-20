@@ -40,10 +40,6 @@ def _utc_now_iso() -> str:
     )
 
 
-def _empty_store() -> dict[str, list[Device]]:
-    return {"devices": []}
-
-
 def _clean_str(value: Any) -> str:
     return str(value or "").strip()
 
