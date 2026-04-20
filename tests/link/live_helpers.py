@@ -20,6 +20,8 @@ import requests
 from werkzeug.security import generate_password_hash
 from werkzeug.serving import make_server
 
+from think.utils import write_service_port
+
 RELAY_URL = "https://spl-relay-staging.jer-3f2.workers.dev"
 CONVEY_PASSWORD = "pytest-link-pass"
 _READY_LINE = "listen WS open"
@@ -127,7 +129,8 @@ def running_convey_server(journal_path: Path) -> Iterator[str]:
 
     _prepare_journal(journal_path)
     app = create_app(str(journal_path))
-    server = make_server("127.0.0.1", 0, app)
+    server = make_server("127.0.0.1", 0, app, threaded=True)
+    write_service_port("convey", server.server_port)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
