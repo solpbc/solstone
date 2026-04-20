@@ -917,6 +917,12 @@ def start_cortex_server() -> ManagedProcess:
     return _launch_process("cortex", cmd, restart=True)
 
 
+def start_link_server() -> ManagedProcess:
+    """Launch the link tunnel service (spl home-side endpoint)."""
+    cmd = ["sol", "link", "-v"]
+    return _launch_process("link", cmd, restart=True)
+
+
 def start_convey_server(
     verbose: bool, debug: bool = False, port: int = 0
 ) -> tuple[ManagedProcess, int]:
@@ -1396,6 +1402,11 @@ def parse_args() -> argparse.ArgumentParser:
         help="Do not start the Cortex server (run it manually for debugging)",
     )
     parser.add_argument(
+        "--no-link",
+        action="store_true",
+        help="Do not start the link tunnel service",
+    )
+    parser.add_argument(
         "--no-convey",
         action="store_true",
         help="Do not start the Convey web application",
@@ -1568,6 +1579,9 @@ def main() -> None:
         # Cortex for agent execution
         if not args.no_cortex:
             procs.append(start_cortex_server())
+        # Link tunnel service (opt-out via --no-link)
+        if not args.no_link:
+            procs.append(start_link_server())
 
     # Make procs accessible to restart handler
     _managed_procs = procs
