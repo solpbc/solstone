@@ -175,6 +175,10 @@ CATEGORIES = _discover_categories()
 # Build categorization prompt from template
 CATEGORIZATION_PROMPT = _build_categorization_prompt()
 
+_SCHEMA = json.loads(
+    (Path(__file__).parent / "describe.schema.json").read_text(encoding="utf-8")
+)
+
 
 class VideoProcessor:
     """Process per-monitor screencast videos and detect significant frame changes."""
@@ -477,6 +481,7 @@ class VideoProcessor:
                     model=frame_model,
                     system_instruction=system_instruction,
                     json_output=True,
+                    json_schema=_SCHEMA,
                     temperature=0.7,
                     max_output_tokens=1024,
                     thinking_budget=1024,

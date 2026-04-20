@@ -52,6 +52,7 @@ class BatchRequest:
         max_output_tokens: int = 8192 * 2,
         system_instruction: Optional[str] = None,
         json_output: bool = False,
+        json_schema: Optional[dict] = None,
         thinking_budget: Optional[int] = None,
         timeout_s: Optional[float] = None,
     ):
@@ -62,6 +63,7 @@ class BatchRequest:
         self.max_output_tokens = max_output_tokens
         self.system_instruction = system_instruction
         self.json_output = json_output
+        self.json_schema = json_schema
         self.thinking_budget = thinking_budget
         self.timeout_s = timeout_s
 
@@ -124,6 +126,7 @@ class Batch:
         max_output_tokens: int = 8192 * 2,
         system_instruction: Optional[str] = None,
         json_output: bool = False,
+        json_schema: Optional[dict] = None,
         thinking_budget: Optional[int] = None,
         timeout_s: Optional[float] = None,
     ) -> BatchRequest:
@@ -155,6 +158,7 @@ class Batch:
             max_output_tokens=max_output_tokens,
             system_instruction=system_instruction,
             json_output=json_output,
+            json_schema=json_schema,
             thinking_budget=thinking_budget,
             timeout_s=timeout_s,
         )
@@ -261,6 +265,7 @@ class Batch:
                     max_output_tokens=request.max_output_tokens,
                     system_instruction=request.system_instruction,
                     json_output=request.json_output,
+                    json_schema=request.json_schema,
                     thinking_budget=request.thinking_budget,
                     timeout_s=request.timeout_s,
                     **kwargs,

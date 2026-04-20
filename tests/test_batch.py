@@ -465,3 +465,27 @@ async def test_batch_client_passthrough(mock_agenerate):
     # Verify client was passed through
     call_kwargs = mock_agenerate.call_args[1]
     assert call_kwargs["client"] is mock_client
+
+
+@pytest.mark.asyncio
+@patch("think.batch.agenerate", new_callable=AsyncMock)
+async def test_batch_passes_json_schema_to_agenerate(mock_agenerate):
+    """Test that json_schema is passed through to agenerate."""
+    mock_agenerate.return_value = "Response"
+
+    batch = Batch(max_concurrent=5)
+    req = batch.create(
+        contents="Test prompt",
+        context="test.context",
+        json_schema={"type": "object"},
+    )
+    batch.add(req)
+
+    results = []
+    async for completed_req in batch.drain_batch():
+        results.append(completed_req)
+
+    assert len(results) == 1
+
+    call_kwargs = mock_agenerate.call_args[1]
+    assert call_kwargs["json_schema"] == {"type": "object"}
