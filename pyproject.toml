@@ -51,6 +51,8 @@ dependencies = [
     "openai-agents>=0.1.0",
     "anthropic",
     "httpx",
+    "h2",
+    "pyjwt>=2.8",
     "jsonschema>=4.26,<5",
     "genai-prices",
     # Link tunnel service (think/link/): TLS 1.3 in memory-BIO mode over

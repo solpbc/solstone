@@ -109,8 +109,10 @@ def _migrate_setup_completed() -> None:
 
 def create_app(journal: str = "") -> Flask:
     """Create and configure the Convey Flask application."""
+    from think.push.runtime import start_push_runtime
     from think.voice.runtime import start_voice_runtime
 
+    from .push import push_bp
     from .voice import voice_bp
 
     app = Flask(
@@ -150,6 +152,9 @@ def create_app(journal: str = "") -> Flask:
     # Register voice API blueprint
     app.register_blueprint(voice_bp)
 
+    # Register push API blueprint
+    app.register_blueprint(push_bp)
+
     # Initialize and register app system
     registry = AppRegistry()
     registry.discover()
@@ -161,6 +166,7 @@ def create_app(journal: str = "") -> Flask:
     sock = Sock(app)
     register_websocket(sock)
     start_voice_runtime(app)
+    start_push_runtime(app)
 
     if journal:
         state.journal_root = journal

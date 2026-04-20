@@ -37,6 +37,13 @@
     "model": "gpt-realtime",
     "brain_model": "haiku"
   },
+  "push": {
+    "apns_key_path": null,
+    "apns_key_id": null,
+    "apns_team_id": null,
+    "bundle_id": null,
+    "environment": "development"
+  },
   "retention": {
     "raw_media": "days",
     "raw_media_days": 7,
