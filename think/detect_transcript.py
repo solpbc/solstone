@@ -12,6 +12,17 @@ from typing import List, Optional
 
 from .prompts import load_prompt
 
+_SEGMENT_SCHEMA = json.loads(
+    (Path(__file__).parent / "detect_transcript_segment.schema.json").read_text(
+        encoding="utf-8"
+    )
+)
+_JSON_SCHEMA = json.loads(
+    (Path(__file__).parent / "detect_transcript_json.schema.json").read_text(
+        encoding="utf-8"
+    )
+)
+
 
 def _load_json_prompt() -> str:
     """Load the JSON system prompt."""
@@ -145,6 +156,7 @@ def detect_transcript_segment(text: str, start_time: str) -> List[tuple[str, str
             thinking_budget=8192,
             system_instruction=_load_segment_prompt(),
             json_output=True,
+            json_schema=_SEGMENT_SCHEMA,
         )
 
         logging.info(f"Received segmentation response: {response_text}")
@@ -157,7 +169,7 @@ def detect_transcript_segment(text: str, start_time: str) -> List[tuple[str, str
         return []
 
 
-def detect_transcript_json(text: str, segment_start: str) -> Optional[list]:
+def detect_transcript_json(text: str, segment_start: str) -> Optional[dict]:
     """Return transcript ``text`` converted to JSON using LLM analysis.
 
     Args:
@@ -165,7 +177,7 @@ def detect_transcript_json(text: str, segment_start: str) -> Optional[list]:
         segment_start: Absolute start time of this segment in HH:MM:SS format
 
     Returns:
-        List of transcript entries with absolute timestamps
+        Wrapper dict with ``entries``, ``topics``, and ``setting`` keys
     """
     logging.info(
         f"Starting transcript JSON conversion (segment_start: {segment_start})..."
@@ -184,6 +196,7 @@ def detect_transcript_json(text: str, segment_start: str) -> Optional[list]:
         thinking_budget=8192,
         system_instruction=_load_json_prompt(),
         json_output=True,
+        json_schema=_JSON_SCHEMA,
     )
 
     logging.info(f"Received JSON conversion response: {response_text[:100]}")

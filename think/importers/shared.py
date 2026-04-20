@@ -79,7 +79,7 @@ def _write_import_jsonl(
     # Write JSONL: metadata first, then entries with source field
     jsonl_lines = [json.dumps(metadata)]
     for entry in entries:
-        # Add source field if not already present (skip metadata entries like topics/setting)
+        # Add source to transcript rows when it is not already present.
         if "text" in entry and "source" not in entry:
             entry = {**entry, "source": "import"}
         jsonl_lines.append(json.dumps(entry))

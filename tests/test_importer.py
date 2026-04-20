@@ -106,7 +106,11 @@ def test_importer_text(tmp_path, monkeypatch):
 
     # Mock JSON conversion: returns entries with absolute timestamps
     def mock_detect_json(text, segment_start):
-        return [{"start": segment_start, "speaker": "Unknown", "text": text}]
+        return {
+            "entries": [{"start": segment_start, "speaker": "Unknown", "text": text}],
+            "topics": "",
+            "setting": "",
+        }
 
     monkeypatch.setattr(text_mod, "detect_transcript_json", mock_detect_json)
 
@@ -193,11 +197,18 @@ def test_importer_pdf(tmp_path, monkeypatch):
 
     # Mock JSON conversion
     def mock_detect_json(text, segment_start):
-        return [
-            {"start": segment_start, "speaker": "Jack", "text": "Board meeting notes"},
-            {"start": "16:30:30", "speaker": "Ramon", "text": "Action items"},
-            {"topics": "board meeting, action items", "setting": "workplace"},
-        ]
+        return {
+            "entries": [
+                {
+                    "start": segment_start,
+                    "speaker": "Jack",
+                    "text": "Board meeting notes",
+                },
+                {"start": "16:30:30", "speaker": "Ramon", "text": "Action items"},
+            ],
+            "topics": "board meeting, action items",
+            "setting": "workplace",
+        }
 
     monkeypatch.setattr(text_mod, "detect_transcript_json", mock_detect_json)
 
