@@ -36,6 +36,10 @@ from think.prompts import load_prompt
 
 logger = logging.getLogger(__name__)
 
+_SCHEMA = json.loads(
+    (Path(__file__).parent / "gemini.schema.json").read_text(encoding="utf-8")
+)
+
 # Regex for parsing speaker strings like "Speaker 1", "Speaker 2"
 SPEAKER_PATTERN = re.compile(r"(?:speaker\s*)?(\d+)", re.IGNORECASE)
 
@@ -123,54 +127,20 @@ def _parse_speaker(speaker: str | int | None) -> int | None:
     return None
 
 
-def _extract_segments(result: list | dict) -> list:
-    """Extract a segments list from Gemini's JSON response.
+def _extract_segments(result: dict) -> list:
+    """Extract the segments list from Gemini's schema-constrained response.
 
-    Gemini may return any of these shapes:
-    - ``{"segments": [...]}`` — expected format per prompt
-    - ``[{"start": ..., "text": ...}, ...]`` — bare list of segment dicts
-    - ``[{"segments": [...]}]`` — array-wrapped dict
-    - ``{"transcript": [...]}`` or other single-key wrapper
-
-    Args:
-        result: Parsed JSON (list or dict).
-
-    Returns:
-        List of segment dicts, empty list on unexpected input.
+    Raises RuntimeError if the result does not match the documented
+    {"segments": [...]} wrapper shape.
     """
-    # Unwrap: [{"segments": [...]}] — array-wrapped dict with a segments key.
-    # Only unwrap if the inner dict has "segments", not if it's a segment itself.
-    if (
-        isinstance(result, list)
-        and len(result) == 1
-        and isinstance(result[0], dict)
-        and "segments" in result[0]
-    ):
-        result = result[0]
-
-    # Bare list of segment dicts
-    if isinstance(result, list):
-        return result
-
-    if isinstance(result, dict):
-        # Preferred key
-        if "segments" in result:
-            val = result["segments"]
-            if isinstance(val, list):
-                return val
-
-        # Fallback: single-key dict whose value is a list (e.g. {"transcript": [...]})
-        if len(result) == 1:
-            val = next(iter(result.values()))
-            if isinstance(val, list):
-                logger.warning(
-                    f"Gemini used unexpected key {next(iter(result.keys()))!r} "
-                    f"instead of 'segments'"
-                )
-                return val
-
-    logger.warning(f"Gemini returned unexpected result shape: {type(result)}")
-    return []
+    if isinstance(result, dict) and isinstance(result.get("segments"), list):
+        return result["segments"]
+    logger.warning(
+        "Gemini returned unexpected shape: type=%s keys=%s",
+        type(result).__name__,
+        list(result.keys()) if isinstance(result, dict) else None,
+    )
+    raise RuntimeError(f"Gemini returned unexpected shape: {type(result).__name__}")
 
 
 def _build_chunk_contents(
@@ -380,6 +350,7 @@ def transcribe(
         max_output_tokens=16384,
         json_output=True,
         thinking_budget=0,
+        json_schema=_SCHEMA,
     )
 
     transcribe_time = time.perf_counter() - t0
@@ -395,10 +366,6 @@ def transcribe(
         logger.debug(f"Response text: {response_text[:500]}")
         raise RuntimeError(f"Gemini returned invalid JSON: {e}") from e
 
-    # Extract segments — Gemini may return different shapes:
-    #   [...]                  bare list of segments
-    #   {"segments": [...]}    expected wrapper
-    #   {"transcript": [...]}  alternate key name
     segments = _extract_segments(result)
 
     # Normalize to standard statement format
