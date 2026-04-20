@@ -10,6 +10,7 @@ import base64
 import json
 import logging
 import os
+import shutil
 import signal
 import subprocess
 import time
@@ -231,11 +232,25 @@ class PinchTab:
 
     def start(self, timeout: int = 30) -> None:
         """Launch pinchtab and wait for health check."""
+        # Pinchtab reads PINCHTAB_PORT (v0.7.x; renamed from BRIDGE_PORT).
+        # /screenshot may return image/* bytes directly; JSON base64 kept as fallback.
+        # See pinchtab --help -> ENVIRONMENT.
         env = {
             **os.environ,
-            "BRIDGE_PORT": str(self.port),
+            "PINCHTAB_PORT": str(self.port),
             "BRIDGE_HEADLESS": "true",
         }
+        profile_dir = Path.home() / ".pinchtab" / "profiles" / "default"
+        if profile_dir.exists():
+            # Clear cached default profile for deterministic runs — pinchtab persists
+            # cookies/storage across sessions. extro-linkedin uses a separate profile
+            # (~/.pinchtab/profiles/linkedin/) so this nuke is isolated to test state.
+            try:
+                shutil.rmtree(profile_dir)
+            except OSError as exc:
+                raise RuntimeError(
+                    f"failed to clear pinchtab default profile: {profile_dir}"
+                ) from exc
         self._stderr_path = f"/tmp/pinchtab-{self.port}.log"
         self._stderr_file = open(self._stderr_path, "w")
         try:
@@ -265,7 +280,11 @@ class PinchTab:
                 response = self._session.get(f"{self.base_url}/health", timeout=2)
                 if response.status_code == 200:
                     health = response.json()
-                    if health.get("status") == "ok":
+                    instance = health.get("defaultInstance") or {}
+                    if (
+                        health.get("status") == "ok"
+                        and instance.get("status") == "running"
+                    ):
                         return
             except requests.ConnectionError:
                 pass
@@ -313,6 +332,9 @@ class PinchTab:
             timeout=30,
         )
         response.raise_for_status()
+        content_type = response.headers.get("Content-Type", "")
+        if content_type.startswith("image/"):
+            return response.content
         payload = response.json()
         return base64.b64decode(payload["base64"])
 
