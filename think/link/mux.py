@@ -157,7 +157,9 @@ class Multiplexer:
                 await self._emit(build_reset(frame.stream_id, RESET_PROTOCOL_ERROR))
                 return
             if len(self._streams) >= MAX_CONCURRENT_STREAMS:
-                await self._emit(build_reset(frame.stream_id, RESET_STREAM_LIMIT_EXCEEDED))
+                await self._emit(
+                    build_reset(frame.stream_id, RESET_STREAM_LIMIT_EXCEEDED)
+                )
                 return
             state = self._open_stream(frame.stream_id)
             if frame.payload:

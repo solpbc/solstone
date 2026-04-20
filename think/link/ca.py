@@ -136,7 +136,9 @@ def sign_csr(
     now = dt.datetime.now(dt.UTC)
     cert = (
         x509.CertificateBuilder()
-        .subject_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, device_label)]))
+        .subject_name(
+            x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, device_label)])
+        )
         .issuer_name(ca.cert.subject)
         .public_key(pub)
         .serial_number(x509.random_serial_number())

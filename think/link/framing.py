@@ -145,7 +145,9 @@ def build_reset(stream_id: int, reason: int = RESET_UNSPECIFIED) -> Frame:
 def build_window(stream_id: int, credit: int) -> Frame:
     if not 0 <= credit <= 0xFFFFFFFF:
         raise ProtocolError(f"window credit out of range: {credit}")
-    return Frame(stream_id=stream_id, flags=FLAG_WINDOW, payload=credit.to_bytes(4, "big"))
+    return Frame(
+        stream_id=stream_id, flags=FLAG_WINDOW, payload=credit.to_bytes(4, "big")
+    )
 
 
 def validate_flags(flags: int) -> None:

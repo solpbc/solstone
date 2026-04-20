@@ -79,7 +79,9 @@ def _relative_time(iso: str | None) -> str:
 
 @app.command()
 def pair(
-    device_label: str = typer.Option(..., "--device-label", help="Label for the phone being paired"),
+    device_label: str = typer.Option(
+        ..., "--device-label", help="Label for the phone being paired"
+    ),
     convey_host: str = typer.Option(
         "",
         "--convey-host",
@@ -133,7 +135,9 @@ def pair(
         # the pair route fired but we missed the device (rare).
         nonce_entry = _nonces().peek(value)
         if nonce_entry and nonce_entry.used:
-            typer.echo("Pair request completed; device should appear in `sol call link list`.")
+            typer.echo(
+                "Pair request completed; device should appear in `sol call link list`."
+            )
             raise typer.Exit(0)
     typer.echo("Timed out. Pair code expired.")
     raise typer.Exit(2)
@@ -158,7 +162,9 @@ def list_devices() -> None:
 
 @app.command()
 def unpair(
-    target: str = typer.Argument(..., help="Device label or fingerprint (sha256:<hex>)"),
+    target: str = typer.Argument(
+        ..., help="Device label or fingerprint (sha256:<hex>)"
+    ),
 ) -> None:
     """Revoke a paired device. Next reconnect from that device fails at TLS handshake."""
     authorized = _authorized()

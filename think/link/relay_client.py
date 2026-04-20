@@ -156,10 +156,7 @@ class RelayClient:
             task.cancel()
         if self._tunnels:
             await asyncio.gather(
-                *(
-                    asyncio.shield(t)
-                    for t in self._tunnels.values()
-                ),
+                *(asyncio.shield(t) for t in self._tunnels.values()),
                 return_exceptions=True,
             )
         self._tunnels.clear()
@@ -193,7 +190,9 @@ class RelayClient:
                         name=f"link-tunnel-{tunnel_id}",
                     )
                     self._tunnels[tunnel_id] = task
-                    task.add_done_callback(lambda _t, tid=tunnel_id: self._tunnels.pop(tid, None))
+                    task.add_done_callback(
+                        lambda _t, tid=tunnel_id: self._tunnels.pop(tid, None)
+                    )
 
     async def _handle_tunnel(self, tunnel_id: str) -> None:
         assert self._account_token is not None
@@ -207,7 +206,9 @@ class RelayClient:
             ) as ws:
                 await self._pump_tunnel(ws, tunnel_id)
         except ConnectionClosed as exc:
-            log.info("tunnel %s closed: code=%s reason=%s", tunnel_id, exc.code, exc.reason)
+            log.info(
+                "tunnel %s closed: code=%s reason=%s", tunnel_id, exc.code, exc.reason
+            )
         except TlsError as exc:
             log.info("tunnel %s TLS rejected: %s", tunnel_id, exc)
         except Exception as exc:  # noqa: BLE001
@@ -251,7 +252,9 @@ class RelayClient:
             nonlocal fingerprint_touched
             try:
                 async for frame in ws:
-                    inbound = frame if isinstance(frame, bytes) else frame.encode("utf-8")
+                    inbound = (
+                        frame if isinstance(frame, bytes) else frame.encode("utf-8")
+                    )
                     outbound, plaintext = drive_tls(tls, inbound=inbound)
                     if outbound:
                         await ws.send(outbound)

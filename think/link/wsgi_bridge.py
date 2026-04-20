@@ -92,6 +92,7 @@ async def serve_request(
     ) -> Callable[[bytes], None]:
         response_state.status_line = status
         response_state.headers = list(headers)
+
         # WSGI returns a write() callable, but we use the iterable instead.
         def write(_data: bytes) -> None:
             raise RuntimeError("write() callable not supported; return iterable")
@@ -105,10 +106,10 @@ async def serve_request(
             None, lambda: wsgi_app(environ, start_response)
         )
     except Exception:
-        log.exception(
-            "tunnel %s stream %s: wsgi app raised", tunnel_id, stream_id
+        log.exception("tunnel %s stream %s: wsgi app raised", tunnel_id, stream_id)
+        await _write_simple(
+            writer, 500, "internal server error", b"internal server error\n"
         )
-        await _write_simple(writer, 500, "internal server error", b"internal server error\n")
         meta.status = 500
         meta.response_bytes = _byte_count_for_simple(b"internal server error\n")
         return meta
@@ -141,7 +142,11 @@ async def serve_request(
     meta.response_bytes += sent
 
     # Stream body. Iterate in a thread (WSGI iterables can block).
-    iterator = iter(result) if not isinstance(result, (bytes, bytearray)) else iter([bytes(result)])
+    iterator = (
+        iter(result)
+        if not isinstance(result, (bytes, bytearray))
+        else iter([bytes(result)])
+    )
 
     async def next_chunk() -> bytes | None:
         def _pull() -> bytes | None:
@@ -226,7 +231,10 @@ async def _read_request(reader: asyncio.StreamReader) -> _Request:
 
     headers_map = {k.lower(): v for k, v in headers}
     body = b""
-    if "transfer-encoding" in headers_map and headers_map["transfer-encoding"].lower() == "chunked":
+    if (
+        "transfer-encoding" in headers_map
+        and headers_map["transfer-encoding"].lower() == "chunked"
+    ):
         body = await _read_chunked(reader)
     else:
         cl_raw = headers_map.get("content-length", "0")

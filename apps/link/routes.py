@@ -34,7 +34,12 @@ from cryptography.hazmat.primitives import serialization
 from flask import Blueprint, jsonify, request
 
 from think.link.auth import AuthorizedClients, ClientEntry
-from think.link.ca import generate_nonce, load_or_generate_ca, mint_attestation, sign_csr
+from think.link.ca import (
+    generate_nonce,
+    load_or_generate_ca,
+    mint_attestation,
+    sign_csr,
+)
 from think.link.nonces import NonceStore
 from think.link.paths import (
     LinkState,
