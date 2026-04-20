@@ -112,6 +112,7 @@ def create_app(journal: str = "") -> Flask:
     from think.push.runtime import start_push_runtime
     from think.voice.runtime import start_voice_runtime
 
+    from .pairing import pairing_bp, pairing_ui_bp
     from .push import push_bp
     from .voice import voice_bp
 
@@ -154,6 +155,10 @@ def create_app(journal: str = "") -> Flask:
 
     # Register push API blueprint
     app.register_blueprint(push_bp)
+
+    # Register pairing API and UI blueprints
+    app.register_blueprint(pairing_bp)
+    app.register_blueprint(pairing_ui_bp)
 
     # Initialize and register app system
     registry = AppRegistry()
