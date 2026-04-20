@@ -4,6 +4,7 @@
 import json
 from datetime import datetime
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -75,6 +76,63 @@ def test_append_is_atomic(tmp_path, monkeypatch):
 
     assert len(lines) == 1
     assert json.loads(lines[0])["text"] == "hello"
+
+
+def test_append_broadcasts_on_chat_tract_with_stored_event_payload(
+    tmp_path, monkeypatch
+):
+    _setup_journal(tmp_path, monkeypatch)
+    import convey.chat as chat
+
+    calls: list[tuple[str, str, dict]] = []
+
+    class FakeCallosum:
+        def emit(self, tract, event, **fields):
+            calls.append((tract, event, fields))
+            return True
+
+    monkeypatch.setattr(chat, "_runtime", SimpleNamespace(callosum=FakeCallosum()))
+
+    event = append_chat_event(
+        "sol_message",
+        ts=_ms(2026, 4, 20, 12, 0, 0),
+        use_id="1713626000000",
+        text="hello",
+        notes="ready",
+        requested_exec=False,
+        requested_task=None,
+    )
+
+    assert calls == [("chat", "sol_message", event)]
+
+
+def test_append_broadcast_failure_is_swallowed(tmp_path, monkeypatch):
+    journal = _setup_journal(tmp_path, monkeypatch)
+    import convey.chat as chat
+
+    class FakeCallosum:
+        def emit(self, tract, event, **fields):
+            raise RuntimeError("boom")
+
+    monkeypatch.setattr(chat, "_runtime", SimpleNamespace(callosum=FakeCallosum()))
+
+    event = append_chat_event(
+        "owner_message",
+        ts=_ms(2026, 4, 20, 12, 0, 0),
+        text="hello",
+        app="sol",
+        path="/chat",
+        facet="work",
+    )
+
+    chat_path = (
+        journal / "chronicle" / "20260420" / "chat" / "120000_300" / "chat.jsonl"
+    )
+
+    assert event["kind"] == "owner_message"
+    lines = chat_path.read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 1
+    assert json.loads(lines[0]) == event
 
 
 def test_append_rejects_unknown_kind(tmp_path, monkeypatch):

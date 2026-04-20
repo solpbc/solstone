@@ -4,15 +4,20 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
+import sys
 import threading
 import time
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
+from think.callosum import callosum_send
 from think.streams import update_stream, write_segment_stream
 from think.utils import day_path, get_journal, segment_key, segment_parse, segment_path
+
+logger = logging.getLogger(__name__)
 
 _CHAT_LOCK = threading.Lock()
 _CHAT_STREAM = "chat"
@@ -67,6 +72,7 @@ def append_chat_event(kind: str, **fields: Any) -> dict[str, Any]:
                 stream_info["seq"],
             )
 
+    _broadcast_chat_event(stored_event)
     return stored_event
 
 
@@ -179,6 +185,36 @@ def _validate_event(kind: str, event: dict[str, Any]) -> None:
     if missing:
         required = ", ".join(missing)
         raise ValueError(f"{kind} requires fields: {required}")
+
+
+def _broadcast_chat_event(stored_event: dict[str, Any]) -> None:
+    chat_module = sys.modules.get("convey.chat")
+    runtime = (
+        getattr(chat_module, "_runtime", None) if chat_module is not None else None
+    )
+    if runtime is None:
+        return
+
+    kind = str(stored_event.get("kind") or "")
+    use_id = str(stored_event.get("use_id") or "")
+
+    try:
+        if runtime.callosum.emit("chat", kind, **stored_event):
+            return
+        if callosum_send("chat", kind, **stored_event):
+            return
+        logger.warning(
+            "Failed to broadcast chat event kind=%s use_id=%s",
+            kind,
+            use_id or "-",
+        )
+    except Exception as exc:
+        logger.warning(
+            "Failed to broadcast chat event kind=%s use_id=%s: %s",
+            kind,
+            use_id or "-",
+            exc,
+        )
 
 
 def _require_journal_root() -> Path:

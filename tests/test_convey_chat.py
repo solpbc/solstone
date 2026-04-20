@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
 
 import pytest
@@ -32,6 +33,18 @@ def _reset_chat_state(chat_module) -> None:
 
 def _ms(year: int, month: int, day: int, hour: int, minute: int, second: int) -> int:
     return int(datetime(year, month, day, hour, minute, second).timestamp() * 1000)
+
+
+def _write_talent_log(
+    journal, talent_name: str, filename: str, events: list[dict]
+) -> None:
+    talent_dir = journal / "talents" / talent_name
+    talent_dir.mkdir(parents=True, exist_ok=True)
+    log_path = talent_dir / filename
+    log_path.write_text(
+        "\n".join(json.dumps(event) for event in events) + "\n",
+        encoding="utf-8",
+    )
 
 
 @pytest.fixture
@@ -141,3 +154,212 @@ def test_result_endpoint_reads_stream_not_talent_log(chat_client, tmp_path):
     payload = response.get_json()
     assert payload["state"] == "finished"
     assert payload["summary"] == "stream reply"
+
+
+def test_talent_log_endpoint_returns_completed_run(chat_client, tmp_path):
+    use_id = "1700000000001"
+    _write_talent_log(
+        tmp_path / "journal",
+        "default",
+        f"{use_id}.jsonl",
+        [
+            {
+                "event": "request",
+                "ts": 1700000000001,
+                "use_id": use_id,
+                "prompt": "Search for meetings about project updates",
+                "name": "default",
+                "provider": "openai",
+            },
+            {
+                "event": "start",
+                "ts": 1700000000100,
+                "use_id": use_id,
+                "model": "gpt-4o",
+                "provider": "openai",
+            },
+            {
+                "event": "thinking",
+                "ts": 1700000000300,
+                "use_id": use_id,
+                "content": "reasoning",
+                "raw": {"provider": "openai"},
+            },
+            {
+                "event": "finish",
+                "ts": 1700000000600,
+                "use_id": use_id,
+                "result": "done",
+            },
+        ],
+    )
+
+    response = chat_client.get(f"/api/chat/talent-log/{use_id}")
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["use_id"] == use_id
+    assert payload["status"] == "completed"
+    assert payload["task"] == "Search for meetings about project updates"
+    assert payload["started_at"] == 1700000000100
+    assert payload["finished_at"] == 1700000000600
+    assert len(payload["events"]) == 3
+    assert payload["events"][1]["event"] == "thinking"
+    assert "raw" not in payload["events"][1]
+
+
+def test_talent_log_endpoint_returns_running_active_run(chat_client, tmp_path):
+    use_id = "1700000000002"
+    _write_talent_log(
+        tmp_path / "journal",
+        "default",
+        f"{use_id}_active.jsonl",
+        [
+            {
+                "event": "request",
+                "ts": 1700000000002,
+                "use_id": use_id,
+                "task": "Analyze conversation flow",
+            },
+            {
+                "event": "start",
+                "ts": 1700000000102,
+                "use_id": use_id,
+                "model": "gpt-4o-mini",
+            },
+            {
+                "event": "thinking",
+                "ts": 1700000000202,
+                "use_id": use_id,
+                "content": "still working",
+            },
+        ],
+    )
+
+    response = chat_client.get(f"/api/chat/talent-log/{use_id}")
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["status"] == "running"
+    assert payload["task"] == "Analyze conversation flow"
+    assert payload["finished_at"] is None
+    assert payload["events"][-1]["event"] == "thinking"
+
+
+def test_talent_log_endpoint_prefers_active_log(chat_client, tmp_path):
+    use_id = "1700000000003"
+    journal = tmp_path / "journal"
+    _write_talent_log(
+        journal,
+        "default",
+        f"{use_id}_active.jsonl",
+        [
+            {
+                "event": "request",
+                "ts": 1700000000003,
+                "use_id": use_id,
+                "prompt": "active prompt",
+            },
+            {
+                "event": "thinking",
+                "ts": 1700000000103,
+                "use_id": use_id,
+                "content": "active content",
+            },
+        ],
+    )
+    _write_talent_log(
+        journal,
+        "flow",
+        f"{use_id}.jsonl",
+        [
+            {
+                "event": "request",
+                "ts": 1700000000003,
+                "use_id": use_id,
+                "prompt": "completed prompt",
+            },
+            {
+                "event": "finish",
+                "ts": 1700000000203,
+                "use_id": use_id,
+                "result": "completed result",
+            },
+        ],
+    )
+
+    response = chat_client.get(f"/api/chat/talent-log/{use_id}")
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["status"] == "running"
+    assert payload["task"] == "active prompt"
+    assert payload["events"][0]["content"] == "active content"
+
+
+def test_talent_log_endpoint_returns_errored_run(chat_client, tmp_path):
+    use_id = "1700000000004"
+    _write_talent_log(
+        tmp_path / "journal",
+        "flow",
+        f"{use_id}.jsonl",
+        [
+            {
+                "event": "request",
+                "ts": 1700000000004,
+                "use_id": use_id,
+                "prompt": "Analyze flow",
+            },
+            {
+                "event": "error",
+                "ts": 1700000000204,
+                "use_id": use_id,
+                "error": "Rate limit exceeded",
+            },
+        ],
+    )
+
+    response = chat_client.get(f"/api/chat/talent-log/{use_id}")
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["status"] == "errored"
+    assert payload["finished_at"] == 1700000000204
+    assert payload["events"][-1]["event"] == "error"
+
+
+def test_talent_log_endpoint_returns_missing(chat_client):
+    use_id = "1700000000999"
+
+    response = chat_client.get(f"/api/chat/talent-log/{use_id}")
+
+    assert response.status_code == 404
+    assert response.get_json() == {"error": f"Talent log not found for use_id {use_id}"}
+
+
+def test_talent_log_endpoint_task_falls_back_to_prompt(chat_client, tmp_path):
+    use_id = "1700000000005"
+    _write_talent_log(
+        tmp_path / "journal",
+        "default",
+        f"{use_id}.jsonl",
+        [
+            {
+                "event": "request",
+                "ts": 1700000000005,
+                "use_id": use_id,
+                "prompt": "Fallback prompt",
+            },
+            {
+                "event": "finish",
+                "ts": 1700000000305,
+                "use_id": use_id,
+                "result": "done",
+            },
+        ],
+    )
+
+    response = chat_client.get(f"/api/chat/talent-log/{use_id}")
+
+    assert response.status_code == 200
+    assert response.get_json()["task"] == "Fallback prompt"

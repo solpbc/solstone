@@ -18,6 +18,7 @@ def _parts(*pieces: str) -> str:
 
 
 BANNED_NAMES = {
+    _parts("_", "display_", "mode"),
     _parts("record_", "exchange"),
     _parts("build_", "memory_", "context"),
     _parts("INJECTION_", "MARKER"),

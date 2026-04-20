@@ -14,6 +14,7 @@ import re
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from flask import Blueprint, jsonify, request
@@ -26,7 +27,7 @@ from convey.chat_stream import (
 )
 from convey.utils import error_response
 from think.callosum import CallosumConnection, callosum_send
-from think.utils import now_ms
+from think.utils import get_journal, now_ms
 
 logger = logging.getLogger(__name__)
 
@@ -133,6 +134,15 @@ def chat_result(use_id: str) -> Any:
     result = _read_result_state(use_id)
     if result is None:
         return jsonify(error="not found"), 404
+    return jsonify(result)
+
+
+@chat_bp.route("/talent-log/<use_id>", methods=["GET"])
+def get_talent_log(use_id: str) -> Any:
+    """Return a talent-use timeline from the JSONL log."""
+    result = _read_talent_log(use_id)
+    if result is None:
+        return jsonify(error=f"Talent log not found for use_id {use_id}"), 404
     return jsonify(result)
 
 
@@ -702,7 +712,6 @@ def _emit_finish(use_id: str, message: str) -> None:
         "finish",
         use_id=use_id,
         result=message,
-        display=_display_mode(message),
         chat_proxy=True,
     )
 
@@ -721,16 +730,6 @@ def _emit_cortex_event(event: str, **fields: Any) -> None:
     if runtime is not None and runtime.callosum.emit("cortex", event, **fields):
         return
     callosum_send("cortex", event, **fields)
-
-
-def _display_mode(text: str) -> str:
-    if not text:
-        return "inline"
-    if len(text) >= 120 or "\n" in text:
-        return "panel"
-    if len(re.split(r"(?<=[.!?])\s", text)) > 2:
-        return "panel"
-    return "inline"
 
 
 def _normalize_location(app_name: Any, path: Any, facet: Any) -> dict[str, str]:
@@ -827,9 +826,96 @@ def _read_result_state(use_id: str) -> dict[str, Any] | None:
         return {
             "state": "finished",
             "summary": latest_sol.get("text", ""),
-            "display": _display_mode(str(latest_sol.get("text", ""))),
         }
     return exec_state
+
+
+def _read_talent_log(use_id: str) -> dict[str, Any] | None:
+    log_path = _find_talent_log_path(use_id)
+    if log_path is None:
+        return None
+
+    request_event: dict[str, Any] | None = None
+    events: list[dict[str, Any]] = []
+    started_at: int | None = None
+    finished_at: int | None = None
+
+    for index, event in enumerate(_read_jsonl_events(log_path)):
+        event_type = str(event.get("event") or "").strip()
+        if index == 0 and event_type == "request":
+            request_event = event
+            continue
+        if request_event is None and event_type == "request":
+            request_event = event
+            continue
+
+        event.pop("raw", None)
+        events.append(event)
+
+        event_ts = _event_ts(event)
+        if event_type == "start" and started_at is None:
+            started_at = event_ts
+        elif event_type == "finish":
+            finished_at = event_ts
+        elif event_type == "error":
+            finished_at = event_ts
+
+    request_ts = _event_ts(request_event)
+    task = None
+    if request_event is not None:
+        task = request_event.get("task") or request_event.get("prompt")
+    if started_at is None:
+        started_at = request_ts
+
+    last_event_type = str(events[-1].get("event") or "").strip() if events else ""
+    if last_event_type == "finish":
+        status = "completed"
+    elif last_event_type == "error":
+        status = "errored"
+    else:
+        status = "running"
+
+    return {
+        "use_id": use_id,
+        "status": status,
+        "task": task,
+        "started_at": started_at,
+        "finished_at": finished_at,
+        "events": events,
+    }
+
+
+def _find_talent_log_path(use_id: str) -> Path | None:
+    talents_dir = Path(get_journal()) / "talents"
+    if not talents_dir.is_dir():
+        return None
+
+    for pattern in (f"*/{use_id}_active.jsonl", f"*/{use_id}.jsonl"):
+        matches = sorted(talents_dir.glob(pattern))
+        if matches:
+            return matches[0]
+    return None
+
+
+def _read_jsonl_events(path: Path) -> list[dict[str, Any]]:
+    parsed: list[dict[str, Any]] = []
+    with open(path, encoding="utf-8") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                parsed.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+    return parsed
+
+
+def _event_ts(event: dict[str, Any] | None) -> int | None:
+    if event is None:
+        return None
+    value = event.get("ts")
+    return value if isinstance(value, int) else None
 
 
 def _reserve_use_id_locked() -> str:
