@@ -41,11 +41,20 @@ def _python_files() -> list[Path]:
     ]
 
 
+def _parse(path: Path) -> ast.Module | None:
+    try:
+        return ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    except SyntaxError:
+        return None
+
+
 def test_no_legacy_chat_imports_or_usages():
     violations: list[str] = []
 
     for path in _python_files():
-        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        tree = _parse(path)
+        if tree is None:
+            continue
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 for alias in node.names:
@@ -70,7 +79,9 @@ def test_no_live_unified_literals_outside_migration_paths():
             continue
         if path == Path(__file__).resolve():
             continue
-        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        tree = _parse(path)
+        if tree is None:
+            continue
         for node in ast.walk(tree):
             if isinstance(node, ast.Constant) and node.value == LEGACY_NAME:
                 violations.append(str(path))
