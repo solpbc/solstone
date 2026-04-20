@@ -32,6 +32,22 @@
     "named_date": null,
     "proposal_count": 0
   },
+  "voice": {
+    "openai_api_key": null,
+    "model": "gpt-realtime",
+    "brain_model": "haiku"
+  },
+  "push": {
+    "apns_key_path": null,
+    "apns_key_id": null,
+    "apns_team_id": null,
+    "bundle_id": null,
+    "environment": "development"
+  },
+  "pairing": {
+    "host_url": null,
+    "token_ttl_seconds": 600
+  },
   "retention": {
     "raw_media": "days",
     "raw_media_days": 7,

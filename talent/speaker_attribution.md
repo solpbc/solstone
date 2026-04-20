@@ -6,6 +6,7 @@
   "schedule": "segment",
   "priority": 40,
   "output": "json",
+  "schema": "speaker_attribution.schema.json",
   "color": "#d84315",
   "hook": {"pre": "speaker_attribution", "post": "speaker_attribution"},
   "load": {"transcripts": true, "talents": {"speakers": true, "screen": true}}

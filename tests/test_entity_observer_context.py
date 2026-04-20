@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from pathlib import Path
 
@@ -186,14 +187,17 @@ def test_post_process_persists_observations(tmp_path):
     result = post_process(
         json.dumps(
             {
-                "observations": {
-                    "alice_johnson": [
-                        {
-                            "content": "Prefers morning meetings",
-                            "reasoning": "Durable preference",
-                        }
-                    ]
-                },
+                "observations": [
+                    {
+                        "entity_id": "alice_johnson",
+                        "items": [
+                            {
+                                "content": "Prefers morning meetings",
+                                "reasoning": "Durable preference",
+                            }
+                        ],
+                    }
+                ],
                 "skipped": [],
                 "summary": "1 entity, 1 observation",
             }
@@ -206,29 +210,37 @@ def test_post_process_persists_observations(tmp_path):
     assert [obs["content"] for obs in observations] == ["Prefers morning meetings"]
 
 
-def test_post_process_filters_unrecognized_entity(tmp_path):
+def test_post_process_filters_unrecognized_entity(tmp_path, caplog):
     _set_journal(str(tmp_path))
     facet = "work"
     _attach_entity(tmp_path, facet, "alice_johnson", "Alice Johnson")
 
-    result = post_process(
-        json.dumps(
-            {
-                "observations": {
-                    "alice_johnson": [{"content": "Prefers morning meetings"}],
-                    "unknown_entity": [{"content": "Should be ignored"}],
-                },
-                "skipped": [],
-                "summary": "2 entities, 1 persisted observation",
-            }
-        ),
-        {"facet": facet, "day": "20260304"},
-    )
+    with caplog.at_level(logging.DEBUG):
+        result = post_process(
+            json.dumps(
+                {
+                    "observations": [
+                        {
+                            "entity_id": "unknown_entity",
+                            "items": [
+                                {
+                                    "content": "Should be ignored",
+                                    "reasoning": "Unknown entity",
+                                }
+                            ],
+                        }
+                    ],
+                    "skipped": ["alice_johnson"],
+                    "summary": "1 entity skipped",
+                }
+            ),
+            {"facet": facet, "day": "20260304"},
+        )
 
     assert result is None
-    observations = load_observations(facet, "alice_johnson")
-    assert [obs["content"] for obs in observations] == ["Prefers morning meetings"]
+    assert load_observations(facet, "alice_johnson") == []
     assert load_observations(facet, "unknown_entity") == []
+    assert "Skipping unrecognized entity_id: unknown_entity" in caplog.text
 
 
 def test_post_process_skips_empty_content(tmp_path):
@@ -239,42 +251,71 @@ def test_post_process_skips_empty_content(tmp_path):
     post_process(
         json.dumps(
             {
-                "observations": {
-                    "alice_johnson": [
-                        {"content": "", "reasoning": "empty"},
-                        {"content": "   ", "reasoning": "whitespace"},
-                        {"content": "Valid observation", "reasoning": "ok"},
-                    ]
-                },
+                "observations": [
+                    {
+                        "entity_id": "alice_johnson",
+                        "items": [{"content": "", "reasoning": "empty"}],
+                    }
+                ],
                 "skipped": [],
-                "summary": "",
-            }
-        ),
-        {"facet": facet, "day": "20260304"},
-    )
-
-    observations = load_observations(facet, "alice_johnson")
-    assert len(observations) == 1
-    assert observations[0]["content"] == "Valid observation"
-
-
-def test_post_process_skips_non_list_items(tmp_path):
-    _set_journal(str(tmp_path))
-    facet = "work"
-    _attach_entity(tmp_path, facet, "alice_johnson", "Alice Johnson")
-
-    post_process(
-        json.dumps(
-            {
-                "observations": {"alice_johnson": "not a list"},
-                "skipped": [],
-                "summary": "",
+                "summary": "No valid observations",
             }
         ),
         {"facet": facet, "day": "20260304"},
     )
 
     assert load_observations(facet, "alice_johnson") == []
+
+
+def test_post_process_skips_non_list_group_items(tmp_path, caplog):
+    _set_journal(str(tmp_path))
+    facet = "work"
+    _attach_entity(tmp_path, facet, "alice_johnson", "Alice Johnson")
+
+    with caplog.at_level(logging.DEBUG):
+        post_process(
+            json.dumps(
+                {
+                    "observations": [
+                        {
+                            "entity_id": "alice_johnson",
+                            "items": "not a list",
+                        }
+                    ],
+                    "skipped": [],
+                    "summary": "Malformed items",
+                }
+            ),
+            {"facet": facet, "day": "20260304"},
+        )
+
+    assert load_observations(facet, "alice_johnson") == []
+    assert "Skipping malformed observation entry" in caplog.text
+
+
+def test_post_process_skips_group_missing_entity_id(tmp_path, caplog):
+    _set_journal(str(tmp_path))
+    facet = "work"
+    _attach_entity(tmp_path, facet, "alice_johnson", "Alice Johnson")
+
+    with caplog.at_level(logging.DEBUG):
+        post_process(
+            json.dumps(
+                {
+                    "observations": [
+                        {
+                            "items": [{"content": "x", "reasoning": "y"}],
+                        }
+                    ],
+                    "skipped": [],
+                    "summary": "Missing entity id",
+                }
+            ),
+            {"facet": facet, "day": "20260304"},
+        )
+
+    assert load_observations(facet, "alice_johnson") == []
+    assert "Skipping malformed observation entry" in caplog.text
 
 
 def test_post_process_deduplicates_existing(tmp_path):
@@ -289,17 +330,23 @@ def test_post_process_deduplicates_existing(tmp_path):
     post_process(
         json.dumps(
             {
-                "observations": {
-                    "alice_johnson": [
-                        {"content": "Prefers morning meetings", "reasoning": "dupe"},
-                        {
-                            "content": "Expert in distributed systems",
-                            "reasoning": "new",
-                        },
-                    ]
-                },
+                "observations": [
+                    {
+                        "entity_id": "alice_johnson",
+                        "items": [
+                            {
+                                "content": "Prefers morning meetings",
+                                "reasoning": "dupe",
+                            },
+                            {
+                                "content": "Expert in distributed systems",
+                                "reasoning": "new",
+                            },
+                        ],
+                    }
+                ],
                 "skipped": [],
-                "summary": "",
+                "summary": "One duplicate, one new observation",
             }
         ),
         {"facet": facet, "day": "20260304"},

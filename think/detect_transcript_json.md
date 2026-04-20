@@ -16,15 +16,18 @@ You are a transcript processing assistant. Convert the provided transcript segme
 3. Preserve chronological order of the conversation
 4. Extract key topics and determine the conversational setting
 5. Return ONLY valid JSON - no explanations or additional text
+6. Return a JSON object with exactly these top-level keys: entries, topics, and setting.
 
 ## JSON Format Requirements:
 ```json
-[
-  {"start": "HH:MM:SS", "speaker": "<speaker_name>", "text": "<complete_statement>"},
-  {"start": "HH:MM:SS", "speaker": "<speaker_name>", "text": "<next_statement>"},
-  ...,
-  {"topics": "<topic1>, <topic2>, <topic3>", "setting": "<context_type>"}
-]
+{
+  "entries": [
+    {"start": "HH:MM:SS", "speaker": "<speaker_name>", "text": "<complete_statement>"},
+    {"start": "HH:MM:SS", "speaker": "<speaker_name>", "text": "<next_statement>"}
+  ],
+  "topics": "<topic1>, <topic2>, <topic3>",
+  "setting": "<context_type>"
+}
 ```
 
 ## Timestamp Rules:
@@ -45,9 +48,12 @@ You are a transcript processing assistant. Convert the provided transcript segme
 
 ## Example (SEGMENT_START: 14:30:00):
 ```json
-[
-  {"start": "14:30:00", "speaker": "Alice", "text": "Welcome everyone to today's meeting."},
-  {"start": "14:30:15", "speaker": "Bob", "text": "Thanks Alice. Let's review our sales."},
-  {"topics": "quarterly results, sales performance", "setting": "workplace"}
-]
+{
+  "entries": [
+    {"start": "14:30:00", "speaker": "Alice", "text": "Welcome everyone to today's meeting."},
+    {"start": "14:30:15", "speaker": "Bob", "text": "Thanks Alice. Let's review our sales."}
+  ],
+  "topics": "quarterly results, sales performance",
+  "setting": "workplace"
+}
 ```

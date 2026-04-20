@@ -48,18 +48,27 @@ def post_process(result: str, context: dict) -> str | None:
         return None
 
     observations = data.get("observations")
-    if not isinstance(observations, dict) or not observations:
+    if not isinstance(observations, list):
+        logger.warning("entity_observer: observations is not a list")
+        return None
+    if not observations:
         return None
 
     valid_entity_ids = {
         entity.get("id") for entity in load_entities(facet) if entity.get("id")
     }
 
-    for entity_id, items in observations.items():
+    for entry in observations:
+        if not isinstance(entry, dict):
+            logger.debug("Skipping non-dict observation entry: %r", entry)
+            continue
+        entity_id = entry.get("entity_id")
+        items = entry.get("items")
+        if not isinstance(entity_id, str) or not isinstance(items, list):
+            logger.debug("Skipping malformed observation entry: %r", entry)
+            continue
         if entity_id not in valid_entity_ids:
             logger.debug("Skipping unrecognized entity_id: %s", entity_id)
-            continue
-        if not isinstance(items, list):
             continue
 
         existing = {

@@ -1,0 +1,326 @@
+<main class="link-dashboard">
+  <header class="link-header">
+    <h1 class="link-h1">Reach your solstone from anywhere</h1>
+    <p class="link-trust">spl is blind by construction. Cloudflare and sol pbc cannot see anything inside the tunnel.</p>
+    <div class="link-status-row">
+      <span id="link-status-indicator" class="link-status-indicator" aria-live="polite">
+        Service status: <span id="link-status-text">loading…</span>
+      </span>
+      <button type="button" class="link-pair-btn" id="link-pair-btn">Pair a phone</button>
+    </div>
+  </header>
+
+  <div id="link-lan-nudge" class="link-lan-nudge" hidden>
+    <p>
+      Your convey isn't reachable on your local network, so phones can't complete the pair ceremony on the same wifi yet.
+      Start the supervisor with a LAN-bound port (for example <code>make dev PORT=0.0.0.0:5015</code>) or set <code>convey.host</code> in your journal config to a non-loopback interface, then reload this page.
+    </p>
+  </div>
+
+  <section class="link-paired-section" aria-labelledby="link-paired-h2">
+    <h2 id="link-paired-h2">Paired devices</h2>
+    <div id="link-devices-list" class="link-devices-list" aria-live="polite">
+      <p class="link-empty-state" id="link-empty-state">No phones paired yet.</p>
+    </div>
+  </section>
+
+  <div id="link-pair-modal" class="link-modal" hidden role="dialog" aria-modal="true" aria-labelledby="link-pair-modal-title">
+    <div class="link-modal-box">
+      <h3 id="link-pair-modal-title">Pair a phone</h3>
+      <label class="link-modal-label">
+        Device label
+        <input type="text" id="link-device-label" placeholder="e.g. My iPhone" maxlength="80" />
+      </label>
+      <div class="link-modal-actions">
+        <button type="button" id="link-pair-generate">Generate pair code</button>
+        <button type="button" id="link-pair-cancel" class="link-modal-cancel">Cancel</button>
+      </div>
+
+      <div id="link-pair-code" class="link-pair-code" hidden>
+        <p class="link-qr-instruction">Scan this code with solstone mobile on the same wifi.</p>
+        <p class="link-qr-subtext">This code expires in 5 minutes and only works once.</p>
+        <div class="link-qr-container" id="link-qr-container" aria-label="pair QR code"></div>
+        <dl class="link-qr-details">
+          <dt>Pair URL</dt>
+          <dd><code id="link-pair-url"></code></dd>
+          <dt>CA fingerprint</dt>
+          <dd><code id="link-pair-ca-fp"></code></dd>
+        </dl>
+        <p class="link-waiting" id="link-pair-waiting">Waiting for phone…</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="link-unpair-modal" class="link-modal" hidden role="dialog" aria-modal="true" aria-labelledby="link-unpair-title">
+    <div class="link-modal-box">
+      <h3 id="link-unpair-title">Unpair this phone?</h3>
+      <p>Are you sure? This phone will lose access immediately.</p>
+      <div class="link-modal-actions">
+        <button type="button" id="link-unpair-confirm" class="link-modal-danger">Unpair</button>
+        <button type="button" id="link-unpair-cancel" class="link-modal-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="link-toast" class="link-toast" role="status" aria-live="polite" hidden></div>
+</main>
+
+<style>
+  .link-dashboard { max-width: 880px; margin: 0 auto; padding: 1.5em; color: #222; }
+  .link-header { margin-bottom: 2em; }
+  .link-h1 { font-size: 1.8em; margin-bottom: 0.25em; font-weight: 600; }
+  .link-trust { color: #666; font-size: 0.95em; margin-bottom: 1em; }
+  .link-status-row { display: flex; align-items: center; justify-content: space-between; gap: 1em; flex-wrap: wrap; }
+  .link-status-indicator { color: #444; font-size: 0.9em; }
+  .link-status-indicator.is-online { color: #1e7b42; }
+  .link-status-indicator.is-offline { color: #a53a1f; }
+  .link-status-indicator.is-reconnecting { color: #b88400; }
+  .link-pair-btn { background: #1e6bd0; color: #fff; border: none; border-radius: 6px; padding: 0.6em 1.2em; cursor: pointer; font-weight: 500; }
+  .link-pair-btn:hover { background: #184f9a; }
+
+  .link-lan-nudge { background: #fff6d4; border: 1px solid #e6cf72; border-radius: 8px; padding: 1em; margin-bottom: 1.5em; font-size: 0.9em; }
+  .link-lan-nudge code { background: rgba(0,0,0,0.06); padding: 0.1em 0.35em; border-radius: 3px; }
+
+  .link-paired-section h2 { font-size: 1.15em; margin-bottom: 0.75em; font-weight: 600; color: #444; }
+  .link-devices-list { display: flex; flex-direction: column; gap: 0.5em; }
+  .link-empty-state { color: #888; font-style: italic; }
+  .link-device-row { display: flex; align-items: center; justify-content: space-between; background: #f9f8f5; border: 1px solid #ede9e1; border-radius: 8px; padding: 0.75em 1em; }
+  .link-device-row .device-main { font-weight: 500; }
+  .link-device-row .device-sub { color: #777; font-size: 0.85em; margin-top: 0.2em; }
+  .link-device-row .device-fp { font-family: ui-monospace, monospace; font-size: 0.75em; color: #999; }
+  .link-unpair-btn { background: transparent; border: 1px solid #c44; color: #c44; border-radius: 4px; padding: 0.35em 0.7em; cursor: pointer; font-size: 0.85em; }
+  .link-unpair-btn:hover { background: #c44; color: #fff; }
+
+  .link-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+  .link-modal-box { background: #fff; border-radius: 10px; padding: 1.5em; max-width: 480px; width: 92%; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
+  .link-modal-box h3 { margin-top: 0; margin-bottom: 1em; }
+  .link-modal-label { display: flex; flex-direction: column; gap: 0.35em; margin-bottom: 1em; font-size: 0.9em; }
+  .link-modal-label input { padding: 0.5em; border: 1px solid #ccc; border-radius: 5px; font-size: 1em; }
+  .link-modal-actions { display: flex; gap: 0.5em; justify-content: flex-end; }
+  .link-modal-actions button { padding: 0.55em 1.1em; border-radius: 5px; cursor: pointer; border: none; font-weight: 500; }
+  .link-modal-actions button:not(.link-modal-cancel):not(.link-modal-danger) { background: #1e6bd0; color: #fff; }
+  .link-modal-cancel { background: #eee; color: #444; }
+  .link-modal-danger { background: #c44; color: #fff; }
+
+  .link-pair-code { margin-top: 1.25em; padding-top: 1.25em; border-top: 1px solid #eee; }
+  .link-qr-instruction { font-weight: 500; margin-bottom: 0.25em; }
+  .link-qr-subtext { color: #777; font-size: 0.85em; margin-bottom: 1em; }
+  .link-qr-container { background: #fff; padding: 1em; border: 1px solid #eee; border-radius: 6px; display: flex; justify-content: center; margin-bottom: 1em; }
+  .link-qr-container svg, .link-qr-container img { max-width: 260px; height: auto; }
+  .link-qr-details { font-size: 0.8em; color: #555; }
+  .link-qr-details dt { font-weight: 500; margin-top: 0.5em; }
+  .link-qr-details dd { font-family: ui-monospace, monospace; overflow-wrap: anywhere; margin-left: 0; }
+  .link-waiting { color: #777; font-style: italic; margin-top: 1em; text-align: center; }
+
+  .link-toast { position: fixed; bottom: 2em; left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 0.75em 1.5em; border-radius: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 1100; }
+</style>
+
+<script>
+(function () {
+  const STATUS_LABELS = {
+    online: 'reachable from the internet',
+    connecting: 'connecting…',
+    reconnecting: 'reconnecting…',
+    offline: 'offline — check your connection',
+    'not-enrolled': 'not yet enrolled',
+    unknown: 'loading…',
+  };
+
+  const statusText = document.getElementById('link-status-text');
+  const statusEl = document.getElementById('link-status-indicator');
+  const devicesList = document.getElementById('link-devices-list');
+  const emptyState = document.getElementById('link-empty-state');
+  const lanNudge = document.getElementById('link-lan-nudge');
+
+  const pairBtn = document.getElementById('link-pair-btn');
+  const pairModal = document.getElementById('link-pair-modal');
+  const pairCancel = document.getElementById('link-pair-cancel');
+  const pairGenerate = document.getElementById('link-pair-generate');
+  const deviceLabelInput = document.getElementById('link-device-label');
+  const pairCodeBox = document.getElementById('link-pair-code');
+  const qrContainer = document.getElementById('link-qr-container');
+  const pairUrlEl = document.getElementById('link-pair-url');
+  const caFpEl = document.getElementById('link-pair-ca-fp');
+  const pairWaiting = document.getElementById('link-pair-waiting');
+
+  const unpairModal = document.getElementById('link-unpair-modal');
+  const unpairConfirm = document.getElementById('link-unpair-confirm');
+  const unpairCancel = document.getElementById('link-unpair-cancel');
+  let unpairTarget = null;
+
+  const toast = document.getElementById('link-toast');
+
+  function showToast(msg) {
+    toast.textContent = msg;
+    toast.hidden = false;
+    setTimeout(() => { toast.hidden = true; }, 2500);
+  }
+
+  function relativeTime(iso) {
+    if (!iso) return 'never';
+    const then = new Date(iso).getTime();
+    if (isNaN(then)) return 'never';
+    const diff = Math.max(0, (Date.now() - then) / 1000);
+    if (diff < 15) return 'just now';
+    if (diff < 60) return `${Math.floor(diff)} seconds ago`;
+    if (diff < 3600) return `${Math.floor(diff / 60)} minutes ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} hours ago`;
+    return `${Math.floor(diff / 86400)} days ago`;
+  }
+
+  async function refreshStatus() {
+    try {
+      const r = await fetch('/app/link/api/status', {headers: {'accept': 'application/json'}});
+      const data = await r.json();
+      const state = data.enrolled ? 'online' : 'not-enrolled';
+      setStatus(state);
+      lanNudge.hidden = !!data.lan_accessible;
+    } catch (e) {
+      setStatus('offline');
+    }
+  }
+
+  function setStatus(key) {
+    const label = STATUS_LABELS[key] || STATUS_LABELS.unknown;
+    statusText.textContent = label;
+    statusEl.classList.remove('is-online', 'is-offline', 'is-reconnecting');
+    if (key === 'online') statusEl.classList.add('is-online');
+    else if (key === 'offline') statusEl.classList.add('is-offline');
+    else if (key === 'reconnecting' || key === 'connecting') statusEl.classList.add('is-reconnecting');
+  }
+
+  async function refreshDevices() {
+    try {
+      const r = await fetch('/app/link/api/devices', {headers: {'accept': 'application/json'}});
+      const data = await r.json();
+      renderDevices(data.devices || []);
+    } catch (e) {
+      console.warn('devices fetch failed', e);
+    }
+  }
+
+  function renderDevices(devices) {
+    devicesList.innerHTML = '';
+    if (!devices.length) {
+      devicesList.appendChild(emptyState);
+      emptyState.hidden = false;
+      return;
+    }
+    emptyState.hidden = true;
+    for (const d of devices) {
+      const row = document.createElement('div');
+      row.className = 'link-device-row';
+      const left = document.createElement('div');
+      const main = document.createElement('div');
+      main.className = 'device-main';
+      main.textContent = `Paired: ${d.device_label} — added ${relativeTime(d.paired_at)}`;
+      const sub = document.createElement('div');
+      sub.className = 'device-sub';
+      sub.textContent = d.last_seen_at
+        ? `Last seen: ${relativeTime(d.last_seen_at)}`
+        : 'Last seen: never';
+      const fp = document.createElement('div');
+      fp.className = 'device-fp';
+      fp.textContent = d.fingerprint_short;
+      left.appendChild(main);
+      left.appendChild(sub);
+      left.appendChild(fp);
+      const btn = document.createElement('button');
+      btn.className = 'link-unpair-btn';
+      btn.type = 'button';
+      btn.textContent = 'Unpair';
+      btn.addEventListener('click', () => openUnpair(d));
+      row.appendChild(left);
+      row.appendChild(btn);
+      devicesList.appendChild(row);
+    }
+  }
+
+  function renderQrAscii(data) {
+    // Minimal fallback — render the URL as selectable text + a data-uri
+    // QR is not bundled. A real deploy would load a QR JS lib; kept
+    // dependency-free for the first lode.
+    qrContainer.innerHTML = '';
+    const note = document.createElement('p');
+    note.style.fontSize = '0.85em';
+    note.style.color = '#555';
+    note.textContent = 'Paste this URL into solstone mobile (QR rendering lib not bundled yet):';
+    qrContainer.appendChild(note);
+    const code = document.createElement('code');
+    code.textContent = data.pair_url;
+    code.style.wordBreak = 'break-all';
+    qrContainer.appendChild(code);
+  }
+
+  pairBtn.addEventListener('click', () => {
+    deviceLabelInput.value = '';
+    pairCodeBox.hidden = true;
+    pairModal.hidden = false;
+  });
+
+  pairCancel.addEventListener('click', () => {
+    pairModal.hidden = true;
+  });
+
+  pairGenerate.addEventListener('click', async () => {
+    const label = deviceLabelInput.value.trim() || 'unnamed device';
+    try {
+      const r = await fetch('/app/link/pair-start', {
+        method: 'POST',
+        headers: {'content-type': 'application/json'},
+        body: JSON.stringify({device_label: label}),
+      });
+      if (!r.ok) throw new Error(`pair-start failed: ${r.status}`);
+      const data = await r.json();
+      pairUrlEl.textContent = data.pair_url;
+      caFpEl.textContent = 'sha256:' + data.ca_fingerprint;
+      renderQrAscii(data);
+      pairCodeBox.hidden = false;
+      // Poll for new device appearing.
+      const started = Date.now();
+      const interval = setInterval(async () => {
+        await refreshDevices();
+        if (Date.now() - started > 310000) {
+          clearInterval(interval);
+          pairWaiting.textContent = 'Timed out. Pair code expired.';
+        }
+      }, 2000);
+    } catch (e) {
+      showToast('Failed to generate pair code');
+      console.error(e);
+    }
+  });
+
+  function openUnpair(device) {
+    unpairTarget = device;
+    unpairModal.hidden = false;
+  }
+  unpairCancel.addEventListener('click', () => {
+    unpairModal.hidden = true;
+    unpairTarget = null;
+  });
+  unpairConfirm.addEventListener('click', async () => {
+    if (!unpairTarget) { unpairModal.hidden = true; return; }
+    try {
+      const r = await fetch('/app/link/unpair', {
+        method: 'POST',
+        headers: {'content-type': 'application/json'},
+        body: JSON.stringify({fingerprint: unpairTarget.fingerprint}),
+      });
+      if (!r.ok) throw new Error(`unpair failed: ${r.status}`);
+      showToast('Unpaired.');
+      unpairModal.hidden = true;
+      unpairTarget = null;
+      refreshDevices();
+    } catch (e) {
+      showToast('Failed to unpair');
+      console.error(e);
+    }
+  });
+
+  refreshStatus();
+  refreshDevices();
+  setInterval(refreshStatus, 15000);
+  setInterval(refreshDevices, 10000);
+})();
+</script>

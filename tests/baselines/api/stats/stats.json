@@ -115,6 +115,7 @@
       "path": "<PROJECT>/apps/entities/talent/entity_observer.md",
       "priority": 57,
       "schedule": "daily",
+      "schema": "entity_observer.schema.json",
       "source": "app",
       "thinking_budget": 2048,
       "tier": 2,
@@ -281,6 +282,7 @@
       "path": "<PROJECT>/talent/speaker_attribution.md",
       "priority": 40,
       "schedule": "segment",
+      "schema": "speaker_attribution.schema.json",
       "source": "system",
       "title": "Speaker Attribution",
       "type": "generate"

@@ -18,14 +18,14 @@ The package exposes several commands:
   `--length` to limit the report to a specific time range. See `sol call transcripts --help` for additional commands.
 - `sol think` runs generators and agents for a single day via Cortex.
 - `python -m think.talents` is the unified execution module for tool talents and generators spawned by Cortex (NDJSON protocol).
-- `sol supervisor` monitors observation heartbeats. Use `--no-observers` to disable local capture (sense still runs for observer uploads and imports).
+- `sol supervisor` monitors journaling health and starts the local services that feed Convey, Cortex, and related background tasks. Use the `--no-*` flags to opt out of specific services when debugging.
 - `sol cortex` starts a Callosum-based service for managing AI agent instances and generators.
 - `sol talent` lists available agents and generators with their configuration. Use `sol talent show <name>` to see details, and `sol talent show <name> --prompt` to see the fully composed prompt that would be sent to the LLM.
 
 ```bash
 sol call transcripts read YYYYMMDD [--start HHMMSS --length MINUTES]
 sol think [--day YYYYMMDD] [--segment HHMMSS_LEN] [--stream NAME] [--refresh] [--flush]
-sol supervisor [--no-observers]
+sol supervisor [--no-daily] [--no-cortex] [--no-link] [--no-convey] [--no-schedule]
 sol cortex [--host HOST] [--port PORT] [--path PATH]
 sol talent list [--schedule daily|segment] [--json]
 sol talent show <name> [--prompt] [--day YYYYMMDD] [--segment HHMMSS_LEN] [--full]

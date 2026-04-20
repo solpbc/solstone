@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["sentence_id", "speaker", "reasoning"],
+    "properties": {
+      "sentence_id": {"type": "integer"},
+      "speaker": {"type": "string", "minLength": 1},
+      "reasoning": {"type": "string", "minLength": 1}
+    }
+  }
+}

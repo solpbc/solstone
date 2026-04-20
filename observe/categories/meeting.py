@@ -6,7 +6,10 @@
 Renders meeting analysis JSON to rich markdown with participants and screen share.
 """
 
+import logging
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 def format(content: Any, context: dict) -> str:
@@ -34,15 +37,15 @@ def format(content: Any, context: dict) -> str:
     if participants:
         lines.append("**Participants:**")
         for p in participants:
-            # Handle both dict format (new) and string format (legacy)
-            if isinstance(p, dict):
-                name = p.get("name", "Unknown")
-                status = p.get("status", "unknown")
-                video = "📹" if p.get("video") else "🔇"
-                lines.append(f"- {video} {name} ({status})")
-            else:
-                # Legacy: participant is just a name string
-                lines.append(f"- {p}")
+            if not isinstance(p, dict):
+                logger.warning(
+                    "meeting formatter: skipping non-dict participant: %r", p
+                )
+                continue
+            name = p.get("name", "Unknown")
+            status = p.get("status", "unknown")
+            video = "📹" if p.get("video") else "🔇"
+            lines.append(f"- {video} {name} ({status})")
         lines.append("")
 
     # Screen share

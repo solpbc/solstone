@@ -324,7 +324,12 @@ class TestFormatScreen:
                 "timestamp": 0,
                 "analysis": {"primary": "meeting"},
                 "content": {
-                    "meeting": {"participants": ["Alice", "Bob"]},
+                    "meeting": {
+                        "participants": [
+                            {"name": "Alice", "status": "active", "video": True},
+                            {"name": "Bob", "status": "muted", "video": False},
+                        ]
+                    },
                 },
             }
         ]
@@ -333,7 +338,8 @@ class TestFormatScreen:
 
         # New meeting formatter uses "**Meeting** (platform)" format
         assert "**Meeting**" in chunks[0]["markdown"]
-        assert "Alice" in chunks[0]["markdown"]
+        assert "📹 Alice (active)" in chunks[0]["markdown"]
+        assert "🔇 Bob (muted)" in chunks[0]["markdown"]
 
     def test_format_screen_extracts_metadata(self):
         """Test that metadata line is extracted and not treated as a frame."""

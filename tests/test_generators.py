@@ -138,8 +138,8 @@ def test_sense_in_segment_schedule():
     assert sources.get("percepts") is True, "sense should include percepts"
 
 
-def _write_temp_talent_prompt(stem: str, frontmatter: str) -> Path:
-    talent_dir = Path(__file__).resolve().parent.parent / "talent"
+def _write_temp_talent_prompt(talent_dir: Path, stem: str, frontmatter: str) -> Path:
+    talent_dir.mkdir(parents=True, exist_ok=True)
     prompt_path = talent_dir / f"{stem}.md"
     prompt_path.write_text(
         f"{frontmatter}\n\nTemporary test prompt\n", encoding="utf-8"
@@ -147,10 +147,12 @@ def _write_temp_talent_prompt(stem: str, frontmatter: str) -> Path:
     return prompt_path
 
 
-def test_get_talent_configs_raises_on_missing_type_with_output():
+def test_get_talent_configs_raises_on_missing_type_with_output(tmp_path, monkeypatch):
     talent = importlib.import_module("think.talent")
+    monkeypatch.setattr(talent, "TALENT_DIR", tmp_path)
     stem = f"test_missing_type_output_{uuid.uuid4().hex}"
     prompt_path = _write_temp_talent_prompt(
+        tmp_path,
         stem,
         '{\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md"\n}',
     )
@@ -163,10 +165,12 @@ def test_get_talent_configs_raises_on_missing_type_with_output():
         prompt_path.unlink(missing_ok=True)
 
 
-def test_get_talent_configs_allows_missing_type_with_tools():
+def test_get_talent_configs_allows_missing_type_with_tools(tmp_path, monkeypatch):
     talent = importlib.import_module("think.talent")
+    monkeypatch.setattr(talent, "TALENT_DIR", tmp_path)
     stem = f"test_missing_type_tools_{uuid.uuid4().hex}"
     prompt_path = _write_temp_talent_prompt(
+        tmp_path,
         stem,
         '{\n  "schedule": "daily",\n  "priority": 10,\n  "tools": "journal"\n}',
     )
@@ -178,10 +182,12 @@ def test_get_talent_configs_allows_missing_type_with_tools():
         prompt_path.unlink(missing_ok=True)
 
 
-def test_get_talent_configs_raises_when_generate_missing_output():
+def test_get_talent_configs_raises_when_generate_missing_output(tmp_path, monkeypatch):
     talent = importlib.import_module("think.talent")
+    monkeypatch.setattr(talent, "TALENT_DIR", tmp_path)
     stem = f"test_generate_missing_output_{uuid.uuid4().hex}"
     prompt_path = _write_temp_talent_prompt(
+        tmp_path,
         stem,
         '{\n  "type": "generate",\n  "schedule": "daily",\n  "priority": 10\n}',
     )
@@ -195,10 +201,12 @@ def test_get_talent_configs_raises_when_generate_missing_output():
         prompt_path.unlink(missing_ok=True)
 
 
-def test_get_talent_configs_allows_cogitate_without_tools():
+def test_get_talent_configs_allows_cogitate_without_tools(tmp_path, monkeypatch):
     talent = importlib.import_module("think.talent")
+    monkeypatch.setattr(talent, "TALENT_DIR", tmp_path)
     stem = f"test_cogitate_missing_tools_{uuid.uuid4().hex}"
     prompt_path = _write_temp_talent_prompt(
+        tmp_path,
         stem,
         '{\n  "type": "cogitate",\n  "schedule": "daily",\n  "priority": 10\n}',
     )

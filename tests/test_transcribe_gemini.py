@@ -4,6 +4,7 @@
 """Tests for the Gemini STT backend."""
 
 import numpy as np
+import pytest
 
 from observe.transcribe.gemini import (
     _build_chunk_contents,
@@ -259,47 +260,54 @@ class TestBuildChunkContents:
 
 
 class TestExtractSegments:
-    """Tests for _extract_segments — robust response parsing."""
+    """Tests for _extract_segments strict wrapper parsing."""
 
     def test_expected_dict_wrapper(self):
         """Standard {"segments": [...]} response."""
         segs = [{"start": "00:00", "speaker": "Speaker 1", "text": "Hi"}]
         assert _extract_segments({"segments": segs}) == segs
 
-    def test_bare_list(self):
-        """Gemini returns bare list of segment dicts."""
+    def test_bare_list_raises(self):
+        """Bare list is rejected."""
         segs = [{"start": "00:00", "speaker": "Speaker 1", "text": "Hi"}]
-        assert _extract_segments(segs) == segs
+        with pytest.raises(RuntimeError):
+            _extract_segments(segs)
 
-    def test_alternate_key(self):
-        """Single-key dict with alternate key name."""
+    def test_alternate_key_raises(self):
+        """Alternate wrapper key is rejected."""
         segs = [{"start": "00:00", "text": "Hi"}]
-        assert _extract_segments({"transcript": segs}) == segs
+        with pytest.raises(RuntimeError):
+            _extract_segments({"transcript": segs})
 
-    def test_array_wrapped_dict(self):
-        """Gemini wraps response in array: [{"segments": [...]}]."""
+    def test_array_wrapped_dict_raises(self):
+        """Array-wrapped dict is rejected."""
         segs = [{"start": "00:00", "speaker": "Speaker 1", "text": "Hi"}]
-        assert _extract_segments([{"segments": segs}]) == segs
+        with pytest.raises(RuntimeError):
+            _extract_segments([{"segments": segs}])
 
     def test_empty_segments(self):
         """Empty segments list in dict."""
         assert _extract_segments({"segments": []}) == []
 
-    def test_empty_bare_list(self):
-        """Empty bare list."""
-        assert _extract_segments([]) == []
+    def test_empty_bare_list_raises(self):
+        """Empty bare list is rejected."""
+        with pytest.raises(RuntimeError):
+            _extract_segments([])
 
-    def test_non_list_segments_value(self):
-        """segments key has non-list value."""
-        assert _extract_segments({"segments": "not a list"}) == []
+    def test_non_list_segments_value_raises(self):
+        """Non-list segments value is rejected."""
+        with pytest.raises(RuntimeError):
+            _extract_segments({"segments": "not a list"})
 
-    def test_unexpected_type(self):
-        """Completely unexpected type returns empty."""
-        assert _extract_segments("unexpected") == []
+    def test_unexpected_type_raises(self):
+        """Unexpected type is rejected."""
+        with pytest.raises(RuntimeError):
+            _extract_segments("unexpected")
 
-    def test_dict_with_no_segments_key(self):
-        """Dict without segments or single-list key returns empty."""
-        assert _extract_segments({"other": "value", "more": "stuff"}) == []
+    def test_dict_with_no_segments_key_raises(self):
+        """Dict without segments key is rejected."""
+        with pytest.raises(RuntimeError):
+            _extract_segments({"other": 1})
 
 
 class TestGetModelInfo:

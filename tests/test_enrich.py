@@ -134,8 +134,8 @@ class TestEnrichTranscript:
         assert result is None
 
     @patch("observe.enrich.generate")
-    def test_bare_list_response_wrapped(self, mock_generate):
-        """Should wrap bare list response as statements with empty metadata."""
+    def test_bare_list_response_returns_none(self, mock_generate):
+        """Should return None when response is a bare list (schema rejection)."""
         from observe.enrich import enrich_transcript
 
         wav = np.zeros(16000 * 10, dtype=np.float32)
@@ -150,12 +150,7 @@ class TestEnrichTranscript:
 
         result = enrich_transcript(wav, 16000, statements)
 
-        assert result is not None
-        assert result["statements"] == [
-            {"corrected": "Hello world.", "emotion": "calm"}
-        ]
-        assert result["topics"] == ""
-        assert result["setting"] == ""
+        assert result is None
 
     def test_returns_none_for_empty_statements(self):
         """Should return None for empty statement list."""

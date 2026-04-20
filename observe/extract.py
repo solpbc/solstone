@@ -22,6 +22,10 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+_SCHEMA = json.loads(
+    (Path(__file__).parent / "extract.schema.json").read_text(encoding="utf-8")
+)
+
 # Default maximum frames to extract content from
 DEFAULT_MAX_EXTRACTIONS = 20
 
@@ -244,6 +248,7 @@ def _ai_select_frames(
         context="observe.extract.selection",
         system_instruction=prompt_content.text,
         json_output=True,
+        json_schema=_SCHEMA,
         thinking_budget=4096,
         max_output_tokens=1024,
         temperature=0.3,

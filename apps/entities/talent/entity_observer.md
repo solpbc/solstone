@@ -10,6 +10,7 @@
   "multi_facet": true,
   "group": "Entities",
   "output": "json",
+  "schema": "entity_observer.schema.json",
   "thinking_budget": 2048,
   "hook": {"pre": "entities:entity_observer", "post": "entities:entity_observer"},
   "load": {"transcripts": false, "percepts": false, "talents": false}
@@ -86,21 +87,24 @@ Respond with a JSON object in this exact format:
 
 ```json
 {
-  "observations": {
-    "entity_slug": [
-      {"content": "The durable observation text", "reasoning": "Why this qualifies (1 sentence)"}
-    ]
-  },
+  "observations": [
+    {
+      "entity_id": "alice_johnson",
+      "items": [
+        {"content": "The durable observation text", "reasoning": "Why this qualifies (1 sentence)"}
+      ]
+    }
+  ],
   "skipped": ["entity_ids_examined_but_no_new_observations"],
   "summary": "Observed X entities, Y new observations total."
 }
 ```
 
 Rules:
-- Use the entity_id (slug) from the context as the key
+- Use the entity_id (slug) from the context as the `entity_id` field
 - One fact per observation — no compound sentences
 - Check for semantic duplicates against the existing observations shown in context
 - If existing observations are already rich, zero new observations is valid and correct
 - The `reasoning` field is for audit only
 - Include ALL examined entities in either `observations` or `skipped`
-- Empty observations dict is valid when nothing new is found
+- Empty observations list is valid when nothing new is found
