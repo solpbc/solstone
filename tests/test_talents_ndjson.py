@@ -96,7 +96,7 @@ def test_ndjson_single_request(mock_journal, monkeypatch, capsys):
         {
             "prompt": "What is 2+2?",
             "provider": "openai",
-            "name": "unified",
+            "name": "chat",
             "model": GPT_5,
             "max_output_tokens": 100,
         }

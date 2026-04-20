@@ -3,36 +3,13 @@
 
 """Tests for convey app placeholder and attention behavior."""
 
-from unittest.mock import patch
-
 import pytest
-from flask import Flask
 
 
 @pytest.fixture(autouse=True)
 def _temp_journal(monkeypatch, tmp_path):
     """Ensure journaling defaults remain isolated from developer data."""
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
-
-
-def _run_triage():
-    """Run the triage endpoint with mocked state."""
-    app = Flask(__name__)
-    with (
-        patch("convey.utils.spawn_agent", return_value="agent-1") as mock_spawn,
-        patch("think.cortex_client.wait_for_uses", return_value=({}, [])),
-        patch(
-            "think.cortex_client.read_use_events",
-            return_value=[{"event": "finish", "result": "ok"}],
-        ),
-    ):
-        from convey.triage import triage
-
-        with app.test_request_context("/", method="POST", json={"message": "hello"}):
-            response = triage()
-
-    assert response.status_code == 200
-    return mock_spawn
 
 
 # --- Placeholder resolution ---
@@ -310,13 +287,3 @@ class TestAttentionResolution:
         assert "2" in result.placeholder_text
         assert "report" in result.placeholder_text.lower()
         assert len(result.placeholder_text) <= 90
-
-
-class TestTriageSystemHealth:
-    """Tests for system health context injection in triage."""
-
-    def test_triage_no_health_context_when_healthy(self):
-        """No system health context when nothing needs attention."""
-        mock = _run_triage()
-        prompt = mock.call_args.kwargs["prompt"]
-        assert "System health" not in prompt

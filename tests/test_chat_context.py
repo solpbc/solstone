@@ -302,7 +302,7 @@ def test_chat_context_enrichment_errors_are_graceful(monkeypatch, tmp_path):
     assert "/app/home" in template_vars["location"]
 
 
-def test_chat_context_drops_conversation_memory_imports(monkeypatch):
+def test_chat_context_drops_legacy_memory_imports(monkeypatch):
     monkeypatch.setattr("think.routines.get_routine_state", lambda: [])
     monkeypatch.setattr(
         "think.routines.get_config",
@@ -310,13 +310,15 @@ def test_chat_context_drops_conversation_memory_imports(monkeypatch):
     )
     monkeypatch.setattr("think.routines.save_config", lambda config: None)
 
+    legacy_module = "think" + ".con" + "versation"
+    legacy_memory = "conversation_" + "memory"
     source = (
         Path(__file__).resolve().parents[1] / "talent" / "chat_context.py"
     ).read_text(encoding="utf-8")
-    assert "think.conversation" not in source
-    assert "conversation_memory" not in source
+    assert legacy_module not in source
+    assert legacy_memory not in source
 
-    sys.modules.pop("think.conversation", None)
+    sys.modules.pop(legacy_module, None)
     _load_chat_context_module()
 
-    assert "think.conversation" not in sys.modules
+    assert legacy_module not in sys.modules

@@ -474,14 +474,19 @@
 
           // Check GET immediately in case agent already finished
           try {
-            var r = await fetch('/api/triage/result/' + agentId);
+            var r = await fetch('/api/chat/result/' + agentId);
             if (r.ok) {
               // Agent already finished — cancel WS subscription and display
-              if (recoveryCleanup) { recoveryCleanup(); recoveryCleanup = null; }
-              if (recoveryWatchdog) { clearTimeout(recoveryWatchdog); recoveryWatchdog = null; }
               var data = await r.json();
-              var resp = data.response || '';
-              recoverDeliver(resp, data.display || 'panel', null);
+              if (data.state === 'finished') {
+                if (recoveryCleanup) { recoveryCleanup(); recoveryCleanup = null; }
+                if (recoveryWatchdog) { clearTimeout(recoveryWatchdog); recoveryWatchdog = null; }
+                recoverDeliver(data.summary || '', data.display || 'panel', null);
+              } else if (data.state === 'errored') {
+                if (recoveryCleanup) { recoveryCleanup(); recoveryCleanup = null; }
+                if (recoveryWatchdog) { clearTimeout(recoveryWatchdog); recoveryWatchdog = null; }
+                recoverDeliver('', 'panel', data.reason || 'something went wrong. the server returned an unexpected response. try sending your message again, or check the health page if it keeps happening.');
+              }
             }
             // If 404, agent still running — keep WS subscription active
           } catch (err) {
@@ -693,7 +698,7 @@
     }
 
     try {
-      var r = await fetch('/api/triage', {
+      var r = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

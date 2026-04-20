@@ -87,6 +87,7 @@ def spawn_agent(
     name: str,
     provider: Optional[str] = None,
     config: Optional[dict[str, Any]] = None,
+    use_id: Optional[str] = None,
 ) -> str | None:
     """Spawn a Cortex agent and return the use_id.
 
@@ -98,6 +99,7 @@ def spawn_agent(
         name: Agent name - system (e.g., "default") or app-qualified (e.g., "entities:entity_assist")
         provider: Optional provider override (openai, google, anthropic)
         config: Additional configuration (max_tokens, facet, session_id, etc.)
+        use_id: Optional pre-reserved Cortex use_id to reuse for the request
 
     Returns:
         use_id string (timestamp-based), or None if the request could not be sent.
@@ -112,6 +114,7 @@ def spawn_agent(
         name=name,
         provider=provider,
         config=config,
+        use_id=use_id,
     )
 
 

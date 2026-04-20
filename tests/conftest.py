@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from convey.chat import stop_all_chat_runtime
 from tests._baseline_harness import copytree_tracked
 from think.entities.journal import clear_journal_entity_cache
 from think.entities.loading import clear_entity_loading_cache
@@ -72,6 +73,12 @@ def _cleanup_voice_runtime():
 def _cleanup_push_runtime():
     yield
     stop_all_push_runtime()
+
+
+@pytest.fixture(autouse=True)
+def _cleanup_chat_runtime():
+    yield
+    stop_all_chat_runtime()
 
 
 @pytest.fixture

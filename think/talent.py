@@ -35,7 +35,6 @@ from think.prompts import _load_prompt_metadata, load_prompt
 
 TALENT_DIR = Path(__file__).parent.parent / "talent"
 APPS_DIR = Path(__file__).parent.parent / "apps"
-_UNDISCOVERED_SYSTEM_TALENTS = {"triage"}
 
 
 # ---------------------------------------------------------------------------
@@ -232,8 +231,6 @@ def get_talent_configs(
     if TALENT_DIR.is_dir():
         for md_path in sorted(TALENT_DIR.glob("*.md")):
             name = md_path.stem
-            if name in _UNDISCOVERED_SYSTEM_TALENTS:
-                continue
             info = _load_prompt_metadata(md_path)
 
             info["source"] = "system"
@@ -355,10 +352,6 @@ def _resolve_talent_path(name: str) -> tuple[Path, str]:
         # App talent: "support:support" -> apps/support/talent/support
         app, talent_name = name.split(":", 1)
         talent_dir = Path(__file__).parent.parent / "apps" / app / "talent"
-    elif name == "unified":
-        # Chat talent: "unified" -> talent/chat
-        talent_dir = TALENT_DIR
-        talent_name = "chat"
     else:
         # System talent: bare name -> talent/{name}
         talent_dir = TALENT_DIR

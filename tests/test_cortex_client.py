@@ -86,7 +86,7 @@ def test_cortex_request_broadcasts_to_callosum(callosum_listener):
     # Create a request
     use_id = cortex_request(
         prompt="Test prompt",
-        name="unified",
+        name="chat",
         provider="openai",
         config={"model": GPT_5},
     )
@@ -99,7 +99,7 @@ def test_cortex_request_broadcasts_to_callosum(callosum_listener):
     assert msg["tract"] == "cortex"
     assert msg["event"] == "request"
     assert msg["prompt"] == "Test prompt"
-    assert msg["name"] == "unified"
+    assert msg["name"] == "chat"
     assert msg["provider"] == "openai"
     assert msg["model"] == GPT_5
     assert msg["use_id"] == use_id
@@ -110,12 +110,28 @@ def test_cortex_request_returns_agent_id(callosum_server):
     """Test that cortex_request returns use_id string."""
     _ = callosum_server  # Needed for side effects only
 
-    use_id = cortex_request(prompt="Test", name="unified", provider="openai")
+    use_id = cortex_request(prompt="Test", name="chat", provider="openai")
 
     # Verify use_id is a string timestamp
     assert isinstance(use_id, str)
     assert use_id.isdigit()
     assert len(use_id) == 13  # Millisecond timestamp
+
+
+def test_cortex_request_uses_explicit_use_id(callosum_listener):
+    messages = callosum_listener
+
+    use_id = cortex_request(
+        prompt="Test prompt",
+        name="chat",
+        provider="openai",
+        use_id="1713629000000",
+    )
+
+    time.sleep(0.2)
+
+    assert use_id == "1713629000000"
+    assert messages[-1]["use_id"] == "1713629000000"
 
 
 def test_cortex_request_unique_agent_ids(callosum_server):
@@ -124,7 +140,7 @@ def test_cortex_request_unique_agent_ids(callosum_server):
 
     agent_ids = []
     for i in range(3):
-        use_id = cortex_request(prompt=f"Test {i}", name="unified", provider="openai")
+        use_id = cortex_request(prompt=f"Test {i}", name="chat", provider="openai")
         agent_ids.append(use_id)
         time.sleep(0.002)
 
@@ -136,7 +152,7 @@ def test_cortex_request_returns_none_on_send_failure(callosum_server, monkeypatc
     """Test cortex_request returns None when callosum_send fails."""
     monkeypatch.setattr("think.cortex_client.callosum_send", lambda *a, **kw: False)
 
-    use_id = cortex_request(prompt="Test", name="unified", provider="openai")
+    use_id = cortex_request(prompt="Test", name="chat", provider="openai")
 
     assert use_id is None
 
@@ -146,7 +162,7 @@ def test_cortex_request_empty_journal(tmp_path, monkeypatch):
     monkeypatch.setattr("think.cortex_client.callosum_send", lambda *a, **kw: True)
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
-    use_id = cortex_request("test", "unified", "openai")
+    use_id = cortex_request("test", "chat", "openai")
     assert use_id is not None
     assert len(use_id) > 0
 
@@ -177,7 +193,7 @@ def test_cortex_agents_with_active(tmp_path, monkeypatch):
     ts1 = now_ms()
     ts2 = ts1 + 1000
 
-    unified_dir = talents_dir / "unified"
+    unified_dir = talents_dir / "chat"
     tester_dir = talents_dir / "tester"
     unified_dir.mkdir()
     tester_dir.mkdir()
@@ -189,7 +205,7 @@ def test_cortex_agents_with_active(tmp_path, monkeypatch):
                 "event": "request",
                 "ts": ts1,
                 "prompt": "Task 1",
-                "name": "unified",
+                "name": "chat",
                 "provider": "openai",
             },
             f,
@@ -260,7 +276,7 @@ def test_cortex_agents_pagination(tmp_path, monkeypatch):
 
     # Create multiple agents
     base_ts = now_ms()
-    unified_dir = talents_dir / "unified"
+    unified_dir = talents_dir / "chat"
     unified_dir.mkdir()
     for i in range(5):
         ts = base_ts + (i * 1000)
@@ -271,7 +287,7 @@ def test_cortex_agents_pagination(tmp_path, monkeypatch):
                     "event": "request",
                     "ts": ts,
                     "prompt": f"Task {i}",
-                    "name": "unified",
+                    "name": "chat",
                 },
                 f,
             )
@@ -300,7 +316,7 @@ def test_get_agent_log_status_completed(tmp_path, monkeypatch):
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     talents_dir = tmp_path / "talents"
     talents_dir.mkdir()
-    unified_dir = talents_dir / "unified"
+    unified_dir = talents_dir / "chat"
     unified_dir.mkdir()
 
     use_id = "1234567890123"
@@ -314,7 +330,7 @@ def test_get_agent_log_status_running(tmp_path, monkeypatch):
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     talents_dir = tmp_path / "talents"
     talents_dir.mkdir()
-    unified_dir = talents_dir / "unified"
+    unified_dir = talents_dir / "chat"
     unified_dir.mkdir()
 
     use_id = "1234567890123"
@@ -336,7 +352,7 @@ def test_get_agent_log_status_prefers_completed(tmp_path, monkeypatch):
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     talents_dir = tmp_path / "talents"
     talents_dir.mkdir()
-    unified_dir = talents_dir / "unified"
+    unified_dir = talents_dir / "chat"
     unified_dir.mkdir()
 
     # Edge case: both files exist (shouldn't happen, but check precedence)
@@ -352,7 +368,7 @@ def test_get_agent_end_state_finish(tmp_path, monkeypatch):
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     talents_dir = tmp_path / "talents"
     talents_dir.mkdir()
-    unified_dir = talents_dir / "unified"
+    unified_dir = talents_dir / "chat"
     unified_dir.mkdir()
 
     use_id = "1234567890123"
@@ -369,7 +385,7 @@ def test_get_agent_end_state_error(tmp_path, monkeypatch):
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     talents_dir = tmp_path / "talents"
     talents_dir.mkdir()
-    unified_dir = talents_dir / "unified"
+    unified_dir = talents_dir / "chat"
     unified_dir.mkdir()
 
     use_id = "1234567890123"
@@ -386,7 +402,7 @@ def test_get_agent_end_state_running(tmp_path, monkeypatch):
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     talents_dir = tmp_path / "talents"
     talents_dir.mkdir()
-    unified_dir = talents_dir / "unified"
+    unified_dir = talents_dir / "chat"
     unified_dir.mkdir()
 
     use_id = "1234567890123"
@@ -413,7 +429,7 @@ def test_wait_for_agents_already_complete(tmp_path, monkeypatch):
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     talents_dir = tmp_path / "talents"
     talents_dir.mkdir()
-    unified_dir = talents_dir / "unified"
+    unified_dir = talents_dir / "chat"
     unified_dir.mkdir()
     (tmp_path / "health").mkdir()
 
@@ -433,7 +449,7 @@ def test_wait_for_agents_event_completion(callosum_server):
     """Test wait_for_uses completes when finish event is received."""
     tmp_path = callosum_server
     talents_dir = tmp_path / "talents"
-    unified_dir = talents_dir / "unified"
+    unified_dir = talents_dir / "chat"
     unified_dir.mkdir(exist_ok=True)
 
     use_id = "1234567890123"
@@ -471,7 +487,7 @@ def test_wait_for_agents_error_event(callosum_server):
     """Test wait_for_uses completes on error event too."""
     tmp_path = callosum_server
     talents_dir = tmp_path / "talents"
-    unified_dir = talents_dir / "unified"
+    unified_dir = talents_dir / "chat"
     unified_dir.mkdir(exist_ok=True)
 
     use_id = "1234567890124"
@@ -506,7 +522,7 @@ def test_wait_for_agents_initial_file_check(tmp_path, monkeypatch):
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     talents_dir = tmp_path / "talents"
     talents_dir.mkdir()
-    unified_dir = talents_dir / "unified"
+    unified_dir = talents_dir / "chat"
     unified_dir.mkdir()
     (tmp_path / "health").mkdir()
 
@@ -527,7 +543,7 @@ def test_wait_for_agents_timeout_actual(tmp_path, monkeypatch):
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     talents_dir = tmp_path / "talents"
     talents_dir.mkdir()
-    unified_dir = talents_dir / "unified"
+    unified_dir = talents_dir / "chat"
     unified_dir.mkdir()
     (tmp_path / "health").mkdir()
 
@@ -545,7 +561,7 @@ def test_wait_for_agents_partial(callosum_server):
     """Test wait_for_uses with some completing and some timing out."""
     tmp_path = callosum_server
     talents_dir = tmp_path / "talents"
-    unified_dir = talents_dir / "unified"
+    unified_dir = talents_dir / "chat"
     unified_dir.mkdir(exist_ok=True)
 
     completing_agent = "1111"
@@ -588,7 +604,7 @@ def test_wait_for_agents_missed_event_recovery(tmp_path, monkeypatch, caplog):
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     talents_dir = tmp_path / "talents"
     talents_dir.mkdir()
-    unified_dir = talents_dir / "unified"
+    unified_dir = talents_dir / "chat"
     unified_dir.mkdir()
     (tmp_path / "health").mkdir()
 

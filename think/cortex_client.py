@@ -37,6 +37,7 @@ def cortex_request(
     name: str,
     provider: Optional[str] = None,
     config: Optional[Dict[str, Any]] = None,
+    use_id: Optional[str] = None,
 ) -> str | None:
     """Create a Cortex talent request via Callosum broadcast.
 
@@ -45,6 +46,7 @@ def cortex_request(
         name: Talent name - system (e.g., "chat") or app-qualified (e.g., "entities:entity_assist")
         provider: AI provider - openai, google, or anthropic
         config: Provider-specific configuration (model, max_output_tokens, thinking_budget, etc.)
+        use_id: Optional pre-reserved use_id. When omitted, a unique timestamp is allocated.
 
     Returns:
         Use ID (timestamp-based string), or None if the Callosum send failed.
@@ -58,14 +60,20 @@ def cortex_request(
 
     # Generate monotonic timestamp in milliseconds, ensuring uniqueness
     global _last_ts
-    ts = now_ms()
+    if use_id is None:
+        ts = now_ms()
 
-    # If same or earlier than last used, increment to ensure uniqueness
-    if ts <= _last_ts:
-        ts = _last_ts + 1
+        if ts <= _last_ts:
+            ts = _last_ts + 1
 
-    _last_ts = ts
-    use_id = str(ts)
+        _last_ts = ts
+        use_id = str(ts)
+    else:
+        if not use_id.isdigit():
+            raise ValueError("use_id must be a millisecond timestamp string")
+        ts = int(use_id)
+        if ts > _last_ts:
+            _last_ts = ts
 
     # Build request object
     request = {

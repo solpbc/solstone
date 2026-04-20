@@ -61,7 +61,7 @@ ENDPOINTS = [
     {
         "app": "sol",
         "name": "preview",
-        "path": "/app/sol/api/preview/unified",
+        "path": "/app/sol/api/preview/chat",
         "params": {},
         "status": 200,
     },
@@ -86,6 +86,28 @@ ENDPOINTS = [
         "params": {},
         "status": 200,
         "sandbox_only": True,  # live indexer computes differently than Flask test client
+    },
+    # convey/chat.py
+    {
+        "app": "chat",
+        "name": "session",
+        "path": "/api/chat/session",
+        "params": {},
+        "status": 200,
+    },
+    {
+        "app": "chat",
+        "name": "stream",
+        "path": "/api/chat/stream/20260304",
+        "params": {"limit": "20"},
+        "status": 200,
+    },
+    {
+        "app": "chat",
+        "name": "result",
+        "path": "/api/chat/result/1700000000001",
+        "params": {},
+        "status": 404,
     },
     # apps/activities/routes.py
     {

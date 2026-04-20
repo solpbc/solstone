@@ -98,7 +98,7 @@ def test_agent_context_includes_entities_by_facet(fixture_journal):
 
 def test_agent_context_with_facet_focus(fixture_journal):
     """Test that get_talent with facet parameter uses focused single-facet context."""
-    config = get_talent("unified", facet="full-featured")
+    config = get_talent("chat", facet="full-featured")
 
     prompt = config["user_instruction"]
 

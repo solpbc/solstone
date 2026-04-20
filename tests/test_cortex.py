@@ -114,7 +114,7 @@ def test_spawn_subprocess(
         "ts": 123456789,
         "prompt": "Test prompt",
         "provider": "openai",
-        "name": "unified",
+        "name": "chat",
         "model": GPT_5,
     }
 
@@ -141,7 +141,7 @@ def test_spawn_subprocess(
     assert ndjson["event"] == "request"
     assert ndjson["prompt"] == "Test prompt"
     assert ndjson["provider"] == "openai"
-    assert ndjson["name"] == "unified"
+    assert ndjson["name"] == "chat"
     assert ndjson["model"] == GPT_5
 
     # Check stdin was closed
@@ -266,7 +266,7 @@ def test_spawn_subprocess_uses_cwd_from_talent(
         "ts": 24680,
         "prompt": "Test prompt",
         "provider": "openai",
-        "name": "unified",
+        "name": "chat",
         "model": GPT_5,
     }
 
@@ -481,11 +481,11 @@ def test_has_finish_event(cortex_service, mock_journal):
 def test_complete_use_file(cortex_service, mock_journal):
     """Test completing an agent file (rename from active to completed)."""
     use_id = "123456789"
-    unified_dir = mock_journal / "talents" / "unified"
+    unified_dir = mock_journal / "talents" / "chat"
     unified_dir.mkdir()
     active_path = unified_dir / f"{use_id}_active.jsonl"
     active_path.touch()
-    cortex_service.use_requests[use_id] = {"name": "unified", "use_id": use_id}
+    cortex_service.use_requests[use_id] = {"name": "chat", "use_id": use_id}
 
     cortex_service._complete_use_file(use_id, active_path)
 
@@ -493,33 +493,33 @@ def test_complete_use_file(cortex_service, mock_journal):
     assert not active_path.exists()
     completed_path = unified_dir / f"{use_id}.jsonl"
     assert completed_path.exists()
-    symlink_path = mock_journal / "talents" / "unified.log"
+    symlink_path = mock_journal / "talents" / "chat.log"
     assert symlink_path.is_symlink()
-    assert os.readlink(symlink_path) == f"unified/{use_id}.jsonl"
+    assert os.readlink(symlink_path) == f"chat/{use_id}.jsonl"
 
 
 def test_complete_use_file_replaces_symlink(cortex_service, mock_journal):
     """Test completing agent file replaces convenience symlink for same name."""
-    unified_dir = mock_journal / "talents" / "unified"
+    unified_dir = mock_journal / "talents" / "chat"
     unified_dir.mkdir()
 
     first_agent_id = "111"
     first_active_path = unified_dir / f"{first_agent_id}_active.jsonl"
     first_active_path.touch()
-    cortex_service.use_requests[first_agent_id] = {"name": "unified"}
+    cortex_service.use_requests[first_agent_id] = {"name": "chat"}
 
     cortex_service._complete_use_file(first_agent_id, first_active_path)
 
     second_agent_id = "222"
     second_active_path = unified_dir / f"{second_agent_id}_active.jsonl"
     second_active_path.touch()
-    cortex_service.use_requests[second_agent_id] = {"name": "unified"}
+    cortex_service.use_requests[second_agent_id] = {"name": "chat"}
 
     cortex_service._complete_use_file(second_agent_id, second_active_path)
 
-    symlink_path = mock_journal / "talents" / "unified.log"
+    symlink_path = mock_journal / "talents" / "chat.log"
     assert symlink_path.is_symlink()
-    assert os.readlink(symlink_path) == f"unified/{second_agent_id}.jsonl"
+    assert os.readlink(symlink_path) == f"chat/{second_agent_id}.jsonl"
 
 
 def test_complete_use_file_colon_name(cortex_service, mock_journal):
@@ -765,7 +765,7 @@ def test_recover_orphaned_uses(cortex_service, mock_journal):
     """Test recovery of orphaned active agent files."""
     # Create orphaned active files
     talents_dir = mock_journal / "talents"
-    unified_dir = talents_dir / "unified"
+    unified_dir = talents_dir / "chat"
     unified_dir.mkdir()
     agent1_active = unified_dir / "111_active.jsonl"
     agent2_active = unified_dir / "222_active.jsonl"

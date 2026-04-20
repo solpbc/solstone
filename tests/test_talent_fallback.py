@@ -127,7 +127,7 @@ def test_preflight_swap_unhealthy_primary(monkeypatch):
     )
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
 
-    config = prepare_config({"name": "unified", "prompt": "hello"})
+    config = prepare_config({"name": "chat", "prompt": "hello"})
 
     assert config["provider"] == "anthropic"
     assert config["model"] == "claude-sonnet-4-5"
@@ -144,7 +144,7 @@ def test_preflight_no_swap_healthy_primary(monkeypatch):
     )
     monkeypatch.setattr("think.models.should_recheck_health", lambda _h: False)
 
-    config = prepare_config({"name": "unified", "prompt": "hello"})
+    config = prepare_config({"name": "chat", "prompt": "hello"})
 
     assert config["provider"] == "google"
     assert "fallback_from" not in config
@@ -162,7 +162,7 @@ def test_preflight_no_swap_no_backup_key(monkeypatch):
     monkeypatch.setattr("think.models.get_backup_provider", lambda _type: "anthropic")
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
 
-    config = prepare_config({"name": "unified", "prompt": "hello"})
+    config = prepare_config({"name": "chat", "prompt": "hello"})
 
     assert config["provider"] == "google"
     assert "fallback_from" not in config
@@ -255,7 +255,7 @@ def test_on_failure_retry_cogitate_uses_context_from_name(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
 
     config = {
-        "name": "unified",
+        "name": "chat",
         "provider": "google",
         "model": "gemini-3-flash-preview",
         "health_stale": False,
@@ -292,7 +292,7 @@ def test_on_failure_retry_generate(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
 
     config = {
-        "name": "unified",
+        "name": "chat",
         "provider": "google",
         "model": "gemini-3-flash-preview",
         "prompt": "hello",
@@ -324,7 +324,7 @@ def test_on_failure_no_retry_value_error(monkeypatch):
     monkeypatch.setattr("think.models.generate_with_result", bad_generate)
 
     config = {
-        "name": "unified",
+        "name": "chat",
         "provider": "google",
         "model": "gemini-3-flash-preview",
         "prompt": "hello",
@@ -361,7 +361,7 @@ def test_on_failure_both_fail_raises_original(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
 
     config = {
-        "name": "unified",
+        "name": "chat",
         "provider": "google",
         "model": "gemini-3-flash-preview",
         "prompt": "hello",
@@ -380,7 +380,7 @@ def test_fallback_event_emitted():
     events = []
     config = {
         "type": "cogitate",
-        "name": "unified",
+        "name": "chat",
         "provider": "anthropic",
         "model": "claude-sonnet-4-5",
         "prompt": "hello",
@@ -427,7 +427,7 @@ def test_recheck_requested_on_stale(monkeypatch):
 def test_main_async_no_duplicate_error_when_evented(monkeypatch, capsys):
     from think.talents import main_async
 
-    ndjson_input = json.dumps({"name": "unified", "prompt": "hello"})
+    ndjson_input = json.dumps({"name": "chat", "prompt": "hello"})
     monkeypatch.setattr("sys.stdin", StringIO(ndjson_input))
 
     async def fake_run_talent(_config, emit_event, dry_run=False):

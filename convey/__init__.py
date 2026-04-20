@@ -20,9 +20,9 @@ from apps import AppRegistry
 from . import state, system
 from .apps import register_app_context
 from .bridge import emit, register_websocket
+from .chat import chat_bp, start_chat_runtime
 from .config import bp as config_bp
 from .root import bp as root_bp
-from .triage import bp as triage_bp
 
 __all__ = [
     "create_app",
@@ -144,8 +144,8 @@ def create_app(journal: str = "") -> Flask:
     # Register config API blueprint
     app.register_blueprint(config_bp)
 
-    # Register triage API blueprint (universal chat bar)
-    app.register_blueprint(triage_bp)
+    # Register chat API blueprint (universal chat bar)
+    app.register_blueprint(chat_bp)
 
     # Register system health API blueprint
     app.register_blueprint(system.bp)
@@ -172,6 +172,7 @@ def create_app(journal: str = "") -> Flask:
     register_websocket(sock)
     start_voice_runtime(app)
     start_push_runtime(app)
+    start_chat_runtime(app)
 
     if journal:
         state.journal_root = journal

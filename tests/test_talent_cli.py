@@ -309,7 +309,7 @@ def test_logs_runs_default(capsys):
     output = capsys.readouterr().out
 
     # Should have runs from all fixture days (original + R&J)
-    assert "default" in output or "unified" in output
+    assert "default" in output or "chat" in output
     assert "flow" in output
     assert "activity" in output
     assert "entities" in output

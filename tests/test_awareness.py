@@ -224,7 +224,7 @@ class TestComputeThickness:
             "think.indexer.journal.get_entity_strength", return_value=[]
         ):
             with unittest.mock.patch(
-                "think.conversation.get_recent_exchanges", return_value=[]
+                "think.awareness._recent_chat_exchanges", return_value=[]
             ):
                 with unittest.mock.patch(
                     "think.facets.get_enabled_facets", return_value={}
@@ -248,7 +248,7 @@ class TestComputeThickness:
         ]
         exchanges = [
             {
-                "talent": "triage",
+                "talent": "chat",
                 "agent_response": f"talked about entity_{i}",
                 "user_message": "hi",
             }
@@ -260,7 +260,7 @@ class TestComputeThickness:
             "think.indexer.journal.get_entity_strength", return_value=entities
         ):
             with unittest.mock.patch(
-                "think.conversation.get_recent_exchanges", return_value=exchanges
+                "think.awareness._recent_chat_exchanges", return_value=exchanges
             ):
                 with unittest.mock.patch(
                     "think.facets.get_enabled_facets", return_value=facets
@@ -283,7 +283,7 @@ class TestComputeThickness:
         ]
         exchanges = [
             {
-                "talent": "triage",
+                "talent": "chat",
                 "agent_response": f"entity_{i} is great",
                 "user_message": "yo",
             }
@@ -300,7 +300,7 @@ class TestComputeThickness:
             "think.indexer.journal.get_entity_strength", return_value=entities
         ):
             with unittest.mock.patch(
-                "think.conversation.get_recent_exchanges", return_value=exchanges
+                "think.awareness._recent_chat_exchanges", return_value=exchanges
             ):
                 with unittest.mock.patch(
                     "think.facets.get_enabled_facets", return_value=facets
@@ -324,7 +324,7 @@ class TestComputeThickness:
             {"entity_name": f"entity_{i}", "observation_depth": 3} for i in range(15)
         ]
         exchanges = [
-            {"talent": "triage", "agent_response": "hello there", "user_message": "hi"}
+            {"talent": "chat", "agent_response": "hello there", "user_message": "hi"}
             for _ in range(10)
         ]
         facets = {"work": {}, "personal": {}, "hobby": {}}
@@ -333,7 +333,7 @@ class TestComputeThickness:
             "think.indexer.journal.get_entity_strength", return_value=entities
         ):
             with unittest.mock.patch(
-                "think.conversation.get_recent_exchanges", return_value=exchanges
+                "think.awareness._recent_chat_exchanges", return_value=exchanges
             ):
                 with unittest.mock.patch(
                     "think.facets.get_enabled_facets", return_value=facets
@@ -363,7 +363,7 @@ class TestComputeThickness:
                 "user_message": "hello",
             },
             {
-                "talent": "triage",
+                "talent": "chat",
                 "agent_response": "foo is great",
                 "user_message": "hey",
             },
@@ -373,7 +373,7 @@ class TestComputeThickness:
             "think.indexer.journal.get_entity_strength", return_value=entities
         ):
             with unittest.mock.patch(
-                "think.conversation.get_recent_exchanges", return_value=exchanges
+                "think.awareness._recent_chat_exchanges", return_value=exchanges
             ):
                 with unittest.mock.patch(
                     "think.facets.get_enabled_facets",
@@ -394,7 +394,7 @@ class TestComputeThickness:
             side_effect=Exception("db error"),
         ):
             with unittest.mock.patch(
-                "think.conversation.get_recent_exchanges",
+                "think.awareness._recent_chat_exchanges",
                 side_effect=Exception("no file"),
             ):
                 with unittest.mock.patch(
@@ -421,7 +421,7 @@ class TestComputeThickness:
             "think.indexer.journal.get_entity_strength", return_value=[]
         ):
             with unittest.mock.patch(
-                "think.conversation.get_recent_exchanges", return_value=[]
+                "think.awareness._recent_chat_exchanges", return_value=[]
             ):
                 with unittest.mock.patch(
                     "think.facets.get_enabled_facets", return_value={}

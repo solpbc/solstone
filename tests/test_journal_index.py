@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pytest
 
+from convey.chat_stream import append_chat_event
 from tests.conftest import copytree_tracked
 from think.indexer import sanitize_fts_query
 from think.indexer.journal import (
@@ -1673,6 +1674,32 @@ class TestSegmentChunks:
         ).fetchone()[0]
         conn.close()
         assert count1 == count2
+
+
+def test_chat_turn_is_searchable_after_rescan(journal_fixture):
+    from think.indexer.journal import scan_journal, search_journal
+
+    append_chat_event(
+        "owner_message",
+        text="Tell me about the nebula phrase",
+        app="sol",
+        path="/app/sol",
+        facet="work",
+    )
+    append_chat_event(
+        "sol_message",
+        use_id="1713628000000",
+        text="The unique nebula phrase is now in chat history.",
+        notes="done",
+        requested_exec=False,
+        requested_task=None,
+    )
+
+    scan_journal(str(journal_fixture), full=True)
+    total, results = search_journal("unique nebula phrase")
+
+    assert total >= 1
+    assert any("unique nebula phrase" in result["text"].lower() for result in results)
 
 
 def test_scan_journal_is_pure_wrt_entity_state(journal_copy):

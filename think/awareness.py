@@ -209,6 +209,47 @@ def get_imports() -> dict[str, Any]:
     )
 
 
+def _recent_chat_exchanges(limit: int = 10000) -> list[dict[str, Any]]:
+    """Return owner-visible chat responses from chat stream history."""
+    from think.utils import day_dirs
+
+    try:
+        days = day_dirs()
+    except Exception:
+        return []
+
+    exchanges: list[dict[str, Any]] = []
+    for day_name in sorted(days):
+        day_path = Path(days[day_name])
+        chat_root = day_path / "chat"
+        if not chat_root.exists():
+            continue
+        for segment_dir in sorted(chat_root.iterdir()):
+            if not segment_dir.is_dir():
+                continue
+            chat_path = segment_dir / "chat.jsonl"
+            if not chat_path.exists():
+                continue
+            try:
+                for line in chat_path.read_text().splitlines():
+                    if not line.strip():
+                        continue
+                    event = json.loads(line)
+                    if event.get("kind") != "sol_message":
+                        continue
+                    exchanges.append(
+                        {
+                            "talent": "chat",
+                            "agent_response": event.get("text", ""),
+                        }
+                    )
+            except (OSError, json.JSONDecodeError):
+                logger.warning("Skipping malformed chat stream file: %s", chat_path)
+    if limit <= 0:
+        return []
+    return exchanges[-limit:]
+
+
 def compute_thickness() -> dict[str, Any]:
     """Compute journal thickness signals for naming ceremony readiness.
 
@@ -221,7 +262,6 @@ def compute_thickness() -> dict[str, Any]:
     - ``journal_days``: number of day directories with at least one segment
     - ``ready``: True when the naming ceremony should trigger
     """
-    from think.conversation import get_recent_exchanges
     from think.facets import get_enabled_facets
     from think.indexer.journal import get_entity_strength
     from think.utils import day_dirs, iter_segments
@@ -233,7 +273,7 @@ def compute_thickness() -> dict[str, Any]:
     entity_depth = sum(1 for e in entities if e.get("observation_depth", 0) >= 2)
 
     try:
-        exchanges = get_recent_exchanges(limit=10000)
+        exchanges = _recent_chat_exchanges(limit=10000)
     except Exception:
         exchanges = []
     non_onboarding = [
