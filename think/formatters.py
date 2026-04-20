@@ -191,6 +191,7 @@ FORMATTERS: dict[str, tuple[str, str, bool]] = {
     "*/*/*/*_transcript.jsonl": ("observe.hear", "format_audio", False),
     "*/*/*/screen.jsonl": ("observe.screen", "format_screen", False),
     "*/*/*/*_screen.jsonl": ("observe.screen", "format_screen", False),
+    "*/chat/*/chat.jsonl": ("think.chat_formatter", "format_chat", True),
     # Markdown — day-level agents output and segment-level (day/stream/segment/talents/)
     "*/talents/*.md": ("think.markdown", "format_markdown", True),
     # Layout: day/stream/segment/talents/*.md
