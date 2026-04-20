@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "Meeting extraction output contract. Source of truth for the shape is observe/categories/meeting.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["platform", "participants", "screen_share"],
+  "properties": {
+    "platform": {
+      "type": "string",
+      "enum": ["zoom", "meet", "teams", "slack", "discord", "webex", "other"]
+    },
+    "participants": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "status", "video"],
+        "properties": {
+          "name": {"type": "string", "minLength": 1},
+          "status": {
+            "type": "string",
+            "enum": ["speaking", "muted", "active", "presenting", "unknown"]
+          },
+          "video": {"type": "boolean"},
+          "box_2d": {
+            "type": "array",
+            "items": {"type": "integer", "minimum": 0},
+            "minItems": 4,
+            "maxItems": 4
+          }
+        }
+      }
+    },
+    "screen_share": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["box_2d", "presenter", "description", "formatted_text"],
+          "properties": {
+            "box_2d": {
+              "type": "array",
+              "items": {"type": "integer", "minimum": 0},
+              "minItems": 4,
+              "maxItems": 4
+            },
+            "presenter": {"type": ["string", "null"]},
+            "description": {"type": "string"},
+            "formatted_text": {"type": "string"}
+          }
+        }
+      ]
+    }
+  }
+}

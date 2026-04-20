@@ -48,3 +48,5 @@ Respond with JSON describing the meeting state:
   - **formatted_text**: Complete text extraction from the presented screen/slide, formatted in markdown. Preserve structure with headings, bullets, code blocks, etc.
 
 Focus on accuracy. If information isn't visible or is unclear, use "unknown" or null.
+
+Return the JSON object with dict participants; do not use bare name strings.

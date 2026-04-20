@@ -111,6 +111,10 @@ def _discover_categories() -> dict[str, dict]:
             if prompt_content.text.strip():
                 metadata["prompt"] = prompt_content.text
 
+            schema_path = md_path.with_suffix(".schema.json")
+            if schema_path.exists():
+                metadata["json_schema"] = json.loads(schema_path.read_text("utf-8"))
+
             categories[category] = metadata
             extractable = "prompt" in metadata
             logger.debug(f"Loaded category: {category} (extractable={extractable})")
@@ -723,7 +727,9 @@ class VideoProcessor:
                     else:
                         # Create new request for secondary extraction
                         extract_req = batch.create(
-                            contents=[], context=cat_meta["context"]
+                            contents=[],
+                            context=cat_meta["context"],
+                            json_schema=cat_meta.get("json_schema"),
                         )
                         extract_req.frame_id = req.frame_id
                         extract_req.timestamp = req.timestamp
@@ -752,6 +758,7 @@ class VideoProcessor:
                         model=cat_model,
                         system_instruction=cat_meta["prompt"] + redact_instruction,
                         json_output=is_json,
+                        json_schema=cat_meta.get("json_schema"),
                         max_output_tokens=10240 if is_json else 8192,
                         thinking_budget=6144 if is_json else 4096,
                         context=cat_meta["context"],
