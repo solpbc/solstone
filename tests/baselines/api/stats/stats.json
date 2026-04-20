@@ -281,6 +281,7 @@
       "path": "<PROJECT>/talent/speaker_attribution.md",
       "priority": 40,
       "schedule": "segment",
+      "schema": "speaker_attribution.schema.json",
       "source": "system",
       "title": "Speaker Attribution",
       "type": "generate"

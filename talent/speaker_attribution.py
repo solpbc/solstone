@@ -149,12 +149,9 @@ def post_process(result: str, context: dict) -> str | None:
     if result:
         try:
             parsed = json.loads(result)
-            if isinstance(parsed, list):
-                items = parsed
-            elif isinstance(parsed, dict):
-                items = parsed.get("attributions", parsed.get("labels", []))
-            else:
-                items = []
+            if not isinstance(parsed, list):
+                raise TypeError(f"expected JSON array, got {type(parsed).__name__}")
+            items = parsed
 
             journal_entities = load_all_journal_entities()
             entities_list = [

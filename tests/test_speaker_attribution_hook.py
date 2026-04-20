@@ -4,6 +4,7 @@
 """Unit tests for talent.speaker_attribution pre_process stub-writing behavior."""
 
 import json
+import logging
 from unittest.mock import patch
 
 
@@ -140,3 +141,150 @@ class TestPreProcessStub:
         assert "Let me explain" in unmatched_context
         assert "Sentence 1" in unmatched_context
         assert "Sentence 2" in unmatched_context
+
+
+def _post_process_context():
+    attribution_result = {
+        "labels": [
+            {"sentence_id": 1, "speaker": None, "confidence": None, "method": None},
+            {
+                "sentence_id": 2,
+                "speaker": "bob",
+                "confidence": "high",
+                "method": "owner",
+            },
+        ],
+        "metadata": {},
+        "source": None,
+    }
+    return {
+        "day": "20260419",
+        "segment": "000000",
+        "stream": "default",
+        "meta": {"attribution_result": attribution_result},
+    }
+
+
+def _match_entity(name, _entities):
+    if name == "Alice":
+        return {"id": "alice"}
+    return None
+
+
+class TestPostProcess:
+    def test_bare_list_merges_layer4_attributions(self, tmp_path):
+        result = json.dumps(
+            [{"sentence_id": 1, "speaker": "Alice", "reasoning": "said her name"}]
+        )
+        context = _post_process_context()
+
+        with (
+            patch("apps.speakers.attribution.save_speaker_labels") as save_mock,
+            patch(
+                "apps.speakers.attribution.accumulate_voiceprints"
+            ) as accumulate_mock,
+            patch(
+                "think.entities.find_matching_entity",
+                side_effect=_match_entity,
+            ),
+            patch(
+                "think.entities.journal.load_all_journal_entities",
+                return_value={"alice": {"id": "alice"}},
+            ),
+            patch("think.utils.segment_path", return_value=tmp_path),
+        ):
+            from talent.speaker_attribution import post_process
+
+            post_process(result, context)
+
+        saved_labels = save_mock.call_args[0][1]
+        assert saved_labels[0] == {
+            "sentence_id": 1,
+            "speaker": "alice",
+            "confidence": "medium",
+            "method": "contextual",
+        }
+        assert saved_labels[1] == {
+            "sentence_id": 2,
+            "speaker": "bob",
+            "confidence": "high",
+            "method": "owner",
+        }
+        accumulate_mock.assert_not_called()
+
+    def test_wrapper_shape_yields_zero_merges(self, tmp_path):
+        result = json.dumps(
+            {"attributions": [{"sentence_id": 1, "speaker": "Alice", "reasoning": "x"}]}
+        )
+        context = _post_process_context()
+
+        with (
+            patch("apps.speakers.attribution.save_speaker_labels") as save_mock,
+            patch("apps.speakers.attribution.accumulate_voiceprints"),
+            patch(
+                "think.entities.find_matching_entity",
+                side_effect=_match_entity,
+            ) as match_mock,
+            patch(
+                "think.entities.journal.load_all_journal_entities",
+                return_value={"alice": {"id": "alice"}},
+            ) as load_mock,
+            patch("think.utils.segment_path", return_value=tmp_path),
+        ):
+            from talent.speaker_attribution import post_process
+
+            post_process(result, context)
+
+        saved_labels = save_mock.call_args[0][1]
+        assert saved_labels[0] == {
+            "sentence_id": 1,
+            "speaker": None,
+            "confidence": None,
+            "method": None,
+        }
+        assert saved_labels[1] == {
+            "sentence_id": 2,
+            "speaker": "bob",
+            "confidence": "high",
+            "method": "owner",
+        }
+        load_mock.assert_not_called()
+        match_mock.assert_not_called()
+
+    def test_non_list_non_dict_yields_zero_merges_and_warns(self, tmp_path, caplog):
+        context = _post_process_context()
+
+        with (
+            patch("apps.speakers.attribution.save_speaker_labels") as save_mock,
+            patch("apps.speakers.attribution.accumulate_voiceprints"),
+            patch(
+                "think.entities.find_matching_entity",
+                side_effect=_match_entity,
+            ) as match_mock,
+            patch(
+                "think.entities.journal.load_all_journal_entities",
+                return_value={"alice": {"id": "alice"}},
+            ) as load_mock,
+            patch("think.utils.segment_path", return_value=tmp_path),
+            caplog.at_level(logging.WARNING),
+        ):
+            from talent.speaker_attribution import post_process
+
+            post_process("42", context)
+
+        saved_labels = save_mock.call_args[0][1]
+        assert saved_labels[0] == {
+            "sentence_id": 1,
+            "speaker": None,
+            "confidence": None,
+            "method": None,
+        }
+        assert saved_labels[1] == {
+            "sentence_id": 2,
+            "speaker": "bob",
+            "confidence": "high",
+            "method": "owner",
+        }
+        assert "expected JSON array, got int" in caplog.text
+        load_mock.assert_not_called()
+        match_mock.assert_not_called()
