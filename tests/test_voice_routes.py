@@ -9,6 +9,7 @@ from concurrent.futures import TimeoutError as FutureTimeoutError
 import pytest
 
 from convey import create_app
+from think.voice.observer_queue import get_observer_queue
 
 
 @pytest.fixture
@@ -59,6 +60,45 @@ def test_nav_hints_unknown_call_id_returns_empty(voice_client):
     response = voice_client.get("/api/voice/nav-hints?call_id=missing")
     assert response.status_code == 200
     assert response.get_json() == {"hints": [], "consumed": True}
+
+
+def test_observer_actions_missing_call_id_returns_empty(voice_client):
+    response = voice_client.get("/api/voice/observer-actions")
+    assert response.status_code == 200
+    assert response.get_json() == {"actions": [], "consumed": True}
+
+
+def test_observer_actions_blank_call_id_returns_empty(voice_client):
+    response = voice_client.get("/api/voice/observer-actions?call_id=%20%20")
+    assert response.status_code == 200
+    assert response.get_json() == {"actions": [], "consumed": True}
+
+
+def test_observer_actions_unknown_call_id_returns_empty(voice_client):
+    response = voice_client.get("/api/voice/observer-actions?call_id=missing")
+    assert response.status_code == 200
+    assert response.get_json() == {"actions": [], "consumed": True}
+
+
+def test_observer_actions_drain_clears_queue(voice_client):
+    queue = get_observer_queue()
+    queue.clear()
+    queue.push("call-obs-route", {"type": "start_observer", "mode": "meeting"})
+    queue.push("call-obs-route", {"type": "start_observer", "mode": "voice_memo"})
+
+    response = voice_client.get("/api/voice/observer-actions?call_id=call-obs-route")
+    assert response.status_code == 200
+    assert response.get_json() == {
+        "actions": [
+            {"type": "start_observer", "mode": "meeting"},
+            {"type": "start_observer", "mode": "voice_memo"},
+        ],
+        "consumed": True,
+    }
+
+    second = voice_client.get("/api/voice/observer-actions?call_id=call-obs-route")
+    assert second.status_code == 200
+    assert second.get_json() == {"actions": [], "consumed": True}
 
 
 def test_status_reports_all_fields(voice_client, voice_app, monkeypatch):

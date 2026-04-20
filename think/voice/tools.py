@@ -25,6 +25,7 @@ from think.surfaces import ledger as ledger_surface
 from think.surfaces.profile import full as load_profile
 from think.utils import day_path
 from think.voice.nav_queue import get_nav_queue
+from think.voice.observer_queue import get_observer_queue
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +122,10 @@ TOOL_MANIFEST: list[dict[str, Any]] = [
     {
         "type": "function",
         "name": "observer.start_listening",
-        "description": "Acknowledge the Wave 2 observer-listen stub.",
+        "description": (
+            "Request sol to start listening in the given mode. "
+            "Returns immediately after queueing the start request."
+        ),
         "parameters": {
             "type": "object",
             "properties": {"mode": {"type": "string"}},
@@ -690,11 +694,12 @@ def handle_observer_start_listening(
     mode = _clean_optional_str(payload.get("mode"))
     if mode is None or mode not in VALID_LISTEN_MODES:
         return {"error": "invalid mode"}
-    logger.info("voice observer listen request acknowledged mode=%s", mode)
+    logger.info("voice observer listen request queued mode=%s", mode)
     return {
-        "status": "ack",
+        "status": "requested",
         "mode": mode,
-        "note": "wave-4 observer not yet wired",
+        "note": "sol will start listening shortly",
+        "_observer_action": {"type": "start_observer", "mode": mode},
     }
 
 
@@ -736,6 +741,14 @@ async def dispatch_tool_call(
     nav_target = result.pop("_nav_target", None)
     if isinstance(nav_target, str) and nav_target.strip():
         get_nav_queue().push(call_id, nav_target)
+    observer_action = result.pop("_observer_action", None)
+    if (
+        isinstance(observer_action, dict)
+        and observer_action
+        and isinstance(call_id, str)
+        and call_id.strip()
+    ):
+        get_observer_queue().push(call_id, observer_action)
     return json.dumps(result)
 
 

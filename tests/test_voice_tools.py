@@ -16,6 +16,7 @@ from tests.test_surfaces_ledger import (
 )
 from think.indexer.journal import scan_journal
 from think.voice import tools
+from think.voice.observer_queue import get_observer_queue
 
 
 def _set_today(monkeypatch, day_value: date) -> None:
@@ -250,9 +251,10 @@ def test_briefing_get_failure(monkeypatch):
 
 def test_observer_start_listening_happy():
     assert tools.handle_observer_start_listening({"mode": "meeting"}, object()) == {
-        "status": "ack",
+        "status": "requested",
         "mode": "meeting",
-        "note": "wave-4 observer not yet wired",
+        "note": "sol will start listening shortly",
+        "_observer_action": {"type": "start_observer", "mode": "meeting"},
     }
 
 
@@ -273,7 +275,7 @@ def test_dispatch_tool_call_strips_nav_target(monkeypatch):
             object(),
         )
     )
-    assert json.loads(result)["status"] == "ack"
+    assert json.loads(result)["status"] == "requested"
     assert queue.drain("call-123") == []
 
     stripped = asyncio.run(
@@ -287,3 +289,24 @@ def test_dispatch_tool_call_strips_nav_target(monkeypatch):
     payload = json.loads(stripped)
     assert "_nav_target" not in payload
     assert queue.drain("call-123") == ["today/journal/2026-03-04"]
+
+
+def test_dispatch_tool_call_strips_observer_action():
+    queue = get_observer_queue()
+    queue.clear()
+
+    result = asyncio.run(
+        tools.dispatch_tool_call(
+            "observer.start_listening",
+            json.dumps({"mode": "meeting"}),
+            "call-obs-1",
+            object(),
+        )
+    )
+
+    assert json.loads(result) == {
+        "status": "requested",
+        "mode": "meeting",
+        "note": "sol will start listening shortly",
+    }
+    assert queue.drain("call-obs-1") == [{"type": "start_observer", "mode": "meeting"}]

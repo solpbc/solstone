@@ -46,15 +46,18 @@ class _FakeConn:
         self._state = state
         self.conversation = _FakeConversation(state)
         self.response = _FakeResponse(state)
-        self._events = iter(
+        events = getattr(
+            state,
+            "events",
             [
                 _FakeEvent(
                     name="journal.get_day",
                     arguments='{"day":"2026-03-04"}',
                     call_id="call-1",
                 )
-            ]
+            ],
         )
+        self._events = iter(events)
 
     def __aiter__(self):
         return self
@@ -157,3 +160,66 @@ def test_voice_flow_round_trip(integration_client, monkeypatch):
         "hints": ["today/journal/2026-03-04"],
         "consumed": True,
     }
+
+
+def test_voice_observer_action_round_trip(integration_client, monkeypatch):
+    client, _ = integration_client
+    state = SimpleNamespace(
+        session_payloads=[],
+        connect_calls=[],
+        outputs=[],
+        response_creates=0,
+        events=[
+            _FakeEvent(
+                name="observer.start_listening",
+                arguments=json.dumps({"mode": "meeting"}),
+                call_id="call-obs-int",
+            )
+        ],
+    )
+    FakeAsyncOpenAI.state = state
+
+    monkeypatch.setattr("convey.voice.AsyncOpenAI", FakeAsyncOpenAI)
+    monkeypatch.setattr("think.voice.sideband.AsyncOpenAI", FakeAsyncOpenAI)
+    monkeypatch.setattr("convey.voice.get_openai_api_key", lambda: "sk-test")
+    monkeypatch.setattr("think.voice.sideband.get_openai_api_key", lambda: "sk-test")
+    monkeypatch.setattr(
+        "convey.voice.brain.wait_until_ready", lambda app, timeout: True
+    )
+    monkeypatch.setattr("convey.voice.brain.brain_is_stale", lambda app: False)
+
+    session_response = client.post("/api/voice/session")
+    assert session_response.status_code == 200
+    assert session_response.get_json() == {"ephemeral_key": "ek-test"}
+
+    connect_response = client.post(
+        "/api/voice/connect", json={"call_id": "call-obs-int"}
+    )
+    assert connect_response.status_code == 200
+    assert connect_response.get_json() == {"status": "connected"}
+
+    deadline = time.time() + 1.0
+    while time.time() < deadline and not state.outputs:
+        time.sleep(0.01)
+
+    assert state.connect_calls == [{"call_id": "call-obs-int", "model": "gpt-realtime"}]
+    assert state.outputs
+    tool_output = json.loads(state.outputs[0]["output"])
+    assert tool_output == {
+        "status": "requested",
+        "mode": "meeting",
+        "note": "sol will start listening shortly",
+    }
+    assert "_observer_action" not in tool_output
+    assert state.response_creates == 1
+
+    actions_response = client.get("/api/voice/observer-actions?call_id=call-obs-int")
+    assert actions_response.status_code == 200
+    assert actions_response.get_json() == {
+        "actions": [{"type": "start_observer", "mode": "meeting"}],
+        "consumed": True,
+    }
+
+    second_actions = client.get("/api/voice/observer-actions?call_id=call-obs-int")
+    assert second_actions.status_code == 200
+    assert second_actions.get_json() == {"actions": [], "consumed": True}

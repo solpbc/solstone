@@ -17,6 +17,7 @@ from werkzeug.exceptions import BadRequest
 from think.voice import brain
 from think.voice.config import get_openai_api_key, get_voice_model
 from think.voice.nav_queue import get_nav_queue
+from think.voice.observer_queue import get_observer_queue
 from think.voice.runtime import get_runtime_state
 from think.voice.sideband import _run_sideband, register_voice_task
 from think.voice.tools import get_tool_manifest
@@ -164,6 +165,15 @@ def nav_hints():
         return _error("call_id is required", 400)
     hints = get_nav_queue().drain(call_id)
     return jsonify({"hints": hints, "consumed": True})
+
+
+@voice_bp.get("/observer-actions")
+def observer_actions():
+    call_id = request.args.get("call_id", "").strip()
+    if not call_id:
+        return jsonify({"actions": [], "consumed": True})
+    actions = get_observer_queue().drain(call_id)
+    return jsonify({"actions": actions, "consumed": True})
 
 
 @voice_bp.get("/status")
