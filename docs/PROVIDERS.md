@@ -343,6 +343,39 @@ from cloud providers:
 - **Base URL:** Reads ``OLLAMA_BASE_URL`` env var, defaults to
   ``http://localhost:11434``.
 
+### Benchmark Surface (speed heuristic)
+
+Users picking an Ollama tier need to know what that means on their machine.
+The ``benchmark`` app provides a speed heuristic that doesn't require
+pulling the models first:
+
+- ``sol call benchmark profile`` — probes the host (CPU / RAM / NVIDIA
+  GPUs via ``nvidia-smi``) and caches the result at
+  ``journal/health/hardware.json``. NVIDIA-only for Phase 1.
+- ``sol call benchmark list-models`` — lists pre-vetted Ollama models
+  alongside their estimated output tok/s on this host, VRAM requirements,
+  and installed/not-installed status.
+- ``sol call benchmark estimate <model-id>`` — single-model estimate.
+
+The estimator uses a reference table shipped in the repo
+(``think/benchmark/reference.json`` for hardware classes,
+``think/benchmark/models.json`` for pre-vetted models with measured tok/s
+per class). When the user's exact class has a measurement, that value
+wins; otherwise the estimator interpolates by
+``fp16_tflops × mem_bandwidth_gbs`` against the closest measured class
+and returns ``confidence="interpolated"``. Missing data returns
+``confidence="unknown"``.
+
+To seed measurements on new hardware, maintainers run the harness:
+
+```
+python -m think.benchmark.harness --model ollama-local/qwen3.5:9b \
+    --class rtx-4090
+```
+
+The harness prints a JSON snippet to paste into ``models.json``; it does
+not edit the registry itself.
+
 ## Checklist for New Providers
 
 **Core implementation:**

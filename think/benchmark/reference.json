@@ -1,0 +1,92 @@
+{
+  "_comment": "Canonical hardware classes for the local-model speed heuristic. fp16_tflops and mem_bandwidth_gbs come from vendor specs; their product is used as the proxy when interpolating across classes. Seed data — grows over time as we collect measurements from more hardware. Keep class keys lowercase-kebab.",
+  "classes": {
+    "rtx-4090": {
+      "label": "NVIDIA GeForce RTX 4090",
+      "fp16_tflops": 165.2,
+      "mem_bandwidth_gbs": 1008.0,
+      "vram_gb": 24
+    },
+    "rtx-4080": {
+      "label": "NVIDIA GeForce RTX 4080",
+      "fp16_tflops": 97.4,
+      "mem_bandwidth_gbs": 736.3,
+      "vram_gb": 16
+    },
+    "rtx-4070-ti": {
+      "label": "NVIDIA GeForce RTX 4070 Ti",
+      "fp16_tflops": 80.1,
+      "mem_bandwidth_gbs": 504.2,
+      "vram_gb": 12
+    },
+    "rtx-4070": {
+      "label": "NVIDIA GeForce RTX 4070",
+      "fp16_tflops": 58.0,
+      "mem_bandwidth_gbs": 504.2,
+      "vram_gb": 12
+    },
+    "rtx-3090": {
+      "label": "NVIDIA GeForce RTX 3090",
+      "fp16_tflops": 71.0,
+      "mem_bandwidth_gbs": 936.2,
+      "vram_gb": 24
+    },
+    "rtx-3080": {
+      "label": "NVIDIA GeForce RTX 3080",
+      "fp16_tflops": 59.8,
+      "mem_bandwidth_gbs": 760.3,
+      "vram_gb": 10
+    },
+    "rtx-3070": {
+      "label": "NVIDIA GeForce RTX 3070",
+      "fp16_tflops": 40.6,
+      "mem_bandwidth_gbs": 448.0,
+      "vram_gb": 8
+    },
+    "a100-80gb": {
+      "label": "NVIDIA A100 80GB",
+      "fp16_tflops": 312.0,
+      "mem_bandwidth_gbs": 2039.0,
+      "vram_gb": 80
+    },
+    "h100-80gb": {
+      "label": "NVIDIA H100 80GB",
+      "fp16_tflops": 989.0,
+      "mem_bandwidth_gbs": 3350.0,
+      "vram_gb": 80
+    },
+    "dgx-spark": {
+      "label": "NVIDIA DGX Spark (GB10)",
+      "fp16_tflops": 500.0,
+      "mem_bandwidth_gbs": 273.0,
+      "vram_gb": 128
+    },
+    "cpu-only": {
+      "label": "CPU-only (no compatible GPU detected)",
+      "fp16_tflops": 0.0,
+      "mem_bandwidth_gbs": 0.0,
+      "vram_gb": 0
+    }
+  },
+  "aliases": {
+    "NVIDIA GeForce RTX 4090": "rtx-4090",
+    "NVIDIA GeForce RTX 4080": "rtx-4080",
+    "NVIDIA GeForce RTX 4080 SUPER": "rtx-4080",
+    "NVIDIA GeForce RTX 4070 Ti": "rtx-4070-ti",
+    "NVIDIA GeForce RTX 4070 Ti SUPER": "rtx-4070-ti",
+    "NVIDIA GeForce RTX 4070": "rtx-4070",
+    "NVIDIA GeForce RTX 4070 SUPER": "rtx-4070",
+    "NVIDIA GeForce RTX 3090": "rtx-3090",
+    "NVIDIA GeForce RTX 3090 Ti": "rtx-3090",
+    "NVIDIA GeForce RTX 3080": "rtx-3080",
+    "NVIDIA GeForce RTX 3080 Ti": "rtx-3080",
+    "NVIDIA GeForce RTX 3070": "rtx-3070",
+    "NVIDIA GeForce RTX 3070 Ti": "rtx-3070",
+    "NVIDIA A100 80GB PCIe": "a100-80gb",
+    "NVIDIA A100-SXM4-80GB": "a100-80gb",
+    "NVIDIA H100 80GB HBM3": "h100-80gb",
+    "NVIDIA H100 PCIe": "h100-80gb",
+    "NVIDIA GB10": "dgx-spark",
+    "NVIDIA DGX Spark": "dgx-spark"
+  }
+}
