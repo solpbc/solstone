@@ -52,6 +52,7 @@ dependencies = [
     "anthropic",
     "httpx",
     "h2",
+    "cryptography>=42",
     "pyjwt>=2.8",
     "jsonschema>=4.26,<5",
     "genai-prices",

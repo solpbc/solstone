@@ -44,6 +44,10 @@
     "bundle_id": null,
     "environment": "development"
   },
+  "pairing": {
+    "host_url": null,
+    "token_ttl_seconds": 600
+  },
   "retention": {
     "raw_media": "days",
     "raw_media_days": 7,
