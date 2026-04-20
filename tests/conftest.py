@@ -20,6 +20,8 @@ from think.entities.loading import clear_entity_loading_cache
 from think.entities.observations import clear_observation_cache
 from think.entities.relationships import clear_relationship_caches
 from think.utils import now_ms
+from think.voice import brain as voice_brain
+from think.voice.runtime import stop_all_voice_runtime
 
 
 @pytest.fixture(autouse=True)
@@ -56,6 +58,13 @@ def _clear_entity_caches(request):
     clear_journal_entity_cache()
     clear_relationship_caches()
     clear_observation_cache()
+
+
+@pytest.fixture(autouse=True)
+def _cleanup_voice_runtime():
+    yield
+    stop_all_voice_runtime()
+    voice_brain.clear_brain_state()
 
 
 @pytest.fixture
