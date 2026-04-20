@@ -214,7 +214,6 @@
 
   // Built-in tract: navigate browser to a path and/or switch facet
   listeners['navigate'] = [function(msg) {
-    if (window._closeConversationPanel) window._closeConversationPanel();
     if (msg.facet && !msg.path) {
       window.selectFacet && window.selectFacet(msg.facet);
     } else if (msg.path) {

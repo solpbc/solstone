@@ -1399,7 +1399,7 @@
         if (el.closest('[data-routine-click]') || el.hasAttribute('data-routine-click')) {
           fetch('/app/home/api/routines/seen', {method: 'POST'});
         }
-        window.openConversation({ prompt: el.dataset.conversation });
+        window.openConversation(el.dataset.conversation);
       }
     });
     dashboard.addEventListener('keydown', function(e) {
@@ -1423,7 +1423,7 @@
         if (el.closest('[data-routine-click]') || el.hasAttribute('data-routine-click')) {
           fetch('/app/home/api/routines/seen', {method: 'POST'});
         }
-        window.openConversation({ prompt: el.dataset.conversation });
+        window.openConversation(el.dataset.conversation);
       }
     });
   }

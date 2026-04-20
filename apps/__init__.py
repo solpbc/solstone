@@ -28,6 +28,7 @@ app.json fields (all optional):
       "label": "Custom Label", # Display label (default: title-cased app name)
       "facets": {},            # Facet options: {"disabled": true} to hide facet bar
       "date_nav": true,        # Show date navigation bar (default: false)
+      "app_bar": false,        # Hide the universal chat bar on this app (default: true)
       "allow_future_dates": true  # Allow future dates in month picker (default: false)
     }
 
@@ -72,6 +73,9 @@ class App:
 
     # Date navigation (renders date nav below facet bar)
     date_nav: bool = False
+
+    # Hide the universal chat bar on this app
+    app_bar: bool = True
 
     # Allow clicking future dates in month picker (for todos)
     allow_future_dates: bool = False
@@ -167,6 +171,9 @@ class AppRegistry:
         # Date navigation
         date_nav = metadata.get("date_nav", False)
 
+        # Universal app bar
+        app_bar = metadata.get("app_bar", True)
+
         # Allow future dates in month picker
         allow_future_dates = metadata.get("allow_future_dates", False)
 
@@ -234,6 +241,7 @@ class AppRegistry:
             background_template=background_template,
             facets_config=facets_config,
             date_nav=date_nav,
+            app_bar=app_bar,
             allow_future_dates=allow_future_dates,
         )
 

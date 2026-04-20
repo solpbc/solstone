@@ -11,6 +11,23 @@ ALLOWED_UNIFIED_PATHS = {
     ROOT / "apps/sol/maint/006_rename_unified_triage_providers.py",
     ROOT / "tests/test_maint_006_rename_unified_triage_providers.py",
 }
+FORBIDDEN_CHAT_LITERALS = {
+    "conversationBackdrop",
+    "conversationMessages",
+    "chatBarResponsePanel",
+    "chatBarThinking",
+    "chatBarResponse",
+    "chatBarDismiss",
+    "conversation-backdrop",
+    "conversation-messages",
+    "conversation-separator",
+    "solstone:conversationState",
+    "solstone:chatBarState",
+    "panelFocusTrapHandler",
+    "openPanel",
+    "closePanel",
+    "_closeConversationPanel",
+}
 
 
 def _parts(*pieces: str) -> str:
@@ -40,6 +57,18 @@ def _python_files() -> list[Path]:
         for path in ROOT.rglob("*.py")
         if ".venv" not in path.parts and "__pycache__" not in path.parts
     ]
+
+
+def _text_scan_files() -> list[Path]:
+    blocked_parts = {"tests/fixtures", ".venv", "node_modules", "__pycache__"}
+    files: list[Path] = []
+    for pattern in ("*.html", "*.js"):
+        for path in ROOT.rglob(pattern):
+            path_str = str(path)
+            if any(part in path_str for part in blocked_parts):
+                continue
+            files.append(path)
+    return files
 
 
 def _parse(path: Path) -> ast.Module | None:
@@ -86,5 +115,20 @@ def test_no_live_unified_literals_outside_migration_paths():
         for node in ast.walk(tree):
             if isinstance(node, ast.Constant) and node.value == LEGACY_NAME:
                 violations.append(str(path))
+
+    assert violations == []
+
+
+def test_no_legacy_chat_dom_literals_in_templates_or_js():
+    violations: list[str] = []
+    this_file = Path(__file__).resolve()
+
+    for path in _text_scan_files():
+        if path.resolve() == this_file:
+            continue
+        content = path.read_text(encoding="utf-8")
+        for literal in FORBIDDEN_CHAT_LITERALS:
+            if literal in content:
+                violations.append(f"{path}: {literal}")
 
     assert violations == []

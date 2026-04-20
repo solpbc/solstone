@@ -1,0 +1,16 @@
+<div id="appBar" class="app-bar" role="region" aria-label="chat">
+  <div id="chatBarStatus" class="chat-bar-status" aria-live="polite">
+    <span id="chatBarStatusText"></span>
+  </div>
+  <div id="chatBarTalents" class="chat-bar-talents" aria-label="active talents"></div>
+  <form id="chatBarForm" class="chat-bar-form">
+    <textarea
+      id="chatBarInput"
+      class="chat-bar-input"
+      rows="1"
+      placeholder="{{ chat_bar_placeholder }}"
+      aria-label="chat input"
+    ></textarea>
+    <button id="chatBarSend" type="submit" class="chat-bar-send" aria-label="send">Send</button>
+  </form>
+</div>
