@@ -369,12 +369,21 @@ and returns ``confidence="interpolated"``. Missing data returns
 To seed measurements on new hardware, maintainers run the harness:
 
 ```
+# Text-generation models
 python -m think.benchmark.harness --model ollama-local/qwen3.5:9b \
     --class rtx-4090
+
+# Vision-language models (add --vision so prompt-eval captures the
+# image-encoder cost, not just text tokens)
+python -m think.benchmark.harness --model ollama-local/qwen2.5vl:7b \
+    --class rtx-4090 --vision
 ```
 
-The harness prints a JSON snippet to paste into ``models.json``; it does
-not edit the registry itself.
+The harness caps the benchmark to an 8K context to keep the compute
+graph tractable on unified-memory hosts (Ollama's default is 256K,
+which balloons memory for large models). Output includes a ``mode``
+field (``text_only`` vs ``vision``). The harness prints a JSON snippet
+to paste into ``models.json``; it does not edit the registry itself.
 
 ## Checklist for New Providers
 

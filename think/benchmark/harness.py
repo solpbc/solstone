@@ -23,15 +23,16 @@ maintainer reviews the output before committing.
 from __future__ import annotations
 
 import argparse
+import base64
+import io
 import json
 import sys
 from datetime import date
 from typing import Any
 
-# Fixed prompt used for every benchmark run so numbers are comparable
-# across runs and across hardware. ~150-200 tokens of input, asking for
-# ~200 tokens of output.
-_PROMPT = (
+# Fixed text prompt used for text-mode runs. ~150-200 tokens of input,
+# asks for ~200 tokens of output.
+_TEXT_PROMPT = (
     "You are a benchmarking fixture. Write a focused, concrete 200-word "
     "technical paragraph explaining the tradeoffs between dense and "
     "sparse-mixture-of-experts transformer architectures for on-device "
@@ -39,27 +40,101 @@ _PROMPT = (
     "bandwidth, and typical quantization strategies. Do not include "
     "headings, lists, or citations — a single paragraph of prose."
 )
+
+# Prompt used in vision mode alongside the canned image. Asks for enough
+# output to make the output-tok/s number stable.
+_VISION_PROMPT = (
+    "Describe this image in a focused 200-word paragraph. Cover the "
+    "geometric shapes, colors, layout, and any text visible. Do not "
+    "include headings, lists, or citations — a single paragraph of prose."
+)
+
 _MAX_OUTPUT_TOKENS = 256
 _WARMUP_RUNS = 1
 _MEASURE_RUNS = 3
 
+# Cap context window to keep the compute graph tractable. Ollama otherwise
+# defaults to a very large context (256K for recent Qwen builds), which
+# inflates the KV cache + compute graph enough to OOM big models on
+# unified-memory systems. 8K is plenty for the fixed benchmark prompt +
+# image tokens + 256-token completion.
+_BENCHMARK_NUM_CTX = 8192
 
-def run_once(model: str) -> dict[str, Any]:
-    """Send one completion request; return the raw Ollama response body."""
+
+def _build_canned_image_b64() -> str:
+    """Generate a deterministic 512x512 JPEG and return it as base64.
+
+    Uses PIL to draw a mix of shapes, a gradient, and text so the
+    vision encoder has non-trivial content to process. Same image every
+    run so prompt-eval numbers are comparable.
+    """
+    from PIL import Image, ImageDraw, ImageFont
+
+    size = 512
+    img = Image.new("RGB", (size, size), color=(240, 240, 240))
+    draw = ImageDraw.Draw(img)
+
+    # Gradient band
+    for y in range(0, 128):
+        shade = int(80 + (y / 128) * 120)
+        draw.line([(0, y), (size, y)], fill=(shade, shade // 2, 200 - shade // 2))
+
+    # Geometric shapes
+    draw.rectangle([40, 180, 200, 340], fill=(200, 60, 60), outline=(0, 0, 0), width=3)
+    draw.ellipse([280, 180, 460, 360], fill=(60, 140, 200), outline=(0, 0, 0), width=3)
+    draw.polygon(
+        [(256, 380), (400, 480), (112, 480)],
+        fill=(80, 180, 90),
+        outline=(0, 0, 0),
+    )
+
+    # Text so the encoder sees character content
+    try:
+        font = ImageFont.load_default()
+        draw.text((20, 20), "solstone benchmark fixture", fill=(20, 20, 20), font=font)
+        draw.text(
+            (20, 490), "shapes: square, circle, triangle", fill=(20, 20, 20), font=font
+        )
+    except OSError:
+        # If default font missing in some minimal env, skip text.
+        pass
+
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=85)
+    return base64.b64encode(buf.getvalue()).decode("ascii")
+
+
+def run_once(model: str, *, vision: bool = False) -> dict[str, Any]:
+    """Send one completion request; return the raw Ollama response body.
+
+    When ``vision=True``, include a canned image in the user message so
+    the prompt-eval count captures image-encoder cost.
+    """
     from think.providers.ollama import _get_client, _strip_model_prefix
 
     bare_model = _strip_model_prefix(model)
     client = _get_client()
+
+    if vision:
+        message: dict[str, Any] = {
+            "role": "user",
+            "content": _VISION_PROMPT,
+            "images": [_build_canned_image_b64()],
+        }
+    else:
+        message = {"role": "user", "content": _TEXT_PROMPT}
+
     response = client.post(
         "/api/chat",
         json={
             "model": bare_model,
-            "messages": [{"role": "user", "content": _PROMPT}],
+            "messages": [message],
             "stream": False,
             "think": False,
             "options": {
                 "temperature": 0.2,
                 "num_predict": _MAX_OUTPUT_TOKENS,
+                "num_ctx": _BENCHMARK_NUM_CTX,
             },
         },
         timeout=600.0,
@@ -137,25 +212,34 @@ def main() -> int:
         action="store_true",
         help="Pull the model via Ollama API if not already installed.",
     )
+    parser.add_argument(
+        "--vision",
+        action="store_true",
+        help=(
+            "Vision mode: include a canned image in the prompt. Use for VLMs "
+            "so prompt-eval captures image-encoder cost."
+        ),
+    )
     args = parser.parse_args()
 
     ensure_installed(args.model, allow_pull=args.pull)
 
+    mode = "vision" if args.vision else "text_only"
     print(
-        f"Benchmarking {args.model} on class '{args.hw_class}' "
+        f"Benchmarking {args.model} on class '{args.hw_class}' in {mode} mode "
         f"({_WARMUP_RUNS} warmup + {_MEASURE_RUNS} measured runs)…",
         file=sys.stderr,
     )
 
     for i in range(_WARMUP_RUNS):
         print(f"  warmup {i + 1}/{_WARMUP_RUNS}…", file=sys.stderr)
-        run_once(args.model)
+        run_once(args.model, vision=args.vision)
 
     output_rates: list[float] = []
     prompt_rates: list[float] = []
     for i in range(_MEASURE_RUNS):
         print(f"  run {i + 1}/{_MEASURE_RUNS}…", file=sys.stderr)
-        body = run_once(args.model)
+        body = run_once(args.model, vision=args.vision)
         out_rate, prompt_rate = tok_s_from_response(body)
         output_rates.append(out_rate)
         prompt_rates.append(prompt_rate)
@@ -172,6 +256,7 @@ def main() -> int:
             "output_tok_s": round(median_output, 1),
             "prompt_tok_s": round(median_prompt, 1),
             "measured_at": date.today().isoformat(),
+            "mode": mode,
         }
     }
     print(

@@ -10,9 +10,10 @@
       "notes": "Large MoE (35B total, ~3B active). Matches think/models.py OLLAMA_PRO. Needs large unified memory (Spark) or multi-GPU.",
       "benchmarks": {
         "dgx-spark": {
-          "output_tok_s": 29.5,
-          "prompt_tok_s": 378.3,
-          "measured_at": "2026-04-20"
+          "output_tok_s": 30.1,
+          "prompt_tok_s": 374.1,
+          "measured_at": "2026-04-20",
+          "mode": "text_only"
         }
       }
     },
@@ -25,9 +26,10 @@
       "notes": "Matches think/models.py OLLAMA_FLASH. Good balance for tool-calling agents.",
       "benchmarks": {
         "dgx-spark": {
-          "output_tok_s": 36.4,
-          "prompt_tok_s": 1199.5,
-          "measured_at": "2026-04-20"
+          "output_tok_s": 36.0,
+          "prompt_tok_s": 1173.1,
+          "measured_at": "2026-04-20",
+          "mode": "text_only"
         }
       }
     },
@@ -40,9 +42,10 @@
       "notes": "Matches think/models.py OLLAMA_LITE. Lightweight generator; skip for cogitate.",
       "benchmarks": {
         "dgx-spark": {
-          "output_tok_s": 87.6,
-          "prompt_tok_s": 2511.5,
-          "measured_at": "2026-04-20"
+          "output_tok_s": 87.0,
+          "prompt_tok_s": 1956.6,
+          "measured_at": "2026-04-20",
+          "mode": "text_only"
         }
       }
     },
@@ -52,24 +55,31 @@
       "size_gb": 6.0,
       "capabilities": ["vision"],
       "vram_required_gb": 7,
-      "notes": "Vision-language candidate for the describe pipeline (Solstone AI Modalities §2). Smaller, wider compatibility. Benchmarks reflect text-gen speed only — image-encoder latency is not yet measured.",
+      "notes": "Vision-language candidate for the describe pipeline (Solstone AI Modalities §2). Smaller, wider compatibility.",
       "benchmarks": {
         "dgx-spark": {
-          "output_tok_s": 42.1,
-          "prompt_tok_s": 3437.0,
+          "output_tok_s": 43.4,
+          "prompt_tok_s": 14908.2,
           "measured_at": "2026-04-20",
-          "mode": "text_only"
+          "mode": "vision"
         }
       }
     },
     "ollama-local/qwen2.5vl:72b": {
       "label": "Qwen 2.5 VL 72B — vision",
       "tier_hint": 1,
-      "size_gb": 40.0,
+      "size_gb": 48.0,
       "capabilities": ["vision"],
-      "vram_required_gb": 44,
-      "notes": "Full-power vision model; target for Spark-class hardware.",
-      "benchmarks": {}
+      "vram_required_gb": 52,
+      "notes": "Full-power vision model; target for Spark-class hardware. Note: severely memory-bandwidth-bound on Spark — consider qwen2.5vl:32b as a middle-tier alternative for realtime use.",
+      "benchmarks": {
+        "dgx-spark": {
+          "output_tok_s": 4.4,
+          "prompt_tok_s": 1409.7,
+          "measured_at": "2026-04-20",
+          "mode": "vision"
+        }
+      }
     }
   }
 }
