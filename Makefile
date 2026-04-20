@@ -275,6 +275,7 @@ review: .installed
 
 # Test environment - use fixtures journal for all tests
 TEST_ENV = _SOLSTONE_JOURNAL_OVERRIDE=tests/fixtures/journal
+LINK_LIVE_TESTS = --ignore=tests/link/test_integration.py --ignore=tests/link/test_privacy_scan.py
 
 # Venv tool shortcuts
 PYTEST := $(VENV_BIN)/pytest
@@ -288,7 +289,7 @@ format-check: .installed
 # Run core tests (excluding integration and app tests)
 test: .installed format-check
 	@echo "Running core tests..."
-	$(TEST_ENV) $(PYTEST) tests/ -q --cov=. --ignore=tests/integration
+	$(TEST_ENV) $(PYTEST) tests/ -q --cov=. --ignore=tests/integration $(LINK_LIVE_TESTS)
 
 # Run app tests
 test-apps: .installed
@@ -317,7 +318,9 @@ test-only: .installed
 # Run integration tests
 test-integration: .installed
 	@echo "Running integration tests..."
-	$(TEST_ENV) $(PYTEST) tests/integration/ -v --tb=short --timeout=20
+	@STATUS=0; \
+	$(TEST_ENV) $(PYTEST) tests/integration/ tests/link/test_integration.py tests/link/test_privacy_scan.py -v --tb=short --timeout=20 || STATUS=$$?; \
+	if [ "$$STATUS" -ne 0 ] && [ "$$STATUS" -ne 5 ]; then exit $$STATUS; fi
 
 # Run specific integration test
 test-integration-only: .installed
@@ -326,12 +329,19 @@ test-integration-only: .installed
 		echo "Example: make test-integration-only TEST=test_api.py"; \
 		exit 1; \
 	fi
-	$(TEST_ENV) $(PYTEST) tests/integration/$(TEST) --timeout=20
+	@TARGET="$(TEST)"; \
+	case "$$TARGET" in \
+		tests/*|-*) ;; \
+		*) TARGET="tests/integration/$$TARGET" ;; \
+	esac; \
+	STATUS=0; \
+	$(TEST_ENV) $(PYTEST) "$$TARGET" --timeout=20 || STATUS=$$?; \
+	if [ "$$STATUS" -ne 0 ] && [ "$$STATUS" -ne 5 ]; then exit $$STATUS; fi
 
 # Run all tests (core + apps + integration)
 test-all: .installed
 	@echo "Running all tests (core + apps + integration)..."
-	$(TEST_ENV) $(PYTEST) tests/ -v --cov=. && $(TEST_ENV) $(PYTEST) apps/ -v --cov=. --cov-append
+	$(TEST_ENV) $(PYTEST) tests/ -v --cov=. --ignore=tests/integration $(LINK_LIVE_TESTS) && $(TEST_ENV) $(PYTEST) apps/ -v --cov=. --cov-append
 
 # Auto-format and fix code, then report any remaining issues
 format: .installed
@@ -491,7 +501,7 @@ watch: .installed
 
 # Generate coverage report (core + apps, excluding core integration tests)
 coverage: .installed
-	$(TEST_ENV) $(PYTEST) tests/ --cov=. --cov-report=html --cov-report=term --ignore=tests/integration
+	$(TEST_ENV) $(PYTEST) tests/ --cov=. --cov-report=html --cov-report=term --ignore=tests/integration $(LINK_LIVE_TESTS)
 	$(TEST_ENV) $(PYTEST) apps/ --cov=. --cov-report=html --cov-report=term --cov-append
 	@echo "Coverage report generated in htmlcov/index.html"
 

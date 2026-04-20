@@ -231,6 +231,8 @@ class _DialerMultiplexer:
             return
         self._closed = True
         for state in list(self._streams.values()):
+            if state.reset_reason is None:
+                state.reset_reason = RESET_INTERNAL_ERROR
             self._close_stream(state, forget=True)
 
     async def _dispatch(self, frame: Frame) -> None:
@@ -361,8 +363,7 @@ class TunnelSession:
         if self._closed.is_set():
             return
         self._mux.close()
-        if not self._ws.closed:
-            await self._ws.close()
+        await self._ws.close()
         await self._reader_task
         self._closed.set()
 
