@@ -15,7 +15,16 @@ ROOT = Path(__file__).resolve().parents[3]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+for name, module in list(sys.modules.items()):
+    if name.split(".", 1)[0] not in {"apps", "convey", "think"}:
+        continue
+    module_file = getattr(module, "__file__", None)
+    if module_file and not Path(module_file).resolve().is_relative_to(ROOT):
+        sys.modules.pop(name, None)
+
 from apps.speakers.tests.conftest import speakers_env as _speakers_env
+from convey import create_app
+from tests._baseline_harness import copytree_tracked
 from think.entities.journal import clear_journal_entity_cache
 from think.entities.loading import clear_entity_loading_cache
 from think.entities.observations import (
@@ -25,6 +34,34 @@ from think.entities.observations import (
 )
 from think.entities.relationships import clear_relationship_caches
 from think.entities.saving import save_entities
+
+
+@pytest.fixture(autouse=True)
+def _skip_supervisor_check(monkeypatch):
+    monkeypatch.setenv("SOL_SKIP_SUPERVISOR_CHECK", "1")
+
+
+@pytest.fixture
+def journal_copy(tmp_path, monkeypatch):
+    src = Path(__file__).resolve().parents[3] / "tests" / "fixtures" / "journal"
+    dst = tmp_path / "journal"
+    copytree_tracked(src, dst)
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(dst.resolve()))
+    clear_journal_entity_cache()
+    clear_entity_loading_cache()
+    clear_relationship_caches()
+    clear_observation_cache()
+    import think.utils
+
+    think.utils._journal_path_cache = None
+    return dst
+
+
+@pytest.fixture
+def client(journal_copy, monkeypatch):
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_copy))
+    app = create_app(str(journal_copy))
+    return app.test_client()
 
 
 @pytest.fixture

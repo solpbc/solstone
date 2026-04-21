@@ -342,6 +342,7 @@ def update_entity(
         relationship["description"] = description
         relationship["updated_at"] = now_ms()
         save_facet_relationship(facet, entity_id, relationship)
+        clear_entity_loading_cache()
         log_call_action(
             facet=facet,
             action="entity_update",

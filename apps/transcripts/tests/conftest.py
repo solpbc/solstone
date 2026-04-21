@@ -9,12 +9,18 @@ from pathlib import Path
 
 import pytest
 
-from convey import create_app
-
 ROOT = Path(__file__).resolve().parents[3]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+for name, module in list(sys.modules.items()):
+    if name.split(".", 1)[0] not in {"apps", "convey", "think"}:
+        continue
+    module_file = getattr(module, "__file__", None)
+    if module_file and not Path(module_file).resolve().is_relative_to(ROOT):
+        sys.modules.pop(name, None)
+
+from convey import create_app
 from tests._baseline_harness import copytree_tracked
 
 
