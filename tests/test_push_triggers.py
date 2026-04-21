@@ -392,3 +392,39 @@ def test_handle_weekly_reflection_finish_skips_when_file_never_appears(
     assert sleeps == [1] * 10
     assert send_calls == []
     assert chat_events == []
+
+
+def test_handle_weekly_reflection_finish_dedupes_chat_event_without_devices(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    reflection_path = tmp_path / "reflections" / "weekly" / "20260308.md"
+    reflection_path.parent.mkdir(parents=True, exist_ok=True)
+    reflection_path.write_text("# reflection\n", encoding="utf-8")
+    monkeypatch.setattr(triggers.time, "sleep", lambda seconds: None)
+    monkeypatch.setattr(triggers, "_eligible_devices", lambda: [])
+    chat_events: list[dict[str, object]] = []
+    monkeypatch.setattr(triggers, "read_chat_events", lambda day: list(chat_events))
+    monkeypatch.setattr(
+        triggers,
+        "append_chat_event",
+        lambda kind, **fields: chat_events.append({"kind": kind, **fields}),
+    )
+
+    message = {
+        "tract": "cortex",
+        "event": "finish",
+        "name": "weekly_reflection",
+        "day": "20260308",
+    }
+    triggers.handle_weekly_reflection_finish(message)
+    triggers.handle_weekly_reflection_finish(message)
+
+    assert chat_events == [
+        {
+            "kind": "reflection_ready",
+            "day": "20260308",
+            "url": "/app/reflections/20260308",
+        }
+    ]
+    assert not _log_path(tmp_path).exists()

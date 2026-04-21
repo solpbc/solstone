@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from apps.home.routes import _load_briefing_md
-from convey.chat_stream import append_chat_event
+from convey.chat_stream import append_chat_event, read_chat_events
 from think.activities import load_activity_records
 from think.facets import get_enabled_facets
 from think.push.config import get_bundle_id, get_environment, is_configured
@@ -113,6 +113,16 @@ def _record_send(
             "failed": failed,
             **payload,
         }
+    )
+
+
+def _has_reflection_ready_event(day: str, route: str) -> bool:
+    today = datetime.now().strftime("%Y%m%d")
+    return any(
+        event.get("kind") == "reflection_ready"
+        and event.get("day") == day
+        and event.get("url") == route
+        for event in read_chat_events(today)
     )
 
 
@@ -278,7 +288,8 @@ def handle_weekly_reflection_finish(message: dict[str, Any]) -> None:
         context_id=context_id,
         route=route,
     )
-    append_chat_event("reflection_ready", day=day, url=route)
+    if not _has_reflection_ready_event(day, route):
+        append_chat_event("reflection_ready", day=day, url=route)
 
 
 __all__ = [
