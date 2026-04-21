@@ -104,27 +104,29 @@ def transcript_day_data(day: str) -> Any:
     )
 
 
-@transcripts_bp.route("/api/serve_file/<day>/<path:encoded_path>")
-def serve_file(day: str, encoded_path: str) -> Any:
+@transcripts_bp.route("/api/serve_file/<day>/<path:rel_path>")
+def serve_file(day: str, rel_path: str) -> Any:
     """Serve actual media files for embedding."""
     if not DATE_RE.fullmatch(day):
         return error_response("Day not found", 404)
 
     try:
-        rel_path = encoded_path.replace("__", "/")
         full_path = os.path.join(state.journal_root, day, rel_path)
-
         day_dir = str(day_path(day, create=False))
         if not os.path.commonpath([full_path, day_dir]) == day_dir:
             return error_response("Invalid file path", 403)
-
         if not os.path.isfile(full_path):
             return error_response("File not found", 404)
-
-        return send_file(full_path)
-
-    except Exception:
+    except (OSError, ValueError):
+        logger.warning(
+            "serve_file path validation failed for %s/%s",
+            day,
+            rel_path,
+            exc_info=True,
+        )
         return error_response("Failed to serve file", 404)
+
+    return send_file(full_path, conditional=True)
 
 
 @transcripts_bp.route("/api/stats/<month>")
@@ -282,7 +284,7 @@ def segment_content(day: str, stream: str, segment_key: str) -> Any:
                 if os.path.isfile(audio_full):
                     has_raw_file = True
                     rel_path = f"{stream}/{segment_key}/{raw_audio}"
-                    audio_file_url = f"/app/transcripts/api/serve_file/{day}/{rel_path.replace('/', '__')}"
+                    audio_file_url = f"/app/transcripts/api/serve_file/{day}/{rel_path}"
                     media_sizes["audio"] += os.path.getsize(audio_full)
 
             for chunk in formatted_chunks:
@@ -310,8 +312,10 @@ def segment_content(day: str, stream: str, segment_key: str) -> Any:
                 if speaker_label:
                     chunk_data["speaker_label"] = speaker_label
                 chunks.append(chunk_data)
-        except Exception as e:
-            logger.warning("Failed to parse audio segment %s: %s", audio_path, e)
+        except Exception:
+            logger.warning(
+                "Failed to parse audio segment %s", audio_path, exc_info=True
+            )
             warnings += 1
             continue
 
@@ -344,7 +348,7 @@ def segment_content(day: str, stream: str, segment_key: str) -> Any:
                     has_raw_file = True
                     rel_path = f"{stream}/{segment_key}/{raw_video}"
                     video_files[filename] = (
-                        f"/app/transcripts/api/serve_file/{day}/{rel_path.replace('/', '__')}"
+                        f"/app/transcripts/api/serve_file/{day}/{rel_path}"
                     )
                     media_sizes["screen"] += os.path.getsize(video_full)
 
@@ -402,8 +406,10 @@ def segment_content(day: str, stream: str, segment_key: str) -> Any:
                         "basic": is_basic,
                     }
                 )
-        except Exception as e:
-            logger.warning("Failed to parse screen segment %s: %s", screen_path, e)
+        except Exception:
+            logger.warning(
+                "Failed to parse screen segment %s", screen_path, exc_info=True
+            )
             warnings += 1
             continue
 
