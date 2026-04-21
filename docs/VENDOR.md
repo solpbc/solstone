@@ -50,6 +50,34 @@ const html = marked.parse(markdown, {
 - `convey/templates/facet_detail.html` (via CDN)
 - `convey/templates/agents.html` (via CDN)
 
+### DOMPurify (v3.4.0)
+
+**Purpose**: HTML sanitization for untrusted markdown output (defense against XSS in rendered model-emitted content).
+
+**License**: Apache-2.0 OR MPL-2.0 (dual-licensed; either license can be chosen. Compatible with AGPL-3.0-only via MPL-2.0.)
+
+**Source**: https://github.com/cure53/DOMPurify (v3.4.0 — `dist/purify.min.js`, renamed to `dompurify.min.js`)
+
+**CDN Alternative**: `https://cdn.jsdelivr.net/npm/dompurify@3.4.0/dist/purify.min.js`
+
+**Usage in App Templates**:
+```html
+<script src="&#123;&#123; vendor_lib('dompurify') &#125;&#125;"></script>
+<script>
+  const safeHtml = DOMPurify.sanitize(marked.parse(userInput));
+</script>
+```
+
+**Example**:
+```javascript
+const dirty = 'Hello <img src=x onerror=alert(1)>';
+const clean = DOMPurify.sanitize(marked.parse(dirty));
+// clean => '<p>Hello <img src="x"></p>'
+```
+
+**Currently Used By**:
+- `apps/transcripts/workspace.html`
+
 ## Adding New Libraries
 
 When adding a new third-party library:

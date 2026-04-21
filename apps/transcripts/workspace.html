@@ -1286,6 +1286,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 </div>
 
 <script src="{{ vendor_lib('marked') }}"></script>
+<script src="{{ vendor_lib('dompurify') }}"></script>
 <script>
 (() => {
   // Timeline bounds - computed dynamically from content
@@ -2316,7 +2317,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       } else if (tabId.startsWith('md-')) {
         const stem = tabId.slice(3);
         const content = (segmentData.md_files || {})[stem] || '';
-        pane.innerHTML = `<div class="tr-md-content">${marked.parse(content)}</div>`;
+        pane.innerHTML = `<div class="tr-md-content">${renderMarkdown(content)}</div>`;
       }
     }
 
@@ -2393,7 +2394,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       } else if (item.type === 'screen') {
         if (textOnlyScreen) {
           const timeStr = item.time || '';
-          const markdown = item.markdown ? marked.parse(item.markdown) : 'Screen activity';
+          const markdown = renderMarkdown(item.markdown) || 'Screen activity';
           html += '<div class="tr-entry" role="listitem">';
           html += `<div class="tr-entry-time">${timeStr}</div>`;
           html += '<div class="tr-entry-content">';
@@ -2694,12 +2695,17 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       if (monitorPos) html += `<span class="tr-entry-badge tr-entry-badge-monitor">${monitorPos}</span>`;
     }
     if (chunk.markdown) {
-      html += marked.parse(chunk.markdown);
+      html += renderMarkdown(chunk.markdown);
     }
     html += '</div>';
 
     html += '</div></div>';
     return html;
+  }
+
+  function renderMarkdown(raw) {
+    if (!raw) return '';
+    return DOMPurify.sanitize(marked.parse(raw));
   }
 
   function escapeHtml(str) {
