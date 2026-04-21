@@ -378,6 +378,11 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   height: 100%;
 }
 
+.tr-tab-pane:focus-visible {
+  outline: 2px solid var(--accent, #4a9eff);
+  outline-offset: 2px;
+}
+
 .tr-tab-pane.active {
   display: block;
 }
@@ -1521,11 +1526,12 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       });
     }
 
-    async prefetchThumbnails(videoUrl, frameIds, onProgress = null) {
+    async prefetchThumbnails(videoUrl, frameIds, onProgress = null, signal = null) {
       if (!frameIds || frameIds.length === 0) return null;
 
       const sorted = [...new Set(frameIds)].sort((a, b) => a - b);
       for (let i = 0; i < sorted.length; i += 1) {
+        if (signal?.aborted) return this.videos.get(videoUrl);
         const frameId = sorted[i];
         await this.captureThumbnail(videoUrl, frameId, 120, 68);
         if (onProgress) onProgress(i + 1, sorted.length);
@@ -1972,6 +1978,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     zoomSegments.innerHTML = '';
 
     if (filtered.length === 0) {
+      document.getElementById('trNavHint').classList.remove('visible');
       const empty = document.createElement('div');
       empty.className = 'tr-zoom-empty';
       empty.textContent = 'No segments in selected range';
@@ -1979,6 +1986,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       return;
     }
 
+    document.getElementById('trNavHint').classList.add('visible');
     filtered.forEach(seg => {
       const segStart = parseTime(seg.start);
       const segEnd = parseTime(seg.end);
@@ -2036,13 +2044,13 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     });
   }
 
-  function selectSegment(seg, updateHash = true) {
+  function selectSegment(seg, updateHash = true, requestedTabId = null) {
     selectedSegment = seg;
-    document.getElementById('trNavHint').classList.add('visible');
 
     // Update URL hash for shareable links
     if (updateHash) {
-      history.replaceState(null, '', `#${seg.key}`);
+      const tab = activeTab || 'transcript';
+      history.replaceState(null, '', `#${seg.key}/${tab}`);
     }
 
     // Update active state in zoom view
@@ -2057,7 +2065,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     deleteBtn.classList.add('visible');
 
     // Load transcript content
-    loadSegmentContent(seg);
+    loadSegmentContent(seg, requestedTabId);
   }
 
   // Step through segments with [ ] keys
@@ -2090,10 +2098,14 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   let currentVideoFiles = {}; // filename -> video URL mapping
   let groupEntriesByIdx = new Map();
   let activeTab = null;
+  let currentSegmentAbort = null;
   let tabPanes = {}; // tabId -> pane element
   let screenDecoded = false;
 
-  function loadSegmentContent(seg) {
+  function loadSegmentContent(seg, requestedTabId = null) {
+    currentSegmentAbort?.abort();
+    currentSegmentAbort = new AbortController();
+    const signal = currentSegmentAbort.signal;
     const segmentToken = seg.key;
 
     // Clear old data, videos, tabs, and show loading message immediately
@@ -2109,7 +2121,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     panel.innerHTML = '<div class="tr-unified-empty"><p>Loading segment...</p></div>';
     panel.classList.add('loading');
 
-    fetch(`/app/transcripts/api/segment/${day}/${seg.stream}/${seg.key}`)
+    fetch(`/app/transcripts/api/segment/${day}/${seg.stream}/${seg.key}`, { signal })
       .then(r => r.json())
       .then(data => {
         if (!selectedSegment || selectedSegment.key !== segmentToken) {
@@ -2120,6 +2132,14 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         updateRangeText();
         buildTabBar(data);
         activateTab('transcript');
+        if (
+          requestedTabId
+          && [...tabsContainer.querySelectorAll('.tr-tab')].some(
+            tab => tab.dataset.tab === requestedTabId
+          )
+        ) {
+          activateTab(requestedTabId);
+        }
         const warningNotice = document.getElementById('trWarningNotice');
         if (data.warnings > 0) {
           document.getElementById('trWarningText').textContent = data.warnings + ' warning' + (data.warnings === 1 ? '' : 's') + ' during processing';
@@ -2128,7 +2148,10 @@ body.has-date-nav .workspace:has(.tr-wrap) {
           warningNotice.classList.remove('visible');
         }
       })
-      .catch(() => {
+      .catch(err => {
+        if (err.name === 'AbortError') {
+          return;
+        }
         if (!selectedSegment || selectedSegment.key !== segmentToken) {
           return;
         }
@@ -2139,7 +2162,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       });
   }
 
-  function prepareScreenFrames(data, targetEl, segmentToken) {
+  function prepareScreenFrames(data, targetEl, segmentToken, signal) {
     if (screenDecoded) {
       return Promise.resolve();
     }
@@ -2202,7 +2225,14 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     Object.entries(currentVideoFiles).forEach(([filename, url]) => {
       const frameIds = Array.from(nonBasicByVideo.get(filename) || []);
       if (frameIds.length > 0) {
-        decodeJobs.push(frameCapture.prefetchThumbnails(url, frameIds, makeProgressHandler(url)));
+        decodeJobs.push(
+          frameCapture.prefetchThumbnails(
+            url,
+            frameIds,
+            makeProgressHandler(url),
+            signal
+          )
+        );
       }
     });
 
@@ -2295,7 +2325,12 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       } else if (tabId === 'screen') {
         const segmentToken = selectedSegment?.key;
         pane.innerHTML = '<div class="tr-unified-empty"><p data-role="loading-status">Loading screen entries...</p></div>';
-        prepareScreenFrames(segmentData, pane, segmentToken)
+        prepareScreenFrames(
+          segmentData,
+          pane,
+          segmentToken,
+          currentSegmentAbort?.signal
+        )
           .then(() => {
             if (!selectedSegment || selectedSegment.key !== segmentToken) {
               return;
@@ -2323,6 +2358,9 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
     pane.classList.add('active');
     activeTab = tabId;
+    if (selectedSegment) {
+      history.replaceState(null, '', `#${selectedSegment.key}/${tabId}`);
+    }
   }
 
   function renderSegmentTimeline(data, showAudio, showScreen, targetEl) {
@@ -2491,7 +2529,12 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         const groupIdx = parseInt(groupEl.dataset.idx, 10);
         if (isNaN(groupIdx)) return;
         const entries = groupEntriesByIdx.get(groupIdx) || [];
-        prefetchGroupThumbnails(entries, groupEl, targetEl);
+        prefetchGroupThumbnails(
+          entries,
+          groupEl,
+          targetEl,
+          currentSegmentAbort?.signal
+        );
       });
       header.addEventListener('keydown', e => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -2521,7 +2564,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     }
   }
 
-  function prefetchGroupThumbnails(entries, groupEl, targetEl) {
+  function prefetchGroupThumbnails(entries, groupEl, targetEl, signal) {
     const frameIdsByVideo = new Map();
     for (const entry of entries) {
       const filename = entry.source_ref?.filename;
@@ -2537,7 +2580,9 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     for (const [filename, frameIds] of frameIdsByVideo.entries()) {
       const url = currentVideoFiles[filename];
       if (!url) continue;
-      jobs.push(frameCapture.prefetchThumbnails(url, Array.from(frameIds)));
+      jobs.push(
+        frameCapture.prefetchThumbnails(url, Array.from(frameIds), null, signal)
+      );
     }
 
     if (jobs.length > 0) {
@@ -2969,9 +3014,10 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       }
 
       // Check for hash fragment to auto-select segment
-      const hash = window.location.hash.slice(1);
-      if (hash) {
-        const seg = allSegments.find(s => s.key === hash);
+      const rawHash = window.location.hash.slice(1);
+      const [segKey, tabIdFromHash] = rawHash.split('/', 2);
+      if (segKey) {
+        const seg = allSegments.find(s => s.key === segKey);
         if (seg) {
           const segStart = parseTime(seg.start);
           const segEnd = parseTime(seg.end);
@@ -2982,7 +3028,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
           range = { start: newStart, end: newStart + rangeLen };
           renderTimeline();
           updateZoom();
-          selectSegment(seg, false);
+          selectSegment(seg, false, tabIdFromHash);
         }
       }
     })
@@ -2994,12 +3040,29 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
   // Handle browser back/forward
   window.addEventListener('hashchange', () => {
-    const hash = window.location.hash.slice(1);
-    if (hash) {
-      const seg = allSegments.find(s => s.key === hash);
-      if (seg && (!selectedSegment || selectedSegment.key !== hash)) {
-        selectSegment(seg, false);
-      }
+    const rawHash = window.location.hash.slice(1);
+    const [segKey, tabIdFromHash] = rawHash.split('/', 2);
+    if (!segKey) {
+      return;
+    }
+
+    const seg = allSegments.find(s => s.key === segKey);
+    if (!seg) {
+      return;
+    }
+
+    if (!selectedSegment || selectedSegment.key !== segKey) {
+      selectSegment(seg, false, tabIdFromHash);
+      return;
+    }
+
+    if (
+      tabIdFromHash
+      && [...tabsContainer.querySelectorAll('.tr-tab')].some(
+        tab => tab.dataset.tab === tabIdFromHash
+      )
+    ) {
+      activateTab(tabIdFromHash);
     }
   });
 
@@ -3100,7 +3163,6 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
     // Hide delete button
     deleteBtn.classList.remove('visible');
-    document.getElementById('trNavHint').classList.remove('visible');
 
     // Clear URL hash
     history.replaceState(null, '', window.location.pathname);
