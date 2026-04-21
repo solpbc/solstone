@@ -1291,7 +1291,6 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 </div>
 
 <script src="{{ vendor_lib('marked') }}"></script>
-<script src="{{ vendor_lib('dompurify') }}"></script>
 <script>
 (() => {
   // Timeline bounds - computed dynamically from content
@@ -2749,8 +2748,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   }
 
   function renderMarkdown(raw) {
-    if (!raw) return '';
-    return DOMPurify.sanitize(marked.parse(raw));
+    return DOMPurify.sanitize(marked.parse(raw || '', { breaks: true, gfm: true }));
   }
 
   function escapeHtml(str) {

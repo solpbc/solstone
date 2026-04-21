@@ -583,6 +583,10 @@ button.activity-detail-back {
     return d.innerHTML;
   }
 
+  function renderMarkdown(raw) {
+    return DOMPurify.sanitize(marked.parse(raw || '', { breaks: true, gfm: true }));
+  }
+
   function fmtTime(ts) {
     const d = new Date(ts);
     let h = d.getHours();
@@ -857,7 +861,7 @@ button.activity-detail-back {
 
       let rendered;
       if (data.format === 'md') {
-        rendered = `<div class="rendered-markdown">${marked.parse(data.content, { breaks: true, gfm: true })}</div>`;
+        rendered = `<div class="rendered-markdown">${renderMarkdown(data.content)}</div>`;
       } else if (data.format === 'json') {
         let pretty;
         try { pretty = JSON.stringify(JSON.parse(data.content), null, 2); } catch (e) { pretty = data.content; }

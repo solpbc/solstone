@@ -683,6 +683,10 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
+function renderMarkdown(raw) {
+  return DOMPurify.sanitize(marked.parse(raw || '', { breaks: true, gfm: true }));
+}
+
 function navigateTo(view, options = {}) {
   const { updateHash = true } = options;
   const grid = document.getElementById('importGrid');
@@ -1233,7 +1237,7 @@ async function loadGuidedFlow(sourceName) {
     const response = await fetch(`/app/import/api/guide/${sourceName}`);
     if (response.ok) {
       const markdown = await response.text();
-      guideHtml = `<li><div class="import-step"><div class="import-step-number">Step 1</div><div class="import-guide-content">${marked.parse(markdown, { breaks: true, gfm: true })}</div></div></li>`;
+      guideHtml = `<li><div class="import-step"><div class="import-step-number">Step 1</div><div class="import-guide-content">${renderMarkdown(markdown)}</div></div></li>`;
     }
   }
 

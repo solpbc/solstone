@@ -166,19 +166,7 @@
 
 </div>
 
-<script src="{{ vendor_lib('marked') }}"></script>
 <script>
-// Configure marked for safe rendering of imported content
-marked.setOptions({ breaks: true, gfm: true });
-const markedRenderer = new marked.Renderer();
-// Sanitize: strip raw HTML tags from markdown input to prevent XSS from user-imported content
-function sanitizeMarkdown(md) {
-  return md.replace(/<(script|iframe|object|embed|form|input|textarea|button|select|style|link|meta)[^>]*>[\s\S]*?<\/\1>/gi, '')
-    .replace(/<(script|iframe|object|embed|form|input|textarea|button|select|style|link|meta)[^>]*\/?>/gi, '')
-    .replace(/\bon\w+\s*=\s*["'][^"']*["']/gi, '')
-    .replace(/javascript\s*:/gi, 'blocked:');
-}
-
 // Tab switching
 const tabs = document.querySelectorAll('.tab');
 const contents = document.querySelectorAll('.tab-content');
@@ -187,6 +175,10 @@ let contentPage = 1;
 let contentSearch = '';
 let contentMonth = '';
 let searchDebounce = null;
+
+function renderMarkdown(raw) {
+  return DOMPurify.sanitize(marked.parse(raw || '', { breaks: true, gfm: true }));
+}
 
 tabs.forEach(tab => {
   tab.addEventListener('click', () => {
@@ -341,7 +333,7 @@ function renderContentDetail(data) {
 
   return data.content.map(part => {
     if (part.type === 'markdown') {
-      return `<div class="import-content-markdown">${marked.parse(sanitizeMarkdown(part.content))}</div>`;
+      return `<div class="import-content-markdown">${renderMarkdown(part.content)}</div>`;
     }
     const speaker = part.speaker || 'Unknown';
     const cls = speaker === 'Human' ? 'human' : 'assistant';

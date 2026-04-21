@@ -76,7 +76,7 @@ const clean = DOMPurify.sanitize(marked.parse(dirty));
 ```
 
 **Currently Used By**:
-- `apps/transcripts/workspace.html`
+- All apps (shell-level include via `convey/templates/app.html`)
 
 ## Adding New Libraries
 

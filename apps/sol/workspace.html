@@ -2088,7 +2088,7 @@
       if (data.format === 'md') {
         const markdown = document.createElement('div');
         markdown.className = 'rendered-markdown';
-        markdown.innerHTML = sanitizeHtml(marked.parse(data.content, { breaks: true, gfm: true }));
+        markdown.innerHTML = renderMarkdown(data.content);
         container.appendChild(markdown);
       } else {
         const pre = document.createElement('pre');
@@ -2128,42 +2128,8 @@
     return div.innerHTML;
   }
 
-  // Sanitize HTML to allow only safe tags and attributes
-  function sanitizeHtml(html) {
-    const doc = new DOMParser().parseFromString(html, 'text/html');
-    const allowedTags = new Set([
-      'p', 'strong', 'em', 'code', 'pre', 'ul', 'ol', 'li', 'a',
-      'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'br', 'hr',
-      'table', 'thead', 'tbody', 'tr', 'th', 'td'
-    ]);
-    const allowedAttributes = {
-      a: new Set(['href'])
-    };
-
-    Array.from(doc.body.querySelectorAll('*')).forEach(function(el) {
-      const tagName = el.tagName.toLowerCase();
-      if (!allowedTags.has(tagName)) {
-        el.replaceWith(doc.createTextNode(el.textContent || ''));
-        return;
-      }
-
-      Array.from(el.attributes).forEach(function(attr) {
-        if (!allowedAttributes[tagName] || !allowedAttributes[tagName].has(attr.name)) {
-          el.removeAttribute(attr.name);
-        }
-      });
-
-      if (tagName === 'a') {
-        const href = el.getAttribute('href');
-        if (!href || !/^(https?:\/\/|mailto:)/.test(href)) {
-          el.removeAttribute('href');
-        }
-        el.setAttribute('target', '_blank');
-        el.setAttribute('rel', 'noopener noreferrer');
-      }
-    });
-
-    return doc.body.innerHTML;
+  function renderMarkdown(raw) {
+    return DOMPurify.sanitize(marked.parse(raw || '', { breaks: true, gfm: true }));
   }
 
   // Render agent events as a rich interactive timeline
@@ -2348,7 +2314,7 @@
     if (event.result && event.result.trim()) {
       const resultDiv = document.createElement('div');
       resultDiv.className = 'finish-result';
-      resultDiv.innerHTML = sanitizeHtml(marked.parse(event.result, { breaks: true, gfm: true }));
+      resultDiv.innerHTML = renderMarkdown(event.result);
       block.appendChild(resultDiv);
     } else {
       const empty = document.createElement('div');
