@@ -128,11 +128,18 @@ gaps: []
     )
     client = _make_client(journal_copy)
 
-    with patch("apps.reflections.routes.default_url_fetcher") as mock_fetcher:
+    with (
+        patch(
+            "urllib.request.urlopen",
+            side_effect=AssertionError("network disabled during reflection pdf render"),
+        ),
+        patch("apps.reflections.routes.default_url_fetcher") as mock_fetcher,
+    ):
         response = client.get("/app/reflections/20260308/pdf")
 
     assert response.status_code == 200
     assert response.mimetype == "application/pdf"
+    assert response.data.startswith(b"%PDF")
     mock_fetcher.assert_not_called()
 
 
