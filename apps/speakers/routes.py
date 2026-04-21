@@ -51,6 +51,7 @@ from think.entities.journal import (
 from think.utils import (
     day_dirs,
     day_path,
+    get_journal,
     iter_segments,
     now_ms,
     segment_parse,
@@ -212,29 +213,30 @@ def _remove_voiceprint(
     segment_key: str,
     source: str,
     sentence_id: int,
-) -> bool:
+) -> Path | None:
     """Remove a specific voiceprint entry from an entity's voiceprints.npz.
 
     Matches by (day, segment_key, source, sentence_id) metadata key.
-    Returns True if an entry was removed, False if not found.
+    Returns the unlinked NPZ path if the file was removed (all entries filtered
+    out), or None if the entry was rewritten or not found.
     """
     try:
         folder = journal_entity_memory_path(entity_id)
     except (RuntimeError, ValueError):
-        return False
+        return None
 
     npz_path = folder / "voiceprints.npz"
     if not npz_path.exists():
-        return False
+        return None
 
     try:
         data = np.load(npz_path, allow_pickle=False)
         embeddings = data.get("embeddings")
         metadata_arr = data.get("metadata")
         if embeddings is None or metadata_arr is None:
-            return False
+            return None
     except Exception:
-        return False
+        return None
 
     keep = []
     for i, m_str in enumerate(metadata_arr):
@@ -252,18 +254,18 @@ def _remove_voiceprint(
         keep.append(i)
 
     if len(keep) == len(metadata_arr):
-        return False
+        return None
 
     if not keep:
         npz_path.unlink()
-        return True
+        return npz_path
 
     new_embeddings = embeddings[keep]
     new_metadata = metadata_arr[keep]
     tmp_path = npz_path.with_name(npz_path.stem + ".tmp.npz")
     np.savez_compressed(tmp_path, embeddings=new_embeddings, metadata=new_metadata)
     tmp_path.rename(npz_path)
-    return True
+    return None
 
 
 def _load_speaker_labels(segment_dir: Path) -> dict | None:
@@ -937,8 +939,16 @@ def api_correct_attribution() -> Any:
         return error_response("Embedding too similar to owner voice — cannot save", 400)
 
     auto_accumulated_methods = {"acoustic", "context", "contextual"}
+    removed_voiceprint_path = None
     if old_speaker and old_method in auto_accumulated_methods:
-        _remove_voiceprint(old_speaker, day, segment_key, source, sentence_id)
+        removed_voiceprint_path = _remove_voiceprint(
+            old_speaker, day, segment_key, source, sentence_id
+        )
+
+    voiceprints_removed: list[str] = []
+    if removed_voiceprint_path is not None:
+        journal_root = Path(get_journal())
+        voiceprints_removed = [str(removed_voiceprint_path.relative_to(journal_root))]
 
     _save_voiceprint(
         new_speaker,
@@ -978,6 +988,7 @@ def api_correct_attribution() -> Any:
             "sentence_id": sentence_id,
             "old_speaker": old_speaker,
             "new_speaker": new_speaker,
+            "voiceprints_removed": voiceprints_removed,
         },
     )
 

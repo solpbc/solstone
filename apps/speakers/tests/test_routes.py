@@ -3,8 +3,24 @@
 
 """Tests for speakers app - sentence-based embeddings."""
 
+import json
+from datetime import datetime
+
 import numpy as np
 from flask import Flask
+
+
+def _read_action_entries(journal_root):
+    """Read journal-level action log entries for today."""
+    today = datetime.now().strftime("%Y%m%d")
+    log_path = journal_root / "config" / "actions" / f"{today}.jsonl"
+    if not log_path.exists():
+        return []
+    return [
+        json.loads(line)
+        for line in log_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
 
 
 def test_normalize_embedding():
@@ -812,10 +828,6 @@ def test_api_confirm_wrong_confidence(speakers_env):
 
 def test_api_correct_attribution(speakers_env):
     """Correct changes speaker attribution and manages voiceprints."""
-    import json
-
-    from flask import Flask
-
     from apps.speakers.routes import speakers_bp
 
     env = speakers_env()
@@ -872,6 +884,13 @@ def test_api_correct_attribution(speakers_env):
     assert bob_vp.exists()
     alice_vp = env.journal / "entities" / "alice_test" / "voiceprints.npz"
     assert not alice_vp.exists()
+
+    action_entries = _read_action_entries(env.journal)
+    assert len(action_entries) == 1
+    assert action_entries[0]["action"] == "attribution_correct"
+    assert action_entries[0]["params"]["voiceprints_removed"] == [
+        "entities/alice_test/voiceprints.npz"
+    ]
 
 
 def test_api_correct_same_speaker(speakers_env):
@@ -1067,7 +1086,7 @@ def test_remove_voiceprint(speakers_env):
     from apps.speakers.routes import _remove_voiceprint
 
     removed = _remove_voiceprint("alice_test", "20240101", "143022_300", "mic_audio", 1)
-    assert removed is True
+    assert removed is None
 
     vp_path = env.journal / "entities" / "alice_test" / "voiceprints.npz"
     data = np.load(vp_path, allow_pickle=False)
@@ -1075,8 +1094,25 @@ def test_remove_voiceprint(speakers_env):
     assert data["metadata"].shape[0] == 1
 
 
+def test_remove_voiceprint_unlinks_file_when_last_entry_removed(speakers_env):
+    """_remove_voiceprint returns the NPZ path when the final entry is removed."""
+    env = speakers_env()
+    env.create_entity(
+        "Alice Test",
+        voiceprints=[("20240101", "143022_300", "mic_audio", 1)],
+    )
+
+    from apps.speakers.routes import _remove_voiceprint
+
+    removed = _remove_voiceprint("alice_test", "20240101", "143022_300", "mic_audio", 1)
+
+    vp_path = env.journal / "entities" / "alice_test" / "voiceprints.npz"
+    assert removed == vp_path
+    assert not vp_path.exists()
+
+
 def test_remove_voiceprint_not_found(speakers_env):
-    """_remove_voiceprint returns False when no matching entry."""
+    """_remove_voiceprint returns None when no matching entry."""
     env = speakers_env()
     env.create_entity(
         "Alice Test",
@@ -1088,18 +1124,18 @@ def test_remove_voiceprint_not_found(speakers_env):
     removed = _remove_voiceprint(
         "alice_test", "20240101", "143022_300", "mic_audio", 999
     )
-    assert removed is False
+    assert removed is None
 
 
 def test_remove_voiceprint_no_file(speakers_env):
-    """_remove_voiceprint returns False when entity has no voiceprints."""
+    """_remove_voiceprint returns None when entity has no voiceprints."""
     env = speakers_env()
     env.create_entity("Alice Test")
 
     from apps.speakers.routes import _remove_voiceprint
 
     removed = _remove_voiceprint("alice_test", "20240101", "143022_300", "mic_audio", 1)
-    assert removed is False
+    assert removed is None
 
 
 def test_api_segments_pagination(speakers_env):
