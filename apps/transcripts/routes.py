@@ -34,7 +34,8 @@ from observe.utils import AUDIO_EXTENSIONS, VIDEO_EXTENSIONS
 from think.cluster import cluster_scan, cluster_segments, scan_day
 from think.entities.journal import get_journal_principal, load_journal_entity
 from think.models import get_usage_cost
-from think.utils import day_dirs, day_path, segment_path
+from think.supervisor import is_supervisor_up
+from think.utils import STREAM_RE, day_dirs, day_path, segment_path
 from think.utils import segment_key as validate_segment_key
 
 logger = logging.getLogger(__name__)
@@ -248,10 +249,13 @@ def segment_content(day: str, stream: str, segment_key: str) -> Any:
     if not DATE_RE.fullmatch(day):
         return error_response("Invalid day format", 404)
 
+    if not STREAM_RE.fullmatch(stream):
+        return error_response("Invalid stream format", 404)
+
     if not validate_segment_key(segment_key):
         return error_response("Invalid segment key format", 404)
 
-    segment_dir = str(segment_path(day, segment_key, stream))
+    segment_dir = str(segment_path(day, segment_key, stream, create=False))
     if not os.path.isdir(segment_dir):
         return error_response("Segment directory not found", 404)
 
@@ -505,8 +509,11 @@ def delete_segment(day: str, stream: str, segment_key: str) -> Any:
     if not validate_segment_key(segment_key):
         return error_response("Invalid segment key format", 400)
 
-    day_dir = str(day_path(day))
-    segment_dir = str(segment_path(day, segment_key, stream))
+    if not STREAM_RE.fullmatch(stream):
+        return error_response("Invalid stream format", 400)
+
+    day_dir = str(day_path(day, create=False))
+    segment_dir = str(segment_path(day, segment_key, stream, create=False))
 
     # Verify segment exists
     if not os.path.isdir(segment_dir):
@@ -529,6 +536,10 @@ def delete_segment(day: str, stream: str, segment_key: str) -> Any:
             day=day,
         )
 
+        payload = {"deleted": segment_key}
+        if not is_supervisor_up():
+            payload["search_index_warning"] = True
+
         # Trigger indexer rescan to remove deleted segment from search index
         # Supervisor queues by command name, serializing concurrent indexer requests
         emit(
@@ -537,7 +548,7 @@ def delete_segment(day: str, stream: str, segment_key: str) -> Any:
             cmd=["sol", "indexer", "--rescan-full"],
         )
 
-        return success_response({"deleted": segment_key})
+        return success_response(payload)
 
     except OSError as e:
         return error_response(f"Failed to delete segment: {e}", 500)

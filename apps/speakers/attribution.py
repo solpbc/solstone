@@ -564,7 +564,7 @@ def accumulate_voiceprints(
         return {}
     owner_centroid, owner_threshold = centroid_data
 
-    seg_dir = segment_path(day, segment_key, stream)
+    seg_dir = segment_path(day, segment_key, stream, create=False)
     emb_data = load_embeddings_file(seg_dir / f"{source}.npz")
     if emb_data is None:
         return {}

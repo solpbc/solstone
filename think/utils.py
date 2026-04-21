@@ -29,6 +29,7 @@ from timefhuman import timefhuman
 from media import MIME_TYPES
 
 DATE_RE = re.compile(r"\d{8}")
+STREAM_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 CHRONICLE_DIR = "chronicle"
 DEFAULT_STREAM = "_default"
 EXIT_TEMPFAIL = 75
@@ -245,7 +246,7 @@ def updated_days(exclude: set[str] | None = None) -> list[str]:
     return updated
 
 
-def segment_path(day: str, segment: str, stream: str) -> Path:
+def segment_path(day: str, segment: str, stream: str, *, create: bool = True) -> Path:
     """Return absolute path for a segment directory within a stream.
 
     Parameters
@@ -256,14 +257,17 @@ def segment_path(day: str, segment: str, stream: str) -> Path:
         Segment key in HHMMSS_LEN format.
     stream : str
         Stream name (e.g., "archon", "import.apple").
+    create : bool, optional
+        Create the segment directory if it does not exist. Defaults to True.
 
     Returns
     -------
     Path
-        Absolute path to the segment directory (created if it doesn't exist).
+        Absolute path to the segment directory.
     """
-    path = day_path(day) / stream / segment
-    path.mkdir(parents=True, exist_ok=True)
+    path = day_path(day, create=create) / stream / segment
+    if create:
+        path.mkdir(parents=True, exist_ok=True)
     return path
 
 

@@ -124,7 +124,10 @@ def load_previous_state(
     parsed JSON array or None if not found/invalid.
     """
     state_path = (
-        segment_path(day, segment, stream) / "talents" / facet / "activity_state.json"
+        segment_path(day, segment, stream, create=False)
+        / "talents"
+        / facet
+        / "activity_state.json"
     )
     if not state_path.exists():
         return None, None

@@ -31,7 +31,7 @@ from think.entities.journal import (
     save_journal_entity,
 )
 from think.entities.matching import find_matching_entity
-from think.utils import DEFAULT_STREAM, day_path
+from think.utils import DEFAULT_STREAM, STREAM_RE, day_path
 
 from .journal_sources import (
     get_state_directory,
@@ -43,7 +43,6 @@ logger = logging.getLogger(__name__)
 
 _DAY_RE = re.compile(r"^\d{8}$")
 _SEGMENT_RE = re.compile(r"^\d{6}_\d+$")
-_STREAM_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 _FACET_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 _IMPORT_ID_RE = re.compile(r"^\d{8}_\d{6}$")
 
@@ -150,7 +149,7 @@ def register_ingest_routes(bp) -> None:
 
                 if not _DAY_RE.match(day):
                     raise ValueError("Invalid day format")
-                if stream != DEFAULT_STREAM and not _STREAM_RE.match(stream):
+                if stream != DEFAULT_STREAM and not STREAM_RE.fullmatch(stream):
                     raise ValueError("Invalid stream format")
                 if not _SEGMENT_RE.match(segment_key):
                     raise ValueError("Invalid segment_key format")

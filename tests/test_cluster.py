@@ -635,3 +635,15 @@ def test_day_path_create_false(tmp_path, monkeypatch):
 
     created = day_path("29990101")
     assert created.exists()
+
+
+def test_find_segment_dir_missing_streamed_segment_does_not_create_directory(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+
+    mod = importlib.import_module("think.cluster")
+    result = mod._find_segment_dir("29990101", "090000_300", "default")
+
+    assert result is None
+    assert not (tmp_path / "chronicle" / "29990101").exists()

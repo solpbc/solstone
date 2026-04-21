@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
+import psutil
 from desktop_notifier import DesktopNotifier, Urgency
 
 from think import routines, scheduler
@@ -511,6 +512,45 @@ _flush_state: dict = {
 
 def _get_journal_path() -> Path:
     return Path(get_journal())
+
+
+def is_supervisor_up() -> bool:
+    """Return True when supervisor.pid and supervisor.start_time identify a live supervisor process for the current journal."""
+    health_dir = Path(get_journal()) / "health"
+    pid_path = health_dir / "supervisor.pid"
+    try:
+        pid = int(pid_path.read_text().strip())
+    except FileNotFoundError:
+        return False
+    except (OSError, ValueError):
+        return False
+
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return False
+    except OSError:
+        return False
+
+    start_time_path = health_dir / "supervisor.start_time"
+    try:
+        recorded_start = float(start_time_path.read_text().strip())
+    except FileNotFoundError:
+        return False
+    except (OSError, ValueError):
+        return False
+
+    try:
+        create_time = psutil.Process(pid).create_time()
+    except psutil.NoSuchProcess:
+        return False
+    except psutil.Error:
+        return False
+
+    tolerance = 1.5  # drift between time.time() and psutil create_time()
+    return abs(recorded_start - create_time) <= tolerance
 
 
 class RestartPolicy:
@@ -1510,6 +1550,9 @@ def main() -> None:
             print(f"Supervisor already running{pid_msg}")
         sys.exit(1)
     pid_path.write_text(str(os.getpid()))
+    start_time_path = health_dir / "supervisor.start_time"
+    # Written here, not at _supervisor_start, to minimize drift from psutil create_time().
+    start_time_path.write_text(str(time.time()))
     logging.info("Singleton lock acquired (PID %d)", os.getpid())
 
     # Set up signal handlers

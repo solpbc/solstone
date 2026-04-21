@@ -266,7 +266,7 @@ def _dev_activities_screens_detail(
         return "", 404
 
     # Check if the screen.jsonl file exists in segment
-    segment_dir = str(get_segment_path(day, timestamp, stream))
+    segment_dir = str(get_segment_path(day, timestamp, stream, create=False))
     jsonl_path = os.path.join(segment_dir, filename)
     if not os.path.isfile(jsonl_path):
         return "", 404
@@ -354,7 +354,7 @@ def _dev_screen_frames(
     if not filename.endswith("screen.jsonl"):
         return "", 404
 
-    segment_dir = str(get_segment_path(day, timestamp, stream))
+    segment_dir = str(get_segment_path(day, timestamp, stream, create=False))
     jsonl_path = os.path.join(segment_dir, filename)
 
     if not os.path.isfile(jsonl_path):

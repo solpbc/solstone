@@ -470,4 +470,4 @@ Journal-data rule:
 - Fixture briefing date drift: without the `_today()` seam, `briefing.get` and date-window tools would fail when run against the real system clock.
 - `commitments.list.resolution` diminishment is accepted as a Wave 2 known-limit. The ledger surface stores resolution nuance in close-note edits rather than a typed field, so `commitments.list` surfaces `"dropped"` only for dropped items and omits the field otherwise. Full resolution carry-through remains available for a follow-up if post-ship live validation reveals a real need.
 - `sources` leakage: `LedgerItem.sources` is provenance, not model-facing data. The tool layer must strip it before returning commitments to OpenAI.
-- `segment_path()` is write-creating: `journal.get_day` must not call `think.utils.segment_path()` when reading segment summaries because that helper creates directories.
+- `segment_path()` still creates directories by default for write paths; read-only callers (for example segment-summary readers) must pass `create=False`.

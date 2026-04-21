@@ -8,6 +8,7 @@ import subprocess
 import sys
 from unittest.mock import MagicMock
 
+import psutil
 import pytest
 
 
@@ -610,6 +611,10 @@ def test_supervisor_singleton_lock_acquired(tmp_path, monkeypatch):
     assert (tmp_path / "health" / "supervisor.pid").read_text().strip() == str(
         os.getpid()
     )
+    start_time = float(
+        (tmp_path / "health" / "supervisor.start_time").read_text().strip()
+    )
+    assert start_time > 0
 
 
 def test_supervisor_singleton_lock_blocked(tmp_path, monkeypatch, capsys):
@@ -672,3 +677,64 @@ def test_supervisor_singleton_lock_blocked_with_health(tmp_path, monkeypatch, ca
     assert "PID 12345" in output
     health_mock.assert_called_once_with()
     start_mock.assert_not_called()
+
+
+def test_is_supervisor_up_without_pid_file(tmp_path, monkeypatch):
+    mod = importlib.reload(importlib.import_module("think.supervisor"))
+
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    (tmp_path / "health").mkdir(parents=True, exist_ok=True)
+
+    assert mod.is_supervisor_up() is False
+
+
+def test_is_supervisor_up_with_dead_pid(tmp_path, monkeypatch):
+    mod = importlib.reload(importlib.import_module("think.supervisor"))
+
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    health_dir = tmp_path / "health"
+    health_dir.mkdir(parents=True, exist_ok=True)
+
+    proc = subprocess.Popen(["true"])
+    proc.wait()
+    (health_dir / "supervisor.pid").write_text(str(proc.pid))
+
+    assert mod.is_supervisor_up() is False
+
+
+def test_is_supervisor_up_with_live_pid_missing_start_time(tmp_path, monkeypatch):
+    mod = importlib.reload(importlib.import_module("think.supervisor"))
+
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    health_dir = tmp_path / "health"
+    health_dir.mkdir(parents=True, exist_ok=True)
+    (health_dir / "supervisor.pid").write_text(str(os.getpid()))
+
+    assert mod.is_supervisor_up() is False
+
+
+def test_is_supervisor_up_with_live_pid_mismatched_start_time(tmp_path, monkeypatch):
+    mod = importlib.reload(importlib.import_module("think.supervisor"))
+
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    health_dir = tmp_path / "health"
+    health_dir.mkdir(parents=True, exist_ok=True)
+    (health_dir / "supervisor.pid").write_text(str(os.getpid()))
+    create_time = psutil.Process(os.getpid()).create_time()
+    (health_dir / "supervisor.start_time").write_text(str(create_time + 60))
+
+    assert mod.is_supervisor_up() is False
+
+
+def test_is_supervisor_up_with_matching_process_identity(tmp_path, monkeypatch):
+    mod = importlib.reload(importlib.import_module("think.supervisor"))
+
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    health_dir = tmp_path / "health"
+    health_dir.mkdir(parents=True, exist_ok=True)
+    (health_dir / "supervisor.pid").write_text(str(os.getpid()))
+    (health_dir / "supervisor.start_time").write_text(
+        str(psutil.Process(os.getpid()).create_time())
+    )
+
+    assert mod.is_supervisor_up() is True

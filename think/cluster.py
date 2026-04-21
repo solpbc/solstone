@@ -519,7 +519,7 @@ def _find_segment_dir(day: str, segment: str, stream: str | None) -> Path | None
     from think.utils import segment_path as _segment_path
 
     if stream:
-        path = _segment_path(day, segment, stream)
+        path = _segment_path(day, segment, stream, create=False)
         return path if path.is_dir() else None
 
     # Search all streams for this segment

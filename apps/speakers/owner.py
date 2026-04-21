@@ -342,7 +342,7 @@ def classify_sentences(
 
     centroid, threshold = centroid_data
     emb_data = load_embeddings_file(
-        segment_path(day, segment_key, stream) / f"{source}.npz"
+        segment_path(day, segment_key, stream, create=False) / f"{source}.npz"
     )
     if emb_data is None:
         return []

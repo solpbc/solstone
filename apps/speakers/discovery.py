@@ -113,7 +113,7 @@ def discover_unknown_speakers() -> dict[str, Any]:
         for segment in scan_segment_embeddings(day):
             stream = segment["stream"]
             seg_key = segment["key"]
-            seg_dir = segment_path(day, seg_key, stream)
+            seg_dir = segment_path(day, seg_key, stream, create=False)
 
             labels_data = load_speaker_labels(seg_dir)
             attributed_sids: set[int] = set()
@@ -221,7 +221,7 @@ def discover_unknown_speakers() -> dict[str, Any]:
                 continue
             seen_segments.add(seg_triplet)
             seg_dir = segment_path(
-                record["day"], record["segment_key"], record["stream"]
+                record["day"], record["segment_key"], record["stream"], create=False
             )
             samples.append(
                 {
@@ -247,7 +247,7 @@ def discover_unknown_speakers() -> dict[str, Any]:
             for pos in sorted_positions:
                 record = provenance[int(cluster_indices[int(pos)])]
                 seg_dir = segment_path(
-                    record["day"], record["segment_key"], record["stream"]
+                    record["day"], record["segment_key"], record["stream"], create=False
                 )
                 sample = {
                     **record,

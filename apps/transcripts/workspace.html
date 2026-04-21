@@ -787,6 +787,143 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   flex-shrink: 0;
 }
 
+#trDeleteSegmentModal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.55);
+  z-index: 1100;
+}
+
+#trDeleteSegmentModal .modal-content {
+  width: min(520px, 100%);
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.22);
+  overflow: hidden;
+}
+
+#trDeleteSegmentModal .modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+#trDeleteSegmentModal .modal-header h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #111827;
+}
+
+#trDeleteSegmentModal .modal-header.danger h3 {
+  color: #991b1b;
+}
+
+#trDeleteSegmentModal .modal-body {
+  padding: 20px 24px;
+}
+
+#trDeleteSegmentModal .modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 0 24px 24px;
+}
+
+#trDeleteSegmentModal .close {
+  color: #9ca3af;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+#trDeleteSegmentModal .close:hover {
+  color: #4b5563;
+}
+
+#trDeleteSegmentModal .close:active {
+  color: #111827;
+}
+
+#trDeleteSegmentModal .btn-secondary,
+#trDeleteSegmentModal .btn-danger {
+  border: none;
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+#trDeleteSegmentModal .btn-secondary {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+#trDeleteSegmentModal .btn-secondary:hover {
+  background: #e5e7eb;
+}
+
+#trDeleteSegmentModal .btn-secondary:active {
+  transform: translateY(1px);
+}
+
+#trDeleteSegmentModal .btn-danger {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+#trDeleteSegmentModal .btn-danger:hover {
+  background: #b91c1c;
+}
+
+#trDeleteSegmentModal .btn-danger:active {
+  transform: translateY(1px);
+}
+
+#trDeleteSegmentModal .delete-warning {
+  padding: 16px 18px;
+  border-radius: 12px;
+  background: #fef2f2;
+  border-left: 4px solid #dc2626;
+  color: #7f1d1d;
+}
+
+#trDeleteSegmentModal .delete-warning p {
+  margin: 0 0 12px;
+}
+
+#trDeleteSegmentModal .delete-warning p:last-child {
+  margin-bottom: 0;
+}
+
+#trDeleteSegmentModal .tr-delete-segment-meta {
+  font-size: 14px;
+  color: #991b1b;
+}
+
+#trDeleteSegmentModal .tr-delete-segment-list {
+  margin: 0 0 12px;
+  padding-left: 20px;
+}
+
+#trDeleteSegmentModal .tr-delete-segment-list li + li {
+  margin-top: 6px;
+}
+
+#trDeleteSegmentModal .tr-delete-segment-size {
+  font-size: 13px;
+  color: #7f1d1d;
+}
+
 /* Unified timeline view */
 .tr-unified {
   display: flex;
@@ -1290,6 +1427,22 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   </div>
 </div>
 
+<div id="trDeleteSegmentModal" class="modal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="trDeleteSegmentModalTitle">
+  <div class="modal-content">
+    <div class="modal-header danger">
+      <h3 id="trDeleteSegmentModalTitle">Delete segment?</h3>
+      <span class="close" id="trDeleteSegmentModalClose" onclick="closeDeleteSegmentModal()">&times;</span>
+    </div>
+    <div class="modal-body">
+      <div id="trDeleteSegmentModalBody" class="delete-warning"></div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn-secondary" onclick="closeDeleteSegmentModal()">Cancel</button>
+      <button type="button" id="trDeleteSegmentModalConfirm" class="btn-danger" onclick="confirmDeleteSegment()">Delete</button>
+    </div>
+  </div>
+</div>
+
 <script src="{{ vendor_lib('marked') }}"></script>
 <script>
 (() => {
@@ -1340,6 +1493,9 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   });
   const panel = document.getElementById('trPanel');
   const deleteBtn = document.getElementById('trDeleteBtn');
+  const deleteSegmentModal = document.getElementById('trDeleteSegmentModal');
+  const deleteSegmentModalBody = document.getElementById('trDeleteSegmentModalBody');
+  const deleteSegmentModalConfirm = document.getElementById('trDeleteSegmentModalConfirm');
   const emptyIcons = {
     day: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>',
     nothing: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>',
@@ -1366,6 +1522,8 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   let allSegments = [];
   let selectedSegment = null;
   let updateNowPosition = null;
+  let deleteModalReturnFocus = null;
+  let deleteModalPrevOverflow = '';
 
   // Zoom state
   let zoomHeight = zoom.clientHeight;
@@ -3066,11 +3224,23 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
   // Keyboard navigation for segment stepping
   document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && deleteSegmentModal.style.display !== 'none') {
+      e.preventDefault();
+      closeDeleteSegmentModal();
+      return;
+    }
     const tag = e.target.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
     if (document.getElementById('trImageModal')) return;
+    if (deleteSegmentModal.style.display !== 'none') return;
     if (e.key === ']') { e.preventDefault(); navigateSegment(1); }
     else if (e.key === '[') { e.preventDefault(); navigateSegment(-1); }
+  });
+
+  window.addEventListener('click', (event) => {
+    if (event.target === deleteSegmentModal) {
+      closeDeleteSegmentModal();
+    }
   });
 
   // Click on timeline to set range
@@ -3143,6 +3313,126 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     return pos.charAt(0).toUpperCase() + pos.slice(1);
   }
 
+  function showDeleteSegmentModal() {
+    if (!selectedSegment) return;
+
+    const seg = selectedSegment;
+    const totalBytes = (segmentData?.media_sizes?.audio || 0) + (segmentData?.media_sizes?.screen || 0);
+    const sizeLine = totalBytes > 0
+      ? `<p class="tr-delete-segment-size">Current raw media size: ${formatSize(totalBytes)}</p>`
+      : '';
+
+    deleteSegmentModalBody.innerHTML = `
+      <p class="tr-delete-segment-meta"><strong>${escapeHtml(seg.stream)}</strong> · <strong>${escapeHtml(day)}</strong> · <strong>${escapeHtml(seg.start)} - ${escapeHtml(seg.end)}</strong></p>
+      <p>You'll have ~30 seconds to undo this after confirming.</p>
+      <p>This removes:</p>
+      <ul class="tr-delete-segment-list">
+        <li>audio</li>
+        <li>screen recording</li>
+        <li>transcripts</li>
+        <li>derived insights</li>
+      </ul>
+      ${sizeLine}
+    `;
+
+    deleteModalReturnFocus = document.activeElement;
+    deleteModalPrevOverflow = document.body.style.overflow;
+    deleteSegmentModal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    deleteSegmentModalConfirm.focus();
+  }
+
+  function closeDeleteSegmentModal(restoreFocus = true) {
+    if (deleteSegmentModal.style.display === 'none') return;
+
+    deleteSegmentModal.style.display = 'none';
+    deleteSegmentModalBody.innerHTML = '';
+    document.body.style.overflow = deleteModalPrevOverflow;
+    deleteModalPrevOverflow = '';
+    if (restoreFocus && deleteModalReturnFocus && document.contains(deleteModalReturnFocus)) {
+      deleteModalReturnFocus.focus();
+    }
+    deleteModalReturnFocus = null;
+  }
+
+  async function confirmDeleteSegment() {
+    if (!selectedSegment) return;
+
+    const seg = selectedSegment;
+    closeDeleteSegmentModal(false);
+    await performDeleteSegment(seg);
+  }
+
+  async function performDeleteSegment(seg) {
+    try {
+      const response = await fetch(`/app/transcripts/api/segment/${day}/${seg.stream}/${seg.key}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to delete segment');
+      }
+
+      const data = await response.json();
+
+      // Remove segment from local state
+      allSegments = allSegments.filter(s => s.key !== seg.key);
+
+      // Clear selection and UI
+      clearSegmentSelection();
+
+      // Re-render zoom timeline
+      buildZoomSegments();
+
+      // Refresh range indicators on left timeline
+      fetch(`/app/transcripts/api/ranges/${day}`)
+        .then(r => r.ok ? r.json() : Promise.reject('Failed to fetch ranges'))
+        .then(data => {
+          // Clear and rebuild segment indicators
+          segmentsLane.innerHTML = '';
+          (data.audio || []).forEach(rg => {
+            const [s, e] = rg.map(parseTime);
+            addSegmentIndicator('audio', s, e, 0);
+          });
+          (data.screen || []).forEach(rg => {
+            const [s, e] = rg.map(parseTime);
+            addSegmentIndicator('screen', s, e, 1);
+          });
+        })
+        .catch(() => {
+          // Range indicators may be stale, but segment is deleted
+        });
+
+      if (data.search_index_warning === true) {
+        window.AppServices.notifications.show({
+          app: 'transcripts',
+          icon: '⚠️',
+          title: 'Search index may be stale',
+          message: 'Search results may be briefly stale until the supervisor is restarted and the index is rebuilt.',
+          dismissible: true,
+          autoDismiss: 10000
+        });
+      }
+
+    } catch (err) {
+      const notice = document.createElement('div');
+      notice.className = 'tr-warning-notice visible';
+      notice.style.borderColor = '#fca5a5';
+      notice.style.background = '#fef2f2';
+      notice.style.color = '#991b1b';
+      notice.innerHTML = '<svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg> <span>' + escapeHtml(err.message) + '</span>';
+      panel.insertBefore(notice, panel.firstChild);
+      setTimeout(() => {
+        notice.style.opacity = '0';
+        setTimeout(() => notice.remove(), 300);
+      }, 5000);
+    }
+  }
+
+  window.closeDeleteSegmentModal = closeDeleteSegmentModal;
+  window.confirmDeleteSegment = confirmDeleteSegment;
+
   // Clear selection and reset UI state
   function clearSegmentSelection() {
     selectedSegment = null;
@@ -3180,67 +3470,8 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   }
 
   // Delete segment handler
-  deleteBtn.addEventListener('click', async () => {
-    if (!selectedSegment) return;
-
-    const seg = selectedSegment;
-    const confirmMsg = `Delete segment ${seg.start} - ${seg.end}?\n\n` +
-      `This will permanently remove all audio, screen recordings, and transcripts for this segment.\n\n` +
-      `This cannot be undone.`;
-
-    if (!confirm(confirmMsg)) return;
-
-    try {
-      const response = await fetch(`/app/transcripts/api/segment/${day}/${seg.stream}/${seg.key}`, {
-        method: 'DELETE'
-      });
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || 'Failed to delete segment');
-      }
-
-      // Remove segment from local state
-      allSegments = allSegments.filter(s => s.key !== seg.key);
-
-      // Clear selection and UI
-      clearSegmentSelection();
-
-      // Re-render zoom timeline
-      buildZoomSegments();
-
-      // Refresh range indicators on left timeline
-      fetch(`/app/transcripts/api/ranges/${day}`)
-        .then(r => r.ok ? r.json() : Promise.reject('Failed to fetch ranges'))
-        .then(data => {
-          // Clear and rebuild segment indicators
-          segmentsLane.innerHTML = '';
-          (data.audio || []).forEach(rg => {
-            const [s, e] = rg.map(parseTime);
-            addSegmentIndicator('audio', s, e, 0);
-          });
-          (data.screen || []).forEach(rg => {
-            const [s, e] = rg.map(parseTime);
-            addSegmentIndicator('screen', s, e, 1);
-          });
-        })
-        .catch(() => {
-          // Range indicators may be stale, but segment is deleted
-        });
-
-    } catch (err) {
-      const notice = document.createElement('div');
-      notice.className = 'tr-warning-notice visible';
-      notice.style.borderColor = '#fca5a5';
-      notice.style.background = '#fef2f2';
-      notice.style.color = '#991b1b';
-      notice.innerHTML = '<svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg> <span>' + escapeHtml(err.message) + '</span>';
-      panel.insertBefore(notice, panel.firstChild);
-      setTimeout(() => {
-        notice.style.opacity = '0';
-        setTimeout(() => notice.remove(), 300);
-      }, 5000);
-    }
+  deleteBtn.addEventListener('click', () => {
+    showDeleteSegmentModal();
   });
 
 })();

@@ -433,7 +433,7 @@ def _load_sentences(
         - emb_data: Tuple of (embeddings, statement_ids) or None if no embeddings
     """
     if stream:
-        segment_dir = get_segment_path(day, segment_key, stream)
+        segment_dir = get_segment_path(day, segment_key, stream, create=False)
     else:
         segment_dir = day_path(day) / segment_key
 
@@ -493,7 +493,7 @@ def _get_sentence_embedding(
 ) -> np.ndarray | None:
     """Get a specific sentence's embedding, normalized."""
     if stream:
-        segment_dir = get_segment_path(day, segment_key, stream)
+        segment_dir = get_segment_path(day, segment_key, stream, create=False)
     else:
         segment_dir = day_path(day) / segment_key
     npz_path = segment_dir / f"{source}.npz"
@@ -571,7 +571,7 @@ def api_segments(day: str) -> Any:
     principal = get_journal_principal()
     principal_id = principal["id"] if principal else None
     for seg in segments:
-        seg_dir = get_segment_path(day, seg["key"], seg["stream"])
+        seg_dir = get_segment_path(day, seg["key"], seg["stream"], create=False)
         labels_data = _load_speaker_labels(seg_dir)
         if labels_data:
             labels = labels_data.get("labels", [])
@@ -612,7 +612,7 @@ def api_segment_speakers(day: str, stream: str, segment_key: str) -> Any:
         return error_response("Invalid segment key", 400)
 
     # Load speakers from speakers.json
-    segment_dir = get_segment_path(day, segment_key, stream)
+    segment_dir = get_segment_path(day, segment_key, stream, create=False)
     speakers = _load_segment_speakers(segment_dir)
     if not speakers:
         return jsonify({"matched": [], "unmatched": []})
@@ -658,7 +658,7 @@ def api_review(day: str, stream: str, segment_key: str, source: str) -> Any:
     if not sentences:
         return error_response("No transcript found", 404)
 
-    segment_dir = get_segment_path(day, segment_key, stream)
+    segment_dir = get_segment_path(day, segment_key, stream, create=False)
     labels_data = _load_speaker_labels(segment_dir)
     label_map: dict[int, dict] = {}
     if labels_data:
