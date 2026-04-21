@@ -580,11 +580,8 @@ const Dashboard = (function() {
     const missingFields = requiredFields.filter(f => !(f in stats));
     if (missingFields.length > 0) {
       document.getElementById('notice').appendChild(
-        el('div', {className: 'alert alert-error'}, [
-          'Stats data is missing required fields: ' + missingFields.join(', ') + '. ',
-          'Run ',
-          el('code', {}, ['sol journal-stats']),
-          ' to regenerate.'
+        el('div', {className: 'alert alert-warning'}, [
+          'your stats aren\'t ready yet. check back in a moment.'
         ])
       );
       return;
