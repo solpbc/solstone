@@ -20,6 +20,12 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   height: calc(100vh - var(--facet-bar-height) - var(--date-nav-height));
 }
 
+body.has-app-bar.has-date-nav .workspace:has(.tr-wrap) {
+  height: calc(
+    100vh - var(--facet-bar-height) - var(--date-nav-height) - var(--app-bar-height) - 80px
+  );
+}
+
 /* Main container */
 .tr-wrap {
   max-width: 1400px;
