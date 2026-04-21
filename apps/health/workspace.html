@@ -1367,6 +1367,8 @@
     logExportBtn: document.getElementById('logExportBtn'),
   };
 
+  let timeoutFired = false;
+
   // Human-readable service names
   const SERVICE_NAMES = {
     supervisor: 'System Manager',
@@ -1382,6 +1384,26 @@
 
   function serviceName(internal) {
     return SERVICE_NAMES[internal] || internal;
+  }
+
+  function sweepUnresolvedSkeletons() {
+    if (timeoutFired) return;
+    timeoutFired = true;
+    const targets = [
+      elements.vitalsStatus,
+      elements.serviceDots,
+      elements.healthValue,
+      elements.statusSummaryText,
+    ];
+    for (const el of targets) {
+      if (el && el.querySelector('.skeleton, .skeleton-dark')) {
+        el.textContent = 'unavailable';
+      }
+    }
+  }
+
+  function armSkeletonTimeout() {
+    setTimeout(sweepUnresolvedSkeletons, 7000);
   }
 
   // Utility functions
@@ -2989,6 +3011,12 @@
   // Listen to all Callosum events
   if (window.appEvents) {
     window.appEvents.listen('*', handleEvent);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', armSkeletonTimeout, {once: true});
+  } else {
+    armSkeletonTimeout();
   }
 
   function sweepStale() {
