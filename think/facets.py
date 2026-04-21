@@ -112,6 +112,42 @@ def _format_activity_line(activity: dict[str, Any], *, bold_name: bool = False) 
     return name_part
 
 
+def _rank_entities_by_signal(
+    facet: str,
+    entities: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Return entities ranked by observation count, recency, and name."""
+    from think.entities import load_observations
+
+    ranked_items: list[tuple[int, str, str, dict[str, Any]]] = []
+    for entity in entities:
+        name = entity.get("name", "")
+        observations = load_observations(facet, name)
+        observation_count = len(observations)
+        last_observed = max(
+            (
+                observation.get("observed_at")
+                for observation in observations
+                if observation.get("observed_at")
+            ),
+            default=None,
+        )
+        last_observed_sort = "" if last_observed is None else str(last_observed)
+        ranked_items.append(
+            (
+                observation_count,
+                last_observed_sort,
+                name.casefold(),
+                entity,
+            )
+        )
+
+    ranked_items.sort(key=lambda item: item[2])
+    ranked_items.sort(key=lambda item: item[1], reverse=True)
+    ranked_items.sort(key=lambda item: item[0], reverse=True)
+    return [entity for _count, _last_observed, _name, entity in ranked_items]
+
+
 def _write_action_log(
     facet: str | None,
     action: str,
@@ -871,7 +907,12 @@ def delete_facet(name: str, *, consent: bool = False) -> None:
     shutil.rmtree(facet_path)
 
 
-def facet_summaries(*, detailed: bool = False) -> str:
+def facet_summaries(
+    *,
+    detailed: bool = False,
+    max_entities_per_facet: int | None = 20,
+    max_activities_per_facet: int | None = 15,
+) -> str:
     """Generate a formatted list summary of enabled (non-muted) facets for use in agent prompts.
 
     Returns a markdown-formatted string with each facet as a list item including:
@@ -885,6 +926,10 @@ def facet_summaries(*, detailed: bool = False) -> str:
     detailed:
         If True, includes full entity and activity details (name: description).
         If False (default), includes only names as semicolon-separated lists.
+    max_entities_per_facet:
+        Maximum entities to render per facet; defaults to 20, or None for no cap.
+    max_activities_per_facet:
+        Maximum activities to render per facet; defaults to 15, or None for no cap.
 
     Returns
     -------
@@ -914,18 +959,30 @@ def facet_summaries(*, detailed: bool = False) -> str:
 
         # Load entities for this facet
         try:
-            if detailed:
-                entities = load_entities(facet_name)
-                if entities:
-                    # Extract principal role and filter from list
-                    role_line, display_entities = _format_principal_role(entities)
+            entities = load_entities(facet_name)
+            if entities:
+                role_line, remaining_entities = _format_principal_role(entities)
+                ranked_entities = _rank_entities_by_signal(
+                    facet_name,
+                    remaining_entities,
+                )
+                if (
+                    max_entities_per_facet is not None
+                    and len(ranked_entities) > max_entities_per_facet
+                ):
+                    shown_entities = ranked_entities[:max_entities_per_facet]
+                    entity_overflow = len(ranked_entities) - max_entities_per_facet
+                else:
+                    shown_entities = ranked_entities
+                    entity_overflow = 0
 
-                    if role_line:
-                        lines.append(f"  - {role_line}")
+                if role_line:
+                    lines.append(f"  - {role_line}")
 
-                    if display_entities:
+                if shown_entities:
+                    if detailed:
                         lines.append(f"  - **{title} Entities**:")
-                        for entity in display_entities:
+                        for entity in shown_entities:
                             formatted_name = _format_entity_name_with_aka(entity)
                             desc = entity.get("description", "")
 
@@ -933,21 +990,21 @@ def facet_summaries(*, detailed: bool = False) -> str:
                                 lines.append(f"    - {formatted_name}: {desc}")
                             else:
                                 lines.append(f"    - {formatted_name}")
-            else:
-                # Simple mode: load entities, filter principal, show names only
-                entities = load_entities(facet_name)
-                if entities:
-                    role_line, display_entities = _format_principal_role(entities)
 
-                    if role_line:
-                        lines.append(f"  - {role_line}")
+                        if entity_overflow:
+                            lines.append(f"    - _and {entity_overflow} more entities_")
+                    else:
+                        if entity_overflow:
+                            lines.append(f"  - **{title} Entities**:")
+                            for entity in shown_entities:
+                                lines.append(f"    - {entity.get('name', '')}")
+                            lines.append(f"    - _and {entity_overflow} more entities_")
+                        else:
+                            entity_names = "; ".join(
+                                entity.get("name", "") for entity in shown_entities
+                            )
+                            lines.append(f"  - **{title} Entities**: {entity_names}")
 
-                    if display_entities:
-                        # Build semicolon-separated names list
-                        entity_names = "; ".join(
-                            e.get("name", "") for e in display_entities
-                        )
-                        lines.append(f"  - **{title} Entities**: {entity_names}")
         except Exception:
             # No entities file or error loading - that's fine, skip it
             pass
@@ -956,18 +1013,38 @@ def facet_summaries(*, detailed: bool = False) -> str:
         try:
             activities = get_facet_activities(facet_name)
             if activities:
+                if (
+                    max_activities_per_facet is not None
+                    and len(activities) > max_activities_per_facet
+                ):
+                    shown_activities = activities[:max_activities_per_facet]
+                    activity_overflow = len(activities) - max_activities_per_facet
+                else:
+                    shown_activities = activities
+                    activity_overflow = 0
+
                 if detailed:
                     lines.append(f"  - **{title} Activities**:")
-                    for activity in activities:
+                    for activity in shown_activities:
                         lines.append(
                             f"    - {_format_activity_line(activity, bold_name=False)}"
                         )
+                    if activity_overflow:
+                        lines.append(f"    - _and {activity_overflow} more activities_")
                 else:
-                    # Simple mode: activity names only
-                    activity_names = "; ".join(
-                        a.get("name", a.get("id", "")) for a in activities
-                    )
-                    lines.append(f"  - **{title} Activities**: {activity_names}")
+                    if activity_overflow:
+                        lines.append(f"  - **{title} Activities**:")
+                        for activity in shown_activities:
+                            lines.append(
+                                f"    - {activity.get('name', activity.get('id', ''))}"
+                            )
+                        lines.append(f"    - _and {activity_overflow} more activities_")
+                    else:
+                        activity_names = "; ".join(
+                            activity.get("name", activity.get("id", ""))
+                            for activity in shown_activities
+                        )
+                        lines.append(f"  - **{title} Activities**: {activity_names}")
         except Exception:
             # No activities file or error loading - that's fine, skip it
             pass

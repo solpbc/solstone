@@ -12,6 +12,7 @@ from slugify import slugify
 from think.facets import (
     _format_principal_role,
     _get_principal_display_name,
+    _rank_entities_by_signal,
     facet_summaries,
     facet_summary,
     get_active_facets,
@@ -61,6 +62,64 @@ def setup_entities_new_structure(
         relationship = {"entity_id": entity_id, "description": desc}
         with open(facet_entity_dir / "entity.json", "w", encoding="utf-8") as f:
             json.dump(relationship, f)
+
+
+def setup_facet(
+    journal_path: Path,
+    facet: str,
+    *,
+    title: str | None = None,
+    description: str = "",
+) -> Path:
+    """Create a facet directory with minimal metadata for tests."""
+    facet_dir = journal_path / "facets" / facet
+    facet_dir.mkdir(parents=True, exist_ok=True)
+    facet_data = {"title": title or facet.replace("-", " ").title()}
+    if description:
+        facet_data["description"] = description
+    (facet_dir / "facet.json").write_text(json.dumps(facet_data), encoding="utf-8")
+    return facet_dir
+
+
+def write_identity_config(
+    journal_path: Path,
+    *,
+    name: str = "Test User",
+    preferred: str = "Tester",
+) -> None:
+    """Write a minimal journal identity config for principal tests."""
+    config_dir = journal_path / "config"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    config = {"identity": {"name": name, "preferred": preferred}}
+    (config_dir / "journal.json").write_text(json.dumps(config), encoding="utf-8")
+
+
+def write_observations(
+    journal_path: Path,
+    facet: str,
+    entity_name: str,
+    observed_at_values: list[object],
+) -> None:
+    """Write observations.jsonl records for a test entity."""
+    entity_id = slugify(entity_name, separator="_")
+    observations_path = (
+        journal_path / "facets" / facet / "entities" / entity_id / "observations.jsonl"
+    )
+    observations_path.parent.mkdir(parents=True, exist_ok=True)
+    lines = [
+        json.dumps(
+            {
+                "content": f"Observation {index}",
+                "observed_at": observed_at,
+                "source_day": "20260420",
+            }
+        )
+        for index, observed_at in enumerate(observed_at_values, 1)
+    ]
+    observations_path.write_text(
+        "\n".join(lines) + ("\n" if lines else ""),
+        encoding="utf-8",
+    )
 
 
 def test_facet_summary_full(monkeypatch):
@@ -739,3 +798,309 @@ def test_facet_summaries_detailed_with_activities(monkeypatch):
     assert "Coding:" in summary
     assert "Custom Activity:" in summary
     assert "A custom test activity" in summary
+
+
+def test_rank_entities_by_signal_orders_by_count_then_last_observed(
+    tmp_path,
+    monkeypatch,
+):
+    """Rank entities by observation count, then recency, then name."""
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    setup_facet(tmp_path, "signals", title="Signals")
+    entities = [
+        {"type": "Person", "name": "Alpha", "description": "A"},
+        {"type": "Person", "name": "Beta", "description": "B"},
+        {"type": "Person", "name": "Gamma", "description": "C"},
+        {"type": "Person", "name": "Delta", "description": "D"},
+    ]
+    setup_entities_new_structure(tmp_path, "signals", entities)
+    write_observations(
+        tmp_path,
+        "signals",
+        "Alpha",
+        ["2026-04-01T10:00:00Z", "2026-04-01T11:00:00Z", "2026-04-01T12:00:00Z"],
+    )
+    write_observations(
+        tmp_path,
+        "signals",
+        "Beta",
+        ["2026-04-15T10:00:00Z", "2026-04-15T11:00:00Z", "2026-04-15T12:00:00Z"],
+    )
+    write_observations(tmp_path, "signals", "Gamma", ["2026-04-10T09:00:00Z"])
+
+    ranked = _rank_entities_by_signal("signals", entities)
+
+    assert [entity["name"] for entity in ranked] == ["Beta", "Alpha", "Gamma", "Delta"]
+
+
+def test_rank_entities_by_signal_uses_casefold_name_tiebreaker(tmp_path, monkeypatch):
+    """Identical signals fall back to case-insensitive name ordering."""
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    setup_facet(tmp_path, "signals", title="Signals")
+    entities = [
+        {"type": "Person", "name": "bravo", "description": "B"},
+        {"type": "Person", "name": "Alpha", "description": "A"},
+    ]
+    setup_entities_new_structure(tmp_path, "signals", entities)
+    observed = ["2026-04-15T12:00:00Z", "2026-04-15T13:00:00Z"]
+    write_observations(tmp_path, "signals", "bravo", observed)
+    write_observations(tmp_path, "signals", "Alpha", observed)
+
+    ranked = _rank_entities_by_signal("signals", entities)
+
+    assert [entity["name"] for entity in ranked] == ["Alpha", "bravo"]
+
+
+def test_facet_summaries_detailed_entity_cap_appends_trailing_bullet(
+    tmp_path,
+    monkeypatch,
+):
+    """Detailed mode caps entities and appends the trailing bullet."""
+    from think.activities import save_facet_activities
+
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    setup_facet(
+        tmp_path,
+        "entity-cap",
+        title="Entity Cap",
+        description="Detailed entity cap",
+    )
+    setup_entities_new_structure(
+        tmp_path,
+        "entity-cap",
+        [
+            {
+                "type": "Person",
+                "name": f"Entity {index:02d}",
+                "description": f"Description {index:02d}",
+            }
+            for index in range(1, 26)
+        ],
+    )
+    save_facet_activities("entity-cap", [{"id": "meeting"}, {"id": "coding"}])
+
+    summary = facet_summaries(detailed=True)
+
+    assert "    - Entity 01: Description 01" in summary
+    assert "    - Entity 20: Description 20" in summary
+    assert "    - _and 5 more entities_" in summary
+    assert "Entity 21: Description 21" not in summary
+    assert "_and 1 more activities_" not in summary
+
+
+def test_facet_summaries_detailed_activity_cap_appends_trailing_bullet(
+    tmp_path,
+    monkeypatch,
+):
+    """Detailed mode caps activities and appends the trailing bullet."""
+    from think.activities import DEFAULT_ACTIVITIES, save_facet_activities
+
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    setup_facet(
+        tmp_path,
+        "activity-cap",
+        title="Activity Cap",
+        description="Detailed activity cap",
+    )
+    setup_entities_new_structure(
+        tmp_path,
+        "activity-cap",
+        [
+            {"type": "Person", "name": "Alice", "description": "Lead"},
+            {"type": "Person", "name": "Bob", "description": "Partner"},
+        ],
+    )
+    save_facet_activities(
+        "activity-cap",
+        [{"id": activity["id"]} for activity in DEFAULT_ACTIVITIES],
+    )
+
+    summary = facet_summaries(detailed=True)
+
+    assert "    - Meetings" in summary
+    assert "    - Design:" in summary
+    assert "    - _and 1 more activities_" in summary
+    assert "    - Music:" not in summary
+    assert "_and 1 more entities_" not in summary
+
+
+def test_facet_summaries_simple_cap_trips_switches_capped_sections_to_bullets(
+    tmp_path,
+    monkeypatch,
+):
+    """Simple mode only switches capped sections to bullet lists."""
+    from think.activities import save_facet_activities
+
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    setup_facet(
+        tmp_path,
+        "simple-cap",
+        title="Simple Cap",
+        description="Simple cap formatting",
+    )
+    setup_entities_new_structure(
+        tmp_path,
+        "simple-cap",
+        [
+            {
+                "type": "Person",
+                "name": f"Entity {index:02d}",
+                "description": f"Description {index:02d}",
+            }
+            for index in range(1, 26)
+        ],
+    )
+    save_facet_activities("simple-cap", [{"id": "meeting"}, {"id": "coding"}])
+
+    summary = facet_summaries(detailed=False)
+
+    assert "  - **Simple Cap Entities**:\n    - Entity 01" in summary
+    assert "    - _and 5 more entities_" in summary
+    assert "  - **Simple Cap Activities**: Meetings; Coding" in summary
+    assert "  - **Simple Cap Entities**: Entity 01; Entity 02" not in summary
+    assert "    - _and 1 more activities_" not in summary
+
+
+def test_facet_summaries_exactly_at_caps_has_no_trailing_bullets(
+    tmp_path,
+    monkeypatch,
+):
+    """Exactly-at-cap output stays uncapped and keeps simple one-line formatting."""
+    from think.activities import DEFAULT_ACTIVITIES, save_facet_activities
+
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    setup_facet(
+        tmp_path,
+        "exact-cap",
+        title="Exact Cap",
+        description="Exactly at cap",
+    )
+    setup_entities_new_structure(
+        tmp_path,
+        "exact-cap",
+        [
+            {
+                "type": "Person",
+                "name": f"Entity {index:02d}",
+                "description": f"Description {index:02d}",
+            }
+            for index in range(1, 21)
+        ],
+    )
+    save_facet_activities(
+        "exact-cap",
+        [{"id": activity["id"]} for activity in DEFAULT_ACTIVITIES[:15]],
+    )
+
+    detailed_summary = facet_summaries(detailed=True)
+    simple_summary = facet_summaries(detailed=False)
+
+    assert "_and 0 more entities_" not in detailed_summary
+    assert "_and 0 more activities_" not in detailed_summary
+    assert "_and 0 more entities_" not in simple_summary
+    assert "_and 0 more activities_" not in simple_summary
+    assert "  - **Exact Cap Entities**: Entity 01; Entity 02" in simple_summary
+    assert "  - **Exact Cap Activities**: Meetings; Coding" in simple_summary
+
+
+def test_facet_summaries_none_entity_cap_is_unbounded(tmp_path, monkeypatch):
+    """None entity cap restores the full entity list."""
+    from think.activities import save_facet_activities
+
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    setup_facet(
+        tmp_path,
+        "entity-unbounded",
+        title="Entity Unbounded",
+        description="No entity cap",
+    )
+    setup_entities_new_structure(
+        tmp_path,
+        "entity-unbounded",
+        [
+            {
+                "type": "Person",
+                "name": f"Entity {index:02d}",
+                "description": f"Description {index:02d}",
+            }
+            for index in range(1, 26)
+        ],
+    )
+    save_facet_activities("entity-unbounded", [{"id": "meeting"}])
+
+    summary = facet_summaries(detailed=True, max_entities_per_facet=None)
+
+    assert "Entity 25: Description 25" in summary
+    assert "_and 5 more entities_" not in summary
+
+
+def test_facet_summaries_none_activity_cap_is_unbounded(tmp_path, monkeypatch):
+    """None activity cap restores the full activity list."""
+    from think.activities import DEFAULT_ACTIVITIES, save_facet_activities
+
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    setup_facet(
+        tmp_path,
+        "activity-unbounded",
+        title="Activity Unbounded",
+        description="No activity cap",
+    )
+    setup_entities_new_structure(
+        tmp_path,
+        "activity-unbounded",
+        [{"type": "Person", "name": "Alice", "description": "Lead"}],
+    )
+    save_facet_activities(
+        "activity-unbounded",
+        [{"id": activity["id"]} for activity in DEFAULT_ACTIVITIES],
+    )
+
+    summary = facet_summaries(detailed=True, max_activities_per_facet=None)
+
+    assert "Music:" in summary
+    assert "_and 1 more activities_" not in summary
+
+
+def test_facet_summaries_principal_is_excluded_from_entity_budget(
+    tmp_path,
+    monkeypatch,
+):
+    """Principal role line does not count against the entity cap."""
+    from think.activities import save_facet_activities
+
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    write_identity_config(tmp_path)
+    setup_facet(
+        tmp_path,
+        "principal-budget",
+        title="Principal Budget",
+        description="Principal excluded from cap",
+    )
+    setup_entities_new_structure(
+        tmp_path,
+        "principal-budget",
+        [
+            {
+                "type": "Person",
+                "name": "Test User",
+                "description": "Principal role",
+                "is_principal": True,
+            }
+        ]
+        + [
+            {
+                "type": "Person",
+                "name": f"Entity {index:02d}",
+                "description": f"Description {index:02d}",
+            }
+            for index in range(1, 21)
+        ],
+    )
+    save_facet_activities("principal-budget", [{"id": "meeting"}])
+
+    summary = facet_summaries(detailed=True)
+
+    assert "**Tester's Role**: Principal role" in summary
+    assert "    - Entity 20: Description 20" in summary
+    assert "Test User: Principal role" not in summary
+    assert "_and 1 more entities_" not in summary
