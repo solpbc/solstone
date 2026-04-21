@@ -8,6 +8,8 @@ the latest version of these instructions is at https://solstone.app/install
 
 ## before you begin
 
+`make install-service` now auto-adds `~/.local/bin` to your shell `PATH` via the `userpath` library, updating `~/.bashrc`, `~/.zshrc`, or `~/.config/fish/config.fish` as needed. if `~/.local/bin` was not already on `PATH`, restart your shell after install or run `exec $SHELL -l` before continuing.
+
 check if solstone is already installed and running:
 
 ```bash

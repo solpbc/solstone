@@ -10,6 +10,8 @@ import sys
 from enum import Enum
 from pathlib import Path
 
+import userpath
+
 
 class AliasState(Enum):
     WORKTREE = "worktree"
@@ -89,6 +91,29 @@ def _print_error(
     sys.stderr.write(format_error(state, curdir, alias, other_target) + "\n")
 
 
+def _ensure_user_bin_on_path(user_bin: Path) -> None:
+    user_bin_str = str(user_bin)
+    try:
+        if userpath.in_current_path(user_bin_str):
+            print("path: ~/.local/bin already on PATH")
+            return
+        if userpath.append(user_bin_str, app_name="solstone", all_shells=True):
+            if userpath.need_shell_restart(user_bin_str):
+                print(
+                    "path: added ~/.local/bin to shell PATH — restart your shell or run 'exec $SHELL -l' to pick it up"
+                )
+            else:
+                print("path: added ~/.local/bin to shell PATH")
+            return
+        print(
+            'path: could not auto-add ~/.local/bin to PATH — add this line to your shell rc manually: export PATH="$HOME/.local/bin:$PATH"'
+        )
+    except Exception as exc:
+        print(
+            f'path: could not auto-add ~/.local/bin to PATH ({type(exc).__name__}: {exc}) — add this line to your shell rc manually: export PATH="$HOME/.local/bin:$PATH"'
+        )
+
+
 def cmd_check(curdir: Path) -> int:
     alias = alias_path()
     state, other_target = check_alias(curdir)
@@ -116,11 +141,13 @@ def cmd_install(curdir: Path) -> int:
         alias.parent.mkdir(parents=True, exist_ok=True)
         alias.symlink_to(expected_target(curdir))
         print("installed")
+        _ensure_user_bin_on_path(alias.parent)
         return 0
     if state is AliasState.OWNED:
         alias.unlink()
         alias.symlink_to(expected_target(curdir))
         print("installed")
+        _ensure_user_bin_on_path(alias.parent)
         return 0
 
     _print_error(state, curdir, alias, other_target)

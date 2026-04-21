@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 
@@ -170,12 +171,19 @@ class TestErrorFormat:
 
 
 class TestInstall:
+    @pytest.fixture(autouse=True)
+    def path_already_present(self, monkeypatch):
+        monkeypatch.setattr(
+            "think.install_guard.userpath.in_current_path",
+            lambda _path: True,
+        )
+
     def test_creates_symlink_on_absent(self, home_root, tmp_path, monkeypatch, capsys):
         repo = make_repo(tmp_path)
         rc, out, err = run_main(monkeypatch, capsys, repo, "install")
         alias = install_guard.alias_path()
         assert rc == 0
-        assert out == "installed\n"
+        assert out == "installed\npath: ~/.local/bin already on PATH\n"
         assert err == ""
         assert alias.is_symlink()
         assert alias.resolve() == install_guard.expected_target(repo).resolve()
@@ -186,10 +194,130 @@ class TestInstall:
         alias = make_alias(home_root, original)
         rc, out, err = run_main(monkeypatch, capsys, repo, "install")
         assert rc == 0
-        assert out == "installed\n"
+        assert out == "installed\npath: ~/.local/bin already on PATH\n"
         assert err == ""
         assert alias.is_symlink()
         assert alias.resolve() == original.resolve()
+
+    def test_path_already_on_path_absent(
+        self, home_root, tmp_path, monkeypatch, capsys
+    ):
+        repo = make_repo(tmp_path)
+        append_mock = Mock(return_value=True)
+        monkeypatch.setattr("think.install_guard.userpath.append", append_mock)
+        rc, out, err = run_main(monkeypatch, capsys, repo, "install")
+        alias = install_guard.alias_path()
+        assert rc == 0
+        assert out.endswith("path: ~/.local/bin already on PATH\n")
+        assert err == ""
+        assert alias.is_symlink()
+        assert alias.resolve() == install_guard.expected_target(repo).resolve()
+        append_mock.assert_not_called()
+
+    def test_path_appended_restart_needed_absent(
+        self, home_root, tmp_path, monkeypatch, capsys
+    ):
+        repo = make_repo(tmp_path)
+        append_mock = Mock(return_value=True)
+        restart_mock = Mock(return_value=True)
+        monkeypatch.setattr(
+            "think.install_guard.userpath.in_current_path",
+            lambda _path: False,
+        )
+        monkeypatch.setattr("think.install_guard.userpath.append", append_mock)
+        monkeypatch.setattr(
+            "think.install_guard.userpath.need_shell_restart",
+            restart_mock,
+        )
+        rc, out, err = run_main(monkeypatch, capsys, repo, "install")
+        alias = install_guard.alias_path()
+        assert rc == 0
+        assert (
+            out == "installed\n"
+            "path: added ~/.local/bin to shell PATH — restart your shell or run 'exec $SHELL -l' to pick it up\n"
+        )
+        assert err == ""
+        assert alias.is_symlink()
+        assert alias.resolve() == install_guard.expected_target(repo).resolve()
+        append_mock.assert_called_once_with(
+            str(alias.parent),
+            app_name="solstone",
+            all_shells=True,
+        )
+        restart_mock.assert_called_once_with(str(alias.parent))
+
+    def test_path_appended_no_restart_owned(
+        self, home_root, tmp_path, monkeypatch, capsys
+    ):
+        repo = make_repo(tmp_path)
+        alias = make_alias(home_root, ensure_expected_target(repo))
+        append_mock = Mock(return_value=True)
+        restart_mock = Mock(return_value=False)
+        monkeypatch.setattr(
+            "think.install_guard.userpath.in_current_path",
+            lambda _path: False,
+        )
+        monkeypatch.setattr("think.install_guard.userpath.append", append_mock)
+        monkeypatch.setattr(
+            "think.install_guard.userpath.need_shell_restart",
+            restart_mock,
+        )
+        rc, out, err = run_main(monkeypatch, capsys, repo, "install")
+        assert rc == 0
+        assert out == "installed\npath: added ~/.local/bin to shell PATH\n"
+        assert err == ""
+        assert alias.is_symlink()
+        assert alias.resolve() == install_guard.expected_target(repo).resolve()
+        append_mock.assert_called_once_with(
+            str(alias.parent),
+            app_name="solstone",
+            all_shells=True,
+        )
+        restart_mock.assert_called_once_with(str(alias.parent))
+
+    def test_path_append_returns_false(self, home_root, tmp_path, monkeypatch, capsys):
+        repo = make_repo(tmp_path)
+        append_mock = Mock(return_value=False)
+        monkeypatch.setattr(
+            "think.install_guard.userpath.in_current_path",
+            lambda _path: False,
+        )
+        monkeypatch.setattr("think.install_guard.userpath.append", append_mock)
+        rc, out, err = run_main(monkeypatch, capsys, repo, "install")
+        alias = install_guard.alias_path()
+        assert rc == 0
+        assert (
+            out
+            == 'installed\npath: could not auto-add ~/.local/bin to PATH — add this line to your shell rc manually: export PATH="$HOME/.local/bin:$PATH"\n'
+        )
+        assert err == ""
+        assert alias.is_symlink()
+        assert alias.resolve() == install_guard.expected_target(repo).resolve()
+        append_mock.assert_called_once_with(
+            str(alias.parent),
+            app_name="solstone",
+            all_shells=True,
+        )
+
+    def test_path_unexpected_exception(self, home_root, tmp_path, monkeypatch, capsys):
+        repo = make_repo(tmp_path)
+        append_mock = Mock(return_value=True)
+        monkeypatch.setattr(
+            "think.install_guard.userpath.in_current_path",
+            Mock(side_effect=RuntimeError("boom")),
+        )
+        monkeypatch.setattr("think.install_guard.userpath.append", append_mock)
+        rc, out, err = run_main(monkeypatch, capsys, repo, "install")
+        alias = install_guard.alias_path()
+        assert rc == 0
+        assert (
+            out
+            == 'installed\npath: could not auto-add ~/.local/bin to PATH (RuntimeError: boom) — add this line to your shell rc manually: export PATH="$HOME/.local/bin:$PATH"\n'
+        )
+        assert err == ""
+        assert alias.is_symlink()
+        assert alias.resolve() == install_guard.expected_target(repo).resolve()
+        append_mock.assert_not_called()
 
     def test_refuses_cross_repo(self, home_root, tmp_path, monkeypatch, capsys):
         repo = make_repo(tmp_path).resolve()
