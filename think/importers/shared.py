@@ -298,6 +298,36 @@ def _is_in_imports(media_path: str) -> bool:
     return abs_media.startswith(abs_imports + os.sep)
 
 
+def _build_import_manifest(import_dir: Path) -> dict[str, Any]:
+    """Return a hash manifest for files currently stored in an import directory."""
+    files = sorted(path for path in import_dir.rglob("*") if path.is_file())
+    entries: list[dict[str, Any]] = []
+    total_bytes = 0
+
+    for path in files:
+        size = path.stat().st_size
+        digest = hashlib.sha256()
+        with open(path, "rb") as handle:
+            while chunk := handle.read(64 * 1024):
+                digest.update(chunk)
+        entries.append(
+            {
+                "name": path.relative_to(import_dir).as_posix(),
+                "bytes": size,
+                "hash": digest.hexdigest(),
+            }
+        )
+        total_bytes += size
+
+    return {
+        "timestamp": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "import_dir": str(import_dir),
+        "total_bytes": total_bytes,
+        "file_count": len(entries),
+        "files": entries,
+    }
+
+
 def _setup_import(
     media_path: str,
     timestamp: str,
@@ -305,14 +335,28 @@ def _setup_import(
     setting: str | None,
     detection_result: dict | None,
     force: bool = False,
+    dry_run: bool = False,
 ) -> str:
     """Copy file to imports/ and write metadata. Returns new file path."""
     journal_root = Path(get_journal())
     import_dir = journal_root / "imports" / timestamp
+    filename = os.path.basename(media_path)
+    dry_run_target_path = str(import_dir / filename)
 
     # Check for conflict
     if import_dir.exists():
         if force:
+            from apps.utils import log_app_action
+
+            manifest = _build_import_manifest(import_dir)
+            log_app_action(
+                app="import",
+                facet=None,
+                action="import_force_reimport",
+                params={**manifest, "dry_run": dry_run},
+            )
+            if dry_run:
+                return dry_run_target_path
             logger.info(f"Removing existing import directory: {import_dir}")
             shutil.rmtree(import_dir)
         else:
@@ -322,7 +366,6 @@ def _setup_import(
             )
 
     # Copy file to imports/
-    filename = os.path.basename(media_path)
     new_path = save_import_file(
         journal_root=journal_root,
         timestamp=timestamp,

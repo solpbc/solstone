@@ -2,12 +2,15 @@
 # Copyright (c) 2026 sol pbc
 
 import datetime as dt
+import hashlib
 import importlib
 import json
 import subprocess
 import zipfile
 from pathlib import Path
 from unittest.mock import ANY, MagicMock, patch
+
+import pytest
 
 from think.importers.file_importer import ImportPreview, ImportResult
 from think.utils import day_path
@@ -35,6 +38,47 @@ def _make_mock_file_importer(name="ics", display_name="ICS Calendar"):
         summary="Imported 42 events",
     )
     return mock_imp
+
+
+def _configure_text_import_runtime(monkeypatch, mod):
+    """Patch text import processing and callosum helpers for CLI tests."""
+    text_mod = importlib.import_module("think.importers.text")
+
+    monkeypatch.setattr(
+        text_mod,
+        "detect_transcript_segment",
+        lambda text, start_time: [("12:00:00", text)],
+    )
+    monkeypatch.setattr(
+        text_mod,
+        "detect_transcript_json",
+        lambda text, segment_start: {
+            "entries": [
+                {
+                    "start": segment_start,
+                    "speaker": "Unknown",
+                    "text": text,
+                }
+            ],
+            "topics": "",
+            "setting": "",
+        },
+    )
+    monkeypatch.setattr(mod, "CallosumConnection", lambda **kwargs: MagicMock())
+    monkeypatch.setattr(mod, "_status_emitter", lambda: None)
+
+
+def _read_action_entries(journal_root: Path) -> list[dict]:
+    """Read journal-level app action log entries for today."""
+    today = dt.datetime.now().strftime("%Y%m%d")
+    log_path = journal_root / "config" / "actions" / f"{today}.jsonl"
+    if not log_path.exists():
+        return []
+    return [
+        json.loads(line)
+        for line in log_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
 
 
 def test_slice_audio_segment(tmp_path):
@@ -922,6 +966,121 @@ def test_importer_dry_run_auto(tmp_path, monkeypatch, capsys):
 
     assert not (tmp_path / "imports").exists()
     assert not (tmp_path / "chronicle" / "20240315").exists()
+
+
+def test_importer_force_reimport_logs_manifest_and_replaces_directory(
+    tmp_path, monkeypatch
+):
+    """--force logs a manifest, removes the old import dir, and writes the new file."""
+    mod = importlib.import_module("think.importers.cli")
+
+    timestamp = "20240101_120000"
+    old_import_dir = tmp_path / "imports" / timestamp
+    old_import_dir.mkdir(parents=True)
+    stale_file = old_import_dir / "stale.txt"
+    stale_bytes = b"old import payload"
+    stale_file.write_bytes(stale_bytes)
+    nested_file = old_import_dir / "nested" / "extra.bin"
+    nested_file.parent.mkdir(parents=True)
+    nested_bytes = b"\x00\x01nested"
+    nested_file.write_bytes(nested_bytes)
+
+    txt = tmp_path / "replacement.txt"
+    txt.write_text("replacement transcript")
+
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    _configure_text_import_runtime(monkeypatch, mod)
+    monkeypatch.setattr(
+        "sys.argv",
+        ["sol import", str(txt), "--timestamp", timestamp, "--force"],
+    )
+
+    mod.main()
+
+    action_entries = _read_action_entries(tmp_path)
+    assert len(action_entries) == 1
+    entry = action_entries[0]
+    assert entry["action"] == "import_force_reimport"
+    assert entry["actor"] == "import"
+    assert entry["params"]["dry_run"] is False
+    assert entry["params"]["import_dir"] == str(old_import_dir)
+    assert entry["params"]["file_count"] == 2
+    assert entry["params"]["total_bytes"] == len(stale_bytes) + len(nested_bytes)
+    assert entry["params"]["files"] == [
+        {
+            "name": "nested/extra.bin",
+            "bytes": len(nested_bytes),
+            "hash": hashlib.sha256(nested_bytes).hexdigest(),
+        },
+        {
+            "name": "stale.txt",
+            "bytes": len(stale_bytes),
+            "hash": hashlib.sha256(stale_bytes).hexdigest(),
+        },
+    ]
+
+    assert not stale_file.exists()
+    assert not nested_file.exists()
+    new_imported_file = old_import_dir / "replacement.txt"
+    assert new_imported_file.exists()
+    assert new_imported_file.read_text() == "replacement transcript"
+
+
+def test_importer_force_dry_run_logs_manifest_without_deleting(tmp_path, monkeypatch):
+    """--force --dry-run logs the manifest but leaves the old import dir untouched."""
+    mod = importlib.import_module("think.importers.cli")
+
+    timestamp = "20240101_120000"
+    old_import_dir = tmp_path / "imports" / timestamp
+    old_import_dir.mkdir(parents=True)
+    stale_file = old_import_dir / "stale.txt"
+    stale_file.write_text("old import payload")
+
+    txt = tmp_path / "replacement.txt"
+    txt.write_text("replacement transcript")
+
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setattr(
+        "sys.argv",
+        ["sol import", str(txt), "--timestamp", timestamp, "--force", "--dry-run"],
+    )
+
+    mod.main()
+
+    action_entries = _read_action_entries(tmp_path)
+    assert len(action_entries) == 1
+    entry = action_entries[0]
+    assert entry["action"] == "import_force_reimport"
+    assert entry["params"]["dry_run"] is True
+    assert entry["params"]["import_dir"] == str(old_import_dir)
+    assert entry["params"]["file_count"] == 1
+    assert stale_file.exists()
+    assert stale_file.read_text() == "old import payload"
+    assert not (old_import_dir / "replacement.txt").exists()
+
+
+def test_importer_existing_import_without_force_still_errors(tmp_path, monkeypatch):
+    """Existing imports still error without --force and do not log a reimport action."""
+    mod = importlib.import_module("think.importers.cli")
+
+    timestamp = "20240101_120000"
+    existing_import_dir = tmp_path / "imports" / timestamp
+    existing_import_dir.mkdir(parents=True)
+    (existing_import_dir / "stale.txt").write_text("old import payload")
+
+    txt = tmp_path / "replacement.txt"
+    txt.write_text("replacement transcript")
+
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setattr(
+        "sys.argv",
+        ["sol import", str(txt), "--timestamp", timestamp],
+    )
+
+    with pytest.raises(SystemExit, match="Import already exists"):
+        mod.main()
+
+    assert _read_action_entries(tmp_path) == []
 
 
 def test_file_importer_without_timestamp(tmp_path, monkeypatch, capsys):

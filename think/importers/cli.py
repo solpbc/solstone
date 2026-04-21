@@ -497,6 +497,12 @@ def main() -> None:
                 import_source = "audio"
 
     stream = stream_name(import_source=import_source)
+    needs_setup = _file_importer is None and not _is_in_imports(args.media)
+    force_reimport_preview = (
+        args.force
+        and needs_setup
+        and (Path(get_journal()) / "imports" / args.timestamp).exists()
+    )
 
     if args.dry_run and _file_importer is not None:
         preview = _file_importer.preview(Path(args.media))
@@ -618,10 +624,17 @@ def main() -> None:
                 print()
                 print("  Duration:   unknown (ffprobe failed)")
         print()
+        if force_reimport_preview:
+            _setup_import(
+                args.media,
+                args.timestamp,
+                args.facet,
+                args.setting,
+                detection_result,
+                force=True,
+                dry_run=True,
+            )
         return
-
-    # Check if file needs setup (not already in imports/)
-    needs_setup = _file_importer is None and not _is_in_imports(args.media)
 
     # Copy to imports/ if file is not already there
     if needs_setup:
@@ -632,6 +645,7 @@ def main() -> None:
             args.setting,
             detection_result,
             force=args.force,
+            dry_run=args.dry_run,
         )
         print("Starting import...")
 

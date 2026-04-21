@@ -3,12 +3,14 @@
 
 """Tests for import deduplication — manifests, source-level dedup, entry merge."""
 
+import hashlib
 import json
 import os
 import tempfile
 from pathlib import Path
 
 from think.importers.shared import (
+    _build_import_manifest,
     _entry_content_key,
     _load_existing_entries,
     find_manifest_by_hash,
@@ -66,6 +68,37 @@ def test_hash_source_directory_changes():
 
 
 # --- manifest tests ---
+
+
+def test_build_import_manifest():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        import_dir = Path(tmpdir)
+        alpha = import_dir / "alpha.txt"
+        alpha_bytes = b"alpha payload"
+        alpha.write_bytes(alpha_bytes)
+        beta = import_dir / "nested" / "beta.bin"
+        beta.parent.mkdir(parents=True)
+        beta_bytes = b"\x00\x01beta"
+        beta.write_bytes(beta_bytes)
+
+        manifest = _build_import_manifest(import_dir)
+
+        assert manifest["import_dir"] == str(import_dir)
+        assert manifest["file_count"] == 2
+        assert manifest["total_bytes"] == len(alpha_bytes) + len(beta_bytes)
+        assert manifest["files"] == [
+            {
+                "name": "alpha.txt",
+                "bytes": len(alpha_bytes),
+                "hash": hashlib.sha256(alpha_bytes).hexdigest(),
+            },
+            {
+                "name": "nested/beta.bin",
+                "bytes": len(beta_bytes),
+                "hash": hashlib.sha256(beta_bytes).hexdigest(),
+            },
+        ]
+        assert manifest["timestamp"].endswith("+00:00")
 
 
 def test_write_and_find_manifest():
