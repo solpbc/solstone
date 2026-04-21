@@ -435,7 +435,7 @@ def _render_active_talents(active_talents: list[dict[str, Any]]) -> str:
     if not active_talents:
         return ""
 
-    lines = ["## Active Execs\n"]
+    lines = ["## Active Talents\n"]
     for talent in active_talents:
         started_at = _format_started_at(talent.get("started_at"))
         line = f"- **{talent.get('name', 'exec')}** — {talent.get('task', '')}"

@@ -28,7 +28,7 @@ _VALID_KINDS = {
         "use_id",
         "text",
         "notes",
-        "requested_exec",
+        "requested_target",
         "requested_task",
     ),
     "talent_spawned": ("use_id", "name", "task", "started_at"),
@@ -122,7 +122,7 @@ def reduce_chat_state(day: str) -> dict[str, Any]:
                 "use_id": event["use_id"],
                 "text": event["text"],
                 "notes": event["notes"],
-                "requested_exec": event["requested_exec"],
+                "requested_target": event["requested_target"],
                 "requested_task": event["requested_task"],
             }
             continue

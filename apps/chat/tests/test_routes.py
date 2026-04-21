@@ -120,7 +120,7 @@ def test_chat_day_renders_all_event_kinds(journal_copy, monkeypatch):
         use_id="use-1",
         text="sol reply",
         notes="full note",
-        requested_exec=False,
+        requested_target=None,
         requested_task=None,
     )
     append_chat_event(
@@ -182,7 +182,7 @@ def test_chat_event_anchor_ids_are_stable(journal_copy, monkeypatch):
         use_id="use-5",
         text="second",
         notes="",
-        requested_exec=False,
+        requested_target=None,
         requested_task=None,
     )
 
@@ -213,7 +213,7 @@ def test_chat_time_separator_is_inserted_client_side(journal_copy, monkeypatch):
         use_id="use-6",
         text="later",
         notes="",
-        requested_exec=False,
+        requested_target=None,
         requested_task=None,
     )
 

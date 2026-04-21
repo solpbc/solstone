@@ -14,7 +14,7 @@ def _reset_chat_state(chat_module) -> None:
         chat_module._current_chat_use_id = None
         chat_module._current_chat_state = None
         chat_module._queued_trigger = None
-        chat_module._active_execs.clear()
+        chat_module._active_talents.clear()
         chat_module._recovery_day = None
         chat_module._last_use_id = 0
 
@@ -26,7 +26,7 @@ def _setup_journal(tmp_path, monkeypatch):
     return journal
 
 
-def test_chat_result_with_two_active_execs_retriggers_with_max_active_reason(
+def test_chat_result_with_two_active_talents_retriggers_with_max_active_reason(
     tmp_path, monkeypatch
 ):
     import convey.chat as chat
@@ -85,7 +85,7 @@ def test_chat_result_with_two_active_execs_retriggers_with_max_active_reason(
     sol_messages = [
         e for e in read_chat_events(chat._today_day()) if e["kind"] == "sol_message"
     ]
-    assert sol_messages[-1]["requested_exec"] is True
+    assert sol_messages[-1]["requested_target"] == "exec"
     assert sol_messages[-1]["requested_task"] == "research it"
 
 
@@ -117,7 +117,7 @@ def test_exec_retrigger_loop_stops_after_three_without_owner_reset(
                 use_id="1713621999999",
                 text=f"follow up {index}",
                 notes="retrying",
-                requested_exec=True,
+                requested_target="exec",
                 requested_task=f"task {index}",
             )
 
@@ -182,8 +182,9 @@ def test_cortex_finish_and_error_append_exec_terminal_events_by_use_id(
             "location": {"app": "sol", "path": "/app/sol", "facet": "work"},
             "retry_count": 0,
         }
-        chat._active_execs["1713623000001"] = {
+        chat._active_talents["1713623000001"] = {
             "chat_use_id": "1713623000000",
+            "target": "exec",
             "task": "summarize",
             "location": {"app": "sol", "path": "/app/sol", "facet": "work"},
         }
@@ -205,8 +206,9 @@ def test_cortex_finish_and_error_append_exec_terminal_events_by_use_id(
             "location": {"app": "sol", "path": "/app/sol", "facet": "work"},
             "retry_count": 0,
         }
-        chat._active_execs["1713624000001"] = {
+        chat._active_talents["1713624000001"] = {
             "chat_use_id": "1713624000000",
+            "target": "exec",
             "task": "summarize",
             "location": {"app": "sol", "path": "/app/sol", "facet": "work"},
         }

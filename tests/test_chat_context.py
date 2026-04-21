@@ -84,7 +84,7 @@ def test_chat_context_injects_digest_tail_trigger_location_and_routine_state(
         use_id="use-chat-1",
         text="I can help with that.",
         notes="Responded directly.",
-        requested_exec=False,
+        requested_target=None,
         requested_task=None,
     )
     append_chat_event(
@@ -150,7 +150,7 @@ def test_chat_context_injects_digest_tail_trigger_location_and_routine_state(
         {"role": "assistant", "content": "I can help with that."},
     ]
     assert all("exec spawned" not in msg["content"] for msg in result["messages"])
-    assert "## Active Execs" in template_vars["active_talents"]
+    assert "## Active Talents" in template_vars["active_talents"]
     assert "Prepare the meeting brief" in template_vars["active_talents"]
     assert "## Trigger Context" in template_vars["trigger_context"]
     assert "Type: owner_message" in template_vars["trigger_context"]
@@ -229,7 +229,7 @@ def test_chat_context_talent_finished_appends_final_user_message(monkeypatch, tm
         use_id="use-chat-2",
         text="Looking into it.",
         notes="Acknowledged request.",
-        requested_exec=False,
+        requested_target=None,
         requested_task=None,
     )
     append_chat_event(

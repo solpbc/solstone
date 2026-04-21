@@ -26,7 +26,7 @@ def _reset_chat_state(chat_module) -> None:
         chat_module._current_chat_use_id = None
         chat_module._current_chat_state = None
         chat_module._queued_trigger = None
-        chat_module._active_execs.clear()
+        chat_module._active_talents.clear()
         chat_module._recovery_day = None
         chat_module._last_use_id = 0
 
@@ -86,15 +86,16 @@ def test_post_chat_appends_owner_message_and_returns_reserved_use_id(
     assert starts and starts[-1]["logical_use_id"] == payload["use_id"]
 
 
-def test_session_endpoint_reduces_from_chat_stream(chat_client):
+def test_session_endpoint_reduces_from_chat_stream(chat_client, monkeypatch):
     day = "20260420"
+    monkeypatch.setattr("convey.chat._today_day", lambda: day)
     append_chat_event(
         "sol_message",
         ts=_ms(2026, 4, 20, 12, 0, 0),
         use_id="1713626000000",
         text="hello",
         notes="ready",
-        requested_exec=False,
+        requested_target=None,
         requested_task=None,
     )
     append_chat_event(
@@ -136,10 +137,11 @@ def test_result_endpoint_reads_stream_not_talent_log(chat_client, tmp_path):
     use_id = str(_ms(2026, 4, 20, 12, 0, 0))
     append_chat_event(
         "sol_message",
+        ts=_ms(2026, 4, 20, 12, 0, 0),
         use_id=use_id,
         text="stream reply",
         notes="done",
-        requested_exec=False,
+        requested_target=None,
         requested_task=None,
     )
 

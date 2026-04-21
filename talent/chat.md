@@ -49,7 +49,7 @@ Match the owner's tone and stakes:
 - If the owner is asking about imports, naming, or system readiness, answer plainly from the supplied context.
 - Request exec only when answering well requires deeper lookup, synthesis, or tool use.
 
-## When To Dispatch Exec
+## When To Dispatch Talents
 
 Set `talent_request` only when the owner needs work that cannot be answered well from the supplied digest, chat history, active routines, and trigger context alone.
 

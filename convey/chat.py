@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 chat_bp = Blueprint("chat", __name__, url_prefix="/api/chat")
 
-MAX_ACTIVE_EXECS = 2
+MAX_ACTIVE_TALENTS = 2
 MAX_LOOP_RETRIES = 3
 DEFAULT_STREAM_LIMIT = 200
 MAX_STREAM_LIMIT = 1000
@@ -46,7 +46,7 @@ _runtime_lock = threading.Lock()
 _current_chat_use_id: str | None = None
 _current_chat_state: dict[str, Any] | None = None
 _queued_trigger: dict[str, Any] | None = None
-_active_execs: dict[str, dict[str, Any]] = {}
+_active_talents: dict[str, dict[str, Any]] = {}
 _last_use_id = 0
 _recovery_day: str | None = None
 _runtime: "ChatRuntimeState | None" = None
@@ -226,8 +226,8 @@ def _proxy_progress(message: dict[str, Any]) -> None:
         raw_chat_use_id = str(_current_chat_state.get("raw_use_id") or "")
         if use_id == raw_chat_use_id:
             logical_use_id = _current_chat_use_id
-        elif use_id in _active_execs:
-            logical_use_id = str(_active_execs[use_id]["chat_use_id"])
+        elif use_id in _active_talents:
+            logical_use_id = str(_active_talents[use_id]["chat_use_id"])
 
     if logical_use_id is None:
         return
@@ -279,7 +279,7 @@ def _on_cortex_finish(message: dict[str, Any]) -> None:
                     next_info = _clear_current_locked()
             else:
                 message_text = parsed["message"] or ""
-                requested_exec = parsed["talent_request"] is not None
+                requested_target = "exec" if parsed["talent_request"] else None
                 requested_task = (
                     parsed["talent_request"]["task"]
                     if parsed["talent_request"]
@@ -290,14 +290,14 @@ def _on_cortex_finish(message: dict[str, Any]) -> None:
                     use_id=logical_use_id,
                     text=message_text,
                     notes=parsed["notes"],
-                    requested_exec=requested_exec,
+                    requested_target=requested_target,
                     requested_task=requested_task,
                 )
                 _current_chat_state["retry_count"] = 0
                 _current_chat_state["raw_use_id"] = None
-                if requested_exec:
-                    active_exec_count = _active_exec_count_for_today_locked()
-                    if active_exec_count >= MAX_ACTIVE_EXECS:
+                if requested_target:
+                    active_talent_count = _active_talent_count_for_today_locked()
+                    if active_talent_count >= MAX_ACTIVE_TALENTS:
                         _current_chat_state["trigger"] = {
                             "type": "synthetic-max-active",
                             "reason": MAX_ACTIVE_REASON,
@@ -305,7 +305,7 @@ def _on_cortex_finish(message: dict[str, Any]) -> None:
                         synthetic_use_id = _reserve_use_id_locked()
                         _current_chat_state["raw_use_id"] = synthetic_use_id
                         next_info = _build_spawn_info_locked(logical_use_id)
-                    elif _exec_loop_count_locked() >= MAX_LOOP_RETRIES:
+                    elif _talent_loop_count_locked() >= MAX_LOOP_RETRIES:
                         append_chat_event(
                             "chat_error",
                             reason=CHAT_TROUBLE_REASON,
@@ -317,23 +317,25 @@ def _on_cortex_finish(message: dict[str, Any]) -> None:
                         }
                         next_info = _clear_current_locked()
                     else:
-                        exec_use_id = _reserve_use_id_locked()
-                        _active_execs[exec_use_id] = {
+                        talent_use_id = _reserve_use_id_locked()
+                        _active_talents[talent_use_id] = {
                             "chat_use_id": logical_use_id,
+                            "target": requested_target,
                             "task": requested_task,
                             "location": dict(_current_chat_state["location"]),
                         }
                         append_chat_event(
                             "talent_spawned",
-                            use_id=exec_use_id,
-                            name="exec",
+                            use_id=talent_use_id,
+                            name=requested_target,
                             task=requested_task,
-                            started_at=int(exec_use_id),
+                            started_at=int(talent_use_id),
                         )
                         next_info = {
-                            "kind": "exec",
+                            "kind": "talent",
                             "logical_use_id": logical_use_id,
-                            "use_id": exec_use_id,
+                            "target": requested_target,
+                            "use_id": talent_use_id,
                             "task": requested_task,
                             "context": parsed["talent_request"].get("context") or {},
                             "location": dict(_current_chat_state["location"]),
@@ -356,14 +358,14 @@ def _on_cortex_finish(message: dict[str, Any]) -> None:
                         }
                     next_info = _clear_current_locked()
 
-        elif use_id in _active_execs:
-            exec_state = _active_execs.pop(use_id)
-            logical_use_id = str(exec_state["chat_use_id"])
+        elif use_id in _active_talents:
+            talent_state = _active_talents.pop(use_id)
+            logical_use_id = str(talent_state["chat_use_id"])
             summary = str(message.get("result") or "").strip()
             append_chat_event(
                 "talent_finished",
                 use_id=use_id,
-                name="exec",
+                name=str(talent_state["target"]),
                 summary=summary,
             )
             if (
@@ -373,7 +375,7 @@ def _on_cortex_finish(message: dict[str, Any]) -> None:
                 _current_chat_state["trigger"] = {
                     "type": "talent_finished",
                     "use_id": use_id,
-                    "name": "exec",
+                    "name": str(talent_state["target"]),
                     "summary": summary,
                 }
                 _current_chat_state["raw_use_id"] = _reserve_use_id_locked()
@@ -407,14 +409,14 @@ def _on_cortex_error(message: dict[str, Any]) -> None:
             )
             error_payload = {"use_id": logical_use_id, "reason": CHAT_TROUBLE_REASON}
             next_info = _clear_current_locked()
-        elif use_id in _active_execs:
-            exec_state = _active_execs.pop(use_id)
-            logical_use_id = str(exec_state["chat_use_id"])
+        elif use_id in _active_talents:
+            talent_state = _active_talents.pop(use_id)
+            logical_use_id = str(talent_state["chat_use_id"])
             reason = str(message.get("error") or CHAT_TROUBLE_REASON)
             append_chat_event(
                 "talent_errored",
                 use_id=use_id,
-                name="exec",
+                name=str(talent_state["target"]),
                 reason=reason,
             )
             if (
@@ -424,7 +426,7 @@ def _on_cortex_error(message: dict[str, Any]) -> None:
                 _current_chat_state["trigger"] = {
                     "type": "talent_errored",
                     "use_id": use_id,
-                    "name": "exec",
+                    "name": str(talent_state["target"]),
                     "reason": reason,
                 }
                 _current_chat_state["raw_use_id"] = _reserve_use_id_locked()
@@ -443,9 +445,9 @@ def _run_next_action(action: dict[str, Any] | None) -> None:
         if not _spawn_chat_generate(action):
             _handle_chat_failure(action["logical_use_id"], CHAT_TROUBLE_REASON)
         return
-    if action.get("kind") == "exec":
-        if not _spawn_exec(action):
-            _handle_exec_spawn_failure(action)
+    if action.get("kind") == "talent":
+        if not _spawn_talent(action):
+            _handle_talent_spawn_failure(action)
 
 
 def _spawn_chat_generate(action: dict[str, Any]) -> bool:
@@ -477,10 +479,11 @@ def _spawn_chat_generate(action: dict[str, Any]) -> bool:
     return True
 
 
-def _spawn_exec(action: dict[str, Any]) -> bool:
+def _spawn_talent(action: dict[str, Any]) -> bool:
     from convey.utils import spawn_agent
 
-    prompt = _build_exec_prompt(
+    prompt = _build_talent_prompt(
+        action["target"],
         action["task"],
         action["context"],
         action["location"],
@@ -493,7 +496,7 @@ def _spawn_exec(action: dict[str, Any]) -> bool:
     }
     use_id = spawn_agent(
         prompt=prompt,
-        name="exec",
+        name=action["target"],
         provider=None,
         config=config,
         use_id=action["use_id"],
@@ -504,21 +507,21 @@ def _spawn_exec(action: dict[str, Any]) -> bool:
     return True
 
 
-def _handle_exec_spawn_failure(action: dict[str, Any]) -> None:
+def _handle_talent_spawn_failure(action: dict[str, Any]) -> None:
     next_info: dict[str, Any] | None = None
     with _state_lock:
-        _active_execs.pop(str(action["use_id"]), None)
+        _active_talents.pop(str(action["use_id"]), None)
         append_chat_event(
             "talent_errored",
             use_id=action["use_id"],
-            name="exec",
+            name=action["target"],
             reason=CHAT_TROUBLE_REASON,
         )
         if _current_chat_use_id == action["logical_use_id"] and _current_chat_state:
             _current_chat_state["trigger"] = {
                 "type": "talent_errored",
                 "use_id": action["use_id"],
-                "name": "exec",
+                "name": action["target"],
                 "reason": CHAT_TROUBLE_REASON,
             }
             _current_chat_state["raw_use_id"] = _reserve_use_id_locked()
@@ -616,11 +619,11 @@ def _clear_current_locked() -> dict[str, Any] | None:
     )
 
 
-def _active_exec_count_for_today_locked() -> int:
+def _active_talent_count_for_today_locked() -> int:
     return len(reduce_chat_state(_today_day())["active_talents"])
 
 
-def _exec_loop_count_locked() -> int:
+def _talent_loop_count_locked() -> int:
     events = read_chat_events(_today_day())
     count = 0
     for index in range(len(events) - 1, -1, -1):
@@ -630,7 +633,7 @@ def _exec_loop_count_locked() -> int:
             break
         if kind != "sol_message":
             continue
-        if not event.get("requested_exec"):
+        if not event.get("requested_target"):
             continue
 
         previous = events[index - 1] if index > 0 else None
@@ -679,7 +682,8 @@ def _parse_chat_result(result: Any) -> dict[str, Any]:
     }
 
 
-def _build_exec_prompt(
+def _build_talent_prompt(
+    target: str,
     task: str,
     context_hints: dict[str, Any],
     location: dict[str, str],
@@ -703,6 +707,9 @@ def _build_exec_prompt(
             history_lines.append(f"**Sol**: {event['text']}")
     if history_lines:
         parts.append("Recent chat:\n" + "\n".join(history_lines[-6:]))
+
+    if target != "exec":
+        parts.append(f"Target: {target}")
 
     return "\n\n".join(parts)
 
@@ -784,7 +791,7 @@ def _read_result_state(use_id: str) -> dict[str, Any] | None:
         return None
 
     latest_sol: dict[str, Any] | None = None
-    exec_state: dict[str, Any] | None = None
+    talent_state: dict[str, Any] | None = None
     chat_error: dict[str, Any] | None = None
     spawned_task: str | None = None
 
@@ -796,15 +803,15 @@ def _read_result_state(use_id: str) -> dict[str, Any] | None:
             chat_error = event
         elif kind == "talent_spawned" and str(event.get("use_id")) == use_id:
             spawned_task = event.get("task")
-            exec_state = {"state": "active", "task": spawned_task}
+            talent_state = {"state": "active", "task": spawned_task}
         elif kind == "talent_finished" and str(event.get("use_id")) == use_id:
-            exec_state = {
+            talent_state = {
                 "state": "finished",
                 "summary": event.get("summary", ""),
                 "task": spawned_task,
             }
         elif kind == "talent_errored" and str(event.get("use_id")) == use_id:
-            exec_state = {
+            talent_state = {
                 "state": "errored",
                 "reason": event.get("reason", ""),
                 "task": spawned_task,
@@ -813,7 +820,7 @@ def _read_result_state(use_id: str) -> dict[str, Any] | None:
     with _state_lock:
         if _current_chat_use_id == use_id:
             task = None
-            if latest_sol and latest_sol.get("requested_exec"):
+            if latest_sol and latest_sol.get("requested_target"):
                 task = latest_sol.get("requested_task")
             return {"state": "active", "task": task}
 
@@ -827,7 +834,7 @@ def _read_result_state(use_id: str) -> dict[str, Any] | None:
             "state": "finished",
             "summary": latest_sol.get("text", ""),
         }
-    return exec_state
+    return talent_state
 
 
 def _read_talent_log(use_id: str) -> dict[str, Any] | None:

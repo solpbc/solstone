@@ -1691,7 +1691,7 @@ def test_chat_turn_is_searchable_after_rescan(journal_fixture):
         use_id="1713628000000",
         text="The unique nebula phrase is now in chat history.",
         notes="done",
-        requested_exec=False,
+        requested_target=None,
         requested_task=None,
     )
 
