@@ -429,6 +429,29 @@ def test_claude_outfile_error(monkeypatch, tmp_path, capsys):
 
 
 class TestRunGenerateJsonSchema:
+    def test_structured_messages_passthrough(self, monkeypatch):
+        provider = importlib.reload(
+            importlib.import_module("think.providers.anthropic")
+        )
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.content = [SimpleNamespace(type="text", text="ok")]
+        mock_response.usage = None
+        mock_response.stop_reason = "end_turn"
+        mock_client.messages.create.return_value = mock_response
+        monkeypatch.setattr(provider, "_get_anthropic_client", lambda: mock_client)
+        messages = [
+            {"role": "user", "content": "first"},
+            {"role": "assistant", "content": "second"},
+            {"role": "user", "content": "third"},
+        ]
+
+        provider.run_generate(messages, system_instruction="base")
+
+        call_kwargs = mock_client.messages.create.call_args.kwargs
+        assert call_kwargs["messages"] == messages
+        assert call_kwargs["system"] == "base"
+
     def test_no_schema_keeps_prompt_append(self, monkeypatch):
         provider = importlib.reload(
             importlib.import_module("think.providers.anthropic")
@@ -472,6 +495,37 @@ class TestRunGenerateJsonSchema:
         )
 
         call_kwargs = mock_client.messages.create.call_args.kwargs
+        assert call_kwargs["output_config"] == {
+            "format": {"type": "json_schema", "schema": schema}
+        }
+        assert call_kwargs["system"] == "base"
+
+    def test_structured_messages_with_schema_uses_output_config(self, monkeypatch):
+        provider = importlib.reload(
+            importlib.import_module("think.providers.anthropic")
+        )
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.content = [SimpleNamespace(type="text", text="{}")]
+        mock_response.usage = None
+        mock_response.stop_reason = "end_turn"
+        mock_client.messages.create.return_value = mock_response
+        monkeypatch.setattr(provider, "_get_anthropic_client", lambda: mock_client)
+        schema = {"type": "object"}
+        messages = [
+            {"role": "user", "content": "first"},
+            {"role": "assistant", "content": "second"},
+            {"role": "user", "content": "third"},
+        ]
+
+        provider.run_generate(
+            messages,
+            system_instruction="base",
+            json_schema=schema,
+        )
+
+        call_kwargs = mock_client.messages.create.call_args.kwargs
+        assert call_kwargs["messages"] == messages
         assert call_kwargs["output_config"] == {
             "format": {"type": "json_schema", "schema": schema}
         }

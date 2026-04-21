@@ -476,6 +476,35 @@ class TestRunGenerate:
         assert messages[0] == {"role": "system", "content": "be concise"}
         assert messages[1] == {"role": "user", "content": "hello"}
 
+    def test_structured_messages_body(self):
+        provider = _ollama_provider()
+        mock_response = MagicMock()
+        mock_response.json.return_value = _make_ollama_response()
+        mock_response.raise_for_status = MagicMock()
+        input_messages = [
+            {"role": "user", "content": "first"},
+            {"role": "assistant", "content": "second"},
+            {"role": "user", "content": "third"},
+        ]
+
+        with patch.object(provider, "_get_client") as mock_get:
+            mock_client = MagicMock()
+            mock_client.post.return_value = mock_response
+            mock_get.return_value = mock_client
+
+            provider.run_generate(
+                input_messages,
+                model=OLLAMA_FLASH,
+                system_instruction="be concise",
+            )
+
+        call_kwargs = mock_client.post.call_args
+        body = call_kwargs.kwargs["json"]
+        assert body["messages"] == [
+            {"role": "system", "content": "be concise"},
+            *input_messages,
+        ]
+
     def test_timeout(self):
         provider = _ollama_provider()
         mock_response = MagicMock()

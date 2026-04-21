@@ -24,8 +24,6 @@ $location
 
 $trigger_context
 
-$chat_stream_tail
-
 $active_talents
 
 $active_routines

@@ -67,6 +67,15 @@ def make_mock_process(stdout_lines, return_code=0):
     return process
 
 
+def _assert_structured_contents(contents):
+    assert [content.role for content in contents] == ["user", "model", "user"]
+    assert [[part.text for part in content.parts] for content in contents] == [
+        ["first"],
+        ["second"],
+        ["third"],
+    ]
+
+
 def test_google_main(monkeypatch, tmp_path, capsys):
     setup_google_genai_stub(monkeypatch, with_thinking=False)
     sys.modules.pop("think.providers.google", None)
@@ -262,6 +271,58 @@ def test_format_completion_message_none():
 
 
 class TestRunGenerateJsonSchema:
+    def test_structured_messages_sync_mapped_to_google_contents(self, monkeypatch):
+        setup_google_genai_stub(monkeypatch, with_thinking=False)
+        sys.modules.pop("think.providers.google", None)
+        provider = importlib.reload(importlib.import_module("think.providers.google"))
+
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = SimpleNamespace(
+            text="[]",
+            candidates=[],
+            usage_metadata=None,
+        )
+        monkeypatch.setattr(
+            provider, "get_or_create_client", lambda _client=None: mock_client
+        )
+        messages = [
+            {"role": "user", "content": "first"},
+            {"role": "assistant", "content": "second"},
+            {"role": "user", "content": "third"},
+        ]
+
+        provider.run_generate(messages, model=GEMINI_FLASH)
+
+        contents = mock_client.models.generate_content.call_args.kwargs["contents"]
+        _assert_structured_contents(contents)
+
+    def test_structured_messages_async_mapped_to_google_contents(self, monkeypatch):
+        setup_google_genai_stub(monkeypatch, with_thinking=False)
+        sys.modules.pop("think.providers.google", None)
+        provider = importlib.reload(importlib.import_module("think.providers.google"))
+
+        mock_client = MagicMock()
+        mock_client.aio.models.generate_content = AsyncMock(
+            return_value=SimpleNamespace(
+                text="[]",
+                candidates=[],
+                usage_metadata=None,
+            )
+        )
+        monkeypatch.setattr(
+            provider, "get_or_create_client", lambda _client=None: mock_client
+        )
+        messages = [
+            {"role": "user", "content": "first"},
+            {"role": "assistant", "content": "second"},
+            {"role": "user", "content": "third"},
+        ]
+
+        asyncio.run(provider.run_agenerate(messages, model=GEMINI_FLASH))
+
+        contents = mock_client.aio.models.generate_content.call_args.kwargs["contents"]
+        _assert_structured_contents(contents)
+
     def test_no_schema_kwargs_unchanged(self, monkeypatch):
         setup_google_genai_stub(monkeypatch, with_thinking=False)
         sys.modules.pop("think.providers.google", None)

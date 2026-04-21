@@ -12,7 +12,6 @@ from convey.chat_stream import append_chat_event
 
 TEMPLATE_VAR_KEYS = {
     "digest_contents",
-    "chat_stream_tail",
     "active_talents",
     "trigger_context",
     "location",
@@ -146,15 +145,11 @@ def test_chat_context_injects_digest_tail_trigger_location_and_routine_state(
 
     template_vars = _assert_template_vars_result(result)
     assert template_vars["digest_contents"] == "Digest notes for today."
-    assert "## Recent Chat" in template_vars["chat_stream_tail"]
-    assert (
-        "**Alice** Please brief me for my meeting" in template_vars["chat_stream_tail"]
-    )
-    assert "**Sol-agent** I can help with that." in template_vars["chat_stream_tail"]
-    assert (
-        "*[exec spawned: Prepare the meeting brief]*"
-        in template_vars["chat_stream_tail"]
-    )
+    assert result["messages"] == [
+        {"role": "user", "content": "Please brief me for my meeting"},
+        {"role": "assistant", "content": "I can help with that."},
+    ]
+    assert all("exec spawned" not in msg["content"] for msg in result["messages"])
     assert "## Active Execs" in template_vars["active_talents"]
     assert "Prepare the meeting brief" in template_vars["active_talents"]
     assert "## Trigger Context" in template_vars["trigger_context"]
@@ -216,6 +211,61 @@ def test_chat_context_routine_suggestion_only_counts_owner_messages(
     assert len(save_calls) == 1
 
 
+def test_chat_context_talent_finished_appends_final_user_message(monkeypatch, tmp_path):
+    journal = tmp_path / "journal"
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+
+    append_chat_event(
+        "owner_message",
+        ts=_ts(10, 0),
+        text="What happened?",
+        app="home",
+        path="/app/home",
+        facet="work",
+    )
+    append_chat_event(
+        "sol_message",
+        ts=_ts(10, 1),
+        use_id="use-chat-2",
+        text="Looking into it.",
+        notes="Acknowledged request.",
+        requested_exec=False,
+        requested_task=None,
+    )
+    append_chat_event(
+        "talent_finished",
+        ts=_ts(10, 2),
+        use_id="use-exec-2",
+        name="exec",
+        summary="Found the latest notes.",
+    )
+
+    monkeypatch.setattr("think.routines.get_routine_state", lambda: [])
+    monkeypatch.setattr(
+        "think.routines.get_config",
+        lambda: {"_meta": {"suggestions_enabled": False, "suggestions": {}}},
+    )
+    monkeypatch.setattr("think.routines.save_config", lambda config: None)
+
+    result = _load_chat_context_module().pre_process(
+        {
+            "day": "20260420",
+            "trigger_kind": "talent_finished",
+            "trigger_payload": {
+                "name": "exec",
+                "summary": "Found the latest notes.",
+            },
+        }
+    )
+
+    _assert_template_vars_result(result)
+    assert result["messages"] == [
+        {"role": "user", "content": "What happened?"},
+        {"role": "assistant", "content": "Looking into it."},
+        {"role": "user", "content": "[talent exec finished: Found the latest notes.]"},
+    ]
+
+
 def test_chat_context_preserves_save_routines_config_side_effect(monkeypatch, tmp_path):
     journal = tmp_path / "journal"
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
@@ -260,8 +310,8 @@ def test_chat_context_routines_omitted_when_empty(monkeypatch, tmp_path):
 
     template_vars = _assert_template_vars_result(result)
     assert template_vars["active_routines"] == ""
-    assert template_vars["chat_stream_tail"] == ""
     assert template_vars["active_talents"] == ""
+    assert "messages" not in result
 
 
 def test_chat_context_enrichment_errors_are_graceful(monkeypatch, tmp_path):
@@ -294,12 +344,12 @@ def test_chat_context_enrichment_errors_are_graceful(monkeypatch, tmp_path):
 
     template_vars = _assert_template_vars_result(result)
     assert template_vars["digest_contents"] == ""
-    assert template_vars["chat_stream_tail"] == ""
     assert template_vars["active_talents"] == ""
     assert template_vars["active_routines"] == ""
     assert template_vars["routine_suggestion"] == ""
     assert "Type: owner_message" in template_vars["trigger_context"]
     assert "/app/home" in template_vars["location"]
+    assert "messages" not in result
 
 
 def test_chat_context_drops_legacy_memory_imports(monkeypatch):

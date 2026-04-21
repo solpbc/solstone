@@ -65,6 +65,28 @@ logger = logging.getLogger(__name__)
 _detected_backend: str | None = None
 
 
+def _structured_to_google_contents(
+    messages: list[dict[str, str]],
+) -> list[types.Content]:
+    """Map role/content dicts to Gemini-native Content objects."""
+    mapped: list[types.Content] = []
+    for msg in messages:
+        role = msg["role"]
+        if role == "user":
+            google_role = "user"
+        elif role == "assistant":
+            google_role = "model"
+        else:
+            raise ValueError(f"Unknown message role: {role!r}")
+        mapped.append(
+            types.Content(
+                role=google_role,
+                parts=[types.Part(text=msg["content"])],
+            )
+        )
+    return mapped
+
+
 # ---------------------------------------------------------------------------
 # Client and helper functions for generate/agenerate
 # ---------------------------------------------------------------------------
@@ -473,6 +495,13 @@ def run_generate(
     client = get_or_create_client(client)
     if isinstance(contents, str):
         contents = [contents]
+    elif (
+        isinstance(contents, list)
+        and contents
+        and isinstance(contents[0], dict)
+        and "role" in contents[0]
+    ):
+        contents = _structured_to_google_contents(contents)
     config = _build_generate_config(
         temperature=temperature,
         max_output_tokens=max_output_tokens,
@@ -519,6 +548,13 @@ async def run_agenerate(
     client = get_or_create_client(client)
     if isinstance(contents, str):
         contents = [contents]
+    elif (
+        isinstance(contents, list)
+        and contents
+        and isinstance(contents[0], dict)
+        and "role" in contents[0]
+    ):
+        contents = _structured_to_google_contents(contents)
     config = _build_generate_config(
         temperature=temperature,
         max_output_tokens=max_output_tokens,

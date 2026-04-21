@@ -929,6 +929,7 @@ async def _execute_generate(
     from think.talent import key_to_context
 
     name = config["name"]
+    messages = config.get("messages")
     transcript = config.get("transcript", "")
     user_instruction = config.get("user_instruction", "")
     prompt = config.get("prompt", "")
@@ -947,18 +948,21 @@ async def _execute_generate(
         480, max(120, (max_output_tokens + thinking_budget) // 100)
     )
 
-    # Build contents: transcript + instruction + prompt
-    contents = []
-    if transcript:
-        contents.append(transcript)
-    if user_instruction:
-        contents.append(user_instruction)
-    if prompt:
-        contents.append(prompt)
+    if messages and isinstance(messages, list):
+        contents = messages
+    else:
+        # Build contents: transcript + instruction + prompt
+        contents = []
+        if transcript:
+            contents.append(transcript)
+        if user_instruction:
+            contents.append(user_instruction)
+        if prompt:
+            contents.append(prompt)
 
-    # Fallback if no contents
-    if not contents:
-        contents = ["No input provided."]
+        # Fallback if no contents
+        if not contents:
+            contents = ["No input provided."]
 
     context = key_to_context(name)
     try:

@@ -685,6 +685,32 @@ class TestRunGenerate:
             "total_tokens": 15,
         }
 
+    def test_structured_messages_passthrough(self):
+        provider = _openai_provider()
+        mock_client = MagicMock()
+        mock_client.responses.create = MagicMock()
+        mock_response = MagicMock()
+        mock_response.output_text = "Hello world"
+        mock_response.status = "completed"
+        mock_response.incomplete_details = None
+        mock_response.usage = None
+        mock_response.output = []
+        mock_client.responses.create.return_value = mock_response
+        messages = [
+            {"role": "user", "content": "first"},
+            {"role": "assistant", "content": "second"},
+            {"role": "user", "content": "third"},
+        ]
+
+        with patch(
+            "think.providers.openai._get_openai_client", return_value=mock_client
+        ):
+            provider.run_generate(messages, system_instruction="Be helpful")
+
+        called_kwargs = mock_client.responses.create.call_args.kwargs
+        assert called_kwargs["input"] == messages
+        assert called_kwargs["instructions"] == "Be helpful"
+
     def test_with_effort_suffix(self):
         provider = _openai_provider()
         mock_client = MagicMock()

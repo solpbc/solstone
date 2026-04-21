@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import Any
 
 from convey.chat_stream import read_chat_tail, reduce_chat_state
-from think.chat_formatter import format_chat
 from think.utils import get_config, get_journal
 
 logger = logging.getLogger(__name__)
@@ -249,13 +248,13 @@ def pre_process(context: dict) -> dict:
     day = _resolve_day(context, trigger_payload)
     template_vars = {
         "digest_contents": "",
-        "chat_stream_tail": "",
         "active_talents": "",
         "trigger_context": "",
         "location": "",
         "active_routines": "",
         "routine_suggestion": "",
     }
+    result = {"template_vars": template_vars}
 
     try:
         template_vars["digest_contents"] = _load_digest_contents()
@@ -264,13 +263,36 @@ def pre_process(context: dict) -> dict:
 
     try:
         tail = read_chat_tail(day, limit=20)
-        if tail:
-            chunks, _meta = format_chat(tail)
-            body = "\n\n".join(
-                chunk["markdown"] for chunk in chunks if chunk.get("markdown")
+        messages: list[dict[str, str]] = []
+        for event in tail:
+            if event["kind"] == "owner_message":
+                messages.append({"role": "user", "content": event["text"]})
+            elif event["kind"] == "sol_message":
+                messages.append({"role": "assistant", "content": event["text"]})
+
+        if trigger_kind == "talent_finished":
+            messages.append(
+                {
+                    "role": "user",
+                    "content": (
+                        f"[talent {trigger_payload['name']} finished: "
+                        f"{trigger_payload['summary']}]"
+                    ),
+                }
             )
-            if body:
-                template_vars["chat_stream_tail"] = f"## Recent Chat\n\n{body}"
+        elif trigger_kind == "talent_errored":
+            messages.append(
+                {
+                    "role": "user",
+                    "content": (
+                        f"[talent {trigger_payload['name']} errored: "
+                        f"{trigger_payload['reason']}]"
+                    ),
+                }
+            )
+
+        if messages:
+            result["messages"] = messages
     except Exception:
         logger.debug("Chat tail enrichment failed", exc_info=True)
 
@@ -343,7 +365,7 @@ def pre_process(context: dict) -> dict:
     except Exception:
         logger.debug("Routine suggestion eligibility check failed", exc_info=True)
 
-    return {"template_vars": template_vars}
+    return result
 
 
 def _load_digest_contents() -> str:

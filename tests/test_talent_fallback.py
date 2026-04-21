@@ -266,6 +266,70 @@ def test_on_failure_retry_cogitate_uses_context_from_name(monkeypatch):
     assert seen["context"] == "talent.system.default"
 
 
+def test_execute_generate_uses_messages_when_present(monkeypatch):
+    from think.talents import _execute_generate
+
+    events = []
+    seen = {}
+    messages = [
+        {"role": "user", "content": "first"},
+        {"role": "assistant", "content": "second"},
+        {"role": "user", "content": "third"},
+    ]
+
+    def mock_generate_with_result(**kwargs):
+        seen["contents"] = kwargs["contents"]
+        return {"text": "ok", "usage": {"input_tokens": 1, "output_tokens": 1}}
+
+    monkeypatch.setattr(
+        "think.talent.key_to_context", lambda _name: "talent.system.default"
+    )
+    monkeypatch.setattr("think.models.generate_with_result", mock_generate_with_result)
+
+    config = {
+        "name": "chat",
+        "messages": messages,
+        "transcript": "ignored transcript",
+        "user_instruction": "ignored instruction",
+        "prompt": "ignored prompt",
+        "health_stale": False,
+    }
+
+    asyncio.run(_execute_generate(config, events.append))
+
+    assert seen["contents"] == messages
+    assert events[-1]["event"] == "finish"
+
+
+def test_execute_generate_preserves_string_contents_order(monkeypatch):
+    from think.talents import _execute_generate
+
+    events = []
+    seen = {}
+
+    def mock_generate_with_result(**kwargs):
+        seen["contents"] = kwargs["contents"]
+        return {"text": "ok", "usage": {"input_tokens": 1, "output_tokens": 1}}
+
+    monkeypatch.setattr(
+        "think.talent.key_to_context", lambda _name: "talent.system.default"
+    )
+    monkeypatch.setattr("think.models.generate_with_result", mock_generate_with_result)
+
+    config = {
+        "name": "chat",
+        "transcript": "transcript",
+        "user_instruction": "instruction",
+        "prompt": "prompt",
+        "health_stale": False,
+    }
+
+    asyncio.run(_execute_generate(config, events.append))
+
+    assert seen["contents"] == ["transcript", "instruction", "prompt"]
+    assert events[-1]["event"] == "finish"
+
+
 def test_on_failure_retry_generate(monkeypatch):
     from think.talents import _execute_generate
 
