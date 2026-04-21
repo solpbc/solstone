@@ -66,6 +66,7 @@ Actionable curation opportunities: unknown recurring voices, name variants, low-
 Behavior notes:
 
 - Run after think processing completes, or when the owner is engaging with transcripts or observed media.
+- Don't check on every conversation — speaker state changes slowly.
 - Surface suggestions one at a time conversationally — don't stack them.
 
 Example:
@@ -264,7 +265,7 @@ Check `speakers owner-ready` (or look at `speakers status owner`). If the owner 
 
 When you have a candidate, present it naturally: "I've been listening to your journal across your different devices and I think I can recognize your voice. Here are a few moments — does this sound right?" Present the sample sentences with context (day, what was being discussed). Don't play audio — show text and context.
 
-- If the owner confirms: run `speakers confirm-owner` (backfill runs automatically).
+- If the owner confirms: run `speakers confirm-owner` (backfill runs automatically). Then tell them: "Great — now I can start identifying other voices in your observed media too."
 - If the owner rejects: run `speakers reject-owner`. A 14-day cooldown starts; don't re-ask until it clears.
 
 ## Speaker Curation
