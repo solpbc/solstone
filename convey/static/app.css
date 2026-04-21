@@ -2452,6 +2452,18 @@ body.has-date-nav .chat-app {
   cursor: pointer;
 }
 
+.chat-reflection-card {
+  max-width: 70%;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(180, 83, 9, 0.18);
+  background: rgba(245, 158, 11, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+}
+
 .chat-talent-card--spawned {
   border-color: rgba(176, 106, 26, 0.22);
   background: rgba(176, 106, 26, 0.08);
@@ -2474,12 +2486,31 @@ body.has-date-nav .chat-app {
   font-weight: 600;
 }
 
+.chat-reflection-card-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #92400e;
+}
+
 .chat-talent-card-task,
 .chat-talent-card-summary,
 .chat-talent-card-reason,
-.chat-talent-card-detail {
+.chat-talent-card-detail,
+.chat-reflection-card-week {
   font-size: 12px;
   line-height: 1.4;
+}
+
+.chat-reflection-card-link {
+  width: fit-content;
+  font-size: 12px;
+  font-weight: 600;
+  color: #92400e;
+  text-decoration: none;
+}
+
+.chat-reflection-card-link:hover {
+  text-decoration: underline;
 }
 
 .chat-error-block {
@@ -2532,6 +2563,7 @@ body.has-date-nav .chat-app {
 
   .chat-bubble,
   .chat-talent-card,
+  .chat-reflection-card,
   .chat-error-block {
     max-width: 88%;
   }

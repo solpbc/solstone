@@ -34,6 +34,12 @@
     <span class="chat-talent-card-label">{{ ev.name }} errored</span>
     {% if ev.reason %}<span class="chat-talent-card-reason">{{ ev.reason }}</span>{% endif %}
   </button>
+{% elif ev.kind == "reflection_ready" %}
+  <article class="chat-reflection-card">
+    <span class="chat-reflection-card-label">weekly reflection ready</span>
+    <span class="chat-reflection-card-week">week of {{ ev.day }}</span>
+    <a class="chat-reflection-card-link" href="{{ ev.url }}">open reflection</a>
+  </article>
 {% elif ev.kind == "chat_error" %}
   <div class="chat-error-block">chat had trouble — try again</div>
 {% endif %}

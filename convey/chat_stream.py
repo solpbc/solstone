@@ -34,6 +34,7 @@ _VALID_KINDS = {
     "talent_spawned": ("use_id", "name", "task", "started_at"),
     "talent_finished": ("use_id", "name", "summary"),
     "talent_errored": ("use_id", "name", "reason"),
+    "reflection_ready": ("day", "url"),
     "chat_error": ("reason", "use_id"),
 }
 _TRIGGER_KINDS = {"owner_message", "talent_finished", "talent_errored"}
@@ -151,6 +152,10 @@ def reduce_chat_state(day: str) -> dict[str, Any]:
 
         if kind == "talent_errored":
             active_talents.pop(str(event["use_id"]), None)
+            continue
+
+        if kind == "reflection_ready":
+            continue
 
     return {
         "latest_sol_message": latest_sol_message,

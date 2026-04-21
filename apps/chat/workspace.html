@@ -153,7 +153,9 @@
       name: msg.name || '',
       task: msg.task || '',
       summary: msg.summary || '',
-      reason: msg.reason || ''
+      reason: msg.reason || '',
+      day: msg.day || '',
+      url: msg.url || ''
     });
     if (!item) return;
 
@@ -171,6 +173,7 @@
       'talent_spawned',
       'talent_finished',
       'talent_errored',
+      'reflection_ready',
       'chat_error'
     ].includes(event.kind)) {
       return null;
@@ -203,6 +206,9 @@
     }
     if (event.kind === 'talent_errored') {
       return buildTalentCard(event.name + ' errored', event.reason || '', event.use_id, 'errored', 'chat-talent-card--errored');
+    }
+    if (event.kind === 'reflection_ready') {
+      return buildReflectionCard(event.day || '', event.url || '');
     }
 
     const block = document.createElement('div');
@@ -248,6 +254,29 @@
       detailNode.textContent = detail;
       card.appendChild(detailNode);
     }
+
+    return card;
+  }
+
+  function buildReflectionCard(dayValue, url) {
+    const card = document.createElement('article');
+    card.className = 'chat-reflection-card';
+
+    const labelNode = document.createElement('span');
+    labelNode.className = 'chat-reflection-card-label';
+    labelNode.textContent = 'weekly reflection ready';
+    card.appendChild(labelNode);
+
+    const weekNode = document.createElement('span');
+    weekNode.className = 'chat-reflection-card-week';
+    weekNode.textContent = 'week of ' + dayValue;
+    card.appendChild(weekNode);
+
+    const linkNode = document.createElement('a');
+    linkNode.className = 'chat-reflection-card-link';
+    linkNode.href = url;
+    linkNode.textContent = 'open reflection';
+    card.appendChild(linkNode);
 
     return card;
   }

@@ -1,0 +1,9 @@
+{
+  "icon": "🪞",
+  "label": "Reflections",
+  "date_nav": true,
+  "allow_future_dates": false,
+  "facets": {
+    "disabled": true
+  }
+}

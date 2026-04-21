@@ -64,6 +64,7 @@ dependencies = [
     "pypdf",
     "pdf2image",
     "pytesseract",
+    "weasyprint",
     "icalendar",
     "blessed>=1.20.0",
     "psutil",

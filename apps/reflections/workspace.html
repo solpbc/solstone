@@ -1,0 +1,251 @@
+<style>
+.reflection-shell {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem 2rem 5rem;
+  color: #1f2937;
+}
+
+.reflection-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+}
+
+.reflection-kicker {
+  margin: 0 0 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #92400e;
+}
+
+.reflection-title {
+  margin: 0;
+  font-size: clamp(1.8rem, 4vw, 2.7rem);
+  line-height: 1.1;
+  color: #111827;
+}
+
+.reflection-subtitle {
+  margin: 0.35rem 0 0;
+  font-size: 1rem;
+  color: #6b7280;
+}
+
+.reflection-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.reflection-button,
+.reflection-link-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 1rem;
+  border-radius: 999px;
+  border: 1px solid #d6d3d1;
+  background: #fffdf8;
+  color: #1f2937;
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.reflection-button:hover,
+.reflection-link-button:hover {
+  background: #fef3c7;
+  border-color: #f59e0b;
+}
+
+.reflection-body,
+.reflection-index {
+  background: #fff;
+  border: 1px solid #e7e5e4;
+  border-radius: 18px;
+  padding: 1.5rem;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.04);
+}
+
+.reflection-body h1,
+.reflection-body h2,
+.reflection-body h3 {
+  color: #111827;
+}
+
+.reflection-body p,
+.reflection-body li,
+.reflection-index p,
+.reflection-index li {
+  line-height: 1.7;
+}
+
+.reflection-body blockquote {
+  margin: 1.5rem 0;
+  padding-left: 1rem;
+  border-left: 3px solid #f59e0b;
+  color: #6b7280;
+}
+
+.reflection-body a,
+.reflection-index a {
+  color: #b45309;
+}
+
+.reflection-body a:hover,
+.reflection-index a:hover {
+  color: #92400e;
+}
+
+.reflection-index-list {
+  list-style: none;
+  margin: 1.25rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.reflection-index-link {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  padding: 1rem 1.1rem;
+  border-radius: 14px;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  text-decoration: none;
+  color: #1f2937;
+}
+
+.reflection-index-link:hover {
+  background: #fef3c7;
+}
+
+.reflection-index-day {
+  font-weight: 600;
+}
+
+.reflection-index-token {
+  color: #78716c;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 720px) {
+  .reflection-shell {
+    padding: 1.25rem 1rem 4rem;
+  }
+
+  .reflection-header {
+    flex-direction: column;
+  }
+
+  .reflection-actions {
+    width: 100%;
+  }
+}
+</style>
+
+<script src="{{ vendor_lib('dompurify') }}"></script>
+
+<div class="reflection-shell">
+  {% if view_mode == "index" %}
+    <header class="reflection-header">
+      <div>
+        <p class="reflection-kicker">weekly reflection</p>
+        <h2 class="reflection-title">Reflections</h2>
+        <p class="reflection-subtitle">Available weekly reflections, newest first.</p>
+      </div>
+    </header>
+    <section class="reflection-index">
+      {% if weeks %}
+        <ul class="reflection-index-list">
+          {% for week in weeks %}
+            <li>
+              <a class="reflection-index-link" href="{{ week.url }}">
+                <span class="reflection-index-day">week of {{ week.label }}</span>
+                <span class="reflection-index-token">{{ week.day }}</span>
+              </a>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p>No weekly reflections yet.</p>
+      {% endif %}
+    </section>
+  {% else %}
+    <header class="reflection-header">
+      <div>
+        <p class="reflection-kicker">weekly reflection</p>
+        <h2 class="reflection-title">{{ reflection_week_label }}</h2>
+        <p class="reflection-subtitle">week of {{ reflection_week_label }}</p>
+      </div>
+      <div class="reflection-actions">
+        <button type="button" class="reflection-button" id="copyReflectionButton">Copy</button>
+        <a class="reflection-link-button" href="{{ pdf_url }}">Download PDF</a>
+      </div>
+    </header>
+
+    <section class="reflection-body" id="reflectionBody"></section>
+  {% endif %}
+</div>
+
+{% if view_mode == "detail" %}
+<script>
+(() => {
+  const markdownSource = {{ reflection_markdown|tojson|safe }};
+  const reflectionBody = document.getElementById('reflectionBody');
+  const copyButton = document.getElementById('copyReflectionButton');
+  const rawUrl = {{ raw_url|tojson|safe }};
+
+  function renderMarkdown(raw) {
+    return DOMPurify.sanitize(marked.parse(raw || '', { breaks: true, gfm: true }));
+  }
+
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text);
+    }
+
+    const area = document.createElement('textarea');
+    area.value = text;
+    area.style.position = 'fixed';
+    area.style.opacity = '0';
+    document.body.appendChild(area);
+    area.select();
+    document.execCommand('copy');
+    document.body.removeChild(area);
+    return Promise.resolve();
+  }
+
+  if (reflectionBody) {
+    reflectionBody.innerHTML = renderMarkdown(markdownSource);
+  }
+
+  if (copyButton) {
+    copyButton.addEventListener('click', async () => {
+      const originalLabel = copyButton.textContent;
+      try {
+        const response = await fetch(rawUrl, { credentials: 'same-origin' });
+        if (!response.ok) throw new Error('copy failed');
+        await copyText(await response.text());
+        copyButton.textContent = 'Copied';
+      } catch (_error) {
+        copyButton.textContent = 'Failed';
+      } finally {
+        window.setTimeout(() => {
+          copyButton.textContent = originalLabel;
+        }, 2000);
+      }
+    });
+  }
+})();
+</script>
+{% endif %}

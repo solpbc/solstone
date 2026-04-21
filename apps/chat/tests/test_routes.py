@@ -151,6 +151,12 @@ def test_chat_day_renders_all_event_kinds(journal_copy, monkeypatch):
         reason="network",
         use_id="use-4",
     )
+    append_chat_event(
+        "reflection_ready",
+        ts=_ms(2099, 1, 2, 9, 6),
+        day="20981228",
+        url="/app/reflections/20981228",
+    )
 
     response = env.client.get(f"/app/chat/{day}")
     html = response.get_data(as_text=True)
@@ -161,6 +167,8 @@ def test_chat_day_renders_all_event_kinds(journal_copy, monkeypatch):
     assert 'title="full note"' in html
     assert 'data-talent-use-id="use-2"' in html
     assert 'data-talent-use-id="use-3"' in html
+    assert "weekly reflection ready" in html
+    assert 'href="/app/reflections/20981228"' in html
     assert "chat had trouble" in html
 
 

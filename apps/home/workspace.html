@@ -191,6 +191,33 @@
   font-size: 0.85rem;
 }
 
+.pulse-reflection {
+  padding: 1.25rem;
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid #d1d5db;
+}
+
+.pulse-reflection-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #b45309;
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.pulse-reflection-link:hover {
+  text-decoration: underline;
+}
+
+.pulse-reflection-link:focus-visible {
+  outline: 2px solid #b45309;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 /* Today Section */
 .pulse-today {
   padding: 1.25rem;
@@ -854,6 +881,7 @@
 /* Shared left padding for indicator gutter */
 .pulse-vitals,
 .pulse-narrative,
+.pulse-reflection,
 .pulse-today,
 .pulse-needs,
 .pulse-routines,
@@ -933,6 +961,7 @@
   }
 
   .pulse-narrative,
+  .pulse-reflection,
   .pulse-routines,
   .pulse-skills,
   .pulse-today,
@@ -951,6 +980,7 @@
 
   .pulse-vitals,
   .pulse-narrative,
+  .pulse-reflection,
   .pulse-today,
   .pulse-needs,
   .pulse-routines,
@@ -1184,6 +1214,15 @@
       {% endfor %}
     </div>
     </div>
+  </div>
+  {% endif %}
+
+  {% if latest_weekly_reflection %}
+  <div class="pulse-reflection">
+    <h2 class="pulse-section-header">weekly reflection</h2>
+    <a class="pulse-reflection-link" href="{{ latest_weekly_reflection.url }}">
+      week of {{ latest_weekly_reflection.label }} →
+    </a>
   </div>
   {% endif %}
 

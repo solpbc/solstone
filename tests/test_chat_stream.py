@@ -335,6 +335,12 @@ def test_reduce_chat_state_extracts_latest_sol_and_active_talents(
         reason="chat had trouble — try again",
         use_id=None,
     )
+    append_chat_event(
+        "reflection_ready",
+        ts=start + 7_000,
+        day="20260308",
+        url="/app/reflections/20260308",
+    )
 
     reduced = reduce_chat_state("20260420")
 
@@ -363,6 +369,22 @@ def test_reduce_chat_state_extracts_latest_sol_and_active_talents(
             "finished_at": start + 3_000,
         }
     ]
+
+
+def test_append_reflection_ready_event(tmp_path, monkeypatch):
+    _setup_journal(tmp_path, monkeypatch)
+    ts = _ms(2026, 4, 20, 12, 0, 0)
+
+    event = append_chat_event(
+        "reflection_ready",
+        ts=ts,
+        day="20260308",
+        url="/app/reflections/20260308",
+    )
+
+    assert event["kind"] == "reflection_ready"
+    assert event["day"] == "20260308"
+    assert event["url"] == "/app/reflections/20260308"
 
 
 def test_find_unresponded_trigger_owner_message(tmp_path, monkeypatch):

@@ -19,6 +19,7 @@ from flask import Blueprint, jsonify, render_template
 
 from convey.apps import _resolve_attention
 from convey.bridge import get_cached_state
+from convey.utils import DATE_RE, format_date
 from think import skills as think_skills
 from think.awareness import get_current
 from think.capture_health import get_capture_health
@@ -92,6 +93,27 @@ def _count_journal_age_days(today: str) -> int:
     except ValueError:
         return 0
     return max(0, (today_dt - earliest).days)
+
+
+def _load_latest_weekly_reflection() -> dict[str, str] | None:
+    reflections_dir = Path(get_journal()) / "reflections" / "weekly"
+    if not reflections_dir.is_dir():
+        return None
+
+    days = sorted(
+        path.stem
+        for path in reflections_dir.glob("*.md")
+        if path.is_file() and DATE_RE.fullmatch(path.stem)
+    )
+    if not days:
+        return None
+
+    day = days[-1]
+    return {
+        "day": day,
+        "label": format_date(day),
+        "url": f"/app/reflections/{day}",
+    }
 
 
 def _load_flow_md(today: str) -> tuple[str | None, float | None]:
@@ -1271,6 +1293,7 @@ def _build_pulse_context() -> dict[str, Any]:
     entities = _collect_entities_today(today)
     routines = _collect_routines()
     skills = _collect_skills()
+    latest_weekly_reflection = _load_latest_weekly_reflection()
 
     last_observe_relative = None
     if last_observe_ts:
@@ -1306,6 +1329,7 @@ def _build_pulse_context() -> dict[str, Any]:
         and not briefing_exists
         and not attention
         and not pulse_needs
+        and not latest_weekly_reflection
     )
 
     # Section summaries for collapsed state
@@ -1427,6 +1451,7 @@ def _build_pulse_context() -> dict[str, Any]:
         "briefing_needs_deduped": briefing_needs_deduped,
         "briefing_needs_shared_count": briefing_needs_shared_count,
         "briefing_needs_badge": briefing_needs_badge,
+        "latest_weekly_reflection": latest_weekly_reflection,
         "yesterday_processing": yesterday_processing,
         "show_welcome": show_welcome,
         "narrative_summary": narrative_summary,
