@@ -338,6 +338,13 @@
       "tier": 3,
       "type": "cogitate"
     },
+    "talent.system.reflection": {
+      "disabled": false,
+      "group": "Think",
+      "label": "Reflection",
+      "tier": 3,
+      "type": "cogitate"
+    },
     "talent.system.routine": {
       "disabled": false,
       "group": "Think",

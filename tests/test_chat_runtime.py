@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import pytest
 from flask import Flask
 
 from convey.chat_stream import append_chat_event, read_chat_events
@@ -298,3 +299,137 @@ def test_chat_generate_schema_violation_retries_once_then_chat_errors(
         e for e in read_chat_events(chat._today_day()) if e["kind"] == "chat_error"
     ]
     assert errors[-1]["use_id"] == "1713625000000"
+
+
+def test_parse_chat_result_accepts_reflection_target():
+    import convey.chat as chat
+
+    parsed = chat._parse_chat_result(
+        {
+            "message": "Let me think about that.",
+            "notes": "dispatch reflection",
+            "talent_request": {
+                "target": "reflection",
+                "task": "Reflect on the last week",
+                "context": {"facet": "work"},
+            },
+        }
+    )
+
+    assert parsed["talent_request"] == {
+        "target": "reflection",
+        "task": "Reflect on the last week",
+        "context": {"facet": "work"},
+    }
+
+
+def test_parse_chat_result_rejects_unknown_target():
+    import convey.chat as chat
+
+    with pytest.raises(ValueError, match="unknown talent target: foo"):
+        chat._parse_chat_result(
+            {
+                "message": "Let me think about that.",
+                "notes": "dispatch reflection",
+                "talent_request": {"target": "foo", "task": "Reflect on the week"},
+            }
+        )
+
+
+def test_parse_chat_result_defaults_legacy_target_to_exec():
+    import convey.chat as chat
+
+    parsed = chat._parse_chat_result(
+        {
+            "message": "I am looking into that.",
+            "notes": "need exec",
+            "talent_request": {"task": "Research it", "context": {"k": "v"}},
+        }
+    )
+
+    assert parsed["talent_request"] == {
+        "target": "exec",
+        "task": "Research it",
+        "context": {"k": "v"},
+    }
+
+
+def test_reflection_dispatch_spawns_reflection_talent(tmp_path, monkeypatch):
+    import convey.chat as chat
+
+    _setup_journal(tmp_path, monkeypatch)
+    _reset_chat_state(chat)
+
+    actions: list[dict | None] = []
+    monkeypatch.setattr(
+        "convey.chat._run_next_action", lambda action: actions.append(action)
+    )
+    monkeypatch.setattr("convey.chat._emit_finish", lambda *args, **kwargs: None)
+    monkeypatch.setattr("convey.chat._emit_error", lambda *args, **kwargs: None)
+
+    with chat._state_lock:
+        chat._current_chat_use_id = "1713626000000"
+        chat._current_chat_state = {
+            "raw_use_id": "1713626000001",
+            "trigger": {"type": "owner_message", "message": "help"},
+            "location": {"app": "sol", "path": "/app/sol", "facet": "work"},
+            "retry_count": 0,
+        }
+
+    chat._on_cortex_finish(
+        {
+            "use_id": "1713626000001",
+            "result": (
+                '{"message":"I want to sit with that.","notes":"need reflection",'
+                '"talent_request":{"target":"reflection","task":"Reflect on the week",'
+                '"context":{"facet":"work"}}}'
+            ),
+        }
+    )
+
+    assert actions[-1]["kind"] == "talent"
+    assert actions[-1]["target"] == "reflection"
+
+    events = read_chat_events(chat._today_day())
+    sol_message = next(event for event in events if event["kind"] == "sol_message")
+    spawned = next(event for event in events if event["kind"] == "talent_spawned")
+    assert sol_message["requested_target"] == "reflection"
+    assert spawned["name"] == "reflection"
+
+
+def test_reflection_finish_retriggers_chat_like_exec(tmp_path, monkeypatch):
+    import convey.chat as chat
+
+    _setup_journal(tmp_path, monkeypatch)
+    _reset_chat_state(chat)
+
+    actions: list[dict | None] = []
+    monkeypatch.setattr(
+        "convey.chat._run_next_action", lambda action: actions.append(action)
+    )
+    monkeypatch.setattr("convey.chat._emit_finish", lambda *args, **kwargs: None)
+    monkeypatch.setattr("convey.chat._emit_error", lambda *args, **kwargs: None)
+
+    with chat._state_lock:
+        chat._current_chat_use_id = "1713627000000"
+        chat._current_chat_state = {
+            "raw_use_id": None,
+            "trigger": {"type": "owner_message", "message": "help"},
+            "location": {"app": "sol", "path": "/app/sol", "facet": "work"},
+            "retry_count": 0,
+        }
+        chat._active_talents["1713627000001"] = {
+            "chat_use_id": "1713627000000",
+            "target": "reflection",
+            "task": "Reflect on the week",
+            "location": {"app": "sol", "path": "/app/sol", "facet": "work"},
+        }
+
+    chat._on_cortex_finish({"use_id": "1713627000001", "result": "A reflective note"})
+
+    finished_events = [
+        e for e in read_chat_events(chat._today_day()) if e["kind"] == "talent_finished"
+    ]
+    assert finished_events[-1]["name"] == "reflection"
+    assert actions[-1]["trigger"]["type"] == "talent_finished"
+    assert actions[-1]["trigger"]["name"] == "reflection"

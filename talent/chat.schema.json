@@ -12,8 +12,12 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["task"],
+          "required": ["target", "task"],
           "properties": {
+            "target": {
+              "type": "string",
+              "enum": ["exec", "reflection"]
+            },
             "task": {"type": "string", "minLength": 1},
             "context": {"type": "object"}
           }

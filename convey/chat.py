@@ -279,7 +279,11 @@ def _on_cortex_finish(message: dict[str, Any]) -> None:
                     next_info = _clear_current_locked()
             else:
                 message_text = parsed["message"] or ""
-                requested_target = "exec" if parsed["talent_request"] else None
+                requested_target = (
+                    parsed["talent_request"]["target"]
+                    if parsed["talent_request"]
+                    else None
+                )
                 requested_task = (
                     parsed["talent_request"]["task"]
                     if parsed["talent_request"]
@@ -666,6 +670,14 @@ def _parse_chat_result(result: Any) -> dict[str, Any]:
         return {"message": message, "notes": payload["notes"], "talent_request": None}
     if not isinstance(talent_request, dict):
         raise ValueError("chat talent_request must be an object or null")
+    target = talent_request.get("target")
+    if target is None:
+        # Why: keep one release of compatibility for older chat outputs.
+        target = "exec"
+    if not isinstance(target, str):
+        raise ValueError("chat talent_request.target must be a string")
+    if target not in {"exec", "reflection"}:
+        raise ValueError(f"unknown talent target: {target}")
     task = talent_request.get("task")
     if not isinstance(task, str) or not task.strip():
         raise ValueError("chat talent_request.task must be a non-empty string")
@@ -676,6 +688,7 @@ def _parse_chat_result(result: Any) -> dict[str, Any]:
         "message": message,
         "notes": payload["notes"],
         "talent_request": {
+            "target": target,
             "task": task.strip(),
             "context": context,
         },

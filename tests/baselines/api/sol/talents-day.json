@@ -346,6 +346,17 @@
       "title": "Pulse",
       "type": "cogitate"
     },
+    "reflection": {
+      "app": null,
+      "color": "#6c757d",
+      "description": "Sol — longer-form reflective synthesis grounded in the journal",
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": null,
+      "source": "system",
+      "title": "Reflection",
+      "type": "cogitate"
+    },
     "routine": {
       "app": null,
       "color": "#6c757d",
