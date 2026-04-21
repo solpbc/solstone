@@ -120,6 +120,7 @@ def send_push_test():
         title=title,
         body=message,
         context_id=f"push-test-{uuid.uuid4().hex[:12]}",
+        route="/app/home",
     )
     return jsonify({"sent": sent, "failed": failed})
 

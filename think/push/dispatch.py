@@ -171,8 +171,11 @@ def build_pre_meeting_payload(
 
 
 def build_agent_alert_payload(
-    *, title: str, body: str, context_id: str
+    *, title: str, body: str, context_id: str, route: str | None = None
 ) -> dict[str, Any]:
+    data = {"action": "open_alert", "context_id": context_id}
+    if route is not None:
+        data["route"] = route
     return {
         "aps": {
             "alert": {"title": title, "body": body},
@@ -181,7 +184,7 @@ def build_agent_alert_payload(
             "mutable-content": 1,
             "content-available": 1,
         },
-        "data": {"action": "open_alert", "context_id": context_id},
+        "data": data,
     }
 
 

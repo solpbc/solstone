@@ -128,7 +128,7 @@ def test_push_test_happy_path(push_client, monkeypatch):
     monkeypatch.setattr("convey.push.is_configured", lambda: True)
     monkeypatch.setattr(
         "convey.push.triggers.send_agent_alert",
-        lambda *, title, body, context_id: (1, 0),
+        lambda *, title, body, context_id, route: (1, 0),
     )
 
     response = push_client.post(

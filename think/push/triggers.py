@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from apps.home.routes import _load_briefing_md
+from convey.chat_stream import append_chat_event
 from think.activities import load_activity_records
 from think.facets import get_enabled_facets
 from think.push.config import get_bundle_id, get_environment, is_configured
@@ -214,7 +215,9 @@ def check_pre_meeting_prep(now: datetime) -> None:
                 )
 
 
-def send_agent_alert(*, title: str, body: str, context_id: str) -> tuple[int, int]:
+def send_agent_alert(
+    *, title: str, body: str, context_id: str, route: str | None = None
+) -> tuple[int, int]:
     dedupe_key = (CATEGORY_AGENT_ALERT, context_id)
     if _has_nudged(dedupe_key):
         return 0, 0
@@ -223,7 +226,12 @@ def send_agent_alert(*, title: str, body: str, context_id: str) -> tuple[int, in
         return 0, 0
     sent, failed = send_many(
         eligible_devices,
-        build_agent_alert_payload(title=title, body=body, context_id=context_id),
+        build_agent_alert_payload(
+            title=title,
+            body=body,
+            context_id=context_id,
+            route=route,
+        ),
         collapse_id=build_agent_alert_collapse_id(context_id),
     )
     if sent > 0:
@@ -237,4 +245,45 @@ def send_agent_alert(*, title: str, body: str, context_id: str) -> tuple[int, in
     return sent, failed
 
 
-__all__ = ["check_pre_meeting_prep", "handle_briefing_finish", "send_agent_alert"]
+def handle_weekly_reflection_finish(message: dict[str, Any]) -> None:
+    if message.get("tract") != "cortex":
+        return
+    if message.get("event") != "finish":
+        return
+    if message.get("name") != "weekly_reflection":
+        return
+
+    day = str(message.get("day") or "").strip()
+    if not day:
+        return
+
+    context_id = f"weekly_reflection:{day}"
+    dedupe_key = (CATEGORY_AGENT_ALERT, context_id)
+    if _has_nudged(dedupe_key):
+        return
+
+    reflection_path = Path(get_journal()) / "reflections" / "weekly" / f"{day}.md"
+    for _ in range(10):
+        if reflection_path.is_file():
+            break
+        time.sleep(1)
+    else:
+        logger.warning("push weekly reflection unavailable after finish day=%s", day)
+        return
+
+    route = f"/app/reflections/{day}"
+    send_agent_alert(
+        title="your week is ready",
+        body="",
+        context_id=context_id,
+        route=route,
+    )
+    append_chat_event("reflection_ready", day=day, url=route)
+
+
+__all__ = [
+    "check_pre_meeting_prep",
+    "handle_briefing_finish",
+    "handle_weekly_reflection_finish",
+    "send_agent_alert",
+]

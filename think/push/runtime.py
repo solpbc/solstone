@@ -41,6 +41,7 @@ def get_runtime_state() -> RuntimeState | None:
 def _on_callosum_message(message: dict[str, Any]) -> None:
     try:
         triggers.handle_briefing_finish(message)
+        triggers.handle_weekly_reflection_finish(message)
     except Exception:
         logger.exception("push callosum handler failed")
 

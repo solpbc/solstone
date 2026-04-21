@@ -6,6 +6,7 @@ from __future__ import annotations
 import pytest
 from flask import Flask
 
+from think.push import runtime
 from think.push.runtime import (
     get_runtime_state,
     start_push_runtime,
@@ -35,11 +36,11 @@ def test_start_push_runtime_attaches_state(monkeypatch):
 
     start_push_runtime(app)
     try:
-        runtime = get_runtime_state()
+        runtime_state = get_runtime_state()
         assert app.push_runtime_started is True
-        assert runtime is not None
-        assert runtime.loop is not None
-        assert runtime.thread is not None
+        assert runtime_state is not None
+        assert runtime_state.loop is not None
+        assert runtime_state.thread is not None
         assert calls == ["start"]
     finally:
         stop_push_runtime(app)
@@ -53,16 +54,16 @@ def test_start_push_runtime_is_idempotent(monkeypatch):
     app = Flask(__name__)
 
     start_push_runtime(app)
-    runtime = get_runtime_state()
-    first_loop = runtime.loop if runtime else None
-    first_thread = runtime.thread if runtime else None
+    runtime_state = get_runtime_state()
+    first_loop = runtime_state.loop if runtime_state else None
+    first_thread = runtime_state.thread if runtime_state else None
     try:
         start_push_runtime(app)
-        runtime = get_runtime_state()
-        assert runtime is not None
-        assert runtime.loop is first_loop
-        assert runtime.thread is first_thread
-        assert runtime.apps.count(app) == 1
+        runtime_state = get_runtime_state()
+        assert runtime_state is not None
+        assert runtime_state.loop is first_loop
+        assert runtime_state.thread is first_thread
+        assert runtime_state.apps.count(app) == 1
     finally:
         stop_push_runtime(app)
 
@@ -93,3 +94,22 @@ def test_stop_all_push_runtime_clears_runtime(monkeypatch):
 
     assert app.push_runtime_started is False
     assert get_runtime_state() is None
+
+
+def test_on_callosum_message_calls_both_handlers(monkeypatch):
+    calls: list[tuple[str, dict[str, str]]] = []
+    monkeypatch.setattr(
+        runtime.triggers,
+        "handle_briefing_finish",
+        lambda message: calls.append(("briefing", message)),
+    )
+    monkeypatch.setattr(
+        runtime.triggers,
+        "handle_weekly_reflection_finish",
+        lambda message: calls.append(("weekly_reflection", message)),
+    )
+    message = {"tract": "cortex", "event": "finish", "name": "weekly_reflection"}
+
+    runtime._on_callosum_message(message)
+
+    assert calls == [("briefing", message), ("weekly_reflection", message)]

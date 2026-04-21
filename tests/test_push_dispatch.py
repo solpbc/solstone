@@ -122,6 +122,21 @@ def test_agent_alert_payload_shape():
     assert "interruption-level" not in payload["aps"]
 
 
+def test_agent_alert_payload_includes_route_when_present():
+    payload = dispatch.build_agent_alert_payload(
+        title="Agent Alert",
+        body="Needs review",
+        context_id="ctx-1",
+        route="/app/reflections/20260308",
+    )
+
+    assert payload["data"] == {
+        "action": "open_alert",
+        "context_id": "ctx-1",
+        "route": "/app/reflections/20260308",
+    }
+
+
 def test_commitment_payload_shape():
     payload = dispatch.build_commitment_payload(ledger_id="lg_123")
 
