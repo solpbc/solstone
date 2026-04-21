@@ -1540,25 +1540,35 @@ window.AppServices = {
     _container: null,
     _dismissTimers: {},
 
-    /**
-     * Show a persistent notification card
-     * @param {object} options - {app, icon, title, message, action, facet, dismissible, badge, autoDismiss}
-     * @returns {number} Notification ID
-     */
-    show(options) {
-      const notif = {
-        id: this._nextId++,
-        app: options.app || 'system',
-        icon: options.icon || '📬',
-        title: options.title || 'Notification',
+	    /**
+	     * Show a persistent notification card
+	     * @param {object} options - {app, icon, title, message, action, facet, dismissible, badge, autoDismiss, buttons}
+	     * @returns {number} Notification ID
+	     */
+	    show(options) {
+	      const buttons = Array.isArray(options.buttons)
+	        ? options.buttons
+	            .filter(button => button && button.label)
+	            .map(button => ({
+	              label: String(button.label),
+	              onClick: typeof button.onClick === 'function' ? button.onClick : null,
+	              dismiss: button.dismiss !== false
+	            }))
+	        : [];
+	      const notif = {
+	        id: this._nextId++,
+	        app: options.app || 'system',
+	        icon: options.icon || '📬',
+	        title: options.title || 'Notification',
         message: options.message || '',
         action: options.action || null,
-        facet: options.facet || null,
-        dismissible: options.dismissible !== false,
-        badge: options.badge || null,
-        timestamp: Date.now(),
-        autoDismiss: options.autoDismiss || null
-      };
+	        facet: options.facet || null,
+	        dismissible: options.dismissible !== false,
+	        badge: options.badge || null,
+	        timestamp: Date.now(),
+	        autoDismiss: options.autoDismiss || null,
+	        buttons
+	      };
 
       this._stack.push(notif);
       this._addToHistory(notif);
@@ -1772,14 +1782,14 @@ window.AppServices = {
      * Attach click handler to notification card
      * @private
      */
-    _attachClickHandler(card, n) {
-      if (!n.action) return;
+	    _attachClickHandler(card, n) {
+	      if (!n.action) return;
 
-      card.onclick = (e) => {
-        // Ignore clicks on close button
-        if (e.target.closest('.notification-close')) {
-          return;
-        }
+	      card.onclick = (e) => {
+	        // Ignore clicks on controls inside the card
+	        if (e.target.closest('.notification-close, .notification-action')) {
+	          return;
+	        }
 
         // Prevent default for anchor tags
         if (card.tagName === 'A') {
@@ -1793,12 +1803,54 @@ window.AppServices = {
 
         // Navigate to the path
         window.location.href = n.action;
-      };
-    },
+	      };
+	    },
 
-    /**
-     * Create a new notification card element
-     * @private
+	    _syncButtons(card, n) {
+	      const footer = card.querySelector('.notification-footer');
+	      if (!footer) return;
+
+	      let actionsEl = footer.querySelector('.notification-actions');
+	      if (!n.buttons || n.buttons.length === 0) {
+	        if (actionsEl) actionsEl.remove();
+	        return;
+	      }
+
+	      if (!actionsEl) {
+	        actionsEl = document.createElement('div');
+	        actionsEl.className = 'notification-actions';
+	        footer.appendChild(actionsEl);
+	      }
+
+	      actionsEl.replaceChildren();
+	      n.buttons.forEach((button, idx) => {
+	        const buttonEl = document.createElement('button');
+	        buttonEl.type = 'button';
+	        buttonEl.className = 'notification-action';
+	        buttonEl.dataset.btn = String(idx);
+	        buttonEl.textContent = button.label;
+	        actionsEl.appendChild(buttonEl);
+	      });
+
+	      actionsEl.querySelectorAll('.notification-action').forEach((buttonEl) => {
+	        buttonEl.onclick = (event) => {
+	          event.preventDefault();
+	          event.stopPropagation();
+	          const button = n.buttons[Number(buttonEl.dataset.btn)];
+	          if (!button) return;
+	          if (button.onClick) {
+	            button.onClick(n);
+	          }
+	          if (button.dismiss !== false) {
+	            this.dismiss(n.id);
+	          }
+	        };
+	      });
+	    },
+
+	    /**
+	     * Create a new notification card element
+	     * @private
      */
     _createCard(n) {
       // Use anchor tag for semantic HTML when action exists
@@ -1829,15 +1881,16 @@ window.AppServices = {
           <div class="notification-title">${window.AppServices._escapeHtml(n.title)}</div>
           ${n.message ? `<div class="notification-message">${window.AppServices._escapeHtml(n.message)}</div>` : ''}
           ${n.badge ? `<span class="notification-badge">${n.badge}</span>` : ''}
-        </div>
-        <div class="notification-footer">
-          <span class="notification-time">${relativeTime}</span>
-        </div>
-        ${n.autoDismiss ? `<div class="notification-countdown" style="animation-duration: ${n.autoDismiss}ms"></div>` : ''}
-      `;
+	        </div>
+	        <div class="notification-footer">
+	          <span class="notification-time">${relativeTime}</span>
+	        </div>
+	        ${n.autoDismiss ? `<div class="notification-countdown" style="animation-duration: ${n.autoDismiss}ms"></div>` : ''}
+	      `;
+	      this._syncButtons(card, n);
 
-      // Attach click handler
-      this._attachClickHandler(card, n);
+	      // Attach click handler
+	      this._attachClickHandler(card, n);
 
       if (n.autoDismiss) {
         const self = this;
@@ -1903,13 +1956,14 @@ window.AppServices = {
       }
 
       // Update time
-      const timeEl = card.querySelector('.notification-time');
-      if (timeEl) {
-        timeEl.textContent = this._getRelativeTime(n.timestamp);
-      }
+	      const timeEl = card.querySelector('.notification-time');
+	      if (timeEl) {
+	        timeEl.textContent = this._getRelativeTime(n.timestamp);
+	      }
+	      this._syncButtons(card, n);
 
-      // Update action and facet
-      if (n.action) {
+	      // Update action and facet
+	      if (n.action) {
         if (card.tagName === 'A') {
           card.href = n.action;
         }

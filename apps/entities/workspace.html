@@ -2097,6 +2097,9 @@ function showDeleteJournalEntityModal() {
 
 function closeDeleteJournalEntityModal() {
   hideInlineError('delete-modal-error');
+  const btn = document.getElementById('confirmDeleteJournalEntityBtn');
+  btn.disabled = false;
+  btn.textContent = 'delete permanently';
   document.getElementById('deleteJournalEntityModal').style.display = 'none';
 }
 
@@ -2117,9 +2120,25 @@ function confirmDeleteJournalEntity() {
       throw new Error(data.error);
     }
     hideInlineError('delete-modal-error');
+    journalEntitiesData = (journalEntitiesData || []).filter(entity => entity.id !== entityId);
     closeDeleteJournalEntityModal();
     navigateToList();
-    loadEntities();
+    renderJournalEntities(document.getElementById('journal-entity-card-search')?.value.trim() || '');
+
+    let pendingNotificationId = null;
+    pendingNotificationId = window.AppServices.notifications.show({
+      app: 'entities',
+      icon: '🗑️',
+      title: 'Deleting entity…',
+      message: 'Cancels in 10s',
+      dismissible: true,
+      autoDismiss: 10000,
+      buttons: [{
+        label: 'Cancel',
+        dismiss: false,
+        onClick: () => cancelJournalEntityDelete(data.pending, pendingNotificationId)
+      }]
+    });
   })
   .catch(error => {
     console.error('Error deleting entity:', error);
@@ -2127,6 +2146,50 @@ function confirmDeleteJournalEntity() {
     btn.disabled = false;
     btn.textContent = 'delete permanently';
   });
+}
+
+async function cancelJournalEntityDelete(pendingId, notificationId) {
+  try {
+    const response = await fetch(`api/cancel-delete/${pendingId}`, {
+      method: 'POST'
+    });
+    const data = await response.json().catch(() => ({}));
+
+    if (notificationId !== null) {
+      window.AppServices.notifications.dismiss(notificationId);
+    }
+
+    if (response.ok) {
+      await loadEntities();
+      window.AppServices.notifications.show({
+        app: 'entities',
+        icon: '↩️',
+        title: 'Delete cancelled',
+        autoDismiss: 3000
+      });
+      return;
+    }
+
+    if (response.status === 410) {
+      window.AppServices.notifications.show({
+        app: 'entities',
+        icon: '⏱️',
+        title: 'Too late — already deleted',
+        autoDismiss: 3000
+      });
+      return;
+    }
+
+    throw new Error(data.error || 'Failed to cancel delete');
+  } catch (error) {
+    window.AppServices.notifications.show({
+      app: 'entities',
+      icon: '⚠️',
+      title: 'Couldn\'t cancel delete',
+      message: error.message || 'Please try again.',
+      autoDismiss: 3000
+    });
+  }
 }
 
 function renderDetailView(entity, observations) {
@@ -2577,12 +2640,11 @@ function loadEntities() {
 
   if (!currentFacet) {
     // All-facet mode: load journal entities
-    loadJournalEntities();
-    return;
+    return loadJournalEntities();
   }
 
   // Facet-specific mode
-  fetch(`api/${encodeURIComponent(currentFacet)}`)
+  return fetch(`api/${encodeURIComponent(currentFacet)}`)
     .then(response => response.json())
     .then(data => {
       if (data.error) {
@@ -2614,7 +2676,7 @@ function loadEntities() {
 }
 
 function loadJournalEntities() {
-  fetch('api/journal')
+  return fetch('api/journal')
     .then(response => response.json())
     .then(data => {
       if (data.error) {

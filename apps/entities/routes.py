@@ -7,6 +7,10 @@ from __future__ import annotations
 
 import logging
 import os
+import re
+import time
+import uuid
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -14,11 +18,11 @@ from flask import Blueprint, jsonify, request
 
 logger = logging.getLogger(__name__)
 
+import think.deferred_deletes as deferred_deletes
 from apps.utils import log_app_action
 from convey import state
 from think.entities import (
     block_journal_entity,
-    delete_journal_entity,
     entity_last_active_ts,
     entity_memory_path,
     entity_slug,
@@ -26,7 +30,6 @@ from think.entities import (
     load_detected_entities_recent,
     load_entities,
     load_facet_relationship,
-    load_journal_entity,
     load_observations,
     rename_entity_memory,
     save_entities,
@@ -35,6 +38,7 @@ from think.entities import (
     unblock_journal_entity,
     validate_aka_uniqueness,
 )
+from think.entities.journal import delete_journal_entity, load_journal_entity
 from think.facets import get_facets
 from think.utils import now_ms
 
@@ -43,6 +47,7 @@ entities_bp = Blueprint(
     __name__,
     url_prefix="/app/entities",
 )
+ENTITY_DELETE_TTL = 10.0
 
 
 def _get_entity_metadata(facet_name: str, entity_name: str) -> dict:
@@ -905,25 +910,79 @@ def update_journal_entity(entity_id: str) -> Any:
 def delete_journal_entity_route(entity_id: str) -> Any:
     """Permanently delete a journal entity and all facet relationships."""
     try:
-        result = delete_journal_entity(entity_id)
+        journal_entity = load_journal_entity(entity_id)
+        if journal_entity is None:
+            return jsonify({"error": f"Entity '{entity_id}' not found"}), 400
 
+        if journal_entity.get("is_principal"):
+            return jsonify({"error": "Cannot delete the principal (self) entity"}), 400
+
+        ttl = ENTITY_DELETE_TTL
+        pending_id = uuid.uuid4().hex
+
+        def _commit() -> None:
+            try:
+                result = delete_journal_entity(entity_id)
+                facets = result.get("facets_deleted", [])
+            except Exception:
+                facets = []
+                logger.exception(
+                    "deferred journal_entity_delete failed for %s", entity_id
+                )
+            log_app_action(
+                app="entities",
+                facet=None,
+                action="journal_entity_delete",
+                params={
+                    "entity_id": entity_id,
+                    "facets_deleted": facets,
+                    "pending_id": pending_id,
+                    "phase": "committed",
+                },
+            )
+
+        deferred_deletes.schedule_with_id(pending_id, _commit, ttl_seconds=ttl)
         log_app_action(
             app="entities",
-            facet=None,  # Journal-level action
+            facet=None,
             action="journal_entity_delete",
             params={
                 "entity_id": entity_id,
-                "facets_deleted": result.get("facets_deleted", []),
+                "pending_id": pending_id,
+                "phase": "pending",
             },
         )
+        return jsonify(
+            {
+                "success": True,
+                "pending": pending_id,
+                "commit_at_ms": int((time.time() + ttl) * 1000),
+                "ttl_seconds": ttl,
+            }
+        )
 
-        return jsonify(result)
-
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 400
     except Exception as e:
         logger.exception("Failed to delete journal entity")
         return jsonify({"error": f"Failed to delete journal entity: {str(e)}"}), 500
+
+
+@entities_bp.route("/api/cancel-delete/<pending_id>", methods=["POST"])
+def cancel_delete_journal_entity(pending_id: str) -> Any:
+    """Cancel a pending deferred journal-entity deletion."""
+    if not re.fullmatch(r"[0-9a-f]{32}", pending_id):
+        return jsonify({"error": "already committed or unknown"}), 410
+
+    if not deferred_deletes.cancel(pending_id):
+        return jsonify({"error": "already committed or unknown"}), 410
+
+    log_app_action(
+        app="entities",
+        facet=None,
+        action="journal_entity_delete",
+        params={"pending_id": pending_id, "phase": "cancelled"},
+        day=datetime.now().strftime("%Y%m%d"),
+    )
+    return jsonify({"cancelled": pending_id})
 
 
 @entities_bp.route("/api/journal/entity/<entity_id>/block", methods=["POST"])

@@ -11,7 +11,9 @@ import logging
 import os
 import re
 import shutil
-from datetime import date
+import time
+import uuid
+from datetime import date, datetime
 from glob import glob
 from pathlib import Path
 from typing import Any
@@ -25,6 +27,7 @@ from flask import (
     url_for,
 )
 
+import think.deferred_deletes as deferred_deletes
 from apps.utils import log_app_action
 from convey import emit, state
 from convey.utils import DATE_RE, error_response, format_date, success_response
@@ -42,6 +45,7 @@ logger = logging.getLogger(__name__)
 
 # Regex for YYYYMM month format validation
 MONTH_RE = re.compile(r"\d{6}")
+SEGMENT_DELETE_TTL = 10.0
 
 transcripts_bp = Blueprint(
     "app:transcripts",
@@ -524,31 +528,75 @@ def delete_segment(day: str, stream: str, segment_key: str) -> Any:
         return error_response("Invalid segment path", 403)
 
     try:
-        # Remove the entire segment directory
-        shutil.rmtree(segment_dir)
+        ttl = SEGMENT_DELETE_TTL
+        pending_id = uuid.uuid4().hex
+        search_index_warning = not is_supervisor_up()
 
-        # Log the deletion for audit trail
+        def _commit() -> None:
+            shutil.rmtree(segment_dir)
+            emit(
+                "supervisor",
+                "request",
+                cmd=["sol", "indexer", "--rescan-full"],
+            )
+            log_app_action(
+                app="transcripts",
+                facet=None,
+                action="segment_delete",
+                params={
+                    "day": day,
+                    "segment_key": segment_key,
+                    "stream": stream,
+                    "pending_id": pending_id,
+                    "phase": "committed",
+                },
+                day=day,
+            )
+
+        deferred_deletes.schedule_with_id(pending_id, _commit, ttl_seconds=ttl)
         log_app_action(
             app="transcripts",
-            facet=None,  # Transcripts are not facet-scoped
+            facet=None,
             action="segment_delete",
-            params={"day": day, "segment_key": segment_key},
+            params={
+                "day": day,
+                "segment_key": segment_key,
+                "stream": stream,
+                "pending_id": pending_id,
+                "phase": "pending",
+            },
             day=day,
         )
 
-        payload = {"deleted": segment_key}
-        if not is_supervisor_up():
+        payload = {
+            "deleted": segment_key,
+            "pending": pending_id,
+            "commit_at_ms": int((time.time() + ttl) * 1000),
+            "ttl_seconds": ttl,
+        }
+        if search_index_warning:
             payload["search_index_warning"] = True
-
-        # Trigger indexer rescan to remove deleted segment from search index
-        # Supervisor queues by command name, serializing concurrent indexer requests
-        emit(
-            "supervisor",
-            "request",
-            cmd=["sol", "indexer", "--rescan-full"],
-        )
 
         return success_response(payload)
 
-    except OSError as e:
+    except Exception as e:
         return error_response(f"Failed to delete segment: {e}", 500)
+
+
+@transcripts_bp.route("/api/cancel-delete/<pending_id>", methods=["POST"])
+def cancel_delete_segment(pending_id: str) -> Any:
+    """Cancel a pending deferred segment deletion."""
+    if not re.fullmatch(r"[0-9a-f]{32}", pending_id):
+        return error_response("already committed or unknown", 410)
+
+    if not deferred_deletes.cancel(pending_id):
+        return error_response("already committed or unknown", 410)
+
+    log_app_action(
+        app="transcripts",
+        facet=None,
+        action="segment_delete",
+        params={"pending_id": pending_id, "phase": "cancelled"},
+        day=datetime.now().strftime("%Y%m%d"),
+    )
+    return jsonify({"cancelled": pending_id})

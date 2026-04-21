@@ -1947,11 +1947,39 @@ a.notification-card:active {
   margin-top: 8px;
   padding-top: 8px;
   border-top: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .notification-time {
   font-size: 11px;
   color: #9ca3af;
+}
+
+.notification-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.notification-action {
+  padding: 4px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 999px;
+  background: #f9fafb;
+  color: #374151;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.notification-action:hover {
+  background: #f3f4f6;
+}
+
+.notification-action:active {
+  background: #e5e7eb;
 }
 
 /* Responsive */

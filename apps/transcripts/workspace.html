@@ -3324,7 +3324,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
     deleteSegmentModalBody.innerHTML = `
       <p class="tr-delete-segment-meta"><strong>${escapeHtml(seg.stream)}</strong> · <strong>${escapeHtml(day)}</strong> · <strong>${escapeHtml(seg.start)} - ${escapeHtml(seg.end)}</strong></p>
-      <p>You'll have ~30 seconds to undo this after confirming.</p>
+      <p>You'll have about 10 seconds to undo this after confirming.</p>
       <p>This removes:</p>
       <ul class="tr-delete-segment-list">
         <li>audio</li>
@@ -3363,6 +3363,29 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     await performDeleteSegment(seg);
   }
 
+  function sortSegmentsByKey() {
+    allSegments.sort((a, b) => a.key.localeCompare(b.key));
+  }
+
+  function refreshSegmentIndicators() {
+    return fetch(`/app/transcripts/api/ranges/${day}`)
+      .then(r => r.ok ? r.json() : Promise.reject('Failed to fetch ranges'))
+      .then(data => {
+        segmentsLane.innerHTML = '';
+        (data.audio || []).forEach(rg => {
+          const [s, e] = rg.map(parseTime);
+          addSegmentIndicator('audio', s, e, 0);
+        });
+        (data.screen || []).forEach(rg => {
+          const [s, e] = rg.map(parseTime);
+          addSegmentIndicator('screen', s, e, 1);
+        });
+      })
+      .catch(() => {
+        // Range indicators may be stale, but the main segment state is already updated.
+      });
+  }
+
   async function performDeleteSegment(seg) {
     try {
       const response = await fetch(`/app/transcripts/api/segment/${day}/${seg.stream}/${seg.key}`, {
@@ -3385,24 +3408,22 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       // Re-render zoom timeline
       buildZoomSegments();
 
-      // Refresh range indicators on left timeline
-      fetch(`/app/transcripts/api/ranges/${day}`)
-        .then(r => r.ok ? r.json() : Promise.reject('Failed to fetch ranges'))
-        .then(data => {
-          // Clear and rebuild segment indicators
-          segmentsLane.innerHTML = '';
-          (data.audio || []).forEach(rg => {
-            const [s, e] = rg.map(parseTime);
-            addSegmentIndicator('audio', s, e, 0);
-          });
-          (data.screen || []).forEach(rg => {
-            const [s, e] = rg.map(parseTime);
-            addSegmentIndicator('screen', s, e, 1);
-          });
-        })
-        .catch(() => {
-          // Range indicators may be stale, but segment is deleted
-        });
+      refreshSegmentIndicators();
+
+      let pendingNotificationId = null;
+      pendingNotificationId = window.AppServices.notifications.show({
+        app: 'transcripts',
+        icon: '🗑️',
+        title: 'Deleting segment…',
+        message: 'Cancels in 10s',
+        dismissible: true,
+        autoDismiss: 10000,
+        buttons: [{
+          label: 'Cancel',
+          dismiss: false,
+          onClick: () => cancelSegmentDelete(data.pending, seg, pendingNotificationId)
+        }]
+      });
 
       if (data.search_index_warning === true) {
         window.AppServices.notifications.show({
@@ -3427,6 +3448,55 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         notice.style.opacity = '0';
         setTimeout(() => notice.remove(), 300);
       }, 5000);
+    }
+  }
+
+  async function cancelSegmentDelete(pendingId, seg, notificationId) {
+    try {
+      const response = await fetch(`/app/transcripts/api/cancel-delete/${pendingId}`, {
+        method: 'POST'
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (notificationId !== null) {
+        window.AppServices.notifications.dismiss(notificationId);
+      }
+
+      if (response.ok) {
+        if (!allSegments.some(existing => existing.key === seg.key)) {
+          allSegments.push(seg);
+          sortSegmentsByKey();
+        }
+        buildZoomSegments();
+        refreshSegmentIndicators();
+        window.AppServices.notifications.show({
+          app: 'transcripts',
+          icon: '↩️',
+          title: 'Delete cancelled',
+          autoDismiss: 3000
+        });
+        return;
+      }
+
+      if (response.status === 410) {
+        window.AppServices.notifications.show({
+          app: 'transcripts',
+          icon: '⏱️',
+          title: 'Too late — already deleted',
+          autoDismiss: 3000
+        });
+        return;
+      }
+
+      throw new Error(data.error || 'Failed to cancel delete');
+    } catch (err) {
+      window.AppServices.notifications.show({
+        app: 'transcripts',
+        icon: '⚠️',
+        title: 'Couldn\'t cancel delete',
+        message: err.message || 'Please try again.',
+        autoDismiss: 3000
+      });
     }
   }
 
