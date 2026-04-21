@@ -752,9 +752,7 @@ def api_review(day: str, stream: str, segment_key: str, source: str) -> Any:
     audio_path = segment_dir / f"{source}.flac"
     if audio_path.exists():
         rel_path = f"{stream}/{segment_key}/{source}.flac"
-        audio_file = (
-            f"/app/speakers/api/serve_audio/{day}/{rel_path.replace('/', '__')}"
-        )
+        audio_file = f"/app/speakers/api/serve_audio/{day}/{rel_path}"
 
     parsed = segment_parse(segment_key)
     start_time, end_time = parsed if parsed[0] else (None, None)
@@ -1227,25 +1225,26 @@ def api_discovery_identify() -> Any:
     return jsonify(result)
 
 
-@speakers_bp.route("/api/serve_audio/<day>/<path:encoded_path>")
-def serve_audio(day: str, encoded_path: str) -> Any:
+@speakers_bp.route("/api/serve_audio/<day>/<path:rel_path>")
+def serve_audio(day: str, rel_path: str) -> Any:
     """Serve audio files for playback."""
     if not DATE_RE.fullmatch(day):
-        return "", 404
+        return error_response("Day not found", 404)
 
     try:
-        rel_path = encoded_path.replace("__", "/")
         full_path = os.path.join(state.journal_root, day, rel_path)
-
         day_dir = str(day_path(day))
         if not os.path.commonpath([full_path, day_dir]) == day_dir:
-            return "", 403
-
+            return error_response("Invalid file path", 403)
         if not os.path.isfile(full_path):
-            return "", 404
+            return error_response("File not found", 404)
+    except (OSError, ValueError):
+        logger.warning(
+            "serve_audio path validation failed for %s/%s",
+            day,
+            rel_path,
+            exc_info=True,
+        )
+        return error_response("Failed to serve file", 404)
 
-        return send_file(full_path, mimetype="audio/flac")
-
-    except Exception as e:
-        logger.warning("Error serving audio %s/%s: %s", day, encoded_path, e)
-        return "", 404
+    return send_file(full_path, mimetype="audio/flac")

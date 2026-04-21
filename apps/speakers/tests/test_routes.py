@@ -441,17 +441,51 @@ def test_serve_audio_sets_flac_mimetype(speakers_env, monkeypatch):
 
     env = speakers_env()
     env.create_segment("20240101", "143022_300", ["mic_audio"])
-    monkeypatch.setattr(state, "journal_root", str(env.journal))
+    monkeypatch.setattr(state, "journal_root", str(env.journal / "chronicle"))
 
     app = Flask(__name__)
     app.register_blueprint(speakers_bp)
 
     with app.test_client() as client:
         response = client.get(
-            "/app/speakers/api/serve_audio/20240101/test__143022_300__mic_audio.flac"
+            "/app/speakers/api/serve_audio/20240101/test/143022_300/mic_audio.flac"
         )
         assert response.status_code == 200
         assert response.mimetype == "audio/flac"
+
+
+def test_serve_audio_path_traversal_returns_non_200(speakers_env, monkeypatch):
+    """Requests that escape the journal day dir get a non-200 response."""
+    from apps.speakers.routes import speakers_bp
+    from convey import state
+
+    env = speakers_env()
+    monkeypatch.setattr(state, "journal_root", str(env.journal / "chronicle"))
+
+    app = Flask(__name__)
+    app.register_blueprint(speakers_bp)
+
+    with app.test_client() as client:
+        response = client.get(
+            "/app/speakers/api/serve_audio/20240101/../../../etc/passwd"
+        )
+        assert response.status_code != 200
+
+
+def test_serve_audio_malformed_day_returns_404(speakers_env, monkeypatch):
+    """A day segment that doesn't match the YYYYMMDD regex returns 404."""
+    from apps.speakers.routes import speakers_bp
+    from convey import state
+
+    env = speakers_env()
+    monkeypatch.setattr(state, "journal_root", str(env.journal / "chronicle"))
+
+    app = Flask(__name__)
+    app.register_blueprint(speakers_bp)
+
+    with app.test_client() as client:
+        response = client.get("/app/speakers/api/serve_audio/notadate/foo")
+        assert response.status_code == 404
 
 
 def test_get_journal_principal(speakers_env):

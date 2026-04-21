@@ -57,7 +57,7 @@ def _owner_helpers():
 
 def _audio_url(day: str, stream: str, segment_key: str, source: str) -> str:
     """Build the existing speakers audio-serving URL for a sample."""
-    return f"/app/speakers/api/serve_audio/{day}/{stream}__{segment_key}__{source}.flac"
+    return f"/app/speakers/api/serve_audio/{day}/{stream}/{segment_key}/{source}.flac"
 
 
 def _discovery_cache_path() -> Path:
