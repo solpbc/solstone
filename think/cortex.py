@@ -417,6 +417,8 @@ class CortexService:
                             _req = self.use_requests.get(agent.use_id)
                         if _req and "name" not in event:
                             event["name"] = _req.get("name", "")
+                        if _req and "day" not in event:
+                            event["day"] = _req.get("day", "")
 
                         # Append to JSONL file
                         with open(agent.log_path, "a") as f:

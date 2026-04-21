@@ -19,9 +19,10 @@ import re
 import socket
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Optional
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from timefhuman import timefhuman
 
@@ -499,6 +500,40 @@ def iso_date(day: str) -> str:
         ISO formatted date like "2026-01-24".
     """
     return f"{day[:4]}-{day[4:6]}-{day[6:8]}"
+
+
+def get_owner_timezone() -> ZoneInfo:
+    """Return the configured owner timezone or fall back to the host timezone."""
+    configured = str(get_config().get("identity", {}).get("timezone") or "").strip()
+    if configured:
+        try:
+            return ZoneInfo(configured)
+        except ZoneInfoNotFoundError:
+            logging.getLogger(__name__).warning(
+                "Invalid identity.timezone %r; falling back to host timezone",
+                configured,
+            )
+
+    local_tz = datetime.now().astimezone().tzinfo
+    if isinstance(local_tz, ZoneInfo):
+        return local_tz
+
+    local_key = getattr(local_tz, "key", None)
+    if isinstance(local_key, str):
+        return ZoneInfo(local_key)
+    return ZoneInfo("UTC")
+
+
+def sunday_of_week(dt: datetime, tz: ZoneInfo) -> str:
+    """Return the most recent Sunday at or before ``dt`` in ``tz``."""
+    if dt.tzinfo is None:
+        local_dt = dt.replace(tzinfo=tz)
+    else:
+        local_dt = dt.astimezone(tz)
+
+    # Why: datetime.weekday() is Monday-first, but weekly_reflection is Sunday-first.
+    days_since_sunday = (local_dt.weekday() + 1) % 7
+    return (local_dt - timedelta(days=days_since_sunday)).strftime("%Y%m%d")
 
 
 def format_segment_times(segment: str) -> tuple[str, str] | tuple[None, None]:

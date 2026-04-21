@@ -43,12 +43,14 @@ from think.utils import (
     day_log,
     day_path,
     get_journal,
+    get_owner_timezone,
     get_rev,
     iso_date,
     iter_segments,
     now_ms,
     require_solstone,
     setup_cli,
+    sunday_of_week,
     updated_days,
 )
 
@@ -1477,6 +1479,12 @@ def run_weekly_prompts(
         Tuple of (success_count, fail_count, failed_names).
     """
     target_schedule = "weekly"
+    owner_tz = get_owner_timezone()
+    analysis_dt = datetime.strptime(day, "%Y%m%d")
+    week_start = sunday_of_week(analysis_dt, owner_tz)
+    weekly_reflection_path = (
+        Path(get_journal()) / "reflections" / "weekly" / f"{week_start}.md"
+    )
 
     # Load ALL scheduled prompts (both generators and agents)
     all_prompts = get_talent_configs(schedule=target_schedule)
@@ -1606,13 +1614,23 @@ def run_weekly_prompts(
                             "SOL_DAY": day,
                             "SOL_FACET": facet_name,
                         }
+                        if prompt_name == "weekly_reflection":
+                            request_config["day"] = week_start
+                            request_config["output"] = "md"
+                            request_config["output_path"] = str(weekly_reflection_path)
+                            env["SOL_DAY"] = week_start
                         request_config["env"] = env
                         request_config["schedule"] = target_schedule
 
                         prompt = (
                             ""
                             if is_generate
-                            else f"Processing facet '{facet_name}' for {day_formatted}: {input_summary}. Use get_facet('{facet_name}') to load context."
+                            else (
+                                f"Processing facet '{facet_name}' for {iso_date(week_start)}: "
+                                f"{input_summary}. Use get_facet('{facet_name}') to load context."
+                                if prompt_name == "weekly_reflection"
+                                else f"Processing facet '{facet_name}' for {day_formatted}: {input_summary}. Use get_facet('{facet_name}') to load context."
+                            )
                         )
 
                         use_id = _cortex_request_with_retry(
@@ -1690,13 +1708,22 @@ def run_weekly_prompts(
                         if refresh:
                             request_config["refresh"] = True
                     env: dict[str, str] = {"SOL_DAY": day}
+                    if prompt_name == "weekly_reflection":
+                        request_config["day"] = week_start
+                        request_config["output"] = "md"
+                        request_config["output_path"] = str(weekly_reflection_path)
+                        env["SOL_DAY"] = week_start
                     request_config["env"] = env
                     request_config["schedule"] = target_schedule
 
                     prompt = (
                         ""
                         if is_generate
-                        else f"Running scheduled task for {day_formatted}: {input_summary}."
+                        else (
+                            f"Running scheduled weekly reflection for {iso_date(week_start)}: {input_summary}."
+                            if prompt_name == "weekly_reflection"
+                            else f"Running scheduled task for {day_formatted}: {input_summary}."
+                        )
                     )
 
                     use_id = _cortex_request_with_retry(

@@ -615,6 +615,20 @@ def test_find_formattable_files(journal_fixture):
     assert "facets/work/news/20240101.md" in paths
 
 
+def test_find_formattable_files_includes_weekly_reflection(journal_copy):
+    """Test tracked fixture reflections are included in indexed file discovery."""
+    from think.formatters import find_formattable_files
+
+    fixture_path = Path("tests/fixtures/journal/reflections/weekly/20260308.md")
+    target_path = journal_copy / "reflections" / "weekly" / "20260308.md"
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    target_path.write_text(fixture_path.read_text(encoding="utf-8"), encoding="utf-8")
+
+    files = find_formattable_files(str(journal_copy))
+
+    assert "reflections/weekly/20260308.md" in files
+
+
 def test_search_journal_empty_query(journal_fixture):
     """Test search with empty query returns all results."""
     from think.indexer.journal import scan_journal, search_journal
@@ -1700,6 +1714,23 @@ def test_chat_turn_is_searchable_after_rescan(journal_fixture):
 
     assert total >= 1
     assert any("unique nebula phrase" in result["text"].lower() for result in results)
+
+
+def test_weekly_reflection_is_searchable_after_rescan(journal_copy):
+    from think.indexer.journal import scan_journal, search_journal
+
+    fixture_path = Path("tests/fixtures/journal/reflections/weekly/20260308.md")
+    target_path = journal_copy / "reflections" / "weekly" / "20260308.md"
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    target_path.write_text(fixture_path.read_text(encoding="utf-8"), encoding="utf-8")
+
+    scan_journal(str(journal_copy), full=True)
+    total, results = search_journal("boardroom balcony inflection")
+
+    assert total >= 1
+    assert any(
+        "boardroom balcony inflection" in result["text"].lower() for result in results
+    )
 
 
 def test_scan_journal_is_pure_wrt_entity_state(journal_copy):

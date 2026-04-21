@@ -499,6 +499,17 @@
       "source": "system",
       "title": "Work Story",
       "type": "generate"
+    },
+    "weekly_reflection": {
+      "app": null,
+      "color": "#6c757d",
+      "description": "Sunday-start weekly reflection synthesized from the journal",
+      "multi_facet": false,
+      "output_format": "md",
+      "schedule": "weekly",
+      "source": "system",
+      "title": "Weekly Reflection",
+      "type": "cogitate"
     }
   },
   "uses": []

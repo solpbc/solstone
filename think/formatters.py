@@ -92,6 +92,10 @@ def extract_path_metadata(rel_path: str) -> dict[str, str]:
         ):
             day = parts[3]
 
+    if parts[0] == "reflections" and len(parts) >= 3 and parts[1] == "weekly":
+        if DATE_RE.fullmatch(basename):
+            day = basename
+
     # Extract day from imports/YYYYMMDD_HHMMSS/...
     if parts[0] == "imports" and len(parts) >= 2:
         import_id = parts[1]
@@ -106,6 +110,8 @@ def extract_path_metadata(rel_path: str) -> dict[str, str]:
     if is_markdown:
         if parts[0] == "facets" and len(parts) >= 4 and parts[2] == "news":
             agent = "news"
+        elif parts[0] == "reflections" and len(parts) >= 3 and parts[1] == "weekly":
+            agent = "reflection"
         elif parts[0] == "imports":
             agent = "import"
         elif parts[0] == "apps" and len(parts) >= 4:
@@ -199,6 +205,7 @@ FORMATTERS: dict[str, tuple[str, str, bool]] = {
     "*/*/*/talents/*/*.md": ("think.markdown", "format_markdown", True),
     "facets/*/activities/*/*/*.md": ("think.markdown", "format_markdown", True),
     "facets/*/news/*.md": ("think.markdown", "format_markdown", True),
+    "reflections/weekly/*.md": ("think.markdown", "format_markdown", True),
     "imports/*/summary.md": ("think.markdown", "format_markdown", True),
     "apps/*/talents/*.md": ("think.markdown", "format_markdown", True),
 }

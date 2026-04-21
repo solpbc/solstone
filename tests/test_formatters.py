@@ -72,6 +72,14 @@ class TestRegistry:
         assert formatter is not None
         assert formatter.__name__ == "format_markdown"
 
+    def test_get_formatter_weekly_reflection(self):
+        """Test pattern matching for weekly reflection markdown."""
+        from think.formatters import get_formatter
+
+        formatter = get_formatter("reflections/weekly/20260308.md")
+        assert formatter is not None
+        assert formatter.__name__ == "format_markdown"
+
     def test_get_formatter_no_match(self):
         """Test that unmatched patterns return None."""
         from think.formatters import get_formatter
@@ -1481,6 +1489,15 @@ class TestExtractPathMetadata:
         assert meta["day"] == "20240101"
         assert meta["facet"] == ""
         assert meta["agent"] == "import"
+
+    def test_weekly_reflection(self):
+        """Test weekly reflection path extraction."""
+        from think.formatters import extract_path_metadata
+
+        meta = extract_path_metadata("reflections/weekly/20260308.md")
+        assert meta["day"] == "20260308"
+        assert meta["facet"] == ""
+        assert meta["agent"] == "reflection"
 
     def test_app_output(self):
         """Test app output path extraction."""

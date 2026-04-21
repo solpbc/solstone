@@ -344,6 +344,10 @@ def test_monitor_stdout_json_events(cortex_service, mock_journal):
 
     agent = TalentProcess(use_id, mock_process, log_path)
     cortex_service.running_uses[use_id] = agent
+    cortex_service.use_requests[use_id] = {
+        "name": "weekly_reflection",
+        "day": "20260308",
+    }
 
     with patch.object(cortex_service, "_complete_use_file") as mock_complete:
         cortex_service._monitor_stdout(agent)
@@ -352,8 +356,14 @@ def test_monitor_stdout_json_events(cortex_service, mock_journal):
         assert log_path.exists()
         lines = log_path.read_text().strip().split("\n")
         assert len(lines) == 2
-        assert json.loads(lines[0])["event"] == "start"
-        assert json.loads(lines[1])["event"] == "finish"
+        start_event = json.loads(lines[0])
+        finish_event = json.loads(lines[1])
+        assert start_event["event"] == "start"
+        assert start_event["name"] == "weekly_reflection"
+        assert start_event["day"] == "20260308"
+        assert finish_event["event"] == "finish"
+        assert finish_event["name"] == "weekly_reflection"
+        assert finish_event["day"] == "20260308"
 
         # Check file was completed
         mock_complete.assert_called_once_with(use_id, log_path)
