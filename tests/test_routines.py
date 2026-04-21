@@ -3,6 +3,7 @@
 
 """Tests for think.routines — user-defined routines engine."""
 
+import importlib
 import importlib.util
 from contextlib import contextmanager
 from datetime import date, datetime, timedelta, timezone
@@ -29,6 +30,12 @@ def _load_chat_context_module():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def _load_routine_context_module():
+    """Load talent._routine_context from this worktree explicitly for tests."""
+    module = importlib.import_module("talent._routine_context")
+    return importlib.reload(module)
 
 
 def _load_routines_cli_module():
@@ -1041,7 +1048,7 @@ class TestEligibilityGates:
 
     def test_suggestions_disabled_blocks(self, journal_path):
         """Gate 1: suggestions_enabled=False blocks all suggestions."""
-        module = _load_chat_context_module()
+        module = _load_routine_context_module()
         routines_config = {
             "_meta": {
                 "suggestions_enabled": False,
@@ -1058,11 +1065,11 @@ class TestEligibilityGates:
             }
         }
         journal_config = {"agent": {"name_status": "chosen"}}
-        assert module._get_eligible_suggestion(routines_config, journal_config) is None
+        assert module.get_eligible_suggestion(routines_config, journal_config) is None
 
     def test_naming_default_blocks(self, journal_path):
         """Gate 2: name_status='default' blocks all suggestions."""
-        module = _load_chat_context_module()
+        module = _load_routine_context_module()
         routines_config = {
             "_meta": {
                 "suggestions": {
@@ -1078,11 +1085,11 @@ class TestEligibilityGates:
             }
         }
         journal_config = {"agent": {"name_status": "default"}}
-        assert module._get_eligible_suggestion(routines_config, journal_config) is None
+        assert module.get_eligible_suggestion(routines_config, journal_config) is None
 
     def test_active_routine_blocks(self, journal_path):
         """Gate 3: existing routine with same template blocks suggestion."""
-        module = _load_chat_context_module()
+        module = _load_routine_context_module()
         routines_config = {
             "routine-1": {
                 "id": "routine-1",
@@ -1103,11 +1110,11 @@ class TestEligibilityGates:
             },
         }
         journal_config = {"agent": {"name_status": "chosen"}}
-        assert module._get_eligible_suggestion(routines_config, journal_config) is None
+        assert module.get_eligible_suggestion(routines_config, journal_config) is None
 
     def test_declined_blocks(self, journal_path):
         """Gate 4: declined response blocks suggestion for that template."""
-        module = _load_chat_context_module()
+        module = _load_routine_context_module()
         routines_config = {
             "_meta": {
                 "suggestions": {
@@ -1123,11 +1130,11 @@ class TestEligibilityGates:
             }
         }
         journal_config = {"agent": {"name_status": "chosen"}}
-        assert module._get_eligible_suggestion(routines_config, journal_config) is None
+        assert module.get_eligible_suggestion(routines_config, journal_config) is None
 
     def test_cooldown_blocks(self, journal_path):
         """Gate 5: suggestion within last 7 days blocks all."""
-        module = _load_chat_context_module()
+        module = _load_routine_context_module()
         yesterday = (date.today() - timedelta(days=1)).isoformat()
         routines_config = {
             "_meta": {
@@ -1145,11 +1152,11 @@ class TestEligibilityGates:
             }
         }
         journal_config = {"agent": {"name_status": "chosen"}}
-        assert module._get_eligible_suggestion(routines_config, journal_config) is None
+        assert module.get_eligible_suggestion(routines_config, journal_config) is None
 
     def test_all_gates_pass(self, journal_path):
         """When all gates pass and threshold met, returns suggestion."""
-        module = _load_chat_context_module()
+        module = _load_routine_context_module()
         routines_config = {
             "_meta": {
                 "suggestions": {
@@ -1165,14 +1172,14 @@ class TestEligibilityGates:
             }
         }
         journal_config = {"agent": {"name_status": "chosen"}}
-        result = module._get_eligible_suggestion(routines_config, journal_config)
+        result = module.get_eligible_suggestion(routines_config, journal_config)
         assert result is not None
         assert result["template_name"] == "morning-briefing"
         assert result["trigger_count"] == 3
 
     def test_below_threshold_no_suggestion(self, journal_path):
         """Trigger count below threshold does not produce a suggestion."""
-        module = _load_chat_context_module()
+        module = _load_routine_context_module()
         routines_config = {
             "_meta": {
                 "suggestions": {
@@ -1188,11 +1195,11 @@ class TestEligibilityGates:
             }
         }
         journal_config = {"agent": {"name_status": "chosen"}}
-        assert module._get_eligible_suggestion(routines_config, journal_config) is None
+        assert module.get_eligible_suggestion(routines_config, journal_config) is None
 
     def test_highest_trigger_count_wins(self, journal_path):
         """When multiple templates eligible, highest trigger_count wins."""
-        module = _load_chat_context_module()
+        module = _load_routine_context_module()
         routines_config = {
             "_meta": {
                 "suggestions": {
@@ -1216,13 +1223,13 @@ class TestEligibilityGates:
             }
         }
         journal_config = {"agent": {"name_status": "chosen"}}
-        result = module._get_eligible_suggestion(routines_config, journal_config)
+        result = module.get_eligible_suggestion(routines_config, journal_config)
         assert result["template_name"] == "meeting-prep"
         assert result["trigger_count"] == 5
 
     def test_cooldown_expired_allows(self, journal_path):
         """Cooldown older than 7 days allows suggestions."""
-        module = _load_chat_context_module()
+        module = _load_routine_context_module()
         old_date = (date.today() - timedelta(days=8)).isoformat()
         routines_config = {
             "_meta": {
@@ -1240,7 +1247,7 @@ class TestEligibilityGates:
             }
         }
         journal_config = {"agent": {"name_status": "chosen"}}
-        result = module._get_eligible_suggestion(routines_config, journal_config)
+        result = module.get_eligible_suggestion(routines_config, journal_config)
         assert result is not None
 
 

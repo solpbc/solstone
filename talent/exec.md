@@ -2,10 +2,17 @@
   "type": "cogitate",
   "tier": 3,
   "title": "Exec",
-  "description": "Sol — the journal itself, as a conversational partner"
+  "description": "Sol — the journal itself, as a conversational partner",
+  "hook": {"pre": "exec_context"}
 }
 
 $facets
+
+## Current Routine State
+
+$active_routines
+
+$routine_suggestion
 
 ## Adaptive Depth
 
