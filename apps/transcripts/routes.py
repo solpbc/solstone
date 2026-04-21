@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import functools
 import json
 import logging
 import os
@@ -46,6 +47,45 @@ transcripts_bp = Blueprint(
     __name__,
     url_prefix="/app/transcripts",
 )
+
+
+def _day_max_mtime(path: str) -> float:
+    """Return the latest mtime under a day directory, skipping delete races."""
+    day_dir = Path(path)
+    try:
+        max_mtime = day_dir.stat().st_mtime
+    except FileNotFoundError:
+        return 0.0
+
+    try:
+        for child in day_dir.rglob("*"):
+            try:
+                child_mtime = child.stat().st_mtime
+            except FileNotFoundError:
+                continue
+            if child_mtime > max_mtime:
+                max_mtime = child_mtime
+    except FileNotFoundError:
+        return max_mtime
+    return max_mtime
+
+
+@functools.lru_cache(maxsize=64)
+def _stats_for_month(month: str, mtime_key: float) -> dict[str, int]:
+    """Return cached transcript range counts for a month."""
+    del mtime_key
+
+    stats: dict[str, int] = {}
+    for day_name in day_dirs().keys():
+        if not day_name.startswith(month):
+            continue
+
+        audio_ranges, screen_ranges = cluster_scan(day_name)
+        total_ranges = len(audio_ranges) + len(screen_ranges)
+        if total_ranges > 0:
+            stats[day_name] = total_ranges
+
+    return stats
 
 
 @transcripts_bp.route("/")
@@ -143,18 +183,16 @@ def api_stats(month: str):
     if not MONTH_RE.fullmatch(month):
         return error_response("Invalid month format", 400)
 
-    stats: dict[str, int] = {}
+    matching = [
+        (day_name, path)
+        for day_name, path in day_dirs().items()
+        if day_name.startswith(month)
+    ]
+    if not matching:
+        return jsonify({})
 
-    for day_name in day_dirs().keys():
-        if not day_name.startswith(month):
-            continue
-
-        audio_ranges, screen_ranges = cluster_scan(day_name)
-        total_ranges = len(audio_ranges) + len(screen_ranges)
-        if total_ranges > 0:
-            stats[day_name] = total_ranges
-
-    return jsonify(stats)
+    mtime_key = max(_day_max_mtime(path) for _, path in matching)
+    return jsonify(_stats_for_month(month, mtime_key))
 
 
 def _load_jsonl(path: str) -> list[dict]:
