@@ -476,9 +476,9 @@
       "is_principal": false,
       "kg_edge_count": 4,
       "name": "Juliet Capulet",
-      "observation_depth": 2,
+      "observation_depth": 4,
       "recency": 0.4,
-      "score": 92.2,
+      "score": 96.2,
       "type": "person"
     },
     {
@@ -502,9 +502,9 @@
       "is_principal": true,
       "kg_edge_count": 9,
       "name": "Romeo Montague",
-      "observation_depth": 2,
+      "observation_depth": 4,
       "recency": 0.4,
-      "score": 53.2,
+      "score": 57.2,
       "type": "person"
     },
     {

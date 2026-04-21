@@ -78,6 +78,7 @@ ENDPOINTS = [
         "path": "/app/sol/api/badge-count",
         "params": {},
         "status": 200,
+        "sandbox_only": True,  # reads date.today() live + sandbox produces boot-time talent runs
     },
     {
         "app": "sol",

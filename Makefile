@@ -189,14 +189,30 @@ verify-api: .installed
 	@SANDBOX_JOURNAL=$$(cat .sandbox.journal); \
 	CONVEY_PORT=$$(cat "$$SANDBOX_JOURNAL/health/convey.port"); \
 	RESULT=0; \
+	_SOLSTONE_JOURNAL_OVERRIDE="$$SANDBOX_JOURNAL" $(VENV_BIN)/sol indexer --rescan-full > /dev/null; \
 	_SOLSTONE_JOURNAL_OVERRIDE="$$SANDBOX_JOURNAL" $(VENV_BIN)/python tests/verify_api.py verify --base-url "http://localhost:$$CONVEY_PORT" || RESULT=$$?; \
 	$(MAKE) sandbox-stop; \
 	exit $$RESULT
 
-# Regenerate all API baseline files from the deterministic Flask test-client path
+# Regenerate API baseline files. By default uses the deterministic Flask
+# test-client path (frozen time). For sandbox-only endpoints (graph, search,
+# badge-count, updated-days), pass SANDBOX=1 to regenerate from the live
+# sandbox — these rely on the indexer and real clock.
 update-api-baselines: .installed
-	@echo "Updating API baselines (test client)..."
-	@$(VENV_BIN)/python tests/verify_api.py update
+	@if [ "$(SANDBOX)" = "1" ]; then \
+		echo "Updating API baselines (sandbox, includes sandbox-only endpoints)..."; \
+		$(MAKE) sandbox; \
+		SANDBOX_JOURNAL=$$(cat .sandbox.journal); \
+		CONVEY_PORT=$$(cat "$$SANDBOX_JOURNAL/health/convey.port"); \
+		RESULT=0; \
+		_SOLSTONE_JOURNAL_OVERRIDE="$$SANDBOX_JOURNAL" $(VENV_BIN)/sol indexer --rescan-full > /dev/null; \
+		_SOLSTONE_JOURNAL_OVERRIDE="$$SANDBOX_JOURNAL" $(VENV_BIN)/python tests/verify_api.py update --base-url "http://localhost:$$CONVEY_PORT" || RESULT=$$?; \
+		$(MAKE) sandbox-stop; \
+		exit $$RESULT; \
+	else \
+		echo "Updating API baselines (test client)..."; \
+		$(VENV_BIN)/python tests/verify_api.py update; \
+	fi
 
 
 # Install pinchtab browser automation tool
@@ -244,6 +260,7 @@ review: .installed
 	BASE_URL="http://localhost:$$CONVEY_PORT"; \
 	RESULT_API=0; \
 	RESULT_BROWSER=0; \
+	_SOLSTONE_JOURNAL_OVERRIDE="$$SANDBOX_JOURNAL" $(VENV_BIN)/sol indexer --rescan-full > /dev/null; \
 	echo ""; \
 	echo "=== API baseline verification ==="; \
 	_SOLSTONE_JOURNAL_OVERRIDE="$$SANDBOX_JOURNAL" $(VENV_BIN)/python tests/verify_api.py verify --base-url "$$BASE_URL" || RESULT_API=$$?; \
