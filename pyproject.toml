@@ -112,7 +112,7 @@ py-modules = ["media", "sol"]
 
 [tool.setuptools.package-data]
 apps = ["*/templates/*.html", "*/talent/*.md"]
-think = ["*.md", "*.json", "templates/*.md"]
+think = ["*.md", "*.json", "templates/*.md", "policies/*.toml"]
 talent = ["*.md", "*.py"]
 observe = ["*.md", "categories/*.md", "transcribe/*.md"]
 convey = [

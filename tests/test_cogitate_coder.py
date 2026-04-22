@@ -147,8 +147,8 @@ class TestGoogleWriteFlag:
         return importlib.import_module("think.providers.google")
 
     @patch("think.providers.google.CLIRunner")
-    def test_no_write_uses_plan_mode(self, mock_runner_cls):
-        """Without write flag, approval-mode is plan (read-only)."""
+    def test_no_write_uses_yolo_with_policy(self, mock_runner_cls):
+        """Without write flag, approval-mode is yolo with scoped policy."""
         provider = self._provider()
         mock_instance = AsyncMock()
         mock_instance.run = AsyncMock(return_value="result")
@@ -160,7 +160,9 @@ class TestGoogleWriteFlag:
 
         cmd = mock_runner_cls.call_args.kwargs["cmd"]
         idx = cmd.index("--approval-mode")
-        assert cmd[idx + 1] == "plan"
+        assert cmd[idx + 1] == "yolo"
+        policy_idx = cmd.index("--policy")
+        assert cmd[policy_idx + 1].endswith("policies/cogitate.toml")
 
     @patch("think.providers.google.CLIRunner")
     def test_write_true_uses_yolo_mode(self, mock_runner_cls):
@@ -177,6 +179,15 @@ class TestGoogleWriteFlag:
         cmd = mock_runner_cls.call_args.kwargs["cmd"]
         idx = cmd.index("--approval-mode")
         assert cmd[idx + 1] == "yolo"
+        assert "--policy" not in cmd
+
+    def test_cogitate_policy_file_exists_on_disk(self):
+        """The policy path wired into argv must resolve to a real file."""
+        from think.providers.google import _COGITATE_POLICY_PATH
+
+        assert _COGITATE_POLICY_PATH.is_file(), (
+            f"Expected policy file at {_COGITATE_POLICY_PATH}"
+        )
 
 
 # ---------------------------------------------------------------------------

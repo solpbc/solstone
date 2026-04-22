@@ -65,6 +65,8 @@ logger = logging.getLogger(__name__)
 # Backend detection cache
 _detected_backend: str | None = None
 
+_COGITATE_POLICY_PATH = Path(__file__).parent.parent / "policies" / "cogitate.toml"
+
 
 def _structured_to_google_contents(
     messages: list[dict[str, str]],
@@ -749,14 +751,17 @@ async def run_cogitate(
         if system_instruction:
             prompt_body = system_instruction + "\n\n" + prompt_body
 
-        # Build CLI command.  approval-mode controls tool access:
-        #   "yolo"  — auto-approve all tools (write-enabled agents only)
-        #   "plan"  — read-only mode (no file writes, no destructive tools)
-        # The deprecated --allowed-tools flag did NOT restrict tool
-        # availability, only auto-approval — combined with --yolo it
-        # provided zero protection.  --approval-mode plan is the
-        # replacement that actually enforces read-only.
-        approval = "yolo" if config.get("write") else "plan"
+        # Approval posture:
+        #   - Write-enabled talents (coder) run unpolicied yolo: full tool registry,
+        #     write_file / replace allowed.
+        #   - Read-only cogitate talents run yolo + a scoped policy: full tool
+        #     registry (no plan-mode stripping), but write_file / replace denied
+        #     and run_shell_command narrowed to `sol` invocations.
+        # Plan mode strips run_shell_command from the registry, which drove the
+        # tool-name hallucination loop documented in
+        # vpe/workspace/gemini-cli-tool-hallucination-research.md. Deprecated
+        # --allowed-tools controls auto-approval, not availability, so it can't
+        # replace the policy file for this purpose.
         cmd = [
             "gemini",
             "-p",
@@ -764,11 +769,13 @@ async def run_cogitate(
             "-o",
             "stream-json",
             "--approval-mode",
-            approval,
+            "yolo",
             "-m",
             model,
             "--sandbox=none",
         ]
+        if not config.get("write"):
+            cmd.extend(["--policy", str(_COGITATE_POLICY_PATH)])
 
         # Resume from previous session if continuing
         if session_id:

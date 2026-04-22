@@ -29,6 +29,7 @@ def _assert_write_mode_uses_yolo_approval(make_runner):
     cmd = MockCLIRunner.last_instance.cmd
     idx = cmd.index("--approval-mode")
     assert cmd[idx + 1] == "yolo"
+    assert "--policy" not in cmd
 
 
 class TestTranslateGemini:
@@ -329,7 +330,7 @@ class TestRunCogitateCommand:
 
         return MockCLIRunner
 
-    def test_yolo_mode_with_sol_allowed(self):
+    def test_no_write_uses_yolo_with_policy(self):
         provider = _google_provider()
         MockCLIRunner = self._mock_runner()
         with patch("think.providers.google.CLIRunner", MockCLIRunner):
@@ -340,7 +341,9 @@ class TestRunCogitateCommand:
             )
         cmd = MockCLIRunner.last_instance.cmd
         idx = cmd.index("--approval-mode")
-        assert cmd[idx + 1] == "plan"
+        assert cmd[idx + 1] == "yolo"
+        policy_idx = cmd.index("--policy")
+        assert cmd[policy_idx + 1].endswith("policies/cogitate.toml")
 
     def test_write_mode_uses_yolo_approval(self):
         _assert_write_mode_uses_yolo_approval(self._mock_runner)
