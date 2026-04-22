@@ -43,12 +43,12 @@ def _current_day() -> str:
     return datetime.now().strftime("%Y%m%d")
 
 
-def _day_health_log_path(day: str, ref: str, name: str) -> Path:
+def _day_health_log_path(journal_root: Path, day: str, ref: str, name: str) -> Path:
     """Build path to day health log.
 
     Returns: journal/chronicle/{day}/health/{ref}_{name}.log
     """
-    return _get_journal_path() / CHRONICLE_DIR / day / "health" / f"{ref}_{name}.log"
+    return journal_root / CHRONICLE_DIR / day / "health" / f"{ref}_{name}.log"
 
 
 def _atomic_symlink(link_path: Path, target: str) -> None:
@@ -98,11 +98,14 @@ class DailyLogWriter:
     - journal/health/{name}.log -> chronicle/{YYYYMMDD}/health/{ref}_{name}.log (journal-level)
 
     When the day changes, automatically closes old file, opens new file, and updates symlinks.
+    The journal root is resolved once at construction time and pinned for the
+    lifetime of the writer.
     """
 
     def __init__(self, ref: str, name: str, day: str | None = None):
         self._ref = ref
         self._name = name
+        self._journal_root: Path = _get_journal_path()
         self._pinned = day is not None
         self._lock = threading.Lock()
         self._current_day = day or _current_day()
@@ -111,13 +114,15 @@ class DailyLogWriter:
 
     def _open_log(self):
         """Open log file for current day."""
-        log_path = _day_health_log_path(self._current_day, self._ref, self._name)
+        log_path = _day_health_log_path(
+            self._journal_root, self._current_day, self._ref, self._name
+        )
         log_path.parent.mkdir(parents=True, exist_ok=True)
         return log_path.open("a", encoding="utf-8")
 
     def _update_symlinks(self) -> None:
         """Update day-level and journal-level symlinks to point to current log."""
-        journal = _get_journal_path()
+        journal = self._journal_root
         day_health = journal / CHRONICLE_DIR / self._current_day / "health"
         log_filename = f"{self._ref}_{self._name}.log"
 
@@ -167,7 +172,9 @@ class DailyLogWriter:
     @property
     def path(self) -> Path:
         """Get current log file path."""
-        return _day_health_log_path(self._current_day, self._ref, self._name)
+        return _day_health_log_path(
+            self._journal_root, self._current_day, self._ref, self._name
+        )
 
 
 @dataclass

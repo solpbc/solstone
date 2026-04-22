@@ -210,6 +210,33 @@ def test_process_log_writer_thread_safe(tmp_path, monkeypatch):
     assert len([line for line in lines if line]) == 50
 
 
+def test_process_log_writer_pins_journal_root_at_init(tmp_path, monkeypatch):
+    """Env-var drift between construction and flush must not redirect writes."""
+    from think import runner
+
+    journal_a = tmp_path / "a"
+    journal_b = tmp_path / "b"
+    journal_a.mkdir()
+    journal_b.mkdir()
+
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_a))
+    monkeypatch.setattr(runner, "_current_day", lambda: "20241101")
+
+    ref = "test_ref"
+    writer = ProcessLogWriter(ref, "echo")
+
+    # Drift: env var changes and day changes before the next flush.
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_b))
+    monkeypatch.setattr(runner, "_current_day", lambda: "20241102")
+
+    writer.write("hello\n")
+    writer.close()
+
+    leaked_paths = list(journal_b.rglob("*"))
+    assert not leaked_paths, f"writes leaked into drifted journal: {leaked_paths}"
+    assert list(journal_a.rglob("*.log")) or list(journal_a.rglob("*echo*"))
+
+
 def test_handler_process_cleanup():
     """Test HandlerProcess cleanup joins threads and closes logger."""
     mock_managed = MagicMock()
