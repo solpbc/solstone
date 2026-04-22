@@ -23,7 +23,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import NamedTuple
 
-from think.utils import get_journal, setup_cli
+from think.utils import day_path, get_journal, setup_cli
 
 _DIM = "\033[2m"
 _RESET = "\033[0m"
@@ -108,9 +108,7 @@ def compile_grep(pattern: str) -> re.Pattern[str]:
 
 
 def get_today_health_dir() -> Path | None:
-    journal = Path(os.path.expanduser(get_journal()))
-    today = datetime.now().strftime("%Y%m%d")
-    health_dir = journal / today / "health"
+    health_dir = day_path(create=False) / "health"
     return health_dir if health_dir.is_dir() else None
 
 

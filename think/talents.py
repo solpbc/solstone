@@ -938,7 +938,7 @@ async def _execute_generate(
     output_format = config.get("output")
 
     # Get generation parameters from config (set in frontmatter)
-    thinking_budget = config.get("thinking_budget") or 8192 * 3
+    thinking_budget = config.get("thinking_budget") or 8192 * 2
     max_output_tokens = config.get("max_output_tokens") or 8192 * 6
     is_json_output = output_format == "json"
 

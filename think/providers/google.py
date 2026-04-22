@@ -56,6 +56,7 @@ from .shared import (
     safe_raw,
 )
 
+GEMINI_MAX_OUTPUT_TOKENS = 65536
 _DEFAULT_MAX_TOKENS = 8192
 _DEFAULT_MODEL = GEMINI_FLASH
 
@@ -244,6 +245,19 @@ def _build_generate_config(
     """
     # Compute total tokens: output + thinking budget
     total_tokens = max_output_tokens + (thinking_budget or 0)
+    if total_tokens > GEMINI_MAX_OUTPUT_TOKENS:
+        clamped_max_output = min(max_output_tokens, GEMINI_MAX_OUTPUT_TOKENS)
+        clamped_thinking = max(0, GEMINI_MAX_OUTPUT_TOKENS - clamped_max_output)
+        logging.getLogger(__name__).warning(
+            "Clamping Gemini token budget: max_output_tokens=%s thinking_budget=%s "
+            "clamped_max_output_tokens=%s clamped_thinking_budget=%s",
+            max_output_tokens,
+            thinking_budget,
+            clamped_max_output,
+            clamped_thinking,
+        )
+        thinking_budget = clamped_thinking
+        total_tokens = clamped_max_output + clamped_thinking
 
     config_args: dict[str, Any] = {
         "temperature": temperature,

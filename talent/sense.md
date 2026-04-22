@@ -7,8 +7,6 @@
   "schedule": "segment",
   "priority": 5,
   "tier": 3,
-  "thinking_budget": 4096,
-  "max_output_tokens": 4096,
   "output": "json",
   "schema": "sense.schema.json",
   "load": {"transcripts": true, "percepts": true, "talents": false}

@@ -10,7 +10,7 @@ import pytest
 
 def make_journal(tmp_path, day, services, supervisor_lines=None):
     """Create a synthetic journal with health logs."""
-    health_dir = tmp_path / day / "health"
+    health_dir = tmp_path / "chronicle" / day / "health"
     health_dir.mkdir(parents=True)
 
     for name, lines in services.items():
@@ -25,7 +25,7 @@ def make_journal(tmp_path, day, services, supervisor_lines=None):
 
     for name in services:
         journal_sym = journal_health / f"{name}.log"
-        journal_sym.symlink_to(f"../{day}/health/ref_{name}.log")
+        journal_sym.symlink_to(f"../chronicle/{day}/health/ref_{name}.log")
 
     if supervisor_lines is not None:
         sup = journal_health / "supervisor.log"
