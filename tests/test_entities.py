@@ -287,6 +287,61 @@ def test_save_entities_sorting(fixture_journal, tmp_path):
     assert "beta_corp" in journal_ids
 
 
+def test_save_entities_detected_invalidates_loading_cache(fixture_journal, tmp_path):
+    """Regression: save_entities must invalidate the loading cache so load-after-save returns fresh data.
+
+    The autouse _clear_entity_caches fixture only clears between tests, so within
+    a single test the cache persists across calls. Before the fix, the first load
+    populated the cache and a subsequent save did not invalidate it — the second
+    load returned stale data from the cache rather than re-reading disk.
+    """
+    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    (tmp_path / "facets" / "test_facet" / "entities").mkdir(parents=True)
+
+    save_entities(
+        "test_facet",
+        [{"type": "Person", "name": "Alice", "description": "First"}],
+        "20250101",
+    )
+
+    loaded_first = load_entities("test_facet", "20250101")
+    assert [e["name"] for e in loaded_first] == ["Alice"]
+
+    save_entities(
+        "test_facet",
+        [
+            {"type": "Person", "name": "Alice", "description": "First"},
+            {"type": "Person", "name": "Bob", "description": "Second"},
+        ],
+        "20250101",
+    )
+
+    loaded_second = load_entities("test_facet", "20250101")
+    assert {e["name"] for e in loaded_second} == {"Alice", "Bob"}
+
+
+def test_save_entities_attached_invalidates_loading_cache(fixture_journal, tmp_path):
+    """Regression: save_entities (attached path, day=None) must invalidate the loading cache."""
+    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    (tmp_path / "facets" / "test_facet").mkdir(parents=True)
+
+    save_entities(
+        "test_facet",
+        [{"type": "Person", "name": "Alice", "description": "First"}],
+    )
+
+    loaded_first = load_entities("test_facet")
+    assert [e["name"] for e in loaded_first] == ["Alice"]
+
+    save_entities(
+        "test_facet",
+        [{"type": "Person", "name": "Bob", "description": "Second"}],
+    )
+
+    loaded_second = load_entities("test_facet")
+    assert {e["name"] for e in loaded_second} == {"Alice", "Bob"}
+
+
 def test_save_detected_entity_basic(fixture_journal, tmp_path):
     """Test save_detected_entity adds an entity with locking."""
     os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
