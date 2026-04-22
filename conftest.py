@@ -9,9 +9,54 @@ leave the fixture tree dirty.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
+
+_TMPDIR_FALLBACK_NOTICE: str | None = None
+
+
+def _apply_tmpdir_fallback() -> None:
+    """Route tmp dirs to /var/tmp when TMPDIR is not exported.
+
+    make test sets TMPDIR=/var/tmp at the shell level (see Makefile). Direct
+    pytest invocations (.venv/bin/pytest, python -m pytest, uv run pytest)
+    bypass that. This prelude closes the gap by setting TMPDIR and
+    tempfile.tempdir at module-import time, before pytest builds its
+    tmp_path_factory.
+    """
+    global _TMPDIR_FALLBACK_NOTICE
+
+    if "TMPDIR" in os.environ:
+        return
+
+    # Test-only override so unwritable-target branch can be exercised
+    # without chmod 000 /var/tmp.
+    target = os.environ.get("_SOLSTONE_TMPDIR_FALLBACK_TARGET", "/var/tmp")
+
+    if not (os.path.isdir(target) and os.access(target, os.W_OK)):
+        if os.environ.get("_SOLSTONE_TMPDIR_FALLBACK_NOTIFIED") != "1":
+            _TMPDIR_FALLBACK_NOTICE = (
+                f"solstone: pytest invoked without TMPDIR export and fallback "
+                f"target {target} is not writable; leaving TMPDIR unset.\n"
+            )
+            os.environ["_SOLSTONE_TMPDIR_FALLBACK_NOTIFIED"] = "1"
+        return
+
+    os.environ["TMPDIR"] = target
+    tempfile.tempdir = target
+
+    if os.environ.get("_SOLSTONE_TMPDIR_FALLBACK_NOTIFIED") != "1":
+        _TMPDIR_FALLBACK_NOTICE = (
+            f"solstone: pytest invoked without TMPDIR export; routing tmp dirs "
+            f"to {target}. Prefer 'make test' to set TMPDIR at the shell level.\n"
+        )
+        os.environ["_SOLSTONE_TMPDIR_FALLBACK_NOTIFIED"] = "1"
+
+
+_apply_tmpdir_fallback()
 
 _FIXTURE_ROOT = "tests/fixtures"
 _BASELINE: set[tuple[str, str]] | None = None
@@ -66,7 +111,11 @@ def _format_leak_message(new_entries: set[tuple[str, str]]) -> str:
 
 
 def pytest_sessionstart(session):
-    global _BASELINE, _GIT_AVAILABLE
+    global _BASELINE, _GIT_AVAILABLE, _TMPDIR_FALLBACK_NOTICE
+
+    if _TMPDIR_FALLBACK_NOTICE is not None:
+        sys.stderr.write(_TMPDIR_FALLBACK_NOTICE)
+        _TMPDIR_FALLBACK_NOTICE = None
 
     repo_root = session.config.rootpath
     _BASELINE = _capture_status(repo_root)
