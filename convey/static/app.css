@@ -79,6 +79,11 @@ html {
   --facet-color: #b06a1a;
   --facet-bg: transparent;
   --facet-border: #e5e0db;
+  /* Semantic status palette — observer is the first consumer. */
+  --status-active: #16a34a;
+  --status-stale: #d97706;
+  --status-error: #dc2626;
+  --status-inactive: #6b7280;
 
   /* Layout dimensions */
   --facet-bar-height: 64px;

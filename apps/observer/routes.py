@@ -58,6 +58,8 @@ observer_bp = Blueprint(
 
 # Key length in bytes (256 bits = 32 bytes)
 KEY_BYTES = 32
+ACTIVE_THRESHOLD_MS = 30_000
+STALE_THRESHOLD_MS = 120_000
 
 
 def _get_key(url_key: str | None = None) -> str | None:
@@ -73,6 +75,18 @@ def _get_key(url_key: str | None = None) -> str | None:
 def _generate_key() -> str:
     """Generate a URL-safe key for observer authentication."""
     return base64.urlsafe_b64encode(secrets.token_bytes(KEY_BYTES)).decode().rstrip("=")
+
+
+def _group_for(last_seen_ms: int | None, revoked: bool, now_ms: int) -> str:
+    """Derive observer display group from freshness state."""
+    if revoked or last_seen_ms is None:
+        return "inactive"
+    elapsed = now_ms - last_seen_ms
+    if elapsed < ACTIVE_THRESHOLD_MS:
+        return "active"
+    if elapsed < STALE_THRESHOLD_MS:
+        return "stale"
+    return "inactive"
 
 
 def _revoke_observer(key: str) -> bool:
@@ -91,13 +105,15 @@ def _revoke_observer(key: str) -> bool:
 @observer_bp.route("/api/list")
 def api_list() -> Any:
     """List all registered observers."""
+    now = now_ms()
     observers = list_observers()
     # Sanitize output - don't expose full keys
     result = []
     for r in observers:
+        key_prefix = r.get("key", "")[:8]
         result.append(
             {
-                "key_prefix": r.get("key", "")[:8],
+                "key_prefix": key_prefix,
                 "name": r.get("name", ""),
                 "created_at": r.get("created_at", 0),
                 "last_seen": r.get("last_seen"),
@@ -108,7 +124,32 @@ def api_list() -> Any:
                 "stats": r.get("stats", {}),
             }
         )
-    return jsonify(result)
+
+    group_order = {"active": 0, "stale": 1, "inactive": 2}
+    result.sort(
+        key=lambda observer: (
+            group_order[
+                _group_for(
+                    observer.get("last_seen"),
+                    observer.get("revoked", False),
+                    now,
+                )
+            ],
+            1 if observer.get("last_seen") is None else 0,
+            -(observer.get("last_seen") or 0),
+            observer.get("key_prefix", ""),
+        )
+    )
+
+    return jsonify(
+        {
+            "thresholds": {
+                "active_ms": ACTIVE_THRESHOLD_MS,
+                "stale_ms": STALE_THRESHOLD_MS,
+            },
+            "observers": result,
+        }
+    )
 
 
 @observer_bp.route("/api/create", methods=["POST"])

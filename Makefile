@@ -179,8 +179,13 @@ sandbox-stop:
 		rm -rf "$$SANDBOX_JOURNAL"; \
 		echo "Removed $$SANDBOX_JOURNAL"; \
 	fi; \
-	rm -f .sandbox.pid .sandbox.journal; \
-	echo "Sandbox stopped."
+		rm -f .sandbox.pid .sandbox.journal; \
+		echo "Sandbox stopped."
+
+.PHONY: sandbox-seed-observers
+sandbox-seed-observers: ## Seed 4 sample observers into the running sandbox journal
+	@test -s .sandbox.journal || (echo "No sandbox running. Run 'make sandbox' first." && exit 1)
+	@_SOLSTONE_JOURNAL_OVERRIDE=$$(cat .sandbox.journal) $(VENV_BIN)/python tests/fixtures/seed_observers.py
 
 # Verify API baselines against running sandbox
 verify-api: .installed

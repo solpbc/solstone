@@ -8,14 +8,81 @@ from __future__ import annotations
 import io
 import json
 
+import apps.observer.routes as routes_module
+from apps.observer.utils import save_observer
+
+
+def _api_list_payload(env):
+    resp = env.client.get("/app/observer/api/list")
+    assert resp.status_code == 200
+    return resp.get_json()
+
+
+def _api_list_observers(env):
+    return _api_list_payload(env)["observers"]
+
+
+def _save_test_observer(
+    key_prefix: str,
+    name: str,
+    *,
+    created_at: int,
+    last_seen: int | None,
+    revoked: bool = False,
+):
+    key = key_prefix + ("f" * 56)
+    assert save_observer(
+        {
+            "key": key,
+            "name": name,
+            "created_at": created_at,
+            "last_seen": last_seen,
+            "last_segment": None,
+            "enabled": True,
+            "revoked": revoked,
+            "revoked_at": created_at + 1 if revoked else None,
+            "stats": {
+                "segments_received": 0,
+                "bytes_received": 0,
+            },
+        }
+    )
+    return key
+
+
+def _client_state(observer: dict, thresholds: dict[str, int], current_now: int) -> str:
+    if observer.get("revoked"):
+        return "revoked"
+    last_seen = observer.get("last_seen")
+    if last_seen is None:
+        return "disconnected"
+    elapsed = current_now - last_seen
+    if elapsed < thresholds["active_ms"]:
+        return "connected"
+    if elapsed < thresholds["stale_ms"]:
+        return "stale"
+    return "disconnected"
+
+
+def _group_from_client_state(state: str) -> str:
+    if state == "connected":
+        return "active"
+    if state == "stale":
+        return "stale"
+    return "inactive"
+
 
 def test_api_list_empty(observer_env):
     """Test listing observers when none exist."""
     env = observer_env()
 
-    resp = env.client.get("/app/observer/api/list")
-    assert resp.status_code == 200
-    assert resp.get_json() == []
+    assert _api_list_payload(env) == {
+        "thresholds": {
+            "active_ms": 30000,
+            "stale_ms": 120000,
+        },
+        "observers": [],
+    }
 
 
 def test_api_create_observer(observer_env):
@@ -74,11 +141,11 @@ def test_api_list_shows_created_observer(observer_env):
     key_prefix = resp.get_json()["key_prefix"]
 
     # List should show it
-    resp = env.client.get("/app/observer/api/list")
-    assert resp.status_code == 200
-    observers = resp.get_json()
+    payload = _api_list_payload(env)
+    observers = payload["observers"]
 
     assert len(observers) == 1
+    assert payload["thresholds"] == {"active_ms": 30000, "stale_ms": 120000}
     assert observers[0]["key_prefix"] == key_prefix
     assert observers[0]["name"] == "my-observer"
     assert observers[0]["enabled"] is True
@@ -103,12 +170,159 @@ def test_api_delete_observer(observer_env):
     assert resp.get_json()["status"] == "ok"
 
     # List should still show it, but marked as revoked
-    resp = env.client.get("/app/observer/api/list")
-    observers = resp.get_json()
+    observers = _api_list_observers(env)
     assert len(observers) == 1
     assert observers[0]["key_prefix"] == key_prefix
     assert observers[0]["revoked"] is True
     assert observers[0]["revoked_at"] is not None
+
+
+def test_api_list_sorts_by_group_and_last_seen(observer_env, monkeypatch):
+    """api_list orders active, then stale, then inactive with freshest first."""
+    env = observer_env()
+    fixed_now = 2_000_000
+    monkeypatch.setattr(routes_module, "now_ms", lambda: fixed_now)
+
+    _save_test_observer(
+        "cccc0000",
+        "inactive-disconnected",
+        created_at=10,
+        last_seen=fixed_now - 600_000,
+    )
+    _save_test_observer(
+        "bbbb0000",
+        "stale-observer",
+        created_at=20,
+        last_seen=fixed_now - 60_000,
+    )
+    _save_test_observer(
+        "aaaa0000",
+        "active-observer",
+        created_at=30,
+        last_seen=fixed_now - 5_000,
+    )
+    _save_test_observer(
+        "dddd0000",
+        "inactive-never",
+        created_at=40,
+        last_seen=None,
+    )
+
+    observers = _api_list_observers(env)
+    assert [observer["name"] for observer in observers] == [
+        "active-observer",
+        "stale-observer",
+        "inactive-disconnected",
+        "inactive-never",
+    ]
+
+
+def test_api_list_tie_breaks_by_key_prefix(observer_env, monkeypatch):
+    """Observers with the same last_seen sort by key_prefix ascending."""
+    env = observer_env()
+    fixed_now = 3_000_000
+    monkeypatch.setattr(routes_module, "now_ms", lambda: fixed_now)
+
+    _save_test_observer(
+        "bbbb0000",
+        "active-b",
+        created_at=10,
+        last_seen=fixed_now - 5_000,
+    )
+    _save_test_observer(
+        "aaaa0000",
+        "active-a",
+        created_at=20,
+        last_seen=fixed_now - 5_000,
+    )
+
+    observers = _api_list_observers(env)
+    assert [observer["key_prefix"] for observer in observers] == [
+        "aaaa0000",
+        "bbbb0000",
+    ]
+
+
+def test_api_list_revoked_observer_buckets_inactive(observer_env, monkeypatch):
+    """Revoked observers sort in the inactive bucket regardless of last_seen."""
+    env = observer_env()
+    fixed_now = 4_000_000
+    monkeypatch.setattr(routes_module, "now_ms", lambda: fixed_now)
+
+    _save_test_observer(
+        "bbbb0000",
+        "revoked-observer",
+        created_at=10,
+        last_seen=fixed_now - 1_000,
+        revoked=True,
+    )
+    _save_test_observer(
+        "aaaa0000",
+        "stale-observer",
+        created_at=20,
+        last_seen=fixed_now - 60_000,
+    )
+
+    observers = _api_list_observers(env)
+    assert [observer["name"] for observer in observers] == [
+        "stale-observer",
+        "revoked-observer",
+    ]
+
+
+def test_api_list_client_server_mapping_agree(observer_env, monkeypatch):
+    """Client freshness and server ordering stay aligned via shared thresholds."""
+    env = observer_env()
+    fixed_now = 5_000_000
+    monkeypatch.setattr(routes_module, "now_ms", lambda: fixed_now)
+
+    _save_test_observer("eeee0000", "never", created_at=10, last_seen=None)
+    _save_test_observer(
+        "dddd0000",
+        "revoked",
+        created_at=20,
+        last_seen=fixed_now - 1_000,
+        revoked=True,
+    )
+    _save_test_observer(
+        "cccc0000",
+        "inactive",
+        created_at=30,
+        last_seen=fixed_now - 600_000,
+    )
+    _save_test_observer(
+        "bbbb0000",
+        "stale",
+        created_at=40,
+        last_seen=fixed_now - 60_000,
+    )
+    _save_test_observer(
+        "aaaa0000",
+        "active",
+        created_at=50,
+        last_seen=fixed_now - 5_000,
+    )
+
+    payload = _api_list_payload(env)
+    thresholds = payload["thresholds"]
+    observers = payload["observers"]
+    group_order = {"active": 0, "stale": 1, "inactive": 2}
+
+    expected = sorted(
+        observers,
+        key=lambda observer: (
+            group_order[
+                _group_from_client_state(_client_state(observer, thresholds, fixed_now))
+            ],
+            1 if observer.get("last_seen") is None else 0,
+            -(observer.get("last_seen") or 0),
+            observer["key_prefix"],
+        ),
+    )
+
+    assert [observer["key_prefix"] for observer in observers] == [
+        observer["key_prefix"] for observer in expected
+    ]
 
 
 def test_api_delete_nonexistent(observer_env):
@@ -305,8 +519,7 @@ def test_ingest_updates_stats(observer_env):
     assert resp.status_code == 200
 
     # Check stats updated
-    resp = env.client.get("/app/observer/api/list")
-    observers = resp.get_json()
+    observers = _api_list_observers(env)
     assert len(observers) == 1
     assert observers[0]["stats"]["segments_received"] == 1
     assert observers[0]["stats"]["bytes_received"] == len(test_data)
@@ -700,8 +913,7 @@ def test_ingest_stats_use_adjusted_segment(observer_env):
     assert resp.status_code == 200
 
     # Check stats - last_segment should be the adjusted one
-    resp = env.client.get("/app/observer/api/list")
-    observers = resp.get_json()
+    observers = _api_list_observers(env)
     assert len(observers) == 1
     last_segment = observers[0]["last_segment"]
     assert last_segment is not None
@@ -1249,8 +1461,7 @@ def test_api_list_includes_segments_observed_stat(observer_env):
     key_prefix = data["key_prefix"]
 
     # Initially no segments_observed
-    resp = env.client.get("/app/observer/api/list")
-    data = resp.get_json()
+    data = _api_list_observers(env)
     assert len(data) == 1
     assert "segments_observed" not in data[0]["stats"]
 
@@ -1265,8 +1476,7 @@ def test_api_list_includes_segments_observed_stat(observer_env):
         json.dump(observer_data, f)
 
     # Should now show in list
-    resp = env.client.get("/app/observer/api/list")
-    data = resp.get_json()
+    data = _api_list_observers(env)
     assert data[0]["stats"]["segments_observed"] == 5
 
 
@@ -1395,8 +1605,7 @@ def test_ingest_duplicate_increments_duplicates_rejected_stat(observer_env):
     assert resp.status_code == 200
 
     # Check stats - no duplicates_rejected yet
-    resp = env.client.get("/app/observer/api/list")
-    stats = resp.get_json()[0]["stats"]
+    stats = _api_list_observers(env)[0]["stats"]
     assert stats.get("duplicates_rejected", 0) == 0
 
     # Submit duplicate
@@ -1413,8 +1622,7 @@ def test_ingest_duplicate_increments_duplicates_rejected_stat(observer_env):
     assert resp.get_json()["status"] == "duplicate"
 
     # Check stats - should have 1 duplicate rejected
-    resp = env.client.get("/app/observer/api/list")
-    stats = resp.get_json()[0]["stats"]
+    stats = _api_list_observers(env)[0]["stats"]
     assert stats["duplicates_rejected"] == 1
 
 

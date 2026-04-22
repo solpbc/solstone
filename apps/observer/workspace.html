@@ -1,34 +1,32 @@
 <style>
 .observer-card {
-  background: #fafafa;
   border: 1px solid var(--facet-border, #e5e0db);
+  border-left: 3px solid transparent;
   border-radius: 8px;
+  background: #fafafa;
   padding: 1em 1.25em;
   margin-bottom: 1.5em;
+  transition: background-color 0.15s ease, border-left-color 0.15s ease;
 }
 .observer-card.stale {
-  background: #fff9e6;
-  border-color: var(--facet-border, #e5e0db);
-  border-left: 3px solid #e5c35a;
+  background: color-mix(in srgb, var(--status-stale) 10%, white);
+  border-left-color: var(--status-stale);
 }
 .observer-card.revoked {
-  background: #f5f3f1;
-  border-color: var(--facet-border, #e5e0db);
-  border-left: 3px solid #8a8078;
+  background: color-mix(in srgb, var(--status-inactive) 10%, white);
+  border-left-color: var(--status-inactive);
 }
 .observer-card.revoked .observer-name {
   text-decoration: line-through;
   color: #5a6268;
 }
 .observer-card.disconnected {
-  background: #fef2f2;
-  border-color: var(--facet-border, #e5e0db);
-  border-left: 3px solid #dc3545;
+  background: color-mix(in srgb, var(--status-error) 10%, white);
+  border-left-color: var(--status-error);
 }
 .observer-card.connected {
-  background: #f0fdf4;
-  border-color: var(--facet-border, #e5e0db);
-  border-left: 3px solid #28a745;
+  background: color-mix(in srgb, var(--status-active) 10%, white);
+  border-left-color: var(--status-active);
 }
 .observer-header {
   display: flex;
@@ -44,72 +42,65 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  min-height: 28px;
   font-size: 0.8em;
   font-weight: 600;
   letter-spacing: 0.03em;
   text-transform: uppercase;
   padding: 4px 10px;
   border-radius: 4px;
-}
-.observer-status.connected {
-  background: #d4edda;
-  color: #155724;
-}
-.observer-status.connected::before {
-  content: '';
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #28a745;
-}
-.observer-status.connected::after {
-  content: '✓';
-  font-weight: bold;
-}
-.observer-status.disconnected {
-  background: #f8d7da;
-  color: #721c24;
-}
-.observer-status.disconnected::before {
-  content: '';
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #dc3545;
-}
-.observer-status.stale {
-  background: #fff3cd;
-  color: #856404;
-}
-.observer-status.stale::before {
-  content: '';
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #ffc107;
-}
-.observer-status.stale::after {
-  content: '⚠';
-}
-.observer-status.disconnected::after {
-  content: '✗';
-  font-weight: bold;
-}
-.observer-status.revoked {
-  background: #f0ece8;
-  color: #8a8078;
-}
-.observer-status.revoked::before {
-  content: '';
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #8a8078;
+  transition: background-color 0.6s ease, color 0.15s ease;
 }
 
 /* ── Transition: ambient status dot ── */
 .observer-status::before {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
   transition: background-color 0.6s ease;
+}
+.observer-status::after {
+  font-size: 0.95em;
+  font-weight: 700;
+  line-height: 1;
+}
+.observer-status.connected {
+  background: color-mix(in srgb, var(--status-active) 12%, transparent);
+  color: var(--status-active);
+}
+.observer-status.connected::before {
+  background: var(--status-active);
+}
+.observer-status.connected::after {
+  content: '✓';
+}
+.observer-status.stale {
+  background: color-mix(in srgb, var(--status-stale) 12%, transparent);
+  color: var(--status-stale);
+}
+.observer-status.stale::before {
+  background: var(--status-stale);
+}
+.observer-status.stale::after {
+  content: '⚠';
+}
+.observer-status.disconnected {
+  background: color-mix(in srgb, var(--status-error) 12%, transparent);
+  color: var(--status-error);
+}
+.observer-status.disconnected::before {
+  background: var(--status-error);
+}
+.observer-status.disconnected::after {
+  content: '✗';
+}
+.observer-status.revoked {
+  background: color-mix(in srgb, var(--status-inactive) 12%, transparent);
+  color: var(--status-inactive);
+}
+.observer-status.revoked::before {
+  background: var(--status-inactive);
 }
 .observer-status.revoked::after {
   content: '—';
@@ -353,30 +344,6 @@
   color: #999;
   margin-bottom: 1.5em;
 }
-.no-observers-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 8px 16px;
-  min-height: 44px;
-  background: var(--facet-color, #b06a1a);
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.9em;
-}
-.no-observers-action:hover {
-  background: color-mix(in srgb, var(--facet-color, #b06a1a) 85%, black);
-}
-.no-observers-action:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--facet-color, #b06a1a) 85%, black);
-  outline-offset: 2px;
-}
-.no-observers-action:active {
-  background: color-mix(in srgb, var(--facet-color, #b06a1a) 70%, black);
-}
-
 .section-title {
   margin-bottom: 1em;
   color: #333;
@@ -385,48 +352,28 @@
   letter-spacing: 0.01em;
 }
 
-/* Add observer toggle */
-.add-observer-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  background: var(--facet-color, #b06a1a);
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: bold;
-  font-size: 1em;
-  min-height: 44px;
-  margin-top: 1.5em;
-  margin-bottom: 1em;
-}
-.add-observer-toggle:hover {
-  background: color-mix(in srgb, var(--facet-color, #b06a1a) 85%, black);
-}
-.add-observer-toggle:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--facet-color, #b06a1a) 85%, black);
-  outline-offset: 2px;
-}
-.add-observer-toggle:active {
-  background: color-mix(in srgb, var(--facet-color, #b06a1a) 70%, black);
-}
-.add-observer-toggle .toggle-indicator {
+.observer-group-header {
+  margin: 0 0 0.75em;
+  color: #5a6268;
   font-size: 0.85em;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.observer-group-header:not(:first-child) {
+  margin-top: 2em;
 }
 
-/* Collapsed state for add-observer section */
-.add-observer-section.collapsed .add-observer-form,
-.add-observer-section.collapsed .section-title {
-  display: none;
+.observer-empty-heading {
+  margin: 0;
+  color: #333;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.4;
 }
 
 /* ── Responsive: Tablet (≤768px) ── */
 @media (max-width: 768px) {
-  .add-observer-toggle {
-    width: 100%;
-  }
   .add-observer-form {
     flex-direction: column;
   }
@@ -533,11 +480,9 @@
 /* ── Transitions: interactive elements ── */
 .observer-actions button,
 .add-observer-form button,
-.add-observer-toggle,
 .copy-btn,
 .modal-close,
 .modal-actions button,
-.no-observers-action,
 .ws-error-retry,
 .ws-error-dismiss {
   transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
@@ -554,25 +499,18 @@
     </div>
   </div>
   <section aria-label="observers">
-    <h2 class="section-title">Connected Observers</h2>
+    <h2 class="section-title">Observers</h2>
+    <section aria-label="add observer">
+      <h2 class="section-title">Add Observer</h2>
+      <form class="add-observer-form" id="addObserverForm">
+        <label for="observerName">Observer name</label>
+        <input type="text" id="observerName" placeholder="e.g., laptop, desktop" maxlength="64" required>
+        <button type="submit">Add Observer</button>
+      </form>
+    </section>
     <div id="observersList" role="list">
       <div class="no-observers">Loading...</div>
     </div>
-  </section>
-
-  <button class="add-observer-toggle" id="addObserverToggle"
-          aria-expanded="false" aria-controls="addObserverSection">
-    <span class="toggle-indicator">▶</span> Add observer
-  </button>
-
-  <section class="add-observer-section collapsed" id="addObserverSection"
-           aria-label="add observer" aria-hidden="true">
-    <h2 class="section-title">Add Observer</h2>
-    <form class="add-observer-form" id="addObserverForm">
-      <label for="observerName">Observer name</label>
-      <input type="text" id="observerName" placeholder="e.g., laptop, desktop" maxlength="64" required>
-      <button type="submit">Add Observer</button>
-    </form>
   </section>
 </div>
 
@@ -606,8 +544,6 @@
 const observersList = document.getElementById('observersList');
 const addObserverForm = document.getElementById('addObserverForm');
 const observerNameInput = document.getElementById('observerName');
-const addObserverToggle = document.getElementById('addObserverToggle');
-const addObserverSection = document.getElementById('addObserverSection');
 const keyModal = document.getElementById('keyModal');
 const modalObserverName = document.getElementById('modalObserverName');
 const serverUrlText = document.getElementById('serverUrlText');
@@ -617,7 +553,11 @@ const copyKeyBtn = document.getElementById('copyKeyBtn');
 const doneBtn = document.getElementById('doneBtn');
 const keyModalClose = document.getElementById('keyModalClose');
 const revealKeyBtn = document.getElementById('revealKeyBtn');
-const escapeHtml = window.AppServices.escapeHtml;
+
+function escapeHtml(value) {
+  return window.AppServices.escapeHtml(value);
+}
+
 let keyModalTrigger = null;
 // Error display state
 const wsErrorContainer = document.getElementById('wsErrorContainer');
@@ -627,15 +567,16 @@ const wsErrorCountdown = document.getElementById('wsErrorCountdown');
 let errorAutoHideTimer = null;
 let countdownInterval = null;
 let lastPollTime = Date.now();
-let isFirstLoad = true;
+let thresholds = { active_ms: 30000, stale_ms: 120000 };
+const GROUP_ORDER = ['active', 'stale', 'inactive'];
+const GROUP_LABELS = {
+  active: 'Active',
+  stale: 'Stale',
+  inactive: 'Inactive'
+};
 
 function emptyStateHTML() {
-  return `<div class="no-observers">
-    <div class="no-observers-icon">📡</div>
-    <div class="no-observers-text">no observers yet</div>
-    <div class="no-observers-hint">observers capture audio and screen from your devices</div>
-    <button class="no-observers-action" onclick="setFormCollapsed(false); document.getElementById('observerName').focus();">add an observer</button>
-  </div>`;
+  return '<h3 class="observer-empty-heading">Add your first observer</h3>';
 }
 
 function statsHTML(observer, statusClass) {
@@ -698,28 +639,77 @@ function updateCountdownDisplay() {
 let currentFullKey = null;
 let revealTimer = null;
 
-function setFormCollapsed(collapsed) {
-  if (collapsed) {
-    addObserverSection.classList.add('collapsed');
-    addObserverSection.setAttribute('aria-hidden', 'true');
-    addObserverToggle.setAttribute('aria-expanded', 'false');
-    addObserverToggle.querySelector('.toggle-indicator').textContent = '▶';
-  } else {
-    addObserverSection.classList.remove('collapsed');
-    addObserverSection.setAttribute('aria-hidden', 'false');
-    addObserverToggle.setAttribute('aria-expanded', 'true');
-    addObserverToggle.querySelector('.toggle-indicator').textContent = '▼';
+function statusMeta(observer) {
+  if (observer.revoked) {
+    return {
+      statusClass: 'revoked',
+      statusText: 'Revoked',
+      cardClass: 'revoked'
+    };
   }
+
+  const state = freshness(observer.last_seen);
+  return {
+    statusClass: state,
+    statusText: state === 'connected' ? 'Connected' : state === 'stale' ? 'Stale' : 'Disconnected',
+    cardClass: state
+  };
 }
 
-addObserverToggle.addEventListener('click', () => {
-  const isCollapsed = addObserverSection.classList.contains('collapsed');
-  setFormCollapsed(!isCollapsed);
-  if (isCollapsed) {
-    // Focus the input when expanding
-    document.getElementById('observerName').focus();
+function groupFor(state, revoked) {
+  if (revoked) return 'inactive';
+  if (state === 'connected') return 'active';
+  if (state === 'stale') return 'stale';
+  return 'inactive';
+}
+
+function groupHeaderHTML(group) {
+  return `<h3 class="observer-group-header" data-group="${group}">${GROUP_LABELS[group]}</h3>`;
+}
+
+function observerCardHTML(observer) {
+  const { statusClass, statusText, cardClass } = statusMeta(observer);
+
+  return `
+    <div class="observer-card ${cardClass}" data-key="${observer.key_prefix}" role="listitem" aria-label="${escapeHtml(observer.name)}, ${statusText}">
+      <div class="observer-header">
+        <span class="observer-name">${escapeHtml(observer.name)}</span>
+        <span class="observer-status ${statusClass}">${statusText}</span>
+      </div>
+      <div class="observer-stats">${statsHTML(observer, statusClass)}</div>
+      <div class="observer-actions">
+        ${observer.revoked ? '' : `<button onclick="viewObserverKey('${observer.key_prefix}', '${escapeHtml(observer.name)}')">View Key</button>`}
+        ${observer.revoked ? '' : `<button class="danger" onclick="revokeObserver('${observer.key_prefix}', '${escapeHtml(observer.name)}')">Revoke</button>`}
+      </div>
+    </div>
+  `;
+}
+
+function renderObservers(observers) {
+  if (!observers || observers.length === 0) {
+    return emptyStateHTML();
   }
-});
+
+  const groups = {
+    active: [],
+    stale: [],
+    inactive: []
+  };
+
+  for (const observer of observers) {
+    const { statusClass } = statusMeta(observer);
+    groups[groupFor(statusClass, observer.revoked)].push(observer);
+  }
+
+  let html = '';
+  for (const group of GROUP_ORDER) {
+    if (!groups[group].length) continue;
+    html += groupHeaderHTML(group);
+    html += groups[group].map(observerCardHTML).join('');
+  }
+
+  return html || emptyStateHTML();
+}
 
 function formatBytes(bytes) {
   if (bytes === 0) return '0 B';
@@ -745,8 +735,8 @@ function formatTimeAgo(timestamp, state) {
 function freshness(lastSeen) {
   if (!lastSeen) return 'disconnected';
   const elapsed = Date.now() - lastSeen;
-  if (elapsed < 30000) return 'connected';
-  if (elapsed < 120000) return 'stale';
+  if (elapsed < thresholds.active_ms) return 'connected';
+  if (elapsed < thresholds.stale_ms) return 'stale';
   return 'disconnected';
 }
 
@@ -755,210 +745,38 @@ async function loadObservers() {
   if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
   try {
     const response = await fetch('/app/observer/api/list');
-    const observers = await response.json();
+    const payload = await response.json();
+    if (payload && payload.thresholds) {
+      thresholds = payload.thresholds;
+    }
+    const observers = payload?.observers || [];
 
-    if (isFirstLoad) {
-      if (!observers || observers.length === 0) {
-        observersList.innerHTML = emptyStateHTML();
-        isFirstLoad = false;
-        setFormCollapsed(false);
-        clearError();
-        return;
-      }
-
-      let html = '';
-      for (const observer of observers) {
-        const isRevoked = observer.revoked;
-        let statusClass, statusText, cardClass;
-
-        if (isRevoked) {
-          statusClass = 'revoked';
-          statusText = 'Revoked';
-          cardClass = 'revoked';
-        } else {
-          const state = freshness(observer.last_seen);
-          statusClass = state;
-          if (state === 'connected') statusText = 'Connected';
-          else if (state === 'stale') statusText = 'Stale';
-          else statusText = 'Disconnected';
-          cardClass = state;
-        }
-
-        html += `
-          <div class="observer-card ${cardClass}" data-key="${observer.key_prefix}" role="listitem" aria-label="${escapeHtml(observer.name)}, ${statusText}">
-            <div class="observer-header">
-              <span class="observer-name">${escapeHtml(observer.name)}</span>
-              <span class="observer-status ${statusClass}">${statusText}</span>
-            </div>
-            <div class="observer-stats">${statsHTML(observer, statusClass)}</div>
-            <div class="observer-actions">
-              ${isRevoked ? '' : `<button onclick="viewObserverKey('${observer.key_prefix}', '${escapeHtml(observer.name)}')">View Key</button>`}
-              ${isRevoked ? '' : `<button class="danger" onclick="revokeObserver('${observer.key_prefix}', '${escapeHtml(observer.name)}')">Revoke</button>`}
-            </div>
-          </div>
-        `;
-      }
-      observersList.innerHTML = html;
-      isFirstLoad = false;
-    } else {
-      // Save focus
-      const activeEl = document.activeElement;
-      let focusSelector = null;
-      if (activeEl && observersList.contains(activeEl)) {
-        const card = activeEl.closest('[data-key]');
-        if (card) {
-          const key = card.getAttribute('data-key');
-          const buttons = [...card.querySelectorAll('button')];
-          const btnIndex = buttons.indexOf(activeEl);
-          if (btnIndex >= 0) {
-            focusSelector = `[data-key="${key}"] button:nth-child(${btnIndex + 1})`;
-          }
-        }
-      }
-
-      // Save scroll
-      const scrollTop = observersList.scrollTop;
-
-      // Build lookup from API data
-      const newDataMap = new Map();
-      for (const observer of observers) {
-        newDataMap.set(observer.key_prefix, observer);
-      }
-
-      // Remove cards not in new data
-      const existingCards = observersList.querySelectorAll('[data-key]');
-      for (const card of existingCards) {
-        if (!newDataMap.has(card.getAttribute('data-key'))) {
-          card.remove();
-        }
-      }
-
-      // Update existing cards and track which keys exist in DOM
-      const existingKeys = new Set();
-      for (const card of observersList.querySelectorAll('[data-key]')) {
+    // Rebuild on every poll so grouped headers stay aligned with server ordering.
+    const activeEl = document.activeElement;
+    let focusSelector = null;
+    if (activeEl && observersList.contains(activeEl)) {
+      const card = activeEl.closest('.observer-card');
+      if (card) {
         const key = card.getAttribute('data-key');
-        existingKeys.add(key);
-        const observer = newDataMap.get(key);
-        if (!observer) continue; // shouldn't happen after removal pass, but safe
-
-        const isRevoked = observer.revoked;
-        let statusClass, statusText, cardClass;
-        if (isRevoked) {
-          statusClass = 'revoked';
-          statusText = 'Revoked';
-          cardClass = 'revoked';
-        } else {
-          const state = freshness(observer.last_seen);
-          statusClass = state;
-          statusText = state === 'connected' ? 'Connected' : state === 'stale' ? 'Stale' : 'Disconnected';
-          cardClass = state;
+        const buttons = [...card.querySelectorAll('button')];
+        const btnIndex = buttons.indexOf(activeEl);
+        if (btnIndex >= 0) {
+          focusSelector = `[data-key="${key}"] button:nth-child(${btnIndex + 1})`;
         }
-
-        // Update card class — replace all status classes
-        card.className = `observer-card ${cardClass}`;
-        card.setAttribute('aria-label', `${escapeHtml(observer.name)}, ${statusText}`);
-
-        // Update status badge
-        const statusEl = card.querySelector('.observer-status');
-        statusEl.className = `observer-status ${statusClass}`;
-        statusEl.textContent = statusText;
-
-        // Update name (in case it somehow changed — safe to always set)
-        card.querySelector('.observer-name').textContent = observer.name;
-
-        // Update stats
-        const statsSpans = card.querySelectorAll('.observer-stats dd');
-        if (statsSpans[0]) {
-          statsSpans[0].setAttribute('data-last-seen', observer.last_seen || '');
-          statsSpans[0].setAttribute('data-state', statusClass);
-          statsSpans[0].textContent = formatTimeAgo(observer.last_seen, statusClass);
-        }
-        if (statsSpans[1]) {
-          statsSpans[1].textContent = observer.stats?.segments_received ?? 0;
-        }
-        if (statsSpans[2]) {
-          statsSpans[2].textContent = formatBytes(observer.stats?.bytes_received || 0);
-        }
-
-        // Update actions (revoked status may have changed)
-        const actionsEl = card.querySelector('.observer-actions');
-        if (isRevoked) {
-          actionsEl.innerHTML = '';
-        } else {
-          // Only rebuild if buttons are missing (was previously revoked → now not, which shouldn't normally happen, but be safe)
-          if (actionsEl.querySelectorAll('button').length === 0) {
-            actionsEl.innerHTML = `<button onclick="viewObserverKey('${observer.key_prefix}', '${escapeHtml(observer.name)}')">View Key</button><button class="danger" onclick="revokeObserver('${observer.key_prefix}', '${escapeHtml(observer.name)}')">Revoke</button>`;
-          }
-        }
-      }
-
-      // Add new cards
-      for (const [key, observer] of newDataMap) {
-        if (existingKeys.has(key)) continue;
-
-        const isRevoked = observer.revoked;
-        let statusClass, statusText, cardClass;
-        if (isRevoked) {
-          statusClass = 'revoked'; statusText = 'Revoked'; cardClass = 'revoked';
-        } else {
-          const state = freshness(observer.last_seen);
-          statusClass = state;
-          statusText = state === 'connected' ? 'Connected' : state === 'stale' ? 'Stale' : 'Disconnected';
-          cardClass = state;
-        }
-
-        const div = document.createElement('div');
-        div.className = `observer-card ${cardClass}`;
-        div.setAttribute('data-key', key);
-        div.setAttribute('role', 'listitem');
-        div.setAttribute('aria-label', `${escapeHtml(observer.name)}, ${statusText}`);
-        div.innerHTML = `
-          <div class="observer-header">
-            <span class="observer-name">${escapeHtml(observer.name)}</span>
-            <span class="observer-status ${statusClass}">${statusText}</span>
-          </div>
-          <div class="observer-stats">${statsHTML(observer, statusClass)}</div>
-          <div class="observer-actions">
-            ${isRevoked ? '' : `<button onclick="viewObserverKey('${key}', '${escapeHtml(observer.name)}')">View Key</button>`}
-            ${isRevoked ? '' : `<button class="danger" onclick="revokeObserver('${key}', '${escapeHtml(observer.name)}')">Revoke</button>`}
-          </div>
-        `;
-        observersList.appendChild(div);
-      }
-
-      // Handle empty state transition
-      if (newDataMap.size === 0) {
-        observersList.innerHTML = emptyStateHTML();
-      } else {
-        // Remove stale "no observers" message if present
-        const noObs = observersList.querySelector('.no-observers');
-        if (noObs) noObs.remove();
-      }
-
-      // Restore scroll
-      observersList.scrollTop = scrollTop;
-
-      // Restore focus
-      if (focusSelector) {
-        const target = observersList.querySelector(focusSelector);
-        if (target) target.focus();
       }
     }
+    const scrollTop = observersList.scrollTop;
 
+    observersList.innerHTML = renderObservers(observers);
     clearError();
+    observersList.scrollTop = scrollTop;
 
-    // Auto-collapse form when observers exist, expand when empty
-    if (!observers || observers.length === 0) {
-      setFormCollapsed(false);
-    } else {
-      const formHasFocus = addObserverSection.contains(document.activeElement);
-      if (!formHasFocus) {
-        setFormCollapsed(true);
-      }
+    if (focusSelector) {
+      const target = observersList.querySelector(focusSelector);
+      if (target) target.focus();
     }
   } catch (err) {
     observersList.innerHTML = '<div class="no-observers">couldn\'t load observers</div>';
-    isFirstLoad = true;
     showLocalError('couldn\'t load observers — the server may be unreachable. it will retry automatically, or you can retry now.', { retry: true });
     console.error('Failed to load observers:', err);
   }
@@ -978,7 +796,8 @@ function refreshTimestamps() {
     span.textContent = formatTimeAgo(lastSeen, newState);
     span.setAttribute('data-state', newState);
 
-    // If freshness changed, update the card's visual state too
+    // If freshness changed, update the card's visual state too. Group placement
+    // intentionally lags until the next 30s poll rebuild.
     if (newState !== oldState) {
       const card = span.closest('[data-key]');
       if (card && !card.classList.contains('revoked')) {
@@ -1079,9 +898,6 @@ addObserverForm.onsubmit = async (e) => {
     // Clear input and reload list
     observerNameInput.value = '';
     loadObservers();
-    // Auto-collapse form after successful add
-    setFormCollapsed(true);
-    keyModalTrigger = addObserverToggle;
   } catch (err) {
     const msg = 'couldn\'t add observer — the name may already be in use. try a different name or refresh the page.';
     if (window.showError) { showError(msg); } else { showLocalError(msg); }

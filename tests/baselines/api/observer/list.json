@@ -1,1 +1,7 @@
-[]
+{
+  "observers": [],
+  "thresholds": {
+    "active_ms": 30000,
+    "stale_ms": 120000
+  }
+}
