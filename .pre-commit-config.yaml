@@ -1,9 +1,0 @@
-# Installed by `make pre-commit`. Keep the rev pinned to the ruff version in
-# uv.lock so local and hook ruff stay aligned; bump both together on `make update`.
-repos:
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.2
-    hooks:
-      - id: ruff-format
-        args: [--check]
-      - id: ruff-check

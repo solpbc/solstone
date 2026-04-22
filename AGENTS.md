@@ -145,7 +145,7 @@ Verified against `Makefile`. Grouped by use.
 
 | Target | When to use |
 |--------|-------------|
-| `make pre-commit` | Run once after cloning to install the ruff format/lint git hook. |
+| `make pre-commit` | Install pre-commit hooks (optional; most coders rely on `make ci` directly). |
 | `make versions` | Print versions of Python, uv, and key deps. Diagnostic. |
 
 ### Don't use
@@ -273,15 +273,6 @@ Generic software principles (DRY, KISS, YAGNI, single responsibility, small focu
 - Run `make ci` before every commit.
 - Run `git` commands directly — not `git -C` — you're already in the repo.
 - Don't commit runtime artifacts written under `tests/fixtures/journal/` by `make dev` / `make sandbox` (`.gitignore` covers them; verify with `git status` anyway).
-
-### Drift prevention
-
-Two gates keep the tree format-clean and lint-clean:
-
-1. `make test` depends on `format-check` (Makefile:303-309); `make ci` adds `ruff check` and the layer/rename gates. Both block locally.
-2. `.pre-commit-config.yaml` wires the same `ruff format --check` + `ruff check` into a git pre-commit hook. Run `make pre-commit` once after cloning to install it.
-
-When the hook rejects a commit, run `make format` and re-stage. Do not bypass with `--no-verify` — that re-opens the drift the hook exists to catch.
 
 ## 11. Where to go deeper
 
