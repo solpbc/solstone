@@ -426,7 +426,7 @@ install-service: .installed
 	$(PYTHON) -m think.install_guard install; \
 	npx skills add ./skills/solstone -g -a claude-code -y; \
 	$(VENV_BIN)/sol service install --port $(or $(PORT),5015); \
-	$(VENV_BIN)/sol service start; \
+	$(VENV_BIN)/sol service restart; \
 	echo "Waiting for service readiness..."; \
 	READY=false; \
 	for i in $$(seq 1 20); do \
