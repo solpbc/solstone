@@ -504,10 +504,10 @@ button.activity-detail-back {
 </div>
 
 <script src="{{ url_for('root.static', filename='colors.js') }}"></script>
-<script src="{{ vendor_lib('marked') }}"></script>
 <script>
 (function() {
   const day = '{{ day }}';
+  const escapeHtml = window.AppServices.escapeHtml;
 
   // Breadcrumb month link
   const monthLink = document.getElementById('breadcrumbMonth');
@@ -575,16 +575,6 @@ button.activity-detail-back {
     const facet = window.selectedFacet;
     if (!facet) return list;
     return list.filter(e => e.facet === facet);
-  }
-
-  function escapeHtml(text) {
-    const d = document.createElement('div');
-    d.textContent = text;
-    return d.innerHTML;
-  }
-
-  function renderMarkdown(raw) {
-    return DOMPurify.sanitize(marked.parse(raw || '', { breaks: true, gfm: true }));
   }
 
   function fmtTime(ts) {
@@ -861,7 +851,7 @@ button.activity-detail-back {
 
       let rendered;
       if (data.format === 'md') {
-        rendered = `<div class="rendered-markdown">${renderMarkdown(data.content)}</div>`;
+        rendered = `<div class="rendered-markdown">${window.AppServices.renderMarkdown(data.content)}</div>`;
       } else if (data.format === 'json') {
         let pretty;
         try { pretty = JSON.stringify(JSON.parse(data.content), null, 2); } catch (e) { pretty = data.content; }

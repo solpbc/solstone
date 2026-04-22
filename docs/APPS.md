@@ -174,6 +174,8 @@ JavaScript service that runs globally, even when app is not active.
 
 **Core Methods:**
 - `AppServices.register(appName, service)` - Register background service
+- `AppServices.escapeHtml(value)` - DOM-based HTML escaping helper; null/undefined become `''`
+- `AppServices.renderMarkdown(raw)` - `marked` + `DOMPurify` markdown rendering with `{ breaks: true, gfm: true }`; requires both libraries loaded
 
 **Badge Methods:**
 

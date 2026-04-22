@@ -579,14 +579,7 @@ function formatSegmentKey(segment) {
 }
 
 // Escape HTML special characters for safe innerHTML interpolation
-function escapeHtml(val) {
-  return String(val ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
+const escapeHtml = window.AppServices.escapeHtml;
 
 // Create percent bar
 function createPercentBar(percent, color) {

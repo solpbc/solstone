@@ -2964,6 +2964,7 @@ const saveTimeouts = new Map();
 let logNextCursor = null;
 let insightsData = null;
 let keyValidationData = {};
+const escapeHtml = window.AppServices.escapeHtml;
 
 // ========== MODAL ACCESSIBILITY ==========
 function setupModalAccessibility(modalId) {
@@ -5752,11 +5753,6 @@ if (resetAgentBtn) {
       notifyError('Reset Failed', err.message);
     }
   });
-}
-
-function escapeHtml(str) {
-  if (!str) return '';
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 // ========== STORAGE ==========

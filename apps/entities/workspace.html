@@ -1699,7 +1699,7 @@ function showFacetDetailView(entityId) {
       console.error('Error loading entity:', error);
       document.getElementById('detail-name').textContent = 'Error';
       document.getElementById('detail-description-container').innerHTML =
-        `<div class="error-message">${window.AppServices._escapeHtml(error.message)}</div>`;
+        `<div class="error-message">${window.AppServices.escapeHtml(error.message)}</div>`;
     });
 }
 
@@ -1725,7 +1725,7 @@ function showJournalDetailView(entityId) {
       console.error('Error loading journal entity:', error);
       document.getElementById('journal-detail-name').textContent = 'Error';
       document.getElementById('journal-detail-facets').innerHTML =
-        `<div class="error-message">${window.AppServices._escapeHtml(error.message)}</div>`;
+        `<div class="error-message">${window.AppServices.escapeHtml(error.message)}</div>`;
     });
 }
 
@@ -2671,7 +2671,7 @@ function loadEntities() {
     .catch(error => {
       console.error('Error loading entities:', error);
       document.getElementById('entities-loading').innerHTML =
-        `<div class="error-message">${window.AppServices._escapeHtml(error.message || 'Network error')}</div>`;
+        `<div class="error-message">${window.AppServices.escapeHtml(error.message || 'Network error')}</div>`;
     });
 }
 
@@ -2699,7 +2699,7 @@ function loadJournalEntities() {
     .catch(error => {
       console.error('Error loading journal entities:', error);
       document.getElementById('entities-loading').innerHTML =
-        `<div class="error-message">${window.AppServices._escapeHtml(error.message || 'Network error')}</div>`;
+        `<div class="error-message">${window.AppServices.escapeHtml(error.message || 'Network error')}</div>`;
     });
 }
 

@@ -650,11 +650,7 @@
     return d.toISOString().slice(0,10).replace(/-/g,'');
   }
 
-  function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text || '';
-    return div.innerHTML;
-  }
+  const escapeHtml = window.AppServices.escapeHtml;
 
   function formatDay(d) {
     if (!d || d.length < 8) return d || '';

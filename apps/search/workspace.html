@@ -588,6 +588,7 @@ button.day-header {
   const searchUrl = '{{ url_for("app:search.search_journal_api") }}';
   const dayResultsUrl = '{{ url_for("app:search.day_results_api") }}';
   const activitiesDayBase = '{{ url_for("app:activities.activities_day", day="") }}';
+  const escapeHtml = window.AppServices.escapeHtml;
 
   // State
   let currentQuery = '';
@@ -1014,11 +1015,5 @@ button.day-header {
     }
   }
 
-  function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  }
 })();
 </script>

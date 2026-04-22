@@ -1342,13 +1342,9 @@
   var skillContent = {{ skills_content|default({})|tojson|safe }};
   var sectionOrder = ['your_day', 'yesterday', 'forward_look', 'reading'];
 
-  function renderMarkdown(raw) {
-    return DOMPurify.sanitize(marked.parse(raw || '', { breaks: true, gfm: true }));
-  }
-
   if (narrativeRaw) {
     const el = document.getElementById('pulse-narrative-content');
-    if (el) el.innerHTML = renderMarkdown(narrativeRaw);
+    if (el) el.innerHTML = window.AppServices.renderMarkdown(narrativeRaw);
   }
 
   function renderBriefingSections(sections) {
@@ -1360,7 +1356,7 @@
         el.innerHTML = '';
         return;
       }
-      el.innerHTML = renderMarkdown(raw);
+      el.innerHTML = window.AppServices.renderMarkdown(raw);
       if (key === 'reading') {
         el.querySelectorAll('li').forEach(function(li) {
           var strong = li.querySelector('strong');
@@ -1417,7 +1413,7 @@
       if (!detail) return;
       if (detail.style.display === 'none') {
         if (skillContent[skillId]) {
-          detail.innerHTML = renderMarkdown(skillContent[skillId]);
+          detail.innerHTML = window.AppServices.renderMarkdown(skillContent[skillId]);
         }
         detail.style.display = 'block';
       } else {
@@ -1618,7 +1614,7 @@
       .then(data => {
         const el = document.getElementById('pulse-narrative-content');
         if (el && data.narrative_content) {
-          el.innerHTML = renderMarkdown(data.narrative_content);
+          el.innerHTML = window.AppServices.renderMarkdown(data.narrative_content);
           const hdr = document.querySelector('.pulse-narrative .pulse-section-header');
           if (hdr && data.narrative_header) hdr.textContent = data.narrative_header;
           const meta = document.querySelector('.pulse-narrative .pulse-narrative-meta');

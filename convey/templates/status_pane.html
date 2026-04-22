@@ -281,7 +281,7 @@
       return;
     }
 
-    const escape = window.AppServices._escapeHtml;
+    const escape = window.AppServices.escapeHtml;
     list.innerHTML = notifs.map(n => {
       const timeAgo = window.AppServices.notifications._getRelativeTime(n.ts);
       const src = escape(n.source || '');
@@ -301,7 +301,7 @@
     const history = window.AppServices.notifications.getHistory();
     if (!statusPaneOpen && history.length === _lastHistoryLen) return;
     _lastHistoryLen = history.length;
-    const escape = window.AppServices._escapeHtml;
+    const escape = window.AppServices.escapeHtml;
 
     if (history.length === 0) {
       container.innerHTML = '<span style="color: #9ca3af;">no recent activity</span>';

@@ -203,10 +203,6 @@
   const copyButton = document.getElementById('copyReflectionButton');
   const rawUrl = {{ raw_url|tojson|safe }};
 
-  function renderMarkdown(raw) {
-    return DOMPurify.sanitize(marked.parse(raw || '', { breaks: true, gfm: true }));
-  }
-
   function copyText(text) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       return navigator.clipboard.writeText(text);
@@ -224,7 +220,7 @@
   }
 
   if (reflectionBody) {
-    reflectionBody.innerHTML = renderMarkdown(markdownSource);
+    reflectionBody.innerHTML = window.AppServices.renderMarkdown(markdownSource);
   }
 
   if (copyButton) {

@@ -617,6 +617,7 @@ const copyKeyBtn = document.getElementById('copyKeyBtn');
 const doneBtn = document.getElementById('doneBtn');
 const keyModalClose = document.getElementById('keyModalClose');
 const revealKeyBtn = document.getElementById('revealKeyBtn');
+const escapeHtml = window.AppServices.escapeHtml;
 let keyModalTrigger = null;
 // Error display state
 const wsErrorContainer = document.getElementById('wsErrorContainer');
@@ -996,12 +997,6 @@ function refreshTimestamps() {
       }
     }
   }
-}
-
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
 }
 
 async function revokeObserver(keyPrefix, name) {

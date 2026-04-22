@@ -1098,6 +1098,7 @@
 
 <script>
 (() => {
+  const escapeHtml = window.AppServices.escapeHtml;
   const emptyIcons = {
     segment: '<svg viewBox="0 0 24 24"><rect x="4" y="8" width="2" height="8" rx="1"></rect><rect x="8" y="5" width="2" height="14" rx="1"></rect><rect x="12" y="3" width="2" height="18" rx="1"></rect><rect x="16" y="6" width="2" height="12" rx="1"></rect><rect x="20" y="9" width="2" height="6" rx="1"></rect></svg>',
     cursor: '<svg viewBox="0 0 24 24"><path d="M4 4l7.07 17 2.51-7.39L21 11.07z"></path></svg>',
@@ -2241,13 +2242,5 @@
       .replace(/_/g, ' ');
   }
 
-  function escapeHtml(value) {
-    return String(value ?? '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-  }
 })();
 </script>

@@ -176,10 +176,6 @@ let contentSearch = '';
 let contentMonth = '';
 let searchDebounce = null;
 
-function renderMarkdown(raw) {
-  return DOMPurify.sanitize(marked.parse(raw || '', { breaks: true, gfm: true }));
-}
-
 tabs.forEach(tab => {
   tab.addEventListener('click', () => {
     const target = tab.dataset.target;
@@ -333,7 +329,7 @@ function renderContentDetail(data) {
 
   return data.content.map(part => {
     if (part.type === 'markdown') {
-      return `<div class="import-content-markdown">${renderMarkdown(part.content)}</div>`;
+      return `<div class="import-content-markdown">${window.AppServices.renderMarkdown(part.content)}</div>`;
     }
     const speaker = part.speaker || 'Unknown';
     const cls = speaker === 'Human' ? 'human' : 'assistant';

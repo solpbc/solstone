@@ -1873,13 +1873,13 @@ window.AppServices = {
       const relativeTime = this._getRelativeTime(n.timestamp);
       card.innerHTML = `
         <div class="notification-header">
-          <span class="notification-app-icon">${window.AppServices._escapeHtml(n.icon)}</span>
-          <span class="notification-app-name">${window.AppServices._escapeHtml(n.app)}</span>
+          <span class="notification-app-icon">${window.AppServices.escapeHtml(n.icon)}</span>
+          <span class="notification-app-name">${window.AppServices.escapeHtml(n.app)}</span>
           ${n.dismissible ? `<button class="notification-close" onclick="event.preventDefault(); event.stopPropagation(); window.AppServices.notifications.dismiss(${n.id});">×</button>` : ''}
         </div>
         <div class="notification-body">
-          <div class="notification-title">${window.AppServices._escapeHtml(n.title)}</div>
-          ${n.message ? `<div class="notification-message">${window.AppServices._escapeHtml(n.message)}</div>` : ''}
+          <div class="notification-title">${window.AppServices.escapeHtml(n.title)}</div>
+          ${n.message ? `<div class="notification-message">${window.AppServices.escapeHtml(n.message)}</div>` : ''}
           ${n.badge ? `<span class="notification-badge">${n.badge}</span>` : ''}
 	        </div>
 	        <div class="notification-footer">
@@ -2076,13 +2076,21 @@ window.AppServices = {
   },
 
   /**
-   * Escape HTML to prevent XSS
-   * @private
+   * Escape a value for safe interpolation into HTML. DOM-based (routes
+   * through textContent/innerHTML). Nullish-safe: null/undefined become ''.
    */
-  _escapeHtml(text) {
+  escapeHtml(value) {
     const div = document.createElement('div');
-    div.textContent = text;
+    div.textContent = String(value ?? '');
     return div.innerHTML;
+  },
+
+  /**
+   * Render user-supplied markdown into sanitized HTML. Calls marked + DOMPurify.
+   * Throws if `marked` or `DOMPurify` isn't loaded (shell is broken; fail loudly).
+   */
+  renderMarkdown(raw) {
+    return DOMPurify.sanitize(marked.parse(String(raw || ''), { breaks: true, gfm: true }));
   },
 
   /**

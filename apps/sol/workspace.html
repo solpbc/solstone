@@ -1159,8 +1159,6 @@
   </div>
 </div>
 
-<script src="{{ vendor_lib('marked') }}"></script>
-
 <!-- Preview Modal -->
 <div id="preview-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="preview-modal-title">
   <div class="modal-content">
@@ -2088,7 +2086,7 @@
       if (data.format === 'md') {
         const markdown = document.createElement('div');
         markdown.className = 'rendered-markdown';
-        markdown.innerHTML = renderMarkdown(data.content);
+        markdown.innerHTML = window.AppServices.renderMarkdown(data.content);
         container.appendChild(markdown);
       } else {
         const pre = document.createElement('pre');
@@ -2121,16 +2119,7 @@
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   }
 
-  // Escape HTML to prevent XSS
-  function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  }
-
-  function renderMarkdown(raw) {
-    return DOMPurify.sanitize(marked.parse(raw || '', { breaks: true, gfm: true }));
-  }
+  const escapeHtml = window.AppServices.escapeHtml;
 
   // Render agent events as a rich interactive timeline
   function renderEventTimeline(events) {
@@ -2314,7 +2303,7 @@
     if (event.result && event.result.trim()) {
       const resultDiv = document.createElement('div');
       resultDiv.className = 'finish-result';
-      resultDiv.innerHTML = renderMarkdown(event.result);
+      resultDiv.innerHTML = window.AppServices.renderMarkdown(event.result);
       block.appendChild(resultDiv);
     } else {
       const empty = document.createElement('div');
