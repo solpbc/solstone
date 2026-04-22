@@ -1508,6 +1508,65 @@
 })();
 
 /**
+ * Shared loading / empty / error surface-state renderer.
+ * Contract: text fields are escaped; icon and action slots accept raw HTML.
+ * Examples: SurfaceState.loading({ text: 'Loading…' }), SurfaceState.empty({ icon: '🔍', heading: 'No results' }), SurfaceState.error({ heading: 'Request failed', action: '<button>Retry</button>' }).
+ * Load order: call only after DOMContentLoaded or from later event/callback code.
+ */
+window.SurfaceState = (() => {
+  const HEADING_LEVELS = new Set(['h1', 'h2', 'h3', 'h4', 'h5', 'h6']);
+
+  function escapeHtml(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function normalizeHeadingLevel(level) {
+    return HEADING_LEVELS.has(level) ? level : 'h2';
+  }
+
+  function render(kind, {
+    icon = '',
+    heading = '',
+    desc = '',
+    action = '',
+    headingLevel = 'h2',
+    role = ''
+  } = {}) {
+    const tag = normalizeHeadingLevel(headingLevel);
+    const roleAttr = role ? ` role="${role}"` : '';
+
+    return `<div class="surface-state surface-state--${kind}"${roleAttr}>`
+      + `${icon ? `<div class="surface-state-icon" aria-hidden="true">${icon}</div>` : ''}`
+      + `${heading ? `<${tag} class="surface-state-heading">${escapeHtml(heading)}</${tag}>` : ''}`
+      + `${desc ? `<p class="surface-state-desc">${escapeHtml(desc)}</p>` : ''}`
+      + `${action ? `<div class="surface-state-action">${action}</div>` : ''}`
+      + `</div>`;
+  }
+
+  return {
+    loading({ text = '' } = {}) {
+      return `<div class="surface-state surface-state--loading" role="status" aria-busy="true">`
+        + `<div class="surface-state-spinner" aria-hidden="true"></div>`
+        + `${text ? `<span class="surface-state-text" data-role="loading-status">${escapeHtml(text)}</span>` : ''}`
+        + `</div>`;
+    },
+
+    empty(options = {}) {
+      return render('empty', options);
+    },
+
+    error(options = {}) {
+      return render('error', { ...options, role: 'alert' });
+    },
+  };
+})();
+
+/**
  * App Services Framework
  * Global API for apps to register background services, update badges, and show notifications
  */

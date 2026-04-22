@@ -324,71 +324,6 @@ button.day-header {
   color: #aaa;
 }
 
-/* Empty state */
-.search-empty {
-  text-align: center;
-  padding: 0 1rem;
-  margin: auto 0;
-  color: #6b7280;
-}
-
-.search-empty-icon {
-  font-size: 2.5rem;
-  margin-bottom: 1rem;
-}
-
-.search-empty-text {
-  font-size: 0.9rem;
-}
-
-/* Error state */
-.search-error {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 3rem 1.5rem;
-  text-align: center;
-  gap: 0.5rem;
-}
-
-.search-error-icon {
-  font-size: 2.5rem;
-}
-
-.search-error-text {
-  font-size: 0.95rem;
-  color: #92400e;
-  font-weight: 500;
-}
-
-.search-error-hint {
-  font-size: 0.85rem;
-  color: #6b7280;
-}
-
-.search-error-retry {
-  margin-top: 0.75rem;
-  padding: 0.4rem 1rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.375rem;
-  background: #fff;
-  color: #374151;
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: background 0.1s ease, border-color 0.1s ease;
-}
-
-.search-error-retry:hover {
-  background: #f3f4f6;
-  border-color: #9ca3af;
-}
-
-.search-error-retry:active {
-  background: #e5e7eb;
-  border-color: #6b7280;
-}
-
 /* No-results suggestions */
 .search-noresults-suggestions {
   margin-top: 1rem;
@@ -430,20 +365,6 @@ button.day-header {
   padding: 0.25rem 0.5rem;
 }
 
-.search-empty h2 {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: #374151;
-  margin: 0 0 0.5rem 0;
-}
-
-.search-empty p {
-  font-size: 0.9rem;
-  color: #6b7280;
-  margin: 0 0 1.25rem 0;
-  line-height: 1.5;
-}
-
 .search-example-chips {
   display: flex;
   flex-wrap: wrap;
@@ -480,12 +401,6 @@ button.day-header {
 }
 
 /* Loading state */
-.search-loading {
-  text-align: center;
-  padding: 2rem;
-  color: #6b7280;
-}
-
 /* Responsive */
 @media (max-width: 768px) {
   .search-container {
@@ -564,14 +479,16 @@ button.day-header {
       <div id="search-announcer" class="visually-hidden" aria-live="polite"></div>
 
       <div id="results-container">
-        <div class="search-empty" id="search-empty">
-          <div class="search-empty-icon">🔍</div>
-          <h2>search your journal</h2>
-          <p>find conversations, ideas, and moments — try one of these</p>
-          <div class="search-example-chips">
-            <button class="search-example-chip" type="button">a recent meeting</button>
-            <button class="search-example-chip" type="button">something I learned</button>
-            <button class="search-example-chip" type="button">project ideas</button>
+        <div class="surface-state surface-state--empty" id="search-empty">
+          <div class="surface-state-icon" aria-hidden="true">🔍</div>
+          <h2 class="surface-state-heading">search your journal</h2>
+          <p class="surface-state-desc">find conversations, ideas, and moments — try one of these</p>
+          <div class="surface-state-action">
+            <div class="search-example-chips">
+              <button class="search-example-chip" type="button">a recent meeting</button>
+              <button class="search-example-chip" type="button">something I learned</button>
+              <button class="search-example-chip" type="button">project ideas</button>
+            </div>
           </div>
         </div>
       </div>
@@ -609,9 +526,16 @@ button.day-header {
   const searchInputForm = document.getElementById('search-input-form');
   const searchAnnouncer = document.getElementById('search-announcer');
 
-  // Initialize
-  loadFromHash();
-  searchInput.focus();
+  function bootstrapSearch() {
+    loadFromHash();
+    searchInput.focus();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootstrapSearch, { once: true });
+  } else {
+    bootstrapSearch();
+  }
 
   // Example chip delegation
   resultsContainer.addEventListener('click', function(e) {
@@ -706,7 +630,7 @@ button.day-header {
 
     if (reset) {
       dayOffset = 0;
-      resultsContainer.innerHTML = '<div class="search-loading">Searching...</div>';
+      resultsContainer.innerHTML = window.SurfaceState.loading({ text: 'Searching...' });
       announce('searching…');
     }
 
@@ -734,14 +658,12 @@ button.day-header {
       .catch(err => {
         if (err.name === 'AbortError') return;
         console.error('Search error:', err);
-        resultsContainer.innerHTML = `
-          <div class="search-error">
-            <div class="search-error-icon">⚠️</div>
-            <div class="search-error-text">something went wrong with that search</div>
-            <div class="search-error-hint">could be a network issue or the server might be busy — give it a moment</div>
-            <button class="search-error-retry">try again</button>
-          </div>
-        `;
+        resultsContainer.innerHTML = window.SurfaceState.error({
+          icon: '⚠️',
+          heading: 'something went wrong with that search',
+          desc: 'could be a network issue or the server might be busy — give it a moment',
+          action: '<button class="search-error-retry">try again</button>'
+        });
         resultsContainer.querySelector('.search-error-retry').onclick = () => doSearch(true);
         announce('search failed, use the try again button to retry');
       });
@@ -828,43 +750,35 @@ button.day-header {
 
   function renderResults(data, reset) {
     if (data.days.length === 0 && reset) {
-      const container = document.createElement('div');
-      container.className = 'search-empty';
+      const suggestionsHtml = '<div class="search-noresults-suggestions">'
+        + '<span>try different keywords or check your spelling</span>'
+        + (currentFacet ? `<button type="button" data-clear="facet">search all facets instead of ${escapeHtml(currentFacet)}</button>` : '')
+        + (currentAgent ? `<button type="button" data-clear="agent">search all agents instead of ${escapeHtml(currentAgent)}</button>` : '')
+        + '</div>';
 
-      container.innerHTML = `
-        <div class="search-empty-icon">🔍</div>
-        <div class="search-empty-text">no results found for "${escapeHtml(currentQuery)}"</div>
-      `;
+      resultsContainer.innerHTML = window.SurfaceState.empty({
+        icon: '🔍',
+        heading: `no results found for "${currentQuery}"`,
+        action: suggestionsHtml
+      });
 
-      const suggestions = document.createElement('div');
-      suggestions.className = 'search-noresults-suggestions';
-      suggestions.innerHTML = '<span>try different keywords or check your spelling</span>';
-
-      if (currentFacet) {
-        const btn = document.createElement('button');
-        btn.textContent = 'search all facets instead of ' + currentFacet;
-        btn.onclick = () => {
+      const clearFacetBtn = resultsContainer.querySelector('[data-clear="facet"]');
+      if (clearFacetBtn) {
+        clearFacetBtn.onclick = () => {
           currentFacet = '';
           updateHash();
           doSearch(true);
         };
-        suggestions.appendChild(btn);
       }
 
-      if (currentAgent) {
-        const btn = document.createElement('button');
-        btn.textContent = 'search all agents instead of ' + currentAgent;
-        btn.onclick = () => {
+      const clearAgentBtn = resultsContainer.querySelector('[data-clear="agent"]');
+      if (clearAgentBtn) {
+        clearAgentBtn.onclick = () => {
           currentAgent = '';
           updateHash();
           doSearch(true);
         };
-        suggestions.appendChild(btn);
       }
-
-      container.appendChild(suggestions);
-      resultsContainer.innerHTML = '';
-      resultsContainer.appendChild(container);
 
       let msg = 'no results found';
       if (currentFacet || currentAgent) msg += ', try clearing filters';

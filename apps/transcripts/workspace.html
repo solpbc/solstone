@@ -573,6 +573,27 @@ body.has-app-bar.has-date-nav .workspace:has(.tr-wrap) {
   bottom: 12px;
 }
 
+.tr-zoom-segments > .surface-state {
+  position: absolute;
+  inset: 0;
+  padding: 16px 12px;
+  gap: 8px;
+}
+
+.tr-zoom-segments > .surface-state .surface-state-icon svg {
+  width: 32px;
+  height: 32px;
+}
+
+.tr-zoom-segments > .surface-state .surface-state-heading {
+  font-size: 13px;
+}
+
+.tr-zoom-segments > .surface-state .surface-state-desc {
+  font-size: 11px;
+  max-width: 24ch;
+}
+
 /* Segment pills in zoom view */
 .tr-zoom-pill {
   position: absolute;
@@ -616,19 +637,6 @@ body.has-app-bar.has-date-nav .workspace:has(.tr-wrap) {
 .tr-zoom-pill-both {
   background: linear-gradient(to right, rgba(134, 239, 172, 0.75), rgba(194, 234, 155, 0.7) 50%, rgba(253, 230, 138, 0.75));
   border: 1px solid #84cc16;
-}
-
-.tr-zoom-empty {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #6b7280;
-  font-style: italic;
-  font-size: 11px;
-  text-align: center;
-  padding: 24px;
 }
 
 /* Dragging state */
@@ -1143,47 +1151,8 @@ body.has-app-bar.has-date-nav .workspace:has(.tr-wrap) {
   background: #eab308;
 }
 
-.tr-unified-empty {
-  text-align: center;
-  color: #9ca3af;
-  padding: 24px;
-}
-
-.tr-empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  text-align: center;
-  color: #9ca3af;
-  padding: 24px;
-  gap: 12px;
-}
-
-.tr-empty-icon svg {
-  width: 48px;
-  height: 48px;
-  stroke: #d1d5db;
-  fill: none;
-  stroke-width: 1.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.tr-empty-heading {
-  font-size: 17px;
-  font-weight: 500;
-  color: #4b5563;
-  margin: 0;
-}
-
-.tr-empty-desc {
-  font-size: 14px;
-  color: #9ca3af;
-  margin: 0;
-  line-height: 1.5;
-  max-width: 32ch;
+.tr-panel > .surface-state {
+  min-height: 100%;
 }
 
 .tr-warning-notice {
@@ -1428,7 +1397,13 @@ body.has-app-bar.has-date-nav .workspace:has(.tr-wrap) {
         <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
         <span id="trWarningText"></span>
       </div>
-      <div class="tr-panel" id="trPanel"></div>
+      <div class="tr-panel" id="trPanel">
+        <div class="surface-state surface-state--empty">
+          <div class="surface-state-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></div>
+          <h2 class="surface-state-heading">your day at a glance</h2>
+          <p class="surface-state-desc">select a segment from the timeline to view its transcript</p>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -1509,16 +1484,6 @@ body.has-app-bar.has-date-nav .workspace:has(.tr-wrap) {
     audio: '<svg viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>',
     screen: '<svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>'
   };
-
-  function emptyStateHTML(icon, heading, desc) {
-    return '<div class="tr-empty-state">' +
-      '<div class="tr-empty-icon">' + icon + '</div>' +
-      '<p class="tr-empty-heading">' + heading + '</p>' +
-      '<p class="tr-empty-desc">' + desc + '</p>' +
-      '</div>';
-  }
-
-  panel.innerHTML = emptyStateHTML(emptyIcons.day, 'your day at a glance', 'select a segment from the timeline to view its transcript');
 
   // State
   let height = timeline.clientHeight;
@@ -2142,10 +2107,11 @@ body.has-app-bar.has-date-nav .workspace:has(.tr-wrap) {
 
     if (filtered.length === 0) {
       document.getElementById('trNavHint').classList.remove('visible');
-      const empty = document.createElement('div');
-      empty.className = 'tr-zoom-empty';
-      empty.textContent = 'No segments in selected range';
-      zoomSegments.appendChild(empty);
+      zoomSegments.innerHTML = window.SurfaceState.empty({
+        icon: emptyIcons.nothing,
+        heading: 'no segments in this range',
+        desc: 'widen the time range or pick a different day'
+      });
       return;
     }
 
@@ -2281,7 +2247,7 @@ body.has-app-bar.has-date-nav .workspace:has(.tr-wrap) {
     tabsContainer.classList.remove('visible');
     tabsContainer.innerHTML = '';
     document.getElementById('trWarningNotice').classList.remove('visible');
-    panel.innerHTML = '<div class="tr-unified-empty"><p>Loading segment...</p></div>';
+    panel.innerHTML = window.SurfaceState.loading({ text: 'Loading segment...' });
     panel.classList.add('loading');
 
     fetch(`/app/transcripts/api/segment/${day}/${seg.stream}/${seg.key}`, { signal })
@@ -2321,7 +2287,11 @@ body.has-app-bar.has-date-nav .workspace:has(.tr-wrap) {
         panel.classList.remove('loading');
         tabsContainer.classList.remove('visible');
         tabsContainer.innerHTML = '';
-        panel.innerHTML = emptyStateHTML(emptyIcons.transcript, 'couldn\'t load this segment', 'something went wrong loading the transcript. try selecting the segment again, or refresh the page.');
+        panel.innerHTML = window.SurfaceState.error({
+          icon: emptyIcons.transcript,
+          heading: 'couldn\'t load this segment',
+          desc: 'something went wrong loading the transcript. try selecting the segment again, or refresh the page.'
+        });
       });
   }
 
@@ -2487,7 +2457,7 @@ body.has-app-bar.has-date-nav .workspace:has(.tr-wrap) {
         renderSegmentTimeline(segmentData, true, false, pane);
       } else if (tabId === 'screen') {
         const segmentToken = selectedSegment?.key;
-        pane.innerHTML = '<div class="tr-unified-empty"><p data-role="loading-status">Loading screen entries...</p></div>';
+        pane.innerHTML = window.SurfaceState.loading({ text: 'Loading screen entries...' });
         prepareScreenFrames(
           segmentData,
           pane,
@@ -2510,7 +2480,11 @@ body.has-app-bar.has-date-nav .workspace:has(.tr-wrap) {
             if (tabPanes[tabId] !== pane) {
               return;
             }
-            pane.innerHTML = emptyStateHTML(emptyIcons.screen, 'couldn\'t load screen entries', 'something went wrong decoding the screen data. try selecting the segment again.');
+            pane.innerHTML = window.SurfaceState.error({
+              icon: emptyIcons.screen,
+              heading: 'couldn\'t load screen entries',
+              desc: 'something went wrong decoding the screen data. try selecting the segment again.'
+            });
           });
       } else if (tabId.startsWith('md-')) {
         const stem = tabId.slice(3);
@@ -2547,7 +2521,7 @@ body.has-app-bar.has-date-nav .workspace:has(.tr-wrap) {
         screen: { icon: emptyIcons.screen, heading: 'no screen entries', desc: 'this segment has no screen captures' }
       };
       const emptyInfo = tabEmptyMap[tabType] || tabEmptyMap.transcript;
-      targetEl.innerHTML = emptyStateHTML(emptyInfo.icon, emptyInfo.heading, emptyInfo.desc);
+      targetEl.innerHTML = window.SurfaceState.empty(emptyInfo);
       return;
     }
 
@@ -3159,7 +3133,11 @@ body.has-app-bar.has-date-nav .workspace:has(.tr-wrap) {
       allSegments = data.segments || [];
       updateZoom();
       if (allSegments.length === 0) {
-        panel.innerHTML = emptyStateHTML(emptyIcons.nothing, 'nothing captured', 'no recordings were found for this day');
+        panel.innerHTML = window.SurfaceState.empty({
+          icon: emptyIcons.nothing,
+          heading: 'nothing captured',
+          desc: 'no recordings were found for this day'
+        });
       }
 
       // Check for hash fragment to auto-select segment
@@ -3184,7 +3162,11 @@ body.has-app-bar.has-date-nav .workspace:has(.tr-wrap) {
     .catch(err => {
       console.error('Failed to load transcript data:', err);
       zoomSegments.innerHTML = '';
-      panel.innerHTML = emptyStateHTML(emptyIcons.transcript, 'couldn\'t load transcripts', 'the data service may be offline. try refreshing the page.');
+      panel.innerHTML = window.SurfaceState.error({
+        icon: emptyIcons.transcript,
+        heading: 'couldn\'t load transcripts',
+        desc: 'the data service may be offline. try refreshing the page.'
+      });
     });
 
   // Handle browser back/forward
@@ -3524,7 +3506,11 @@ body.has-app-bar.has-date-nav .workspace:has(.tr-wrap) {
     tabsContainer.innerHTML = '';
     tabsContainer.classList.remove('visible');
     document.getElementById('trWarningNotice').classList.remove('visible');
-    panel.innerHTML = emptyStateHTML(emptyIcons.day, 'your day at a glance', 'select a segment from the timeline to view its transcript');
+    panel.innerHTML = window.SurfaceState.empty({
+      icon: emptyIcons.day,
+      heading: 'your day at a glance',
+      desc: 'select a segment from the timeline to view its transcript'
+    });
 
     // Clear active state in zoom view
     zoomSegments.querySelectorAll('.tr-zoom-pill').forEach(pill => {

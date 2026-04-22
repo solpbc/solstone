@@ -26,17 +26,27 @@
 
   <!-- Graph container -->
   <div id="graph-container" style="flex:1;position:relative;min-height:200px;">
-    <div class="graph-loading" id="graph-loading"><div class="graph-spinner"></div>loading knowledge graph...</div>
+    <div class="graph-loading" id="graph-loading">
+      <div class="surface-state surface-state--loading" role="status" aria-busy="true">
+        <div class="surface-state-spinner" aria-hidden="true"></div>
+        <span class="surface-state-text" data-role="loading-status">loading knowledge graph...</span>
+      </div>
+    </div>
     <div class="graph-empty" id="graph-empty" style="display:none;">
-      <div class="graph-empty-icon">🕸️</div>
-      <h2>Your knowledge graph builds itself from daily use</h2>
-      <p>As solstone captures your meetings, conversations, and work, entities and relationships appear here automatically.</p>
-      <a href="/app/home" class="graph-empty-action">get started with solstone →</a>
+      <div class="surface-state surface-state--empty">
+        <div class="surface-state-icon" aria-hidden="true">🕸️</div>
+        <h2 class="surface-state-heading">Your knowledge graph builds itself from daily use</h2>
+        <p class="surface-state-desc">As solstone captures your meetings, conversations, and work, entities and relationships appear here automatically.</p>
+        <div class="surface-state-action"><a href="/app/home" class="graph-empty-action">get started with solstone →</a></div>
+      </div>
     </div>
     <div class="graph-error" id="graph-error" style="display:none;">
-      <div class="graph-error-icon">⚠️</div>
-      <h2>couldn't load the knowledge graph</h2>
-      <p>this usually means the server didn't respond. <a href="#" id="graph-retry">try again</a></p>
+      <div class="surface-state surface-state--error" role="alert">
+        <div class="surface-state-icon" aria-hidden="true">⚠️</div>
+        <h2 class="surface-state-heading">couldn't load the knowledge graph</h2>
+        <p class="surface-state-desc">this usually means the server didn't respond.</p>
+        <div class="surface-state-action"><a href="#" id="graph-retry">try again</a></div>
+      </div>
     </div>
     <div id="graph-canvas" tabindex="0" role="img" aria-label="Knowledge graph" style="width:100%;height:100%;display:none;"></div>
     <div id="graph-stabilize"><div id="graph-stabilize-bar"></div></div>
@@ -240,33 +250,6 @@
   max-width: 450px;
   margin: 2em auto;
 }
-.graph-empty-icon {
-  font-size: 4em;
-  margin-bottom: 0.25em;
-}
-.graph-error-icon {
-  font-size: 4em;
-  margin-bottom: 0.25em;
-}
-.graph-empty h2 {
-  margin: 0 0 0.5em 0;
-  font-size: 1.3em;
-  font-weight: 600;
-  color: #333;
-  line-height: 1.3;
-}
-.graph-error h2 {
-  margin: 0 0 0.5em 0;
-  font-size: 1.3em;
-  font-weight: 600;
-  color: #333;
-  line-height: 1.3;
-}
-.graph-empty p {
-  margin: 0;
-  color: #666;
-  line-height: 1.5;
-}
 .graph-empty-action {
   display: inline-block;
   margin-top: 1em;
@@ -277,11 +260,6 @@
 .graph-empty-action:hover { text-decoration: underline; }
 .graph-empty-action:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
 #graph-canvas:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
-.graph-error p {
-  margin: 0;
-  color: #666;
-  line-height: 1.5;
-}
 #graph-retry {
   color: #2563eb;
   text-decoration: none;

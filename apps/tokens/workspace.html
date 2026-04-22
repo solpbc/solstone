@@ -1,6 +1,9 @@
 <main class="tokens-dashboard">
-  <div class="loading-state" id="loading">
-    <p>Loading token usage data...</p>
+  <div id="loading">
+    <div class="surface-state surface-state--loading" role="status" aria-busy="true">
+      <div class="surface-state-spinner" aria-hidden="true"></div>
+      <span class="surface-state-text" data-role="loading-status">Loading token usage data...</span>
+    </div>
   </div>
 
   <div class="dashboard-content" id="dashboard" style="display: none;">
@@ -166,17 +169,11 @@
   padding: 1em 1.5em;
 }
 
-.loading-state {
+#loading {
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: 50vh;
-  color: #666;
-}
-
-.loading-state p {
-  font-size: 0.95em;
-  font-weight: 500;
 }
 
 .summary-card {
@@ -418,48 +415,6 @@
   border: 0;
 }
 
-.error-state {
-  text-align: center;
-  padding: 2em;
-}
-
-.error-state h2 {
-  color: #dc2626;
-  margin-bottom: 0.5em;
-  font-size: 1.1em;
-}
-
-.error-hint {
-  color: #888;
-  font-size: 0.9em;
-  margin-bottom: 1.5em;
-}
-
-.error-state button {
-  background: var(--facet-color, #b06a1a);
-  color: white;
-  border: none;
-  padding: 0.6em 1.8em;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.95em;
-  transition: opacity 0.15s ease, transform 0.15s ease;
-}
-
-.error-state button:hover {
-  opacity: 0.9;
-}
-
-.error-state button:active {
-  opacity: 0.8;
-  transform: scale(0.97);
-}
-
-.error-state button:focus-visible {
-  outline: 2px solid var(--facet-color, #b06a1a);
-  outline-offset: 2px;
-}
-
 .skipped-notice {
   background: rgba(0, 0, 0, 0.03);
   border: 1px solid var(--facet-border, #e5e0db);
@@ -526,8 +481,7 @@
   .breakdown-table th.sortable,
   .breakdown-table th.sortable::after,
   .breakdown-table tbody tr,
-  .search-box input,
-  .error-state button {
+  .search-box input {
     transition-duration: 0.01ms !important;
   }
 }
@@ -679,11 +633,11 @@ async function loadTokenData(day) {
   } catch (error) {
     console.error('Failed to load token data:', error);
     document.getElementById('loading').innerHTML =
-      '<div class="error-state">' +
-        '<h2>Unable to load token data</h2>' +
-        '<p class="error-hint">Try refreshing, or check the health dashboard if this persists.</p>' +
-        '<button onclick="document.getElementById(\'loading\').innerHTML = \'<p>Loading token usage data...</p>\'; loadTokenData(currentDay);">Retry</button>' +
-      '</div>';
+      window.SurfaceState.error({
+        heading: 'Unable to load token data',
+        desc: 'Try refreshing, or check the health dashboard if this persists.',
+        action: '<button onclick="document.getElementById(\'loading\').innerHTML = window.SurfaceState.loading({ text: \'Loading token usage data...\' }); loadTokenData(currentDay);">Retry</button>'
+      });
   }
 }
 

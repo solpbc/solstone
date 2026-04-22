@@ -106,54 +106,17 @@
   font-size: 14px;
 }
 
-.spk-empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  height: 100%;
-  text-align: center;
-  color: #9ca3af;
-  padding: 80px 24px 24px;
-  gap: 12px;
-}
-
-.spk-segments .spk-empty-state {
-  justify-content: flex-start;
+.spk-segments .surface-state {
   padding: 24px 16px;
 }
 
-.spk-detail > .spk-empty-state {
-  background: #f9fafb;
-  border-radius: 12px;
-  border: 1px dashed #e5e7eb;
-  margin: 20px;
+.spk-detail > .surface-state {
   flex: 1;
-}
-
-.spk-empty-icon svg {
-  width: 48px;
-  height: 48px;
-  stroke: #d1d5db;
-  fill: none;
-  stroke-width: 1.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.spk-empty-heading {
-  font-size: 16px;
-  font-weight: 500;
-  color: #4b5563;
-  margin: 0;
-}
-
-.spk-empty-desc {
-  font-size: 14px;
-  color: #9ca3af;
-  line-height: 1.5;
-  max-width: 36ch;
-  margin: 0;
+  background: #f9fafb;
+  border: 1px dashed #e5e7eb;
+  border-radius: 12px;
+  margin: 20px;
+  padding: 80px 24px 24px;
 }
 
 .spk-detail {
@@ -1087,10 +1050,10 @@
     </nav>
 
     <div class="spk-detail" id="spkDetail" aria-live="polite">
-      <div class="spk-empty-state">
-        <div class="spk-empty-icon"><svg viewBox="0 0 24 24"><path d="M4 4l7.07 17 2.51-7.39L21 11.07z"></path></svg></div>
-        <p class="spk-empty-heading">ready to review</p>
-        <p class="spk-empty-desc">select a segment from the list to review speaker assignments</p>
+      <div class="surface-state surface-state--empty">
+        <div class="surface-state-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 4l7.07 17 2.51-7.39L21 11.07z"></path></svg></div>
+        <h2 class="surface-state-heading">ready to review</h2>
+        <p class="surface-state-desc">select a segment from the list to review speaker assignments</p>
       </div>
     </div>
   </div>
@@ -1141,14 +1104,6 @@
         audio.style.display = 'none';
       });
     });
-  }
-
-  function emptyStateHTML(icon, heading, desc) {
-    return '<div class="spk-empty-state">' +
-      '<div class="spk-empty-icon">' + icon + '</div>' +
-      '<p class="spk-empty-heading">' + heading + '</p>' +
-      '<p class="spk-empty-desc">' + desc + '</p>' +
-      '</div>';
   }
 
   const METHOD_DISPLAY = {
@@ -1524,7 +1479,11 @@
 
   function renderSegmentList() {
     if (segments.length === 0) {
-      segmentList.innerHTML = '<li>' + emptyStateHTML(emptyIcons.segment, 'no speakers discovered today', 'solstone hasn\'t found any speaker segments for this day yet') + '</li>';
+      segmentList.innerHTML = '<li>' + window.SurfaceState.empty({
+        icon: emptyIcons.segment,
+        heading: 'no speakers discovered today',
+        desc: 'solstone hasn\'t found any speaker segments for this day yet'
+      }) + '</li>';
       const header = document.querySelector('.spk-segments-header');
       if (header) {
         header.textContent = 'Segments';
@@ -1613,7 +1572,11 @@
 
   function renderDetail(seg) {
     if (!seg.sources.length) {
-      detailPanel.innerHTML = emptyStateHTML(emptyIcons.audio, 'no audio sources', 'this segment doesn\'t have any observed audio media');
+      detailPanel.innerHTML = window.SurfaceState.empty({
+        icon: emptyIcons.audio,
+        heading: 'no audio sources',
+        desc: 'this segment doesn\'t have any observed audio media'
+      });
       return;
     }
 
@@ -1713,7 +1676,11 @@
     const unmatchedCount = unmatched ? unmatched.length : 0;
 
     if (!hasMatched && !hasUnmatched) {
-      container.innerHTML = emptyStateHTML(emptyIcons.people, 'no speakers found', 'no speaker voices were detected in this segment');
+      container.innerHTML = window.SurfaceState.empty({
+        icon: emptyIcons.people,
+        heading: 'no speakers found',
+        desc: 'no speaker voices were detected in this segment'
+      });
       return;
     }
 
@@ -1806,7 +1773,11 @@
     const countLabel = countLabelForFilter(sentences.length, total);
 
     if (total === 0) {
-      container.innerHTML = emptyStateHTML(emptyIcons.text, 'no sentences to review', 'this segment doesn\'t have any sentences to work with yet');
+      container.innerHTML = window.SurfaceState.empty({
+        icon: emptyIcons.text,
+        heading: 'no sentences to review',
+        desc: 'this segment doesn\'t have any sentences to work with yet'
+      });
       return;
     }
 

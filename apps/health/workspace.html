@@ -325,29 +325,8 @@
   display: none;
 }
 
-.observe-empty {
-  text-align: left;
-  color: #6b7280;
-  padding: 1em 1.5em;
-  font-size: 0.95em;
-}
-
-.observe-empty.hidden {
+#observeEmpty.hidden {
   display: none;
-}
-
-.observe-empty a {
-  color: #10b981;
-  text-decoration: none;
-  font-weight: 500;
-}
-
-.observe-empty a:hover {
-  text-decoration: underline;
-}
-
-.observe-empty a:active {
-  color: #059669;
 }
 
 .observe-section {
@@ -1131,8 +1110,11 @@
         <span id="observeModeLabel">Waiting...</span>
       </div>
     </div>
-    <div class="observe-empty" id="observeEmpty">
-      No observers connected — <a href="/app/observer/">Manage observers →</a>
+    <div id="observeEmpty">
+      <div class="surface-state surface-state--empty">
+        <h2 class="surface-state-heading">No observers connected</h2>
+        <div class="surface-state-action"><a href="/app/observer/">Manage observers →</a></div>
+      </div>
     </div>
     <div class="observe-content hidden" id="observeContent">
       <div class="observe-section">
