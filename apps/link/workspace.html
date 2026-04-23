@@ -2,7 +2,7 @@
   <header class="link-header">
     <h1 class="link-h1">Reach your solstone from anywhere</h1>
     <p class="link-trust">spl is blind by construction. Cloudflare and sol pbc cannot see anything inside the tunnel.</p>
-    <div class="link-status-row">
+    <div class="link-status-row" id="link-status-panel">
       <span id="link-status-indicator" class="link-status-indicator" aria-live="polite">
         Service status: <span id="link-status-text">loading…</span>
       </span>
@@ -131,6 +131,7 @@
   const devicesList = document.getElementById('link-devices-list');
   const emptyState = document.getElementById('link-empty-state');
   const lanNudge = document.getElementById('link-lan-nudge');
+  let devicesEverLoaded = false;
 
   const pairBtn = document.getElementById('link-pair-btn');
   const pairModal = document.getElementById('link-pair-modal');
@@ -168,15 +169,37 @@
     return `${Math.floor(diff / 86400)} days ago`;
   }
 
+  function clearRefreshError(containerId) {
+    const container = document.getElementById(containerId);
+    const siblingError = container?.nextElementSibling;
+    if (siblingError && siblingError.classList.contains('surface-state-refresh-error')) {
+      siblingError.remove();
+    }
+  }
+
   async function refreshStatus() {
     try {
-      const r = await fetch('/app/link/api/status', {headers: {'accept': 'application/json'}});
-      const data = await r.json();
+      const data = await window.apiJson('/app/link/api/status', { headers: { accept: 'application/json' } });
+      if (typeof data.enrolled !== 'boolean') {
+        throw new window.ApiError({
+          cause: 'parse',
+          status: 200,
+          statusText: 'OK',
+          serverMessage: 'Unexpected status shape',
+          url: '/app/link/api/status',
+        });
+      }
       const state = data.enrolled ? 'online' : 'not-enrolled';
+      clearRefreshError('link-status-panel');
       setStatus(state);
       lanNudge.hidden = !!data.lan_accessible;
-    } catch (e) {
-      setStatus('offline');
+    } catch (err) {
+      window.logError(err, { context: 'link: refreshStatus failed' });
+      window.SurfaceState.replaceLoading('link-status-panel', window.SurfaceState.errorCard({
+        heading: "Can't reach pairing service — reload to try again.",
+        desc: 'Reload to try again.',
+        serverMessage: err.serverMessage,
+      }));
     }
   }
 
@@ -191,11 +214,25 @@
 
   async function refreshDevices() {
     try {
-      const r = await fetch('/app/link/api/devices', {headers: {'accept': 'application/json'}});
-      const data = await r.json();
+      const data = await window.apiJson('/app/link/api/devices', { headers: { accept: 'application/json' } });
+      clearRefreshError('link-devices-list');
+      devicesEverLoaded = true;
       renderDevices(data.devices || []);
-    } catch (e) {
-      console.warn('devices fetch failed', e);
+    } catch (err) {
+      window.logError(err, { context: 'link: refreshDevices failed' });
+      if (!devicesEverLoaded) {
+        devicesList.innerHTML = window.SurfaceState.errorCard({
+          heading: "Couldn't load paired devices",
+          desc: 'Reload to try again.',
+          serverMessage: err.serverMessage,
+        });
+        return;
+      }
+      window.SurfaceState.replaceLoading('link-devices-list', window.SurfaceState.errorCard({
+        heading: "Couldn't refresh paired devices — showing last known state.",
+        desc: 'Reload to try again.',
+        serverMessage: err.serverMessage,
+      }));
     }
   }
 
