@@ -315,6 +315,12 @@
   }
   .support-announcements h4 { margin: 0 0 0.25rem 0; font-size: 0.9rem; }
   .support-announcements p { margin: 0; font-size: 0.85rem; }
+  .support-announcements-error { color: #92400e; }
+  .support-announcements-stale {
+    margin: -1rem 0 1.5rem;
+    font-size: 0.8rem;
+    color: #92400e;
+  }
 
   /* Diagnostics */
   .support-diagnostics-desc {
@@ -561,6 +567,8 @@
 <script>
 (function() {
   let ticketCount = 0;
+  let announcementsFirstPaintDone = false;
+  let announcementsLastSuccessAt = null;
 
   // Tab navigation
   function activateTab(sectionName) {
@@ -996,25 +1004,44 @@
   });
 
   // Load announcements
+  function clearAnnouncementsStale() {
+    const stale = document.getElementById('support-announcements-stale');
+    if (stale) stale.remove();
+  }
+
   async function loadAnnouncements() {
     const banner = document.getElementById('support-announcements-banner');
     try {
-      const resp = await fetch('/app/support/api/announcements');
-      if (!resp.ok) return;
-      const items = await resp.json();
-      if (!items.length) return;
+      const items = await window.apiJson('/app/support/api/announcements');
+      announcementsFirstPaintDone = true;
+      announcementsLastSuccessAt = new Date();
+      clearAnnouncementsStale();
+      if (!items.length) {
+        banner.style.display = 'none';
+        banner.innerHTML = '';
+        return;
+      }
       banner.style.display = '';
       const icons = {'known-issue': '⚠️', 'maintenance': '🔧', 'info': '📢'};
       banner.innerHTML = items.map(a =>
         `<div><h4>${icons[a.type] || '📢'} ${esc(a.title || '')}</h4><p style="margin:0;">${esc((a.content || '').slice(0, 200))}</p></div>`
       ).join('');
-    } catch (e) {
-      console.warn('Failed to load announcements:', e);
-      banner.style.display = '';
-      banner.style.background = 'none';
-      banner.style.border = 'none';
-      banner.style.padding = '0.5rem 0';
-      banner.innerHTML = '<p style="margin:0;font-size:0.8rem;color:#666;">couldn\'t load announcements</p>';
+    } catch (err) {
+      if (!announcementsFirstPaintDone) {
+        banner.style.display = '';
+        banner.innerHTML = '<p class="support-announcements-error">' +
+          esc(err.serverMessage || "Couldn't load announcements. Reload to try again.") +
+          '</p>';
+      } else {
+        clearAnnouncementsStale();
+        const stale = document.createElement('div');
+        stale.id = 'support-announcements-stale';
+        stale.className = 'support-announcements-stale';
+        stale.textContent = 'Couldn\'t refresh announcements - showing last known state.' +
+          (announcementsLastSuccessAt ? ' Last updated ' + announcementsLastSuccessAt.toLocaleString() + '.' : '');
+        banner.insertAdjacentElement('afterend', stale);
+      }
+      window.logError(err, { context: 'support-announcements' });
     }
   }
 
