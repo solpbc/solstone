@@ -430,6 +430,28 @@
   font-size: 0.7em;
 }
 
+.registered-observers-card { border-left: 4px solid #9ca3af; }
+.registered-observers-card.hidden { display: none; }
+.registered-observers-strip { display: flex; flex-direction: column; gap: 0.5em; }
+.registered-observer-row { display: flex; align-items: center; gap: 0.6em; padding: 0.65em 0.75em; background: #f9fafb; border-radius: 8px; }
+.registered-observer-name { font-weight: 600; color: #111827; }
+
+.registered-observer-label,
+.registered-observer-skew {
+  font-size: 0.72em;
+  border-radius: 999px;
+  padding: 0.2em 0.55em;
+}
+
+.registered-observer-label.connected { background: #dcfce7; color: #15803d; }
+.registered-observer-label.stale { background: #fef3c7; color: #b45309; }
+.registered-observer-label.disconnected,
+.registered-observer-label.revoked { background: #e5e7eb; color: #4b5563; }
+
+.registered-observer-meta { color: #6b7280; font-size: 0.78em; margin-left: auto; }
+.registered-observer-skew { background: #fef3c7; color: #b45309; }
+.registered-observer-skew.hidden { display: none; }
+
 /* Activity Grids Container */
 .activity-grids {
   display: contents;
@@ -1104,7 +1126,7 @@
   <div class="dashboard-card observe-card">
     <div class="card-header">
       <div class="card-title">
-        Observers
+        Local capture
       </div>
       <div class="health-badge idle" id="observeModeBadge">
         <span id="observeModeLabel">Waiting...</span>
@@ -1112,7 +1134,7 @@
     </div>
     <div id="observeEmpty">
       <div class="surface-state surface-state--empty">
-        <h2 class="surface-state-heading">No observers connected</h2>
+        <h2 class="surface-state-heading">No local capture active</h2>
         <div class="surface-state-action"><a href="/app/observer/">Manage observers →</a></div>
       </div>
     </div>
@@ -1154,10 +1176,17 @@
   <div class="dashboard-card observers-card hidden" id="observersCard">
     <div class="card-header">
       <div class="card-title">
-        Connected
+        Capture hosts
       </div>
     </div>
     <div class="observers-grid" id="observersGrid"></div>
+  </div>
+
+  <div class="dashboard-card registered-observers-card hidden" id="registeredObserversCard">
+    <div class="card-header">
+      <div class="card-title">Registered observers</div>
+    </div>
+    <div class="registered-observers-strip" id="registeredObserversStrip"></div>
   </div>
 
   <!-- Activity Grids -->
@@ -1314,6 +1343,8 @@
     transcribeDetail: document.getElementById('transcribeDetail'),
     observersCard: document.getElementById('observersCard'),
     observersGrid: document.getElementById('observersGrid'),
+    registeredObserversCard: document.getElementById('registeredObserversCard'),
+    registeredObserversStrip: document.getElementById('registeredObserversStrip'),
     observeContent: document.getElementById('observeContent'),
     observeEmpty: document.getElementById('observeEmpty'),
     cortexSection: document.getElementById('cortexSection'),
@@ -2013,7 +2044,7 @@
   function updateObserveMode() {
     if (state.observers.size === 0) {
       elements.observeModeBadge.className = 'health-badge idle';
-      elements.observeModeLabel.textContent = 'No observers';
+      elements.observeModeLabel.textContent = 'No capture';
       return;
     }
 
@@ -2263,6 +2294,64 @@
       }
 
       elements.observersGrid.appendChild(card);
+    }
+  }
+
+  function registeredObserverMeta(observer) {
+    if (!observer.last_seen) return 'never seen';
+    const deltaMs = Date.now() - observer.last_seen;
+    if (deltaMs < 0) return 'last seen from future';
+    return `last seen ${formatElapsed(Math.floor(deltaMs / 1000))} ago`;
+  }
+
+  function renderRegisteredObservers(observers) {
+    if (!observers || observers.length === 0) {
+      elements.registeredObserversCard.classList.add('hidden');
+      elements.registeredObserversStrip.innerHTML = '';
+      return;
+    }
+
+    elements.registeredObserversCard.classList.remove('hidden');
+    elements.registeredObserversStrip.innerHTML = '';
+    for (const observer of observers) {
+      const stateClass = ['connected', 'stale', 'disconnected', 'revoked'].includes(observer.state)
+        ? observer.state
+        : 'disconnected';
+      const row = document.createElement('div');
+      row.className = 'registered-observer-row';
+
+      const nameEl = document.createElement('span');
+      nameEl.className = 'registered-observer-name';
+      nameEl.textContent = observer.name || observer.key_prefix || 'observer';
+      row.appendChild(nameEl);
+
+      const labelEl = document.createElement('span');
+      labelEl.className = `registered-observer-label ${stateClass}`;
+      labelEl.textContent = observer.label || stateClass;
+      row.appendChild(labelEl);
+
+      const metaEl = document.createElement('span');
+      metaEl.className = 'registered-observer-meta';
+      metaEl.textContent = registeredObserverMeta(observer);
+      row.appendChild(metaEl);
+
+      const skewEl = document.createElement('span');
+      skewEl.className = 'registered-observer-skew' + (observer.clock_skew ? '' : ' hidden');
+      skewEl.textContent = 'clock skew';
+      row.appendChild(skewEl);
+
+      elements.registeredObserversStrip.appendChild(row);
+    }
+  }
+
+  async function loadRegisteredObservers() {
+    try {
+      const response = await fetch('/app/observer/api/list');
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const payload = await response.json();
+      renderRegisteredObservers(payload?.observers || []);
+    } catch (err) {
+      console.warn('Failed to load registered observers:', err);
     }
   }
 
@@ -2954,7 +3043,7 @@
 
     // Hide dashboard cards and suppress live log rendering
     const dashboard = document.querySelector('.health-dashboard');
-    dashboard.querySelectorAll('.vitals-bar, .observe-card, .observers-card, .activity-grids, .think-card, .sync-card').forEach(el => el.style.display = 'none');
+    dashboard.querySelectorAll('.vitals-bar, .observe-card, .observers-card, .registered-observers-card, .activity-grids, .think-card, .sync-card').forEach(el => el.style.display = 'none');
     state.deepLinkMode = true;
     elements.logsSummaryBadge.style.display = 'none';
 
@@ -3048,6 +3137,9 @@
   // Sweep stale agents and imports every 60s
   let staleSweepTimer = setInterval(sweepStale, 60000);
 
+  loadRegisteredObservers();
+  let registeredObserversTimer = setInterval(loadRegisteredObservers, 60000);
+
   // Connection health indicator — updated every 5s
   let connectionHealthTimer = setInterval(updateConnectionHealth, 5000);
 
@@ -3058,6 +3150,8 @@
       staleSweepTimer = null;
       clearInterval(connectionHealthTimer);
       connectionHealthTimer = null;
+      clearInterval(registeredObserversTimer);
+      registeredObserversTimer = null;
       if (elapsedTimer) {
         clearInterval(elapsedTimer);
         elapsedTimer = null;
@@ -3070,6 +3164,8 @@
         startElapsedTimer();
       }
       staleSweepTimer = setInterval(sweepStale, 60000);
+      loadRegisteredObservers();
+      registeredObserversTimer = setInterval(loadRegisteredObservers, 60000);
       connectionHealthTimer = setInterval(updateConnectionHealth, 5000);
     }
   });
