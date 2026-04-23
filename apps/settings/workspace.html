@@ -200,6 +200,13 @@
   opacity: 0;
 }
 
+.settings-field small .control-save-error {
+  color: var(--color-warning, #f59e0b);
+  margin-left: 0;
+  font-size: inherit;
+  display: inline;
+}
+
 /* API key status indicators */
 .key-status {
   font-weight: normal;
@@ -3508,6 +3515,28 @@ function saveField(el, section, key, value) {
 const fieldHelperText = new Map();
 const fieldStatusTimeouts = new Map();
 
+function prepareFieldErrorHost(el) {
+  const field = el?.closest('.settings-field');
+  if (!field) return null;
+
+  const small = field.querySelector('small');
+  if (!small) return null;
+
+  if (!fieldHelperText.has(small)) {
+    fieldHelperText.set(small, small.textContent);
+  }
+
+  const existingTimeout = fieldStatusTimeouts.get(small);
+  if (existingTimeout) {
+    clearTimeout(existingTimeout);
+    fieldStatusTimeouts.delete(small);
+  }
+
+  small.textContent = '';
+  small.classList.remove('status-saved', 'status-error', 'status-fade');
+  return small;
+}
+
 function showFieldStatus(el, type, message) {
   // Find the <small> helper text element in the same .settings-field
   const field = el.closest('.settings-field');
@@ -4309,30 +4338,31 @@ for (const type of ['generate', 'cogitate']) {
     if (!el) continue;
     el.addEventListener('change', async () => {
       const value = field === 'tier' ? parseInt(el.value) : el.value;
+      const errorHost = prepareFieldErrorHost(el);
       try {
-        const response = await fetch('api/providers', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ [type]: { [field]: value } })
-        });
-        const result = await response.json();
-        if (result.error) throw new Error(result.error);
-
-        providersData = result;
-        if (field === 'provider') {
-          updateTypeProviderKeyWarning(type, value, result.api_keys, result.auth);
-          // Update cogitate auth select when provider changes
-          if (type === 'cogitate') {
-            const authSelect = document.getElementById('field-cogitate-auth');
-            if (authSelect && result.auth) {
-              authSelect.value = result.auth[value] || 'platform';
+        await window.saveControl({
+          el,
+          errorHost,
+          fetchArgs: ['api/providers', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ [type]: { [field]: value } }),
+          }],
+          onSuccess: (result) => {
+            providersData = result;
+            if (field === 'provider') {
+              updateTypeProviderKeyWarning(type, value, result.api_keys, result.auth);
+              if (type === 'cogitate') {
+                const authSelect = document.getElementById('field-cogitate-auth');
+                if (authSelect && result.auth) {
+                  authSelect.value = result.auth[value] || 'platform';
+                }
+              }
             }
-          }
-        }
-        showFieldStatus(el, 'saved');
-      } catch (err) {
-        console.error(`Error saving ${type} ${field}:`, err);
-        showFieldStatus(el, 'error', err.message);
+            showFieldStatus(el, 'saved');
+          },
+        });
+      } catch (_) {
       }
     });
   }
@@ -4343,45 +4373,51 @@ document.getElementById('field-cogitate-auth')?.addEventListener('change', async
   const authSelect = this;
   const provider = document.getElementById('field-cogitate-provider')?.value;
   if (!provider) return;
+  const errorHost = prepareFieldErrorHost(authSelect);
   try {
-    const response = await fetch('api/providers', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ auth: { [provider]: authSelect.value } })
+    await window.saveControl({
+      el: authSelect,
+      errorHost,
+      fetchArgs: ['api/providers', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ auth: { [provider]: authSelect.value } }),
+      }],
+      onSuccess: (result) => {
+        providersData = result;
+        updateTypeProviderKeyWarning('cogitate', provider, result.api_keys, result.auth);
+        showFieldStatus(authSelect, 'saved');
+      },
     });
-    const result = await response.json();
-    if (result.error) throw new Error(result.error);
-    providersData = result;
-    updateTypeProviderKeyWarning('cogitate', provider, result.api_keys, result.auth);
-    showFieldStatus(authSelect, 'saved');
-  } catch (err) {
-    console.error('Error saving cogitate auth:', err);
-    showFieldStatus(authSelect, 'error', err.message);
+  } catch (_) {
   }
 });
 
 // Google backend change handler
 document.getElementById('field-google-backend')?.addEventListener('change', async function() {
   const value = this.value;
+  const errorHost = prepareFieldErrorHost(this);
   try {
-    const response = await fetch('api/providers', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ google_backend: value })
+    await window.saveControl({
+      el: this,
+      errorHost,
+      fetchArgs: ['api/providers', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ google_backend: value }),
+      }],
+      onSuccess: (result) => {
+        providersData = result;
+        showFieldStatus(this, 'saved');
+        const vf = document.getElementById('vertexFields');
+        if (vf) vf.style.display = value === 'vertex' ? '' : 'none';
+        const vc = document.getElementById('vertexCredentials');
+        if (vc) vc.style.display = value === 'vertex' ? '' : 'none';
+        const gk = document.getElementById('googleApiKeyField');
+        if (gk) gk.style.display = value === 'vertex' ? 'none' : '';
+      },
     });
-    const result = await response.json();
-    if (result.error) throw new Error(result.error);
-    providersData = result;
-    showFieldStatus(this, 'saved');
-    const vf = document.getElementById('vertexFields');
-    if (vf) vf.style.display = value === 'vertex' ? '' : 'none';
-    const vc = document.getElementById('vertexCredentials');
-    if (vc) vc.style.display = value === 'vertex' ? '' : 'none';
-    const gk = document.getElementById('googleApiKeyField');
-    if (gk) gk.style.display = value === 'vertex' ? 'none' : '';
-  } catch (err) {
-    console.error('Error saving google backend:', err);
-    showFieldStatus(this, 'error', err.message);
+  } catch (_) {
   }
 });
 
@@ -4768,52 +4804,55 @@ function populateSync(data) {
 
 document.getElementById('field-plaud-sync-enabled').addEventListener('change', async function() {
   const enabled = this.checked;
+  const errorHost = prepareFieldErrorHost(this);
   try {
-    const response = await fetch('api/sync', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ plaud: { enabled } })
+    await window.saveControl({
+      el: this,
+      errorHost,
+      fetchArgs: ['api/sync', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plaud: { enabled } }),
+      }],
+      onSuccess: () => showFieldStatus(this, 'saved'),
     });
-    const result = await response.json();
-    if (result.error) throw new Error(result.error);
-    showFieldStatus(this, 'saved');
-  } catch (err) {
-    console.error('Error saving sync setting:', err);
-    showFieldStatus(this, 'error', err.message);
+  } catch (_) {
   }
 });
 
 document.getElementById('field-granola-sync-enabled').addEventListener('change', async function() {
   const enabled = this.checked;
+  const errorHost = prepareFieldErrorHost(this);
   try {
-    const response = await fetch('api/sync', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ granola: { enabled } })
+    await window.saveControl({
+      el: this,
+      errorHost,
+      fetchArgs: ['api/sync', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ granola: { enabled } }),
+      }],
+      onSuccess: () => showFieldStatus(this, 'saved'),
     });
-    const result = await response.json();
-    if (result.error) throw new Error(result.error);
-    showFieldStatus(this, 'saved');
-  } catch (err) {
-    console.error('Error saving sync setting:', err);
-    showFieldStatus(this, 'error', err.message);
+  } catch (_) {
   }
 });
 
 document.getElementById('field-obsidian-sync-enabled').addEventListener('change', async function() {
   const enabled = this.checked;
+  const errorHost = prepareFieldErrorHost(this);
   try {
-    const response = await fetch('api/sync', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ obsidian: { enabled } })
+    await window.saveControl({
+      el: this,
+      errorHost,
+      fetchArgs: ['api/sync', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ obsidian: { enabled } }),
+      }],
+      onSuccess: () => showFieldStatus(this, 'saved'),
     });
-    const result = await response.json();
-    if (result.error) throw new Error(result.error);
-    showFieldStatus(this, 'saved');
-  } catch (err) {
-    console.error('Error saving sync setting:', err);
-    showFieldStatus(this, 'error', err.message);
+  } catch (_) {
   }
 });
 
@@ -5895,20 +5934,24 @@ function saveStreamOverrides() {
 }
 
 async function saveRetentionConfig(data) {
+  const el = document.getElementById('retentionModeField');
+  const errorHost = prepareFieldErrorHost(el);
   try {
-    const response = await fetch('api/storage', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+    await window.saveControl({
+      el,
+      errorHost,
+      readValue: () => null,
+      writeValue: () => {},
+      fetchArgs: ['api/storage', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      }],
+      onSuccess: () => {
+        if (el) showFieldStatus(el, 'saved');
+      },
     });
-    const result = await response.json();
-    if (result.error) throw new Error(result.error);
-    const el = document.getElementById('retentionModeField');
-    if (el) showFieldStatus(el, 'saved');
-  } catch (err) {
-    console.error('Save retention error:', err);
-    const el = document.getElementById('retentionModeField');
-    if (el) showFieldStatus(el, 'error', err.message);
+  } catch (_) {
   }
 }
 
