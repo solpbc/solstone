@@ -37,6 +37,16 @@
     .status-saved { color: #22c55e; }
     .status-error { color: #ef4444; }
     .status-fade { opacity: 0; transition: opacity 0.3s; }
+    .error-message {
+      margin-top: 0.75rem;
+      padding: 0.75rem 0.9rem;
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      background: #fef2f2;
+      color: #991b1b;
+      font-size: 0.85rem;
+      line-height: 1.4;
+    }
     .cta-button {
       display: inline-block; margin-top: 1rem; padding: 12px 24px; background: #E8923A;
       color: #fff; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer;
@@ -79,6 +89,8 @@
     }
     .retention-days-row input[type="number"]:focus { outline: none; border-color: #E8923A; }
   </style>
+  <script src="{{ url_for('root.static', filename='error-handler.js') }}"></script>
+  <script src="{{ url_for('root.static', filename='api.js') }}"></script>
 </head>
 <body>
   <main>
@@ -145,6 +157,7 @@
         <p class="section-hint" id="observer-label" style="display: none;">connected observers</p>
         <div id="observer-list"></div>
         <p class="observer-empty" id="observer-empty">no observer connected yet — <a href="https://solstone.app/observers" tabindex="-1">set up an observer</a> to start capturing</p>
+        <div id="observer-error" class="error-message" hidden></div>
       </div>
     </section>
 
@@ -173,6 +186,7 @@
       <p class="section-hint"><code>cd {{ repo_path }} &amp;&amp; claude "help me set up solstone"</code></p>
       <p class="section-hint"><code>cd {{ repo_path }} &amp;&amp; codex "help me set up solstone"</code></p>
       <button type="button" class="cta-button" onclick="finalize()">i understand, let's do this!</button>
+      <div id="finalize-error" class="error-message" hidden></div>
     </section>
 
     <p class="footer-note">your data stays on your machine</p>
