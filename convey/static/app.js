@@ -1660,6 +1660,17 @@ window.AppServices = {
     }
   },
 
+  markBackgroundFailing(appName, _error) {
+    const name = String(appName || '');
+    if (!name) {
+      return;
+    }
+    const menuItem = document.querySelector(`.menu-item[data-app-name="${name}"]`);
+    if (menuItem) {
+      menuItem.classList.add('menu-item-bg-failing');
+    }
+  },
+
   registerTask(appName, taskName, {
     run,
     intervalMs,
