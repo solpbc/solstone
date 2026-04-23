@@ -1579,12 +1579,23 @@
     } catch(e) {}
   };
 
+  function clearPulseRefreshError(containerId) {
+    const container = document.getElementById(containerId);
+    const siblingError = container?.nextElementSibling;
+    if (siblingError && siblingError.classList.contains('surface-state-refresh-error')) {
+      siblingError.remove();
+    }
+  }
+
   function refreshVitals() {
-    fetch('/app/home/api/pulse')
-      .then(r => r.json())
+    window.apiJson('/app/home/api/pulse')
       .then(data => {
         const el = document.getElementById('pulse-vitals');
         if (!el) return;
+        if (typeof data.capture_status !== 'string') {
+          throw malformedHomeResponse('/app/home/api/pulse', 'Malformed pulse response');
+        }
+        clearPulseRefreshError('pulse-vitals');
         let dotClass = data.capture_status === 'active' ? 'active' : (data.capture_status === 'stale' ? 'stale' : (data.capture_status === 'offline' ? 'offline' : 'unknown'));
         let displayStatus = data.capture_status === 'no_observers' ? 'no observers' : data.capture_status;
         let html = '<div class="pulse-vitals-item"><span class="pulse-vitals-dot ' + dotClass + '" aria-hidden="true"></span><span>capture ' + esc(displayStatus) + '</span></div>';
@@ -1605,13 +1616,23 @@
         html += '<a href="/app/health">health →</a>';
         el.innerHTML = html;
       })
-      .catch(function(err) { window.logError(err, { context: 'home: refreshVitals failed' }); });
+      .catch(function(err) {
+        window.logError(err, { context: 'home: refreshVitals failed' });
+        window.SurfaceState.replaceLoading('pulse-vitals', window.SurfaceState.errorCard({
+          heading: "Couldn't refresh vitals — showing last known state.",
+          desc: 'Reload to try again.',
+          serverMessage: err.serverMessage,
+        }));
+      });
   }
 
   function refreshNarrative() {
-    fetch('/app/home/api/pulse')
-      .then(r => r.json())
+    window.apiJson('/app/home/api/pulse')
       .then(data => {
+        if (!data || typeof data !== 'object' || !Object.prototype.hasOwnProperty.call(data, 'narrative_content')) {
+          throw malformedHomeResponse('/app/home/api/pulse', 'Malformed pulse response');
+        }
+        clearPulseRefreshError('pulse-narrative');
         const el = document.getElementById('pulse-narrative-content');
         if (el && data.narrative_content) {
           el.innerHTML = window.AppServices.renderMarkdown(data.narrative_content);
@@ -1627,7 +1648,14 @@
           }
         }
       })
-      .catch(function(err) { window.logError(err, { context: 'home: refreshNarrative failed' }); });
+      .catch(function(err) {
+        window.logError(err, { context: 'home: refreshNarrative failed' });
+        window.SurfaceState.replaceLoading('pulse-narrative', window.SurfaceState.errorCard({
+          heading: "Couldn't refresh narrative — showing last known state.",
+          desc: 'Reload to try again.',
+          serverMessage: err.serverMessage,
+        }));
+      });
   }
 
   function esc(s) {
