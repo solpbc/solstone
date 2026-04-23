@@ -641,7 +641,8 @@ def api_updated_days() -> Any:
     try:
         return jsonify(updated_days(exclude={today}))
     except Exception:
-        return jsonify([])
+        logging.exception("api_updated_days failed")
+        return jsonify({"error": "Unable to load updated days"}), 500
 
 
 @sol_bp.route("/api/identity")

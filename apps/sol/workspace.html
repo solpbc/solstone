@@ -928,6 +928,18 @@
   color: #5d4037;
 }
 
+.updated-banner-stale {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #ffe082;
+  font-size: 0.9em;
+  color: #5d4037;
+}
+
+.updated-banner-unknown {
+  color: #5d4037;
+}
+
 .updated-banner-title {
   font-weight: 600;
   margin-bottom: 0.25rem;
@@ -1362,16 +1374,26 @@
 
   function loadUpdatedBanner() {
     const banner = document.getElementById('updated-banner');
+    if (!banner) return;
+
+    const clearIndicators = () => {
+      banner.querySelectorAll('.updated-banner-stale, .updated-banner-unknown').forEach(el => el.remove());
+    };
+    const hasPendingContent = () => banner.style.display !== 'none' && !!banner.querySelector('.updated-banner-title');
+
+    clearIndicators();
+
     const now = new Date();
     const today = String(now.getFullYear()) + String(now.getMonth() + 1).padStart(2, '0') + String(now.getDate()).padStart(2, '0');
     if (currentDay !== today || window.selectedFacet) {
       banner.style.display = 'none';
       return;
     }
-    fetch('api/updated-days')
-      .then(r => r.json())
+    window.apiJson('/app/sol/api/updated-days')
       .then(days => {
-        if (!days.length) {
+        clearIndicators();
+        if (!Array.isArray(days) || !days.length) {
+          banner.innerHTML = '';
           banner.style.display = 'none';
           return;
         }
@@ -1382,7 +1404,26 @@
         banner.innerHTML = `<div class="updated-banner-title">Days with pending reprocessing</div>${links}`;
         banner.style.display = 'block';
       })
-      .catch(() => { banner.style.display = 'none'; });
+      .catch(err => {
+        window.logError(err, { context: 'sol-updated-days' });
+        if (hasPendingContent()) {
+          if (!banner.querySelector('.updated-banner-stale')) {
+            const stale = document.createElement('div');
+            stale.className = 'updated-banner-stale';
+            stale.textContent = 'Status check failed — reload to refresh.';
+            banner.appendChild(stale);
+          }
+          return;
+        }
+
+        clearIndicators();
+        banner.innerHTML = '';
+        const unknown = document.createElement('div');
+        unknown.className = 'updated-banner-unknown';
+        unknown.textContent = 'Status check failed; unknown if pending.';
+        banner.appendChild(unknown);
+        banner.style.display = 'block';
+      });
   }
 
   async function loadTalents() {

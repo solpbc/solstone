@@ -322,3 +322,19 @@ class TestApiOutputFile:
         """Non-existent file returns 404."""
         resp = agents_client.get("/app/sol/api/output/20260214/talents/nonexistent.md")
         assert resp.status_code == 404
+
+
+class TestApiUpdatedDays:
+    """Tests for api_updated_days endpoint."""
+
+    def test_logs_and_returns_500_on_failure(self, agents_client, monkeypatch):
+        """updated_days failures return a detectable error envelope."""
+
+        def boom(**_kwargs):
+            raise RuntimeError("simulated")
+
+        monkeypatch.setattr("apps.sol.routes.updated_days", boom)
+        resp = agents_client.get("/app/sol/api/updated-days")
+        assert resp.status_code == 500
+        payload = resp.get_json()
+        assert "error" in payload
