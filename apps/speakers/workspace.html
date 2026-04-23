@@ -1257,23 +1257,22 @@
   });
 
   function checkOwnerStatus() {
-    fetch('/app/speakers/api/owner/status')
-      .then(r => r.json())
+    window.apiJson('/app/speakers/api/owner/status')
       .then(data => {
         if (data.status === 'needs_detection') {
           hideDiscovery();
           renderOwnerBanner('Analyzing voice patterns...');
           if (!ownerDetectionInFlight) {
             ownerDetectionInFlight = true;
-            fetch('/app/speakers/api/owner/detect', { method: 'POST' })
-              .then(r => r.json())
+            window.apiJson('/app/speakers/api/owner/detect', { method: 'POST' })
               .then(() => {
                 ownerDetectionInFlight = false;
                 checkOwnerStatus();
               })
-              .catch(() => {
+              .catch((err) => {
                 ownerDetectionInFlight = false;
-                hideOwnerBanner();
+                renderOwnerBanner(`Couldn't analyze voice patterns — ${resolveSpeakerError(err)}`);
+                window.logError(err, { context: 'speakers: owner detect failed' });
               });
           }
           return;
@@ -1294,9 +1293,11 @@
         hideOwnerBanner();
         checkDiscovery();
       })
-      .catch(() => {
+      .catch((err) => {
+        ownerDetectionInFlight = false;
         hideDiscovery();
-        hideOwnerBanner();
+        renderOwnerBanner(`Couldn't load owner status — ${resolveSpeakerError(err)}`);
+        window.logError(err, { context: 'speakers: checkOwnerStatus failed' });
       });
   }
 
@@ -1354,13 +1355,14 @@
 
   function submitOwnerChoice(path) {
     ownerBanner.querySelectorAll('button').forEach(btn => { btn.disabled = true; });
-    fetch(path, { method: 'POST' })
-      .then(r => r.json())
+    window.apiJson(path, { method: 'POST' })
       .then(() => {
         checkOwnerStatus();
       })
-      .catch(() => {
+      .catch((err) => {
         ownerBanner.querySelectorAll('button').forEach(btn => { btn.disabled = false; });
+        renderOwnerBanner(resolveSpeakerError(err));
+        window.logError(err, { context: 'speakers: submitOwnerChoice failed' });
       });
   }
 
