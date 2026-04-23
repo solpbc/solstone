@@ -40,7 +40,7 @@
 <body{% if body_classes %} class="{{ body_classes|join(' ') }}"{% endif %}>
 <script>
 // Restore sidebar state before first paint to prevent FOUC
-(function(){try{var s=localStorage.getItem('solstone:menu-state');if(s==='full'&&window.innerWidth<=768)document.body.classList.add('menu-full');else if(s==='all')document.body.classList.add('menu-all');}catch(e){}})();
+(function(){try{var s=localStorage.getItem('solstone:menu-state');if(s==='full'&&window.innerWidth<=768)document.body.classList.add('menu-full');else if(s==='all')document.body.classList.add('menu-all');}catch(e){/* Default collapsed menu state is safe when storage is unavailable. */}})();
 </script>
 <a href="#main-content" class="skip-link">skip to content</a>
 <!-- Corner Tags (screen region detection) -->
@@ -439,7 +439,9 @@
       var body = {};
       try {
         body = await response.json();
-      } catch (_err) {}
+      } catch (_err) {
+        // Fall back to generic talent-run copy when the error body is not JSON.
+      }
       throw new Error(body.error || 'Unable to load talent run');
     }
     return response.json();
@@ -616,7 +618,9 @@
   function initChatChrome() {
     try {
       LEGACY_KEYS.forEach(function(key) { localStorage.removeItem(key); });
-    } catch (_err) {}
+    } catch (_err) {
+      // Legacy cleanup is best-effort; failing closed leaves current keys untouched.
+    }
 
     if (modal) {
       modal.addEventListener('click', function(event) {
