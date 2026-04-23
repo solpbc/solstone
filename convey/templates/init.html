@@ -131,10 +131,8 @@
       <p class="trust-note">your key is stored locally in your journal config</p>
       <div class="field-group">
         <label for="gemini-key">Gemini API key</label>
-        <div class="input-wrap">
-          <input type="password" id="gemini-key" disabled>
-          <button type="button" class="toggle-btn" id="toggle-gemini" onclick="toggleGeminiKey()">show</button>
-        </div>
+        <input type="text" id="gemini-key" autocomplete="off"
+               data-1p-ignore data-lpignore="true" data-bwignore="true" disabled>
         <small class="field-status" aria-live="polite">&nbsp;</small>
       </div>
       <p class="section-hint" style="margin-top: 1rem;">get a private key from sol pbc by <a href="https://scouts.solstone.app" target="_blank" rel="noopener noreferrer">becoming a scout</a> and providing feedback on your experience</p>
@@ -185,13 +183,6 @@
     function togglePassword() {
       const input = document.getElementById('password');
       const btn = document.getElementById('toggle-password');
-      if (input.type === 'password') { input.type = 'text'; btn.textContent = 'hide'; }
-      else { input.type = 'password'; btn.textContent = 'show'; }
-    }
-
-    function toggleGeminiKey() {
-      const input = document.getElementById('gemini-key');
-      const btn = document.getElementById('toggle-gemini');
       if (input.type === 'password') { input.type = 'text'; btn.textContent = 'hide'; }
       else { input.type = 'password'; btn.textContent = 'show'; }
     }
