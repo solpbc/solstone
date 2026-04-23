@@ -1195,13 +1195,8 @@
   }
 
   function loadIdentity() {
-    fetch('/app/sol/api/identity')
-      .then(r => r.json())
+    window.apiJson('/app/sol/api/identity')
       .then(data => {
-        if (data.error) {
-          document.getElementById('sol-identity').style.display = 'none';
-          return;
-        }
         const agent = data.agent || {};
         const identity = data.identity || {};
         const thickness = data.thickness || {};
@@ -1226,8 +1221,13 @@
           + (thickness.ready ? 'Ready' : 'Growing')
           + '</div>';
       })
-      .catch(() => {
-        document.getElementById('sol-identity').style.display = 'none';
+      .catch((err) => {
+        window.logError(err, { context: 'sol: loadIdentity failed' });
+        document.getElementById('sol-identity').innerHTML = window.SurfaceState.errorCard({
+          heading: "Couldn't load identity",
+          desc: 'Reload to try again.',
+          serverMessage: err.serverMessage,
+        });
       });
   }
 
