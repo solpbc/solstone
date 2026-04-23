@@ -2412,10 +2412,11 @@ function startDescriptionEdit(entity) {
   };
 
   generateBtn.onclick = () => {
+    hideInlineError('description-save-error');
     textarea.disabled = true;
     generateBtn.classList.add('generating');
 
-    fetch(`api/${encodeURIComponent(currentFacet)}/generate-description`, {
+    window.apiJson(`api/${encodeURIComponent(currentFacet)}/generate-description`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -2424,25 +2425,31 @@ function startDescriptionEdit(entity) {
         current_description: textarea.value
       })
     })
-    .then(response => response.json())
     .then(data => {
-      if (data.success && data.use_id) {
-        listenForAgentCompletion(data.use_id, (result) => {
-          if (result.success && result.response) {
-            saveDescription(entity, result.response);
-          } else {
-            textarea.disabled = false;
-            generateBtn.classList.remove('generating');
-          }
+      if (!data?.use_id) {
+        throw new window.ApiError({
+          cause: 'parse',
+          status: 200,
+          serverMessage: 'Malformed server response',
+          url: `api/${encodeURIComponent(currentFacet)}/generate-description`
         });
-      } else {
-        throw new Error(data.error || 'Failed to start generation');
       }
+
+      listenForAgentCompletion(data.use_id, (result) => {
+        if (result.success && result.response) {
+          saveDescription(entity, result.response);
+        } else {
+          textarea.disabled = false;
+          generateBtn.classList.remove('generating');
+          showInlineError('description-save-error', result.error || "Couldn't start description generation");
+        }
+      });
     })
-    .catch(error => {
-      console.error('Error generating description:', error);
+    .catch(err => {
       textarea.disabled = false;
       generateBtn.classList.remove('generating');
+      showInlineError('description-save-error', err?.serverMessage || "Couldn't start description generation");
+      window.logError(err, { context: 'entities: generateDescription kickoff failed' });
     });
   };
 }
@@ -3398,8 +3405,7 @@ function failPendingEntity(agentId, error) {
 
 // Delete detected entity
 function previewEntityDelete(entityName) {
-  fetch(`api/${encodeURIComponent(currentFacet)}/detected/preview?name=${encodeURIComponent(entityName)}`)
-    .then(response => response.json())
+  window.apiJson(`api/${encodeURIComponent(currentFacet)}/detected/preview?name=${encodeURIComponent(entityName)}`)
     .then(data => {
       if (data.success && data.days) {
         hideInlineError('detected-action-error');
@@ -3421,27 +3427,14 @@ function previewEntityDelete(entityName) {
         modal.style.display = 'flex';
       }
     })
-    .catch(error => {
-      console.error('Error previewing delete:', error);
-      showInlineError('detected-action-error', "couldn't load delete preview");
+    .catch(err => {
+      showInlineError('detected-action-error', err?.serverMessage || "Couldn't load delete preview");
+      window.logError(err, { context: 'entities: previewEntityDelete failed' });
     });
 }
 
 function closeDeleteModal() {
   document.getElementById('deleteModal').style.display = 'none';
-}
-
-function deleteEntity(entityName, skipReload = false) {
-  return fetch(`api/${encodeURIComponent(currentFacet)}/detected`, {
-    method: 'DELETE',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: entityName })
-  })
-  .then(response => response.json())
-  .then(data => {
-    if (!data.success) throw new Error(data.error);
-    if (!skipReload) loadEntities();
-  });
 }
 
 function removeEntityFromUI(entityName) {
@@ -3451,15 +3444,28 @@ function removeEntityFromUI(entityName) {
   renderDetectedTable(document.getElementById('entity-search').value.trim());
 }
 
-function confirmEntityDelete() {
+async function confirmEntityDelete() {
   const entityName = document.getElementById('confirmDeleteBtn').dataset.entityName;
   if (!entityName) return;
 
-  closeDeleteModal();
-  removeEntityFromUI(entityName);
-  deleteEntity(entityName, true).catch(error => {
-    console.error('Error deleting:', error);
-    loadEntities();
-  });
+  const confirmBtn = document.getElementById('confirmDeleteBtn');
+  confirmBtn.disabled = true;
+
+  try {
+    await window.apiJson(`api/${encodeURIComponent(currentFacet)}/detected`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: entityName })
+    });
+    hideInlineError('detected-action-error');
+    closeDeleteModal();
+    removeEntityFromUI(entityName);
+  } catch (err) {
+    closeDeleteModal();
+    showInlineError('detected-action-error', err?.serverMessage || "Couldn't delete entity");
+    window.logError(err, { context: 'entities: confirmEntityDelete failed' });
+  } finally {
+    confirmBtn.disabled = false;
+  }
 }
 </script>
