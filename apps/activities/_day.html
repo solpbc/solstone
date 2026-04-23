@@ -495,7 +495,10 @@ button.activity-detail-back {
 
   <div id="dayView">
     <div id="timelineView">
-      <div class="timeline-empty">Loading...</div>
+      <div class="surface-state surface-state--loading" role="status" aria-busy="true">
+        <div class="surface-state-spinner" aria-hidden="true"></div>
+        <span class="surface-state-text" data-role="loading-status">Loading activities...</span>
+      </div>
     </div>
     <div id="activitiesView"></div>
   </div>
@@ -893,9 +896,20 @@ button.activity-detail-back {
     renderActivities(activities);
   }
 
-  function loadData() {
-    fetch(`/app/activities/api/day/${day}/activities`).then(r => r.json()).then(acts => {
-      allActivities = acts || [];
+  async function loadData() {
+    try {
+      const acts = await window.apiJson(`/app/activities/api/day/${day}/activities`);
+      if (!Array.isArray(acts)) {
+        throw new window.ApiError({
+          status: 200,
+          statusText: 'OK',
+          serverMessage: 'Malformed activities response',
+          url: `/app/activities/api/day/${day}/activities`,
+          cause: 'parse',
+        });
+      }
+
+      allActivities = acts;
       applyFilters();
 
       // Check for initial hash
@@ -936,9 +950,15 @@ button.activity-detail-back {
           }
         }
       };
-    }).catch(() => {
-      document.getElementById('timelineView').innerHTML = '<div class="timeline-empty">Failed to load data.</div>';
-    });
+    } catch (err) {
+      window.SurfaceState.replaceLoading('timelineView', window.SurfaceState.errorCard({
+        heading: 'Couldn\'t load activities',
+        desc: 'Reload the page to try again.',
+        serverMessage: err?.serverMessage || err?.message || '',
+      }));
+      document.getElementById('activitiesView').innerHTML = '';
+      document.getElementById('daySummary').textContent = '';
+    }
   }
 
   // ── Hash routing ──
