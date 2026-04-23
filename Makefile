@@ -425,7 +425,7 @@ install-service: .installed
 			;; \
 	esac; \
 	$(PYTHON) -m think.install_guard install; \
-	npx skills add ./skills/solstone -g -a claude-code -y; \
+	CI=true npx --yes skills add ./skills/solstone -g -a claude-code -y; \
 	$(VENV_BIN)/sol service install --port $(or $(PORT),5015); \
 	$(VENV_BIN)/sol service restart; \
 	echo "Waiting for service readiness..."; \
@@ -470,7 +470,7 @@ uninstall-service:
 	fi; \
 	$(VENV_BIN)/sol service stop > /dev/null 2>&1 || true; \
 	$(VENV_BIN)/sol service uninstall; \
-	npx skills remove -g -a claude-code -y solstone; \
+	CI=true npx --yes skills remove -g -a claude-code -y solstone; \
 	$(PYTHON) -m think.install_guard uninstall
 
 uninstall:
