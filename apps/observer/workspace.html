@@ -642,25 +642,23 @@ function updateCountdownDisplay() {
 let currentFullKey = null;
 let revealTimer = null;
 
-function statusMeta(observer) {
-  if (observer.revoked) {
-    return {
-      statusClass: 'revoked',
-      statusText: 'Revoked',
-      cardClass: 'revoked'
-    };
-  }
-
-  const state = freshness(observer.last_seen);
+function statusMeta(state) {
+  const currentState = state || 'disconnected';
   return {
-    statusClass: state,
-    statusText: state === 'connected' ? 'Connected' : state === 'stale' ? 'Stale' : 'Disconnected',
-    cardClass: state
+    statusClass: currentState,
+    statusText:
+      currentState === 'connected'
+        ? 'Connected'
+        : currentState === 'stale'
+          ? 'Stale'
+          : currentState === 'revoked'
+            ? 'Revoked'
+            : 'Disconnected',
+    cardClass: currentState
   };
 }
 
-function groupFor(state, revoked) {
-  if (revoked) return 'inactive';
+function groupFor(state) {
   if (state === 'connected') return 'active';
   if (state === 'stale') return 'stale';
   return 'inactive';
@@ -671,13 +669,15 @@ function groupHeaderHTML(group) {
 }
 
 function observerCardHTML(observer) {
-  const { statusClass, statusText, cardClass } = statusMeta(observer);
+  const { statusClass, statusText, cardClass } = statusMeta(observer.state);
+  const label = observer.label || statusText;
+  const safeLabel = escapeHtml(label);
 
   return `
-    <div class="observer-card ${cardClass}" data-key="${observer.key_prefix}" role="listitem" aria-label="${escapeHtml(observer.name)}, ${statusText}">
+    <div class="observer-card ${cardClass}" data-key="${observer.key_prefix}" role="listitem" aria-label="${escapeHtml(observer.name)}, ${safeLabel}">
       <div class="observer-header">
         <span class="observer-name">${escapeHtml(observer.name)}</span>
-        <span class="observer-status ${statusClass}">${statusText}</span>
+        <span class="observer-status ${statusClass}">${safeLabel}</span>
       </div>
       <div class="observer-stats">${statsHTML(observer, statusClass)}</div>
       <div class="observer-actions">
@@ -700,8 +700,8 @@ function renderObservers(observers) {
   };
 
   for (const observer of observers) {
-    const { statusClass } = statusMeta(observer);
-    groups[groupFor(statusClass, observer.revoked)].push(observer);
+    const group = observer.group || groupFor(observer.state);
+    (groups[group] || groups.inactive).push(observer);
   }
 
   let html = '';
@@ -733,14 +733,6 @@ function formatTimeAgo(timestamp, state) {
   if (state === 'stale') return `${text} — stale`;
   if (state === 'disconnected') return `${text} — offline`;
   return text;
-}
-
-function freshness(lastSeen) {
-  if (!lastSeen) return 'disconnected';
-  const elapsed = Date.now() - lastSeen;
-  if (elapsed < thresholds.active_ms) return 'connected';
-  if (elapsed < thresholds.stale_ms) return 'stale';
-  return 'disconnected';
 }
 
 async function loadObservers() {
@@ -809,34 +801,7 @@ function refreshTimestamps() {
   for (const span of spans) {
     const lastSeen = parseInt(span.getAttribute('data-last-seen'), 10);
     if (!lastSeen) continue;
-
-    // Recompute freshness — it may have changed since last data fetch
-    const newState = freshness(lastSeen);
-    const oldState = span.getAttribute('data-state');
-
-    // Update timestamp text
-    span.textContent = formatTimeAgo(lastSeen, newState);
-    span.setAttribute('data-state', newState);
-
-    // If freshness changed, update the card's visual state too. Group placement
-    // intentionally lags until the next 30s poll rebuild.
-    if (newState !== oldState) {
-      const card = span.closest('[data-key]');
-      if (card && !card.classList.contains('revoked')) {
-        card.className = `observer-card ${newState}`;
-        const statusEl = card.querySelector('.observer-status');
-        if (statusEl) {
-          statusEl.className = `observer-status ${newState}`;
-          statusEl.textContent = newState === 'connected' ? 'Connected' : newState === 'stale' ? 'Stale' : 'Disconnected';
-        }
-        // Update aria-label
-        const nameEl = card.querySelector('.observer-name');
-        if (nameEl) {
-          const statusText = newState === 'connected' ? 'Connected' : newState === 'stale' ? 'Stale' : 'Disconnected';
-          card.setAttribute('aria-label', `${nameEl.textContent}, ${statusText}`);
-        }
-      }
-    }
+    span.textContent = formatTimeAgo(lastSeen, span.getAttribute('data-state'));
   }
 }
 

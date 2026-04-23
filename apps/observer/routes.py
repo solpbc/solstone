@@ -60,6 +60,14 @@ observer_bp = Blueprint(
 KEY_BYTES = 32
 ACTIVE_THRESHOLD_MS = 30_000
 STALE_THRESHOLD_MS = 120_000
+FUTURE_CLOCK_DRIFT_TOLERANCE_MS = 5 * 60 * 1000
+
+OBSERVER_STATE_LABELS = {
+    "connected": "Connected",
+    "stale": "Stale",
+    "disconnected": "Disconnected",
+    "revoked": "Revoked",
+}
 
 
 def _get_key(url_key: str | None = None) -> str | None:
@@ -77,16 +85,64 @@ def _generate_key() -> str:
     return base64.urlsafe_b64encode(secrets.token_bytes(KEY_BYTES)).decode().rstrip("=")
 
 
-def _group_for(last_seen_ms: int | None, revoked: bool, now_ms: int) -> str:
-    """Derive observer display group from freshness state."""
-    if revoked or last_seen_ms is None:
-        return "inactive"
+def _classify_observer_freshness(
+    last_seen_ms: int | None,
+    revoked: bool,
+    now_ms: int,
+) -> dict[str, object]:
+    """Classify a registered observer's freshness.
+
+    Returns keys: state, group, elapsed_ms, clock_skew.
+    """
+    if revoked:
+        return {
+            "state": "revoked",
+            "group": "inactive",
+            "elapsed_ms": None,
+            "clock_skew": False,
+        }
+    if last_seen_ms is None:
+        return {
+            "state": "disconnected",
+            "group": "inactive",
+            "elapsed_ms": None,
+            "clock_skew": False,
+        }
     elapsed = now_ms - last_seen_ms
+    if elapsed < -FUTURE_CLOCK_DRIFT_TOLERANCE_MS:
+        return {
+            "state": "disconnected",
+            "group": "inactive",
+            "elapsed_ms": elapsed,
+            "clock_skew": True,
+        }
+    if elapsed < 0:
+        return {
+            "state": "connected",
+            "group": "active",
+            "elapsed_ms": 0,
+            "clock_skew": False,
+        }
     if elapsed < ACTIVE_THRESHOLD_MS:
-        return "active"
+        return {
+            "state": "connected",
+            "group": "active",
+            "elapsed_ms": elapsed,
+            "clock_skew": False,
+        }
     if elapsed < STALE_THRESHOLD_MS:
-        return "stale"
-    return "inactive"
+        return {
+            "state": "stale",
+            "group": "stale",
+            "elapsed_ms": elapsed,
+            "clock_skew": False,
+        }
+    return {
+        "state": "disconnected",
+        "group": "inactive",
+        "elapsed_ms": elapsed,
+        "clock_skew": False,
+    }
 
 
 def _revoke_observer(key: str) -> bool:
@@ -105,12 +161,17 @@ def _revoke_observer(key: str) -> bool:
 @observer_bp.route("/api/list")
 def api_list() -> Any:
     """List all registered observers."""
-    now = now_ms()
+    current_now = now_ms()
     observers = list_observers()
     # Sanitize output - don't expose full keys
     result = []
     for r in observers:
         key_prefix = r.get("key", "")[:8]
+        freshness = _classify_observer_freshness(
+            r.get("last_seen"),
+            r.get("revoked", False),
+            current_now,
+        )
         result.append(
             {
                 "key_prefix": key_prefix,
@@ -122,19 +183,15 @@ def api_list() -> Any:
                 "revoked": r.get("revoked", False),
                 "revoked_at": r.get("revoked_at"),
                 "stats": r.get("stats", {}),
+                **freshness,
+                "label": OBSERVER_STATE_LABELS[str(freshness["state"])],
             }
         )
 
     group_order = {"active": 0, "stale": 1, "inactive": 2}
     result.sort(
         key=lambda observer: (
-            group_order[
-                _group_for(
-                    observer.get("last_seen"),
-                    observer.get("revoked", False),
-                    now,
-                )
-            ],
+            group_order[observer.get("group", "inactive")],
             1 if observer.get("last_seen") is None else 0,
             -(observer.get("last_seen") or 0),
             observer.get("key_prefix", ""),

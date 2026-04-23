@@ -9,6 +9,13 @@ import io
 import json
 
 import apps.observer.routes as routes_module
+from apps.observer.routes import (
+    ACTIVE_THRESHOLD_MS,
+    FUTURE_CLOCK_DRIFT_TOLERANCE_MS,
+    OBSERVER_STATE_LABELS,
+    STALE_THRESHOLD_MS,
+    _classify_observer_freshness,
+)
 from apps.observer.utils import save_observer
 
 
@@ -50,26 +57,103 @@ def _save_test_observer(
     return key
 
 
-def _client_state(observer: dict, thresholds: dict[str, int], current_now: int) -> str:
-    if observer.get("revoked"):
-        return "revoked"
-    last_seen = observer.get("last_seen")
-    if last_seen is None:
-        return "disconnected"
-    elapsed = current_now - last_seen
-    if elapsed < thresholds["active_ms"]:
-        return "connected"
-    if elapsed < thresholds["stale_ms"]:
-        return "stale"
-    return "disconnected"
+def test_classifier_last_seen_none_returns_disconnected():
+    """Missing last_seen is classified as disconnected."""
+    assert _classify_observer_freshness(None, False, 1_000_000) == {
+        "state": "disconnected",
+        "group": "inactive",
+        "elapsed_ms": None,
+        "clock_skew": False,
+    }
 
 
-def _group_from_client_state(state: str) -> str:
-    if state == "connected":
-        return "active"
-    if state == "stale":
-        return "stale"
-    return "inactive"
+def test_classifier_future_within_tolerance_returns_connected_no_skew():
+    """Small future drift stays connected without clock skew."""
+    current_now = 1_000_000
+    assert 60_000 < FUTURE_CLOCK_DRIFT_TOLERANCE_MS
+
+    assert _classify_observer_freshness(current_now + 60_000, False, current_now) == {
+        "state": "connected",
+        "group": "active",
+        "elapsed_ms": 0,
+        "clock_skew": False,
+    }
+
+
+def test_classifier_future_beyond_tolerance_returns_disconnected_with_skew():
+    """Large future drift is disconnected and flagged for clock skew."""
+    current_now = 1_000_000
+    last_seen = current_now + (10 * 60_000)
+    assert (10 * 60_000) > FUTURE_CLOCK_DRIFT_TOLERANCE_MS
+
+    result = _classify_observer_freshness(last_seen, False, current_now)
+
+    assert result["state"] == "disconnected"
+    assert result["group"] == "inactive"
+    assert result["clock_skew"] is True
+    assert result["elapsed_ms"] == -600_000
+
+
+def test_classifier_just_under_active_returns_connected():
+    """Elapsed time just under the active threshold stays connected."""
+    current_now = 1_000_000
+
+    assert _classify_observer_freshness(
+        current_now - (ACTIVE_THRESHOLD_MS - 1),
+        False,
+        current_now,
+    ) == {
+        "state": "connected",
+        "group": "active",
+        "elapsed_ms": ACTIVE_THRESHOLD_MS - 1,
+        "clock_skew": False,
+    }
+
+
+def test_classifier_just_over_active_returns_stale():
+    """Elapsed time at the active threshold enters the stale bucket."""
+    current_now = 1_000_000
+
+    assert _classify_observer_freshness(
+        current_now - ACTIVE_THRESHOLD_MS,
+        False,
+        current_now,
+    ) == {
+        "state": "stale",
+        "group": "stale",
+        "elapsed_ms": ACTIVE_THRESHOLD_MS,
+        "clock_skew": False,
+    }
+
+
+def test_classifier_beyond_stale_returns_disconnected():
+    """Elapsed time at the stale threshold becomes disconnected."""
+    current_now = 1_000_000
+
+    assert _classify_observer_freshness(
+        current_now - STALE_THRESHOLD_MS,
+        False,
+        current_now,
+    ) == {
+        "state": "disconnected",
+        "group": "inactive",
+        "elapsed_ms": STALE_THRESHOLD_MS,
+        "clock_skew": False,
+    }
+
+
+def test_classifier_revoked_returns_revoked_regardless_of_last_seen():
+    """Revoked observers stay revoked for both missing and recent last_seen."""
+    current_now = 1_000_000
+    expected = {
+        "state": "revoked",
+        "group": "inactive",
+        "elapsed_ms": None,
+        "clock_skew": False,
+    }
+
+    assert _classify_observer_freshness(None, True, current_now) == expected
+    assert _classify_observer_freshness(current_now, True, current_now) == expected
 
 
 def test_api_list_empty(observer_env):
@@ -150,6 +234,11 @@ def test_api_list_shows_created_observer(observer_env):
     assert observers[0]["name"] == "my-observer"
     assert observers[0]["enabled"] is True
     assert observers[0]["stats"]["segments_received"] == 0
+    assert observers[0]["state"] == "disconnected"
+    assert observers[0]["group"] == "inactive"
+    assert observers[0]["label"] == OBSERVER_STATE_LABELS["disconnected"]
+    assert observers[0]["elapsed_ms"] is None
+    assert observers[0]["clock_skew"] is False
 
 
 def test_api_delete_observer(observer_env):
@@ -175,6 +264,11 @@ def test_api_delete_observer(observer_env):
     assert observers[0]["key_prefix"] == key_prefix
     assert observers[0]["revoked"] is True
     assert observers[0]["revoked_at"] is not None
+    assert observers[0]["state"] == "revoked"
+    assert observers[0]["group"] == "inactive"
+    assert observers[0]["label"] == OBSERVER_STATE_LABELS["revoked"]
+    assert observers[0]["elapsed_ms"] is None
+    assert observers[0]["clock_skew"] is False
 
 
 def test_api_list_sorts_by_group_and_last_seen(observer_env, monkeypatch):
@@ -215,6 +309,33 @@ def test_api_list_sorts_by_group_and_last_seen(observer_env, monkeypatch):
         "inactive-disconnected",
         "inactive-never",
     ]
+    assert [
+        (
+            observer["state"],
+            observer["group"],
+            observer["label"],
+            observer["elapsed_ms"],
+            observer["clock_skew"],
+        )
+        for observer in observers
+    ] == [
+        ("connected", "active", OBSERVER_STATE_LABELS["connected"], 5_000, False),
+        ("stale", "stale", OBSERVER_STATE_LABELS["stale"], 60_000, False),
+        (
+            "disconnected",
+            "inactive",
+            OBSERVER_STATE_LABELS["disconnected"],
+            600_000,
+            False,
+        ),
+        (
+            "disconnected",
+            "inactive",
+            OBSERVER_STATE_LABELS["disconnected"],
+            None,
+            False,
+        ),
+    ]
 
 
 def test_api_list_tie_breaks_by_key_prefix(observer_env, monkeypatch):
@@ -241,6 +362,12 @@ def test_api_list_tie_breaks_by_key_prefix(observer_env, monkeypatch):
         "aaaa0000",
         "bbbb0000",
     ]
+    assert all(observer["state"] == "connected" for observer in observers)
+    assert all(observer["group"] == "active" for observer in observers)
+    assert all(
+        observer["label"] == OBSERVER_STATE_LABELS["connected"]
+        for observer in observers
+    )
 
 
 def test_api_list_revoked_observer_buckets_inactive(observer_env, monkeypatch):
@@ -268,61 +395,39 @@ def test_api_list_revoked_observer_buckets_inactive(observer_env, monkeypatch):
         "stale-observer",
         "revoked-observer",
     ]
+    assert observers[0]["state"] == "stale"
+    assert observers[0]["group"] == "stale"
+    assert observers[0]["label"] == OBSERVER_STATE_LABELS["stale"]
+    assert observers[0]["elapsed_ms"] == 60_000
+    assert observers[0]["clock_skew"] is False
+    assert observers[1]["state"] == "revoked"
+    assert observers[1]["group"] == "inactive"
+    assert observers[1]["label"] == OBSERVER_STATE_LABELS["revoked"]
+    assert observers[1]["elapsed_ms"] is None
+    assert observers[1]["clock_skew"] is False
 
 
-def test_api_list_client_server_mapping_agree(observer_env, monkeypatch):
-    """Client freshness and server ordering stay aligned via shared thresholds."""
+def test_api_list_includes_state_and_group_per_observer(observer_env, monkeypatch):
+    """api_list includes freshness state, grouping, label, and skew metadata."""
     env = observer_env()
     fixed_now = 5_000_000
     monkeypatch.setattr(routes_module, "now_ms", lambda: fixed_now)
 
-    _save_test_observer("eeee0000", "never", created_at=10, last_seen=None)
-    _save_test_observer(
-        "dddd0000",
-        "revoked",
-        created_at=20,
-        last_seen=fixed_now - 1_000,
-        revoked=True,
-    )
-    _save_test_observer(
-        "cccc0000",
-        "inactive",
-        created_at=30,
-        last_seen=fixed_now - 600_000,
-    )
-    _save_test_observer(
-        "bbbb0000",
-        "stale",
-        created_at=40,
-        last_seen=fixed_now - 60_000,
-    )
     _save_test_observer(
         "aaaa0000",
-        "active",
-        created_at=50,
+        "active-observer",
+        created_at=10,
         last_seen=fixed_now - 5_000,
     )
 
-    payload = _api_list_payload(env)
-    thresholds = payload["thresholds"]
-    observers = payload["observers"]
-    group_order = {"active": 0, "stale": 1, "inactive": 2}
+    observer = _api_list_observers(env)[0]
 
-    expected = sorted(
-        observers,
-        key=lambda observer: (
-            group_order[
-                _group_from_client_state(_client_state(observer, thresholds, fixed_now))
-            ],
-            1 if observer.get("last_seen") is None else 0,
-            -(observer.get("last_seen") or 0),
-            observer["key_prefix"],
-        ),
-    )
-
-    assert [observer["key_prefix"] for observer in observers] == [
-        observer["key_prefix"] for observer in expected
-    ]
+    assert observer["state"] == "connected"
+    assert observer["group"] == "active"
+    assert observer["label"] == OBSERVER_STATE_LABELS["connected"]
+    assert isinstance(observer["elapsed_ms"], int)
+    assert observer["elapsed_ms"] == 5_000
+    assert observer["clock_skew"] is False
 
 
 def test_api_delete_nonexistent(observer_env):
