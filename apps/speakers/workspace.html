@@ -1090,6 +1090,17 @@
     return 'something went wrong — try again';
   }
 
+  function resolveSpeakerError(err) {
+    const raw = err?.serverMessage || err?.message || '';
+    const friendly = friendlyError(raw);
+    const generic = 'something went wrong — try again';
+    const suppressRawPassthrough = raw.includes('Sentence embedding not found') || raw.includes('No speaker labels found');
+    if (friendly === generic && raw && !suppressRawPassthrough) {
+      return raw;
+    }
+    return friendly;
+  }
+
   function attachAudioErrorListeners(container) {
     container.querySelectorAll('audio').forEach(audio => {
       audio.addEventListener('error', () => {
@@ -1982,93 +1993,99 @@
     });
   }
 
-  function confirmAttribution(sentenceId) {
-    fetch('/app/speakers/api/confirm-attribution', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        day,
-        stream: selectedSegment.stream,
-        segment_key: selectedSegment.key,
-        source: selectedSource,
-        sentence_id: sentenceId,
-      }),
-    })
-      .then(r => r.json())
-      .then(data => {
-        if (data.error) {
-          showStatusBySentence(sentenceId, friendlyError(data.error), 'error');
-          return;
-        }
-
-        const sentence = currentSentences.find(s => s.id === sentenceId);
-        if (sentence) {
-          sentence.confidence = 'high';
-          sentence.method = 'user_confirmed';
-          sentence.needs_review = false;
-          sentence.is_correction = true;
-        }
-        renderReviewList();
-        showStatusBySentence(sentenceId, 'Attribution confirmed', 'success');
-        loadSegments();
-      })
-      .catch(() => {
-        showStatusBySentence(sentenceId, 'Failed to confirm attribution — try again', 'error');
+  async function confirmAttribution(sentenceId) {
+    try {
+      const data = await window.apiJson('/app/speakers/api/confirm-attribution', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          day,
+          stream: selectedSegment.stream,
+          segment_key: selectedSegment.key,
+          source: selectedSource,
+          sentence_id: sentenceId,
+        }),
       });
+      if (data.error) {
+        showStatusBySentence(
+          sentenceId,
+          resolveSpeakerError({ serverMessage: data.error, message: data.error }),
+          'error'
+        );
+        return;
+      }
+
+      const sentence = currentSentences.find(s => s.id === sentenceId);
+      if (sentence) {
+        sentence.confidence = 'high';
+        sentence.method = 'user_confirmed';
+        sentence.needs_review = false;
+        sentence.is_correction = true;
+      }
+      renderReviewList();
+      showStatusBySentence(sentenceId, 'Attribution confirmed', 'success');
+      loadSegments();
+    } catch (err) {
+      showStatusBySentence(sentenceId, resolveSpeakerError(err), 'error');
+    }
   }
 
-  function correctAttribution(sentenceId, newSpeaker) {
-    fetch('/app/speakers/api/correct-attribution', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        day,
-        stream: selectedSegment.stream,
-        segment_key: selectedSegment.key,
-        source: selectedSource,
-        sentence_id: sentenceId,
-        new_speaker: newSpeaker,
-      }),
-    })
-      .then(r => r.json())
-      .then(data => {
-        if (data.error) {
-          showStatusBySentence(sentenceId, friendlyError(data.error), 'error');
-          return;
-        }
-        loadReview(selectedSegment, selectedSource);
-        loadSegments();
-      })
-      .catch(() => {
-        showStatusBySentence(sentenceId, 'Failed to correct attribution — try again', 'error');
+  async function correctAttribution(sentenceId, newSpeaker) {
+    try {
+      const data = await window.apiJson('/app/speakers/api/correct-attribution', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          day,
+          stream: selectedSegment.stream,
+          segment_key: selectedSegment.key,
+          source: selectedSource,
+          sentence_id: sentenceId,
+          new_speaker: newSpeaker,
+        }),
       });
+      if (data.error) {
+        showStatusBySentence(
+          sentenceId,
+          resolveSpeakerError({ serverMessage: data.error, message: data.error }),
+          'error'
+        );
+        return;
+      }
+      loadReview(selectedSegment, selectedSource);
+      loadSegments();
+    } catch (err) {
+      showStatusBySentence(sentenceId, resolveSpeakerError(err), 'error');
+    }
   }
 
-  function assignAttribution(sentenceId, speaker) {
-    fetch('/app/speakers/api/assign-attribution', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        day,
-        stream: selectedSegment.stream,
-        segment_key: selectedSegment.key,
-        source: selectedSource,
-        sentence_id: sentenceId,
-        speaker,
-      }),
-    })
-      .then(r => r.json())
-      .then(data => {
-        if (data.error) {
-          showStatusBySentence(sentenceId, friendlyError(data.error), 'error');
-          return;
-        }
-        loadReview(selectedSegment, selectedSource);
-        loadSegments();
-      })
-      .catch(() => {
-        showStatusBySentence(sentenceId, 'Failed to assign attribution — try again', 'error');
+  async function assignAttribution(sentenceId, speaker) {
+    try {
+      const data = await window.apiJson('/app/speakers/api/assign-attribution', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          day,
+          stream: selectedSegment.stream,
+          segment_key: selectedSegment.key,
+          source: selectedSource,
+          sentence_id: sentenceId,
+          speaker,
+        }),
       });
+      if (data.error) {
+        showStatusBySentence(
+          sentenceId,
+          resolveSpeakerError({ serverMessage: data.error, message: data.error }),
+          'error'
+        );
+        return;
+      }
+      loadReview(selectedSegment, selectedSource);
+      loadSegments();
+    } catch (err) {
+      showStatusBySentence(sentenceId, resolveSpeakerError(err), 'error');
+    }
   }
 
   function showStatusBySentence(sentenceId, message, type) {
