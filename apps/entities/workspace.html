@@ -1484,6 +1484,8 @@ let journalEntitiesData = null;  // For all-facet mode
 let currentDetailEntity = null;
 const pendingEntities = new Map(); // use_id → { name, element }
 const pendingAgentCallbacks = new Map(); // use_id → callback function
+const ENTITIES_CORTEX_STALL_MS = 2 * 60 * 1000;
+let cortexSub = null;
 const _errorTimers = {};
 
 // Standard entity types - fetched from server
@@ -3258,6 +3260,7 @@ function submitEntityAssist() {
         pendingEntities.delete(tempId);
         pendingEntities.set(data.use_id, pending);
         pending.element.dataset.agentId = data.use_id;
+        cortexSub?.pending?.track(data.use_id);
       }
     } else {
       throw new Error(data.error || 'Failed to start assistant');
@@ -3276,7 +3279,13 @@ function setupCortexListener() {
     return;
   }
 
-  window.appEvents.listen('cortex', (msg) => {
+  cortexSub = window.appEvents.listen('cortex', {
+    schema: ['event', 'use_id'],
+    correlationKey: 'use_id',
+    timeout: ENTITIES_CORTEX_STALL_MS,
+    onDrop: (e) => window.logError(e, { context: 'entities: cortex listener drop' }),
+    onTimeout: (useId) => handleEntitiesTimeout(useId)
+  }, (msg) => {
     const agentId = msg.use_id;
     if (!agentId) return;
 
@@ -3315,6 +3324,19 @@ function listenForAgentCompletion(agentId, callback) {
     return;
   }
   pendingAgentCallbacks.set(agentId, callback);
+  cortexSub?.pending?.track(agentId);
+}
+
+function handleEntitiesTimeout(useId) {
+  if (pendingEntities.has(useId)) {
+    failPendingEntity(useId, 'Entity assist timed out — reload to retry');
+  }
+
+  if (pendingAgentCallbacks.has(useId)) {
+    const callback = pendingAgentCallbacks.get(useId);
+    pendingAgentCallbacks.delete(useId);
+    callback({ success: false, error: 'Generation timed out — reload to retry' });
+  }
 }
 
 function updatePendingEntity(agentId, entity) {
