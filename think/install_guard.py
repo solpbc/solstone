@@ -10,7 +10,10 @@ import sys
 from enum import Enum
 from pathlib import Path
 
-import userpath
+try:
+    import userpath  # type: ignore[import-not-found]
+except ImportError:  # system python without the venv: doctor.stale_alias_symlink path
+    userpath = None  # type: ignore[assignment]
 
 
 class AliasState(Enum):
@@ -92,6 +95,13 @@ def _print_error(
 
 
 def _ensure_user_bin_on_path(user_bin: Path) -> None:
+    # `userpath` is imported at module top with an ImportError guard, so this
+    # module is importable from system python (where doctor runs) even when
+    # `userpath` is not installed. This code path is only reached via
+    # `cmd_install`, which only runs from inside the venv where `userpath` is
+    # present; if somehow reached without `userpath`, we want a hard failure.
+    if userpath is None:
+        raise RuntimeError("userpath is not available; run `make install` first")
     user_bin_str = str(user_bin)
     try:
         if userpath.in_current_path(user_bin_str):

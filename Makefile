@@ -7,7 +7,7 @@
 # all runs to one path and pytest wipes it on startup, destroying concurrent state.
 export TMPDIR := /var/tmp
 
-.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format format-check install-checks ci clean clean-install coverage watch versions update update-prices pre-commit skills dev all sandbox sandbox-stop install-pinchtab verify-browser update-browser-baselines review verify verify-api update-api-baselines install-service uninstall-service service-logs gate-agents-rename check-layer-hygiene
+.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format format-check install-checks ci clean clean-install coverage watch versions update update-prices pre-commit skills dev all sandbox sandbox-stop install-pinchtab verify-browser update-browser-baselines review verify verify-api update-api-baselines install-service uninstall-service service-logs gate-agents-rename check-layer-hygiene doctor
 
 # Default target - install package in editable mode
 all: install
@@ -19,8 +19,12 @@ PYTHON := $(VENV_BIN)/python
 
 # Require uv
 UV := $(shell command -v uv 2>/dev/null)
+ifeq (,$(filter-out doctor,$(or $(MAKECMDGOALS),all)))
+# doctor-only invocation — skip uv requirement so a uv-less machine can run diagnostics
+else
 ifndef UV
 $(error uv is not installed. Install it: curl -LsSf https://astral.sh/uv/install.sh | sh)
+endif
 endif
 
 # Node — add nvm bin dir to PATH if npx isn't already available
@@ -52,7 +56,7 @@ uv.lock: pyproject.toml
 	$(UV) lock
 
 # Install package in editable mode with isolated venv
-install: skills .installed
+install: doctor skills .installed
 
 # Directories where AI coding agents look for skills
 SKILL_DIRS := journal/.agents/skills journal/.claude/skills
@@ -391,8 +395,12 @@ clean:
 	find . -type f -name ".DS_Store" -delete
 	rm -f .installed
 
+# Pre-install diagnostic — stdlib-only; runs on system python without uv/venv
+doctor:
+	@python3 scripts/doctor.py $(if $(VERBOSE),--verbose) $(if $(JSON),--json) $(if $(PORT),--port $(PORT))
+
 # Service management (override port: make install-service PORT=8000)
-install-service: .installed
+install-service: doctor .installed
 	@MODE=$$($(PYTHON) -m think.install_guard check); \
 	RC=$$?; \
 	case "$$MODE" in \
