@@ -1256,8 +1256,10 @@ tr:hover .entity-delete-btn {
 
 <div class="workspace-content">
   <div id="entities-loading" class="entities-loading">
-    <div class="spinner"></div>
-    <p>Loading entities...</p>
+    <div class="surface-state surface-state--loading" role="status" aria-busy="true">
+      <div class="surface-state-spinner spinner" aria-hidden="true"></div>
+      <span class="surface-state-text" data-role="loading-status">Loading entities...</span>
+    </div>
   </div>
 
   <!-- Journal-wide entities view (all-facet mode) -->
@@ -2644,13 +2646,8 @@ function loadEntities() {
   }
 
   // Facet-specific mode
-  return fetch(`api/${encodeURIComponent(currentFacet)}`)
-    .then(response => response.json())
+  return window.apiJson(`api/${encodeURIComponent(currentFacet)}`)
     .then(data => {
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
       entitiesData = {
         attached: data.attached || [],
         detected: data.detected || []
@@ -2668,21 +2665,19 @@ function loadEntities() {
       detectedPage = 1;
       renderEntities();
     })
-    .catch(error => {
-      console.error('Error loading entities:', error);
-      document.getElementById('entities-loading').innerHTML =
-        `<div class="error-message">${window.AppServices.escapeHtml(error.message || 'Network error')}</div>`;
+    .catch(err => {
+      window.logError(err, { context: 'entities: loadEntities failed' });
+      window.SurfaceState.replaceLoading('entities-loading', window.SurfaceState.errorCard({
+        heading: "Couldn't load entities",
+        desc: 'Reload to try again.',
+        serverMessage: err?.serverMessage
+      }));
     });
 }
 
 function loadJournalEntities() {
-  return fetch('api/journal')
-    .then(response => response.json())
+  return window.apiJson('api/journal')
     .then(data => {
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
       journalEntitiesData = data.entities || [];
 
       document.getElementById('entities-loading').style.display = 'none';
@@ -2696,10 +2691,13 @@ function loadJournalEntities() {
 
       renderJournalEntities();
     })
-    .catch(error => {
-      console.error('Error loading journal entities:', error);
-      document.getElementById('entities-loading').innerHTML =
-        `<div class="error-message">${window.AppServices.escapeHtml(error.message || 'Network error')}</div>`;
+    .catch(err => {
+      window.logError(err, { context: 'entities: loadJournalEntities failed' });
+      window.SurfaceState.replaceLoading('entities-loading', window.SurfaceState.errorCard({
+        heading: "Couldn't load entities",
+        desc: 'Reload to try again.',
+        serverMessage: err?.serverMessage
+      }));
     });
 }
 
