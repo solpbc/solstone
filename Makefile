@@ -7,7 +7,7 @@
 # all runs to one path and pytest wipes it on startup, destroying concurrent state.
 export TMPDIR := /var/tmp
 
-.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format format-check install-checks ci clean clean-install coverage watch versions update update-prices pre-commit skills dev all sail sandbox sandbox-stop install-pinchtab verify-browser update-browser-baselines review verify verify-api update-api-baselines install-service uninstall-service service-logs gate-agents-rename check-layer-hygiene
+.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format format-check install-checks ci clean clean-install coverage watch versions update update-prices pre-commit skills dev all sandbox sandbox-stop install-pinchtab verify-browser update-browser-baselines review verify verify-api update-api-baselines install-service uninstall-service service-logs gate-agents-rename check-layer-hygiene
 
 # Default target - install package in editable mode
 all: install
@@ -107,10 +107,6 @@ skills:
 # Start local dev stack against fixture journal (no observers, no daily processing)
 dev: .installed
 	$(TEST_ENV) PATH=$(CURDIR)/$(VENV_BIN):$$PATH $(VENV_BIN)/sol supervisor 0 --no-daily
-
-# Restart solstone service (noop in dev mode)
-sail: .installed
-	$(VENV_BIN)/sol service restart --if-installed
 
 # Start sandbox stack: fixture copy + background supervisor + readiness wait
 sandbox: .installed

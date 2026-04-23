@@ -99,7 +99,6 @@ Verified against `Makefile`. Grouped by use.
 | `make dev` | Start the full stack (supervisor + callosum + sense + cortex + convey) against `tests/fixtures/journal/`, no observers, no daily processing. Primary inner-loop for UI work. Ctrl-C to stop. |
 | `make sandbox` | Ephemeral background sandbox: copies fixtures to a temp journal, starts supervisor in the background, waits for readiness, writes `.sandbox.pid` / `.sandbox.journal`. Pair with verify targets below. Always follow with `make sandbox-stop`. |
 | `make sandbox-stop` | Terminate the backgrounded sandbox and clean up state files. |
-| `make sail` | Restart the **installed** solstone service via `sol service restart --if-installed`. No-op when no service is installed (typical in a dev worktree). |
 
 ### Format, lint, test
 
