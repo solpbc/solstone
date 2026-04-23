@@ -2,58 +2,67 @@ AppServices.register('todos', {
   _nudgeTimers: [],
 
   initialize() {
-    this.updateBadge();
-    this.checkNudges();
+    AppServices.registerTask('todos', 'update-badge', {
+      intervalMs: 5 * 60 * 1000,
+      run: async ({ apiJson }) => {
+        const data = await apiJson('/app/todos/api/badge-count');
+        if (!data || !Number.isFinite(data.count)) {
+          return undefined;
+        }
+        return data.count;
+      },
+      onSuccess: (count) => {
+        if (count === undefined) {
+          return;
+        }
+        this.updateBadge(count);
+      }
+    });
+
+    AppServices.registerTask('todos', 'check-nudges', {
+      run: async ({ apiJson }) => {
+        const data = await apiJson('/app/todos/api/nudges');
+        if (!data || !Array.isArray(data.nudges)) {
+          return undefined;
+        }
+        this.checkNudges(data.nudges);
+        return data.nudges.length;
+      }
+    });
   },
 
-  async updateBadge() {
-    try {
-      const response = await fetch('/app/todos/api/badge-count');
-      if (response.ok) {
-        const data = await response.json();
-        if (data.count > 0) {
-          AppServices.badges.app.set('todos', data.count);
-        } else {
-          AppServices.badges.app.clear('todos');
-        }
-      }
-    } catch (err) {
-      console.error('[Todos] Failed to fetch badge count:', err);
+  updateBadge(count) {
+    if (count > 0) {
+      AppServices.badges.app.set('todos', count);
+    } else {
+      AppServices.badges.app.clear('todos');
     }
   },
 
-  async checkNudges() {
-    try {
-      const response = await fetch('/app/todos/api/nudges');
-      if (!response.ok) return;
-      const data = await response.json();
+  checkNudges(nudges) {
+    // Clear existing timers
+    this._nudgeTimers.forEach(t => clearTimeout(t));
+    this._nudgeTimers = [];
 
-      // Clear existing timers
-      this._nudgeTimers.forEach(t => clearTimeout(t));
-      this._nudgeTimers = [];
+    const now = Date.now();
+    for (const nudge of nudges) {
+      const nudgeTime = this._parseNudge(nudge.nudge);
+      const delay = nudgeTime - now;
 
-      const now = Date.now();
-      for (const nudge of data.nudges) {
-        const nudgeTime = this._parseNudge(nudge.nudge);
-        const delay = nudgeTime - now;
-
-        if (delay > 0 && delay < 24 * 60 * 60 * 1000) {
-          const timer = setTimeout(() => {
-            AppServices.notifications.show({
-              app: 'todos',
-              icon: '✅',
-              title: 'Todo Reminder',
-              message: nudge.text,
-              action: `/app/todos/${nudge.day}`,
-              facet: nudge.facet,
-              autoDismiss: 30000,
-            });
-          }, delay);
-          this._nudgeTimers.push(timer);
-        }
+      if (delay > 0 && delay < 24 * 60 * 60 * 1000) {
+        const timer = setTimeout(() => {
+          AppServices.notifications.show({
+            app: 'todos',
+            icon: '✅',
+            title: 'Todo Reminder',
+            message: nudge.text,
+            action: `/app/todos/${nudge.day}`,
+            facet: nudge.facet,
+            autoDismiss: 30000,
+          });
+        }, delay);
+        this._nudgeTimers.push(timer);
       }
-    } catch (err) {
-      console.error('[Todos] Failed to check nudges:', err);
     }
   },
 
