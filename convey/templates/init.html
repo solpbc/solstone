@@ -270,10 +270,14 @@
     }
 
     async function loadObservers() {
+      const emptyEl = document.getElementById('observer-empty');
+      const errorEl = document.getElementById('observer-error');
       try {
-        const resp = await fetch('/init/observers');
-        const data = await resp.json();
-        const emptyEl = document.getElementById('observer-empty');
+        const data = await window.apiJson('/init/observers');
+        if (errorEl) {
+          errorEl.hidden = true;
+          errorEl.textContent = '';
+        }
         if (data.length > 0) {
           if (emptyEl) emptyEl.style.display = 'none';
           const labelEl = document.getElementById('observer-label');
@@ -290,7 +294,14 @@
         } else {
           if (emptyEl) emptyEl.style.display = 'block';
         }
-      } catch (err) {}
+      } catch (err) {
+        if (emptyEl) emptyEl.style.display = 'none';
+        if (errorEl) {
+          errorEl.textContent = err?.serverMessage || "Couldn't check for observers - reload to try again.";
+          errorEl.hidden = false;
+        }
+        window.logError(err, { context: 'init-observers' });
+      }
     }
 
     function setRetentionMode(mode) {
@@ -315,9 +326,12 @@
     }
 
     async function finalize() {
+      const passwordEl = document.getElementById('password');
+      const errorEl = document.getElementById('finalize-error');
       try {
-        const resp = await fetch('/init/finalize', {
-          method: 'POST', headers: {'Content-Type': 'application/json'},
+        const data = await window.apiJson('/init/finalize', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({
             password: document.getElementById('password').value,
             name: document.getElementById('name').value.trim(),
@@ -328,12 +342,29 @@
             retention_days: parseInt(document.getElementById('retention-days-input').value) || 7
           })
         });
-        const data = await resp.json();
+        if (errorEl) {
+          errorEl.hidden = true;
+          errorEl.textContent = '';
+        }
         if (data.success && data.redirect) window.location.href = data.redirect;
         else if (data.error) {
-          showFieldStatus(document.getElementById('password'), 'error', data.error);
+          showFieldStatus(passwordEl, 'error', data.error);
         }
-      } catch (err) {}
+      } catch (err) {
+        if (err instanceof window.ApiError && err.status === 400 && err.serverMessage) {
+          if (errorEl) {
+            errorEl.hidden = true;
+            errorEl.textContent = '';
+          }
+          showFieldStatus(passwordEl, 'error', err.serverMessage);
+          return;
+        }
+        if (errorEl) {
+          errorEl.textContent = err?.serverMessage || "Couldn't finalize setup. Check your connection and try again.";
+          errorEl.hidden = false;
+        }
+        window.logError(err, { context: 'init-finalize' });
+      }
     }
   </script>
 </body>
