@@ -88,11 +88,13 @@ class FacetEntity:
     canonical_id: str | None = None
 
 
-def load_all_legacy_entities(journal_path: Path) -> list[FacetEntity]:
+def load_all_legacy_entities(
+    journal_path: Path,
+) -> tuple[list[FacetEntity], int]:
     """Load all entities from legacy facets/*/entities.jsonl files."""
     facets_dir = journal_path / "facets"
     if not facets_dir.exists():
-        return []
+        return [], 0
 
     all_entities = []
     skipped_detached = 0
