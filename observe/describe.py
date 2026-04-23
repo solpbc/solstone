@@ -28,10 +28,8 @@ from enum import Enum
 from pathlib import Path
 from typing import List, Optional
 
-import av
 from PIL import Image
 
-from observe.aruco import detect_markers, mask_convey_region, polygon_area
 from observe.extract import DEFAULT_MAX_EXTRACTIONS, select_frames_for_extraction
 from observe.utils import get_segment_key
 from think.callosum import callosum_send
@@ -221,6 +219,14 @@ class VideoProcessor:
         """
         # Cache for the last qualified frame hash
         last_hash: Optional[int] = None
+
+        # Imports deferred: av (PyAV) and cv2 (via observe.aruco) bundle
+        # mismatched libavdevice majors. Keeping them out of module scope
+        # avoids the macOS ObjC duplicate-class warning on every caller that
+        # only needs CATEGORIES (see observe/screen.py).
+        import av
+
+        from observe.aruco import detect_markers, mask_convey_region, polygon_area
 
         try:
             with av.open(str(self.video_path)) as container:
