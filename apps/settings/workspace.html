@@ -2312,6 +2312,7 @@ button:focus:not(:focus-visible) {
     <section class="settings-section" id="section-transcription" role="tabpanel" aria-labelledby="tab-transcription">
       <h2>transcription</h2>
       <p class="settings-section-desc">Speech-to-text backend and processing settings.</p>
+      <div id="transcriptionLoadState" class="settings-load-state" aria-live="polite"></div>
 
       <form class="settings-form" onsubmit="return false;">
 
@@ -2429,6 +2430,7 @@ button:focus:not(:focus-visible) {
     <section class="settings-section" id="section-observer" role="tabpanel" aria-labelledby="tab-observer">
       <h2>observer</h2>
       <p class="settings-section-desc">Configure capture behavior for the observer service.</p>
+      <div id="observerLoadState" class="settings-load-state" aria-live="polite"></div>
 
       <form class="settings-form" onsubmit="return false;">
 
@@ -2561,6 +2563,7 @@ button:focus:not(:focus-visible) {
     <section class="settings-section" id="section-sync" role="tabpanel" aria-labelledby="tab-sync">
       <h2>sync</h2>
       <p class="settings-section-desc">Configure automatic syncing of recordings from external devices.</p>
+      <div id="syncLoadState" class="settings-load-state" aria-live="polite"></div>
 
       <form class="settings-form" onsubmit="return false;">
 
@@ -2628,6 +2631,7 @@ button:focus:not(:focus-visible) {
     <section class="settings-section" id="section-storage" role="tabpanel" aria-labelledby="tab-storage">
       <h2>storage</h2>
       <p class="settings-section-desc">Manage raw media retention and view storage usage.</p>
+      <div id="storageLoadState" class="settings-load-state" aria-live="polite"></div>
       <div id="storageWarnings"></div>
 
       <form class="settings-form" onsubmit="return false;">
@@ -4578,16 +4582,55 @@ async function removeVertexCreds() {
 // Backend metadata loaded from API
 let transcribeBackends = [];
 let transcribeApiKeys = {};
+let storageLoadedOnce = false;
+
+function setLoadState(slotId, html = '') {
+  const slot = document.getElementById(slotId);
+  if (slot) {
+    slot.innerHTML = html;
+  }
+}
+
+function renderRefreshLoadState(message, serverMessage) {
+  return `<div class="surface-state-refresh-error"><strong>${escapeHtml(message)}</strong>${serverMessage ? `<p>${escapeHtml(serverMessage)}</p>` : ''}</div>`;
+}
+
+function setObserveControlsDisabled(disabled) {
+  ['field-tmux-enabled', 'field-tmux-capture-interval'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = disabled;
+  });
+}
+
+function setSyncControlsDisabled(disabled) {
+  ['field-plaud-sync-enabled', 'field-granola-sync-enabled', 'field-obsidian-sync-enabled'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = disabled;
+  });
+}
+
+function setStorageControlsDisabled(disabled) {
+  document.querySelectorAll('#retentionModeSelector .settings-mode-btn, #retentionDaysField .settings-preset-btn').forEach((el) => {
+    el.disabled = disabled;
+  });
+  const daysInput = document.getElementById('retentionDaysInput');
+  if (daysInput) {
+    daysInput.disabled = disabled;
+  }
+}
 
 async function loadTranscribeBackends() {
   try {
-    const response = await fetch('api/transcribe');
-    const data = await response.json();
+    const data = await window.apiJson('api/transcribe');
     transcribeBackends = data.backends || [];
     transcribeApiKeys = data.api_keys || {};
+    setLoadState('transcriptionLoadState');
+    const select = document.getElementById('field-transcribe-backend');
+    if (select) {
+      select.disabled = false;
+    }
 
     // Populate the backend select
-    const select = document.getElementById('field-transcribe-backend');
     if (select) {
       select.innerHTML = '';
       for (const backend of transcribeBackends) {
@@ -4600,7 +4643,16 @@ async function loadTranscribeBackends() {
 
     return data;
   } catch (err) {
-    console.error('Error loading transcribe backends:', err);
+    const select = document.getElementById('field-transcribe-backend');
+    if (select) {
+      select.disabled = true;
+    }
+    setLoadState('transcriptionLoadState', window.SurfaceState.errorCard({
+      heading: "Couldn't load transcription settings",
+      desc: 'Reload to try again.',
+      serverMessage: err?.serverMessage
+    }));
+    window.logError(err, { context: 'settings: loadTranscribeBackends failed' });
     return null;
   }
 }
@@ -4725,12 +4777,18 @@ let observeData = null;
 
 async function loadObserve() {
   try {
-    const response = await fetch('api/observe');
-    observeData = await response.json();
-    if (observeData.error) throw new Error(observeData.error);
+    observeData = await window.apiJson('api/observe');
+    setLoadState('observerLoadState');
+    setObserveControlsDisabled(false);
     populateObserve(observeData);
   } catch (err) {
-    console.error('Error loading observe config:', err);
+    setObserveControlsDisabled(true);
+    setLoadState('observerLoadState', window.SurfaceState.errorCard({
+      heading: "Couldn't load observer settings",
+      desc: 'Reload to try again.',
+      serverMessage: err?.serverMessage
+    }));
+    window.logError(err, { context: 'settings: loadObserve failed' });
   }
 }
 
@@ -4810,12 +4868,18 @@ document.getElementById('field-tmux-capture-interval').addEventListener('change'
 // ========== SYNC ==========
 async function loadSync() {
   try {
-    const response = await fetch('api/sync');
-    const data = await response.json();
-    if (data.error) throw new Error(data.error);
+    const data = await window.apiJson('api/sync');
+    setLoadState('syncLoadState');
+    setSyncControlsDisabled(false);
     populateSync(data);
   } catch (err) {
-    console.error('Error loading sync config:', err);
+    setSyncControlsDisabled(true);
+    setLoadState('syncLoadState', window.SurfaceState.errorCard({
+      heading: "Couldn't load sync settings",
+      desc: 'Reload to try again.',
+      serverMessage: err?.serverMessage
+    }));
+    window.logError(err, { context: 'settings: loadSync failed' });
   }
 }
 
@@ -5850,12 +5914,21 @@ let storageData = null;
 
 async function loadStorage() {
   try {
-    const response = await fetch('api/storage');
-    storageData = await response.json();
-    if (storageData.error) throw new Error(storageData.error);
+    storageData = await window.apiJson('api/storage');
+    setLoadState('storageLoadState');
+    setStorageControlsDisabled(false);
+    storageLoadedOnce = true;
     populateStorage(storageData);
   } catch (err) {
-    console.error('Error loading storage:', err);
+    setStorageControlsDisabled(true);
+    setLoadState('storageLoadState', storageLoadedOnce
+      ? renderRefreshLoadState("Couldn't refresh storage settings — showing last known state.", err?.serverMessage)
+      : window.SurfaceState.errorCard({
+        heading: "Couldn't load storage settings",
+        desc: 'Reload to try again.',
+        serverMessage: err?.serverMessage
+      }));
+    window.logError(err, { context: 'settings: loadStorage failed' });
   }
 }
 
