@@ -257,16 +257,15 @@ def diagnostics() -> Any:
 def badge_count() -> Any:
     """Return count of tickets with new responses (for app badge)."""
     if not _enabled():
-        return jsonify({"count": 0})
+        return error_response("Support is not enabled", 403)
 
     try:
         client = _get_client()
         tickets = client.list_tickets(status="open")
-        # Count tickets that have been updated since creation
-        # (a simple heuristic for "has new response")
         count = sum(
             1 for t in tickets if t.get("updated_at", "") > t.get("created_at", "")
         )
         return jsonify({"count": count})
-    except Exception:
-        return jsonify({"count": 0})
+    except Exception as exc:
+        logger.exception("Failed to fetch badge count")
+        return error_response(str(exc), 500)
