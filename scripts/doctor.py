@@ -444,6 +444,21 @@ def resolve_darwin_exe(
 
 def port_5015_free_check(args: Args) -> CheckResult:
     check = CHECK_MAP["port_5015_free"]
+    # In a git worktree (hopper lode, personal worktree) the host's port state
+    # is not this worktree's concern — the worktree will never run its own
+    # service. Skip, matching the pattern in stale_alias_symlink_check.
+    try:
+        alias_state_cls, check_alias_fn = import_install_guard()
+    except Exception:
+        pass
+    else:
+        state, _ = check_alias_fn(ROOT)
+        if state is alias_state_cls.WORKTREE:
+            return make_result(
+                check,
+                "skip",
+                "git worktree; run doctor from the primary clone",
+            )
     port = args.port
     if shutil.which("lsof") is None:
         return make_result(
