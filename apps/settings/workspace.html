@@ -3347,6 +3347,10 @@ function populateFields(config) {
   updateEnvStatus('field-env-anthropic', env.ANTHROPIC_API_KEY, sysEnv.ANTHROPIC_API_KEY);
   updateEnvStatus('field-env-revai', env.REVAI_ACCESS_TOKEN, sysEnv.REVAI_ACCESS_TOKEN);
   updateEnvStatus('field-env-plaud', env.PLAUD_ACCESS_TOKEN, sysEnv.PLAUD_ACCESS_TOKEN);
+
+  document.querySelectorAll('[data-section][data-key]').forEach((el) => {
+    el.__lastKnownValue = readAutoSaveControlValue(el);
+  });
 }
 
 function updateEnvStatus(fieldId, isJournalConfigured, isSystemConfigured) {
@@ -3416,6 +3420,55 @@ function setValue(id, value) {
   if (el) el.value = value;
 }
 
+function readAutoSaveControlValue(el) {
+  return el.type === 'checkbox' ? el.checked : el.value;
+}
+
+function applySavedConfigResult(result, runtimeEnv) {
+  configData = result.config;
+  configData.runtime_env = runtimeEnv;
+}
+
+async function saveConfigValue(section, key, value) {
+  const result = await window.apiJson('api/config', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ section, data: { [key]: value } })
+  });
+  if (result.success) {
+    return result;
+  }
+  throw new Error(result.error || 'Save failed');
+}
+
+function applyEnvSaveEffects(el, key, result) {
+  el.value = '';
+  if (result.key_validation) {
+    keyValidationData = result.key_validation;
+    configData.providers = configData.providers || {};
+    configData.providers.key_validation = keyValidationData;
+  }
+  updateEnvStatus(
+    el.id,
+    configData?.env?.[key],
+    configData?.runtime_env?.[key]
+  );
+  if (providersData) {
+    providersData.key_validation = keyValidationData;
+    for (const type of ['generate', 'cogitate']) {
+      const providerSelect = document.getElementById(`field-${type}-provider`);
+      if (providerSelect) {
+        updateTypeProviderKeyWarning(
+          type,
+          providerSelect.value,
+          providersData.api_keys || {},
+          providersData.auth || {}
+        );
+      }
+    }
+  }
+}
+
 // ========== GENERIC FIELD SAVING ==========
 function setupAutoSave() {
   document.querySelectorAll('[data-section][data-key]').forEach(el => {
@@ -3460,53 +3513,51 @@ function saveField(el, section, key, value) {
   clearTimeout(saveTimeouts.get(timeoutKey));
   saveTimeouts.set(timeoutKey, setTimeout(async () => {
     saveTimeouts.delete(timeoutKey);
-    try {
-      const runtimeEnv = configData?.runtime_env || {};
-      const response = await fetch('api/config', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ section, data: { [key]: value } })
-      });
-      const result = await response.json();
-      if (result.success) {
-        configData = result.config;
-        configData.runtime_env = runtimeEnv;
-        if (el) showFieldStatus(el, 'saved');
+    const runtimeEnv = configData?.runtime_env || {};
 
-        // For env fields, clear the input and update status indicator
-        if (el && section === 'env') {
-          el.value = '';
-          if (result.key_validation) {
-            keyValidationData = result.key_validation;
-            configData.providers = configData.providers || {};
-            configData.providers.key_validation = keyValidationData;
-          }
-          updateEnvStatus(
-            el.id,
-            configData?.env?.[key],
-            configData?.runtime_env?.[key]
-          );
-          if (providersData) {
-            providersData.key_validation = keyValidationData;
-            for (const type of ['generate', 'cogitate']) {
-              const providerSelect = document.getElementById(`field-${type}-provider`);
-              if (providerSelect) {
-                updateTypeProviderKeyWarning(
-                  type,
-                  providerSelect.value,
-                  providersData.api_keys || {},
-                  providersData.auth || {}
-                );
-              }
-            }
-          }
-        }
-      } else {
-        throw new Error(result.error);
+    if (!el) {
+      try {
+        const result = await saveConfigValue(section, key, value);
+        applySavedConfigResult(result, runtimeEnv);
+      } catch (err) {
+        window.logError(err, { context: `settings: saveField(${section}.${key}) failed` });
       }
-    } catch (err) {
-      console.error('Save error:', err);
-      if (el) showFieldStatus(el, 'error', err.message);
+      return;
+    }
+
+    if (section === 'env') {
+      const errorHost = prepareFieldErrorHost(el);
+      try {
+        const result = await saveConfigValue(section, key, value);
+        applySavedConfigResult(result, runtimeEnv);
+        applyEnvSaveEffects(el, key, result);
+        showFieldStatus(el, 'saved');
+      } catch (err) {
+        const message = err?.serverMessage || err?.message || 'Save failed';
+        if (errorHost) {
+          errorHost.innerHTML = `<span data-control-save-error class="control-save-error">${escapeHtml(message)}</span>`;
+        }
+        window.logError(err, { context: `settings: saveField(env.${key}) failed` });
+      }
+      return;
+    }
+
+    const errorHost = prepareFieldErrorHost(el);
+    try {
+      await window.saveControl({
+        el,
+        errorHost,
+        revertOnError: true,
+        readValue: () => el.__lastKnownValue,
+        fetchArgs: () => saveConfigValue(section, key, value),
+        onSuccess: (result) => {
+          applySavedConfigResult(result, runtimeEnv);
+          el.__lastKnownValue = readAutoSaveControlValue(el);
+          showFieldStatus(el, 'saved');
+        },
+        onError: (err) => window.logError(err, { context: `settings: saveField(${section}.${key}) failed` }),
+      });
+    } catch (_) {
     }
   }, 500));
 }
