@@ -3559,9 +3559,16 @@ function saveField(el, section, key, value) {
           el.__lastKnownValue = readAutoSaveControlValue(el);
           showFieldStatus(el, 'saved');
         },
-        onError: (err) => window.logError(err, { context: `settings: saveField(${section}.${key}) failed` }),
+        onError: (err) => {
+          window.logError(err, { context: `settings: saveField(${section}.${key}) failed` });
+        }
       });
+      // Debounced autosave: saveControl's onError already routes the failure
+      // through window.logError; this outer catch just swallows the awaited
+      // rejection so it doesn't escape as an unhandledrejection. The next
+      // input event re-fires saveField and retries the save.
     } catch (_) {
+      // intentionally empty — see comment above
     }
   }, 500));
 }
