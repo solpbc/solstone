@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from convey import state
+from think.utils import get_journal
 
 # Compiled pattern for app name validation
 APP_NAME_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
@@ -28,10 +29,12 @@ def get_app_storage_path(
         ensure_exists: Create directory if it doesn't exist (default: True)
 
     Returns:
-        Path to <journal>/apps/<app_name>/<sub_dirs>/
+        Absolute path to <journal>/apps/<app_name>/<sub_dirs>/.
+        Falls back to think.utils.get_journal() when state.journal_root is empty.
 
     Raises:
         ValueError: If app_name contains invalid characters
+        RuntimeError: If the resolved journal root is not absolute
 
     Examples:
         get_app_storage_path("search")  # → Path("<journal>/apps/search")
@@ -42,7 +45,12 @@ def get_app_storage_path(
         raise ValueError(f"Invalid app name: {app_name}")
 
     # Build path
-    path = Path(state.journal_root) / "apps" / app_name
+    root = state.journal_root or get_journal()
+    if not Path(root).is_absolute():
+        raise RuntimeError(
+            f"get_app_storage_path: resolved journal root is not absolute: {root}"
+        )
+    path = Path(root) / "apps" / app_name
     for sub_dir in sub_dirs:
         path = path / sub_dir
 
