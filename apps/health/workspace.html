@@ -1741,22 +1741,31 @@
     if (!btn) return;
     const importId = btn.dataset.importId;
     if (!importId) return;
+    const card = btn.closest('[data-key]');
+    const errorEl = card?.querySelector('.activity-card-error');
     btn.disabled = true;
     btn.textContent = 'Retrying...';
-    fetch('/app/health/api/retry-import', {
+    window.apiJson('/app/health/api/retry-import', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ import_id: importId })
     })
-    .then(r => r.json())
-    .then(data => {
-      btn.textContent = data.status === 'not_implemented' ? 'Not yet available' : 'Retry sent';
-      btn.style.color = '#9ca3af';
-    })
-    .catch(() => {
-      btn.textContent = 'Retry failed';
-      btn.style.color = '#dc2626';
-    });
+      .then(() => {
+        btn.textContent = 'Retry sent';
+        btn.style.color = '#9ca3af';
+        if (errorEl) {
+          errorEl.textContent = '';
+        }
+      })
+      .catch((err) => {
+        window.logError(err, { context: 'health: retry-import failed' });
+        btn.disabled = false;
+        btn.textContent = 'Retry';
+        btn.style.color = '';
+        if (errorEl) {
+          errorEl.textContent = err.serverMessage || 'Retry failed';
+        }
+      });
   });
 
   // Client-side elapsed time updater
