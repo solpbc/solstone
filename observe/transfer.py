@@ -10,6 +10,10 @@ Usage:
     sol transfer export --day YYYYMMDD [--output PATH]
     sol transfer import --archive PATH [--dry-run]
     sol transfer send --to HOST --key KEY [--day YYYYMMDD] [--dry-run]
+
+On the RECEIVING host (the machine you are sending TO), run
+`sol observer create <name>` to generate an observer API key, then pass it
+as `--key`.
 """
 
 from __future__ import annotations
@@ -40,6 +44,16 @@ from think.utils import (
 )
 
 from .utils import compute_file_sha256, find_available_segment
+
+OBSERVER_KEY_HINT = (
+    "On the RECEIVING host (the machine you are sending TO), run "
+    "`sol observer create <name>` to generate an observer API key, then "
+    "pass it as `--key`."
+)
+
+AUTH_INVALID_OBSERVER_KEY = (
+    "Authentication failed: invalid or missing observer API key. " + OBSERVER_KEY_HINT
+)
 
 logger = logging.getLogger(__name__)
 
@@ -438,7 +452,7 @@ def _query_remote_segments(
                 if entry.get("key")
             }
         if response.status_code == 401:
-            raise ValueError("Authentication failed: invalid or missing API key")
+            raise ValueError(AUTH_INVALID_OBSERVER_KEY)
         if response.status_code == 403:
             raise ValueError("Authentication failed: observer revoked or disabled")
         logger.warning(
@@ -602,7 +616,7 @@ def send_segments(base_url: str, key: str, days: list[str], dry_run: bool) -> No
                     logger.info(f"  [skip] {day}/{stream_name}/{seg_key}")
                     skipped += 1
                 elif status == "auth_invalid":
-                    print("Authentication failed: invalid or missing API key")
+                    print(AUTH_INVALID_OBSERVER_KEY)
                     return
                 elif status == "auth_revoked":
                     print("Authentication failed: observer revoked or disabled")
@@ -671,7 +685,11 @@ def main() -> None:
     )
 
     # Send subcommand
-    send_parser = subparsers.add_parser("send", help="Send segments to remote observer")
+    send_parser = subparsers.add_parser(
+        "send",
+        help="Send segments to remote observer",
+        description=OBSERVER_KEY_HINT,
+    )
     send_parser.add_argument(
         "--to",
         required=True,
@@ -680,7 +698,10 @@ def main() -> None:
     send_parser.add_argument(
         "--key",
         required=True,
-        help="Observer API key for authentication",
+        help=(
+            "Observer API key (generate on the RECEIVING host with "
+            "`sol observer create <name>`)"
+        ),
     )
     send_parser.add_argument(
         "--day",
