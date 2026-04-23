@@ -951,6 +951,7 @@ button.activity-detail-back {
         }
       };
     } catch (err) {
+      window.logError(err, { context: 'activities-day-load' });
       window.SurfaceState.replaceLoading('timelineView', window.SurfaceState.errorCard({
         heading: 'Couldn\'t load activities',
         desc: 'Reload the page to try again.',
