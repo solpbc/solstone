@@ -26,7 +26,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from timefhuman import timefhuman
 
-from media import MIME_TYPES
+from think.media import MIME_TYPES
 
 DATE_RE = re.compile(r"\d{8}")
 STREAM_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")

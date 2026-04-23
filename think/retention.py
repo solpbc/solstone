@@ -29,9 +29,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from media import AUDIO_EXTENSIONS as RAW_AUDIO_EXTENSIONS
-from media import MEDIA_EXTENSIONS as RAW_MEDIA_EXTENSIONS
-from media import VIDEO_EXTENSIONS as RAW_VIDEO_EXTENSIONS
+from think.media import AUDIO_EXTENSIONS as RAW_AUDIO_EXTENSIONS
+from think.media import MEDIA_EXTENSIONS as RAW_MEDIA_EXTENSIONS
+from think.media import VIDEO_EXTENSIONS as RAW_VIDEO_EXTENSIONS
 from think.utils import day_dirs, get_journal, iter_segments
 
 logger = logging.getLogger(__name__)

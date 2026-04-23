@@ -12,8 +12,8 @@ import shutil
 from pathlib import Path
 from typing import Any, Callable
 
-from media import MIME_TYPES
 from think.importers.utils import save_import_file, write_import_metadata
+from think.media import MIME_TYPES
 from think.utils import day_path, get_journal, now_ms
 
 logger = logging.getLogger(__name__)

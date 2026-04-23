@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import sol
+from think import sol_cli as sol
 
 
 class TestResolveCommand:

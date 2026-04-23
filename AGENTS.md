@@ -17,7 +17,7 @@ For the journal-side runtime entry point, see `journal/AGENTS.md`.
 Read, in order, when you enter the repo for a coding task:
 
 1. **This file through §8** — the invariants must be in working memory before your first edit.
-2. **`sol.py`** — the CLI entry point. Skim the `COMMANDS`, `ALIASES`, and `GROUPS` dicts. ~340 lines, scannable in one pass. You now know the whole top-level command surface.
+2. **`think/sol_cli.py`** — the CLI entry point. Skim the `COMMANDS`, `ALIASES`, and `GROUPS` dicts. ~340 lines, scannable in one pass. You now know the whole top-level command surface.
 3. **`think/top.py` (first ~100 lines)** — the interactive TUI. Ties callosum + supervisor + service status together in one vantage point. Good "oh, this is how it connects" moment.
 4. **The area you're about to touch:**
    - User-visible feature or `sol call <app> <verb>` → `apps/<name>/call.py` + `apps/<name>/routes.py` + `apps/<name>/templates/`.
@@ -33,7 +33,7 @@ Read, in order, when you enter the repo for a coding task:
 
 | Dir | Purpose | Go here when | Depth doc |
 |-----|---------|--------------|-----------|
-| `sol.py` | CLI entry point — `COMMANDS` / `ALIASES` / `GROUPS` dicts | adding a top-level `sol <cmd>` | `docs/SOLCLI.md` |
+| `think/sol_cli.py` | CLI entry point — `COMMANDS` / `ALIASES` / `GROUPS` dicts | adding a top-level `sol <cmd>` | `docs/SOLCLI.md` |
 | `observe/` | Multimodal capture — screen, audio, transcribe, describe, sense, transfer | capture-side bugs, new input modalities | `docs/OBSERVE.md` |
 | `think/` | Post-processing core — cortex, talent, callosum, indexer, entities, facets, activities, scheduler, heartbeat, supervisor | anything downstream of capture; most coder work lives here | `docs/THINK.md`, `docs/CORTEX.md`, `docs/CALLOSUM.md` |
 | `convey/` | Web app framework — app discovery, routing, bridge, screenshot tooling | layout / framework-level UI changes | `docs/CONVEY.md` |
@@ -68,10 +68,10 @@ Top-level dirs intentionally not in the table: `.venv/`, `scratch/`, `logs/`, `t
 
 Two surfaces:
 
-- **`sol <command>`** — top-level commands registered in `sol.py`'s `COMMANDS` dict (e.g., `sol import`, `sol think`, `sol indexer`, `sol supervisor`, `sol heartbeat`). `ALIASES` provides a couple of shorthand compound commands (`sol start` → `sol supervisor`, `sol up/down` → `sol service up/down`).
+- **`sol <command>`** — top-level commands registered in `think/sol_cli.py`'s `COMMANDS` dict (e.g., `sol import`, `sol think`, `sol indexer`, `sol supervisor`, `sol heartbeat`). `ALIASES` provides a couple of shorthand compound commands (`sol start` → `sol supervisor`, `sol up/down` → `sol service up/down`).
 - **`sol call <app> <verb>`** — routes to `think/call.py`, which discovers each `apps/*/call.py` Typer sub-app and mounts it as a subcommand. Example: `sol call entities list`, `sol call activities create`, `sol call journal search`.
 
-**Adding a top-level command:** add an entry to `COMMANDS` in `sol.py`; ensure the module has a `main()` function.
+**Adding a top-level command:** add an entry to `COMMANDS` in `think/sol_cli.py`; ensure the module has a `main()` function.
 
 **Adding a `sol call` sub-verb:** add it to the app's `apps/<app>/call.py` Typer sub-app. No central registration needed — `think/call.py` discovers apps automatically.
 

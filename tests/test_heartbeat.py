@@ -32,7 +32,7 @@ def heartbeat_mocks(monkeypatch):
 
 def test_heartbeat_command_mapping():
     """heartbeat key in COMMANDS maps to think.heartbeat module."""
-    from sol import COMMANDS
+    from think.sol_cli import COMMANDS
 
     assert COMMANDS["heartbeat"] == "think.heartbeat"
 

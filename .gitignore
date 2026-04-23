@@ -19,6 +19,7 @@ tests/fixtures/journal/chronicle/*/health/*.jsonl
 *.port
 /config*.py
 .installed
+.python-version-hash
 /journal/*
 .agents/
 .claude/

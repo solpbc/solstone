@@ -7,7 +7,7 @@
 # all runs to one path and pytest wipes it on startup, destroying concurrent state.
 export TMPDIR := /var/tmp
 
-.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format format-check install-checks ci clean clean-install coverage watch versions update update-prices pre-commit skills dev all sandbox sandbox-stop install-pinchtab verify-browser update-browser-baselines review verify verify-api update-api-baselines install-service uninstall-service service-logs gate-agents-rename check-layer-hygiene doctor
+.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format format-check install-checks ci clean clean-install coverage watch versions update update-prices pre-commit skills dev all sandbox sandbox-stop install-pinchtab verify-browser update-browser-baselines review verify verify-api update-api-baselines install-service uninstall-service service-logs gate-agents-rename check-layer-hygiene doctor FORCE
 
 # Default target - install package in editable mode
 all: install
@@ -36,8 +36,13 @@ endif
 # User bin directory for symlink (standard location, usually already in PATH)
 USER_BIN := $(HOME)/.local/bin
 
+.python-version-hash: FORCE
+	@tmp_file=$$(mktemp); \
+	python3 -c "import sys; print(sys.version_info[:2])" > "$$tmp_file"; \
+	if [ ! -f $@ ] || ! cmp -s "$$tmp_file" $@; then mv "$$tmp_file" $@; else rm -f "$$tmp_file"; fi
+
 # Marker file to track installation
-.installed: pyproject.toml uv.lock
+.installed: pyproject.toml uv.lock .python-version-hash
 	@echo "Installing package with uv..."
 	$(UV) sync
 	@# Python 3.14+ needs onnxruntime from nightly (not yet on PyPI)
@@ -57,6 +62,16 @@ uv.lock: pyproject.toml
 
 # Install package in editable mode with isolated venv
 install: doctor skills .installed
+	@(cd /tmp && $(CURDIR)/$(VENV_BIN)/python -c "from think.sol_cli import main") 2>/dev/null || { \
+		echo ">>> re-registering editable install"; \
+		$(UV) pip install -e . --no-deps; \
+		if (cd /tmp && $(CURDIR)/$(VENV_BIN)/python -c "from think.sol_cli import main"); then \
+			echo ">>> re-registered successfully"; \
+		else \
+			echo ">>> editable install still broken; run make clean-install"; \
+			exit 1; \
+		fi; \
+	}
 
 # Directories where AI coding agents look for skills
 SKILL_DIRS := journal/.agents/skills journal/.claude/skills
@@ -484,6 +499,8 @@ uninstall-service:
 uninstall:
 	@echo "Error: 'make uninstall' is disabled. Use the 'uninstall-service' target to remove installed user/system artifacts, or 'make clean-install' to rebuild the local dev environment." >&2
 	@exit 1
+
+FORCE:
 
 # Clean everything and reinstall
 clean-install: clean

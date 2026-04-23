@@ -3,7 +3,7 @@
 
 """link service runtime.
 
-Registered with solstone's supervisor via `sol.py` COMMANDS (see `sol link`);
+Registered with solstone's supervisor via `think/sol_cli.py` COMMANDS (see `sol link`);
 the supervisor launches this as a subprocess alongside callosum, cortex,
 convey, etc. Service lifecycle:
 

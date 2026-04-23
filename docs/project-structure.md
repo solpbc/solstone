@@ -4,9 +4,9 @@
 
 ```text
 solstone/
-├── sol.py          # Unified CLI entry point (run: sol <command>)
 ├── observe/        # Multimodal capture & AI analysis
 ├── think/          # Data post-processing, AI agents & orchestration
+│   └── sol_cli.py  # Unified CLI entry point (run: sol <command>)
 ├── convey/         # Web app frontend & backend
 ├── apps/           # Convey app extensions (see docs/APPS.md)
 ├── talent/           # Agent/generator configs + Agent Skills (talent/*/SKILL.md)
@@ -24,13 +24,13 @@ Each package has a README.md symlink pointing to its documentation in `docs/`.
 - **Python**: Requires Python 3.10+
 - **Modules**: Each top-level folder is a Python package with `__init__.py` unless it is data-only (e.g., `tests/fixtures/`)
 - **Imports**: Prefer absolute imports (e.g., `from think.utils import setup_cli`) whenever feasible
-- **Entry Points**: Commands are registered in `sol.py`'s `COMMANDS` dict (pyproject.toml just defines the `sol` entry point)
+- **Entry Points**: Commands are registered in `think/sol_cli.py`'s `COMMANDS` dict (pyproject.toml just defines the `sol` entry point)
 - **Journal**: Data stored under `journal/` at the project root; day content lives under `journal/chronicle/`
 - **Calling**: When calling other modules as a separate process always use `sol <command>` and never call using `python -m ...` (e.g., use `sol indexer`, NOT `python -m think.indexer`)
 
 ## CLI Routing
 
-`sol.py`'s `COMMANDS` dict maps command names to module paths. The unified CLI is `sol`. Run `sol` to see status and available commands. `sol call` routes to `think/call.py`, which discovers `apps/*/call.py` Typer sub-apps and mounts them as subcommands.
+`think/sol_cli.py`'s `COMMANDS` dict maps command names to module paths. The unified CLI is `sol`. Run `sol` to see status and available commands. `sol call` routes to `think/call.py`, which discovers `apps/*/call.py` Typer sub-apps and mounts them as subcommands.
 
 ## Agent & Skill Organization
 
@@ -38,7 +38,7 @@ Each package has a README.md symlink pointing to its documentation in `docs/`.
 
 ## File Locations
 
-- **Entry Points**: `sol.py` `COMMANDS` dict
+- **Entry Points**: `think/sol_cli.py` `COMMANDS` dict
 - **Test Fixtures**: `tests/fixtures/journal/` - complete mock journal
 - **Live Logs**: `journal/health/<service>.log`
 - **Agent Personas**: `talent/*.md` (apps can add their own in `talent/`, see [docs/APPS.md](docs/APPS.md))

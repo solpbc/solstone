@@ -63,7 +63,7 @@ def is_allowed(path: Path) -> bool:
 
 def is_production(path: Path) -> bool:
     path_str = path.as_posix()
-    return path_str == "sol.py" or path_str.startswith(PRODUCTION_PREFIXES)
+    return path_str == "think/sol_cli.py" or path_str.startswith(PRODUCTION_PREFIXES)
 
 
 def iter_lines(path: Path) -> list[tuple[int, str]]:

@@ -246,7 +246,7 @@ Filename-stem constraint:
 - The client should upload `audio.m4a`, not an arbitrary stem like `meeting.m4a`, so transcription writes `audio.jsonl` and existing readers keep finding the transcript under their current glob conventions.
 - The transcribe pipeline writes the transcript as a sibling JSONL using the raw file stem, so `audio.m4a` becomes `audio.jsonl` (`observe/transcribe/main.py:165`, `observe/transcribe/main.py:594-609`).
 - Transcript/cluster consumers currently glob for `*audio.jsonl`, `audio.jsonl`, or `*_audio.jsonl`, not arbitrary stems (`think/cluster.py:132-136`, `think/cluster.py:397-405`, `apps/transcripts/routes.py:256-258`, `think/retention.py:73-100`).
-- `.m4a` itself is supported end-to-end: the media registry includes it, the sensor registers all `AUDIO_EXTENSIONS`, and transcribe accepts `.m4a` as a supported raw input (`media.py:6-25`, `observe/sense.py:606-667`, `observe/sense.py:1096-1100`, `observe/transcribe/main.py:58`, `observe/transcribe/main.py:885-889`).
+- `.m4a` itself is supported end-to-end: the media registry includes it, the sensor registers all `AUDIO_EXTENSIONS`, and transcribe accepts `.m4a` as a supported raw input (`think/media.py:6-25`, `observe/sense.py:606-667`, `observe/sense.py:1096-1100`, `observe/transcribe/main.py:58`, `observe/transcribe/main.py:885-889`).
 
 Operational caveats:
 
@@ -327,7 +327,7 @@ Expected non-change:
 - `apps/observer/tests/test_routes.py:1276-1368`, `apps/observer/tests/test_routes.py:1552-1586`, `apps/observer/tests/test_routes.py:1654-1694`
 - `observe/transcribe/main.py:58`, `observe/transcribe/main.py:165`, `observe/transcribe/main.py:594-609`, `observe/transcribe/main.py:885-889`
 - `observe/sense.py:606-667`, `observe/sense.py:1096-1100`
-- `media.py:6-25`
+- `think/media.py:6-25`
 - `think/cluster.py:132-136`, `think/cluster.py:397-405`
 - `apps/transcripts/routes.py:256-258`
 - `think/retention.py:73-100`

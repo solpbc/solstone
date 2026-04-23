@@ -94,7 +94,7 @@ dependencies = [
 ]
 
 [project.scripts]
-sol = "sol:main"
+sol = "think.sol_cli:main"
 
 [project.urls]
 Homepage = "https://github.com/solpbc/solstone"
@@ -104,9 +104,6 @@ Documentation = "https://github.com/solpbc/solstone/blob/main/README.md"
 
 [tool.setuptools.packages.find]
 include = ["apps*", "think*", "convey*", "observe*", "talent*"]
-
-[tool.setuptools]
-py-modules = ["media", "sol"]
 
 [tool.setuptools.package-data]
 apps = ["*/templates/*.html", "*/talent/*.md"]

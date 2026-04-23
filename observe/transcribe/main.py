@@ -55,7 +55,6 @@ from pathlib import Path
 
 import numpy as np
 
-from media import AUDIO_EXTENSIONS as SUPPORTED_AUDIO_FORMATS
 from observe.transcribe import (
     BACKEND_REGISTRY,
     get_backend,
@@ -72,6 +71,7 @@ from observe.vad import (
     run_vad,
 )
 from think.callosum import callosum_send
+from think.media import AUDIO_EXTENSIONS as SUPPORTED_AUDIO_FORMATS
 from think.utils import (
     day_dirs,
     day_from_path,

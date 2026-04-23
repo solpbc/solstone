@@ -16,8 +16,8 @@ from pathlib import Path
 import numpy as np
 import soundfile as sf
 
-from media import AUDIO_EXTENSIONS as _AUDIO_EXTENSIONS
-from media import VIDEO_EXTENSIONS as _VIDEO_EXTENSIONS
+from think.media import AUDIO_EXTENSIONS as _AUDIO_EXTENSIONS
+from think.media import VIDEO_EXTENSIONS as _VIDEO_EXTENSIONS
 from think.utils import day_path
 
 logger = logging.getLogger(__name__)

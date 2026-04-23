@@ -262,25 +262,25 @@ class TestLingerCheck:
 
 class TestRegistry:
     def test_service_command_registered(self):
-        import sol
+        from think import sol_cli as sol
 
         assert "service" in sol.COMMANDS
         assert sol.COMMANDS["service"] == "think.service"
 
     def test_up_alias(self):
-        import sol
+        from think import sol_cli as sol
 
         assert "up" in sol.ALIASES
         assert sol.ALIASES["up"] == ("think.service", ["up"])
 
     def test_down_alias(self):
-        import sol
+        from think import sol_cli as sol
 
         assert "down" in sol.ALIASES
         assert sol.ALIASES["down"] == ("think.service", ["down"])
 
     def test_service_group_exists(self):
-        import sol
+        from think import sol_cli as sol
 
         assert "Service" in sol.GROUPS
         assert "service" in sol.GROUPS["Service"]

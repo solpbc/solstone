@@ -23,7 +23,7 @@ The CLI has two tiers with distinct purposes:
 
 ### How they work
 
-`sol.py` contains a static `COMMANDS` dict mapping command names to module paths:
+`think/sol_cli.py` contains a static `COMMANDS` dict mapping command names to module paths:
 
 ```python
 COMMANDS: dict[str, str] = {
@@ -52,7 +52,7 @@ def main() -> None:
     # ... implementation
 ```
 
-2. **Register in `sol.py`** — add to `COMMANDS`:
+2. **Register in `think/sol_cli.py`** — add to `COMMANDS`:
 
 ```python
 COMMANDS: dict[str, str] = {
@@ -69,8 +69,8 @@ COMMANDS: dict[str, str] = {
 
 | File | What to do |
 |------|-----------|
-| `sol.py` COMMANDS dict | Register the command |
-| `sol.py` GROUPS dict | Add to appropriate group |
+| `think/sol_cli.py` `COMMANDS` dict | Register the command |
+| `think/sol_cli.py` `GROUPS` dict | Add to appropriate group |
 | Module file (e.g., `think/my_cmd.py`) | Implement with `main()` |
 
 ## Call Commands (`sol call <app> <cmd>`)
@@ -252,8 +252,8 @@ Use lowercase, single-word names. Hyphenated names for multi-word (`list-nudges-
 
 ```
 solstone/
-├── sol.py                          # Entry point + COMMANDS registry
 ├── think/
+│   ├── sol_cli.py                  # Entry point + COMMANDS registry
 │   ├── call.py                     # sol call gateway (Typer root + mounts)
 │   ├── tools/
 │   │   ├── call.py                 # sol call journal (built-in)

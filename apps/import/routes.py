@@ -15,7 +15,6 @@ from werkzeug.utils import secure_filename
 
 from apps.utils import log_app_action
 from convey import emit, state
-from media import MEDIA_EXTENSIONS
 from think.detect_created import detect_created
 from think.importers.utils import (
     build_import_info,
@@ -28,6 +27,7 @@ from think.importers.utils import (
     update_import_metadata_fields,
     write_import_metadata,
 )
+from think.media import MEDIA_EXTENSIONS
 from think.utils import day_path, now_ms
 
 from .journal_sources import (
