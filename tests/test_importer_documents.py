@@ -173,48 +173,6 @@ def test_process_scanned_detection(tmp_path, monkeypatch):
     assert "Vision extracted text" in md_path.read_text(encoding="utf-8")
 
 
-def test_process_scanned_ocr_fallback(tmp_path, monkeypatch):
-    mod = importlib.import_module("think.importers.documents")
-
-    class ScannedReader(MockPdfReader):
-        def __init__(self, path):
-            self.path = str(path)
-            self.pages = [MockPage("x")]
-            self.metadata = {"/CreationDate": "D:20260115120000"}
-
-    pdf = tmp_path / "scan.pdf"
-    pdf.write_bytes(b"%PDF-1.4")
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
-    monkeypatch.setattr(mod, "PdfReader", ScannedReader)
-    monkeypatch.setattr(mod, "day_path", lambda day: tmp_path / "chronicle" / day)
-    monkeypatch.setattr(
-        mod,
-        "write_content_manifest",
-        lambda import_id, entries: tmp_path / "manifest.jsonl",
-    )
-    monkeypatch.setattr(mod, "seed_entities", lambda facet, day, entities: entities)
-    monkeypatch.setattr(
-        mod,
-        "_extract_text_vision",
-        lambda pdf_path, page_count: (_ for _ in ()).throw(
-            RuntimeError("vision failed")
-        ),
-    )
-    monkeypatch.setattr(mod, "_extract_text_ocr", lambda pdf_path: "OCR extracted text")
-
-    mod.importer.process(pdf, tmp_path, import_id="20260115_120000")
-
-    md_path = (
-        tmp_path
-        / "chronicle"
-        / "20260115"
-        / "import.document"
-        / "120000_0"
-        / "document_transcript.md"
-    )
-    assert "OCR extracted text" in md_path.read_text(encoding="utf-8")
-
-
 def test_process_scanned_all_fallback(tmp_path, monkeypatch):
     mod = importlib.import_module("think.importers.documents")
 
@@ -242,16 +200,11 @@ def test_process_scanned_all_fallback(tmp_path, monkeypatch):
             RuntimeError("vision failed")
         ),
     )
-    monkeypatch.setattr(
-        mod,
-        "_extract_text_ocr",
-        lambda pdf_path: (_ for _ in ()).throw(RuntimeError("ocr failed")),
-    )
 
     result = mod.importer.process(pdf, tmp_path, import_id="20260115_120000")
 
     assert result.errors == [
-        "scan.pdf: scanned PDF — vision failed (vision failed), OCR failed (ocr failed); using sparse pypdf text"
+        "scan.pdf: scanned PDF — vision failed (vision failed); using sparse pypdf text"
     ]
     md_path = (
         tmp_path

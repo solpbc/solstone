@@ -48,7 +48,6 @@ dependencies = [
     "av",
 
     "openai>=1.2.0",
-    "openai-agents>=0.1.0",
     "anthropic",
     "httpx",
     "h2",
@@ -63,7 +62,6 @@ dependencies = [
     "websockets>=13.0",
     "pypdf",
     "pdf2image",
-    "pytesseract",
     "weasyprint",
     "icalendar",
     "blessed>=1.20.0",
@@ -77,7 +75,7 @@ dependencies = [
     # Audio processing
     "soundfile",
     "faster-whisper>=1.0.0",
-    "resemblyzer>=0.1.0",
+    "resemblyzer",
     "webrtcvad-wheels>=2.0.12",
 
     # Media processing

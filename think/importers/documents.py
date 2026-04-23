@@ -12,17 +12,8 @@ import shutil
 from pathlib import Path
 from typing import Callable
 
+from pdf2image import convert_from_path
 from pypdf import PdfReader
-
-try:
-    from pdf2image import convert_from_path
-except ImportError:  # pragma: no cover - optional dependency
-    convert_from_path = None
-
-try:
-    import pytesseract
-except ImportError:  # pragma: no cover - optional dependency
-    pytesseract = None
 
 from think.entities.seeding import seed_entities
 from think.importers.file_importer import ImportPreview, ImportResult
@@ -89,11 +80,6 @@ def _extract_text_pypdf(reader: PdfReader) -> tuple[str, int, bool]:
 
 def _extract_text_vision(pdf_path: Path, page_count: int) -> str:
     """Extract text from scanned PDFs using vision models."""
-    if convert_from_path is None:
-        raise RuntimeError(
-            "pdf2image is required for scanned PDF extraction. Install with: pip install pdf2image"
-        )
-
     prompt = (
         "Extract all text content from this document. Preserve the document "
         "structure including headings, paragraphs, lists, and tables. Return "
@@ -113,23 +99,6 @@ def _extract_text_vision(pdf_path: Path, page_count: int) -> str:
         if page_text:
             pages.append(page_text)
     return "\n\n".join(pages).strip()
-
-
-def _extract_text_ocr(pdf_path: Path) -> str:
-    """Extract text from scanned PDFs using local OCR."""
-    if convert_from_path is None:
-        raise RuntimeError(
-            "pdf2image is required for scanned PDF extraction. Install with: pip install pdf2image"
-        )
-    if pytesseract is None:
-        raise RuntimeError(
-            "pytesseract is required for OCR fallback. Install with: pip install pytesseract"
-        )
-
-    images = convert_from_path(str(pdf_path), dpi=200)
-    return "\n\n".join(
-        pytesseract.image_to_string(image).strip() for image in images
-    ).strip()
 
 
 def _render_document_markdown(title: str, text: str, metadata: dict) -> str:
@@ -175,7 +144,9 @@ class DocumentImporter:
     name = "document"
     display_name = "Documents"
     file_patterns = ["*.pdf"]
-    description = "Import PDF documents with text extraction and optional OCR"
+    description = (
+        "Import PDF documents with text extraction and vision fallback for scanned PDFs"
+    )
 
     def detect(self, path: Path) -> bool:
         return bool(_find_pdfs(path))
@@ -250,17 +221,9 @@ class DocumentImporter:
                         logger.warning(
                             "Vision extraction failed for %s: %s", pdf_path, vision_exc
                         )
-                        try:
-                            text = _extract_text_ocr(pdf_path)
-                            extraction_method = "ocr"
-                        except Exception as ocr_exc:
-                            logger.warning(
-                                "OCR extraction failed for %s: %s", pdf_path, ocr_exc
-                            )
-                            errors.append(
-                                f"{pdf_path.name}: scanned PDF — vision failed "
-                                f"({vision_exc}), OCR failed ({ocr_exc}); using sparse pypdf text"
-                            )
+                        errors.append(
+                            f"{pdf_path.name}: scanned PDF — vision failed ({vision_exc}); using sparse pypdf text"
+                        )
 
                 seg_dt = dt.datetime.fromtimestamp(ts)
                 day = seg_dt.strftime("%Y%m%d")
