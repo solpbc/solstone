@@ -509,7 +509,10 @@
       </form>
     </section>
     <div id="observersList" role="list">
-      <div class="no-observers">Loading...</div>
+      <div class="surface-state surface-state--loading" role="status" aria-busy="true">
+        <div class="surface-state-spinner" aria-hidden="true"></div>
+        <span class="surface-state-text" data-role="loading-status">Loading observers...</span>
+      </div>
     </div>
   </section>
 </div>
@@ -744,12 +747,29 @@ async function loadObservers() {
   lastPollTime = Date.now();
   if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
   try {
-    const response = await fetch('/app/observer/api/list');
-    const payload = await response.json();
+    const payload = await window.apiJson('/app/observer/api/list');
+    if (!payload || typeof payload !== 'object' || !Array.isArray(payload.observers)) {
+      throw new window.ApiError({
+        status: 200,
+        statusText: 'OK',
+        serverMessage: 'Malformed observer response',
+        url: '/app/observer/api/list',
+        cause: 'parse',
+      });
+    }
+    if (payload.thresholds && typeof payload.thresholds !== 'object') {
+      throw new window.ApiError({
+        status: 200,
+        statusText: 'OK',
+        serverMessage: 'Malformed observer response',
+        url: '/app/observer/api/list',
+        cause: 'parse',
+      });
+    }
     if (payload && payload.thresholds) {
       thresholds = payload.thresholds;
     }
-    const observers = payload?.observers || [];
+    const observers = payload.observers;
 
     // Rebuild on every poll so grouped headers stay aligned with server ordering.
     const activeEl = document.activeElement;
@@ -776,9 +796,11 @@ async function loadObservers() {
       if (target) target.focus();
     }
   } catch (err) {
-    observersList.innerHTML = '<div class="no-observers">couldn\'t load observers</div>';
-    showLocalError('couldn\'t load observers — the server may be unreachable. it will retry automatically, or you can retry now.', { retry: true });
-    console.error('Failed to load observers:', err);
+    window.SurfaceState.replaceLoading('observersList', window.SurfaceState.errorCard({
+      heading: 'Couldn\'t load observers',
+      desc: 'Reload the page to try again.',
+      serverMessage: err?.serverMessage || err?.message || '',
+    }));
   }
 }
 
