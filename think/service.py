@@ -26,6 +26,7 @@ import plistlib
 import subprocess
 import sys
 from pathlib import Path
+from xml.parsers.expat import ExpatError
 
 from think.utils import get_journal, get_journal_info
 
@@ -95,6 +96,90 @@ def _generate_plist(env: dict[str, str], port: int = DEFAULT_SERVICE_PORT) -> by
     return plistlib.dumps(plist)
 
 
+def remove_stale_plists() -> tuple[int, int]:
+    """Remove stale launchd plists from prior installs."""
+    if sys.platform != "darwin":
+        return (0, 0)
+
+    scan_dir = _plist_path().parent
+    if not scan_dir.is_dir():
+        return (0, 0)
+
+    current = _sol_bin()
+    uid = os.getuid()
+    removed = 0
+    failed = 0
+    not_loaded_markers = (
+        "could not find",
+        "service not found",
+        "no such process",
+        "not currently loaded",
+    )
+
+    for path in sorted(scan_dir.glob("*.plist")):
+        try:
+            with path.open("rb") as handle:
+                data = plistlib.load(handle)
+        except (plistlib.InvalidFileException, ValueError, ExpatError, OSError) as exc:
+            print(f"skipping {path}: {type(exc).__name__}: {exc}", file=sys.stderr)
+            continue
+
+        label = data.get("Label")
+        if not isinstance(label, str):
+            continue
+        if label != SERVICE_LABEL and not label.startswith(f"{SERVICE_LABEL}."):
+            continue
+
+        program_arguments = data.get("ProgramArguments")
+        program = data.get("Program")
+        if (
+            isinstance(program_arguments, list)
+            and program_arguments
+            and program_arguments[0]
+        ):
+            extracted = str(program_arguments[0])
+        elif program:
+            extracted = str(program)
+        else:
+            print(f"skipping {path}: no Program or ProgramArguments", file=sys.stderr)
+            continue
+
+        if not extracted.endswith("/sol"):
+            continue
+
+        if extracted == current and Path(extracted).exists():
+            continue
+
+        result = subprocess.run(
+            ["launchctl", "bootout", f"gui/{uid}", str(path)],
+            capture_output=True,
+            text=True,
+        )
+        stderr = result.stderr or ""
+        if result.returncode != 0 and not any(
+            marker in stderr.lower() for marker in not_loaded_markers
+        ):
+            print(
+                f"launchctl bootout {path}: exit={result.returncode} stderr={stderr!r}",
+                file=sys.stderr,
+            )
+
+        try:
+            path.unlink()
+        except (OSError, PermissionError) as exc:
+            print(f"failed to remove {path}: {exc}", file=sys.stderr)
+            failed += 1
+            continue
+
+        print(
+            f"Removed stale launchd plist {path} "
+            f"(referenced {extracted}, current is {current})"
+        )
+        removed += 1
+
+    return (removed, failed)
+
+
 def _generate_systemd_unit(
     env: dict[str, str], port: int = DEFAULT_SERVICE_PORT
 ) -> str:
@@ -146,6 +231,7 @@ def _install(port: int = DEFAULT_SERVICE_PORT) -> int:
     Path(journal_path, "health").mkdir(parents=True, exist_ok=True)
 
     if platform == "darwin":
+        remove_stale_plists()
         plist_data = _generate_plist(env, port=port)
         path = _plist_path()
         path.parent.mkdir(parents=True, exist_ok=True)

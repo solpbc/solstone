@@ -306,3 +306,376 @@ class TestMain:
             with pytest.raises(SystemExit):
                 service.main()
             mock.assert_called_once_with(if_installed=True)
+
+
+class TestRemoveStalePlists:
+    @staticmethod
+    def _configure(monkeypatch, tmp_path, *, platform="darwin", current=None):
+        launch_agents = tmp_path / "LaunchAgents"
+        plist_path = launch_agents / "org.solpbc.solstone.plist"
+        current_path = current or (tmp_path / "current" / ".venv" / "bin" / "sol")
+        monkeypatch.setattr(sys, "platform", platform)
+        monkeypatch.setattr(service, "_plist_path", lambda: plist_path)
+        monkeypatch.setattr(service, "_sol_bin", lambda: str(current_path))
+        monkeypatch.setattr(service.os, "getuid", lambda: 501)
+        return launch_agents, plist_path, Path(current_path)
+
+    @staticmethod
+    def _write_plist(path, *, label, program_arguments=None, program=None):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        data = {"Label": label}
+        if program_arguments is not None:
+            data["ProgramArguments"] = program_arguments
+        if program is not None:
+            data["Program"] = program
+        path.write_bytes(plistlib.dumps(data))
+
+    @staticmethod
+    def _touch(path):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("", encoding="utf-8")
+
+    def test_removes_stale_plist_from_old_checkout(self, monkeypatch, tmp_path, capsys):
+        launch_agents, plist_path, current = self._configure(monkeypatch, tmp_path)
+        launch_agents.mkdir(parents=True, exist_ok=True)
+        old = tmp_path / "old" / ".venv" / "bin" / "sol"
+        self._touch(old)
+        self._touch(current)
+        self._write_plist(
+            plist_path,
+            label=service.SERVICE_LABEL,
+            program_arguments=[str(old), "supervisor", "5015"],
+        )
+
+        with patch("think.service.subprocess.run") as run:
+            run.return_value = MagicMock(returncode=0, stderr="", stdout="")
+            assert service.remove_stale_plists() == (1, 0)
+
+        run.assert_called_once_with(
+            ["launchctl", "bootout", "gui/501", str(plist_path)],
+            capture_output=True,
+            text=True,
+        )
+        assert not plist_path.exists()
+        captured = capsys.readouterr()
+        assert str(old) in captured.out
+        assert str(current) in captured.out
+        assert captured.err == ""
+
+    def test_preserves_current_plist(self, monkeypatch, tmp_path, capsys):
+        launch_agents, plist_path, current = self._configure(monkeypatch, tmp_path)
+        launch_agents.mkdir(parents=True, exist_ok=True)
+        self._touch(current)
+        self._write_plist(
+            plist_path,
+            label=service.SERVICE_LABEL,
+            program_arguments=[str(current), "supervisor", "5015"],
+        )
+
+        with patch("think.service.subprocess.run") as run:
+            assert service.remove_stale_plists() == (0, 0)
+
+        run.assert_not_called()
+        assert plist_path.exists()
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert captured.err == ""
+
+    def test_preserves_current_plist_with_symlinked_venv_path(
+        self, monkeypatch, tmp_path, capsys
+    ):
+        real_venv = tmp_path / "real_venv"
+        linked_venv = tmp_path / "linked_venv"
+        current = linked_venv / "bin" / "sol"
+        launch_agents, plist_path, current = self._configure(
+            monkeypatch, tmp_path, current=current
+        )
+        launch_agents.mkdir(parents=True, exist_ok=True)
+        self._touch(real_venv / "bin" / "sol")
+        linked_venv.symlink_to(real_venv, target_is_directory=True)
+        self._write_plist(
+            plist_path,
+            label=service.SERVICE_LABEL,
+            program_arguments=[str(current), "supervisor", "5015"],
+        )
+
+        with patch("think.service.subprocess.run") as run:
+            assert service.remove_stale_plists() == (0, 0)
+
+        run.assert_not_called()
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert captured.err == ""
+
+    def test_removes_multiple_stale_plists_and_logs_only_unexpected_bootout_stderr(
+        self, monkeypatch, tmp_path, capsys
+    ):
+        launch_agents, plist_path, current = self._configure(monkeypatch, tmp_path)
+        launch_agents.mkdir(parents=True, exist_ok=True)
+        self._touch(current)
+        old_one = tmp_path / "old-one" / ".venv" / "bin" / "sol"
+        old_two = tmp_path / "old-two" / ".venv" / "bin" / "sol"
+        self._touch(old_one)
+        self._touch(old_two)
+        dev_path = launch_agents / "org.solpbc.solstone.dev.plist"
+        self._write_plist(
+            plist_path,
+            label=service.SERVICE_LABEL,
+            program_arguments=[str(old_one)],
+        )
+        self._write_plist(
+            dev_path,
+            label=f"{service.SERVICE_LABEL}.dev",
+            program_arguments=[str(old_two)],
+        )
+
+        with patch("think.service.subprocess.run") as run:
+            run.side_effect = [
+                MagicMock(returncode=1, stderr="Could not find service"),
+                MagicMock(returncode=1, stderr="unexpected doom"),
+            ]
+            assert service.remove_stale_plists() == (2, 0)
+
+        assert run.call_count == 2
+        assert not plist_path.exists()
+        assert not dev_path.exists()
+        captured = capsys.readouterr()
+        assert "unexpected doom" in captured.err
+        assert "Could not find service" not in captured.err
+        assert captured.out.count("Removed stale launchd plist") == 2
+
+    def test_counts_unlink_failure_without_aborting(
+        self, monkeypatch, tmp_path, capsys
+    ):
+        launch_agents, plist_path, current = self._configure(monkeypatch, tmp_path)
+        launch_agents.mkdir(parents=True, exist_ok=True)
+        self._touch(current)
+        old_one = tmp_path / "old-one" / ".venv" / "bin" / "sol"
+        old_two = tmp_path / "old-two" / ".venv" / "bin" / "sol"
+        self._touch(old_one)
+        self._touch(old_two)
+        dev_path = launch_agents / "org.solpbc.solstone.dev.plist"
+        self._write_plist(
+            plist_path,
+            label=service.SERVICE_LABEL,
+            program_arguments=[str(old_one)],
+        )
+        self._write_plist(
+            dev_path,
+            label=f"{service.SERVICE_LABEL}.dev",
+            program_arguments=[str(old_two)],
+        )
+
+        original_unlink = Path.unlink
+
+        def fake_unlink(path, *args, **kwargs):
+            if path == dev_path:
+                raise PermissionError("no permission")
+            return original_unlink(path, *args, **kwargs)
+
+        with (
+            patch("think.service.subprocess.run") as run,
+            patch.object(
+                Path,
+                "unlink",
+                autospec=True,
+                side_effect=fake_unlink,
+            ),
+        ):
+            run.return_value = MagicMock(returncode=0, stderr="", stdout="")
+            assert service.remove_stale_plists() == (1, 1)
+
+        assert run.call_count == 2
+        captured = capsys.readouterr()
+        assert "Removed stale launchd plist" in captured.out
+        assert f"failed to remove {dev_path}" in captured.err
+
+    def test_empty_launch_agents_dir_is_noop(self, monkeypatch, tmp_path, capsys):
+        launch_agents, _plist_path, _current = self._configure(monkeypatch, tmp_path)
+        launch_agents.mkdir(parents=True, exist_ok=True)
+
+        with patch("think.service.subprocess.run") as run:
+            assert service.remove_stale_plists() == (0, 0)
+
+        run.assert_not_called()
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert captured.err == ""
+
+    def test_ignores_non_solstone_labels(self, monkeypatch, tmp_path, capsys):
+        launch_agents, _plist_path, _current = self._configure(monkeypatch, tmp_path)
+        launch_agents.mkdir(parents=True, exist_ok=True)
+        self._write_plist(
+            launch_agents / "com.apple.foo.plist",
+            label="com.apple.foo",
+            program_arguments=["/tmp/sol"],
+        )
+        self._write_plist(
+            launch_agents / "app.solstone.observer.plist",
+            label="app.solstone.observer",
+            program_arguments=["/tmp/sol"],
+        )
+        self._write_plist(
+            launch_agents / "org.solpbc.solstone-swift.plist",
+            label="org.solpbc.solstone-swift",
+            program_arguments=["/tmp/sol"],
+        )
+
+        with patch("think.service.subprocess.run") as run:
+            assert service.remove_stale_plists() == (0, 0)
+
+        run.assert_not_called()
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert captured.err == ""
+
+    def test_skips_unparseable_plist(self, monkeypatch, tmp_path, capsys):
+        launch_agents, _plist_path, _current = self._configure(monkeypatch, tmp_path)
+        launch_agents.mkdir(parents=True, exist_ok=True)
+        bad_path = launch_agents / "broken.plist"
+        bad_path.write_bytes(b"not a plist")
+
+        with patch("think.service.subprocess.run") as run:
+            assert service.remove_stale_plists() == (0, 0)
+
+        run.assert_not_called()
+        captured = capsys.readouterr()
+        assert f"skipping {bad_path}" in captured.err
+        assert captured.out == ""
+
+    def test_is_idempotent_after_removal(self, monkeypatch, tmp_path, capsys):
+        launch_agents, plist_path, current = self._configure(monkeypatch, tmp_path)
+        launch_agents.mkdir(parents=True, exist_ok=True)
+        self._touch(current)
+        old = tmp_path / "old" / ".venv" / "bin" / "sol"
+        self._touch(old)
+        self._write_plist(
+            plist_path,
+            label=service.SERVICE_LABEL,
+            program_arguments=[str(old)],
+        )
+
+        with patch("think.service.subprocess.run") as run:
+            run.return_value = MagicMock(returncode=0, stderr="", stdout="")
+            assert service.remove_stale_plists() == (1, 0)
+            first = capsys.readouterr()
+            assert "Removed stale launchd plist" in first.out
+
+            assert service.remove_stale_plists() == (0, 0)
+            second = capsys.readouterr()
+
+        assert run.call_count == 1
+        assert second.out == ""
+        assert second.err == ""
+
+    def test_uses_program_key_when_program_arguments_missing(
+        self, monkeypatch, tmp_path, capsys
+    ):
+        launch_agents, plist_path, current = self._configure(monkeypatch, tmp_path)
+        launch_agents.mkdir(parents=True, exist_ok=True)
+        self._touch(current)
+        old = tmp_path / "old" / ".venv" / "bin" / "sol"
+        self._touch(old)
+        self._write_plist(
+            plist_path,
+            label=service.SERVICE_LABEL,
+            program=str(old),
+        )
+
+        with patch("think.service.subprocess.run") as run:
+            run.return_value = MagicMock(returncode=0, stderr="", stdout="")
+            assert service.remove_stale_plists() == (1, 0)
+
+        run.assert_called_once_with(
+            ["launchctl", "bootout", "gui/501", str(plist_path)],
+            capture_output=True,
+            text=True,
+        )
+        captured = capsys.readouterr()
+        assert str(old) in captured.out
+
+    def test_skips_matching_label_without_program_fields(
+        self, monkeypatch, tmp_path, capsys
+    ):
+        launch_agents, plist_path, _current = self._configure(monkeypatch, tmp_path)
+        launch_agents.mkdir(parents=True, exist_ok=True)
+        self._write_plist(plist_path, label=service.SERVICE_LABEL)
+
+        with patch("think.service.subprocess.run") as run:
+            assert service.remove_stale_plists() == (0, 0)
+
+        run.assert_not_called()
+        captured = capsys.readouterr()
+        assert f"skipping {plist_path}: no Program or ProgramArguments" in captured.err
+        assert captured.out == ""
+
+    def test_removes_plist_when_referenced_binary_is_missing(
+        self, monkeypatch, tmp_path, capsys
+    ):
+        launch_agents, plist_path, current = self._configure(monkeypatch, tmp_path)
+        launch_agents.mkdir(parents=True, exist_ok=True)
+        self._touch(current)
+        missing = tmp_path / "missing" / ".venv" / "bin" / "sol"
+        self._write_plist(
+            plist_path,
+            label=service.SERVICE_LABEL,
+            program_arguments=[str(missing)],
+        )
+
+        with patch("think.service.subprocess.run") as run:
+            run.return_value = MagicMock(returncode=0, stderr="", stdout="")
+            assert service.remove_stale_plists() == (1, 0)
+
+        run.assert_called_once()
+        assert not plist_path.exists()
+        captured = capsys.readouterr()
+        assert str(missing) in captured.out
+
+    def test_removes_plist_when_referenced_binary_is_broken_symlink(
+        self, monkeypatch, tmp_path, capsys
+    ):
+        launch_agents, plist_path, current = self._configure(monkeypatch, tmp_path)
+        launch_agents.mkdir(parents=True, exist_ok=True)
+        self._touch(current)
+        target = tmp_path / "gone-target"
+        broken = tmp_path / "broken" / ".venv" / "bin" / "sol"
+        broken.parent.mkdir(parents=True, exist_ok=True)
+        broken.symlink_to(target)
+        self._write_plist(
+            plist_path,
+            label=service.SERVICE_LABEL,
+            program_arguments=[str(broken)],
+        )
+
+        with patch("think.service.subprocess.run") as run:
+            run.return_value = MagicMock(returncode=0, stderr="", stdout="")
+            assert service.remove_stale_plists() == (1, 0)
+
+        run.assert_called_once()
+        assert not plist_path.exists()
+        captured = capsys.readouterr()
+        assert str(broken) in captured.out
+
+    def test_absent_launch_agents_dir_is_noop(self, monkeypatch, tmp_path, capsys):
+        _launch_agents, _plist_path, _current = self._configure(monkeypatch, tmp_path)
+
+        with patch("think.service.subprocess.run") as run:
+            assert service.remove_stale_plists() == (0, 0)
+
+        run.assert_not_called()
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert captured.err == ""
+
+    def test_linux_is_noop(self, monkeypatch, tmp_path, capsys):
+        _launch_agents, _plist_path, _current = self._configure(
+            monkeypatch, tmp_path, platform="linux"
+        )
+
+        with patch("think.service.subprocess.run") as run:
+            assert service.remove_stale_plists() == (0, 0)
+
+        run.assert_not_called()
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert captured.err == ""
