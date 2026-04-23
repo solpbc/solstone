@@ -176,6 +176,16 @@ let contentSearch = '';
 let contentMonth = '';
 let searchDebounce = null;
 
+function escapeHtml(str) {
+  if (!str) return '';
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 tabs.forEach(tab => {
   tab.addEventListener('click', () => {
     const target = tab.dataset.target;
@@ -434,8 +444,7 @@ function formatTimestamp(timestamp) {
 }
 
 // Load import details
-fetch('/app/import/api/{{ timestamp }}')
-  .then(r => r.json())
+window.apiJson('/app/import/api/{{ timestamp }}')
   .then(data => {
     // Update header metadata
     const metaDiv = document.getElementById('importMeta');
@@ -540,11 +549,13 @@ fetch('/app/import/api/{{ timestamp }}')
 
   })
   .catch(err => {
-    console.error('Error loading import details:', err);
-    document.getElementById('importMeta').innerHTML = '<span style="color:red;">Error loading import details</span>';
-    document.getElementById('overviewContent').innerHTML = '<div class="no-data">Error loading data</div>';
-    document.getElementById('importJsonContent').innerHTML = '<span class="no-data">Error loading data</span>';
-    document.getElementById('importedJsonContent').innerHTML = '<span class="no-data">Error loading data</span>';
+    const serverMessage = err?.serverMessage || err?.message || '';
+    document.getElementById('importMeta').innerHTML = `<div class="surface-state-refresh-error">Couldn&#39;t load import details.${serverMessage ? ` ${escapeHtml(serverMessage)}` : ''}</div>`;
+    document.getElementById('overviewContent').innerHTML = '<div class="no-data">Overview unavailable</div>';
+    document.getElementById('importJsonContent').textContent = 'Upload metadata unavailable';
+    document.getElementById('importedJsonContent').textContent = 'Processing results unavailable';
+    document.getElementById('linksSection').style.display = 'none';
+    document.getElementById('filesList').style.display = 'none';
   });
 
 if (window.location.hash === '#content') {
