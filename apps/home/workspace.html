@@ -1605,7 +1605,7 @@
         html += '<a href="/app/health">health →</a>';
         el.innerHTML = html;
       })
-      .catch(function(err) { console.error('home: refreshVitals failed', err); });
+      .catch(function(err) { window.logError(err, { context: 'home: refreshVitals failed' }); });
   }
 
   function refreshNarrative() {
@@ -1627,7 +1627,7 @@
           }
         }
       })
-      .catch(function(err) { console.error('home: refreshNarrative failed', err); });
+      .catch(function(err) { window.logError(err, { context: 'home: refreshNarrative failed' }); });
   }
 
   function esc(s) {
@@ -1636,217 +1636,260 @@
     return d.innerHTML;
   }
 
-  function refreshRoutines() {
-    fetch('/app/home/api/pulse')
-      .then(r => r.json())
-      .then(data => {
-        var container = document.getElementById('pulse-routines');
-        var routines = (data.routines || []).filter(function(r) { return !r.seen; });
-        if (routines.length === 0) {
-          if (container) container.remove();
-          return;
-        }
-        var wasCollapsed;
-        if (container) {
-          wasCollapsed = container.dataset.sectionCollapsed;
-        } else {
-          try {
-            var saved = JSON.parse(sessionStorage.getItem('pulse-section-state') || '{}');
-            wasCollapsed = saved['pulse-routines'] || SECTION_DEFAULTS['pulse-routines'];
-          } catch(e) {
-            wasCollapsed = SECTION_DEFAULTS['pulse-routines'];
-          }
-        }
-        var expanded = wasCollapsed === 'false' ? 'true' : 'false';
-        var summaryText = routines.length + ' new routine' + (routines.length !== 1 ? 's' : '');
-        var html = '<div class="pulse-section-toggle" role="button" tabindex="0" aria-expanded="' + expanded + '" onclick="toggleSection(this.parentElement)">';
-        html += '<h2 class="pulse-section-header">your routines</h2>';
-        html += '<span class="pulse-section-summary">' + esc(summaryText) + '</span>';
-        html += '</div>';
-        html += '<div class="pulse-section-body">';
-        html += '<div class="pulse-routines-list">';
-        routines.forEach(function(r) {
-          var name = esc(r.name);
-          html += '<div class="pulse-routine-item" role="button" tabindex="0" data-conversation="Show me my ' + name + ' from today" data-routine-click="true"><span>';
-          html += '<span class="pulse-routine-name">' + name + '</span> ';
-          html += '<span class="pulse-routine-time">' + esc(r.run_time_display) + '</span>';
-          if (r.summary) html += ' <span class="pulse-routine-summary">— ' + esc(r.summary) + '</span>';
-          html += '</span></div>';
-        });
-        html += '</div><div class="pulse-routines-more"><a href="#" data-conversation="Show me all my routine history">all routine history →</a></div>';
-        html += '</div>';
-        if (container) {
-          container.innerHTML = html;
-          container.dataset.sectionCollapsed = wasCollapsed;
-        } else {
-          var newDiv = document.createElement('div');
-          newDiv.className = 'pulse-routines';
-          newDiv.id = 'pulse-routines';
-          newDiv.dataset.sectionCollapsed = wasCollapsed;
-          newDiv.innerHTML = html;
-          var narrative = document.getElementById('pulse-narrative');
-          var today = document.getElementById('pulse-today');
-          if (narrative) {
-            narrative.parentNode.insertBefore(newDiv, narrative.nextSibling);
-          } else if (today) {
-            today.parentNode.insertBefore(newDiv, today);
-          } else {
-            var dash = document.querySelector('.pulse-dashboard');
-            if (dash) dash.appendChild(newDiv);
-          }
-        }
-      })
-      .catch(function(err) { console.error('home: refreshRoutines failed', err); });
+  function malformedHomeResponse(url, serverMessage) {
+    return new window.ApiError({
+      status: 200,
+      statusText: 'OK',
+      serverMessage: serverMessage,
+      url: url,
+      cause: 'parse',
+    });
   }
 
-  function refreshSkills() {
-    fetch('/app/home/api/pulse')
-      .then(r => r.json())
-      .then(data => {
-        var container = document.getElementById('pulse-skills');
-        var skills = data.skills || [];
-        var newContent = data.skills_content || {};
-        if (skills.length === 0) {
-          if (container) container.remove();
-          return;
+  async function refreshRoutines() {
+    try {
+      var data = await window.apiJson('/app/home/api/pulse');
+      if (!Array.isArray(data.routines)) {
+        throw malformedHomeResponse('/app/home/api/pulse', 'Malformed pulse response');
+      }
+      var container = document.getElementById('pulse-routines');
+      var routines = data.routines.filter(function(r) { return !r.seen; });
+      if (routines.length === 0) {
+        if (container) container.remove();
+        return;
+      }
+      var wasCollapsed;
+      if (container) {
+        wasCollapsed = container.dataset.sectionCollapsed;
+      } else {
+        try {
+          var saved = JSON.parse(sessionStorage.getItem('pulse-section-state') || '{}');
+          wasCollapsed = saved['pulse-routines'] || SECTION_DEFAULTS['pulse-routines'];
+        } catch(e) {
+          wasCollapsed = SECTION_DEFAULTS['pulse-routines'];
         }
-        // Update content map
-        Object.keys(newContent).forEach(function(k) { skillContent[k] = newContent[k]; });
-        var wasCollapsed;
-        if (container) {
-          wasCollapsed = container.dataset.sectionCollapsed;
+      }
+      var expanded = wasCollapsed === 'false' ? 'true' : 'false';
+      var summaryText = routines.length + ' new routine' + (routines.length !== 1 ? 's' : '');
+      var html = '<div class="pulse-section-toggle" role="button" tabindex="0" aria-expanded="' + expanded + '" onclick="toggleSection(this.parentElement)">';
+      html += '<h2 class="pulse-section-header">your routines</h2>';
+      html += '<span class="pulse-section-summary">' + esc(summaryText) + '</span>';
+      html += '</div>';
+      html += '<div class="pulse-section-body">';
+      html += '<div class="pulse-routines-list">';
+      routines.forEach(function(r) {
+        var name = esc(r.name);
+        html += '<div class="pulse-routine-item" role="button" tabindex="0" data-conversation="Show me my ' + name + ' from today" data-routine-click="true"><span>';
+        html += '<span class="pulse-routine-name">' + name + '</span> ';
+        html += '<span class="pulse-routine-time">' + esc(r.run_time_display) + '</span>';
+        if (r.summary) html += ' <span class="pulse-routine-summary">— ' + esc(r.summary) + '</span>';
+        html += '</span></div>';
+      });
+      html += '</div><div class="pulse-routines-more"><a href="#" data-conversation="Show me all my routine history">all routine history →</a></div>';
+      html += '</div>';
+      if (container) {
+        container.innerHTML = html;
+        container.dataset.sectionCollapsed = wasCollapsed;
+      } else {
+        var newDiv = document.createElement('div');
+        newDiv.className = 'pulse-routines';
+        newDiv.id = 'pulse-routines';
+        newDiv.dataset.sectionCollapsed = wasCollapsed;
+        newDiv.innerHTML = html;
+        var narrative = document.getElementById('pulse-narrative');
+        var today = document.getElementById('pulse-today');
+        if (narrative) {
+          narrative.parentNode.insertBefore(newDiv, narrative.nextSibling);
+        } else if (today) {
+          today.parentNode.insertBefore(newDiv, today);
         } else {
-          try {
-            var saved = JSON.parse(sessionStorage.getItem('pulse-section-state') || '{}');
-            wasCollapsed = saved['pulse-skills'] || SECTION_DEFAULTS['pulse-skills'];
-          } catch(e) {
-            wasCollapsed = SECTION_DEFAULTS['pulse-skills'];
-          }
+          var dash = document.querySelector('.pulse-dashboard');
+          if (dash) dash.appendChild(newDiv);
         }
-        var expanded = wasCollapsed === 'false' ? 'true' : 'false';
-        var summaryText = data.skills_summary || (skills.length + ' skill' + (skills.length !== 1 ? 's' : ''));
-        var html = '<div class="pulse-section-toggle" role="button" tabindex="0" aria-expanded="' + expanded + '" onclick="toggleSection(this.parentElement)">';
-        html += '<h2 class="pulse-section-header">your skills</h2>';
-        html += '<span class="pulse-section-summary">' + esc(summaryText) + '</span>';
-        html += '</div>';
-        html += '<div class="pulse-section-body">';
-        html += '<div class="pulse-skills-list">';
-        skills.forEach(function(s) {
-          var name = esc(s.name + (s.status === 'dormant' ? ' (dormant)' : ''));
-          var facet = esc((s.facets && s.facets.length > 0) ? s.facets[0] : '');
-          var newClass = s.seen ? '' : ' is-new';
-          html += '<div class="pulse-skill-item' + newClass + '" role="button" tabindex="0" data-skill-click="true" data-skill-id="' + esc(s.id) + '"><span>';
-          html += '<span class="pulse-skill-name">' + name + '</span> ';
-          html += '<span class="pulse-skill-badge">' + (s.observations || 0) + ' obs</span> ';
-          html += '<span class="pulse-skill-facet">' + facet + '</span>';
-          if (s.description) html += ' <span class="pulse-skill-summary">— ' + esc(s.description) + '</span>';
-          html += '</span></div>';
-          html += '<div class="pulse-skill-detail" id="skill-detail-' + esc(s.id) + '" style="display: none;"></div>';
+      }
+    } catch (err) {
+      var routinesContainer = document.getElementById('pulse-routines');
+      if (routinesContainer) {
+        routinesContainer.innerHTML = window.SurfaceState.errorCard({
+          heading: 'Couldn\'t refresh routines',
+          desc: 'Reload the page to try again.',
+          serverMessage: err?.serverMessage || err?.message || '',
         });
-        html += '</div>';
-        html += '</div>';
-        if (container) {
-          container.innerHTML = html;
-          container.dataset.sectionCollapsed = wasCollapsed;
-        } else {
-          var newDiv = document.createElement('div');
-          newDiv.className = 'pulse-skills';
-          newDiv.id = 'pulse-skills';
-          newDiv.dataset.sectionCollapsed = wasCollapsed;
-          newDiv.innerHTML = html;
-          var routines = document.getElementById('pulse-routines');
-          var today = document.getElementById('pulse-today');
-          if (routines) {
-            routines.parentNode.insertBefore(newDiv, routines.nextSibling);
-          } else if (today) {
-            today.parentNode.insertBefore(newDiv, today);
-          } else {
-            var dash = document.querySelector('.pulse-dashboard');
-            if (dash) dash.appendChild(newDiv);
-          }
-        }
-      })
-      .catch(function(err) { console.error('home: refreshSkills failed', err); });
+      }
+    }
   }
 
-  function refreshBriefing() {
-    fetch('/app/home/api/briefing')
-      .then(function(r) { return r.json(); })
-      .then(function(data) {
-        var card = document.getElementById('pulse-briefing');
-        if (!data.exists && data.phase !== 'pending') {
-          if (card) card.style.display = 'none';
-          return;
+  async function refreshSkills() {
+    try {
+      var data = await window.apiJson('/app/home/api/pulse');
+      if (!Array.isArray(data.skills) || (data.skills_content && typeof data.skills_content !== 'object')) {
+        throw malformedHomeResponse('/app/home/api/pulse', 'Malformed pulse response');
+      }
+      var container = document.getElementById('pulse-skills');
+      var skills = data.skills;
+      var newContent = data.skills_content || {};
+      if (skills.length === 0) {
+        if (container) container.remove();
+        return;
+      }
+      Object.keys(newContent).forEach(function(k) { skillContent[k] = newContent[k]; });
+      var wasCollapsed;
+      if (container) {
+        wasCollapsed = container.dataset.sectionCollapsed;
+      } else {
+        try {
+          var saved = JSON.parse(sessionStorage.getItem('pulse-section-state') || '{}');
+          wasCollapsed = saved['pulse-skills'] || SECTION_DEFAULTS['pulse-skills'];
+        } catch(e) {
+          wasCollapsed = SECTION_DEFAULTS['pulse-skills'];
         }
-        if (!card) {
+      }
+      var expanded = wasCollapsed === 'false' ? 'true' : 'false';
+      var summaryText = data.skills_summary || (skills.length + ' skill' + (skills.length !== 1 ? 's' : ''));
+      var html = '<div class="pulse-section-toggle" role="button" tabindex="0" aria-expanded="' + expanded + '" onclick="toggleSection(this.parentElement)">';
+      html += '<h2 class="pulse-section-header">your skills</h2>';
+      html += '<span class="pulse-section-summary">' + esc(summaryText) + '</span>';
+      html += '</div>';
+      html += '<div class="pulse-section-body">';
+      html += '<div class="pulse-skills-list">';
+      skills.forEach(function(s) {
+        var name = esc(s.name + (s.status === 'dormant' ? ' (dormant)' : ''));
+        var facet = esc((s.facets && s.facets.length > 0) ? s.facets[0] : '');
+        var newClass = s.seen ? '' : ' is-new';
+        html += '<div class="pulse-skill-item' + newClass + '" role="button" tabindex="0" data-skill-click="true" data-skill-id="' + esc(s.id) + '"><span>';
+        html += '<span class="pulse-skill-name">' + name + '</span> ';
+        html += '<span class="pulse-skill-badge">' + (s.observations || 0) + ' obs</span> ';
+        html += '<span class="pulse-skill-facet">' + facet + '</span>';
+        if (s.description) html += ' <span class="pulse-skill-summary">— ' + esc(s.description) + '</span>';
+        html += '</span></div>';
+        html += '<div class="pulse-skill-detail" id="skill-detail-' + esc(s.id) + '" style="display: none;"></div>';
+      });
+      html += '</div>';
+      html += '</div>';
+      if (container) {
+        container.innerHTML = html;
+        container.dataset.sectionCollapsed = wasCollapsed;
+      } else {
+        var newDiv = document.createElement('div');
+        newDiv.className = 'pulse-skills';
+        newDiv.id = 'pulse-skills';
+        newDiv.dataset.sectionCollapsed = wasCollapsed;
+        newDiv.innerHTML = html;
+        var routines = document.getElementById('pulse-routines');
+        var today = document.getElementById('pulse-today');
+        if (routines) {
+          routines.parentNode.insertBefore(newDiv, routines.nextSibling);
+        } else if (today) {
+          today.parentNode.insertBefore(newDiv, today);
+        } else {
+          var dash = document.querySelector('.pulse-dashboard');
+          if (dash) dash.appendChild(newDiv);
+        }
+      }
+    } catch (err) {
+      var skillsContainer = document.getElementById('pulse-skills');
+      if (skillsContainer) {
+        skillsContainer.innerHTML = window.SurfaceState.errorCard({
+          heading: 'Couldn\'t refresh skills',
+          desc: 'Reload the page to try again.',
+          serverMessage: err?.serverMessage || err?.message || '',
+        });
+      }
+    }
+  }
+
+  async function refreshBriefing() {
+    try {
+      var data = await window.apiJson('/app/home/api/briefing');
+      if (!data || typeof data !== 'object' || typeof data.exists !== 'boolean' || typeof data.phase !== 'string') {
+        throw malformedHomeResponse('/app/home/api/briefing', 'Malformed briefing response');
+      }
+      if (data.exists && (!data.sections || typeof data.sections !== 'object')) {
+        throw malformedHomeResponse('/app/home/api/briefing', 'Malformed briefing response');
+      }
+      if (data.needs_deduped && !Array.isArray(data.needs_deduped)) {
+        throw malformedHomeResponse('/app/home/api/briefing', 'Malformed briefing response');
+      }
+
+      var card = document.getElementById('pulse-briefing');
+      if (!data.exists && data.phase !== 'pending') {
+        if (card) card.style.display = 'none';
+        return;
+      }
+      if (!card) {
+        window.location.reload();
+        return;
+      }
+      card.style.display = '';
+      card.dataset.phase = data.phase;
+      if (data.phase === 'morning') {
+        card.dataset.collapsed = 'false';
+      }
+      var header = card.querySelector('.pulse-briefing-header');
+      if (header) header.setAttribute('aria-expanded', card.dataset.collapsed === 'false' ? 'true' : 'false');
+
+      var summary = card.querySelector('.pulse-briefing-summary');
+      if (!summary && data.summary) {
+        summary = document.createElement('div');
+        summary.className = 'pulse-briefing-summary';
+        if (header) {
+          header.insertAdjacentElement('afterend', summary);
+        }
+      }
+      if (summary) {
+        summary.textContent = data.summary || '';
+        summary.style.display = data.summary ? '' : 'none';
+      }
+
+      var badge = card.querySelector('.pulse-briefing-badge');
+      if (badge) {
+        badge.textContent = data.needs_badge || '';
+        badge.style.display = data.needs_badge ? '' : 'none';
+      }
+
+      var meta = card.querySelector('.pulse-briefing-meta');
+      if (meta && data.meta && data.meta.generated) {
+        meta.textContent = formatBriefingTime(data.meta.generated);
+      }
+
+      var placeholder = card.querySelector('.pulse-briefing-placeholder');
+      if (placeholder) {
+        placeholder.style.display = data.exists ? 'none' : '';
+      }
+
+      if (data.exists && data.sections) {
+        var body = document.getElementById('pulse-briefing-body');
+        if (!body) {
           window.location.reload();
           return;
         }
-        card.style.display = '';
-        card.dataset.phase = data.phase;
-        if (data.phase === 'morning') {
-          card.dataset.collapsed = 'false';
-        }
-        var header = card.querySelector('.pulse-briefing-header');
-        if (header) header.setAttribute('aria-expanded', card.dataset.collapsed === 'false' ? 'true' : 'false');
 
-        var summary = card.querySelector('.pulse-briefing-summary');
-        if (!summary && data.summary) {
-          summary = document.createElement('div');
-          summary.className = 'pulse-briefing-summary';
-          if (header) {
-            header.insertAdjacentElement('afterend', summary);
-          }
-        }
-        if (summary) {
-          summary.textContent = data.summary || '';
-          summary.style.display = data.summary ? '' : 'none';
-        }
+        briefingSections = data.sections;
+        renderBriefingSections(briefingSections);
 
-        var badge = card.querySelector('.pulse-briefing-badge');
-        if (badge) {
-          badge.textContent = data.needs_badge || '';
-          badge.style.display = data.needs_badge ? '' : 'none';
+        var needsBody = body.querySelector('[data-section-key="needs_attention"]');
+        if (needsBody && data.needs_deduped && data.needs_deduped.length > 0) {
+          var items = data.needs_deduped.map(function(item) {
+            var escaped = item
+              .replace(/&/g, '&amp;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;')
+              .replace(/"/g, '&quot;')
+              .replace(/'/g, '&#39;');
+            return '<li role="button" tabindex="0" data-conversation="What&#39;s the status of: ' + escaped + '">' + escaped + '</li>';
+          });
+          needsBody.innerHTML = '<ul>' + items.join('') + '</ul>';
+        } else if (needsBody) {
+          needsBody.innerHTML = '';
         }
-
-        var meta = card.querySelector('.pulse-briefing-meta');
-        if (meta && data.meta && data.meta.generated) {
-          meta.textContent = formatBriefingTime(data.meta.generated);
-        }
-
-        var placeholder = card.querySelector('.pulse-briefing-placeholder');
-        if (placeholder) {
-          placeholder.style.display = data.exists ? 'none' : '';
-        }
-
-        if (data.exists && data.sections) {
-          var body = document.getElementById('pulse-briefing-body');
-          if (!body) {
-            window.location.reload();
-            return;
-          }
-
-          briefingSections = data.sections;
-          renderBriefingSections(briefingSections);
-
-          var needsBody = body.querySelector('[data-section-key="needs_attention"]');
-          if (needsBody && data.needs_deduped && data.needs_deduped.length > 0) {
-            var items = data.needs_deduped.map(function(item) {
-              var escaped = item
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#39;');
-              return '<li role="button" tabindex="0" data-conversation="What&#39;s the status of: ' + escaped + '">' + escaped + '</li>';
-            });
-            needsBody.innerHTML = '<ul>' + items.join('') + '</ul>';
-          } else if (needsBody) {
-            needsBody.innerHTML = '';
-          }
-        }
-      })
-      .catch(function(err) { console.error('home: refreshBriefing failed', err); });
+      }
+    } catch (err) {
+      window.SurfaceState.replaceLoading('pulse-briefing', window.SurfaceState.errorCard({
+        heading: 'Couldn\'t refresh briefing',
+        desc: 'Reload the page to try again.',
+        serverMessage: err?.serverMessage || err?.message || '',
+      }));
+    }
   }
 })();
 </script>
