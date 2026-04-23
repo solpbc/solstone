@@ -81,7 +81,7 @@ dependencies = [
     "webrtcvad-wheels>=2.0.12",
 
     # Media processing
-    "opencv-python",
+    "opencv-python-headless",
 
     # Development tools
     "ruff",
