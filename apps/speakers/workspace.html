@@ -110,6 +110,16 @@
   padding: 24px 16px;
 }
 
+.spk-segments-status,
+.spk-review-status {
+  margin: 12px 0;
+}
+
+.spk-segments-status:empty,
+.spk-review-status:empty {
+  display: none;
+}
+
 .spk-detail > .surface-state {
   flex: 1;
   background: #f9fafb;
@@ -1041,6 +1051,7 @@
       <h2 class="spk-segments-header">
         Segments
       </h2>
+      <div id="spkSegmentsStatus" class="spk-segments-status" aria-live="polite"></div>
       <ul class="spk-segments-list" id="spkSegmentList" role="listbox">
         <li class="spk-empty">Loading...</li>
       </ul>
@@ -1117,6 +1128,22 @@
     });
   }
 
+  function renderRefreshError(message, serverMessage) {
+    const detail = serverMessage ? `<p>${escapeHtml(serverMessage)}</p>` : '';
+    return `<div class="surface-state-refresh-error"><strong>${escapeHtml(message)}</strong>${detail}</div>`;
+  }
+
+  function setSegmentsStatus(message, serverMessage) {
+    if (!segmentsStatus) return;
+    segmentsStatus.innerHTML = message ? renderRefreshError(message, serverMessage) : '';
+  }
+
+  function setReviewStatus(message, serverMessage) {
+    const reviewStatus = document.getElementById('spkReviewStatus');
+    if (!reviewStatus) return;
+    reviewStatus.innerHTML = message ? renderRefreshError(message, serverMessage) : '';
+  }
+
   const METHOD_DISPLAY = {
     acoustic: 'voice match',
     structural_single_speaker: 'only speaker',
@@ -1134,6 +1161,7 @@
   const detailPanel = document.getElementById('spkDetail');
   const ownerBanner = document.getElementById('spkOwnerBanner');
   const discoveryBanner = document.getElementById('spkDiscoveryBanner');
+  const segmentsStatus = document.getElementById('spkSegmentsStatus');
 
   let segments = [];
   let segmentTotal = 0;
@@ -1427,6 +1455,7 @@
     fetch(`/app/speakers/api/segments/${day}?limit=${fetchLimit}&offset=0`)
       .then(r => r.json())
       .then(data => {
+        setSegmentsStatus();
         segments = data.segments || [];
         segmentTotal = data.total || 0;
         renderSegmentList();
@@ -1449,6 +1478,7 @@
     fetch(`/app/speakers/api/segments/${day}?limit=20&offset=${segments.length}`)
       .then(r => r.json())
       .then(data => {
+        setSegmentsStatus();
         const newSegments = data.segments || [];
         segments = segments.concat(newSegments);
         segmentTotal = data.total || 0;
@@ -1461,9 +1491,9 @@
   }
 
   function loadUntilFound(key) {
-    fetch(`/app/speakers/api/segments/${day}?limit=20&offset=${segments.length}`)
-      .then(r => r.json())
+    window.apiJson(`/app/speakers/api/segments/${day}?limit=20&offset=${segments.length}`)
       .then(data => {
+        setSegmentsStatus();
         const newSegments = data.segments || [];
         if (newSegments.length === 0) return;
         segments = segments.concat(newSegments);
@@ -1473,6 +1503,10 @@
         if (!selectSegmentByKey(key) && segments.length < segmentTotal) {
           loadUntilFound(key);
         }
+      })
+      .catch((err) => {
+        setSegmentsStatus("Couldn't load more segments", err.serverMessage);
+        window.logError(err, { context: 'speakers: loadUntilFound failed' });
       });
   }
 
@@ -1629,6 +1663,7 @@
       html += '<button class="spk-expand-btn" id="spkExpandBtn">Show sentences and details</button>';
     }
 
+    html += '<div id="spkReviewStatus" class="spk-review-status" aria-live="polite"></div>';
     html += '<div class="spk-sentences" id="spkSentences"><div class="spk-empty">Loading...</div></div>';
     detailPanel.innerHTML = html;
 
@@ -1726,18 +1761,22 @@
 
   function loadReview(seg, source) {
     const container = document.getElementById('spkSentences');
-    if (container) {
+    const isFirstPaint = Boolean(
+      container
+      && container.querySelector('.spk-sentence') === null
+      && container.textContent.trim() === 'Loading...'
+    );
+    if (container && isFirstPaint) {
       container.innerHTML = '<div class="spk-empty">Loading...</div>';
     }
 
-    fetch(`/app/speakers/api/review/${day}/${seg.stream}/${seg.key}/${source}`)
-      .then(r => r.json())
+    setReviewStatus();
+    window.apiJson(`/app/speakers/api/review/${day}/${seg.stream}/${seg.key}/${source}`)
       .then(data => {
         if (data.error) {
-          if (container) {
-            container.innerHTML = `<div class="spk-empty">${escapeHtml(data.error)}</div>`;
-          }
-          return;
+          const err = new Error(data.error);
+          err.serverMessage = data.error;
+          throw err;
         }
 
         currentSentences = data.sentences || [];
@@ -1747,9 +1786,18 @@
         playingSentenceId = null;
         renderReview(data);
       })
-      .catch(() => {
+      .catch((err) => {
+        window.logError(err, { context: 'speakers: loadReview failed' });
         if (container) {
-          container.innerHTML = '<div class="spk-empty">Failed to load review data</div>';
+          if (isFirstPaint) {
+            container.innerHTML = window.SurfaceState.errorCard({
+              heading: "Couldn't load review",
+              desc: 'Reload to try again.',
+              serverMessage: err.serverMessage,
+            });
+          } else {
+            setReviewStatus("Couldn't reload review — showing last known state.", err.serverMessage);
+          }
         }
       });
   }
