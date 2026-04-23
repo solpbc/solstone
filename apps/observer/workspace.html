@@ -570,7 +570,6 @@ const wsErrorCountdown = document.getElementById('wsErrorCountdown');
 let errorAutoHideTimer = null;
 let countdownInterval = null;
 let lastPollTime = Date.now();
-let thresholds = { active_ms: 30000, stale_ms: 120000 };
 const GROUP_ORDER = ['active', 'stale', 'inactive'];
 const GROUP_LABELS = {
   active: 'Active',
@@ -757,9 +756,6 @@ async function loadObservers() {
         url: '/app/observer/api/list',
         cause: 'parse',
       });
-    }
-    if (payload && payload.thresholds) {
-      thresholds = payload.thresholds;
     }
     const observers = payload.observers;
 
