@@ -272,6 +272,11 @@ class TestPortCheck:
         assert result.status == "skip"
 
     def test_ok_when_port_free(self, doctor, monkeypatch):
+        monkeypatch.setattr(
+            doctor,
+            "import_install_guard",
+            lambda: (_ for _ in ()).throw(ImportError("skip worktree guard")),
+        )
         monkeypatch.setattr(doctor.shutil, "which", lambda _name: "/usr/bin/lsof")
         monkeypatch.setattr(
             doctor,
@@ -316,6 +321,11 @@ class TestPortCheck:
         assert "/usr/bin/python3" in result.detail
 
     def test_fail_on_lsof_timeout(self, doctor, monkeypatch):
+        monkeypatch.setattr(
+            doctor,
+            "import_install_guard",
+            lambda: (_ for _ in ()).throw(ImportError("skip worktree guard")),
+        )
         monkeypatch.setattr(doctor.shutil, "which", lambda _name: "/usr/bin/lsof")
 
         def raise_timeout(*_args, **_kwargs):
