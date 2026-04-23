@@ -19,24 +19,10 @@
   let pollTimer = null;
 
   async function fetchJson(url, options) {
-    const response = await fetch(
-      url,
-      Object.assign({ credentials: "same-origin" }, options || {}),
-    );
-
-    let payload = null;
-    try {
-      payload = await response.json();
-    } catch (error) {
-      payload = null;
-    }
-
-    if (!response.ok) {
-      const message = payload && payload.error ? payload.error : "Request failed";
-      throw new Error(message);
-    }
-
-    return payload || {};
+    return window.apiJson(url, {
+      ...(options || {}),
+      noAuthRedirect: true,
+    });
   }
 
   function setFeedback(message, isError) {

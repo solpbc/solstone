@@ -25,7 +25,7 @@
   }
 
   // Log error to bottom panel
-  function logError(text) {
+  function appendLogLine(text) {
     if (errorLog) {
       if (!document.getElementById('error-log-dismiss')) {
         var btn = document.createElement('button');
@@ -48,6 +48,22 @@
     }
   }
 
+  function formatErrorText(error, context) {
+    const prefix = context && context.context ? `[${context.context}] ` : '';
+    if (typeof error === 'string') {
+      return prefix + error;
+    }
+    if (error instanceof Error) {
+      return prefix + error.message;
+    }
+    return prefix + String(error ?? 'unknown error');
+  }
+
+  window.logError = (error, context) => {
+    markError();
+    appendLogLine(formatErrorText(error, context));
+  };
+
   // Mark status icon as error state (red with glow)
   function markError() {
     if (statusIcon) {
@@ -57,14 +73,12 @@
 
   // Global error handler
   window.addEventListener('error', (e) => {
-    markError();
-    logError(`❌ ${e.message} @ ${e.filename}:${e.lineno}`);
+    window.logError(`❌ ${e.message} @ ${e.filename}:${e.lineno}`);
   });
 
   // Unhandled promise rejection handler
   window.addEventListener('unhandledrejection', (e) => {
-    markError();
-    logError(`⚠️ Promise: ${e.reason}`);
+    window.logError(`⚠️ Promise: ${e.reason}`);
   });
 
   // Modal controls

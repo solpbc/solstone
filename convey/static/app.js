@@ -612,6 +612,21 @@
     updateScrollShadows();
   }
 
+  function setAppStarState(appName, menuItem, starToggle, isStarred) {
+    if (isStarred) {
+      if (!starredApps.includes(appName)) {
+        starredApps.push(appName);
+      }
+    } else {
+      starredApps = starredApps.filter(name => name !== appName);
+    }
+
+    menuItem.dataset.starred = String(isStarred);
+    starToggle.textContent = isStarred ? '★' : '☆';
+    starToggle.setAttribute('aria-pressed', String(isStarred));
+    reorderMenuItems();
+  }
+
   // Toggle star status for an app
   async function toggleAppStar(appName) {
     const isStarred = starredApps.includes(appName);
@@ -624,54 +639,45 @@
     const starToggle = menuItem.querySelector('.star-toggle');
     if (!starToggle) return;
 
-    // Update local state
-    if (newStarredStatus) {
-      starredApps.push(appName);
-    } else {
-      starredApps = starredApps.filter(name => name !== appName);
-    }
+    const previousState = {
+      starredApps: [...starredApps],
+      starred: menuItem.dataset.starred,
+      text: starToggle.textContent,
+      pressed: starToggle.getAttribute('aria-pressed')
+    };
 
-    // Update DOM
-    menuItem.dataset.starred = newStarredStatus;
-    starToggle.textContent = newStarredStatus ? '★' : '☆';
-    starToggle.setAttribute('aria-pressed', String(newStarredStatus));
+    setAppStarState(appName, menuItem, starToggle, newStarredStatus);
 
-    // Reorder menu items to reflect new grouping
-    reorderMenuItems();
-
-    // Save to backend
     try {
-      const response = await fetch('/api/config/apps/star', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ app: appName, starred: newStarredStatus })
+      await window.saveControl({
+        el: starToggle,
+        fetchArgs: ['/api/config/apps/star', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ app: appName, starred: newStarredStatus })
+        }],
+        onError: (error) => {
+          console.error('Failed to toggle app star:', error);
+          if (window.AppServices?.notifications) {
+            window.AppServices.notifications.show({
+              app: 'system',
+              title: 'Failed to save star status',
+              message: error.message,
+              autoDismiss: 5000
+            });
+          }
+        },
+        readValue: () => previousState,
+        writeValue: (_el, snapshot) => {
+          starredApps = [...snapshot.starredApps];
+          menuItem.dataset.starred = snapshot.starred;
+          starToggle.textContent = snapshot.text;
+          starToggle.setAttribute('aria-pressed', snapshot.pressed);
+          reorderMenuItems();
+        }
       });
-
-      if (!response.ok) throw new Error('Failed to save star status');
-
-      // No reload needed - DOM already updated
-
     } catch (error) {
-      console.error('Failed to toggle app star:', error);
-      if (window.AppServices?.notifications) {
-        window.AppServices.notifications.show({
-          app: 'system',
-          title: 'Failed to save star status',
-          message: error.message,
-          autoDismiss: 5000
-        });
-      }
-
-      // Revert optimistic update on error
-      if (newStarredStatus) {
-        starredApps = starredApps.filter(name => name !== appName);
-      } else {
-        starredApps.push(appName);
-      }
-      menuItem.dataset.starred = !newStarredStatus;
-      starToggle.textContent = !newStarredStatus ? '★' : '☆';
-      starToggle.setAttribute('aria-pressed', String(!newStarredStatus));
-      reorderMenuItems();
+      // saveControl already reverted UI state and surfaced the failure.
     }
   }
 
@@ -1515,6 +1521,7 @@
  */
 window.SurfaceState = (() => {
   const HEADING_LEVELS = new Set(['h1', 'h2', 'h3', 'h4', 'h5', 'h6']);
+  const ERROR_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 21 19H3z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>';
 
   function escapeHtml(value) {
     return String(value ?? '')
@@ -1563,6 +1570,69 @@ window.SurfaceState = (() => {
     error(options = {}) {
       return render('error', { ...options, role: 'alert' });
     },
+
+    /**
+     * Render a standard error card HTML string for first-paint or refresh failures.
+     * All user-visible text is escaped, and no action slot is provided by design.
+     *
+     * @param {object} options
+     * @param {string} [options.heading="Couldn't load this section"]
+     * @param {string} [options.desc="Reload the page to try again."]
+     * @param {string} [options.serverMessage]
+     * @returns {string}
+     */
+    errorCard({
+      heading = 'Couldn\'t load this section',
+      desc = 'Reload the page to try again.',
+      serverMessage = ''
+    } = {}) {
+      return `<div class="surface-state surface-state--error" role="alert">`
+        + `<div class="surface-state-icon" aria-hidden="true">${ERROR_ICON}</div>`
+        + `<h2 class="surface-state-heading">${escapeHtml(heading)}</h2>`
+        + `<p class="surface-state-desc">${escapeHtml(desc)}</p>`
+        + `${serverMessage ? `<p class="surface-state-server-message">${escapeHtml(serverMessage)}</p>` : ''}`
+        + `</div>`;
+    },
+
+    /**
+     * Replace an initial loading scaffold or append a singleton refresh error beside it.
+     * Prevents the apps/entities anti-pattern where an `.error-message` is stuffed inside
+     * the loading scaffold (`apps/entities/workspace.html:2671-2674`).
+     *
+     * @param {string} containerId
+     * @param {string} errorCardHtml
+     * @returns {HTMLElement|null}
+     */
+    replaceLoading(containerId, errorCardHtml) {
+      const container = document.getElementById(containerId);
+      if (!container) {
+        return null;
+      }
+
+      if (container.querySelector('.surface-state--loading')) {
+        container.innerHTML = errorCardHtml;
+        return container;
+      }
+
+      const parent = container.parentElement;
+      if (parent) {
+        Array.from(parent.children).forEach(child => {
+          if (child !== container && child.classList.contains('surface-state-refresh-error')) {
+            child.remove();
+          }
+        });
+      }
+
+      if (container.nextElementSibling?.classList.contains('surface-state-refresh-error')) {
+        container.nextElementSibling.remove();
+      }
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'surface-state-refresh-error';
+      wrapper.innerHTML = errorCardHtml;
+      container.insertAdjacentElement('afterend', wrapper);
+      return container;
+    }
   };
 })();
 
@@ -1572,6 +1642,7 @@ window.SurfaceState = (() => {
  */
 window.AppServices = {
   services: {},
+  _tasks: {},
 
   /**
    * Register an app background service
@@ -1587,6 +1658,131 @@ window.AppServices = {
         console.error(`[AppServices] Failed to initialize ${appName} service:`, err);
       }
     }
+  },
+
+  registerTask(appName, taskName, {
+    run,
+    intervalMs,
+    onSuccess,
+    onError,
+    failuresBeforeFailing = 3
+  }) {
+    if (typeof run !== 'function') {
+      throw new Error('AppServices.registerTask requires a run() function');
+    }
+
+    if (!this._tasks[appName]) {
+      this._tasks[appName] = {};
+    }
+
+    const health = {
+      disabled: false,
+      failing: false,
+      lastError: '',
+      lastRunAt: null,
+      lastSuccessAt: null,
+      consecutiveFailures: 0,
+      intervalId: null
+    };
+    this._tasks[appName][taskName] = health;
+
+    const getMenuItem = () => document.querySelector(`.menu-item[data-app-name="${appName}"]`);
+    const clearFailingClassIfHealthy = () => {
+      const records = Object.values(this._tasks[appName] || {});
+      if (!records.some(record => record && record.failing)) {
+        getMenuItem()?.classList.remove('menu-item-bg-failing');
+      }
+    };
+    const apiJsonForTask = (url, opts) => window.apiJson(url, { ...(opts || {}), noAuthRedirect: true });
+
+    const runTask = async () => {
+      health.lastRunAt = Date.now();
+
+      try {
+        const result = await run({ apiJson: apiJsonForTask });
+        health.disabled = false;
+        health.lastError = '';
+        health.lastSuccessAt = Date.now();
+        health.consecutiveFailures = 0;
+        if (health.failing) {
+          health.failing = false;
+          clearFailingClassIfHealthy();
+        }
+        if (typeof onSuccess === 'function') {
+          onSuccess(result);
+        }
+        return result;
+      } catch (error) {
+        const message = error?.message || 'Request failed';
+        health.lastError = message;
+
+        if (error instanceof window.ApiError && error.status === 403) {
+          health.disabled = true;
+          health.failing = false;
+          clearFailingClassIfHealthy();
+          if (health.intervalId) {
+            window.clearInterval(health.intervalId);
+            health.intervalId = null;
+          }
+          if (typeof onError === 'function') {
+            onError(error);
+          }
+          return undefined;
+        }
+
+        health.disabled = false;
+        health.consecutiveFailures += 1;
+        if (typeof onError === 'function') {
+          onError(error);
+        }
+
+        if (health.consecutiveFailures >= failuresBeforeFailing && !health.failing) {
+          health.failing = true;
+          getMenuItem()?.classList.add('menu-item-bg-failing');
+          this.notifications.show({
+            app: 'system',
+            title: `${appName} background task failing`,
+            message,
+            dismissible: true,
+            autoDismiss: false
+          });
+        }
+
+        throw error;
+      }
+    };
+
+    const stop = () => {
+      if (health.intervalId) {
+        window.clearInterval(health.intervalId);
+        health.intervalId = null;
+      }
+    };
+
+    const runNow = () => runTask();
+    const ignoreTaskRejection = () => {
+      // runTask already updates task health and owner-visible failure state.
+    };
+
+    if (Number.isFinite(intervalMs) && intervalMs > 0) {
+      health.intervalId = window.setInterval(() => {
+        runTask().catch(ignoreTaskRejection);
+      }, intervalMs);
+    }
+
+    runTask().catch(ignoreTaskRejection);
+
+    return {
+      stop,
+      runNow,
+      getHealth() {
+        return { ...health };
+      }
+    };
+  },
+
+  getTaskHealth(appName) {
+    return { ...(this._tasks[appName] || {}) };
   },
 
   /**

@@ -1,12 +1,16 @@
 {# Support background service: polls for ticket updates, manages badges #}
 
-const POLL_INTERVAL = 5 * 60 * 1000; // 5 minutes
-let pollTimer = null;
+let badgeTask = null;
 
 AppServices.register('support', {
     initialize() {
-      updateBadge();
-      pollTimer = setInterval(updateBadge, POLL_INTERVAL);
+      badgeTask = AppServices.registerTask('support', 'badge-count', {
+        intervalMs: 5 * 60 * 1000,
+        run: async ({ apiJson }) => apiJson('/app/support/api/badge-count'),
+        onSuccess: (data) => {
+          AppServices.badges.app.set('support', data.count ?? 0);
+        }
+      });
 
       // Listen for proactive suggestions from callosum
       if (window.appEvents) {
@@ -27,25 +31,9 @@ AppServices.register('support', {
     },
 
     stop() {
-      if (pollTimer) {
-        clearInterval(pollTimer);
-        pollTimer = null;
+      if (badgeTask) {
+        badgeTask.stop();
+        badgeTask = null;
       }
     }
   });
-
-  async function updateBadge() {
-    try {
-      const resp = await fetch('/app/support/api/badge-count');
-      if (!resp.ok) return;
-      const data = await resp.json();
-      const count = data.count || 0;
-      if (count > 0) {
-        AppServices.badges.app.set('support', count);
-      } else {
-        AppServices.badges.app.clear('support');
-      }
-    } catch (e) {
-      // Silently ignore — support may be disabled or portal unreachable
-    }
-  }

@@ -18,6 +18,7 @@
 
   <!-- WebSocket connection for Callosum events -->
   <script src="{{ url_for('root.static', filename='websocket.js') }}"></script>
+  <script src="{{ url_for('root.static', filename='api.js') }}"></script>
 
   <!-- Apply facet theme immediately to prevent flash -->
   {% if selected_facet and app_registry.apps[app].facets_enabled() %}

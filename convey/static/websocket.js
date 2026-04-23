@@ -8,7 +8,8 @@
  * Provides window.appEvents API for subscribing to events by tract.
  */
 (function(){
-  const listeners = {};  // Keyed by tract: 'cortex', 'task', 'indexer', etc.
+  const listeners = {};
+  const parseErrorHandlers = new Set();
   let ws;
   let retry = 1000;
   let statusIcon = null;
@@ -20,7 +21,150 @@
   let disconnectTimerId = null;
   let disconnectCardId = null;
 
-  // Update status icon (if present)
+  function getTractListeners(tract) {
+    if (!listeners[tract]) {
+      listeners[tract] = [];
+    }
+    return listeners[tract];
+  }
+
+  function notifyParseError(error, rawPayload) {
+    parseErrorHandlers.forEach(handler => {
+      try {
+        handler(error, rawPayload);
+      } catch (handlerError) {
+        if (typeof window.logError === 'function') {
+          window.logError(handlerError, { context: 'websocket-parse-handler' });
+        }
+      }
+    });
+
+    if (typeof window.logError === 'function') {
+      window.logError(error, { context: 'websocket-parse' });
+    }
+  }
+
+  function createPendingController(options) {
+    const pending = new Map();
+    const hasTimeout = Number.isFinite(options.timeout) && options.timeout > 0;
+    const onTimeout = typeof options.onTimeout === 'function' ? options.onTimeout : null;
+
+    return {
+      track(correlationId) {
+        if (!hasTimeout || !onTimeout || correlationId == null) {
+          return correlationId;
+        }
+        this.clear(correlationId);
+        const timeoutId = window.setTimeout(() => {
+          pending.delete(correlationId);
+          onTimeout(correlationId);
+        }, options.timeout);
+        pending.set(correlationId, timeoutId);
+        return correlationId;
+      },
+
+      clear(correlationId) {
+        if (correlationId == null) {
+          return;
+        }
+        const timeoutId = pending.get(correlationId);
+        if (timeoutId) {
+          window.clearTimeout(timeoutId);
+          pending.delete(correlationId);
+        }
+      },
+
+      clearAll() {
+        pending.forEach(timeoutId => window.clearTimeout(timeoutId));
+        pending.clear();
+      }
+    };
+  }
+
+  function getCorrelationId(msg, correlationKey) {
+    if (!msg) {
+      return undefined;
+    }
+    if (typeof correlationKey === 'function') {
+      return correlationKey(msg);
+    }
+    return msg[correlationKey || 'use_id'];
+  }
+
+  function validateSchema(msg, schema) {
+    if (!schema) {
+      return;
+    }
+    if (Array.isArray(schema)) {
+      const missing = schema.filter(key => msg == null || msg[key] === undefined);
+      if (missing.length > 0) {
+        throw new Error(`Missing required websocket field(s): ${missing.join(', ')}`);
+      }
+      return;
+    }
+    if (typeof schema === 'function') {
+      const result = schema(msg);
+      if (result === false) {
+        throw new Error('WebSocket schema validation failed');
+      }
+    }
+  }
+
+  function createListenerRecord(fn, options) {
+    return {
+      fn,
+      options,
+      pending: createPendingController(options)
+    };
+  }
+
+  function addListenerRecord(tract, record) {
+    getTractListeners(tract).push(record);
+  }
+
+  function removeListenerRecord(tract, record) {
+    if (!listeners[tract]) {
+      return;
+    }
+    record.pending.clearAll();
+    listeners[tract] = listeners[tract].filter(candidate => candidate !== record);
+  }
+
+  function dispatchToRecords(tract, msg) {
+    const records = listeners[tract];
+    if (!records || records.length === 0) {
+      return;
+    }
+
+    records.slice().forEach(record => {
+      try {
+        const correlationId = getCorrelationId(msg, record.options.correlationKey);
+        if (correlationId != null) {
+          record.pending.clear(correlationId);
+        }
+
+        validateSchema(msg, record.options.schema);
+        record.fn(msg);
+      } catch (err) {
+        if (record.options.schema) {
+          if (typeof record.options.onDrop === 'function') {
+            try {
+              record.options.onDrop(msg, err);
+            } catch (dropError) {
+              if (typeof window.logError === 'function') {
+                window.logError(dropError, { context: 'websocket-drop' });
+              }
+            }
+          }
+          notifyParseError(err, msg);
+          return;
+        }
+
+        console.error(`[WebSocket] Error in ${tract} listener:`, err);
+      }
+    });
+  }
+
   function updateStatusIcon(state) {
     if (!statusIcon) {
       statusIcon = document.querySelector('.facet-bar .status-icon');
@@ -40,7 +184,9 @@
       };
 
       statusIcon.innerHTML = svgs[state] || svgs.disconnected;
-      if (badge) statusIcon.appendChild(badge);
+      if (badge) {
+        statusIcon.appendChild(badge);
+      }
       statusIcon.setAttribute('title', labels[state] || state);
     }
 
@@ -48,8 +194,7 @@
     window.updateStatusLabel?.();
   }
 
-  // Connect to WebSocket
-  function connect(){
+  function connect() {
     updateStatusIcon('connecting');
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
     ws = new WebSocket(`${proto}//${location.host}/ws/events`);
@@ -58,12 +203,12 @@
       connectedAt = Date.now();
       updateStatusIcon('connected');
       retry = 1000;
-      // Cancel disconnect notification timer if reconnected within grace period
+
       if (disconnectTimerId) {
         clearTimeout(disconnectTimerId);
         disconnectTimerId = null;
       }
-      // If a disconnect card is showing, dismiss it and show brief reconnected card
+
       if (disconnectCardId !== null) {
         window.AppServices?.notifications?.dismiss(disconnectCardId);
         const reconnectedId = window.AppServices?.notifications?.show({
@@ -78,13 +223,14 @@
         }
         disconnectCardId = null;
       }
+
       console.debug('[WebSocket] Connected to /ws/events');
     };
 
     ws.onclose = () => {
       connectedAt = null;
       updateStatusIcon('disconnected');
-      // Start 5-second grace timer before showing disconnect notification
+
       if (!disconnectTimerId && disconnectCardId === null) {
         disconnectTimerId = setTimeout(() => {
           disconnectTimerId = null;
@@ -100,101 +246,104 @@
           }
         }, 5000);
       }
+
       retry = Math.min(retry * 1.5, 15000);
       console.debug(`[WebSocket] Disconnected, reconnecting in ${retry}ms`);
       setTimeout(connect, retry);
     };
 
-    ws.onmessage = e => {
+    ws.onmessage = event => {
       lastMessageAt = Date.now();
 
       let msg;
       try {
-        msg = JSON.parse(e.data);
-      } catch(err) {
+        msg = JSON.parse(event.data);
+      } catch (err) {
         console.warn('[WebSocket] Failed to parse message:', err);
+        notifyParseError(err, event.data);
         return;
       }
 
       const tract = msg.tract;
-
-      // Call tract-specific listeners
-      if(tract && listeners[tract]){
-        listeners[tract].forEach(fn => {
-          try {
-            fn(msg);
-          } catch(err) {
-            console.error(`[WebSocket] Error in ${tract} listener:`, err);
-          }
-        });
+      if (tract) {
+        dispatchToRecords(tract, msg);
       }
-
-      // Call wildcard listeners
-      if(listeners['*']){
-        listeners['*'].forEach(fn => {
-          try {
-            fn(msg);
-          } catch(err) {
-            console.error('[WebSocket] Error in wildcard listener:', err);
-          }
-        });
-      }
+      dispatchToRecords('*', msg);
     };
 
-    ws.onerror = (err) => {
+    ws.onerror = err => {
       console.error('[WebSocket] Error:', err);
     };
   }
 
-  // Expose global API
   window.appEvents = {
     /**
      * Listen for events from a specific tract or all events.
      *
      * @param {string} tract - Tract name ('cortex', 'observe', 'indexer', etc.) or '*' for all
-     * @param {function} fn - Callback function that receives the event object
-     * @returns {function} Cleanup function to remove the listener
+     * @param {function|object} optionsOrFn - Callback or options object
+     * @param {function} [fn] - Callback when using the `(tract, options, fn)` overload
+     * @returns {function} Cleanup function with `.pending.track(correlationId)` and `.pending.clear(correlationId)`
      *
      * @example
-     * // Listen to cortex events
-     * const cleanup = window.appEvents.listen('cortex', (msg) => {
-     *   console.log('Cortex event:', msg);
+     * const cleanup = window.appEvents.listen('importer', {
+     *   schema: ['event', 'use_id'],
+     *   timeout: 15000,
+     *   onTimeout(useId) {
+     *     console.warn('Importer request timed out:', useId);
+     *   }
+     * }, (msg) => {
+     *   console.log('Importer event:', msg.event);
      * });
-     *
-     * // Later, remove listener
-     * cleanup();
-     *
-     * @example
-     * // Listen to all events
-     * window.appEvents.listen('*', (msg) => {
-     *   console.log('Event:', msg.tract, msg.event);
-     * });
+     * cleanup.pending.track('abc123');
      */
-    listen(tract, fn){
-      if(!listeners[tract]) listeners[tract] = [];
-      listeners[tract].push(fn);
-      // Return cleanup function
-      return () => this.unlisten(tract, fn);
-    },
+    listen(tract, optionsOrFn, fn) {
+      const hasOptions = typeof optionsOrFn === 'object' && optionsOrFn !== null && typeof fn === 'function';
+      const options = hasOptions ? optionsOrFn : {};
+      const handler = hasOptions ? fn : optionsOrFn;
 
-    /**
-     * Remove a specific listener for a tract.
-     *
-     * @param {string} tract - Tract name or '*'
-     * @param {function} fn - The listener function to remove
-     */
-    unlisten(tract, fn){
-      if(listeners[tract]){
-        listeners[tract] = listeners[tract].filter(f => f !== fn);
+      if (typeof handler !== 'function') {
+        throw new Error('appEvents.listen requires a callback');
       }
+
+      const record = createListenerRecord(handler, {
+        correlationKey: hasOptions ? options.correlationKey || 'use_id' : 'use_id',
+        onDrop: hasOptions ? options.onDrop : null,
+        onTimeout: hasOptions ? options.onTimeout : null,
+        schema: hasOptions ? options.schema : null,
+        timeout: hasOptions ? options.timeout : null
+      });
+      addListenerRecord(tract, record);
+
+      const cleanup = () => {
+        removeListenerRecord(tract, record);
+      };
+      cleanup.pending = record.pending;
+      return cleanup;
     },
 
-    /**
-     * Get connection metrics.
-     *
-     * @returns {object} Object with connection status and timing info
-     */
-    getMetrics(){
+    unlisten(tract, fn) {
+      if (!listeners[tract]) {
+        return;
+      }
+      listeners[tract].slice().forEach(record => {
+        if (record.fn === fn) {
+          removeListenerRecord(tract, record);
+        }
+      });
+    },
+
+    onParseError(fn) {
+      if (typeof fn !== 'function') {
+        throw new Error('appEvents.onParseError requires a callback');
+      }
+      parseErrorHandlers.add(fn);
+      return () => {
+        parseErrorHandlers.delete(fn);
+      };
+    },
+
+    getMetrics() {
       const now = Date.now();
       return {
         connected: connectionState === 'connected',
@@ -207,13 +356,11 @@
     }
   };
 
-  // Built-in tract: forward notification events to the in-app notification UI
-  listeners['notification'] = [function(msg) {
+  addListenerRecord('notification', createListenerRecord(function(msg) {
     window.AppServices?.notifications?.show(msg);
-  }];
+  }, {}));
 
-  // Built-in tract: navigate browser to a path and/or switch facet
-  listeners['navigate'] = [function(msg) {
+  addListenerRecord('navigate', createListenerRecord(function(msg) {
     if (msg.facet && !msg.path) {
       window.selectFacet && window.selectFacet(msg.facet);
     } else if (msg.path) {
@@ -224,13 +371,11 @@
       }
       window.location.href = msg.path;
     }
-  }];
+  }, {}));
 
-  // Auto-connect when DOM is ready
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', connect);
   } else {
-    // DOM already loaded, connect immediately
     connect();
   }
 })();

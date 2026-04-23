@@ -1,0 +1,4 @@
+Open `convey/static/tests/api.html` in a browser; each assertion reports pass/fail inline.
+Open `convey/static/tests/surface-state.html` in a browser; each assertion reports pass/fail inline.
+Open `convey/static/tests/ws-listen.html` in a browser; each assertion reports pass/fail inline.
+Open `convey/static/tests/register-task.html` in a browser; each assertion reports pass/fail inline.
