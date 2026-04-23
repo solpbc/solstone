@@ -415,7 +415,7 @@ doctor:
 	@python3 scripts/doctor.py $(if $(VERBOSE),--verbose) $(if $(JSON),--json) $(if $(PORT),--port $(PORT))
 
 # Service management (override port: make install-service PORT=8000)
-install-service: doctor .installed
+install-service: doctor skills .installed
 	@MODE=$$($(PYTHON) -m think.install_guard check); \
 	RC=$$?; \
 	case "$$MODE" in \
