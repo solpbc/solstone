@@ -461,6 +461,7 @@ body:has(.status-pane.visible) .facet-bar::after {
 }
 
 .date-nav-label {
+  position: relative;
   text-align: center;
   color: inherit;
   text-decoration: none;
@@ -479,6 +480,22 @@ body:has(.status-pane.visible) .facet-bar::after {
 
 .date-nav-label:active {
   background: rgba(0, 0, 0, 0.10);
+}
+
+.date-nav-label[data-stats-warning="true"] {
+  padding-right: 18px;
+}
+
+.date-nav-label[data-stats-warning="true"]::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-warning, #f59e0b);
+  border: 2px solid var(--facet-bg-primary, #fff);
 }
 
 /* Keep date-nav stable during view transitions */
@@ -547,6 +564,26 @@ body:has(.status-pane.visible) .facet-bar::after {
   max-height: 280px;
   opacity: 1;
   pointer-events: auto;
+}
+
+.mp-error {
+  margin: 8px 8px 0;
+  padding: 8px 10px;
+  border: 1px solid var(--color-warning, #f59e0b);
+  border-radius: 8px;
+  background: rgba(245, 158, 11, 0.08);
+  color: #92400e;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.mp-error-title {
+  font-weight: 600;
+}
+
+.mp-error-detail {
+  margin-top: 2px;
+  color: #78350f;
 }
 
 .mp-weekdays {

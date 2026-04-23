@@ -41,23 +41,25 @@
   //   - Facet-aware: {day: {facet: count}} - filtered by selected facet
   //   - Simple: {day: count} - returned as-is
   MonthPicker.registerDataProvider(app, async (month, facet) => {
-    const resp = await fetch(`${baseUrl}api/stats/${month}`);
-    if (!resp.ok) return {};
-    const raw = await resp.json();
+    try {
+      const raw = await window.apiJson(`${baseUrl}api/stats/${month}`);
 
-    // Auto-detect format: if first value is an object, it's facet-aware
-    const values = Object.values(raw);
-    if (values.length > 0 && typeof values[0] === 'object' && values[0] !== null) {
-      // Facet-aware: {day: {facet: count}}
-      const result = {};
-      for (const [day, facetCounts] of Object.entries(raw)) {
-        result[day] = facet
-          ? (facetCounts[facet] || 0)
-          : Object.values(facetCounts).reduce((a, b) => a + b, 0);
+      // Auto-detect format: if first value is an object, it's facet-aware
+      const values = Object.values(raw);
+      if (values.length > 0 && typeof values[0] === 'object' && values[0] !== null) {
+        // Facet-aware: {day: {facet: count}}
+        const result = {};
+        for (const [day, facetCounts] of Object.entries(raw)) {
+          result[day] = facet
+            ? (facetCounts[facet] || 0)
+            : Object.values(facetCounts).reduce((a, b) => a + b, 0);
+        }
+        return { data: result, error: null };
       }
-      return result;
+      return { data: raw, error: null };
+    } catch (err) {
+      return { data: null, error: err };
     }
-    return raw;
   });
 
   // Initialize month picker

@@ -22,8 +22,9 @@ window.MonthPicker = (function() {
 
   // External elements (set during init)
   let labelEl = null;
+  let labelTitle = null;
 
-  // Cache: {YYYYMM: {data, facet}}
+  // Cache: {YYYYMM: {data, error, facet}}
   const cache = {};
   const providers = {};
 
@@ -37,6 +38,41 @@ window.MonthPicker = (function() {
     return now.getFullYear() +
       String(now.getMonth() + 1).padStart(2, '0') +
       String(now.getDate()).padStart(2, '0');
+  }
+
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, ch => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    }[ch]));
+  }
+
+  function getMonthErrorMessage(error) {
+    return error?.serverMessage || "Couldn't load month stats.";
+  }
+
+  function logMonthStatsError(error) {
+    if (window.logError) {
+      window.logError(error, { context: 'month-stats' });
+    }
+  }
+
+  function setStatsWarning(monthState) {
+    if (!labelEl) return;
+    if (monthState?.error) {
+      labelEl.dataset.statsWarning = 'true';
+      labelEl.setAttribute('title', getMonthErrorMessage(monthState.error));
+      return;
+    }
+    delete labelEl.dataset.statsWarning;
+    if (labelTitle !== null) {
+      labelEl.setAttribute('title', labelTitle);
+    } else {
+      labelEl.removeAttribute('title');
+    }
   }
 
   function isFutureDay(dateStr) {
@@ -112,30 +148,44 @@ window.MonthPicker = (function() {
   }
 
   // Data fetching
-  async function fetchMonthData(ym) {
+  async function fetchMonthData(ym, facet) {
     const provider = providers[app];
-    if (!provider) return null;
+    if (!provider) return { data: null, error: null };
 
     try {
-      const facet = window.selectedFacet || null;
-      return await provider(ym, facet);
-    } catch (e) {
-      console.warn(`[MonthPicker] Provider error for ${ym}:`, e);
-      return null;
+      const result = await provider(ym, facet);
+      if (result && typeof result === 'object' && 'data' in result && 'error' in result) {
+        return { data: result.data, error: result.error || null };
+      }
+      return { data: result, error: null };
+    } catch (err) {
+      return { data: null, error: err };
     }
   }
 
-  async function getMonthData(ym) {
+  async function getMonthData(ym, options = {}) {
     const facet = window.selectedFacet || null;
     const cacheKey = ym;
+    const cached = cache[cacheKey];
 
-    if (cache[cacheKey]?.facet === facet) {
-      return cache[cacheKey].data;
+    if (!options.refresh && cached?.facet === facet && !cached.error) {
+      return cached;
     }
 
-    const data = await fetchMonthData(ym);
-    cache[cacheKey] = { data, facet };
-    return data;
+    const result = await fetchMonthData(ym, facet);
+    if (result.error) {
+      logMonthStatsError(result.error);
+      const staleData = cached?.facet === facet ? cached.data : null;
+      cache[cacheKey] = {
+        data: staleData || result.data || null,
+        error: result.error,
+        facet
+      };
+      return cache[cacheKey];
+    }
+
+    cache[cacheKey] = { data: result.data || {}, error: null, facet };
+    return cache[cacheKey];
   }
 
   function preloadAdjacentMonths(ym) {
@@ -149,9 +199,11 @@ window.MonthPicker = (function() {
   function render() {
     if (!container) return;
 
-    const data = cache[currentMonth]?.data || {};
+    const monthState = cache[currentMonth] || { data: null, error: null };
+    const data = monthState.data || {};
     const daysInMonth = getDaysInMonth(currentMonth);
     const startDay = getStartDayOfWeek(currentMonth);
+    setStatsWarning(monthState);
 
     // Calculate max for heat map scaling
     let maxCount = 0;
@@ -212,9 +264,21 @@ window.MonthPicker = (function() {
       gridHtml += `<div role="row">${cells.slice(i, i + 7).join('')}</div>`;
     }
 
+    let errorHtml = '';
+    if (monthState.error && monthState.data === null) {
+      const serverMessage = monthState.error.serverMessage;
+      errorHtml = `
+        <div class="mp-error" role="status">
+          <div class="mp-error-title">Couldn't load month stats.</div>
+          ${serverMessage ? `<div class="mp-error-detail">${escapeHtml(serverMessage)}</div>` : ''}
+        </div>
+      `;
+    }
+
     // Build full HTML — outer div owns the ARIA grid role so the
     // columnheader row and the data rows share the same grid context.
     const html = `
+      ${errorHtml}
       <div role="grid" aria-label="${getFullMonthLabel(currentMonth)}">
         <div class="mp-weekdays" role="row">
           ${WEEKDAYS.map(d => `<span role="columnheader">${d}</span>`).join('')}
@@ -259,7 +323,7 @@ window.MonthPicker = (function() {
 
   async function showMonth(ym) {
     currentMonth = ym;
-    await getMonthData(ym);
+    await getMonthData(ym, { refresh: true });
     render();
     preloadAdjacentMonths(ym);
   }
@@ -422,6 +486,7 @@ window.MonthPicker = (function() {
 
     if (labelEl) {
       dayLabel = labelEl.textContent;
+      labelTitle = labelEl.getAttribute('title');
       labelEl.setAttribute('tabindex', '-1');
     }
 
