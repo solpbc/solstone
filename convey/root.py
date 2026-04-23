@@ -194,26 +194,29 @@ def init_validate_provider() -> Any:
 
 @bp.route("/init/observers")
 def init_observers() -> Any:
+    from apps.observer.routes import (
+        ACTIVE_THRESHOLD_MS,
+        STALE_THRESHOLD_MS,
+        _serialize_observer,
+    )
     from apps.observer.utils import list_observers
+    from think.utils import now_ms
 
+    current_now = now_ms()
     observers_list = []
     for observer in list_observers():
         if observer.get("revoked", False):
             continue
-        observers_list.append(
-            {
-                "key_prefix": observer.get("key", "")[:8],
-                "name": observer.get("name", ""),
-                "created_at": observer.get("created_at", 0),
-                "last_seen": observer.get("last_seen"),
-                "last_segment": observer.get("last_segment"),
-                "enabled": observer.get("enabled", True),
-                "revoked": observer.get("revoked", False),
-                "revoked_at": observer.get("revoked_at"),
-                "stats": observer.get("stats", {}),
-            }
-        )
-    return jsonify(observers_list)
+        observers_list.append(_serialize_observer(observer, current_now))
+    return jsonify(
+        {
+            "thresholds": {
+                "active_ms": ACTIVE_THRESHOLD_MS,
+                "stale_ms": STALE_THRESHOLD_MS,
+            },
+            "observers": observers_list,
+        }
+    )
 
 
 @bp.route("/init/finalize", methods=["POST"])

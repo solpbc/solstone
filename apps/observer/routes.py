@@ -145,6 +145,28 @@ def _classify_observer_freshness(
     }
 
 
+def _serialize_observer(observer: dict[str, Any], current_now: int) -> dict[str, Any]:
+    """Serialize a registered observer for management API consumers."""
+    freshness = _classify_observer_freshness(
+        observer.get("last_seen"),
+        observer.get("revoked", False),
+        current_now,
+    )
+    return {
+        "key_prefix": observer.get("key", "")[:8],
+        "name": observer.get("name", ""),
+        "created_at": observer.get("created_at", 0),
+        "last_seen": observer.get("last_seen"),
+        "last_segment": observer.get("last_segment"),
+        "enabled": observer.get("enabled", True),
+        "revoked": observer.get("revoked", False),
+        "revoked_at": observer.get("revoked_at"),
+        "stats": observer.get("stats", {}),
+        **freshness,
+        "label": OBSERVER_STATE_LABELS[str(freshness["state"])],
+    }
+
+
 def _revoke_observer(key: str) -> bool:
     """Revoke observer by key (soft-delete)."""
     observer = load_observer(key)
@@ -164,29 +186,7 @@ def api_list() -> Any:
     current_now = now_ms()
     observers = list_observers()
     # Sanitize output - don't expose full keys
-    result = []
-    for r in observers:
-        key_prefix = r.get("key", "")[:8]
-        freshness = _classify_observer_freshness(
-            r.get("last_seen"),
-            r.get("revoked", False),
-            current_now,
-        )
-        result.append(
-            {
-                "key_prefix": key_prefix,
-                "name": r.get("name", ""),
-                "created_at": r.get("created_at", 0),
-                "last_seen": r.get("last_seen"),
-                "last_segment": r.get("last_segment"),
-                "enabled": r.get("enabled", True),
-                "revoked": r.get("revoked", False),
-                "revoked_at": r.get("revoked_at"),
-                "stats": r.get("stats", {}),
-                **freshness,
-                "label": OBSERVER_STATE_LABELS[str(freshness["state"])],
-            }
-        )
+    result = [_serialize_observer(observer, current_now) for observer in observers]
 
     group_order = {"active": 0, "stale": 1, "inactive": 2}
     result.sort(

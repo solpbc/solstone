@@ -56,6 +56,7 @@
     .observer-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0; }
     .observer-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
     .observer-dot.connected { background: #22c55e; }
+    .observer-dot.stale { background: #f59e0b; }
     .observer-dot.disconnected { background: #d1d5db; }
     .observer-state { font-size: 0.8rem; color: #999; margin-left: auto; }
     .input-wrap { position: relative; }
@@ -272,27 +273,41 @@
     async function loadObservers() {
       const emptyEl = document.getElementById('observer-empty');
       const errorEl = document.getElementById('observer-error');
+      const labelEl = document.getElementById('observer-label');
+      const listEl = document.getElementById('observer-list');
       try {
-        const data = await window.apiJson('/init/observers');
+        const payload = await window.apiJson('/init/observers');
         if (errorEl) {
           errorEl.hidden = true;
           errorEl.textContent = '';
         }
-        if (data.length > 0) {
+        const observers = payload?.observers || [];
+        if (observers.length > 0) {
           if (emptyEl) emptyEl.style.display = 'none';
-          const labelEl = document.getElementById('observer-label');
-          if (labelEl) labelEl.style.display = 'block';
-          const now = Date.now();
-          document.getElementById('observer-list').innerHTML = data.map(r => {
-            const connected = r.last_seen && (now - r.last_seen) < 120000;
-            const label = esc(r.name || r.key_prefix);
+          if (labelEl) {
+            const states = new Set(observers.map(r => r.state));
+            const headingByState = {
+              connected: 'all observers connected',
+              stale: 'all observers stale',
+              disconnected: 'all observers disconnected'
+            };
+            const [state] = states;
+            labelEl.textContent = states.size === 1 ? headingByState[state] || 'observers' : 'observers';
+            labelEl.style.display = 'block';
+          }
+          listEl.innerHTML = observers.map(r => {
+            const dotState = r.state === 'connected' || r.state === 'stale' ? r.state : 'disconnected';
+            const name = esc(r.name || r.key_prefix);
+            const status = esc(r.label || r.state || 'disconnected');
             return '<div class="observer-item"><span class="observer-dot ' +
-              (connected ? 'connected' : 'disconnected') + '"></span><span>' +
-              label + '</span><span class="observer-state">' +
-              (connected ? 'connected' : 'disconnected') + '</span></div>';
+              dotState + '"></span><span>' +
+              name + '</span><span class="observer-state">' +
+              status + '</span></div>';
           }).join('');
         } else {
           if (emptyEl) emptyEl.style.display = 'block';
+          if (labelEl) labelEl.style.display = 'none';
+          listEl.innerHTML = '';
         }
       } catch (err) {
         if (emptyEl) emptyEl.style.display = 'none';

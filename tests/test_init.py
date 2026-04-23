@@ -3,7 +3,10 @@ import json
 
 import pytest
 
+from apps.observer.routes import ACTIVE_THRESHOLD_MS, STALE_THRESHOLD_MS
+from apps.observer.utils import save_observer
 from convey import create_app
+from think.utils import now_ms
 
 
 def _read_config(journal_dir):
@@ -17,6 +20,31 @@ def _remove_password(journal_dir):
     config["convey"].pop("trust_localhost", None)
     config.pop("setup", None)
     (journal_dir / "config" / "journal.json").write_text(json.dumps(config, indent=2))
+
+
+def _save_test_observer(
+    key_prefix: str,
+    name: str,
+    *,
+    created_at: int,
+    last_seen: int | None,
+    revoked: bool = False,
+):
+    key = key_prefix + ("f" * 56)
+    assert save_observer(
+        {
+            "key": key,
+            "name": name,
+            "created_at": created_at,
+            "last_seen": last_seen,
+            "last_segment": None,
+            "enabled": True,
+            "revoked": revoked,
+            "revoked_at": created_at + 1 if revoked else None,
+            "stats": {},
+        }
+    )
+    return key
 
 
 @pytest.fixture
@@ -108,6 +136,26 @@ class TestInitValidateProvider:
 class TestInitObservers:
     """Tests for the observer list endpoint during onboarding."""
 
+    def test_init_observers_returns_thresholds_and_observers_dict(
+        self, fresh_client, monkeypatch
+    ):
+        monkeypatch.setattr(
+            "apps.observer.utils.list_observers",
+            lambda: [],
+        )
+        resp = fresh_client.get("/init/observers")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data == {
+            "thresholds": {
+                "active_ms": ACTIVE_THRESHOLD_MS,
+                "stale_ms": STALE_THRESHOLD_MS,
+            },
+            "observers": [],
+        }
+        assert isinstance(data["thresholds"]["active_ms"], int)
+        assert isinstance(data["thresholds"]["stale_ms"], int)
+
     def test_observers_no_password_required(self, fresh_client, monkeypatch):
         """Observers endpoint works without password_hash set."""
         monkeypatch.setattr(
@@ -148,9 +196,63 @@ class TestInitObservers:
         resp = fresh_client.get("/init/observers")
         assert resp.status_code == 200
         data = resp.get_json()
-        assert len(data) == 1
-        assert data[0]["name"] == "my-phone"
-        assert data[0]["key_prefix"] == "abcd1234"
+        observers = data["observers"]
+        assert len(observers) == 1
+        assert observers[0]["name"] == "my-phone"
+        assert observers[0]["key_prefix"] == "abcd1234"
+        assert observers[0]["state"] == "disconnected"
+        assert observers[0]["group"] == "inactive"
+        assert observers[0]["label"] == "Disconnected"
+        assert observers[0]["elapsed_ms"] is None
+        assert observers[0]["clock_skew"] is False
+
+    def test_init_observers_endpoint_parity(self, fresh_client):
+        current_now = now_ms()
+        _save_test_observer(
+            "aaaa0000",
+            "active-observer",
+            created_at=10,
+            last_seen=current_now - 5_000,
+        )
+        _save_test_observer(
+            "bbbb0000",
+            "stale-observer",
+            created_at=20,
+            last_seen=current_now - 60_000,
+        )
+        _save_test_observer(
+            "cccc0000",
+            "disconnected-observer",
+            created_at=30,
+            last_seen=current_now - 600_000,
+        )
+
+        with fresh_client.session_transaction() as sess:
+            sess["logged_in"] = True
+
+        api_resp = fresh_client.get("/app/observer/api/list")
+        init_resp = fresh_client.get("/init/observers")
+        assert api_resp.status_code == 200
+        assert init_resp.status_code == 200
+
+        api_by_key = {
+            observer["key_prefix"]: observer
+            for observer in api_resp.get_json()["observers"]
+            if not observer["revoked"]
+        }
+        init_by_key = {
+            observer["key_prefix"]: observer
+            for observer in init_resp.get_json()["observers"]
+        }
+
+        assert set(init_by_key) == set(api_by_key)
+        for key_prefix, init_observer in init_by_key.items():
+            api_observer = api_by_key[key_prefix]
+            assert init_observer["state"] == api_observer["state"]
+            assert init_observer["group"] == api_observer["group"]
+            assert init_observer["label"] == api_observer["label"]
+            assert init_observer["clock_skew"] == api_observer["clock_skew"]
+            assert abs(init_observer["elapsed_ms"] - api_observer["elapsed_ms"]) < 200
 
 
 class TestInitFinalize:
