@@ -24,17 +24,10 @@ tests/fixtures/journal/chronicle/*/health/*.jsonl
 .claude/
 .sandbox.pid
 .sandbox.journal
-apps/support/portal/
 build/
 tmp/
-filter_vconic_activity.py
 /sol/
 .sol/
-attached_names.txt
-counts.txt
-counts_all.txt
-detections_7days.txt
-search_ping_identity.py
 !/journal/AGENTS.md
 !/journal/CLAUDE.md
 !/journal/GEMINI.md
