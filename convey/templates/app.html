@@ -42,7 +42,7 @@
 <body{% if body_classes %} class="{{ body_classes|join(' ') }}"{% endif %}>
 <script>
 // Restore sidebar state before first paint to prevent FOUC
-(function(){try{var s=localStorage.getItem('solstone:menu-state');if(s==='full'&&window.innerWidth<=768)document.body.classList.add('menu-full');else if(s==='all')document.body.classList.add('menu-all');}catch(e){/* Default collapsed menu state is safe when storage is unavailable. */}})();
+(function(){try{var s=localStorage.getItem('solstone:menu-state');if(s==='full')document.body.classList.add('menu-full');else if(s==='all')document.body.classList.add('menu-all');}catch(e){/* Default collapsed menu state is safe when storage is unavailable. */}})();
 </script>
 <a href="#main-content" class="skip-link">skip to content</a>
 <!-- Corner Tags (screen region detection) -->

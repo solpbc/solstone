@@ -114,6 +114,10 @@ body {
   margin-left: var(--menu-bar-width-minimal);
 }
 
+body.menu-full .workspace {
+  margin-left: var(--menu-bar-width-full);
+}
+
 body.has-app-bar .workspace {
   margin-bottom: calc(var(--app-bar-height) + 80px);
 }
@@ -254,7 +258,7 @@ body:has(.status-pane.visible) .facet-bar::after {
 }
 
 .facet-bar #hamburger {
-  display: none;
+  display: flex;
   font-size: 24px;
   cursor: pointer;
   padding: 8px;
@@ -270,12 +274,6 @@ body:has(.status-pane.visible) .facet-bar::after {
 
 .facet-bar #hamburger:active {
   background: rgba(0, 0, 0, 0.10);
-}
-
-@media (max-width: 768px) {
-  .facet-bar #hamburger {
-    display: flex;
-  }
 }
 
 .facet-bar .status-icon {

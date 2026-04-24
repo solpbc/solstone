@@ -751,7 +751,7 @@
           exp.setAttribute('aria-label', 'show fewer apps');
         }
       }
-      if (mobileQuery.matches && document.body.classList.contains('menu-full')) {
+      if (document.body.classList.contains('menu-full')) {
         const ham = document.getElementById('hamburger');
         if (ham) ham.setAttribute('aria-expanded', 'true');
       }
@@ -948,12 +948,19 @@
           } else {
             openMobileMenu();
           }
+        } else {
+          const nowFull = !document.body.classList.contains('menu-full');
+          document.body.classList.toggle('menu-full', nowFull);
+          hamburger.setAttribute('aria-expanded', nowFull ? 'true' : 'false');
+          saveMenuState();
+          updateScrollShadows();
+          setTimeout(updateScrollShadows, 350);
         }
       });
 
       // Close menu when clicking outside
       document.addEventListener('click', (e) => {
-        if (document.body.classList.contains('menu-full')) {
+        if (mobileQuery.matches && document.body.classList.contains('menu-full')) {
           if (!menuBar.contains(e.target) && !hamburger.contains(e.target)) {
             closeMobileMenu();
           }
@@ -977,17 +984,17 @@
 
       mobileQuery.addEventListener('change', (e) => {
         if (!e.matches) {
-          document.body.classList.remove('menu-full');
-          hamburger.setAttribute('aria-expanded', 'false');
-          saveMenuState();
-
-          if (menuBackdrop) {
+          if (menuBackdrop?.classList.contains('visible')) {
             menuBackdrop.classList.remove('visible');
-          }
-          if (focusTrapHandler) {
             document.removeEventListener('keydown', focusTrapHandler);
             focusTrapHandler = null;
           }
+          hamburger.setAttribute(
+            'aria-expanded',
+            document.body.classList.contains('menu-full') ? 'true' : 'false'
+          );
+        } else if (document.body.classList.contains('menu-full')) {
+          closeMobileMenu();
         }
       });
 
