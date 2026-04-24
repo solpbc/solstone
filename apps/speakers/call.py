@@ -13,6 +13,7 @@ Commands:
     sol call speakers resolve-names [--commit] [--json]
     sol call speakers attribute-segment <day> <stream> <segment> [--commit] [--json]
     sol call speakers backfill [--commit] [--json]
+    sol call speakers wipe [--commit] [--json]
     sol call speakers discover [--json]
     sol call speakers identify <cluster-id> <name> [--entity-id ID]
     sol call speakers merge-names <alias> <canonical>
@@ -337,6 +338,66 @@ def backfill(
             typer.echo(f"  {err}", err=True)
         if len(stats["errors"]) > 10:
             typer.echo(f"  ... and {len(stats['errors']) - 10} more", err=True)
+
+
+@app.command()
+def wipe(
+    commit: bool = typer.Option(
+        False,
+        "--commit",
+        help="Actually delete files. Without this flag the command only reports what would happen.",
+    ),
+    json_output: bool = typer.Option(
+        False, "--json", help="Output full result as JSON."
+    ),
+) -> None:
+    """Remove all legacy speaker artifacts from the journal (DESTRUCTIVE).
+
+    DESTRUCTIVE. Without --commit, prints a report of what would be
+    removed. With --commit, permanently deletes segment-embedding NPZs,
+    speaker labels/corrections, per-entity voiceprints, owner centroids,
+    and the owner-candidate snapshot.
+    """
+    import json as json_mod
+
+    from apps.speakers.wipe import wipe_speaker_artifacts
+
+    if not commit and not json_output:
+        typer.echo("REPORT ONLY — pass --commit to persist.\n")
+
+    report = wipe_speaker_artifacts(dry_run=not commit)
+
+    if json_output:
+        typer.echo(json_mod.dumps(report.to_dict(), indent=2, default=str))
+        return
+
+    typer.echo(
+        f"segment_embeddings : {report.segment_embeddings.count} files "
+        f"({report.segment_embeddings.bytes} B)"
+    )
+    typer.echo(
+        f"speaker_labels     : {report.speaker_labels.count} files "
+        f"({report.speaker_labels.bytes} B)"
+    )
+    typer.echo(
+        f"speaker_corrections: {report.speaker_corrections.count} files "
+        f"({report.speaker_corrections.bytes} B)"
+    )
+    typer.echo(
+        f"entity_voiceprints : {report.entity_voiceprints.count} files "
+        f"({report.entity_voiceprints.bytes} B)"
+    )
+    typer.echo(
+        f"owner_centroids    : {report.owner_centroids.count} files "
+        f"({report.owner_centroids.bytes} B)"
+    )
+    typer.echo(
+        f"owner_candidate    : {report.owner_candidate.count} files "
+        f"({report.owner_candidate.bytes} B)"
+    )
+    typer.echo(
+        f"total              : {report.total_files} files ({report.total_bytes} B)"
+    )
 
 
 @app.command()
