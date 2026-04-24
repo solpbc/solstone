@@ -27,8 +27,12 @@ def wipe_journal(
 
     targets = [
         journal / "chronicle/20240101/test/120000_300/mic_audio.npz",
-        journal / "chronicle/20240101/test/120000_300/talents/speaker_labels.json",
-        journal / "chronicle/20240101/test/120000_300/talents/speaker_corrections.json",
+        # labels + corrections live under both agents/ (historical) and talents/
+        # (current writes); the wipe must catch both.
+        journal / "chronicle/20240101/test/120000_300/agents/speaker_labels.json",
+        journal / "chronicle/20240101/test/120000_300/agents/speaker_corrections.json",
+        journal / "chronicle/20240102/test/120000_300/talents/speaker_labels.json",
+        journal / "chronicle/20240102/test/120000_300/talents/speaker_corrections.json",
         journal / "entities/alice/voiceprints.npz",
         journal / "entities/alice/owner_centroid.npz",
         journal / "entities/bob/owner_centroid.npz",
@@ -49,13 +53,13 @@ def test_wipe_dry_run(wipe_journal: tuple[Path, list[Path]]) -> None:
     report = wipe_speaker_artifacts(dry_run=True)
 
     assert report.segment_embeddings.count == 1
-    assert report.speaker_labels.count == 1
-    assert report.speaker_corrections.count == 1
+    assert report.speaker_labels.count == 2  # agents/ + talents/
+    assert report.speaker_corrections.count == 2  # agents/ + talents/
     assert report.entity_voiceprints.count == 1
     assert report.owner_centroids.count == 2
     assert report.owner_candidate.count == 1
-    assert report.total_files == 7
-    assert report.total_bytes == 7 * len(FILE_BYTES)
+    assert report.total_files == 9
+    assert report.total_bytes == 9 * len(FILE_BYTES)
 
     for path in targets:
         assert path.exists()
@@ -67,13 +71,13 @@ def test_wipe_commit(wipe_journal: tuple[Path, list[Path]]) -> None:
     report = wipe_speaker_artifacts(dry_run=False)
 
     assert report.segment_embeddings.count == 1
-    assert report.speaker_labels.count == 1
-    assert report.speaker_corrections.count == 1
+    assert report.speaker_labels.count == 2  # agents/ + talents/
+    assert report.speaker_corrections.count == 2  # agents/ + talents/
     assert report.entity_voiceprints.count == 1
     assert report.owner_centroids.count == 2
     assert report.owner_candidate.count == 1
-    assert report.total_files == 7
-    assert report.total_bytes == 7 * len(FILE_BYTES)
+    assert report.total_files == 9
+    assert report.total_bytes == 9 * len(FILE_BYTES)
 
     for path in targets:
         assert not path.exists()

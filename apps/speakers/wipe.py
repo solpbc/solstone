@@ -38,16 +38,28 @@ def wipe_speaker_artifacts(dry_run: bool = True) -> WipeReport:
     journal = Path(get_journal())
     report = WipeReport()
 
+    # Labels and corrections currently live under agents/ for most historical
+    # segments; the attribution module now writes new files under talents/.
+    # Cover both paths so no resemblyzer-space artifacts leak through the wipe.
+    label_patterns = [
+        "chronicle/*/*/*/agents/speaker_labels.json",
+        "chronicle/*/*/*/talents/speaker_labels.json",
+    ]
+    correction_patterns = [
+        "chronicle/*/*/*/agents/speaker_corrections.json",
+        "chronicle/*/*/*/talents/speaker_corrections.json",
+    ]
+
+    def _expand(patterns: list[str]) -> list[Path]:
+        paths: list[Path] = []
+        for pattern in patterns:
+            paths.extend(journal.glob(pattern))
+        return sorted(paths)
+
     categories: list[tuple[WipeCategory, list[Path]]] = [
         (report.segment_embeddings, sorted(journal.glob("chronicle/*/*/*/*.npz"))),
-        (
-            report.speaker_labels,
-            sorted(journal.glob("chronicle/*/*/*/talents/speaker_labels.json")),
-        ),
-        (
-            report.speaker_corrections,
-            sorted(journal.glob("chronicle/*/*/*/talents/speaker_corrections.json")),
-        ),
+        (report.speaker_labels, _expand(label_patterns)),
+        (report.speaker_corrections, _expand(correction_patterns)),
         (report.entity_voiceprints, sorted(journal.glob("entities/*/voiceprints.npz"))),
         (report.owner_centroids, sorted(journal.glob("entities/*/owner_centroid.npz"))),
         (report.owner_candidate, [journal / "awareness" / "owner_candidate.npz"]),
