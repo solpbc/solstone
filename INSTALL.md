@@ -45,11 +45,8 @@ your human may need to handle interactive steps here — app store installs and 
 brew install git uv
 ```
 
-#### Parakeet backend (optional, macOS only)
+#### Parakeet backend (optional, macOS + Linux)
 
-- Apple Silicon only. the helper is not supported on Intel macs or linux.
-- Xcode command line tools are required because the helper is a Swift package; if the `xcodebuild -version` check above fails, fix that first.
-- Build the helper from the repo root with `make parakeet-helper`.
 - Enable it by setting `journal/config/journal.json`:
 
 ```json
@@ -58,13 +55,16 @@ brew install git uv
     "backend": "parakeet",
     "parakeet": {
       "model_version": "v3",
+      "device": "auto",
       "timeout_sec": 120.0
     }
   }
 }
 ```
 
-- first run downloads roughly 461 MB of model data into `~/Library/Application Support/solstone/parakeet/models`.
+- `device: "auto"` is primarily for Linux; macOS always routes to the CoreML helper on Apple Silicon.
+- **macOS (Apple Silicon):** Xcode command line tools are required because the helper is a Swift package; if the `xcodebuild -version` check above fails, fix that first. `make install` runs `make parakeet-helper` automatically, and the first run downloads roughly 461 MB of model data into `~/Library/Application Support/solstone/parakeet/models`.
+- **Linux (x86_64):** `make install` runs `uv sync --extra parakeet-nemo` automatically to install NeMo + torch. The first run downloads roughly 2.4 GB of model data into `~/.cache/huggingface/hub/`. CUDA is optional; `device: "auto"` falls back to CPU when no GPU is available.
 - helper contract details live in `observe/transcribe/parakeet_helper/README.md`.
 
 ## install
