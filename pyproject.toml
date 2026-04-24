@@ -75,8 +75,8 @@ dependencies = [
     # Audio processing
     "soundfile",
     "faster-whisper>=1.0.0",
-    "resemblyzer",
-    "webrtcvad-wheels>=2.0.12",
+    "onnxruntime>=1.19",
+    "kaldi-native-fbank>=1.22",
 
     # Media processing
     "opencv-python-headless",
@@ -109,7 +109,7 @@ include = ["apps*", "think*", "convey*", "observe*", "talent*"]
 apps = ["*/templates/*.html", "*/talent/*.md"]
 think = ["*.md", "*.json", "templates/*.md", "policies/*.toml"]
 talent = ["*.md", "*.py"]
-observe = ["*.md", "categories/*.md", "transcribe/*.md"]
+observe = ["*.md", "categories/*.md", "transcribe/*.md", "transcribe/assets/*.onnx"]
 convey = [
     "templates/*.html",
     "static/*",
@@ -131,13 +131,6 @@ warn_unused_configs = true
 exclude = ["tests", ".venv", "scratch", "logs", "build", "dist"]
 ignore_missing_imports = true
 ignore_errors = true
-
-[tool.uv]
-# resemblyzer -> librosa -> numba: force modern version (old numba only supports Python <3.10)
-constraint-dependencies = ["numba>=0.60"]
-# resemblyzer -> webrtcvad: abandoned (2017), uses pkg_resources removed in setuptools 82.
-# Replace with maintained fork webrtcvad-wheels (same Python module, pkg_resources fix since 2.0.12).
-override-dependencies = ["webrtcvad>=99; python_version < '0'"]
 
 [tool.pytest.ini_options]
 addopts = "--import-mode=importlib"

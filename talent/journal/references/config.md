@@ -188,7 +188,7 @@ The `transcribe` block configures audio transcription settings for `sol transcri
 - **CUDA GPU**: Uses `float16` for GPU-optimized inference
 - **CPU (including Apple Silicon)**: Uses `int8` for ~2x faster inference and significantly faster model loading
 
-Voice embeddings (resemblyzer) also auto-detect the best device: MPS on Apple Silicon (~16x faster), CUDA when available, or CPU fallback.
+Voice embeddings (wespeaker-resnet34) use CoreML with CPU fallback on Darwin and CPU-only elsewhere.
 
 CLI flags can override settings: `--backend` selects the backend, `--cpu` forces CPU mode with int8 (Whisper only), `--model MODEL` overrides the Whisper model.
 

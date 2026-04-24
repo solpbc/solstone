@@ -8,7 +8,7 @@ Transcription pipeline:
 2. Audio reduction: Trim long silence gaps for faster processing
 3. Transcription: Dispatch to STT backend (default: whisper)
 4. Enrichment: Extract topics, setting, emotions, and warnings via LLM (optional)
-5. Embeddings: Generate voice embeddings for each sentence using resemblyzer
+5. Embeddings: Generate voice embeddings for each sentence using wespeaker-resnet34
 6. Output: JSONL format compatible with format_audio() in observe/hear.py
 
 Output files:
@@ -39,7 +39,7 @@ Gemini backend settings (transcribe.gemini):
 
 Platform optimizations (Whisper):
 - CUDA GPU: Uses float16 for GPU-optimized inference
-- Apple Silicon: Uses int8 for Whisper (~2x faster), MPS for embeddings (~16x faster)
+- Apple hosts: Uses int8 for Whisper on CPU and CoreML/CPU for embeddings
 - Other CPU: Uses int8 for best performance
 """
 
@@ -50,17 +50,18 @@ import datetime
 import json
 import logging
 import os
+import platform
 import time
 from pathlib import Path
 
 import numpy as np
+import onnxruntime as ort
 
 from observe.transcribe import (
     BACKEND_REGISTRY,
     get_backend,
 )
 from observe.transcribe import transcribe as stt_transcribe
-from observe.transcribe.utils import is_apple_silicon
 from observe.transcribe.whisper import DEFAULT_COMPUTE, DEFAULT_DEVICE, DEFAULT_MODEL
 from observe.utils import SAMPLE_RATE, get_segment_key, load_audio
 from observe.vad import (
@@ -101,63 +102,85 @@ DEFAULT_MIN_SPEECH_SECONDS = 1.0
 # Minimum statement duration for embedding (seconds)
 MIN_STATEMENT_DURATION = 0.3
 
+# WeSpeaker embedder asset
+EMBEDDER_NAME = "wespeaker-resnet34-256"
+WESPEAKER_MODEL_SHA256 = (
+    "5ef208a9da1453335308a6b6f4e6dfbd7e183a38b604de0a57664f45d257fe94"
+)
+WESPEAKER_MODEL_PATH = Path(__file__).parent / "assets" / "wespeaker-resnet34-256.onnx"
+
 # Number of recent entity names to load for transcription context
 ENTITY_NAMES_LIMIT = 40
 
-# Module-level voice encoder cache
-_voice_encoder = None
+# Module-level embedder cache
+_embedder_session: ort.InferenceSession | None = None
 
 
-def _get_optimal_encoder_device() -> str:
-    """Get optimal device for VoiceEncoder (resemblyzer).
+def _select_onnx_providers() -> list[str]:
+    """Return the ONNX Runtime provider list for this host.
 
-    On Apple Silicon, MPS provides ~16x speedup over CPU for embeddings.
-
-    Returns:
-        Device string: "mps" on Apple Silicon with MPS available, "cpu" otherwise
+    Darwin (any arch) prefers CoreML with CPU fallback; elsewhere, CPU only.
     """
-    if is_apple_silicon():
-        try:
-            import torch
-
-            if torch.backends.mps.is_available():
-                return "mps"
-        except ImportError:
-            pass
-    return "cpu"
+    if platform.system() == "Darwin":
+        return ["CoreMLExecutionProvider", "CPUExecutionProvider"]
+    return ["CPUExecutionProvider"]
 
 
-def _get_voice_encoder(whisper_device: str = "cpu"):
-    """Get or create VoiceEncoder with caching.
+def _get_embedder_session() -> ort.InferenceSession:
+    """Return a cached ONNX InferenceSession for the WeSpeaker encoder."""
+    global _embedder_session
 
-    Args:
-        whisper_device: Device used by whisper (affects encoder device selection)
+    if _embedder_session is None:
+        if not WESPEAKER_MODEL_PATH.is_file():
+            raise FileNotFoundError(
+                f"WeSpeaker model asset not found at {WESPEAKER_MODEL_PATH}. "
+                "Run `make install` to verify the bundled asset."
+            )
+        providers = _select_onnx_providers()
+        start = time.monotonic()
+        _embedder_session = ort.InferenceSession(
+            str(WESPEAKER_MODEL_PATH),
+            providers=providers,
+        )
+        elapsed = time.monotonic() - start
+        logging.info(
+            "wespeaker session loaded providers=%s elapsed=%.2fs",
+            _embedder_session.get_providers(),
+            elapsed,
+        )
 
-    Returns:
-        VoiceEncoder instance
-    """
-    global _voice_encoder
-    from resemblyzer import VoiceEncoder
+    return _embedder_session
 
-    if _voice_encoder is not None:
-        return _voice_encoder
 
-    # VoiceEncoder: use MPS on Apple Silicon for ~16x speedup, otherwise CPU
-    # (CUDA auto-detection handled by resemblyzer when device=None)
-    if whisper_device == "cuda":
-        encoder_device = None  # Let resemblyzer auto-detect CUDA
-    else:
-        encoder_device = _get_optimal_encoder_device()
+def _compute_wespeaker_features(audio: np.ndarray, sample_rate: int) -> np.ndarray:
+    """Compute Kaldi-style fbank features for the bundled WeSpeaker encoder."""
+    import kaldi_native_fbank as knf
 
-    logging.info("Loading resemblyzer VoiceEncoder...")
-    t0 = time.perf_counter()
-    _voice_encoder = VoiceEncoder(device=encoder_device)
-    logging.info(
-        f"  VoiceEncoder loaded in {time.perf_counter() - t0:.2f}s "
-        f"(device={_voice_encoder.device})"
-    )
+    if sample_rate != SAMPLE_RATE:
+        raise ValueError(
+            f"WeSpeaker embedder requires {SAMPLE_RATE} Hz audio, got {sample_rate}"
+        )
 
-    return _voice_encoder
+    opts = knf.FbankOptions()
+    opts.frame_opts.samp_freq = float(sample_rate)
+    opts.frame_opts.dither = 0.0
+    opts.frame_opts.snip_edges = False
+    opts.frame_opts.frame_length_ms = 25.0
+    opts.frame_opts.frame_shift_ms = 10.0
+    opts.mel_opts.num_bins = 80
+    opts.energy_floor = 0.0
+    opts.use_energy = False
+
+    fbank = knf.OnlineFbank(opts)
+    scaled = (audio.astype(np.float32) * 32768.0).tolist()
+    fbank.accept_waveform(float(sample_rate), scaled)
+    fbank.input_finished()
+
+    frames = [fbank.get_frame(i) for i in range(fbank.num_frames_ready)]
+    if not frames:
+        return np.zeros((0, 80), dtype=np.float32)
+
+    return np.stack(frames, axis=0).astype(np.float32)
 
 
 def _get_jsonl_path(audio_path: Path) -> Path:
@@ -227,7 +250,6 @@ def _embed_statements(
     audio: np.ndarray,
     statements: list[dict],
     sample_rate: int,
-    whisper_device: str = "cpu",
 ) -> dict[str, np.ndarray] | None:
     """Generate voice embeddings for each statement.
 
@@ -235,17 +257,18 @@ def _embed_statements(
         audio: Audio buffer (float32, mono)
         statements: List of statements
         sample_rate: Sample rate in Hz
-        whisper_device: Device used by whisper (affects encoder device selection)
 
     Returns:
         Dict with embedding data or None on error:
         - embeddings: (N, 256) float32 array
         - statement_ids: (N,) int32 array of statement IDs
+        - encoder: 0-d array naming the embedder
     """
     try:
-        voice_encoder = _get_voice_encoder(whisper_device)
-
+        session = _get_embedder_session()
         audio_duration = len(audio) / sample_rate
+        input_name = session.get_inputs()[0].name
+        output_name = session.get_outputs()[0].name
 
         # Filter statements with valid timestamps and sufficient duration
         # Defensive: handle None timestamps, clamp to audio bounds
@@ -290,10 +313,17 @@ def _embed_statements(
                 continue
 
             try:
-                emb = voice_encoder.embed_utterance(stmt_audio)
-                embeddings.append(emb)
+                feats = _compute_wespeaker_features(stmt_audio, sample_rate)
+                if feats.shape[0] == 0:
+                    skipped += 1
+                    continue
+                emb = session.run([output_name], {input_name: feats[None, :, :]})[0]
+                embeddings.append(emb[0].astype(np.float32))
                 statement_ids.append(stmt["id"])
             except Exception:
+                logging.exception(
+                    "wespeaker embedding failed for statement %s", stmt["id"]
+                )
                 skipped += 1
                 continue
 
@@ -309,12 +339,13 @@ def _embed_statements(
         )
 
         return {
-            "embeddings": np.array(embeddings, dtype=np.float32),
-            "statement_ids": np.array(statement_ids, dtype=np.int32),
+            "embeddings": np.stack(embeddings, axis=0).astype(np.float32),
+            "statement_ids": np.asarray(statement_ids, dtype=np.int32),
+            "encoder": np.array(EMBEDDER_NAME),
         }
 
-    except Exception as e:
-        logging.error(f"Embedding failed: {e}", exc_info=True)
+    except Exception:
+        logging.exception("failed to load WeSpeaker embedder")
         return None
 
 
@@ -577,9 +608,7 @@ def process_audio(
 
         # Generate embeddings before timestamp restoration
         # Use reduced audio buffer if available for consistent timestamps
-        embeddings_data = _embed_statements(
-            stt_buffer, statements, SAMPLE_RATE, model_info.get("device", "cpu")
-        )
+        embeddings_data = _embed_statements(stt_buffer, statements, SAMPLE_RATE)
 
         # Restore original timestamps if audio was reduced (non-Gemini backends only)
         # Gemini with chunks already has timestamps in original audio time

@@ -22,6 +22,7 @@ from observe.transcribe import (
     build_statement,
     build_statements_from_acoustic,
 )
+from observe.transcribe.main import EMBEDDER_NAME
 from observe.utils import load_audio
 
 
@@ -371,14 +372,19 @@ class TestEmbeddingsFormat:
 
             embeddings = np.random.randn(5, 256).astype(np.float32)
             statement_ids = np.array([1, 2, 3, 4, 5], dtype=np.int32)
+            encoder = np.array(EMBEDDER_NAME)
 
             np.savez_compressed(
-                npz_path, embeddings=embeddings, statement_ids=statement_ids
+                npz_path,
+                embeddings=embeddings,
+                statement_ids=statement_ids,
+                encoder=encoder,
             )
 
             loaded = np.load(npz_path)
             np.testing.assert_array_almost_equal(loaded["embeddings"], embeddings)
             np.testing.assert_array_equal(loaded["statement_ids"], statement_ids)
+            assert loaded["encoder"].item() == EMBEDDER_NAME
 
     def test_statement_ids_are_unique(self):
         """Statement IDs should be unique."""
