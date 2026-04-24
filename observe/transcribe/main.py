@@ -16,7 +16,7 @@ Output files:
 - <stem>.npz: Sentence-level voice embeddings indexed by statement id
 
 Configuration (journal config transcribe section):
-- transcribe.backend: STT backend ("whisper", "revai", "gemini"). Default: "whisper"
+- transcribe.backend: STT backend ("whisper", "revai", "gemini", "parakeet"). Default: "whisper"
 - transcribe.enrich: Enable/disable LLM enrichment (default: true)
 - transcribe.preserve_all: Keep audio files even when no speech detected (default: false)
 - transcribe.min_speech_seconds: Minimum speech duration to proceed. Default: 1.0
@@ -36,6 +36,11 @@ Rev.ai backend settings (transcribe.revai):
 Gemini backend settings (transcribe.gemini):
 - No configuration needed (model resolved by think.models context system)
 - Includes speaker diarization
+
+Parakeet backend settings (transcribe.parakeet):
+- model_version: Parakeet model version ("v2", "v3"). Default: "v3"
+- cache_dir: Optional helper cache directory
+- timeout_sec: Helper timeout in seconds. Default: 120.0
 
 Platform optimizations (Whisper):
 - CUDA GPU: Uses float16 for GPU-optimized inference
@@ -789,6 +794,13 @@ def _process_one(
         # Pass entities to Rev.ai for custom vocabulary
         if entity_names:
             backend_config["entities"] = entity_names
+    elif backend == "parakeet":
+        parakeet_config = transcribe_config.get("parakeet", {})
+        backend_config = {
+            k: v
+            for k, v in parakeet_config.items()
+            if k in ("model_version", "cache_dir", "timeout_sec")
+        }
     elif backend == "gemini":
         # Gemini backend - model resolved by think.models based on context
         # Entity names handled by enrich step, not passed to transcription

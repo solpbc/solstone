@@ -45,6 +45,28 @@ your human may need to handle interactive steps here — app store installs and 
 brew install git uv
 ```
 
+#### Parakeet backend (optional, macOS only)
+
+- Apple Silicon only. the helper is not supported on Intel macs or linux.
+- Xcode command line tools are required because the helper is a Swift package; if the `xcodebuild -version` check above fails, fix that first.
+- Build the helper from the repo root with `make parakeet-helper`.
+- Enable it by setting `journal/config/journal.json`:
+
+```json
+{
+  "transcribe": {
+    "backend": "parakeet",
+    "parakeet": {
+      "model_version": "v3",
+      "timeout_sec": 120.0
+    }
+  }
+}
+```
+
+- first run downloads roughly 461 MB of model data into `~/Library/Application Support/solstone/parakeet/models`.
+- helper contract details live in `observe/transcribe/parakeet_helper/README.md`.
+
 ## install
 
 ```bash

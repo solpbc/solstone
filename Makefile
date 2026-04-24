@@ -7,7 +7,7 @@
 # all runs to one path and pytest wipes it on startup, destroying concurrent state.
 export TMPDIR := /var/tmp
 
-.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format format-check install-checks ci clean clean-install coverage watch versions update update-prices pre-commit skills dev all sandbox sandbox-stop install-pinchtab verify-browser update-browser-baselines review verify verify-api update-api-baselines install-service uninstall-service service-logs gate-agents-rename check-layer-hygiene doctor FORCE
+.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format format-check install-checks ci clean clean-install coverage watch versions update update-prices pre-commit skills dev all sandbox sandbox-stop install-pinchtab parakeet-helper parakeet-helper-clean verify-browser update-browser-baselines review verify verify-api update-api-baselines install-service uninstall-service service-logs gate-agents-rename check-layer-hygiene doctor FORCE
 
 # Default target - install package in editable mode
 all: install
@@ -244,6 +244,15 @@ install-pinchtab:
 		echo "Installing pinchtab..."; \
 		curl -fsSL https://pinchtab.com/install.sh | bash; \
 	fi
+
+# Build the parakeet helper binary (macOS/arm64 only, requires Xcode CLT)
+parakeet-helper:
+	cd observe/transcribe/parakeet_helper && swift build -c release
+	@echo "built: $$(pwd)/observe/transcribe/parakeet_helper/.build/release/parakeet-helper"
+
+# Remove parakeet helper build artifacts
+parakeet-helper-clean:
+	rm -rf observe/transcribe/parakeet_helper/.build observe/transcribe/parakeet_helper/.swiftpm observe/transcribe/parakeet_helper/Package.resolved
 
 # Run browser scenarios against sandbox
 verify-browser: .installed

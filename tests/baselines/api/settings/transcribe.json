@@ -1,6 +1,7 @@
 {
   "api_keys": {
     "gemini": false,
+    "parakeet": false,
     "revai": false,
     "whisper": false
   },
@@ -30,6 +31,16 @@
         "device",
         "model",
         "compute_type"
+      ]
+    },
+    {
+      "description": "On-device speech recognition via FluidAudio + Parakeet TDT; requires `make parakeet-helper`",
+      "env_key": null,
+      "label": "Parakeet - Local processing (Apple Silicon, optional helper)",
+      "name": "parakeet",
+      "settings": [
+        "model_version",
+        "timeout_sec"
       ]
     }
   ],

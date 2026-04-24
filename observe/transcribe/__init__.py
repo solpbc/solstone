@@ -16,6 +16,7 @@ Available backends:
 - whisper: Local faster-whisper (default, GPU/CPU)
 - revai: Rev.ai cloud API (speaker diarization)
 - gemini: Google Gemini API (speaker diarization)
+- parakeet: Local Apple Silicon processing via helper
 
 Backend Interface:
     Each backend module must export a transcribe() function:
@@ -63,6 +64,7 @@ BACKEND_REGISTRY: dict[str, str] = {
     "whisper": "observe.transcribe.whisper",
     "revai": "observe.transcribe.revai",
     "gemini": "observe.transcribe.gemini",
+    "parakeet": "observe.transcribe.parakeet",
 }
 
 # ---------------------------------------------------------------------------
@@ -90,6 +92,12 @@ BACKEND_METADATA: dict[str, dict] = {
         "description": "Cloud-based transcription with speaker identification",
         "env_key": "GOOGLE_API_KEY",
         "settings": [],
+    },
+    "parakeet": {
+        "label": "Parakeet - Local processing (Apple Silicon, optional helper)",
+        "description": "On-device speech recognition via FluidAudio + Parakeet TDT; requires `make parakeet-helper`",
+        "env_key": None,
+        "settings": ["model_version", "timeout_sec"],
     },
 }
 
