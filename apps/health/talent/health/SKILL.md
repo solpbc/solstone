@@ -1,17 +1,11 @@
 ---
 name: health
 description: >
-  Monitor service uptime, troubleshoot capture gaps and processing failures,
-  review agent run costs and errors, and summarize think-pipeline health
-  for a day. Covers three CLI surfaces: `sol health` (service supervisor
-  status + logs), `sol talent` (agent run logs + details), and
-  `sol call health pipeline` (per-day pipeline summary). Includes a journal
-  layout reference for navigating data files.
-  TRIGGER: health, status, is it running, something broke, service down,
-  uptime, errors, agent runs, costs, logs, pipeline, pipeline anomalies,
-  diagnostics, system check, troubleshoot capture gap, sol health,
-  sol health logs, sol talent logs, sol talent log,
-  sol call health pipeline.
+  Monitor solstone uptime, troubleshoot capture/processing failures, review
+  agent run costs and errors, pipeline health. CLIs: sol health (service),
+  sol talent (agent runs), sol call health pipeline (per-day summary).
+  TRIGGER: health, status, is it running, service down, errors, agent runs,
+  logs, pipeline, sol health, sol talent logs.
 ---
 
 # Health CLI Skill

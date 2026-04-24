@@ -1,20 +1,10 @@
 ---
 name: speakers
 description: >
-  Manage speaker voiceprints in observed media. Detect and confirm the owner
-  voice, bootstrap voiceprints, attribute segments, backfill attribution,
-  discover unknown recurring speakers, identify clusters, merge name
-  variants, and curate the speaker library over time. Use when the owner
-  asks about voices in observed media, wants to identify speakers, or
-  manage voice recognition.
-  TRIGGER: speaker, voice, who was talking, identify speaker, owner voice,
-  unknown voice, merge speakers, voice recognition, speaker curation,
-  voiceprint, attribute segment, backfill, sol call speakers status,
-  sol call speakers detect, sol call speakers confirm-owner,
-  sol call speakers reject-owner, sol call speakers suggest,
-  sol call speakers identify, sol call speakers merge-names,
-  sol call speakers bootstrap, sol call speakers backfill,
-  sol call speakers discover.
+  Manage speaker voiceprints in observed media. Detect owner voice, bootstrap
+  voiceprints, attribute segments, merge names. TRIGGER: speaker, voice, who
+  was talking, identify speaker, voiceprint, sol call speakers
+  detect/confirm-owner/identify/merge/bootstrap/backfill.
 ---
 
 # Speakers CLI Skill

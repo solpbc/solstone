@@ -1,15 +1,10 @@
 ---
 name: todos
 description: >
-  Manage todo checklists organized by facet and day. List, add, complete,
-  cancel, move tasks, schedule nudges (reminders), and review upcoming items.
-  Use when the owner mentions tasks, to-do items, action items, checklists,
-  reminders, or nudges, or asks to add, complete, cancel, or review todos.
-  TRIGGER: todo, task, action item, checklist, reminder, nudge, scheduled
-  reminder, upcoming items, remind me, sol call todos list,
-  sol call todos add, sol call todos done, sol call todos cancel,
-  sol call todos upcoming, sol call todos list-nudges-due,
-  sol call todos dispatch-nudges.
+  Todo checklists organized by facet and day. List, add, complete, cancel,
+  move tasks, schedule reminder nudges, review upcoming. TRIGGER: todo,
+  task, action item, checklist, reminder, nudge, upcoming items, remind me,
+  sol call todos list/add/done/cancel/upcoming/list-nudges-due/dispatch-nudges.
 ---
 
 # Todos CLI Skill

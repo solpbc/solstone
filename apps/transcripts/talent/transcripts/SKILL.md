@@ -2,14 +2,10 @@
 name: transcripts
 description: >
   Browse and read transcript content from audio recordings, screen captures,
-  and agent summaries. Check recording coverage, list segments, read
-  transcript text with source filtering, and review monthly statistics.
-  Use when the owner asks about recordings, transcripts, what was said,
-  conversation content, or wants to review captured audio or screen activity.
-  TRIGGER: transcript, recording, audio, what was said, conversation,
-  segment, screen capture, recording coverage, monthly stats,
-  sol call transcripts scan, sol call transcripts segments,
-  sol call transcripts read, sol call transcripts stats.
+  and agent summaries. Check coverage, list segments, read transcripts with
+  source filtering, review monthly stats. TRIGGER: transcript, recording,
+  audio, what was said, conversation, segment, screen capture, sol call
+  transcripts scan/segments/read/stats.
 ---
 
 # Transcripts CLI Skill

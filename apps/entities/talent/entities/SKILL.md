@@ -1,18 +1,11 @@
 ---
 name: entities
 description: >
-  Manage tracked entities for people, companies, projects, and tools within
-  facets. Detect, attach, move, merge, consolidate, update, alias, search,
-  and record observations. Query relationship strength and get full
-  intelligence briefings.
-  Use when the owner asks about people, contacts, companies, or projects
-  tracked in the journal, or wants to add, update, merge, or search entities.
-  TRIGGER: entity, person, company, project, relationship, observation,
-  who is, contact, knowledge graph, intelligence briefing, consolidate,
-  merge, move, deduplicate, sol call entities detect,
-  sol call entities attach, sol call entities merge,
-  sol call entities move, sol call entities consolidate,
-  sol call entities intelligence.
+  Tracked entities — people, companies, projects, tools — within facets.
+  Detect, attach, move, merge, consolidate, update, alias, search.
+  Relationship strength and intelligence briefings. TRIGGER: entity, person,
+  company, relationship, who is, contact, intelligence briefing, sol call
+  entities detect/attach/merge/intelligence.
 ---
 
 # Entities CLI Skill

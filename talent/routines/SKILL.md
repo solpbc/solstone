@@ -1,18 +1,11 @@
 ---
 name: routines
 description: >
-  Set up recurring routines — daily briefings, weekly reviews, domain
-  watches, commitment audits, meeting prep — or custom automations.
-  Create from templates with sensible defaults or from custom
-  instructions, adjust timing and scope, pause/resume, delete, run
-  immediately to test, respond to routine suggestions, and read past
-  output.
-  TRIGGER: routine, routines, schedule, recurring, automate, daily brief,
-  morning briefing, weekly review, domain watch, meeting prep,
-  commitment audit, routine output, pause routine, run immediately,
-  routine suggestions, sol call routines create, sol call routines list,
-  sol call routines edit, sol call routines run, sol call routines output,
-  sol call routines suggest-respond, sol call routines suggest-state.
+  Recurring routines — daily briefings, weekly reviews, domain watches,
+  commitment audits, meeting prep, or custom automations. Create from
+  templates, adjust timing, pause/resume, run now, respond to suggestions.
+  TRIGGER: routine, schedule, recurring, automate, daily brief, weekly
+  review, sol call routines create/list/edit/run.
 ---
 
 # Routines CLI Skill

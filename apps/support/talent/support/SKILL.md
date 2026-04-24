@@ -1,17 +1,10 @@
 ---
 name: support
 description: >
-  File support tickets, search the knowledge base, and submit feedback to
-  sol pbc. Manage open tickets, attach files, check announcements, and run
-  local diagnostics. Use when the owner needs help with solstone, wants to
-  report a bug, request a feature, check for known issues, or give feedback.
-  TRIGGER: any support task — filing bug reports, requesting features,
-  submitting feedback, searching the knowledge base, checking announcements,
-  managing open tickets, running local diagnostics. Commands:
-  sol call support create, sol call support search, sol call support article,
-  sol call support attach, sol call support feedback, sol call support list,
-  sol call support show, sol call support reply, sol call support announcements,
-  sol call support diagnose.
+  File support tickets, search the KB, submit feedback to sol pbc. Manage open
+  tickets, attach files, check announcements, run diagnostics. TRIGGER: file
+  bug, request feature, submit feedback, search KB, announcements, tickets,
+  sol call support create/search/list/reply/diagnose.
 ---
 
 # sol support

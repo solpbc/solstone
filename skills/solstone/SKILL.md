@@ -2,17 +2,11 @@
 name: solstone
 version: 1.0.0
 description: >
-  Query and search your solstone journal from any project. Look up people
-  and relationships, check today's events and todos, read meeting
-  transcripts, and get intelligence briefings on entities from your
-  co-brain. Read-only — no write operations.
-  TRIGGER: solstone, my journal, search my memory, what happened, who is,
-  meeting with, what do I know about, entity, co-brain, look up, recall,
-  remember, transcript, relationship strength, who have I been talking to,
-  what's on my plate, sol call journal, sol call entities,
-  sol call transcripts, sol call todos, sol call activities,
-  sol call journal search, sol call entities intelligence,
-  sol call entities strength.
+  Read-only query of the solstone journal from any project. Look up people
+  and relationships, today's events, todos; read transcripts; intelligence
+  briefings on entities. TRIGGER: solstone, my journal, search my memory,
+  what happened, who is, meeting with, co-brain, recall, sol call
+  journal/entities/transcripts/todos.
 ---
 
 # solstone — journal query interface

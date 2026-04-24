@@ -1,16 +1,11 @@
 ---
 name: activities
 description: >
-  Manage completed activity records organized by facet and day. List, inspect,
-  create, update, mute, and unmute activity spans, including synthetic records
-  created from the CLI. Use when the owner mentions activities, work sessions,
-  completed spans, muted activity records, or wants to review or edit an
-  activity entry.
-  TRIGGER: activity, activities, work session, completed span, mute activity,
-  unmute activity, activity record, meeting attendees, participation,
-  sol call activities list, sol call activities create,
-  sol call activities update, sol call activities mute,
-  sol call activities unmute, sol call activities get.
+  Completed activity records organized by facet and day. List, inspect,
+  create, update, mute/unmute activity spans, including synthetic records
+  from the CLI. TRIGGER: activity, activities, work session, completed span,
+  mute/unmute, activity record, meeting attendees, sol call activities
+  list/create/update/mute/unmute/get.
 ---
 
 # Activities CLI Skill
