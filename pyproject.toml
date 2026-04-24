@@ -96,6 +96,12 @@ dependencies = [
     "requests",
 ]
 
+[project.optional-dependencies]
+parakeet-nemo = [
+    "nemo_toolkit[asr]",
+    "torch",
+]
+
 [project.scripts]
 sol = "think.sol_cli:main"
 

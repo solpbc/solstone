@@ -34,12 +34,13 @@
       ]
     },
     {
-      "description": "On-device speech recognition via FluidAudio + Parakeet TDT; requires `make parakeet-helper`",
+      "description": "On-device speech recognition via Parakeet TDT; macOS uses a FluidAudio/CoreML helper, Linux uses NeMo + torch. Requires `make install`.",
       "env_key": null,
-      "label": "Parakeet - Local processing (Apple Silicon, optional helper)",
+      "label": "Parakeet - Local processing (Apple Silicon CoreML or Linux NeMo)",
       "name": "parakeet",
       "settings": [
         "model_version",
+        "device",
         "timeout_sec"
       ]
     }

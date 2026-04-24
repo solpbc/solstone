@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 import soundfile as sf
 
-import observe.transcribe.parakeet as parakeet
+import observe.transcribe._parakeet_coreml as parakeet
 from observe.transcribe import BACKEND_METADATA, BACKEND_REGISTRY
 
 

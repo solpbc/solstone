@@ -799,7 +799,7 @@ def _process_one(
         backend_config = {
             k: v
             for k, v in parakeet_config.items()
-            if k in ("model_version", "cache_dir", "timeout_sec")
+            if k in ("model_version", "cache_dir", "timeout_sec", "device", "precision")
         }
     elif backend == "gemini":
         # Gemini backend - model resolved by think.models based on context

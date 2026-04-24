@@ -73,6 +73,14 @@ install: doctor skills .installed
 			exit 1; \
 		fi; \
 	}
+	@OS_NAME=$$(uname -s); \
+	if [ "$$OS_NAME" = "Darwin" ]; then \
+		$(MAKE) parakeet-helper || (echo 'parakeet backend unavailable: helper build failed' >&2; true); \
+	elif [ "$$OS_NAME" = "Linux" ]; then \
+		$(UV) sync --extra parakeet-nemo || (echo 'parakeet backend unavailable: uv sync --extra parakeet-nemo failed' >&2; true); \
+	else \
+		true; \
+	fi
 
 # Directories where AI coding agents look for skills
 SKILL_DIRS := journal/.agents/skills journal/.claude/skills

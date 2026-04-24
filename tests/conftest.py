@@ -172,6 +172,16 @@ def add_module_stubs(request, monkeypatch):
         sklearn = types.ModuleType("sklearn")
         sklearn.metrics = metrics
         sklearn.cluster = cluster
+        sklearn.__spec__ = importlib.machinery.ModuleSpec("sklearn", loader=None)
+        metrics.__spec__ = importlib.machinery.ModuleSpec(
+            "sklearn.metrics", loader=None
+        )
+        pairwise.__spec__ = importlib.machinery.ModuleSpec(
+            "sklearn.metrics.pairwise", loader=None
+        )
+        cluster.__spec__ = importlib.machinery.ModuleSpec(
+            "sklearn.cluster", loader=None
+        )
         sys.modules["sklearn"] = sklearn
         sys.modules["sklearn.metrics"] = metrics
         sys.modules["sklearn.metrics.pairwise"] = pairwise
@@ -287,6 +297,7 @@ def add_module_stubs(request, monkeypatch):
     sys.modules["google.genai"] = genai_mod
     if "cv2" not in sys.modules:
         cv2_mod = types.ModuleType("cv2")
+        cv2_mod.__spec__ = importlib.machinery.ModuleSpec("cv2", loader=None)
         cv2_mod.COLOR_RGB2LAB = 0
 
         def cvtColor(arr, code):

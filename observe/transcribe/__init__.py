@@ -94,10 +94,10 @@ BACKEND_METADATA: dict[str, dict] = {
         "settings": [],
     },
     "parakeet": {
-        "label": "Parakeet - Local processing (Apple Silicon, optional helper)",
-        "description": "On-device speech recognition via FluidAudio + Parakeet TDT; requires `make parakeet-helper`",
+        "label": "Parakeet - Local processing (Apple Silicon CoreML or Linux NeMo)",
+        "description": "On-device speech recognition via Parakeet TDT; macOS uses a FluidAudio/CoreML helper, Linux uses NeMo + torch. Requires `make install`.",
         "env_key": None,
-        "settings": ["model_version", "timeout_sec"],
+        "settings": ["model_version", "device", "timeout_sec"],
     },
 }
 
