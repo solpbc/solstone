@@ -23,8 +23,8 @@ LINUX_LOAD_MODEL_ID = "nemo-parakeet-tdt-0.6b-v3"
 PARAKEET_ONNX_VARIANT_ENV = "PARAKEET_ONNX_VARIANT"
 HELPER_ENV_KEY = "SOLSTONE_PARAKEET_HELPER"
 MAC_CACHE_DIR = Path.home() / "Library/Application Support/solstone/parakeet/models"
-# FluidAudio's downloadAndLoad(to:) treats the passed dir as the parent and writes into <parent>/<repo-folder>; this is the actual repo folder name pinned by FluidAudio v0.14.0 v3.
-MAC_FLUIDAUDIO_REPO_NAME = "parakeet-tdt-0.6b-v3-coreml"
+# FluidAudio's downloadAndLoad(to:) treats the passed dir as the parent and writes into <parent>/<repo-folder>; verified empirically against FluidAudio v0.14.0 v3 on Apple Silicon (helper invocation against a fresh cache dir wrote to <parent>/parakeet-tdt-0.6b-v3/).
+MAC_FLUIDAUDIO_REPO_NAME = "parakeet-tdt-0.6b-v3"
 MAC_SENTINEL = MAC_CACHE_DIR / ".install-complete"
 LINUX_HUB_DIR = Path.home() / ".cache/huggingface/hub"
 LINUX_MODEL_DIR = LINUX_HUB_DIR / "models--istupakov--parakeet-tdt-0.6b-v3-onnx"
