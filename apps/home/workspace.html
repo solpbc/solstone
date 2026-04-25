@@ -1424,6 +1424,17 @@
   // Click-to-converse: delegated handler for all [data-conversation] elements
   var dashboard = document.querySelector('.pulse-dashboard');
   if (dashboard) {
+    function dispatchConversationElement(el) {
+      if (el.closest('[data-routine-click]') || el.hasAttribute('data-routine-click')) {
+        fetch('/app/home/api/routines/seen', {method: 'POST'});
+      }
+      if (el.classList.contains('pulse-needs-item')) {
+        window.suggestChat(el.dataset.conversation);
+      } else {
+        window.fillChat(el.dataset.conversation);
+      }
+    }
+
     dashboard.addEventListener('click', function(e) {
       // Skill inline expansion
       var skillEl = e.target.closest('[data-skill-click]');
@@ -1436,14 +1447,7 @@
       var el = e.target.closest('[data-conversation]');
       if (el) {
         e.preventDefault();
-        if (el.closest('[data-routine-click]') || el.hasAttribute('data-routine-click')) {
-          fetch('/app/home/api/routines/seen', {method: 'POST'});
-        }
-        if (el.classList.contains('pulse-needs-item')) {
-          window.suggestChat(el.dataset.conversation);
-        } else {
-          window.fillChat(el.dataset.conversation);
-        }
+        dispatchConversationElement(el);
       }
     });
     dashboard.addEventListener('keydown', function(e) {
@@ -1464,14 +1468,7 @@
       var el = e.target.closest('[data-conversation]');
       if (el) {
         e.preventDefault();
-        if (el.closest('[data-routine-click]') || el.hasAttribute('data-routine-click')) {
-          fetch('/app/home/api/routines/seen', {method: 'POST'});
-        }
-        if (el.classList.contains('pulse-needs-item')) {
-          window.suggestChat(el.dataset.conversation);
-        } else {
-          window.fillChat(el.dataset.conversation);
-        }
+        dispatchConversationElement(el);
       }
     });
   }

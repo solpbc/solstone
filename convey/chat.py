@@ -307,9 +307,6 @@ def _on_cortex_finish(message: dict[str, Any]) -> None:
                     notes=parsed["notes"],
                     requested_target=requested_target,
                     requested_task=requested_task,
-                    app=_current_chat_state["location"]["app"],
-                    path=_current_chat_state["location"]["path"],
-                    facet=_current_chat_state["location"]["facet"],
                 )
                 _current_chat_state["retry_count"] = 0
                 _set_current_raw_use_locked(logical_use_id, None)
@@ -598,11 +595,15 @@ def _handle_chat_failure(logical_use_id: str, reason: str) -> None:
 
 def _recover_active_talents_locked(day: str) -> None:
     events = read_chat_events(day)
+    latest_owner_message: dict[str, Any] | None = None
     latest_sol_message: dict[str, Any] | None = None
     spawned: dict[str, dict[str, Any]] = {}
 
     for event in events:
         kind = event.get("kind")
+        if kind == "owner_message":
+            latest_owner_message = event
+            continue
         if kind == "sol_message":
             latest_sol_message = event
             continue
@@ -610,16 +611,16 @@ def _recover_active_talents_locked(day: str) -> None:
             use_id = str(event.get("use_id") or "")
             if not use_id:
                 continue
-            if latest_sol_message is None:
+            if latest_sol_message is None or latest_owner_message is None:
                 logger.warning(
-                    "skipping active-talent recovery for %s: no parent sol_message",
+                    "skipping active-talent recovery for %s: no parent chat turn",
                     use_id,
                 )
                 continue
             chat_use_id = str(latest_sol_message.get("use_id") or "")
             if not chat_use_id:
                 logger.warning(
-                    "skipping active-talent recovery for %s: no parent sol_message",
+                    "skipping active-talent recovery for %s: sol_message missing use_id",
                     use_id,
                 )
                 continue
@@ -628,9 +629,9 @@ def _recover_active_talents_locked(day: str) -> None:
                 "target": str(event.get("name") or ""),
                 "task": str(event.get("task") or ""),
                 "location": _normalize_location(
-                    latest_sol_message.get("app"),
-                    latest_sol_message.get("path"),
-                    latest_sol_message.get("facet"),
+                    latest_owner_message.get("app"),
+                    latest_owner_message.get("path"),
+                    latest_owner_message.get("facet"),
                 ),
             }
             continue

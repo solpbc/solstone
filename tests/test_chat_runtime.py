@@ -74,16 +74,21 @@ def _append_recoverable_talent_events(
     now = datetime.now()
     start = _ms(now.year, now.month, now.day, 12, 0, 0)
     append_chat_event(
-        "sol_message",
+        "owner_message",
         ts=start,
+        text="Help me with this",
+        app="home",
+        path="/app/home",
+        facet="work",
+    )
+    append_chat_event(
+        "sol_message",
+        ts=start + 1,
         use_id=chat_use_id,
         text="I am looking into that.",
         notes="need exec",
         requested_target=target,
         requested_task=task,
-        app="home",
-        path="/app/home",
-        facet="work",
     )
     append_chat_event(
         "talent_spawned",
