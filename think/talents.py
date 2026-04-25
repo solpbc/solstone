@@ -647,9 +647,8 @@ def validate_config(config: dict) -> str | None:
     has_user_instruction = bool(config.get("user_instruction"))
     has_day = bool(config.get("day"))
 
-    # Cogitate talents need a prompt (user's question)
-    if is_cogitate and not has_prompt:
-        return "Missing 'prompt' field for cogitate talent"
+    if is_cogitate and not (has_prompt or has_user_instruction):
+        return "Cogitate talent requires non-empty 'prompt' or 'user_instruction'"
 
     # Generate prompts need either day (transcript) or user_instruction
     if not is_cogitate and not has_day and not has_user_instruction and not has_prompt:

@@ -10,7 +10,9 @@ import time
 import pytest
 from typer.testing import CliRunner
 
-from think.identity import write_identity
+from think.identity import ensure_identity_directory, write_identity
+from think.talent import get_talent
+from think.talents import validate_config
 from think.tools.sol import app
 
 runner = CliRunner()
@@ -142,6 +144,44 @@ def test_digest_default_mode_success(digest_journal, monkeypatch):
     assert request_kwargs == {"prompt": "", "name": "digest"}
     assert "regenerated " in result.output
     assert "digest.md" in result.output
+
+
+def test_supervisor_triggered_digest_runs_with_body_only_validator(
+    digest_journal, monkeypatch
+):
+    digest_path = ensure_identity_directory() / "digest.md"
+    seed_digest = digest_path.read_text(encoding="utf-8")
+    request_kwargs = {}
+
+    config = get_talent("digest")
+    assert validate_config({**config, "prompt": ""}) is None
+
+    def fake_cortex_request(**kwargs):
+        request_kwargs.update(kwargs)
+        return "digest-use-1"
+
+    def fake_wait_for_uses(use_ids, timeout):
+        assert use_ids == ["digest-use-1"]
+        assert timeout == 600
+        write_identity(
+            "digest.md",
+            actor="test digest writer",
+            op="replace",
+            section=None,
+            content="fresh startup digest",
+            reason="test completion",
+        )
+        return {"digest-use-1": "finish"}, []
+
+    monkeypatch.setattr("think.tools.sol.cortex_request", fake_cortex_request)
+    monkeypatch.setattr("think.tools.sol.wait_for_uses", fake_wait_for_uses)
+
+    result = runner.invoke(app, ["digest"])
+
+    assert result.exit_code == 0
+    assert request_kwargs == {"prompt": "", "name": "digest"}
+    assert digest_path.read_text(encoding="utf-8") == "fresh startup digest"
+    assert digest_path.read_text(encoding="utf-8") != seed_digest
 
 
 def test_digest_default_mode_failure_timeout(digest_journal, monkeypatch):
