@@ -134,6 +134,7 @@ def test_chat_result_with_two_active_talents_retriggers_with_max_active_reason(
         chat._current_chat_use_id = "1713620000100"
         chat._current_chat_state = {
             "raw_use_id": "1713620000101",
+            "raw_use_ids_seen": {"1713620000101"},
             "trigger": {"type": "owner_message", "message": "help"},
             "location": {"app": "sol", "path": "/app/sol", "facet": "work"},
             "retry_count": 0,
@@ -210,6 +211,7 @@ def test_exec_retrigger_loop_stops_after_three_without_owner_reset(
         chat._current_chat_use_id = "1713621999999"
         chat._current_chat_state = {
             "raw_use_id": "1713622000000",
+            "raw_use_ids_seen": {"1713622000000"},
             "trigger": {"type": "talent_finished", "summary": "summary 2"},
             "location": {"app": "sol", "path": "/app/sol", "facet": "work"},
             "retry_count": 0,
@@ -252,6 +254,7 @@ def test_cortex_finish_and_error_append_exec_terminal_events_by_use_id(
         chat._current_chat_use_id = "1713623000000"
         chat._current_chat_state = {
             "raw_use_id": None,
+            "raw_use_ids_seen": set(),
             "trigger": {"type": "owner_message", "message": "help"},
             "location": {"app": "sol", "path": "/app/sol", "facet": "work"},
             "retry_count": 0,
@@ -276,6 +279,7 @@ def test_cortex_finish_and_error_append_exec_terminal_events_by_use_id(
         chat._current_chat_use_id = "1713624000000"
         chat._current_chat_state = {
             "raw_use_id": None,
+            "raw_use_ids_seen": set(),
             "trigger": {"type": "owner_message", "message": "help"},
             "location": {"app": "sol", "path": "/app/sol", "facet": "work"},
             "retry_count": 0,
@@ -326,6 +330,39 @@ def test_start_chat_runtime_recovers_exactly_one_unresponded_trigger(
     chat.start_chat_runtime(app)
 
     assert len(starts) == 1
+
+
+def test_start_chat_runtime_skips_debug_reloader_parent(tmp_path, monkeypatch, caplog):
+    import convey.chat as chat
+
+    _setup_journal(tmp_path, monkeypatch)
+    _reset_chat_state(chat)
+
+    starts: list[object] = []
+    monkeypatch.setattr(
+        "convey.chat.CallosumConnection.start",
+        lambda self, callback=None: starts.append(callback),
+    )
+    monkeypatch.setattr("convey.chat.CallosumConnection.stop", lambda self: None)
+
+    app = Flask(__name__)
+    app.debug = True
+
+    monkeypatch.delenv("WERKZEUG_RUN_MAIN", raising=False)
+    with caplog.at_level("INFO"):
+        chat.start_chat_runtime(app)
+
+    assert chat._runtime is None
+    assert starts == []
+    assert app.chat_runtime_started is False
+    assert "skipping chat runtime startup in Werkzeug reloader parent" in caplog.text
+
+    monkeypatch.setenv("WERKZEUG_RUN_MAIN", "true")
+    chat.start_chat_runtime(app)
+
+    assert chat._runtime is not None
+    assert len(starts) == 1
+    assert app.chat_runtime_started is True
 
 
 def test_recover_active_talents_repopulates_from_chat_stream(tmp_path, monkeypatch):
@@ -381,6 +418,7 @@ def test_late_talent_finish_after_recovery_routes_to_chat_continuation(
         chat._current_chat_use_id = chat_use_id
         chat._current_chat_state = {
             "raw_use_id": None,
+            "raw_use_ids_seen": set(),
             "trigger": {"type": "owner_message", "message": "help"},
             "location": {"app": "home", "path": "/app/home", "facet": "work"},
             "retry_count": 0,
@@ -443,6 +481,7 @@ def test_chat_generate_schema_violation_retries_once_then_chat_errors(
         chat._current_chat_use_id = "1713625000000"
         chat._current_chat_state = {
             "raw_use_id": "1713625000001",
+            "raw_use_ids_seen": {"1713625000001"},
             "trigger": {"type": "owner_message", "message": "help"},
             "location": {"app": "sol", "path": "/app/sol", "facet": "work"},
             "retry_count": 0,
@@ -464,6 +503,152 @@ def test_chat_generate_schema_violation_retries_once_then_chat_errors(
         e for e in read_chat_events(chat._today_day()) if e["kind"] == "chat_error"
     ]
     assert errors[-1]["use_id"] == "1713625000000"
+
+
+def test_superseded_raw_finish_after_retry_is_dropped_without_warning(
+    tmp_path, monkeypatch, caplog
+):
+    import convey.chat as chat
+
+    _setup_journal(tmp_path, monkeypatch)
+    _reset_chat_state(chat)
+
+    actions: list[dict | None] = []
+    monkeypatch.setattr(
+        "convey.chat._run_next_action", lambda action: actions.append(action)
+    )
+    monkeypatch.setattr("convey.chat._emit_finish", lambda *args, **kwargs: None)
+    monkeypatch.setattr("convey.chat._emit_error", lambda *args, **kwargs: None)
+
+    raw_use_id = "1713625100001"
+    with chat._state_lock:
+        chat._current_chat_use_id = "1713625100000"
+        chat._current_chat_state = {
+            "raw_use_id": raw_use_id,
+            "raw_use_ids_seen": {raw_use_id},
+            "trigger": {"type": "owner_message", "message": "help"},
+            "location": {"app": "sol", "path": "/app/sol", "facet": "work"},
+            "retry_count": 0,
+        }
+
+    chat._on_cortex_finish({"use_id": raw_use_id, "result": "not json"})
+
+    with chat._state_lock:
+        retry_use_id = str(chat._current_chat_state["raw_use_id"])
+
+    events_before = list(read_chat_events(chat._today_day()))
+    with caplog.at_level("DEBUG"):
+        chat._on_cortex_finish({"use_id": raw_use_id, "result": "still not json"})
+
+    assert (
+        "superseded raw cortex event use_id=1713625100001 event=finish reason=raw rotated"
+        in caplog.text
+    )
+    assert "unrouteable cortex event" not in caplog.text
+    assert read_chat_events(chat._today_day()) == events_before
+
+    chat._on_cortex_finish(
+        {
+            "use_id": retry_use_id,
+            "result": '{"message":"done","notes":"ok","talent_request":null}',
+        }
+    )
+
+    sol_messages = [
+        event
+        for event in read_chat_events(chat._today_day())
+        if event["kind"] == "sol_message"
+    ]
+    assert sol_messages[-1]["text"] == "done"
+
+
+def test_superseded_raw_error_after_followup_rotation_is_dropped_without_warning(
+    tmp_path, monkeypatch, caplog
+):
+    import convey.chat as chat
+
+    _setup_journal(tmp_path, monkeypatch)
+    _reset_chat_state(chat)
+
+    actions: list[dict | None] = []
+    monkeypatch.setattr(
+        "convey.chat._run_next_action", lambda action: actions.append(action)
+    )
+    monkeypatch.setattr("convey.chat._emit_finish", lambda *args, **kwargs: None)
+    monkeypatch.setattr("convey.chat._emit_error", lambda *args, **kwargs: None)
+
+    stale_raw_use_id = "1713625200001"
+    with chat._state_lock:
+        chat._current_chat_use_id = "1713625200000"
+        chat._current_chat_state = {
+            "raw_use_id": None,
+            "raw_use_ids_seen": {stale_raw_use_id},
+            "trigger": {"type": "owner_message", "message": "help"},
+            "location": {"app": "sol", "path": "/app/sol", "facet": "work"},
+            "retry_count": 0,
+        }
+        chat._active_talents["1713625200002"] = {
+            "chat_use_id": "1713625200000",
+            "target": "exec",
+            "task": "summarize",
+            "location": {"app": "sol", "path": "/app/sol", "facet": "work"},
+        }
+
+    chat._on_cortex_finish({"use_id": "1713625200002", "result": "summary"})
+
+    with chat._state_lock:
+        followup_use_id = str(chat._current_chat_state["raw_use_id"])
+
+    events_before = list(read_chat_events(chat._today_day()))
+    with caplog.at_level("DEBUG"):
+        chat._on_cortex_error({"use_id": stale_raw_use_id, "error": "boom"})
+
+    assert (
+        "superseded raw cortex event use_id=1713625200001 event=error reason=raw rotated"
+        in caplog.text
+    )
+    assert "unrouteable cortex event" not in caplog.text
+    assert read_chat_events(chat._today_day()) == events_before
+    assert actions[0]["trigger"]["type"] == "talent_finished"
+
+    chat._on_cortex_finish(
+        {
+            "use_id": followup_use_id,
+            "result": '{"message":"wrapped up","notes":"ok","talent_request":null}',
+        }
+    )
+
+    sol_messages = [
+        event
+        for event in read_chat_events(chat._today_day())
+        if event["kind"] == "sol_message"
+    ]
+    assert sol_messages[-1]["text"] == "wrapped up"
+
+
+def test_unknown_raw_use_id_still_warns(tmp_path, monkeypatch, caplog):
+    import convey.chat as chat
+
+    _setup_journal(tmp_path, monkeypatch)
+    _reset_chat_state(chat)
+
+    with chat._state_lock:
+        chat._current_chat_use_id = "1713625300000"
+        chat._current_chat_state = {
+            "raw_use_id": "1713625300002",
+            "raw_use_ids_seen": {"1713625300001", "1713625300002"},
+            "trigger": {"type": "owner_message", "message": "help"},
+            "location": {"app": "sol", "path": "/app/sol", "facet": "work"},
+            "retry_count": 0,
+        }
+
+    with caplog.at_level("WARNING"):
+        chat._on_cortex_finish({"use_id": "1713625300009", "result": "done"})
+
+    assert (
+        "unrouteable cortex event use_id=1713625300009 event=finish "
+        "reason=no matching active chat-generate or talent"
+    ) in caplog.text
 
 
 def test_exec_dispatch_appends_sol_message_and_spawns_talent_real_path(
@@ -582,6 +767,7 @@ def test_watchdog_refresh_is_no_op_when_no_timer_registered(tmp_path, monkeypatc
         chat._current_chat_use_id = "1713627850000"
         chat._current_chat_state = {
             "raw_use_id": "1713627850001",
+            "raw_use_ids_seen": {"1713627850001"},
             "trigger": {"type": "owner_message", "message": "help"},
             "location": {"app": "sol", "path": "/app/sol", "facet": "work"},
             "retry_count": 0,
@@ -611,6 +797,7 @@ def test_watchdog_refreshed_by_talent_progress(tmp_path, monkeypatch):
         chat._current_chat_use_id = "1713627900000"
         chat._current_chat_state = {
             "raw_use_id": None,
+            "raw_use_ids_seen": set(),
             "trigger": {"type": "owner_message", "message": "help"},
             "location": {"app": "sol", "path": "/app/sol", "facet": "work"},
             "retry_count": 0,
@@ -760,6 +947,7 @@ def test_chat_watchdog_times_out_active_talent_and_clears_blocked_chat(
         chat._current_chat_use_id = "1713629000000"
         chat._current_chat_state = {
             "raw_use_id": None,
+            "raw_use_ids_seen": set(),
             "trigger": {"type": "owner_message", "message": "help"},
             "location": {"app": "sol", "path": "/app/sol", "facet": "work"},
             "retry_count": 0,
@@ -830,6 +1018,7 @@ def test_chat_watchdog_marks_timed_out_talent_result_as_errored(tmp_path, monkey
         chat._current_chat_use_id = logical_use_id
         chat._current_chat_state = {
             "raw_use_id": None,
+            "raw_use_ids_seen": set(),
             "trigger": {"type": "owner_message", "message": "help"},
             "location": {"app": "sol", "path": "/app/sol", "facet": "work"},
             "retry_count": 0,
@@ -980,6 +1169,7 @@ def test_reflection_dispatch_spawns_reflection_talent(tmp_path, monkeypatch):
         chat._current_chat_use_id = "1713626000000"
         chat._current_chat_state = {
             "raw_use_id": "1713626000001",
+            "raw_use_ids_seen": {"1713626000001"},
             "trigger": {"type": "owner_message", "message": "help"},
             "location": {"app": "sol", "path": "/app/sol", "facet": "work"},
             "retry_count": 0,
@@ -1023,6 +1213,7 @@ def test_reflection_finish_retriggers_chat_like_exec(tmp_path, monkeypatch):
         chat._current_chat_use_id = "1713627000000"
         chat._current_chat_state = {
             "raw_use_id": None,
+            "raw_use_ids_seen": set(),
             "trigger": {"type": "owner_message", "message": "help"},
             "location": {"app": "sol", "path": "/app/sol", "facet": "work"},
             "retry_count": 0,

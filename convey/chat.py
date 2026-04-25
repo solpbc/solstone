@@ -9,6 +9,7 @@ from __future__ import annotations
 import atexit
 import json
 import logging
+import os
 import pprint
 import re
 import threading
@@ -153,6 +154,11 @@ def start_chat_runtime(app: Any) -> None:
     """Start the chat backend runtime and subscribe to cortex events."""
     global _runtime, _atexit_registered
 
+    if app.debug and os.environ.get("WERKZEUG_RUN_MAIN") != "true":
+        logger.info("skipping chat runtime startup in Werkzeug reloader parent")
+        app.chat_runtime_started = False
+        return
+
     with _runtime_lock:
         if _runtime is None:
             runtime = ChatRuntimeState(callosum=CallosumConnection())
@@ -238,6 +244,13 @@ def _proxy_progress(message: dict[str, Any]) -> None:
         elif use_id in _active_talents:
             logical_use_id = str(_active_talents[use_id]["chat_use_id"])
             _refresh_watchdog_locked(use_id, "talent", logical_use_id)
+        elif _is_superseded_raw_use_id_locked(use_id):
+            logger.debug(
+                "superseded raw cortex event use_id=%s event=%s reason=%s",
+                use_id,
+                str(message.get("event") or "progress"),
+                "raw rotated",
+            )
 
     if logical_use_id is None:
         return
@@ -400,6 +413,13 @@ def _on_cortex_finish(message: dict[str, Any]) -> None:
                 )
                 _current_chat_state["retry_count"] = 0
                 next_info = _build_spawn_info_locked(logical_use_id)
+        elif _is_superseded_raw_use_id_locked(use_id):
+            logger.debug(
+                "superseded raw cortex event use_id=%s event=%s reason=%s",
+                use_id,
+                "finish",
+                "raw rotated",
+            )
         else:
             logger.warning(
                 "unrouteable cortex event use_id=%s event=%s reason=%s",
@@ -463,6 +483,13 @@ def _on_cortex_error(message: dict[str, Any]) -> None:
                 )
                 _current_chat_state["retry_count"] = 0
                 next_info = _build_spawn_info_locked(logical_use_id)
+        elif _is_superseded_raw_use_id_locked(use_id):
+            logger.debug(
+                "superseded raw cortex event use_id=%s event=%s reason=%s",
+                use_id,
+                "error",
+                "raw rotated",
+            )
         else:
             logger.warning(
                 "unrouteable cortex event use_id=%s event=%s reason=%s",
@@ -677,6 +704,7 @@ def _activate_current_locked(
     _current_chat_use_id = logical_use_id
     _current_chat_state = {
         "raw_use_id": None,
+        "raw_use_ids_seen": set(),
         "trigger": dict(trigger),
         "location": dict(location),
         "retry_count": 0,
@@ -753,9 +781,20 @@ def _refresh_watchdog_locked(use_id: str, kind: str, logical_use_id: str) -> Non
 def _set_current_raw_use_locked(logical_use_id: str, raw_use_id: str | None) -> None:
     assert _current_chat_state is not None
     _cancel_watchdog_locked(str(_current_chat_state.get("raw_use_id") or ""))
+    if raw_use_id is not None:
+        _current_chat_state["raw_use_ids_seen"].add(str(raw_use_id))
     _current_chat_state["raw_use_id"] = raw_use_id
     if raw_use_id is not None:
         _arm_watchdog_locked(str(raw_use_id), "chat", logical_use_id)
+
+
+def _is_superseded_raw_use_id_locked(use_id: str) -> bool:
+    if _current_chat_state is None:
+        return False
+    raw_chat_use_id = str(_current_chat_state.get("raw_use_id") or "")
+    if use_id == raw_chat_use_id:
+        return False
+    return use_id in _current_chat_state["raw_use_ids_seen"]
 
 
 def _on_watchdog_timeout(use_id: str, kind: str, logical_use_id: str) -> None:
