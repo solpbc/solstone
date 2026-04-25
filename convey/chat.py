@@ -37,8 +37,10 @@ MAX_ACTIVE_TALENTS = 2
 MAX_LOOP_RETRIES = 3
 DEFAULT_STREAM_LIMIT = 200
 MAX_STREAM_LIMIT = 1000
+_CHAT_WATCHDOG_SECONDS = 180
 MAX_ACTIVE_REASON = "max active — waiting for one to finish"
 CHAT_TROUBLE_REASON = "chat had trouble — try again"
+CHAT_WATCHDOG_REASON = "chat took too long — try again"
 
 _DAY_RE = re.compile(r"^\d{8}$")
 _state_lock = threading.Lock()
@@ -47,6 +49,7 @@ _current_chat_use_id: str | None = None
 _current_chat_state: dict[str, Any] | None = None
 _queued_trigger: dict[str, Any] | None = None
 _active_talents: dict[str, dict[str, Any]] = {}
+_watchdog_timers: dict[str, threading.Timer] = {}
 _last_use_id = 0
 _runtime: "ChatRuntimeState | None" = None
 _atexit_registered = False
@@ -184,6 +187,11 @@ def stop_all_chat_runtime() -> None:
     """Stop the shared runtime."""
     global _runtime
 
+    with _state_lock:
+        for timer in _watchdog_timers.values():
+            timer.cancel()
+        _watchdog_timers.clear()
+
     with _runtime_lock:
         runtime = _runtime
         _runtime = None
@@ -256,12 +264,13 @@ def _on_cortex_finish(message: dict[str, Any]) -> None:
             "raw_use_id"
         ):
             logical_use_id = str(_current_chat_use_id)
+            _cancel_watchdog_locked(use_id)
             try:
                 parsed = _parse_chat_result(message.get("result"))
             except ValueError:
                 if int(_current_chat_state.get("retry_count", 0) or 0) < 1:
                     retry_use_id = _reserve_use_id_locked()
-                    _current_chat_state["raw_use_id"] = retry_use_id
+                    _set_current_raw_use_locked(logical_use_id, retry_use_id)
                     _current_chat_state["retry_count"] = (
                         int(_current_chat_state.get("retry_count", 0) or 0) + 1
                     )
@@ -298,7 +307,7 @@ def _on_cortex_finish(message: dict[str, Any]) -> None:
                     requested_task=requested_task,
                 )
                 _current_chat_state["retry_count"] = 0
-                _current_chat_state["raw_use_id"] = None
+                _set_current_raw_use_locked(logical_use_id, None)
                 if requested_target:
                     active_talent_count = _active_talent_count_for_today_locked()
                     if active_talent_count >= MAX_ACTIVE_TALENTS:
@@ -307,7 +316,7 @@ def _on_cortex_finish(message: dict[str, Any]) -> None:
                             "reason": MAX_ACTIVE_REASON,
                         }
                         synthetic_use_id = _reserve_use_id_locked()
-                        _current_chat_state["raw_use_id"] = synthetic_use_id
+                        _set_current_raw_use_locked(logical_use_id, synthetic_use_id)
                         next_info = _build_spawn_info_locked(logical_use_id)
                     elif _talent_loop_count_locked() >= MAX_LOOP_RETRIES:
                         append_chat_event(
@@ -363,6 +372,7 @@ def _on_cortex_finish(message: dict[str, Any]) -> None:
                     next_info = _clear_current_locked()
 
         elif use_id in _active_talents:
+            _cancel_watchdog_locked(use_id)
             talent_state = _active_talents.pop(use_id)
             logical_use_id = str(talent_state["chat_use_id"])
             summary = str(message.get("result") or "").strip()
@@ -382,9 +392,19 @@ def _on_cortex_finish(message: dict[str, Any]) -> None:
                     "name": str(talent_state["target"]),
                     "summary": summary,
                 }
-                _current_chat_state["raw_use_id"] = _reserve_use_id_locked()
+                _set_current_raw_use_locked(
+                    logical_use_id,
+                    _reserve_use_id_locked(),
+                )
                 _current_chat_state["retry_count"] = 0
                 next_info = _build_spawn_info_locked(logical_use_id)
+        else:
+            logger.warning(
+                "unrouteable cortex event use_id=%s event=%s reason=%s",
+                use_id,
+                "finish",
+                "no matching active chat-generate or talent",
+            )
 
     _run_next_action(next_info)
     if finish_payload is not None:
@@ -406,6 +426,7 @@ def _on_cortex_error(message: dict[str, Any]) -> None:
             "raw_use_id"
         ):
             logical_use_id = str(_current_chat_use_id)
+            _cancel_watchdog_locked(use_id)
             append_chat_event(
                 "chat_error",
                 reason=CHAT_TROUBLE_REASON,
@@ -414,6 +435,7 @@ def _on_cortex_error(message: dict[str, Any]) -> None:
             error_payload = {"use_id": logical_use_id, "reason": CHAT_TROUBLE_REASON}
             next_info = _clear_current_locked()
         elif use_id in _active_talents:
+            _cancel_watchdog_locked(use_id)
             talent_state = _active_talents.pop(use_id)
             logical_use_id = str(talent_state["chat_use_id"])
             reason = str(message.get("error") or CHAT_TROUBLE_REASON)
@@ -433,9 +455,19 @@ def _on_cortex_error(message: dict[str, Any]) -> None:
                     "name": str(talent_state["target"]),
                     "reason": reason,
                 }
-                _current_chat_state["raw_use_id"] = _reserve_use_id_locked()
+                _set_current_raw_use_locked(
+                    logical_use_id,
+                    _reserve_use_id_locked(),
+                )
                 _current_chat_state["retry_count"] = 0
                 next_info = _build_spawn_info_locked(logical_use_id)
+        else:
+            logger.warning(
+                "unrouteable cortex event use_id=%s event=%s reason=%s",
+                use_id,
+                "error",
+                "no matching active chat-generate or talent",
+            )
 
     _run_next_action(next_info)
     if error_payload is not None:
@@ -452,6 +484,13 @@ def _run_next_action(action: dict[str, Any] | None) -> None:
     if action.get("kind") == "talent":
         if not _spawn_talent(action):
             _handle_talent_spawn_failure(action)
+            return
+        with _state_lock:
+            _arm_watchdog_locked(
+                str(action["use_id"]),
+                "talent",
+                str(action["logical_use_id"]),
+            )
 
 
 def _spawn_chat_generate(action: dict[str, Any]) -> bool:
@@ -514,6 +553,7 @@ def _spawn_talent(action: dict[str, Any]) -> bool:
 def _handle_talent_spawn_failure(action: dict[str, Any]) -> None:
     next_info: dict[str, Any] | None = None
     with _state_lock:
+        _cancel_watchdog_locked(str(action["use_id"]))
         _active_talents.pop(str(action["use_id"]), None)
         append_chat_event(
             "talent_errored",
@@ -528,7 +568,10 @@ def _handle_talent_spawn_failure(action: dict[str, Any]) -> None:
                 "name": action["target"],
                 "reason": CHAT_TROUBLE_REASON,
             }
-            _current_chat_state["raw_use_id"] = _reserve_use_id_locked()
+            _set_current_raw_use_locked(
+                str(action["logical_use_id"]),
+                _reserve_use_id_locked(),
+            )
             _current_chat_state["retry_count"] = 0
             next_info = _build_spawn_info_locked(action["logical_use_id"])
     _run_next_action(next_info)
@@ -539,6 +582,10 @@ def _handle_chat_failure(logical_use_id: str, reason: str) -> None:
     with _state_lock:
         append_chat_event("chat_error", reason=reason, use_id=logical_use_id)
         if _current_chat_use_id == logical_use_id:
+            if _current_chat_state is not None:
+                _cancel_watchdog_locked(
+                    str(_current_chat_state.get("raw_use_id") or "")
+                )
             next_info = _clear_current_locked()
     _emit_error(logical_use_id, reason)
     _run_next_action(next_info)
@@ -573,11 +620,12 @@ def _activate_current_locked(
     raw_use_id = _reserve_use_id_locked()
     _current_chat_use_id = logical_use_id
     _current_chat_state = {
-        "raw_use_id": raw_use_id,
+        "raw_use_id": None,
         "trigger": dict(trigger),
         "location": dict(location),
         "retry_count": 0,
     }
+    _set_current_raw_use_locked(logical_use_id, raw_use_id)
     return _build_spawn_info_locked(logical_use_id)
 
 
@@ -618,6 +666,93 @@ def _clear_current_locked() -> dict[str, Any] | None:
         dict(queued["trigger"]),
         dict(queued["location"]),
     )
+
+
+def _arm_watchdog_locked(use_id: str, kind: str, logical_use_id: str) -> None:
+    _cancel_watchdog_locked(use_id)
+    timer = threading.Timer(
+        _CHAT_WATCHDOG_SECONDS,
+        _on_watchdog_timeout,
+        args=(use_id, kind, logical_use_id),
+    )
+    timer.daemon = True
+    _watchdog_timers[use_id] = timer
+    timer.start()
+
+
+def _cancel_watchdog_locked(use_id: str | None) -> None:
+    if not use_id:
+        return
+    timer = _watchdog_timers.pop(str(use_id), None)
+    if timer is not None:
+        timer.cancel()
+
+
+def _set_current_raw_use_locked(logical_use_id: str, raw_use_id: str | None) -> None:
+    assert _current_chat_state is not None
+    _cancel_watchdog_locked(str(_current_chat_state.get("raw_use_id") or ""))
+    _current_chat_state["raw_use_id"] = raw_use_id
+    if raw_use_id is not None:
+        _arm_watchdog_locked(str(raw_use_id), "chat", logical_use_id)
+
+
+def _on_watchdog_timeout(use_id: str, kind: str, logical_use_id: str) -> None:
+    next_info: dict[str, Any] | None = None
+    should_emit = False
+
+    with _state_lock:
+        _watchdog_timers.pop(use_id, None)
+
+        if kind == "chat":
+            if _current_chat_use_id != logical_use_id or _current_chat_state is None:
+                return
+            if str(_current_chat_state.get("raw_use_id") or "") != use_id:
+                return
+            logger.warning(
+                "chat watchdog timed out use_id=%s kind=%s logical_use_id=%s",
+                use_id,
+                kind,
+                logical_use_id,
+            )
+            append_chat_event(
+                "chat_error",
+                reason=CHAT_WATCHDOG_REASON,
+                use_id=logical_use_id,
+            )
+            next_info = _clear_current_locked()
+            should_emit = True
+        elif kind == "talent":
+            talent_state = _active_talents.get(use_id)
+            if (
+                talent_state is None
+                or str(talent_state.get("chat_use_id")) != logical_use_id
+            ):
+                return
+            logger.warning(
+                "chat watchdog timed out use_id=%s kind=%s logical_use_id=%s",
+                use_id,
+                kind,
+                logical_use_id,
+            )
+            _active_talents.pop(use_id, None)
+            append_chat_event(
+                "chat_error",
+                reason=CHAT_WATCHDOG_REASON,
+                use_id=logical_use_id,
+            )
+            if (
+                _current_chat_use_id == logical_use_id
+                and _current_chat_state is not None
+                and not _current_chat_state.get("raw_use_id")
+            ):
+                next_info = _clear_current_locked()
+            should_emit = True
+        else:
+            return
+
+    if should_emit:
+        _emit_error(logical_use_id, CHAT_WATCHDOG_REASON)
+        _run_next_action(next_info)
 
 
 def _active_talent_count_for_today_locked() -> int:

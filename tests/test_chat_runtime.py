@@ -16,6 +16,9 @@ def _reset_chat_state(chat_module) -> None:
         chat_module._current_chat_state = None
         chat_module._queued_trigger = None
         chat_module._active_talents.clear()
+        for timer in chat_module._watchdog_timers.values():
+            timer.cancel()
+        chat_module._watchdog_timers.clear()
         chat_module._last_use_id = 0
 
 
@@ -24,6 +27,35 @@ def _setup_journal(tmp_path, monkeypatch):
     journal.mkdir()
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
     return journal
+
+
+def _install_fake_timers(monkeypatch):
+    timers: list[FakeTimer] = []
+
+    class FakeTimer:
+        def __init__(self, interval, function, args=None, kwargs=None):
+            self.interval = interval
+            self.function = function
+            self.args = tuple(args or ())
+            self.kwargs = dict(kwargs or {})
+            self.started = False
+            self.cancelled = False
+            self.daemon = False
+            timers.append(self)
+
+        def start(self) -> None:
+            self.started = True
+
+        def cancel(self) -> None:
+            self.cancelled = True
+
+        def fire(self) -> None:
+            if self.cancelled:
+                return
+            self.function(*self.args, **self.kwargs)
+
+    monkeypatch.setattr("convey.chat.threading.Timer", FakeTimer)
+    return timers
 
 
 def test_chat_result_with_two_active_talents_retriggers_with_max_active_reason(
@@ -298,6 +330,224 @@ def test_chat_generate_schema_violation_retries_once_then_chat_errors(
         e for e in read_chat_events(chat._today_day()) if e["kind"] == "chat_error"
     ]
     assert errors[-1]["use_id"] == "1713625000000"
+
+
+def test_exec_dispatch_appends_sol_message_and_spawns_talent_real_path(
+    tmp_path, monkeypatch
+):
+    import convey.chat as chat
+
+    _setup_journal(tmp_path, monkeypatch)
+    _reset_chat_state(chat)
+    timers = _install_fake_timers(monkeypatch)
+
+    spawn_calls: list[dict[str, object]] = []
+    monkeypatch.setattr("convey.chat._emit_cortex_event", lambda *args, **kwargs: None)
+
+    def fake_spawn_agent(prompt, name, provider=None, config=None, use_id=None):
+        spawn_calls.append(
+            {
+                "prompt": prompt,
+                "name": name,
+                "provider": provider,
+                "config": config,
+                "use_id": use_id,
+            }
+        )
+        return use_id
+
+    monkeypatch.setattr("convey.utils.spawn_agent", fake_spawn_agent)
+
+    with chat._state_lock:
+        start_info = chat._activate_current_locked(
+            "1713625500000",
+            {"type": "owner_message", "message": "help"},
+            {"app": "sol", "path": "/app/sol", "facet": "work"},
+        )
+
+    raw_use_id = start_info["raw_use_id"]
+    chat._on_cortex_finish(
+        {
+            "use_id": raw_use_id,
+            "result": (
+                '{"message":"I am looking into that.","notes":"need exec",'
+                '"talent_request":{"target":"exec","task":"research it",'
+                '"context":{"k":"v"}}}'
+            ),
+        }
+    )
+
+    events = read_chat_events(chat._today_day())
+    sol_messages = [event for event in events if event["kind"] == "sol_message"]
+    spawned_events = [event for event in events if event["kind"] == "talent_spawned"]
+
+    assert sol_messages[-1]["text"] == "I am looking into that."
+    assert sol_messages[-1]["requested_target"] == "exec"
+    assert sol_messages[-1]["requested_task"] == "research it"
+    assert spawned_events[-1]["name"] == "exec"
+    assert spawned_events[-1]["task"] == "research it"
+    assert spawn_calls == [
+        {
+            "prompt": "Task: research it\n\nContext hints:\n{'k': 'v'}\n\n"
+            "Location: app=sol path=/app/sol facet=work\n\n"
+            "Recent chat:\n**Sol**: I am looking into that.",
+            "name": "exec",
+            "provider": None,
+            "config": {
+                "app": "sol",
+                "path": "/app/sol",
+                "facet": "work",
+                "chat_parent_use_id": "1713625500000",
+            },
+            "use_id": spawned_events[-1]["use_id"],
+        }
+    ]
+    assert len(timers) == 2
+    assert timers[0].cancelled is True
+    with chat._state_lock:
+        assert spawned_events[-1]["use_id"] in chat._active_talents
+
+
+def test_chat_watchdog_times_out_current_chat_generate(tmp_path, monkeypatch):
+    import convey.chat as chat
+
+    _setup_journal(tmp_path, monkeypatch)
+    _reset_chat_state(chat)
+    timers = _install_fake_timers(monkeypatch)
+
+    emitted_errors: list[tuple[str, str]] = []
+    run_actions: list[dict | None] = []
+    monkeypatch.setattr(
+        "convey.chat._emit_error",
+        lambda use_id, reason: emitted_errors.append((use_id, reason)),
+    )
+    monkeypatch.setattr(
+        "convey.chat._run_next_action", lambda action: run_actions.append(action)
+    )
+
+    with chat._state_lock:
+        start_info = chat._activate_current_locked(
+            "1713628000000",
+            {"type": "owner_message", "message": "help"},
+            {"app": "sol", "path": "/app/sol", "facet": "work"},
+        )
+
+    raw_use_id = start_info["raw_use_id"]
+    assert raw_use_id in chat._watchdog_timers
+
+    timers[-1].fire()
+
+    errors = [
+        event
+        for event in read_chat_events(chat._today_day())
+        if event["kind"] == "chat_error"
+    ]
+    assert emitted_errors == [("1713628000000", "chat took too long — try again")]
+    assert run_actions == [None]
+    assert errors[-1]["use_id"] == "1713628000000"
+    assert errors[-1]["reason"] == "chat took too long — try again"
+    with chat._state_lock:
+        assert chat._current_chat_use_id is None
+        assert chat._current_chat_state is None
+        assert raw_use_id not in chat._watchdog_timers
+
+
+def test_chat_watchdog_times_out_active_talent_and_clears_blocked_chat(
+    tmp_path, monkeypatch
+):
+    import convey.chat as chat
+
+    _setup_journal(tmp_path, monkeypatch)
+    _reset_chat_state(chat)
+    timers = _install_fake_timers(monkeypatch)
+
+    emitted_errors: list[tuple[str, str]] = []
+    monkeypatch.setattr("convey.chat._emit_cortex_event", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        "convey.chat._emit_error",
+        lambda use_id, reason: emitted_errors.append((use_id, reason)),
+    )
+    monkeypatch.setattr(
+        "convey.utils.spawn_agent", lambda *args, **kwargs: kwargs["use_id"]
+    )
+
+    with chat._state_lock:
+        chat._current_chat_use_id = "1713629000000"
+        chat._current_chat_state = {
+            "raw_use_id": None,
+            "trigger": {"type": "owner_message", "message": "help"},
+            "location": {"app": "sol", "path": "/app/sol", "facet": "work"},
+            "retry_count": 0,
+        }
+        chat._active_talents["1713629000001"] = {
+            "chat_use_id": "1713629000000",
+            "target": "exec",
+            "task": "summarize",
+            "location": {"app": "sol", "path": "/app/sol", "facet": "work"},
+        }
+
+    chat._run_next_action(
+        {
+            "kind": "talent",
+            "logical_use_id": "1713629000000",
+            "target": "exec",
+            "use_id": "1713629000001",
+            "task": "summarize",
+            "context": {},
+            "location": {"app": "sol", "path": "/app/sol", "facet": "work"},
+        }
+    )
+
+    assert "1713629000001" in chat._watchdog_timers
+    timers[-1].fire()
+
+    errors = [
+        event
+        for event in read_chat_events(chat._today_day())
+        if event["kind"] == "chat_error"
+    ]
+    assert emitted_errors == [("1713629000000", "chat took too long — try again")]
+    assert errors[-1]["use_id"] == "1713629000000"
+    assert errors[-1]["reason"] == "chat took too long — try again"
+    with chat._state_lock:
+        assert "1713629000001" not in chat._active_talents
+        assert chat._current_chat_use_id is None
+        assert chat._current_chat_state is None
+        assert "1713629000001" not in chat._watchdog_timers
+
+
+def test_cortex_finish_logs_warning_for_unrouteable_use_id(
+    tmp_path, monkeypatch, caplog
+):
+    import convey.chat as chat
+
+    _setup_journal(tmp_path, monkeypatch)
+    _reset_chat_state(chat)
+
+    with caplog.at_level("WARNING"):
+        chat._on_cortex_finish({"use_id": "1713630000000", "result": "done"})
+
+    assert (
+        "unrouteable cortex event use_id=1713630000000 event=finish "
+        "reason=no matching active chat-generate or talent"
+    ) in caplog.text
+
+
+def test_cortex_error_logs_warning_for_unrouteable_use_id(
+    tmp_path, monkeypatch, caplog
+):
+    import convey.chat as chat
+
+    _setup_journal(tmp_path, monkeypatch)
+    _reset_chat_state(chat)
+
+    with caplog.at_level("WARNING"):
+        chat._on_cortex_error({"use_id": "1713631000000", "error": "boom"})
+
+    assert (
+        "unrouteable cortex event use_id=1713631000000 event=error "
+        "reason=no matching active chat-generate or talent"
+    ) in caplog.text
 
 
 def test_parse_chat_result_accepts_reflection_target():
