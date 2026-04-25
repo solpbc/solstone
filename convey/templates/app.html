@@ -374,10 +374,10 @@
 
     if (eventName === 'finish') {
       card = createTimelineCard('finished', event.ts, 'talent-view-event--finish');
-      pre = document.createElement('pre');
-      pre.className = 'talent-view-pre';
-      pre.textContent = event.summary || event.result || '';
-      card.appendChild(pre);
+      body = document.createElement('div');
+      body.className = 'talent-view-markdown';
+      body.innerHTML = window.AppServices.renderMarkdown(event.summary || event.result || '');
+      card.appendChild(body);
       return card;
     }
 

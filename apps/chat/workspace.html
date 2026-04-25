@@ -70,6 +70,7 @@
 
   insertTimeSeparators(transcript);
   decorateBubbles(transcript);
+  bootstrapMarkdownDetails(transcript);
 
   if (isToday && window.appEvents) {
     chatEventsCleanup = window.appEvents.listen('chat', {
@@ -155,6 +156,14 @@
       } else {
         item.classList.add('chat-event--talent');
       }
+    });
+  }
+
+  function bootstrapMarkdownDetails(list) {
+    list.querySelectorAll('[data-markdown="1"]').forEach((node) => {
+      const text = node.textContent || '';
+      node.innerHTML = window.AppServices.renderMarkdown(text);
+      node.removeAttribute('data-markdown');
     });
   }
 
@@ -273,10 +282,17 @@
     card.appendChild(labelNode);
 
     if (detail) {
-      const detailNode = document.createElement('span');
-      detailNode.className = 'chat-talent-card-detail';
-      detailNode.textContent = detail;
-      card.appendChild(detailNode);
+      if (status === 'finished' || status === 'errored') {
+        const detailNode = document.createElement('div');
+        detailNode.className = 'chat-talent-card-detail chat-talent-card-detail--markdown';
+        detailNode.innerHTML = window.AppServices.renderMarkdown(detail || '');
+        card.appendChild(detailNode);
+      } else {
+        const detailNode = document.createElement('span');
+        detailNode.className = 'chat-talent-card-detail';
+        detailNode.textContent = detail;
+        card.appendChild(detailNode);
+      }
     }
 
     return card;

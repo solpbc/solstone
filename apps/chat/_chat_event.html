@@ -24,7 +24,7 @@
           data-talent-use-id="{{ ev.use_id }}"
           data-talent-status="finished">
     <span class="chat-talent-card-label">{{ ev.name }} finished</span>
-    {% if ev.summary %}<span class="chat-talent-card-summary">{{ ev.summary }}</span>{% endif %}
+    {% if ev.summary %}<div class="chat-talent-card-detail chat-talent-card-detail--markdown" data-markdown="1">{{ ev.summary }}</div>{% endif %}
   </button>
 {% elif ev.kind == "talent_errored" %}
   <button type="button"
@@ -32,7 +32,7 @@
           data-talent-use-id="{{ ev.use_id }}"
           data-talent-status="errored">
     <span class="chat-talent-card-label">{{ ev.name }} errored</span>
-    {% if ev.reason %}<span class="chat-talent-card-reason">{{ ev.reason }}</span>{% endif %}
+    {% if ev.reason %}<div class="chat-talent-card-detail chat-talent-card-detail--markdown" data-markdown="1">{{ ev.reason }}</div>{% endif %}
   </button>
 {% elif ev.kind == "reflection_ready" %}
   <article class="chat-reflection-card">
