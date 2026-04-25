@@ -112,7 +112,13 @@
   if (location.hash && location.hash.startsWith('#event-')) {
     document.getElementById(location.hash.slice(1))?.scrollIntoView({ block: 'center' });
   } else {
-    transcript.scrollTop = transcript.scrollHeight;
+    const owners = transcript.querySelectorAll('.chat-event[data-kind="owner_message"]');
+    const lastOwner = owners[owners.length - 1];
+    if (!lastOwner) {
+      transcript.scrollTop = transcript.scrollHeight;
+    } else if (transcript.scrollHeight > transcript.clientHeight + 8) {
+      lastOwner.scrollIntoView({ block: 'start' });
+    }
   }
 
   function insertTimeSeparators(list) {
