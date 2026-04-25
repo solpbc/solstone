@@ -211,7 +211,7 @@
       "disabled": false,
       "group": "Think",
       "label": "Chat",
-      "tier": 3,
+      "tier": 2,
       "type": "generate"
     },
     "talent.system.coder": {

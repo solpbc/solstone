@@ -372,3 +372,13 @@ def test_chat_context_drops_legacy_memory_imports(monkeypatch):
     _load_chat_context_module()
 
     assert legacy_module not in sys.modules
+
+
+def test_chat_prompt_includes_meta_question_inline_rule():
+    prompt_path = Path(__file__).resolve().parents[1] / "talent" / "chat.md"
+    prompt_text = prompt_path.read_text(encoding="utf-8")
+
+    assert (
+        "Questions about your role, capabilities, limits, current context, naming, "
+        "or system status stay inline."
+    ) in prompt_text
