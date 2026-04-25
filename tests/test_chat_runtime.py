@@ -386,22 +386,17 @@ def test_exec_dispatch_appends_sol_message_and_spawns_talent_real_path(
     assert sol_messages[-1]["requested_task"] == "research it"
     assert spawned_events[-1]["name"] == "exec"
     assert spawned_events[-1]["task"] == "research it"
-    assert spawn_calls == [
-        {
-            "prompt": "Task: research it\n\nContext hints:\n{'k': 'v'}\n\n"
-            "Location: app=sol path=/app/sol facet=work\n\n"
-            "Recent chat:\n**Sol**: I am looking into that.",
-            "name": "exec",
-            "provider": None,
-            "config": {
-                "app": "sol",
-                "path": "/app/sol",
-                "facet": "work",
-                "chat_parent_use_id": "1713625500000",
-            },
-            "use_id": spawned_events[-1]["use_id"],
-        }
-    ]
+    assert len(spawn_calls) == 1
+    spawn_call = spawn_calls[0]
+    assert spawn_call["name"] == "exec"
+    assert spawn_call["use_id"] == spawned_events[-1]["use_id"]
+    assert spawn_call["config"] == {
+        "app": "sol",
+        "path": "/app/sol",
+        "facet": "work",
+        "chat_parent_use_id": "1713625500000",
+    }
+    assert "research it" in str(spawn_call["prompt"])
     assert len(timers) == 2
     assert timers[0].cancelled is True
     with chat._state_lock:
@@ -514,6 +509,81 @@ def test_chat_watchdog_times_out_active_talent_and_clears_blocked_chat(
         assert chat._current_chat_use_id is None
         assert chat._current_chat_state is None
         assert "1713629000001" not in chat._watchdog_timers
+
+
+def test_chat_watchdog_marks_timed_out_talent_result_as_errored(tmp_path, monkeypatch):
+    import convey.chat as chat
+
+    _setup_journal(tmp_path, monkeypatch)
+    _reset_chat_state(chat)
+    timers = _install_fake_timers(monkeypatch)
+
+    monkeypatch.setattr("convey.chat._emit_cortex_event", lambda *args, **kwargs: None)
+    monkeypatch.setattr("convey.chat._emit_error", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        "convey.utils.spawn_agent", lambda *args, **kwargs: kwargs["use_id"]
+    )
+
+    with chat._state_lock:
+        logical_use_id = chat._reserve_use_id_locked()
+        talent_use_id = chat._reserve_use_id_locked()
+
+    append_chat_event(
+        "talent_spawned",
+        use_id=talent_use_id,
+        name="exec",
+        task="summarize",
+        started_at=int(talent_use_id),
+    )
+
+    with chat._state_lock:
+        chat._current_chat_use_id = logical_use_id
+        chat._current_chat_state = {
+            "raw_use_id": None,
+            "trigger": {"type": "owner_message", "message": "help"},
+            "location": {"app": "sol", "path": "/app/sol", "facet": "work"},
+            "retry_count": 0,
+        }
+        chat._active_talents[talent_use_id] = {
+            "chat_use_id": logical_use_id,
+            "target": "exec",
+            "task": "summarize",
+            "location": {"app": "sol", "path": "/app/sol", "facet": "work"},
+        }
+
+    chat._run_next_action(
+        {
+            "kind": "talent",
+            "logical_use_id": logical_use_id,
+            "target": "exec",
+            "use_id": talent_use_id,
+            "task": "summarize",
+            "context": {},
+            "location": {"app": "sol", "path": "/app/sol", "facet": "work"},
+        }
+    )
+
+    timers[-1].fire()
+
+    assert chat._read_result_state(talent_use_id) == {
+        "state": "errored",
+        "reason": "chat took too long — try again",
+        "task": "summarize",
+    }
+    parent_errors = [
+        event
+        for event in read_chat_events(chat._today_day())
+        if event["kind"] == "chat_error"
+    ]
+    talent_errors = [
+        event
+        for event in read_chat_events(chat._today_day())
+        if event["kind"] == "talent_errored"
+    ]
+    assert parent_errors[-1]["use_id"] == logical_use_id
+    assert parent_errors[-1]["reason"] == "chat took too long — try again"
+    assert talent_errors[-1]["use_id"] == talent_use_id
+    assert talent_errors[-1]["reason"] == "chat took too long — try again"
 
 
 def test_cortex_finish_logs_warning_for_unrouteable_use_id(

@@ -734,6 +734,12 @@ def _on_watchdog_timeout(use_id: str, kind: str, logical_use_id: str) -> None:
                 kind,
                 logical_use_id,
             )
+            append_chat_event(
+                "talent_errored",
+                use_id=use_id,
+                name=str(talent_state["target"]),
+                reason=CHAT_WATCHDOG_REASON,
+            )
             _active_talents.pop(use_id, None)
             append_chat_event(
                 "chat_error",
