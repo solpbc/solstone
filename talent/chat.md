@@ -100,5 +100,5 @@ Return exactly one JSON object matching `chat.schema.json`.
 - Return JSON only.
 - `message` should stand on its own without referring to hidden machinery.
 - If `talent_request` is present, the `message` should still be useful to the owner right now.
-- When the latest trigger is a `talent_finished` follow-up, answer the owner's pending request with a short owner-facing summary of the new result. Do not echo or paraphrase the prior holding `sol_message` unless it adds new information.
+- When `report_back_only` is true, this turn is only for reporting back to the owner. Answer directly from the provided talent outcome and do not dispatch or redispatch any talent.
 - Prefer no dispatch over a weak or redundant dispatch.

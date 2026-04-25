@@ -120,9 +120,11 @@ def pre_process(context: dict) -> dict:
                     "role": "user",
                     "content": (
                         "[internal follow-up: talent "
-                        f"{trigger_payload['name']} finished. Use this result "
-                        "to answer the owner's pending request with a short "
-                        f"summary. Result: {trigger_payload['summary']}]"
+                        f"{trigger_payload['name']} finished. This is a "
+                        "report-back turn, not a dispatch turn. Do not "
+                        "request another talent for this task. Use the "
+                        "result below to answer the owner's pending request "
+                        f"with a short summary. Result: {trigger_payload['summary']}]"
                     ),
                 }
             )
@@ -131,7 +133,12 @@ def pre_process(context: dict) -> dict:
                 {
                     "role": "user",
                     "content": (
-                        f"[talent {trigger_payload['name']} errored: "
+                        "[internal follow-up: talent "
+                        f"{trigger_payload['name']} errored. This is a "
+                        "report-back turn, not a dispatch turn. Do not "
+                        "request another talent for this task. Briefly "
+                        "explain the failure to the owner and ask for "
+                        "clarification only if needed. Reason: "
                         f"{trigger_payload['reason']}]"
                     ),
                 }
@@ -283,11 +290,21 @@ def _render_trigger_context(
     elif trigger_kind == "talent_finished":
         if payload.get("name"):
             lines.append(f"- Talent: {payload['name']}")
+        lines.append("- Mode: report_back_only")
+        lines.append(
+            "- Instruction: Answer the owner directly; do not dispatch or "
+            "redispatch a talent for this trigger."
+        )
         if payload.get("summary"):
             lines.append(f"- Summary: {payload['summary']}")
     elif trigger_kind == "talent_errored":
         if payload.get("name"):
             lines.append(f"- Talent: {payload['name']}")
+        lines.append("- Mode: report_back_only")
+        lines.append(
+            "- Instruction: Answer the owner directly; do not dispatch or "
+            "redispatch a talent for this trigger."
+        )
         if payload.get("reason"):
             lines.append(f"- Reason: {payload['reason']}")
     elif trigger_kind == "synthetic-max-active":
