@@ -498,14 +498,49 @@
     refreshTalentView(modalUseId);
   };
 
-  window.openConversation = function(text) {
+  function restoreDefaultPlaceholder() {
     if (!input) return;
-    if (typeof text === 'string' && text) {
-      input.value = text;
-      resizeComposer();
+    input.placeholder = input.dataset.defaultPlaceholder || '';
+  }
+
+  function clearConversationSuggestion() {
+    if (!input) return;
+    delete input.dataset.suggestion;
+    restoreDefaultPlaceholder();
+  }
+
+  function acceptConversationSuggestion() {
+    if (!input || !input.dataset.suggestion || input.value !== '') return false;
+    input.value = input.dataset.suggestion;
+    clearConversationSuggestion();
+    resizeComposer();
+    return true;
+  }
+
+  function handleSuggestionKeydown(event) {
+    if (!input || !input.dataset.suggestion || input.value !== '') return;
+    if (event.key === 'Tab' && !event.shiftKey) {
+      event.preventDefault();
+      acceptConversationSuggestion();
+      return;
     }
+    if (event.key === 'ArrowRight' && input.selectionStart === 0) {
+      event.preventDefault();
+      acceptConversationSuggestion();
+    }
+  }
+
+  function handleSuggestionInput() {
+    if (!input || !input.dataset.suggestion || input.value === '') return;
+    clearConversationSuggestion();
+  }
+
+  window.openConversation = function(suggestion) {
+    if (!input) return;
+    if (!input.dataset.defaultPlaceholder) input.dataset.defaultPlaceholder = input.placeholder || '';
+    input.dataset.suggestion = suggestion;
+    input.placeholder = suggestion;
     input.focus();
-    input.selectionStart = input.selectionEnd = input.value.length;
   };
 
   function handleChatEvent(msg) {
@@ -642,6 +677,8 @@
     if (input) {
       resizeComposer();
       input.addEventListener('input', resizeComposer);
+      input.addEventListener('input', handleSuggestionInput);
+      input.addEventListener('keydown', handleSuggestionKeydown);
     }
 
     if (form) {
