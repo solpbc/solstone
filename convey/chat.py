@@ -48,7 +48,6 @@ _current_chat_state: dict[str, Any] | None = None
 _queued_trigger: dict[str, Any] | None = None
 _active_talents: dict[str, dict[str, Any]] = {}
 _last_use_id = 0
-_recovery_day: str | None = None
 _runtime: "ChatRuntimeState | None" = None
 _atexit_registered = False
 
@@ -109,6 +108,7 @@ def post_chat() -> Any:
 @chat_bp.route("/session", methods=["GET"])
 def chat_session() -> Any:
     """Return reduced state for today's chat stream."""
+    _recover_chat_if_needed()
     return jsonify(reduce_chat_state(_today_day()))
 
 
@@ -549,18 +549,15 @@ def _recover_chat_if_needed() -> None:
     start_info: dict[str, Any] | None = None
 
     with _state_lock:
-        global _recovery_day
-        if _recovery_day == day or _current_chat_use_id is not None:
+        if _current_chat_use_id is not None:
             return
         unresolved = find_unresponded_trigger(day)
         if unresolved is None:
-            _recovery_day = day
             return
         location = _location_for_trigger(day, unresolved)
         logical_use_id = _reserve_use_id_locked()
         trigger = _trigger_from_stream_event(unresolved)
         start_info = _activate_current_locked(logical_use_id, trigger, location)
-        _recovery_day = day
 
     if start_info is not None and not _spawn_chat_generate(start_info):
         _handle_chat_failure(start_info["logical_use_id"], CHAT_TROUBLE_REASON)

@@ -16,7 +16,6 @@ def _reset_chat_state(chat_module) -> None:
         chat_module._current_chat_state = None
         chat_module._queued_trigger = None
         chat_module._active_talents.clear()
-        chat_module._recovery_day = None
         chat_module._last_use_id = 0
 
 
