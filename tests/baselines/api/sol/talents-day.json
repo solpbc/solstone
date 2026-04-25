@@ -445,17 +445,6 @@
       "title": "Support",
       "type": "cogitate"
     },
-    "test_missing_type_output_1568d299dc474aa9ba42401c7b1b75e2": {
-      "app": null,
-      "color": "#6c757d",
-      "description": null,
-      "multi_facet": false,
-      "output_format": null,
-      "schedule": null,
-      "source": "system",
-      "title": "test_missing_type_output_1568d299dc474aa9ba42401c7b1b75e2",
-      "type": null
-    },
     "todos:daily": {
       "app": "todos",
       "color": "#6c757d",
