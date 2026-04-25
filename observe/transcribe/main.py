@@ -59,9 +59,9 @@ import os
 import platform
 import time
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
-import onnxruntime as ort
 
 from observe.transcribe import (
     BACKEND_REGISTRY,
@@ -90,6 +90,9 @@ from think.utils import (
     resolve_journal_path,
     setup_cli,
 )
+
+if TYPE_CHECKING:
+    import onnxruntime as ort
 
 # Re-export defaults for backwards compatibility
 __all__ = [
@@ -137,6 +140,8 @@ def _get_embedder_session() -> ort.InferenceSession:
     global _embedder_session
 
     if _embedder_session is None:
+        import onnxruntime as ort
+
         if not WESPEAKER_MODEL_PATH.is_file():
             raise FileNotFoundError(
                 f"WeSpeaker model asset not found at {WESPEAKER_MODEL_PATH}. "
@@ -803,7 +808,15 @@ def _process_one(
         backend_config = {
             k: v
             for k, v in parakeet_config.items()
-            if k in ("model_version", "cache_dir", "timeout_sec", "device", "precision")
+            if k
+            in (
+                "model_version",
+                "cache_dir",
+                "timeout_sec",
+                "device",
+                "precision",
+                "quantization",
+            )
         }
     elif backend == "gemini":
         # Gemini backend - model resolved by think.models based on context

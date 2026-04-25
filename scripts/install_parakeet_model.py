@@ -18,13 +18,23 @@ from typing import Any
 
 BACKEND = "parakeet"
 MODEL_VERSION = "v3"
-MODEL_ID = "nvidia/parakeet-tdt-0.6b-v3"
+MODEL_ID = "istupakov/parakeet-tdt-0.6b-v3-onnx"
+LINUX_LOAD_MODEL_ID = "nemo-parakeet-tdt-0.6b-v3"
+PARAKEET_ONNX_VARIANT_ENV = "PARAKEET_ONNX_VARIANT"
 HELPER_ENV_KEY = "SOLSTONE_PARAKEET_HELPER"
 MAC_CACHE_DIR = Path.home() / "Library/Application Support/solstone/parakeet/models"
 MAC_SENTINEL = MAC_CACHE_DIR / ".install-complete"
 LINUX_HUB_DIR = Path.home() / ".cache/huggingface/hub"
-LINUX_MODEL_DIR = LINUX_HUB_DIR / "models--nvidia--parakeet-tdt-0.6b-v3"
+LINUX_MODEL_DIR = LINUX_HUB_DIR / "models--istupakov--parakeet-tdt-0.6b-v3-onnx"
 LINUX_SENTINEL = LINUX_HUB_DIR / ".solstone-install-complete"
+LEGACY_NEMO_MODEL_DIR = LINUX_HUB_DIR / "models--nvidia--parakeet-tdt-0.6b-v3"
+LINUX_MODEL_FILES = (
+    "encoder-model.onnx",
+    "decoder_joint-model.onnx",
+    "config.json",
+    "vocab.txt",
+)
+LINUX_MIN_CACHE_BYTES = 2_400_000_000
 MAC_MODEL_FILES = (
     "Encoder.mlmodelc/weights/weight.bin",
     "Decoder.mlmodelc/weights/weight.bin",
@@ -55,7 +65,25 @@ def _variant_for_platform(os_name: str, arch: str) -> str | None:
     if os_name == "darwin" and arch == "arm64":
         return "coreml"
     if os_name == "linux" and arch == "x86_64":
-        return "nemo"
+        override = os.getenv(PARAKEET_ONNX_VARIANT_ENV)
+        if override:
+            if override not in {"cpu", "cuda"}:
+                raise SystemExit(
+                    f"invalid {PARAKEET_ONNX_VARIANT_ENV}={override!r}; use 'cpu' or 'cuda'"
+                )
+            return override
+        try:
+            result = subprocess.run(
+                ["nvidia-smi", "-L"],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+        except OSError:
+            return "cpu"
+        if result.returncode == 0 and result.stdout.strip():
+            return "cuda"
+        return "cpu"
     return None
 
 
@@ -116,6 +144,7 @@ def _sentinel_ready(
     if (
         payload.get("variant") != variant
         or payload.get("model_version") != MODEL_VERSION
+        or payload.get("quantization") != "fp32"
     ):
         return None
     if platform_info.get("os") != os_name or platform_info.get("arch") != arch:
@@ -198,7 +227,16 @@ def _verify_linux_cache(cache_dir: Path) -> bool:
     if not snapshots_dir.is_dir():
         return False
     for child in snapshots_dir.iterdir():
-        if child.is_dir() and any(child.iterdir()):
+        if not child.is_dir():
+            continue
+        if not all(
+            (child / relative_path).is_file() for relative_path in LINUX_MODEL_FILES
+        ):
+            continue
+        total_bytes = sum(
+            path.stat().st_size for path in child.rglob("*") if path.is_file()
+        )
+        if total_bytes >= LINUX_MIN_CACHE_BYTES:
             return True
     return False
 
@@ -216,7 +254,7 @@ def _restore_linux_sentinel_if_cache_ready(
     sentinel_path: Path,
     cache_dir: Path,
 ) -> Path | None:
-    if variant != "nemo" or not _verify_linux_cache(cache_dir):
+    if variant not in {"cpu", "cuda"} or not _verify_linux_cache(cache_dir):
         return None
     _write_sentinel(
         sentinel_path,
@@ -239,6 +277,7 @@ def _build_payload(
         "platform": {"os": os_name, "arch": arch},
         "variant": variant,
         "model_version": MODEL_VERSION,
+        "quantization": "fp32",
         "fetched_at": _now_utc(),
         "cache_dir": str(cache_dir),
     }
@@ -248,15 +287,25 @@ def _build_payload(
 
 
 def _fetch_linux_model(cache_dir: Path) -> None:
+    if LEGACY_NEMO_MODEL_DIR.exists():
+        print(
+            "WARNING: legacy NeMo cache detected at "
+            f"{LEGACY_NEMO_MODEL_DIR}; remove it manually if no longer needed: "
+            f"rm -rf {LEGACY_NEMO_MODEL_DIR}"
+        )
     try:
         try:
             from huggingface_hub.utils import HfHubHTTPError
         except Exception:  # pragma: no cover - older/newer hub versions vary
             HfHubHTTPError = None
 
-        from nemo.collections.asr.models import ASRModel
+        import onnx_asr
 
-        ASRModel.from_pretrained(MODEL_ID)
+        model = onnx_asr.load_model(LINUX_LOAD_MODEL_ID, quantization=None)
+        if model is None:
+            raise RuntimeError(
+                "parakeet install failed: onnx-asr.load_model returned no model"
+            )
     except OSError as exc:
         if exc.errno == errno.ENOSPC:
             raise RuntimeError(_disk_full_message(cache_dir)) from exc
@@ -329,7 +378,7 @@ def _install_models(os_name: str, arch: str, variant: str) -> int:
     cache_dir = _cache_dir(variant)
     _remove_sentinel(sentinel_path)
 
-    if variant == "nemo":
+    if variant in {"cpu", "cuda"}:
         try:
             _fetch_linux_model(cache_dir)
         except RuntimeError as exc:
@@ -411,6 +460,21 @@ def main() -> int:
     variant = _variant_for_platform(os_name, arch)
     if variant is None:
         return _fail(f"unsupported parakeet platform: {os_name}/{arch}", code=2)
+    if os_name == "linux" and arch == "x86_64" and variant == "cuda":
+        try:
+            import onnxruntime
+
+            providers = onnxruntime.get_available_providers()
+        except Exception:
+            sys.exit(
+                "device=cuda requires CUDAExecutionProvider; rerun: "
+                "PARAKEET_ONNX_VARIANT=cuda make install"
+            )
+        if "CUDAExecutionProvider" not in providers:
+            sys.exit(
+                "device=cuda requires CUDAExecutionProvider; rerun: "
+                "PARAKEET_ONNX_VARIANT=cuda make install"
+            )
 
     sentinel_path = _sentinel_path(variant)
     cache_dir = _cache_dir(variant)

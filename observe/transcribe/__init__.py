@@ -13,7 +13,7 @@ Terminology:
 - "segment" = journal directory (HHMMSS_LEN/ time window) - NOT used here
 
 Available backends:
-- parakeet: Default local backend via Apple Silicon helper or Linux NeMo
+- parakeet: Default local backend via Apple Silicon helper or Linux ONNX
 - whisper: Local faster-whisper (rollback/local alternative, GPU/CPU)
 - revai: Rev.ai cloud API (speaker diarization)
 - gemini: Google Gemini API (speaker diarization)
@@ -94,8 +94,8 @@ BACKEND_METADATA: dict[str, dict] = {
         "settings": [],
     },
     "parakeet": {
-        "label": "Parakeet - Local processing (Apple Silicon CoreML or Linux NeMo)",
-        "description": "On-device speech recognition via Parakeet TDT; macOS uses a FluidAudio/CoreML helper, Linux uses NeMo + torch. Requires `make install`.",
+        "label": "Parakeet - Local processing (Apple Silicon CoreML or Linux ONNX)",
+        "description": "On-device speech recognition via Parakeet TDT; macOS uses a FluidAudio/CoreML helper, Linux uses onnx-asr + onnxruntime. Requires `make install`.",
         "env_key": None,
         "settings": ["model_version", "device", "timeout_sec"],
     },

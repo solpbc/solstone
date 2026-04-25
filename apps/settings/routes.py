@@ -55,15 +55,15 @@ def _compute_runtime_label() -> str:
     arch = platform.machine().lower()
     if os_name == "darwin" and arch == "arm64":
         return "macOS CoreML helper"
-    if os_name != "linux":
+    if os_name != "linux" or arch != "x86_64":
         return "unsupported"
     try:
-        import torch
+        import onnxruntime
 
         return (
-            "Linux NeMo (CUDA fp16)"
-            if torch.cuda.is_available()
-            else "Linux NeMo (CPU fp32)"
+            "Linux ONNX (CUDA fp32)"
+            if "CUDAExecutionProvider" in onnxruntime.get_available_providers()
+            else "Linux ONNX (CPU fp32)"
         )
     except Exception:
         return "unsupported"

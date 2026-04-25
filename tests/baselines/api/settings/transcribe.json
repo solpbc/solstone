@@ -34,9 +34,9 @@
       ]
     },
     {
-      "description": "On-device speech recognition via Parakeet TDT; macOS uses a FluidAudio/CoreML helper, Linux uses NeMo + torch. Requires `make install`.",
+      "description": "On-device speech recognition via Parakeet TDT; macOS uses a FluidAudio/CoreML helper, Linux uses onnx-asr + onnxruntime. Requires `make install`.",
       "env_key": null,
-      "label": "Parakeet - Local processing (Apple Silicon CoreML or Linux NeMo)",
+      "label": "Parakeet - Local processing (Apple Silicon CoreML or Linux ONNX)",
       "name": "parakeet",
       "settings": [
         "model_version",
@@ -63,5 +63,5 @@
       "model": "medium.en"
     }
   },
-  "runtime_label": "Linux NeMo (CUDA fp16)"
+  "runtime_label": "Linux ONNX (CPU fp32)"
 }

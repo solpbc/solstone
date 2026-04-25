@@ -9,8 +9,8 @@ import pytest
 import observe.transcribe.parakeet as parakeet
 
 
-def test_nemo_module_imports_without_nemo_installed():
-    import observe.transcribe._parakeet_nemo  # noqa: F401
+def test_onnx_module_imports_without_onnx_installed():
+    import observe.transcribe._parakeet_onnx  # noqa: F401
 
 
 def test_dispatch_transcribe_routes_darwin_arm64(monkeypatch: pytest.MonkeyPatch):
@@ -22,7 +22,7 @@ def test_dispatch_transcribe_routes_darwin_arm64(monkeypatch: pytest.MonkeyPatch
         lambda *args, **kwargs: [{"arm": "coreml"}],
     )
     monkeypatch.setattr(
-        parakeet._parakeet_nemo, "transcribe", lambda *args, **kwargs: [{"arm": "nemo"}]
+        parakeet._parakeet_onnx, "transcribe", lambda *args, **kwargs: [{"arm": "onnx"}]
     )
 
     assert parakeet.transcribe([], 16000, {}) == [{"arm": "coreml"}]
@@ -37,10 +37,10 @@ def test_dispatch_transcribe_routes_linux_x86_64(monkeypatch: pytest.MonkeyPatch
         lambda *args, **kwargs: [{"arm": "coreml"}],
     )
     monkeypatch.setattr(
-        parakeet._parakeet_nemo, "transcribe", lambda *args, **kwargs: [{"arm": "nemo"}]
+        parakeet._parakeet_onnx, "transcribe", lambda *args, **kwargs: [{"arm": "onnx"}]
     )
 
-    assert parakeet.transcribe([], 16000, {}) == [{"arm": "nemo"}]
+    assert parakeet.transcribe([], 16000, {}) == [{"arm": "onnx"}]
 
 
 @pytest.mark.parametrize(
@@ -78,7 +78,7 @@ def test_dispatch_get_model_info_routes_linux_x86_64(
     monkeypatch.setattr(sys, "platform", "linux")
     monkeypatch.setattr(platform, "machine", lambda: "x86_64")
     monkeypatch.setattr(
-        parakeet._parakeet_nemo, "get_model_info", lambda config: {"arm": "nemo"}
+        parakeet._parakeet_onnx, "get_model_info", lambda config: {"arm": "onnx"}
     )
 
-    assert parakeet.get_model_info({}) == {"arm": "nemo"}
+    assert parakeet.get_model_info({}) == {"arm": "onnx"}

@@ -17,7 +17,7 @@ VENV := .venv
 VENV_BIN := $(VENV)/bin
 VENV_PY := $(VENV_BIN)/python
 PYTHON := $(VENV_PY)
-PARAKEET_NEMO_EXTRA ?= parakeet-nemo
+PARAKEET_ONNX_VARIANT ?= $(shell if nvidia-smi -L >/dev/null 2>&1; then echo cuda; else echo cpu; fi)
 
 # Require uv
 UV := $(shell command -v uv 2>/dev/null)
@@ -48,8 +48,9 @@ USER_BIN := $(HOME)/.local/bin
 	@echo "Installing package with uv..."
 	$(UV) sync
 	@# Python 3.14+ needs onnxruntime from nightly (not yet on PyPI)
-	@PY_MINOR=$$($(PYTHON) -c "import sys; print(sys.version_info.minor)"); \
-	if [ "$$PY_MINOR" -ge 14 ]; then \
+	@OS_NAME=$$(uname -s); \
+	PY_MINOR=$$($(PYTHON) -c "import sys; print(sys.version_info.minor)"); \
+	if [ "$$OS_NAME" = "Darwin" ] && [ "$$PY_MINOR" -ge 14 ]; then \
 		echo "Python 3.14+ detected - installing onnxruntime from nightly feed..."; \
 		$(UV) pip install --pre --no-deps --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/ onnxruntime; \
 	fi
@@ -79,13 +80,27 @@ install: doctor skills .installed
 	ARCH=$$(uname -m); \
 	if [ "$$OS_NAME" = "Darwin" ] && [ "$$ARCH" = "arm64" ]; then \
 		$(MAKE) parakeet-helper || { echo 'parakeet install: helper build failed' >&2; exit 1; }; \
-	elif [ "$$OS_NAME" = "Linux" ] && [ "$$ARCH" = "x86_64" ]; then \
-		$(UV) sync --extra $(PARAKEET_NEMO_EXTRA) || { echo "parakeet install: uv sync --extra $(PARAKEET_NEMO_EXTRA) failed" >&2; exit 1; }; \
+	elif [ "$$OS_NAME" = "Linux" ]; then \
+		if [ "$$ARCH" = "x86_64" ]; then \
+			echo "parakeet install: PARAKEET_ONNX_VARIANT=$(PARAKEET_ONNX_VARIANT)"; \
+			$(UV) sync --extra parakeet-onnx-$(PARAKEET_ONNX_VARIANT) || { echo "parakeet install: uv sync --extra parakeet-onnx-$(PARAKEET_ONNX_VARIANT) failed" >&2; exit 1; }; \
+			if [ "$(PARAKEET_ONNX_VARIANT)" = "cuda" ]; then \
+				$(UV) pip install --reinstall onnxruntime-gpu || { echo "parakeet install: failed to force-reinstall onnxruntime-gpu" >&2; exit 1; }; \
+				$(VENV_PY) -c "import onnxruntime as ort; ort.preload_dlls(cuda=True, cudnn=True); assert 'CUDAExecutionProvider' in ort.get_available_providers(), 'CUDAExecutionProvider missing after install'; print('parakeet install: CUDA runtime ready')" || { echo "parakeet install: CUDA runtime validation failed" >&2; exit 1; }; \
+			fi; \
+		else \
+			echo "parakeet install: skipping unsupported Linux arch $$ARCH"; \
+		fi; \
 	else \
 		echo "parakeet install: unsupported host '$$OS_NAME/$$ARCH'; supported: darwin/arm64, linux/x86_64" >&2; \
 		exit 1; \
 	fi
-	@$(MAKE) --no-print-directory install-models
+	@touch .installed
+	@OS_NAME=$$(uname -s); \
+	ARCH=$$(uname -m); \
+	if [ "$$OS_NAME" = "Darwin" ] && [ "$$ARCH" = "arm64" ] || [ "$$OS_NAME" = "Linux" ] && [ "$$ARCH" = "x86_64" ]; then \
+		PARAKEET_ONNX_VARIANT=$(PARAKEET_ONNX_VARIANT) $(VENV_PY) scripts/install_parakeet_model.py; \
+	fi
 
 # Directories where AI coding agents look for skills
 SKILL_DIRS := journal/.agents/skills journal/.claude/skills
@@ -259,8 +274,9 @@ install-pinchtab:
 	fi
 
 # Build the parakeet helper binary (macOS/arm64 only, requires Xcode CLT)
-install-models: .installed
-	$(VENV_PY) scripts/install_parakeet_model.py
+install-models:
+	@test -x "$(VENV_PY)" || { echo "parakeet install: missing $(VENV_PY); run make install first" >&2; exit 1; }
+	PARAKEET_ONNX_VARIANT=$(PARAKEET_ONNX_VARIANT) $(VENV_PY) scripts/install_parakeet_model.py
 
 parakeet-helper:
 	cd observe/transcribe/parakeet_helper && swift build -c release

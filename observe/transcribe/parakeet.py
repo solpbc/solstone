@@ -5,7 +5,7 @@
 
 Routes to platform-specific implementations:
 - Apple Silicon (darwin/arm64) -> _parakeet_coreml (FluidAudio helper)
-- Linux x86_64 -> _parakeet_nemo (NeMo + torch)
+- Linux x86_64 -> _parakeet_onnx (onnx-asr + onnxruntime)
 
 Unsupported platforms raise RuntimeError with the detected platform
 and the supported-platforms list.
@@ -20,7 +20,7 @@ import sys
 
 import numpy as np
 
-from . import _parakeet_coreml, _parakeet_nemo
+from . import _parakeet_coreml, _parakeet_onnx
 
 
 def _current_platform() -> tuple[str, str]:
@@ -43,7 +43,7 @@ def transcribe(audio: np.ndarray, sample_rate: int, config: dict) -> list[dict]:
     if os_name == "darwin" and arch == "arm64":
         return _parakeet_coreml.transcribe(audio, sample_rate, config)
     if os_name == "linux" and arch == "x86_64":
-        return _parakeet_nemo.transcribe(audio, sample_rate, config)
+        return _parakeet_onnx.transcribe(audio, sample_rate, config)
     raise RuntimeError(_unsupported_platform_message(os_name, arch))
 
 
@@ -53,5 +53,5 @@ def get_model_info(config: dict) -> dict:
     if os_name == "darwin" and arch == "arm64":
         return _parakeet_coreml.get_model_info(config)
     if os_name == "linux" and arch == "x86_64":
-        return _parakeet_nemo.get_model_info(config)
+        return _parakeet_onnx.get_model_info(config)
     raise RuntimeError(_unsupported_platform_message(os_name, arch))

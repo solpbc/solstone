@@ -18,7 +18,12 @@ from tests._baseline_harness import (
     prepare_isolated_journal,
 )
 from tests.conftest import _install_heavy_module_stubs
-from tests.verify_api import ENDPOINTS, baseline_path, fetch_endpoint, normalize
+from tests.verify_api import (
+    ENDPOINTS,
+    baseline_path,
+    fetch_endpoint,
+    normalize_for_compare,
+)
 
 FREEZEGUN_IGNORE = [
     "librosa",
@@ -94,8 +99,10 @@ def test_api_baseline(client, journal_path, endpoint):
         f"Expected status {endpoint['status']}, got {status}"
     )
 
-    actual = normalize(payload, journal_path)
-    expected = json.loads(path.read_text())
+    actual = normalize_for_compare(endpoint, payload, journal_path)
+    expected = normalize_for_compare(
+        endpoint, json.loads(path.read_text()), journal_path
+    )
 
     assert actual == expected, (
         f"Baseline mismatch for {endpoint['app']}/{endpoint['name']}. "

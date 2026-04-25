@@ -56,6 +56,7 @@ brew install git uv
     "parakeet": {
       "model_version": "v3",
       "device": "auto",
+      "quantization": "auto",
       "timeout_sec": 120.0
     }
   }
@@ -63,10 +64,11 @@ brew install git uv
 ```
 
 - `device: "auto"` is primarily for Linux; macOS always routes to the CoreML helper on Apple Silicon.
+- `quantization: "auto"` resolves to fp32 on Linux. The old `precision` key is still accepted as a one-release deprecated alias for `quantization`.
 - `make install` builds the platform prerequisites and then runs `make install-models`.
 - `make install-models` is idempotent and prints `model ready: <path>` when the local model cache is ready.
 - **macOS (Apple Silicon):** Xcode command line tools are required because the helper is a Swift package; if the `xcodebuild -version` check above fails, fix that first. `make install-models` downloads roughly 461 MB of model data into `~/Library/Application Support/solstone/parakeet/models`.
-- **Linux (x86_64):** `make install` runs `uv sync --extra parakeet-nemo` automatically to install NeMo + torch, then `make install-models` verifies or fetches the v3 model cache in `~/.cache/huggingface/hub/`. The first fetch is roughly 2.4 GB. CUDA is optional; `device: "auto"` falls back to CPU when no GPU is available.
+- **Linux (x86_64):** `make install` auto-detects `PARAKEET_ONNX_VARIANT` (`cuda` when `nvidia-smi -L` succeeds, otherwise `cpu`), runs `uv sync --extra parakeet-onnx-<variant>`, then runs `make install-models`. Override detection with `PARAKEET_ONNX_VARIANT=cuda make install` or `PARAKEET_ONNX_VARIANT=cpu make install`. The CPU extra installs `parakeet-onnx-cpu`; the CUDA extra installs `parakeet-onnx-cuda`. The ONNX model footprint is roughly 2.55 GB, and the CUDA wheels add roughly 700 MB more when using the CUDA variant.
 - To use Whisper instead, set `transcribe.backend = "whisper"` in `journal/config/journal.json` or switch the backend in the settings UI. The Whisper code and dependencies remain available for rollback.
 - helper contract details live in `observe/transcribe/parakeet_helper/README.md`.
 

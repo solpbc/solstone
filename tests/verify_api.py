@@ -525,6 +525,19 @@ def normalize(data: Any, journal_path: str) -> Any:
     return walk(data)
 
 
+def normalize_for_compare(
+    endpoint: dict[str, Any], data: Any, journal_path: str
+) -> Any:
+    """Normalize payloads for deterministic baseline comparison."""
+
+    normalized = normalize(data, journal_path)
+    if endpoint["app"] == "settings" and endpoint["name"] == "transcribe":
+        if isinstance(normalized, dict):
+            # runtime_label is environment-dependent; tested separately.
+            normalized.pop("runtime_label", None)
+    return normalized
+
+
 def baseline_path(endpoint: dict[str, str]) -> Path:
     """Compute baseline file path for an endpoint entry."""
 
@@ -577,8 +590,10 @@ def verify_all(client: Any, journal_path: str) -> list[str]:
             failures.append(f"{identifier}: baseline file not found: {path}")
             continue
 
-        actual = normalize(payload, journal_path)
-        expected = json.loads(path.read_text())
+        actual = normalize_for_compare(endpoint, payload, journal_path)
+        expected = normalize_for_compare(
+            endpoint, json.loads(path.read_text()), journal_path
+        )
         if actual != expected:
             actual_dump = json.dumps(
                 actual, indent=2, sort_keys=True, ensure_ascii=False
