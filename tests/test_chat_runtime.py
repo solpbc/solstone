@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 import pytest
 from flask import Flask
 
@@ -27,6 +29,10 @@ def _setup_journal(tmp_path, monkeypatch):
     journal.mkdir()
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
     return journal
+
+
+def _ms(year: int, month: int, day: int, hour: int, minute: int, second: int) -> int:
+    return int(datetime(year, month, day, hour, minute, second).timestamp() * 1000)
 
 
 def _install_fake_timers(monkeypatch):
@@ -56,6 +62,37 @@ def _install_fake_timers(monkeypatch):
 
     monkeypatch.setattr("convey.chat.threading.Timer", FakeTimer)
     return timers
+
+
+def _append_recoverable_talent_events(
+    chat_use_id: str,
+    talent_use_id: str,
+    *,
+    target: str = "exec",
+    task: str = "research it",
+) -> None:
+    now = datetime.now()
+    start = _ms(now.year, now.month, now.day, 12, 0, 0)
+    append_chat_event(
+        "sol_message",
+        ts=start,
+        use_id=chat_use_id,
+        text="I am looking into that.",
+        notes="need exec",
+        requested_target=target,
+        requested_task=task,
+        app="home",
+        path="/app/home",
+        facet="work",
+    )
+    append_chat_event(
+        "talent_spawned",
+        ts=start + 1_000,
+        use_id=talent_use_id,
+        name=target,
+        task=task,
+        started_at=start + 1_000,
+    )
 
 
 def test_chat_result_with_two_active_talents_retriggers_with_max_active_reason(
@@ -284,6 +321,98 @@ def test_start_chat_runtime_recovers_exactly_one_unresponded_trigger(
     chat.start_chat_runtime(app)
 
     assert len(starts) == 1
+
+
+def test_recover_active_talents_repopulates_from_chat_stream(tmp_path, monkeypatch):
+    import convey.chat as chat
+
+    _setup_journal(tmp_path, monkeypatch)
+    _reset_chat_state(chat)
+    timers = _install_fake_timers(monkeypatch)
+    day = datetime.now().strftime("%Y%m%d")
+    monkeypatch.setattr("convey.chat._today_day", lambda: day)
+
+    chat_use_id = "1713624500000"
+    talent_use_id = "1713624500001"
+    _append_recoverable_talent_events(chat_use_id, talent_use_id)
+
+    chat._recover_chat_if_needed()
+
+    with chat._state_lock:
+        assert chat._active_talents[talent_use_id] == {
+            "chat_use_id": chat_use_id,
+            "target": "exec",
+            "task": "research it",
+            "location": {"app": "home", "path": "/app/home", "facet": "work"},
+        }
+        assert talent_use_id in chat._watchdog_timers
+    assert len(timers) == 1
+
+
+def test_late_talent_finish_after_recovery_routes_to_chat_continuation(
+    tmp_path, monkeypatch, caplog
+):
+    import convey.chat as chat
+
+    _setup_journal(tmp_path, monkeypatch)
+    _reset_chat_state(chat)
+    _install_fake_timers(monkeypatch)
+    day = datetime.now().strftime("%Y%m%d")
+    monkeypatch.setattr("convey.chat._today_day", lambda: day)
+
+    chat_use_id = "1713624600000"
+    talent_use_id = "1713624600001"
+    _append_recoverable_talent_events(chat_use_id, talent_use_id)
+    chat._recover_chat_if_needed()
+
+    actions: list[dict | None] = []
+    monkeypatch.setattr(
+        "convey.chat._run_next_action", lambda action: actions.append(action)
+    )
+    monkeypatch.setattr("convey.chat._emit_finish", lambda *args, **kwargs: None)
+    monkeypatch.setattr("convey.chat._emit_error", lambda *args, **kwargs: None)
+
+    with chat._state_lock:
+        chat._current_chat_use_id = chat_use_id
+        chat._current_chat_state = {
+            "raw_use_id": None,
+            "trigger": {"type": "owner_message", "message": "help"},
+            "location": {"app": "home", "path": "/app/home", "facet": "work"},
+            "retry_count": 0,
+        }
+
+    with caplog.at_level("WARNING"):
+        chat._on_cortex_finish({"use_id": talent_use_id, "result": "done"})
+
+    assert "unrouteable cortex event" not in caplog.text
+    finished_events = [
+        e for e in read_chat_events(chat._today_day()) if e["kind"] == "talent_finished"
+    ]
+    assert finished_events[-1]["use_id"] == talent_use_id
+    assert actions[-1]["logical_use_id"] == chat_use_id
+    assert actions[-1]["trigger"]["type"] == "talent_finished"
+
+
+def test_recovery_is_idempotent_for_active_talents(tmp_path, monkeypatch):
+    import convey.chat as chat
+
+    _setup_journal(tmp_path, monkeypatch)
+    _reset_chat_state(chat)
+    timers = _install_fake_timers(monkeypatch)
+    day = datetime.now().strftime("%Y%m%d")
+    monkeypatch.setattr("convey.chat._today_day", lambda: day)
+
+    chat_use_id = "1713624700000"
+    talent_use_id = "1713624700001"
+    _append_recoverable_talent_events(chat_use_id, talent_use_id)
+
+    chat._recover_chat_if_needed()
+    chat._recover_chat_if_needed()
+
+    with chat._state_lock:
+        assert list(chat._active_talents) == [talent_use_id]
+        assert talent_use_id in chat._watchdog_timers
+    assert len(timers) == 1
 
 
 def test_chat_generate_schema_violation_retries_once_then_chat_errors(

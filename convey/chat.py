@@ -305,6 +305,9 @@ def _on_cortex_finish(message: dict[str, Any]) -> None:
                     notes=parsed["notes"],
                     requested_target=requested_target,
                     requested_task=requested_task,
+                    app=_current_chat_state["location"]["app"],
+                    path=_current_chat_state["location"]["path"],
+                    facet=_current_chat_state["location"]["facet"],
                 )
                 _current_chat_state["retry_count"] = 0
                 _set_current_raw_use_locked(logical_use_id, None)
@@ -591,11 +594,61 @@ def _handle_chat_failure(logical_use_id: str, reason: str) -> None:
     _run_next_action(next_info)
 
 
+def _recover_active_talents_locked(day: str) -> None:
+    events = read_chat_events(day)
+    latest_sol_message: dict[str, Any] | None = None
+    spawned: dict[str, dict[str, Any]] = {}
+
+    for event in events:
+        kind = event.get("kind")
+        if kind == "sol_message":
+            latest_sol_message = event
+            continue
+        if kind == "talent_spawned":
+            use_id = str(event.get("use_id") or "")
+            if not use_id:
+                continue
+            if latest_sol_message is None:
+                logger.warning(
+                    "skipping active-talent recovery for %s: no parent sol_message",
+                    use_id,
+                )
+                continue
+            chat_use_id = str(latest_sol_message.get("use_id") or "")
+            if not chat_use_id:
+                logger.warning(
+                    "skipping active-talent recovery for %s: no parent sol_message",
+                    use_id,
+                )
+                continue
+            spawned[use_id] = {
+                "chat_use_id": chat_use_id,
+                "target": str(event.get("name") or ""),
+                "task": str(event.get("task") or ""),
+                "location": _normalize_location(
+                    latest_sol_message.get("app"),
+                    latest_sol_message.get("path"),
+                    latest_sol_message.get("facet"),
+                ),
+            }
+            continue
+        if kind in {"talent_finished", "talent_errored"}:
+            spawned.pop(str(event.get("use_id") or ""), None)
+
+    for use_id, state in spawned.items():
+        if use_id in _active_talents:
+            continue
+        _active_talents[use_id] = state
+        if use_id not in _watchdog_timers:
+            _arm_watchdog_locked(use_id, "talent", state["chat_use_id"])
+
+
 def _recover_chat_if_needed() -> None:
     day = _today_day()
     start_info: dict[str, Any] | None = None
 
     with _state_lock:
+        _recover_active_talents_locked(day)
         if _current_chat_use_id is not None:
             return
         unresolved = find_unresponded_trigger(day)
