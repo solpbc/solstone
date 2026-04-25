@@ -14,90 +14,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from convey.chat import stop_all_chat_runtime
-from tests._baseline_harness import copytree_tracked
-from think.entities.journal import clear_journal_entity_cache
-from think.entities.loading import clear_entity_loading_cache
-from think.entities.observations import clear_observation_cache
-from think.entities.relationships import clear_relationship_caches
-from think.push.runtime import stop_all_push_runtime
-from think.utils import now_ms
-from think.voice import brain as voice_brain
-from think.voice.runtime import stop_all_voice_runtime
 
-
-@pytest.fixture(autouse=True)
-def set_test_journal_path(request, monkeypatch):
-    """Set _SOLSTONE_JOURNAL_OVERRIDE to tests/fixtures/journal for all unit tests.
-
-    This ensures all tests have a valid _SOLSTONE_JOURNAL_OVERRIDE without needing
-    to explicitly set it in each test. Integration tests are excluded.
-    """
-    # Skip for integration tests - they may have different requirements
-    if "integration" in request.node.keywords:
-        return
-
-    # Set _SOLSTONE_JOURNAL_OVERRIDE to tests/fixtures/journal for all unit tests
-    monkeypatch.setenv(
-        "_SOLSTONE_JOURNAL_OVERRIDE",
-        str(Path("tests/fixtures/journal").resolve()),
-    )
-    monkeypatch.setenv("SOL_SKIP_SUPERVISOR_CHECK", "1")
-
-
-@pytest.fixture(autouse=True)
-def _clear_entity_caches(request):
-    """Clear all entity caches before/after each test."""
-    if "integration" in request.node.keywords:
-        yield
-        return
-    clear_entity_loading_cache()
-    clear_journal_entity_cache()
-    clear_relationship_caches()
-    clear_observation_cache()
-    yield
-    clear_entity_loading_cache()
-    clear_journal_entity_cache()
-    clear_relationship_caches()
-    clear_observation_cache()
-
-
-@pytest.fixture(autouse=True)
-def _cleanup_voice_runtime():
-    yield
-    stop_all_voice_runtime()
-    voice_brain.clear_brain_state()
-
-
-@pytest.fixture(autouse=True)
-def _cleanup_push_runtime():
-    yield
-    stop_all_push_runtime()
-
-
-@pytest.fixture(autouse=True)
-def _cleanup_chat_runtime():
-    yield
-    stop_all_chat_runtime()
-
-
-@pytest.fixture
-def journal_copy(tmp_path, monkeypatch):
-    """Copy git-tracked fixture files to tmp_path for mutation tests."""
-    src = Path(__file__).resolve().parent / "fixtures" / "journal"
-    dst = tmp_path / "journal"
-    copytree_tracked(src, dst)
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(dst.resolve()))
-    return dst
-
-
-@pytest.fixture(autouse=True)
-def add_module_stubs(request, monkeypatch):
-    # Skip stubbing for integration tests
-    if "integration" in request.node.keywords:
-        return
-
-    # stub heavy modules used by think.indexer
+def _install_heavy_module_stubs():
     if "usearch.index" not in sys.modules:
         usearch = types.ModuleType("usearch")
         index_mod = types.ModuleType("usearch.index")
@@ -198,6 +116,92 @@ def add_module_stubs(request, monkeypatch):
         dotenv_mod.load_dotenv = load_dotenv
         dotenv_mod.dotenv_values = dotenv_values
         sys.modules["dotenv"] = dotenv_mod
+
+
+from convey.chat import stop_all_chat_runtime
+from tests._baseline_harness import copytree_tracked
+from think.entities.journal import clear_journal_entity_cache
+from think.entities.loading import clear_entity_loading_cache
+from think.entities.observations import clear_observation_cache
+from think.entities.relationships import clear_relationship_caches
+from think.push.runtime import stop_all_push_runtime
+from think.utils import now_ms
+from think.voice import brain as voice_brain
+from think.voice.runtime import stop_all_voice_runtime
+
+
+@pytest.fixture(autouse=True)
+def set_test_journal_path(request, monkeypatch):
+    """Set _SOLSTONE_JOURNAL_OVERRIDE to tests/fixtures/journal for all unit tests.
+
+    This ensures all tests have a valid _SOLSTONE_JOURNAL_OVERRIDE without needing
+    to explicitly set it in each test. Integration tests are excluded.
+    """
+    # Skip for integration tests - they may have different requirements
+    if "integration" in request.node.keywords:
+        return
+
+    # Set _SOLSTONE_JOURNAL_OVERRIDE to tests/fixtures/journal for all unit tests
+    monkeypatch.setenv(
+        "_SOLSTONE_JOURNAL_OVERRIDE",
+        str(Path("tests/fixtures/journal").resolve()),
+    )
+    monkeypatch.setenv("SOL_SKIP_SUPERVISOR_CHECK", "1")
+
+
+@pytest.fixture(autouse=True)
+def _clear_entity_caches(request):
+    """Clear all entity caches before/after each test."""
+    if "integration" in request.node.keywords:
+        yield
+        return
+    clear_entity_loading_cache()
+    clear_journal_entity_cache()
+    clear_relationship_caches()
+    clear_observation_cache()
+    yield
+    clear_entity_loading_cache()
+    clear_journal_entity_cache()
+    clear_relationship_caches()
+    clear_observation_cache()
+
+
+@pytest.fixture(autouse=True)
+def _cleanup_voice_runtime():
+    yield
+    stop_all_voice_runtime()
+    voice_brain.clear_brain_state()
+
+
+@pytest.fixture(autouse=True)
+def _cleanup_push_runtime():
+    yield
+    stop_all_push_runtime()
+
+
+@pytest.fixture(autouse=True)
+def _cleanup_chat_runtime():
+    yield
+    stop_all_chat_runtime()
+
+
+@pytest.fixture
+def journal_copy(tmp_path, monkeypatch):
+    """Copy git-tracked fixture files to tmp_path for mutation tests."""
+    src = Path(__file__).resolve().parent / "fixtures" / "journal"
+    dst = tmp_path / "journal"
+    copytree_tracked(src, dst)
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(dst.resolve()))
+    return dst
+
+
+@pytest.fixture(autouse=True)
+def add_module_stubs(request, monkeypatch):
+    # Skip stubbing for integration tests
+    if "integration" in request.node.keywords:
+        return
+
+    _install_heavy_module_stubs()
     # Import real observe package first to avoid shadowing with stubs
     if "observe" not in sys.modules:
         importlib.import_module("observe")
