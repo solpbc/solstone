@@ -85,10 +85,12 @@ def _time_to_seconds(t) -> int:
     return t.hour * 3600 + t.minute * 60 + t.second
 
 
-def _load_embeddings_file(npz_path: Path) -> tuple[np.ndarray, np.ndarray] | None:
-    """Load embeddings and statement_ids from NPZ file.
+def _load_embeddings_file(
+    npz_path: Path,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray | None] | None:
+    """Load embeddings, statement_ids, and optional durations from NPZ file.
 
-    Returns tuple of (embeddings, statement_ids) or None if file is invalid.
+    Returns tuple of (embeddings, statement_ids, durations_s) or None if file is invalid.
     """
     if not npz_path.exists():
         return None
@@ -97,11 +99,12 @@ def _load_embeddings_file(npz_path: Path) -> tuple[np.ndarray, np.ndarray] | Non
         data = np.load(npz_path)
         embeddings = data.get("embeddings")
         statement_ids = data.get("statement_ids")
+        durations_s = data.get("durations_s")
 
         if embeddings is None or statement_ids is None:
             return None
 
-        return embeddings, statement_ids
+        return embeddings, statement_ids, durations_s
     except Exception as e:
         logger.warning("Failed to load embeddings %s: %s", npz_path, e)
         return None
@@ -418,7 +421,7 @@ def _scan_segment_embeddings(day: str) -> list[dict]:
 
 def _load_sentences(
     day: str, segment_key: str, source: str, stream: str | None = None
-) -> tuple[list[dict], tuple[np.ndarray, np.ndarray] | None]:
+) -> tuple[list[dict], tuple[np.ndarray, np.ndarray, np.ndarray | None] | None]:
     """Load transcript sentences and their embeddings for an audio source.
 
     Args:
@@ -430,7 +433,7 @@ def _load_sentences(
     Returns:
         Tuple of (sentences, emb_data):
         - sentences: List of dicts with id, offset, text, has_embedding
-        - emb_data: Tuple of (embeddings, statement_ids) or None if no embeddings
+        - emb_data: Tuple of (embeddings, statement_ids, durations_s) or None if no embeddings
     """
     if stream:
         segment_dir = get_segment_path(day, segment_key, stream, create=False)
@@ -478,7 +481,7 @@ def _load_sentences(
     emb_data = _load_embeddings_file(npz_path)
 
     if emb_data is not None:
-        embeddings, statement_ids = emb_data
+        embeddings, statement_ids, _ = emb_data
         emb_map = {int(sid): True for sid in statement_ids}
 
         # Mark which sentences have embeddings
@@ -502,7 +505,7 @@ def _get_sentence_embedding(
     if emb_data is None:
         return None
 
-    embeddings, statement_ids = emb_data
+    embeddings, statement_ids, _ = emb_data
 
     # Find the embedding for this sentence
     for i, sid in enumerate(statement_ids):
@@ -1111,6 +1114,16 @@ def api_owner_status() -> Any:
                 "status": "candidate",
                 "cluster_size": voiceprint.get("cluster_size"),
                 "samples": voiceprint.get("samples", []),
+            }
+        )
+
+    if status == "low_quality":
+        return jsonify(
+            {
+                "status": "low_quality",
+                "low_quality_reason": voiceprint.get("low_quality_reason", ""),
+                "observed_value": voiceprint.get("observed_value", 0.0),
+                "threshold_value": voiceprint.get("threshold_value", 0.0),
             }
         )
 

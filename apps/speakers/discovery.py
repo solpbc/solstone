@@ -128,7 +128,7 @@ def discover_unknown_speakers() -> dict[str, Any]:
                 if emb_data is None:
                     continue
 
-                embeddings, statement_ids = emb_data
+                embeddings, statement_ids, _ = emb_data
                 if len(embeddings) == 0:
                     continue
 
@@ -390,7 +390,7 @@ def identify_cluster(
         if emb_data is None:
             continue
 
-        embeddings, statement_ids = emb_data
+        embeddings, statement_ids, _ = emb_data
         emb_vec = None
         for emb, sid in zip(embeddings, statement_ids):
             if int(sid) == sentence_id:

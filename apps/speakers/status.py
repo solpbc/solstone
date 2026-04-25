@@ -84,6 +84,12 @@ def _owner_section() -> dict[str, Any]:
         result["detected_at"] = voiceprint.get("detected_at")
         result["streams_represented"] = voiceprint.get("streams_represented")
         result["recommendation"] = voiceprint.get("recommendation")
+    elif status == "low_quality":
+        result["low_quality_reason"] = voiceprint.get("low_quality_reason", "")
+        result["observed_value"] = voiceprint.get("observed_value", 0.0)
+        result["threshold_value"] = voiceprint.get("threshold_value", 0.0)
+        result["segments_checked"] = voiceprint.get("segments_checked", 0)
+        result["attempted_at"] = voiceprint.get("attempted_at", "")
     elif status == "no_cluster":
         result["segments_checked"] = voiceprint.get("segments_checked")
         result["attempted_at"] = voiceprint.get("attempted_at")

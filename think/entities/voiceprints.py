@@ -85,7 +85,7 @@ def save_voiceprints_batch(
                 existing_emb = data["embeddings"]
                 existing_meta_strings = data["metadata"]
                 existing_meta_dicts = [json.loads(m) for m in existing_meta_strings]
-        except (FileNotFoundError, ValueError, np.lib.npyio.NpzFile) as exc:
+        except (FileNotFoundError, OSError, ValueError) as exc:
             logger.warning(
                 "Failed to load existing voiceprints for %s from %s: %s. Starting fresh.",
                 entity_id,
@@ -141,6 +141,7 @@ def save_voiceprints_safely(
     """Safely save a voiceprint NPZ with file locking and integrity check."""
     lock_path = npz_path.with_suffix(".lock")
     tmp_path = npz_path.with_name(npz_path.stem + ".tmp.npz")
+    metadata_json = np.asarray([json.dumps(item) for item in metadata], dtype=str)
 
     npz_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -151,7 +152,7 @@ def save_voiceprints_safely(
                 np.savez_compressed(
                     tmp_path,
                     embeddings=embeddings,
-                    metadata=metadata,
+                    metadata=metadata_json,
                 )
                 if not tmp_path.exists():
                     raise FileNotFoundError(

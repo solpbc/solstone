@@ -18,7 +18,12 @@ from apps.speakers.suggest import (
 
 
 def create_meetings_md(env, day: str, content: str) -> Path:
-    meetings_path = env.journal / day / "talents" / "meetings.md"
+    chronicle_day = env.journal / "chronicle" / day
+    chronicle_day.mkdir(parents=True, exist_ok=True)
+    flat_day = env.journal / day
+    if not flat_day.exists():
+        flat_day.symlink_to(chronicle_day, target_is_directory=True)
+    meetings_path = chronicle_day / "talents" / "meetings.md"
     meetings_path.parent.mkdir(parents=True, exist_ok=True)
     meetings_path.write_text(content, encoding="utf-8")
     return meetings_path

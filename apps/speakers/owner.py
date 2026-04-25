@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from datetime import datetime
 from pathlib import Path
@@ -13,6 +14,12 @@ from typing import Any
 import numpy as np
 from sklearn.cluster import HDBSCAN
 
+from apps.speakers.encoder_config import (
+    OWNER_BOOTSTRAP_MIN_INTRA_COSINE_P25,
+    OWNER_BOOTSTRAP_MIN_MEDIAN_DURATION_S,
+    OWNER_BOOTSTRAP_MIN_STMTS,
+    OWNER_THRESHOLD,
+)
 from think.awareness import update_state
 from think.entities.journal import get_journal_principal, journal_entity_memory_path
 from think.utils import day_dirs, get_journal, segment_path
@@ -20,7 +27,6 @@ from think.utils import day_dirs, get_journal, segment_path
 logger = logging.getLogger(__name__)
 
 MAX_EMBEDDINGS = 30000
-OWNER_THRESHOLD = 0.82
 
 
 def _mark_no_cluster(segment_count: int) -> None:
@@ -33,6 +39,66 @@ def _mark_no_cluster(segment_count: int) -> None:
             "attempted_at": _iso_now(),
         },
     )
+
+
+def _mark_low_quality(
+    reason: str, observed: float, threshold: float, segment_count: int
+) -> None:
+    """Record that detection found a cluster, but it failed quality gates."""
+    update_state(
+        "voiceprint",
+        {
+            "status": "low_quality",
+            "low_quality_reason": reason,
+            "observed_value": float(observed),
+            "threshold_value": float(threshold),
+            "segments_checked": int(segment_count),
+            "attempted_at": _iso_now(),
+        },
+    )
+
+
+def _bail_low_quality(
+    reason: str,
+    observed: float,
+    threshold: float,
+    segment_count: int,
+    embeddings_count: int,
+) -> dict[str, Any]:
+    """Record and return a locked low-quality owner detection result."""
+    _mark_low_quality(reason, observed, threshold, segment_count)
+    return {
+        "status": "low_quality",
+        "recommendation": "low_quality",
+        "segments_available": int(segment_count),
+        "embeddings_available": int(embeddings_count),
+        "low_quality_reason": reason,
+        "observed_value": float(observed),
+        "threshold_value": float(threshold),
+    }
+
+
+def _pairwise_cosines(embeddings: np.ndarray) -> np.ndarray:
+    """Return pairwise cosine similarities for a cluster of embeddings."""
+    n = embeddings.shape[0]
+    if n < 2:
+        return np.empty(0, dtype=np.float32)
+    norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
+    norms = np.where(norms < 1e-9, 1.0, norms)
+    e_norm = embeddings / norms
+    if n > 5000:
+        rng = np.random.default_rng(seed=0)
+        i = rng.integers(0, n, size=1000)
+        j = rng.integers(0, n, size=1000)
+        mask = i != j
+        i = i[mask]
+        j = j[mask]
+        return np.einsum("ij,ij->i", e_norm[i], e_norm[j]).astype(
+            np.float32, copy=False
+        )
+    sim = e_norm @ e_norm.T
+    iu = np.triu_indices(n, k=1)
+    return sim[iu].astype(np.float32, copy=False)
 
 
 def _routes_helpers():
@@ -61,6 +127,43 @@ def _iso_now() -> str:
 def _audio_url(day: str, stream: str, segment_key: str, source: str) -> str:
     """Build the existing speakers audio-serving URL for a sample."""
     return f"/app/speakers/api/serve_audio/{day}/{stream}/{segment_key}/{source}.flac"
+
+
+def _fallback_statement_durations(jsonl_path: Path) -> dict[int, float | None]:
+    """Estimate statement durations from adjacent transcript start times."""
+    if not jsonl_path.exists():
+        return {}
+
+    starts: list[tuple[int, int]] = []
+    try:
+        with open(jsonl_path, encoding="utf-8") as f:
+            lines = f.readlines()
+    except OSError:
+        return {}
+
+    for sentence_id, line in enumerate(lines[1:], start=1):
+        try:
+            entry = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        start = entry.get("start")
+        if not isinstance(start, str):
+            continue
+        try:
+            hours, minutes, seconds = (int(part) for part in start.split(":", 2))
+        except ValueError:
+            continue
+        starts.append((sentence_id, hours * 3600 + minutes * 60 + seconds))
+
+    durations: dict[int, float | None] = {}
+    for idx, (sentence_id, start_seconds) in enumerate(starts):
+        next_start = starts[idx + 1][1] if idx + 1 < len(starts) else None
+        # Why: older transcript JSONL files only persist statement starts, so
+        # we estimate legacy durations from adjacent sentence boundaries.
+        durations[sentence_id] = (
+            None if next_start is None else float(next_start - start_seconds)
+        )
+    return durations
 
 
 def count_segments_with_embeddings() -> int:
@@ -147,10 +250,15 @@ def detect_owner_candidate() -> dict[str, Any]:
                 if emb_data is None:
                     continue
 
-                embeddings, statement_ids = emb_data
+                embeddings, statement_ids, durations_data = emb_data
                 if len(embeddings) == 0:
                     continue
 
+                fallback_durations = (
+                    {}
+                    if durations_data is not None
+                    else _fallback_statement_durations(segment_dir / f"{source}.jsonl")
+                )
                 embedding_chunks.append(embeddings.astype(np.float32))
                 provenance.extend(
                     {
@@ -159,8 +267,13 @@ def detect_owner_candidate() -> dict[str, Any]:
                         "segment_key": segment_key,
                         "source": source,
                         "sentence_id": int(sid),
+                        "duration_s": (
+                            float(durations_data[idx])
+                            if durations_data is not None
+                            else fallback_durations.get(int(sid))
+                        ),
                     }
-                    for sid in statement_ids
+                    for idx, sid in enumerate(statement_ids)
                 )
 
     if not embedding_chunks:
@@ -214,17 +327,60 @@ def detect_owner_candidate() -> dict[str, Any]:
         }
 
     cluster_embeddings = embeddings_matrix[cluster_indices]
+    cluster_size = int(len(cluster_indices))
+    embeddings_count = int(embeddings_matrix.shape[0])
+
+    if cluster_size < OWNER_BOOTSTRAP_MIN_STMTS:
+        return _bail_low_quality(
+            "too_few_stmts",
+            observed=cluster_size,
+            threshold=OWNER_BOOTSTRAP_MIN_STMTS,
+            segment_count=segment_count,
+            embeddings_count=embeddings_count,
+        )
+
+    cluster_durations = [
+        provenance[int(i)]["duration_s"]
+        for i in cluster_indices
+        if provenance[int(i)].get("duration_s") is not None
+    ]
+    if not cluster_durations:
+        median_duration = 0.0
+    else:
+        median_duration = float(np.median(cluster_durations))
+    if median_duration < OWNER_BOOTSTRAP_MIN_MEDIAN_DURATION_S:
+        return _bail_low_quality(
+            "median_duration_too_short",
+            observed=median_duration,
+            threshold=OWNER_BOOTSTRAP_MIN_MEDIAN_DURATION_S,
+            segment_count=segment_count,
+            embeddings_count=embeddings_count,
+        )
+
+    intra_cosines = _pairwise_cosines(cluster_embeddings)
+    if intra_cosines.size == 0:
+        intra_p25 = 0.0
+    else:
+        intra_p25 = float(np.percentile(intra_cosines, 25))
+    if intra_p25 < OWNER_BOOTSTRAP_MIN_INTRA_COSINE_P25:
+        return _bail_low_quality(
+            "cluster_too_diffuse",
+            observed=intra_p25,
+            threshold=OWNER_BOOTSTRAP_MIN_INTRA_COSINE_P25,
+            segment_count=segment_count,
+            embeddings_count=embeddings_count,
+        )
+
     centroid = normalize_embedding(np.mean(cluster_embeddings, axis=0))
     if centroid is None:
         _mark_no_cluster(segment_count)
         return {
             "status": "no_clusters",
             "segments_available": segment_count,
-            "embeddings_available": int(len(embeddings_matrix)),
+            "embeddings_available": embeddings_count,
             "recommendation": "no_clusters",
         }
 
-    cluster_size = int(len(cluster_indices))
     cluster_streams = {provenance[int(i)]["stream"] for i in cluster_indices}
     streams_represented = len(cluster_streams)
     recommendation = "ready" if streams_represented > 1 else "single_stream"
@@ -347,7 +503,7 @@ def classify_sentences(
     if emb_data is None:
         return []
 
-    embeddings, statement_ids = emb_data
+    embeddings, statement_ids, _ = emb_data
     results = []
     for embedding, statement_id in zip(embeddings, statement_ids):
         normalized = normalize_embedding(embedding)

@@ -155,7 +155,7 @@ def bootstrap_voiceprints(dry_run: bool = False) -> dict[str, Any]:
                 if emb_data is None:
                     continue
 
-                embeddings, statement_ids = emb_data
+                embeddings, statement_ids, _ = emb_data
 
                 for embedding, sid in zip(embeddings, statement_ids):
                     sentence_id = int(sid)
@@ -646,7 +646,7 @@ def seed_from_imports(dry_run: bool = False) -> dict[str, Any]:
                 if emb_data is None:
                     continue
 
-                embeddings, statement_ids = emb_data
+                embeddings, statement_ids, _ = emb_data
 
                 for embedding, sid in zip(embeddings, statement_ids):
                     sentence_id = int(sid)

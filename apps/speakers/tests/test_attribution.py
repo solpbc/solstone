@@ -43,42 +43,13 @@ def _write_controlled_segment(
     source: str = "mic_audio",
 ) -> Path:
     """Write a segment with specific embeddings."""
-    seg_dir = env.journal / day / STREAM / segment_key
-    seg_dir.mkdir(parents=True, exist_ok=True)
-
-    # NPZ
-    statement_ids = np.arange(1, len(embeddings) + 1, dtype=np.int32)
-    np.savez_compressed(
-        seg_dir / f"{source}.npz",
-        embeddings=embeddings.astype(np.float32),
-        statement_ids=statement_ids,
+    return env.create_segment(
+        day,
+        segment_key,
+        [source],
+        stream=STREAM,
+        embeddings=embeddings,
     )
-
-    # JSONL transcript
-    time_part = segment_key.split("_")[0]
-    base_h, base_m, base_s = (
-        int(time_part[:2]),
-        int(time_part[2:4]),
-        int(time_part[4:6]),
-    )
-    base_seconds = base_h * 3600 + base_m * 60 + base_s
-
-    lines = [json.dumps({"raw": f"{source}.flac", "model": "medium.en"})]
-    for idx in range(len(embeddings)):
-        t = base_seconds + idx * 5
-        h, m, s = t // 3600, (t % 3600) // 60, t % 60
-        lines.append(
-            json.dumps(
-                {
-                    "start": f"{h:02d}:{m:02d}:{s:02d}",
-                    "text": f"Sentence {idx + 1} text.",
-                }
-            )
-        )
-    (seg_dir / f"{source}.jsonl").write_text("\n".join(lines) + "\n")
-    (seg_dir / f"{source}.flac").write_bytes(b"")
-
-    return seg_dir
 
 
 # ---------------------------------------------------------------------------

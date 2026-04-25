@@ -25,16 +25,25 @@ def _write_segment(
     segment_key: str,
     source: str,
     embeddings: np.ndarray,
+    *,
+    durations_s: np.ndarray | None = None,
 ) -> Path:
-    segment_dir = journal / day / stream / segment_key
+    chronicle_day = journal / "chronicle" / day
+    chronicle_day.mkdir(parents=True, exist_ok=True)
+    flat_day = journal / day
+    if not flat_day.exists():
+        flat_day.symlink_to(chronicle_day, target_is_directory=True)
+    segment_dir = chronicle_day / stream / segment_key
     segment_dir.mkdir(parents=True, exist_ok=True)
 
     statement_ids = np.arange(1, len(embeddings) + 1, dtype=np.int32)
-    np.savez_compressed(
-        segment_dir / f"{source}.npz",
-        embeddings=np.asarray(embeddings, dtype=np.float32),
-        statement_ids=statement_ids,
-    )
+    npz_kwargs = {
+        "embeddings": np.asarray(embeddings, dtype=np.float32),
+        "statement_ids": statement_ids,
+    }
+    if durations_s is not None:
+        npz_kwargs["durations_s"] = np.asarray(durations_s, dtype=np.float32)
+    np.savez_compressed(segment_dir / f"{source}.npz", **npz_kwargs)
 
     time_part = segment_key.split("_")[0]
     base_h = int(time_part[0:2])
@@ -183,6 +192,136 @@ def test_detect_owner_basic(speakers_env):
     assert get_current()["voiceprint"]["status"] == "candidate"
 
 
+def test_low_quality_too_few_stmts(speakers_env, monkeypatch):
+    import apps.speakers.owner as owner_module
+    from apps.speakers.owner import detect_owner_candidate
+
+    def stub_hdbscan(labels: np.ndarray):
+        class StubHDBSCAN:
+            def __init__(self, **kwargs):
+                self.labels_ = np.asarray(labels, dtype=np.int32)
+
+            def fit(self, embeddings: np.ndarray):
+                assert embeddings.shape[0] == len(self.labels_)
+                return self
+
+        return StubHDBSCAN
+
+    env = speakers_env()
+    rng = np.random.default_rng(0)
+    embeddings = _owner_embeddings(60, rng)
+    _write_segment(
+        env.journal,
+        "20240101",
+        "mic",
+        "090000_300",
+        "audio",
+        embeddings,
+        durations_s=np.full(60, 2.0, dtype=np.float32),
+    )
+
+    labels = np.concatenate(
+        [
+            np.zeros(29, dtype=np.int32),
+            np.full(31, -1, dtype=np.int32),
+        ]
+    )
+    monkeypatch.setattr(owner_module, "HDBSCAN", stub_hdbscan(labels))
+
+    result = detect_owner_candidate()
+
+    assert result["status"] == "low_quality"
+    assert result["recommendation"] == "low_quality"
+    assert result["low_quality_reason"] == "too_few_stmts"
+    assert get_current()["voiceprint"]["status"] == "low_quality"
+    assert not _candidate_path(env.journal).exists()
+
+
+def test_low_quality_median_duration_too_short(speakers_env, monkeypatch):
+    import apps.speakers.owner as owner_module
+    from apps.speakers.owner import detect_owner_candidate
+
+    def stub_hdbscan(labels: np.ndarray):
+        class StubHDBSCAN:
+            def __init__(self, **kwargs):
+                self.labels_ = np.asarray(labels, dtype=np.int32)
+
+            def fit(self, embeddings: np.ndarray):
+                assert embeddings.shape[0] == len(self.labels_)
+                return self
+
+        return StubHDBSCAN
+
+    env = speakers_env()
+    rng = np.random.default_rng(1)
+    embeddings = _owner_embeddings(60, rng)
+    _write_segment(
+        env.journal,
+        "20240101",
+        "mic",
+        "090000_300",
+        "audio",
+        embeddings,
+        durations_s=np.full(60, 1.0, dtype=np.float32),
+    )
+
+    monkeypatch.setattr(
+        owner_module, "HDBSCAN", stub_hdbscan(np.zeros(60, dtype=np.int32))
+    )
+
+    result = detect_owner_candidate()
+
+    assert result["status"] == "low_quality"
+    assert result["recommendation"] == "low_quality"
+    assert result["low_quality_reason"] == "median_duration_too_short"
+    assert result["observed_value"] < 1.5
+    assert get_current()["voiceprint"]["status"] == "low_quality"
+    assert not _candidate_path(env.journal).exists()
+
+
+def test_low_quality_cluster_too_diffuse(speakers_env, monkeypatch):
+    import apps.speakers.owner as owner_module
+    from apps.speakers.owner import detect_owner_candidate
+
+    def stub_hdbscan(labels: np.ndarray):
+        class StubHDBSCAN:
+            def __init__(self, **kwargs):
+                self.labels_ = np.asarray(labels, dtype=np.int32)
+
+            def fit(self, embeddings: np.ndarray):
+                assert embeddings.shape[0] == len(self.labels_)
+                return self
+
+        return StubHDBSCAN
+
+    env = speakers_env()
+    rng = np.random.default_rng(0)
+    template = np.ones((60, 256), dtype=np.float32)
+    embeddings = template + rng.normal(scale=2.0, size=(60, 256)).astype(np.float32)
+    _write_segment(
+        env.journal,
+        "20240101",
+        "mic",
+        "090000_300",
+        "audio",
+        embeddings,
+        durations_s=np.full(60, 1.6, dtype=np.float32),
+    )
+
+    monkeypatch.setattr(
+        owner_module, "HDBSCAN", stub_hdbscan(np.zeros(60, dtype=np.int32))
+    )
+
+    result = detect_owner_candidate()
+
+    assert result["status"] == "low_quality"
+    assert result["recommendation"] == "low_quality"
+    assert result["low_quality_reason"] == "cluster_too_diffuse"
+    assert result["observed_value"] < 0.30
+    assert get_current()["voiceprint"]["status"] == "low_quality"
+    assert not _candidate_path(env.journal).exists()
+
+
 def test_load_owner_centroid_no_principal(speakers_env):
     from apps.speakers.owner import load_owner_centroid
 
@@ -321,6 +460,36 @@ def test_api_owner_status_candidate(speakers_env):
     assert response.get_json()["status"] == "candidate"
 
 
+def test_api_owner_status_low_quality(speakers_env):
+    from apps.speakers.routes import speakers_bp
+
+    speakers_env()
+    update_state(
+        "voiceprint",
+        {
+            "status": "low_quality",
+            "low_quality_reason": "too_few_stmts",
+            "observed_value": 5,
+            "threshold_value": 30,
+            "segments_checked": 1,
+            "attempted_at": "2026-03-15T12:00:00",
+        },
+    )
+    app = Flask(__name__)
+    app.register_blueprint(speakers_bp)
+
+    with app.test_client() as client:
+        response = client.get("/app/speakers/api/owner/status")
+
+    assert response.status_code == 200
+    assert response.get_json() == {
+        "status": "low_quality",
+        "low_quality_reason": "too_few_stmts",
+        "observed_value": 5,
+        "threshold_value": 30,
+    }
+
+
 def test_api_owner_status_no_cluster(speakers_env):
     from apps.speakers.routes import speakers_bp
 
@@ -375,6 +544,7 @@ def test_api_owner_classify_no_centroid(speakers_env):
 
 
 def test_api_owner_confirm(speakers_env):
+    from apps.speakers.owner import OWNER_THRESHOLD
     from apps.speakers.routes import speakers_bp
 
     env = speakers_env()
@@ -386,7 +556,7 @@ def test_api_owner_confirm(speakers_env):
         candidate_path,
         centroid=centroid,
         cluster_size=np.array(88, dtype=np.int32),
-        threshold=np.array(0.82, dtype=np.float32),
+        threshold=np.array(OWNER_THRESHOLD, dtype=np.float32),
         version=np.array("2026-03-15T12:00:00"),
     )
 
@@ -477,7 +647,7 @@ def test_confirm_owner_candidate_no_candidate(speakers_env):
 
 
 def test_confirm_owner_candidate_success(speakers_env):
-    from apps.speakers.owner import confirm_owner_candidate
+    from apps.speakers.owner import OWNER_THRESHOLD, confirm_owner_candidate
 
     env = speakers_env()
     principal_dir = env.create_entity("Self Person", is_principal=True)
@@ -488,7 +658,7 @@ def test_confirm_owner_candidate_success(speakers_env):
         candidate_path,
         centroid=centroid,
         cluster_size=np.array(88, dtype=np.int32),
-        threshold=np.array(0.82, dtype=np.float32),
+        threshold=np.array(OWNER_THRESHOLD, dtype=np.float32),
         version=np.array("2026-03-19T12:00:00"),
     )
 

@@ -17,6 +17,7 @@ from apps.speakers.discovery import (
     discover_unknown_speakers,
     identify_cluster,
 )
+from apps.speakers.owner import OWNER_THRESHOLD
 
 _runner = CliRunner()
 
@@ -61,7 +62,7 @@ def _setup_owner_centroid(
         entity_dir / "owner_centroid.npz",
         centroid=centroid,
         cluster_size=np.array(100, dtype=np.int32),
-        threshold=np.array(0.82, dtype=np.float32),
+        threshold=np.array(OWNER_THRESHOLD, dtype=np.float32),
         version=np.array("2026-01-01T00:00:00"),
     )
     return centroid

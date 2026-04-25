@@ -313,6 +313,7 @@ def _embed_statements(
 
         embeddings = []
         statement_ids = []
+        durations = []
         skipped = 0
 
         for stmt in valid_statements:
@@ -333,6 +334,7 @@ def _embed_statements(
                 emb = session.run([output_name], {input_name: feats[None, :, :]})[0]
                 embeddings.append(emb[0].astype(np.float32))
                 statement_ids.append(stmt["id"])
+                durations.append((end_sample - start_sample) / SAMPLE_RATE)
             except Exception:
                 logging.exception(
                     "wespeaker embedding failed for statement %s", stmt["id"]
@@ -354,6 +356,7 @@ def _embed_statements(
         return {
             "embeddings": np.stack(embeddings, axis=0).astype(np.float32),
             "statement_ids": np.asarray(statement_ids, dtype=np.int32),
+            "durations_s": np.asarray(durations, dtype=np.float32),
             "encoder": np.array(EMBEDDER_NAME),
         }
 

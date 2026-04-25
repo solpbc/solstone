@@ -121,9 +121,10 @@ def test_load_sentences(speakers_env):
     assert sentences[0]["has_embedding"] is True
 
     assert emb_data is not None
-    embeddings, statement_ids = emb_data
+    embeddings, statement_ids, durations_s = emb_data
     assert embeddings.shape == (3, 256)
     assert len(statement_ids) == 3
+    assert durations_s is None
 
 
 def test_load_sentences_no_transcript(speakers_env):
@@ -293,9 +294,37 @@ def test_load_embeddings_file(speakers_env):
     result = _load_embeddings_file(npz_path)
 
     assert result is not None
-    embeddings, statement_ids = result
+    embeddings, statement_ids, durations_s = result
     assert embeddings.shape == (3, 256)
     assert len(statement_ids) == 3
+    assert durations_s is None
+
+
+def test_load_embeddings_file_with_durations(speakers_env):
+    """Test loading embeddings from NPZ file with durations."""
+    from apps.speakers.routes import _load_embeddings_file
+
+    env = speakers_env()
+    embeddings = np.eye(3, 256, dtype=np.float32)
+    statement_ids = np.arange(1, 4, dtype=np.int32)
+    durations_s = np.array([1.6, 2.1, 2.8], dtype=np.float32)
+    npz_path = env.journal / "20240101" / "test" / "143022_300" / "mic_audio.npz"
+    npz_path.parent.mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(
+        npz_path,
+        embeddings=embeddings,
+        statement_ids=statement_ids,
+        durations_s=durations_s,
+    )
+
+    result = _load_embeddings_file(npz_path)
+
+    assert result is not None
+    loaded_embeddings, loaded_ids, loaded_durations = result
+    assert loaded_embeddings.shape == (3, 256)
+    assert np.array_equal(loaded_ids, statement_ids)
+    assert loaded_durations is not None
+    assert np.allclose(loaded_durations, durations_s)
 
 
 def test_load_embeddings_file_not_found():

@@ -6,7 +6,7 @@
 Runs per-segment after transcription and embedding.  Operates in layers
 from cheapest to most expensive:
 
-Layer 1: Owner separation (cosine similarity to owner centroid >= 0.82)
+Layer 1: Owner separation (cosine similarity to owner centroid passes Layer 1)
 Layer 2: Structural heuristics (speaker count, setting field, screen.md,
          meetings.md) — no LLM
 Layer 3: Acoustic matching (voiceprint cosine similarity, same-stream
@@ -28,6 +28,7 @@ from typing import Any
 
 import numpy as np
 
+from apps.speakers.encoder_config import ACOUSTIC_HIGH, ACOUSTIC_MEDIUM
 from apps.speakers.owner import load_owner_centroid
 from think.entities import find_matching_entity
 from think.entities.journal import (
@@ -38,10 +39,6 @@ from think.entities.journal import (
 from think.utils import day_path, now_ms, segment_path
 
 logger = logging.getLogger(__name__)
-
-# Acoustic matching thresholds (from spec)
-ACOUSTIC_HIGH = 0.70
-ACOUSTIC_MEDIUM = 0.50
 
 
 def _routes_helpers():
@@ -235,7 +232,7 @@ def attribute_segment(
     if emb_data is None:
         return {"labels": [], "unmatched": [], "source": source, "metadata": {}}
 
-    embeddings, statement_ids = emb_data
+    embeddings, statement_ids, _ = emb_data
     if len(embeddings) == 0:
         return {"labels": [], "unmatched": [], "source": source, "metadata": {}}
 
@@ -538,11 +535,11 @@ def accumulate_voiceprints(
 
     Eligibility:
     - Layer 2 structural attributions (high confidence)
-    - Layer 3 acoustic attributions with confidence "high" (>= 0.7)
+    - Layer 3 acoustic attributions with confidence "high"
 
     Guards:
     - Owner contamination: never save embeddings with owner similarity
-      >= OWNER_THRESHOLD to non-owner voiceprints
+      above the owner threshold to non-owner voiceprints
     - Idempotent: checks existing voiceprint keys before saving
 
     Returns dict mapping entity_id -> number of new embeddings saved.
@@ -569,7 +566,7 @@ def accumulate_voiceprints(
     if emb_data is None:
         return {}
 
-    embeddings, statement_ids = emb_data
+    embeddings, statement_ids, _ = emb_data
     sid_to_idx = {int(s): i for i, s in enumerate(statement_ids)}
 
     # Eligible methods for accumulation

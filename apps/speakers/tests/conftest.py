@@ -76,6 +76,7 @@ def speakers_env(tmp_path, monkeypatch):
                 flat_day.symlink_to(chronicle_day, target_is_directory=True)
             flat_dir = flat_day / stream_name / segment_key
             chronicle_dir = chronicle_day / stream_name / segment_key
+            flat_dir.mkdir(parents=True, exist_ok=True)
             chronicle_dir.mkdir(parents=True, exist_ok=True)
             return flat_dir, chronicle_dir
 

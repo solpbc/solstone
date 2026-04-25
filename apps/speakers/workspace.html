@@ -1312,6 +1312,11 @@
           hideOwnerBanner();
           return;
         }
+        if (data.status === 'low_quality') {
+          hideDiscovery();
+          renderOwnerLowQuality(data);
+          return;
+        }
         if (data.status === 'candidate') {
           hideDiscovery();
           renderOwnerCandidate(data);
@@ -1379,6 +1384,17 @@
     });
 
     attachAudioErrorListeners(ownerBanner);
+  }
+
+  function renderOwnerLowQuality(data) {
+    ownerBanner.style.display = 'block';
+    ownerBanner.innerHTML = `
+      <div class="spk-owner-panel">
+        <p class="spk-owner-low-quality-message">
+          Solstone is still learning your voice. Once it has at least 30 longer recordings of you speaking, it will offer a confirmation prompt.
+        </p>
+      </div>
+    `;
   }
 
   function submitOwnerChoice(path) {
