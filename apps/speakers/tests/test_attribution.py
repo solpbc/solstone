@@ -10,6 +10,7 @@ from pathlib import Path
 
 import numpy as np
 
+from apps.speakers.encoder_config import OVERLAP_DETECTOR_ID
 from apps.speakers.owner import OWNER_THRESHOLD
 
 # Test stream name (matches conftest.STREAM)
@@ -50,6 +51,15 @@ def _write_controlled_segment(
         stream=STREAM,
         embeddings=embeddings,
     )
+
+
+def _rewrite_segment_header(seg_dir: Path, source: str, **updates: object) -> None:
+    jsonl_path = seg_dir / f"{source}.jsonl"
+    lines = jsonl_path.read_text(encoding="utf-8").splitlines()
+    header = json.loads(lines[0]) if lines else {}
+    header.update(updates)
+    lines[0] = json.dumps(header)
+    jsonl_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
@@ -461,6 +471,105 @@ def test_accumulate_skips_contextual_method(speakers_env):
     )
 
     assert saved == {}
+
+
+def test_accumulate_voiceprints_skips_chaotic_segment(speakers_env):
+    from apps.speakers.attribution import accumulate_voiceprints
+
+    env = speakers_env()
+    _setup_owner(env)
+    env.create_entity("Bob Smith")
+
+    other_emb = _normalized([0.1, 0.99])
+    seg_dir = _write_controlled_segment(
+        env, "20240101", "090000_300", np.vstack([other_emb])
+    )
+    _rewrite_segment_header(
+        seg_dir,
+        "mic_audio",
+        overlap_fraction=0.20,
+        overlap_detector=OVERLAP_DETECTOR_ID,
+    )
+
+    labels = [
+        {
+            "sentence_id": 1,
+            "speaker": "bob_smith",
+            "confidence": "high",
+            "method": "structural_single_speaker",
+        }
+    ]
+
+    saved = accumulate_voiceprints(
+        "20240101", STREAM, "090000_300", labels, "mic_audio"
+    )
+
+    assert saved == {}
+    vp_path = env.journal / "entities" / "bob_smith" / "voiceprints.npz"
+    assert not vp_path.exists()
+
+
+def test_accumulate_voiceprints_admits_clean_segment(speakers_env):
+    from apps.speakers.attribution import accumulate_voiceprints
+
+    env = speakers_env()
+    _setup_owner(env)
+    env.create_entity("Bob Smith")
+
+    other_emb = _normalized([0.1, 0.99])
+    seg_dir = _write_controlled_segment(
+        env, "20240101", "090000_300", np.vstack([other_emb])
+    )
+    _rewrite_segment_header(
+        seg_dir,
+        "mic_audio",
+        overlap_fraction=0.05,
+        overlap_detector=OVERLAP_DETECTOR_ID,
+    )
+
+    labels = [
+        {
+            "sentence_id": 1,
+            "speaker": "bob_smith",
+            "confidence": "high",
+            "method": "structural_single_speaker",
+        }
+    ]
+
+    saved = accumulate_voiceprints(
+        "20240101", STREAM, "090000_300", labels, "mic_audio"
+    )
+
+    assert saved == {"bob_smith": 1}
+
+
+def test_accumulate_voiceprints_missing_overlap_field_admits(speakers_env):
+    from apps.speakers.attribution import accumulate_voiceprints
+
+    env = speakers_env()
+    _setup_owner(env)
+    env.create_entity("Bob Smith")
+
+    other_emb = _normalized([0.1, 0.99])
+    seg_dir = _write_controlled_segment(
+        env, "20240101", "090000_300", np.vstack([other_emb])
+    )
+    _rewrite_segment_header(seg_dir, "mic_audio")
+
+    labels = [
+        {
+            "sentence_id": 1,
+            "speaker": "bob_smith",
+            "confidence": "high",
+            "method": "structural_single_speaker",
+        }
+    ]
+
+    saved = accumulate_voiceprints(
+        "20240101", STREAM, "090000_300", labels, "mic_audio"
+    )
+
+    assert saved == {"bob_smith": 1}
 
 
 # ---------------------------------------------------------------------------

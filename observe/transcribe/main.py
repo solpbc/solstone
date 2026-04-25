@@ -63,11 +63,16 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from apps.speakers.encoder_config import (
+    OVERLAP_DETECTOR_ID,
+    OVERLAP_DETECTOR_SHA256,
+)
 from observe.transcribe import (
     BACKEND_REGISTRY,
     get_backend,
 )
 from observe.transcribe import transcribe as stt_transcribe
+from observe.transcribe.overlap import compute_overlap_fraction
 from observe.transcribe.whisper import DEFAULT_COMPUTE, DEFAULT_DEVICE, DEFAULT_MODEL
 from observe.utils import SAMPLE_RATE, get_segment_key, load_audio
 from observe.vad import (
@@ -112,11 +117,14 @@ DEFAULT_MIN_SPEECH_SECONDS = 1.0
 MIN_STATEMENT_DURATION = 0.3
 
 # WeSpeaker embedder asset
+ASSETS_DIR = Path(__file__).parent / "assets"
 EMBEDDER_NAME = "wespeaker-resnet34-256"
 WESPEAKER_MODEL_SHA256 = (
     "5ef208a9da1453335308a6b6f4e6dfbd7e183a38b604de0a57664f45d257fe94"
 )
-WESPEAKER_MODEL_PATH = Path(__file__).parent / "assets" / "wespeaker-resnet34-256.onnx"
+WESPEAKER_MODEL_PATH = ASSETS_DIR / "wespeaker-resnet34-256.onnx"
+PYANNOTE_OVERLAP_MODEL_SHA256 = OVERLAP_DETECTOR_SHA256
+PYANNOTE_OVERLAP_MODEL_PATH = ASSETS_DIR / "pyannote-segmentation-3.0.onnx"
 
 # Number of recent entity names to load for transcription context
 ENTITY_NAMES_LIMIT = 40
@@ -376,6 +384,9 @@ def _statements_to_jsonl(
     vad_result: VadResult | None = None,
     segment_meta: dict | None = None,
     backend: str | None = None,
+    *,
+    overlap_fraction: float | None = None,
+    overlap_detector: str | None = None,
 ) -> list[str]:
     """Convert statements to JSONL lines.
 
@@ -419,6 +430,9 @@ def _statements_to_jsonl(
             ratio = vad_result.loud_speech_ratio
             if ratio is not None:
                 metadata["loud_speech_ratio"] = round(ratio, 2)
+    if overlap_fraction is not None and overlap_detector is not None:
+        metadata["overlap_fraction"] = round(float(overlap_fraction), 4)
+        metadata["overlap_detector"] = overlap_detector
 
     # Add enrichment metadata if available
     if enrichment:
@@ -626,6 +640,7 @@ def process_audio(
         # Generate embeddings before timestamp restoration
         # Use reduced audio buffer if available for consistent timestamps
         embeddings_data = _embed_statements(stt_buffer, statements, SAMPLE_RATE)
+        overlap_fraction_value = compute_overlap_fraction(audio_buffer)
 
         # Restore original timestamps if audio was reduced (non-Gemini backends only)
         # Gemini with chunks already has timestamps in original audio time
@@ -649,6 +664,8 @@ def process_audio(
             vad_result,
             segment_meta,
             resolved_backend,
+            overlap_fraction=overlap_fraction_value,
+            overlap_detector=OVERLAP_DETECTOR_ID,
         )
 
         # Write JSONL

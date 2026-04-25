@@ -28,7 +28,12 @@ from typing import Any
 
 import numpy as np
 
-from apps.speakers.encoder_config import ACOUSTIC_HIGH, ACOUSTIC_MEDIUM
+from apps.speakers._overlap import _read_segment_overlap_fraction
+from apps.speakers.encoder_config import (
+    ACOUSTIC_HIGH,
+    ACOUSTIC_MEDIUM,
+    NOISY_FLYWHEEL_OVERLAP_MAX,
+)
 from apps.speakers.owner import load_owner_centroid
 from think.entities import find_matching_entity
 from think.entities.journal import (
@@ -562,6 +567,19 @@ def accumulate_voiceprints(
     owner_centroid, owner_threshold = centroid_data
 
     seg_dir = segment_path(day, segment_key, stream, create=False)
+    jsonl_path = seg_dir / f"{source}.jsonl"
+    overlap_fraction = _read_segment_overlap_fraction(jsonl_path)
+    if overlap_fraction > NOISY_FLYWHEEL_OVERLAP_MAX:
+        logger.info(
+            "flywheel skip: overlap=%.3f exceeds %.2f at %s/%s/%s",
+            overlap_fraction,
+            NOISY_FLYWHEEL_OVERLAP_MAX,
+            day,
+            segment_key,
+            source,
+        )
+        return {}
+
     emb_data = load_embeddings_file(seg_dir / f"{source}.npz")
     if emb_data is None:
         return {}

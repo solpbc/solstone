@@ -54,7 +54,7 @@ USER_BIN := $(HOME)/.local/bin
 		echo "Python 3.14+ detected - installing onnxruntime from nightly feed..."; \
 		$(UV) pip install --pre --no-deps --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/ onnxruntime; \
 	fi
-	@$(VENV_BIN)/python -c "from observe.transcribe.main import WESPEAKER_MODEL_PATH, WESPEAKER_MODEL_SHA256; from observe.utils import compute_file_sha256; actual = compute_file_sha256(WESPEAKER_MODEL_PATH); assert actual == WESPEAKER_MODEL_SHA256, f'WeSpeaker asset hash mismatch: got {actual}, expected {WESPEAKER_MODEL_SHA256}'; print(f'wespeaker asset ok ({actual[:12]}...)')"
+	@$(VENV_BIN)/python -c "from observe.transcribe.main import PYANNOTE_OVERLAP_MODEL_PATH, PYANNOTE_OVERLAP_MODEL_SHA256, WESPEAKER_MODEL_PATH, WESPEAKER_MODEL_SHA256; from observe.utils import compute_file_sha256; actual = compute_file_sha256(WESPEAKER_MODEL_PATH); assert actual == WESPEAKER_MODEL_SHA256, f'WeSpeaker asset hash mismatch: got {actual}, expected {WESPEAKER_MODEL_SHA256}'; print(f'wespeaker asset ok ({actual[:12]}...)'); actual = compute_file_sha256(PYANNOTE_OVERLAP_MODEL_PATH); assert actual == PYANNOTE_OVERLAP_MODEL_SHA256, f'pyannote asset hash mismatch: got {actual}, expected {PYANNOTE_OVERLAP_MODEL_SHA256}'; print(f'pyannote asset ok ({actual[:12]}...)')"
 	@echo "Installing Playwright browser for sol screenshot..."
 	$(VENV_BIN)/playwright install chromium
 	@$(MAKE) --no-print-directory skills

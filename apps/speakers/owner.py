@@ -14,7 +14,9 @@ from typing import Any
 import numpy as np
 from sklearn.cluster import HDBSCAN
 
+from apps.speakers._overlap import _read_segment_overlap_fraction
 from apps.speakers.encoder_config import (
+    NOISY_FLYWHEEL_OVERLAP_MAX,
     OWNER_BOOTSTRAP_MIN_INTRA_COSINE_P25,
     OWNER_BOOTSTRAP_MIN_MEDIAN_DURATION_S,
     OWNER_BOOTSTRAP_MIN_STMTS,
@@ -237,6 +239,7 @@ def detect_owner_candidate() -> dict[str, Any]:
     segment_count = count_segments_with_embeddings()
 
     embedding_chunks: list[np.ndarray] = []
+    overlap_cache: dict[Path, float] = {}
     provenance: list[dict[str, Any]] = []
 
     for day in day_dirs().keys():
@@ -246,6 +249,21 @@ def detect_owner_candidate() -> dict[str, Any]:
             segment_dir = segment_path(day, segment_key, stream)
 
             for source in segment["sources"]:
+                jsonl_path = segment_dir / f"{source}.jsonl"
+                overlap = overlap_cache.setdefault(
+                    jsonl_path, _read_segment_overlap_fraction(jsonl_path)
+                )
+                if overlap > NOISY_FLYWHEEL_OVERLAP_MAX:
+                    logger.info(
+                        "owner bootstrap skip: overlap=%.3f exceeds %.2f at %s/%s/%s",
+                        overlap,
+                        NOISY_FLYWHEEL_OVERLAP_MAX,
+                        day,
+                        segment_key,
+                        source,
+                    )
+                    continue
+
                 emb_data = load_embeddings_file(segment_dir / f"{source}.npz")
                 if emb_data is None:
                     continue

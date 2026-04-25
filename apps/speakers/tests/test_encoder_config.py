@@ -3,6 +3,8 @@
 """Test the constant-import contract for encoder_config."""
 
 from apps.speakers import attribution, encoder_config, owner
+from observe.transcribe.main import OVERLAP_DETECTOR_ID as MAIN_OVERLAP_DETECTOR_ID
+from observe.transcribe.main import PYANNOTE_OVERLAP_MODEL_SHA256
 
 
 def test_locked_constants():
@@ -13,6 +15,9 @@ def test_locked_constants():
     assert encoder_config.OWNER_BOOTSTRAP_MIN_STMTS == 30
     assert encoder_config.OWNER_BOOTSTRAP_MIN_MEDIAN_DURATION_S == 1.5
     assert encoder_config.OWNER_BOOTSTRAP_MIN_INTRA_COSINE_P25 == 0.30
+    assert encoder_config.NOISY_FLYWHEEL_OVERLAP_MAX == 0.10
+    assert encoder_config.OVERLAP_DETECTOR_ID == MAIN_OVERLAP_DETECTOR_ID
+    assert encoder_config.OVERLAP_DETECTOR_SHA256 == PYANNOTE_OVERLAP_MODEL_SHA256
 
 
 def test_attribution_imports_acoustic_constants():

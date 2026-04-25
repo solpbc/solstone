@@ -11,6 +11,7 @@ from pathlib import Path
 import numpy as np
 from flask import Flask
 
+from apps.speakers.encoder_config import OVERLAP_DETECTOR_ID
 from think.awareness import get_current, update_state
 
 
@@ -69,6 +70,15 @@ def _write_segment(
     (segment_dir / f"{source}.jsonl").write_text("\n".join(lines) + "\n")
     (segment_dir / f"{source}.flac").write_bytes(b"")
     return segment_dir
+
+
+def _rewrite_segment_header(segment_dir: Path, source: str, **updates: object) -> None:
+    jsonl_path = segment_dir / f"{source}.jsonl"
+    lines = jsonl_path.read_text(encoding="utf-8").splitlines()
+    header = json.loads(lines[0]) if lines else {}
+    header.update(updates)
+    lines[0] = json.dumps(header)
+    jsonl_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def _owner_embeddings(count: int, rng: np.random.Generator) -> np.ndarray:
@@ -320,6 +330,60 @@ def test_low_quality_cluster_too_diffuse(speakers_env, monkeypatch):
     assert result["observed_value"] < 0.30
     assert get_current()["voiceprint"]["status"] == "low_quality"
     assert not _candidate_path(env.journal).exists()
+
+
+def test_detect_owner_candidate_excludes_chaotic_segments(speakers_env, monkeypatch):
+    import apps.speakers.owner as owner_module
+    from apps.speakers.owner import detect_owner_candidate
+
+    class StubHDBSCAN:
+        def __init__(self, **kwargs):
+            self.labels_ = np.zeros(60, dtype=np.int32)
+
+        def fit(self, embeddings: np.ndarray):
+            assert embeddings.shape[0] == 60
+            return self
+
+    env = speakers_env()
+    rng = np.random.default_rng(2)
+    clean_dir = _write_segment(
+        env.journal,
+        "20240101",
+        "mic",
+        "090000_300",
+        "audio",
+        _owner_embeddings(60, rng),
+        durations_s=np.full(60, 2.0, dtype=np.float32),
+    )
+    _rewrite_segment_header(
+        clean_dir,
+        "audio",
+        overlap_fraction=0.05,
+        overlap_detector=OVERLAP_DETECTOR_ID,
+    )
+
+    chaotic_dir = _write_segment(
+        env.journal,
+        "20240102",
+        "mic",
+        "090000_300",
+        "audio",
+        _owner_embeddings(60, rng),
+        durations_s=np.full(60, 2.0, dtype=np.float32),
+    )
+    _rewrite_segment_header(
+        chaotic_dir,
+        "audio",
+        overlap_fraction=0.20,
+        overlap_detector=OVERLAP_DETECTOR_ID,
+    )
+
+    monkeypatch.setattr(owner_module, "HDBSCAN", StubHDBSCAN)
+
+    result = detect_owner_candidate()
+
+    assert result["status"] == "candidate"
+    assert result["cluster_size"] == 60
 
 
 def test_load_owner_centroid_no_principal(speakers_env):
