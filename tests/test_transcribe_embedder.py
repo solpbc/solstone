@@ -10,6 +10,7 @@ import pytest
 
 from observe.transcribe.main import (
     EMBEDDER_NAME,
+    _compute_wespeaker_features,
     _embed_statements,
     _get_embedder_session,
     _select_onnx_providers,
@@ -40,6 +41,21 @@ def test_embed_synthetic_shape_and_provenance() -> None:
     assert result["embeddings"].dtype == np.float32
     assert result["statement_ids"].tolist() == [1]
     assert result["encoder"].item() == EMBEDDER_NAME
+
+
+def test_compute_wespeaker_features_applies_cmn() -> None:
+    rng = np.random.default_rng(7)
+    audio = (rng.normal(0.0, 0.01, 3 * 16000) + 0.05).astype(np.float32)
+
+    feats = _compute_wespeaker_features(audio, 16000)
+
+    assert feats.shape[0] > 0
+    assert feats.shape[1] == 80
+    np.testing.assert_allclose(
+        feats.mean(axis=0),
+        np.zeros(feats.shape[1], dtype=np.float32),
+        atol=1e-4,
+    )
 
 
 def test_embed_determinism() -> None:
