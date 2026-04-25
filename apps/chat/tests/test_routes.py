@@ -172,6 +172,48 @@ def test_chat_day_renders_all_event_kinds(journal_copy, monkeypatch):
     assert "chat had trouble" in html
 
 
+def test_chat_day_marks_talent_summary_for_markdown_bootstrap(
+    journal_copy, monkeypatch
+):
+    day = "20990102"
+    _set_today(monkeypatch, "20990103")
+    env = _make_env(journal_copy, monkeypatch)
+    append_chat_event(
+        "talent_finished",
+        ts=_ms(2099, 1, 2, 9, 3),
+        use_id="use-md-1",
+        name="search",
+        summary="**done**",
+    )
+    append_chat_event(
+        "talent_errored",
+        ts=_ms(2099, 1, 2, 9, 4),
+        use_id="use-md-2",
+        name="exec",
+        reason="**bad args**",
+    )
+
+    response = env.client.get(f"/app/chat/{day}")
+    html = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert (
+        html.count(
+            '<div class="chat-talent-card-detail '
+            'chat-talent-card-detail--markdown" data-markdown="1">'
+        )
+        == 2
+    )
+    assert (
+        '<div class="chat-talent-card-detail '
+        'chat-talent-card-detail--markdown" data-markdown="1">**done**</div>'
+    ) in html
+    assert (
+        '<div class="chat-talent-card-detail '
+        'chat-talent-card-detail--markdown" data-markdown="1">**bad args**</div>'
+    ) in html
+
+
 def test_chat_event_anchor_ids_are_stable(journal_copy, monkeypatch):
     day = "20990102"
     _set_today(monkeypatch, "20990103")
