@@ -84,6 +84,8 @@ def pre_process(context: dict) -> dict:
     day = _resolve_day(context, trigger_payload)
     template_vars = {
         "digest_contents": "",
+        "identity_self": "",
+        "identity_agency": "",
         "active_talents": "",
         "trigger_context": "",
         "location": "",
@@ -96,6 +98,12 @@ def pre_process(context: dict) -> dict:
         template_vars["digest_contents"] = _load_digest_contents()
     except Exception:
         logger.debug("Digest enrichment failed", exc_info=True)
+
+    try:
+        template_vars["identity_self"] = _load_identity_contents("self.md")
+        template_vars["identity_agency"] = _load_identity_contents("agency.md")
+    except Exception:
+        logger.debug("Identity enrichment failed", exc_info=True)
 
     try:
         tail = read_chat_tail(day, limit=20)
@@ -111,8 +119,10 @@ def pre_process(context: dict) -> dict:
                 {
                     "role": "user",
                     "content": (
-                        f"[talent {trigger_payload['name']} finished: "
-                        f"{trigger_payload['summary']}]"
+                        "[internal follow-up: talent "
+                        f"{trigger_payload['name']} finished. Use this result "
+                        "to answer the owner's pending request with a short "
+                        f"summary. Result: {trigger_payload['summary']}]"
                     ),
                 }
             )
@@ -172,6 +182,13 @@ def _load_digest_contents() -> str:
     if not digest_path.exists():
         return ""
     return digest_path.read_text(encoding="utf-8").strip()
+
+
+def _load_identity_contents(file_name: str) -> str:
+    identity_path = Path(get_journal()) / "identity" / file_name
+    if not identity_path.exists():
+        return ""
+    return identity_path.read_text(encoding="utf-8").strip()
 
 
 def _normalize_trigger(context: dict) -> tuple[str | None, dict[str, Any]]:

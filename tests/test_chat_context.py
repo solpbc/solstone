@@ -9,9 +9,12 @@ from datetime import datetime
 from pathlib import Path
 
 from convey.chat_stream import append_chat_event
+from think.identity import ensure_identity_directory
 
 TEMPLATE_VAR_KEYS = {
     "digest_contents",
+    "identity_self",
+    "identity_agency",
     "active_talents",
     "trigger_context",
     "location",
@@ -211,7 +214,9 @@ def test_chat_context_routine_suggestion_only_counts_owner_messages(
     assert len(save_calls) == 1
 
 
-def test_chat_context_talent_finished_appends_final_user_message(monkeypatch, tmp_path):
+def test_chat_context_talent_finished_appends_internal_followup_message(
+    monkeypatch, tmp_path
+):
     journal = tmp_path / "journal"
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
 
@@ -262,8 +267,40 @@ def test_chat_context_talent_finished_appends_final_user_message(monkeypatch, tm
     assert result["messages"] == [
         {"role": "user", "content": "What happened?"},
         {"role": "assistant", "content": "Looking into it."},
-        {"role": "user", "content": "[talent exec finished: Found the latest notes.]"},
+        {
+            "role": "user",
+            "content": (
+                "[internal follow-up: talent exec finished. Use this result "
+                "to answer the owner's pending request with a short summary. "
+                "Result: Found the latest notes.]"
+            ),
+        },
     ]
+
+
+def test_chat_context_includes_identity_grounding(monkeypatch, tmp_path):
+    journal = tmp_path / "journal"
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    _write_journal_config(journal, {})
+    ensure_identity_directory()
+
+    digest_seed = (journal / "identity" / "digest.md").read_text(encoding="utf-8")
+    assert digest_seed == "not yet generated\n"
+
+    monkeypatch.setattr("think.routines.get_routine_state", lambda: [])
+    monkeypatch.setattr(
+        "think.routines.get_config",
+        lambda: {"_meta": {"suggestions_enabled": False, "suggestions": {}}},
+    )
+    monkeypatch.setattr("think.routines.save_config", lambda config: None)
+
+    result = _load_chat_context_module().pre_process({"day": "20260420"})
+
+    template_vars = _assert_template_vars_result(result)
+    assert template_vars["identity_self"]
+    assert template_vars["identity_agency"]
+    assert template_vars["identity_self"] != digest_seed.strip()
+    assert template_vars["identity_agency"] != digest_seed.strip()
 
 
 def test_chat_context_preserves_save_routines_config_side_effect(monkeypatch, tmp_path):
