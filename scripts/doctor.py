@@ -329,7 +329,7 @@ def sol_importable_check(args: Args) -> CheckResult:
         return make_result(check, "skip", ".venv absent; run make install")
     probe = run_probe(
         check,
-        [str(python_bin), "-c", "import sol"],
+        [str(python_bin), "-c", "from think.sol_cli import main"],
         cwd=Path("/"),
         timeout=2.0,
         allow_nonzero=True,
@@ -339,18 +339,24 @@ def sol_importable_check(args: Args) -> CheckResult:
     if isinstance(probe, CheckResult):
         return probe
     if probe.returncode == 0:
-        return make_result(check, "ok", "import sol succeeded outside repo cwd")
+        return make_result(
+            check,
+            "ok",
+            "from think.sol_cli import main succeeded outside repo cwd",
+        )
     stderr = probe.stderr.strip()
-    if "ModuleNotFoundError: No module named 'sol'" in stderr:
+    if "ModuleNotFoundError: No module named 'think'" in stderr:
         return make_result(
             check,
             "fail",
-            "ModuleNotFoundError: No module named 'sol'",
+            "ModuleNotFoundError: No module named 'think'",
             fix,
         )
     first_line = next((line for line in stderr.splitlines() if line.strip()), "")
     detail = truncate(
-        first_line or f"import sol failed with exit {probe.returncode}", 120
+        first_line
+        or f"from think.sol_cli import main failed with exit {probe.returncode}",
+        120,
     )
     return make_result(check, "fail", detail, fix)
 

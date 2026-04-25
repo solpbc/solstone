@@ -176,6 +176,9 @@ class TestSolImportable:
         )
         result = doctor.sol_importable_check(args(doctor))
         assert result.status == "ok"
+        assert (
+            result.detail == "from think.sol_cli import main succeeded outside repo cwd"
+        )
 
     def test_fail_on_module_not_found(self, doctor, monkeypatch, tmp_path):
         monkeypatch.setattr(doctor, "ROOT", tmp_path)
@@ -187,13 +190,13 @@ class TestSolImportable:
             "run_probe",
             lambda *_args, **_kwargs: doctor.ProbeOutput(
                 "",
-                "Traceback (most recent call last):\nModuleNotFoundError: No module named 'sol'\n",
+                "Traceback (most recent call last):\nModuleNotFoundError: No module named 'think'\n",
                 1,
             ),
         )
         result = doctor.sol_importable_check(args(doctor))
         assert result.status == "fail"
-        assert "ModuleNotFoundError" in result.detail
+        assert result.detail == "ModuleNotFoundError: No module named 'think'"
 
     def test_fail_on_other_exception(self, doctor, monkeypatch, tmp_path):
         monkeypatch.setattr(doctor, "ROOT", tmp_path)
