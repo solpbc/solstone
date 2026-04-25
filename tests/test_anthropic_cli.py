@@ -20,22 +20,21 @@ def _anthropic_provider():
     return importlib.reload(importlib.import_module("think.providers.anthropic"))
 
 
-def _assert_write_mode_bypasses_restrictions(make_runner):
+def _assert_write_mode_bypasses_restrictions(make_runner, config_override=None):
     provider = _anthropic_provider()
     MockCLIRunner = make_runner()
+    config = {"prompt": "hello", "model": "claude-sonnet-4", "write": True}
+    if config_override:
+        config.update(config_override)
     with (
         patch("think.providers.anthropic.CLIRunner", MockCLIRunner),
         patch("think.providers.anthropic.check_cli_binary"),
     ):
-        asyncio.run(
-            provider.run_cogitate(
-                {"prompt": "hello", "model": "claude-sonnet-4", "write": True},
-                lambda e: None,
-            )
-        )
+        asyncio.run(provider.run_cogitate(config, lambda e: None))
     cmd = MockCLIRunner.last_instance.cmd
     assert cmd[cmd.index("--permission-mode") + 1] == "plan"
     assert "--allowedTools" not in cmd
+    return MockCLIRunner.last_instance
 
 
 @pytest.fixture
@@ -409,6 +408,19 @@ class TestRunCogitateCommand:
         cmd = MockCLIRunner.last_instance.cmd
         assert cmd[cmd.index("--permission-mode") + 1] == "plan"
         assert cmd[cmd.index("--allowedTools") + 1] == "Bash(sol *)"
+        system_prompt = cmd[cmd.index("--system-prompt") + 1]
+        assert "through the `Bash` tool" in system_prompt
+        assert "Do not invent or call a tool literally named `sol`." in system_prompt
 
     def test_write_mode_bypasses_restrictions(self):
-        _assert_write_mode_bypasses_restrictions(self._mock_runner)
+        runner = _assert_write_mode_bypasses_restrictions(
+            self._mock_runner,
+            {"system_instruction": "Base system"},
+        )
+        cmd = runner.cmd
+        assert "--system-prompt" in cmd
+        system_prompt = cmd[cmd.index("--system-prompt") + 1]
+        assert system_prompt == "Base system"
+        assert (
+            "Do not invent or call a tool literally named `sol`." not in system_prompt
+        )

@@ -745,7 +745,10 @@ async def run_cogitate(
 
     try:
         # Assemble prompt from config fields
-        prompt_body, system_instruction = assemble_prompt(config)
+        prompt_body, system_instruction = assemble_prompt(
+            config,
+            sol_tool_name="run_shell_command" if not config.get("write") else None,
+        )
 
         # Gemini CLI has no --system-prompt flag; prepend to prompt body
         if system_instruction:

@@ -171,7 +171,10 @@ async def run_cogitate(
     # Note: Start event is emitted by agents.py (unified event ownership)
 
     # Assemble prompt — Codex has no --system-prompt flag, so prepend it
-    prompt_body, system_instruction = assemble_prompt(config)
+    prompt_body, system_instruction = assemble_prompt(
+        config,
+        sol_tool_name="bash" if not config.get("write") else None,
+    )
     if system_instruction:
         prompt_text = system_instruction + "\n\n" + prompt_body
     else:

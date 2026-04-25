@@ -16,6 +16,7 @@ from think.providers.cli import (
     ThinkingAggregator,
     assemble_prompt,
     build_cogitate_env,
+    cogitate_sol_tool_hint,
 )
 from think.providers.shared import JSONEventCallback, safe_raw
 
@@ -68,6 +69,33 @@ class TestAssemblePrompt:
         config = {"prompt": "test", "system_instruction": ""}
         _, system = assemble_prompt(config)
         assert system is None
+
+    def test_cogitate_sol_tool_hint_names_provider_tool_name(self):
+        for tool_name in ("Bash", "run_shell_command", "bash"):
+            hint = cogitate_sol_tool_hint(tool_name)
+            assert tool_name in hint
+            assert "Do not invent or call a tool literally named `sol`." in hint
+            assert 'command="sol call activities list"' in hint
+
+    def test_assemble_prompt_appends_sol_tool_hint_when_provided(self):
+        body, system = assemble_prompt(
+            {"prompt": "hello", "system_instruction": "Base system"},
+            sol_tool_name="Bash",
+        )
+
+        assert body == "hello"
+        assert system is not None
+        assert system.startswith("Base system")
+        assert "through the `Bash` tool" in system
+
+    def test_assemble_prompt_does_not_append_hint_when_not_provided(self):
+        body, system = assemble_prompt(
+            {"prompt": "hello", "system_instruction": "Base system"},
+            sol_tool_name=None,
+        )
+
+        assert body == "hello"
+        assert system == "Base system"
 
 
 # ---------------------------------------------------------------------------

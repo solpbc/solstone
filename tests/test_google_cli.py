@@ -30,6 +30,7 @@ def _assert_write_mode_uses_yolo_approval(make_runner):
     idx = cmd.index("--approval-mode")
     assert cmd[idx + 1] == "yolo"
     assert "--policy" not in cmd
+    return MockCLIRunner.last_instance
 
 
 class TestTranslateGemini:
@@ -344,9 +345,14 @@ class TestRunCogitateCommand:
         assert cmd[idx + 1] == "yolo"
         policy_idx = cmd.index("--policy")
         assert cmd[policy_idx + 1].endswith("policies/cogitate.toml")
+        prompt_text = MockCLIRunner.last_instance.prompt_text
+        assert "through the `run_shell_command` tool" in prompt_text
+        assert "Do not invent or call a tool literally named `sol`." in prompt_text
 
     def test_write_mode_uses_yolo_approval(self):
-        _assert_write_mode_uses_yolo_approval(self._mock_runner)
+        runner = _assert_write_mode_uses_yolo_approval(self._mock_runner)
+        prompt_text = runner.prompt_text
+        assert "Do not invent or call a tool literally named `sol`." not in prompt_text
 
     def test_sandbox_none(self):
         provider = _google_provider()

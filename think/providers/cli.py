@@ -44,7 +44,21 @@ async def _drain_line(stream: asyncio.StreamReader) -> None:
 # ---------------------------------------------------------------------------
 
 
-def assemble_prompt(config: dict[str, Any]) -> tuple[str, str | None]:
+def cogitate_sol_tool_hint(tool_name: str) -> str:
+    """Return the shell-tool hint for non-write cogitate runs."""
+    return (
+        "When the instructions tell you to run `sol ...` commands, invoke them "
+        f"through the `{tool_name}` tool. Example: "
+        f'`{tool_name}(command="sol call activities list")`. '
+        "Do not invent or call a tool literally named `sol`."
+    )
+
+
+def assemble_prompt(
+    config: dict[str, Any],
+    *,
+    sol_tool_name: str | None = None,
+) -> tuple[str, str | None]:
     """Combine config fields into a single prompt string and system instruction.
 
     Joins transcript, extra_context, user_instruction, and prompt with
@@ -67,6 +81,12 @@ def assemble_prompt(config: dict[str, Any]) -> tuple[str, str | None]:
 
     prompt_body = "\n\n".join(parts) if parts else ""
     system_instruction = config.get("system_instruction") or None
+    if sol_tool_name:
+        hint = cogitate_sol_tool_hint(sol_tool_name)
+        if system_instruction:
+            system_instruction = f"{system_instruction}\n\n{hint}"
+        else:
+            system_instruction = hint
     return prompt_body, system_instruction
 
 

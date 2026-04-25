@@ -250,7 +250,10 @@ async def run_cogitate(
     try:
         check_cli_binary("claude")
 
-        prompt_body, system_instruction = assemble_prompt(config)
+        prompt_body, system_instruction = assemble_prompt(
+            config,
+            sol_tool_name="Bash" if not config.get("write") else None,
+        )
 
         cmd = [
             "claude",
