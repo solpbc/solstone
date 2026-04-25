@@ -320,3 +320,79 @@ class TestNoiseUpgradeGate:
             _process_one(audio_path, args, transcribe_config, [])
 
         assert mock_process_audio.call_args.kwargs["backend"] == "whisper"
+
+    @pytest.mark.parametrize(
+        ("vad", "has_token", "expected_backend"),
+        [
+            (
+                VadResult(
+                    duration=10.0,
+                    speech_duration=5.0,
+                    has_speech=True,
+                    speech_segments=[(1.0, 6.0)],
+                    noisy_rms=0.005,
+                    noisy_s=3.0,
+                    loud_windows=100,
+                    speech_loud_windows=90,
+                ),
+                True,
+                "parakeet",
+            ),
+            (
+                VadResult(
+                    duration=10.0,
+                    speech_duration=5.0,
+                    has_speech=True,
+                    speech_segments=[(1.0, 6.0)],
+                    noisy_rms=0.02,
+                    noisy_s=3.0,
+                    loud_windows=100,
+                    speech_loud_windows=90,
+                ),
+                True,
+                "revai",
+            ),
+            (
+                VadResult(
+                    duration=10.0,
+                    speech_duration=5.0,
+                    has_speech=True,
+                    speech_segments=[(1.0, 6.0)],
+                    noisy_rms=0.02,
+                    noisy_s=3.0,
+                    loud_windows=100,
+                    speech_loud_windows=90,
+                ),
+                False,
+                "parakeet",
+            ),
+        ],
+    )
+    def test_parakeet_default_upgrade_path(
+        self,
+        audio_path,
+        args,
+        audio_buffer,
+        vad,
+        has_token,
+        expected_backend,
+    ):
+        from observe.transcribe.main import _process_one
+
+        transcribe_config = {
+            "backend": "parakeet",
+            "noise_upgrade": True,
+            "noise_upgrade_min_speech_ratio": 0.3,
+            "parakeet": {},
+        }
+
+        with (
+            patch("observe.transcribe.main.load_audio", return_value=audio_buffer),
+            patch("observe.transcribe.main.run_vad", return_value=vad),
+            patch("observe.transcribe.main.reduce_audio", return_value=(None, None)),
+            patch("observe.transcribe.main.process_audio") as mock_process_audio,
+            patch("observe.transcribe.revai.has_token", return_value=has_token),
+        ):
+            _process_one(audio_path, args, transcribe_config, [])
+
+        assert mock_process_audio.call_args.kwargs["backend"] == expected_backend

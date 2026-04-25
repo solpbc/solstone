@@ -154,10 +154,15 @@ The `transcribe` block configures audio transcription settings for `sol transcri
 ```json
 {
   "transcribe": {
-    "backend": "whisper",
+    "backend": "parakeet",
     "enrich": true,
     "preserve_all": false,
     "noise_upgrade_min_speech_ratio": 0.3,
+    "parakeet": {
+      "model_version": "v3",
+      "device": "auto",
+      "timeout_sec": 120.0
+    },
     "whisper": {
       "device": "auto",
       "model": "medium.en",
@@ -171,10 +176,15 @@ The `transcribe` block configures audio transcription settings for `sol transcri
 ```
 
 **Top-level fields:**
-- `backend` (string) – STT backend to use: `"whisper"` (local processing) or `"revai"` (cloud with speaker diarization). Default: `"whisper"`.
+- `backend` (string) – STT backend to use: `"parakeet"` (default local processing), `"whisper"` (local rollback path), `"revai"` (cloud with speaker diarization), or `"gemini"` (cloud with speaker diarization). Default: `"parakeet"`.
 - `enrich` (boolean) – Enable LLM enrichment for topic extraction and transcript correction. Default: `true`.
 - `preserve_all` (boolean) – Keep audio files even when no speech is detected. When `false`, silent recordings are deleted to save disk space. Default: `false`.
 - `noise_upgrade_min_speech_ratio` (number) – Min speech/loud ratio required for noisy upgrade (default: `0.3`). Filters out music and other non-speech noise.
+
+**Parakeet backend settings** (`transcribe.parakeet`):
+- `model_version` (string) – Parakeet model version: `"v3"`. Default: `"v3"`.
+- `device` (string) – Runtime preference for Parakeet: `"auto"`, `"cpu"`, or `"cuda"`. Default: `"auto"`.
+- `timeout_sec` (number) – Helper/runtime timeout in seconds. Default: `120.0`.
 
 **Whisper backend settings** (`transcribe.whisper`):
 - `device` (string) – Device for inference: `"auto"` (detect GPU, fall back to CPU), `"cpu"`, or `"cuda"`. Default: `"auto"`.

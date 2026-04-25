@@ -454,6 +454,17 @@ class TestTranscribe:
         saved = json.loads((tmp_path / "config" / "journal.json").read_text())
         assert saved["transcribe"]["backend"] == "gemini"
 
+    def test_set_backend_parakeet(self, settings_env):
+        tmp_path, _config = settings_env()
+
+        result = runner.invoke(
+            call_app, ["settings", "transcribe", "set-backend", "parakeet"]
+        )
+
+        assert result.exit_code == 0
+        saved = json.loads((tmp_path / "config" / "journal.json").read_text())
+        assert saved["transcribe"]["backend"] == "parakeet"
+
     def test_set_backend_invalid(self, settings_env):
         settings_env()
 

@@ -7,6 +7,7 @@ import copy
 import json
 import logging
 import os
+import platform
 import re
 import subprocess
 from datetime import datetime, timezone
@@ -47,6 +48,25 @@ API_KEY_ENV_VARS = [
     "REVAI_ACCESS_TOKEN",
     "PLAUD_ACCESS_TOKEN",
 ]
+
+
+def _compute_runtime_label() -> str:
+    os_name = platform.system().lower()
+    arch = platform.machine().lower()
+    if os_name == "darwin" and arch == "arm64":
+        return "macOS CoreML helper"
+    if os_name != "linux":
+        return "unsupported"
+    try:
+        import torch
+
+        return (
+            "Linux NeMo (CUDA fp16)"
+            if torch.cuda.is_available()
+            else "Linux NeMo (CPU fp32)"
+        )
+    except Exception:
+        return "unsupported"
 
 
 @settings_bp.route("/api/config")
@@ -336,6 +356,7 @@ def get_transcribe() -> Any:
 
         # Get backends list from registry
         backends = get_backend_list()
+        runtime_label = _compute_runtime_label()
 
         # Check API key status for each backend
         api_keys = {}
@@ -351,6 +372,7 @@ def get_transcribe() -> Any:
                 "backends": backends,
                 "api_keys": api_keys,
                 "config": transcribe_config,
+                "runtime_label": runtime_label,
             }
         )
     except Exception:

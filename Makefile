@@ -7,7 +7,7 @@
 # all runs to one path and pytest wipes it on startup, destroying concurrent state.
 export TMPDIR := /var/tmp
 
-.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format format-check install-checks ci clean clean-install coverage watch versions update update-prices pre-commit skills dev all sandbox sandbox-stop install-pinchtab parakeet-helper parakeet-helper-clean verify-browser update-browser-baselines review verify verify-api update-api-baselines install-service uninstall-service service-logs gate-agents-rename check-layer-hygiene doctor FORCE
+.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format format-check install-checks ci clean clean-install coverage watch versions update update-prices pre-commit skills dev all sandbox sandbox-stop install-pinchtab install-models parakeet-helper parakeet-helper-clean verify-browser update-browser-baselines review verify verify-api update-api-baselines install-service uninstall-service service-logs gate-agents-rename check-layer-hygiene doctor FORCE
 
 # Default target - install package in editable mode
 all: install
@@ -15,7 +15,9 @@ all: install
 # Virtual environment directory
 VENV := .venv
 VENV_BIN := $(VENV)/bin
-PYTHON := $(VENV_BIN)/python
+VENV_PY := $(VENV_BIN)/python
+PYTHON := $(VENV_PY)
+PARAKEET_NEMO_EXTRA ?= parakeet-nemo
 
 # Require uv
 UV := $(shell command -v uv 2>/dev/null)
@@ -74,13 +76,16 @@ install: doctor skills .installed
 		fi; \
 	}
 	@OS_NAME=$$(uname -s); \
-	if [ "$$OS_NAME" = "Darwin" ]; then \
-		$(MAKE) parakeet-helper || (echo 'parakeet backend unavailable: helper build failed' >&2; true); \
-	elif [ "$$OS_NAME" = "Linux" ]; then \
-		$(UV) sync --extra parakeet-nemo || (echo 'parakeet backend unavailable: uv sync --extra parakeet-nemo failed' >&2; true); \
+	ARCH=$$(uname -m); \
+	if [ "$$OS_NAME" = "Darwin" ] && [ "$$ARCH" = "arm64" ]; then \
+		$(MAKE) parakeet-helper || { echo 'parakeet install: helper build failed' >&2; exit 1; }; \
+	elif [ "$$OS_NAME" = "Linux" ] && [ "$$ARCH" = "x86_64" ]; then \
+		$(UV) sync --extra $(PARAKEET_NEMO_EXTRA) || { echo "parakeet install: uv sync --extra $(PARAKEET_NEMO_EXTRA) failed" >&2; exit 1; }; \
 	else \
-		true; \
+		echo "parakeet install: unsupported host '$$OS_NAME/$$ARCH'; supported: darwin/arm64, linux/x86_64" >&2; \
+		exit 1; \
 	fi
+	@$(MAKE) --no-print-directory install-models
 
 # Directories where AI coding agents look for skills
 SKILL_DIRS := journal/.agents/skills journal/.claude/skills
@@ -254,6 +259,9 @@ install-pinchtab:
 	fi
 
 # Build the parakeet helper binary (macOS/arm64 only, requires Xcode CLT)
+install-models: .installed
+	$(VENV_PY) scripts/install_parakeet_model.py
+
 parakeet-helper:
 	cd observe/transcribe/parakeet_helper && swift build -c release
 	@echo "built: $$(pwd)/observe/transcribe/parakeet_helper/.build/release/parakeet-helper"

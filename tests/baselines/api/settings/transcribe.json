@@ -46,9 +46,14 @@
     }
   ],
   "config": {
-    "backend": "whisper",
+    "backend": "parakeet",
     "enrich": true,
     "noise_upgrade": true,
+    "parakeet": {
+      "device": "auto",
+      "model_version": "v3",
+      "timeout_sec": 120.0
+    },
     "revai": {
       "model": "fusion"
     },
@@ -57,5 +62,6 @@
       "device": "auto",
       "model": "medium.en"
     }
-  }
+  },
+  "runtime_label": "Linux NeMo (CUDA fp16)"
 }

@@ -6,7 +6,7 @@
 Transcription pipeline:
 1. VAD stage: Run Silero VAD to detect speech and filter silent files early
 2. Audio reduction: Trim long silence gaps for faster processing
-3. Transcription: Dispatch to STT backend (default: whisper)
+3. Transcription: Dispatch to the configured STT backend (default: parakeet)
 4. Enrichment: Extract topics, setting, emotions, and warnings via LLM (optional)
 5. Embeddings: Generate voice embeddings for each sentence using wespeaker-resnet34
 6. Output: JSONL format compatible with format_audio() in observe/hear.py
@@ -16,18 +16,24 @@ Output files:
 - <stem>.npz: Sentence-level voice embeddings indexed by statement id
 
 Configuration (journal config transcribe section):
-- transcribe.backend: STT backend ("whisper", "revai", "gemini", "parakeet"). Default: "whisper"
+- transcribe.backend: STT backend ("parakeet", "whisper", "revai", "gemini"). Default: "parakeet"
 - transcribe.enrich: Enable/disable LLM enrichment (default: true)
 - transcribe.preserve_all: Keep audio files even when no speech detected (default: false)
 - transcribe.min_speech_seconds: Minimum speech duration to proceed. Default: 1.0
 - transcribe.noise_upgrade: Auto-switch to Rev.ai for noisy recordings (default: true)
 - transcribe.noise_upgrade_min_speech_ratio: Min speech/loud ratio required for noisy upgrade (default: 0.3). Filters out music and other non-speech noise.
 
+Parakeet backend settings (transcribe.parakeet):
+- model_version: Parakeet model version ("v2", "v3"). Default: "v3"
+- cache_dir: Optional helper cache directory
+- timeout_sec: Helper timeout in seconds. Default: 120.0
+
 Whisper backend settings (transcribe.whisper):
 - device: Device for inference ("auto", "cpu", "cuda"). Default: "auto"
 - model: Whisper model size (e.g., "medium.en"). Default: "medium.en"
 - compute_type: Precision ("default", "float32", "float16", "int8"). Default: "default"
   Auto-selects: float16 for CUDA, int8 for CPU (including Apple Silicon).
+- Whisper remains available as the rollback/local alternative backend.
 
 Rev.ai backend settings (transcribe.revai):
 - model: Rev.ai transcriber ("fusion", "machine", "low_cost"). Default: "fusion"
@@ -36,11 +42,6 @@ Rev.ai backend settings (transcribe.revai):
 Gemini backend settings (transcribe.gemini):
 - No configuration needed (model resolved by think.models context system)
 - Includes speaker diarization
-
-Parakeet backend settings (transcribe.parakeet):
-- model_version: Parakeet model version ("v2", "v3"). Default: "v3"
-- cache_dir: Optional helper cache directory
-- timeout_sec: Helper timeout in seconds. Default: 120.0
 
 Platform optimizations (Whisper):
 - CUDA GPU: Uses float16 for GPU-optimized inference
@@ -101,7 +102,7 @@ __all__ = [
 ]
 
 # Default transcription settings
-DEFAULT_BACKEND = "whisper"
+DEFAULT_BACKEND = "parakeet"
 DEFAULT_MIN_SPEECH_SECONDS = 1.0
 
 # Minimum statement duration for embedding (seconds)
@@ -475,7 +476,7 @@ def process_audio(
     redo: bool = False,
     reduction: AudioReduction | None = None,
     reduced_audio: np.ndarray | None = None,
-    backend: str = DEFAULT_BACKEND,
+    backend: str | None = None,
     entity_names: list[str] | None = None,
 ) -> None:
     """Process a raw audio file with pre-computed VAD.
@@ -495,10 +496,11 @@ def process_audio(
         redo: If True, skip "already processed" check
         reduction: Optional AudioReduction mapping for timestamp restoration
         reduced_audio: Optional reduced audio buffer (used if reduction provided)
-        backend: STT backend name (default: "whisper")
+        backend: STT backend name. If omitted, uses DEFAULT_BACKEND.
         entity_names: Optional list of entity names for STT and enrichment context
     """
     start_time = time.time()
+    resolved_backend = backend or DEFAULT_BACKEND
 
     # Derive segment from path
     segment = get_segment_key(raw_path)
@@ -539,7 +541,7 @@ def process_audio(
         if use_gemini_chunks:
             # Pass VAD segments to Gemini for chunk-based transcription
             statements = stt_transcribe(
-                backend,
+                resolved_backend,
                 stt_buffer,
                 SAMPLE_RATE,
                 backend_config,
@@ -547,11 +549,11 @@ def process_audio(
             )
         else:
             statements = stt_transcribe(
-                backend, stt_buffer, SAMPLE_RATE, backend_config
+                resolved_backend, stt_buffer, SAMPLE_RATE, backend_config
             )
 
         # Get model info for metadata (dynamic import based on backend)
-        backend_module = get_backend(backend)
+        backend_module = get_backend(resolved_backend)
         model_info = backend_module.get_model_info(backend_config)
 
         # Load config for preserve_all setting
@@ -636,7 +638,7 @@ def process_audio(
             enrichment,
             vad_result,
             segment_meta,
-            backend,
+            resolved_backend,
         )
 
         # Write JSONL

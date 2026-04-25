@@ -64,9 +64,22 @@ def settings_env(tmp_path, monkeypatch):
                     "key_validation": {},
                 },
                 "transcribe": {
-                    "backend": "whisper",
+                    "backend": "parakeet",
                     "enrich": True,
                     "noise_upgrade": False,
+                    "parakeet": {
+                        "model_version": "v3",
+                        "device": "auto",
+                        "timeout_sec": 120.0,
+                    },
+                    "whisper": {
+                        "device": "auto",
+                        "model": "medium.en",
+                        "compute_type": "default",
+                    },
+                    "revai": {
+                        "model": "fusion",
+                    },
                 },
                 "observe": {"tmux": {"enabled": True, "capture_interval": 5}},
             }

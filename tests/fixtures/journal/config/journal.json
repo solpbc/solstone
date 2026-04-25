@@ -22,9 +22,14 @@
     "completed_at": 1700000000000
   },
   "transcribe": {
-    "backend": "whisper",
+    "backend": "parakeet",
     "enrich": true,
     "noise_upgrade": true,
+    "parakeet": {
+      "model_version": "v3",
+      "device": "auto",
+      "timeout_sec": 120.0
+    },
     "whisper": {
       "device": "auto",
       "model": "medium.en",

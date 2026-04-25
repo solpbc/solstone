@@ -97,9 +97,14 @@
     "completed_at": 1700000000000
   },
   "transcribe": {
-    "backend": "whisper",
+    "backend": "parakeet",
     "enrich": true,
     "noise_upgrade": true,
+    "parakeet": {
+      "device": "auto",
+      "model_version": "v3",
+      "timeout_sec": 120.0
+    },
     "revai": {
       "model": "fusion"
     },

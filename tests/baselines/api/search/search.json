@@ -106,7 +106,7 @@
           "id": "facets/verona/logs/20260309.jsonl:1",
           "idx": 1,
           "path": "facets/verona/logs/20260309.jsonl",
-          "score": -1.6,
+          "score": -1.7,
           "stream": null,
           "text": "### Deploy Complete by <strong>romeo</strong>_montague\n\n**Source:** deploy | **Time:** 13:45:00\n\n**Parameters:**\n- service: verona-gateway\n- version: 0.9.0\n"
         },
@@ -122,7 +122,7 @@
           "id": "20260309/default/090000_300/talents/audio.md:0",
           "idx": 0,
           "path": "20260309/default/090000_300/talents/audio.md",
-          "score": -1.5,
+          "score": -1.6,
           "stream": "default",
           "text": "# Audio Summary\n\n<strong>Romeo</strong> confessed the project to Benvolio and asked for infrastructure help. Benvolio agreed to spin up a Kubernetes staging cluster.\n"
         },
@@ -170,7 +170,7 @@
           "id": "20260309/default/090000_300:0",
           "idx": 0,
           "path": "20260309/default/090000_300",
-          "score": -1.5,
+          "score": -1.6,
           "stream": "default",
           "text": "# Audio Summary\n\n<strong>Romeo</strong> confessed the project to Benvolio and asked for infrastructure help. Benvolio agreed to spin up a Kubernetes staging cluster.\n"
         }
@@ -211,7 +211,7 @@
           "id": "20260307/default/150000_300/talents/audio.md:0",
           "idx": 0,
           "path": "20260307/default/150000_300/talents/audio.md",
-          "score": -2.2,
+          "score": -2.3,
           "stream": "default",
           "text": "# Audio Summary\n\nEmergency meeting at Montague Tech. Benvolio questioned <strong>Romeo</strong> about the secret project. <strong>Romeo</strong> clarified no company IP was shared. Team discussed legal exposure. <strong>Romeo</strong> proposed Professor Lawrence as mediator.\n"
         },
@@ -259,7 +259,7 @@
           "id": "20260307/default/150000_300:0",
           "idx": 0,
           "path": "20260307/default/150000_300",
-          "score": -2.2,
+          "score": -2.3,
           "stream": "default",
           "text": "# Audio Summary\n\nEmergency meeting at Montague Tech. Benvolio questioned <strong>Romeo</strong> about the secret project. <strong>Romeo</strong> clarified no company IP was shared. Team discussed legal exposure. <strong>Romeo</strong> proposed Professor Lawrence as mediator.\n"
         }
@@ -316,7 +316,7 @@
           "id": "20260308/talents/knowledge_graph.md:2",
           "idx": 2,
           "path": "20260308/talents/knowledge_graph.md",
-          "score": -1.3,
+          "score": -1.4,
           "stream": null,
           "text": "# Part 1: Entity Extraction and Relationship Mapping ## Entity Profiles | Entity Name | Entity Type | First Appearance | Total Engagement | Context | | :--- | :--- | :--- | :--- | :--- | | **<strong>Romeo</strong> Montague** | Person | 10:00 | High | Under board pressure,..."
         },
@@ -583,7 +583,7 @@
           "id": "facets/capulet/events/20260304.jsonl:1",
           "idx": 1,
           "path": "facets/capulet/events/20260304.jsonl",
-          "score": -2.1,
+          "score": -2.2,
           "stream": null,
           "text": "### Social: Conference Mixer\n\n\n**Time Occurred:** 18:00 - 20:00\n**Participants:** Juliet Capulet, <strong>Romeo</strong> Montague\n\nNetworking event\n\nJuliet and <strong>Romeo</strong> exchanged Signal contacts\n"
         },

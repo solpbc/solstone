@@ -13,10 +13,10 @@ Terminology:
 - "segment" = journal directory (HHMMSS_LEN/ time window) - NOT used here
 
 Available backends:
-- whisper: Local faster-whisper (default, GPU/CPU)
+- parakeet: Default local backend via Apple Silicon helper or Linux NeMo
+- whisper: Local faster-whisper (rollback/local alternative, GPU/CPU)
 - revai: Rev.ai cloud API (speaker diarization)
 - gemini: Google Gemini API (speaker diarization)
-- parakeet: Local Apple Silicon processing via helper
 
 Backend Interface:
     Each backend module must export a transcribe() function:

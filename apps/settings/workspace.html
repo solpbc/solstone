@@ -793,6 +793,12 @@ input:checked + .slider:before {
   margin: 0.5em 0 0 0;
 }
 
+.form-help {
+  margin-top: 0.5em;
+  font-size: 0.85em;
+  color: var(--surface-muted, #666);
+}
+
 /* Context overrides collapsible section */
 .context-overrides {
   margin-top: 2em;
@@ -2390,6 +2396,34 @@ button:focus:not(:focus-visible) {
         </p>
       </fieldset>
 
+      <fieldset id="parakeet-settings" class="backend-settings" style="display:none">
+        <div class="settings-field">
+          <label for="field-parakeet-model-version">model version</label>
+          <select id="field-parakeet-model-version">
+            <option value="v3" selected>v3 - Parakeet TDT 0.6B</option>
+          </select>
+          <small>Installed Parakeet model version for local transcription</small>
+        </div>
+
+        <div class="settings-field">
+          <label for="field-parakeet-device">device</label>
+          <select id="field-parakeet-device">
+            <option value="auto" selected>Auto - Detect best available runtime</option>
+            <option value="cpu">CPU - Force processor runtime</option>
+            <option value="cuda">CUDA - Force NVIDIA runtime</option>
+          </select>
+          <small>Runtime preference for Parakeet on this host</small>
+        </div>
+
+        <div class="settings-field">
+          <label for="field-parakeet-timeout">timeout (seconds)</label>
+          <input id="field-parakeet-timeout" type="number" min="1" step="1" value="120">
+          <small>Abort Parakeet model work if it exceeds this timeout</small>
+        </div>
+
+        <div class="form-help">Platform runtime: <span id="parakeet-runtime-label">unsupported</span></div>
+      </fieldset>
+
       <!-- Shared settings -->
       <div class="settings-field" style="margin-top: 1.5em;">
         <div class="toggle-container" style="justify-content: flex-start; gap: 1em;">
@@ -3299,9 +3333,20 @@ function populateFields(config) {
 
   // Transcribe - now with nested backend configs
   const transcribe = config.transcribe || {};
-  const backend = transcribe.backend || 'whisper';
+  const backend = transcribe.backend || 'parakeet';
   setValue('field-transcribe-backend', backend);
   switchTranscribeBackend(backend, config);
+
+  const runtimeLabel = document.getElementById('parakeet-runtime-label');
+  if (runtimeLabel) {
+    runtimeLabel.textContent = transcribeRuntimeLabel;
+  }
+
+  // Parakeet settings (nested)
+  const parakeet = transcribe.parakeet || {};
+  setValue('field-parakeet-model-version', parakeet.model_version || 'v3');
+  setValue('field-parakeet-device', parakeet.device || 'auto');
+  setValue('field-parakeet-timeout', parakeet.timeout_sec ?? 120);
 
   // Whisper settings (nested)
   const whisper = transcribe.whisper || {};
@@ -4589,6 +4634,7 @@ async function removeVertexCreds() {
 // Backend metadata loaded from API
 let transcribeBackends = [];
 let transcribeApiKeys = {};
+let transcribeRuntimeLabel = 'unsupported';
 let storageLoadedOnce = false;
 
 function setLoadState(slotId, html = '') {
@@ -4631,10 +4677,15 @@ async function loadTranscribeBackends() {
     const data = await window.apiJson('api/transcribe');
     transcribeBackends = data.backends || [];
     transcribeApiKeys = data.api_keys || {};
+    transcribeRuntimeLabel = data.runtime_label || 'unsupported';
     setLoadState('transcriptionLoadState');
     const select = document.getElementById('field-transcribe-backend');
+    const runtimeLabel = document.getElementById('parakeet-runtime-label');
     if (select) {
       select.disabled = false;
+    }
+    if (runtimeLabel) {
+      runtimeLabel.textContent = transcribeRuntimeLabel;
     }
 
     // Populate the backend select
@@ -4666,6 +4717,7 @@ async function loadTranscribeBackends() {
 
 function switchTranscribeBackend(backend, config) {
   // Show/hide backend-specific fieldsets
+  document.getElementById('parakeet-settings').style.display = backend === 'parakeet' ? 'block' : 'none';
   document.getElementById('whisper-settings').style.display = backend === 'whisper' ? 'block' : 'none';
   document.getElementById('revai-settings').style.display = backend === 'revai' ? 'block' : 'none';
   document.getElementById('gemini-settings').style.display = backend === 'gemini' ? 'block' : 'none';
@@ -4777,6 +4829,32 @@ document.getElementById('field-revai-model')?.addEventListener('change', async (
     console.error('Error saving revai setting:', err);
     showFieldStatus(e.target, 'error', err.message);
   }
+});
+
+['field-parakeet-model-version', 'field-parakeet-device', 'field-parakeet-timeout'].forEach(id => {
+  document.getElementById(id)?.addEventListener('change', async (e) => {
+    const key = id === 'field-parakeet-model-version' ? 'model_version' :
+                id === 'field-parakeet-device' ? 'device' : 'timeout_sec';
+    const value = key === 'timeout_sec' ? Number(e.target.value) : e.target.value;
+
+    try {
+      const response = await fetch('api/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ section: 'transcribe', data: { parakeet: { [key]: value } } })
+      });
+      const result = await response.json();
+      if (result.success) {
+        configData = result.config;
+        showFieldStatus(e.target, 'saved');
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (err) {
+      console.error('Error saving parakeet setting:', err);
+      showFieldStatus(e.target, 'error', err.message);
+    }
+  });
 });
 
 // ========== OBSERVER ==========

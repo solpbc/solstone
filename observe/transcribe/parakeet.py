@@ -9,6 +9,8 @@ Routes to platform-specific implementations:
 
 Unsupported platforms raise RuntimeError with the detected platform
 and the supported-platforms list.
+Parakeet does not gate on internal silence; the upstream Silero VAD in
+`observe/vad.py` (run by `_process_one`) is the gate and must remain in place.
 """
 
 from __future__ import annotations
