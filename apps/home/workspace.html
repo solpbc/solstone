@@ -1434,12 +1434,16 @@
         return;
       }
       var el = e.target.closest('[data-conversation]');
-      if (el && window.suggestChat) {
+      if (el) {
         e.preventDefault();
         if (el.closest('[data-routine-click]') || el.hasAttribute('data-routine-click')) {
           fetch('/app/home/api/routines/seen', {method: 'POST'});
         }
-        window.suggestChat(el.dataset.conversation);
+        if (el.classList.contains('pulse-needs-item')) {
+          window.suggestChat(el.dataset.conversation);
+        } else {
+          window.fillChat(el.dataset.conversation);
+        }
       }
     });
     dashboard.addEventListener('keydown', function(e) {
@@ -1458,12 +1462,16 @@
         return;
       }
       var el = e.target.closest('[data-conversation]');
-      if (el && window.suggestChat) {
+      if (el) {
         e.preventDefault();
         if (el.closest('[data-routine-click]') || el.hasAttribute('data-routine-click')) {
           fetch('/app/home/api/routines/seen', {method: 'POST'});
         }
-        window.suggestChat(el.dataset.conversation);
+        if (el.classList.contains('pulse-needs-item')) {
+          window.suggestChat(el.dataset.conversation);
+        } else {
+          window.fillChat(el.dataset.conversation);
+        }
       }
     });
   }
