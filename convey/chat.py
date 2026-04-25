@@ -867,23 +867,32 @@ def _active_talent_count_for_today_locked() -> int:
 
 
 def _talent_loop_count_locked() -> int:
+    """Count trailing redispatch hops for the current owner turn.
+
+    Each hop is a requested-target sol_message paired with the nearest earlier
+    talent_finished or talent_errored event. Bookkeeping events between them do
+    not break the chain or satisfy a pending hop.
+    """
     events = read_chat_events(_today_day())
     count = 0
-    for index in range(len(events) - 1, -1, -1):
-        event = events[index]
+    pending_redispatch = False
+
+    for event in reversed(events):
         kind = event.get("kind")
         if kind == "owner_message":
             break
-        if kind != "sol_message":
+        if kind == "sol_message":
+            if not event.get("requested_target"):
+                continue
+            if pending_redispatch:
+                break
+            pending_redispatch = True
             continue
-        if not event.get("requested_target"):
+        if kind in {"talent_finished", "talent_errored"}:
+            if pending_redispatch:
+                count += 1
+                pending_redispatch = False
             continue
-
-        previous = events[index - 1] if index > 0 else None
-        if previous and previous.get("kind") in {"talent_finished", "talent_errored"}:
-            count += 1
-        else:
-            break
     return count
 
 

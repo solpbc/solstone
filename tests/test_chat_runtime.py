@@ -235,6 +235,131 @@ def test_exec_retrigger_loop_stops_after_three_without_owner_reset(
     assert errors[-1]["reason"] == "chat had trouble — try again"
 
 
+def test_talent_loop_count_skips_chat_error_between_retry_hops(tmp_path, monkeypatch):
+    import convey.chat as chat
+
+    _setup_journal(tmp_path, monkeypatch)
+    _reset_chat_state(chat)
+
+    append_chat_event(
+        "owner_message",
+        text="dig deeper",
+        app="sol",
+        path="/app/sol",
+        facet="work",
+    )
+    append_chat_event(
+        "sol_message",
+        use_id="1713622100000",
+        text="follow up 0",
+        notes="retrying",
+        requested_target="exec",
+        requested_task="task 0",
+    )
+    append_chat_event(
+        "talent_finished",
+        use_id="1713622100001",
+        name="exec",
+        summary="summary 0",
+    )
+    append_chat_event(
+        "chat_error",
+        use_id="1713622100000",
+        reason="transient trouble",
+    )
+    append_chat_event(
+        "sol_message",
+        use_id="1713622100000",
+        text="follow up 1",
+        notes="retrying",
+        requested_target="exec",
+        requested_task="task 1",
+    )
+    append_chat_event(
+        "talent_finished",
+        use_id="1713622100002",
+        name="exec",
+        summary="summary 1",
+    )
+    append_chat_event(
+        "sol_message",
+        use_id="1713622100000",
+        text="follow up 2",
+        notes="retrying",
+        requested_target="exec",
+        requested_task="task 2",
+    )
+
+    with chat._state_lock:
+        assert chat._talent_loop_count_locked() == 2
+
+
+def test_talent_loop_count_counts_through_talent_errored_and_reflection_ready(
+    tmp_path, monkeypatch
+):
+    import convey.chat as chat
+
+    _setup_journal(tmp_path, monkeypatch)
+    _reset_chat_state(chat)
+
+    append_chat_event(
+        "owner_message",
+        text="dig deeper",
+        app="sol",
+        path="/app/sol",
+        facet="work",
+    )
+    append_chat_event(
+        "sol_message",
+        use_id="1713622200000",
+        text="follow up 0",
+        notes="retrying",
+        requested_target="exec",
+        requested_task="task 0",
+    )
+    append_chat_event(
+        "talent_errored",
+        use_id="1713622200001",
+        name="exec",
+        reason="needs clarification",
+    )
+    append_chat_event(
+        "reflection_ready",
+        day=chat._today_day(),
+        url="/app/chat/today",
+    )
+    append_chat_event(
+        "sol_message",
+        use_id="1713622200000",
+        text="follow up 1",
+        notes="retrying",
+        requested_target="exec",
+        requested_task="task 1",
+    )
+    append_chat_event(
+        "talent_finished",
+        use_id="1713622200002",
+        name="exec",
+        summary="summary 1",
+    )
+    append_chat_event(
+        "reflection_ready",
+        day=chat._today_day(),
+        url="/app/chat/today#latest",
+    )
+    append_chat_event(
+        "sol_message",
+        use_id="1713622200000",
+        text="follow up 2",
+        notes="retrying",
+        requested_target="exec",
+        requested_task="task 2",
+    )
+
+    with chat._state_lock:
+        assert chat._talent_loop_count_locked() == 2
+
+
 def test_cortex_finish_and_error_append_exec_terminal_events_by_use_id(
     tmp_path, monkeypatch
 ):
