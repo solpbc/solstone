@@ -1434,12 +1434,12 @@
         return;
       }
       var el = e.target.closest('[data-conversation]');
-      if (el && window.openConversation) {
+      if (el && window.suggestChat) {
         e.preventDefault();
         if (el.closest('[data-routine-click]') || el.hasAttribute('data-routine-click')) {
           fetch('/app/home/api/routines/seen', {method: 'POST'});
         }
-        window.openConversation(el.dataset.conversation);
+        window.suggestChat(el.dataset.conversation);
       }
     });
     dashboard.addEventListener('keydown', function(e) {
@@ -1458,12 +1458,12 @@
         return;
       }
       var el = e.target.closest('[data-conversation]');
-      if (el && window.openConversation) {
+      if (el && window.suggestChat) {
         e.preventDefault();
         if (el.closest('[data-routine-click]') || el.hasAttribute('data-routine-click')) {
           fetch('/app/home/api/routines/seen', {method: 'POST'});
         }
-        window.openConversation(el.dataset.conversation);
+        window.suggestChat(el.dataset.conversation);
       }
     });
   }

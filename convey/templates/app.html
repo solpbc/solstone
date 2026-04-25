@@ -535,11 +535,23 @@
     clearConversationSuggestion();
   }
 
-  window.openConversation = function(suggestion) {
+  window.fillChat = function(text) {
+    if (!input) return;
+    input.focus();
+    input.value = text;
+    clearConversationSuggestion();
+    resizeComposer();
+    if (typeof input.setSelectionRange === 'function') {
+      var end = input.value.length;
+      input.setSelectionRange(end, end);
+    }
+  };
+
+  window.suggestChat = function(text) {
     if (!input) return;
     if (!input.dataset.defaultPlaceholder) input.dataset.defaultPlaceholder = input.placeholder || '';
-    input.dataset.suggestion = suggestion;
-    input.placeholder = suggestion;
+    input.dataset.suggestion = text;
+    input.placeholder = text;
     input.focus();
   };
 
