@@ -234,8 +234,10 @@ def _proxy_progress(message: dict[str, Any]) -> None:
         raw_chat_use_id = str(_current_chat_state.get("raw_use_id") or "")
         if use_id == raw_chat_use_id:
             logical_use_id = _current_chat_use_id
+            _refresh_watchdog_locked(use_id, "chat", str(_current_chat_use_id))
         elif use_id in _active_talents:
             logical_use_id = str(_active_talents[use_id]["chat_use_id"])
+            _refresh_watchdog_locked(use_id, "talent", logical_use_id)
 
     if logical_use_id is None:
         return
@@ -739,6 +741,12 @@ def _cancel_watchdog_locked(use_id: str | None) -> None:
     timer = _watchdog_timers.pop(str(use_id), None)
     if timer is not None:
         timer.cancel()
+
+
+def _refresh_watchdog_locked(use_id: str, kind: str, logical_use_id: str) -> None:
+    if not use_id or use_id not in _watchdog_timers:
+        return
+    _arm_watchdog_locked(use_id, kind, logical_use_id)
 
 
 def _set_current_raw_use_locked(logical_use_id: str, raw_use_id: str | None) -> None:
