@@ -576,6 +576,15 @@
           updatedAt: talent.started_at || Date.now()
         });
       });
+      (data.completed_talents || []).forEach(function(talent) {
+        upsertTalent({
+          useId: String(talent.use_id || ''),
+          name: talent.name || '',
+          task: talent.task || '',
+          status: 'completed',
+          updatedAt: talent.finished_at
+        });
+      });
     } catch (err) {
       setPendingState(true);
       setStatus(

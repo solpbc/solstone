@@ -89,6 +89,8 @@ def test_post_chat_appends_owner_message_and_returns_reserved_use_id(
 def test_session_endpoint_reduces_from_chat_stream(chat_client, monkeypatch):
     day = "20260420"
     monkeypatch.setattr("convey.chat._today_day", lambda: day)
+    started_at = _ms(2026, 4, 20, 12, 1, 0)
+    finished_at = _ms(2026, 4, 20, 12, 2, 0)
     append_chat_event(
         "sol_message",
         ts=_ms(2026, 4, 20, 12, 0, 0),
@@ -100,18 +102,34 @@ def test_session_endpoint_reduces_from_chat_stream(chat_client, monkeypatch):
     )
     append_chat_event(
         "talent_spawned",
-        ts=_ms(2026, 4, 20, 12, 1, 0),
+        ts=started_at,
         use_id="1713626000001",
         name="exec",
         task="research",
-        started_at=1713626000001,
+        started_at=started_at,
+    )
+    append_chat_event(
+        "talent_finished",
+        ts=finished_at,
+        use_id="1713626000001",
+        name="exec",
+        summary="done",
     )
 
     response = chat_client.get("/api/chat/session")
     assert response.status_code == 200
     payload = response.get_json()
     assert payload["latest_sol_message"]["text"] == "hello"
-    assert payload["active_talents"][0]["task"] == "research"
+    assert payload["active_talents"] == []
+    assert payload["completed_talents"] == [
+        {
+            "finished_at": finished_at,
+            "name": "exec",
+            "summary": "done",
+            "task": "research",
+            "use_id": "1713626000001",
+        }
+    ]
     assert chat_client.get(f"/api/chat/stream/{day}").status_code == 200
 
 
