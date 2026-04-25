@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from think.callosum import callosum_send
+from think.indexer.journal import index_file
 from think.streams import update_stream, write_segment_stream
 from think.utils import day_path, get_journal, segment_key, segment_parse, segment_path
 
@@ -73,6 +74,18 @@ def append_chat_event(kind: str, **fields: Any) -> dict[str, Any]:
                 stream_info["seq"],
             )
 
+    try:
+        index_file(get_journal(), str(chat_path))
+    except Exception:
+        logger.warning(
+            "chat-event-index-failed",
+            extra={
+                "kind": kind,
+                "use_id": str(stored_event.get("use_id") or ""),
+                "chat_path": str(chat_path),
+            },
+            exc_info=True,
+        )
     _broadcast_chat_event(stored_event)
     return stored_event
 
