@@ -99,7 +99,7 @@ install: doctor skills .installed
 	@OS_NAME=$$(uname -s); \
 	ARCH=$$(uname -m); \
 	if [ "$$OS_NAME" = "Darwin" ] && [ "$$ARCH" = "arm64" ] || [ "$$OS_NAME" = "Linux" ] && [ "$$ARCH" = "x86_64" ]; then \
-		PARAKEET_ONNX_VARIANT=$(PARAKEET_ONNX_VARIANT) $(VENV_PY) scripts/install_parakeet_model.py; \
+		PARAKEET_ONNX_VARIANT=$(PARAKEET_ONNX_VARIANT) $(VENV_PY) scripts/install_parakeet_model.py || { echo "parakeet install: install_parakeet_model.py failed" >&2; exit 1; }; \
 	fi
 
 # Directories where AI coding agents look for skills
