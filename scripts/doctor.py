@@ -31,7 +31,7 @@ import re
 import shutil
 import subprocess
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Callable, Literal, Sequence
 
@@ -481,7 +481,7 @@ def port_5015_free_check(args: Args) -> CheckResult:
         fix="kill <pid>  # or run 'sol service stop' if this is your install",
     )
     if isinstance(probe, CheckResult):
-        return probe
+        return replace(probe, status="warn")
     pids = [
         line[1:].strip() for line in probe.stdout.splitlines() if line.startswith("p")
     ]
@@ -491,11 +491,12 @@ def port_5015_free_check(args: Args) -> CheckResult:
     try:
         pid = int(pid_text)
     except ValueError:
-        return unexpected_output_result(
+        result = unexpected_output_result(
             check,
             probe.stdout,
             fix="kill <pid>  # or run 'sol service stop' if this is your install",
         )
+        return replace(result, status="warn")
     expected_repo_sol = (ROOT / ".venv" / "bin" / "sol").resolve()
     alias_target = resolve_alias_target()
     if platform_tag() == "darwin":
@@ -506,7 +507,7 @@ def port_5015_free_check(args: Args) -> CheckResult:
             alias_target=alias_target,
         )
         if isinstance(resolved, CheckResult):
-            return resolved
+            return replace(resolved, status="warn")
         exe_path = resolved
     else:
         try:
@@ -514,7 +515,7 @@ def port_5015_free_check(args: Args) -> CheckResult:
         except OSError as exc:
             return make_result(
                 check,
-                "fail",
+                "warn",
                 f"could not verify ownership (pid={pid}): {type(exc).__name__}: {exc}",
                 f"kill {pid}  # or run 'sol service stop' if this is your install",
             )
@@ -532,8 +533,8 @@ def port_5015_free_check(args: Args) -> CheckResult:
         )
     return make_result(
         check,
-        "fail",
-        f"port {port} held by pid {pid} ({exe_path})",
+        "warn",
+        f"port {port} is in use by pid {pid} ({exe_path}); solstone may already be installed and active on this system",
         f"kill {pid}  # or run 'sol service stop' if this is your install",
     )
 
@@ -780,7 +781,7 @@ CHECKS: list[tuple[Check, Callable[[Args], CheckResult]]] = [
         Check("npx_non_interactive", "advisory", ("linux", "darwin")),
         npx_non_interactive_check,
     ),
-    (Check("port_5015_free", "blocker", ("linux", "darwin")), port_5015_free_check),
+    (Check("port_5015_free", "advisory", ("linux", "darwin")), port_5015_free_check),
     (Check("disk_space", "advisory", ("linux", "darwin")), disk_space_check),
     (
         Check("config_dir_readable", "blocker", ("linux", "darwin")),

@@ -269,6 +269,9 @@ class TestNpxChecks:
 
 
 class TestPortCheck:
+    def test_severity_is_advisory(self, doctor):
+        assert doctor.CHECK_MAP["port_5015_free"].severity == "advisory"
+
     def test_skip_when_lsof_missing(self, doctor, monkeypatch):
         monkeypatch.setattr(doctor.shutil, "which", lambda _name: None)
         result = doctor.port_5015_free_check(args(doctor))
@@ -307,7 +310,7 @@ class TestPortCheck:
         assert result.status == "ok"
         assert "this repo's solstone" in result.detail
 
-    def test_fail_when_exe_not_owned_even_if_name_mentions_sol(
+    def test_warn_when_exe_not_owned_even_if_name_mentions_sol(
         self, doctor, monkeypatch, tmp_path
     ):
         monkeypatch.setattr(doctor, "ROOT", tmp_path)
@@ -320,10 +323,11 @@ class TestPortCheck:
         monkeypatch.setattr(doctor, "resolve_alias_target", lambda: None)
         monkeypatch.setattr(doctor.os, "readlink", lambda _path: "/usr/bin/python3")
         result = doctor.port_5015_free_check(args(doctor))
-        assert result.status == "fail"
+        assert result.status == "warn"
+        assert result.severity == "advisory"
         assert "/usr/bin/python3" in result.detail
 
-    def test_fail_on_lsof_timeout(self, doctor, monkeypatch):
+    def test_warn_on_lsof_timeout(self, doctor, monkeypatch):
         monkeypatch.setattr(
             doctor,
             "import_install_guard",
@@ -336,7 +340,8 @@ class TestPortCheck:
 
         monkeypatch.setattr(doctor.subprocess, "run", raise_timeout)
         result = doctor.port_5015_free_check(args(doctor))
-        assert result.status == "fail"
+        assert result.status == "warn"
+        assert result.severity == "advisory"
         assert "timed out" in result.detail
 
 
