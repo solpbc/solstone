@@ -170,7 +170,7 @@ def _compute_wespeaker_features(audio: np.ndarray, sample_rate: int) -> np.ndarr
     opts = knf.FbankOptions()
     opts.frame_opts.samp_freq = float(sample_rate)
     opts.frame_opts.dither = 0.0
-    opts.frame_opts.snip_edges = False
+    opts.frame_opts.snip_edges = True
     opts.frame_opts.frame_length_ms = 25.0
     opts.frame_opts.frame_shift_ms = 10.0
     opts.mel_opts.num_bins = 80
@@ -186,7 +186,9 @@ def _compute_wespeaker_features(audio: np.ndarray, sample_rate: int) -> np.ndarr
     if not frames:
         return np.zeros((0, 80), dtype=np.float32)
 
-    return np.stack(frames, axis=0).astype(np.float32)
+    feats = np.stack(frames, axis=0).astype(np.float32)
+    feats = feats - feats.mean(axis=0, keepdims=True)
+    return feats
 
 
 def _get_jsonl_path(audio_path: Path) -> Path:
