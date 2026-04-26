@@ -89,6 +89,7 @@
       font-size: 0.85rem; box-sizing: border-box;
     }
     .retention-days-row input[type="number"]:focus { outline: none; border-color: #E8923A; }
+    .retention-days-row.is-disabled { opacity: 0.5; cursor: not-allowed; }
   </style>
   <script src="{{ url_for('root.static', filename='error-handler.js') }}"></script>
   <script src="{{ url_for('root.static', filename='api.js') }}"></script>
@@ -174,21 +175,21 @@
     </section>
 
     <section class="init-section disabled" id="section-observed-media">
-      <h3>5. your observed media</h3>
-      <p class="section-hint">choose how long to keep observed audio and screen media. you can change this anytime in settings.</p>
+      <h3>5. your observed media (raw audio and screencast files)</h3>
+      <p class="section-hint">by default, solstone retains your observed media so your journal can re-derive insights later. we recommend leaving this on. you can also expire originals after a number of days, or delete them as soon as they're processed. <a href="https://solpbc.org/privacy#recording-laws" target="_blank" rel="noopener">recording-consent laws</a> may apply in your jurisdiction.</p>
       <div class="field-group">
-        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-          <button type="button" class="settings-mode-btn active" data-mode="days" onclick="setRetentionMode('days')">keep N days</button>
-          <button type="button" class="settings-mode-btn" data-mode="keep" onclick="setRetentionMode('keep')">keep forever</button>
-          <button type="button" class="settings-mode-btn" data-mode="processed" onclick="setRetentionMode('processed')">delete after processing</button>
-        </div>
         <div id="retention-days-field" class="retention-days-row">
-          <button type="button" class="settings-preset-btn active" data-days="7" onclick="setRetentionDays(7)">7</button>
-          <button type="button" class="settings-preset-btn" data-days="30" onclick="setRetentionDays(30)">30</button>
-          <button type="button" class="settings-preset-btn" data-days="90" onclick="setRetentionDays(90)">90</button>
-          <input type="number" id="retention-days-input" min="1" max="365" value="7" onchange="setRetentionDaysCustom(this.value)">
+          <button type="button" class="settings-preset-btn" data-days="7">7</button>
+          <button type="button" class="settings-preset-btn" data-days="30">30</button>
+          <button type="button" class="settings-preset-btn" data-days="90">90</button>
+          <input type="number" id="retention-days-input" min="1" max="365" value="">
           <span style="font-size: 0.85rem; color: #666;">days</span>
         </div>
+        <label for="retention-dont-retain" class="section-hint" style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.75rem;">
+          <input type="checkbox" id="retention-dont-retain">
+          <span>don't retain observed media (delete as soon as it's processed)</span>
+        </label>
+        <p id="retention-status" class="section-hint" style="margin-top: 0.75rem;">currently: always retain — no expiration</p>
       </div>
     </section>
 
@@ -330,31 +331,57 @@
       }
     }
 
-    function setRetentionMode(mode) {
-      document.querySelectorAll('#section-observed-media .settings-mode-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.mode === mode);
-      });
-      document.getElementById('retention-days-field').style.display = mode === 'days' ? 'flex' : 'none';
+    function deriveRetention(daysValue, dontRetain) {
+      if (dontRetain) return { mode: 'processed', days: null, statusText: 'currently: delete observed media after processing' };
+      const n = parseInt(daysValue, 10);
+      if (Number.isFinite(n) && n >= 1) return { mode: 'days', days: n, statusText: `currently: keep ${n} days` };
+      return { mode: 'keep', days: null, statusText: 'currently: always retain — no expiration' };
     }
 
-    function setRetentionDays(days) {
-      document.querySelectorAll('#section-observed-media .settings-preset-btn').forEach(btn => {
-        btn.classList.toggle('active', parseInt(btn.dataset.days) === days);
+    function updateRetentionUI() {
+      const daysField = document.getElementById('retention-days-field');
+      const daysInput = document.getElementById('retention-days-input');
+      const dontRetainCheckbox = document.getElementById('retention-dont-retain');
+      const presetButtons = document.querySelectorAll('#section-observed-media .settings-preset-btn');
+      const statusEl = document.getElementById('retention-status');
+      const disabled = dontRetainCheckbox.checked;
+
+      if (disabled) {
+        daysInput.value = '';
+      }
+
+      const { statusText } = deriveRetention(daysInput.value, disabled);
+      statusEl.textContent = statusText;
+      daysField.classList.toggle('is-disabled', disabled);
+      daysInput.disabled = disabled;
+      daysInput.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+
+      const activeDays = disabled ? null : parseInt(daysInput.value, 10);
+      presetButtons.forEach(btn => {
+        const isActive = Number.isFinite(activeDays) && parseInt(btn.dataset.days, 10) === activeDays;
+        btn.classList.toggle('active', isActive);
+        btn.disabled = disabled;
+        btn.setAttribute('aria-disabled', disabled ? 'true' : 'false');
       });
-      document.getElementById('retention-days-input').value = days;
     }
 
-    function setRetentionDaysCustom(value) {
-      const days = parseInt(value) || 7;
-      document.querySelectorAll('#section-observed-media .settings-preset-btn').forEach(btn => {
-        btn.classList.toggle('active', parseInt(btn.dataset.days) === days);
+    document.querySelectorAll('#section-observed-media .settings-preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.getElementById('retention-days-input').value = btn.dataset.days;
+        updateRetentionUI();
       });
-    }
+    });
+    document.getElementById('retention-days-input').addEventListener('input', updateRetentionUI);
+    document.getElementById('retention-dont-retain').addEventListener('change', updateRetentionUI);
+    updateRetentionUI();
 
     async function finalize() {
       const passwordEl = document.getElementById('password');
       const errorEl = document.getElementById('finalize-error');
+      const daysInput = document.getElementById('retention-days-input');
+      const dontRetainCheckbox = document.getElementById('retention-dont-retain');
       try {
+        const { mode, days } = deriveRetention(daysInput.value, dontRetainCheckbox.checked);
         const data = await window.apiJson('/init/finalize', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
@@ -364,8 +391,8 @@
             preferred: document.getElementById('preferred').value.trim(),
             timezone: detectedTimezone,
             gemini_key: document.getElementById('gemini-key').value.trim(),
-            retention_mode: (document.querySelector('#section-observed-media .settings-mode-btn.active') || {}).dataset?.mode || 'days',
-            retention_days: parseInt(document.getElementById('retention-days-input').value) || 7
+            retention_mode: mode,
+            retention_days: days
           })
         });
         if (errorEl) {
