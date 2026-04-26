@@ -668,3 +668,70 @@ class TestCheckStorageHealth:
             assert "message" in w
             assert "current" in w
             assert "threshold" in w
+
+
+class TestStorageHealthNudge:
+    def _make_summary(self):
+        return StorageSummary(
+            raw_media_bytes=int(10 * 1024**3),
+            derived_bytes=0,
+            total_segments=10,
+            segments_with_raw=5,
+            segments_purged=3,
+        )
+
+    def _config(self, mode: str) -> dict:
+        return {
+            "retention": {
+                "raw_media": mode,
+                "storage_warning_disk_percent": 1,
+                "storage_warning_raw_media_gb": 5.0,
+            }
+        }
+
+    def _force_disk_warning(self, tmp_path, monkeypatch) -> None:
+        usage_type = type(shutil.disk_usage(tmp_path))
+        monkeypatch.setattr(
+            "shutil.disk_usage",
+            lambda path: usage_type(1000, 950, 50),
+        )
+
+    def test_keep_mode_appends_nudge(self, tmp_path, monkeypatch):
+        self._force_disk_warning(tmp_path, monkeypatch)
+        warnings = check_storage_health(
+            self._make_summary(),
+            tmp_path,
+            config=self._config("keep"),
+        )
+        assert {warning["type"] for warning in warnings} == {
+            "disk_percent",
+            "raw_media_gb",
+        }
+        assert all(
+            "always retain observed media" in warning["message"]
+            for warning in warnings
+        )
+
+    def test_days_mode_does_not_append_nudge(self, tmp_path, monkeypatch):
+        self._force_disk_warning(tmp_path, monkeypatch)
+        warnings = check_storage_health(
+            self._make_summary(),
+            tmp_path,
+            config=self._config("days"),
+        )
+        assert all(
+            "always retain observed media" not in warning["message"]
+            for warning in warnings
+        )
+
+    def test_processed_mode_does_not_append_nudge(self, tmp_path, monkeypatch):
+        self._force_disk_warning(tmp_path, monkeypatch)
+        warnings = check_storage_health(
+            self._make_summary(),
+            tmp_path,
+            config=self._config("processed"),
+        )
+        assert all(
+            "always retain observed media" not in warning["message"]
+            for warning in warnings
+        )

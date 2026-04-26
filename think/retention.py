@@ -282,6 +282,11 @@ def check_storage_health(
         config = get_config()
 
     retention = config.get("retention", {})
+    keep_mode_nudge = (
+        " you're currently set to always retain observed media — consider "
+        "choosing a retention value in settings to free up disk space."
+    )
+    always_retain_enabled = retention.get("raw_media", "keep") == "keep"
     warnings = []
 
     # Check disk usage percentage
@@ -291,15 +296,18 @@ def check_storage_health(
             usage = shutil.disk_usage(str(journal_path))
             disk_percent = round(usage.used / usage.total * 100, 1)
             if disk_percent >= disk_threshold:
+                message = (
+                    f"Disk is {disk_percent}% full (threshold: {disk_threshold}%). "
+                    "Consider adjusting retention settings or running Clean Up Now "
+                    "to free space."
+                )
+                if always_retain_enabled:
+                    message += keep_mode_nudge
                 warnings.append(
                     {
                         "level": "warning",
                         "type": "disk_percent",
-                        "message": (
-                            f"Disk is {disk_percent}% full (threshold: {disk_threshold}%). "
-                            "Consider adjusting retention settings or running Clean Up Now "
-                            "to free space."
-                        ),
+                        "message": message,
                         "current": disk_percent,
                         "threshold": disk_threshold,
                     }
@@ -312,15 +320,18 @@ def check_storage_health(
     if raw_media_gb_threshold is not None:
         raw_media_gb = round(summary.raw_media_bytes / (1024**3), 2)
         if raw_media_gb >= raw_media_gb_threshold:
+            message = (
+                f"Raw media is {raw_media_gb} GB (threshold: {raw_media_gb_threshold} GB). "
+                "Consider adjusting retention settings or running Clean Up Now "
+                "to free space."
+            )
+            if always_retain_enabled:
+                message += keep_mode_nudge
             warnings.append(
                 {
                     "level": "warning",
                     "type": "raw_media_gb",
-                    "message": (
-                        f"Raw media is {raw_media_gb} GB (threshold: {raw_media_gb_threshold} GB). "
-                        "Consider adjusting retention settings or running Clean Up Now "
-                        "to free space."
-                    ),
+                    "message": message,
                     "current": raw_media_gb,
                     "threshold": raw_media_gb_threshold,
                 }
