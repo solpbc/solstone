@@ -242,6 +242,47 @@ def _make_process(stdout_lines, stderr_lines, return_code):
     return process
 
 
+class HangingStdout:
+    async def readline(self):
+        future = asyncio.get_running_loop().create_future()
+        return await future
+
+
+class _DelayedStdout:
+    """Stdout mock that waits before yielding each line."""
+
+    def __init__(self, lines: list[bytes], delay_seconds: float):
+        self._lines = lines
+        self._delay_seconds = delay_seconds
+        self._index = 0
+
+    async def readline(self):
+        await asyncio.sleep(self._delay_seconds)
+        if self._index >= len(self._lines):
+            return b""
+        line = self._lines[self._index]
+        self._index += 1
+        return line
+
+
+class _FirstEmitThenHangStdout:
+    """Stdout mock that emits one line and then hangs forever."""
+
+    def __init__(self, first_line: bytes, delay_seconds: float = 0.0):
+        self._first_line = first_line
+        self._delay_seconds = delay_seconds
+        self._emitted = False
+
+    async def readline(self):
+        if not self._emitted:
+            self._emitted = True
+            if self._delay_seconds:
+                await asyncio.sleep(self._delay_seconds)
+            return self._first_line
+        future = asyncio.get_running_loop().create_future()
+        return await future
+
+
 class TestCLIRunnerExitCode:
     """Tests for CLIRunner handling of non-zero exit codes."""
 
@@ -431,11 +472,6 @@ class TestCLIRunnerFirstEventTimeout:
         callback = JSONEventCallback(events.append)
         aggregator = ThinkingAggregator(callback, model="test-model")
 
-        class HangingStdout:
-            async def readline(self):
-                future = asyncio.get_running_loop().create_future()
-                return await future
-
         process = _make_process([], [b"Please authenticate first\n"], 0)
         process.stdout = HangingStdout()  # Override with hanging version
 
@@ -448,6 +484,10 @@ class TestCLIRunnerFirstEventTimeout:
             timeout=5,
             first_event_timeout=0.1,
         )
+        # Force single-shot behavior to keep this test focused on the give-up
+        # surface; the new retry contract is covered in
+        # TestCLIRunnerFirstEventRetry.
+        runner._already_retried_first_event = True
 
         with (
             patch(
@@ -466,6 +506,220 @@ class TestCLIRunnerFirstEventTimeout:
         error_events = [event for event in events if event.get("event") == "error"]
         assert len(error_events) == 1
         assert "Please authenticate first" in error_events[0]["error"]
+
+
+class TestCLIRunnerFirstEventRetry:
+    @staticmethod
+    def _translate_text_event(event, agg, cb):
+        if event.get("type") == "text":
+            agg.accumulate(event["content"])
+            cb.emit({"event": "text", "text": event["content"]})
+        return None
+
+    def test_short_first_event_timeout_with_slow_first_emit_raises(
+        self, monkeypatch, tmp_path
+    ):
+        monkeypatch.setattr("think.providers.cli._TIMEOUT_LOG_DIR", tmp_path)
+        events = []
+        callback = JSONEventCallback(events.append)
+        aggregator = ThinkingAggregator(callback, model="test-model")
+        slow_line = b'{"type": "text", "content": "slow"}\n'
+        process_one = _make_process([], [], 0)
+        process_one.stdout = _DelayedStdout([slow_line], delay_seconds=0.5)
+        process_two = _make_process([], [], 0)
+        process_two.stdout = _DelayedStdout([slow_line], delay_seconds=0.5)
+        runner = CLIRunner(
+            cmd=["fakecli", "--json"],
+            prompt_text="test",
+            translate=self._translate_text_event,
+            callback=callback,
+            aggregator=aggregator,
+            timeout=5,
+            first_event_timeout=0.05,
+        )
+
+        with (
+            patch(
+                "think.providers.cli.asyncio.create_subprocess_exec",
+                AsyncMock(side_effect=[process_one, process_two]),
+            ) as mock_create,
+            patch("think.providers.cli.shutil.which", return_value="/usr/bin/fakecli"),
+            pytest.raises(RuntimeError),
+        ):
+            asyncio.run(runner.run())
+
+        assert mock_create.call_count == 2
+
+    def test_first_event_timeout_with_headroom_succeeds(self, monkeypatch, tmp_path):
+        monkeypatch.setattr("think.providers.cli._TIMEOUT_LOG_DIR", tmp_path)
+        events = []
+        callback = JSONEventCallback(events.append)
+        aggregator = ThinkingAggregator(callback, model="test-model")
+        line = b'{"type": "text", "content": "headroom"}\n'
+        process = _make_process([], [], 0)
+        process.stdout = _DelayedStdout([line], delay_seconds=0.05)
+        runner = CLIRunner(
+            cmd=["fakecli", "--json"],
+            prompt_text="test",
+            translate=self._translate_text_event,
+            callback=callback,
+            aggregator=aggregator,
+            timeout=5,
+            first_event_timeout=1.0,
+        )
+
+        with (
+            patch(
+                "think.providers.cli.asyncio.create_subprocess_exec",
+                AsyncMock(return_value=process),
+            ) as mock_create,
+            patch("think.providers.cli.shutil.which", return_value="/usr/bin/fakecli"),
+        ):
+            result = asyncio.run(runner.run())
+
+        assert result == "headroom"
+        assert mock_create.call_count == 1
+        assert runner._already_retried_first_event is False
+
+    def test_first_event_timeout_triggers_one_retry(self, monkeypatch, tmp_path):
+        monkeypatch.setattr("think.providers.cli._TIMEOUT_LOG_DIR", tmp_path)
+        events = []
+        callback = JSONEventCallback(events.append)
+        aggregator = ThinkingAggregator(callback, model="test-model")
+        hanging_proc_1 = _make_process([], [], 0)
+        hanging_proc_1.stdout = HangingStdout()
+        hanging_proc_2 = _make_process([], [], 0)
+        hanging_proc_2.stdout = HangingStdout()
+        runner = CLIRunner(
+            cmd=["fakecli", "--json"],
+            prompt_text="test",
+            translate=self._translate_text_event,
+            callback=callback,
+            aggregator=aggregator,
+            timeout=5,
+            first_event_timeout=0.05,
+        )
+
+        with (
+            patch(
+                "think.providers.cli.asyncio.create_subprocess_exec",
+                AsyncMock(side_effect=[hanging_proc_1, hanging_proc_2]),
+            ) as mock_create,
+            patch("think.providers.cli.shutil.which", return_value="/usr/bin/fakecli"),
+            pytest.raises(RuntimeError),
+        ):
+            asyncio.run(runner.run())
+
+        assert mock_create.call_count == 2
+        assert runner._already_retried_first_event is True
+
+    def test_retry_succeeds_when_second_spawn_emits(self, monkeypatch, tmp_path):
+        monkeypatch.setattr("think.providers.cli._TIMEOUT_LOG_DIR", tmp_path)
+        events = []
+        callback = JSONEventCallback(events.append)
+        aggregator = ThinkingAggregator(callback, model="test-model")
+        hanging_proc = _make_process([], [], 0)
+        hanging_proc.stdout = HangingStdout()
+        healthy_proc = _make_process([], [], 0)
+        healthy_proc.stdout = _DelayedStdout(
+            [b'{"type": "text", "content": "retry ok"}\n'],
+            delay_seconds=0.01,
+        )
+        runner = CLIRunner(
+            cmd=["fakecli", "--json"],
+            prompt_text="test",
+            translate=self._translate_text_event,
+            callback=callback,
+            aggregator=aggregator,
+            timeout=5,
+            first_event_timeout=0.05,
+        )
+
+        with (
+            patch(
+                "think.providers.cli.asyncio.create_subprocess_exec",
+                AsyncMock(side_effect=[hanging_proc, healthy_proc]),
+            ) as mock_create,
+            patch("think.providers.cli.shutil.which", return_value="/usr/bin/fakecli"),
+        ):
+            result = asyncio.run(runner.run())
+
+        assert result == "retry ok"
+        assert mock_create.call_count == 2
+        assert runner._already_retried_first_event is True
+        assert [event for event in events if event.get("event") == "text"]
+
+    def test_timeout_log_redacts_env_values_and_prompt(self, monkeypatch, tmp_path):
+        monkeypatch.setattr("think.providers.cli._TIMEOUT_LOG_DIR", tmp_path)
+        events = []
+        callback = JSONEventCallback(events.append)
+        aggregator = ThinkingAggregator(callback, model="test-model")
+        hanging_proc_1 = _make_process([], [], 0)
+        hanging_proc_1.stdout = HangingStdout()
+        hanging_proc_2 = _make_process([], [], 0)
+        hanging_proc_2.stdout = HangingStdout()
+        runner = CLIRunner(
+            cmd=["fakecli", "--json"],
+            prompt_text="prompt-do-not-leak-67890",
+            translate=self._translate_text_event,
+            callback=callback,
+            aggregator=aggregator,
+            env={"FAKE_KEY": "do-not-leak-me-12345"},
+            timeout=5,
+            first_event_timeout=0.05,
+        )
+
+        with (
+            patch(
+                "think.providers.cli.asyncio.create_subprocess_exec",
+                AsyncMock(side_effect=[hanging_proc_1, hanging_proc_2]),
+            ),
+            patch("think.providers.cli.shutil.which", return_value="/usr/bin/fakecli"),
+            pytest.raises(RuntimeError),
+        ):
+            asyncio.run(runner.run())
+
+        files = list(tmp_path.glob("gemini-cogitate-timeout-*.log"))
+        assert len(files) == 2
+        for file_path in files:
+            content = file_path.read_text()
+            assert "FAKE_KEY" in content
+            assert "do-not-leak-me-12345" not in content
+            assert "prompt-do-not-leak-67890" not in content
+            assert file_path.stat().st_mode & 0o777 == 0o600
+
+    def test_full_run_timeout_writes_log(self, monkeypatch, tmp_path):
+        monkeypatch.setattr("think.providers.cli._TIMEOUT_LOG_DIR", tmp_path)
+        events = []
+        callback = JSONEventCallback(events.append)
+        aggregator = ThinkingAggregator(callback, model="test-model")
+        process = _make_process([], [], 0)
+        process.stdout = _FirstEmitThenHangStdout(
+            b'{"type": "text", "content": "first line"}\n'
+        )
+        runner = CLIRunner(
+            cmd=["fakecli", "--json"],
+            prompt_text="test",
+            translate=self._translate_text_event,
+            callback=callback,
+            aggregator=aggregator,
+            timeout=0.05,
+            first_event_timeout=1.0,
+        )
+
+        with (
+            patch(
+                "think.providers.cli.asyncio.create_subprocess_exec",
+                AsyncMock(return_value=process),
+            ),
+            patch("think.providers.cli.shutil.which", return_value="/usr/bin/fakecli"),
+            pytest.raises(RuntimeError),
+        ):
+            asyncio.run(runner.run())
+
+        files = list(tmp_path.glob("gemini-cogitate-timeout-*.log"))
+        assert len(files) == 1
+        assert "which_timeout: full_run" in files[0].read_text()
 
 
 _OVERSIZE = object()  # sentinel for oversize line in _MockStdoutWithOversize

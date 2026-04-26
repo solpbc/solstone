@@ -27,6 +27,7 @@ from think.utils import now_ms
 LOG = logging.getLogger("think.providers.cli")
 
 _PROJECT_ROOT = Path(__file__).parent.parent.parent
+_TIMEOUT_LOG_DIR: Path = Path("/tmp")
 
 
 async def _drain_line(stream: asyncio.StreamReader) -> None:
@@ -180,7 +181,7 @@ class CLIRunner:
         cwd: Working directory for the subprocess. Defaults to project root.
         env: Optional complete environment for the subprocess (used as-is, not merged). When None, inherits os.environ.
         timeout: Subprocess timeout in seconds. Default 600.
-        first_event_timeout: Timeout for first stdout line in seconds. Default 30.
+        first_event_timeout: Timeout for first stdout line in seconds. Default 90.
     """
 
     def __init__(
@@ -196,7 +197,7 @@ class CLIRunner:
         cwd: Path | None = None,
         env: dict[str, str] | None = None,
         timeout: int = 600,
-        first_event_timeout: int = 30,
+        first_event_timeout: int = 90,
     ) -> None:
         self.cmd = cmd
         self.prompt_text = prompt_text
@@ -208,6 +209,7 @@ class CLIRunner:
         self.timeout = timeout
         self.first_event_timeout = first_event_timeout
         self._timed_out_waiting_for_first_event = False
+        self._already_retried_first_event: bool = False
         self.cli_session_id: str | None = None
 
     async def run(self) -> str:
@@ -224,8 +226,6 @@ class CLIRunner:
             raise RuntimeError(
                 f"CLI tool '{binary}' not found. Install it and ensure it's on PATH."
             )
-
-        import os
 
         proc_env = self.env if self.env is not None else os.environ.copy()
 
@@ -262,19 +262,75 @@ class CLIRunner:
         self._timed_out_waiting_for_first_event = False
 
         try:
-            await asyncio.wait_for(
-                self._process_stdout(process),
-                timeout=self.timeout,
-            )
+            try:
+                await asyncio.wait_for(
+                    self._process_stdout(process),
+                    timeout=self.timeout,
+                )
+            except asyncio.TimeoutError:
+                if (
+                    self._timed_out_waiting_for_first_event
+                    and not self._already_retried_first_event
+                ):
+                    LOG.warning(
+                        "CLI first-event timed out after %ss, retrying once",
+                        self.first_event_timeout,
+                    )
+                    self._already_retried_first_event = True
+                    process.kill()
+                    await stderr_task
+                    self._write_timeout_log(
+                        which_timeout="first_event",
+                        timeout_seconds=self.first_event_timeout,
+                        proc_env=proc_env,
+                        cmd=self.cmd,
+                        cwd=str(self.cwd),
+                        stderr_lines=stderr_lines,
+                    )
+
+                    process = await asyncio.create_subprocess_exec(
+                        *self.cmd,
+                        stdin=asyncio.subprocess.PIPE,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE,
+                        limit=1024 * 1024,
+                        cwd=str(self.cwd),
+                        env=proc_env,
+                    )
+
+                    if process.stdin:
+                        process.stdin.write(self.prompt_text.encode("utf-8"))
+                        process.stdin.close()
+
+                    stderr_lines = []
+                    stderr_task = asyncio.create_task(_read_stderr())
+                    self._timed_out_waiting_for_first_event = False
+                    await asyncio.wait_for(
+                        self._process_stdout(process),
+                        timeout=self.timeout,
+                    )
+                else:
+                    raise
         except asyncio.TimeoutError:
             timeout_seconds = (
                 self.first_event_timeout
                 if self._timed_out_waiting_for_first_event
                 else self.timeout
             )
+            which_timeout = (
+                "first_event" if self._timed_out_waiting_for_first_event else "full_run"
+            )
             LOG.error("CLI process timed out after %ss, killing", timeout_seconds)
             process.kill()
             await stderr_task
+            self._write_timeout_log(
+                which_timeout=which_timeout,
+                timeout_seconds=timeout_seconds,
+                proc_env=proc_env,
+                cmd=self.cmd,
+                cwd=str(self.cwd),
+                stderr_lines=stderr_lines,
+            )
             stderr_tail = "\n".join(stderr_lines[-20:])
             error_message = (
                 f"CLI process timed out after {timeout_seconds}s. "
@@ -387,6 +443,45 @@ class CLIRunner:
             if not raw_line:
                 break
             _process_line(raw_line)
+
+    def _write_timeout_log(
+        self,
+        *,
+        which_timeout: str,
+        timeout_seconds: int,
+        proc_env: dict[str, str],
+        cmd: list[str],
+        cwd: str | None,
+        stderr_lines: list[str],
+    ) -> Path | None:
+        """Write a postmortem log for a CLI timeout."""
+
+        timestamp_ms = now_ms()
+        path = _TIMEOUT_LOG_DIR / f"gemini-cogitate-timeout-{timestamp_ms}.log"
+        env_keys = ", ".join(sorted(set(proc_env.keys())))
+        stderr_text = "\n".join(stderr_lines)
+        content = "\n".join(
+            [
+                f"timestamp_ms: {timestamp_ms}",
+                f"which_timeout: {which_timeout}",
+                f"timeout_seconds: {timeout_seconds}",
+                (f"already_retried_first_event: {self._already_retried_first_event}"),
+                f"cmd: {cmd!r}",
+                f"cwd: {cwd if cwd is not None else 'None'}",
+                f"env_keys: {env_keys}",
+                "stderr (full):",
+                stderr_text,
+            ]
+        )
+
+        try:
+            with open(path, "w", encoding="utf-8") as log_file:
+                log_file.write(content)
+            os.chmod(str(path), 0o600)
+        except OSError as exc:
+            LOG.warning("Could not write timeout log to %s: %s", path, exc)
+            return None
+        return path
 
 
 # ---------------------------------------------------------------------------
