@@ -6,11 +6,13 @@
 import json
 import shutil
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from typer.testing import CliRunner
 
 from think.call import call_app
+from think.merge import DecisionLogWriteError, merge_journals
 
 runner = CliRunner()
 
@@ -40,6 +42,10 @@ def _read_jsonl(path: Path) -> list[dict]:
     ]
 
 
+def _parse_cli_json(output: str) -> dict:
+    return json.loads(output.strip())
+
+
 def _find_merge_artifact_root(target: Path) -> Path:
     merge_dir = target.parent / f"{target.name}.merge"
     runs = sorted(path for path in merge_dir.iterdir() if path.is_dir())
@@ -54,7 +60,7 @@ def _mock_indexer(monkeypatch):
 
     def _run(*args, **kwargs):
         calls.append((args, kwargs))
-        return None
+        return SimpleNamespace(returncode=0)
 
     monkeypatch.setattr(call_module.subprocess, "run", _run)
     return calls
@@ -578,6 +584,25 @@ def test_invalid_source_no_days(tmp_path):
     assert "does not appear to be a journal" in result.output
 
 
+def test_accepts_unpacked_export_root(merge_journals_fixture, monkeypatch):
+    paths = merge_journals_fixture
+    _mock_indexer(monkeypatch)
+
+    chronicle_dir = paths["source"] / "chronicle"
+    chronicle_dir.mkdir()
+    shutil.move(
+        str(paths["source"] / "20260101"),
+        str(chronicle_dir / "20260101"),
+    )
+
+    result = runner.invoke(call_app, ["journal", "merge", str(paths["source"])])
+
+    assert result.exit_code == 0
+    assert (
+        paths["target"] / "chronicle" / "20260101" / "143022_300" / "audio.jsonl"
+    ).exists()
+
+
 def test_error_resilience(merge_journals_fixture, monkeypatch):
     paths = merge_journals_fixture
     _mock_indexer(monkeypatch)
@@ -668,3 +693,176 @@ def test_entity_staged_count_in_output(merge_journals_fixture, monkeypatch):
 
     assert result.exit_code == 0
     assert "staged" in result.output
+
+
+def test_merge_json_success_envelope(merge_journals_fixture, monkeypatch):
+    paths = merge_journals_fixture
+    _mock_indexer(monkeypatch)
+
+    result = runner.invoke(
+        call_app, ["journal", "merge", str(paths["source"]), "--json"]
+    )
+
+    assert result.exit_code == 0
+    payload = _parse_cli_json(result.output)
+    assert payload["ok"] is True
+    assert payload["code"] == "ok"
+    assert payload["source"] == str(paths["source"].resolve())
+    assert payload["dry_run"] is False
+    assert payload["summary"]["segments_copied"] >= 1
+    assert payload["decision_log"].endswith("decisions.jsonl")
+    assert payload["staging_dir"] is None
+    assert payload["indexer_returncode"] == 0
+    assert result.stderr == ""
+    assert len(result.output.strip().splitlines()) == 1
+
+
+def test_merge_json_validation_error_envelope():
+    result = runner.invoke(
+        call_app, ["journal", "merge", "/tmp/missing-source", "--json"]
+    )
+
+    assert result.exit_code == 1
+    payload = _parse_cli_json(result.stderr)
+    assert payload == {
+        "ok": False,
+        "code": "source-not-a-directory",
+        "message": "Source path is not a directory.",
+        "source": str(Path("/tmp/missing-source").resolve()),
+        "dry_run": False,
+        "details": {},
+    }
+    assert result.stdout == ""
+    assert len(result.stderr.strip().splitlines()) == 1
+
+
+def test_merge_json_partial_errors_still_succeed(merge_journals_fixture, monkeypatch):
+    paths = merge_journals_fixture
+    _mock_indexer(monkeypatch)
+    (paths["source"] / "20260101" / "150000_60").mkdir(parents=True)
+    (paths["source"] / "20260101" / "150000_60" / "audio.jsonl").write_text(
+        '{"audio": "bad"}\n',
+        encoding="utf-8",
+    )
+
+    import think.merge as journal_merge_module
+
+    real_copytree = shutil.copytree
+    bad_segment = paths["source"] / "20260101" / "150000_60"
+
+    def failing_copytree(src, dst, *args, **kwargs):
+        if Path(src) == bad_segment:
+            raise OSError("boom")
+        return real_copytree(src, dst, *args, **kwargs)
+
+    monkeypatch.setattr(journal_merge_module.shutil, "copytree", failing_copytree)
+
+    result = runner.invoke(
+        call_app, ["journal", "merge", str(paths["source"]), "--json"]
+    )
+
+    assert result.exit_code == 0
+    payload = _parse_cli_json(result.output)
+    assert payload["ok"] is True
+    assert payload["summary"]["errors"] == ["segment 20260101/_default/150000_60: boom"]
+
+
+def test_merge_json_decision_log_failure(merge_journals_fixture, monkeypatch):
+    paths = merge_journals_fixture
+    _mock_indexer(monkeypatch)
+
+    import think.merge as journal_merge_module
+
+    def failing_log(*args, **kwargs):
+        raise DecisionLogWriteError("boom")
+
+    monkeypatch.setattr(journal_merge_module, "_log_decision", failing_log)
+
+    result = runner.invoke(
+        call_app, ["journal", "merge", str(paths["source"]), "--json"]
+    )
+
+    assert result.exit_code == 1
+    payload = _parse_cli_json(result.stderr)
+    assert payload["code"] == "decision-log-write-failed"
+    assert payload["details"]["exception_type"] == "DecisionLogWriteError"
+
+
+def test_merge_json_merge_engine_error(merge_journals_fixture, monkeypatch):
+    paths = merge_journals_fixture
+    _mock_indexer(monkeypatch)
+
+    import think.merge as journal_merge_module
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("merge boom")
+
+    monkeypatch.setattr(journal_merge_module, "merge_journals", boom)
+
+    result = runner.invoke(
+        call_app, ["journal", "merge", str(paths["source"]), "--json"]
+    )
+
+    assert result.exit_code == 1
+    payload = _parse_cli_json(result.stderr)
+    assert payload["code"] == "merge-engine-error"
+    assert payload["details"]["exception_type"] == "RuntimeError"
+
+
+def test_merge_progress_callback_reports_all_phases(merge_journals_fixture):
+    paths = merge_journals_fixture
+    events = []
+
+    def progress(phase, completed, total, item_name):
+        events.append((phase, completed, total, item_name))
+
+    summary = merge_journals(
+        paths["source"],
+        paths["target"],
+        dry_run=True,
+        log_path=paths["target"].parent / "dry-run.log",
+        staging_path=paths["target"].parent / "staging",
+        progress=progress,
+    )
+
+    assert summary.segments_copied >= 1
+    assert ("segments", 0, 2, None) in events
+    assert ("segments", 2, 2, None) in events
+    assert ("entities", 0, 1, None) in events
+    assert ("entities", 1, 1, "alice_johnson") in events
+    assert ("facets", 1, 1, "work") in events
+    assert ("imports", 1, 1, "20260101_120000") in events
+
+
+def test_merge_progress_callback_exception_propagates(merge_journals_fixture):
+    paths = merge_journals_fixture
+
+    def progress(phase, completed, total, item_name):
+        if phase == "segments" and completed == 1:
+            raise RuntimeError("stop here")
+
+    with pytest.raises(RuntimeError, match="stop here"):
+        merge_journals(
+            paths["source"],
+            paths["target"],
+            dry_run=True,
+            log_path=paths["target"].parent / "dry-run.log",
+            staging_path=paths["target"].parent / "staging",
+            progress=progress,
+        )
+
+
+def test_merge_no_flag_snapshot_unchanged(merge_journals_fixture, monkeypatch):
+    paths = merge_journals_fixture
+    _mock_indexer(monkeypatch)
+
+    result = runner.invoke(call_app, ["journal", "merge", str(paths["source"])])
+
+    assert result.exit_code == 0
+    assert "\nMerged:\n" in result.output
+    assert "Segments: 1 copied, 1 skipped, 0 errored" in result.output
+    assert "Entities: 0 created, 1 merged, 0 staged, 0 skipped" in result.output
+    assert "Facets: 1 created, 0 merged" in result.output
+    assert "Imports: 1 copied, 0 skipped" in result.output
+    assert "Decision log:" in result.output
+    assert "Index rebuild started." in result.output

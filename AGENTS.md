@@ -74,6 +74,7 @@ Two surfaces:
 **Adding a top-level command:** add an entry to `COMMANDS` in `think/sol_cli.py`; ensure the module has a `main()` function.
 
 **Adding a `sol call` sub-verb:** add it to the app's `apps/<app>/call.py` Typer sub-app. No central registration needed — `think/call.py` discovers apps automatically.
+`sol call journal export` is the CLI entry for portable journal ZIPs; read-only archive validation lives in `think/importers/journal_archive.py`.
 
 Run `sol` (no args) for live status plus the full grouped command list.
 

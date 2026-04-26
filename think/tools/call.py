@@ -11,9 +11,12 @@ Mounted by ``think.call`` as ``sol call journal ...``.
 """
 
 import json
+import logging
+import re
 import shutil
 import subprocess
 import sys
+from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -42,6 +45,7 @@ from think.indexer.journal import search_journal as search_journal_impl
 from think.utils import (
     day_path,
     get_journal,
+    is_solstone_up,
     iter_segments,
     require_solstone,
     resolve_sol_day,
@@ -55,7 +59,11 @@ facet_app = typer.Typer(help="Facet management.")
 
 
 @app.callback()
-def _require_up() -> None:
+def _require_up(ctx: typer.Context) -> None:
+    if (
+        ctx.invoked_subcommand == "export"
+    ):  # export is read-only and must work when supervisor is down (scope §6)
+        return
     require_solstone()
 
 
@@ -1065,6 +1073,94 @@ def storage_summary(
     )
 
 
+def _looks_like_journal_source(source_path: Path) -> bool:
+    try:
+        chronicle_dir = source_path / "chronicle"
+        if chronicle_dir.is_dir():
+            if any(
+                entry.is_dir() and re.match(r"^\d{8}$", entry.name)
+                for entry in chronicle_dir.iterdir()
+            ):
+                return True
+        return any(
+            entry.is_dir() and re.match(r"^\d{8}$", entry.name)
+            for entry in source_path.iterdir()
+        )
+    except OSError:
+        return False
+
+
+def _merge_error_envelope(
+    *,
+    code: str,
+    message: str,
+    source: Path,
+    dry_run: bool,
+    details: dict[str, object] | None = None,
+) -> dict[str, object]:
+    return {
+        "ok": False,
+        "code": code,
+        "message": message,
+        "source": str(source),
+        "dry_run": dry_run,
+        "details": details or {},
+    }
+
+
+@app.command("export")
+def journal_export(
+    out: Path | None = typer.Option(
+        None,
+        "--out",
+        help="Write the journal ZIP to PATH (default: alongside the journal root).",
+    ),
+    quiet: bool = typer.Option(
+        False,
+        "--quiet",
+        help="Suppress success output; errors still print.",
+    ),
+) -> None:
+    """Export the active journal as a portable ZIP archive."""
+    from think.journal_export import export_journal_archive, get_skipped_export_entries
+
+    journal_root = Path(get_journal())
+    if is_solstone_up():
+        typer.echo(
+            "warning: solstone supervisor is running; export reflects a live snapshot and may include partial writes",
+            err=True,
+        )
+
+    skipped_entries = get_skipped_export_entries(journal_root)
+    if skipped_entries and not quiet:
+        typer.echo(
+            f"advisory: skipped non-export entries: {', '.join(skipped_entries)}",
+            err=True,
+        )
+
+    try:
+        archive_path = export_journal_archive(journal_root, out)
+    except FileNotFoundError:
+        typer.echo(
+            "error: active journal root is not a directory; try: verify the journal path",
+            err=True,
+        )
+        raise typer.Exit(1)
+    except OSError:
+        target_path = (
+            out or journal_root.parent / f"{journal_root.name}.exports"
+        ).expanduser()
+        advisory_parent = target_path.parent if target_path.suffix else target_path
+        typer.echo(
+            f"error: failed to write archive; try: check disk space and write permissions on {advisory_parent.resolve()}",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    if not quiet:
+        typer.echo(str(archive_path))
+
+
 @app.command("merge")
 def journal_merge(
     source: str = typer.Argument(
@@ -1075,75 +1171,168 @@ def journal_merge(
         "--dry-run",
         help="Show what would be merged without making changes.",
     ),
+    json_output: bool = typer.Option(
+        False,
+        "--json",
+        help="Output result as a single-line JSON object (suppresses normal output).",
+    ),
 ) -> None:
     """Merge segments, entities, facets, and imports from a source journal."""
-    from think.merge import MergeSummary, merge_journals
-    from think.utils import get_journal
+    from think.merge import DecisionLogWriteError, MergeSummary, merge_journals
 
     source_path = Path(source).resolve()
+    target_path = Path(get_journal())
 
     if not source_path.is_dir():
-        typer.echo(f"Error: '{source}' is not a directory.", err=True)
+        if json_output:
+            typer.echo(
+                json.dumps(
+                    _merge_error_envelope(
+                        code="source-not-a-directory",
+                        message="Source path is not a directory.",
+                        source=source_path,
+                        dry_run=dry_run,
+                    )
+                ),
+                err=True,
+            )
+        else:
+            typer.echo(f"Error: '{source}' is not a directory.", err=True)
         raise typer.Exit(1)
 
-    import re
-
-    has_day = any(
-        entry.is_dir() and re.match(r"^\d{8}$", entry.name)
-        for entry in source_path.iterdir()
-    )
-    if not has_day:
-        typer.echo(
-            f"Error: '{source}' does not appear to be a journal (no YYYYMMDD directories found).",
-            err=True,
-        )
+    if target_path.exists() and not target_path.is_dir():
+        if json_output:
+            typer.echo(
+                json.dumps(
+                    _merge_error_envelope(
+                        code="target-not-a-journal",
+                        message="Target journal path is not a directory.",
+                        source=source_path,
+                        dry_run=dry_run,
+                        details={"target": str(target_path)},
+                    )
+                ),
+                err=True,
+            )
+        else:
+            typer.echo(
+                f"Error: journal target '{target_path}' is not a directory.", err=True
+            )
         raise typer.Exit(1)
 
-    target_path = Path(get_journal())
+    if not _looks_like_journal_source(source_path):
+        if json_output:
+            typer.echo(
+                json.dumps(
+                    _merge_error_envelope(
+                        code="source-not-a-journal",
+                        message="Source path does not look like a journal directory.",
+                        source=source_path,
+                        dry_run=dry_run,
+                    )
+                ),
+                err=True,
+            )
+        else:
+            typer.echo(
+                f"Error: '{source}' does not appear to be a journal (no YYYYMMDD directories found).",
+                err=True,
+            )
+        raise typer.Exit(1)
+
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     artifact_root = target_path.parent / f"{target_path.name}.merge" / run_id
     log_path = artifact_root / "decisions.jsonl"
     staging_path = artifact_root / "staging"
 
-    summary: MergeSummary = merge_journals(
-        source_path,
-        target_path,
-        dry_run=dry_run,
-        log_path=log_path,
-        staging_path=staging_path,
-    )
+    root_logger = logging.getLogger()
+    original_level = root_logger.level
+    try:
+        if json_output:
+            root_logger.setLevel(logging.CRITICAL)
+        summary: MergeSummary = merge_journals(
+            source_path,
+            target_path,
+            dry_run=dry_run,
+            log_path=log_path,
+            staging_path=staging_path,
+        )
+    except DecisionLogWriteError as exc:
+        if json_output:
+            typer.echo(
+                json.dumps(
+                    _merge_error_envelope(
+                        code="decision-log-write-failed",
+                        message="Decision log could not be written.",
+                        source=source_path,
+                        dry_run=dry_run,
+                        details={
+                            "exception_type": type(exc).__name__,
+                            "exception": repr(exc),
+                        },
+                    )
+                ),
+                err=True,
+            )
+            raise typer.Exit(1)
+        raise
+    except Exception as exc:
+        if json_output:
+            typer.echo(
+                json.dumps(
+                    _merge_error_envelope(
+                        code="merge-engine-error",
+                        message="Journal merge failed.",
+                        source=source_path,
+                        dry_run=dry_run,
+                        details={
+                            "exception_type": type(exc).__name__,
+                            "exception": repr(exc),
+                        },
+                    )
+                ),
+                err=True,
+            )
+            raise typer.Exit(1)
+        raise
+    finally:
+        if json_output:
+            root_logger.setLevel(original_level)
 
     action = "Would merge" if dry_run else "Merged"
-    typer.echo(f"\n{action}:")
-    typer.echo(
-        f"  Segments: {summary.segments_copied} copied, {summary.segments_skipped} skipped, {summary.segments_errored} errored"
-    )
-    typer.echo(
-        f"  Entities: {summary.entities_created} created, {summary.entities_merged} merged, {summary.entities_staged} staged, {summary.entities_skipped} skipped"
-    )
-    typer.echo(
-        f"  Facets: {summary.facets_created} created, {summary.facets_merged} merged"
-    )
-    typer.echo(
-        f"  Imports: {summary.imports_copied} copied, {summary.imports_skipped} skipped"
-    )
+    if not json_output:
+        typer.echo(f"\n{action}:")
+        typer.echo(
+            f"  Segments: {summary.segments_copied} copied, {summary.segments_skipped} skipped, {summary.segments_errored} errored"
+        )
+        typer.echo(
+            f"  Entities: {summary.entities_created} created, {summary.entities_merged} merged, {summary.entities_staged} staged, {summary.entities_skipped} skipped"
+        )
+        typer.echo(
+            f"  Facets: {summary.facets_created} created, {summary.facets_merged} merged"
+        )
+        typer.echo(
+            f"  Imports: {summary.imports_copied} copied, {summary.imports_skipped} skipped"
+        )
 
-    if summary.errors:
-        typer.echo(f"\n{len(summary.errors)} errors:")
-        for error in summary.errors:
-            typer.echo(f"  - {error}")
+        if summary.errors:
+            typer.echo(f"\n{len(summary.errors)} errors:")
+            for error in summary.errors:
+                typer.echo(f"  - {error}")
 
-    if log_path.exists():
-        typer.echo(f"\nDecision log: {log_path}")
-    if summary.entities_staged > 0:
-        typer.echo(f"Staged entities: {staging_path}")
+        if log_path.exists():
+            typer.echo(f"\nDecision log: {log_path}")
+        if summary.entities_staged > 0:
+            typer.echo(f"Staged entities: {staging_path}")
 
+    indexer_returncode = 0
     if not dry_run:
-        subprocess.run(
+        indexer_result = subprocess.run(
             ["sol", "indexer", "--rescan-full"],
             check=False,
             capture_output=True,
         )
+        indexer_returncode = indexer_result.returncode
 
         log_call_action(
             facet=None,
@@ -1161,4 +1350,23 @@ def journal_merge(
             },
         )
 
-        typer.echo("Index rebuild started.")
+        if not json_output:
+            typer.echo("Index rebuild started.")
+
+    if json_output:
+        typer.echo(
+            json.dumps(
+                {
+                    "ok": True,
+                    "code": "ok",
+                    "source": str(source_path),
+                    "dry_run": dry_run,
+                    "summary": asdict(summary),
+                    "decision_log": str(log_path),
+                    "staging_dir": str(staging_path)
+                    if summary.entities_staged > 0
+                    else None,
+                    "indexer_returncode": indexer_returncode,
+                }
+            )
+        )

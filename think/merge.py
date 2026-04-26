@@ -7,6 +7,7 @@ import json
 import logging
 import re
 import shutil
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -26,6 +27,7 @@ from think.utils import CHRONICLE_DIR, iter_segments
 
 DATE_RE = re.compile(r"^\d{8}$")
 logger = logging.getLogger(__name__)
+ProgressCallback = Callable[[str, int, int | None, str | None], None]
 
 
 @dataclass
@@ -44,17 +46,25 @@ class MergeSummary:
     errors: list[str] = field(default_factory=list)
 
 
+class DecisionLogWriteError(OSError):
+    """Raised when the merge decision log cannot be written."""
+
+
 def merge_journals(
     source: Path,
     target: Path,
     dry_run: bool = False,
     log_path: Path | None = None,
     staging_path: Path | None = None,
+    *,
+    progress: ProgressCallback | None = None,
 ) -> MergeSummary:
     summary = MergeSummary()
     target_entities = load_all_journal_entities()
 
-    _merge_segments(source, target, summary, dry_run, log_path=log_path)
+    _merge_segments(
+        source, target, summary, dry_run, log_path=log_path, progress=progress
+    )
     _merge_entities(
         source,
         summary,
@@ -62,9 +72,14 @@ def merge_journals(
         target_entities,
         log_path=log_path,
         staging_path=staging_path,
+        progress=progress,
     )
-    _merge_facets(source, target, summary, dry_run, log_path=log_path)
-    _merge_imports(source, target, summary, dry_run, log_path=log_path)
+    _merge_facets(
+        source, target, summary, dry_run, log_path=log_path, progress=progress
+    )
+    _merge_imports(
+        source, target, summary, dry_run, log_path=log_path, progress=progress
+    )
 
     return summary
 
@@ -74,9 +89,12 @@ def _log_decision(log_path: Path | None, entry: dict[str, Any]) -> None:
         return
 
     payload = {"ts": datetime.now(timezone.utc).isoformat(), **entry}
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(log_path, "a", encoding="utf-8") as handle:
-        handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
+    try:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(log_path, "a", encoding="utf-8") as handle:
+            handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
+    except OSError as exc:
+        raise DecisionLogWriteError(str(exc)) from exc
 
 
 def _source_day_dirs(source: Path) -> dict[str, Path]:
@@ -103,54 +121,99 @@ def _source_day_dirs(source: Path) -> dict[str, Path]:
     return chronicle_days or flat_days
 
 
+def _report_progress(
+    progress: ProgressCallback | None,
+    phase: str,
+    completed: int,
+    total: int | None,
+    item_name: str | None,
+) -> None:
+    if progress is not None:
+        progress(phase, completed, total, item_name)
+
+
+def _collect_segment_items(source: Path) -> list[tuple[str, str, str, Path]]:
+    items: list[tuple[str, str, str, Path]] = []
+    for day_name, source_day in sorted(_source_day_dirs(source).items()):
+        for stream, seg_key, seg_path in iter_segments(source_day):
+            items.append((day_name, stream, seg_key, seg_path))
+    return items
+
+
+def _collect_entity_items(source: Path) -> list[Path]:
+    source_entities_dir = source / "entities"
+    if not source_entities_dir.is_dir():
+        return []
+    return [
+        entity_dir
+        for entity_dir in sorted(source_entities_dir.iterdir())
+        if entity_dir.is_dir() and (entity_dir / "entity.json").is_file()
+    ]
+
+
+def _collect_facet_items(source: Path) -> list[Path]:
+    source_facets_dir = source / "facets"
+    if not source_facets_dir.is_dir():
+        return []
+    return [
+        source_facet_dir
+        for source_facet_dir in sorted(source_facets_dir.iterdir())
+        if source_facet_dir.is_dir() and (source_facet_dir / "facet.json").is_file()
+    ]
+
+
+def _collect_import_items(source: Path) -> list[Path]:
+    source_imports_dir = source / "imports"
+    if not source_imports_dir.is_dir():
+        return []
+    return [
+        source_import_dir
+        for source_import_dir in sorted(source_imports_dir.iterdir())
+        if source_import_dir.is_dir()
+    ]
+
+
 def _merge_segments(
     source: Path,
     target: Path,
     summary: MergeSummary,
     dry_run: bool,
     log_path: Path | None = None,
+    progress: ProgressCallback | None = None,
 ) -> None:
     target_chronicle = target / CHRONICLE_DIR
     if not dry_run:
         target_chronicle.mkdir(parents=True, exist_ok=True)
 
-    for day_name, source_day in sorted(_source_day_dirs(source).items()):
+    segment_items = _collect_segment_items(source)
+    total = len(segment_items)
+    _report_progress(progress, "segments", 0, total, None)
+
+    for index, (day_name, stream, seg_key, seg_path) in enumerate(
+        segment_items, start=1
+    ):
         target_day = target_chronicle / day_name
-        for stream, seg_key, seg_path in iter_segments(source_day):
-            if stream == "_default":
-                target_path = target_day / seg_key
-            else:
-                target_path = target_day / stream / seg_key
+        if stream == "_default":
+            target_path = target_day / seg_key
+        else:
+            target_path = target_day / stream / seg_key
 
-            item_id = f"{day_name}/{stream}/{seg_key}"
-            try:
-                if target_path.exists():
-                    summary.segments_skipped += 1
-                    _log_decision(
-                        log_path,
-                        {
-                            "action": "segment_skipped",
-                            "item_type": "segment",
-                            "item_id": item_id,
-                            "reason": "target_exists",
-                        },
-                    )
-                    continue
+        item_id = f"{day_name}/{stream}/{seg_key}"
+        try:
+            if target_path.exists():
+                summary.segments_skipped += 1
+                _log_decision(
+                    log_path,
+                    {
+                        "action": "segment_skipped",
+                        "item_type": "segment",
+                        "item_id": item_id,
+                        "reason": "target_exists",
+                    },
+                )
+                continue
 
-                if dry_run:
-                    summary.segments_copied += 1
-                    _log_decision(
-                        log_path,
-                        {
-                            "action": "segment_copied",
-                            "item_type": "segment",
-                            "item_id": item_id,
-                            "reason": "new",
-                        },
-                    )
-                    continue
-
-                shutil.copytree(seg_path, target_path, copy_function=shutil.copy2)
+            if dry_run:
                 summary.segments_copied += 1
                 _log_decision(
                     log_path,
@@ -161,9 +224,28 @@ def _merge_segments(
                         "reason": "new",
                     },
                 )
-            except Exception as exc:
-                summary.segments_errored += 1
-                summary.errors.append(f"segment {day_name}/{stream}/{seg_key}: {exc}")
+                continue
+
+            shutil.copytree(seg_path, target_path, copy_function=shutil.copy2)
+            summary.segments_copied += 1
+            _log_decision(
+                log_path,
+                {
+                    "action": "segment_copied",
+                    "item_type": "segment",
+                    "item_id": item_id,
+                    "reason": "new",
+                },
+            )
+        except DecisionLogWriteError:
+            raise
+        except Exception as exc:
+            summary.segments_errored += 1
+            summary.errors.append(f"segment {day_name}/{stream}/{seg_key}: {exc}")
+        finally:
+            _report_progress(progress, "segments", index, total, item_id)
+
+    _report_progress(progress, "segments", total, total, None)
 
 
 def _merge_entities(
@@ -173,19 +255,18 @@ def _merge_entities(
     target_entities: dict[str, dict[str, Any]],
     log_path: Path | None = None,
     staging_path: Path | None = None,
+    progress: ProgressCallback | None = None,
 ) -> None:
-
     target_has_principal = any(
         bool(entity.get("is_principal")) for entity in target_entities.values()
     )
-    source_entities_dir = source / "entities"
-    if not source_entities_dir.is_dir():
-        return
+    entity_items = _collect_entity_items(source)
+    total = len(entity_items)
+    _report_progress(progress, "entities", 0, total, None)
 
-    for entity_dir in sorted(source_entities_dir.iterdir()):
+    for index, entity_dir in enumerate(entity_items, start=1):
         entity_path = entity_dir / "entity.json"
-        if not entity_dir.is_dir() or not entity_path.is_file():
-            continue
+        item_id = entity_dir.name
 
         try:
             source_entity = json.loads(entity_path.read_text(encoding="utf-8"))
@@ -305,8 +386,14 @@ def _merge_entities(
                     "fields_changed": fields_changed,
                 },
             )
+        except DecisionLogWriteError:
+            raise
         except Exception as exc:
             summary.errors.append(f"entity {entity_dir.name}: {exc}")
+        finally:
+            _report_progress(progress, "entities", index, total, item_id)
+
+    _report_progress(progress, "entities", total, total, None)
 
 
 def _merge_facets(
@@ -315,17 +402,13 @@ def _merge_facets(
     summary: MergeSummary,
     dry_run: bool,
     log_path: Path | None = None,
+    progress: ProgressCallback | None = None,
 ) -> None:
+    facet_items = _collect_facet_items(source)
+    total = len(facet_items)
+    _report_progress(progress, "facets", 0, total, None)
 
-    source_facets_dir = source / "facets"
-    if not source_facets_dir.is_dir():
-        return
-
-    for source_facet_dir in sorted(source_facets_dir.iterdir()):
-        facet_json = source_facet_dir / "facet.json"
-        if not source_facet_dir.is_dir() or not facet_json.is_file():
-            continue
-
+    for index, source_facet_dir in enumerate(facet_items, start=1):
         facet_name = source_facet_dir.name
         target_facet_dir = target / "facets" / facet_name
 
@@ -367,8 +450,14 @@ def _merge_facets(
                     "reason": "overlap",
                 },
             )
+        except DecisionLogWriteError:
+            raise
         except Exception as exc:
             summary.errors.append(f"facet {facet_name}: {exc}")
+        finally:
+            _report_progress(progress, "facets", index, total, facet_name)
+
+    _report_progress(progress, "facets", total, total, None)
 
 
 def _merge_overlapping_facet(
@@ -443,6 +532,8 @@ def _merge_overlapping_facet(
                         "reason": "new",
                     },
                 )
+            except DecisionLogWriteError:
+                raise
             except Exception as exc:
                 summary.errors.append(f"facet {facet_name} entity {entity_id}: {exc}")
 
@@ -480,6 +571,8 @@ def _merge_overlapping_facet(
                         )
                 if new_items and not dry_run:
                     _append_jsonl(target_det_file, new_items)
+            except DecisionLogWriteError:
+                raise
             except Exception as exc:
                 summary.errors.append(
                     f"facet {facet_name} detected entities {source_det_file.name}: {exc}"
@@ -518,6 +611,8 @@ def _merge_overlapping_facet(
                         )
                 if new_items and not dry_run:
                     _append_jsonl(target_todo_file, new_items)
+            except DecisionLogWriteError:
+                raise
             except Exception as exc:
                 summary.errors.append(
                     f"facet {facet_name} todo {source_todo_file.name}: {exc}"
@@ -558,6 +653,8 @@ def _merge_overlapping_facet(
                         )
                 if new_config and not dry_run:
                     _append_jsonl_locked(target_config_file, new_config)
+            except DecisionLogWriteError:
+                raise
             except Exception as exc:
                 summary.errors.append(f"facet {facet_name} activities config: {exc}")
 
@@ -595,6 +692,8 @@ def _merge_overlapping_facet(
                         )
                 if new_records and not dry_run:
                     _append_jsonl_locked(target_day_file, new_records)
+            except DecisionLogWriteError:
+                raise
             except Exception as exc:
                 summary.errors.append(
                     f"facet {facet_name} activities {source_day_file.name}: {exc}"
@@ -645,6 +744,8 @@ def _merge_overlapping_facet(
                             "reason": "copied",
                         },
                     )
+                except DecisionLogWriteError:
+                    raise
                 except Exception as exc:
                     summary.errors.append(
                         "facet "
@@ -670,6 +771,8 @@ def _merge_overlapping_facet(
                             "reason": "appended",
                         },
                     )
+            except DecisionLogWriteError:
+                raise
             except Exception as exc:
                 summary.errors.append(
                     f"facet {facet_name} logs {source_log_file.name}: {exc}"
@@ -704,6 +807,8 @@ def _merge_overlapping_facet(
                         "reason": "new",
                     },
                 )
+            except DecisionLogWriteError:
+                raise
             except Exception as exc:
                 summary.errors.append(
                     f"facet {facet_name} news {source_news_file.name}: {exc}"
@@ -716,16 +821,13 @@ def _merge_imports(
     summary: MergeSummary,
     dry_run: bool,
     log_path: Path | None = None,
+    progress: ProgressCallback | None = None,
 ) -> None:
+    import_items = _collect_import_items(source)
+    total = len(import_items)
+    _report_progress(progress, "imports", 0, total, None)
 
-    source_imports_dir = source / "imports"
-    if not source_imports_dir.is_dir():
-        return
-
-    for source_import_dir in sorted(source_imports_dir.iterdir()):
-        if not source_import_dir.is_dir():
-            continue
-
+    for index, source_import_dir in enumerate(import_items, start=1):
         target_import_dir = target / "imports" / source_import_dir.name
         try:
             if target_import_dir.exists():
@@ -756,8 +858,20 @@ def _merge_imports(
                     "reason": "new",
                 },
             )
+        except DecisionLogWriteError:
+            raise
         except Exception as exc:
             summary.errors.append(f"import {source_import_dir.name}: {exc}")
+        finally:
+            _report_progress(
+                progress,
+                "imports",
+                index,
+                total,
+                source_import_dir.name,
+            )
+
+    _report_progress(progress, "imports", total, total, None)
 
 
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -794,4 +908,9 @@ def _append_jsonl_locked(path: Path, items: list[dict[str, Any]]) -> None:
     locked_modify(path, modify_fn, create_if_missing=True)
 
 
-__all__ = ["MergeSummary", "merge_journals"]
+__all__ = [
+    "DecisionLogWriteError",
+    "MergeSummary",
+    "ProgressCallback",
+    "merge_journals",
+]
