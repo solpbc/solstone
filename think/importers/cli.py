@@ -82,6 +82,9 @@ def _progress_callback(current: int, total: int, **kwargs: Any) -> None:
     """Callback for importers to report progress stats."""
     _progress_stats["items_processed"] = current
     _progress_stats["items_total"] = total
+    if stage := kwargs.get("stage"):
+        # Reuse the existing stage tracker so merge-phase status rides the normal emitter.
+        _set_stage(str(stage))
     for key in ("earliest_date", "latest_date", "entities_found"):
         if key in kwargs:
             _progress_stats[key] = kwargs[key]
@@ -745,13 +748,26 @@ def main() -> None:
                 _source_hash = hash_source(Path(args.media))
 
             import_dir = _setup_file_import(_import_id)
-            result = _file_importer.process(
-                Path(args.media),
-                journal_root,
-                facet=args.facet,
-                import_id=_import_id,
-                progress_callback=_progress_callback,
-            )
+            if _file_importer.name == "journal_archive":
+                # The archive importer owns the same O_EXCL lock internally for direct callers.
+                result = _file_importer.process(
+                    Path(args.media),
+                    journal_root,
+                    facet=args.facet,
+                    import_id=_import_id,
+                    progress_callback=_progress_callback,
+                )
+            else:
+                from think.importers.journal_archive import acquire_merge_lock
+
+                with acquire_merge_lock(journal_root, "file-import", _import_id):
+                    result = _file_importer.process(
+                        Path(args.media),
+                        journal_root,
+                        facet=args.facet,
+                        import_id=_import_id,
+                        progress_callback=_progress_callback,
+                    )
 
             all_created_files.extend(result.files_created)
             processing_results["outputs"].append(
@@ -772,6 +788,10 @@ def main() -> None:
             )
             processing_results["entries_written"] = result.entries_written
             processing_results["entities_seeded"] = result.entities_seeded
+            if result.merge_summary is not None:
+                processing_results["merge_summary"] = result.merge_summary
+            if result.principal_collision is not None:
+                processing_results["principal_collision"] = result.principal_collision
 
             if result.errors:
                 logger.warning(
@@ -782,19 +802,24 @@ def main() -> None:
                 )
 
             # Emit callosum events for file imports
-            _callosum.emit(
-                "importer",
-                "file_imported",
-                import_id=_import_id,
-                importer=_file_importer.name,
-                entries_written=result.entries_written,
-                entities_seeded=result.entities_seeded,
-                files_created=len(result.files_created),
-                errors=len(result.errors),
-                stream=stream,
-                source_display=_file_importer.display_name,
-                date_range=list(result.date_range) if result.date_range else None,
-            )
+            file_imported_payload = {
+                "import_id": _import_id,
+                "importer": _file_importer.name,
+                "entries_written": result.entries_written,
+                "entities_seeded": result.entities_seeded,
+                "files_created": len(result.files_created),
+                "errors": len(result.errors),
+                "stream": stream,
+                "source_display": _file_importer.display_name,
+                "date_range": list(result.date_range) if result.date_range else None,
+            }
+            if result.merge_summary is not None:
+                file_imported_payload["merge_summary"] = result.merge_summary
+            if result.principal_collision is not None:
+                file_imported_payload["principal_collision"] = (
+                    result.principal_collision
+                )
+            _callosum.emit("importer", "file_imported", **file_imported_payload)
 
             if result.segments:
                 for seg_day, seg_key in result.segments:
@@ -896,6 +921,8 @@ def main() -> None:
                             "files_created": result.files_created,
                             "errors": result.errors,
                             "summary": result.summary,
+                            "merge_summary": result.merge_summary,
+                            "principal_collision": result.principal_collision,
                         }
                     )
                 )

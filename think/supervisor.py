@@ -1590,6 +1590,15 @@ def main() -> None:
     except Exception:
         logging.exception("Maintenance runner raised; continuing startup")
 
+    try:
+        from think.importers.journal_archive import sweep_stale_extract_dirs
+
+        swept = sweep_stale_extract_dirs()
+        if swept > 0:
+            logging.info("Swept %d stale journal-archive extract dir(s)", swept)
+    except Exception:
+        logging.exception("Journal archive extract sweep raised; continuing startup")
+
     # Start Callosum in-process first - it's the message bus that other services depend on
     try:
         start_callosum_in_process()

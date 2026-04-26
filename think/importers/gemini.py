@@ -227,6 +227,7 @@ class GeminiImporter:
         facet: str | None = None,
         import_id: str | None = None,
         progress_callback: Callable | None = None,
+        dry_run: bool = False,
     ) -> ImportResult:
         activities = _load_activities(path)
         import_id = import_id or dt.datetime.now().strftime("%Y%m%d_%H%M%S")

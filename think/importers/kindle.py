@@ -256,6 +256,7 @@ class KindleImporter:
         facet: str | None = None,
         import_id: str | None = None,
         progress_callback: Callable | None = None,
+        dry_run: bool = False,
     ) -> ImportResult:
         text = path.read_text(encoding="utf-8-sig")
         blocks = text.split(DELIMITER)

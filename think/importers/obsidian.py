@@ -350,6 +350,7 @@ class ObsidianImporter:
         facet: str | None = None,
         import_id: str | None = None,
         progress_callback: Callable | None = None,
+        dry_run: bool = False,
     ) -> ImportResult:
         md_files = list(self._walk_md_files(path))
         total = len(md_files)

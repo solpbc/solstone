@@ -6,7 +6,7 @@
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Protocol, runtime_checkable
+from typing import Any, Callable, Protocol, runtime_checkable
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +32,8 @@ class ImportResult:
     summary: str
     segments: list[tuple[str, str]] | None = None
     date_range: tuple[str, str] | None = None
+    merge_summary: dict[str, Any] | None = None
+    principal_collision: dict[str, Any] | None = None
 
 
 @runtime_checkable
@@ -53,6 +55,7 @@ class FileImporter(Protocol):
         facet: str | None = None,
         import_id: str | None = None,
         progress_callback: Callable | None = None,
+        dry_run: bool = False,
     ) -> ImportResult: ...
 
 
@@ -64,6 +67,7 @@ FILE_IMPORTER_REGISTRY: dict[str, str] = {
     "kindle": "think.importers.kindle",
     "gemini": "think.importers.gemini",
     "document": "think.importers.documents",
+    "journal_archive": "think.importers.journal_archive",
 }
 
 

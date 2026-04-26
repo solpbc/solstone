@@ -18,6 +18,12 @@ def _write_zip(path: Path, members: dict[str, str]) -> None:
             archive.writestr(name, payload)
 
 
+def _write_zip_infos(path: Path, members: list[tuple[zipfile.ZipInfo, str]]) -> None:
+    with zipfile.ZipFile(path, "w") as archive:
+        for info, payload in members:
+            archive.writestr(info, payload)
+
+
 def test_validate_journal_archive_rejects_missing_file(tmp_path):
     archive_path = tmp_path / "missing.zip"
 
@@ -200,3 +206,55 @@ def test_validate_journal_archive_warns_for_missing_and_unparseable_manifest(tmp
     assert [warning.code for warning in unparseable_result.warnings] == [
         "manifest-unparseable"
     ]
+
+
+def test_validate_journal_archive_rejects_absolute_member(tmp_path):
+    archive_path = tmp_path / "absolute.zip"
+    _write_zip(
+        archive_path,
+        {
+            "chronicle/20260101/default/090000_300/audio.jsonl": "{}\n",
+            "/etc/passwd": "unsafe\n",
+        },
+    )
+
+    result = journal_archive.validate_journal_archive(archive_path)
+
+    assert result.ok is False
+    assert result.warnings[-1].code == "archive-unsafe-path"
+
+
+def test_validate_journal_archive_rejects_parent_traversal_member(tmp_path):
+    archive_path = tmp_path / "traversal.zip"
+    _write_zip(
+        archive_path,
+        {
+            "chronicle/20260101/default/090000_300/audio.jsonl": "{}\n",
+            "../escape.txt": "unsafe\n",
+        },
+    )
+
+    result = journal_archive.validate_journal_archive(archive_path)
+
+    assert result.ok is False
+    assert result.warnings[-1].code == "archive-unsafe-path"
+
+
+def test_validate_journal_archive_rejects_symlink_member(tmp_path):
+    archive_path = tmp_path / "symlink.zip"
+    symlink_info = zipfile.ZipInfo("chronicle/20260101/default/link")
+    symlink_info.external_attr = 0xA1ED << 16
+    safe_info = zipfile.ZipInfo("chronicle/20260101/default/090000_300/audio.jsonl")
+
+    _write_zip_infos(
+        archive_path,
+        [
+            (safe_info, "{}\n"),
+            (symlink_info, "target\n"),
+        ],
+    )
+
+    result = journal_archive.validate_journal_archive(archive_path)
+
+    assert result.ok is False
+    assert result.warnings[-1].code == "archive-unsafe-path"

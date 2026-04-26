@@ -37,6 +37,11 @@ Set `GOOGLE_API_KEY` before running any command that contacts Gemini.
 `GOOGLE_API_KEY` can also be provided in a `.env` file which
 is loaded automatically by most commands.
 
+Structured file importers are registered in `think/importers/file_importer.py` and
+run through `sol import`'s dispatcher. Their `process()` contract now accepts
+`dry_run: bool = False`, and journal-archive imports use the same dispatcher
+surface while serializing journal mutation with the merge lock contract.
+
 ## Service Discovery
 
 Agents invoke tools through `sol call` shell commands:

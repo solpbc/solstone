@@ -163,6 +163,7 @@ class ClaudeChatImporter:
         facet: str | None = None,
         import_id: str | None = None,
         progress_callback: Callable | None = None,
+        dry_run: bool = False,
     ) -> ImportResult:
         conversations = _open_conversations(path)
         import_id = import_id or dt.datetime.now().strftime("%Y%m%d_%H%M%S")
