@@ -73,11 +73,18 @@ def _embeddings_section() -> dict[str, Any]:
 
 
 def _owner_section() -> dict[str, Any]:
-    from apps.speakers.owner import load_owner_centroid
+    from apps.speakers.owner import (
+        load_owner_bootstrap_diagnostics,
+        load_owner_centroid,
+    )
+    from think.entities.journal import get_journal_principal
 
     voiceprint = get_current().get("voiceprint", {})
     status = voiceprint.get("status", "none")
     result: dict[str, Any] = {"status": status}
+    principal = get_journal_principal()
+    principal_id = str(principal["id"]) if principal else None
+    diagnostics = load_owner_bootstrap_diagnostics(principal_id)
 
     if status == "candidate":
         result["cluster_size"] = voiceprint.get("cluster_size")
@@ -85,14 +92,18 @@ def _owner_section() -> dict[str, Any]:
         result["streams_represented"] = voiceprint.get("streams_represented")
         result["recommendation"] = voiceprint.get("recommendation")
     elif status == "low_quality":
+        result["source"] = voiceprint.get("source", "hdbscan")
         result["low_quality_reason"] = voiceprint.get("low_quality_reason", "")
         result["observed_value"] = voiceprint.get("observed_value", 0.0)
         result["threshold_value"] = voiceprint.get("threshold_value", 0.0)
         result["segments_checked"] = voiceprint.get("segments_checked", 0)
         result["attempted_at"] = voiceprint.get("attempted_at", "")
+        result.update(diagnostics)
     elif status == "no_cluster":
         result["segments_checked"] = voiceprint.get("segments_checked")
         result["attempted_at"] = voiceprint.get("attempted_at")
+    elif status in {"none", "rejected"}:
+        result.update(diagnostics)
 
     result["centroid_saved"] = load_owner_centroid() is not None
     return result

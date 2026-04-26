@@ -60,6 +60,9 @@ def speakers_env(tmp_path, monkeypatch):
             import think.utils
 
             think.utils._journal_path_cache = None
+            from apps.speakers.owner import clear_owner_provisional_cache
+
+            clear_owner_provisional_cache()
 
         def _segment_dirs(
             self,

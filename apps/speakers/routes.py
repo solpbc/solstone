@@ -29,11 +29,14 @@ from flask import (
 )
 
 from apps.speakers.discovery import discover_unknown_speakers, identify_cluster
+from apps.speakers.encoder_config import OWNER_THRESHOLD
 from apps.speakers.owner import (
+    bootstrap_owner_from_manual_tags,
     classify_sentences,
     confirm_owner_candidate,
-    count_segments_with_embeddings,
     detect_owner_candidate,
+    load_owner_bootstrap_diagnostics,
+    load_owner_provisional_centroid,
     reject_owner_candidate,
 )
 from apps.utils import log_app_action
@@ -335,11 +338,52 @@ def _check_owner_contamination(embedding: np.ndarray) -> bool:
     from apps.speakers.owner import load_owner_centroid
 
     centroid_data = load_owner_centroid()
-    if centroid_data is None:
-        return False
-    owner_centroid, owner_threshold = centroid_data
+    if centroid_data is not None:
+        owner_centroid, owner_threshold = centroid_data
+    else:
+        principal_id = _principal_id_or_none()
+        if principal_id is None:
+            return False
+        owner_centroid = load_owner_provisional_centroid(principal_id)
+        if owner_centroid is None:
+            return False
+        owner_threshold = OWNER_THRESHOLD
     score = float(np.dot(embedding, owner_centroid))
     return score >= owner_threshold
+
+
+def _principal_id_or_none() -> str | None:
+    """Return the current journal principal id if one exists."""
+    principal = get_journal_principal()
+    if principal is None:
+        return None
+    return str(principal["id"])
+
+
+def _owner_bootstrap_status_fields() -> dict[str, Any]:
+    """Return shared owner bootstrap diagnostics for status surfaces."""
+    diagnostics = load_owner_bootstrap_diagnostics(_principal_id_or_none())
+    return {
+        **diagnostics,
+        "segments_with_embeddings": diagnostics["segments_available"],
+    }
+
+
+def _maybe_bootstrap_owner_from_attestation(
+    principal_id: str | None, speaker_id: str | None
+) -> None:
+    """Refresh manual owner bootstrap state after a principal attestation."""
+    if principal_id is None or speaker_id != principal_id:
+        return
+    try:
+        result = bootstrap_owner_from_manual_tags()
+        if "error" in result:
+            logger.warning(
+                "owner manual bootstrap failed after attestation: %s",
+                result["error"],
+            )
+    except Exception:
+        logger.exception("owner manual bootstrap failed after attestation")
 
 
 def _resolve_entity_display(
@@ -842,8 +886,7 @@ def api_confirm_attribution() -> Any:
     if emb is None:
         return error_response("Sentence embedding not found", 404)
 
-    principal = get_journal_principal()
-    principal_id = principal["id"] if principal else None
+    principal_id = _principal_id_or_none()
     if speaker != principal_id and _check_owner_contamination(emb):
         return error_response("Embedding too similar to owner voice — cannot save", 400)
 
@@ -878,6 +921,7 @@ def api_confirm_attribution() -> Any:
             "speaker": speaker,
         },
     )
+    _maybe_bootstrap_owner_from_attestation(principal_id, speaker)
 
     return success_response({"status": "confirmed", "speaker": speaker})
 
@@ -936,8 +980,7 @@ def api_correct_attribution() -> Any:
     if emb is None:
         return error_response("Sentence embedding not found", 404)
 
-    principal = get_journal_principal()
-    principal_id = principal["id"] if principal else None
+    principal_id = _principal_id_or_none()
     if new_speaker != principal_id and _check_owner_contamination(emb):
         return error_response("Embedding too similar to owner voice — cannot save", 400)
 
@@ -994,6 +1037,7 @@ def api_correct_attribution() -> Any:
             "voiceprints_removed": voiceprints_removed,
         },
     )
+    _maybe_bootstrap_owner_from_attestation(principal_id, new_speaker)
 
     return success_response(
         {
@@ -1059,8 +1103,7 @@ def api_assign_attribution() -> Any:
     if emb is None:
         return error_response("Sentence embedding not found", 404)
 
-    principal = get_journal_principal()
-    principal_id = principal["id"] if principal else None
+    principal_id = _principal_id_or_none()
     if speaker != principal_id and _check_owner_contamination(emb):
         return error_response("Embedding too similar to owner voice — cannot save", 400)
 
@@ -1095,6 +1138,7 @@ def api_assign_attribution() -> Any:
             "speaker": speaker,
         },
     )
+    _maybe_bootstrap_owner_from_attestation(principal_id, speaker)
 
     return success_response({"status": "assigned", "speaker": speaker})
 
@@ -1104,6 +1148,7 @@ def api_owner_status() -> Any:
     """Return the current owner voiceprint confirmation state."""
     voiceprint = get_current().get("voiceprint", {})
     status = voiceprint.get("status", "none")
+    diagnostics = _owner_bootstrap_status_fields()
 
     if status == "confirmed":
         return jsonify({"status": "confirmed"})
@@ -1121,9 +1166,11 @@ def api_owner_status() -> Any:
         return jsonify(
             {
                 "status": "low_quality",
+                "source": voiceprint.get("source", "hdbscan"),
                 "low_quality_reason": voiceprint.get("low_quality_reason", ""),
                 "observed_value": voiceprint.get("observed_value", 0.0),
                 "threshold_value": voiceprint.get("threshold_value", 0.0),
+                **diagnostics,
             }
         )
 
@@ -1131,23 +1178,46 @@ def api_owner_status() -> Any:
         return jsonify({"status": "no_cluster"})
 
     if status in {"none", "rejected"}:
-        seg_count = count_segments_with_embeddings()
-        if seg_count > 0:
+        if diagnostics["segments_available"] > 0:
             return jsonify(
                 {
                     "status": "needs_detection",
-                    "segments_with_embeddings": seg_count,
+                    **diagnostics,
                 }
             )
-        return jsonify({"status": "none", "segments_with_embeddings": seg_count})
+        return jsonify(
+            {
+                "status": "none",
+                **diagnostics,
+            }
+        )
 
-    return jsonify({"status": "none"})
+    return jsonify({"status": "none", **diagnostics})
 
 
 @speakers_bp.route("/api/owner/detect", methods=["POST"])
 def api_owner_detect() -> Any:
     """Run owner voice candidate detection."""
     result = detect_owner_candidate()
+    return jsonify(result)
+
+
+@speakers_bp.route("/api/owner/build-from-tags", methods=["POST"])
+def api_owner_build_from_tags() -> Any:
+    """Build a confirmed owner centroid directly from validated manual tags."""
+    result = bootstrap_owner_from_manual_tags()
+    if "error" in result:
+        return error_response(result["error"], 400)
+    if result.get("status") == "confirmed":
+        log_app_action(
+            app="speakers",
+            facet=None,
+            action="owner_voiceprint_build_from_tags",
+            params={
+                "principal_id": result["principal_id"],
+                "cluster_size": result.get("cluster_size"),
+            },
+        )
     return jsonify(result)
 
 

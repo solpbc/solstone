@@ -102,6 +102,67 @@ def _candidate_path(journal: Path) -> Path:
     return journal / "awareness" / "owner_candidate.npz"
 
 
+def _normalize_rows(embeddings: np.ndarray) -> np.ndarray:
+    norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
+    return embeddings / np.where(norms == 0, 1.0, norms)
+
+
+def _save_manual_owner_tags(
+    env,
+    principal_id: str,
+    day: str,
+    segment_key: str,
+    embeddings: np.ndarray,
+    *,
+    source: str = "audio",
+    method: str = "user_assigned",
+    durations_s: np.ndarray | None = None,
+    overlap_fraction: float = 0.0,
+) -> Path:
+    from apps.speakers.routes import _save_voiceprint
+
+    normalized_embeddings = _normalize_rows(np.asarray(embeddings, dtype=np.float32))
+    segment_dir = _write_segment(
+        env.journal,
+        day,
+        "test",
+        segment_key,
+        source,
+        normalized_embeddings,
+        durations_s=durations_s,
+    )
+    env.create_speaker_labels(
+        day,
+        segment_key,
+        [
+            {
+                "sentence_id": idx,
+                "speaker": principal_id,
+                "confidence": "high",
+                "method": method,
+            }
+            for idx in range(1, len(normalized_embeddings) + 1)
+        ],
+    )
+    _rewrite_segment_header(
+        segment_dir,
+        source,
+        overlap_fraction=overlap_fraction,
+        overlap_detector=OVERLAP_DETECTOR_ID,
+    )
+    for idx, embedding in enumerate(normalized_embeddings, start=1):
+        _save_voiceprint(
+            principal_id,
+            embedding,
+            day,
+            segment_key,
+            source,
+            idx,
+            stream="test",
+        )
+    return segment_dir
+
+
 def test_count_segments_with_embeddings(speakers_env):
     from apps.speakers.owner import count_segments_with_embeddings
 
@@ -386,6 +447,248 @@ def test_detect_owner_candidate_excludes_chaotic_segments(speakers_env, monkeypa
     assert result["cluster_size"] == 60
 
 
+def test_bootstrap_owner_from_manual_tags_confirms(speakers_env):
+    from apps.speakers.encoder_config import OWNER_THRESHOLD
+    from apps.speakers.owner import bootstrap_owner_from_manual_tags
+
+    env = speakers_env()
+    principal_dir = env.create_entity("Self Person", is_principal=True)
+    principal_id = "self_person"
+    rng = np.random.default_rng(4)
+    base = np.zeros((10, 256), dtype=np.float32)
+    base[:, 0] = 1.0
+    durations = np.full(10, 2.4, dtype=np.float32)
+    for idx in range(3):
+        embeddings = base + rng.normal(scale=0.01, size=(10, 256)).astype(np.float32)
+        _save_manual_owner_tags(
+            env,
+            principal_id,
+            "20240101",
+            f"{9 + idx:02d}0000_300",
+            embeddings,
+            durations_s=durations,
+        )
+
+    result = bootstrap_owner_from_manual_tags()
+
+    owner_path = principal_dir / "owner_centroid.npz"
+    assert result["status"] == "confirmed"
+    assert result["principal_id"] == principal_id
+    assert result["cluster_size"] == 30
+    assert owner_path.exists()
+    with np.load(owner_path, allow_pickle=False) as data:
+        assert set(data.files) == {"centroid", "cluster_size", "threshold", "version"}
+        centroid = data["centroid"]
+        cluster_size = int(np.asarray(data["cluster_size"]).item())
+        threshold = float(np.asarray(data["threshold"]).item())
+        version = str(np.asarray(data["version"]).item())
+    assert cluster_size == 30
+    assert np.isclose(np.linalg.norm(centroid), 1.0)
+    assert np.isclose(threshold, OWNER_THRESHOLD)
+    assert version
+    assert get_current()["voiceprint"]["status"] == "confirmed"
+
+
+def test_bootstrap_owner_from_manual_tags_too_few_stmts(speakers_env):
+    from apps.speakers.owner import (
+        LOW_QUALITY_REASON_TOO_FEW_STMTS,
+        bootstrap_owner_from_manual_tags,
+    )
+
+    env = speakers_env()
+    env.create_entity("Self Person", is_principal=True)
+    embeddings = np.zeros((10, 256), dtype=np.float32)
+    embeddings[:, 0] = 1.0
+    _save_manual_owner_tags(
+        env,
+        "self_person",
+        "20240101",
+        "090000_300",
+        embeddings,
+        durations_s=np.full(10, 2.0, dtype=np.float32),
+    )
+
+    result = bootstrap_owner_from_manual_tags()
+
+    assert result["status"] == "low_quality"
+    assert result["source"] == "manual_tags"
+    assert result["low_quality_reason"] == LOW_QUALITY_REASON_TOO_FEW_STMTS
+    assert get_current()["voiceprint"]["source"] == "manual_tags"
+
+
+def test_bootstrap_owner_from_manual_tags_short_durations(speakers_env):
+    from apps.speakers.owner import (
+        LOW_QUALITY_REASON_MEDIAN_DURATION_TOO_SHORT,
+        bootstrap_owner_from_manual_tags,
+    )
+
+    env = speakers_env()
+    env.create_entity("Self Person", is_principal=True)
+    base = np.zeros((10, 256), dtype=np.float32)
+    base[:, 0] = 1.0
+    for idx in range(3):
+        _save_manual_owner_tags(
+            env,
+            "self_person",
+            "20240101",
+            f"{9 + idx:02d}0000_300",
+            base,
+            durations_s=np.full(10, 0.3, dtype=np.float32),
+        )
+
+    result = bootstrap_owner_from_manual_tags()
+
+    assert result["status"] == "low_quality"
+    assert result["source"] == "manual_tags"
+    assert result["low_quality_reason"] == LOW_QUALITY_REASON_MEDIAN_DURATION_TOO_SHORT
+
+
+def test_bootstrap_owner_from_manual_tags_diffuse_cluster(speakers_env):
+    from apps.speakers.owner import (
+        LOW_QUALITY_REASON_CLUSTER_TOO_DIFFUSE,
+        bootstrap_owner_from_manual_tags,
+    )
+
+    env = speakers_env()
+    env.create_entity("Self Person", is_principal=True)
+    rng = np.random.default_rng(9)
+    for idx in range(3):
+        _save_manual_owner_tags(
+            env,
+            "self_person",
+            "20240101",
+            f"{9 + idx:02d}0000_300",
+            _noise_embeddings(10, rng),
+            durations_s=np.full(10, 2.0, dtype=np.float32),
+        )
+
+    result = bootstrap_owner_from_manual_tags()
+
+    assert result["status"] == "low_quality"
+    assert result["source"] == "manual_tags"
+    assert result["low_quality_reason"] == LOW_QUALITY_REASON_CLUSTER_TOO_DIFFUSE
+
+
+def test_manual_tag_overlap_guard_excludes_rows(speakers_env):
+    from apps.speakers.owner import (
+        LOW_QUALITY_REASON_TOO_FEW_STMTS,
+        bootstrap_owner_from_manual_tags,
+        count_manual_tag_embeddings,
+    )
+
+    env = speakers_env()
+    env.create_entity("Self Person", is_principal=True)
+    embeddings = np.zeros((5, 256), dtype=np.float32)
+    embeddings[:, 0] = 1.0
+    _save_manual_owner_tags(
+        env,
+        "self_person",
+        "20240101",
+        "090000_300",
+        embeddings,
+        durations_s=np.full(5, 2.0, dtype=np.float32),
+        overlap_fraction=0.0,
+    )
+    _save_manual_owner_tags(
+        env,
+        "self_person",
+        "20240101",
+        "100000_300",
+        embeddings,
+        durations_s=np.full(5, 2.0, dtype=np.float32),
+        overlap_fraction=0.20,
+    )
+
+    assert count_manual_tag_embeddings("self_person") == 5
+    result = bootstrap_owner_from_manual_tags()
+    assert result["low_quality_reason"] == LOW_QUALITY_REASON_TOO_FEW_STMTS
+
+
+def test_owner_centroid_schema_parity_between_confirm_and_manual_build(speakers_env):
+    from apps.speakers.encoder_config import OWNER_THRESHOLD
+    from apps.speakers.owner import (
+        bootstrap_owner_from_manual_tags,
+        clear_owner_provisional_cache,
+        confirm_owner_candidate,
+    )
+
+    env = speakers_env()
+    principal_dir = env.create_entity("Self Person", is_principal=True)
+    candidate_path = _candidate_path(env.journal)
+    candidate_path.parent.mkdir(parents=True, exist_ok=True)
+    centroid = _normalized(np.array([1.0] + [0.0] * 255, dtype=np.float32))
+    np.savez_compressed(
+        candidate_path,
+        centroid=centroid,
+        cluster_size=np.array(40, dtype=np.int32),
+        threshold=np.array(OWNER_THRESHOLD, dtype=np.float32),
+        version=np.array("2026-03-19T12:00:00"),
+    )
+
+    confirm_owner_candidate()
+    owner_path = principal_dir / "owner_centroid.npz"
+    with np.load(owner_path, allow_pickle=False) as data:
+        confirmed_keys = set(data.files)
+
+    owner_path.unlink()
+    clear_owner_provisional_cache("self_person")
+    update_state("voiceprint", {"status": "none"})
+
+    base = np.zeros((10, 256), dtype=np.float32)
+    base[:, 0] = 1.0
+    for idx in range(3):
+        _save_manual_owner_tags(
+            env,
+            "self_person",
+            "20240101",
+            f"{9 + idx:02d}0000_300",
+            base,
+            durations_s=np.full(10, 2.0, dtype=np.float32),
+        )
+
+    bootstrap_owner_from_manual_tags()
+    with np.load(owner_path, allow_pickle=False) as data:
+        manual_keys = set(data.files)
+
+    assert (
+        confirmed_keys
+        == manual_keys
+        == {
+            "centroid",
+            "cluster_size",
+            "threshold",
+            "version",
+        }
+    )
+
+
+def test_bootstrap_owner_from_manual_tags_is_idempotent(speakers_env):
+    from apps.speakers.owner import bootstrap_owner_from_manual_tags
+
+    env = speakers_env()
+    env.create_entity("Self Person", is_principal=True)
+    base = np.zeros((10, 256), dtype=np.float32)
+    base[:, 0] = 1.0
+    for idx in range(3):
+        _save_manual_owner_tags(
+            env,
+            "self_person",
+            "20240101",
+            f"{9 + idx:02d}0000_300",
+            base,
+            durations_s=np.full(10, 2.1, dtype=np.float32),
+        )
+
+    first = bootstrap_owner_from_manual_tags()
+    state_before = dict(get_current()["voiceprint"])
+    second = bootstrap_owner_from_manual_tags()
+
+    assert first["status"] == "confirmed"
+    assert second["status"] == "confirmed"
+    assert second["cluster_size"] == first["cluster_size"]
+    assert dict(get_current()["voiceprint"]) == state_before
+
+
 def test_load_owner_centroid_no_principal(speakers_env):
     from apps.speakers.owner import load_owner_centroid
 
@@ -478,7 +781,15 @@ def test_api_owner_status_none(speakers_env):
         response = client.get("/app/speakers/api/owner/status")
 
     assert response.status_code == 200
-    assert response.get_json() == {"status": "none", "segments_with_embeddings": 0}
+    assert response.get_json() == {
+        "status": "none",
+        "manual_tags_count": 0,
+        "segments_available": 0,
+        "segments_with_embeddings": 0,
+        "embeddings_available": 0,
+        "streams_represented": 0,
+        "can_build_from_tags": False,
+    }
 
 
 def test_api_owner_status_needs_detection(speakers_env):
@@ -500,6 +811,44 @@ def test_api_owner_status_needs_detection(speakers_env):
     assert response.status_code == 200
     assert data["status"] == "needs_detection"
     assert data["segments_with_embeddings"] == 50
+    assert data["segments_available"] == 50
+    assert data["embeddings_available"] == 250
+    assert data["manual_tags_count"] == 0
+    assert data["streams_represented"] == 0
+    assert data["can_build_from_tags"] is False
+
+
+def test_api_owner_status_manual_tags_count(speakers_env):
+    from apps.speakers.routes import speakers_bp
+
+    env = speakers_env()
+    env.create_entity("Self Person", is_principal=True)
+    embeddings = np.zeros((7, 256), dtype=np.float32)
+    embeddings[:, 0] = 1.0
+    _save_manual_owner_tags(
+        env,
+        "self_person",
+        "20240101",
+        "090000_300",
+        embeddings,
+        durations_s=np.full(7, 2.0, dtype=np.float32),
+    )
+
+    app = Flask(__name__)
+    app.register_blueprint(speakers_bp)
+
+    with app.test_client() as client:
+        response = client.get("/app/speakers/api/owner/status")
+
+    data = response.get_json()
+    assert response.status_code == 200
+    assert data["status"] == "needs_detection"
+    assert data["manual_tags_count"] == 7
+    assert data["segments_available"] == 1
+    assert data["segments_with_embeddings"] == 1
+    assert data["embeddings_available"] == 7
+    assert data["streams_represented"] == 1
+    assert data["can_build_from_tags"] is False
 
 
 def test_api_owner_status_candidate(speakers_env):
@@ -548,9 +897,16 @@ def test_api_owner_status_low_quality(speakers_env):
     assert response.status_code == 200
     assert response.get_json() == {
         "status": "low_quality",
+        "source": "hdbscan",
         "low_quality_reason": "too_few_stmts",
         "observed_value": 5,
         "threshold_value": 30,
+        "manual_tags_count": 0,
+        "segments_available": 0,
+        "segments_with_embeddings": 0,
+        "embeddings_available": 0,
+        "streams_represented": 0,
+        "can_build_from_tags": False,
     }
 
 

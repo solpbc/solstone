@@ -646,6 +646,41 @@
   border-color: #3b82f6;
 }
 
+.spk-owner-diagnostics {
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.spk-owner-diagnostics-summary {
+  cursor: pointer;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1d4ed8;
+}
+
+.spk-owner-diagnostics-summary::-webkit-details-marker {
+  display: none;
+}
+
+.spk-owner-diagnostics-body {
+  padding: 0 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.spk-owner-diagnostics-line {
+  font-size: 12px;
+  color: #334155;
+  line-height: 1.5;
+}
+
+.spk-owner-toast {
+  margin-top: 6px;
+}
+
 .spk-discovery-banner {
   display: none;
   margin-bottom: 8px;
@@ -792,7 +827,8 @@
 
 /* Banner buttons need darker ring for contrast on colored backgrounds */
 .spk-owner-btn:focus-visible,
-.spk-discovery-btn:focus-visible {
+.spk-discovery-btn:focus-visible,
+.spk-owner-diagnostics-summary:focus-visible {
   outline: 2px solid #1d4ed8;
   outline-offset: 2px;
 }
@@ -1177,6 +1213,8 @@
   let playingSentenceId = null;
   let detailExpanded = false;
   let ownerDetectionInFlight = false;
+  const OWNER_HELP_TOAST_KEY = 'speakers-owner-help-toast';
+  const OWNER_HELP_TOAST_MESSAGE = 'Click on segments and tag your own statements with the assign button. Solstone needs ~30 longer ones to lock in your voice.';
 
   checkOwnerStatus();
   loadSegments();
@@ -1287,10 +1325,14 @@
   function checkOwnerStatus() {
     window.apiJson('/app/speakers/api/owner/status')
       .then(data => {
-        if (data.status === 'needs_detection') {
+        if (
+          data.status === 'needs_detection'
+          || data.status === 'low_quality'
+          || (data.status === 'none' && data.segments_with_embeddings > 0)
+        ) {
           hideDiscovery();
-          renderOwnerBanner('Analyzing voice patterns...');
-          if (!ownerDetectionInFlight) {
+          renderOwnerNotReady(data);
+          if (data.status === 'needs_detection' && !ownerDetectionInFlight) {
             ownerDetectionInFlight = true;
             window.apiJson('/app/speakers/api/owner/detect', { method: 'POST' })
               .then(() => {
@@ -1310,11 +1352,6 @@
         if (data.status === 'no_cluster') {
           hideDiscovery();
           hideOwnerBanner();
-          return;
-        }
-        if (data.status === 'low_quality') {
-          hideDiscovery();
-          renderOwnerLowQuality(data);
           return;
         }
         if (data.status === 'candidate') {
@@ -1386,15 +1423,100 @@
     attachAudioErrorListeners(ownerBanner);
   }
 
-  function renderOwnerLowQuality(data) {
+  function formatOwnerMetric(value) {
+    if (typeof value !== 'number' || Number.isNaN(value)) return 'n/a';
+    if (Number.isInteger(value)) return String(value);
+    return value.toFixed(2);
+  }
+
+  function todayDayKey() {
+    const now = new Date();
+    const year = String(now.getFullYear());
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const datePart = String(now.getDate()).padStart(2, '0');
+    return `${year}${month}${datePart}`;
+  }
+
+  function principalEntityId() {
+    const principal = reviewEntities.find(entity => entity.is_principal);
+    return principal ? principal.entity_id : null;
+  }
+
+  function showOwnerGuideToast(message = OWNER_HELP_TOAST_MESSAGE, type = 'info') {
+    const container = document.getElementById('spkOwnerGuideToast');
+    if (!container) return;
+    container.innerHTML = `<div class="spk-status spk-status-${type}">${escapeHtml(message)}</div>`;
+  }
+
+  function maybeShowOwnerGuideToast() {
+    if (sessionStorage.getItem(OWNER_HELP_TOAST_KEY) !== '1') return;
+    sessionStorage.removeItem(OWNER_HELP_TOAST_KEY);
+    showOwnerGuideToast();
+  }
+
+  function navigateToOwnerHelp() {
+    const today = todayDayKey();
+    if (day !== today) {
+      sessionStorage.setItem(OWNER_HELP_TOAST_KEY, '1');
+      window.location.href = `/app/speakers/${today}`;
+      return;
+    }
+    showOwnerGuideToast();
+  }
+
+  function renderOwnerNotReady(data) {
     ownerBanner.style.display = 'block';
     ownerBanner.innerHTML = `
       <div class="spk-owner-panel">
-        <p class="spk-owner-low-quality-message">
-          Solstone is still learning your voice. Once it has at least 30 longer recordings of you speaking, it will offer a confirmation prompt.
-        </p>
+        <div class="spk-owner-title">Solstone is still learning your voice</div>
+        <div class="spk-owner-copy">
+          We're tagging audio segments to recognize you. Help Solstone learn faster by tagging your own statements.
+        </div>
+        <div class="spk-owner-actions">
+          <button class="spk-owner-btn spk-owner-btn-confirm" id="spkOwnerHelp">
+            Help solstone learn faster
+          </button>
+        </div>
+        <div class="spk-owner-toast" id="spkOwnerGuideToast"></div>
+        <details class="spk-owner-diagnostics">
+          <summary class="spk-owner-diagnostics-summary">Why not yet?</summary>
+          <div class="spk-owner-diagnostics-body">
+            <div class="spk-owner-diagnostics-line">Source: ${escapeHtml(data.source || 'auto')}</div>
+            ${data.low_quality_reason ? `
+              <div class="spk-owner-diagnostics-line">
+                Gate: ${escapeHtml(data.low_quality_reason)} — observed ${escapeHtml(formatOwnerMetric(data.observed_value))}, threshold ${escapeHtml(formatOwnerMetric(data.threshold_value))}
+              </div>
+            ` : ''}
+            <div class="spk-owner-diagnostics-line">Manual tags: ${escapeHtml(String(data.manual_tags_count || 0))}</div>
+            <div class="spk-owner-diagnostics-line">Segments with audio: ${escapeHtml(String(data.segments_available || 0))}</div>
+            <div class="spk-owner-diagnostics-line">Embeddings: ${escapeHtml(String(data.embeddings_available || 0))}</div>
+            ${data.can_build_from_tags === true ? `
+              <div class="spk-owner-actions">
+                <button class="spk-owner-btn spk-owner-btn-reject" id="spkOwnerBuildFromTags">
+                  Build from manual tags
+                </button>
+              </div>
+            ` : ''}
+          </div>
+        </details>
       </div>
     `;
+
+    document.getElementById('spkOwnerHelp')?.addEventListener('click', navigateToOwnerHelp);
+    document.getElementById('spkOwnerBuildFromTags')?.addEventListener('click', event => {
+      const btn = event.currentTarget;
+      btn.disabled = true;
+      window.apiJson('/app/speakers/api/owner/build-from-tags', { method: 'POST' })
+        .then(() => {
+          checkOwnerStatus();
+        })
+        .catch((err) => {
+          btn.disabled = false;
+          showOwnerGuideToast(`Couldn't build from manual tags — ${resolveSpeakerError(err)}`, 'error');
+          window.logError(err, { context: 'speakers: owner build from tags failed' });
+        });
+    });
+    maybeShowOwnerGuideToast();
   }
 
   function submitOwnerChoice(path) {
@@ -2061,6 +2183,8 @@
 
   async function confirmAttribution(sentenceId) {
     try {
+      const sentence = currentSentences.find(s => s.id === sentenceId);
+      const isPrincipalAttestation = Boolean(sentence?.is_owner);
       const data = await window.apiJson('/app/speakers/api/confirm-attribution', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2081,7 +2205,6 @@
         return;
       }
 
-      const sentence = currentSentences.find(s => s.id === sentenceId);
       if (sentence) {
         sentence.confidence = 'high';
         sentence.method = 'user_confirmed';
@@ -2091,6 +2214,9 @@
       renderReviewList();
       showStatusBySentence(sentenceId, 'Attribution confirmed', 'success');
       loadSegments();
+      if (isPrincipalAttestation) {
+        checkOwnerStatus();
+      }
     } catch (err) {
       showStatusBySentence(sentenceId, resolveSpeakerError(err), 'error');
     }
@@ -2120,6 +2246,7 @@
       }
       loadReview(selectedSegment, selectedSource);
       loadSegments();
+      triggerOwnerStatusIfPrincipal(newSpeaker);
     } catch (err) {
       showStatusBySentence(sentenceId, resolveSpeakerError(err), 'error');
     }
@@ -2149,8 +2276,16 @@
       }
       loadReview(selectedSegment, selectedSource);
       loadSegments();
+      triggerOwnerStatusIfPrincipal(speaker);
     } catch (err) {
       showStatusBySentence(sentenceId, resolveSpeakerError(err), 'error');
+    }
+  }
+
+  function triggerOwnerStatusIfPrincipal(speakerId) {
+    if (!speakerId) return;
+    if (speakerId === principalEntityId()) {
+      checkOwnerStatus();
     }
   }
 

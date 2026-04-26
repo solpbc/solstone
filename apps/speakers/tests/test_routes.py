@@ -23,6 +23,54 @@ def _read_action_entries(journal_root):
     ]
 
 
+def _save_principal_manual_tags(
+    env,
+    principal_id: str,
+    count: int,
+    *,
+    day: str = "20240101",
+    segment_key: str = "143022_300",
+    source: str = "mic_audio",
+    embeddings: np.ndarray | None = None,
+) -> np.ndarray:
+    from apps.speakers.routes import _save_voiceprint
+
+    if embeddings is None:
+        embeddings = np.zeros((count, 256), dtype=np.float32)
+        embeddings[:, 0] = 1.0
+    env.create_segment(
+        day,
+        segment_key,
+        [source],
+        num_sentences=count,
+        embeddings=embeddings,
+    )
+    env.create_speaker_labels(
+        day,
+        segment_key,
+        [
+            {
+                "sentence_id": idx,
+                "speaker": principal_id,
+                "confidence": "high",
+                "method": "user_assigned",
+            }
+            for idx in range(1, count + 1)
+        ],
+    )
+    for idx, embedding in enumerate(embeddings, start=1):
+        _save_voiceprint(
+            principal_id,
+            embedding,
+            day,
+            segment_key,
+            source,
+            idx,
+            stream="test",
+        )
+    return embeddings
+
+
 def test_normalize_embedding():
     """Test L2 normalization of embeddings."""
     from apps.speakers.routes import _normalize_embedding
@@ -281,6 +329,122 @@ def test_save_voiceprint_appends(speakers_env):
     meta2 = json.loads(data["metadata"][1])
     assert meta1["day"] == "20240101"
     assert meta2["day"] == "20240102"
+
+
+def test_check_owner_contamination_uses_provisional_centroid(speakers_env):
+    from apps.speakers.routes import _check_owner_contamination
+
+    env = speakers_env()
+    env.create_entity("Self Person", is_principal=True)
+    _save_principal_manual_tags(env, "self_person", 5)
+
+    similar = np.zeros(256, dtype=np.float32)
+    similar[0] = 1.0
+    dissimilar = np.zeros(256, dtype=np.float32)
+    dissimilar[1] = 1.0
+
+    assert _check_owner_contamination(similar) is True
+    assert _check_owner_contamination(dissimilar) is False
+
+
+def test_check_owner_contamination_below_provisional_min_tags(speakers_env):
+    from apps.speakers.routes import _check_owner_contamination
+
+    env = speakers_env()
+    env.create_entity("Self Person", is_principal=True)
+    _save_principal_manual_tags(env, "self_person", 4)
+
+    similar = np.zeros(256, dtype=np.float32)
+    similar[0] = 1.0
+    dissimilar = np.zeros(256, dtype=np.float32)
+    dissimilar[1] = 1.0
+
+    assert _check_owner_contamination(similar) is False
+    assert _check_owner_contamination(dissimilar) is False
+
+
+def test_check_owner_contamination_invalidates_cached_provisional_count(speakers_env):
+    from apps.speakers.routes import _check_owner_contamination
+
+    env = speakers_env()
+    env.create_entity("Self Person", is_principal=True)
+    _save_principal_manual_tags(env, "self_person", 5)
+
+    similar = np.zeros(256, dtype=np.float32)
+    similar[0] = 1.0
+
+    assert _check_owner_contamination(similar) is True
+
+    labels_path = (
+        env.journal
+        / "chronicle"
+        / "20240101"
+        / "test"
+        / "143022_300"
+        / "talents"
+        / "speaker_labels.json"
+    )
+    labels = json.loads(labels_path.read_text(encoding="utf-8"))
+    labels["labels"][0]["speaker"] = "other_person"
+    labels_path.write_text(json.dumps(labels, indent=2), encoding="utf-8")
+
+    assert _check_owner_contamination(similar) is False
+
+
+def test_check_owner_contamination_prefers_confirmed_centroid(speakers_env):
+    from apps.speakers.encoder_config import OWNER_THRESHOLD
+    from apps.speakers.routes import _check_owner_contamination
+
+    env = speakers_env()
+    principal_dir = env.create_entity("Self Person", is_principal=True)
+    _save_principal_manual_tags(env, "self_person", 5)
+
+    similar = np.zeros(256, dtype=np.float32)
+    similar[0] = 1.0
+    confirmed = np.zeros(256, dtype=np.float32)
+    confirmed[1] = 1.0
+
+    assert _check_owner_contamination(similar) is True
+
+    np.savez_compressed(
+        principal_dir / "owner_centroid.npz",
+        centroid=confirmed,
+        cluster_size=np.array(30, dtype=np.int32),
+        threshold=np.array(OWNER_THRESHOLD, dtype=np.float32),
+        version=np.array("2026-04-25T12:00:00"),
+    )
+
+    assert _check_owner_contamination(similar) is False
+    assert _check_owner_contamination(confirmed) is True
+
+
+def test_api_owner_build_from_tags(speakers_env):
+    from apps.speakers.routes import speakers_bp
+
+    env = speakers_env()
+    principal_dir = env.create_entity("Self Person", is_principal=True)
+    for idx in range(3):
+        _save_principal_manual_tags(
+            env,
+            "self_person",
+            10,
+            day="20240101",
+            segment_key=f"{9 + idx:02d}0000_300",
+            source="audio",
+        )
+
+    app = Flask(__name__)
+    app.register_blueprint(speakers_bp)
+
+    with app.test_client() as client:
+        resp = client.post("/app/speakers/api/owner/build-from-tags")
+
+    data = resp.get_json()
+    assert resp.status_code == 200
+    assert data["status"] == "confirmed"
+    assert data["principal_id"] == "self_person"
+    assert data["cluster_size"] == 30
+    assert (principal_dir / "owner_centroid.npz").exists()
 
 
 def test_load_embeddings_file(speakers_env):
