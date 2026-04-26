@@ -216,14 +216,14 @@
     },
     "facet_newsletter": {
       "app": null,
-      "color": "#6c757d",
-      "description": null,
-      "multi_facet": false,
+      "color": "#0d47a1",
+      "description": "Creates comprehensive daily newsletters for each facet, capturing activities, progress, and insights",
+      "multi_facet": true,
       "output_format": null,
-      "schedule": null,
+      "schedule": "daily",
       "source": "system",
-      "title": "facet_newsletter",
-      "type": null
+      "title": "Facet Newsletter Generator",
+      "type": "cogitate"
     },
     "heartbeat": {
       "app": null,
@@ -447,14 +447,14 @@
     },
     "todos:daily": {
       "app": "todos",
-      "color": "#6c757d",
-      "description": null,
-      "multi_facet": false,
+      "color": "#ef6c00",
+      "description": "Carries forward unfinished tasks, aggregates per-activity todo detections, validates completions against journal evidence, and prioritises the day's checklist.",
+      "multi_facet": true,
       "output_format": null,
-      "schedule": null,
+      "schedule": "daily",
       "source": "app",
-      "title": "todos:daily",
-      "type": null
+      "title": "Daily TODO Curator",
+      "type": "cogitate"
     },
     "todos:todo": {
       "app": "todos",
