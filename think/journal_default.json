@@ -44,6 +44,10 @@
     "bundle_id": null,
     "environment": "development"
   },
+  "convey": {
+    "allow_network_access": false,
+    "trust_localhost": true
+  },
   "pairing": {
     "host_url": null,
     "token_ttl_seconds": 600

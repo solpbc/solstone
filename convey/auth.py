@@ -68,7 +68,7 @@ def is_owner_authed() -> bool:
     if not _is_setup_complete():
         return False
     config = get_config()
-    if not config.get("convey", {}).get("trust_localhost", False):
+    if not config.get("convey", {}).get("trust_localhost", True):
         return False
     remote_addr = request.remote_addr
     is_localhost = remote_addr in ("127.0.0.1", "::1", "localhost")

@@ -30,10 +30,23 @@ def _resolve_config_password_hash() -> str:
         return ""
 
 
+def _resolve_bind_host() -> str:
+    """Return the configured bind host for Convey."""
+    from think.utils import get_config
+
+    try:
+        allow_network_access = (
+            get_config().get("convey", {}).get("allow_network_access", False)
+        )
+    except Exception:
+        allow_network_access = False
+    return "0.0.0.0" if allow_network_access else "127.0.0.1"
+
+
 def run_service(
     app: Flask,
     *,
-    host: str = "0.0.0.0",
+    host: str = "127.0.0.1",
     port: int,
     debug: bool = False,
     start_watcher: bool = True,
@@ -97,6 +110,7 @@ def main() -> None:
 
     # Write port to health directory for discovery by other tools
     write_service_port("convey", args.port)
-    logger.info(f"Convey starting on port {args.port}")
+    bind_host = _resolve_bind_host()
+    logger.info("Convey starting on %s:%s", bind_host, args.port)
 
-    run_service(app, host="0.0.0.0", port=args.port, debug=args.debug)
+    run_service(app, host=bind_host, port=args.port, debug=args.debug)

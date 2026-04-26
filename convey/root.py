@@ -127,7 +127,7 @@ def require_login() -> Any:
     # Opt-in localhost bypass (requires completed setup + trust_localhost flag)
     if setup_complete:
         config = get_config()
-        if config.get("convey", {}).get("trust_localhost", False):
+        if config.get("convey", {}).get("trust_localhost", True):
             remote_addr = request.remote_addr
             is_localhost = remote_addr in ("127.0.0.1", "::1", "localhost")
             proxy_headers = (
@@ -169,11 +169,14 @@ def init() -> Any:
     if _is_setup_complete():
         return redirect(url_for("root.index"))
 
+    from convey.copy import INIT_PASSWORD_HINT
+
     config_path = str(Path(get_journal()) / "config" / "journal.json")
     repo_path = str(Path(__file__).resolve().parent.parent)
     return render_template(
         "init.html",
         config_path=config_path,
+        init_password_hint=INIT_PASSWORD_HINT,
         repo_path=repo_path,
     )
 
@@ -234,6 +237,7 @@ def init_finalize() -> Any:
     config = get_config()
     config.setdefault("convey", {}).update(
         {
+            "allow_network_access": False,
             "password_hash": hashed,
             "trust_localhost": True,
         }

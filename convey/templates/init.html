@@ -111,7 +111,7 @@
 
     <section class="init-section" id="section-password">
       <h3>1. set a password</h3>
-      <p class="section-hint">protects your solstone web interface. minimum 8 characters. you can reset it anytime by using a terminal and running the command: <code>sol password set</code>.</p>
+      <p class="section-hint">{{ init_password_hint | safe }}</p>
       <p class="trust-note">this hash is stored in your journal and never transmitted</p>
       <div class="field-group">
         <label for="password">password</label>
