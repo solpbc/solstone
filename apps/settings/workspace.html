@@ -1700,6 +1700,11 @@ input:checked + .slider:before {
   color: var(--accent, #E8923A);
 }
 
+.retention-days-row.is-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .stream-override-row {
   display: flex;
   align-items: center;
@@ -2693,7 +2698,7 @@ button:focus:not(:focus-visible) {
 
     <!-- Storage Section -->
     <section class="settings-section" id="section-storage" role="tabpanel" aria-labelledby="tab-storage">
-      <h2>storage</h2>
+      <h2>your observed media (raw audio and screencast files)</h2>
       <p class="settings-section-desc">Manage raw media retention and view storage usage.</p>
       <div id="storageLoadState" class="settings-load-state" aria-live="polite"></div>
       <div id="storageWarnings"></div>
@@ -2720,24 +2725,19 @@ button:focus:not(:focus-visible) {
 
       <div class="settings-field" id="retentionModeField">
         <label>retention mode</label>
-        <small>Controls how long raw media files (audio, video, screen diffs) are kept after processing.</small>
-        <div id="retentionModeSelector" style="display: flex; gap: 0.5em; margin-top: 0.5em;">
-          <button type="button" class="settings-mode-btn" data-mode="keep">Keep Forever</button>
-          <button type="button" class="settings-mode-btn" data-mode="days">Keep N Days</button>
-          <button type="button" class="settings-mode-btn" data-mode="processed">Delete After Processing</button>
-        </div>
-      </div>
-
-      <div class="settings-field" id="retentionDaysField" style="display: none;">
-        <label for="retentionDaysInput">days to keep</label>
-        <small>Raw media older than this will be eligible for cleanup.</small>
-        <div style="display: flex; gap: 0.5em; align-items: center; margin-top: 0.5em;">
+        <small>Controls how long raw media files (audio, video, screen diffs) are kept after processing. <a href="https://solpbc.org/privacy#recording-laws" target="_blank" rel="noopener">recording-consent laws</a> may apply in your jurisdiction.</small>
+        <div id="retentionDaysField" class="retention-days-row" style="margin-top: 0.5em;">
           <button type="button" class="settings-preset-btn" data-days="7">7</button>
           <button type="button" class="settings-preset-btn" data-days="30">30</button>
           <button type="button" class="settings-preset-btn" data-days="90">90</button>
-          <input type="number" id="retentionDaysInput" min="1" style="width: 5em; padding: 0.4em 0.6em; border: 1px solid #ccc; border-radius: 4px;" placeholder="Custom">
+          <input type="number" id="retentionDaysInput" min="1" max="365" style="width: 5em; padding: 0.4em 0.6em; border: 1px solid #ccc; border-radius: 4px;" placeholder="Custom">
           <span style="color: #666; font-size: 0.9em;">days</span>
         </div>
+        <label for="retentionDontRetain" style="display: flex; align-items: center; gap: 0.5em; margin-top: 0.75em; color: #666; font-size: 0.9em;">
+          <input type="checkbox" id="retentionDontRetain">
+          <span>don't retain observed media (delete as soon as it's processed)</span>
+        </label>
+        <div id="retentionStatus" style="margin-top: 0.75em; color: #666; font-size: 0.9em;">currently: always retain — no expiration</div>
       </div>
 
       <div class="context-overrides" id="streamOverridesContainer" style="display: none;">
@@ -4779,12 +4779,16 @@ function setSyncControlsDisabled(disabled) {
 }
 
 function setStorageControlsDisabled(disabled) {
-  document.querySelectorAll('#retentionModeSelector .settings-mode-btn, #retentionDaysField .settings-preset-btn').forEach((el) => {
+  document.querySelectorAll('#retentionDaysField .settings-preset-btn').forEach((el) => {
     el.disabled = disabled;
   });
   const daysInput = document.getElementById('retentionDaysInput');
   if (daysInput) {
     daysInput.disabled = disabled;
+  }
+  const dontRetain = document.getElementById('retentionDontRetain');
+  if (dontRetain) {
+    dontRetain.disabled = disabled;
   }
 }
 
@@ -6113,6 +6117,13 @@ if (resetAgentBtn) {
 // ========== STORAGE ==========
 let storageData = null;
 
+function deriveRetention(daysValue, dontRetain) {
+  if (dontRetain) return { mode: 'processed', days: null, statusText: 'currently: delete observed media after processing' };
+  const n = parseInt(daysValue, 10);
+  if (Number.isFinite(n) && n >= 1) return { mode: 'days', days: n, statusText: `currently: keep ${n} days` };
+  return { mode: 'keep', days: null, statusText: 'currently: always retain — no expiration' };
+}
+
 async function loadStorage() {
   try {
     storageData = await window.apiJson('api/storage');
@@ -6153,36 +6164,51 @@ function populateStorage(data) {
   document.getElementById('storageSummaryDetail').textContent =
     s.segments_with_raw + ' with raw media · ' + s.segments_purged + ' purged';
 
-  // Set retention mode
   const mode = data.retention.raw_media || 'keep';
-  setRetentionMode(mode, false);
-
-  // Set days
   const days = data.retention.raw_media_days;
-  document.getElementById('retentionDaysInput').value = days || '';
-  document.querySelectorAll('.settings-preset-btn').forEach(btn => {
-    btn.classList.toggle('active', !!days && parseInt(btn.dataset.days) === days);
-  });
+  const daysInput = document.getElementById('retentionDaysInput');
+  const dontRetainCheckbox = document.getElementById('retentionDontRetain');
+  if (mode === 'days' && Number.isFinite(days) && days >= 1) {
+    daysInput.value = days;
+    dontRetainCheckbox.checked = false;
+  } else if (mode === 'processed') {
+    daysInput.value = '';
+    dontRetainCheckbox.checked = true;
+  } else {
+    daysInput.value = '';
+    dontRetainCheckbox.checked = false;
+  }
+  updateRetentionUI();
 
   // Populate per-stream overrides
   populateStreamOverrides(data.streams, data.retention.per_stream || {});
 }
 
-function setRetentionMode(mode, save = true) {
-  document.querySelectorAll('#retentionModeSelector .settings-mode-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.mode === mode);
-  });
-
+function updateRetentionUI() {
   const daysField = document.getElementById('retentionDaysField');
-  daysField.style.display = mode === 'days' ? '' : 'none';
+  const daysInput = document.getElementById('retentionDaysInput');
+  const dontRetainCheckbox = document.getElementById('retentionDontRetain');
+  const presetButtons = document.querySelectorAll('#retentionDaysField .settings-preset-btn');
+  const statusEl = document.getElementById('retentionStatus');
+  const disabled = dontRetainCheckbox.checked;
 
-  if (save) {
-    const payload = { raw_media: mode };
-    if (mode !== 'days') {
-      payload.raw_media_days = null;
-    }
-    saveRetentionConfig(payload);
+  if (disabled) {
+    daysInput.value = '';
   }
+
+  const { statusText } = deriveRetention(daysInput.value, disabled);
+  statusEl.textContent = statusText;
+  daysField.classList.toggle('is-disabled', disabled);
+  daysInput.disabled = disabled;
+  daysInput.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+
+  const activeDays = disabled ? null : parseInt(daysInput.value, 10);
+  presetButtons.forEach(btn => {
+    const isActive = Number.isFinite(activeDays) && parseInt(btn.dataset.days, 10) === activeDays;
+    btn.classList.toggle('active', isActive);
+    btn.disabled = disabled;
+    btn.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+  });
 }
 
 function populateStreamOverrides(streams, perStream) {
@@ -6261,6 +6287,14 @@ function saveStreamOverrides() {
 async function saveRetentionConfig(data) {
   const el = document.getElementById('retentionModeField');
   const errorHost = prepareFieldErrorHost(el);
+  const daysInput = document.getElementById('retentionDaysInput');
+  const dontRetainCheckbox = document.getElementById('retentionDontRetain');
+  const { mode, days } = deriveRetention(daysInput.value, dontRetainCheckbox.checked);
+  const payload = {
+    raw_media: mode,
+    raw_media_days: days,
+    per_stream: data.per_stream || storageData?.retention?.per_stream || {},
+  };
   try {
     await window.saveControl({
       el,
@@ -6270,9 +6304,12 @@ async function saveRetentionConfig(data) {
       fetchArgs: ['api/storage', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       }],
       onSuccess: () => {
+        if (storageData) {
+          storageData.retention = payload;
+        }
         if (el) showFieldStatus(el, 'saved');
       },
     });
@@ -6281,29 +6318,21 @@ async function saveRetentionConfig(data) {
 }
 
 function setupStorageListeners() {
-  // Mode selector
-  document.querySelectorAll('#retentionModeSelector .settings-mode-btn').forEach(btn => {
-    btn.addEventListener('click', () => setRetentionMode(btn.dataset.mode));
-  });
-
-  // Day presets
-  document.querySelectorAll('.settings-preset-btn').forEach(btn => {
+  document.querySelectorAll('#retentionDaysField .settings-preset-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      const days = parseInt(btn.dataset.days);
-      document.getElementById('retentionDaysInput').value = days;
-      document.querySelectorAll('.settings-preset-btn').forEach(b =>
-        b.classList.toggle('active', b === btn));
-      saveRetentionConfig({ raw_media_days: days });
+      document.getElementById('retentionDaysInput').value = btn.dataset.days;
+      updateRetentionUI();
+      saveRetentionConfig({});
     });
   });
 
-  // Custom days input
-  document.getElementById('retentionDaysInput').addEventListener('change', (e) => {
-    const days = parseInt(e.target.value);
-    if (days > 0) {
-      document.querySelectorAll('.settings-preset-btn').forEach(b => b.classList.remove('active'));
-      saveRetentionConfig({ raw_media_days: days });
-    }
+  document.getElementById('retentionDaysInput').addEventListener('input', () => {
+    updateRetentionUI();
+    saveRetentionConfig({});
+  });
+  document.getElementById('retentionDontRetain').addEventListener('change', () => {
+    updateRetentionUI();
+    saveRetentionConfig({});
   });
 
   // Stream overrides toggle
