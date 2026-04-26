@@ -2,25 +2,25 @@
 
 # solstone
 
-your co-brain — captures everything you see and hear, processes it with AI, and gives you superhuman memory.
+your co-brain — observers experience your day along with you, sol curates your memories, and your journal holds everything.
 
-solstone runs in the background on your computer, recording audio and screen activity. AI agents transcribe, extract entities, detect meetings, build knowledge graphs, and surface daily insights — all without any manual input. everything stays on your machine in daily journal directories. open source, local-first, no cloud required.
+solstone runs in the background on your computer, experiencing your day along with you. AI agents transcribe, extract entities, detect meetings, build knowledge graphs, and surface daily insights — all without any manual input. everything stays on your machine in daily journal directories. open source, local-first, no cloud required.
 
 Python 3.10+, Linux + macOS, AGPL-3.0-only, maintained by [sol pbc](https://solpbc.org).
 
 <img src="docs/static/screenshot-home.png" alt="solstone daily dashboard" width="800">
 
-*Daily dashboard — goal, todos, upcoming events, and detected entities, all generated from passive capture. Facet tabs organize your life by project or context.*
+*Daily dashboard — goal, todos, upcoming events, and detected entities, all generated from observations. Facet tabs organize your life by project or context.*
 
 ## what you get
 
 **a system of intelligence, not just a system of record.**
 
-- **automatic transcription** — continuous audio capture (via standalone observers) with speaker identification. every conversation, transcribed and searchable.
-- **entity tracking** — people, companies, and projects extracted from your conversations and tracked across time.
+- **automatic transcription** — standalone observers take in audio continuously with speaker identification. every conversation, transcribed and searchable.
+- **people and projects** — extracted from your conversations and remembered across time.
 - **knowledge graphs** — relationships between entities mapped automatically. who works with whom, which projects connect to which people.
 - **meeting detection** — meetings identified, summarized, and linked. meeting prep that surfaces what you discussed last time and personal context you'd forget.
-- **commitment tracking** — todos captured from natural conversation. no manual entry.
+- **commitments** — todos extracted from natural conversation. no manual entry.
 - **facet organization** — group everything by project or context (work, personal, client-name) with scoped views across all apps.
 - **AI chat** — talk to your journal. ask anything about your digital life and get answers grounded in your actual data.
 - **full-text search** — find anything you've ever seen or heard.
@@ -29,11 +29,11 @@ Python 3.10+, Linux + macOS, AGPL-3.0-only, maintained by [sol pbc](https://solp
 
 <img src="docs/static/screenshot-transcripts.png" alt="solstone transcript viewer" width="800">
 
-*Transcript viewer — dual-timeline navigation, speaker-diarized dialogue, audio playback, screen capture analysis. every conversation browsable by time.*
+*Transcript viewer — dual-timeline navigation, speaker-diarized dialogue, audio playback, screen analysis. every conversation browsable by time.*
 
-<img src="docs/static/screenshot-entities.png" alt="solstone entity tracking" width="800">
+<img src="docs/static/screenshot-entities.png" alt="solstone people and projects" width="800">
 
-*Entity tracking — people, companies, and projects automatically extracted and tracked across your journal with mention counts and relationship data.*
+*People and projects — automatically extracted and remembered across your journal with mention counts and relationship data.*
 
 ## architecture
 
@@ -59,8 +59,8 @@ Python 3.10+, Linux + macOS, AGPL-3.0-only, maintained by [sol pbc](https://solp
                      +-------------+
 ```
 
-- **observe** — receives captured audio and screen activity from standalone observers (solstone-linux, solstone-tmux, solstone-macos) vian observer ingest. processes FLAC audio, WebM screen recordings, and timestamped metadata.
-- **think** — transcribes audio (faster-whisper), analyzes screen captures, extracts entities, detects meetings, and indexes everything into SQLite. runs 30 configurable agent/generator templates from `talent/`.
+- **observe** — receives audio and screen observations from standalone observers (solstone-linux, solstone-tmux, solstone-macos) via observer ingest. processes FLAC audio, WebM screen media, and timestamped metadata.
+- **think** — transcribes audio (faster-whisper), analyzes screen observations, extracts entities, detects meetings, and indexes everything into SQLite. runs 30 configurable agent/generator templates from `talent/`.
 - **cortex** — orchestrates agent execution. receives events, dispatches agents, writes results back to the journal.
 - **callosum** — async message bus connecting all services. enables event-driven coordination between observe, think, cortex, and convey.
 - **convey** — Flask-based web interface with 17 pluggable apps for navigating journal data.

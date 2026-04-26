@@ -1,6 +1,6 @@
 # installing solstone
 
-these instructions are for a coding agent and human working together. solstone is an AI life journal — it captures everything you see and hear on your computer, processes it with AI, and gives you superhuman memory. open source, made by sol pbc.
+these instructions are for a coding agent and human working together. solstone is your co-brain: observers experience your day along with you, sol curates your memories, and your journal holds everything. open source, made by sol pbc.
 
 **supported platforms:** linux (primary), macOS. windows is not yet supported.
 
@@ -96,7 +96,7 @@ if the service fails to start, check `sol service logs`.
 
 ## install an observer
 
-solstone doesn't capture anything on its own — it needs an observer for the platform.
+solstone doesn't observe anything on its own — it needs an observer for the platform.
 
 ```bash
 uname -s
@@ -130,7 +130,7 @@ re-running `make install-service` handles both fresh installs and upgrades. on u
 
 ## done
 
-once the observer is running, solstone captures screen and audio continuously, transcribes conversations, extracts people and projects, builds a knowledge graph, and makes everything searchable at http://localhost:5015. all data stays in `journal/` directories — one per day.
+once the observer is running, solstone observes screen and audio continuously, transcribes conversations, extracts people and projects, builds a knowledge graph, and makes everything searchable at http://localhost:5015. all data stays in `journal/` directories — one per day.
 
 source code: https://github.com/solpbc/solstone
 company: https://solpbc.org
