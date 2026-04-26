@@ -735,3 +735,31 @@ class TestStorageHealthNudge:
             "always retain observed media" not in warning["message"]
             for warning in warnings
         )
+
+
+class TestRetentionDerivationRule:
+    @staticmethod
+    def derive_retention(days_value: str, dont_retain: bool) -> tuple[str, int | None]:
+        # Mirrors the JS deriveRetention helper in convey/templates/init.html
+        # and apps/settings/workspace.html.
+        if dont_retain:
+            return ("processed", None)
+        try:
+            days = int(days_value)
+        except (TypeError, ValueError):
+            days = None
+        if days is not None and days >= 1:
+            return ("days", days)
+        return ("keep", None)
+
+    def test_empty_days_defaults_to_keep(self):
+        assert self.derive_retention("", False) == ("keep", None)
+
+    def test_numeric_days_uses_days_mode(self):
+        assert self.derive_retention("30", False) == ("days", 30)
+
+    def test_checkbox_wins_over_numeric_days(self):
+        assert self.derive_retention("30", True) == ("processed", None)
+
+    def test_checkbox_wins_when_days_empty(self):
+        assert self.derive_retention("", True) == ("processed", None)
