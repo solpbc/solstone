@@ -14,7 +14,7 @@ from flask import Blueprint, g, jsonify, render_template, request
 from werkzeug.exceptions import BadRequest
 
 from convey.auth import is_owner_authed, require_paired_device, resolve_paired_device
-from think.pairing.config import get_host_url, get_owner_identity
+from think.pairing.config import _detect_lan_ipv4, get_host_url, get_owner_identity
 from think.pairing.devices import (
     Device,
     load_devices,
@@ -31,7 +31,7 @@ from think.pairing.keys import (
 )
 from think.pairing.tokens import consume_token, peek_token
 from think.pairing.tokens import create_token as mint_pairing_token
-from think.utils import get_journal
+from think.utils import get_config, get_journal
 
 logger = logging.getLogger(__name__)
 
@@ -224,7 +224,25 @@ def unpair_device(device_id: str):
 
 @pairing_ui_bp.get("/")
 def index():
-    return render_template("pairing.html")
+    from convey import copy as convey_copy
+
+    config = get_config()
+    convey_config = config.get("convey", {})
+    allow_network_access = convey_config.get("allow_network_access", False)
+    pairing_host_override = config.get("pairing", {}).get("host_url")
+    has_override = isinstance(pairing_host_override, str) and bool(
+        pairing_host_override.strip()
+    )
+    pairing_network_off = not allow_network_access
+    pairing_lan_detect_failed = (
+        allow_network_access and not has_override and _detect_lan_ipv4() is None
+    )
+    return render_template(
+        "pairing.html",
+        convey_copy=convey_copy,
+        pairing_lan_detect_failed=pairing_lan_detect_failed,
+        pairing_network_off=pairing_network_off,
+    )
 
 
 __all__ = ["pairing_bp", "pairing_ui_bp"]

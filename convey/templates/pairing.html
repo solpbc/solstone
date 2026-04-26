@@ -24,6 +24,20 @@
         <p id="pairing-feedback" class="pairing-feedback" aria-live="polite"></p>
       </div>
 
+      {% if pairing_network_off %}
+      <section class="pairing-banner pairing-banner-warning">
+        <h2>{{ convey_copy.PAIRING_LOCALHOST_BANNER_TITLE }}</h2>
+        <p>{{ convey_copy.PAIRING_LOCALHOST_BANNER_BODY_1 }}</p>
+        <p>{{ convey_copy.PAIRING_LOCALHOST_BANNER_BODY_2 }}</p>
+        <p><a href="/app/settings/#section-security">{{ convey_copy.PAIRING_LOCALHOST_BANNER_ACTION }}</a></p>
+      </section>
+      {% elif pairing_lan_detect_failed %}
+      <section class="pairing-banner pairing-banner-warning">
+        <h2>{{ convey_copy.PAIRING_NO_LAN_BANNER_TITLE }}</h2>
+        <p>{{ convey_copy.PAIRING_NO_LAN_BANNER_BODY }}</p>
+      </section>
+      {% endif %}
+
       <section id="pairing-minted" class="pairing-minted" hidden>
         <div class="pairing-qr-wrap">
           <div id="pairing-qr" class="pairing-qr" aria-live="polite"></div>
