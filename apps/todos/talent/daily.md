@@ -9,8 +9,8 @@
   "multi_facet": true,
   "group": "Todos",
   "load": {
-    "talents": True,
-    "journal": True
+    "talents": true,
+    "journal": true
   }
 }
 

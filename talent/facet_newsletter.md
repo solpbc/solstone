@@ -8,8 +8,8 @@
   "priority": 40,
   "multi_facet": true,
   "load": {
-    "talents": True,
-    "journal": True
+    "talents": true,
+    "journal": true
   }
 }
 
