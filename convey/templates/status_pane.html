@@ -15,7 +15,7 @@
     </details>
 
     <div id="capture-status-section" style="margin-top: 12px; display: none;">
-      <h4 style="margin: 0 0 4px 0; font-size: 13px; font-weight: 600;">capture</h4>
+      <h4 style="margin: 0 0 4px 0; font-size: 13px; font-weight: 600;">observer status</h4>
       <span id="capture-status-text" style="font-size: 13px;"></span>
     </div>
 
@@ -171,7 +171,7 @@
       }
     }
 
-    // Update composite icon if we have capture data
+    // Update composite icon if we have observer data
     if (_lastCaptureStatus !== null) updateCompositeIcon();
 
     // Update notification history
@@ -204,7 +204,7 @@
       text.style.color = '#10b981';
     } else if (status === 'stale') {
       const names = (capture.observers || []).filter(o => o.status === 'stale').map(o => o.name).join(', ');
-      text.textContent = 'capture ' + displayStatus + (names ? ' — ' + names : '');
+      text.textContent = 'observer ' + displayStatus + (names ? ' — ' + names : '');
       text.style.color = '#f59e0b';
       return;
     } else if (status === 'offline') {
@@ -212,7 +212,7 @@
     } else {
       text.style.color = '#9ca3af';
     }
-    text.textContent = 'capture ' + displayStatus;
+    text.textContent = 'observer ' + displayStatus;
   }
 
   function renderVersionSection(version) {
@@ -239,7 +239,7 @@
     const metrics = window.appEvents?.getMetrics?.();
     const wsState = metrics?.state || 'disconnected';
 
-    // Map capture status to severity: active=0, no_observers=0, stale=1, offline=2
+    // Map observer status to severity: active=0, no_observers=0, stale=1, offline=2
     // Map WS state to severity: connected=0, connecting=1, disconnected=2
     const captureSeverity = { active: 0, no_observers: 0, stale: 1, offline: 2 };
     const wsSeverity = { connected: 0, connecting: 1, disconnected: 2 };
@@ -247,7 +247,7 @@
     const cs = captureSeverity[_lastCaptureStatus] ?? 0;
     const ws = wsSeverity[wsState] ?? 2;
 
-    // Only override icon if capture makes it worse than WS alone
+    // Only override icon if observer status makes it worse than WS alone
     if (cs <= ws) return;
 
     const worst = Math.max(cs, ws);

@@ -1018,7 +1018,7 @@
     {% set dot_class = 'active' if capture_status == 'active' else ('stale' if capture_status == 'stale' else ('offline' if capture_status == 'offline' else 'unknown')) %}
     <div class="pulse-vitals-item">
       <span class="pulse-vitals-dot {{ dot_class }}" aria-hidden="true"></span>
-      <span>capture {{ 'no observers' if capture_status == 'no_observers' else capture_status }}</span>
+      <span>observer {{ 'no observers' if capture_status == 'no_observers' else capture_status }}</span>
     </div>
     {% if segment_count > 0 %}
     <div class="pulse-vitals-sep"></div>
@@ -1074,7 +1074,7 @@
   {% if show_welcome %}
   <div class="pulse-welcome">
     <h2>welcome to your home page</h2>
-    <p>this is where your day comes together — narrative summaries, calendar events, tasks, routines, and the people in your network. as solstone captures and processes your day, sections will appear here automatically.</p>
+    <p>this is where your day comes together — narrative summaries, calendar events, tasks, routines, and the people in your network. as observers experience your day along with you and sol curates, sections will appear here automatically.</p>
     <a href="/app/health">check system health →</a>
   </div>
   {% endif %}
@@ -1153,7 +1153,7 @@
   {% if narrative_content is none and segment_count == 0 and not show_welcome %}
   <div class="pulse-empty-state">
     <h2 class="pulse-section-header">today's flow</h2>
-    <div class="pulse-empty-message">no narrative yet — one will appear after solstone processes some audio. <a href="/app/health">check capture status →</a></div>
+    <div class="pulse-empty-message">no narrative yet — one will appear after solstone processes some audio. <a href="/app/health">check observer status →</a></div>
   </div>
   {% endif %}
 
@@ -1603,7 +1603,7 @@
         clearPulseRefreshError('pulse-vitals');
         let dotClass = data.capture_status === 'active' ? 'active' : (data.capture_status === 'stale' ? 'stale' : (data.capture_status === 'offline' ? 'offline' : 'unknown'));
         let displayStatus = data.capture_status === 'no_observers' ? 'no observers' : data.capture_status;
-        let html = '<div class="pulse-vitals-item"><span class="pulse-vitals-dot ' + dotClass + '" aria-hidden="true"></span><span>capture ' + esc(displayStatus) + '</span></div>';
+        let html = '<div class="pulse-vitals-item"><span class="pulse-vitals-dot ' + dotClass + '" aria-hidden="true"></span><span>observer ' + esc(displayStatus) + '</span></div>';
         if (data.segment_count > 0) {
           html += '<div class="pulse-vitals-sep"></div><div class="pulse-vitals-item">' + data.segment_count + ' segment' + (data.segment_count !== 1 ? 's' : '');
           if (data.duration_minutes > 0) html += ' · ' + data.duration_minutes + 'm';
