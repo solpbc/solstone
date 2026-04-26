@@ -619,6 +619,27 @@ def _load_default_config() -> dict[str, Any]:
 _default_config: dict[str, Any] | None = None
 
 
+def journal_is_active(path: str | Path) -> bool:
+    """Return whether ``path`` points to a claimed journal."""
+    try:
+        journal_path = Path(path)
+        if not journal_path.is_dir():
+            return False
+        config_path = journal_path / "config" / "journal.json"
+        with open(config_path, "r", encoding="utf-8") as f:
+            config = json.load(f)
+        owner_name = config["identity"]["name"]
+        return isinstance(owner_name, str) and bool(owner_name.strip())
+    except (
+        OSError,
+        json.JSONDecodeError,
+        KeyError,
+        TypeError,
+        AttributeError,
+    ):
+        return False
+
+
 def get_config() -> dict[str, Any]:
     """Return the journal configuration from config/journal.json.
 

@@ -154,7 +154,7 @@ def _current_journal_for_alias() -> str:
     try:
         path, _ = think_utils.get_journal_info()
     except getattr(think_utils, "SolstoneNotConfigured", RuntimeError):
-        path = str(Path.home() / "Documents" / "Solstone")
+        path = str(Path.home() / "Documents" / "journal")
     return path
 
 

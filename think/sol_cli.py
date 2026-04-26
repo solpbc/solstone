@@ -263,8 +263,8 @@ def run_command(module_path: str) -> int:
 
     # Call main - it may call sys.exit() internally
     try:
-        module.main()
-        return 0
+        result = module.main()
+        return 0 if result is None else int(result)
     except SystemExit as e:
         # Preserve exit code from subcommand
         # SystemExit can have int code, string message, or None

@@ -8,7 +8,7 @@ import os
 
 import pytest
 
-from think.utils import get_config
+from think.utils import get_config, journal_is_active
 
 
 @pytest.fixture
@@ -184,3 +184,54 @@ def test_get_config_with_fixtures():
     assert isinstance(config["identity"]["email_addresses"], list)
     assert isinstance(config["identity"]["timezone"], str)
     assert isinstance(config["identity"]["bio"], str)
+
+
+def _write_journal_config(journal_path, config):
+    config_dir = journal_path / "config"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    (config_dir / "journal.json").write_text(json.dumps(config), encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    ("config", "expected"),
+    [
+        ({"identity": {"name": "Active User"}}, True),
+        ({}, False),
+        ({"identity": {"name": ""}}, False),
+        ({"identity": {"name": "   "}}, False),
+    ],
+)
+def test_journal_is_active_from_config(tmp_path, config, expected):
+    _write_journal_config(tmp_path, config)
+    assert journal_is_active(tmp_path) is expected
+
+
+def test_journal_is_active_with_fixtures(monkeypatch):
+    monkeypatch.setenv("SOLSTONE_JOURNAL", "tests/fixtures/journal")
+    assert journal_is_active("tests/fixtures/journal") is True
+
+
+def test_journal_is_active_false_for_empty_dir(tmp_path):
+    assert journal_is_active(tmp_path) is False
+
+
+def test_journal_is_active_false_without_config(tmp_path):
+    (tmp_path / "config").mkdir()
+    assert journal_is_active(tmp_path) is False
+
+
+def test_journal_is_active_false_for_malformed_json(tmp_path):
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    (config_dir / "journal.json").write_text("{bad json", encoding="utf-8")
+    assert journal_is_active(tmp_path) is False
+
+
+def test_journal_is_active_false_for_path_that_is_not_directory(tmp_path):
+    file_path = tmp_path / "journal.json"
+    file_path.write_text("{}", encoding="utf-8")
+    assert journal_is_active(file_path) is False
+
+
+def test_journal_is_active_false_for_absent_path(tmp_path):
+    assert journal_is_active(tmp_path / "missing") is False

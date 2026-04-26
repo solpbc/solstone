@@ -93,6 +93,20 @@ def worktree_error(curdir: Path) -> str:
 
 
 class TestWrapperHelpers:
+    def test_current_journal_for_alias_falls_back_to_documents_journal(
+        self, home_root, monkeypatch
+    ):
+        from think import utils as think_utils
+
+        def raise_not_configured():
+            raise think_utils.SolstoneNotConfigured("not configured")
+
+        monkeypatch.setattr(think_utils, "get_journal_info", raise_not_configured)
+
+        assert install_guard._current_journal_for_alias() == str(
+            home_root / "Documents" / "journal"
+        )
+
     def test_render_wrapper_round_trip_simple(self):
         journal = "/tmp/solstone"
         sol_bin = "/tmp/repo/.venv/bin/sol"

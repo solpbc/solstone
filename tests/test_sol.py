@@ -3,6 +3,8 @@
 
 """Tests for sol.py unified CLI."""
 
+import os
+import subprocess
 import sys
 from unittest.mock import MagicMock, patch
 
@@ -67,7 +69,7 @@ class TestRunCommand:
     def test_run_command_success(self):
         """Test running a command that exits cleanly."""
         mock_module = MagicMock()
-        mock_module.main = MagicMock()
+        mock_module.main = MagicMock(return_value=None)
 
         with patch("importlib.import_module", return_value=mock_module):
             exit_code = sol.run_command("test.module")
@@ -119,6 +121,26 @@ class TestRunCommand:
         with patch("importlib.import_module", return_value=mock_module):
             exit_code = sol.run_command("test.module")
             assert exit_code == 1
+
+    def test_main_propagates_integer_return_code_via_real_subprocess(self, tmp_path):
+        """Would fail on the parent commit because cmd_journal() returned 1 but sol exited 0."""
+        env = {**os.environ, "SOLSTONE_JOURNAL": str(tmp_path)}
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "think.sol_cli",
+                "config",
+                "journal",
+                "/tmp/with$dollar",
+            ],
+            capture_output=True,
+            text=True,
+            env=env,
+            cwd=str(tmp_path),
+        )
+
+        assert result.returncode == 1
 
 
 class TestGetStatus:

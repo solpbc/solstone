@@ -147,6 +147,76 @@ class TestEnvCollection:
         assert "SOLSTONE_JOURNAL" not in env
 
 
+class TestServiceHelpers:
+    def test_service_is_installed_true_linux(self, monkeypatch, tmp_path):
+        unit_path = tmp_path / "solstone.service"
+        unit_path.write_text("", encoding="utf-8")
+        monkeypatch.setattr(service, "_platform", lambda: "linux")
+        monkeypatch.setattr(service, "_unit_path", lambda: unit_path)
+        assert service.service_is_installed() is True
+
+    def test_service_is_installed_false_linux(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(service, "_platform", lambda: "linux")
+        monkeypatch.setattr(
+            service, "_unit_path", lambda: tmp_path / "missing" / "solstone.service"
+        )
+        assert service.service_is_installed() is False
+
+    def test_service_is_installed_true_darwin(self, monkeypatch, tmp_path):
+        plist_path = tmp_path / "org.solpbc.solstone.plist"
+        plist_path.write_text("", encoding="utf-8")
+        monkeypatch.setattr(service, "_platform", lambda: "darwin")
+        monkeypatch.setattr(service, "_plist_path", lambda: plist_path)
+        assert service.service_is_installed() is True
+
+    def test_service_is_installed_false_darwin(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(service, "_platform", lambda: "darwin")
+        monkeypatch.setattr(
+            service,
+            "_plist_path",
+            lambda: tmp_path / "missing" / "org.solpbc.solstone.plist",
+        )
+        assert service.service_is_installed() is False
+
+    def test_service_is_running_false_fast_when_not_installed(self, monkeypatch):
+        run_mock = MagicMock()
+        monkeypatch.setattr(service, "service_is_installed", lambda: False)
+        monkeypatch.setattr(service.subprocess, "run", run_mock)
+        assert service.service_is_running() is False
+        run_mock.assert_not_called()
+
+    def test_service_is_running_true_linux(self, monkeypatch):
+        monkeypatch.setattr(service, "service_is_installed", lambda: True)
+        monkeypatch.setattr(service, "_platform", lambda: "linux")
+        run_mock = MagicMock(return_value=MagicMock(stdout="active\n"))
+        monkeypatch.setattr(service.subprocess, "run", run_mock)
+        assert service.service_is_running() is True
+
+    @pytest.mark.parametrize("state", ["inactive\n", "failed\n"])
+    def test_service_is_running_false_linux(self, monkeypatch, state):
+        monkeypatch.setattr(service, "service_is_installed", lambda: True)
+        monkeypatch.setattr(service, "_platform", lambda: "linux")
+        run_mock = MagicMock(return_value=MagicMock(stdout=state))
+        monkeypatch.setattr(service.subprocess, "run", run_mock)
+        assert service.service_is_running() is False
+
+    def test_service_is_running_true_darwin(self, monkeypatch):
+        monkeypatch.setattr(service, "service_is_installed", lambda: True)
+        monkeypatch.setattr(service, "_platform", lambda: "darwin")
+        monkeypatch.setattr(service.os, "getuid", lambda: 501)
+        run_mock = MagicMock(return_value=MagicMock(returncode=0))
+        monkeypatch.setattr(service.subprocess, "run", run_mock)
+        assert service.service_is_running() is True
+
+    def test_service_is_running_false_darwin(self, monkeypatch):
+        monkeypatch.setattr(service, "service_is_installed", lambda: True)
+        monkeypatch.setattr(service, "_platform", lambda: "darwin")
+        monkeypatch.setattr(service.os, "getuid", lambda: 501)
+        run_mock = MagicMock(return_value=MagicMock(returncode=1))
+        monkeypatch.setattr(service.subprocess, "run", run_mock)
+        assert service.service_is_running() is False
+
+
 class TestStatus:
     def test_not_installed_linux(self, monkeypatch, tmp_path, capsys):
         monkeypatch.setattr(sys, "platform", "linux")
