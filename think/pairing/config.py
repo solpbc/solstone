@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import socket
 from typing import Any
 
 from think.service import DEFAULT_SERVICE_PORT
@@ -28,10 +29,31 @@ def _clean_str(value: Any) -> str | None:
     return cleaned or None
 
 
+def _detect_lan_ipv4() -> str | None:
+    """Return this host's outward-facing IPv4, or None on failure.
+
+    Uses a UDP socket connect to a routable address so the kernel resolves the
+    outbound interface without sending any packets.
+    """
+
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.connect(("8.8.8.8", 80))
+            return sock.getsockname()[0]
+    except OSError:
+        return None
+
+
 def get_host_url() -> str:
     configured = _clean_str(_pairing_config().get("host_url"))
     if configured is not None:
         return configured
+    convey_config = get_config().get("convey", {})
+    if convey_config.get("allow_network_access", False):
+        lan_ipv4 = _detect_lan_ipv4()
+        if lan_ipv4 is not None:
+            convey_port = read_service_port("convey") or DEFAULT_SERVICE_PORT
+            return f"http://{lan_ipv4}:{convey_port}"
     convey_port = read_service_port("convey") or DEFAULT_SERVICE_PORT
     return f"http://localhost:{convey_port}"
 
@@ -61,6 +83,7 @@ __all__ = [
     "DEFAULT_TOKEN_TTL_SECONDS",
     "MAX_TOKEN_TTL_SECONDS",
     "MIN_TOKEN_TTL_SECONDS",
+    "_detect_lan_ipv4",
     "get_host_url",
     "get_owner_identity",
     "get_token_ttl_seconds",
