@@ -708,8 +708,7 @@ class TestStorageHealthNudge:
             "raw_media_gb",
         }
         assert all(
-            "always retain observed media" in warning["message"]
-            for warning in warnings
+            "always retain observed media" in warning["message"] for warning in warnings
         )
 
     def test_days_mode_does_not_append_nudge(self, tmp_path, monkeypatch):
