@@ -281,7 +281,11 @@ def _setup_config(journal_root: Path) -> None:
         {
             "identity": {"name": "Remote User"},
             "retention": {"days": 30},
-            "convey": {"trust_localhost": True, "secret": "shhh"},
+            "convey": {
+                "allow_network_access": False,
+                "trust_localhost": True,
+                "secret": "shhh",
+            },
             "env": {"API_KEY": "xyz"},
         },
     )

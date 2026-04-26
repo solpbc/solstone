@@ -280,6 +280,7 @@ class TestInitFinalize:
         from werkzeug.security import check_password_hash
 
         assert check_password_hash(config["convey"]["password_hash"], "securepass123")
+        assert config["convey"]["allow_network_access"] is False
         assert config["convey"]["trust_localhost"] is True
         # Identity
         assert config["identity"]["name"] == "Jane Doe"
@@ -448,10 +449,10 @@ class TestLocalhostBypass:
         assert resp.status_code == 302
         assert "/init" in resp.headers["Location"]
 
-    def test_localhost_no_trust_redirects_to_login(self, journal_copy):
-        """Localhost + setup.completed_at but no trust_localhost → redirect to /login."""
+    def test_localhost_trust_disabled_redirects_to_login(self, journal_copy):
+        """Localhost + setup.completed_at + trust_localhost false → redirect to /login."""
         config = _read_config(journal_copy)
-        config["convey"].pop("trust_localhost", None)
+        config["convey"]["trust_localhost"] = False
         config["setup"] = {"completed_at": 1700000000000}
         (journal_copy / "config" / "journal.json").write_text(
             json.dumps(config, indent=2)

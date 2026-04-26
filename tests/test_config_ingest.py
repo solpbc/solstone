@@ -91,6 +91,7 @@ def _sample_config():
     return {
         "identity": {"name": "Remote User", "preferred": "Remote", "timezone": "UTC"},
         "convey": {
+            "allow_network_access": False,
             "password_hash": "secret_hash",
             "secret": "secret_value",
             "trust_localhost": True,
@@ -181,7 +182,7 @@ def test_config_staged(ingest_env):
     source = load_journal_source(env["key"])
 
     assert response.status_code == 200
-    assert body == {"staged": True, "skipped": False, "diff_fields": 11}
+    assert body == {"staged": True, "skipped": False, "diff_fields": 12}
     assert (state_dir / "source_config.json").exists()
     assert (state_dir / "diff.json").exists()
     assert "last_hash" in _read_json(state_dir / "state.json")

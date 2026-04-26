@@ -216,6 +216,7 @@ def _setup_config(tmp_path):
     config = {
         "identity": {"name": "Test", "preferred": "Tester", "timezone": "UTC"},
         "convey": {
+            "allow_network_access": False,
             "password_hash": "secret_hash",
             "secret": "secret_val",
             "trust_localhost": True,
@@ -1121,6 +1122,9 @@ class TestExportConfig:
             "json"
         ) or mock_session.post.call_args[1].get("json")
         posted_config = posted_data["config"]
-        assert posted_config["convey"] == {"trust_localhost": True}
+        assert posted_config["convey"] == {
+            "allow_network_access": False,
+            "trust_localhost": True,
+        }
         assert posted_config["setup"] == {"completed_at": 12345}
         assert posted_config["env"] == {"KEY": "val"}
