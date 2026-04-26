@@ -526,6 +526,48 @@
 #graph-reload-overlay { display:none; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:10; }
 .graph-reloading #graph-reload-overlay { display:block; }
 
+/* ── Presentation mode (?present=1) — back-row legibility on a projector ── */
+body.presentation-mode .graph-controls {
+  padding: 0.75rem 1.25rem;
+  background: #fff;
+  border-bottom: 2px solid #d1d5db;
+}
+body.presentation-mode .graph-type-btn,
+body.presentation-mode .graph-time-btn,
+body.presentation-mode .graph-view-toggle {
+  font-size: 1.05rem;
+  font-weight: 600;
+  padding: 0.5rem 1rem;
+  border-width: 2px;
+}
+body.presentation-mode .graph-strength-filter {
+  font-size: 1rem;
+  color: #1f2937;
+}
+body.presentation-mode .graph-strength-filter input[type=range] { width: 120px; height: 8px; }
+body.presentation-mode .graph-stats {
+  font-size: 1rem;
+  color: #1f2937;
+  font-weight: 600;
+}
+body.presentation-mode .graph-detail-panel {
+  width: 460px;
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.18);
+}
+body.presentation-mode .graph-detail-header { padding: 1rem 1.25rem; border-bottom: 2px solid #e5e7eb; }
+body.presentation-mode .graph-detail-header h2 { font-size: 1.6rem; color: #0b1220; }
+body.presentation-mode .graph-detail-close { font-size: 2rem; }
+body.presentation-mode .graph-detail-body { font-size: 1.05rem; color: #1f2937; padding: 1rem 1.25rem; }
+body.presentation-mode .detail-section-title { font-size: 0.9rem; color: #4b5563; }
+body.presentation-mode .detail-type-badge,
+body.presentation-mode .detail-principal-badge { font-size: 0.95rem; padding: 0.3rem 0.75rem; }
+body.presentation-mode .detail-description { font-size: 1.1rem; line-height: 1.55; color: #1f2937; }
+body.presentation-mode .detail-score-item,
+body.presentation-mode .detail-connected-item,
+body.presentation-mode .detail-activity-item { font-size: 1.05rem; padding: 0.35rem 0; }
+body.presentation-mode .detail-connected-rel,
+body.presentation-mode .detail-activity-day { font-size: 0.95rem; }
+
 /* ── Responsive: Tablet (≤768px) ── */
 @media (max-width: 768px) {
   .graph-controls-row { gap: 0.75rem; }
@@ -630,6 +672,61 @@
 
   const escapeHtml = window.AppServices.escapeHtml;
 
+  function isPresenting() {
+    return document.body.classList.contains('presentation-mode');
+  }
+
+  // vis-network options factory — returns presentation-tuned sizes when
+  // ?present=1 is active so the graph reads from the back row. Daily-use
+  // sizes are unchanged.
+  function visOptions() {
+    const present = isPresenting();
+    return {
+      physics: {
+        solver: 'forceAtlas2Based',
+        forceAtlas2Based: {
+          gravitationalConstant: present ? -260 : -200,
+          centralGravity: 0.005,
+          springLength: present ? 280 : 230,
+          springConstant: 0.015,
+          damping: 0.4,
+          avoidOverlap: 0.8,
+        },
+        stabilization: { iterations: 1000 },
+      },
+      nodes: {
+        shape: 'dot',
+        scaling: present
+          ? { min: 22, max: 75, label: { enabled: true, min: 24, max: 42 } }
+          : { min: 12, max: 45, label: { enabled: true, min: 14, max: 24 } },
+        borderWidth: present ? 3 : 1.5,
+        shadow: present
+          ? { enabled: true, size: 8, x: 2, y: 2, color: 'rgba(0,0,0,0.18)' }
+          : { enabled: true, size: 4, x: 1, y: 1, color: 'rgba(0,0,0,0.1)' },
+        font: {
+          face: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+          color: present ? '#0b1220' : '#374151',
+          strokeWidth: present ? 4 : 0,
+          strokeColor: '#ffffff',
+          bold: present ? { color: '#0b1220', size: 30, vadjust: 0, mod: 'bold' } : undefined,
+        },
+      },
+      edges: {
+        scaling: present ? { min: 2.5, max: 10 } : { min: 1, max: 5 },
+        smooth: { enabled: true, type: 'curvedCW', roundness: 0.15 },
+      },
+      interaction: {
+        hover: true,
+        tooltipDelay: 100,
+        hideEdgesOnDrag: true,
+        hideEdgesOnZoom: true,
+      },
+      layout: {
+        improvedLayout: true,
+      },
+    };
+  }
+
   function formatDay(d) {
     if (!d || d.length < 8) return d || '';
     return d.slice(0,4) + '-' + d.slice(4,6) + '-' + d.slice(6,8);
@@ -662,6 +759,7 @@
 
   // --- Graph rendering ---
   function buildVisData(data) {
+    const present = isPresenting();
     const nodes = data.nodes.map(n => {
       const color = TYPE_COLORS[n.type] || TYPE_COLORS.unknown;
       return {
@@ -674,7 +772,7 @@
           highlight: { background: color, border: n.is_principal ? '#f59e0b' : '#111827' },
           hover: { background: color, border: n.is_principal ? '#f59e0b' : '#374151' },
         },
-        borderWidth: n.is_principal ? 3 : 1.5,
+        borderWidth: n.is_principal ? (present ? 5 : 3) : (present ? 3 : 1.5),
         title: n.name + ' \u00b7 ' + n.type + ' \u00b7 score ' + n.score.toFixed(1),
         _data: n,
         ...(window.selectedFacet ? {} : (() => {
@@ -690,24 +788,31 @@
     const edges = data.edges.map((e, i) => {
       if (e.edge_type === 'explicit') {
         const relColor = EDGE_REL_COLORS[e.relationship_type] || '#9ca3af';
+        const opacity = present
+          ? Math.min(1.0, 0.75 + e.frequency * 0.04)
+          : Math.min(0.9, 0.5 + e.frequency * 0.05);
         return {
           id: 'e' + i,
           from: e.from,
           to: e.to,
           value: e.frequency,
-          color: { color: relColor, opacity: Math.min(0.9, 0.5 + e.frequency * 0.05), highlight: relColor, hover: relColor },
-          arrows: { to: { enabled: true, scaleFactor: 0.5 } },
+          color: { color: relColor, opacity: opacity, highlight: relColor, hover: relColor },
+          arrows: { to: { enabled: true, scaleFactor: present ? 0.9 : 0.5 } },
           smooth: { type: 'curvedCW', roundness: 0.15 },
           title: (e.relationship_type || 'related') + ' (' + e.frequency + ')',
         };
       } else {
+        const coColor = present ? '#9ca3af' : '#d1d5db';
+        const opacity = present
+          ? Math.min(0.95, 0.65 + e.frequency * 0.04)
+          : Math.min(0.8, 0.4 + e.frequency * 0.04);
         return {
           id: 'e' + i,
           from: e.from,
           to: e.to,
           value: e.frequency,
-          color: { color: '#d1d5db', opacity: Math.min(0.8, 0.4 + e.frequency * 0.04), highlight: '#9ca3af', hover: '#9ca3af' },
-          dashes: [4, 4],
+          color: { color: coColor, opacity: opacity, highlight: '#6b7280', hover: '#6b7280' },
+          dashes: present ? [6, 6] : [4, 4],
           smooth: { type: 'curvedCW', roundness: 0.1 },
           title: 'co-occurrence (' + e.frequency + ')',
         };
@@ -753,43 +858,7 @@
 
     const visData = buildVisData(data);
 
-    const options = {
-      physics: {
-        solver: 'forceAtlas2Based',
-        forceAtlas2Based: {
-          gravitationalConstant: -200,
-          centralGravity: 0.005,
-          springLength: 230,
-          springConstant: 0.015,
-          damping: 0.4,
-          avoidOverlap: 0.8,
-        },
-        stabilization: { iterations: 1000 },
-      },
-      nodes: {
-        shape: 'dot',
-        scaling: { min: 12, max: 45, label: { enabled: true, min: 14, max: 24 } },
-        borderWidth: 1.5,
-        shadow: { enabled: true, size: 4, x: 1, y: 1, color: 'rgba(0,0,0,0.1)' },
-        font: {
-          face: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-          color: '#374151',
-        },
-      },
-      edges: {
-        scaling: { min: 1, max: 5 },
-        smooth: { enabled: true, type: 'curvedCW', roundness: 0.15 },
-      },
-      interaction: {
-        hover: true,
-        tooltipDelay: 100,
-        hideEdgesOnDrag: true,
-        hideEdgesOnZoom: true,
-      },
-      layout: {
-        improvedLayout: true,
-      },
-    };
+    const options = visOptions();
 
     if (network) {
       network.setData(visData);
@@ -1142,6 +1211,15 @@
   // --- Facet awareness ---
   window.addEventListener('facet.switch', () => {
     reload();
+  });
+
+  // --- Presentation mode awareness — rebuild visData + options on toggle ---
+  window.addEventListener('presentation-mode:change', () => {
+    if (!network || !graphData) return;
+    const visData = buildVisData(graphData);
+    network.setOptions(visOptions());
+    network.setData(visData);
+    network.fit({ animation: { duration: 300 } });
   });
 
   // --- Load / reload ---

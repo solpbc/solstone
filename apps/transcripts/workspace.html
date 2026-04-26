@@ -1347,6 +1347,39 @@ body.has-app-bar.has-date-nav .workspace:has(.tr-wrap) {
   white-space: nowrap;
   border: 0;
 }
+
+/* ── Presentation mode (?present=1) — back-row legibility on a projector ── */
+body.presentation-mode .tr-card { --tr-day-col: 240px; --tr-zoom-col: 150px; }
+body.presentation-mode .tr-timeline-label,
+body.presentation-mode .tr-timeline-legend,
+body.presentation-mode .tr-zoom-timeline-label { font-size: 14px; font-weight: 700; }
+body.presentation-mode .tr-label,
+body.presentation-mode .tr-zoom-label { font-size: 14px; color: #1f2937; }
+body.presentation-mode .tr-now-label { font-size: 14px; font-weight: 700; }
+body.presentation-mode .tr-now-marker { border-top-width: 3px; }
+body.presentation-mode .tr-seg { width: 48px; box-shadow: 0 2px 4px rgba(0,0,0,.10); }
+body.presentation-mode .tr-seg-audio { background: rgba(74, 222, 128, 0.85); border-width: 2px; }
+body.presentation-mode .tr-seg-screen { background: rgba(234, 179, 8, 0.85); border-width: 2px; }
+body.presentation-mode .tr-zoom-pill { font-weight: 700; }
+body.presentation-mode .tr-content { padding: 8px 28px 28px; gap: 20px; }
+body.presentation-mode .tr-title { font-size: 28px; color: #0b1220; }
+body.presentation-mode .tr-range-text { font-size: 16px; color: #4b5563; }
+body.presentation-mode .tr-tabs { padding: 12px 0; border-bottom-width: 2px; }
+body.presentation-mode .tr-tab { font-size: 16px; font-weight: 600; padding: 10px 16px; border-width: 2px; }
+body.presentation-mode .tr-tab.active { background: #2563eb; border-color: #2563eb; }
+body.presentation-mode .tr-md-content {
+  font-size: 19px;
+  line-height: 1.65;
+  padding: 20px;
+  max-width: 78ch;
+  color: #0b1220;
+}
+body.presentation-mode .tr-md-content code { font-size: 17px; }
+body.presentation-mode .tr-panel { font-size: 18px; line-height: 1.6; padding: 20px; }
+body.presentation-mode .tr-entry-time { width: 64px; font-size: 16px; color: #1f2937; font-weight: 600; }
+body.presentation-mode .tr-entry-text { font-size: 19px; line-height: 1.6; color: #0b1220; }
+body.presentation-mode .tr-entry-meta { font-size: 14px; color: #6b7280; margin-top: 4px; }
+body.presentation-mode .tr-screen-text { font-size: 16px; padding: 12px 16px; border-left-width: 4px; color: #1f2937; }
 </style>
 
 <div class="tr-wrap">

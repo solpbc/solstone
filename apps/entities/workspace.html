@@ -1252,6 +1252,54 @@ tr:hover .entity-delete-btn {
   }
 }
 
+/* ── Presentation mode (?present=1) — back-row legibility on a projector ── */
+body.presentation-mode .entity-cards-container { padding: 1.5em 2em 4em; }
+body.presentation-mode .entity-type-header {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #1f2937;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding-bottom: 0.85em;
+  border-bottom-width: 2px;
+}
+body.presentation-mode .entity-cards-grid {
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.25em 1.5em;
+}
+body.presentation-mode .entity-card { padding: 1.4em 1.5em; border-width: 2px; }
+body.presentation-mode .entity-card-name { font-size: 22px; font-weight: 600; color: #0b1220; }
+body.presentation-mode .entity-card-meta { font-size: 15px; color: #4b5563; }
+body.presentation-mode .entity-card-date { font-size: 15px; color: #4b5563; }
+body.presentation-mode .entity-card-type-indicator { width: 14px; height: 14px; }
+
+body.presentation-mode .entity-detail-header { padding: 2em 2em 1.5em; }
+body.presentation-mode .entity-detail-name { font-size: 2.2em; color: #0b1220; }
+body.presentation-mode .entity-detail-type,
+body.presentation-mode .entity-detail-detached-badge,
+body.presentation-mode .entity-detail-principal-badge,
+body.presentation-mode .entity-detail-blocked-badge {
+  font-size: 15px;
+  padding: 0.4em 1em;
+}
+body.presentation-mode .entity-detail-aka,
+body.presentation-mode .entity-detail-indicators { font-size: 1.05em; color: #4b5563; }
+body.presentation-mode .entity-detail-section { padding: 1.75em 2em; }
+body.presentation-mode .entity-detail-section h4 {
+  font-size: 1.05rem;
+  color: #1f2937;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+body.presentation-mode .entity-desc-display { font-size: 1.15em; line-height: 1.6; color: #0b1220; }
+body.presentation-mode .observation-item { padding: 1em 1.25em; }
+body.presentation-mode .observation-content { font-size: 1.1em; color: #0b1220; line-height: 1.55; }
+body.presentation-mode .observation-meta { font-size: 0.95em; color: #4b5563; }
+body.presentation-mode .entities-table th { font-size: 14px; }
+body.presentation-mode .entities-table td { font-size: 1.05em; padding: 14px 1.5em; }
+body.presentation-mode .entity-name { font-weight: 600; color: #0b1220; }
+body.presentation-mode .entity-desc { color: #4b5563; }
+
 </style>
 
 <div class="workspace-content">
