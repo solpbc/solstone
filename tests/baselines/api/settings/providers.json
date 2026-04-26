@@ -279,9 +279,10 @@
     "talent.system.facet_newsletter": {
       "disabled": false,
       "group": "Think",
-      "label": "facet_newsletter",
+      "label": "Facet Newsletter Generator",
+      "schedule": "daily",
       "tier": 2,
-      "type": null
+      "type": "cogitate"
     },
     "talent.system.heartbeat": {
       "disabled": false,
@@ -403,10 +404,11 @@
     },
     "talent.todos.daily": {
       "disabled": false,
-      "group": "Think",
-      "label": "todos:daily",
+      "group": "Todos",
+      "label": "Daily TODO Curator",
+      "schedule": "daily",
       "tier": 2,
-      "type": null
+      "type": "cogitate"
     },
     "talent.todos.todo": {
       "disabled": false,
