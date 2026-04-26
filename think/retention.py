@@ -147,8 +147,8 @@ def _get_completion_files(segment_path: Path) -> list[Path]:
 class RetentionPolicy:
     """Retention policy for a single scope (global or per-stream)."""
 
-    mode: str = "days"  # "keep", "days", or "processed"
-    days: int | None = 7
+    mode: str = "keep"  # "keep", "days", or "processed"
+    days: int | None = None
 
     def is_eligible(self, segment_age_days: int) -> bool:
         """Check if a segment's raw media should be purged under this policy."""
@@ -180,8 +180,8 @@ def load_retention_config() -> RetentionConfig:
     config = get_config()
     retention = config.get("retention", {})
 
-    mode = retention.get("raw_media", "days")
-    days = retention.get("raw_media_days", 7)
+    mode = retention.get("raw_media", "keep")
+    days = retention.get("raw_media_days", None)
     default = RetentionPolicy(mode=mode, days=days)
 
     per_stream: dict[str, RetentionPolicy] = {}

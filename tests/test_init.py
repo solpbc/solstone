@@ -367,7 +367,7 @@ class TestInitFinalize:
         assert config["retention"]["raw_media_days"] is None
 
     def test_finalize_default_retention(self, fresh_client, journal_copy):
-        """Finalize without retention fields writes default (days/7)."""
+        """Finalize without retention fields writes default (keep/null)."""
         resp = fresh_client.post(
             "/init/finalize",
             json={"password": "securepass123"},
@@ -375,8 +375,8 @@ class TestInitFinalize:
         )
         assert resp.status_code == 200
         config = _read_config(journal_copy)
-        assert config["retention"]["raw_media"] == "days"
-        assert config["retention"]["raw_media_days"] == 7
+        assert config["retention"]["raw_media"] == "keep"
+        assert config["retention"]["raw_media_days"] is None
 
 
 class TestRemovedEndpoints:

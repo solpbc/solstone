@@ -223,8 +223,8 @@ class TestRetentionPolicy:
 class TestRetentionConfig:
     def test_default_policy(self):
         cfg = RetentionConfig()
-        assert cfg.policy_for_stream("default").mode == "days"
-        assert cfg.policy_for_stream("default").days == 7
+        assert cfg.policy_for_stream("default").mode == "keep"
+        assert cfg.policy_for_stream("default").days is None
 
     def test_per_stream_override(self):
         cfg = RetentionConfig(
@@ -247,8 +247,8 @@ class TestLoadRetentionConfig:
     def test_default_config(self, monkeypatch):
         monkeypatch.setattr("think.utils.get_config", lambda: {})
         cfg = load_retention_config()
-        assert cfg.default.mode == "days"
-        assert cfg.default.days == 7
+        assert cfg.default.mode == "keep"
+        assert cfg.default.days is None
         assert cfg.per_stream == {}
 
     def test_custom_config(self, monkeypatch):
@@ -268,6 +268,20 @@ class TestLoadRetentionConfig:
         assert cfg.default.mode == "days"
         assert cfg.default.days == 30
         assert cfg.per_stream["default"].mode == "processed"
+
+    def test_existing_journal_days_config_unchanged(self, monkeypatch):
+        monkeypatch.setattr(
+            "think.utils.get_config",
+            lambda: {
+                "retention": {
+                    "raw_media": "days",
+                    "raw_media_days": 7,
+                }
+            },
+        )
+        cfg = load_retention_config()
+        assert cfg.default.mode == "days"
+        assert cfg.default.days == 7
 
 
 # ---------------------------------------------------------------------------

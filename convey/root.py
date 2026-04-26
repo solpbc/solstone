@@ -257,13 +257,12 @@ def init_finalize() -> Any:
     if gemini_key:
         config.setdefault("env", {})["GOOGLE_API_KEY"] = gemini_key
     config.setdefault("setup", {})["completed_at"] = now_ms()
-    retention_mode = data.get("retention_mode", "days")
-    retention_days = data.get("retention_days", 7)
-    if isinstance(retention_days, str):
-        try:
-            retention_days = int(retention_days)
-        except (ValueError, TypeError):
-            retention_days = 7
+    retention_mode = data.get("retention_mode", "keep")
+    retention_days = data.get("retention_days")
+    if retention_mode == "days" and (
+        not isinstance(retention_days, int) or retention_days < 1
+    ):
+        return jsonify({"error": "retention_days must be a positive integer"}), 400
     config.setdefault("retention", {}).update(
         {
             "raw_media": retention_mode,
