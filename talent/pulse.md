@@ -5,7 +5,6 @@
   "description": "Living narrative of the owner's day — updated each segment",
   "schedule": "segment",
   "priority": 99,
-  "tier": 3,
   "max_output_tokens": 1000
 }
 

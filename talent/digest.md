@@ -5,7 +5,6 @@
   "description": "Synthesize a plain-English digest of who sol is and what's happening now.",
   "schedule": "none",
   "priority": 10,
-  "tier": 3,
   "max_output_tokens": 1000
 }
 

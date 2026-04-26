@@ -199,8 +199,8 @@ def test_resolve_provider_no_config(monkeypatch, tmp_path):
     assert model == GEMINI_FLASH
 
     provider, model = resolve_provider("anything", "cogitate")
-    assert provider == "openai"
-    assert model == GPT_5_MINI
+    assert provider == "google"
+    assert model == GEMINI_FLASH
 
 
 # ---------------------------------------------------------------------------
@@ -227,7 +227,7 @@ def test_type_defaults():
         assert "backup" in defaults
 
     assert TYPE_DEFAULTS["generate"]["provider"] == "google"
-    assert TYPE_DEFAULTS["cogitate"]["provider"] == "openai"
+    assert TYPE_DEFAULTS["cogitate"]["provider"] == "google"
 
 
 def test_prompt_paths_exist():

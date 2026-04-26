@@ -6,7 +6,6 @@
   "schedule": "daily",
   "priority": 41,
   "multi_facet": false,
-  "tier": 3,
   "group": "Skills",
   "load": {"transcripts": false, "percepts": false, "talents": false}
 }

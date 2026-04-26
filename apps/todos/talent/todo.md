@@ -1,6 +1,5 @@
 {
   "type": "cogitate",
-  "tier": 3,
 
   "title": "TODO Detector",
   "description": "Detects todo items from activity transcripts and validates existing todos against activity evidence via sol call commands.",

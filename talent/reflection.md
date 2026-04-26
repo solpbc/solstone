@@ -1,6 +1,5 @@
 {
   "type": "cogitate",
-  "tier": 3,
   "title": "Reflection",
   "description": "Sol — longer-form reflective synthesis grounded in the journal"
 }

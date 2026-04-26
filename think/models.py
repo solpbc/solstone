@@ -94,7 +94,7 @@ PROVIDER_DEFAULTS: Dict[str, Dict[int, str]] = {
 
 TYPE_DEFAULTS: Dict[str, Dict[str, Any]] = {
     "generate": {"provider": "google", "tier": TIER_FLASH, "backup": "anthropic"},
-    "cogitate": {"provider": "openai", "tier": TIER_FLASH, "backup": "anthropic"},
+    "cogitate": {"provider": "google", "tier": TIER_FLASH, "backup": "anthropic"},
 }
 
 

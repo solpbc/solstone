@@ -6,7 +6,6 @@
   "schedule": "daily",
   "priority": 30,
   "multi_facet": true,
-  "tier": 3,
   "group": "Activities"
 }
 
