@@ -11,9 +11,28 @@ import os
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import urlparse
 
 import typer
 
+from apps.settings.copy import (
+    CONVEY_HOST_URL_CLEARED,
+    CONVEY_HOST_URL_FLAG_CONFLICT,
+    CONVEY_HOST_URL_INVALID,
+    CONVEY_HOST_URL_SET_DONE,
+    CONVEY_NETWORK_DISABLE_DONE,
+    CONVEY_NETWORK_DISABLE_PROGRESS,
+    CONVEY_NETWORK_ENABLE_DONE,
+    CONVEY_NETWORK_ENABLE_PROGRESS,
+    CONVEY_REFUSE_NO_PASSWORD_NETWORK,
+    CONVEY_REFUSE_NO_PASSWORD_TRUST,
+    CONVEY_RESTART_TIMEOUT,
+    CONVEY_TRUST_DISABLE_DONE,
+    CONVEY_TRUST_ENABLE_DONE,
+    format_convey_status,
+)
+from think.pairing.config import get_host_url
+from think.service import DEFAULT_SERVICE_PORT
 from think.utils import require_solstone
 
 app = typer.Typer(
@@ -40,6 +59,12 @@ identity_app = typer.Typer(help="Journal owner identity.")
 app.add_typer(identity_app, name="identity")
 observer_app = typer.Typer(help="Observer capture settings.")
 app.add_typer(observer_app, name="observer")
+convey_app = typer.Typer(help="Convey access configuration.")
+app.add_typer(convey_app, name="convey")
+network_access_app = typer.Typer(help="Convey network exposure.")
+convey_app.add_typer(network_access_app, name="network-access")
+trust_localhost_app = typer.Typer(help="Localhost password-bypass behavior.")
+convey_app.add_typer(trust_localhost_app, name="trust-localhost")
 
 
 def _get_config():
@@ -61,6 +86,54 @@ def _write_config(config: dict) -> None:
     os.chmod(config_path, 0o600)
 
 
+def _convey_password_is_set(config: dict) -> bool:
+    from apps.settings.routes import _convey_password_is_set as _route_password_is_set
+
+    return _route_password_is_set(config)
+
+
+def _convey_port() -> int:
+    from think.utils import read_service_port
+
+    return read_service_port("convey") or DEFAULT_SERVICE_PORT
+
+
+def _network_access_enabled(config: dict) -> bool:
+    return bool(config.get("convey", {}).get("allow_network_access", False))
+
+
+def _trust_localhost_enabled(config: dict) -> bool:
+    return bool(config.get("convey", {}).get("trust_localhost", True))
+
+
+def _host_url_status_value(config: dict) -> str:
+    pairing_host_url = config.get("pairing", {}).get("host_url")
+    if isinstance(pairing_host_url, str) and pairing_host_url.strip():
+        return f"{get_host_url()} (manual override)"
+    if _network_access_enabled(config):
+        return f"{get_host_url()} (auto-detected)"
+    return f"{get_host_url()} (localhost — network access off)"
+
+
+def _validate_host_url_or_exit(url: str) -> str:
+    cleaned = url.strip()
+    parsed = urlparse(cleaned)
+    if not cleaned or not parsed.scheme or not parsed.netloc:
+        typer.echo(CONVEY_HOST_URL_INVALID, err=True)
+        raise typer.Exit(1)
+    return cleaned
+
+
+def _restart_convey_or_exit() -> None:
+    from convey.restart import wait_for_convey_restart
+
+    restart_ok, _ = wait_for_convey_restart(timeout=15.0)
+    if restart_ok:
+        return
+    typer.echo(CONVEY_RESTART_TIMEOUT, err=True)
+    raise typer.Exit(1)
+
+
 def _provider_for_env_var(env_var: str) -> str | None:
     """Return the provider mapped to an API env var, if any."""
     from think.providers import PROVIDER_METADATA
@@ -71,6 +144,110 @@ def _provider_for_env_var(env_var: str) -> str | None:
         if "env_key" in meta
     }
     return env_to_provider.get(env_var)
+
+
+@network_access_app.command("enable")
+def convey_network_access_enable() -> None:
+    """Enable non-loopback access to Convey and restart it."""
+
+    config = _get_config()
+    if not _convey_password_is_set(config):
+        typer.echo(CONVEY_REFUSE_NO_PASSWORD_NETWORK, err=True)
+        raise typer.Exit(1)
+    config.setdefault("convey", {})["allow_network_access"] = True
+    _write_config(config)
+    typer.echo(CONVEY_NETWORK_ENABLE_PROGRESS)
+    _restart_convey_or_exit()
+    typer.echo(CONVEY_NETWORK_ENABLE_DONE.format(host_url=get_host_url()))
+
+
+@network_access_app.command("disable")
+def convey_network_access_disable() -> None:
+    """Restrict Convey to localhost and restart it."""
+
+    config = _get_config()
+    config.setdefault("convey", {})["allow_network_access"] = False
+    _write_config(config)
+    typer.echo(CONVEY_NETWORK_DISABLE_PROGRESS)
+    _restart_convey_or_exit()
+    typer.echo(CONVEY_NETWORK_DISABLE_DONE.format(port=_convey_port()))
+
+
+@trust_localhost_app.command("enable")
+def convey_trust_localhost_enable() -> None:
+    """Enable localhost password bypass."""
+
+    config = _get_config()
+    config.setdefault("convey", {})["trust_localhost"] = True
+    _write_config(config)
+    typer.echo(CONVEY_TRUST_ENABLE_DONE)
+
+
+@trust_localhost_app.command("disable")
+def convey_trust_localhost_disable() -> None:
+    """Disable localhost password bypass."""
+
+    config = _get_config()
+    if not _convey_password_is_set(config):
+        typer.echo(CONVEY_REFUSE_NO_PASSWORD_TRUST, err=True)
+        raise typer.Exit(1)
+    config.setdefault("convey", {})["trust_localhost"] = False
+    _write_config(config)
+    typer.echo(CONVEY_TRUST_DISABLE_DONE)
+
+
+@convey_app.command("host-url")
+def convey_host_url(
+    url: str | None = typer.Argument(
+        None, help="Absolute URL to advertise to devices."
+    ),
+    auto: bool = typer.Option(
+        False, "--auto", help="Clear the manual host URL override."
+    ),
+    show: bool = typer.Option(False, "--show", help="Show the effective host URL."),
+) -> None:
+    """Manage the host URL advertised to remote devices."""
+
+    if sum(bool(flag) for flag in (url is not None, auto, show)) != 1:
+        typer.echo(CONVEY_HOST_URL_FLAG_CONFLICT, err=True)
+        raise typer.Exit(1)
+    if show:
+        typer.echo(get_host_url())
+        return
+    config = _get_config()
+    config.setdefault("pairing", {})
+    if auto:
+        config["pairing"]["host_url"] = None
+        _write_config(config)
+        typer.echo(CONVEY_HOST_URL_CLEARED)
+        return
+    assert url is not None
+    cleaned = _validate_host_url_or_exit(url)
+    config["pairing"]["host_url"] = cleaned
+    _write_config(config)
+    typer.echo(CONVEY_HOST_URL_SET_DONE.format(url=cleaned))
+
+
+@convey_app.command("status")
+def convey_status() -> None:
+    """Show Convey network and host-URL status."""
+
+    from convey.cli import _resolve_bind_host
+
+    config = _get_config()
+    network_access = "on" if _network_access_enabled(config) else "localhost only"
+    bind_host = _resolve_bind_host()
+    password = "set" if _convey_password_is_set(config) else "not set"
+    trust_localhost = "yes" if _trust_localhost_enabled(config) else "no"
+    typer.echo(
+        format_convey_status(
+            bind=f"{bind_host}:{_convey_port()}",
+            host_url=_host_url_status_value(config),
+            network_access=network_access,
+            password=password,
+            trust_localhost=trust_localhost,
+        )
+    )
 
 
 def _validate_env_var_or_exit(env_var: str) -> None:

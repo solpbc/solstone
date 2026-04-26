@@ -16,8 +16,15 @@ from typing import Any
 
 from flask import Blueprint, jsonify, request
 
+from apps.settings import copy as settings_copy
+from apps.settings.copy import (
+    CONVEY_REFUSE_NO_PASSWORD_NETWORK,
+    CONVEY_REFUSE_NO_PASSWORD_TRUST,
+)
 from apps.utils import log_app_action
+from convey import copy as convey_copy
 from convey import state
+from think.pairing.config import get_host_url
 from think.providers.google import validate_vertex_credentials
 from think.retention import (
     _human_bytes,
@@ -69,6 +76,34 @@ def _compute_runtime_label() -> str:
         return "unsupported"
 
 
+def _convey_password_is_set(config: dict[str, Any]) -> bool:
+    password_hash = config.get("convey", {}).get("password_hash", "")
+    return bool(str(password_hash or "").strip())
+
+
+def _project_public_config(config: dict[str, Any]) -> dict[str, Any]:
+    projected = copy.deepcopy(config)
+    if "env" in projected:
+        projected["env"] = {k: bool(v) for k, v in projected["env"].items()}
+    convey_config = projected.setdefault("convey", {})
+    convey_config.pop("secret", None)
+    has_pw = bool(convey_config.pop("password_hash", None))
+    convey_config.pop("password", None)
+    convey_config["has_password"] = has_pw
+    pairing_config = projected.setdefault("pairing", {})
+    pairing_config["effective_host_url"] = get_host_url()
+    projected["runtime_env"] = {k: bool(os.getenv(k)) for k in API_KEY_ENV_VARS}
+    return projected
+
+
+@settings_bp.app_context_processor
+def _inject_settings_copy() -> dict[str, Any]:
+    return {
+        "convey_copy": convey_copy,
+        "settings_copy": settings_copy,
+    }
+
+
 @settings_bp.route("/api/config")
 def get_config() -> Any:
     """Return the journal configuration.
@@ -80,22 +115,7 @@ def get_config() -> Any:
     the process environment (from journal.json via setup_cli).
     """
     try:
-        config = get_journal_config()
-        # Mask env values - return True/False for whether key is set in journal config
-        if "env" in config:
-            config["env"] = {k: bool(v) for k, v in config["env"].items()}
-
-        # Strip convey secret from API response — never expose signing keys
-        if "convey" in config:
-            config["convey"].pop("secret", None)
-            has_pw = bool(config["convey"].pop("password_hash", None))
-            config["convey"].pop("password", None)
-            config["convey"]["has_password"] = has_pw
-
-        # Add runtime_env - keys available in the running process
-        config["runtime_env"] = {k: bool(os.getenv(k)) for k in API_KEY_ENV_VARS}
-
-        return jsonify(config)
+        return jsonify(_project_public_config(get_journal_config()))
     except Exception:
         logger.exception("error loading config")
         return jsonify(
@@ -109,15 +129,10 @@ def get_config() -> Any:
 def update_config() -> Any:
     """Update the journal configuration.
 
-    Accepts JSON with a 'section' key indicating which config section to update,
-    and a 'data' key containing the fields to update. Supported sections:
-    - identity: User profile (name, preferred, bio, pronouns, aliases, etc.)
-    - transcribe: Transcription settings (device, model, compute_type)
-    - convey: Web app settings (password)
-    - env: API keys (GOOGLE_API_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY, REVAI_ACCESS_TOKEN, PLAUD_ACCESS_TOKEN)
-
-    Note: Model/provider configuration is done via the 'providers' section in
-    journal.json. See talent/journal/references/config.md for the providers config format.
+    Accepts JSON with a 'section' key and per-section config fields to update.
+    Supported writes include identity and transcribe settings, convey security
+    settings (password, allow_network_access, trust_localhost), pairing.host_url,
+    and API-key env vars.
     """
     try:
         request_data = request.get_json()
@@ -126,6 +141,9 @@ def update_config() -> Any:
 
         section = request_data.get("section")
         data = request_data.get("data", {})
+        request_key = request_data.get("key")
+        if section and request_key is not None and "value" in request_data and not data:
+            data = {request_key: request_data.get("value")}
 
         # Backward compatibility: if no section specified but identity key exists
         if not section and "identity" in request_data:
@@ -148,7 +166,8 @@ def update_config() -> Any:
                 "timezone",
             ],
             "transcribe": ["backend", "enrich", "preserve_all", "noise_upgrade"],
-            "convey": ["password"],
+            "convey": ["allow_network_access", "password", "trust_localhost"],
+            "pairing": ["host_url"],
             "support": ["enabled", "proactive", "anonymous_feedback", "portal_url"],
             "agent": ["name", "name_status", "named_date", "proposal_count"],
             "env": API_KEY_ENV_VARS,
@@ -173,6 +192,7 @@ def update_config() -> Any:
         # Load existing config
         old_config = get_journal_config()
         config = get_journal_config()
+        has_password = _convey_password_is_set(config)
 
         # Ensure section exists
         if section not in config:
@@ -182,10 +202,29 @@ def update_config() -> Any:
         changed_fields = {}
         old_section = old_config.get(section, {})
 
+        requested_network_access = None
+        if section == "convey" and "allow_network_access" in data:
+            requested_network_access = bool(data["allow_network_access"])
+            if requested_network_access and not has_password:
+                return jsonify({"error": CONVEY_REFUSE_NO_PASSWORD_NETWORK}), 400
+        if (
+            section == "convey"
+            and "trust_localhost" in data
+            and not bool(data["trust_localhost"])
+            and not has_password
+        ):
+            return jsonify({"error": CONVEY_REFUSE_NO_PASSWORD_TRUST}), 400
+
         # Update only allowed fields
         for key in allowed_sections[section]:
             if key in data:
                 new_value = data[key]
+                if section == "pairing" and key == "host_url":
+                    new_value = (
+                        new_value.strip() if isinstance(new_value, str) else new_value
+                    )
+                    if new_value == "":
+                        new_value = None
                 old_value = old_section.get(key)
                 if old_value != new_value:
                     changed_fields[key] = {"old": old_value, "new": new_value}
@@ -284,6 +323,18 @@ def update_config() -> Any:
             f.write("\n")
         os.chmod(config_path, 0o600)
 
+        if section == "convey" and requested_network_access is not None:
+            from convey.restart import wait_for_convey_restart
+
+            restart_ok, _ = wait_for_convey_restart(timeout=15.0)
+            return jsonify(
+                {
+                    "effective_host_url": get_host_url(),
+                    "ok": True,
+                    "restart_timeout": not restart_ok,
+                }
+            )
+
         # Log if something changed (don't log sensitive values)
         if changed_fields:
             log_fields = changed_fields
@@ -310,20 +361,13 @@ def update_config() -> Any:
                 capture_output=True,
             )
 
-        # Mask env values in response
-        if "env" in config:
-            config["env"] = {k: bool(v) for k, v in config["env"].items()}
-
-        # Strip sensitive convey fields from response
-        if "convey" in config:
-            config["convey"].pop("secret", None)
-            has_pw = bool(config["convey"].pop("password_hash", None))
-            config["convey"].pop("password", None)
-            config["convey"]["has_password"] = has_pw
-
         key_validation = config.get("providers", {}).get("key_validation", {})
         return jsonify(
-            {"success": True, "config": config, "key_validation": key_validation}
+            {
+                "config": _project_public_config(config),
+                "key_validation": key_validation,
+                "success": True,
+            }
         )
     except Exception:
         logger.exception("error updating config")

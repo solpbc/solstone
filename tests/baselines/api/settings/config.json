@@ -6,6 +6,7 @@
     "proposal_count": 0
   },
   "convey": {
+    "allow_network_access": false,
     "has_password": true,
     "trust_localhost": true
   },
@@ -35,6 +36,9 @@
       "subject": "they"
     },
     "timezone": "America/Denver"
+  },
+  "pairing": {
+    "effective_host_url": "http://localhost:5015"
   },
   "providers": {
     "cogitate": {
