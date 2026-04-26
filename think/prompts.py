@@ -66,7 +66,7 @@ def _load_raw_templates() -> dict[str, str]:
                 )
                 _templates_cache[var_name] = post.content.strip()
             except Exception as exc:
-                logging.debug("Failed to load template %s: %s", md_path, exc)
+                raise PromptMetadataError(md_path) from exc
 
     return _templates_cache
 
@@ -214,6 +214,14 @@ class PromptNotFoundError(FileNotFoundError):
     def __init__(self, path: Path) -> None:
         self.path = path
         super().__init__(f"Prompt file not found: {path}")
+
+
+class PromptMetadataError(ValueError):
+    """Raised when prompt frontmatter cannot be parsed."""
+
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        super().__init__(f"Failed to parse frontmatter from {path}")
 
 
 def _flatten_identity_to_template_vars(identity: dict[str, Any]) -> dict[str, str]:
@@ -391,8 +399,8 @@ def _load_prompt_metadata(md_path: Path) -> dict[str, object]:
         )
         if post.metadata:
             info.update(post.metadata)
-    except Exception as exc:  # pragma: no cover - metadata optional
-        logging.debug("Error reading frontmatter from %s: %s", md_path, exc)
+    except Exception as exc:
+        raise PromptMetadataError(md_path) from exc
 
     # Apply default color if not specified
     if "color" not in info:
