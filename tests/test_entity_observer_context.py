@@ -18,7 +18,7 @@ from think.talent import get_talent
 
 
 def _set_journal(path: str) -> None:
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = path
+    os.environ["SOLSTONE_JOURNAL"] = path
     clear_entity_loading_cache()
     clear_observation_cache()
     clear_relationship_caches()

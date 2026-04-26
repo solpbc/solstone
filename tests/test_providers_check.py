@@ -11,7 +11,7 @@ import pytest
 
 
 def test_run_check_writes_health_file(tmp_path, monkeypatch):
-    """_run_check writes provider health results to _SOLSTONE_JOURNAL_OVERRIDE/health/talents.json."""
+    """_run_check writes provider health results to SOLSTONE_JOURNAL/health/talents.json."""
     import think.providers_cli as providers_cli
 
     fake_registry = {"fake": object()}

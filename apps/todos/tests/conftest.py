@@ -34,7 +34,7 @@ def todo_env(tmp_path, monkeypatch):
                 {"text": "First item"},
                 {"text": "Second item", "completed": True}
             ])
-            # Now _SOLSTONE_JOURNAL_OVERRIDE is set and todo file exists
+            # Now SOLSTONE_JOURNAL is set and todo file exists
     """
 
     def _create(
@@ -50,7 +50,7 @@ def todo_env(tmp_path, monkeypatch):
         if entries is not None:
             lines = [json.dumps(e, ensure_ascii=False) for e in entries]
             todo_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
         return day, facet, todo_path
 
     return _create
@@ -80,7 +80,7 @@ def facet_env(tmp_path, monkeypatch):
         # Create todos directory
         (facet_path / "todos").mkdir()
 
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
         return journal, facet
 
     return _create
@@ -89,7 +89,7 @@ def facet_env(tmp_path, monkeypatch):
 @pytest.fixture
 def move_env(tmp_path, monkeypatch):
     """Create a two-facet environment for move tests."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     def _create(
         entries: list[dict] | None = None,

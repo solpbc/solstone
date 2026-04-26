@@ -34,14 +34,14 @@ def _write_routines_config(tmp_path, config):
 
 def test_collect_routines_empty_config(monkeypatch, tmp_path):
     """Missing routines config yields no pulse routines."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     assert _collect_routines() == []
 
 
 def test_collect_routines_with_recent_output(monkeypatch, tmp_path):
     """Recent enabled routine output is returned with an extracted summary."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     routine_id = "morning-briefing"
     _write_routines_config(
@@ -76,7 +76,7 @@ def test_collect_routines_multi_output_picks_newest(monkeypatch, tmp_path):
     """When multiple outputs exist for a routine, the newest by mtime is used."""
     import time
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     routine_id = "multi-run"
     _write_routines_config(
@@ -110,7 +110,7 @@ def test_collect_routines_multi_output_picks_newest(monkeypatch, tmp_path):
 
 def test_collect_routines_stale_excluded(monkeypatch, tmp_path):
     """Stale routine runs are excluded from pulse."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     _write_routines_config(
         tmp_path,
@@ -130,7 +130,7 @@ def test_collect_routines_stale_excluded(monkeypatch, tmp_path):
 
 def test_collect_routines_disabled_excluded(monkeypatch, tmp_path):
     """Disabled routines are excluded even with recent runs."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     _write_routines_config(
         tmp_path,
@@ -150,7 +150,7 @@ def test_collect_routines_disabled_excluded(monkeypatch, tmp_path):
 
 def test_collect_routines_seen_flag(monkeypatch, tmp_path):
     """Routine runs before the last-seen marker are marked seen."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     last_run = datetime.now() - timedelta(hours=2)
     _write_routines_config(
@@ -177,7 +177,7 @@ def test_collect_routines_seen_flag(monkeypatch, tmp_path):
 
 def test_api_routines_seen(monkeypatch, tmp_path, home_client):
     """Seen endpoint persists the routines seen timestamp."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     resp = home_client.post("/app/home/api/routines/seen")
 

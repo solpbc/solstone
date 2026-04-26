@@ -344,6 +344,25 @@ class TestPortCheck:
         assert result.severity == "advisory"
         assert "timed out" in result.detail
 
+    def test_resolve_alias_target_reads_managed_wrapper_sol_bin(
+        self, doctor, home_root, tmp_path
+    ):
+        sol_bin = tmp_path / "repo" / ".venv" / "bin" / "sol"
+        sol_bin.parent.mkdir(parents=True, exist_ok=True)
+        sol_bin.write_text("", encoding="utf-8")
+        alias = home_root / ".local" / "bin" / "sol"
+        alias.parent.mkdir(parents=True, exist_ok=True)
+        alias.write_text(
+            install_guard.render_wrapper(
+                str((tmp_path / "journal").resolve()),
+                str(sol_bin),
+            ),
+            encoding="utf-8",
+        )
+        alias.chmod(0o755)
+
+        assert doctor.resolve_alias_target() == sol_bin.resolve()
+
 
 class TestDiskSpace:
     def test_warn_when_low(self, doctor, monkeypatch):

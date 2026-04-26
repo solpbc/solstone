@@ -9,10 +9,8 @@ from pathlib import Path
 
 import pytest
 
-# Set _SOLSTONE_JOURNAL_OVERRIDE to fixtures for tests
-os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(
-    Path(__file__).parent / "fixtures" / "journal"
-)
+# Set SOLSTONE_JOURNAL to fixtures for tests
+os.environ["SOLSTONE_JOURNAL"] = str(Path(__file__).parent / "fixtures" / "journal")
 
 
 class TestRegistry:
@@ -131,7 +129,7 @@ class TestLoadJsonl:
         from think.formatters import load_jsonl
 
         path = (
-            Path(os.environ["_SOLSTONE_JOURNAL_OVERRIDE"])
+            Path(os.environ["SOLSTONE_JOURNAL"])
             / "chronicle/20240101/default/123456_300/audio.jsonl"
         )
         entries = load_jsonl(path)
@@ -186,7 +184,7 @@ class TestFormatFile:
         from think.formatters import format_file
 
         path = (
-            Path(os.environ["_SOLSTONE_JOURNAL_OVERRIDE"])
+            Path(os.environ["SOLSTONE_JOURNAL"])
             / "chronicle/20240102/default/234567_300/screen.jsonl"
         )
         chunks, meta = format_file(path)
@@ -203,7 +201,7 @@ class TestFormatFile:
         from think.formatters import format_file
 
         path = (
-            Path(os.environ["_SOLSTONE_JOURNAL_OVERRIDE"])
+            Path(os.environ["SOLSTONE_JOURNAL"])
             / "chronicle/20240101/default/123456_300/audio.jsonl"
         )
         chunks, meta = format_file(path)
@@ -241,7 +239,7 @@ class TestFormatFile:
         from think.formatters import format_file
 
         # Create a file under journal that won't match any pattern
-        journal_path = Path(os.environ["_SOLSTONE_JOURNAL_OVERRIDE"])
+        journal_path = Path(os.environ["SOLSTONE_JOURNAL"])
         temp_file = journal_path / "unknown_file.txt"
         temp_file.write_text("test content")
 
@@ -519,7 +517,7 @@ class TestLoadTranscriptBackwardCompat:
         from observe.hear import load_transcript
 
         path = (
-            Path(os.environ["_SOLSTONE_JOURNAL_OVERRIDE"])
+            Path(os.environ["SOLSTONE_JOURNAL"])
             / "chronicle/20240101/default/123456_300/audio.jsonl"
         )
         metadata, entries, formatted_text = load_transcript(path)
@@ -548,7 +546,7 @@ class TestFormatEntities:
         from think.formatters import format_file
 
         path = (
-            Path(os.environ["_SOLSTONE_JOURNAL_OVERRIDE"])
+            Path(os.environ["SOLSTONE_JOURNAL"])
             / "facets/personal/entities/20250101.jsonl"
         )
         chunks, meta = format_file(path)
@@ -842,7 +840,7 @@ class TestFormatObservations:
         from think.formatters import format_file
 
         path = (
-            Path(os.environ["_SOLSTONE_JOURNAL_OVERRIDE"])
+            Path(os.environ["SOLSTONE_JOURNAL"])
             / "facets/personal/entities/alice_johnson/observations.jsonl"
         )
         chunks, meta = format_file(path)
@@ -877,7 +875,7 @@ class TestFormatTodos:
         from think.formatters import format_file
 
         path = (
-            Path(os.environ["_SOLSTONE_JOURNAL_OVERRIDE"])
+            Path(os.environ["SOLSTONE_JOURNAL"])
             / "facets/personal/todos/20240101.jsonl"
         )
         chunks, meta = format_file(path)
@@ -1014,8 +1012,7 @@ class TestFormatEvents:
         from think.formatters import format_file
 
         path = (
-            Path(os.environ["_SOLSTONE_JOURNAL_OVERRIDE"])
-            / "facets/work/events/20240101.jsonl"
+            Path(os.environ["SOLSTONE_JOURNAL"]) / "facets/work/events/20240101.jsonl"
         )
         chunks, meta = format_file(path)
 
@@ -1330,8 +1327,7 @@ class TestFormatMarkdown:
         from think.formatters import format_file
 
         path = (
-            Path(os.environ["_SOLSTONE_JOURNAL_OVERRIDE"])
-            / "chronicle/20240101/talents/flow.md"
+            Path(os.environ["SOLSTONE_JOURNAL"]) / "chronicle/20240101/talents/flow.md"
         )
         chunks, meta = format_file(path)
 
@@ -1344,8 +1340,7 @@ class TestFormatMarkdown:
         from think.formatters import load_markdown
 
         path = (
-            Path(os.environ["_SOLSTONE_JOURNAL_OVERRIDE"])
-            / "chronicle/20240101/talents/flow.md"
+            Path(os.environ["SOLSTONE_JOURNAL"]) / "chronicle/20240101/talents/flow.md"
         )
         text = load_markdown(path)
 

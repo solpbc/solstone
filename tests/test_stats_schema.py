@@ -21,7 +21,7 @@ def test_validate_passes_on_valid_output(tmp_path, monkeypatch):
         '{"raw": "raw.flac"}\n{"start": "10:00:00", "text": "hello"}\n'
     )
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
     js = stats_mod.JournalStats()
     js.scan(str(journal))
 
@@ -65,7 +65,7 @@ def test_validate_rejects_missing_fields():
 def test_save_json_raises_on_invalid(tmp_path, monkeypatch):
     """save_json() must raise ValueError when validation fails."""
     stats_mod = importlib.import_module("think.journal_stats")
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     js = stats_mod.JournalStats()
     # Corrupt the schema version so validation fails
     original = js.to_dict
@@ -92,7 +92,7 @@ def test_day_fields_present_in_scan_day(tmp_path, monkeypatch):
         '{"header": true}\n{"frame_id": 1, "timestamp": "10:00:00"}\n'
     )
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
     js = stats_mod.JournalStats()
     day_data = js.scan_day("20240101", str(day))
 

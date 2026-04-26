@@ -60,16 +60,16 @@ def isolated_app_env(journal: Path) -> Iterator[Path]:
     """Patch env so create_app(journal) is fully isolated."""
 
     journal = Path(journal).resolve()
-    prev_override = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
+    prev_override = os.environ.get("SOLSTONE_JOURNAL")
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(journal)
+    os.environ["SOLSTONE_JOURNAL"] = str(journal)
     try:
         yield journal
     finally:
         if prev_override is None:
-            os.environ.pop("_SOLSTONE_JOURNAL_OVERRIDE", None)
+            os.environ.pop("SOLSTONE_JOURNAL", None)
         else:
-            os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = prev_override
+            os.environ["SOLSTONE_JOURNAL"] = prev_override
 
 
 def make_logged_in_test_client(journal: Path):

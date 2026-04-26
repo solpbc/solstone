@@ -14,13 +14,13 @@ def _devices_path(tmp_path: Path) -> Path:
 
 
 def test_load_devices_returns_empty_for_missing_store(monkeypatch, tmp_path):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     assert devices.load_devices() == []
 
 
 def test_register_load_remove_round_trip(monkeypatch, tmp_path):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     count = devices.register_device(
         token="a" * 64,
@@ -47,7 +47,7 @@ def test_register_load_remove_round_trip(monkeypatch, tmp_path):
 
 
 def test_register_device_updates_existing_token(monkeypatch, tmp_path):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     times = iter([1000, 2000])
     monkeypatch.setattr(devices.time, "time", lambda: next(times))
 
@@ -78,7 +78,7 @@ def test_register_device_updates_existing_token(monkeypatch, tmp_path):
 
 
 def test_remove_device_returns_false_for_unknown_token(monkeypatch, tmp_path):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     devices.register_device(
         token="c" * 64,
         bundle_id="org.solpbc.solstone-swift",
@@ -91,7 +91,7 @@ def test_remove_device_returns_false_for_unknown_token(monkeypatch, tmp_path):
 
 
 def test_load_devices_returns_empty_for_malformed_store(monkeypatch, tmp_path, caplog):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     path = _devices_path(tmp_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text('{"devices": "bad"}', encoding="utf-8")
@@ -103,7 +103,7 @@ def test_load_devices_returns_empty_for_malformed_store(monkeypatch, tmp_path, c
 
 
 def test_status_view_masks_token(monkeypatch, tmp_path):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     path = _devices_path(tmp_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(

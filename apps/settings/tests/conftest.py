@@ -84,7 +84,7 @@ def settings_env(tmp_path, monkeypatch):
                 "observe": {"tmux": {"enabled": True, "capture_interval": 5}},
             }
         config_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
         return tmp_path, config
 
     return _create

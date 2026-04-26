@@ -12,7 +12,7 @@ FIXTURES = Path("tests/fixtures")
 
 
 def copy_day(tmp_path: Path) -> Path:
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
     dest = day_path("20240101")
     src = FIXTURES / "journal" / "chronicle" / "20240101"
     copytree_tracked(src, dest)
@@ -25,7 +25,7 @@ def copy_day(tmp_path: Path) -> Path:
 def test_scan_day(tmp_path, monkeypatch):
     mod = importlib.import_module("think.talents")
     day_dir = copy_day(tmp_path)
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     info = mod.scan_day("20240101")
     assert "talents/schedule.json" in info["processed"]

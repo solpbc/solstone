@@ -499,7 +499,7 @@ L9 declaration:
 
 ## 8. Tests
 
-All push tests use `tests/fixtures/journal/` plus `monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", ...)` where necessary, following the existing voice integration and route test setup pattern (`tests/test_voice_routes.py:14-23`, `tests/test_voice_integration.py:102-149`).
+All push tests use `tests/fixtures/journal/` plus `monkeypatch.setenv("SOLSTONE_JOURNAL", ...)` where necessary, following the existing voice integration and route test setup pattern (`tests/test_voice_routes.py:14-23`, `tests/test_voice_integration.py:102-149`).
 
 ### 8.1 `tests/test_push_config.py`
 

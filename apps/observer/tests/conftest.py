@@ -40,7 +40,7 @@ def observer_env(tmp_path, monkeypatch):
         )
 
         # Set environment
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
 
         # Create Flask test client
         from convey import create_app

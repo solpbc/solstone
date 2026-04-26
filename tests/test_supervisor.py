@@ -98,7 +98,7 @@ def test_start_sense(tmp_path, mock_callosum, monkeypatch):
         return proc
 
     monkeypatch.setattr(mod.subprocess, "Popen", fake_popen)
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     # Test start_sense()
     sense_proc = mod.start_sense()
@@ -591,7 +591,7 @@ def test_stale_queue_detected_on_submit(monkeypatch):
 def test_supervisor_singleton_lock_acquired(tmp_path, monkeypatch):
     mod = importlib.reload(importlib.import_module("think.supervisor"))
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     (tmp_path / "health").mkdir(parents=True, exist_ok=True)
     monkeypatch.setattr(sys, "argv", ["supervisor"])
 
@@ -622,7 +622,7 @@ def test_supervisor_singleton_lock_blocked(tmp_path, monkeypatch, capsys):
 
     mod = importlib.reload(importlib.import_module("think.supervisor"))
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     health_dir = tmp_path / "health"
     health_dir.mkdir(parents=True, exist_ok=True)
     lock_file = open(health_dir / "supervisor.lock", "w")
@@ -651,7 +651,7 @@ def test_supervisor_singleton_lock_blocked_with_health(tmp_path, monkeypatch, ca
 
     mod = importlib.reload(importlib.import_module("think.supervisor"))
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     health_dir = tmp_path / "health"
     health_dir.mkdir(parents=True, exist_ok=True)
     lock_file = open(health_dir / "supervisor.lock", "w")
@@ -682,7 +682,7 @@ def test_supervisor_singleton_lock_blocked_with_health(tmp_path, monkeypatch, ca
 def test_is_supervisor_up_without_pid_file(tmp_path, monkeypatch):
     mod = importlib.reload(importlib.import_module("think.supervisor"))
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     (tmp_path / "health").mkdir(parents=True, exist_ok=True)
 
     assert mod.is_supervisor_up() is False
@@ -691,7 +691,7 @@ def test_is_supervisor_up_without_pid_file(tmp_path, monkeypatch):
 def test_is_supervisor_up_with_dead_pid(tmp_path, monkeypatch):
     mod = importlib.reload(importlib.import_module("think.supervisor"))
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     health_dir = tmp_path / "health"
     health_dir.mkdir(parents=True, exist_ok=True)
 
@@ -705,7 +705,7 @@ def test_is_supervisor_up_with_dead_pid(tmp_path, monkeypatch):
 def test_is_supervisor_up_with_live_pid_missing_start_time(tmp_path, monkeypatch):
     mod = importlib.reload(importlib.import_module("think.supervisor"))
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     health_dir = tmp_path / "health"
     health_dir.mkdir(parents=True, exist_ok=True)
     (health_dir / "supervisor.pid").write_text(str(os.getpid()))
@@ -716,7 +716,7 @@ def test_is_supervisor_up_with_live_pid_missing_start_time(tmp_path, monkeypatch
 def test_is_supervisor_up_with_live_pid_mismatched_start_time(tmp_path, monkeypatch):
     mod = importlib.reload(importlib.import_module("think.supervisor"))
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     health_dir = tmp_path / "health"
     health_dir.mkdir(parents=True, exist_ok=True)
     (health_dir / "supervisor.pid").write_text(str(os.getpid()))
@@ -729,7 +729,7 @@ def test_is_supervisor_up_with_live_pid_mismatched_start_time(tmp_path, monkeypa
 def test_is_supervisor_up_with_matching_process_identity(tmp_path, monkeypatch):
     mod = importlib.reload(importlib.import_module("think.supervisor"))
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     health_dir = tmp_path / "health"
     health_dir.mkdir(parents=True, exist_ok=True)
     (health_dir / "supervisor.pid").write_text(str(os.getpid()))

@@ -12,7 +12,7 @@ FIXTURES = Path("tests/fixtures")
 
 
 def copy_day(tmp_path: Path) -> Path:
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
     dest = day_path("20240101")
     src = FIXTURES / "journal" / "chronicle" / "20240101"
     copytree_tracked(src, dest)
@@ -22,7 +22,7 @@ def copy_day(tmp_path: Path) -> Path:
 def test_cluster_full(tmp_path, monkeypatch):
     mod = importlib.import_module("think.cluster")
     copy_day(tmp_path)
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     md, counts = mod.cluster(
         "20240101", sources={"transcripts": True, "percepts": False, "agents": True}
     )
@@ -38,7 +38,7 @@ def test_cluster_full(tmp_path, monkeypatch):
 def test_cluster_default_sources(tmp_path, monkeypatch):
     mod = importlib.import_module("think.cluster")
     copy_day(tmp_path)
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     out, _counts = mod.cluster(
         "20240101", sources={"transcripts": True, "percepts": False, "agents": True}
     )
@@ -49,7 +49,7 @@ def test_cluster_default_sources(tmp_path, monkeypatch):
 def test_cluster_range_raw_screen(tmp_path, monkeypatch):
     mod = importlib.import_module("think.cluster")
     copy_day(tmp_path)
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     out = mod.cluster_range(
         "20240101",
         "123456",

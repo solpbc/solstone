@@ -58,7 +58,7 @@ def test_chat_context_injects_digest_tail_trigger_location_and_routine_state(
     monkeypatch, tmp_path
 ):
     journal = tmp_path / "journal"
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
     (journal / "identity").mkdir(parents=True, exist_ok=True)
     (journal / "identity" / "digest.md").write_text(
         "Digest notes for today.",
@@ -171,7 +171,7 @@ def test_chat_context_routine_suggestion_only_counts_owner_messages(
     monkeypatch, tmp_path
 ):
     journal = tmp_path / "journal"
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
 
     routines_config = {"_meta": {"suggestions_enabled": True, "suggestions": {}}}
     save_calls: list[dict] = []
@@ -216,7 +216,7 @@ def test_chat_context_routine_suggestion_only_counts_owner_messages(
 
 def test_chat_context_talent_finished_marks_report_back_only(monkeypatch, tmp_path):
     journal = tmp_path / "journal"
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
 
     append_chat_event(
         "owner_message",
@@ -285,7 +285,7 @@ def test_chat_context_talent_finished_marks_report_back_only(monkeypatch, tmp_pa
 
 def test_chat_context_talent_errored_marks_report_back_only(monkeypatch, tmp_path):
     journal = tmp_path / "journal"
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
 
     append_chat_event(
         "owner_message",
@@ -354,7 +354,7 @@ def test_chat_context_talent_errored_marks_report_back_only(monkeypatch, tmp_pat
 
 def test_chat_context_includes_identity_grounding(monkeypatch, tmp_path):
     journal = tmp_path / "journal"
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
     _write_journal_config(journal, {})
     ensure_identity_directory()
 
@@ -379,7 +379,7 @@ def test_chat_context_includes_identity_grounding(monkeypatch, tmp_path):
 
 def test_chat_context_preserves_save_routines_config_side_effect(monkeypatch, tmp_path):
     journal = tmp_path / "journal"
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
 
     routines_config = {"_meta": {"suggestions_enabled": True, "suggestions": {}}}
     save_calls: list[dict] = []
@@ -409,7 +409,7 @@ def test_chat_context_preserves_save_routines_config_side_effect(monkeypatch, tm
 
 def test_chat_context_routines_omitted_when_empty(monkeypatch, tmp_path):
     journal = tmp_path / "journal"
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
     monkeypatch.setattr("think.routines.get_routine_state", lambda: [])
     monkeypatch.setattr(
         "think.routines.get_config",
@@ -427,7 +427,7 @@ def test_chat_context_routines_omitted_when_empty(monkeypatch, tmp_path):
 
 def test_chat_context_enrichment_errors_are_graceful(monkeypatch, tmp_path):
     journal = tmp_path / "journal"
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
 
     module = _load_chat_context_module()
 

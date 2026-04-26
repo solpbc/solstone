@@ -95,7 +95,7 @@ def test_backends_cli_flag(capsys, monkeypatch):
     from think.importers.cli import main
 
     monkeypatch.setattr(sys, "argv", ["sol import", "--backends"])
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", "/tmp/test-journal")
+    monkeypatch.setenv("SOLSTONE_JOURNAL", "/tmp/test-journal")
     main()
     captured = capsys.readouterr()
     assert "plaud" in captured.out
@@ -419,7 +419,7 @@ def test_plaud_sync_cli_flag(capsys, monkeypatch, tmp_path):
     from think.importers.cli import main
 
     monkeypatch.setattr(sys, "argv", ["sol import", "--sync", "plaud"])
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     monkeypatch.setenv("PLAUD_ACCESS_TOKEN", "test-token")
 
     with patch("think.importers.plaud.list_files", side_effect=_mock_list_files):

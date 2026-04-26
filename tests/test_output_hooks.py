@@ -24,7 +24,7 @@ FIXTURES = Path("tests/fixtures")
 
 
 def copy_day(tmp_path: Path) -> Path:
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
     dest = day_path("20240101")
     src = FIXTURES / "journal" / "chronicle" / "20240101"
     copytree_tracked(src, dest)
@@ -189,7 +189,7 @@ def post_process(result, context):
         lambda *a, **k: MOCK_RESULT,
     )
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     config = {
         "name": "hooked_test",
@@ -239,7 +239,7 @@ def post_process(result, context):
         lambda *a, **k: MOCK_RESULT,
     )
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     config = {
         "name": "noop_test",
@@ -285,7 +285,7 @@ def post_process(result, context):
         lambda *a, **k: MOCK_RESULT,
     )
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     config = {
         "name": "broken_test",
@@ -410,7 +410,7 @@ def pre_process(context):
 
     monkeypatch.setattr(think.models, "generate_with_result", mock_generate)
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     config = {
         "name": "prehooked_test",
@@ -570,7 +570,7 @@ def pre_process(context):
 
     monkeypatch.setattr(think.models, "generate_with_result", mock_generate)
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     config = {
         "name": "prehook_template_vars",
@@ -624,7 +624,7 @@ def pre_process(context):
 
     monkeypatch.setattr(think.models, "generate_with_result", mock_generate)
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     config = {
         "name": "prehook_template_with_mods",
@@ -678,7 +678,7 @@ def post_process(result, context):
 
     monkeypatch.setattr(think.models, "generate_with_result", mock_generate)
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     config = {
         "name": "both_hooks_test",

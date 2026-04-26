@@ -49,8 +49,8 @@ class TestFindPreviousSegment:
         from talent.activity_state import find_previous_segment
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            original_path = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
-            os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
+            original_path = os.environ.get("SOLSTONE_JOURNAL")
+            os.environ["SOLSTONE_JOURNAL"] = tmpdir
 
             try:
                 # Create day directory with segments
@@ -67,27 +67,27 @@ class TestFindPreviousSegment:
 
             finally:
                 if original_path:
-                    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = original_path
+                    os.environ["SOLSTONE_JOURNAL"] = original_path
 
     def test_returns_none_for_nonexistent_day(self):
         from talent.activity_state import find_previous_segment
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            original_path = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
-            os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
+            original_path = os.environ.get("SOLSTONE_JOURNAL")
+            os.environ["SOLSTONE_JOURNAL"] = tmpdir
 
             try:
                 assert find_previous_segment("20260130", "100000_300") is None
             finally:
                 if original_path:
-                    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = original_path
+                    os.environ["SOLSTONE_JOURNAL"] = original_path
 
     def test_handles_segments_with_suffix(self):
         from talent.activity_state import find_previous_segment
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            original_path = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
-            os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
+            original_path = os.environ.get("SOLSTONE_JOURNAL")
+            os.environ["SOLSTONE_JOURNAL"] = tmpdir
 
             try:
                 day_dir = Path(tmpdir) / "chronicle" / "20260130"
@@ -103,7 +103,7 @@ class TestFindPreviousSegment:
 
             finally:
                 if original_path:
-                    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = original_path
+                    os.environ["SOLSTONE_JOURNAL"] = original_path
 
 
 class TestCheckTimeout:
@@ -137,8 +137,8 @@ class TestLoadPreviousState:
         from talent.activity_state import load_previous_state
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            original_path = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
-            os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
+            original_path = os.environ.get("SOLSTONE_JOURNAL")
+            os.environ["SOLSTONE_JOURNAL"] = tmpdir
 
             try:
                 # Create state file (new flat format)
@@ -170,14 +170,14 @@ class TestLoadPreviousState:
 
             finally:
                 if original_path:
-                    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = original_path
+                    os.environ["SOLSTONE_JOURNAL"] = original_path
 
     def test_returns_none_for_missing_file(self):
         from talent.activity_state import load_previous_state
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            original_path = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
-            os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
+            original_path = os.environ.get("SOLSTONE_JOURNAL")
+            os.environ["SOLSTONE_JOURNAL"] = tmpdir
 
             try:
                 segment_dir = (
@@ -194,14 +194,14 @@ class TestLoadPreviousState:
 
             finally:
                 if original_path:
-                    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = original_path
+                    os.environ["SOLSTONE_JOURNAL"] = original_path
 
     def test_rejects_non_array(self):
         from talent.activity_state import load_previous_state
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            original_path = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
-            os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
+            original_path = os.environ.get("SOLSTONE_JOURNAL")
+            os.environ["SOLSTONE_JOURNAL"] = tmpdir
 
             try:
                 segment_dir = (
@@ -223,7 +223,7 @@ class TestLoadPreviousState:
 
             finally:
                 if original_path:
-                    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = original_path
+                    os.environ["SOLSTONE_JOURNAL"] = original_path
 
 
 class TestFormatActivitiesContext:
@@ -233,8 +233,8 @@ class TestFormatActivitiesContext:
         from talent.activity_state import format_activities_context
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            original_path = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
-            os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
+            original_path = os.environ.get("SOLSTONE_JOURNAL")
+            os.environ["SOLSTONE_JOURNAL"] = tmpdir
 
             try:
                 # Create facet with activities
@@ -257,15 +257,15 @@ class TestFormatActivitiesContext:
 
             finally:
                 if original_path:
-                    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = original_path
+                    os.environ["SOLSTONE_JOURNAL"] = original_path
 
     def test_handles_empty_activities(self):
         """Facet with no activities.jsonl still gets always-on defaults."""
         from talent.activity_state import format_activities_context
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            original_path = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
-            os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
+            original_path = os.environ.get("SOLSTONE_JOURNAL")
+            os.environ["SOLSTONE_JOURNAL"] = tmpdir
 
             try:
                 # Create facet without activities
@@ -280,7 +280,7 @@ class TestFormatActivitiesContext:
 
             finally:
                 if original_path:
-                    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = original_path
+                    os.environ["SOLSTONE_JOURNAL"] = original_path
 
 
 class TestFormatPreviousState:
@@ -356,8 +356,8 @@ class TestPreProcess:
         from talent.activity_state import pre_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            original_path = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
-            os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
+            original_path = os.environ.get("SOLSTONE_JOURNAL")
+            os.environ["SOLSTONE_JOURNAL"] = tmpdir
 
             try:
                 # Create day and segments
@@ -417,7 +417,7 @@ class TestPreProcess:
 
             finally:
                 if original_path:
-                    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = original_path
+                    os.environ["SOLSTONE_JOURNAL"] = original_path
 
     def test_returns_none_without_day(self):
         from talent.activity_state import pre_process
@@ -477,8 +477,8 @@ class TestPostProcess:
         from talent.activity_state import post_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            original_path = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
-            os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
+            original_path = os.environ.get("SOLSTONE_JOURNAL")
+            os.environ["SOLSTONE_JOURNAL"] = tmpdir
 
             try:
                 day_dir = Path(tmpdir) / "chronicle" / "20260130"
@@ -529,14 +529,14 @@ class TestPostProcess:
 
             finally:
                 if original_path:
-                    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = original_path
+                    os.environ["SOLSTONE_JOURNAL"] = original_path
 
     def test_ended_activity_copies_since(self):
         from talent.activity_state import post_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            original_path = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
-            os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
+            original_path = os.environ.get("SOLSTONE_JOURNAL")
+            os.environ["SOLSTONE_JOURNAL"] = tmpdir
 
             try:
                 day_dir = Path(tmpdir) / "chronicle" / "20260130"
@@ -586,7 +586,7 @@ class TestPostProcess:
 
             finally:
                 if original_path:
-                    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = original_path
+                    os.environ["SOLSTONE_JOURNAL"] = original_path
 
     def test_no_previous_state_continuing_becomes_new(self):
         from talent.activity_state import post_process
@@ -659,8 +659,8 @@ class TestPostProcess:
         from talent.activity_state import post_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            original_path = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
-            os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
+            original_path = os.environ.get("SOLSTONE_JOURNAL")
+            os.environ["SOLSTONE_JOURNAL"] = tmpdir
 
             try:
                 day_dir = Path(tmpdir) / "chronicle" / "20260130"
@@ -707,7 +707,7 @@ class TestPostProcess:
 
             finally:
                 if original_path:
-                    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = original_path
+                    os.environ["SOLSTONE_JOURNAL"] = original_path
 
     def test_unmatched_ended_novel_desc_with_prev_ended_becomes_active(self):
         """Ended activity with novel description (different from prev ended)
@@ -715,8 +715,8 @@ class TestPostProcess:
         from talent.activity_state import post_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            original_path = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
-            os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
+            original_path = os.environ.get("SOLSTONE_JOURNAL")
+            os.environ["SOLSTONE_JOURNAL"] = tmpdir
 
             try:
                 day_dir = Path(tmpdir) / "chronicle" / "20260130"
@@ -765,7 +765,7 @@ class TestPostProcess:
 
             finally:
                 if original_path:
-                    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = original_path
+                    os.environ["SOLSTONE_JOURNAL"] = original_path
 
     def test_empty_array_passthrough(self):
         from talent.activity_state import post_process
@@ -797,8 +797,8 @@ class TestPostProcess:
         from talent.activity_state import post_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            original_path = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
-            os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
+            original_path = os.environ.get("SOLSTONE_JOURNAL")
+            os.environ["SOLSTONE_JOURNAL"] = tmpdir
 
             try:
                 day_dir = Path(tmpdir) / "chronicle" / "20260130"
@@ -859,7 +859,7 @@ class TestPostProcess:
 
             finally:
                 if original_path:
-                    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = original_path
+                    os.environ["SOLSTONE_JOURNAL"] = original_path
 
     def test_default_level_for_new(self):
         """New activity without level gets default 'medium'."""
@@ -918,8 +918,8 @@ class TestPostProcess:
         from talent.activity_state import post_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            original_path = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
-            os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
+            original_path = os.environ.get("SOLSTONE_JOURNAL")
+            os.environ["SOLSTONE_JOURNAL"] = tmpdir
 
             try:
                 day_dir = Path(tmpdir) / "chronicle" / "20260130"
@@ -968,15 +968,15 @@ class TestPostProcess:
 
             finally:
                 if original_path:
-                    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = original_path
+                    os.environ["SOLSTONE_JOURNAL"] = original_path
 
     def test_fuzzy_match_disambiguates_same_type(self):
         """Multiple same-type previous activities matched by description."""
         from talent.activity_state import post_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            original_path = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
-            os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
+            original_path = os.environ.get("SOLSTONE_JOURNAL")
+            os.environ["SOLSTONE_JOURNAL"] = tmpdir
 
             try:
                 day_dir = Path(tmpdir) / "chronicle" / "20260130"
@@ -1032,7 +1032,7 @@ class TestPostProcess:
 
             finally:
                 if original_path:
-                    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = original_path
+                    os.environ["SOLSTONE_JOURNAL"] = original_path
 
 
 class TestActivityId:
@@ -1060,8 +1060,8 @@ class TestActivityId:
         from talent.activity_state import post_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            original_path = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
-            os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
+            original_path = os.environ.get("SOLSTONE_JOURNAL")
+            os.environ["SOLSTONE_JOURNAL"] = tmpdir
 
             try:
                 day_dir = Path(tmpdir) / "chronicle" / "20260130"
@@ -1109,14 +1109,14 @@ class TestActivityId:
 
             finally:
                 if original_path:
-                    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = original_path
+                    os.environ["SOLSTONE_JOURNAL"] = original_path
 
     def test_ended_activity_gets_id(self):
         from talent.activity_state import post_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            original_path = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
-            os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
+            original_path = os.environ.get("SOLSTONE_JOURNAL")
+            os.environ["SOLSTONE_JOURNAL"] = tmpdir
 
             try:
                 day_dir = Path(tmpdir) / "chronicle" / "20260130"
@@ -1163,7 +1163,7 @@ class TestActivityId:
 
             finally:
                 if original_path:
-                    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = original_path
+                    os.environ["SOLSTONE_JOURNAL"] = original_path
 
     def test_promoted_ended_gets_new_id(self):
         """Ended activity promoted to active gets id with current segment."""
@@ -1235,8 +1235,8 @@ class TestActivityLiveEvents:
         from talent.activity_state import post_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            original_path = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
-            os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
+            original_path = os.environ.get("SOLSTONE_JOURNAL")
+            os.environ["SOLSTONE_JOURNAL"] = tmpdir
 
             try:
                 day_dir = Path(tmpdir) / "chronicle" / "20260130"
@@ -1289,7 +1289,7 @@ class TestActivityLiveEvents:
 
             finally:
                 if original_path:
-                    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = original_path
+                    os.environ["SOLSTONE_JOURNAL"] = original_path
 
     def test_no_live_event_for_ended_activity(self):
         from unittest.mock import patch
@@ -1297,8 +1297,8 @@ class TestActivityLiveEvents:
         from talent.activity_state import post_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            original_path = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
-            os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
+            original_path = os.environ.get("SOLSTONE_JOURNAL")
+            os.environ["SOLSTONE_JOURNAL"] = tmpdir
 
             try:
                 day_dir = Path(tmpdir) / "chronicle" / "20260130"
@@ -1345,7 +1345,7 @@ class TestActivityLiveEvents:
 
             finally:
                 if original_path:
-                    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = original_path
+                    os.environ["SOLSTONE_JOURNAL"] = original_path
 
     def test_no_live_events_without_day_or_facet(self):
         from unittest.mock import patch
@@ -1410,8 +1410,8 @@ class TestActivityIdValidation:
         from talent.activity_state import post_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            original_path = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
-            os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
+            original_path = os.environ.get("SOLSTONE_JOURNAL")
+            os.environ["SOLSTONE_JOURNAL"] = tmpdir
 
             try:
                 # Create facet with only coding and meeting configured
@@ -1452,7 +1452,7 @@ class TestActivityIdValidation:
 
             finally:
                 if original_path:
-                    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = original_path
+                    os.environ["SOLSTONE_JOURNAL"] = original_path
 
     def test_logs_warning_on_dropped_activities(self, caplog):
         """Post-hook logs a warning when dropping unrecognized activity IDs."""
@@ -1462,8 +1462,8 @@ class TestActivityIdValidation:
         from talent.activity_state import post_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            original_path = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
-            os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
+            original_path = os.environ.get("SOLSTONE_JOURNAL")
+            os.environ["SOLSTONE_JOURNAL"] = tmpdir
 
             try:
                 facet_dir = Path(tmpdir) / "facets" / "work" / "activities"
@@ -1495,7 +1495,7 @@ class TestActivityIdValidation:
 
             finally:
                 if original_path:
-                    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = original_path
+                    os.environ["SOLSTONE_JOURNAL"] = original_path
 
     def test_valid_activity_ids_pass_through(self):
         """Post-hook preserves entries with valid activity IDs."""
@@ -1504,8 +1504,8 @@ class TestActivityIdValidation:
         from talent.activity_state import post_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            original_path = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
-            os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
+            original_path = os.environ.get("SOLSTONE_JOURNAL")
+            os.environ["SOLSTONE_JOURNAL"] = tmpdir
 
             try:
                 facet_dir = Path(tmpdir) / "facets" / "work" / "activities"
@@ -1553,7 +1553,7 @@ class TestActivityIdValidation:
 
             finally:
                 if original_path:
-                    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = original_path
+                    os.environ["SOLSTONE_JOURNAL"] = original_path
 
     def test_unconfigured_facet_allows_all_defaults(self):
         """Post-hook allows all default activity IDs for unconfigured facets."""
@@ -1562,8 +1562,8 @@ class TestActivityIdValidation:
         from talent.activity_state import post_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            original_path = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
-            os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
+            original_path = os.environ.get("SOLSTONE_JOURNAL")
+            os.environ["SOLSTONE_JOURNAL"] = tmpdir
 
             try:
                 # Create facet dir but no activities.jsonl
@@ -1601,4 +1601,4 @@ class TestActivityIdValidation:
 
             finally:
                 if original_path:
-                    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = original_path
+                    os.environ["SOLSTONE_JOURNAL"] = original_path

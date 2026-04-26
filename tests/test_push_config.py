@@ -18,7 +18,7 @@ def _write_config(tmp_path: Path, payload: dict) -> None:
 
 
 def test_push_config_defaults(monkeypatch, tmp_path):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _write_config(tmp_path, {"agent": {"name": "sol"}})
 
     assert config.get_apns_key_path() is None
@@ -30,7 +30,7 @@ def test_push_config_defaults(monkeypatch, tmp_path):
 
 
 def test_push_config_reads_journal_values(monkeypatch, tmp_path):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     key_path = tmp_path / "keys" / "apns.p8"
     key_path.parent.mkdir(parents=True, exist_ok=True)
     key_path.write_text("PRIVATE KEY", encoding="utf-8")
@@ -56,7 +56,7 @@ def test_push_config_reads_journal_values(monkeypatch, tmp_path):
 
 
 def test_push_config_blank_values_normalize_to_none(monkeypatch, tmp_path):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _write_config(
         tmp_path,
         {
@@ -79,7 +79,7 @@ def test_push_config_blank_values_normalize_to_none(monkeypatch, tmp_path):
 
 
 def test_push_config_invalid_environment_raises(monkeypatch, tmp_path):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _write_config(tmp_path, {"push": {"environment": "staging"}})
 
     with pytest.raises(
@@ -91,7 +91,7 @@ def test_push_config_invalid_environment_raises(monkeypatch, tmp_path):
 
 
 def test_push_config_missing_key_file_is_unconfigured(monkeypatch, tmp_path):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _write_config(
         tmp_path,
         {
@@ -109,7 +109,7 @@ def test_push_config_missing_key_file_is_unconfigured(monkeypatch, tmp_path):
 
 
 def test_push_config_relative_key_path_is_unconfigured(monkeypatch, tmp_path):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     relative_key_path = Path("keys/apns.p8")
     _write_config(
         tmp_path,
@@ -129,7 +129,7 @@ def test_push_config_relative_key_path_is_unconfigured(monkeypatch, tmp_path):
 
 
 def test_push_config_ignores_env_fallback(monkeypatch, tmp_path):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     monkeypatch.setenv("OPENAI_API_KEY", "sk-env")
     monkeypatch.setenv("APNS_KEY_ID", "ENVKEY")
     _write_config(tmp_path, {"push": {}})

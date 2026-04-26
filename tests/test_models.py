@@ -136,7 +136,7 @@ def test_calc_token_cost_with_reasoning_tokens():
 @pytest.fixture
 def use_fixtures_journal(monkeypatch):
     """Use the fixtures journal for provider config tests."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", "tests/fixtures/journal")
+    monkeypatch.setenv("SOLSTONE_JOURNAL", "tests/fixtures/journal")
 
 
 def test_resolve_provider_default_generate(use_fixtures_journal):
@@ -192,7 +192,7 @@ def test_resolve_provider_no_config(monkeypatch, tmp_path):
     # Use a journal path with no config
     empty_journal = tmp_path / "empty_journal"
     empty_journal.mkdir()
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(empty_journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(empty_journal))
 
     provider, model = resolve_provider("anything", "generate")
     assert provider == "google"
@@ -394,7 +394,7 @@ def test_resolve_provider_invalid_tier(use_fixtures_journal, monkeypatch, tmp_pa
         }
     }
     (config_dir / "journal.json").write_text(json.dumps(config))
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     # Invalid tier 99 should fall back to generate default tier (2)
     provider, model = resolve_provider("test.invalid", "generate")
@@ -637,7 +637,7 @@ def test_log_token_usage_computes_total_tokens(tmp_path, monkeypatch):
 
     from think.models import log_token_usage
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     # Codex CLI format: no total_tokens
     log_token_usage(
@@ -659,7 +659,7 @@ def test_log_token_usage_preserves_existing_total_tokens(tmp_path, monkeypatch):
 
     from think.models import log_token_usage
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     log_token_usage(
         model="gpt-5.2",
@@ -678,7 +678,7 @@ def test_log_token_usage_maps_cached_input_tokens(tmp_path, monkeypatch):
 
     from think.models import log_token_usage
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     log_token_usage(
         model="gpt-5.2",
@@ -702,7 +702,7 @@ def test_log_token_usage_passes_through_reasoning_tokens(tmp_path, monkeypatch):
 
     from think.models import log_token_usage
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     # Normalized usage from Google provider (the bug: reasoning_tokens were dropped)
     log_token_usage(
@@ -730,7 +730,7 @@ def test_log_token_usage_passes_through_cache_creation_tokens(tmp_path, monkeypa
 
     from think.models import log_token_usage
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     log_token_usage(
         model="claude-sonnet-4-5",

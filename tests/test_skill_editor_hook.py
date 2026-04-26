@@ -19,7 +19,7 @@ from think import skills as think_skills
 
 @pytest.fixture
 def skill_editor_env(monkeypatch, tmp_path):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     return Path(tmp_path)
 
 

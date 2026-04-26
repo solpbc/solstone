@@ -43,7 +43,7 @@ def test_scan_day(tmp_path, monkeypatch):
     }
     (activities_dir / "20240101.jsonl").write_text(json.dumps(activity) + "\n")
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
     js = stats_mod.JournalStats()
     day_data = js.scan_day("20240101", str(day))
     js._apply_day_stats("20240101", day_data)
@@ -132,7 +132,7 @@ def test_token_usage(tmp_path, monkeypatch):
     )
     (tokens_dir / "20240102.jsonl").write_text(json.dumps(token4) + "\n")
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
     js = stats_mod.JournalStats()
     js.scan(str(journal))
 
@@ -191,7 +191,7 @@ def test_caching(tmp_path, monkeypatch):
         '{"start": "10:01:00", "text": "world"}\n'
     )
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
 
     # First scan - should create cache
     js1 = stats_mod.JournalStats()
@@ -245,7 +245,7 @@ def test_token_usage_new_format(tmp_path, monkeypatch):
     # Write token as JSONL format
     (tokens_dir / "20240101.jsonl").write_text(json.dumps(token_new) + "\n")
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
     js = stats_mod.JournalStats()
     js.scan(str(journal))
 
@@ -308,7 +308,7 @@ def test_process_token_entry_counts_all_int_usage_fields(tmp_path, monkeypatch):
         + "\n"
     )
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
     js = stats_mod.JournalStats()
     js.scan(str(journal))
 

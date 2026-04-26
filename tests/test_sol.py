@@ -125,30 +125,30 @@ class TestGetStatus:
     """Tests for get_status() function."""
 
     def test_status_with_override(self, monkeypatch, tmp_path):
-        """Test status when journal override is set and exists."""
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+        """Test status when journal env is set and exists."""
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
         status = sol.get_status()
         assert status["journal_path"] == str(tmp_path)
-        assert status["journal_source"] == "override"
+        assert status["journal_source"] == "env"
         assert status["journal_exists"] is True
 
     def test_status_with_nonexistent_journal(self, monkeypatch, tmp_path):
-        """Test status when override points to nonexistent dir."""
+        """Test status when the journal env points to a nonexistent dir."""
         nonexistent = tmp_path / "nonexistent"
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(nonexistent))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(nonexistent))
 
         status = sol.get_status()
         assert status["journal_path"] == str(nonexistent)
-        assert status["journal_source"] == "override"
+        assert status["journal_source"] == "env"
         assert status["journal_exists"] is False
 
     def test_status_without_override(self, monkeypatch):
-        """Test status when no override is set uses project root."""
-        monkeypatch.delenv("_SOLSTONE_JOURNAL_OVERRIDE", raising=False)
+        """Test status when no journal env is set uses source-tree fallback."""
+        monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
         status = sol.get_status()
         assert status["journal_path"].endswith("/journal")
-        assert status["journal_source"] == "project"
+        assert status["journal_source"] == "source"
         assert isinstance(status["journal_exists"], bool)
 
 
@@ -158,7 +158,7 @@ class TestMain:
     def test_main_no_args_shows_help(self, monkeypatch, capsys):
         """Test that running with no args shows help."""
         monkeypatch.setattr(sys, "argv", ["sol"])
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", "/tmp/test")
+        monkeypatch.setenv("SOLSTONE_JOURNAL", "/tmp/test")
 
         sol.main()
 
@@ -169,7 +169,7 @@ class TestMain:
     def test_main_help_flag(self, monkeypatch, capsys):
         """Test --help flag shows help."""
         monkeypatch.setattr(sys, "argv", ["sol", "--help"])
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", "/tmp/test")
+        monkeypatch.setenv("SOLSTONE_JOURNAL", "/tmp/test")
 
         sol.main()
 
@@ -179,7 +179,7 @@ class TestMain:
     def test_main_help_command_without_question(self, monkeypatch, capsys):
         """Test bare 'help' command shows static help."""
         monkeypatch.setattr(sys, "argv", ["sol", "help"])
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", "/tmp/test")
+        monkeypatch.setenv("SOLSTONE_JOURNAL", "/tmp/test")
 
         sol.main()
 
@@ -198,7 +198,7 @@ class TestMain:
     def test_main_path_flag(self, monkeypatch, capsys):
         """Test --path flag prints resolved journal path."""
         monkeypatch.setattr(sys, "argv", ["sol", "--path"])
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", "/tmp/test-journal")
+        monkeypatch.setenv("SOLSTONE_JOURNAL", "/tmp/test-journal")
 
         sol.main()
 
@@ -208,7 +208,7 @@ class TestMain:
     def test_main_path_flag_default(self, monkeypatch, capsys):
         """Test --path prints project root journal when no override set."""
         monkeypatch.setattr(sys, "argv", ["sol", "--path"])
-        monkeypatch.delenv("_SOLSTONE_JOURNAL_OVERRIDE", raising=False)
+        monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
         sol.main()
 
         captured = capsys.readouterr()

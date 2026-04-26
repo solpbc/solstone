@@ -5,15 +5,44 @@
 
 from __future__ import annotations
 
+import argparse
+import fcntl
 import os
+import re
 import sys
+from contextlib import contextmanager
 from enum import Enum
 from pathlib import Path
+from typing import Iterator
 
 try:
     import userpath  # type: ignore[import-not-found]
 except ImportError:  # system python without the venv: doctor.stale_alias_symlink path
     userpath = None  # type: ignore[assignment]
+
+
+WRAPPER_TEMPLATE = """\
+#!/bin/sh
+# sol — managed by 'sol config'. Edits will be overwritten.
+# managed-version: 1
+: "${{SOLSTONE_JOURNAL:={journal}}}"
+export SOLSTONE_JOURNAL
+SOL_BIN='{sol_bin}'
+if [ ! -x "$SOL_BIN" ]; then
+    printf 'sol: venv binary missing or not executable: %s\\n' "$SOL_BIN" >&2
+    exit 127
+fi
+exec "$SOL_BIN" "$@"
+"""
+
+WRAPPER_MARKER = "# managed-version: 1"
+WRAPPER_VERSION = 1
+
+_RE_MARKER = re.compile(r"(?m)^# managed-version: 1$")
+_RE_JOURNAL = re.compile(r'(?m)^: "\$\{SOLSTONE_JOURNAL:=(?P<journal>[^\n]*)\}"$')
+_RE_SOL_BIN = re.compile(r"(?m)^SOL_BIN='(?P<sol_bin>(?:[^']|'\\'')*)'$")
+
+_INVALID_JOURNAL_CHARS = ("$", "`", '"', "\\")
 
 
 class AliasState(Enum):
@@ -22,7 +51,7 @@ class AliasState(Enum):
     OWNED = "owned"
     CROSS_REPO = "cross_repo"
     DANGLING = "dangling"
-    NOT_SYMLINK = "not_symlink"
+    FOREIGN = "foreign"
 
 
 def alias_path() -> Path:
@@ -31,6 +60,57 @@ def alias_path() -> Path:
 
 def expected_target(curdir: Path) -> Path:
     return curdir / ".venv" / "bin" / "sol"
+
+
+def render_wrapper(journal: str, sol_bin: str) -> str:
+    """Render the managed wrapper for ~/.local/bin/sol."""
+    escaped_sol_bin = sol_bin.replace("'", "'\\''")
+    return WRAPPER_TEMPLATE.format(journal=journal, sol_bin=escaped_sol_bin)
+
+
+def parse_wrapper(content: str) -> dict[str, str] | None:
+    """Return embedded paths if the content is a managed wrapper."""
+    if not _RE_MARKER.search(content):
+        return None
+    journal_match = _RE_JOURNAL.search(content)
+    sol_bin_match = _RE_SOL_BIN.search(content)
+    if not journal_match or not sol_bin_match:
+        return None
+    return {
+        "journal": journal_match.group("journal"),
+        "sol_bin": sol_bin_match.group("sol_bin").replace("'\\''", "'"),
+    }
+
+
+def write_wrapper_atomic(path: Path, content: str) -> None:
+    """Atomically rewrite the managed wrapper and restore exec mode."""
+    from think.entities.core import atomic_write
+
+    atomic_write(path, content)
+    os.chmod(path, 0o755)
+
+
+@contextmanager
+def wrapper_lock(lock_path: Path | None = None) -> Iterator[None]:
+    """Hold an exclusive advisory lock while rewriting the wrapper."""
+    if lock_path is None:
+        lock_path = Path.home() / ".local" / "bin" / ".sol.lock"
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(lock_path, "w", encoding="utf-8") as lock_fd:
+        try:
+            fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX)
+            yield
+        finally:
+            fcntl.flock(lock_fd.fileno(), fcntl.LOCK_UN)
+
+
+def validate_journal_path_for_wrapper(path: str) -> None:
+    """Reject shell-active characters that would corrupt wrapper embedding."""
+    for char in _INVALID_JOURNAL_CHARS:
+        if char in path:
+            raise ValueError(
+                f"journal path contains shell-active character {char!r}: {path!r}"
+            )
 
 
 def check_alias(curdir: Path) -> tuple[AliasState, Path | None]:
@@ -52,7 +132,59 @@ def check_alias(curdir: Path) -> tuple[AliasState, Path | None]:
             return AliasState.OWNED, target
         return AliasState.CROSS_REPO, target
 
-    return AliasState.NOT_SYMLINK, None
+    try:
+        content = alias.read_text(encoding="utf-8")
+    except OSError:
+        return AliasState.FOREIGN, None
+
+    parsed = parse_wrapper(content)
+    if parsed is None:
+        return AliasState.FOREIGN, None
+
+    target = Path(parsed["sol_bin"])
+    if target.resolve() == expected_target(curdir).resolve():
+        return AliasState.OWNED, target.resolve()
+    return AliasState.FOREIGN, None
+
+
+def _current_journal_for_alias() -> str:
+    """Return the journal path a wrapper install would embed right now."""
+    from think import utils as think_utils
+
+    try:
+        path, _ = think_utils.get_journal_info()
+    except getattr(think_utils, "SolstoneNotConfigured", RuntimeError):
+        path = str(Path.home() / "Documents" / "Solstone")
+    return path
+
+
+def check_alias_detail(curdir: Path) -> tuple[AliasState, str]:
+    """Return alias state plus the cmd_check token for owned aliases."""
+    state, _other_target = check_alias(curdir)
+    if state is not AliasState.OWNED:
+        return state, state.value
+
+    alias = alias_path()
+    if alias.is_symlink():
+        return state, "upgrade"
+
+    try:
+        content = alias.read_text(encoding="utf-8")
+    except OSError:
+        return state, "upgrade"
+
+    parsed = parse_wrapper(content)
+    if parsed is None:
+        return state, "upgrade"
+
+    if (
+        parsed["journal"] == _current_journal_for_alias()
+        and parsed["sol_bin"] == str(expected_target(curdir))
+        and (alias.stat().st_mode & 0o111) == 0o111
+    ):
+        return state, "current"
+
+    return state, "upgrade"
 
 
 def format_error(
@@ -60,6 +192,8 @@ def format_error(
     curdir: Path,
     _alias: Path,
     other_target: Path | None,
+    *,
+    allow_force: bool = False,
 ) -> str:
     if state is AliasState.WORKTREE:
         return (
@@ -74,15 +208,18 @@ def format_error(
     else:
         installed = "  installed:  not a symlink"
 
-    return "\n".join(
-        [
-            "ERROR: Another solstone install owns ~/.local/bin/sol.",
-            f"  this repo:  {curdir}",
-            installed,
-            "Run 'make uninstall-service' from the installed repo first,",
-            "or remove ~/.local/bin/sol manually if that repo is gone. No --force available.",
-        ]
-    )
+    lines = [
+        "ERROR: Another solstone install owns ~/.local/bin/sol.",
+        f"  this repo:  {curdir}",
+        installed,
+        "Run 'make uninstall-service' from the installed repo first,",
+        "or remove ~/.local/bin/sol manually if that repo is gone.",
+    ]
+    if allow_force:
+        lines.append(
+            "Rerun 'python -m think.install_guard install --force' only if you intend to replace it from this repo."
+        )
+    return "\n".join(lines)
 
 
 def _print_error(
@@ -90,8 +227,19 @@ def _print_error(
     curdir: Path,
     alias: Path,
     other_target: Path | None,
+    *,
+    allow_force: bool = False,
 ) -> None:
-    sys.stderr.write(format_error(state, curdir, alias, other_target) + "\n")
+    sys.stderr.write(
+        format_error(
+            state,
+            curdir,
+            alias,
+            other_target,
+            allow_force=allow_force,
+        )
+        + "\n"
+    )
 
 
 def _ensure_user_bin_on_path(user_bin: Path) -> None:
@@ -126,42 +274,91 @@ def _ensure_user_bin_on_path(user_bin: Path) -> None:
 
 def cmd_check(curdir: Path) -> int:
     alias = alias_path()
-    state, other_target = check_alias(curdir)
+    state, token = check_alias_detail(curdir)
 
+    if state is AliasState.WORKTREE:
+        print("worktree")
+        _print_error(state, curdir, alias, None)
+        return 1
     if state is AliasState.ABSENT:
         print("fresh")
         return 0
     if state is AliasState.OWNED:
-        print("upgrade")
+        print(token)
         return 0
+    if state is AliasState.CROSS_REPO:
+        print("cross_repo")
+        _print_error(state, curdir, alias, check_alias(curdir)[1], allow_force=True)
+        return 1
+    if state is AliasState.DANGLING:
+        print("dangling")
+        _print_error(state, curdir, alias, check_alias(curdir)[1], allow_force=True)
+        return 1
+    if state is AliasState.FOREIGN:
+        print("not_symlink")
+        _print_error(state, curdir, alias, None, allow_force=True)
+        return 1
 
-    print(state.value)
-    _print_error(state, curdir, alias, other_target)
     return 1
 
 
-def cmd_install(curdir: Path) -> int:
+def cmd_install(curdir: Path, *, force: bool = False) -> int:
     alias = alias_path()
     state, other_target = check_alias(curdir)
 
     if state is AliasState.WORKTREE:
         _print_error(state, curdir, alias, other_target)
         return 1
-    if state is AliasState.ABSENT:
-        alias.parent.mkdir(parents=True, exist_ok=True)
-        alias.symlink_to(expected_target(curdir))
-        print("installed")
-        _ensure_user_bin_on_path(alias.parent)
-        return 0
-    if state is AliasState.OWNED:
-        alias.unlink()
-        alias.symlink_to(expected_target(curdir))
-        print("installed")
-        _ensure_user_bin_on_path(alias.parent)
-        return 0
+    if (
+        state
+        in {
+            AliasState.CROSS_REPO,
+            AliasState.DANGLING,
+            AliasState.FOREIGN,
+        }
+        and not force
+    ):
+        _print_error(state, curdir, alias, other_target, allow_force=True)
+        return 1
 
-    _print_error(state, curdir, alias, other_target)
-    return 1
+    journal = _current_journal_for_alias()
+    try:
+        validate_journal_path_for_wrapper(journal)
+    except ValueError as exc:
+        print(f"refused: {exc}", file=sys.stderr)
+        return 1
+
+    content = render_wrapper(journal, str(expected_target(curdir)))
+    alias.parent.mkdir(parents=True, exist_ok=True)
+    with wrapper_lock():
+        locked_state, locked_other_target = check_alias(curdir)
+        if locked_state is AliasState.WORKTREE:
+            _print_error(locked_state, curdir, alias, locked_other_target)
+            return 1
+        if (
+            locked_state
+            in {
+                AliasState.CROSS_REPO,
+                AliasState.DANGLING,
+                AliasState.FOREIGN,
+            }
+            and not force
+        ):
+            _print_error(
+                locked_state,
+                curdir,
+                alias,
+                locked_other_target,
+                allow_force=True,
+            )
+            return 1
+        if alias.is_symlink():
+            alias.unlink()
+        write_wrapper_atomic(alias, content)
+
+    print("installed")
+    _ensure_user_bin_on_path(alias.parent)
+    return 0
 
 
 def cmd_uninstall(curdir: Path) -> int:
@@ -174,29 +371,37 @@ def cmd_uninstall(curdir: Path) -> int:
     if state is AliasState.ABSENT:
         print("absent")
         return 0
-    if state is AliasState.OWNED:
-        alias.unlink()
-        print("removed")
-        return 0
+    if state is not AliasState.OWNED:
+        _print_error(state, curdir, alias, other_target)
+        return 1
 
-    _print_error(state, curdir, alias, other_target)
-    return 1
+    with wrapper_lock():
+        locked_state, locked_other_target = check_alias(curdir)
+        if locked_state is AliasState.ABSENT:
+            print("absent")
+            return 0
+        if locked_state is not AliasState.OWNED:
+            _print_error(locked_state, curdir, alias, locked_other_target)
+            return 1
+        alias.unlink()
+
+    print("uninstalled")
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
-    if argv is None:
-        argv = sys.argv[1:]
-    if len(argv) != 1 or argv[0] not in {"check", "install", "uninstall"}:
-        sys.stderr.write(
-            "usage: python -m think.install_guard <check|install|uninstall>\n"
-        )
-        return 2
-
+    parser = argparse.ArgumentParser(prog="python -m think.install_guard")
+    subparsers = parser.add_subparsers(dest="cmd", required=True)
+    subparsers.add_parser("check")
+    install_parser = subparsers.add_parser("install")
+    install_parser.add_argument("--force", action="store_true")
+    subparsers.add_parser("uninstall")
+    args = parser.parse_args(argv)
     curdir = Path.cwd().resolve()
-    if argv[0] == "check":
+    if args.cmd == "check":
         return cmd_check(curdir)
-    if argv[0] == "install":
-        return cmd_install(curdir)
+    if args.cmd == "install":
+        return cmd_install(curdir, force=args.force)
     return cmd_uninstall(curdir)
 
 

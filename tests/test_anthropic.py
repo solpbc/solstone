@@ -230,7 +230,7 @@ def test_claude_main(monkeypatch, tmp_path, capsys):
     agents_dir = journal / "talents"
     agents_dir.mkdir()
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
     monkeypatch.setenv("ANTHROPIC_API_KEY", "x")
 
     ndjson_input = json.dumps(
@@ -274,7 +274,7 @@ def test_claude_outfile(monkeypatch, tmp_path, capsys):
     agents_dir = journal / "talents"
     agents_dir.mkdir()
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
     monkeypatch.setenv("ANTHROPIC_API_KEY", "x")
 
     ndjson_input = json.dumps(
@@ -322,7 +322,7 @@ def test_claude_thinking_events(monkeypatch, tmp_path, capsys):
     agents_dir = journal / "talents"
     agents_dir.mkdir()
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
     monkeypatch.setenv("ANTHROPIC_API_KEY", "x")
 
     ndjson_input = json.dumps(
@@ -365,7 +365,7 @@ def test_claude_redacted_thinking_events(monkeypatch, tmp_path, capsys):
     agents_dir = journal / "talents"
     agents_dir.mkdir()
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
     monkeypatch.setenv("ANTHROPIC_API_KEY", "x")
 
     ndjson_input = json.dumps(
@@ -406,7 +406,7 @@ def test_claude_outfile_error(monkeypatch, tmp_path, capsys):
     agents_dir = journal / "talents"
     agents_dir.mkdir()
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
     monkeypatch.setenv("ANTHROPIC_API_KEY", "x")
 
     ndjson_input = json.dumps(

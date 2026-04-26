@@ -14,7 +14,7 @@ migrate = _mod.migrate
 
 @pytest.fixture(autouse=True)
 def _set_journal(tmp_path, monkeypatch):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
 
 def _create_old_schema(tmp_path):

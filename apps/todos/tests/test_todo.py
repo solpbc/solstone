@@ -38,12 +38,12 @@ def _write_todos(root: Path, facet: str, day: str, items: list[dict]) -> Path:
 
 
 def test_get_todos_returns_none_when_missing(monkeypatch, journal_root):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_root))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_root))
     assert get_todos("20240101", "personal") is None
 
 
 def test_get_todos_parses_basic_fields(monkeypatch, journal_root):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_root))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_root))
     _write_todos(
         journal_root,
         "personal",
@@ -76,7 +76,7 @@ def test_get_todos_parses_basic_fields(monkeypatch, journal_root):
 
 
 def test_get_todos_handles_cancelled(monkeypatch, journal_root):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_root))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_root))
     _write_todos(
         journal_root,
         "work",
@@ -106,7 +106,7 @@ def test_get_todos_handles_cancelled(monkeypatch, journal_root):
 
 
 def test_get_todos_ignores_blank_lines(monkeypatch, journal_root):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_root))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_root))
     # Write with blank lines mixed in
     todos_dir = journal_root / "facets" / "personal" / "todos"
     todos_dir.mkdir(parents=True, exist_ok=True)
@@ -273,7 +273,7 @@ class TestFormatNudge:
 
 
 def test_upcoming_groups_future_days(monkeypatch, journal_root):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_root))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_root))
     # Create facet structure
     (journal_root / "facets" / "personal").mkdir(parents=True)
     (journal_root / "facets" / "personal" / "facet.json").write_text(
@@ -320,7 +320,7 @@ def test_upcoming_groups_future_days(monkeypatch, journal_root):
 
 
 def test_upcoming_respects_limit(monkeypatch, journal_root):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_root))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_root))
     # Create facet structure
     (journal_root / "facets" / "work").mkdir(parents=True)
     (journal_root / "facets" / "work" / "facet.json").write_text(
@@ -347,7 +347,7 @@ def test_upcoming_respects_limit(monkeypatch, journal_root):
 
 def test_upcoming_excludes_cancelled(monkeypatch, journal_root):
     """Cancelled todos should not appear in upcoming view."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_root))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_root))
     (journal_root / "facets" / "personal").mkdir(parents=True)
     (journal_root / "facets" / "personal" / "facet.json").write_text(
         '{"title": "Personal"}', encoding="utf-8"
@@ -372,7 +372,7 @@ def test_upcoming_excludes_cancelled(monkeypatch, journal_root):
 
 
 def test_upcoming_when_no_future_todos(monkeypatch, journal_root):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_root))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_root))
     (journal_root / "facets" / "personal").mkdir(parents=True)
 
     _write_todos(
@@ -390,7 +390,7 @@ def test_upcoming_when_no_future_todos(monkeypatch, journal_root):
 
 
 def test_upcoming_filters_by_facet(monkeypatch, journal_root):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_root))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_root))
     # Create multiple facets
     for facet_name in ["personal", "work"]:
         facet_dir = journal_root / "facets" / facet_name
@@ -410,7 +410,7 @@ def test_upcoming_filters_by_facet(monkeypatch, journal_root):
 
 
 def test_upcoming_aggregates_all_facets(monkeypatch, journal_root):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_root))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_root))
     # Create multiple facets
     for facet_name in ["personal", "work"]:
         facet_dir = journal_root / "facets" / facet_name
@@ -432,7 +432,7 @@ def test_upcoming_aggregates_all_facets(monkeypatch, journal_root):
 
 def test_checklist_append_entry(monkeypatch, journal_root):
     """Test TodoChecklist.append_entry() creates valid JSONL."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_root))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_root))
 
     # Create facet directory
     facets_dir = journal_root / "facets" / "work"
@@ -455,7 +455,7 @@ def test_checklist_append_entry(monkeypatch, journal_root):
 
 def test_checklist_cancel_entry(monkeypatch, journal_root):
     """Test TodoChecklist.cancel_entry() soft-deletes items."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_root))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_root))
 
     _write_todos(
         journal_root,
@@ -480,7 +480,7 @@ def test_checklist_display_includes_cancelled_with_strikethrough(
     monkeypatch, journal_root
 ):
     """Test TodoChecklist.display() always includes cancelled items with strikethrough."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_root))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_root))
 
     _write_todos(
         journal_root,
@@ -503,7 +503,7 @@ def test_checklist_display_includes_cancelled_with_strikethrough(
 
 
 def test_get_facets_with_todos(monkeypatch, journal_root):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_root))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_root))
 
     # Create todos in multiple facets
     _write_todos(journal_root, "personal", "20240105", [{"text": "Personal task"}])
@@ -528,7 +528,7 @@ def test_todo_item_timestamps_on_creation(monkeypatch, journal_root):
     """Test that timestamps are set when creating a new todo."""
     import time
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_root))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_root))
 
     # Create facet directory
     (journal_root / "facets" / "personal" / "todos").mkdir(parents=True)
@@ -549,7 +549,7 @@ def test_todo_item_updated_at_changes_on_mark_done(monkeypatch, journal_root):
     """Test that updated_at changes when marking todo complete."""
     import time
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_root))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_root))
     (journal_root / "facets" / "personal" / "todos").mkdir(parents=True)
 
     checklist = TodoChecklist.load("20240110", "personal")
@@ -569,7 +569,7 @@ def test_todo_item_updated_at_changes_on_mark_undone(monkeypatch, journal_root):
     """Test that updated_at changes when marking todo incomplete."""
     import time
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_root))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_root))
     (journal_root / "facets" / "personal" / "todos").mkdir(parents=True)
 
     checklist = TodoChecklist.load("20240110", "personal")
@@ -594,7 +594,7 @@ def test_todo_item_updated_at_changes_on_cancel(monkeypatch, journal_root):
     """Test that updated_at changes when cancelling a todo."""
     import time
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_root))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_root))
     (journal_root / "facets" / "personal" / "todos").mkdir(parents=True)
 
     checklist = TodoChecklist.load("20240110", "personal")
@@ -614,7 +614,7 @@ def test_todo_item_updated_at_changes_on_text_update(monkeypatch, journal_root):
     """Test that updated_at changes when updating todo text."""
     import time
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_root))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_root))
     (journal_root / "facets" / "personal" / "todos").mkdir(parents=True)
 
     checklist = TodoChecklist.load("20240110", "personal")
@@ -632,7 +632,7 @@ def test_todo_item_updated_at_changes_on_text_update(monkeypatch, journal_root):
 
 def test_todo_item_timestamps_serialization(monkeypatch, journal_root):
     """Test that timestamps are properly serialized to and from JSONL."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_root))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_root))
     (journal_root / "facets" / "personal" / "todos").mkdir(parents=True)
 
     checklist = TodoChecklist.load("20240110", "personal")
@@ -654,7 +654,7 @@ def test_todo_item_timestamps_serialization(monkeypatch, journal_root):
 
 def test_todo_item_timestamps_in_as_dict(monkeypatch, journal_root):
     """Test that timestamps are included in as_dict() output."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_root))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_root))
     (journal_root / "facets" / "personal" / "todos").mkdir(parents=True)
 
     checklist = TodoChecklist.load("20240110", "personal")
@@ -669,7 +669,7 @@ def test_todo_item_timestamps_in_as_dict(monkeypatch, journal_root):
 
 def test_todo_item_backward_compatibility_no_timestamps(monkeypatch, journal_root):
     """Test loading files without timestamps (backward compatibility)."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_root))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_root))
 
     # Write old-format todos without timestamps
     _write_todos(
@@ -696,7 +696,7 @@ def test_append_entry_preserves_created_at(monkeypatch, journal_root):
     """Test that append_entry can preserve a provided created_at timestamp."""
     import time
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_root))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_root))
     (journal_root / "facets" / "personal" / "todos").mkdir(parents=True)
 
     checklist = TodoChecklist.load("20240110", "personal")
@@ -717,7 +717,7 @@ class TestFindCrossFacetMatches:
 
     def test_detects_duplicate_in_other_facet(self, monkeypatch, journal_root):
         """Exact duplicate in another facet is detected."""
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_root))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_root))
         _write_todos(journal_root, "work", "20240102", [{"text": "Draft Q1 plan"}])
         matches = find_cross_facet_matches("Draft Q1 plan", "20240102", "personal")
         assert len(matches) == 1
@@ -728,7 +728,7 @@ class TestFindCrossFacetMatches:
 
     def test_detects_fuzzy_match(self, monkeypatch, journal_root):
         """Fuzzy match above threshold is detected."""
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_root))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_root))
         _write_todos(
             journal_root,
             "work",
@@ -741,21 +741,21 @@ class TestFindCrossFacetMatches:
 
     def test_no_false_positives(self, monkeypatch, journal_root):
         """Unrelated todos in other facets are not flagged."""
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_root))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_root))
         _write_todos(journal_root, "work", "20240102", [{"text": "Buy groceries"}])
         matches = find_cross_facet_matches("Draft Q1 plan", "20240102", "personal")
         assert len(matches) == 0
 
     def test_excludes_own_facet(self, monkeypatch, journal_root):
         """Todos in the requesting facet are excluded."""
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_root))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_root))
         _write_todos(journal_root, "personal", "20240102", [{"text": "Draft Q1 plan"}])
         matches = find_cross_facet_matches("Draft Q1 plan", "20240102", "personal")
         assert len(matches) == 0
 
     def test_excludes_cancelled(self, monkeypatch, journal_root):
         """Cancelled todos are not matched."""
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_root))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_root))
         _write_todos(
             journal_root,
             "work",
@@ -767,7 +767,7 @@ class TestFindCrossFacetMatches:
 
     def test_excludes_completed(self, monkeypatch, journal_root):
         """Completed todos are not matched."""
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_root))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_root))
         _write_todos(
             journal_root,
             "work",
@@ -779,7 +779,7 @@ class TestFindCrossFacetMatches:
 
     def test_day_range_covers_adjacent_days(self, monkeypatch, journal_root):
         """Matches within ±1 day window are detected."""
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_root))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_root))
         _write_todos(journal_root, "work", "20240101", [{"text": "Draft Q1 plan"}])
         _write_todos(journal_root, "work", "20240103", [{"text": "Draft Q1 plan"}])
         matches = find_cross_facet_matches("Draft Q1 plan", "20240102", "personal")
@@ -787,6 +787,6 @@ class TestFindCrossFacetMatches:
 
     def test_empty_journal_returns_empty(self, monkeypatch, journal_root):
         """No facets returns empty list."""
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_root))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_root))
         matches = find_cross_facet_matches("Draft Q1 plan", "20240102", "personal")
         assert matches == []

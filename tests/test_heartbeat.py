@@ -9,7 +9,7 @@ import pytest
 
 @pytest.fixture
 def journal_path(tmp_path, monkeypatch):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     (tmp_path / "health").mkdir()
     return tmp_path
 

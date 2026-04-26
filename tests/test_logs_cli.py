@@ -148,7 +148,7 @@ def test_collect_default(tmp_path, monkeypatch, capsys):
     day = datetime.now().strftime("%Y%m%d")
     lines = [f"2026-02-09T10:{i:02d}:00 [echo:stdout] line {i}" for i in range(10)]
     make_journal(tmp_path, day, {"echo": lines})
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     logs_cli.collect_and_print(_args(c=5))
 
@@ -164,7 +164,7 @@ def test_collect_count(tmp_path, monkeypatch, capsys):
     day = datetime.now().strftime("%Y%m%d")
     lines = [f"2026-02-09T11:{i:02d}:00 [echo:stdout] line {i}" for i in range(10)]
     make_journal(tmp_path, day, {"echo": lines})
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     logs_cli.collect_and_print(_args(c=2))
 
@@ -187,7 +187,7 @@ def test_collect_headers_on_tty(tmp_path, monkeypatch, capsys):
         "2026-02-09T10:01:00 [observer:stdout] line b",
     ]
     make_journal(tmp_path, day, {"echo": echo_lines, "observer": observer_lines})
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     monkeypatch.setattr("sys.stdout.isatty", lambda: True)
 
     logs_cli.collect_and_print(_args(c=5))
@@ -216,7 +216,7 @@ def test_collect_no_headers_when_piped(tmp_path, monkeypatch, capsys):
         "2026-02-09T10:01:00 [observer:stdout] line b",
     ]
     make_journal(tmp_path, day, {"echo": echo_lines, "observer": observer_lines})
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     monkeypatch.setattr("sys.stdout.isatty", lambda: False)
 
     logs_cli.collect_and_print(_args(c=5))
@@ -239,7 +239,7 @@ def test_filter_service(tmp_path, monkeypatch, capsys):
         "2026-02-09T10:01:30 [observer:stdout] delta",
     ]
     make_journal(tmp_path, day, {"echo": echo_lines, "observer": observer_lines})
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     logs_cli.collect_and_print(_args(service="echo"))
 
@@ -258,7 +258,7 @@ def test_filter_grep(tmp_path, monkeypatch, capsys):
         "2026-02-09T10:02:00 [echo:stdout] unrelated text",
     ]
     make_journal(tmp_path, day, {"echo": lines})
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     logs_cli.collect_and_print(_args(grep=re.compile("normal|special")))
 
@@ -278,7 +278,7 @@ def test_filter_grep_regex_or(tmp_path, monkeypatch, capsys):
         "2026-02-09T10:02:00 [echo:stdout] beta entry",
     ]
     make_journal(tmp_path, day, {"echo": lines})
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     logs_cli.collect_and_print(_args(grep=re.compile("alpha|special")))
 
@@ -297,7 +297,7 @@ def test_filter_since(tmp_path, monkeypatch, capsys):
         "2026-02-09T10:20:00 [echo:stdout] new",
     ]
     make_journal(tmp_path, day, {"echo": lines})
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     logs_cli.collect_and_print(_args(since=datetime(2026, 2, 9, 10, 10, 0)))
 
@@ -314,7 +314,7 @@ def test_count_limits_filtered_output(tmp_path, monkeypatch, capsys):
         f"2026-02-09T10:{i:02d}:00 [echo:stdout] special line {i}" for i in range(10)
     ]
     make_journal(tmp_path, day, {"echo": lines})
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     logs_cli.collect_and_print(_args(c=3, grep=re.compile("special")))
 
@@ -337,7 +337,7 @@ def test_filters_compose(tmp_path, monkeypatch, capsys):
         "2026-02-09T10:00:30 [observer:stdout] special but wrong service",
     ]
     make_journal(tmp_path, day, {"echo": echo_lines, "observer": observer_lines})
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     logs_cli.collect_and_print(_args(service="echo", grep=re.compile("special")))
 
@@ -362,7 +362,7 @@ def test_supervisor_included_default(tmp_path, monkeypatch, capsys):
         "2026-02-09T10:05:00 [supervisor:log] INFO c",
     ]
     make_journal(tmp_path, day, {"echo": echo_lines}, supervisor_lines=supervisor_lines)
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     logs_cli.collect_and_print(_args(c=2))
 
@@ -383,7 +383,7 @@ def test_supervisor_excluded_with_filters(tmp_path, monkeypatch, capsys):
         "2026-02-09T10:01:00 [supervisor:log] INFO special",
     ]
     make_journal(tmp_path, day, {"echo": echo_lines}, supervisor_lines=supervisor_lines)
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     logs_cli.collect_and_print(_args(grep=re.compile("special")))
 

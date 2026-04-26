@@ -175,7 +175,7 @@ sandbox: .installed
 	echo "$$SANDBOX_JOURNAL" > .sandbox.journal; \
 	echo "Sandbox journal: $$SANDBOX_JOURNAL"; \
 	# Boot supervisor in background \
-	_SOLSTONE_JOURNAL_OVERRIDE="$$SANDBOX_JOURNAL" PATH=$(CURDIR)/$(VENV_BIN):$$PATH \
+	SOLSTONE_JOURNAL="$$SANDBOX_JOURNAL" PATH=$(CURDIR)/$(VENV_BIN):$$PATH \
 		$(VENV_BIN)/sol supervisor 0 --no-daily \
 		> "$$SANDBOX_JOURNAL/health/supervisor.log" 2>&1 & \
 	echo $$! > .sandbox.pid; \
@@ -184,7 +184,7 @@ sandbox: .installed
 	echo "Waiting for services..."; \
 	READY=false; \
 	for i in $$(seq 1 20); do \
-		if _SOLSTONE_JOURNAL_OVERRIDE="$$SANDBOX_JOURNAL" $(VENV_BIN)/sol health > /dev/null 2>&1; then \
+		if SOLSTONE_JOURNAL="$$SANDBOX_JOURNAL" $(VENV_BIN)/sol health > /dev/null 2>&1; then \
 			READY=true; \
 			break; \
 		fi; \
@@ -229,7 +229,7 @@ sandbox-stop:
 .PHONY: sandbox-seed-observers
 sandbox-seed-observers: ## Seed 4 sample observers into the running sandbox journal
 	@test -s .sandbox.journal || (echo "No sandbox running. Run 'make sandbox' first." && exit 1)
-	@_SOLSTONE_JOURNAL_OVERRIDE=$$(cat .sandbox.journal) $(VENV_BIN)/python tests/fixtures/seed_observers.py
+	@SOLSTONE_JOURNAL=$$(cat .sandbox.journal) $(VENV_BIN)/python tests/fixtures/seed_observers.py
 
 # Verify API baselines against running sandbox
 verify-api: .installed
@@ -238,8 +238,8 @@ verify-api: .installed
 	@SANDBOX_JOURNAL=$$(cat .sandbox.journal); \
 	CONVEY_PORT=$$(cat "$$SANDBOX_JOURNAL/health/convey.port"); \
 	RESULT=0; \
-	_SOLSTONE_JOURNAL_OVERRIDE="$$SANDBOX_JOURNAL" $(VENV_BIN)/sol indexer --rescan-full > /dev/null; \
-	_SOLSTONE_JOURNAL_OVERRIDE="$$SANDBOX_JOURNAL" $(VENV_BIN)/python tests/verify_api.py verify --base-url "http://localhost:$$CONVEY_PORT" || RESULT=$$?; \
+	SOLSTONE_JOURNAL="$$SANDBOX_JOURNAL" $(VENV_BIN)/sol indexer --rescan-full > /dev/null; \
+	SOLSTONE_JOURNAL="$$SANDBOX_JOURNAL" $(VENV_BIN)/python tests/verify_api.py verify --base-url "http://localhost:$$CONVEY_PORT" || RESULT=$$?; \
 	$(MAKE) sandbox-stop; \
 	exit $$RESULT
 
@@ -254,8 +254,8 @@ update-api-baselines: .installed
 		SANDBOX_JOURNAL=$$(cat .sandbox.journal); \
 		CONVEY_PORT=$$(cat "$$SANDBOX_JOURNAL/health/convey.port"); \
 		RESULT=0; \
-		_SOLSTONE_JOURNAL_OVERRIDE="$$SANDBOX_JOURNAL" $(VENV_BIN)/sol indexer --rescan-full > /dev/null; \
-		_SOLSTONE_JOURNAL_OVERRIDE="$$SANDBOX_JOURNAL" $(VENV_BIN)/python tests/verify_api.py update --base-url "http://localhost:$$CONVEY_PORT" || RESULT=$$?; \
+		SOLSTONE_JOURNAL="$$SANDBOX_JOURNAL" $(VENV_BIN)/sol indexer --rescan-full > /dev/null; \
+		SOLSTONE_JOURNAL="$$SANDBOX_JOURNAL" $(VENV_BIN)/python tests/verify_api.py update --base-url "http://localhost:$$CONVEY_PORT" || RESULT=$$?; \
 		$(MAKE) sandbox-stop; \
 		exit $$RESULT; \
 	else \
@@ -322,10 +322,10 @@ review: .installed
 	BASE_URL="http://localhost:$$CONVEY_PORT"; \
 	RESULT_API=0; \
 	RESULT_BROWSER=0; \
-	_SOLSTONE_JOURNAL_OVERRIDE="$$SANDBOX_JOURNAL" $(VENV_BIN)/sol indexer --rescan-full > /dev/null; \
+	SOLSTONE_JOURNAL="$$SANDBOX_JOURNAL" $(VENV_BIN)/sol indexer --rescan-full > /dev/null; \
 	echo ""; \
 	echo "=== API baseline verification ==="; \
-	_SOLSTONE_JOURNAL_OVERRIDE="$$SANDBOX_JOURNAL" $(VENV_BIN)/python tests/verify_api.py verify --base-url "$$BASE_URL" || RESULT_API=$$?; \
+	SOLSTONE_JOURNAL="$$SANDBOX_JOURNAL" $(VENV_BIN)/python tests/verify_api.py verify --base-url "$$BASE_URL" || RESULT_API=$$?; \
 	echo ""; \
 	echo "=== Browser scenario verification ==="; \
 	$(VENV_BIN)/python tests/verify_browser.py verify --base-url "$$BASE_URL" || RESULT_BROWSER=$$?; \
@@ -353,7 +353,7 @@ review: .installed
 	fi
 
 # Test environment - use fixtures journal for all tests
-TEST_ENV = _SOLSTONE_JOURNAL_OVERRIDE=tests/fixtures/journal
+TEST_ENV = SOLSTONE_JOURNAL=tests/fixtures/journal
 LINK_LIVE_TESTS = --ignore=tests/link/test_integration.py --ignore=tests/link/test_privacy_scan.py
 
 # Venv tool shortcuts
@@ -479,6 +479,10 @@ install-service: doctor skills .installed
 			;; \
 		up""grade) \
 			echo "mode: up""grade"; \
+			$(MAKE) install-checks || exit $$?; \
+			;; \
+		current) \
+			echo "mode: current"; \
 			$(MAKE) install-checks || exit $$?; \
 			;; \
 		fresh) \

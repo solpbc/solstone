@@ -13,7 +13,7 @@ def test_locked_modify_serializes_concurrent_edits(tmp_path, monkeypatch):
         locked_modify,
     )
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     facet = "work"
     day = "20260418"

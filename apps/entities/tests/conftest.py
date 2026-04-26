@@ -46,7 +46,7 @@ def journal_copy(tmp_path, monkeypatch):
     src = Path(__file__).resolve().parents[3] / "tests" / "fixtures" / "journal"
     dst = tmp_path / "journal"
     copytree_tracked(src, dst)
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(dst.resolve()))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(dst.resolve()))
     clear_journal_entity_cache()
     clear_entity_loading_cache()
     clear_relationship_caches()
@@ -59,7 +59,7 @@ def journal_copy(tmp_path, monkeypatch):
 
 @pytest.fixture
 def client(journal_copy, monkeypatch):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_copy))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_copy))
     app = create_app(str(journal_copy))
     return app.test_client()
 
@@ -78,9 +78,9 @@ def entity_env(tmp_path, monkeypatch):
             entity_env(attached=[
                 {"type": "Person", "name": "Alice", "description": "Friend"}
             ])
-            # _SOLSTONE_JOURNAL_OVERRIDE is set, entity files exist
+            # SOLSTONE_JOURNAL is set, entity files exist
     """
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     clear_journal_entity_cache()
     clear_entity_loading_cache()
     clear_relationship_caches()
@@ -119,7 +119,7 @@ def entity_env(tmp_path, monkeypatch):
 @pytest.fixture
 def entity_move_env(tmp_path, monkeypatch):
     """Create a two-facet environment for entity move tests."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     clear_journal_entity_cache()
     clear_entity_loading_cache()
     clear_relationship_caches()

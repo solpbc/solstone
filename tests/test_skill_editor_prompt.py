@@ -25,7 +25,7 @@ def _seed_config(tmp_path):
 
 def test_skill_editor_prompt_substitutes_template_vars(monkeypatch, tmp_path):
     _seed_config(tmp_path)
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     repo_root = Path(__file__).resolve().parent.parent
 
     prompt = load_prompt(

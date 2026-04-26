@@ -13,7 +13,7 @@ _RUNNER = CliRunner()
 
 
 def _configure_env(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     monkeypatch.setenv("SOL_SKIP_SUPERVISOR_CHECK", "1")
 
     import think.utils

@@ -6,7 +6,7 @@ def test_append_chat_event_indexes_without_rescan(tmp_path, monkeypatch):
     from convey.chat_stream import append_chat_event
     from think.indexer.journal import search_journal
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     total, results = search_journal("nebula phrase X42", stream="chat")
     assert total == 0

@@ -42,8 +42,8 @@ from think.entities import (
 
 @pytest.fixture
 def fixture_journal():
-    """Set _SOLSTONE_JOURNAL_OVERRIDE to tests/fixtures/journal for testing."""
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = "tests/fixtures/journal"
+    """Set SOLSTONE_JOURNAL to tests/fixtures/journal for testing."""
+    os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     yield
     # No cleanup needed - just testing reads
 
@@ -204,8 +204,8 @@ def test_save_and_load_entities(fixture_journal, tmp_path):
     entities_dir = facet_path / "entities"
     entities_dir.mkdir(parents=True)
 
-    # Update _SOLSTONE_JOURNAL_OVERRIDE to temp directory
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    # Update SOLSTONE_JOURNAL to temp directory
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Save some entities (dicts with extended fields)
     test_entities = [
@@ -249,7 +249,7 @@ def test_save_entities_sorting(fixture_journal, tmp_path):
     """Test that entities can be saved and loaded back correctly."""
     facet_path = tmp_path / "facets" / "test_facet"
     facet_path.mkdir(parents=True)
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Save unsorted entities
     unsorted = [
@@ -295,7 +295,7 @@ def test_save_entities_detected_invalidates_loading_cache(fixture_journal, tmp_p
     populated the cache and a subsequent save did not invalidate it — the second
     load returned stale data from the cache rather than re-reading disk.
     """
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
     (tmp_path / "facets" / "test_facet" / "entities").mkdir(parents=True)
 
     save_entities(
@@ -322,7 +322,7 @@ def test_save_entities_detected_invalidates_loading_cache(fixture_journal, tmp_p
 
 def test_save_entities_attached_invalidates_loading_cache(fixture_journal, tmp_path):
     """Regression: save_entities (attached path, day=None) must invalidate the loading cache."""
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
     (tmp_path / "facets" / "test_facet").mkdir(parents=True)
 
     save_entities(
@@ -344,7 +344,7 @@ def test_save_entities_attached_invalidates_loading_cache(fixture_journal, tmp_p
 
 def test_save_detected_entity_basic(fixture_journal, tmp_path):
     """Test save_detected_entity adds an entity with locking."""
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
     (tmp_path / "facets" / "test_facet" / "entities").mkdir(parents=True)
 
     result = save_detected_entity("test_facet", "20250101", "Person", "Alice", "Friend")
@@ -358,7 +358,7 @@ def test_save_detected_entity_basic(fixture_journal, tmp_path):
 
 def test_save_detected_entity_duplicate(fixture_journal, tmp_path):
     """Test save_detected_entity raises on duplicate."""
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
     (tmp_path / "facets" / "test_facet" / "entities").mkdir(parents=True)
 
     save_detected_entity("test_facet", "20250101", "Person", "Alice", "Friend")
@@ -373,7 +373,7 @@ def test_save_detected_entity_concurrent(fixture_journal, tmp_path):
     """Test concurrent save_detected_entity calls don't lose data."""
     import threading
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
     (tmp_path / "facets" / "test_facet" / "entities").mkdir(parents=True)
 
     errors = []
@@ -406,7 +406,7 @@ def test_save_detected_entity_retry_on_error(fixture_journal, tmp_path):
     """Test that save_detected_entity retries on transient OSError."""
     from unittest.mock import patch
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
     (tmp_path / "facets" / "test_facet" / "entities").mkdir(parents=True)
 
     call_count = 0
@@ -432,7 +432,7 @@ def test_save_detected_entity_retry_on_error(fixture_journal, tmp_path):
 
 def test_update_detected_entity(fixture_journal, tmp_path):
     """Test update_detected_entity with locking."""
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
     (tmp_path / "facets" / "test_facet" / "entities").mkdir(parents=True)
 
     save_detected_entity("test_facet", "20250101", "Person", "Alice", "Friend")
@@ -445,7 +445,7 @@ def test_update_detected_entity(fixture_journal, tmp_path):
 
 def test_update_detected_entity_not_found(fixture_journal, tmp_path):
     """Test update_detected_entity raises when entity missing."""
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
     (tmp_path / "facets" / "test_facet" / "entities").mkdir(parents=True)
 
     import pytest as _pytest
@@ -476,7 +476,7 @@ def test_load_all_attached_entities_deduplication(fixture_journal, tmp_path):
     facet1_path.mkdir(parents=True)
     facet2_path.mkdir(parents=True)
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Save same entity name in both facets with different descriptions
     entities1 = [
@@ -511,7 +511,7 @@ def test_load_all_attached_entities_sort_by_last_seen(fixture_journal, tmp_path)
     """Test sorting entities by last_seen."""
     facet_path = tmp_path / "facets" / "test_facet"
     facet_path.mkdir(parents=True)
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Create entities with varying last_seen values
     entities = [
@@ -544,7 +544,7 @@ def test_load_all_attached_entities_limit(fixture_journal, tmp_path):
     """Test limiting number of entities returned."""
     facet_path = tmp_path / "facets" / "test_facet"
     facet_path.mkdir(parents=True)
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Create 5 entities
     entities = [
@@ -562,7 +562,7 @@ def test_load_all_attached_entities_sort_and_limit(fixture_journal, tmp_path):
     """Test sorting and limiting together."""
     facet_path = tmp_path / "facets" / "test_facet"
     facet_path.mkdir(parents=True)
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Create entities with last_seen
     entities = [
@@ -587,7 +587,7 @@ def test_load_recent_entity_names_basic(fixture_journal, tmp_path):
     """Test basic functionality of load_recent_entity_names."""
     facet_path = tmp_path / "facets" / "test_facet"
     facet_path.mkdir(parents=True)
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Create entities with last_seen
     entities = [
@@ -609,7 +609,7 @@ def test_load_recent_entity_names_returns_list(fixture_journal, tmp_path):
     """Test that result is a list of names."""
     facet_path = tmp_path / "facets" / "test_facet"
     facet_path.mkdir(parents=True)
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Create 10 entities with speakable names (no digits)
     names = [
@@ -641,7 +641,7 @@ def test_load_recent_entity_names_empty(fixture_journal, tmp_path):
     """Test with no entities returns None."""
     facet_path = tmp_path / "facets" / "test_facet"
     facet_path.mkdir(parents=True)
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     result = load_recent_entity_names()
     assert result is None
@@ -651,7 +651,7 @@ def test_load_recent_entity_names_with_aka(fixture_journal, tmp_path):
     """Test that aka values are included in spoken names."""
     facet_path = tmp_path / "facets" / "test_facet"
     facet_path.mkdir(parents=True)
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     entities = [
         {
@@ -676,7 +676,7 @@ def test_load_recent_entity_names_respects_limit(fixture_journal, tmp_path):
     """Test that limit parameter is respected."""
     facet_path = tmp_path / "facets" / "test_facet"
     facet_path.mkdir(parents=True)
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Create 30 entities with speakable names (no digits)
     # Use unique first names that won't collide
@@ -734,7 +734,7 @@ def test_load_recent_entity_names_filters_unspeakable(fixture_journal, tmp_path)
     """Test that names with underscores or no letters are filtered out."""
     facet_path = tmp_path / "facets" / "test_facet"
     facet_path.mkdir(parents=True)
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     entities = [
         # Speakable - should be included (letters required, digits OK)
@@ -788,7 +788,7 @@ def test_aka_field_preservation(fixture_journal, tmp_path):
     """Test that aka field is preserved during save/load operations."""
     facet_path = tmp_path / "facets" / "test_facet"
     facet_path.mkdir(parents=True)
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Save entities with aka fields
     test_entities = [
@@ -845,7 +845,7 @@ def test_load_detected_entities_recent_excludes_attached(fixture_journal, tmp_pa
     facet_path = tmp_path / "facets" / "test_facet"
     entities_dir = facet_path / "entities"
     entities_dir.mkdir(parents=True)
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Create attached entity with aka
     attached = [
@@ -885,7 +885,7 @@ def test_load_detected_entities_recent_count_tracking(fixture_journal, tmp_path)
     facet_path = tmp_path / "facets" / "test_facet"
     entities_dir = facet_path / "entities"
     entities_dir.mkdir(parents=True)
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Create same entity across multiple days
     save_entities(
@@ -917,7 +917,7 @@ def test_load_detected_entities_recent_last_seen(fixture_journal, tmp_path):
     facet_path = tmp_path / "facets" / "test_facet"
     entities_dir = facet_path / "entities"
     entities_dir.mkdir(parents=True)
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Create entity across multiple days with different descriptions
     save_entities(
@@ -955,7 +955,7 @@ def test_load_detected_entities_recent_days_filter(fixture_journal, tmp_path):
     facet_path = tmp_path / "facets" / "test_facet"
     entities_dir = facet_path / "entities"
     entities_dir.mkdir(parents=True)
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     from datetime import datetime, timedelta
 
@@ -989,7 +989,7 @@ def test_load_detected_entities_recent_empty_facet(fixture_journal, tmp_path):
     """Test that empty or non-existent facet returns empty list."""
     facet_path = tmp_path / "facets" / "empty_facet"
     facet_path.mkdir(parents=True)
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # No entities directory
     detected = load_detected_entities_recent("empty_facet")
@@ -1001,7 +1001,7 @@ def test_load_detected_entities_recent_type_name_key(fixture_journal, tmp_path):
     facet_path = tmp_path / "facets" / "test_facet"
     entities_dir = facet_path / "entities"
     entities_dir.mkdir(parents=True)
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Same name, different types - should be treated as separate entities
     save_entities(
@@ -1025,7 +1025,7 @@ def test_timestamp_preservation(fixture_journal, tmp_path):
     """Test that attached_at and updated_at timestamps are preserved through save/load."""
     facet_path = tmp_path / "facets" / "test_facet"
     facet_path.mkdir(parents=True)
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Save entities with timestamps
     test_entities = [
@@ -1066,7 +1066,7 @@ def test_load_entities_excludes_detached_by_default(fixture_journal, tmp_path):
     """Test that load_entities excludes detached entities by default."""
     facet_path = tmp_path / "facets" / "test_facet"
     facet_path.mkdir(parents=True)
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Save entities with one detached
     test_entities = [
@@ -1094,7 +1094,7 @@ def test_load_entities_includes_detached_when_requested(fixture_journal, tmp_pat
     """Test that load_entities includes detached entities when include_detached=True."""
     facet_path = tmp_path / "facets" / "test_facet"
     facet_path.mkdir(parents=True)
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Save entities with one detached
     test_entities = [
@@ -1126,7 +1126,7 @@ def test_load_all_attached_entities_excludes_detached(fixture_journal, tmp_path)
     facet2_path = tmp_path / "facets" / "facet2"
     facet1_path.mkdir(parents=True)
     facet2_path.mkdir(parents=True)
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Save entities - one active, one detached per facet
     save_entities(
@@ -1164,7 +1164,7 @@ def test_load_detected_entities_recent_shows_detached_entity_names(
     facet_path = tmp_path / "facets" / "test_facet"
     entities_dir = facet_path / "entities"
     entities_dir.mkdir(parents=True)
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Create attached entity with detached=True
     attached = [
@@ -1211,7 +1211,7 @@ def test_detached_entity_preserves_all_fields(fixture_journal, tmp_path):
     """Test that detached entities preserve all fields including custom ones."""
     facet_path = tmp_path / "facets" / "test_facet"
     facet_path.mkdir(parents=True)
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Save entity with custom fields and detached flag
     test_entities = [
@@ -1249,7 +1249,7 @@ def test_detached_flag_for_detected_entities_not_filtered(fixture_journal, tmp_p
     facet_path = tmp_path / "facets" / "test_facet"
     entities_dir = facet_path / "entities"
     entities_dir.mkdir(parents=True)
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Create detected entity for a specific day
     detected_entities = [
@@ -1316,7 +1316,7 @@ def test_entity_slug_long():
 
 def test_entity_memory_path(fixture_journal, tmp_path):
     """Test entity memory path generation."""
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     path = entity_memory_path("personal", "Alice Johnson")
     expected = tmp_path / "facets" / "personal" / "entities" / "alice_johnson"
@@ -1325,7 +1325,7 @@ def test_entity_memory_path(fixture_journal, tmp_path):
 
 def test_entity_memory_path_empty_name(fixture_journal, tmp_path):
     """Test entity memory path with empty name raises ValueError."""
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     with pytest.raises(ValueError, match="slugifies to empty string"):
         entity_memory_path("personal", "")
@@ -1333,7 +1333,7 @@ def test_entity_memory_path_empty_name(fixture_journal, tmp_path):
 
 def test_ensure_entity_memory(fixture_journal, tmp_path):
     """Test entity memory folder creation."""
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     folder = ensure_entity_memory("personal", "Bob Smith")
     assert folder.exists()
@@ -1343,7 +1343,7 @@ def test_ensure_entity_memory(fixture_journal, tmp_path):
 
 def test_ensure_entity_memory_idempotent(fixture_journal, tmp_path):
     """Test that ensure_entity_memory is idempotent."""
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     folder1 = ensure_entity_memory("personal", "Charlie Brown")
     folder2 = ensure_entity_memory("personal", "Charlie Brown")
@@ -1353,7 +1353,7 @@ def test_ensure_entity_memory_idempotent(fixture_journal, tmp_path):
 
 def test_rename_entity_memory(fixture_journal, tmp_path):
     """Test renaming entity memory folder."""
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Create original folder
     old_folder = ensure_entity_memory("work", "Alice Johnson")
@@ -1377,7 +1377,7 @@ def test_rename_entity_memory(fixture_journal, tmp_path):
 
 def test_rename_entity_memory_not_exists(fixture_journal, tmp_path):
     """Test renaming non-existent folder returns False."""
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     result = rename_entity_memory("work", "NonExistent", "NewName")
     assert result is False
@@ -1385,7 +1385,7 @@ def test_rename_entity_memory_not_exists(fixture_journal, tmp_path):
 
 def test_rename_entity_memory_same_normalized(fixture_journal, tmp_path):
     """Test renaming when normalized names are the same."""
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Create folder
     ensure_entity_memory("work", "Alice Johnson")
@@ -1397,7 +1397,7 @@ def test_rename_entity_memory_same_normalized(fixture_journal, tmp_path):
 
 def test_rename_entity_memory_target_exists(fixture_journal, tmp_path):
     """Test renaming when target folder already exists raises OSError."""
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Create both folders
     ensure_entity_memory("work", "Alice")
@@ -1620,7 +1620,7 @@ def test_touch_entity_updates_last_seen(fixture_journal, tmp_path):
     """Test touch_entity updates last_seen on attached entity."""
     facet_path = tmp_path / "facets" / "test_facet"
     facet_path.mkdir(parents=True)
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Create attached entity without last_seen
     entities = [
@@ -1642,7 +1642,7 @@ def test_touch_entity_updates_only_if_more_recent(fixture_journal, tmp_path):
     """Test touch_entity only updates if day is more recent."""
     facet_path = tmp_path / "facets" / "test_facet"
     facet_path.mkdir(parents=True)
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Create attached entity with existing last_seen
     entities = [
@@ -1678,7 +1678,7 @@ def test_touch_entity_not_found(fixture_journal, tmp_path):
     """Test touch_entity returns False when entity not found."""
     facet_path = tmp_path / "facets" / "test_facet"
     facet_path.mkdir(parents=True)
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Create attached entity
     entities = [
@@ -1695,7 +1695,7 @@ def test_touch_entity_skips_detached(fixture_journal, tmp_path):
     """Test touch_entity skips detached entities."""
     facet_path = tmp_path / "facets" / "test_facet"
     facet_path.mkdir(parents=True)
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Create detached entity
     entities = [
@@ -1721,7 +1721,7 @@ def test_load_detected_entities_recent_fuzzy_exclusion(fixture_journal, tmp_path
     facet_path = tmp_path / "facets" / "test_facet"
     entities_dir = facet_path / "entities"
     entities_dir.mkdir(parents=True)
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Create attached entity
     attached = [
@@ -1762,7 +1762,7 @@ def test_load_detected_entities_recent_first_word_exclusion(fixture_journal, tmp
     facet_path = tmp_path / "facets" / "test_facet"
     entities_dir = facet_path / "entities"
     entities_dir.mkdir(parents=True)
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Create attached entity
     attached = [
@@ -1794,7 +1794,7 @@ def test_load_detected_entities_recent_first_word_exclusion(fixture_journal, tmp
 
 def test_parse_knowledge_graph_entities(tmp_path):
     """Test parsing entity names from knowledge graph markdown."""
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Create a knowledge graph file
     day_dir = tmp_path / "chronicle" / "20260108" / "talents"
@@ -1835,7 +1835,7 @@ def test_parse_knowledge_graph_entities(tmp_path):
 
 def test_parse_knowledge_graph_entities_missing_file(tmp_path):
     """Test parsing returns empty list when KG doesn't exist."""
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     entities = parse_knowledge_graph_entities("20260108")
     assert entities == []
@@ -1843,7 +1843,7 @@ def test_parse_knowledge_graph_entities_missing_file(tmp_path):
 
 def test_parse_knowledge_graph_entities_empty_file(tmp_path):
     """Test parsing returns empty list for empty KG."""
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     day_dir = tmp_path / "chronicle" / "20260108" / "talents"
     day_dir.mkdir(parents=True)
@@ -1860,7 +1860,7 @@ def test_touch_entities_from_activity_basic(tmp_path):
     """Test updating last_seen from activity names."""
     facet_path = tmp_path / "facets" / "test_facet"
     facet_path.mkdir(parents=True)
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Create attached entities
     attached = [
@@ -1900,7 +1900,7 @@ def test_touch_entities_from_activity_empty_names(tmp_path):
     """Test with empty names list."""
     facet_path = tmp_path / "facets" / "test_facet"
     facet_path.mkdir(parents=True)
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     attached = [{"type": "Person", "name": "Alice", "description": "Test"}]
     save_entities("test_facet", attached)
@@ -1916,7 +1916,7 @@ def test_touch_entities_from_activity_no_attached(tmp_path):
     """Test with no attached entities."""
     facet_path = tmp_path / "facets" / "test_facet"
     facet_path.mkdir(parents=True)
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     result = touch_entities_from_activity("test_facet", ["Alice"], "20260108")
 
@@ -1929,7 +1929,7 @@ def test_touch_entities_from_activity_deduplicates(tmp_path):
     """Test that same entity matched multiple times is only updated once."""
     facet_path = tmp_path / "facets" / "test_facet"
     facet_path.mkdir(parents=True)
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     attached = [
         {
@@ -1957,7 +1957,7 @@ def test_touch_entities_from_activity_deduplicates(tmp_path):
 
 def test_observations_file_path(fixture_journal, tmp_path):
     """Test observations file path generation."""
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     path = observations_file_path("personal", "Alice Johnson")
     expected = (
@@ -1973,7 +1973,7 @@ def test_observations_file_path(fixture_journal, tmp_path):
 
 def test_load_observations_empty(fixture_journal, tmp_path):
     """Test loading observations for entity with no observations."""
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # No file exists yet
     observations = load_observations("personal", "Alice Johnson")
@@ -1982,7 +1982,7 @@ def test_load_observations_empty(fixture_journal, tmp_path):
 
 def test_save_and_load_observations(fixture_journal, tmp_path):
     """Test saving and loading observations."""
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Save observations
     test_observations = [
@@ -2006,7 +2006,7 @@ def test_save_and_load_observations(fixture_journal, tmp_path):
 
 def test_add_observation_success(fixture_journal, tmp_path):
     """Test adding observations sequentially."""
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     result = add_observation(
         "personal", "Alice", "Prefers async communication", "20250113"
@@ -2028,7 +2028,7 @@ def test_add_observation_success(fixture_journal, tmp_path):
 
 def test_add_observation_empty_content(fixture_journal, tmp_path):
     """Test adding observation with empty content fails."""
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     with pytest.raises(ValueError, match="cannot be empty"):
         add_observation("personal", "Alice", "")
@@ -2039,7 +2039,7 @@ def test_add_observation_empty_content(fixture_journal, tmp_path):
 
 def test_observations_with_entity_rename(fixture_journal, tmp_path):
     """Test that observations are preserved when entity memory folder is renamed."""
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Create entity memory folder and add observations
     ensure_entity_memory("work", "Alice Johnson")
@@ -2065,7 +2065,7 @@ def test_observations_with_entity_rename(fixture_journal, tmp_path):
 
 def test_observations_atomic_write(fixture_journal, tmp_path):
     """Test that observations are written atomically."""
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Save observations
     test_observations = [
@@ -2096,7 +2096,7 @@ def test_get_identity_names_from_config(tmp_path):
     """Test extracting identity names from journal config."""
     import json
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Create config with identity
     config_dir = tmp_path / "config"
@@ -2117,7 +2117,7 @@ def test_get_identity_names_from_config(tmp_path):
 
 def test_get_identity_names_no_config(tmp_path):
     """Test that missing config returns empty list."""
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
     # No config file
 
     names = get_identity_names()
@@ -2128,7 +2128,7 @@ def test_get_identity_names_empty_identity(tmp_path):
     """Test that empty identity config returns empty list."""
     import json
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     config_dir = tmp_path / "config"
     config_dir.mkdir()
@@ -2143,7 +2143,7 @@ def test_save_entities_flags_principal_on_name_match(tmp_path):
     """Test that save_entities flags an entity as principal when it matches identity name."""
     import json
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Create config with identity
     config_dir = tmp_path / "config"
@@ -2177,7 +2177,7 @@ def test_save_entities_flags_principal_on_preferred_match(tmp_path):
     """Test that save_entities flags principal when matching preferred name."""
     import json
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Create config with identity - preferred name differs from entity name
     config_dir = tmp_path / "config"
@@ -2204,7 +2204,7 @@ def test_save_entities_flags_principal_on_alias_match(tmp_path):
     """Test that save_entities flags principal when matching an alias."""
     import json
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Create config with alias
     config_dir = tmp_path / "config"
@@ -2230,7 +2230,7 @@ def test_save_entities_flags_principal_via_entity_aka(tmp_path):
     """Test that save_entities flags principal when entity aka matches identity."""
     import json
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Create config
     config_dir = tmp_path / "config"
@@ -2261,7 +2261,7 @@ def test_save_entities_preserves_existing_principal(tmp_path):
     """Test that save_entities doesn't change principal if one already exists."""
     import json
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Create config
     config_dir = tmp_path / "config"
@@ -2297,7 +2297,7 @@ def test_save_entities_preserves_existing_principal(tmp_path):
 
 def test_save_entities_no_principal_without_identity(tmp_path):
     """Test that save_entities doesn't flag principal when no identity configured."""
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
     # No config file
 
     # Create facet directory
@@ -2317,7 +2317,7 @@ def test_save_entities_skips_detached_for_principal(tmp_path):
     """Test that detached entities are not flagged as principal."""
     import json
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Create config
     config_dir = tmp_path / "config"
@@ -2355,7 +2355,7 @@ def test_save_entities_case_insensitive_principal_match(tmp_path):
     """Test that principal matching is case-insensitive."""
     import json
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Create config with lowercase name
     config_dir = tmp_path / "config"
@@ -2381,7 +2381,7 @@ def test_save_entities_detected_no_principal_flag(tmp_path):
     """Test that save_entities with day (detected) doesn't flag principal."""
     import json
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Create config
     config_dir = tmp_path / "config"
@@ -2413,7 +2413,7 @@ def test_block_journal_entity_success(tmp_path):
     """Test blocking a journal entity sets blocked flag and detaches facets."""
     import json
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Create journal entity
     entity_dir = tmp_path / "entities" / "alice"
@@ -2446,7 +2446,7 @@ def test_block_journal_entity_success(tmp_path):
 
 def test_block_journal_entity_not_found(tmp_path):
     """Test blocking non-existent entity raises error."""
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     with pytest.raises(ValueError, match="not found"):
         block_journal_entity("nonexistent")
@@ -2456,7 +2456,7 @@ def test_block_journal_entity_principal_protected(tmp_path):
     """Test blocking principal entity is rejected."""
     import json
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Create principal entity
     entity_dir = tmp_path / "entities" / "myself"
@@ -2477,7 +2477,7 @@ def test_unblock_journal_entity_success(tmp_path):
     """Test unblocking a blocked journal entity."""
     import json
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Create blocked entity
     entity_dir = tmp_path / "entities" / "alice"
@@ -2499,7 +2499,7 @@ def test_unblock_journal_entity_not_blocked(tmp_path):
     """Test unblocking an entity that isn't blocked raises error."""
     import json
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     entity_dir = tmp_path / "entities" / "alice"
     entity_dir.mkdir(parents=True)
@@ -2519,7 +2519,7 @@ def test_delete_journal_entity_success(tmp_path):
     """Test deleting a journal entity removes all data."""
     import json
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Create journal entity with observations
     entity_dir = tmp_path / "entities" / "alice"
@@ -2549,7 +2549,7 @@ def test_delete_journal_entity_principal_protected(tmp_path):
     """Test deleting principal entity is rejected."""
     import json
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Create principal entity
     entity_dir = tmp_path / "entities" / "myself"
@@ -2570,7 +2570,7 @@ def test_load_entities_excludes_blocked_by_default(tmp_path):
     """Test that load_entities excludes blocked entities by default."""
     import json
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Create journal entities - one normal, one blocked
     normal_dir = tmp_path / "entities" / "alice"
@@ -2612,7 +2612,7 @@ def test_load_entities_includes_blocked_when_requested(tmp_path):
     """Test that load_entities includes blocked entities when include_blocked=True."""
     import json
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Create blocked journal entity
     blocked_dir = tmp_path / "entities" / "bob"
@@ -2643,7 +2643,7 @@ def test_resolve_entity_excludes_blocked_by_default(tmp_path):
     """Test that resolve_entity doesn't find blocked entities by default."""
     import json
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Create blocked journal entity
     blocked_dir = tmp_path / "entities" / "bob"
@@ -2672,7 +2672,7 @@ def test_resolve_entity_finds_blocked_when_requested(tmp_path):
     """Test that resolve_entity finds blocked entities when include_blocked=True."""
     import json
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Create blocked journal entity
     blocked_dir = tmp_path / "entities" / "bob"
@@ -2703,7 +2703,7 @@ def test_load_all_attached_entities_excludes_blocked(tmp_path):
     """Test that load_all_attached_entities excludes blocked entities."""
     import json
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     # Create journal entities - one normal, one blocked
     normal_dir = tmp_path / "entities" / "alice"

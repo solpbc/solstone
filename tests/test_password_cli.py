@@ -65,7 +65,7 @@ class TestSetPassword:
 
     def test_no_config_file(self, tmp_path, monkeypatch, capsys):
         """Works when no journal.json exists yet."""
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
         monkeypatch.setattr("sys.argv", ["sol password", "set"])
         _mock_getpass(monkeypatch, "freshpass", "freshpass")
 

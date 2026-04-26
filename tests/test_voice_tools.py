@@ -135,7 +135,7 @@ def test_entities_recent_with_failure():
 
 
 def test_commitments_list_happy(monkeypatch, tmp_path):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _minimal_facet_tree(tmp_path)
     _write_story_activity(
         "work",
@@ -159,7 +159,7 @@ def test_commitments_list_failure():
 
 
 def test_commitments_complete_happy(monkeypatch, tmp_path):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _minimal_facet_tree(tmp_path)
     _write_story_activity(
         "work",

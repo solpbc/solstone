@@ -498,7 +498,7 @@ def test_granola_sync_import(tmp_path, monkeypatch):
     from think.importers.sync import load_sync_state
 
     # Point journal to tmp_path
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     muesli_dir = tmp_path / "muesli"
     _write_transcript(muesli_dir, "2025-10-28_q1.md", SAMPLE_TRANSCRIPT)
@@ -570,7 +570,7 @@ def test_granola_backends_cli_flag(capsys, monkeypatch):
     from think.importers.cli import main
 
     monkeypatch.setattr(sys, "argv", ["sol import", "--backends"])
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", "/tmp/test-journal")
+    monkeypatch.setenv("SOLSTONE_JOURNAL", "/tmp/test-journal")
     main()
     captured = capsys.readouterr()
     assert "granola" in captured.out
@@ -590,7 +590,7 @@ def test_granola_sync_cli(capsys, monkeypatch, tmp_path):
         "argv",
         ["sol import", "--sync", "granola", "--path", str(muesli_dir)],
     )
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     main()
     captured = capsys.readouterr()
@@ -639,7 +639,7 @@ def test_observations_created_on_import(tmp_path, monkeypatch):
     from think.entities.observations import load_observations
     from think.importers.granola import GranolaBackend
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     muesli_dir = tmp_path / "muesli"
     _write_transcript(muesli_dir, "2025-10-28_enriched.md", ENRICHED_TRANSCRIPT)
@@ -680,7 +680,7 @@ def test_observations_not_duplicated_on_reimport(tmp_path, monkeypatch):
     from think.entities.observations import load_observations
     from think.importers.granola import GranolaBackend
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     muesli_dir = tmp_path / "muesli"
     _write_transcript(muesli_dir, "2025-10-28_enriched.md", ENRICHED_TRANSCRIPT)
@@ -706,7 +706,7 @@ def test_observations_source_day(tmp_path, monkeypatch):
     from think.entities.observations import load_observations
     from think.importers.granola import GranolaBackend
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     muesli_dir = tmp_path / "muesli"
     _write_transcript(muesli_dir, "2025-10-28_enriched.md", ENRICHED_TRANSCRIPT)
@@ -722,7 +722,7 @@ def test_seed_entities_without_observations(tmp_path, monkeypatch):
     """seed_entities() works unchanged when no observations are provided."""
     from think.entities.seeding import seed_entities
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     entities = [
         {"name": "Test Person", "type": "Person", "email": "test@example.com"},
@@ -737,7 +737,7 @@ def test_seed_entities_observation_formatting(tmp_path, monkeypatch):
     from think.entities.observations import load_observations
     from think.entities.seeding import seed_entities
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     entities = [
         # title + company
@@ -795,7 +795,7 @@ def test_seed_entities_observation_dedup(tmp_path, monkeypatch):
     from think.entities.observations import load_observations
     from think.entities.seeding import seed_entities
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     entities = [
         {

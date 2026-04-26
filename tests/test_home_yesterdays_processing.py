@@ -66,7 +66,7 @@ def _write_facet_meta(journal: Path, facet: str, title: str) -> None:
 def _seed_journal(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     journal = tmp_path / "journal"
     journal.mkdir()
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
 
     for day, transcript_seconds in (("20260415", 3600), ("20260414", 2700)):
         facet_data = {"work": {"count": 1, "minutes": 15}}
@@ -266,7 +266,7 @@ def test_collect_anticipated_activities_surfaces_only_anticipated_records(
 ):
     journal = tmp_path / "journal"
     journal.mkdir()
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
 
     today = "20260418"
     now_ms = int(datetime.now().timestamp() * 1000)

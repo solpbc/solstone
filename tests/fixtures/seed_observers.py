@@ -87,7 +87,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
             "Sandbox-only observer seed helper. Requires "
-            "_SOLSTONE_JOURNAL_OVERRIDE to already point at a sandbox journal."
+            "SOLSTONE_JOURNAL to already point at a sandbox journal."
         )
     )
     parser.parse_args()

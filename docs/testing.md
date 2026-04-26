@@ -17,8 +17,9 @@
 ## Fixture Journal
 
 ```python
-# Use comprehensive mock journal data for testing
-os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = "tests/fixtures/journal"
+# The autouse set_test_journal_path fixture in tests/conftest.py does this
+# for unit tests. Set it explicitly only when a test needs a different journal.
+os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
 # Now all journal operations work with test data
 ```
 
@@ -47,7 +48,7 @@ make dev                    # Start stack (Ctrl+C to stop)
 In a second terminal, take screenshots or hit endpoints:
 
 ```bash
-export _SOLSTONE_JOURNAL_OVERRIDE=tests/fixtures/journal
+export SOLSTONE_JOURNAL=tests/fixtures/journal
 export PATH=$(pwd)/.venv/bin:$PATH
 sol screenshot / -o scratch/home.png
 curl -s http://localhost:$(cat tests/fixtures/journal/health/convey.port)/

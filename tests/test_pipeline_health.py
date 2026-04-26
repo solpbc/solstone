@@ -25,7 +25,7 @@ def _write_jsonl(path: Path, events: list[dict]) -> None:
 def pipeline_journal(tmp_path, monkeypatch):
     journal = tmp_path / "journal"
     journal.mkdir()
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
     return journal
 
 

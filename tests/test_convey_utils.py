@@ -51,7 +51,7 @@ def test_time_since(monkeypatch):
 
 
 def test_list_day_folders(tmp_path, monkeypatch):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     from think.utils import day_dirs
 
     day_path("20240101")

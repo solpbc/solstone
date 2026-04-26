@@ -102,8 +102,8 @@ def _format_leak_message(new_entries: set[tuple[str, str]]) -> str:
         + "\n".join(lines)
         + "\n\n"
         "To fix, use one of these isolation mechanisms:\n"
-        "  - journal_copy fixture (tests/conftest.py:57) — copies tracked fixtures to tmp_path\n"
-        "  - point _SOLSTONE_JOURNAL_OVERRIDE at a tmp_path directly\n"
+        "  - journal_copy fixture (tests/conftest.py:188) — copies tracked fixtures to tmp_path\n"
+        "  - point SOLSTONE_JOURNAL at a tmp_path directly\n"
         "  - mock the subprocess/write path so code never touches tests/fixtures/\n"
         "\n"
         "Prior incidents: f6f382a6, 2996e072\n"

@@ -37,7 +37,7 @@ async def test_pair_enroll_dial_roundtrip(
 ) -> None:
     tmp_journal = tmp_path / "journal"
     tmp_journal.mkdir()
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_journal))
 
     with (
         running_convey_server(tmp_journal) as base_url,
@@ -113,7 +113,7 @@ async def test_websocket_upgrade_and_bidirectional_flow(
 ) -> None:
     tmp_journal = tmp_path / "journal"
     tmp_journal.mkdir()
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_journal))
 
     with (
         running_convey_server(tmp_journal) as base_url,

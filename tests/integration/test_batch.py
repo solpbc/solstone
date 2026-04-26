@@ -226,7 +226,7 @@ async def test_batch_dynamic_adding():
 async def test_batch_token_logging():
     """Test that token logging works with batch execution."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
+        os.environ["SOLSTONE_JOURNAL"] = tmpdir
 
         batch = Batch(max_concurrent=2)
 

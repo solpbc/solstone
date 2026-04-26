@@ -146,7 +146,7 @@ def test_excludes_today(mock_callosum, monkeypatch, submit_mock, set_today):
 def test_handle_think_daily_complete_submits_heartbeat(
     mock_callosum, tmp_path, monkeypatch, submit_mock
 ):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     (tmp_path / "health").mkdir(exist_ok=True)
 
     mod._handle_think_daily_complete(daily_complete_message())
@@ -167,7 +167,7 @@ def test_handle_think_daily_complete_submits_heartbeat(
 def test_ignores_non_think_daily_complete(
     mock_callosum, tmp_path, monkeypatch, submit_mock, message
 ):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     (tmp_path / "health").mkdir(exist_ok=True)
 
     mod._handle_think_daily_complete(message)
@@ -176,7 +176,7 @@ def test_ignores_non_think_daily_complete(
 
 
 def test_skips_when_pid_alive(mock_callosum, tmp_path, monkeypatch, submit_mock):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     health = tmp_path / "health"
     health.mkdir(exist_ok=True)
     (health / "heartbeat.pid").write_text(str(os.getpid()))
@@ -187,7 +187,7 @@ def test_skips_when_pid_alive(mock_callosum, tmp_path, monkeypatch, submit_mock)
 
 
 def test_proceeds_on_dead_pid(mock_callosum, tmp_path, monkeypatch, submit_mock):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     health = tmp_path / "health"
     health.mkdir(exist_ok=True)
     (health / "heartbeat.pid").write_text("99999999")

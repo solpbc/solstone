@@ -23,7 +23,7 @@ FIXTURES = Path("tests/fixtures")
 
 
 def copy_day(tmp_path: Path) -> Path:
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
     dest = day_path("20240101")
     src = FIXTURES / "journal" / "chronicle" / "20240101"
     copytree_tracked(src, dest)
@@ -103,7 +103,7 @@ def test_generate_output_ndjson(tmp_path, monkeypatch):
         lambda *a, **k: MOCK_RESULT,
     )
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     config = {
         "name": "test_gen",
@@ -158,7 +158,7 @@ def test_dispatcher_passes_json_schema(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(think.models, "generate_with_result", mock_generate)
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     events = run_generator_with_config(
         mod,
@@ -201,7 +201,7 @@ def test_dispatcher_omits_json_schema_when_absent(tmp_path, monkeypatch):
     mock_generate = MagicMock(return_value=MOCK_RESULT)
     monkeypatch.setattr(think.models, "generate_with_result", mock_generate)
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     run_generator_with_config(
         mod,
@@ -255,7 +255,7 @@ def test_finish_event_includes_schema_validation(tmp_path, monkeypatch):
         ),
     )
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     events = run_generator_with_config(
         mod,
@@ -301,7 +301,7 @@ def test_finish_event_omits_schema_validation_when_absent(tmp_path, monkeypatch)
         MagicMock(return_value=MOCK_RESULT),
     )
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     events = run_generator_with_config(
         mod,
@@ -364,7 +364,7 @@ def post_process(result, context):
         lambda *a, **k: MOCK_RESULT,
     )
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     config = {
         "name": "hooked_gen",
@@ -418,7 +418,7 @@ def test_generate_without_hook_succeeds(tmp_path, monkeypatch):
         lambda *a, **k: MOCK_RESULT,
     )
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     config = {
         "name": "nohook_gen",
@@ -442,7 +442,7 @@ def test_generate_error_event_on_missing_generator(tmp_path, monkeypatch):
     mod = importlib.import_module("think.talents")
     copy_day(tmp_path)
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     config = {
         "name": "nonexistent_generator",
@@ -463,7 +463,7 @@ def test_generate_skipped_on_no_input(tmp_path, monkeypatch):
     mod = importlib.import_module("think.talents")
 
     # Create empty day directory (no transcripts)
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
     day_dir = day_path("20240101")
     day_dir.mkdir(parents=True, exist_ok=True)
 
@@ -477,7 +477,7 @@ def test_generate_skipped_on_no_input(tmp_path, monkeypatch):
     )
 
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     config = {
         "name": "empty_gen",
@@ -500,7 +500,7 @@ def test_cogitate_not_skipped_without_sources(tmp_path, monkeypatch):
     mod = importlib.import_module("think.talents")
 
     # Create empty day directory (no transcripts)
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
     day_dir = day_path("20240101")
     day_dir.mkdir(parents=True, exist_ok=True)
 
@@ -514,7 +514,7 @@ def test_cogitate_not_skipped_without_sources(tmp_path, monkeypatch):
     )
 
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     config = mod.prepare_config(
         {

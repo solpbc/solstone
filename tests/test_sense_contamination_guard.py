@@ -123,7 +123,7 @@ def test_participation_clamps_attendees_when_all_segments_are_non_meetings(
     day = "20260418"
     stream = "default"
     segments = ["090000_300", "090500_300"]
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     _write_detected_entities(
         tmp_path,
@@ -165,7 +165,7 @@ def test_participation_preserves_attendees_when_any_segment_is_meeting(
     day = "20260418"
     stream = "default"
     segments = ["090000_300", "090500_300"]
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     _write_detected_entities(
         tmp_path,
@@ -205,7 +205,7 @@ def test_participation_clamp_is_idempotent_on_second_pass(
     day = "20260418"
     stream = "default"
     segments = ["090000_300", "090500_300"]
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     _write_detected_entities(
         tmp_path,
@@ -256,7 +256,7 @@ def test_participation_treats_missing_sense_json_as_non_meeting(
     day = "20260418"
     stream = "default"
     segments = ["090000_300", "090500_300"]
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     _write_detected_entities(
         tmp_path,

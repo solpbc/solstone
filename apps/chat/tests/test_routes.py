@@ -32,12 +32,12 @@ def journal_copy(tmp_path, monkeypatch):
     src = Path("tests/fixtures/journal").resolve()
     dst = tmp_path / "journal"
     copytree_tracked(src, dst)
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(dst.resolve()))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(dst.resolve()))
     return dst
 
 
 def _make_env(journal, monkeypatch) -> ChatTestEnv:
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
     app = create_app(str(journal))
     app.config["TESTING"] = True
     client = app.test_client()

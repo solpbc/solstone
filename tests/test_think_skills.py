@@ -35,7 +35,7 @@ from think.skills import (
 
 @pytest.fixture
 def skill_journal(monkeypatch, tmp_path):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     return Path(tmp_path)
 
 

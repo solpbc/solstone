@@ -167,7 +167,7 @@ SEGMENTS = [
 class TestPipelineSmokeTest:
     def test_full_pipeline_smoke(self, tmp_path: Path, monkeypatch):
         journal = tmp_path / "journal"
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
 
         state_machine = ActivityStateMachine()
         activity_calls = []

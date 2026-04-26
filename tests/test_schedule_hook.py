@@ -38,7 +38,7 @@ def test_schedule_post_process_writes_record_and_resolves_entities(
     from talent.schedule import post_process
     from think.activities import load_activity_records
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _write_facet(tmp_path, "work")
     _write_detected_entities(
         tmp_path,
@@ -110,7 +110,7 @@ def test_schedule_post_process_marks_cancelled_records_hidden(tmp_path, monkeypa
     from talent.schedule import post_process
     from think.activities import load_activity_records
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _write_facet(tmp_path, "work")
 
     payload = [
@@ -147,7 +147,7 @@ def test_schedule_post_process_skips_missing_required_field(
     from talent.schedule import post_process
     from think.activities import load_activity_records
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _write_facet(tmp_path, "work")
     caplog.set_level(logging.WARNING, logger="talent.schedule")
 
@@ -178,7 +178,7 @@ def test_schedule_post_process_skips_missing_required_field(
 def test_schedule_post_process_skips_unknown_facet(tmp_path, monkeypatch, caplog):
     from talent.schedule import post_process
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _write_facet(tmp_path, "work")
     caplog.set_level(logging.WARNING, logger="talent.schedule")
 
@@ -210,7 +210,7 @@ def test_schedule_post_process_skips_non_future_items(tmp_path, monkeypatch, cap
     from talent.schedule import post_process
     from think.activities import load_activity_records
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _write_facet(tmp_path, "work")
     caplog.set_level(logging.WARNING, logger="talent.schedule")
 
@@ -244,7 +244,7 @@ def test_schedule_post_process_logs_error_on_invalid_json(
 ):
     from talent.schedule import post_process
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _write_facet(tmp_path, "work")
     caplog.set_level(logging.ERROR, logger="talent.schedule")
 
@@ -256,7 +256,7 @@ def test_schedule_post_process_is_idempotent(tmp_path, monkeypatch):
     from talent.schedule import post_process
     from think.activities import load_activity_records
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _write_facet(tmp_path, "work")
 
     payload = json.dumps(
@@ -289,7 +289,7 @@ def test_schedule_post_process_fuzzy_supersedes_previous_record(tmp_path, monkey
     from talent.schedule import post_process
     from think.activities import append_activity_record, load_activity_records
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _write_facet(tmp_path, "work")
 
     append_activity_record(
@@ -358,7 +358,7 @@ def test_schedule_post_process_cancelled_record_supersedes_pending(
     from talent.schedule import post_process
     from think.activities import append_activity_record, load_activity_records
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _write_facet(tmp_path, "work")
 
     append_activity_record(

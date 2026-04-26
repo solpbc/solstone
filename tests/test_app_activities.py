@@ -13,14 +13,14 @@ from apps.activities.routes import activities_bp
 
 @pytest.fixture
 def fixture_journal():
-    """Set _SOLSTONE_JOURNAL_OVERRIDE to tests/fixtures/journal for testing."""
-    old = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = "tests/fixtures/journal"
+    """Set SOLSTONE_JOURNAL to tests/fixtures/journal for testing."""
+    old = os.environ.get("SOLSTONE_JOURNAL")
+    os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     yield
     if old is None:
-        os.environ.pop("_SOLSTONE_JOURNAL_OVERRIDE", None)
+        os.environ.pop("SOLSTONE_JOURNAL", None)
     else:
-        os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = old
+        os.environ["SOLSTONE_JOURNAL"] = old
 
 
 @pytest.fixture
@@ -108,7 +108,7 @@ class TestActivitiesStatsRoutes:
         from convey import state
 
         journal = tmp_path / "journal"
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
 
         for facet in ("work", "personal"):
             facet_dir = journal / "facets" / facet

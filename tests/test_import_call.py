@@ -57,7 +57,7 @@ def import_env(tmp_path, monkeypatch):
     """Set up a temp journal with an import source and state directory."""
 
     monkeypatch.setattr(convey.state, "journal_root", str(tmp_path), raising=False)
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     think.utils._journal_path_cache = None
     clear_journal_entity_cache()
     (tmp_path / "apps" / "import" / "journal_sources").mkdir(

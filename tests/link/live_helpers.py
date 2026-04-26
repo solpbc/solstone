@@ -150,7 +150,7 @@ def running_link_service(
     repo_root = Path(__file__).resolve().parents[2]
     sol_bin = Path(sys.executable).with_name("sol")
     env = os.environ.copy()
-    env["_SOLSTONE_JOURNAL_OVERRIDE"] = str(journal_path)
+    env["SOLSTONE_JOURNAL"] = str(journal_path)
     env["SOL_LINK_RELAY_URL"] = relay_url
     env["SOL_SKIP_SUPERVISOR_CHECK"] = "1"
     env["PYTHONUNBUFFERED"] = "1"

@@ -37,7 +37,7 @@ import_bp = import_routes.import_bp
 
 
 def _set_active_journal(journal: Path) -> None:
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(journal)
+    os.environ["SOLSTONE_JOURNAL"] = str(journal)
     think.utils._journal_path_cache = None
     clear_journal_entity_cache()
 
@@ -121,7 +121,7 @@ class _FlaskSessionAdapter:
 @pytest.fixture
 def export_integration_env(tmp_path, monkeypatch):
     """Set up source journal + target Flask app for integration testing."""
-    previous_override = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
+    previous_override = os.environ.get("SOLSTONE_JOURNAL")
     source_journal = tmp_path / "source"
     source_journal.mkdir()
     _set_active_journal(source_journal)
@@ -174,9 +174,9 @@ def export_integration_env(tmp_path, monkeypatch):
     }
 
     if previous_override is None:
-        os.environ.pop("_SOLSTONE_JOURNAL_OVERRIDE", None)
+        os.environ.pop("SOLSTONE_JOURNAL", None)
     else:
-        os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = previous_override
+        os.environ["SOLSTONE_JOURNAL"] = previous_override
     think.utils._journal_path_cache = None
     clear_journal_entity_cache()
 

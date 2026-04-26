@@ -19,7 +19,7 @@ def wipe_journal(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> tuple[Path, list[Path]]:
     journal = tmp_path / "journal"
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
 
     import think.utils
 

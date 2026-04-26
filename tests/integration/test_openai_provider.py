@@ -25,7 +25,7 @@ def get_fixtures_env():
     load_dotenv(fixtures_env, override=True)
 
     api_key = os.getenv("OPENAI_API_KEY")
-    journal_path = os.getenv("_SOLSTONE_JOURNAL_OVERRIDE")
+    journal_path = os.getenv("SOLSTONE_JOURNAL")
 
     return fixtures_env, api_key, journal_path
 
@@ -44,11 +44,11 @@ def test_openai_provider_basic():
         pytest.skip("OPENAI_API_KEY not found in tests/fixtures/.env file")
 
     if not journal_path:
-        pytest.skip("_SOLSTONE_JOURNAL_OVERRIDE not found in tests/fixtures/.env file")
+        pytest.skip("SOLSTONE_JOURNAL not found in tests/fixtures/.env file")
 
     # Prepare environment
     env = os.environ.copy()
-    env["_SOLSTONE_JOURNAL_OVERRIDE"] = journal_path
+    env["SOLSTONE_JOURNAL"] = journal_path
     env["OPENAI_API_KEY"] = api_key
 
     # Create NDJSON input (no tool config)
@@ -144,11 +144,11 @@ def test_openai_provider_with_reasoning():
         pytest.skip("OPENAI_API_KEY not found in tests/fixtures/.env file")
 
     if not journal_path:
-        pytest.skip("_SOLSTONE_JOURNAL_OVERRIDE not found in tests/fixtures/.env file")
+        pytest.skip("SOLSTONE_JOURNAL not found in tests/fixtures/.env file")
 
     # Prepare environment
     env = os.environ.copy()
-    env["_SOLSTONE_JOURNAL_OVERRIDE"] = journal_path
+    env["SOLSTONE_JOURNAL"] = journal_path
     env["OPENAI_API_KEY"] = api_key
 
     # Use a prompt that encourages step-by-step reasoning
@@ -229,11 +229,11 @@ def test_openai_provider_with_extra_context():
         pytest.skip("OPENAI_API_KEY not found in tests/fixtures/.env file")
 
     if not journal_path:
-        pytest.skip("_SOLSTONE_JOURNAL_OVERRIDE not found in tests/fixtures/.env file")
+        pytest.skip("SOLSTONE_JOURNAL not found in tests/fixtures/.env file")
 
     # Prepare environment
     env = os.environ.copy()
-    env["_SOLSTONE_JOURNAL_OVERRIDE"] = journal_path
+    env["SOLSTONE_JOURNAL"] = journal_path
     env["OPENAI_API_KEY"] = api_key
 
     # Include extra_context like get_talent() does in production

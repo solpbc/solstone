@@ -25,7 +25,7 @@ runner = CliRunner()
 
 @pytest.fixture
 def skill_cli_env(monkeypatch, tmp_path):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     return Path(tmp_path)
 
 

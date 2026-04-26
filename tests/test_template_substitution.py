@@ -44,17 +44,17 @@ def mock_journal_with_config(tmp_path):
     with open(config_dir / "journal.json", "w") as f:
         json.dump(config, f)
 
-    # Set _SOLSTONE_JOURNAL_OVERRIDE for the test
-    old_journal = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    # Set SOLSTONE_JOURNAL for the test
+    old_journal = os.environ.get("SOLSTONE_JOURNAL")
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     yield tmp_path
 
-    # Restore original _SOLSTONE_JOURNAL_OVERRIDE
+    # Restore original SOLSTONE_JOURNAL
     if old_journal:
-        os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = old_journal
+        os.environ["SOLSTONE_JOURNAL"] = old_journal
     else:
-        os.environ.pop("_SOLSTONE_JOURNAL_OVERRIDE", None)
+        os.environ.pop("SOLSTONE_JOURNAL", None)
 
 
 @pytest.fixture
@@ -158,7 +158,7 @@ def test_load_prompt_without_substitution(mock_journal_with_config, mock_prompt_
 def test_load_prompt_missing_config_graceful(tmp_path, mock_prompt_dir):
     """Test that load_prompt works even without config (safe_substitute)."""
     # Point to a journal without config
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
+    os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
 
     result = load_prompt("test_template", base_dir=mock_prompt_dir)
 
@@ -280,11 +280,11 @@ def test_load_prompt_identity_vars_follow_journal_override(monkeypatch, tmp_path
     write_journal(journal_one, "first awareness")
     write_journal(journal_two, "second awareness")
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_one))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_one))
     first = load_prompt("identity_vars", base_dir=prompt_dir)
     assert "first awareness" in first.text
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_two))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_two))
     second = load_prompt("identity_vars", base_dir=prompt_dir)
     assert "second awareness" in second.text
     assert "first awareness" not in second.text

@@ -132,18 +132,18 @@ from think.voice.runtime import stop_all_voice_runtime
 
 @pytest.fixture(autouse=True)
 def set_test_journal_path(request, monkeypatch):
-    """Set _SOLSTONE_JOURNAL_OVERRIDE to tests/fixtures/journal for all unit tests.
+    """Set SOLSTONE_JOURNAL to tests/fixtures/journal for all unit tests.
 
-    This ensures all tests have a valid _SOLSTONE_JOURNAL_OVERRIDE without needing
+    This ensures all tests have a valid SOLSTONE_JOURNAL without needing
     to explicitly set it in each test. Integration tests are excluded.
     """
     # Skip for integration tests - they may have different requirements
     if "integration" in request.node.keywords:
         return
 
-    # Set _SOLSTONE_JOURNAL_OVERRIDE to tests/fixtures/journal for all unit tests
+    # Set SOLSTONE_JOURNAL to tests/fixtures/journal for all unit tests
     monkeypatch.setenv(
-        "_SOLSTONE_JOURNAL_OVERRIDE",
+        "SOLSTONE_JOURNAL",
         str(Path("tests/fixtures/journal").resolve()),
     )
     monkeypatch.setenv("SOL_SKIP_SUPERVISOR_CHECK", "1")
@@ -191,7 +191,7 @@ def journal_copy(tmp_path, monkeypatch):
     src = Path(__file__).resolve().parent / "fixtures" / "journal"
     dst = tmp_path / "journal"
     copytree_tracked(src, dst)
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(dst.resolve()))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(dst.resolve()))
     return dst
 
 

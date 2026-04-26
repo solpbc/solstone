@@ -22,12 +22,12 @@ system_mod = convey.system
 
 @pytest.fixture(autouse=True)
 def _temp_journal(monkeypatch, tmp_path):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     journal = tmp_path
     (journal / "config").mkdir(parents=True, exist_ok=True)
     config = {

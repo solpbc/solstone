@@ -20,7 +20,7 @@ from convey.chat_stream import (
 def _setup_journal(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     journal = tmp_path / "journal"
     journal.mkdir()
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
     return journal
 
 

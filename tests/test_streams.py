@@ -90,7 +90,7 @@ def test_stream_name_validation():
 
 def test_update_stream_first_segment(tmp_path, monkeypatch):
     """First segment creates state, prev=None, seq=1."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     result = update_stream("archon", "20250119", "142500_300", type="observer")
 
@@ -110,7 +110,7 @@ def test_update_stream_first_segment(tmp_path, monkeypatch):
 
 def test_update_stream_subsequent(tmp_path, monkeypatch):
     """Subsequent segments increment seq and return correct prev."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     update_stream("archon", "20250119", "142500_300", type="observer")
     result = update_stream("archon", "20250119", "143000_300")
@@ -126,7 +126,7 @@ def test_update_stream_subsequent(tmp_path, monkeypatch):
 
 def test_update_stream_cross_day(tmp_path, monkeypatch):
     """Prev points to different day when crossing midnight."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     update_stream("archon", "20250119", "235500_300")
     result = update_stream("archon", "20250120", "000000_300")
@@ -180,7 +180,7 @@ def test_read_segment_stream_missing(tmp_path):
 
 def test_list_streams(tmp_path, monkeypatch):
     """Discovers all stream state files."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     update_stream("archon", "20250119", "142500_300", type="observer")
     update_stream("laptop", "20250119", "142500_300", type="observer")
@@ -199,7 +199,7 @@ def test_list_streams(tmp_path, monkeypatch):
 
 def test_rebuild_stream_state(tmp_path, monkeypatch):
     """Reconstructs state from segment markers."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     # Create segment dirs with stream markers under default stream
     day_dir = tmp_path / "chronicle" / "20250119"
@@ -234,7 +234,7 @@ def test_rebuild_stream_state(tmp_path, monkeypatch):
 
 def test_update_stream_atomicity(tmp_path, monkeypatch):
     """Concurrent writes don't corrupt state file."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     errors = []
 

@@ -127,7 +127,7 @@ def test_generated_stats_pass_schema(tmp_path, monkeypatch):
     stats_mod = importlib.import_module("think.journal_stats")
     schema_mod = importlib.import_module("think.stats_schema")
     journal = _build_journal(tmp_path)
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
 
     output = _scan_output(journal, stats_mod)
 
@@ -139,7 +139,7 @@ def test_generated_stats_pass_schema(tmp_path, monkeypatch):
 def test_contract_fields_exist_in_output(tmp_path, monkeypatch):
     stats_mod = importlib.import_module("think.journal_stats")
     journal = _build_journal(tmp_path)
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
 
     output = _scan_output(journal, stats_mod)
 
@@ -162,7 +162,7 @@ def test_all_day_fields_have_nonzero_values(tmp_path, monkeypatch):
     stats_mod = importlib.import_module("think.journal_stats")
     schema_mod = importlib.import_module("think.stats_schema")
     journal = _build_journal(tmp_path)
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
 
     output = _scan_output(journal, stats_mod)
     day_entry = next(iter(output["days"].values()))

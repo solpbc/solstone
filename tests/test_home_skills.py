@@ -102,14 +102,14 @@ confidence: {confidence}
 
 def test_collect_skills_no_facets(monkeypatch, tmp_path):
     """No owner-wide skills directory yields an empty list."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     assert _collect_skills() == []
 
 
 def test_collect_skills_no_patterns(monkeypatch, tmp_path):
     """An empty owner-wide skills directory yields an empty list."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     (tmp_path / "skills").mkdir(parents=True)
 
@@ -118,7 +118,7 @@ def test_collect_skills_no_patterns(monkeypatch, tmp_path):
 
 def test_collect_skills_with_owner_wide_profile(monkeypatch, tmp_path):
     """Pulse collects owner-wide profiles with the new payload shape."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     _write_skill_fixtures(
         tmp_path,
@@ -178,7 +178,7 @@ def test_collect_skills_with_owner_wide_profile(monkeypatch, tmp_path):
 
 def test_collect_skills_hides_pattern_without_profile(monkeypatch, tmp_path):
     """Observer-only patterns stay hidden until a profile exists."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     _write_skill_fixtures(
         tmp_path,
@@ -191,7 +191,7 @@ def test_collect_skills_hides_pattern_without_profile(monkeypatch, tmp_path):
 
 def test_collect_skills_seen_flag(monkeypatch, tmp_path):
     """Profiles older than the last seen marker are marked seen."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     _write_skill_fixtures(
         tmp_path,
@@ -218,7 +218,7 @@ def test_collect_skills_seen_flag(monkeypatch, tmp_path):
 
 def test_collect_skills_shows_dormant(monkeypatch, tmp_path):
     """Dormant skills stay visible in Pulse."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     _write_skill_fixtures(
         tmp_path,
@@ -240,7 +240,7 @@ def test_collect_skills_shows_dormant(monkeypatch, tmp_path):
 
 def test_collect_skills_hides_retired(monkeypatch, tmp_path):
     """Retired skills are excluded from Pulse."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     _write_skill_fixtures(
         tmp_path,
@@ -259,7 +259,7 @@ def test_collect_skills_hides_retired(monkeypatch, tmp_path):
 
 def test_collect_skills_sorts_by_confidence_then_last_seen(monkeypatch, tmp_path):
     """Skills sort by confidence first, then recency."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     _write_skill_fixtures(
         tmp_path,
@@ -325,7 +325,7 @@ def test_collect_skills_sorts_by_confidence_then_last_seen(monkeypatch, tmp_path
 
 def test_api_skills_seen(monkeypatch, tmp_path, home_client):
     """Seen endpoint persists the skills seen timestamp."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     resp = home_client.post("/app/home/api/skills/seen")
 

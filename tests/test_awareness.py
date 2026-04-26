@@ -13,7 +13,7 @@ import pytest
 @pytest.fixture(autouse=True)
 def _temp_journal(monkeypatch, tmp_path):
     """Isolate all tests to a temporary journal."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
 
 def _read_identity_history(journal_path):

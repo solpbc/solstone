@@ -2,11 +2,40 @@
 
 ## Journal Path
 
-The journal lives at `journal/` in the project root. `get_journal()` from `think.utils` returns the path — trust it unconditionally. Never set `_SOLSTONE_JOURNAL_OVERRIDE` from application code, service files, agent prompts, or subprocess environments. The env var exists exclusively for external use: test harnesses (`monkeypatch.setenv`) and Makefile sandboxes. If you think you need to override the journal path, you don't — fix the actual problem instead.
+`get_journal()` / `get_journal_info()` in `think.utils` are the canonical journal resolvers. Trust them unconditionally.
+
+Resolver order:
+
+1. `SOLSTONE_JOURNAL` if it is set
+2. source-tree fallback: `<project_root>/journal` when both `<project_root>/pyproject.toml` and `<project_root>/.git` exist
+3. `SolstoneNotConfigured` if neither branch resolves
+
+Who sets `SOLSTONE_JOURNAL`:
+
+- Installed runs: the managed wrapper at `~/.local/bin/sol`
+- Unit tests: the `set_test_journal_path` autouse fixture in `tests/conftest.py`
+- Makefile sandboxes: explicit per-command env injection in `make sandbox` / verify targets
+
+Who must **not** set it:
+
+- application code
+- service files
+- agent prompts
+- ad hoc subprocess environments spawned by app code
+
+If you think you need to set `SOLSTONE_JOURNAL` from application code, fix the actual resolution problem instead.
 
 ## Service Installation
 
-`make install-service` installs the `sol` CLI alias in `~/.local/bin`, then installs solstone as a systemd user service (Linux) or launchd agent (macOS) with convey on port 5015. Override with `make install-service PORT=8000`. Managed via `sol service <install|start|stop|restart|status|logs>`.
+`make install-service` installs the managed wrapper at `~/.local/bin/sol`, then installs solstone as a systemd user service (Linux) or launchd agent (macOS) with convey on port 5015. Override with `make install-service PORT=8000`.
+
+Installed services invoke `~/.local/bin/sol`. They do **not** write `SOLSTONE_JOURNAL` into the service env block; the wrapper exports it before execing the venv `sol`.
+
+Use:
+
+- `sol config show` to display the resolved journal path, user-facing source label, and wrapper status
+- `sol config journal <path>` to atomically rewrite the wrapper's embedded journal path
+- `sol service <install|start|stop|restart|status|logs>` for service lifecycle management
 
 ## API Keys
 

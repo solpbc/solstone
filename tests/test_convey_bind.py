@@ -52,7 +52,7 @@ def _launch_convey(journal_copy, port: int) -> subprocess.Popen[str]:
         f"run_service(app, host=_resolve_bind_host(), port={port}, start_watcher=False)"
     )
     env = os.environ.copy()
-    env["_SOLSTONE_JOURNAL_OVERRIDE"] = str(journal_copy)
+    env["SOLSTONE_JOURNAL"] = str(journal_copy)
     env["SOL_SKIP_SUPERVISOR_CHECK"] = "1"
     return subprocess.Popen(
         [sys.executable, "-c", code],

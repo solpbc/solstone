@@ -62,7 +62,7 @@ def test_get_facet_news_orders_and_paginates(tmp_path):
         body="Older summary entry for the facet.",
     )
 
-    with patch.dict("os.environ", {"_SOLSTONE_JOURNAL_OVERRIDE": str(journal_path)}):
+    with patch.dict("os.environ", {"SOLSTONE_JOURNAL": str(journal_path)}):
         from think.facets import get_facet_news
 
         first_page = get_facet_news("test-facet")

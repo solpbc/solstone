@@ -54,7 +54,7 @@ Top-level dirs intentionally not in the table: `.venv/`, `scratch/`, `logs/`, `t
 
 **Key concepts, priority-ordered:**
 
-- **Journal** — the on-disk record rooted at `journal/` in the repo. Every day is a `journal/chronicle/YYYYMMDD/` directory. Segments (timestamped capture windows) are anchored to creation/modification time, not content "about" time. `get_journal()` from `think.utils` is the single source of truth for journal path resolution; trust it unconditionally. Never set `_SOLSTONE_JOURNAL_OVERRIDE` from application code (see §8).
+- **Journal** — the on-disk record rooted at `journal/` in the repo. Every day is a `journal/chronicle/YYYYMMDD/` directory. Segments (timestamped capture windows) are anchored to creation/modification time, not content "about" time. `get_journal()` from `think.utils` is the single source of truth for journal path resolution; trust it unconditionally. Installed runs inherit `SOLSTONE_JOURNAL` from the managed wrapper at `~/.local/bin/sol`; tests use the autouse fixture; sandboxes set it explicitly. Application code must not set it itself (see §8).
 - **Talents** — AI processors (markdown prompt + optional Python post-hook). Each has a config in `talent/<name>.md` with frontmatter that declares hooks, priority, model, and output. Cortex spawns them as subprocesses.
 - **Callosum** — Unix-socket JSON message bus at `journal/health/callosum.sock`. Real-time event distribution across services (`tract` + `event` + payload). If components need to talk asynchronously, they talk through callosum.
 - **Cortex** — process manager for talent runs. Listens on callosum (`tract="cortex"`, `event="request"`), spawns `python -m think.talents` subprocesses, writes `<talent>/<ts>_active.jsonl` then renames to `<talent>/<ts>.jsonl` on completion, broadcasts all events back through callosum. Read `docs/CORTEX.md` before modifying talent execution.
@@ -156,7 +156,7 @@ Verified against `Makefile`. Grouped by use.
 ## 6. Testing quickstart
 
 - **Framework:** pytest. Files `test_*.py`, functions `test_*`. Shared fixtures in `tests/conftest.py`.
-- **Fixture journal:** `tests/fixtures/journal/` — a complete mock journal with facets, entities, segments, index state. Tests set `os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = "tests/fixtures/journal"` (or use `monkeypatch.setenv`); this is the **only** place that env var is valid (see §8).
+- **Fixture journal:** `tests/fixtures/journal/` — a complete mock journal with facets, entities, segments, index state. The autouse `set_test_journal_path` fixture in `tests/conftest.py` sets `SOLSTONE_JOURNAL` to this path for unit tests. Individual tests may override it with `monkeypatch.setenv` when they need an isolated tmp journal (see §8).
 - **Run one test:** `make test-only TEST=tests/test_utils.py::test_foo` or `TEST="-k test_foo"`.
 - **Run app tests:** `make test-apps` or `make test-app APP=<name>`.
 - **Integration tests** (`tests/integration/`): hit real provider APIs, require `.env` keys, run via `make test-integration`.
@@ -243,7 +243,7 @@ Any function that handles a callosum event, a scheduled tick, or a supervisor-st
 The rules above govern *where* code lives. The rules below govern *how* code behaves. They exist because we got burned.
 
 - **No backwards-compatibility shims.** All code that depends on this project lives in this repository — never add fallback aliases, re-exports for moved symbols, deprecated-parameter handling, or legacy support code. When renaming or removing something, update every usage directly. For journal data-format changes, write a migration script (see `docs/APPS.md` for `maint` commands); do not add a compatibility layer. Cogitate agents default to adding shims; resist this.
-- **Trust `get_journal()` unconditionally.** `get_journal()` from `think.utils` is the single source of truth for journal path resolution. **Never** set `_SOLSTONE_JOURNAL_OVERRIDE` from application code, agent prompts, subprocess environments, or service files. The env var exists exclusively for two external contexts: test harnesses (`monkeypatch.setenv`) and Makefile sandboxes. If you think you need to override the path from app code, you don't — fix the actual problem. See `docs/environment.md`.
+- **Trust `get_journal()` unconditionally.** `get_journal()` from `think.utils` is the single source of truth for journal path resolution. The managed wrapper at `~/.local/bin/sol` sets `SOLSTONE_JOURNAL` for installed runs; tests use the autouse fixture; Makefile sandboxes set it explicitly. Application code, agent prompts, subprocess environments, and service files must not set `SOLSTONE_JOURNAL` themselves. To rewrite the wrapper's embedded path use `sol config journal <path>`. See `docs/environment.md`.
 - **SPDX header on every source file.** All Python (and other source) files begin with:
 
   ```python
@@ -289,7 +289,7 @@ Bare links don't motivate clicking. Each entry below says when you actually need
 | `docs/PROMPT_TEMPLATES.md` | Modifying talent prompt format or frontmatter |
 | `docs/PROVIDERS.md` | Adding a new AI provider; debugging model selection |
 | `docs/testing.md` | Writing integration tests; setting up fixtures; debugging test isolation |
-| `docs/environment.md` | Journal path resolution, service install details, `_SOLSTONE_JOURNAL_OVERRIDE` rules |
+| `docs/environment.md` | Journal path resolution, managed-wrapper behavior, service install details, and `SOLSTONE_JOURNAL` rules |
 | `docs/coding-standards.md` | Full naming conventions, ruff / mypy config, dep-management details — reference for everything not promoted into this file |
 | `docs/project-structure.md` | Canonical directory layout; resolving "where does this file go" debates |
 | `docs/DOCTOR.md` | Diagnostics and debugging a running system |

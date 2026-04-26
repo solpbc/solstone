@@ -8,7 +8,7 @@ from pathlib import Path
 
 from think.talent import get_output_name, get_output_path
 
-os.environ.setdefault("_SOLSTONE_JOURNAL_OVERRIDE", "tests/fixtures/journal")
+os.environ.setdefault("SOLSTONE_JOURNAL", "tests/fixtures/journal")
 
 
 class TestGetOutputName:
@@ -92,7 +92,7 @@ class TestGetActivityOutputPath:
         path = get_activity_output_path(
             "work", "20260209", "coding_100000_300", "session_review"
         )
-        journal = os.environ["_SOLSTONE_JOURNAL_OVERRIDE"]
+        journal = os.environ["SOLSTONE_JOURNAL"]
         expected = (
             Path(journal)
             / "facets/work/activities/20260209/coding_100000_300/session_review.md"

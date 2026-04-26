@@ -175,7 +175,7 @@ def test_process_json():
 
         try:
             with tempfile.TemporaryDirectory() as journal:
-                os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = journal
+                os.environ["SOLSTONE_JOURNAL"] = journal
                 result = importer.process(Path(f.name), Path(journal))
                 assert result.entries_written == 4
                 assert result.errors == []
@@ -198,7 +198,7 @@ def test_process_json():
                 assert entries[1]["speaker"] == "Assistant"
         finally:
             os.unlink(f.name)
-            os.environ.pop("_SOLSTONE_JOURNAL_OVERRIDE", None)
+            os.environ.pop("SOLSTONE_JOURNAL", None)
 
 
 def test_process_zip():
@@ -211,7 +211,7 @@ def test_process_zip():
             )
         try:
             with tempfile.TemporaryDirectory() as journal:
-                os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = journal
+                os.environ["SOLSTONE_JOURNAL"] = journal
                 result = importer.process(Path(tmp.name), Path(journal))
                 assert result.entries_written == 2
                 assert result.segments is not None
@@ -219,7 +219,7 @@ def test_process_zip():
                 assert any(Path(p).suffix == ".jsonl" for p in result.files_created)
         finally:
             os.unlink(tmp.name)
-            os.environ.pop("_SOLSTONE_JOURNAL_OVERRIDE", None)
+            os.environ.pop("SOLSTONE_JOURNAL", None)
 
 
 def test_process_multiple_windows():
@@ -237,7 +237,7 @@ def test_process_multiple_windows():
         f.flush()
         try:
             with tempfile.TemporaryDirectory() as journal:
-                os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = journal
+                os.environ["SOLSTONE_JOURNAL"] = journal
                 result = importer.process(Path(f.name), Path(journal))
                 assert result.entries_written == 4
                 assert result.segments is not None
@@ -245,7 +245,7 @@ def test_process_multiple_windows():
                 assert len(result.files_created) == 2
         finally:
             os.unlink(f.name)
-            os.environ.pop("_SOLSTONE_JOURNAL_OVERRIDE", None)
+            os.environ.pop("SOLSTONE_JOURNAL", None)
 
 
 # --- Registry test ---

@@ -23,7 +23,7 @@ def _run_identity_hydrate(journal_path):
     env = os.environ.copy()
     env.update(
         {
-            "_SOLSTONE_JOURNAL_OVERRIDE": str(journal_path),
+            "SOLSTONE_JOURNAL": str(journal_path),
             "SOL_SKIP_SUPERVISOR_CHECK": "1",
         }
     )

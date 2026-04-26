@@ -16,7 +16,7 @@ from convey.chat_stream import append_chat_event
 def _setup_journal(tmp_path, monkeypatch):
     journal = tmp_path / "journal"
     journal.mkdir()
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
     return journal
 
 

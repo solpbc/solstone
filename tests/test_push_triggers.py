@@ -15,7 +15,7 @@ def _log_path(tmp_path: Path) -> Path:
 
 
 def test_handle_briefing_finish_polls_until_briefing_exists(monkeypatch, tmp_path):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     responses = iter(
         [
             ({}, None, []),
@@ -53,7 +53,7 @@ def test_handle_briefing_finish_polls_until_briefing_exists(monkeypatch, tmp_pat
 
 
 def test_handle_briefing_finish_is_idempotent(monkeypatch, tmp_path):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     sent_calls: list[str] = []
     monkeypatch.setattr(
         triggers,
@@ -82,7 +82,7 @@ def test_handle_briefing_finish_is_idempotent(monkeypatch, tmp_path):
 
 
 def test_check_pre_meeting_prep_skips_muted_facets(monkeypatch, tmp_path):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     monkeypatch.setattr(triggers, "_eligible_devices", lambda: [{"token": "a" * 64}])
     monkeypatch.setattr(triggers, "get_enabled_facets", lambda: {})
     sent_calls: list[str] = []
@@ -100,7 +100,7 @@ def test_check_pre_meeting_prep_skips_muted_facets(monkeypatch, tmp_path):
 
 
 def test_check_pre_meeting_prep_skips_non_anticipated(monkeypatch, tmp_path):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     monkeypatch.setattr(triggers, "_eligible_devices", lambda: [{"token": "a" * 64}])
     monkeypatch.setattr(triggers, "get_enabled_facets", lambda: {"work": {}})
     monkeypatch.setattr(
@@ -123,7 +123,7 @@ def test_check_pre_meeting_prep_skips_non_anticipated(monkeypatch, tmp_path):
 
 
 def test_check_pre_meeting_prep_fires_for_hhmm_and_hhmmss(monkeypatch, tmp_path):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     monkeypatch.setattr(triggers, "_eligible_devices", lambda: [{"token": "a" * 64}])
     monkeypatch.setattr(triggers, "get_enabled_facets", lambda: {"work": {}})
     monkeypatch.setattr(
@@ -162,7 +162,7 @@ def test_check_pre_meeting_prep_fires_for_hhmm_and_hhmmss(monkeypatch, tmp_path)
 
 
 def test_check_pre_meeting_prep_zero_devices_skips_log(monkeypatch, tmp_path):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     monkeypatch.setattr(triggers, "_eligible_devices", lambda: [])
     monkeypatch.setattr(triggers, "get_enabled_facets", lambda: {"work": {}})
     monkeypatch.setattr(
@@ -184,7 +184,7 @@ def test_check_pre_meeting_prep_zero_devices_skips_log(monkeypatch, tmp_path):
 
 
 def test_send_agent_alert_same_context_id_fires_once(monkeypatch, tmp_path):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     monkeypatch.setattr(triggers, "_eligible_devices", lambda: [{"token": "a" * 64}])
     sent_calls: list[dict[str, object]] = []
     monkeypatch.setattr(
@@ -228,7 +228,7 @@ def test_send_agent_alert_same_context_id_fires_once(monkeypatch, tmp_path):
 
 
 def test_send_agent_alert_forwards_route(monkeypatch, tmp_path):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     monkeypatch.setattr(triggers, "_eligible_devices", lambda: [{"token": "a" * 64}])
     payloads: list[dict[str, object]] = []
     monkeypatch.setattr(
@@ -251,7 +251,7 @@ def test_send_agent_alert_forwards_route(monkeypatch, tmp_path):
 def test_handle_weekly_reflection_finish_sends_once_and_appends_chat_event(
     monkeypatch, tmp_path
 ):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     reflection_path = tmp_path / "reflections" / "weekly" / "20260308.md"
     reflection_path.parent.mkdir(parents=True, exist_ok=True)
     reflection_path.write_text("# reflection\n", encoding="utf-8")
@@ -320,7 +320,7 @@ def test_handle_weekly_reflection_finish_sends_once_and_appends_chat_event(
 def test_handle_weekly_reflection_finish_ignores_unrelated_events(
     monkeypatch, tmp_path
 ):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     send_calls: list[tuple] = []
     monkeypatch.setattr(
         triggers,
@@ -364,7 +364,7 @@ def test_handle_weekly_reflection_finish_ignores_unrelated_events(
 def test_handle_weekly_reflection_finish_skips_when_file_never_appears(
     monkeypatch, tmp_path
 ):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     sleeps: list[int] = []
     send_calls: list[dict[str, object]] = []
     chat_events: list[dict[str, object]] = []
@@ -397,7 +397,7 @@ def test_handle_weekly_reflection_finish_skips_when_file_never_appears(
 def test_handle_weekly_reflection_finish_dedupes_chat_event_without_devices(
     monkeypatch, tmp_path
 ):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     reflection_path = tmp_path / "reflections" / "weekly" / "20260308.md"
     reflection_path.parent.mkdir(parents=True, exist_ok=True)
     reflection_path.write_text("# reflection\n", encoding="utf-8")

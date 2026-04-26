@@ -39,7 +39,7 @@ FORBIDDEN_TOKENS = [
 async def test_privacy_scan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     tmp_journal = tmp_path / "journal"
     tmp_journal.mkdir()
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_journal))
 
     capture = None
     with (

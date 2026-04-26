@@ -89,7 +89,7 @@ def test_story_hook_parses_and_writes(tmp_path, monkeypatch):
     from talent.story import post_process
     from think.activities import append_activity_record
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     append_activity_record("work", "20260418", _activity_record())
 
@@ -122,7 +122,7 @@ def test_story_hook_empty_arrays(tmp_path, monkeypatch):
     from talent.story import post_process
     from think.activities import append_activity_record
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     append_activity_record("work", "20260418", _activity_record())
 
     post_process(
@@ -143,7 +143,7 @@ def test_story_hook_bad_resolution_skipped(tmp_path, monkeypatch, caplog):
     from talent.story import post_process
     from think.activities import append_activity_record
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     append_activity_record("work", "20260418", _activity_record())
 
     post_process(
@@ -177,7 +177,7 @@ def test_story_hook_missing_required_field_skipped(tmp_path, monkeypatch, caplog
     from talent.story import post_process
     from think.activities import append_activity_record
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     append_activity_record("work", "20260418", _activity_record())
 
     post_process(
@@ -238,7 +238,7 @@ def test_story_hook_resolves_entities(tmp_path, monkeypatch):
     from talent.story import post_process
     from think.activities import append_activity_record
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _write_detected_entities(
         tmp_path,
         "work",
@@ -304,7 +304,7 @@ def test_story_hook_idempotent_rerun(tmp_path, monkeypatch):
     from talent.story import post_process
     from think.activities import append_activity_record
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     append_activity_record("work", "20260418", _activity_record())
 
     post_process(_valid_result(), _context(tmp_path))
@@ -352,7 +352,7 @@ def test_story_hook_normalizes_topics(tmp_path, monkeypatch):
     from talent.story import post_process
     from think.activities import append_activity_record
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     append_activity_record("work", "20260418", _activity_record())
 
     post_process(
@@ -370,7 +370,7 @@ def test_story_hook_clamps_confidence(tmp_path, monkeypatch, caplog):
     from talent.story import post_process
     from think.activities import append_activity_record, load_activity_records
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     caplog.set_level(logging.WARNING)
 
     append_activity_record(
@@ -402,7 +402,7 @@ def test_story_hook_rejects_nan_confidence(tmp_path, monkeypatch):
     from talent.story import post_process
     from think.activities import append_activity_record
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     append_activity_record("work", "20260418", _activity_record())
 
     returned = post_process(
@@ -419,7 +419,7 @@ def test_story_hook_rejects_non_numeric_confidence(tmp_path, monkeypatch):
     from talent.story import post_process
     from think.activities import append_activity_record
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     append_activity_record("work", "20260418", _activity_record())
 
     returned = post_process(
@@ -435,7 +435,7 @@ def test_story_hook_rejects_non_numeric_confidence(tmp_path, monkeypatch):
 def test_story_hook_missing_record_logs_and_returns(tmp_path, monkeypatch, caplog):
     from talent.story import post_process
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     returned = post_process(_valid_result(), _context(tmp_path))
 
@@ -447,7 +447,7 @@ def test_story_hook_no_json_file_written(tmp_path, monkeypatch):
     from talent.story import post_process
     from think.activities import append_activity_record
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     append_activity_record("work", "20260418", _activity_record())
 
     output_path = (

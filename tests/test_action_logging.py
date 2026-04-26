@@ -15,7 +15,7 @@ from think.facets import log_call_action
 
 @pytest.fixture
 def test_facet(tmp_path, monkeypatch):
-    """Set up a test facet with _SOLSTONE_JOURNAL_OVERRIDE."""
+    """Set up a test facet with SOLSTONE_JOURNAL."""
     journal = tmp_path / "journal"
     journal.mkdir()
     facet_path = journal / "facets" / "test_facet"
@@ -27,7 +27,7 @@ def test_facet(tmp_path, monkeypatch):
         json.dumps({"title": "Test Facet", "description": "Test"}), encoding="utf-8"
     )
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
     return journal, "test_facet"
 
 

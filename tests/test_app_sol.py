@@ -15,8 +15,8 @@ from think.talent import _resolve_talent_path, get_talent, get_talent_configs
 
 @pytest.fixture
 def fixture_journal():
-    """Set _SOLSTONE_JOURNAL_OVERRIDE to tests/fixtures/journal for testing."""
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = "tests/fixtures/journal"
+    """Set SOLSTONE_JOURNAL to tests/fixtures/journal for testing."""
+    os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     yield
 
 

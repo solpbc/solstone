@@ -45,13 +45,13 @@ def speakers_env(tmp_path, monkeypatch):
             env = speakers_env()
             env.create_segment("20240101", "143022_300", ["mic_audio"])
             env.create_entity("Alice Test")
-            # Now _SOLSTONE_JOURNAL_OVERRIDE is set and data exists
+            # Now SOLSTONE_JOURNAL is set and data exists
     """
 
     class SpeakersEnv:
         def __init__(self, journal_path: Path):
             self.journal = journal_path
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_path))
+            monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_path))
             monkeypatch.setenv("SOL_SKIP_SUPERVISOR_CHECK", "1")
             clear_journal_entity_cache()
             clear_entity_loading_cache()

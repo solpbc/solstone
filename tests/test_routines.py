@@ -90,7 +90,7 @@ def reset_routines_state():
 @pytest.fixture
 def journal_path(tmp_path, monkeypatch):
     """Create a temp journal with routines/ and health/ dirs."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     (tmp_path / "routines").mkdir()
     (tmp_path / "health").mkdir()
     return tmp_path

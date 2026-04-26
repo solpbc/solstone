@@ -124,7 +124,7 @@ def write_observations(
 
 def test_facet_summary_full(monkeypatch):
     """Test facet_summary with full metadata."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(FIXTURES_PATH))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(FIXTURES_PATH))
 
     summary = facet_summary("full-featured")
 
@@ -153,7 +153,7 @@ def test_facet_summary_full(monkeypatch):
 
 def test_facet_summary_short_mode(monkeypatch):
     """Test facet_summary with detailed=False shows names only."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(FIXTURES_PATH))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(FIXTURES_PATH))
 
     summary = facet_summary("full-featured", detailed=False)
 
@@ -177,7 +177,7 @@ def test_facet_summary_short_mode(monkeypatch):
 
 def test_facet_summary_minimal(monkeypatch):
     """Test facet_summary with minimal metadata."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(FIXTURES_PATH))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(FIXTURES_PATH))
 
     summary = facet_summary("minimal-facet")
 
@@ -192,7 +192,7 @@ def test_facet_summary_minimal(monkeypatch):
 
 def test_facet_summary_test_facet(monkeypatch):
     """Test facet_summary with the existing test-facet fixture."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(FIXTURES_PATH))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(FIXTURES_PATH))
 
     summary = facet_summary("test-facet")
 
@@ -208,7 +208,7 @@ def test_facet_summary_test_facet(monkeypatch):
 
 def test_facet_summary_nonexistent(monkeypatch):
     """Test facet_summary with nonexistent facet."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(FIXTURES_PATH))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(FIXTURES_PATH))
 
     with pytest.raises(FileNotFoundError, match="Facet 'nonexistent' not found"):
         facet_summary("nonexistent")
@@ -216,7 +216,7 @@ def test_facet_summary_nonexistent(monkeypatch):
 
 def test_facet_summary_empty_journal(tmp_path, monkeypatch):
     """Test facet_summary raises FileNotFoundError with empty journal."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     with pytest.raises(FileNotFoundError, match="not found"):
         facet_summary("any-facet")
@@ -224,7 +224,7 @@ def test_facet_summary_empty_journal(tmp_path, monkeypatch):
 
 def test_facet_summary_missing_facet_json(monkeypatch):
     """Test facet_summary with missing facet.json."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(FIXTURES_PATH))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(FIXTURES_PATH))
 
     with pytest.raises(FileNotFoundError, match="facet.json not found"):
         facet_summary("broken-facet")
@@ -232,7 +232,7 @@ def test_facet_summary_missing_facet_json(monkeypatch):
 
 def test_facet_summary_empty_entities(monkeypatch):
     """Test facet_summary with empty entities file."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(FIXTURES_PATH))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(FIXTURES_PATH))
 
     summary = facet_summary("empty-entities")
 
@@ -242,7 +242,7 @@ def test_facet_summary_empty_entities(monkeypatch):
 
 def test_get_facets_with_entities(monkeypatch):
     """Test that get_facets() returns metadata and load_entity_names() works with facets."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(FIXTURES_PATH))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(FIXTURES_PATH))
 
     facets = get_facets()
 
@@ -278,7 +278,7 @@ def test_get_facets_with_entities(monkeypatch):
 
 def test_get_facets_empty_entities(monkeypatch):
     """Test get_facets() with facet that has no entities."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(FIXTURES_PATH))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(FIXTURES_PATH))
 
     facets = get_facets()
 
@@ -297,7 +297,7 @@ def test_get_facets_empty_entities(monkeypatch):
 
 def test_facet_summaries(monkeypatch):
     """Test facet_summaries() generates correct agent prompt format."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(FIXTURES_PATH))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(FIXTURES_PATH))
 
     summary = facet_summaries()
 
@@ -344,7 +344,7 @@ def test_facet_summaries_excludes_muted(monkeypatch, tmp_path):
         encoding="utf-8",
     )
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     summary = facet_summaries()
 
@@ -356,7 +356,7 @@ def test_facet_summaries_no_facets(monkeypatch, tmp_path):
     """Test facet_summaries() when no facets exist."""
     empty_journal = tmp_path / "empty_journal"
     empty_journal.mkdir()
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(empty_journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(empty_journal))
 
     summary = facet_summaries()
     assert summary == "No facets found."
@@ -364,7 +364,7 @@ def test_facet_summaries_no_facets(monkeypatch, tmp_path):
 
 def test_facet_summaries_empty_journal(tmp_path, monkeypatch):
     """Test facet_summaries() returns 'No facets found' with empty journal."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     summary = facet_summaries()
     assert summary == "No facets found."
@@ -372,7 +372,7 @@ def test_facet_summaries_empty_journal(tmp_path, monkeypatch):
 
 def test_facet_summaries_mixed_entities(monkeypatch):
     """Test facet_summaries() with facets having different entity configurations."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(FIXTURES_PATH))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(FIXTURES_PATH))
 
     summary = facet_summaries()
 
@@ -428,7 +428,7 @@ def test_get_active_facets_from_segment_facets(monkeypatch, tmp_path):
         )
     )
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
 
     active = get_active_facets("20240115")
 
@@ -450,7 +450,7 @@ def test_get_active_facets_empty_segments(monkeypatch, tmp_path):
     seg2.mkdir(parents=True)
     (seg2 / "facets.json").write_text("")
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
 
     active = get_active_facets("20240115")
 
@@ -462,7 +462,7 @@ def test_get_active_facets_no_segments(monkeypatch, tmp_path):
     journal = tmp_path / "journal"
     (journal / "chronicle" / "20240115").mkdir(parents=True)
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
 
     active = get_active_facets("20240115")
 
@@ -474,7 +474,7 @@ def test_get_active_facets_no_day_dir(monkeypatch, tmp_path):
     journal = tmp_path / "journal"
     journal.mkdir()
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
 
     active = get_active_facets("20240115")
 
@@ -502,7 +502,7 @@ def test_get_active_facets_malformed_json(monkeypatch, tmp_path):
         )
     )
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
 
     active = get_active_facets("20240115")
 
@@ -518,7 +518,7 @@ def test_get_principal_display_name_preferred(tmp_path, monkeypatch):
     """Test _get_principal_display_name returns preferred name."""
     import json
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     config_dir = tmp_path / "config"
     config_dir.mkdir()
@@ -532,7 +532,7 @@ def test_get_principal_display_name_fallback_to_name(tmp_path, monkeypatch):
     """Test _get_principal_display_name falls back to name when no preferred."""
     import json
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     config_dir = tmp_path / "config"
     config_dir.mkdir()
@@ -544,7 +544,7 @@ def test_get_principal_display_name_fallback_to_name(tmp_path, monkeypatch):
 
 def test_get_principal_display_name_none_when_empty(tmp_path, monkeypatch):
     """Test _get_principal_display_name returns None when identity empty."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     # No config file
 
     assert _get_principal_display_name() is None
@@ -554,7 +554,7 @@ def test_format_principal_role_with_principal(tmp_path, monkeypatch):
     """Test _format_principal_role extracts and formats principal."""
     import json
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     config_dir = tmp_path / "config"
     config_dir.mkdir()
@@ -575,7 +575,7 @@ def test_format_principal_role_with_principal(tmp_path, monkeypatch):
 
 def test_format_principal_role_no_principal(tmp_path, monkeypatch):
     """Test _format_principal_role returns None when no principal."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     entities = [
         {"name": "Alice", "description": "Friend"},
@@ -592,7 +592,7 @@ def test_format_principal_role_no_description(tmp_path, monkeypatch):
     """Test _format_principal_role returns None when principal has no description."""
     import json
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     config_dir = tmp_path / "config"
     config_dir.mkdir()
@@ -614,7 +614,7 @@ def test_format_principal_role_no_description(tmp_path, monkeypatch):
 
 def test_format_principal_role_no_identity(tmp_path, monkeypatch):
     """Test _format_principal_role returns None when no identity configured."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     # No config file
 
     entities = [
@@ -632,7 +632,7 @@ def test_format_principal_role_no_identity(tmp_path, monkeypatch):
 
 def test_facet_summary_with_principal(tmp_path, monkeypatch):
     """Test facet_summary shows principal role and excludes from entities list."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     # Create identity config
     config_dir = tmp_path / "config"
@@ -674,7 +674,7 @@ def test_facet_summary_with_principal(tmp_path, monkeypatch):
 
 def test_facet_summary_principal_only_entity(tmp_path, monkeypatch):
     """Test facet_summary when principal is the only entity."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     # Create identity config
     config_dir = tmp_path / "config"
@@ -709,7 +709,7 @@ def test_facet_summary_principal_only_entity(tmp_path, monkeypatch):
 
 def test_facet_summaries_detailed_with_principal(tmp_path, monkeypatch):
     """Test facet_summaries detailed mode shows principal role."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     # Create identity config
     config_dir = tmp_path / "config"
@@ -749,7 +749,7 @@ def test_facet_summaries_detailed_with_principal(tmp_path, monkeypatch):
 
 def test_facet_summaries_simple_mode_with_principal(tmp_path, monkeypatch):
     """Test facet_summaries simple mode also filters principal consistently."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     # Create identity config
     config_dir = tmp_path / "config"
@@ -787,7 +787,7 @@ def test_facet_summaries_simple_mode_with_principal(tmp_path, monkeypatch):
 
 def test_facet_summaries_detailed_with_activities(monkeypatch):
     """Test facet_summaries detailed mode includes activity details."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(FIXTURES_PATH))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(FIXTURES_PATH))
 
     summary = facet_summaries(detailed=True)
 
@@ -805,7 +805,7 @@ def test_rank_entities_by_signal_orders_by_count_then_last_observed(
     monkeypatch,
 ):
     """Rank entities by observation count, then recency, then name."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     setup_facet(tmp_path, "signals", title="Signals")
     entities = [
         {"type": "Person", "name": "Alpha", "description": "A"},
@@ -835,7 +835,7 @@ def test_rank_entities_by_signal_orders_by_count_then_last_observed(
 
 def test_rank_entities_by_signal_uses_casefold_name_tiebreaker(tmp_path, monkeypatch):
     """Identical signals fall back to case-insensitive name ordering."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     setup_facet(tmp_path, "signals", title="Signals")
     entities = [
         {"type": "Person", "name": "bravo", "description": "B"},
@@ -858,7 +858,7 @@ def test_facet_summaries_detailed_entity_cap_appends_trailing_bullet(
     """Detailed mode caps entities and appends the trailing bullet."""
     from think.activities import save_facet_activities
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     setup_facet(
         tmp_path,
         "entity-cap",
@@ -895,7 +895,7 @@ def test_facet_summaries_detailed_activity_cap_appends_trailing_bullet(
     """Detailed mode caps activities and appends the trailing bullet."""
     from think.activities import DEFAULT_ACTIVITIES, save_facet_activities
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     setup_facet(
         tmp_path,
         "activity-cap",
@@ -931,7 +931,7 @@ def test_facet_summaries_simple_cap_trips_switches_capped_sections_to_bullets(
     """Simple mode only switches capped sections to bullet lists."""
     from think.activities import save_facet_activities
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     setup_facet(
         tmp_path,
         "simple-cap",
@@ -968,7 +968,7 @@ def test_facet_summaries_exactly_at_caps_has_no_trailing_bullets(
     """Exactly-at-cap output stays uncapped and keeps simple one-line formatting."""
     from think.activities import DEFAULT_ACTIVITIES, save_facet_activities
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     setup_facet(
         tmp_path,
         "exact-cap",
@@ -1007,7 +1007,7 @@ def test_facet_summaries_none_entity_cap_is_unbounded(tmp_path, monkeypatch):
     """None entity cap restores the full entity list."""
     from think.activities import save_facet_activities
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     setup_facet(
         tmp_path,
         "entity-unbounded",
@@ -1038,7 +1038,7 @@ def test_facet_summaries_none_activity_cap_is_unbounded(tmp_path, monkeypatch):
     """None activity cap restores the full activity list."""
     from think.activities import DEFAULT_ACTIVITIES, save_facet_activities
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     setup_facet(
         tmp_path,
         "activity-unbounded",
@@ -1068,7 +1068,7 @@ def test_facet_summaries_principal_is_excluded_from_entity_budget(
     """Principal role line does not count against the entity cap."""
     from think.activities import save_facet_activities
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     write_identity_config(tmp_path)
     setup_facet(
         tmp_path,

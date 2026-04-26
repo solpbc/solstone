@@ -28,7 +28,7 @@ class TestRunActivityPrompts:
         from think.thinking import run_activity_prompts
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             result = run_activity_prompts(
                 day="20260209",
@@ -41,7 +41,7 @@ class TestRunActivityPrompts:
         from think.thinking import run_activity_prompts
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             self._write_record(
                 tmpdir,
@@ -73,7 +73,7 @@ class TestRunActivityPrompts:
         from think.thinking import run_activity_prompts
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             self._write_record(
                 tmpdir,
@@ -135,7 +135,7 @@ class TestRunActivityPrompts:
         from think.thinking import run_activity_prompts
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             self._write_record(
                 tmpdir,
@@ -189,7 +189,7 @@ class TestRunActivityPrompts:
         from think.thinking import run_activity_prompts
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             record = {
                 "id": "coding_100000_300",
@@ -252,7 +252,7 @@ class TestRunActivityPrompts:
         from think.thinking import run_activity_prompts
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             self._write_record(
                 tmpdir,
@@ -300,7 +300,7 @@ class TestRunActivityPrompts:
         from think.thinking import run_activity_prompts
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             self._write_record(
                 tmpdir,
@@ -328,7 +328,7 @@ class TestRunActivityPrompts:
         from think.thinking import run_activity_prompts
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             self._write_record(
                 tmpdir,
@@ -362,7 +362,7 @@ class TestRunActivityPrompts:
         from think.thinking import run_activity_prompts
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             self._write_record(
                 tmpdir,
@@ -446,7 +446,7 @@ class TestRunActivityPrompts:
         from think.thinking import run_activity_prompts
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             activity_id = f"{activity_type}_100000_300"
             self._write_record(
@@ -520,7 +520,7 @@ class TestRunActivityPrompts:
         from think.thinking import run_activity_prompts
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             configs = {
                 "work": {
@@ -611,7 +611,7 @@ class TestRunActivityPrompts:
         from think.thinking import run_activity_prompts
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             full_record = {
                 "description": "skip me",
@@ -675,7 +675,7 @@ class TestActivityPersistence:
         from think.activity_state_machine import ActivityStateMachine
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             sm = ActivityStateMachine()
             sm.update(
@@ -761,7 +761,7 @@ class TestActivityPersistenceRoundTrip:
         from think.activity_state_machine import ActivityStateMachine
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             sm = ActivityStateMachine()
             sm.update(self._sense(content_type="coding"), "090000_300", "20260304")
@@ -800,7 +800,7 @@ class TestActivityPersistenceRoundTrip:
         from think.activity_state_machine import ActivityStateMachine
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             sm = ActivityStateMachine()
             sm.update(self._sense(content_type="coding"), "090000_300", "20260304")
@@ -826,7 +826,7 @@ class TestActivityPersistenceRoundTrip:
         from think.activity_state_machine import ActivityStateMachine
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             sm = ActivityStateMachine()
             sm.update(self._sense(content_type="coding"), "090000_300", "20260304")
@@ -850,7 +850,7 @@ class TestActivityPersistenceRoundTrip:
         from think.activity_state_machine import ActivityStateMachine
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             sm = ActivityStateMachine()
             # Activity 1 ends
@@ -892,7 +892,7 @@ class TestActivityPersistenceRoundTrip:
         from think.activity_state_machine import ActivityStateMachine
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             entities = [
                 {"type": "Person", "name": "Alice", "context": "dev"},
@@ -929,7 +929,7 @@ class TestActivityPersistenceRoundTrip:
         from think.activity_state_machine import ActivityStateMachine
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             sm = ActivityStateMachine()
             sm.update(
@@ -962,7 +962,7 @@ class TestActivityPersistenceRoundTrip:
         from think.activity_state_machine import ActivityStateMachine
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             two = [
                 {"facet": "work", "activity": "coding", "level": "high"},
@@ -1011,7 +1011,7 @@ class TestCreatedAtRoutesCompat:
         from think.activity_state_machine import ActivityStateMachine
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             sm = ActivityStateMachine()
             sm.update(
@@ -1074,7 +1074,7 @@ class TestCreatedAtRoutesCompat:
         from think.activity_state_machine import ActivityStateMachine
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             sm = ActivityStateMachine()
             sm.update(
@@ -1235,7 +1235,7 @@ class TestActivityTemplateVars:
     def test_facet_and_activity_md_dir_populated(self, monkeypatch, tmp_path):
         from think.talents import _build_prompt_context
 
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
         ctx = _build_prompt_context(
             day="20260418",
@@ -1266,7 +1266,7 @@ def test_prepare_config_substitutes_facet_and_activity_md_dir_for_daily_cogitate
 
     mod = importlib.import_module("think.talents")
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     day_dir = day_path("20260418")
     day_dir.mkdir(parents=True, exist_ok=True)
 

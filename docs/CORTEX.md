@@ -276,7 +276,7 @@ The JSON frontmatter for an agent can include:
 - `env`: Environment variables to set for the agent subprocess (object)
   - Keys are variable names, values are coerced to strings
   - Request-level `env` overrides agent defaults
-  - Note: `_SOLSTONE_JOURNAL_OVERRIDE` is set by Cortex for child processes
+  - Note: `SOLSTONE_JOURNAL` is inherited by Cortex from the managed wrapper / test fixture / sandbox env, and child processes inherit it through `os.environ`
 
 ### Model Resolution
 

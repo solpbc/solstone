@@ -85,7 +85,7 @@ def test_google_main(monkeypatch, tmp_path, capsys):
     journal = tmp_path / "journal"
     journal.mkdir()
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
     monkeypatch.setattr(
         "think.providers.cli.shutil.which",
@@ -164,7 +164,7 @@ def test_google_cli_not_found_error(monkeypatch, tmp_path, capsys):
     journal = tmp_path / "journal"
     journal.mkdir()
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
     monkeypatch.setattr("think.providers.cli.shutil.which", lambda _name: None)
 

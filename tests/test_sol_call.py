@@ -49,7 +49,7 @@ def _assert_history_record(record, *, file_name, actor, op, section, reason):
 @pytest.fixture
 def journal_with_identity(tmp_path, monkeypatch):
     """Set up a journal with identity/ containing self.md, agency.md, and partner.md."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     # Provide minimal config for ensure_identity_directory
     config_dir = tmp_path / "config"
@@ -135,7 +135,7 @@ class TestSolSelfRead:
         assert "Test User" in result.output
 
     def test_read_self_missing(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
         config_dir = tmp_path / "config"
         config_dir.mkdir()
         (config_dir / "journal.json").write_text(json.dumps({}))
@@ -211,7 +211,7 @@ class TestSolPartnerRead:
         assert "## work patterns" in result.output
 
     def test_read_partner_missing(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
         config_dir = tmp_path / "config"
         config_dir.mkdir()
         (config_dir / "journal.json").write_text(json.dumps({}))
@@ -279,7 +279,7 @@ class TestSolAgencyRead:
         assert "## curation" in result.output
 
     def test_read_agency_missing(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
         config_dir = tmp_path / "config"
         config_dir.mkdir()
         (config_dir / "journal.json").write_text(json.dumps({}))
@@ -314,7 +314,7 @@ class TestSolPulseRead:
         assert "Test narrative" in result.output
 
     def test_read_pulse_missing(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
         config_dir = tmp_path / "config"
         config_dir.mkdir()
         (config_dir / "journal.json").write_text(json.dumps({}))

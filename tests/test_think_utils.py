@@ -17,7 +17,11 @@ import pytest
 from think.entities import load_entity_names
 from think.utils import (
     DEFAULT_STREAM,
+    SolstoneNotConfigured,
     day_from_path,
+    get_journal,
+    get_journal_info,
+    get_project_root,
     iter_segments,
     segment_key,
     segment_parse,
@@ -115,7 +119,7 @@ def test_load_entity_names_with_valid_file(monkeypatch):
             ],
         )
 
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+        monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
         result = load_entity_names()
 
         # Check that names are extracted without duplicates
@@ -132,7 +136,7 @@ def test_load_entity_names_with_valid_file(monkeypatch):
 def test_load_entity_names_missing_file(monkeypatch):
     """Test that missing file returns None."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+        monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
         result = load_entity_names()
         assert result is None
 
@@ -144,7 +148,7 @@ def test_load_entity_names_empty_facet(monkeypatch):
         facet_dir = Path(tmpdir) / "facets" / "test"
         facet_dir.mkdir(parents=True, exist_ok=True)
 
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+        monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
         result = load_entity_names()
         assert result is None
 
@@ -156,7 +160,7 @@ def test_load_entity_names_no_valid_entries(monkeypatch):
         entities_dir = Path(tmpdir) / "facets" / "test" / "entities"
         entities_dir.mkdir(parents=True, exist_ok=True)
 
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+        monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
         result = load_entity_names()
         assert result is None
 
@@ -175,7 +179,7 @@ def test_load_entity_names_with_duplicates(monkeypatch):
             ],
         )
 
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+        monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
         result = load_entity_names()
 
         names = result.split("; ")
@@ -198,7 +202,7 @@ def test_load_entity_names_handles_special_characters(monkeypatch):
             ],
         )
 
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+        monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
         result = load_entity_names()
         assert "Jean-Pierre O'Malley" in result
         assert "AT&T" in result
@@ -207,7 +211,7 @@ def test_load_entity_names_handles_special_characters(monkeypatch):
 
 
 def test_load_entity_names_with_env_var(monkeypatch):
-    """Test loading using _SOLSTONE_JOURNAL_OVERRIDE environment variable."""
+    """Test loading using SOLSTONE_JOURNAL environment variable."""
     with tempfile.TemporaryDirectory() as tmpdir:
         setup_entities_new_structure(
             Path(tmpdir),
@@ -215,7 +219,7 @@ def test_load_entity_names_with_env_var(monkeypatch):
             [("Person", "Test User", "A test person")],
         )
 
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+        monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
         # Should use env var
         result = load_entity_names()
@@ -224,7 +228,7 @@ def test_load_entity_names_with_env_var(monkeypatch):
 
 def test_load_entity_names_empty_journal(tmp_path, monkeypatch):
     """Test that empty journal directory returns None."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     result = load_entity_names()
     assert result is None
@@ -249,7 +253,7 @@ def test_load_entity_names_spoken_mode(monkeypatch):
             ],
         )
 
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+        monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
         result = load_entity_names(spoken=True)
 
         # Should return a list, not a string
@@ -299,7 +303,7 @@ def test_load_entity_names_spoken_mode_with_tools(monkeypatch):
             ],
         )
 
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+        monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
         result = load_entity_names(spoken=True)
         # Tools are now included (uniform processing)
         assert isinstance(result, list)
@@ -321,7 +325,7 @@ def test_load_entity_names_spoken_mode_duplicates(monkeypatch):
             ],
         )
 
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+        monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
         result = load_entity_names(spoken=True)
 
         # Should have only one "John" and one "Acme" even though there are two of each
@@ -348,7 +352,7 @@ def test_load_entity_names_uniform_processing(monkeypatch):
             ],
         )
 
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+        monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
         result = load_entity_names(spoken=True)
 
         assert isinstance(result, list)
@@ -406,7 +410,7 @@ def test_load_entity_names_with_aka_field(monkeypatch):
             ],
         )
 
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+        monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
         result = load_entity_names(spoken=True)
 
         assert isinstance(result, list)
@@ -447,7 +451,7 @@ def test_load_entity_names_aka_with_parens(monkeypatch):
             ],
         )
 
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+        monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
         result = load_entity_names(spoken=True)
 
         assert isinstance(result, list)
@@ -482,7 +486,7 @@ def test_load_entity_names_aka_deduplication(monkeypatch):
             ],
         )
 
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+        monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
         result = load_entity_names(spoken=True)
 
         # Should have only one "John" even though it appears in aka and as main name
@@ -520,7 +524,7 @@ def test_load_entity_names_non_spoken_with_aka(monkeypatch):
             ],
         )
 
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+        monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
         result = load_entity_names(spoken=False)
 
         # Check all entities are present with their aka
@@ -661,7 +665,7 @@ class TestSetupCliConfigEnv:
 
         Returns a helper function to write config and run setup_cli.
         """
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
         monkeypatch.setattr(sys, "argv", ["test"])
 
         def write_config_and_run(config: dict | None = None):
@@ -773,7 +777,7 @@ class TestPortDiscovery:
         """Test writing and reading a service port file."""
         from think.utils import read_service_port, write_service_port
 
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
         # Write port
         write_service_port("test_service", 12345)
@@ -791,7 +795,7 @@ class TestPortDiscovery:
         """Test that reading missing port file returns None."""
         from think.utils import read_service_port
 
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
         port = read_service_port("nonexistent")
         assert port is None
@@ -800,7 +804,7 @@ class TestPortDiscovery:
         """Test that reading invalid port file content returns None."""
         from think.utils import read_service_port
 
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
         # Create port file with invalid content
         health_dir = tmp_path / "health"
@@ -815,7 +819,7 @@ class TestPortDiscovery:
         """Test that write_service_port creates health directory if needed."""
         from think.utils import write_service_port
 
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
         # Health dir doesn't exist yet
         health_dir = tmp_path / "health"
@@ -836,7 +840,7 @@ class TestSolstoneGuard:
         from think.utils import is_solstone_up
 
         monkeypatch.delenv("SOL_SKIP_SUPERVISOR_CHECK", raising=False)
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
         assert is_solstone_up() is False
 
@@ -845,7 +849,7 @@ class TestSolstoneGuard:
         from think.utils import is_solstone_up, write_service_port
 
         monkeypatch.delenv("SOL_SKIP_SUPERVISOR_CHECK", raising=False)
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
         with socket.socket() as sock:
             sock.bind(("127.0.0.1", 0))
@@ -859,7 +863,7 @@ class TestSolstoneGuard:
         from think.utils import is_solstone_up, write_service_port
 
         monkeypatch.delenv("SOL_SKIP_SUPERVISOR_CHECK", raising=False)
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
         with socket.socket() as server:
             server.bind(("127.0.0.1", 0))
@@ -874,7 +878,7 @@ class TestSolstoneGuard:
         from think.utils import require_solstone
 
         monkeypatch.delenv("SOL_SKIP_SUPERVISOR_CHECK", raising=False)
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
         with pytest.raises(SystemExit) as excinfo:
             require_solstone()
@@ -894,7 +898,7 @@ class TestSolstoneGuard:
         from think.utils import require_solstone, write_service_port
 
         monkeypatch.delenv("SOL_SKIP_SUPERVISOR_CHECK", raising=False)
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
         with socket.socket() as server:
             server.bind(("127.0.0.1", 0))
@@ -912,7 +916,7 @@ class TestSolstoneGuard:
         """SOL_SKIP_SUPERVISOR_CHECK bypasses availability probing."""
         import think.utils as utils
 
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
         monkeypatch.setenv("SOL_SKIP_SUPERVISOR_CHECK", "1")
         monkeypatch.setattr(
             utils,
@@ -970,3 +974,60 @@ class TestIterSegments:
         assert results[2][1] == "120000_600"
         assert results[0][0] == "default"
         assert results[2][0] == "import.apple"
+
+
+class TestJournalResolution:
+    def test_autouse_fixture_get_journal_info_returns_env_label(self):
+        """Sentinel for the unit-test autouse journal fixture."""
+        path, source = get_journal_info()
+
+        assert source == "env"
+        assert path == str(Path("tests/fixtures/journal").resolve())
+
+    def test_get_journal_info_prefers_solstone_journal_env(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
+
+        path, source = get_journal_info()
+
+        assert path == str(tmp_path)
+        assert source == "env"
+
+    def test_get_journal_info_source_tree_fallback(self, monkeypatch):
+        monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
+
+        path, source = get_journal_info()
+
+        assert path == str(Path(get_project_root()) / "journal")
+        assert source == "source"
+
+    def test_get_journal_info_raises_when_unconfigured(self, monkeypatch, tmp_path):
+        import think.utils as utils
+
+        monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
+        monkeypatch.setattr(utils, "get_project_root", lambda: str(tmp_path))
+
+        with pytest.raises(SolstoneNotConfigured) as excinfo:
+            get_journal_info()
+
+        message = str(excinfo.value)
+        assert "SOLSTONE_JOURNAL" in message
+        assert str(tmp_path) in message
+
+    def test_get_journal_mkdir_failure_raises_solstone_not_configured(
+        self, monkeypatch, tmp_path
+    ):
+        import think.utils as utils
+
+        target = tmp_path / "journal"
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(target))
+
+        def raise_permission_error(*_args, **_kwargs):
+            raise PermissionError("denied")
+
+        monkeypatch.setattr(utils.os, "makedirs", raise_permission_error)
+
+        with pytest.raises(SolstoneNotConfigured) as excinfo:
+            get_journal()
+
+        assert excinfo.value.path == str(target)
+        assert isinstance(excinfo.value.error, PermissionError)

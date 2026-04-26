@@ -40,7 +40,7 @@ def _make_segment(
 
 
 def test_list_basic(tmp_path, monkeypatch, capsys):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _make_segment(
         tmp_path,
         "20240101",
@@ -82,7 +82,7 @@ def test_list_basic(tmp_path, monkeypatch, capsys):
 
 
 def test_list_stream_filter(tmp_path, monkeypatch, capsys):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _make_segment(
         tmp_path,
         "20240101",
@@ -119,7 +119,7 @@ def test_list_stream_filter(tmp_path, monkeypatch, capsys):
 
 
 def test_list_json(tmp_path, monkeypatch, capsys):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _make_segment(
         tmp_path,
         "20240101",
@@ -147,7 +147,7 @@ def test_list_json(tmp_path, monkeypatch, capsys):
 
 
 def test_list_empty_day(tmp_path, monkeypatch, capsys):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     args = argparse.Namespace(
         day="20240101", stream=None, json_output=False, subcommand="list"
@@ -159,7 +159,7 @@ def test_list_empty_day(tmp_path, monkeypatch, capsys):
 
 
 def test_inspect_basic(tmp_path, monkeypatch, capsys):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _make_segment(
         tmp_path,
         "20240101",
@@ -188,7 +188,7 @@ def test_inspect_basic(tmp_path, monkeypatch, capsys):
 
 
 def test_inspect_bad_path(tmp_path, monkeypatch, capsys):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     args = argparse.Namespace(path="bad/path", json_output=False, subcommand="inspect")
     with pytest.raises(SystemExit) as excinfo:
@@ -200,7 +200,7 @@ def test_inspect_bad_path(tmp_path, monkeypatch, capsys):
 
 
 def test_inspect_missing_segment(tmp_path, monkeypatch, capsys):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     args = argparse.Namespace(
         path="20240101/default/090000_300", json_output=False, subcommand="inspect"
@@ -214,7 +214,7 @@ def test_inspect_missing_segment(tmp_path, monkeypatch, capsys):
 
 
 def test_inspect_json(tmp_path, monkeypatch, capsys):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _make_segment(
         tmp_path,
         "20240101",
@@ -242,7 +242,7 @@ def test_inspect_json(tmp_path, monkeypatch, capsys):
 
 
 def test_inspect_chain(tmp_path, monkeypatch, capsys):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _make_segment(
         tmp_path,
         "20240101",
@@ -291,7 +291,7 @@ def test_inspect_chain(tmp_path, monkeypatch, capsys):
 
 
 def test_verify_all_pass(tmp_path, monkeypatch, capsys):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _make_segment(
         tmp_path,
         "20240101",
@@ -328,7 +328,7 @@ def test_verify_all_pass(tmp_path, monkeypatch, capsys):
 
 
 def test_verify_missing_stream_json(tmp_path, monkeypatch, capsys):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _make_segment(tmp_path, "20240101", "default", "090000_300", stream_json=None)
     streams_dir = tmp_path / "streams"
     streams_dir.mkdir()
@@ -351,7 +351,7 @@ def test_verify_missing_stream_json(tmp_path, monkeypatch, capsys):
 
 
 def test_verify_missing_content(tmp_path, monkeypatch, capsys):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _make_segment(
         tmp_path,
         "20240101",
@@ -387,7 +387,7 @@ def test_verify_missing_content(tmp_path, monkeypatch, capsys):
 
 
 def test_verify_broken_backward_chain(tmp_path, monkeypatch, capsys):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _make_segment(
         tmp_path,
         "20240101",
@@ -424,7 +424,7 @@ def test_verify_broken_backward_chain(tmp_path, monkeypatch, capsys):
 
 
 def test_verify_day_mode(tmp_path, monkeypatch, capsys):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _make_segment(
         tmp_path,
         "20240101",
@@ -469,7 +469,7 @@ def test_verify_day_mode(tmp_path, monkeypatch, capsys):
 
 
 def test_verify_json(tmp_path, monkeypatch, capsys):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _make_segment(
         tmp_path,
         "20240101",
@@ -504,7 +504,7 @@ def test_verify_json(tmp_path, monkeypatch, capsys):
 
 
 def test_verify_no_args(tmp_path, monkeypatch, capsys):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     args = argparse.Namespace(
         path=None, day=None, json_output=False, subcommand="verify"
@@ -532,7 +532,7 @@ def test_main_no_subcommand(monkeypatch, capsys):
 
 def test_move_basic(tmp_path, monkeypatch, capsys):
     """Basic move from one day to another."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _make_segment(
         tmp_path,
         "20240101",
@@ -573,7 +573,7 @@ def test_move_basic(tmp_path, monkeypatch, capsys):
 
 def test_move_with_to_time(tmp_path, monkeypatch, capsys):
     """Move with --to-time changes the segment key, preserving duration."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _make_segment(
         tmp_path,
         "20240101",
@@ -607,7 +607,7 @@ def test_move_with_to_time(tmp_path, monkeypatch, capsys):
 
 def test_move_dry_run(tmp_path, monkeypatch, capsys):
     """--dry-run prints plan without moving."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _make_segment(
         tmp_path,
         "20240101",
@@ -643,7 +643,7 @@ def test_move_dry_run(tmp_path, monkeypatch, capsys):
 
 def test_move_collision_no_to_time(tmp_path, monkeypatch, capsys):
     """Collision without --to-time is an error."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _make_segment(
         tmp_path,
         "20240101",
@@ -691,7 +691,7 @@ def test_move_collision_no_to_time(tmp_path, monkeypatch, capsys):
 
 def test_move_no_events_jsonl(tmp_path, monkeypatch, capsys):
     """Segment with no events.jsonl moves cleanly."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _make_segment(
         tmp_path,
         "20240101",
@@ -728,7 +728,7 @@ def test_move_no_events_jsonl(tmp_path, monkeypatch, capsys):
 
 def test_move_patches_successor(tmp_path, monkeypatch, capsys):
     """Moving a segment patches the successor's prev_day/prev_segment."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _make_segment(
         tmp_path,
         "20240101",
@@ -779,7 +779,7 @@ def test_move_patches_successor(tmp_path, monkeypatch, capsys):
 
 def test_move_stream_tail(tmp_path, monkeypatch, capsys):
     """Moving the stream tail (no successor) works cleanly."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _make_segment(
         tmp_path,
         "20240101",
@@ -826,7 +826,7 @@ def test_move_stream_tail(tmp_path, monkeypatch, capsys):
 
 def test_move_rewrites_events_jsonl(tmp_path, monkeypatch, capsys):
     """events.jsonl day and segment fields are updated after move."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     seg_dir = _make_segment(
         tmp_path,
         "20240101",
@@ -883,7 +883,7 @@ def test_move_rewrites_events_jsonl(tmp_path, monkeypatch, capsys):
 
 def test_move_touches_health_markers(tmp_path, monkeypatch, capsys):
     """Health markers are touched on both source and destination days."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _make_segment(
         tmp_path,
         "20240101",
@@ -917,7 +917,7 @@ def test_move_touches_health_markers(tmp_path, monkeypatch, capsys):
 
 def test_move_same_location_refused(tmp_path, monkeypatch, capsys):
     """Moving to the same location is refused."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _make_segment(
         tmp_path,
         "20240101",
@@ -946,7 +946,7 @@ def test_move_same_location_refused(tmp_path, monkeypatch, capsys):
 
 def test_move_invalid_to_time(tmp_path, monkeypatch, capsys):
     """Invalid --to-time format is rejected."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _make_segment(
         tmp_path,
         "20240101",
@@ -975,7 +975,7 @@ def test_move_invalid_to_time(tmp_path, monkeypatch, capsys):
 
 def test_move_invalid_to_day(tmp_path, monkeypatch, capsys):
     """Invalid --to-day format is rejected."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _make_segment(
         tmp_path,
         "20240101",

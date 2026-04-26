@@ -76,7 +76,7 @@ def test_resolve_facets_none_uses_capped_facet_summaries(tmp_path, monkeypatch):
             for index in range(1, 26)
         ],
     )
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     resolved = _resolve_facets(None)
 

@@ -10,7 +10,7 @@ from think.utils import day_path
 
 def test_stream_updated_marker_created(tmp_path, monkeypatch):
     """stream.updated marker file is created in day health directory."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     day = "20260215"
     health_dir = day_path(day) / "health"
     health_dir.mkdir(parents=True, exist_ok=True)
@@ -20,7 +20,7 @@ def test_stream_updated_marker_created(tmp_path, monkeypatch):
 
 def test_daily_updated_marker_created(tmp_path, monkeypatch):
     """daily.updated marker file is created in day health directory."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     day = "20260215"
     health_dir = day_path(day) / "health"
     health_dir.mkdir(parents=True, exist_ok=True)
@@ -30,7 +30,7 @@ def test_daily_updated_marker_created(tmp_path, monkeypatch):
 
 def test_marker_mtime_updates(tmp_path, monkeypatch):
     """Touching a marker file again updates its mtime."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     day = "20260215"
     health_dir = day_path(day) / "health"
     health_dir.mkdir(parents=True, exist_ok=True)
@@ -45,7 +45,7 @@ def test_marker_mtime_updates(tmp_path, monkeypatch):
 
 def test_marker_not_created_when_day_is_none(tmp_path, monkeypatch):
     """When day is None, no marker file should be created."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     day = None
     if day:
         health_dir = day_path(day) / "health"

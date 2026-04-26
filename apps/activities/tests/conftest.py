@@ -45,7 +45,7 @@ def activities_env(tmp_path, monkeypatch):
                 encoding="utf-8",
             )
 
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
         monkeypatch.setenv("SOL_DAY", day)
         monkeypatch.setenv("SOL_FACET", facet)
         monkeypatch.setenv("SOL_SKIP_SUPERVISOR_CHECK", "1")

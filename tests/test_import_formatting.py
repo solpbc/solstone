@@ -324,9 +324,9 @@ def test_format_file_integration():
     from think.formatters import format_file
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        # Set _SOLSTONE_JOURNAL_OVERRIDE for format_file
-        old_journal = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
-        os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
+        # Set SOLSTONE_JOURNAL for format_file
+        old_journal = os.environ.get("SOLSTONE_JOURNAL")
+        os.environ["SOLSTONE_JOURNAL"] = tmpdir
 
         try:
             import_dir = Path(tmpdir) / "20260115" / "import.ics"
@@ -348,6 +348,6 @@ def test_format_file_integration():
             assert meta["indexer"]["agent"] == "import.ics"
         finally:
             if old_journal is not None:
-                os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = old_journal
+                os.environ["SOLSTONE_JOURNAL"] = old_journal
             else:
-                os.environ.pop("_SOLSTONE_JOURNAL_OVERRIDE", None)
+                os.environ.pop("SOLSTONE_JOURNAL", None)

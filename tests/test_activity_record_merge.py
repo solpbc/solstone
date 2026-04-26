@@ -33,7 +33,7 @@ def test_participation_post_hook_merges_fields_and_preserves_active_entities(
 
     facet = "work"
     day = "20260418"
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     _write_detected_entities(
         tmp_path,
@@ -95,7 +95,7 @@ def test_participation_post_hook_leaves_file_unchanged_on_malformed_json(
 
     facet = "work"
     day = "20260418"
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     append_activity_record(facet, day, _activity_record())
     record_path = tmp_path / "facets" / facet / "activities" / f"{day}.jsonl"
@@ -118,7 +118,7 @@ def test_participation_post_hook_requires_activity_context(
 
     facet = "work"
     day = "20260418"
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     append_activity_record(facet, day, _activity_record())
     record_path = tmp_path / "facets" / facet / "activities" / f"{day}.jsonl"

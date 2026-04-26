@@ -395,12 +395,24 @@ def npx_non_interactive_check(args: Args) -> CheckResult:
 
 def resolve_alias_target() -> Path | None:
     alias = Path.home() / ".local" / "bin" / "sol"
-    if not alias.is_symlink():
+    if not alias.exists() and not alias.is_symlink():
         return None
-    target = Path(os.readlink(alias))
-    if not target.is_absolute():
-        target = alias.parent / target
-    return target.resolve()
+    if alias.is_symlink():
+        target = Path(os.readlink(alias))
+        if not target.is_absolute():
+            target = alias.parent / target
+        return target.resolve()
+
+    try:
+        from think.install_guard import parse_wrapper
+
+        content = alias.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    parsed = parse_wrapper(content)
+    if parsed is None:
+        return None
+    return Path(parsed["sol_bin"]).resolve()
 
 
 def resolve_darwin_exe(
@@ -621,7 +633,7 @@ def stale_alias_symlink_check(args: Args) -> CheckResult:
     owned = alias_state_cls.OWNED
     cross_repo = alias_state_cls.CROSS_REPO
     dangling = alias_state_cls.DANGLING
-    not_symlink = alias_state_cls.NOT_SYMLINK
+    foreign = alias_state_cls.FOREIGN
     if state is worktree:
         return make_result(
             check,
@@ -638,7 +650,7 @@ def stale_alias_symlink_check(args: Args) -> CheckResult:
         detail = f"~/.local/bin/sol points at another repo ({other})"
     elif state is dangling:
         detail = f"~/.local/bin/sol is dangling ({other})"
-    elif state is not_symlink:
+    elif state is foreign:
         detail = "~/.local/bin/sol exists but is not a symlink"
     else:
         detail = f"unexpected alias state: {state}"

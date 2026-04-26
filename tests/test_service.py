@@ -37,11 +37,13 @@ class TestPlistGeneration:
         env = {
             "HOME": "/Users/test",
             "PATH": "/usr/bin",
-            "_SOLSTONE_JOURNAL_OVERRIDE": "/Users/test/journal",
         }
         data = service._generate_plist(env)
         plist = plistlib.loads(data)
         assert plist["Label"] == "org.solpbc.solstone"
+        assert plist["ProgramArguments"][0] == str(
+            Path.home() / ".local" / "bin" / "sol"
+        )
         assert plist["ProgramArguments"][1] == "supervisor"
         assert plist["EnvironmentVariables"] == env
         assert plist["KeepAlive"] is True
@@ -55,7 +57,6 @@ class TestSystemdUnit:
         env = {
             "HOME": "/home/test",
             "PATH": "/usr/bin",
-            "_SOLSTONE_JOURNAL_OVERRIDE": "/home/test/journal",
         }
         unit = service._generate_systemd_unit(env)
         lines = unit.splitlines()
@@ -67,17 +68,21 @@ class TestSystemdUnit:
 
         assert "Type=simple" in unit
         assert "Restart=on-failure" in unit
-        assert "ExecStart=" in unit
+        assert (
+            f"ExecStart={Path.home() / '.local' / 'bin' / 'sol'} supervisor 5015"
+            in unit
+        )
         assert "supervisor" in unit
         assert "Environment=HOME=/home/test" in unit
-        assert "Environment=_SOLSTONE_JOURNAL_OVERRIDE=/home/test/journal" in unit
+        assert "Environment=PATH=/usr/bin" in unit
+        assert "SOLSTONE_JOURNAL" not in unit
         assert "WantedBy=default.target" in unit
 
 
 class TestEnvCollection:
     def test_no_api_keys_in_env(self, monkeypatch, tmp_path):
         """Service env must NOT contain API keys — they load at runtime via setup_cli."""
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
         config_dir = tmp_path / "config"
         config_dir.mkdir(exist_ok=True)
@@ -99,7 +104,7 @@ class TestEnvCollection:
         assert "GOOGLE_API_KEY" not in env
 
     def test_includes_venv_in_path(self, monkeypatch, tmp_path):
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
         monkeypatch.setenv("PATH", "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin")
         monkeypatch.setattr(
             sys, "executable", str(tmp_path / ".venv" / "bin" / "python")
@@ -112,7 +117,7 @@ class TestEnvCollection:
         )
 
     def test_path_fallback_when_unset(self, monkeypatch, tmp_path):
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
         monkeypatch.delenv("PATH", raising=False)
         monkeypatch.setattr(
             sys, "executable", str(tmp_path / ".venv" / "bin" / "python")
@@ -123,7 +128,7 @@ class TestEnvCollection:
         assert env["PATH"] == f"{venv_bin}:/usr/local/bin:/usr/bin:/bin"
 
     def test_path_deduplicates_venv_bin(self, monkeypatch, tmp_path):
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
         monkeypatch.setattr(
             sys, "executable", str(tmp_path / ".venv" / "bin" / "python")
         )
@@ -135,11 +140,11 @@ class TestEnvCollection:
         assert parts[0] == venv_bin
         assert parts.count(venv_bin) == 1
 
-    def test_journal_override_not_propagated(self, monkeypatch, tmp_path):
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    def test_journal_env_not_propagated(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
         env = service._collect_env()
-        assert "_SOLSTONE_JOURNAL_OVERRIDE" not in env
+        assert "SOLSTONE_JOURNAL" not in env
 
 
 class TestStatus:
@@ -219,7 +224,7 @@ class TestRestart:
 class TestInstall:
     def test_linux_idempotent(self, monkeypatch, tmp_path, capsys):
         monkeypatch.setattr(sys, "platform", "linux")
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
         unit_path = tmp_path / "solstone.service"
         monkeypatch.setattr(service, "_unit_path", lambda: unit_path)

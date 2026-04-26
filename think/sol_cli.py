@@ -46,6 +46,7 @@ COMMANDS: dict[str, str] = {
     "top": "think.top",
     "health": "think.health_cli",
     "notify": "think.notify_cli",
+    "config": "think.config_cli",
     "password": "think.password_cli",
     "streams": "think.streams",
     "segment": "think.segment",
@@ -126,6 +127,7 @@ GROUPS: dict[str, list[str]] = {
     ],
     "Specialized tools": [
         "password",
+        "config",
         "streams",
         "segment",
         "journal-stats",

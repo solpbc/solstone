@@ -116,7 +116,7 @@ def test_brain_session_file_stays_on_bound_journal(monkeypatch, tmp_path):
     brain.clear_brain_state()
     initial_journal = tmp_path / "initial-journal"
     later_journal = tmp_path / "later-journal"
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(initial_journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(initial_journal))
     app = Flask(__name__)
 
     async def fake_run_claude(message, extra_args, *, timeout):
@@ -127,7 +127,7 @@ def test_brain_session_file_stays_on_bound_journal(monkeypatch, tmp_path):
 
     start_voice_runtime(app)
     try:
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(later_journal))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(later_journal))
         assert brain.wait_until_ready(app, 1.0) is True
         assert (initial_journal / "health" / "voice-brain-session").read_text(
             encoding="utf-8"

@@ -123,7 +123,7 @@ def merge_journals_fixture(tmp_path, monkeypatch):
         encoding="utf-8",
     )
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(target))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(target))
     import think.utils
 
     think.utils._journal_path_cache = None

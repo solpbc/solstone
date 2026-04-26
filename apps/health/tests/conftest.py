@@ -39,7 +39,7 @@ def health_env(tmp_path, monkeypatch):
         log_file.parent.mkdir(parents=True, exist_ok=True)
         log_file.write_text(log_content, encoding="utf-8")
 
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
 
         from convey import create_app
 

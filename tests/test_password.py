@@ -61,7 +61,7 @@ class TestMigration:
         config["convey"].pop("password_hash", None)
         config["convey"]["password"] = "migrate-me"
         config_path.write_text(json.dumps(config, indent=2))
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(dst))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(dst))
 
         create_app(str(dst))
 
@@ -80,7 +80,7 @@ class TestMigration:
         config["convey"].pop("password_hash", None)
         config["convey"]["password"] = ""
         config_path.write_text(json.dumps(config, indent=2))
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(dst))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(dst))
 
         create_app(str(dst))
 

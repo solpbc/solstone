@@ -55,19 +55,23 @@ def _unit_path() -> Path:
 
 
 def _sol_bin() -> str:
-    """Return absolute path to the sol binary in the current venv."""
-    return str(Path(sys.executable).parent / "sol")
+    """Return absolute path to the managed sol wrapper."""
+    return str(Path.home() / ".local" / "bin" / "sol")
 
 
 def _collect_env() -> dict[str, str]:
     """Collect environment variables for the service file.
 
-    Captures HOME and PATH (with venv bin prepended). The real PATH is read
-    from os.environ so installed services inherit the shell's tool visibility.
-    Falls back to /usr/local/bin:/usr/bin:/bin if PATH is unset. API keys are
-    NOT written into service files — the supervisor reads them from journal.json
-    at process startup via setup_cli(). Never propagate _SOLSTONE_JOURNAL_OVERRIDE
-    into service files — installed services should use default path resolution.
+    Captures HOME and PATH (with venv bin prepended). Real PATH is read
+    from os.environ so installed services inherit the shell's tool
+    visibility. Falls back to /usr/local/bin:/usr/bin:/bin if PATH is unset.
+    API keys are NOT written into service files — the supervisor reads them
+    from journal.json at process startup via setup_cli().
+
+    Never propagate SOLSTONE_JOURNAL into service files. Installed services
+    invoke ~/.local/bin/sol, which is a managed wrapper that sets
+    SOLSTONE_JOURNAL itself. The service's job is to start the wrapper, not
+    to configure the journal path.
     """
     venv_bin = str(Path(sys.executable).parent)
     base_path = os.environ.get("PATH", "/usr/local/bin:/usr/bin:/bin")
@@ -147,7 +151,7 @@ def remove_stale_plists() -> tuple[int, int]:
         if not extracted.endswith("/sol"):
             continue
 
-        if extracted == current and Path(extracted).exists():
+        if extracted == current:
             continue
 
         result = subprocess.run(

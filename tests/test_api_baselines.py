@@ -80,7 +80,7 @@ def _reapply_isolated_override(_baseline_journal, monkeypatch):
     breaking both determinism and the module-scoped `isolated_app_env` harness.
     """
     journal = _baseline_journal.resolve()
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
 
 
 @pytest.mark.parametrize(

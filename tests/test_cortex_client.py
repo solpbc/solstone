@@ -35,7 +35,7 @@ def callosum_server(monkeypatch):
     tmp_dir = tempfile.mkdtemp(dir="/tmp", prefix="callosum_")
     tmp_path = Path(tmp_dir)
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     (tmp_path / "talents").mkdir(parents=True, exist_ok=True)
 
     server = CallosumServer()
@@ -160,7 +160,7 @@ def test_cortex_request_returns_none_on_send_failure(callosum_server, monkeypatc
 def test_cortex_request_empty_journal(tmp_path, monkeypatch):
     """Test cortex_request works with an empty journal directory."""
     monkeypatch.setattr("think.cortex_client.callosum_send", lambda *a, **kw: True)
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     use_id = cortex_request("test", "chat", "openai")
     assert use_id is not None
@@ -172,7 +172,7 @@ def test_cortex_request_empty_journal(tmp_path, monkeypatch):
 
 def test_cortex_agents_empty(tmp_path, monkeypatch):
     """Test cortex_uses with no agents."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     result = cortex_uses()
 
@@ -185,7 +185,7 @@ def test_cortex_agents_empty(tmp_path, monkeypatch):
 
 def test_cortex_agents_with_active(tmp_path, monkeypatch):
     """Test cortex_uses with active (running) agents."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     talents_dir = tmp_path / "talents"
     talents_dir.mkdir()
 
@@ -235,7 +235,7 @@ def test_cortex_agents_with_active(tmp_path, monkeypatch):
 
 def test_cortex_agents_with_completed(tmp_path, monkeypatch):
     """Test cortex_uses with completed (historical) agents."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     talents_dir = tmp_path / "talents"
     talents_dir.mkdir()
 
@@ -270,7 +270,7 @@ def test_cortex_agents_with_completed(tmp_path, monkeypatch):
 
 def test_cortex_agents_pagination(tmp_path, monkeypatch):
     """Test cortex_uses pagination."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     talents_dir = tmp_path / "talents"
     talents_dir.mkdir()
 
@@ -303,7 +303,7 @@ def test_cortex_agents_pagination(tmp_path, monkeypatch):
 
 def test_cortex_agents_empty_journal(tmp_path, monkeypatch):
     """Test cortex_uses works with an empty journal directory."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     result = cortex_uses()
     assert "uses" in result
@@ -313,7 +313,7 @@ def test_cortex_agents_empty_journal(tmp_path, monkeypatch):
 
 def test_get_agent_log_status_completed(tmp_path, monkeypatch):
     """Test get_use_log_status returns 'completed' for finished agents."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     talents_dir = tmp_path / "talents"
     talents_dir.mkdir()
     unified_dir = talents_dir / "chat"
@@ -327,7 +327,7 @@ def test_get_agent_log_status_completed(tmp_path, monkeypatch):
 
 def test_get_agent_log_status_running(tmp_path, monkeypatch):
     """Test get_use_log_status returns 'running' for active agents."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     talents_dir = tmp_path / "talents"
     talents_dir.mkdir()
     unified_dir = talents_dir / "chat"
@@ -341,7 +341,7 @@ def test_get_agent_log_status_running(tmp_path, monkeypatch):
 
 def test_get_agent_log_status_not_found(tmp_path, monkeypatch):
     """Test get_use_log_status returns 'not_found' for missing agents."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     (tmp_path / "talents").mkdir()
 
     assert get_use_log_status("nonexistent") == "not_found"
@@ -349,7 +349,7 @@ def test_get_agent_log_status_not_found(tmp_path, monkeypatch):
 
 def test_get_agent_log_status_prefers_completed(tmp_path, monkeypatch):
     """Test get_use_log_status returns 'completed' when both files exist."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     talents_dir = tmp_path / "talents"
     talents_dir.mkdir()
     unified_dir = talents_dir / "chat"
@@ -365,7 +365,7 @@ def test_get_agent_log_status_prefers_completed(tmp_path, monkeypatch):
 
 def test_get_agent_end_state_finish(tmp_path, monkeypatch):
     """Test get_use_end_state returns 'finish' for successful agents."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     talents_dir = tmp_path / "talents"
     talents_dir.mkdir()
     unified_dir = talents_dir / "chat"
@@ -382,7 +382,7 @@ def test_get_agent_end_state_finish(tmp_path, monkeypatch):
 
 def test_get_agent_end_state_error(tmp_path, monkeypatch):
     """Test get_use_end_state returns 'error' for failed agents."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     talents_dir = tmp_path / "talents"
     talents_dir.mkdir()
     unified_dir = talents_dir / "chat"
@@ -399,7 +399,7 @@ def test_get_agent_end_state_error(tmp_path, monkeypatch):
 
 def test_get_agent_end_state_running(tmp_path, monkeypatch):
     """Test get_use_end_state returns 'running' for active agents."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     talents_dir = tmp_path / "talents"
     talents_dir.mkdir()
     unified_dir = talents_dir / "chat"
@@ -415,7 +415,7 @@ def test_get_agent_end_state_running(tmp_path, monkeypatch):
 
 def test_get_agent_end_state_unknown(tmp_path, monkeypatch):
     """Test get_use_end_state returns 'unknown' for missing agents."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     (tmp_path / "talents").mkdir()
 
     assert get_use_end_state("nonexistent") == "unknown"
@@ -426,7 +426,7 @@ def test_get_agent_end_state_unknown(tmp_path, monkeypatch):
 
 def test_wait_for_agents_already_complete(tmp_path, monkeypatch):
     """Test wait_for_uses returns immediately if agents already completed."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     talents_dir = tmp_path / "talents"
     talents_dir.mkdir()
     unified_dir = talents_dir / "chat"
@@ -519,7 +519,7 @@ def test_wait_for_agents_error_event(callosum_server):
 
 def test_wait_for_agents_initial_file_check(tmp_path, monkeypatch):
     """Test wait_for_uses finds already-completed agents via initial file check."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     talents_dir = tmp_path / "talents"
     talents_dir.mkdir()
     unified_dir = talents_dir / "chat"
@@ -540,7 +540,7 @@ def test_wait_for_agents_initial_file_check(tmp_path, monkeypatch):
 
 def test_wait_for_agents_timeout_actual(tmp_path, monkeypatch):
     """Test wait_for_uses times out for agents that never complete."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     talents_dir = tmp_path / "talents"
     talents_dir.mkdir()
     unified_dir = talents_dir / "chat"
@@ -601,7 +601,7 @@ def test_wait_for_agents_missed_event_recovery(tmp_path, monkeypatch, caplog):
     """Test that missed events are recovered via final file check with INFO log."""
     import logging
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     talents_dir = tmp_path / "talents"
     talents_dir.mkdir()
     unified_dir = talents_dir / "chat"

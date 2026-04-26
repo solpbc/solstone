@@ -16,7 +16,7 @@ from think.identity import update_identity_section, write_identity
 
 @pytest.fixture(autouse=True)
 def _temp_journal(monkeypatch, tmp_path):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     config_dir = tmp_path / "config"
     config_dir.mkdir()
     (config_dir / "journal.json").write_text("{}", encoding="utf-8")

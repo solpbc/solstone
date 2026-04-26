@@ -22,7 +22,7 @@ def mock_journal(tmp_path, monkeypatch):
     agents_path = journal_path / "talents"
     agents_path.mkdir()
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_path))
     return journal_path
 
 

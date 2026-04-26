@@ -21,7 +21,7 @@ def test_participation_post_hook_resolves_entity_ids_without_mutating_entities(
 
     facet = "work"
     day = "20260418"
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     _write_detected_entities(
         tmp_path,

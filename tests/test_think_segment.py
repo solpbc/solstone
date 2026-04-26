@@ -19,7 +19,7 @@ def segment_dir(tmp_path, monkeypatch):
     segment_path.mkdir(parents=True)
     (segment_path / "talents").mkdir(parents=True)
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
     return segment_path
 
 

@@ -73,7 +73,7 @@ def test_process_text_pdf(tmp_path, monkeypatch):
     mod = importlib.import_module("think.importers.documents")
     pdf = tmp_path / "contract.pdf"
     pdf.write_bytes(b"%PDF-1.4")
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     monkeypatch.setattr(mod, "PdfReader", MockPdfReader)
     monkeypatch.setattr(mod, "day_path", lambda day: tmp_path / "chronicle" / day)
     monkeypatch.setattr(
@@ -105,7 +105,7 @@ def test_process_creates_original_pdf(tmp_path, monkeypatch):
     mod = importlib.import_module("think.importers.documents")
     pdf = tmp_path / "original.pdf"
     pdf.write_bytes(b"%PDF-1.4 fake")
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     monkeypatch.setattr(mod, "PdfReader", MockPdfReader)
     monkeypatch.setattr(mod, "day_path", lambda day: tmp_path / "chronicle" / day)
     monkeypatch.setattr(
@@ -141,7 +141,7 @@ def test_process_scanned_detection(tmp_path, monkeypatch):
 
     pdf = tmp_path / "scan.pdf"
     pdf.write_bytes(b"%PDF-1.4")
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     monkeypatch.setattr(mod, "PdfReader", ScannedReader)
     monkeypatch.setattr(mod, "day_path", lambda day: tmp_path / "chronicle" / day)
     monkeypatch.setattr(
@@ -184,7 +184,7 @@ def test_process_scanned_all_fallback(tmp_path, monkeypatch):
 
     pdf = tmp_path / "scan.pdf"
     pdf.write_bytes(b"%PDF-1.4")
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     monkeypatch.setattr(mod, "PdfReader", ScannedReader)
     monkeypatch.setattr(mod, "day_path", lambda day: tmp_path / "chronicle" / day)
     monkeypatch.setattr(
@@ -223,7 +223,7 @@ def test_process_multi_file(tmp_path, monkeypatch):
     pdf_b = tmp_path / "b.pdf"
     pdf_a.write_bytes(b"%PDF-1.4")
     pdf_b.write_bytes(b"%PDF-1.4")
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     monkeypatch.setattr(mod, "PdfReader", MockPdfReader)
     monkeypatch.setattr(mod, "day_path", lambda day: tmp_path / "chronicle" / day)
     monkeypatch.setattr(
@@ -254,7 +254,7 @@ def test_process_entity_seeding(tmp_path, monkeypatch):
 
     pdf = tmp_path / "parties.pdf"
     pdf.write_bytes(b"%PDF-1.4")
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     monkeypatch.setattr(mod, "PdfReader", EntityReader)
     monkeypatch.setattr(mod, "day_path", lambda day: tmp_path / "chronicle" / day)
     monkeypatch.setattr(

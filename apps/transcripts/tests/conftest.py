@@ -29,18 +29,18 @@ def _journal_env(request, monkeypatch):
     """Point tests at a copied journal when needed, otherwise the tracked fixture."""
     if "journal_copy" in request.fixturenames:
         journal_copy = request.getfixturevalue("journal_copy")
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_copy))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_copy))
         return
 
     monkeypatch.setenv(
-        "_SOLSTONE_JOURNAL_OVERRIDE",
+        "SOLSTONE_JOURNAL",
         os.path.join(os.getcwd(), "tests", "fixtures", "journal"),
     )
 
 
 @pytest.fixture
 def client(journal_copy, monkeypatch):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_copy))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_copy))
     app = create_app(str(journal_copy))
     return app.test_client()
 
@@ -50,5 +50,5 @@ def journal_copy(tmp_path, monkeypatch):
     src = Path(__file__).resolve().parents[3] / "tests" / "fixtures" / "journal"
     dst = tmp_path / "journal"
     copytree_tracked(src, dst)
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(dst.resolve()))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(dst.resolve()))
     return dst

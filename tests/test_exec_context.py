@@ -45,7 +45,7 @@ def _write_journal_config(journal: Path, data: dict) -> None:
 
 def test_exec_pre_process_populated_state(monkeypatch, tmp_path):
     journal = tmp_path / "journal"
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
     _write_journal_config(
         journal, {"agent": {"name": "Sol-agent", "name_status": "custom"}}
     )
@@ -98,7 +98,7 @@ def test_exec_pre_process_populated_state(monkeypatch, tmp_path):
 
 def test_exec_pre_process_empty_state(monkeypatch, tmp_path):
     journal = tmp_path / "journal"
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
     _write_journal_config(
         journal, {"agent": {"name": "Sol-agent", "name_status": "custom"}}
     )
@@ -119,7 +119,7 @@ def test_exec_pre_process_empty_state(monkeypatch, tmp_path):
 
 def test_exec_pre_process_errors_swallowed(monkeypatch, tmp_path):
     journal = tmp_path / "journal"
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
     _write_journal_config(
         journal, {"agent": {"name": "Sol-agent", "name_status": "custom"}}
     )
@@ -150,7 +150,7 @@ def test_exec_pre_process_errors_swallowed(monkeypatch, tmp_path):
 
 def test_exec_pre_process_returned_dict_shape(monkeypatch, tmp_path):
     journal = tmp_path / "journal"
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
 
     monkeypatch.setattr("think.routines.get_routine_state", lambda: [])
     monkeypatch.setattr(
@@ -167,7 +167,7 @@ def test_exec_pre_process_returned_dict_shape(monkeypatch, tmp_path):
 
 def test_exec_pre_process_never_calls_save_config(monkeypatch, tmp_path):
     journal = tmp_path / "journal"
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
     _write_journal_config(
         journal, {"agent": {"name": "Sol-agent", "name_status": "custom"}}
     )
@@ -203,7 +203,7 @@ def test_exec_pre_process_never_calls_save_config(monkeypatch, tmp_path):
 
 def test_exec_and_chat_render_identical_routine_vars(monkeypatch, tmp_path):
     journal = tmp_path / "journal"
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
     _write_journal_config(
         journal, {"agent": {"name": "Sol-agent", "name_status": "custom"}}
     )

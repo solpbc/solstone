@@ -20,11 +20,11 @@ def journal_path(tmp_path):
     """Set up a temporary journal path."""
     journal = tmp_path / "journal"
     journal.mkdir()
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(journal)
+    os.environ["SOLSTONE_JOURNAL"] = str(journal)
     yield journal
     # Cleanup
-    if "_SOLSTONE_JOURNAL_OVERRIDE" in os.environ:
-        del os.environ["_SOLSTONE_JOURNAL_OVERRIDE"]
+    if "SOLSTONE_JOURNAL" in os.environ:
+        del os.environ["SOLSTONE_JOURNAL"]
 
 
 def test_server_broadcast_validates_tract_field():
@@ -217,7 +217,7 @@ def test_client_stop_stops_thread():
 
 
 def test_server_socket_path_from_env(journal_path):
-    """Test that server uses _SOLSTONE_JOURNAL_OVERRIDE env var for socket path."""
+    """Test that server uses SOLSTONE_JOURNAL env var for socket path."""
     server = CallosumServer()
 
     expected_path = journal_path / "health" / "callosum.sock"
@@ -233,7 +233,7 @@ def test_server_socket_path_custom():
 
 
 def test_client_socket_path_from_env(journal_path):
-    """Test that client uses _SOLSTONE_JOURNAL_OVERRIDE env var for socket path."""
+    """Test that client uses SOLSTONE_JOURNAL env var for socket path."""
     client = CallosumConnection()
 
     expected_path = journal_path / "health" / "callosum.sock"
@@ -252,7 +252,7 @@ def test_callosum_send_empty_journal(tmp_path, monkeypatch):
     """Test that callosum_send() works with an empty journal directory."""
     from think.callosum import callosum_send
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     # No server listening at tmp_path, so send will fail gracefully
     result = callosum_send("test", "event", data="value")

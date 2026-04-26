@@ -28,7 +28,7 @@ register_ingest_routes = ingest.register_ingest_routes
 def journal_env(tmp_path, monkeypatch):
     """Set up journal root and source storage."""
     monkeypatch.setattr(convey.state, "journal_root", str(tmp_path), raising=False)
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     (tmp_path / "apps" / "import" / "journal_sources").mkdir(
         parents=True, exist_ok=True
     )

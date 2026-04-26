@@ -219,14 +219,14 @@ def test_process_log_writer_pins_journal_root_at_init(tmp_path, monkeypatch):
     journal_a.mkdir()
     journal_b.mkdir()
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_a))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_a))
     monkeypatch.setattr(runner, "_current_day", lambda: "20241101")
 
     ref = "test_ref"
     writer = ProcessLogWriter(ref, "echo")
 
     # Drift: env var changes and day changes before the next flush.
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_b))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_b))
     monkeypatch.setattr(runner, "_current_day", lambda: "20241102")
 
     writer.write("hello\n")
@@ -311,7 +311,7 @@ def test_standalone_dry_run(tmp_path, monkeypatch):
     """Test scan_unprocessed finds only unprocessed media files."""
     from observe.utils import AUDIO_EXTENSIONS, VIDEO_EXTENSIONS
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     day_dir = tmp_path / "chronicle" / "20250101"
     segment_dir = day_dir / "default" / "143022_300"
@@ -341,7 +341,7 @@ def test_standalone_dry_run_with_segment_filter(tmp_path, monkeypatch):
     """Test scan_unprocessed honors segment filters."""
     from observe.utils import AUDIO_EXTENSIONS, VIDEO_EXTENSIONS
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     day_dir = tmp_path / "chronicle" / "20250101"
     segment_1 = day_dir / "default" / "143022_300"
@@ -405,7 +405,7 @@ def test_file_sensor_spawn_handler_duplicate(
     mock_day, tmp_path, monkeypatch, mock_callosum
 ):
     """Test that duplicate file processing is prevented."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     mock_day.return_value = "20250101"
 
     # Create journal/day structure
@@ -437,7 +437,7 @@ def test_file_sensor_spawn_handler_real_process(
     mock_day, tmp_path, monkeypatch, mock_callosum
 ):
     """Test spawning a real process and monitoring completion."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     mock_day.return_value = "20241101"
 
     sensor = FileSensor(tmp_path)
@@ -468,7 +468,7 @@ def test_file_sensor_spawn_handler_real_process(
 @patch("think.runner._current_day")
 def test_file_sensor_spawn_handler_failing_process(mock_day, tmp_path, monkeypatch):
     """Test handling of failing process."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     mock_day.return_value = "20241101"
 
     sensor = FileSensor(tmp_path)
@@ -489,7 +489,7 @@ def test_file_sensor_spawn_handler_failing_process(mock_day, tmp_path, monkeypat
 @patch("think.runner._current_day")
 def test_file_sensor_failing_process_notifies(mock_day, tmp_path, monkeypatch):
     """Test that a failing handler process emits a notification event."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     mock_day.return_value = "20241101"
 
     sensor = FileSensor(tmp_path)
@@ -659,7 +659,7 @@ def test_file_sensor_segment_observed_includes_day(
     """Test that observe.observed event includes day field."""
     from think.callosum import CallosumConnection
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     mock_day.return_value = "20250101"
 
     # Create journal/day/stream/segment structure
@@ -715,7 +715,7 @@ def test_file_sensor_segment_observed_no_handlers(tmp_path, monkeypatch, mock_ca
     """
     from think.callosum import CallosumConnection
 
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     # Create journal/day/stream/segment structure
     day_dir = tmp_path / "chronicle" / "20250101"

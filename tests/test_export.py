@@ -34,7 +34,7 @@ def _setup_journal(tmp_path, *, include_stream_json: bool = False):
 
 
 def _set_journal_override(monkeypatch, journal_path):
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_path))
     think.utils._journal_path_cache = None
 
 

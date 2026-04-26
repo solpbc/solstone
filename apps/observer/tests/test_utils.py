@@ -30,7 +30,7 @@ def storage_env(tmp_path, monkeypatch):
 
     journal = tmp_path / "journal"
     journal.mkdir()
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
     monkeypatch.setattr(state, "journal_root", str(journal))
 
     # Create observers directory

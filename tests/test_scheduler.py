@@ -70,7 +70,7 @@ def reset_scheduler_state():
 @pytest.fixture
 def journal_path(tmp_path, monkeypatch):
     """Create a temp journal with config/ and health/ dirs."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     (tmp_path / "config").mkdir()
     (tmp_path / "health").mkdir()
     return tmp_path

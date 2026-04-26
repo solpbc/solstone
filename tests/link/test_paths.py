@@ -20,7 +20,7 @@ from think.link.paths import (
 
 
 def _set_journal(monkeypatch: pytest.MonkeyPatch, journal: Path) -> None:
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
 
 
 def test_link_state_load_or_create_creates_state(

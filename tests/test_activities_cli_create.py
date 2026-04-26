@@ -20,7 +20,7 @@ def _write_detected_entities(tmp_path, facet: str, day: str, rows: list[dict]) -
 
 
 def _configure_cli_env(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     monkeypatch.setenv("SOL_SKIP_SUPERVISOR_CHECK", "1")
 
     import think.utils

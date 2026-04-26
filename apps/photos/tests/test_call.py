@@ -103,7 +103,7 @@ class TestPhotosSync:
             [{"id": "alice_johnson", "name": "Alice Johnson", "type": "Person"}],
         )
 
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_dir))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_dir))
         monkeypatch.setattr(sys, "platform", "darwin")
 
         result = runner.invoke(
@@ -148,7 +148,7 @@ class TestPhotosSync:
             [{"id": "alice_johnson", "name": "Alice Johnson", "type": "Person"}],
         )
 
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_dir))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_dir))
         monkeypatch.setattr(sys, "platform", "darwin")
 
         first = runner.invoke(call_app, ["photos", "sync", "--library", str(photos_db)])
@@ -185,7 +185,7 @@ class TestPhotosSync:
             [(1, 1, 1)],
         )
 
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_dir))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_dir))
         monkeypatch.setattr(sys, "platform", "darwin")
 
         result = runner.invoke(
@@ -211,7 +211,7 @@ class TestPhotosSync:
             [{"id": "alice_johnson", "name": "Alice Johnson", "type": "Person"}],
         )
 
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_dir))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_dir))
         monkeypatch.setattr(sys, "platform", "darwin")
 
         runner.invoke(call_app, ["photos", "sync", "--library", str(photos_db)])
@@ -259,7 +259,7 @@ class TestPhotosSync:
             [{"id": "alice_johnson", "name": "Alice Johnson", "type": "Person"}],
         )
 
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_dir))
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_dir))
         monkeypatch.setattr(sys, "platform", "darwin")
 
         result = runner.invoke(

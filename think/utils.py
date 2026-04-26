@@ -35,6 +35,19 @@ DEFAULT_STREAM = "_default"
 EXIT_TEMPFAIL = 75
 
 
+class SolstoneNotConfigured(RuntimeError):
+    def __init__(
+        self,
+        message: str,
+        *,
+        path: str | None = None,
+        error: OSError | None = None,
+    ):
+        super().__init__(message)
+        self.path = path
+        self.error = error
+
+
 def now_ms() -> int:
     """Return current time as Unix epoch milliseconds."""
     return int(time.time() * 1000)
@@ -89,42 +102,55 @@ def get_project_root() -> str:
 
 
 def get_journal_info() -> tuple[str, str]:
-    """Return the journal path and its source.
+    """Resolve the journal path and its source.
 
-    Returns
-    -------
-    tuple[str, str]
-        (path, source) where source is "override" when
-        _SOLSTONE_JOURNAL_OVERRIDE is set, otherwise "project".
+    Returns ``(path, source)`` where source is one of ``{"env", "source"}``:
+
+    - ``"env"`` — ``SOLSTONE_JOURNAL`` is set
+    - ``"source"`` — running from a source checkout; journal is
+      ``<project_root>/journal``
+
+    Raises ``SolstoneNotConfigured`` if neither branch resolves. The wrapper
+    at ``~/.local/bin/sol`` is responsible for setting ``SOLSTONE_JOURNAL``
+    on installed runs; tests set it via the autouse fixture.
     """
-    override = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
-    if override:
-        return override, "override"
+    env_path = os.environ.get("SOLSTONE_JOURNAL")
+    if env_path:
+        return env_path, "env"
 
-    journal = str(Path(get_project_root()) / "journal")
-    return journal, "project"
+    project_root = Path(get_project_root())
+    if (project_root / "pyproject.toml").exists() and (project_root / ".git").exists():
+        return str(project_root / "journal"), "source"
+
+    raise SolstoneNotConfigured(
+        "solstone is not configured: set SOLSTONE_JOURNAL or run from a "
+        f"source checkout (project_root={project_root})"
+    )
 
 
 def get_journal() -> str:
-    """Return the journal path: <project_root>/journal/
+    """Return the journal path. Auto-creates the directory.
 
-    The journal always lives at ./journal/ relative to the solstone
-    project root. Auto-creates the directory if it doesn't exist.
+    Reads ``SOLSTONE_JOURNAL`` if set, otherwise falls back to the
+    source-tree journal at ``<project_root>/journal``. Raises
+    ``SolstoneNotConfigured`` if neither branch resolves or if mkdir fails.
 
     Trust this function — never bypass it, cache its result, or set
-    _SOLSTONE_JOURNAL_OVERRIDE from application code. The env var
-    exists for external use only (tests, Makefile sandboxes). See
-    ``docs/environment.md``.
+    ``SOLSTONE_JOURNAL`` from application code, agent prompts, subprocess
+    environments, or service files. The wrapper at ``~/.local/bin/sol`` is
+    the canonical setter; tests use the autouse fixture; everywhere else,
+    let it resolve on its own. See ``docs/environment.md``.
     """
-    override = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
-    if override:
-        os.makedirs(override, exist_ok=True)
-        return override
-
-    project_root = Path(__file__).resolve().parent.parent
-    journal = str(project_root / "journal")
-    os.makedirs(journal, exist_ok=True)
-    return journal
+    path, source = get_journal_info()
+    try:
+        os.makedirs(path, exist_ok=True)
+    except OSError as exc:
+        raise SolstoneNotConfigured(
+            f"could not create journal directory ({source}): {path}: {exc}",
+            path=path,
+            error=exc,
+        ) from exc
+    return path
 
 
 def resolve_journal_path(journal: str | Path, rel: str) -> Path:

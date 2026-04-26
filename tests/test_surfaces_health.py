@@ -19,7 +19,7 @@ _SPEC_POINTER = "cpo/specs/in-flight/consumer-surface-health.md"
 
 
 def _configure_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     monkeypatch.setenv("SOL_SKIP_SUPERVISOR_CHECK", "1")
 
     from think.entities.journal import clear_journal_entity_cache

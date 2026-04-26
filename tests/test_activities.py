@@ -68,8 +68,8 @@ def test_always_on_activities():
     assert "email" in always_on_ids
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        original_path = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
-        os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
+        original_path = os.environ.get("SOLSTONE_JOURNAL")
+        os.environ["SOLSTONE_JOURNAL"] = tmpdir
 
         facet_path = Path(tmpdir) / "facets" / "test_facet"
         facet_path.mkdir(parents=True)
@@ -90,7 +90,7 @@ def test_always_on_activities():
 
         finally:
             if original_path:
-                os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = original_path
+                os.environ["SOLSTONE_JOURNAL"] = original_path
 
 
 def test_generate_activity_id():
@@ -134,8 +134,8 @@ def test_unconfigured_facet_returns_all_defaults():
     from think.activities import DEFAULT_ACTIVITIES, get_facet_activities
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        original_path = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
-        os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
+        original_path = os.environ.get("SOLSTONE_JOURNAL")
+        os.environ["SOLSTONE_JOURNAL"] = tmpdir
 
         facet_path = Path(tmpdir) / "facets" / "new_facet"
         facet_path.mkdir(parents=True)
@@ -154,7 +154,7 @@ def test_unconfigured_facet_returns_all_defaults():
 
         finally:
             if original_path:
-                os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = original_path
+                os.environ["SOLSTONE_JOURNAL"] = original_path
 
 
 def test_configured_facet_includes_meeting_always_on():
@@ -162,8 +162,8 @@ def test_configured_facet_includes_meeting_always_on():
     from think.activities import get_facet_activities, save_facet_activities
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        original_path = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
-        os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
+        original_path = os.environ.get("SOLSTONE_JOURNAL")
+        os.environ["SOLSTONE_JOURNAL"] = tmpdir
 
         facet_path = Path(tmpdir) / "facets" / "work"
         facet_path.mkdir(parents=True)
@@ -182,7 +182,7 @@ def test_configured_facet_includes_meeting_always_on():
 
         finally:
             if original_path:
-                os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = original_path
+                os.environ["SOLSTONE_JOURNAL"] = original_path
 
 
 def test_facet_activities_roundtrip():
@@ -196,9 +196,9 @@ def test_facet_activities_roundtrip():
 
     # Create a temp journal
     with tempfile.TemporaryDirectory() as tmpdir:
-        # Temporarily override _SOLSTONE_JOURNAL_OVERRIDE
-        original_path = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
-        os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
+        # Temporarily override SOLSTONE_JOURNAL
+        original_path = os.environ.get("SOLSTONE_JOURNAL")
+        os.environ["SOLSTONE_JOURNAL"] = tmpdir
 
         # Create facet directory
         facet_path = Path(tmpdir) / "facets" / "test_facet"
@@ -264,7 +264,7 @@ def test_facet_activities_roundtrip():
 
         finally:
             if original_path:
-                os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = original_path
+                os.environ["SOLSTONE_JOURNAL"] = original_path
 
 
 def test_add_activity_to_facet():
@@ -276,8 +276,8 @@ def test_add_activity_to_facet():
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        original_path = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
-        os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
+        original_path = os.environ.get("SOLSTONE_JOURNAL")
+        os.environ["SOLSTONE_JOURNAL"] = tmpdir
 
         facet_path = Path(tmpdir) / "facets" / "test_facet"
         facet_path.mkdir(parents=True)
@@ -337,7 +337,7 @@ def test_add_activity_to_facet():
 
         finally:
             if original_path:
-                os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = original_path
+                os.environ["SOLSTONE_JOURNAL"] = original_path
 
 
 def test_update_activity_in_facet():
@@ -349,8 +349,8 @@ def test_update_activity_in_facet():
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        original_path = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
-        os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
+        original_path = os.environ.get("SOLSTONE_JOURNAL")
+        os.environ["SOLSTONE_JOURNAL"] = tmpdir
 
         facet_path = Path(tmpdir) / "facets" / "test_facet"
         facet_path.mkdir(parents=True)
@@ -422,7 +422,7 @@ def test_update_activity_in_facet():
 
         finally:
             if original_path:
-                os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = original_path
+                os.environ["SOLSTONE_JOURNAL"] = original_path
 
 
 def test_format_activities_context_includes_instructions():
@@ -430,8 +430,8 @@ def test_format_activities_context_includes_instructions():
     from think.activities import save_facet_activities
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        original_path = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
-        os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = tmpdir
+        original_path = os.environ.get("SOLSTONE_JOURNAL")
+        os.environ["SOLSTONE_JOURNAL"] = tmpdir
 
         facet_path = Path(tmpdir) / "facets" / "test_facet"
         facet_path.mkdir(parents=True)
@@ -465,7 +465,7 @@ def test_format_activities_context_includes_instructions():
 
         finally:
             if original_path:
-                os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = original_path
+                os.environ["SOLSTONE_JOURNAL"] = original_path
 
 
 # ---------------------------------------------------------------------------
@@ -514,7 +514,7 @@ class TestActivityRecordIO:
         from think.activities import append_activity_record, load_activity_records
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             record = {
                 "id": "coding_100000_300",
@@ -540,7 +540,7 @@ class TestActivityRecordIO:
         from think.activities import append_activity_record, load_activity_records
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             record = {
                 "id": "coding_100000_300",
@@ -559,7 +559,7 @@ class TestActivityRecordIO:
         from think.activities import load_activity_records
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
             assert load_activity_records("work", "20260209") == []
 
     def test_update_description(self, monkeypatch):
@@ -570,7 +570,7 @@ class TestActivityRecordIO:
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             record = {
                 "id": "coding_100000_300",
@@ -599,7 +599,7 @@ class TestActivityRecordIO:
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             record = {
                 "id": "coding_100000_300",
@@ -635,7 +635,7 @@ class TestActivityRecordIO:
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             append_activity_record(
                 "work",
@@ -672,7 +672,7 @@ class TestActivityRecordIO:
         from think.activities import update_record_description
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
             assert (
                 update_record_description("work", "20260209", "nonexistent", "desc")
                 is False
@@ -686,7 +686,7 @@ class TestActivityRecordIO:
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             r1 = {
                 "id": "coding_100000_300",
@@ -723,7 +723,7 @@ class TestActivityRecordIO:
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             append_activity_record(
                 "work",
@@ -759,7 +759,7 @@ class TestActivityRecordIO:
         from think.activities import update_activity_record
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             with pytest.raises(ValueError, match="patch cannot be empty"):
                 update_activity_record(
@@ -828,7 +828,7 @@ class TestActivityRecordIO:
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             append_activity_record(
                 "work",
@@ -919,7 +919,7 @@ class TestListFacetsWithActivityState:
         from talent.activities import _list_facets_with_activity_state
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             _setup_segment(tmpdir, "20260209", "100000_300", "personal", [])
             _setup_segment(tmpdir, "20260209", "100000_300", "work", [])
@@ -933,7 +933,7 @@ class TestListFacetsWithActivityState:
         from talent.activities import _list_facets_with_activity_state
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
             assert (
                 _list_facets_with_activity_state(
                     "20260209", "100000_300", stream="default"
@@ -1024,7 +1024,7 @@ class TestWalkActivitySegments:
         from talent.activities import _walk_activity_segments
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             _setup_segment(
                 tmpdir,
@@ -1072,7 +1072,7 @@ class TestWalkActivitySegments:
         from talent.activities import _walk_activity_segments
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             _setup_segment(
                 tmpdir,
@@ -1115,7 +1115,7 @@ class TestWalkActivitySegments:
         from talent.activities import _walk_activity_segments
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
             (Path(tmpdir) / "chronicle" / "20260209").mkdir(parents=True)
 
             result = _walk_activity_segments(
@@ -1131,7 +1131,7 @@ class TestPreProcess:
         from talent.activities import pre_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             day_dir = Path(tmpdir) / "chronicle" / "20260209"
             day_dir.mkdir(parents=True)
@@ -1147,7 +1147,7 @@ class TestPreProcess:
         from talent.activities import pre_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             _setup_segment(
                 tmpdir,
@@ -1189,7 +1189,7 @@ class TestPreProcess:
         from think.activities import load_activity_records
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             _setup_segment(
                 tmpdir,
@@ -1227,7 +1227,7 @@ class TestPreProcess:
         from think.activities import load_activity_records
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             _setup_segment(
                 tmpdir,
@@ -1258,7 +1258,7 @@ class TestPreProcess:
         from think.activities import load_activity_records
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             _setup_segment(
                 tmpdir,
@@ -1313,7 +1313,7 @@ class TestPreProcess:
         from think.activities import load_activity_records
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             _setup_segment(
                 tmpdir,
@@ -1386,7 +1386,7 @@ class TestPostProcess:
         from think.activities import append_activity_record, load_activity_records
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             record = {
                 "id": "coding_100000_300",
@@ -1425,7 +1425,7 @@ class TestPostProcess:
         from think.activities import append_activity_record, load_activity_records
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             append_activity_record(
                 "work",
@@ -1475,7 +1475,7 @@ class TestPostProcess:
         from talent.activities import post_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             result = post_process("{}", {"day": "20260209"})
             assert result is None
@@ -1505,7 +1505,7 @@ class TestPreProcessMeta:
         from talent.activities import pre_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             _setup_segment(
                 tmpdir,
@@ -1549,7 +1549,7 @@ class TestPreProcessMeta:
         from talent.activities import pre_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             _setup_segment(
                 tmpdir,
@@ -1601,7 +1601,7 @@ class TestPostProcessEvents:
         from think.activities import append_activity_record
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             record = {
                 "id": "coding_100000_300",
@@ -1664,7 +1664,7 @@ class TestPostProcessEvents:
         from talent.activities import post_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             meta = {
                 "activity_records": {
@@ -1702,7 +1702,7 @@ class TestPostProcessEvents:
         from talent.activities import post_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             with patch("talent.activities.callosum_send") as mock_send:
                 post_process("{}", {"day": "20260209", "segment": "100500_300"})
@@ -1714,7 +1714,7 @@ class TestPostProcessEvents:
         from talent.activities import post_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             meta = {
                 "activity_records": {
@@ -1858,7 +1858,7 @@ class TestPreProcessFlush:
         from think.activities import load_activity_records
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             # Set up a segment with an active activity (no following segment)
             _setup_segment(
@@ -1902,7 +1902,7 @@ class TestPreProcessFlush:
         from talent.activities import pre_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             # Set up a segment with only ended activities
             _setup_segment(
@@ -1933,7 +1933,7 @@ class TestPreProcessFlush:
         from talent.activities import pre_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             # Create segment dir but no activity_state files
             seg_dir = Path(tmpdir) / "chronicle" / "20260209" / "default" / "100000_300"
@@ -1954,7 +1954,7 @@ class TestPreProcessFlush:
         from think.activities import load_activity_records
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             _setup_segment(
                 tmpdir,
@@ -2009,7 +2009,7 @@ class TestPreProcessFlush:
         from think.activities import load_activity_records
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             _setup_segment(
                 tmpdir,
@@ -2043,7 +2043,7 @@ class TestPreProcessFlush:
         from talent.activities import pre_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
             _setup_segment(
                 tmpdir,
@@ -2264,7 +2264,7 @@ def test_dedup_anticipation_returns_empty_for_first_record(monkeypatch):
     from think.activities import dedup_anticipation
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+        monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
         should_write, superseded_ids = dedup_anticipation(
             "work",
@@ -2280,7 +2280,7 @@ def test_dedup_anticipation_rejects_exact_id_collision(monkeypatch):
     from think.activities import dedup_anticipation
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+        monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
         _seed_activity_records(
             tmpdir,
             "work",
@@ -2310,7 +2310,7 @@ def test_dedup_anticipation_returns_fuzzy_supersede_matches(monkeypatch):
     from think.activities import dedup_anticipation
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+        monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
         _seed_activity_records(
             tmpdir,
             "work",
@@ -2343,7 +2343,7 @@ def test_dedup_anticipation_ignores_below_threshold_and_hidden_rows(monkeypatch)
     from think.activities import dedup_anticipation
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+        monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
         _seed_activity_records(
             tmpdir,
             "work",
@@ -2384,7 +2384,7 @@ def test_dedup_anticipation_returns_all_matching_supersedes(monkeypatch):
     from think.activities import dedup_anticipation
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
+        monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
         _seed_activity_records(
             tmpdir,
             "work",

@@ -278,7 +278,7 @@ class TestTemporalExtraction:
 def journal_fixture(tmp_path):
     """Create a temporary journal with test data."""
     journal = tmp_path
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(journal)
+    os.environ["SOLSTONE_JOURNAL"] = str(journal)
 
     # Create daily insight
     day = journal / "chronicle" / "20240101"
@@ -697,7 +697,7 @@ def test_search_journal_returns_counts():
     from think.tools.search import search_journal
 
     # Use fixtures journal
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = "tests/fixtures/journal"
+    os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
 
     result = search_journal("test")
 
@@ -718,7 +718,7 @@ def test_search_journal_returns_query_echo():
     """Test search tool returns query echo."""
     from think.tools.search import search_journal
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = "tests/fixtures/journal"
+    os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
 
     result = search_journal("test query", facet="work", agent="flow")
 
@@ -732,7 +732,7 @@ def test_search_journal_results_include_path():
     """Test search tool results include path and idx."""
     from think.tools.search import search_journal
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = "tests/fixtures/journal"
+    os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
 
     result = search_journal("")
 
@@ -748,7 +748,7 @@ def test_search_journal_truncates_large_results():
 
     from think.tools.search import _MAX_RESULT_TEXT, search_journal
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = "tests/fixtures/journal"
+    os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
 
     big_text = "x" * 10_000
     fake_results = [
@@ -849,7 +849,7 @@ def test_light_scan_removes_deleted_today_segment(tmp_path):
     from think.indexer.journal import scan_journal, search_journal
 
     journal = tmp_path
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(journal)
+    os.environ["SOLSTONE_JOURNAL"] = str(journal)
 
     # Create content for today (which is in light scan scope)
     today = datetime.now().strftime("%Y%m%d")
@@ -884,7 +884,7 @@ def test_light_scan_preserves_historical_content(tmp_path):
     from think.indexer.journal import scan_journal, search_journal
 
     journal = tmp_path
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(journal)
+    os.environ["SOLSTONE_JOURNAL"] = str(journal)
 
     # Create historical day content
     day_dir = journal / "chronicle" / "20200101"
@@ -919,7 +919,7 @@ def test_full_scan_removes_historical_content(tmp_path):
     from think.indexer.journal import scan_journal, search_journal
 
     journal = tmp_path
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(journal)
+    os.environ["SOLSTONE_JOURNAL"] = str(journal)
 
     # Create historical day content
     day_dir = journal / "chronicle" / "20200101"
@@ -1096,8 +1096,8 @@ def test_search_journal_stream_filter():
     """search_journal filters by stream name."""
     from think.indexer.journal import scan_journal, search_journal
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = "tests/fixtures/journal"
-    scan_journal(os.environ["_SOLSTONE_JOURNAL_OVERRIDE"], full=True)
+    os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
+    scan_journal(os.environ["SOLSTONE_JOURNAL"], full=True)
 
     # Search with matching stream
     total, results = search_journal("", stream="default")
@@ -1114,8 +1114,8 @@ def test_search_journal_results_include_stream():
     """search_journal results include stream in metadata."""
     from think.indexer.journal import scan_journal, search_journal
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = "tests/fixtures/journal"
-    scan_journal(os.environ["_SOLSTONE_JOURNAL_OVERRIDE"], full=True)
+    os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
+    scan_journal(os.environ["SOLSTONE_JOURNAL"], full=True)
 
     # Filter to segment content which has stream markers
     total, results = search_journal("", stream="default")
@@ -1130,8 +1130,8 @@ def test_search_counts_stream_filter():
     """search_counts filters by stream and includes streams aggregation."""
     from think.indexer.journal import scan_journal, search_counts
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = "tests/fixtures/journal"
-    scan_journal(os.environ["_SOLSTONE_JOURNAL_OVERRIDE"], full=True)
+    os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
+    scan_journal(os.environ["SOLSTONE_JOURNAL"], full=True)
 
     # Unfiltered counts should include streams
     counts = search_counts("")
@@ -1151,8 +1151,8 @@ def test_search_tool_stream_filter():
     from think.indexer.journal import scan_journal
     from think.tools.search import search_journal
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = "tests/fixtures/journal"
-    scan_journal(os.environ["_SOLSTONE_JOURNAL_OVERRIDE"], full=True)
+    os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
+    scan_journal(os.environ["SOLSTONE_JOURNAL"], full=True)
 
     result = search_journal("", stream="default")
     assert "results" in result
@@ -1162,7 +1162,7 @@ def test_search_tool_stream_filter():
 
 def test_entity_schema_creation():
     """Verify entities table exists after schema init."""
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = "tests/fixtures/journal"
+    os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     conn, _ = get_journal_index()
 
     tables = conn.execute(
@@ -1176,7 +1176,7 @@ def test_scan_entities_identity():
     """Verify journal entity identity rows are indexed."""
     from think.indexer.journal import scan_journal
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = "tests/fixtures/journal"
+    os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     scan_journal("tests/fixtures/journal", full=True)
 
     conn, _ = get_journal_index("tests/fixtures/journal")
@@ -1189,7 +1189,7 @@ def test_scan_entities_relationship():
     """Verify facet relationship rows are indexed."""
     from think.indexer.journal import scan_journal
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = "tests/fixtures/journal"
+    os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     scan_journal("tests/fixtures/journal", full=True)
 
     conn, _ = get_journal_index("tests/fixtures/journal")
@@ -1202,7 +1202,7 @@ def test_scan_entities_detected():
     """Verify detected entity rows are indexed."""
     from think.indexer.journal import scan_journal
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = "tests/fixtures/journal"
+    os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     scan_journal("tests/fixtures/journal", full=True)
 
     conn, _ = get_journal_index("tests/fixtures/journal")
@@ -1215,7 +1215,7 @@ def test_scan_entities_observations():
     """Verify observation summary rows are indexed."""
     from think.indexer.journal import scan_journal
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = "tests/fixtures/journal"
+    os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     scan_journal("tests/fixtures/journal", full=True)
 
     conn, _ = get_journal_index("tests/fixtures/journal")
@@ -1234,7 +1234,7 @@ def test_scan_entities_incremental_noop():
     """Verify second scan is a no-op."""
     from think.indexer.journal import scan_journal
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = "tests/fixtures/journal"
+    os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     scan_journal("tests/fixtures/journal", full=True)
 
     conn, _ = get_journal_index("tests/fixtures/journal")
@@ -1254,7 +1254,7 @@ def test_scan_entities_deletion(tmp_path, monkeypatch):
     dst = tmp_path / "journal"
     copytree_tracked(src, dst)
     j = str(dst)
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", j)
+    monkeypatch.setenv("SOLSTONE_JOURNAL", j)
 
     from think.indexer.journal import scan_journal
 
@@ -1283,7 +1283,7 @@ def test_scan_entities_preserves_fts():
     """Verify FTS5 chunks still work after entity scan."""
     from think.indexer.journal import scan_journal
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = "tests/fixtures/journal"
+    os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     scan_journal("tests/fixtures/journal", full=True)
     total, results = search_journal("Alice", limit=5)
     assert isinstance(total, int)
@@ -1291,7 +1291,7 @@ def test_scan_entities_preserves_fts():
 
 def test_signal_schema_creation():
     """Verify entity_signals table exists after schema init."""
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = "tests/fixtures/journal"
+    os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     conn, _ = get_journal_index()
 
     tables = conn.execute(
@@ -1305,7 +1305,7 @@ def test_scan_signals_kg_appearances():
     """Verify KG appearance signals are extracted."""
     from think.indexer.journal import scan_journal
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = "tests/fixtures/journal"
+    os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     scan_journal("tests/fixtures/journal", full=True)
 
     conn, _ = get_journal_index("tests/fixtures/journal")
@@ -1335,7 +1335,7 @@ def test_scan_signals_kg_edges():
     """Verify KG edge signals are extracted."""
     from think.indexer.journal import scan_journal
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = "tests/fixtures/journal"
+    os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     scan_journal("tests/fixtures/journal", full=True)
 
     conn, _ = get_journal_index("tests/fixtures/journal")
@@ -1358,7 +1358,7 @@ def test_scan_signals_event_participants():
     """Verify event participant signals are extracted."""
     from think.indexer.journal import scan_journal
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = "tests/fixtures/journal"
+    os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     scan_journal("tests/fixtures/journal", full=True)
 
     conn, _ = get_journal_index("tests/fixtures/journal")
@@ -1382,7 +1382,7 @@ def test_scan_signals_incremental_noop():
     """Verify second scan is a no-op."""
     from think.indexer.journal import scan_journal
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = "tests/fixtures/journal"
+    os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     scan_journal("tests/fixtures/journal", full=True)
 
     conn, _ = get_journal_index("tests/fixtures/journal")
@@ -1430,7 +1430,7 @@ def test_scan_signals_kg_facet_assignment():
     """Verify KG signals get facet assigned from detection data."""
     from think.indexer.journal import scan_journal
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = "tests/fixtures/journal"
+    os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     scan_journal("tests/fixtures/journal", full=True)
 
     conn, _ = get_journal_index("tests/fixtures/journal")
@@ -1491,7 +1491,7 @@ def test_entity_search_chunks_indexed():
     """Entity search chunks are generated from identity + relationship data."""
     from think.indexer.journal import scan_journal
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = "tests/fixtures/journal"
+    os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     scan_journal("tests/fixtures/journal", full=True)
     conn, _ = get_journal_index("tests/fixtures/journal")
     count = conn.execute("SELECT count(*) FROM chunks WHERE agent='entity'").fetchone()[
@@ -1506,7 +1506,7 @@ def test_entity_search_chunks_use_entity_search_path():
     """Entity search chunks use entity_search: path prefix."""
     from think.indexer.journal import scan_journal
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = "tests/fixtures/journal"
+    os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     scan_journal("tests/fixtures/journal", full=True)
     conn, _ = get_journal_index("tests/fixtures/journal")
     rows = conn.execute(
@@ -1520,7 +1520,7 @@ def test_entity_search_by_name():
     """Entity name is searchable via FTS."""
     from think.indexer.journal import scan_journal
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = "tests/fixtures/journal"
+    os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     scan_journal("tests/fixtures/journal", full=True)
     total, results = search_journal("Alice Johnson", agent="entity")
     assert total >= 1
@@ -1531,7 +1531,7 @@ def test_entity_search_by_type():
     """Entity type is searchable via FTS."""
     from think.indexer.journal import scan_journal
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = "tests/fixtures/journal"
+    os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     scan_journal("tests/fixtures/journal", full=True)
     total, results = search_journal("Person", agent="entity")
     assert total >= 1
@@ -1541,7 +1541,7 @@ def test_entity_search_includes_description():
     """Entity search chunks include relationship descriptions."""
     from think.indexer.journal import scan_journal
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = "tests/fixtures/journal"
+    os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     scan_journal("tests/fixtures/journal", full=True)
     # Alice has description "Close friend from college" in personal facet
     total, results = search_journal("college", agent="entity")
@@ -1554,7 +1554,7 @@ def test_entity_search_includes_facet():
     """Entity search chunks have facet metadata from relationships."""
     from think.indexer.journal import scan_journal
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = "tests/fixtures/journal"
+    os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     scan_journal("tests/fixtures/journal", full=True)
     total, results = search_journal("Alice Johnson", agent="entity", facet="personal")
     assert total >= 1
@@ -1565,7 +1565,7 @@ def test_entity_search_idempotent():
     """Two full scans produce identical entity chunk count (no duplicates)."""
     from think.indexer.journal import scan_journal
 
-    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = "tests/fixtures/journal"
+    os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     scan_journal("tests/fixtures/journal", full=True)
     conn, _ = get_journal_index("tests/fixtures/journal")
     count1 = conn.execute(
