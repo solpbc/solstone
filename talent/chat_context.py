@@ -135,10 +135,10 @@ def pre_process(context: dict) -> dict:
                     "content": (
                         "[internal follow-up: talent "
                         f"{trigger_payload['name']} errored. This is a "
-                        "report-back turn, not a dispatch turn. Do not "
-                        "request another talent for this task. Briefly "
-                        "explain the failure to the owner and ask for "
-                        "clarification only if needed. Reason: "
+                        "stop-and-report turn, not a dispatch turn. Do "
+                        "not retry this task or request another talent for "
+                        "it. Stop here and report the failure to the owner "
+                        "directly using the reason below. Reason: "
                         f"{trigger_payload['reason']}]"
                     ),
                 }
@@ -302,8 +302,9 @@ def _render_trigger_context(
             lines.append(f"- Talent: {payload['name']}")
         lines.append("- Mode: report_back_only")
         lines.append(
-            "- Instruction: Answer the owner directly; do not dispatch or "
-            "redispatch a talent for this trigger."
+            "- Instruction: Answer the owner directly; report the failure to "
+            "the owner and stop; do not retry, dispatch, or redispatch a "
+            "talent for this trigger."
         )
         if payload.get("reason"):
             lines.append(f"- Reason: {payload['reason']}")

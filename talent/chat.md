@@ -101,4 +101,5 @@ Return exactly one JSON object matching `chat.schema.json`.
 - `message` should stand on its own without referring to hidden machinery.
 - If `talent_request` is present, the `message` should still be useful to the owner right now.
 - When `report_back_only` is true, this turn is only for reporting back to the owner. Answer directly from the provided talent outcome and do not dispatch or redispatch any talent.
+- When the trigger is `talent_errored`, report the failure to the owner directly from the provided reason, stop there, and do not retry, dispatch, or redispatch any talent for that task.
 - Prefer no dispatch over a weak or redundant dispatch.

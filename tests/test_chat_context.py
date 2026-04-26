@@ -333,8 +333,9 @@ def test_chat_context_talent_errored_marks_report_back_only(monkeypatch, tmp_pat
     template_vars = _assert_template_vars_result(result)
     assert "Mode: report_back_only" in template_vars["trigger_context"]
     assert (
-        "Instruction: Answer the owner directly; do not dispatch or redispatch "
-        "a talent for this trigger."
+        "Instruction: Answer the owner directly; report the failure to the "
+        "owner and stop; do not retry, dispatch, or redispatch a talent for "
+        "this trigger."
     ) in template_vars["trigger_context"]
     assert result["messages"] == [
         {"role": "user", "content": "What happened?"},
@@ -343,13 +344,102 @@ def test_chat_context_talent_errored_marks_report_back_only(monkeypatch, tmp_pat
             "role": "user",
             "content": (
                 "[internal follow-up: talent exec errored. This is a "
-                "report-back turn, not a dispatch turn. Do not request "
-                "another talent for this task. Briefly explain the failure "
-                "to the owner and ask for clarification only if needed. "
-                "Reason: The lookup failed.]"
+                "stop-and-report turn, not a dispatch turn. Do not retry "
+                "this task or request another talent for it. Stop here and "
+                "report the failure to the owner directly using the reason "
+                "below. Reason: The lookup failed.]"
             ),
         },
     ]
+
+
+def test_chat_context_talent_followups_are_observably_distinct(monkeypatch, tmp_path):
+    journal = tmp_path / "journal"
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
+
+    append_chat_event(
+        "owner_message",
+        ts=_ts(10, 0),
+        text="What happened?",
+        app="home",
+        path="/app/home",
+        facet="work",
+    )
+    append_chat_event(
+        "sol_message",
+        ts=_ts(10, 1),
+        use_id="use-chat-4",
+        text="Looking into it.",
+        notes="Acknowledged request.",
+        requested_target=None,
+        requested_task=None,
+    )
+
+    monkeypatch.setattr("think.routines.get_routine_state", lambda: [])
+    monkeypatch.setattr(
+        "think.routines.get_config",
+        lambda: {"_meta": {"suggestions_enabled": False, "suggestions": {}}},
+    )
+    monkeypatch.setattr("think.routines.save_config", lambda config: None)
+
+    module = _load_chat_context_module()
+    finished = module.pre_process(
+        {
+            "day": "20260420",
+            "trigger_kind": "talent_finished",
+            "trigger_payload": {
+                "name": "exec",
+                "summary": "Found the latest notes.",
+            },
+        }
+    )
+    errored = module.pre_process(
+        {
+            "day": "20260420",
+            "trigger_kind": "talent_errored",
+            "trigger_payload": {
+                "name": "exec",
+                "reason": "The lookup failed.",
+            },
+        }
+    )
+
+    finished_vars = _assert_template_vars_result(finished)
+    errored_vars = _assert_template_vars_result(errored)
+
+    finished_message = finished["messages"][-1]["content"]
+    errored_message = errored["messages"][-1]["content"]
+
+    assert finished_message == (
+        "[internal follow-up: talent exec finished. This is a report-back "
+        "turn, not a dispatch turn. Do not request another talent for this "
+        "task. Use the result below to answer the owner's pending request "
+        "with a short summary. Result: Found the latest notes.]"
+    )
+    assert errored_message == (
+        "[internal follow-up: talent exec errored. This is a stop-and-report "
+        "turn, not a dispatch turn. Do not retry this task or request "
+        "another talent for it. Stop here and report the failure to the "
+        "owner directly using the reason below. Reason: The lookup failed.]"
+    )
+    assert "Do not retry this task or request another talent for it." in errored_message
+    assert (
+        "Do not retry this task or request another talent for it."
+        not in finished_message
+    )
+
+    finished_instruction = (
+        "Instruction: Answer the owner directly; do not dispatch or redispatch "
+        "a talent for this trigger."
+    )
+    errored_instruction = (
+        "Instruction: Answer the owner directly; report the failure to the "
+        "owner and stop; do not retry, dispatch, or redispatch a talent for "
+        "this trigger."
+    )
+    assert finished_instruction in finished_vars["trigger_context"]
+    assert errored_instruction in errored_vars["trigger_context"]
+    assert errored_instruction not in finished_vars["trigger_context"]
 
 
 def test_chat_context_includes_identity_grounding(monkeypatch, tmp_path):
