@@ -107,7 +107,7 @@
       "group": "Activities",
       "label": "Activities Review",
       "schedule": "daily",
-      "tier": 3,
+      "tier": 2,
       "type": "cogitate"
     },
     "talent.entities.entities": {
@@ -115,7 +115,7 @@
       "group": "Entities",
       "label": "Entity Detector",
       "schedule": "daily",
-      "tier": 3,
+      "tier": 2,
       "type": "cogitate"
     },
     "talent.entities.entities_review": {
@@ -189,7 +189,7 @@
       "group": "Skills",
       "label": "Skill Observer",
       "schedule": "daily",
-      "tier": 3,
+      "tier": 2,
       "type": "cogitate"
     },
     "talent.support.support": {
@@ -204,7 +204,7 @@
       "group": "Think",
       "label": "Awareness Tender",
       "schedule": "segment",
-      "tier": 3,
+      "tier": 2,
       "type": "cogitate"
     },
     "talent.system.chat": {
@@ -242,7 +242,7 @@
       "group": "Think",
       "label": "Digest",
       "schedule": "none",
-      "tier": 3,
+      "tier": 2,
       "type": "cogitate"
     },
     "talent.system.documents": {
@@ -273,7 +273,7 @@
       "disabled": false,
       "group": "Think",
       "label": "Exec",
-      "tier": 3,
+      "tier": 2,
       "type": "cogitate"
     },
     "talent.system.facet_newsletter": {
@@ -335,14 +335,14 @@
       "group": "Think",
       "label": "Pulse",
       "schedule": "segment",
-      "tier": 3,
+      "tier": 2,
       "type": "cogitate"
     },
     "talent.system.reflection": {
       "disabled": false,
       "group": "Think",
       "label": "Reflection",
-      "tier": 3,
+      "tier": 2,
       "type": "cogitate"
     },
     "talent.system.routine": {
@@ -385,14 +385,6 @@
       "tier": 2,
       "type": "generate"
     },
-    "talent.system.work": {
-      "disabled": false,
-      "group": "Think",
-      "label": "Work Story",
-      "schedule": "activity",
-      "tier": 2,
-      "type": "generate"
-    },
     "talent.system.weekly_reflection": {
       "disabled": false,
       "group": "Think",
@@ -400,6 +392,14 @@
       "schedule": "weekly",
       "tier": 2,
       "type": "cogitate"
+    },
+    "talent.system.work": {
+      "disabled": false,
+      "group": "Think",
+      "label": "Work Story",
+      "schedule": "activity",
+      "tier": 2,
+      "type": "generate"
     },
     "talent.todos.daily": {
       "disabled": false,
@@ -413,7 +413,7 @@
       "group": "Todos",
       "label": "TODO Detector",
       "schedule": "activity",
-      "tier": 3,
+      "tier": 2,
       "type": "cogitate"
     },
     "talent.todos.weekly": {
