@@ -93,6 +93,37 @@ def _stats_for_month(month: str, mtime_key: float) -> dict[str, int]:
     return stats
 
 
+def _attach_streams_to_ranges(
+    ranges: list[tuple[str, str]],
+    segments: list[dict[str, Any]],
+    content_type: str,
+) -> list[dict[str, Any]]:
+    """Fold per-stream attribution into each (start, end) range.
+
+    A segment contributes to a range when its half-open span overlaps the range
+    and its types include ``content_type``. Streams are sorted and de-duped.
+    """
+
+    def _to_min(hhmm: str) -> int:
+        h, m = hhmm.split(":")
+        return int(h) * 60 + int(m)
+
+    out: list[dict[str, Any]] = []
+    for start, end in ranges:
+        range_start = _to_min(start)
+        range_end = _to_min(end)
+        streams: set[str] = set()
+        for seg in segments:
+            if content_type not in seg.get("types", ()):
+                continue
+            seg_start = _to_min(seg["start"])
+            seg_end = _to_min(seg["end"])
+            if seg_start < range_end and seg_end > range_start:
+                streams.add(seg["stream"])
+        out.append({"start": start, "end": end, "streams": sorted(streams)})
+    return out
+
+
 @transcripts_bp.route("/")
 def index() -> Any:
     """Redirect to the most recent day with segments, falling back to today."""
@@ -120,8 +151,13 @@ def transcript_ranges(day: str) -> Any:
     if not DATE_RE.fullmatch(day):
         return error_response("Day not found", 404)
 
-    audio_ranges, screen_ranges = cluster_scan(day)
-    return jsonify({"audio": audio_ranges, "screen": screen_ranges})
+    audio_ranges, screen_ranges, segments = scan_day(day)
+    return jsonify(
+        {
+            "audio": _attach_streams_to_ranges(audio_ranges, segments, "audio"),
+            "screen": _attach_streams_to_ranges(screen_ranges, segments, "screen"),
+        }
+    )
 
 
 @transcripts_bp.route("/api/segments/<day>")
@@ -145,7 +181,11 @@ def transcript_day_data(day: str) -> Any:
 
     audio_ranges, screen_ranges, segments = scan_day(day)
     return jsonify(
-        {"audio": audio_ranges, "screen": screen_ranges, "segments": segments}
+        {
+            "audio": _attach_streams_to_ranges(audio_ranges, segments, "audio"),
+            "screen": _attach_streams_to_ranges(screen_ranges, segments, "screen"),
+            "segments": segments,
+        }
     )
 
 

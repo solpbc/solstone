@@ -8,9 +8,31 @@ from datetime import datetime
 
 import pytest
 
+from apps.transcripts.routes import _attach_streams_to_ranges
+
 FIXTURE_DAY = "20260304"
 FIXTURE_STREAM = "default"
 FIXTURE_SEGMENT = "090000_300"
+
+
+def _write_segment(
+    journal_root,
+    day: str,
+    stream: str,
+    segment: str,
+    *,
+    audio: bool = True,
+    screen: bool = True,
+) -> None:
+    segment_dir = journal_root / "chronicle" / day / stream / segment
+    segment_dir.mkdir(parents=True, exist_ok=True)
+    if audio:
+        (segment_dir / "audio.jsonl").write_text("{}\n", encoding="utf-8")
+    if screen:
+        (segment_dir / "screen.jsonl").write_text(
+            '{"raw": "screen.webm"}\n',
+            encoding="utf-8",
+        )
 
 
 def _action_log_rows(journal_root, day):
@@ -22,6 +44,91 @@ def _action_log_rows(journal_root, day):
         for line in log_path.read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
+
+
+def test_ranges_returns_object_shape_with_streams(client, journal_copy):
+    day = "20990102"
+    _write_segment(journal_copy, day, "alpha", "090000_300")
+    _write_segment(journal_copy, day, "bravo", "090500_300")
+    _write_segment(journal_copy, day, "alpha", "091000_300")
+
+    response = client.get(f"/app/transcripts/api/ranges/{day}")
+
+    assert response.status_code == 200
+    data = response.get_json()
+    assert set(data) == {"audio", "screen"}
+    assert data["audio"] == [
+        {"start": "09:00", "end": "09:15", "streams": ["alpha", "bravo"]}
+    ]
+    assert data["screen"] == [
+        {"start": "09:00", "end": "09:15", "streams": ["alpha", "bravo"]}
+    ]
+
+
+def test_ranges_overflow_returns_full_list(client, journal_copy):
+    day = "20990103"
+    for stream in ["echo", "alpha", "delta", "bravo", "charlie"]:
+        _write_segment(journal_copy, day, stream, "090000_300", screen=False)
+
+    response = client.get(f"/app/transcripts/api/ranges/{day}")
+
+    assert response.status_code == 200
+    assert response.get_json()["audio"] == [
+        {
+            "start": "09:00",
+            "end": "09:15",
+            "streams": ["alpha", "bravo", "charlie", "delta", "echo"],
+        }
+    ]
+
+
+def test_ranges_single_stream(client, journal_copy):
+    day = "20990104"
+    _write_segment(journal_copy, day, "solo", "090000_300", screen=False)
+
+    response = client.get(f"/app/transcripts/api/ranges/{day}")
+
+    assert response.status_code == 200
+    assert response.get_json()["audio"] == [
+        {"start": "09:00", "end": "09:15", "streams": ["solo"]}
+    ]
+
+
+def test_day_returns_object_shape_with_streams(client, journal_copy):
+    day = "20990105"
+    _write_segment(journal_copy, day, "alpha", "090000_300")
+    _write_segment(journal_copy, day, "bravo", "090500_300", screen=False)
+
+    response = client.get(f"/app/transcripts/api/day/{day}")
+
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["audio"] == [
+        {"start": "09:00", "end": "09:15", "streams": ["alpha", "bravo"]}
+    ]
+    assert data["screen"] == [{"start": "09:00", "end": "09:15", "streams": ["alpha"]}]
+    assert data["segments"] == [
+        {
+            "key": "090000_300",
+            "start": "09:00",
+            "end": "09:05",
+            "types": ["audio", "screen"],
+            "stream": "alpha",
+        },
+        {
+            "key": "090500_300",
+            "start": "09:05",
+            "end": "09:10",
+            "types": ["audio"],
+            "stream": "bravo",
+        },
+    ]
+
+
+def test_attach_streams_to_ranges_empty_when_no_overlap():
+    result = _attach_streams_to_ranges([("09:00", "09:15")], [], "audio")
+
+    assert result == [{"start": "09:00", "end": "09:15", "streams": []}]
 
 
 @pytest.mark.parametrize("stream", ["-bad", "Upper", "..bad"])
