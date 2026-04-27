@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
+import fcntl
 import fnmatch
 import inspect
 import json
@@ -15,7 +16,7 @@ from typing import Any, Dict, List, Optional, Union
 import frontmatter
 from jsonschema import Draft202012Validator
 
-from think.utils import get_config, get_journal
+from think.utils import get_config, get_journal, now_ms
 
 logger = logging.getLogger(__name__)
 
@@ -1117,12 +1118,12 @@ def get_backup_provider(agent_type: str) -> Optional[str]:
 
 
 def load_health_status() -> Optional[dict]:
-    """Load health status from journal/health/agents.json.
+    """Load health status from journal/health/talents.json.
 
     Returns parsed dict or None if file is missing/unreadable.
     """
     try:
-        health_path = Path(get_journal()) / "health" / "agents.json"
+        health_path = Path(get_journal()) / "health" / "talents.json"
         with open(health_path) as f:
             return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError, OSError):
@@ -1148,13 +1149,123 @@ def is_provider_healthy(provider: str, health_data: Optional[dict]) -> bool:
     return any(r.get("ok") for r in provider_results)
 
 
+def is_provider_model_interface_healthy(
+    provider: str,
+    model: str,
+    interface: str,
+    health_data: Optional[dict],
+) -> bool:
+    """Check health for a specific provider/model/interface row."""
+    if health_data is None:
+        return True
+    for row in health_data.get("results", []):
+        if (
+            row.get("provider") == provider
+            and row.get("model") == model
+            and row.get("interface") == interface
+            and row.get("ok") is False
+        ):
+            return False
+    return True
+
+
+def _summarize_health_results(results: list[dict[str, Any]]) -> dict[str, int]:
+    return {
+        "total": len(results),
+        "passed": sum(1 for row in results if row.get("status") == "ok"),
+        "skipped": sum(1 for row in results if row.get("status") == "skip"),
+        "failed": sum(1 for row in results if row.get("ok") is False),
+    }
+
+
+def record_provider_failure(
+    provider: str,
+    tier: str,
+    model: str,
+    interface: str,
+    reset_at_ms: int,
+) -> None:
+    """Record a provider/model/interface quota failure in health status."""
+    health_dir = Path(get_journal()) / "health"
+    health_dir.mkdir(parents=True, exist_ok=True)
+    health_path = health_dir / "talents.json"
+    lock_path = health_dir / "talents.json.lock"
+    tmp_path = health_dir / f".talents.json.{os.getpid()}.{now_ms()}.tmp"
+    recorded_at = datetime.now(timezone.utc).isoformat()
+    message = f"Quota exhausted; retry after {reset_at_ms}"
+
+    with open(lock_path, "w", encoding="utf-8") as lock_file:
+        fcntl.flock(lock_file, fcntl.LOCK_EX)
+        try:
+            try:
+                with open(health_path, encoding="utf-8") as health_file:
+                    payload = json.load(health_file)
+            except (FileNotFoundError, json.JSONDecodeError, OSError):
+                payload = {}
+
+            results = payload.get("results", [])
+            if not isinstance(results, list):
+                results = []
+            failure_row = {
+                "provider": provider,
+                "tier": tier,
+                "model": model,
+                "interface": interface,
+                "ok": False,
+                "status": "quota_exhausted",
+                "message": message,
+                "elapsed_s": 0.0,
+                "reset_at_ms": reset_at_ms,
+                "recorded_at": recorded_at,
+            }
+
+            for row in results:
+                if (
+                    row.get("provider") == provider
+                    and row.get("model") == model
+                    and row.get("interface") == interface
+                ):
+                    row.update(failure_row)
+                    break
+            else:
+                results.append(failure_row)
+
+            payload["results"] = results
+            payload["summary"] = _summarize_health_results(results)
+            payload.setdefault("checked_at", recorded_at)
+
+            with open(tmp_path, "w", encoding="utf-8") as tmp_file:
+                json.dump(payload, tmp_file, indent=2)
+                tmp_file.write("\n")
+                tmp_file.flush()
+                os.fsync(tmp_file.fileno())
+            os.replace(tmp_path, health_path)
+        finally:
+            try:
+                tmp_path.unlink()
+            except FileNotFoundError:
+                pass
+
+
 def should_recheck_health(health_data: Optional[dict]) -> bool:
-    """Check if health data is stale (>1 hour old).
+    """Check if health data should be rechecked.
 
     Returns False when health_data is None or on parse errors.
     """
     if health_data is None:
         return False
+    failed_rows = [
+        row for row in health_data.get("results", []) if row.get("ok") is False
+    ]
+    reset_values = [
+        int(row["reset_at_ms"])
+        for row in failed_rows
+        if isinstance(row.get("reset_at_ms"), (int, float))
+    ]
+    missing_reset = len(reset_values) < len(failed_rows)
+    if reset_values and not missing_reset:
+        return now_ms() > min(reset_values)
+
     checked_at = health_data.get("checked_at")
     if not checked_at:
         return False

@@ -14,9 +14,12 @@ from think.models import (
     TYPE_DEFAULTS,
     get_backup_provider,
     is_provider_healthy,
+    is_provider_model_interface_healthy,
     should_recheck_health,
 )
+from think.providers.cli import QuotaExhaustedError
 from think.talents import _is_retryable_error
+from think.utils import now_ms
 
 
 def test_is_provider_healthy_all_failed():
@@ -48,6 +51,63 @@ def test_is_provider_healthy_no_results_for_provider():
     assert is_provider_healthy("google", health_data) is True
 
 
+def test_is_provider_model_interface_healthy_match_failed():
+    health_data = {
+        "results": [
+            {
+                "provider": "google",
+                "model": "gemini-3-flash-preview",
+                "interface": "cogitate",
+                "ok": False,
+            }
+        ]
+    }
+    assert (
+        is_provider_model_interface_healthy(
+            "google", "gemini-3-flash-preview", "cogitate", health_data
+        )
+        is False
+    )
+
+
+def test_is_provider_model_interface_healthy_mismatch_is_healthy():
+    health_data = {
+        "results": [
+            {
+                "provider": "google",
+                "model": "gemini-3-flash-preview",
+                "interface": "generate",
+                "ok": False,
+            }
+        ]
+    }
+    assert (
+        is_provider_model_interface_healthy(
+            "google", "gemini-3-flash-preview", "cogitate", health_data
+        )
+        is True
+    )
+
+
+def test_is_provider_model_interface_healthy_missing_fields_are_healthy():
+    health_data = {"results": [{"provider": "google", "ok": False}]}
+    assert (
+        is_provider_model_interface_healthy(
+            "google", "gemini-3-flash-preview", "cogitate", health_data
+        )
+        is True
+    )
+
+
+def test_is_provider_model_interface_healthy_none_data():
+    assert (
+        is_provider_model_interface_healthy(
+            "google", "gemini-3-flash-preview", "cogitate", None
+        )
+        is True
+    )
+
+
 def test_should_recheck_health_stale():
     checked_at = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
     health_data = {"checked_at": checked_at}
@@ -58,6 +118,26 @@ def test_should_recheck_health_fresh():
     checked_at = (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat()
     health_data = {"checked_at": checked_at}
     assert should_recheck_health(health_data) is False
+
+
+def test_should_recheck_health_honors_reset_at_ms():
+    checked_at = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
+    pre_reset = {
+        "checked_at": checked_at,
+        "results": [{"ok": False, "reset_at_ms": now_ms() + 60_000}],
+    }
+    post_reset = {
+        "checked_at": checked_at,
+        "results": [{"ok": False, "reset_at_ms": now_ms() - 1_000}],
+    }
+    no_reset = {
+        "checked_at": checked_at,
+        "results": [{"ok": False}],
+    }
+
+    assert should_recheck_health(pre_reset) is False
+    assert should_recheck_health(post_reset) is True
+    assert should_recheck_health(no_reset) is True
 
 
 def test_get_backup_provider_from_config(monkeypatch):
@@ -117,7 +197,16 @@ def test_preflight_swap_unhealthy_primary(monkeypatch):
     _patch_prepare_config_dependencies(monkeypatch)
     monkeypatch.setattr(
         "think.models.load_health_status",
-        lambda: {"results": [{"provider": "google", "ok": False}]},
+        lambda: {
+            "results": [
+                {
+                    "provider": "google",
+                    "model": "gemini-3-flash-preview",
+                    "interface": "cogitate",
+                    "ok": False,
+                }
+            ]
+        },
     )
     monkeypatch.setattr("think.models.should_recheck_health", lambda _h: False)
     monkeypatch.setattr("think.models.get_backup_provider", lambda _type: "anthropic")
@@ -140,7 +229,16 @@ def test_preflight_no_swap_healthy_primary(monkeypatch):
     _patch_prepare_config_dependencies(monkeypatch)
     monkeypatch.setattr(
         "think.models.load_health_status",
-        lambda: {"results": [{"provider": "google", "ok": True}]},
+        lambda: {
+            "results": [
+                {
+                    "provider": "google",
+                    "model": "gemini-3-flash-preview",
+                    "interface": "cogitate",
+                    "ok": True,
+                }
+            ]
+        },
     )
     monkeypatch.setattr("think.models.should_recheck_health", lambda _h: False)
 
@@ -156,7 +254,16 @@ def test_preflight_no_swap_no_backup_key(monkeypatch):
     _patch_prepare_config_dependencies(monkeypatch)
     monkeypatch.setattr(
         "think.models.load_health_status",
-        lambda: {"results": [{"provider": "google", "ok": False}]},
+        lambda: {
+            "results": [
+                {
+                    "provider": "google",
+                    "model": "gemini-3-flash-preview",
+                    "interface": "cogitate",
+                    "ok": False,
+                }
+            ]
+        },
     )
     monkeypatch.setattr("think.models.should_recheck_health", lambda _h: False)
     monkeypatch.setattr("think.models.get_backup_provider", lambda _type: "anthropic")
@@ -216,6 +323,64 @@ def test_on_failure_retry_cogitate(monkeypatch):
     assert config["model"] == "claude-sonnet-4-5"
     assert config["fallback_from"] == "google"
     assert any(e.get("event") == "fallback" for e in events)
+
+
+def test_quota_failure_records_health_and_falls_back(monkeypatch):
+    from think.talents import _execute_with_tools
+
+    events = []
+    record_mock = MagicMock()
+
+    async def fail_quota(*_args, **_kwargs):
+        raise QuotaExhaustedError("quota exhausted", retry_delay_ms=1000)
+
+    async def pass_cogitate(*_args, **kwargs):
+        on_event = kwargs.get("on_event")
+        if on_event:
+            on_event({"event": "finish", "result": "backup result"})
+        return "backup result"
+
+    monkeypatch.setattr(
+        "think.providers.PROVIDER_REGISTRY", {"google": "x", "anthropic": "y"}
+    )
+    monkeypatch.setattr(
+        "think.providers.get_provider_module",
+        lambda provider: SimpleNamespace(
+            run_cogitate=fail_quota if provider == "google" else pass_cogitate
+        ),
+    )
+    monkeypatch.setattr("think.models.get_backup_provider", lambda _type: "anthropic")
+    monkeypatch.setattr(
+        "think.models.resolve_model_for_provider",
+        lambda _context, _provider, _type="cogitate": "claude-sonnet-4-5",
+    )
+    monkeypatch.setattr("think.models.record_provider_failure", record_mock)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+
+    config = {
+        "type": "cogitate",
+        "provider": "google",
+        "tier": "flash",
+        "model": "gemini-3-flash-preview",
+        "health_stale": False,
+        "context": "talent.system.default",
+    }
+    before_ms = now_ms()
+
+    asyncio.run(_execute_with_tools(config, events.append))
+
+    quota_event = next(e for e in events if e.get("reason") == "quota_exhausted")
+    assert quota_event["terminal"] is False
+    assert quota_event["reset_at_ms"] >= before_ms + 1000
+    record_mock.assert_called_once_with(
+        "google",
+        "flash",
+        "gemini-3-flash-preview",
+        "cogitate",
+        quota_event["reset_at_ms"],
+    )
+    assert config["provider"] == "anthropic"
+    assert events[-1]["event"] == "finish"
 
 
 def test_on_failure_retry_cogitate_uses_context_from_name(monkeypatch):

@@ -466,7 +466,14 @@ def prepare_config(request: dict) -> dict:
     Returns:
         Fully prepared config dict
     """
-    from think.models import resolve_model_for_provider, resolve_provider
+    from think.models import (
+        TIER_FLASH,
+        TIER_LITE,
+        TIER_PRO,
+        _resolve_tier,
+        resolve_model_for_provider,
+        resolve_provider,
+    )
     from think.talent import get_talent, key_to_context
 
     name = request["name"]
@@ -544,11 +551,17 @@ def prepare_config(request: dict) -> dict:
     config["provider"] = provider
     config["model"] = model
     config["context"] = context
+    tier = _resolve_tier(context, talent_type)
+    config["tier"] = {
+        TIER_PRO: "pro",
+        TIER_FLASH: "flash",
+        TIER_LITE: "lite",
+    }.get(tier, str(tier))
 
     # --- Provider fallback: preflight swap if primary is unhealthy ---
     from think.models import (
         get_backup_provider,
-        is_provider_healthy,
+        is_provider_model_interface_healthy,
         load_health_status,
         should_recheck_health,
     )
@@ -557,7 +570,9 @@ def prepare_config(request: dict) -> dict:
     health_data = load_health_status()
     config["health_stale"] = should_recheck_health(health_data)
 
-    if not is_provider_healthy(provider, health_data):
+    if not is_provider_model_interface_healthy(
+        provider, model, talent_type, health_data
+    ):
         backup = get_backup_provider(talent_type)
         if backup and backup != provider:
             env_key = PROVIDER_METADATA.get(backup, {}).get("env_key")
@@ -879,6 +894,15 @@ async def _execute_with_tools(
                     "reset_at_ms": reset_at_ms,
                     "terminal": False,
                 }
+            )
+            from think.models import record_provider_failure
+
+            record_provider_failure(
+                provider,
+                config["tier"],
+                config["model"],
+                config["type"],
+                reset_at_ms,
             )
         from think.models import (
             get_backup_provider,
