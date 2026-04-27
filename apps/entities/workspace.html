@@ -220,6 +220,28 @@
   opacity: 0.7;
 }
 
+.entity-detail-link-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5em 1em;
+}
+
+.entity-detail-allfacets {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  color: var(--facet-color, #667eea);
+  text-decoration: none;
+  font-size: 0.9em;
+  cursor: pointer;
+}
+
+.entity-detail-allfacets:hover { text-decoration: underline; }
+
+.entity-detail-allfacets:active { opacity: 0.7; }
+
 .entity-detail-title {
   display: flex;
   align-items: center;
@@ -1433,7 +1455,10 @@ body.presentation-mode .entity-desc { color: #4b5563; }
   <!-- Entity detail view -->
   <div id="entity-detail-view" class="entity-detail-view" style="display: none;">
     <div class="entity-detail-header">
-      <a class="entity-detail-back" href="#" onclick="event.preventDefault(); navigateToList()">← back to entities</a>
+      <div class="entity-detail-link-row">
+        <a class="entity-detail-back" href="#" onclick="event.preventDefault(); navigateToList()">← back to entities</a>
+        <a class="entity-detail-allfacets" href="#" onclick="event.preventDefault(); window.selectFacet(null);">edit <span id="detail-allfacets-name"></span> in all facets →</a>
+      </div>
       <div class="entity-detail-title">
         <h2 class="entity-detail-name" id="detail-name"></h2>
         <span class="entity-detail-type" id="detail-type"></span>
@@ -1731,6 +1756,7 @@ function showDetailView(entityId) {
 function showFacetDetailView(entityId) {
   // Show loading state
   document.getElementById('detail-name').textContent = 'loading...';
+  document.getElementById('detail-allfacets-name').textContent = 'loading...';
   document.getElementById('detail-type').textContent = '';
   document.getElementById('detail-aka').textContent = '';
   document.getElementById('detail-indicators').innerHTML = '';
@@ -2259,6 +2285,7 @@ function renderDetailView(entity, observations) {
 
   // Header
   document.getElementById('detail-name').textContent = entity.name;
+  document.getElementById('detail-allfacets-name').textContent = entity.name;
 
   // Type badge and detached badge
   const typeEl = document.getElementById('detail-type');
