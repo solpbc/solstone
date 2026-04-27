@@ -63,7 +63,7 @@ def assert_wrapper(alias: Path, *, journal: str, sol_bin: str) -> None:
     assert install_guard.parse_wrapper(alias.read_text(encoding="utf-8")) == {
         "journal": journal,
         "sol_bin": sol_bin,
-        "version": 2,
+        "version": 3,
     }
 
 

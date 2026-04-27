@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
+import time
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -22,6 +24,24 @@ SOL_BIN='{sol_bin}'
 if [ ! -x "$SOL_BIN" ]; then
     printf 'sol: venv binary missing or not executable: %s\\n' "$SOL_BIN" >&2
     exit 127
+fi
+exec "$SOL_BIN" "$@"
+"""
+
+V2_WRAPPER_TEMPLATE = """\
+#!/bin/sh
+# sol — managed by 'sol config'. Edits will be overwritten.
+# managed-version: 2
+: "${{SOLSTONE_JOURNAL:={journal}}}"
+export SOLSTONE_JOURNAL
+SOL_BIN='{sol_bin}'
+if [ ! -x "$SOL_BIN" ]; then
+    printf 'sol: venv binary missing or not executable: %s\\n' "$SOL_BIN" >&2
+    exit 127
+fi
+if [ "$1" = "supervisor" ]; then
+    mkdir -p "$SOLSTONE_JOURNAL/health"
+    exec >>"$SOLSTONE_JOURNAL/health/service.log" 2>&1
 fi
 exec "$SOL_BIN" "$@"
 """
@@ -81,6 +101,11 @@ def render_v1_wrapper(journal: str, sol_bin: str) -> str:
     return V1_WRAPPER_TEMPLATE.format(journal=journal, sol_bin=escaped_sol_bin)
 
 
+def render_v2_wrapper(*, journal: str, sol_bin: str) -> str:
+    escaped_sol_bin = sol_bin.replace("'", "'\\''")
+    return V2_WRAPPER_TEMPLATE.format(journal=journal, sol_bin=escaped_sol_bin)
+
+
 def make_v1_wrapper(
     home_root: Path,
     *,
@@ -91,6 +116,23 @@ def make_v1_wrapper(
     alias = home_root / ".local" / "bin" / "sol"
     alias.parent.mkdir(parents=True, exist_ok=True)
     alias.write_text(render_v1_wrapper(journal, sol_bin), encoding="utf-8")
+    alias.chmod(mode)
+    return alias
+
+
+def make_v2_wrapper(
+    home_root: Path,
+    *,
+    journal: str,
+    sol_bin: str,
+    mode: int = 0o755,
+) -> Path:
+    alias = home_root / ".local" / "bin" / "sol"
+    alias.parent.mkdir(parents=True, exist_ok=True)
+    alias.write_text(
+        render_v2_wrapper(journal=journal, sol_bin=sol_bin),
+        encoding="utf-8",
+    )
     alias.chmod(mode)
     return alias
 
@@ -156,7 +198,7 @@ class TestWrapperHelpers:
         assert install_guard.parse_wrapper(content) == {
             "journal": journal,
             "sol_bin": sol_bin,
-            "version": 2,
+            "version": 3,
         }
 
     def test_render_wrapper_round_trip_tricky_paths(self):
@@ -168,7 +210,7 @@ class TestWrapperHelpers:
         assert install_guard.parse_wrapper(content) == {
             "journal": journal,
             "sol_bin": sol_bin,
-            "version": 2,
+            "version": 3,
         }
 
     def test_render_wrapper_matches_spec_template(self):
@@ -180,7 +222,7 @@ class TestWrapperHelpers:
         assert (
             content == "#!/bin/sh\n"
             "# sol — managed by 'sol config'. Edits will be overwritten.\n"
-            "# managed-version: 2\n"
+            "# managed-version: 3\n"
             ': "${SOLSTONE_JOURNAL:=/Users/jer/Documents/Solstone}"\n'
             "export SOLSTONE_JOURNAL\n"
             "SOL_BIN='/Users/jer/projects/solstone/.venv/bin/sol'\n"
@@ -191,6 +233,7 @@ class TestWrapperHelpers:
             'if [ "$1" = "supervisor" ]; then\n'
             '    mkdir -p "$SOLSTONE_JOURNAL/health"\n'
             '    exec >>"$SOLSTONE_JOURNAL/health/service.log" 2>&1\n'
+            "    export PYTHONUNBUFFERED=1\n"
             "fi\n"
             'exec "$SOL_BIN" "$@"\n'
         )
@@ -211,7 +254,7 @@ class TestWrapperHelpers:
         journal = "/tmp/solstone"
         sol_bin = "/tmp/repo/.venv/bin/sol"
 
-        content = install_guard.render_wrapper(journal, sol_bin)
+        content = render_v2_wrapper(journal=journal, sol_bin=sol_bin)
 
         assert install_guard.parse_wrapper(content) == {
             "journal": journal,
@@ -219,11 +262,23 @@ class TestWrapperHelpers:
             "version": 2,
         }
 
-    def test_parse_wrapper_rejects_v3(self):
+    def test_parse_wrapper_accepts_v3(self):
+        journal = "/tmp/solstone"
+        sol_bin = "/tmp/repo/.venv/bin/sol"
+
+        content = install_guard.render_wrapper(journal, sol_bin)
+
+        assert install_guard.parse_wrapper(content) == {
+            "journal": journal,
+            "sol_bin": sol_bin,
+            "version": 3,
+        }
+
+    def test_parse_wrapper_rejects_v4(self):
         content = install_guard.render_wrapper(
             "/tmp/solstone", "/tmp/repo/.venv/bin/sol"
         )
-        content = content.replace("# managed-version: 2", "# managed-version: 3")
+        content = content.replace("# managed-version: 3", "# managed-version: 4")
 
         assert install_guard.parse_wrapper(content) is None
 
@@ -337,7 +392,7 @@ class TestCheckCommand:
         assert captured.out == "fresh\n"
         assert captured.err == ""
 
-    def test_check_reports_current_for_v2_wrapper_with_matching_paths(
+    def test_check_reports_current_for_v3_wrapper_with_matching_paths(
         self, home_root, tmp_path, capsys
     ):
         repo = make_repo(tmp_path)
@@ -361,6 +416,22 @@ class TestCheckCommand:
         repo = make_repo(tmp_path)
         target = ensure_expected_target(repo)
         make_v1_wrapper(
+            home_root,
+            journal=install_guard._current_journal_for_alias(),
+            sol_bin=str(target),
+        )
+
+        state, token = install_guard.check_alias_detail(repo)
+
+        assert state is install_guard.AliasState.OWNED
+        assert token == "upgrade"
+
+    def test_check_reports_upgrade_for_v2_wrapper_with_matching_paths(
+        self, home_root, tmp_path
+    ):
+        repo = make_repo(tmp_path)
+        target = ensure_expected_target(repo)
+        make_v2_wrapper(
             home_root,
             journal=install_guard._current_journal_for_alias(),
             sol_bin=str(target),
@@ -480,7 +551,7 @@ class TestInstall:
         assert install_guard.parse_wrapper(alias.read_text(encoding="utf-8")) == {
             "journal": install_guard._current_journal_for_alias(),
             "sol_bin": str(target),
-            "version": 2,
+            "version": 3,
         }
 
     def test_install_refuses_foreign_regular_file_without_force(
@@ -519,7 +590,7 @@ class TestInstall:
         assert install_guard.parse_wrapper(alias.read_text(encoding="utf-8")) == {
             "journal": install_guard._current_journal_for_alias(),
             "sol_bin": str(target),
-            "version": 2,
+            "version": 3,
         }
         assert os.access(alias, os.X_OK)
 
@@ -543,10 +614,10 @@ class TestInstall:
         assert install_guard.parse_wrapper(first_content) == {
             "journal": install_guard._current_journal_for_alias(),
             "sol_bin": str(target),
-            "version": 2,
+            "version": 3,
         }
 
-    def test_v1_wrapper_upgrades_to_v2_end_to_end(
+    def test_v1_wrapper_upgrades_to_v3_end_to_end(
         self, home_root, tmp_path, monkeypatch, capsys
     ):
         repo = make_repo(tmp_path)
@@ -570,7 +641,39 @@ class TestInstall:
         assert install_guard.parse_wrapper(alias.read_text(encoding="utf-8")) == {
             "journal": install_guard._current_journal_for_alias(),
             "sol_bin": str(target),
-            "version": 2,
+            "version": 3,
+        }
+
+        assert install_guard.cmd_check(repo) == 0
+        captured = capsys.readouterr()
+        assert captured.out == "current\n"
+        assert captured.err == ""
+
+    def test_v2_wrapper_upgrades_to_v3_end_to_end(
+        self, home_root, tmp_path, monkeypatch, capsys
+    ):
+        repo = make_repo(tmp_path)
+        target = ensure_expected_target(repo)
+        alias = make_v2_wrapper(
+            home_root,
+            journal=install_guard._current_journal_for_alias(),
+            sol_bin=str(target),
+        )
+
+        assert install_guard.cmd_check(repo) == 0
+        captured = capsys.readouterr()
+        assert captured.out == "upgrade\n"
+        assert captured.err == ""
+
+        rc, out, err = run_main(monkeypatch, capsys, repo, "install")
+
+        assert rc == 0
+        assert out == "installed\npath: ~/.local/bin already on PATH\n"
+        assert err == ""
+        assert install_guard.parse_wrapper(alias.read_text(encoding="utf-8")) == {
+            "journal": install_guard._current_journal_for_alias(),
+            "sol_bin": str(target),
+            "version": 3,
         }
 
         assert install_guard.cmd_check(repo) == 0
@@ -617,7 +720,7 @@ class TestInstall:
         assert install_guard.parse_wrapper(alias.read_text(encoding="utf-8")) == {
             "journal": install_guard._current_journal_for_alias(),
             "sol_bin": str(target),
-            "version": 2,
+            "version": 3,
         }
         append_mock.assert_called_once_with(
             str(alias.parent),
@@ -711,6 +814,12 @@ class TestWrapperRedirect:
         )
 
     @staticmethod
+    def _write_python_stub_sol_bin(tmp_path: Path, body: str) -> Path:
+        return write_executable_script(
+            tmp_path / "stub-sol", f"#!{sys.executable}\n{body}"
+        )
+
+    @staticmethod
     def _write_wrapper(tmp_path: Path, *, journal: Path, sol_bin: Path) -> Path:
         return write_executable_script(
             tmp_path / "sol",
@@ -753,6 +862,50 @@ class TestWrapperRedirect:
         assert result.returncode == 0
         assert result.stdout == "OUT not-supervisor\n"
         assert result.stderr == "ERR not-supervisor\n"
+        assert not (journal / "health" / "service.log").exists()
+
+    def test_wrapper_exports_pythonunbuffered_for_supervisor(self, tmp_path):
+        journal = tmp_path / "j"
+        sol_bin = self._write_python_stub_sol_bin(
+            tmp_path,
+            'import time\nprint("FAST_LINE")\ntime.sleep(2)\nprint("SLOW_LINE")\n',
+        )
+        wrapper = self._write_wrapper(tmp_path, journal=journal, sol_bin=sol_bin)
+
+        proc = subprocess.Popen([str(wrapper), "supervisor"], env=self._wrapper_env())
+        log = journal / "health" / "service.log"
+        deadline = time.time() + 1.0
+        saw_fast_early = False
+        while time.time() < deadline:
+            if log.exists() and "FAST_LINE" in log.read_text(encoding="utf-8"):
+                saw_fast_early = True
+                break
+            time.sleep(0.05)
+
+        assert saw_fast_early
+        assert proc.wait(timeout=5) == 0
+        content = log.read_text(encoding="utf-8")
+        assert "FAST_LINE" in content
+        assert "SLOW_LINE" in content
+
+    def test_wrapper_does_not_export_pythonunbuffered_for_cli(self, tmp_path):
+        journal = tmp_path / "j"
+        sol_bin = self._write_python_stub_sol_bin(
+            tmp_path,
+            'import os\nprint(os.environ.get("PYTHONUNBUFFERED", "<unset>"))\n',
+        )
+        wrapper = self._write_wrapper(tmp_path, journal=journal, sol_bin=sol_bin)
+
+        result = subprocess.run(
+            [str(wrapper), "not-supervisor"],
+            capture_output=True,
+            text=True,
+            check=False,
+            env=self._wrapper_env(),
+        )
+
+        assert result.returncode == 0
+        assert result.stdout.strip() == "<unset>"
         assert not (journal / "health" / "service.log").exists()
 
     def test_wrapper_appends_not_truncates(self, tmp_path):

@@ -24,7 +24,7 @@ except ImportError:  # system python without the venv: doctor.stale_alias_symlin
 WRAPPER_TEMPLATE = """\
 #!/bin/sh
 # sol — managed by 'sol config'. Edits will be overwritten.
-# managed-version: 2
+# managed-version: 3
 : "${{SOLSTONE_JOURNAL:={journal}}}"
 export SOLSTONE_JOURNAL
 SOL_BIN='{sol_bin}'
@@ -35,14 +35,15 @@ fi
 if [ "$1" = "supervisor" ]; then
     mkdir -p "$SOLSTONE_JOURNAL/health"
     exec >>"$SOLSTONE_JOURNAL/health/service.log" 2>&1
+    export PYTHONUNBUFFERED=1
 fi
 exec "$SOL_BIN" "$@"
 """
 
-WRAPPER_MARKER = "# managed-version: 2"
-WRAPPER_VERSION = 2
+WRAPPER_MARKER = "# managed-version: 3"
+WRAPPER_VERSION = 3
 
-_RE_MARKER = re.compile(r"(?m)^# managed-version: (?P<version>[12])$")
+_RE_MARKER = re.compile(r"(?m)^# managed-version: (?P<version>[123])$")
 _RE_JOURNAL = re.compile(r'(?m)^: "\$\{SOLSTONE_JOURNAL:=(?P<journal>[^\n]*)\}"$')
 _RE_SOL_BIN = re.compile(r"(?m)^SOL_BIN='(?P<sol_bin>(?:[^']|'\\'')*)'$")
 
