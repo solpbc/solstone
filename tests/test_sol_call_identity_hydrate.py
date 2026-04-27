@@ -2,38 +2,19 @@
 # Copyright (c) 2026 sol pbc
 
 import json
-import os
-import subprocess
-import sys
 
 import pytest
 
-from think.tools.sol import _SPECIES_PREAMBLE
+from think.tools.sol import _SPECIES_PREAMBLE, _hydrate
 
 
 @pytest.fixture
-def journal_path(tmp_path):
+def journal_path(tmp_path, monkeypatch):
     config_dir = tmp_path / "config"
     config_dir.mkdir()
     (config_dir / "journal.json").write_text(json.dumps({}))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     return tmp_path
-
-
-def _run_identity_hydrate(journal_path):
-    env = os.environ.copy()
-    env.update(
-        {
-            "SOLSTONE_JOURNAL": str(journal_path),
-            "SOL_SKIP_SUPERVISOR_CHECK": "1",
-        }
-    )
-    return subprocess.run(
-        [sys.executable, "-c", "from think.tools.sol import app; app()"],
-        capture_output=True,
-        text=True,
-        check=False,
-        env=env,
-    )
 
 
 def test_identity_hydrate_reads_all_sections(journal_path):
@@ -44,16 +25,15 @@ def test_identity_hydrate_reads_all_sections(journal_path):
     (identity_dir / "agency.md").write_text("agency body")
     (identity_dir / "awareness.md").write_text("awareness body")
 
-    result = _run_identity_hydrate(journal_path)
+    output = _hydrate()
 
-    assert result.returncode == 0
     expected = ["# self", "# partner", "# agency", "# awareness"]
-    positions = [result.stdout.index(marker) for marker in expected]
+    positions = [output.index(marker) for marker in expected]
     assert positions == sorted(positions)
-    assert "self body" in result.stdout
-    assert "partner body" in result.stdout
-    assert "agency body" in result.stdout
-    assert "awareness body" in result.stdout
+    assert "self body" in output
+    assert "partner body" in output
+    assert "agency body" in output
+    assert "awareness body" in output
 
 
 def test_identity_hydrate_marks_missing_sections(journal_path):
@@ -63,18 +43,16 @@ def test_identity_hydrate_marks_missing_sections(journal_path):
     (identity_dir / "partner.md").write_text("partner body")
     (identity_dir / "awareness.md").write_text("awareness body")
 
-    result = _run_identity_hydrate(journal_path)
+    output = _hydrate()
 
-    assert result.returncode == 0
-    assert "# agency\n\n(not present)\n" in result.stdout
+    assert "# agency\n\n(not present)\n" in output
 
 
 def test_identity_hydrate_handles_empty_identity_directory(journal_path):
-    result = _run_identity_hydrate(journal_path)
+    output = _hydrate()
 
-    assert result.returncode == 0
     for stem in ("self", "partner", "agency", "awareness"):
-        assert f"# {stem}\n\n(not present)\n" in result.stdout
+        assert f"# {stem}\n\n(not present)\n" in output
 
 
 def test_identity_hydrate_starts_with_species_preamble(journal_path):
@@ -85,13 +63,12 @@ def test_identity_hydrate_starts_with_species_preamble(journal_path):
     (identity_dir / "agency.md").write_text("agency body")
     (identity_dir / "awareness.md").write_text("awareness body")
 
-    result = _run_identity_hydrate(journal_path)
+    output = _hydrate()
 
-    assert result.returncode == 0
-    assert result.stdout.startswith("# species\n\n")
-    assert _SPECIES_PREAMBLE in result.stdout
+    assert output.startswith("# species\n\n")
+    assert _SPECIES_PREAMBLE in output
     expected = ["# species", "# self", "# partner", "# agency", "# awareness"]
-    positions = [result.stdout.index(marker) for marker in expected]
+    positions = [output.index(marker) for marker in expected]
     assert positions == sorted(positions)
 
 
@@ -103,11 +80,10 @@ def test_identity_hydrate_strips_duplicate_section_heading(journal_path):
     (identity_dir / "agency.md").write_text("agency body")
     (identity_dir / "awareness.md").write_text("awareness body")
 
-    result = _run_identity_hydrate(journal_path)
+    output = _hydrate()
 
-    assert result.returncode == 0
-    assert result.stdout.splitlines().count("# self") == 1
-    assert "# self\n\nself body" in result.stdout
+    assert output.splitlines().count("# self") == 1
+    assert "# self\n\nself body" in output
 
 
 def test_identity_hydrate_preserves_non_matching_heading(journal_path):
@@ -118,9 +94,8 @@ def test_identity_hydrate_preserves_non_matching_heading(journal_path):
     (identity_dir / "agency.md").write_text("agency body")
     (identity_dir / "awareness.md").write_text("awareness body")
 
-    result = _run_identity_hydrate(journal_path)
+    output = _hydrate()
 
-    assert result.returncode == 0
-    assert "# My Custom Heading" in result.stdout
-    assert result.stdout.splitlines().count("# self") == 1
-    assert "self body" in result.stdout
+    assert "# My Custom Heading" in output
+    assert output.splitlines().count("# self") == 1
+    assert "self body" in output
