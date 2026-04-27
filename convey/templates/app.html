@@ -22,6 +22,9 @@
   <script src="{{ url_for('root.static', filename='api.js') }}"></script>
   <!-- App JavaScript (includes AppServices framework) -->
   <script src="{{ url_for('root.static', filename='app.js') }}"></script>
+  <!-- Markdown rendering deps (marked + DOMPurify). Must load before workspace include. -->
+  <script src="{{ vendor_lib('marked') }}"></script>
+  <script src="{{ vendor_lib('dompurify') }}"></script>
 
   <!-- Apply facet theme immediately to prevent flash -->
   {% if selected_facet and app_registry.apps[app].facets_enabled() %}
@@ -130,9 +133,6 @@
   <h1 class="visually-hidden">{{ app_registry.apps[app].label }}</h1>
   {% include app_registry.apps[app].get_workspace_template() %}
 </main>
-
-<script src="{{ vendor_lib('marked') }}"></script>
-<script src="{{ vendor_lib('dompurify') }}"></script>
 
 <script>
 (function() {
