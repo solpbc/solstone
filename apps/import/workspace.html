@@ -674,6 +674,10 @@ const STAGE_NAMES = {
   cleanup: 'Finishing up...',
   segmenting: 'Preparing segments...',
   transcribing: 'Transcribing audio...',
+  segments: 'Merging segments...',
+  entities: 'Merging entities...',
+  facets: 'Merging facets...',
+  imports: 'Copying prior imports...',
 };
 const IMPORT_STALL_TIMEOUT_MS = 10 * 60 * 1000; // longest observed real import; stalled rows surface amber after this without a terminal event
 const IMPORT_ROW_EVENTS = new Set(['started', 'status', 'completed', 'error']);
