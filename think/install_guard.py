@@ -13,7 +13,7 @@ import sys
 from contextlib import contextmanager
 from enum import Enum
 from pathlib import Path
-from typing import Iterator
+from typing import Iterator, TypedDict
 
 try:
     import userpath  # type: ignore[import-not-found]
@@ -24,7 +24,7 @@ except ImportError:  # system python without the venv: doctor.stale_alias_symlin
 WRAPPER_TEMPLATE = """\
 #!/bin/sh
 # sol — managed by 'sol config'. Edits will be overwritten.
-# managed-version: 1
+# managed-version: 2
 : "${{SOLSTONE_JOURNAL:={journal}}}"
 export SOLSTONE_JOURNAL
 SOL_BIN='{sol_bin}'
@@ -32,13 +32,17 @@ if [ ! -x "$SOL_BIN" ]; then
     printf 'sol: venv binary missing or not executable: %s\\n' "$SOL_BIN" >&2
     exit 127
 fi
+if [ "$1" = "supervisor" ]; then
+    mkdir -p "$SOLSTONE_JOURNAL/health"
+    exec >>"$SOLSTONE_JOURNAL/health/service.log" 2>&1
+fi
 exec "$SOL_BIN" "$@"
 """
 
-WRAPPER_MARKER = "# managed-version: 1"
-WRAPPER_VERSION = 1
+WRAPPER_MARKER = "# managed-version: 2"
+WRAPPER_VERSION = 2
 
-_RE_MARKER = re.compile(r"(?m)^# managed-version: 1$")
+_RE_MARKER = re.compile(r"(?m)^# managed-version: (?P<version>[12])$")
 _RE_JOURNAL = re.compile(r'(?m)^: "\$\{SOLSTONE_JOURNAL:=(?P<journal>[^\n]*)\}"$')
 _RE_SOL_BIN = re.compile(r"(?m)^SOL_BIN='(?P<sol_bin>(?:[^']|'\\'')*)'$")
 
@@ -52,6 +56,12 @@ class AliasState(Enum):
     CROSS_REPO = "cross_repo"
     DANGLING = "dangling"
     FOREIGN = "foreign"
+
+
+class ParsedWrapper(TypedDict):
+    journal: str
+    sol_bin: str
+    version: int
 
 
 def alias_path() -> Path:
@@ -68,9 +78,10 @@ def render_wrapper(journal: str, sol_bin: str) -> str:
     return WRAPPER_TEMPLATE.format(journal=journal, sol_bin=escaped_sol_bin)
 
 
-def parse_wrapper(content: str) -> dict[str, str] | None:
+def parse_wrapper(content: str) -> ParsedWrapper | None:
     """Return embedded paths if the content is a managed wrapper."""
-    if not _RE_MARKER.search(content):
+    marker_match = _RE_MARKER.search(content)
+    if not marker_match:
         return None
     journal_match = _RE_JOURNAL.search(content)
     sol_bin_match = _RE_SOL_BIN.search(content)
@@ -79,6 +90,7 @@ def parse_wrapper(content: str) -> dict[str, str] | None:
     return {
         "journal": journal_match.group("journal"),
         "sol_bin": sol_bin_match.group("sol_bin").replace("'\\''", "'"),
+        "version": int(marker_match.group("version")),
     }
 
 
@@ -180,6 +192,7 @@ def check_alias_detail(curdir: Path) -> tuple[AliasState, str]:
     if (
         parsed["journal"] == _current_journal_for_alias()
         and parsed["sol_bin"] == str(expected_target(curdir))
+        and parsed["version"] == WRAPPER_VERSION
         and (alias.stat().st_mode & 0o111) == 0o111
     ):
         return state, "current"

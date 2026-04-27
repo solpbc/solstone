@@ -81,6 +81,37 @@ def other_target(tmp_path: Path) -> Path:
     return target
 
 
+def test_install_guard_import_succeeds_when_frontmatter_is_shadowed(tmp_path):
+    shadow_dir = tmp_path / "shadow"
+    shadow_dir.mkdir()
+    (shadow_dir / "frontmatter.py").write_text(
+        'raise ImportError("blocked for test")\n',
+        encoding="utf-8",
+    )
+    env = os.environ.copy()
+    pythonpath_parts = [str(shadow_dir), str(ROOT)]
+    existing_pythonpath = env.get("PYTHONPATH")
+    if existing_pythonpath:
+        pythonpath_parts.append(existing_pythonpath)
+    env["PYTHONPATH"] = os.pathsep.join(pythonpath_parts)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from think.install_guard import parse_wrapper; print('ok')",
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+        env=env,
+    )
+
+    assert result.returncode == 0
+    assert result.stdout.strip() == "ok"
+
+
 class TestPythonVersion:
     def test_ok(self, doctor):
         result = doctor.python_version_check(args(doctor))

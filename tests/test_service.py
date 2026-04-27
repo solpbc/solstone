@@ -48,8 +48,8 @@ class TestPlistGeneration:
         assert plist["EnvironmentVariables"] == env
         assert plist["KeepAlive"] is True
         assert plist["RunAtLoad"] is True
-        assert "launchd-stdout.log" in plist["StandardOutPath"]
-        assert "launchd-stderr.log" in plist["StandardErrorPath"]
+        assert "StandardOutPath" not in plist
+        assert "StandardErrorPath" not in plist
 
 
 class TestSystemdUnit:
@@ -77,6 +77,34 @@ class TestSystemdUnit:
         assert "Environment=PATH=/usr/bin" in unit
         assert "SOLSTONE_JOURNAL" not in unit
         assert "WantedBy=default.target" in unit
+
+    def test_no_stdio_redirection(self):
+        env = {
+            "HOME": "/home/test",
+            "PATH": "/usr/bin",
+        }
+
+        unit = service._generate_systemd_unit(env)
+
+        assert "StandardOutput" not in unit
+        assert "StandardError" not in unit
+
+
+class TestLogs:
+    def test_reads_service_log(self, monkeypatch, tmp_path, capsys):
+        monkeypatch.setattr(sys, "platform", "darwin")
+        health_dir = tmp_path / "health"
+        health_dir.mkdir(parents=True)
+        service_log = health_dir / "service.log"
+        service_log.write_text("first line\nsecond line\n", encoding="utf-8")
+        monkeypatch.setattr(service, "get_journal", lambda: str(tmp_path))
+
+        result = service._logs(follow=False)
+
+        assert result == 0
+        captured = capsys.readouterr()
+        assert captured.out == "=== service.log ===\nfirst line\nsecond line\n\n"
+        assert captured.err == ""
 
 
 class TestEnvCollection:

@@ -44,6 +44,7 @@ See [CALLOSUM.md](CALLOSUM.md) for message protocol and [CORTEX.md](CORTEX.md) f
 | What | Where |
 |------|-------|
 | Current service logs | `journal/health/{service}.log` (symlinks) |
+| Daemon stdout/stderr | `journal/health/service.log` (combined, append-only) |
 | Day's process logs | `journal/{YYYYMMDD}/health/{ref}_{name}.log` |
 | Agent execution | `journal/talents/<name>/*.jsonl` |
 | Journal task log | `journal/task_log.txt` |

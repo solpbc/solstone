@@ -109,7 +109,6 @@ def _collect_env() -> dict[str, str]:
 
 def _generate_plist(env: dict[str, str], port: int = DEFAULT_SERVICE_PORT) -> bytes:
     """Generate a launchd plist for the solstone supervisor."""
-    journal_path = str(Path(get_journal()).resolve())
     sol = _sol_bin()
 
     plist = {
@@ -118,8 +117,6 @@ def _generate_plist(env: dict[str, str], port: int = DEFAULT_SERVICE_PORT) -> by
         "EnvironmentVariables": env,
         "RunAtLoad": True,
         "KeepAlive": True,
-        "StandardOutPath": f"{journal_path}/health/launchd-stdout.log",
-        "StandardErrorPath": f"{journal_path}/health/launchd-stderr.log",
     }
     return plistlib.dumps(plist)
 
@@ -477,34 +474,23 @@ def _status() -> int:
 
 
 def _logs(follow: bool = False) -> int:
-    platform = _platform()
+    _platform()
+    journal_path = Path(get_journal())
+    service_log = journal_path / "health" / "service.log"
 
-    if platform == "linux":
-        cmd = ["journalctl", "--user", "-u", SYSTEMD_UNIT, "--no-pager", "-n", "100"]
-        if follow:
-            cmd.append("--follow")
-        result = subprocess.run(cmd)
+    if follow:
+        if not service_log.exists():
+            print("No service log file found", file=sys.stderr)
+            return 1
+        result = subprocess.run(["/usr/bin/tail", "-f", str(service_log)])
         return result.returncode
     else:
-        journal_path = Path(get_journal())
-        stdout_log = journal_path / "health" / "launchd-stdout.log"
-        stderr_log = journal_path / "health" / "launchd-stderr.log"
-
-        if follow:
-            logs_to_follow = [str(p) for p in [stdout_log, stderr_log] if p.exists()]
-            if not logs_to_follow:
-                print("No service log files found", file=sys.stderr)
-                return 1
-            result = subprocess.run(["/usr/bin/tail", "-f"] + logs_to_follow)
-            return result.returncode
+        if service_log.exists():
+            print(f"=== {service_log.name} ===")
+            print(service_log.read_text(errors="replace")[-10000:])
         else:
-            for log_path in [stdout_log, stderr_log]:
-                if log_path.exists():
-                    print(f"=== {log_path.name} ===")
-                    print(log_path.read_text(errors="replace")[-10000:])
-                else:
-                    print(f"=== {log_path.name} === (not found)")
-            return 0
+            print(f"=== {service_log.name} === (not found)")
+        return 0
 
 
 def _up(port: int = DEFAULT_SERVICE_PORT) -> int:
