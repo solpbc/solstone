@@ -17,7 +17,11 @@ from think.entities.journal import (
     scan_journal_entities,
 )
 from think.entities.loading import clear_entity_loading_cache
-from think.entities.observations import clear_observation_cache, save_observations
+from think.entities.observations import (
+    clear_observation_cache,
+    clear_observation_count_cache,
+    save_observations,
+)
 from think.entities.relationships import (
     clear_relationship_caches,
     save_facet_relationship,
@@ -549,11 +553,13 @@ def _clear_merge_caches() -> list[str]:
     clear_journal_entity_cache()
     clear_relationship_caches()
     clear_observation_cache()
+    clear_observation_count_cache()
     clear_entity_loading_cache()
     return [
         "journal_entity_cache",
         "relationship_caches",
         "observation_cache",
+        "observation_count_cache",
         "entity_loading_cache",
     ]
 
