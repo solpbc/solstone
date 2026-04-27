@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
 
 import pytest
@@ -145,7 +146,8 @@ def test_chat_result_with_two_active_talents_retriggers_with_max_active_reason(
             "use_id": "1713620000101",
             "result": (
                 '{"message":"I am looking into that.","notes":"need exec",'
-                '"talent_request":{"task":"research it","context":{"k":"v"}}}'
+                '"talent_request":{"target":"exec","task":"research it",'
+                '"context":{"k":"v"}}}'
             ),
         }
     )
@@ -222,7 +224,8 @@ def test_exec_retrigger_loop_stops_after_three_without_owner_reset(
             "use_id": "1713622000000",
             "result": (
                 '{"message":"Still digging.","notes":"loop",'
-                '"talent_request":{"task":"one more pass","context":{}}}'
+                '"talent_request":{"target":"exec","task":"one more pass",'
+                '"context":{}}}'
             ),
         }
     )
@@ -423,6 +426,137 @@ def test_cortex_finish_and_error_append_exec_terminal_events_by_use_id(
     assert errored_events[-1]["use_id"] == "1713624000001"
     assert actions[-1]["trigger"]["type"] == "talent_errored"
     assert actions[-1]["trigger"]["reason"] == "boom"
+
+
+@pytest.mark.parametrize(
+    ("terminal_kind", "result_field_name", "result_field_label", "result_value"),
+    [
+        ("talent_finished", "summary", "result", "Found the answer."),
+        ("talent_errored", "reason", "reason", "The lookup failed."),
+    ],
+)
+def test_terminal_talent_reports_back_without_redispatch(
+    tmp_path,
+    monkeypatch,
+    terminal_kind,
+    result_field_name,
+    result_field_label,
+    result_value,
+):
+    import convey.chat as chat
+    from talent import chat_context
+
+    _setup_journal(tmp_path, monkeypatch)
+    _reset_chat_state(chat)
+    _install_fake_timers(monkeypatch)
+
+    monkeypatch.setattr("convey.chat._emit_cortex_event", lambda *args, **kwargs: None)
+    monkeypatch.setattr("think.routines.get_routine_state", lambda: [])
+    monkeypatch.setattr(
+        "think.routines.get_config",
+        lambda: {"_meta": {"suggestions_enabled": False, "suggestions": {}}},
+    )
+    monkeypatch.setattr("think.routines.save_config", lambda config: None)
+
+    spawns: list[dict] = []
+
+    def fake_spawn_agent(prompt, name, provider, config, use_id):
+        spawns.append(
+            {
+                "prompt": prompt,
+                "name": name,
+                "provider": provider,
+                "config": dict(config),
+                "use_id": str(use_id),
+            }
+        )
+        return use_id
+
+    monkeypatch.setattr("convey.utils.spawn_agent", fake_spawn_agent)
+
+    app = Flask(__name__)
+    app.register_blueprint(chat.chat_bp)
+    app.testing = True
+    client = app.test_client()
+
+    response = client.post(
+        "/api/chat",
+        json={
+            "message": "Can you check this?",
+            "app": "sol",
+            "path": "/app/sol",
+            "facet": "work",
+        },
+    )
+    assert response.status_code == 200
+    assert response.get_json()["queued"] is False
+
+    first_chat_spawn = spawns[-1]
+    assert first_chat_spawn["name"] == "chat"
+    chat._on_cortex_finish(
+        {
+            "use_id": first_chat_spawn["use_id"],
+            "result": json.dumps(
+                {
+                    "message": "I am checking.",
+                    "notes": "dispatch exec",
+                    "talent_request": {
+                        "target": "exec",
+                        "task": "Check the thing",
+                        "context": {"facet": "work"},
+                    },
+                }
+            ),
+        }
+    )
+
+    talent_spawn = spawns[-1]
+    assert talent_spawn["name"] == "exec"
+    if terminal_kind == "talent_finished":
+        chat._on_cortex_finish(
+            {"use_id": talent_spawn["use_id"], "result": result_value}
+        )
+    else:
+        chat._on_cortex_error({"use_id": talent_spawn["use_id"], "error": result_value})
+
+    report_back_spawn = spawns[-1]
+    assert report_back_spawn["name"] == "chat"
+    assert report_back_spawn["config"]["trigger"]["type"] == terminal_kind
+    assert report_back_spawn["config"]["trigger"][result_field_name] == result_value
+
+    context_result = chat_context.pre_process(report_back_spawn["config"])
+    followup = context_result["messages"][-1]["content"]
+    trigger_context = context_result["template_vars"]["trigger_context"]
+    stop_and_report = (
+        "stop-and-report turn, not a dispatch turn. Do not retry this task "
+        "or request another talent for it. Stop here and report to the owner "
+        "directly using the"
+    )
+    assert stop_and_report in followup
+    assert stop_and_report in trigger_context
+    assert f"{result_field_label.capitalize()}: {result_value}" in followup
+
+    raw_report_use_id = report_back_spawn["use_id"]
+    chat._on_cortex_finish(
+        {
+            "use_id": raw_report_use_id,
+            "result": json.dumps(
+                {
+                    "message": "Here is the summary.",
+                    "notes": "reported terminal talent result",
+                    "talent_request": None,
+                }
+            ),
+        }
+    )
+
+    events = read_chat_events(chat._today_day())
+    sol_messages = [event for event in events if event["kind"] == "sol_message"]
+    assert sol_messages[-1]["text"] == "Here is the summary."
+    assert sol_messages[-1]["requested_target"] is None
+    talent_spawns = [event for event in events if event["kind"] == "talent_spawned"]
+    assert len(talent_spawns) == 1
+    assert [spawn["name"] for spawn in spawns] == ["chat", "exec", "chat"]
 
 
 def test_start_chat_runtime_recovers_exactly_one_unresponded_trigger(
@@ -1259,22 +1393,17 @@ def test_parse_chat_result_rejects_unknown_target():
         )
 
 
-def test_parse_chat_result_defaults_legacy_target_to_exec():
+def test_parse_chat_result_rejects_missing_target():
     import convey.chat as chat
 
-    parsed = chat._parse_chat_result(
-        {
-            "message": "I am looking into that.",
-            "notes": "need exec",
-            "talent_request": {"task": "Research it", "context": {"k": "v"}},
-        }
-    )
-
-    assert parsed["talent_request"] == {
-        "target": "exec",
-        "task": "Research it",
-        "context": {"k": "v"},
-    }
+    with pytest.raises(ValueError, match="chat talent_request.target must be a string"):
+        chat._parse_chat_result(
+            {
+                "message": "I am looking into that.",
+                "notes": "need exec",
+                "talent_request": {"task": "Research it", "context": {"k": "v"}},
+            }
+        )
 
 
 def test_reflection_dispatch_spawns_reflection_talent(tmp_path, monkeypatch):

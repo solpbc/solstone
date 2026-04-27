@@ -387,32 +387,13 @@ def _on_cortex_finish(message: dict[str, Any]) -> None:
                     next_info = _clear_current_locked()
 
         elif use_id in _active_talents:
-            _cancel_watchdog_locked(use_id)
-            talent_state = _active_talents.pop(use_id)
-            logical_use_id = str(talent_state["chat_use_id"])
             summary = str(message.get("result") or "").strip()
-            append_chat_event(
+            next_info = _handle_talent_terminal_locked(
+                use_id,
                 "talent_finished",
-                use_id=use_id,
-                name=str(talent_state["target"]),
-                summary=summary,
+                "summary",
+                summary,
             )
-            if (
-                _current_chat_use_id == logical_use_id
-                and _current_chat_state is not None
-            ):
-                _current_chat_state["trigger"] = {
-                    "type": "talent_finished",
-                    "use_id": use_id,
-                    "name": str(talent_state["target"]),
-                    "summary": summary,
-                }
-                _set_current_raw_use_locked(
-                    logical_use_id,
-                    _reserve_use_id_locked(),
-                )
-                _current_chat_state["retry_count"] = 0
-                next_info = _build_spawn_info_locked(logical_use_id)
         elif _is_superseded_raw_use_id_locked(use_id):
             logger.debug(
                 "superseded raw cortex event use_id=%s event=%s reason=%s",
@@ -457,32 +438,13 @@ def _on_cortex_error(message: dict[str, Any]) -> None:
             error_payload = {"use_id": logical_use_id, "reason": CHAT_TROUBLE_REASON}
             next_info = _clear_current_locked()
         elif use_id in _active_talents:
-            _cancel_watchdog_locked(use_id)
-            talent_state = _active_talents.pop(use_id)
-            logical_use_id = str(talent_state["chat_use_id"])
             reason = str(message.get("error") or CHAT_TROUBLE_REASON)
-            append_chat_event(
+            next_info = _handle_talent_terminal_locked(
+                use_id,
                 "talent_errored",
-                use_id=use_id,
-                name=str(talent_state["target"]),
-                reason=reason,
+                "reason",
+                reason,
             )
-            if (
-                _current_chat_use_id == logical_use_id
-                and _current_chat_state is not None
-            ):
-                _current_chat_state["trigger"] = {
-                    "type": "talent_errored",
-                    "use_id": use_id,
-                    "name": str(talent_state["target"]),
-                    "reason": reason,
-                }
-                _set_current_raw_use_locked(
-                    logical_use_id,
-                    _reserve_use_id_locked(),
-                )
-                _current_chat_state["retry_count"] = 0
-                next_info = _build_spawn_info_locked(logical_use_id)
         elif _is_superseded_raw_use_id_locked(use_id):
             logger.debug(
                 "superseded raw cortex event use_id=%s event=%s reason=%s",
@@ -501,6 +463,41 @@ def _on_cortex_error(message: dict[str, Any]) -> None:
     _run_next_action(next_info)
     if error_payload is not None:
         _emit_error(error_payload["use_id"], error_payload["reason"])
+
+
+def _handle_talent_terminal_locked(
+    use_id: str,
+    kind: str,
+    result_field_name: str,
+    result_value: str,
+) -> dict[str, Any] | None:
+    _cancel_watchdog_locked(use_id)
+    talent_state = _active_talents.pop(use_id)
+    logical_use_id = str(talent_state["chat_use_id"])
+    talent_name = str(talent_state["target"])
+    trigger = _talent_terminal_trigger(
+        kind,
+        use_id,
+        talent_name,
+        result_field_name,
+        result_value,
+    )
+    append_chat_event(
+        kind,
+        use_id=use_id,
+        name=talent_name,
+        **{result_field_name: result_value},
+    )
+    if _current_chat_use_id != logical_use_id or _current_chat_state is None:
+        return None
+
+    _current_chat_state["trigger"] = trigger
+    _set_current_raw_use_locked(
+        logical_use_id,
+        _reserve_use_id_locked(),
+    )
+    _current_chat_state["retry_count"] = 0
+    return _build_spawn_info_locked(logical_use_id)
 
 
 def _run_next_action(action: dict[str, Any] | None) -> None:
@@ -919,9 +916,6 @@ def _parse_chat_result(result: Any) -> dict[str, Any]:
     if not isinstance(talent_request, dict):
         raise ValueError("chat talent_request must be an object or null")
     target = talent_request.get("target")
-    if target is None:
-        # Why: keep one release of compatibility for older chat outputs.
-        target = "exec"
     if not isinstance(target, str):
         raise ValueError("chat talent_request.target must be a string")
     if target not in {"exec", "reflection"}:
@@ -1030,20 +1024,37 @@ def _trigger_from_stream_event(event: dict[str, Any]) -> dict[str, Any]:
     if kind == "owner_message":
         return {"type": "owner_message", "message": event.get("text", "")}
     if kind == "talent_finished":
-        return {
-            "type": "talent_finished",
-            "use_id": event.get("use_id"),
-            "name": event.get("name", "exec"),
-            "summary": event.get("summary", ""),
-        }
+        return _talent_terminal_trigger(
+            "talent_finished",
+            event.get("use_id"),
+            event.get("name", "exec"),
+            "summary",
+            event.get("summary", ""),
+        )
     if kind == "talent_errored":
-        return {
-            "type": "talent_errored",
-            "use_id": event.get("use_id"),
-            "name": event.get("name", "exec"),
-            "reason": event.get("reason", ""),
-        }
+        return _talent_terminal_trigger(
+            "talent_errored",
+            event.get("use_id"),
+            event.get("name", "exec"),
+            "reason",
+            event.get("reason", ""),
+        )
     raise ValueError(f"unsupported trigger event: {kind}")
+
+
+def _talent_terminal_trigger(
+    kind: str,
+    use_id: Any,
+    name: Any,
+    result_field_name: str,
+    result_value: Any,
+) -> dict[str, Any]:
+    return {
+        "type": kind,
+        "use_id": use_id,
+        "name": name,
+        result_field_name: result_value,
+    }
 
 
 def _read_result_state(use_id: str) -> dict[str, Any] | None:
