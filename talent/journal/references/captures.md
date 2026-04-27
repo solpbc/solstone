@@ -119,6 +119,12 @@ Pre-stream segments (created before stream identity was added) have no `stream.j
 
 Captures are the original binary media files recorded by observation tools.
 
+`sol grab` walks observed screens from day to stream to segment to screen to frame.
+Without `--out` it lists what is available or shows one frame's details.
+With `--out` it writes one or more frame images using the suffix you choose.
+Use bare `screen` for single-screen segments.
+Use stems like `center_DP-3_screen` for per-monitor segments.
+
 ### Audio captures
 
 Audio files are initially written to the day root with the segment key prefix (Linux) or directly to segment folders (macOS):

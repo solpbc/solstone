@@ -57,6 +57,7 @@ COMMANDS: dict[str, str] = {
     "sense": "observe.sense",
     "transfer": "observe.transfer",
     "export": "observe.export",
+    "grab": "observe.grab",
     "observer": "observe.observer_cli",
     # AI providers and talent execution
     "providers": "think.providers_cli",
@@ -111,6 +112,7 @@ GROUPS: dict[str, list[str]] = {
         "sense",
         "transfer",
         "export",
+        "grab",
         "observer",
     ],
     "Talent": [

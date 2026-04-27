@@ -1,0 +1,29 @@
+{
+  "level": "0",
+  "scope": {},
+  "data": {
+    "days": [
+      {
+        "day": "20240101",
+        "streams": 1,
+        "segments": 1,
+        "screens": 1,
+        "frames_analyzed": 0
+      },
+      {
+        "day": "20240102",
+        "streams": 1,
+        "segments": 1,
+        "screens": 1,
+        "frames_analyzed": 9
+      },
+      {
+        "day": "20240103",
+        "streams": 1,
+        "segments": 2,
+        "screens": 3,
+        "frames_analyzed": 6
+      }
+    ]
+  }
+}

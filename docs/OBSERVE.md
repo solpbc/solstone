@@ -39,6 +39,7 @@ sol observer revoke <name>
 | `sol observe-linux` | Screen and audio capture on Linux (direct) |
 | `sol transcribe` | Audio transcription with faster-whisper |
 | `sol describe` | Visual analysis of screen recordings |
+| `sol grab` | Walk available screen frames and optionally write frame images |
 | `sol sense` | Unified observation coordination |
 
 ## Architecture

@@ -360,9 +360,9 @@ def assign_monitor_positions(monitors: list[dict]) -> list[dict]:
     return monitors
 
 
-def load_analysis_frames(jsonl_path: Path) -> list[dict]:
+def load_analysis_frames(jsonl_path: Path, *, keep_errors: bool = False) -> list[dict]:
     """
-    Load and parse analysis JSONL, filtering out error frames.
+    Load and parse analysis JSONL, with optional error-frame retention.
 
     The first line is a header with metadata (e.g., {"raw": "path"}).
     Subsequent frames are sorted by frame_id before being returned.
@@ -371,11 +371,15 @@ def load_analysis_frames(jsonl_path: Path) -> list[dict]:
     ----------
     jsonl_path : Path
         Path to analysis JSONL file
+    keep_errors : bool, optional
+        When True, include error records that have a ``frame_id`` in the
+        returned frame list. Defaults to False.
 
     Returns
     -------
     list[dict]
-        List of valid frame analysis results, with header first and frames sorted by frame_id
+        List of frame analysis results, with header first and frames sorted by
+        frame_id. Error records are excluded unless ``keep_errors`` is True.
     """
     header = None
     frames = []
@@ -387,13 +391,16 @@ def load_analysis_frames(jsonl_path: Path) -> list[dict]:
                     continue
                 try:
                     frame = json.loads(line)
-                    # Skip frames with errors
-                    if "error" not in frame:
-                        # First line without frame_id is the header
-                        if "frame_id" not in frame and header is None:
-                            header = frame
-                        else:
+                    if "error" in frame:
+                        if keep_errors and "frame_id" in frame:
                             frames.append(frame)
+                        continue
+
+                    # First line without frame_id is the header
+                    if "frame_id" not in frame and header is None:
+                        header = frame
+                    else:
+                        frames.append(frame)
                 except json.JSONDecodeError as e:
                     logger.warning(
                         f"Invalid JSON at line {line_num} in {jsonl_path}: {e}"

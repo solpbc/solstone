@@ -91,3 +91,47 @@ def test_decode_frames_uses_one_based_frame_ids(monkeypatch):
 
     assert images[0].getpixel((0, 0)) == (10, 10, 10)
     assert images[1].getpixel((0, 0)) == (20, 20, 20)
+
+
+def test_decode_frames_stops_after_highest_requested_frame(monkeypatch):
+    """Test decode_frames exits once it has filled the highest requested frame."""
+    import numpy as np
+
+    seen = {"count": 0}
+
+    class FakeFrame:
+        def __init__(self, color: int):
+            self.pts = 1
+            self._color = color
+
+        def to_ndarray(self, format: str):
+            assert format == "rgb24"
+            return np.full((2, 2, 3), self._color, dtype=np.uint8)
+
+    class FakeContainer:
+        def __init__(self):
+            self.streams = type("Streams", (), {"video": [object()]})
+
+        def decode(self, stream):
+            for index in range(30):
+                seen["count"] += 1
+                yield FakeFrame(index)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    class FakeAv:
+        @staticmethod
+        def open(path):
+            return FakeContainer()
+
+    monkeypatch.setitem(__import__("sys").modules, "av", FakeAv)
+
+    frames = [{"frame_id": 7}, {"frame_id": 12}, {"frame_id": 23}]
+    images = decode_frames("dummy.mp4", frames, annotate_boxes=False)
+
+    assert seen["count"] == 23
+    assert all(image is not None for image in images)
