@@ -754,7 +754,7 @@
 }
 
 .logs-viewport:empty::before {
-  content: 'Waiting for log output...';
+  content: 'waiting for log output...';
   color: #6b7280;
   font-style: italic;
 }
@@ -1077,7 +1077,7 @@
         <span class="skeleton" style="width: 120px; height: 1em;">&nbsp;</span>
       </div>
       <span class="connection-indicator" id="connectionIndicator"></span>
-      <button id="vitalsCheckBtn">Check now</button>
+      <button id="vitalsCheckBtn">check now</button>
     </div>
     <div class="vitals-content">
       <div class="vitals-section">
@@ -1115,7 +1115,7 @@
         <div class="vitals-value" id="schedulesValue"></div>
       </div>
     </div>
-    <div class="trust-indicator" id="trustIndicator">🔒 All data stored locally on this machine</div>
+    <div class="trust-indicator" id="trustIndicator">🔒 all data stored locally on this machine</div>
   </div>
 
   <div class="status-summary">
@@ -1129,44 +1129,44 @@
         observations
       </div>
       <div class="health-badge idle" id="observeModeBadge">
-        <span id="observeModeLabel">Waiting...</span>
+        <span id="observeModeLabel">waiting...</span>
       </div>
     </div>
     <div id="observeEmpty">
       <div class="surface-state surface-state--empty">
         <h2 class="surface-state-heading">no observations active</h2>
-        <div class="surface-state-action"><a href="/app/observer/">Manage observers →</a></div>
+        <div class="surface-state-action"><a href="/app/observer/">manage observers →</a></div>
       </div>
     </div>
     <div class="observe-content hidden" id="observeContent">
       <div class="observe-section">
-        <div class="observe-section-title">Screen Recording</div>
-        <div class="observe-section-value" id="screencastStatus">Waiting...</div>
+        <div class="observe-section-title">screen observing</div>
+        <div class="observe-section-value" id="screencastStatus">waiting...</div>
         <div class="observe-section-detail" id="screencastDetail"></div>
       </div>
       <div class="observe-section">
-        <div class="observe-section-title">Terminal Sessions</div>
-        <div class="observe-section-value" id="tmuxStatus">Waiting...</div>
+        <div class="observe-section-title">terminal sessions</div>
+        <div class="observe-section-value" id="tmuxStatus">waiting...</div>
         <div class="observe-section-detail" id="tmuxDetail"></div>
       </div>
       <div class="observe-section">
         <div class="observe-section-title">audio</div>
-        <div class="observe-section-value" id="audioStatus">Waiting...</div>
+        <div class="observe-section-value" id="audioStatus">waiting...</div>
         <div class="observe-section-detail" id="audioDetail"></div>
       </div>
       <div class="observe-section">
         <div class="observe-section-title">System Activity</div>
-        <div class="observe-section-value" id="activityStatus">Waiting...</div>
+        <div class="observe-section-value" id="activityStatus">waiting...</div>
         <div class="observe-section-detail" id="activityDetail"></div>
       </div>
       <div class="observe-section">
         <div class="observe-section-title">Scene Analysis</div>
-        <div class="observe-section-value" id="describeStatus">Idle</div>
+        <div class="observe-section-value" id="describeStatus">idle</div>
         <div class="observe-section-detail" id="describeDetail"></div>
       </div>
       <div class="observe-section">
         <div class="observe-section-title">Audio Transcription</div>
-        <div class="observe-section-value" id="transcribeStatus">Idle</div>
+        <div class="observe-section-value" id="transcribeStatus">idle</div>
         <div class="observe-section-detail" id="transcribeDetail"></div>
       </div>
     </div>
@@ -1184,7 +1184,7 @@
 
   <div class="dashboard-card registered-observers-card hidden" id="registeredObserversCard">
     <div class="card-header">
-      <div class="card-title">Registered observers</div>
+      <div class="card-title">registered observers</div>
     </div>
     <div class="registered-observers-strip" id="registeredObserversStrip"></div>
   </div>
@@ -1217,7 +1217,7 @@
 
   <div class="dashboard-card activity-section hidden" id="allQuietCard">
     <div class="idle-card">
-      <div class="idle-card-title">Everything is idle</div>
+      <div class="idle-card-title">everything is idle</div>
       <div class="idle-card-stats" id="idleCardStats"></div>
     </div>
   </div>
@@ -1225,7 +1225,7 @@
   <!-- Think Card (hidden when idle) -->
   <div class="dashboard-card think-card hidden" id="thinkCard">
     <div class="card-header">
-      <div class="card-title">Background analysis</div>
+      <div class="card-title">background analysis</div>
     </div>
     <div class="think-info" id="thinkInfo"></div>
     <div id="thinkProgress"></div>
@@ -1235,7 +1235,7 @@
   <!-- Sync Card (hidden when idle) -->
   <div class="dashboard-card sync-card hidden" id="syncCard">
     <div class="card-header">
-      <div class="card-title">Cloud sync</div>
+      <div class="card-title">cloud sync</div>
     </div>
     <div class="sync-info" id="syncInfo"></div>
   </div>
@@ -1243,13 +1243,13 @@
   <!-- Service Logs -->
   <div class="dashboard-card logs-card logs-collapsed">
     <div class="logs-header" role="button" tabindex="0" aria-expanded="false" aria-controls="logsViewport">
-      <div class="logs-title">Service logs</div>
+      <div class="logs-title">service logs</div>
       <span class="logs-summary-badge" id="logsSummaryBadge" aria-live="polite"></span>
       <span class="logs-error-badge hidden" id="logErrorBadge"></span>
-      <span class="logs-collapse-indicator" id="logsCollapseIndicator">▶ Show</span>
+      <span class="logs-collapse-indicator" id="logsCollapseIndicator">▶ show</span>
       <div class="logs-controls">
         <select id="logServiceFilter">
-          <option value="all">All Services</option>
+          <option value="all">all services</option>
         </select>
         <select id="logStreamFilter">
           <option value="all">All Streams</option>
@@ -1257,9 +1257,9 @@
           <option value="stderr">stderr</option>
           <option value="log">log</option>
         </select>
-        <button id="logFollowBtn" class="active">Follow</button>
-        <button id="logClearBtn">Clear</button>
-        <button id="logExportBtn">Export</button>
+        <button id="logFollowBtn" class="active">follow</button>
+        <button id="logClearBtn">clear</button>
+        <button id="logExportBtn">export</button>
       </div>
     </div>
     <div class="logs-viewport" id="logsViewport" role="log"></div>
@@ -1276,7 +1276,7 @@
         elements.statusSummaryText.textContent = '';
         const errSpan = document.createElement('span');
         errSpan.style.color = '#dc2626';
-        errSpan.textContent = "Couldn't connect to solstone — is it running?";
+        errSpan.textContent = "couldn't connect to solstone — is it running?";
         elements.statusSummaryText.appendChild(errSpan);
 
         elements.vitalsStatus.textContent = '';
@@ -1391,7 +1391,7 @@
     observe: 'Screen & Audio',
     think: 'Background Analysis',
     sync: 'Cloud Sync',
-    importer: 'File Importer',
+    importer: 'file importer',
     schedule: 'Task Scheduler',
   };
 
@@ -1486,7 +1486,7 @@
       if (observers.some(observer => observer.screencast?.recording)) captureDetails.push('screen');
       if (observers.some(observer => observer.audio && ((observer.audio.threshold_hits || 0) > 0 || observer.audio.will_save))) captureDetails.push('audio');
       if (observers.some(observer => observer.tmux?.capturing)) captureDetails.push('terminal');
-      parts.push(captureDetails.length > 0 ? `Capturing (${captureDetails.join(', ')})` : 'Capturing');
+      parts.push(captureDetails.length > 0 ? `observing (${captureDetails.join(', ')})` : 'observing');
     }
 
     const processingDetails = [];
@@ -1514,15 +1514,15 @@
 
     if (parts.length === 0) {
       if (servicesKnown) {
-        elements.statusSummaryText.textContent = 'Healthy — all quiet';
+        elements.statusSummaryText.textContent = 'healthy — all quiet';
       } else if (state.connected) {
-        elements.statusSummaryText.textContent = 'Waiting for data...';
+        elements.statusSummaryText.textContent = 'waiting for data...';
       }
       return;
     }
 
     if (servicesKnown && state.crashed.size === 0 && staleCount === 0 && state.recentErrors.length === 0) {
-      parts.push('Healthy');
+      parts.push('healthy');
     }
 
     elements.statusSummaryText.textContent = parts.join(' · ');
@@ -1554,7 +1554,7 @@
     if (state.lastAgentFinishTs) {
       const ago = formatElapsed(Math.floor((Date.now() - state.lastAgentFinishTs) / 1000));
       const el = ensureChild(idx++);
-      el.textContent = 'Last agent finished ' + ago + ' ago';
+      el.textContent = 'last agent finished ' + ago + ' ago';
       el.style.color = '';
     }
 
@@ -1564,7 +1564,7 @@
       errEl.textContent = errCount + ' recent error' + (errCount !== 1 ? 's' : '');
       errEl.style.color = '#dc2626';
     } else {
-      errEl.textContent = 'No recent errors';
+      errEl.textContent = 'no recent errors';
       errEl.style.color = '';
     }
 
@@ -1574,7 +1574,7 @@
       .sort((a, b) => a.next_run - b.next_run)[0];
     if (nextSchedule) {
       const el = ensureChild(idx++);
-      el.textContent = 'Next: ' + (nextSchedule.name || 'scheduled') + ' ' + formatNextRun(nextSchedule.next_run);
+      el.textContent = 'next: ' + (nextSchedule.name || 'scheduled') + ' ' + formatNextRun(nextSchedule.next_run);
       el.style.color = '';
     }
 
@@ -1686,7 +1686,7 @@
       btn.setAttribute('data-action', 'view-logs');
       btn.setAttribute('data-service', 'cortex');
       btn.className = 'error-advice-link';
-      btn.textContent = 'View AI Engine logs';
+      btn.textContent = 'view ai engine logs';
       advice.appendChild(btn);
       advice.appendChild(document.createTextNode(' for details.'));
       container.appendChild(advice);
@@ -1696,12 +1696,12 @@
       const stageText = importErr?.stage && importErr.stage !== 'unknown' ? ' at ' + importErr.stage : '';
       const advice = document.createElement('div');
       advice.style.cssText = 'padding: 0.25em 0; font-size: 0.8em; color: #9ca3af;';
-      advice.appendChild(document.createTextNode('Import failed' + stageText + '. Check the source file and retry, or '));
+      advice.appendChild(document.createTextNode('import failed' + stageText + '. check the source file and retry, or '));
       const btn = document.createElement('button');
       btn.setAttribute('data-action', 'view-logs');
       btn.setAttribute('data-service', 'importer');
       btn.className = 'error-advice-link';
-      btn.textContent = 'view File Importer logs';
+      btn.textContent = 'view file importer logs';
       advice.appendChild(btn);
       advice.appendChild(document.createTextNode('.'));
       container.appendChild(advice);
@@ -1710,12 +1710,12 @@
     if (Array.from(types).some(t => t !== 'agent' && t !== 'import')) {
       const advice = document.createElement('div');
       advice.style.cssText = 'padding: 0.25em 0; font-size: 0.8em; color: #9ca3af;';
-      advice.appendChild(document.createTextNode('Service error detected. '));
+      advice.appendChild(document.createTextNode('service error detected. '));
       const btn = document.createElement('button');
       btn.setAttribute('data-action', 'view-logs');
       btn.setAttribute('data-service', 'supervisor');
       btn.className = 'error-advice-link';
-      btn.textContent = 'View System Manager logs';
+      btn.textContent = 'view system manager logs';
       advice.appendChild(btn);
       advice.appendChild(document.createTextNode(' for details.'));
       container.appendChild(advice);
@@ -1775,14 +1775,14 @@
     const card = btn.closest('[data-key]');
     const errorEl = card?.querySelector('.activity-card-error');
     btn.disabled = true;
-    btn.textContent = 'Retrying...';
+    btn.textContent = 'retrying...';
     window.apiJson('/app/health/api/retry-import', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ import_id: importId })
     })
       .then(() => {
-        btn.textContent = 'Retry sent';
+        btn.textContent = 'retry sent';
         btn.style.color = '#9ca3af';
         if (errorEl) {
           errorEl.textContent = '';
@@ -1791,10 +1791,10 @@
       .catch((err) => {
         window.logError(err, { context: 'health: retry-import failed' });
         btn.disabled = false;
-        btn.textContent = 'Retry';
+        btn.textContent = 'retry';
         btn.style.color = '';
         if (errorEl) {
-          errorEl.textContent = err.serverMessage || 'Retry failed';
+          errorEl.textContent = err.serverMessage || 'retry failed';
         }
       });
   });
@@ -1915,7 +1915,7 @@
         staleListSpan.style.display = '';
         updateVitalsStatus('warning');
       } else if (hasCrashed) {
-        mainSpan.textContent = 'Services need attention';
+        mainSpan.textContent = 'services need attention';
         mainSpan.style.color = '#f87171';
         staleListSpan.textContent = '';
         staleListSpan.style.display = 'none';
@@ -2023,18 +2023,18 @@
     if (status === 'ok') {
       indicator.className = 'status-indicator active';
       indicator.setAttribute('aria-label', 'System status: healthy');
-      text.textContent = 'All Systems Go';
+      text.textContent = 'all systems go';
       severity.textContent = 'healthy';
     } else if (status === 'warning') {
       indicator.className = 'status-indicator restarting';
       indicator.setAttribute('aria-label', 'System status: warning');
-      text.textContent = 'Some services slow to respond';
+      text.textContent = 'some services slow to respond';
       severity.textContent = 'warning';
       el.classList.add('warning');
     } else if (status === 'error') {
       indicator.className = 'status-indicator crashed';
       indicator.setAttribute('aria-label', 'System status: error');
-      text.textContent = 'Services need attention';
+      text.textContent = 'services need attention';
       severity.textContent = 'error';
       el.classList.add('error');
     }
@@ -2057,13 +2057,13 @@
       label.textContent = 'observing';
     } else if (mode === 'tmux') {
       badge.className = 'health-badge tmux';
-      label.textContent = 'Terminal Sessions';
+      label.textContent = 'terminal sessions';
     } else if (mode === 'idle') {
       badge.className = 'health-badge idle';
-      label.textContent = 'Idle';
+      label.textContent = 'idle';
     } else {
       badge.className = 'health-badge idle';
-      label.textContent = 'Waiting...';
+      label.textContent = 'waiting...';
     }
   }
 
@@ -2096,7 +2096,7 @@
           const displayLabel = streamCount === 1 ? 'display' : 'displays';
           const mins = Math.max(1, Math.round(elapsed / 60));
           return {
-            status: `Recording (${streamCount} ${displayLabel}, ~${mins} min)`,
+            status: `observing (${streamCount} ${displayLabel}, ~${mins} min)`,
             detail: streamCount > 0
               ? streams.map(s => `${s.position || 'unknown'} ${s.connector || 'unknown'}`).join(', ')
               : '',
@@ -2138,20 +2138,20 @@
       {
         statusEl: elements.activityStatus,
         detailEl: elements.activityDetail,
-        idleText: 'Idle',
+        idleText: 'idle',
         extract: () => {
           if (!primary.activity) return null;
           const idleMs = primary.activity.idle_time_ms || 0;
           if (primary.activity.power_save) return { status: 'Power saving' };
           if (primary.activity.screen_locked) return { status: 'Screen locked' };
           if (primary.activity.sink_muted) return { status: 'Audio muted' };
-          return { status: `Idle: ${Math.floor(idleMs/1000)}s` };
+          return { status: `idle: ${Math.floor(idleMs/1000)}s` };
         },
       },
       {
         statusEl: elements.describeStatus,
         detailEl: elements.describeDetail,
-        idleText: 'Idle',
+        idleText: 'idle',
         extract: () => {
           if (!primary.describe) return null;
           return { processor: primary.describe };
@@ -2160,7 +2160,7 @@
       {
         statusEl: elements.transcribeStatus,
         detailEl: elements.transcribeDetail,
-        idleText: 'Idle',
+        idleText: 'idle',
         extract: () => {
           if (!primary.transcribe) return null;
           return { processor: primary.transcribe };
@@ -2172,7 +2172,7 @@
 
     if (!state.localHost || !primary) {
       channels.forEach(ch => {
-        ch.statusEl.textContent = 'Waiting...';
+        ch.statusEl.textContent = 'waiting...';
         ch.statusEl.classList.remove('idle');
         ch.detailEl.textContent = '';
       });
@@ -2191,13 +2191,13 @@
         const isRunning = !!p.running;
         const queued = p.queued?.length || 0;
         if (isRunning && queued > 0) {
-          ch.statusEl.textContent = `Running (+${queued} queued)`;
+          ch.statusEl.textContent = `running (+${queued} queued)`;
         } else if (isRunning) {
-          ch.statusEl.textContent = 'Running';
+          ch.statusEl.textContent = 'running';
         } else if (queued > 0) {
-          ch.statusEl.textContent = `Queued: ${queued}`;
+          ch.statusEl.textContent = `queued: ${queued}`;
         } else {
-          ch.statusEl.textContent = 'Idle';
+          ch.statusEl.textContent = 'idle';
         }
         if (isRunning && p.running.file) {
           ch.detailEl.textContent = truncate(p.running.file.split('/').pop(), 30);
@@ -2403,7 +2403,7 @@
         container.appendChild(card);
       }
       const stateLabel = agent.event === 'thinking' ? 'Thinking...' :
-                        (agent.event === 'tool_start' || agent.event === 'tool_end') ? 'Working...' : 'Running...';
+                        (agent.event === 'tool_start' || agent.event === 'tool_end') ? 'working...' : 'running...';
       const elapsed = agent.elapsed_seconds ? formatElapsed(agent.elapsed_seconds) : '0s';
       card.children[0].textContent = '...' + getAgentId(agent.use_id);
       card.children[1].textContent = agent.name || 'default';
@@ -2462,7 +2462,7 @@
         const retryBtn = document.createElement('button');
         retryBtn.setAttribute('data-action', 'retry');
         retryBtn.className = 'import-retry-btn';
-        retryBtn.textContent = 'Retry';
+        retryBtn.textContent = 'retry';
         retryWrap.appendChild(retryBtn);
         card.appendChild(retryWrap);
         const progressWrap = document.createElement('div');
@@ -2582,7 +2582,7 @@
 
     // Current agents
     if (d.current_agents && d.current_agents.length > 0) {
-      elements.thinkAgents.textContent = 'Running: ' + d.current_agents.join(', ');
+      elements.thinkAgents.textContent = 'running: ' + d.current_agents.join(', ');
     } else {
       elements.thinkAgents.textContent = '';
     }
@@ -2967,7 +2967,7 @@
     const header = document.querySelector('.logs-header');
     card.classList.toggle('logs-collapsed', state.logsCollapsed);
     header.setAttribute('aria-expanded', String(!state.logsCollapsed));
-    elements.logsCollapseIndicator.textContent = state.logsCollapsed ? '▶ Show' : '▼ Hide';
+    elements.logsCollapseIndicator.textContent = state.logsCollapsed ? '▶ show' : '▼ hide';
     if (!state.logsCollapsed) renderLogs();
   }
   document.querySelector('.logs-header').addEventListener('click', (e) => {
@@ -2996,23 +2996,23 @@
     state.lastLogFilter = null;
     elements.logErrorBadge.textContent = '';
     elements.logErrorBadge.classList.add('hidden');
-    elements.logServiceFilter.innerHTML = '<option value="all">All Services</option>';
+    elements.logServiceFilter.innerHTML = '<option value="all">all services</option>';
     updateLogsBadge();
     renderLogs();
   });
   elements.vitalsCheckBtn.addEventListener('click', () => {
-    elements.vitalsCheckBtn.textContent = 'Checking...';
+    elements.vitalsCheckBtn.textContent = 'checking...';
     elements.vitalsCheckBtn.disabled = true;
     fetch('/app/health/api/info')
       .then(r => r.json())
       .then(info => {
         state.localHost = info.hostname;
         updateObserve();
-        elements.vitalsCheckBtn.textContent = 'Check now';
+        elements.vitalsCheckBtn.textContent = 'check now';
         elements.vitalsCheckBtn.disabled = false;
       })
       .catch(() => {
-        elements.vitalsCheckBtn.textContent = 'Check now';
+        elements.vitalsCheckBtn.textContent = 'check now';
         elements.vitalsCheckBtn.disabled = false;
       });
   });
@@ -3048,9 +3048,9 @@
     elements.logsSummaryBadge.style.display = 'none';
 
     // Replace header with log file context
-    logsTitle.textContent = 'LOG FILE';
-    logsControls.innerHTML = '<button id="logBackBtn">← Back to Dashboard</button>';
-    viewport.innerHTML = '<div class="logs-line log">Loading...</div>';
+    logsTitle.textContent = 'log file';
+    logsControls.innerHTML = '<button id="logBackBtn">← back to dashboard</button>';
+    viewport.innerHTML = '<div class="logs-line log">loading...</div>';
 
     fetch('/app/health/api/log?path=' + encodeURIComponent(deepLinkLog))
       .then(r => r.json().then(data => ({ok: r.ok, data})))
@@ -3069,7 +3069,7 @@
           escaped.replace(/\n/g, '</div><div class="logs-line">') + '</div>';
       })
       .catch(() => {
-        viewport.innerHTML = '<div class="logs-line stderr">Network error loading log file</div>';
+        viewport.innerHTML = '<div class="logs-line stderr">network error loading log file</div>';
       });
 
     document.addEventListener('click', function(e) {

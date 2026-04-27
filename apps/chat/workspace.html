@@ -27,7 +27,7 @@
   {% if day == today_day %}
     <form id="chatComposerForm" class="chat-composer">
       <textarea id="chatComposerInput" rows="1" placeholder="{{ chat_bar_placeholder }}" aria-label="chat input"></textarea>
-      <button id="chatComposerSend" type="submit" aria-label="send">Send</button>
+      <button id="chatComposerSend" type="submit" aria-label="send">send</button>
     </form>
   {% else %}
     <p class="chat-composer-past">past-day view — new messages go to <a href="{{ url_for('app:chat.day', day=today_day) }}">today</a></p>
@@ -339,7 +339,7 @@
         note.className = 'chat-talent-card-stalled-note';
         card.appendChild(note);
       }
-      note.textContent = 'Talent stopped responding — reload to retry';
+      note.textContent = 'talent stopped responding — reload to retry';
     });
   }
 

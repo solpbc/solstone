@@ -290,7 +290,7 @@ def test_observe_idempotent_exits_0_with_already_recorded(skill_cli_env):
     )
 
     assert result.exit_code == 0
-    assert "already recorded" in result.stderr
+    assert "already observed" in result.stderr
     rows = load_patterns()
     assert len(rows[0]["observations"]) == 1
 

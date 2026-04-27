@@ -421,8 +421,8 @@ def api_agent_run(use_id: str) -> Any:
 
     if not use_file:
         for match in talents_dir.glob(f"*/{use_id}_active.jsonl"):
-            return jsonify({"error": "Talent run is still in progress"}), 202
-        return jsonify({"error": f"Talent run {use_id} not found"}), 404
+            return jsonify({"error": "talent run is still in progress"}), 202
+        return jsonify({"error": f"talent run {use_id} not found"}), 404
 
     try:
         from think.cortex_client import get_use_end_state
@@ -431,15 +431,15 @@ def api_agent_run(use_id: str) -> Any:
             lines = f.readlines()
 
         if not lines:
-            return jsonify({"error": f"Talent run {use_id} is malformed"}), 500
+            return jsonify({"error": f"talent run {use_id} is malformed"}), 500
 
         first_line = lines[0].strip()
         if not first_line:
-            return jsonify({"error": f"Talent run {use_id} is malformed"}), 500
+            return jsonify({"error": f"talent run {use_id} is malformed"}), 500
 
         request_event = json.loads(first_line)
         if request_event.get("event") != "request":
-            return jsonify({"error": f"Talent run {use_id} is malformed"}), 500
+            return jsonify({"error": f"talent run {use_id} is malformed"}), 500
 
         event_data = _parse_use_events(lines[1:], collect_events=True)
 

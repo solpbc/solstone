@@ -24,7 +24,7 @@ def test_pairing_ui_smoke(pairing_ui_client):
 
     assert response.status_code == 200
     body = response.get_data(as_text=True)
-    assert "Pair a phone" in body
+    assert "pair a phone" in body
     assert "/static/pairing-qr.js" in body
     assert "/static/pairing.js" in body
     assert "/static/pairing.css" in body

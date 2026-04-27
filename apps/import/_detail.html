@@ -123,46 +123,46 @@
   </style>
 
 <div class="import-detail-content">
-  <a href="/app/import/" class="back-link">← Back to Imports</a>
+  <a href="/app/import/" class="back-link">← back to imports</a>
 
   <div class="import-header">
-    <h1>Import: {{ timestamp }}</h1>
+    <h1>import: {{ timestamp }}</h1>
     <div class="import-meta" id="importMeta">
-      <span>Loading...</span>
+      <span>loading...</span>
     </div>
   </div>
 
   <div class="tabs" role="tablist">
-    <div class="tab active" data-target="overview" tabindex="0" role="tab">Overview</div>
-    <div class="tab" data-target="content" tabindex="0" role="tab">Content</div>
-    <div class="tab" data-target="import-json" tabindex="0" role="tab">Upload Metadata</div>
-    <div class="tab" data-target="imported-json" tabindex="0" role="tab">Processing Results</div>
+    <div class="tab active" data-target="overview" tabindex="0" role="tab">overview</div>
+    <div class="tab" data-target="content" tabindex="0" role="tab">content</div>
+    <div class="tab" data-target="import-json" tabindex="0" role="tab">upload metadata</div>
+    <div class="tab" data-target="imported-json" tabindex="0" role="tab">processing results</div>
   </div>
 
   <div class="tab-content active" id="overview">
     <div class="info-grid" id="overviewContent">
-      <div class="info-label">Loading...</div>
+      <div class="info-label">loading...</div>
     </div>
 
     <div class="links-section" id="linksSection" style="display:none;">
-      <h3>Quick Links</h3>
+      <h3>quick links</h3>
       <div id="quickLinks"></div>
     </div>
 
     <div class="files-list" id="filesList" style="display:none;">
-      <h4>Created Files</h4>
+      <h4>created files</h4>
       <ul id="filesListContent"></ul>
     </div>
   </div>
 
   <div class="tab-content" id="content">
-    <div id="contentLoading" class="no-data">Select this tab to browse imported content</div>
+    <div id="contentLoading" class="no-data">select this tab to browse imported content</div>
     <div id="contentContainer" style="display:none;">
       <div class="import-content-summary" id="contentSummary"></div>
       <div class="import-content-controls">
-        <input type="text" id="contentSearch" class="import-content-search" placeholder="Search items..." />
+        <input type="text" id="contentSearch" class="import-content-search" placeholder="search items..." />
         <select id="contentMonth" class="import-content-month">
-          <option value="">All months</option>
+          <option value="">all months</option>
         </select>
       </div>
       <div id="contentItems" class="import-content-items"></div>
@@ -224,7 +224,7 @@ tabs.forEach(tab => {
 function loadContent(page = 1) {
   const container = document.getElementById('contentContainer');
   const loading = document.getElementById('contentLoading');
-  loading.textContent = 'Loading content...';
+  loading.textContent = 'loading content...';
   loading.style.display = 'block';
 
   const params = new URLSearchParams({page, per_page: 50});
@@ -248,7 +248,7 @@ function loadContent(page = 1) {
       contentLoaded = true;
     })
     .catch(err => {
-      loading.textContent = 'Error loading content';
+      loading.textContent = 'error loading content';
       console.error('Content load error:', err);
     });
 }
@@ -316,7 +316,7 @@ function renderContentItems(items) {
           ${item.meta?.location ? ` · ${escapeContentHtml(item.meta.location)}` : ''}
           ${item.meta?.author ? `· ${escapeContentHtml(item.meta.author)}` : ''}
           ${item.meta?.tags?.length ? `· ${item.meta.tags.map(t => escapeContentHtml(t)).join(', ')}` : ''}
-          ${calLink ? ` · <a href="${calLink}" class="import-content-cal-link" onclick="event.stopPropagation();">View in activities →</a>` : ''}
+          ${calLink ? ` · <a href="${calLink}" class="import-content-cal-link" onclick="event.stopPropagation();">view in activities →</a>` : ''}
         </div>
         ${item.preview ? `<div class="import-content-item-preview">${escapeContentHtml(stripMarkdown(item.preview))}</div>` : ''}
         <div class="import-content-item-body"><div class="no-data">Loading...</div></div>
@@ -372,13 +372,13 @@ function renderContentPagination(data) {
     return;
   }
   let html = '';
-  html += `<button ${data.page <= 1 ? 'disabled' : ''} onclick="loadContent(${data.page - 1})">Prev</button>`;
+  html += `<button ${data.page <= 1 ? 'disabled' : ''} onclick="loadContent(${data.page - 1})">prev</button>`;
   const start = Math.max(1, data.page - 2);
   const end = Math.min(data.pages, data.page + 2);
   for (let i = start; i <= end; i++) {
     html += `<button class="${i === data.page ? 'active' : ''}" onclick="loadContent(${i})">${i}</button>`;
   }
-  html += `<button ${data.page >= data.pages ? 'disabled' : ''} onclick="loadContent(${data.page + 1})">Next</button>`;
+  html += `<button ${data.page >= data.pages ? 'disabled' : ''} onclick="loadContent(${data.page + 1})">next</button>`;
   el.innerHTML = html;
 }
 
@@ -527,29 +527,29 @@ window.apiJson('/app/import/api/{{ timestamp }}')
     } else if (data.imported_json) {
       overviewHtml += `<div class="info-label">Processing Status:</div><div class="info-value">Completed</div>`;
       overviewHtml += `<div class="info-label">Target Day:</div><div class="info-value">${data.imported_json.target_day || '-'}</div>`;
-      overviewHtml += `<div class="info-label">Files Created:</div><div class="info-value">${data.imported_json.total_files_created || 0}</div>`;
-      overviewHtml += `<div class="info-label">Processing Time:</div><div class="info-value">${new Date(data.imported_json.processing_completed).toLocaleString()}</div>`;
+      overviewHtml += `<div class="info-label">files created:</div><div class="info-value">${data.imported_json.total_files_created || 0}</div>`;
+      overviewHtml += `<div class="info-label">processing time:</div><div class="info-value">${new Date(data.imported_json.processing_completed).toLocaleString()}</div>`;
 
       if (data.imported_json.merge_summary) {
         const mergeSummary = data.imported_json.merge_summary;
         overviewHtml += `
           <div class="merge-summary-card">
-            <h3>Merge Summary</h3>
+            <h3>merge summary</h3>
             <div class="merge-summary-grid">
               <div class="merge-summary-row">
-                <div class="merge-summary-label">Segments</div>
+                <div class="merge-summary-label">segments</div>
                 <div class="merge-summary-value">${mergeSummary.segments_copied || 0} copied · ${mergeSummary.segments_skipped || 0} skipped · ${mergeSummary.segments_errored || 0} errored</div>
               </div>
               <div class="merge-summary-row">
-                <div class="merge-summary-label">Entities</div>
+                <div class="merge-summary-label">entities</div>
                 <div class="merge-summary-value">${mergeSummary.entities_created || 0} created · ${mergeSummary.entities_merged || 0} merged · ${mergeSummary.entities_staged || 0} staged</div>
               </div>
               <div class="merge-summary-row">
-                <div class="merge-summary-label">Facets</div>
+                <div class="merge-summary-label">facets</div>
                 <div class="merge-summary-value">${mergeSummary.facets_created || 0} created · ${mergeSummary.facets_merged || 0} merged</div>
               </div>
               <div class="merge-summary-row">
-                <div class="merge-summary-label">Imports</div>
+                <div class="merge-summary-label">imports</div>
                 <div class="merge-summary-value">${mergeSummary.imports_copied || 0} copied · ${mergeSummary.imports_skipped || 0} skipped</div>
               </div>
             </div>
@@ -560,8 +560,8 @@ window.apiJson('/app/import/api/{{ timestamp }}')
           const principalCollision = data.imported_json.principal_collision;
           overviewHtml += `
             <div class="merge-collision-callout">
-              <h3>Owner identity differs between journals</h3>
-              <p>This journal belongs to ${escapeHtml(principalCollision.target_name || '')}, and the imported archive marks ${escapeHtml(principalCollision.source_name || '')} as the owner. solstone kept this journal&#39;s owner and brought the other person in as a regular entity.</p>
+              <h3>owner identity differs between journals</h3>
+              <p>this journal belongs to ${escapeHtml(principalCollision.target_name || '')}, and the imported archive marks ${escapeHtml(principalCollision.source_name || '')} as the owner. solstone kept this journal&#39;s owner and brought the other person in as a regular entity.</p>
             </div>
           `;
         }
@@ -571,23 +571,23 @@ window.apiJson('/app/import/api/{{ timestamp }}')
         const summaryErrors = data.summary_errors || [];
         const artifactPaths = data.merge_artifact_paths || null;
         if (stagedEntities.length || erroredSegments.length || summaryErrors.length || artifactPaths) {
-          let highlightsHtml = '<div class="merge-highlights"><h3>Merge Highlights</h3>';
+          let highlightsHtml = '<div class="merge-highlights"><h3>merge highlights</h3>';
           if (stagedEntities.length) {
-            highlightsHtml += '<div class="merge-highlights-section"><h4>Staged entities</h4><ul class="merge-highlights-list">';
+            highlightsHtml += '<div class="merge-highlights-section"><h4>staged entities</h4><ul class="merge-highlights-list">';
             stagedEntities.forEach(item => {
               highlightsHtml += `<li>${escapeHtml(item.source_name || '')} → ${escapeHtml(item.target_name || '')}<br><code>${escapeHtml(item.staging_path || '')}</code></li>`;
             });
             highlightsHtml += '</ul></div>';
           }
           if (erroredSegments.length) {
-            highlightsHtml += '<div class="merge-highlights-section"><h4>Errored segments</h4><ul class="merge-highlights-list">';
+            highlightsHtml += '<div class="merge-highlights-section"><h4>errored segments</h4><ul class="merge-highlights-list">';
             erroredSegments.forEach(item => {
               highlightsHtml += `<li><strong>${escapeHtml(item.item_id || '')}</strong>: ${escapeHtml(item.reason || '')}</li>`;
             });
             highlightsHtml += '</ul></div>';
           }
           if (summaryErrors.length) {
-            highlightsHtml += '<div class="merge-highlights-section"><h4>Summary errors</h4><ul class="merge-highlights-list">';
+            highlightsHtml += '<div class="merge-highlights-section"><h4>summary errors</h4><ul class="merge-highlights-list">';
             summaryErrors.forEach(item => {
               highlightsHtml += `<li>${escapeHtml(item || '')}</li>`;
             });
@@ -613,8 +613,8 @@ window.apiJson('/app/import/api/{{ timestamp }}')
         linksSection.style.display = 'block';
 
         let linksHtml = '';
-        linksHtml += `<div class="link-item">📅 <a href="/app/activities/${data.imported_json.target_day}">View Day in Activities</a></div>`;
-        linksHtml += `<div class="link-item">💬 <a href="/app/transcripts/${data.imported_json.target_day}">View Transcript</a></div>`;
+        linksHtml += `<div class="link-item">📅 <a href="/app/activities/${data.imported_json.target_day}">view day in activities</a></div>`;
+        linksHtml += `<div class="link-item">💬 <a href="/app/transcripts/${data.imported_json.target_day}">view transcript</a></div>`;
         quickLinks.innerHTML = linksHtml;
       }
 
@@ -645,9 +645,9 @@ window.apiJson('/app/import/api/{{ timestamp }}')
   .catch(err => {
     const serverMessage = err?.serverMessage || err?.message || '';
     document.getElementById('importMeta').innerHTML = `<div class="surface-state-refresh-error">Couldn&#39;t load import details.${serverMessage ? ` ${escapeHtml(serverMessage)}` : ''}</div>`;
-    document.getElementById('overviewContent').innerHTML = '<div class="no-data">Overview unavailable</div>';
-    document.getElementById('importJsonContent').textContent = 'Upload metadata unavailable';
-    document.getElementById('importedJsonContent').textContent = 'Processing results unavailable';
+    document.getElementById('overviewContent').innerHTML = '<div class="no-data">overview unavailable</div>';
+    document.getElementById('importJsonContent').textContent = 'upload metadata unavailable';
+    document.getElementById('importedJsonContent').textContent = 'processing results unavailable';
     document.getElementById('linksSection').style.display = 'none';
     document.getElementById('filesList').style.display = 'none';
   });

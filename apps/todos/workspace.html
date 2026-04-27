@@ -520,7 +520,7 @@
         {% for category, message in messages %}
           <div class="flash-message {{ category }}" role="{% if category == 'error' %}alert{% else %}status{% endif %}">
             <span>{{ message }}</span>
-            <button class="flash-close" aria-label="Dismiss message" onclick="this.parentElement.remove()">×</button>
+            <button class="flash-close" aria-label="dismiss message" onclick="this.parentElement.remove()">×</button>
           </div>
         {% endfor %}
       </div>
@@ -555,8 +555,8 @@
              class="facet-generate-btn"
              data-facet="{{ facet_name }}"
              data-day="{{ day }}"
-             title="Generate weekly todos with AI"
-             aria-label="Generate weekly todos with AI">✨</button>
+             title="generate weekly todos with AI"
+             aria-label="generate weekly todos with AI">✨</button>
           <span class="facet-count">{{ count_emoji }}</span>
         </div>
 
@@ -597,8 +597,8 @@
                 <button
                   type="button"
                   class="todo-action-btn edit"
-                  aria-label="Edit todo"
-                  title="Edit"
+                  aria-label="edit todo"
+                  title="edit"
                   data-index="{{ item.index }}"
                   data-facet="{{ facet_name }}"
                 >
@@ -607,8 +607,8 @@
                 <button
                   type="button"
                   class="todo-action-btn move"
-                  aria-label="Move to another day"
-                  title="Move to another day"
+                  aria-label="move to another day"
+                  title="move to another day"
                   data-index="{{ item.index }}"
                   data-facet="{{ facet_name }}"
                   data-current-day="{{ day }}"
@@ -619,8 +619,8 @@
                 <button
                   type="button"
                   class="todo-action-btn cancel"
-                  aria-label="Cancel todo"
-                  title="Cancel"
+                  aria-label="cancel todo"
+                  title="cancel"
                   data-index="{{ item.index }}"
                   data-facet="{{ facet_name }}"
                 >
@@ -632,7 +632,7 @@
         </ul>
         <form class="todo-add-form" method="post" data-facet="{{ facet_name }}">
           <input type="hidden" name="action" value="add">
-          <label for="todo-add-{{ facet_name }}" class="sr-only">Add a todo to {{ facet_title }}</label>
+          <label for="todo-add-{{ facet_name }}" class="sr-only">add a todo to {{ facet_title }}</label>
           <input type="text" id="todo-add-{{ facet_name }}" name="text" placeholder="add a todo..." autocomplete="off">
         </form>
         {% if facet_todos | length == 0 %}
@@ -652,7 +652,7 @@
       <div class="no-todos-hint">Add a todo below, or use #facet to target a specific list</div>
       <form class="todo-add-form" method="post" data-facet="">
         <input type="hidden" name="action" value="add">
-        <label for="todo-add-standalone" class="sr-only">Add a todo</label>
+        <label for="todo-add-standalone" class="sr-only">add a todo</label>
         <input type="text" id="todo-add-standalone" name="text" placeholder="add a todo... (use #work, #personal, etc.)" autocomplete="off">
       </form>
     </section>
@@ -720,7 +720,7 @@ document.addEventListener('DOMContentLoaded', function() {
       workspaceContent?.classList.remove('single-facet-mode');
       sections.forEach(s => s.style.display = '');
       if (noTodosEl) {
-        noTodosEl.querySelector('.no-todos-text').textContent = 'No todos for today';
+        noTodosEl.querySelector('.no-todos-text').textContent = 'no todos for today';
       }
     } else {
       // Single-facet mode - hide headers, disable auto-collapse
@@ -1414,8 +1414,8 @@ document.addEventListener('DOMContentLoaded', function() {
         <button
           type="button"
           class="todo-action-btn edit"
-          aria-label="Edit todo"
-          title="Edit"
+          aria-label="edit todo"
+          title="edit"
           data-index="${todo.index}"
           data-facet="${facetName}"
         >
@@ -1424,8 +1424,8 @@ document.addEventListener('DOMContentLoaded', function() {
         <button
           type="button"
           class="todo-action-btn move"
-          aria-label="Move to another day"
-          title="Move to another day"
+          aria-label="move to another day"
+          title="move to another day"
           data-index="${todo.index}"
           data-facet="${facetName}"
           data-current-day="${currentDay}"
@@ -1436,8 +1436,8 @@ document.addEventListener('DOMContentLoaded', function() {
         <button
           type="button"
           class="todo-action-btn cancel"
-          aria-label="Cancel todo"
-          title="Cancel"
+          aria-label="cancel todo"
+          title="cancel"
           data-index="${todo.index}"
           data-facet="${facetName}"
         >

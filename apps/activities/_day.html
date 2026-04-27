@@ -615,7 +615,7 @@ button.activity-detail-back {
     const ac = activities.length;
 
     if (!ac) {
-      el.textContent = 'no recorded activity';
+      el.textContent = 'no observed activity';
       el.style.display = '';
       return;
     }
@@ -655,7 +655,7 @@ button.activity-detail-back {
   function renderTimeline(list) {
     const div = document.getElementById('timelineView');
     if (!list.length) {
-      div.innerHTML = '<div class="timeline-empty"><div class="empty-icon"><svg width="32" height="32" viewBox="0 0 32 32" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="6" width="24" height="22" rx="3"/><line x1="10" y1="3" x2="10" y2="9"/><line x1="22" y1="3" x2="22" y2="9"/><line x1="4" y1="14" x2="28" y2="14"/><line x1="11" y1="19" x2="11" y2="19.01"/><line x1="16" y1="19" x2="16" y2="19.01"/><line x1="21" y1="19" x2="21" y2="19.01"/><line x1="11" y1="24" x2="11" y2="24.01"/><line x1="16" y1="24" x2="16" y2="24.01"/></svg></div><div class="empty-heading">no activity</div><div class="empty-desc">nothing recorded for this day</div></div>';
+      div.innerHTML = '<div class="timeline-empty"><div class="empty-icon"><svg width="32" height="32" viewBox="0 0 32 32" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="6" width="24" height="22" rx="3"/><line x1="10" y1="3" x2="10" y2="9"/><line x1="22" y1="3" x2="22" y2="9"/><line x1="4" y1="14" x2="28" y2="14"/><line x1="11" y1="19" x2="11" y2="19.01"/><line x1="16" y1="19" x2="16" y2="19.01"/><line x1="21" y1="19" x2="21" y2="19.01"/><line x1="11" y1="24" x2="11" y2="24.01"/><line x1="16" y1="24" x2="16" y2="24.01"/></svg></div><div class="empty-heading">no activity</div><div class="empty-desc">nothing observed for this day</div></div>';
       return;
     }
 
@@ -764,7 +764,7 @@ button.activity-detail-back {
       : '';
 
     let html = '';
-    html += `<button type="button" class="activity-detail-back">← Back to day</button>`;
+    html += `<button type="button" class="activity-detail-back">← back to day</button>`;
     html += `<div class="activity-detail-header">`;
     html += `<h2>${escapeHtml(a.icon || '')} ${escapeHtml(a.name)}</h2>`;
     html += `<div class="ad-subtitle">${escapeHtml(a.facet)}</div>`;
@@ -772,7 +772,7 @@ button.activity-detail-back {
 
     // Build tabs
     html += `<div class="ad-tabs">`;
-    html += `<button type="button" class="ad-tab active" data-tab="summary">Summary</button>`;
+    html += `<button type="button" class="ad-tab active" data-tab="summary">summary</button>`;
     a.outputs.forEach((out, i) => {
       const label = out.filename.replace(/\.\w+$/, '').replace(/[_-]/g, ' ');
       html += `<button type="button" class="ad-tab" data-tab="output-${i}">${escapeHtml(label)}</button>`;

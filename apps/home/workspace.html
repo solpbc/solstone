@@ -1095,7 +1095,7 @@
     <div class="pulse-briefing-summary">{{ briefing_summary }}</div>
     {% endif %}
     {% if briefing_phase == 'pending' and not briefing_exists %}
-    <div class="pulse-briefing-placeholder">Your morning briefing is being prepared...</div>
+    <div class="pulse-briefing-placeholder">your morning briefing is being prepared...</div>
     {% endif %}
     {% if briefing_exists %}
     <div class="pulse-briefing-body" id="pulse-briefing-body">
@@ -1140,14 +1140,14 @@
       <div class="pulse-narrative-content" id="pulse-narrative-content"></div>
       <a href="#" class="pulse-tell-more" data-conversation="Tell me more about what's happening today">tell me more →</a>
       {% if narrative_updated_at %}
-      <div class="pulse-narrative-meta">Updated at {{ narrative_updated_at }}</div>
+      <div class="pulse-narrative-meta">updated at {{ narrative_updated_at }}</div>
       {% endif %}
     </div>
   </div>
   {% elif segment_count > 0 %}
   <div class="pulse-narrative" id="pulse-narrative">
     <h2 class="pulse-section-header">{{ narrative_header or "today's flow" }}</h2>
-    <div class="pulse-narrative-empty">Analysis will be available after the next processing cycle.</div>
+    <div class="pulse-narrative-empty">analysis will be available after the next processing cycle.</div>
   </div>
   {% endif %}
   {% if narrative_content is none and segment_count == 0 and not show_welcome %}
@@ -1644,7 +1644,7 @@
           const hdr = document.querySelector('.pulse-narrative .pulse-section-header');
           if (hdr && data.narrative_header) hdr.textContent = data.narrative_header;
           const meta = document.querySelector('.pulse-narrative .pulse-narrative-meta');
-          if (meta && data.narrative_updated_at) meta.textContent = 'Updated at ' + data.narrative_updated_at;
+          if (meta && data.narrative_updated_at) meta.textContent = 'updated at ' + data.narrative_updated_at;
           var summaryEl = document.querySelector('.pulse-narrative .pulse-section-summary');
           if (summaryEl) {
             var st = data.narrative_header || '';

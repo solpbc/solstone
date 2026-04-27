@@ -1095,11 +1095,11 @@
 </div>
 
 <div class="agents-content">
-  <h2 class="sr-only">Agent Runs</h2>
+  <h2 class="sr-only">agent runs</h2>
   <!-- Loading state -->
   <div id="loading-view" class="loading" role="status" aria-live="polite">
     <div class="spinner" aria-hidden="true"></div>
-    <div>Loading agents...</div>
+    <div>loading agents...</div>
   </div>
 
   <div id="agents-status" class="sr-only" role="status" aria-live="polite"></div>
@@ -1112,7 +1112,7 @@
     <div id="empty-state" class="empty-state" style="display: none;">
       <div class="empty-state-icon">🤖</div>
       <div class="empty-state-text">No agent runs on this day</div>
-      <div class="empty-state-hint">Agent runs will appear here when they complete</div>
+      <div class="empty-state-hint">agent runs will appear here when they complete</div>
     </div>
   </div>
 
@@ -1138,9 +1138,9 @@
           <th class="col-model">model</th>
           <th class="col-provider">provider</th>
           <th class="col-runtime">runtime</th>
-          <th class="col-activity" title="Thinking events">💭</th>
-          <th class="col-activity" title="Tool calls">🔧</th>
-          <th class="col-activity" title="Cost">💰</th>
+          <th class="col-activity" title="thinking events">💭</th>
+          <th class="col-activity" title="tool calls">🔧</th>
+          <th class="col-activity" title="cost">💰</th>
           <th class="col-facet">facet</th>
           <th class="col-output">output</th>
           <th class="col-prompt">prompt</th>
@@ -1153,16 +1153,16 @@
   <!-- Run Detail View -->
   <div id="run-detail-view" style="display: none;">
     <div class="run-detail-breadcrumb">
-      <a class="crumb-link" id="crumb-agents" href="#" onclick="event.preventDefault(); showGridView()">Agents</a>
+      <a class="crumb-link" id="crumb-agents" href="#" onclick="event.preventDefault(); showGridView()">agents</a>
       <span class="crumb-sep">/</span>
-      <a class="crumb-link" id="crumb-agent" href="#">Agent Name</a>
+      <a class="crumb-link" id="crumb-agent" href="#">agent name</a>
       <span class="crumb-sep">/</span>
       <span class="crumb-current" id="crumb-run">Run 09:41</span>
     </div>
     <div id="run-detail-header-mount"></div>
     <div id="run-detail-tabs" class="rd-tabs" role="tablist" aria-label="run detail tabs">
-      <button type="button" class="rd-tab active" data-tab="log" id="tab-log" role="tab" aria-selected="true" aria-controls="run-detail-log-pane" tabindex="0">Run Log</button>
-      <button type="button" class="rd-tab" data-tab="output" id="tab-output" role="tab" aria-selected="false" aria-controls="run-detail-output-pane" tabindex="-1" style="display: none;">Output</button>
+      <button type="button" class="rd-tab active" data-tab="log" id="tab-log" role="tab" aria-selected="true" aria-controls="run-detail-log-pane" tabindex="0">run log</button>
+      <button type="button" class="rd-tab" data-tab="output" id="tab-output" role="tab" aria-selected="false" aria-controls="run-detail-output-pane" tabindex="-1" style="display: none;">output</button>
     </div>
     <div id="run-detail-panel" class="rd-panel">
       <div id="run-detail-log-pane" class="rd-tab-pane active" role="tabpanel" aria-labelledby="tab-log"></div>
@@ -1175,7 +1175,7 @@
 <div id="preview-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="preview-modal-title">
   <div class="modal-content">
     <div class="modal-header">
-      <h3 class="modal-title" id="preview-modal-title">Agent Prompt</h3>
+      <h3 class="modal-title" id="preview-modal-title">agent prompt</h3>
       <button class="modal-close" onclick="hidePreview()">&times;</button>
     </div>
     <div class="modal-body">
@@ -1219,7 +1219,7 @@
 
         const ownerEl = document.getElementById('identity-owner');
         if (identity.name) {
-          ownerEl.textContent = 'Owner: ' + identity.name;
+          ownerEl.textContent = 'owner: ' + identity.name;
         }
 
         const signalsEl = document.getElementById('identity-signals');
@@ -1401,7 +1401,7 @@
           const label = d.slice(0, 4) + '-' + d.slice(4, 6) + '-' + d.slice(6);
           return `<a href="${d}">${label}</a>`;
         }).join(', ');
-        banner.innerHTML = `<div class="updated-banner-title">Days with pending reprocessing</div>${links}`;
+        banner.innerHTML = `<div class="updated-banner-title">days with pending reprocessing</div>${links}`;
         banner.style.display = 'block';
       })
       .catch(err => {
@@ -1410,7 +1410,7 @@
           if (!banner.querySelector('.updated-banner-stale')) {
             const stale = document.createElement('div');
             stale.className = 'updated-banner-stale';
-            stale.textContent = 'Status check failed — reload to refresh.';
+            stale.textContent = 'status check failed — reload to refresh.';
             banner.appendChild(stale);
           }
           return;
@@ -1420,7 +1420,7 @@
         banner.innerHTML = '';
         const unknown = document.createElement('div');
         unknown.className = 'updated-banner-unknown';
-        unknown.textContent = 'Status check failed; unknown if pending.';
+        unknown.textContent = 'status check failed; unknown if pending.';
         banner.appendChild(unknown);
         banner.style.display = 'block';
       });
@@ -1455,9 +1455,9 @@
       document.getElementById('loading-view').innerHTML =
         '<div class="empty-state" aria-live="polite">' +
           '<div class="empty-state-icon">⚠️</div>' +
-          '<div class="empty-state-text">Unable to load talents</div>' +
-          '<div class="empty-state-hint">The server may be temporarily unavailable. Check your connection and try again.</div>' +
-          '<button class="back-btn" onclick="loadTalents()" style="margin-top: 1rem;">Try again</button>' +
+          '<div class="empty-state-text">unable to load talents</div>' +
+          '<div class="empty-state-hint">the server may be temporarily unavailable. check your connection and try again.</div>' +
+          '<button class="back-btn" onclick="loadTalents()" style="margin-top: 1rem;">try again</button>' +
         '</div>';
     }
   }
@@ -1907,7 +1907,7 @@
       e.preventDefault()
       showRunList(agentName)
     };
-    document.getElementById('crumb-run').textContent = 'Run ...';
+    document.getElementById('crumb-run').textContent = 'run ...';
 
     document.getElementById('run-detail-header-mount').innerHTML =
       '<div class="run-loading"><div class="spinner"></div><div>Loading run details...</div></div>';
@@ -1980,7 +1980,7 @@
     } else {
       const empty = document.createElement('div');
       empty.className = 'run-loading';
-      empty.textContent = 'No log events recorded for this run';
+      empty.textContent = 'no log events for this run';
       logPane.appendChild(empty);
     }
 
@@ -2291,7 +2291,7 @@
       if (incomplete) {
         const note = document.createElement('div');
         note.className = 'tool-incomplete';
-        note.textContent = 'Tool call did not complete';
+        note.textContent = 'tool call did not complete';
         details.appendChild(note);
       }
 
@@ -2349,7 +2349,7 @@
     } else {
       const empty = document.createElement('div');
       empty.className = 'finish-empty';
-      empty.textContent = 'No output';
+      empty.textContent = 'no output';
       block.appendChild(empty);
     }
 
@@ -2447,7 +2447,7 @@
     const content = document.getElementById('preview-modal-content');
     const title = document.getElementById('preview-modal-title');
 
-    content.textContent = 'Loading...';
+    content.textContent = 'loading...';
     modal.classList.add('show');
 
     // Focus the close button
@@ -2484,7 +2484,7 @@
         content.textContent = data.full_prompt;
       }
     } catch (error) {
-      content.textContent = 'Error loading prompt';
+      content.textContent = 'error loading prompt';
     }
   };
 

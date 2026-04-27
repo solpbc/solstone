@@ -158,7 +158,7 @@
     <header class="reflection-header">
       <div>
         <p class="reflection-kicker">weekly reflection</p>
-        <h2 class="reflection-title">Reflections</h2>
+        <h2 class="reflection-title">reflections</h2>
         <p class="reflection-subtitle">Available weekly reflections, newest first.</p>
       </div>
     </header>
@@ -186,8 +186,8 @@
         <p class="reflection-subtitle">week of {{ reflection_week_label }}</p>
       </div>
       <div class="reflection-actions">
-        <button type="button" class="reflection-button" id="copyReflectionButton">Copy</button>
-        <a class="reflection-link-button" href="{{ pdf_url }}">Download PDF</a>
+        <button type="button" class="reflection-button" id="copyReflectionButton">copy</button>
+        <a class="reflection-link-button" href="{{ pdf_url }}">download PDF</a>
       </div>
     </header>
 
@@ -230,9 +230,9 @@
         const response = await fetch(rawUrl, { credentials: 'same-origin' });
         if (!response.ok) throw new Error('copy failed');
         await copyText(await response.text());
-        copyButton.textContent = 'Copied';
+        copyButton.textContent = 'copied';
       } catch (_error) {
-        copyButton.textContent = 'Failed';
+        copyButton.textContent = 'failed';
       } finally {
         window.setTimeout(() => {
           copyButton.textContent = originalLabel;

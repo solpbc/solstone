@@ -615,16 +615,16 @@
   <div id="importGrid" class="import-source-grid"></div>
 
   <div id="importGuide" class="import-guided-flow" style="display:none">
-    <a href="#" class="import-back-link" onclick="showGrid(); return false;">← Back to sources</a>
+    <a href="#" class="import-back-link" onclick="showGrid(); return false;">← back to sources</a>
     <div id="guideSteps"></div>
   </div>
 
   <div class="import-list">
-    <h2>Import History</h2>
+    <h2>import history</h2>
     <div id="importListContent">
       <div class="surface-state surface-state--loading" role="status" aria-busy="true">
         <div class="surface-state-spinner" aria-hidden="true"></div>
-        <span class="surface-state-text" data-role="loading-status">Loading imports...</span>
+        <span class="surface-state-text" data-role="loading-status">loading imports...</span>
       </div>
     </div>
   </div>
@@ -632,27 +632,27 @@
 
 <div id="detectModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="detectModalTitle">
   <div class="modal-content">
-    <h3 id="detectModalTitle">Confirm import details</h3>
-    <button class="close" type="button" aria-label="Close" onclick="closeDetectModal()">&times;</button>
+    <h3 id="detectModalTitle">confirm import details</h3>
+    <button class="close" type="button" aria-label="close" onclick="closeDetectModal()">&times;</button>
     <div class="confirm-fields">
       <div class="confirm-field">
-        <label for="timestampInput">Timestamp</label>
+        <label for="timestampInput">timestamp</label>
         <input id="timestampInput" />
       </div>
       <div class="confirm-field">
-        <label for="facetSelect">Facet</label>
+        <label for="facetSelect">facet</label>
         <select id="facetSelect">
-          <option value="">None</option>
+          <option value="">none</option>
         </select>
       </div>
       <div class="confirm-field">
-        <label for="settingInput">Setting</label>
-        <input id="settingInput" placeholder="e.g. Jer lunch with Joe" />
+        <label for="settingInput">setting</label>
+        <input id="settingInput" placeholder="e.g. jer lunch with joe" />
       </div>
     </div>
     <input type="hidden" id="savedPath" />
     <div class="modal-actions">
-      <button id="startBtn" class="import-primary-btn">Start Import</button>
+      <button id="startBtn" class="import-primary-btn">start import</button>
     </div>
   </div>
 </div>
@@ -972,7 +972,7 @@ function buildHistoryHeader(total, totalEntriesWritten, totalEntitiesSeeded) {
     <div class="import-history-header">
       <div class="import-history-summary">${total} imports total, ${totalEntriesWritten} entries imported, ${totalEntitiesSeeded} entities found</div>
       <div class="import-history-filters">
-        <label for="importSourceFilter">Source</label>
+        <label for="importSourceFilter">source</label>
         <select id="importSourceFilter">
           ${sourceOptions}
         </select>
@@ -1059,8 +1059,8 @@ async function loadImports() {
         <div class="no-imports">
           <div class="no-imports-icon">📥</div>
           <div class="no-imports-heading">No imports yet</div>
-          <div class="no-imports-body">Import your data from any supported source above.</div>
-          <div class="no-imports-action"><a href="#" onclick="scrollToGrid(); return false;" style="color: #0f4c81; font-weight: 600;">Choose a source →</a></div>
+          <div class="no-imports-body">import your data from any supported source above.</div>
+          <div class="no-imports-action"><a href="#" onclick="scrollToGrid(); return false;" style="color: #0f4c81; font-weight: 600;">choose a source →</a></div>
         </div>
       `;
       return;
@@ -1069,15 +1069,15 @@ async function loadImports() {
     let html = buildHistoryHeader(data.total, data.total_entries_written || 0, data.total_entities_seeded || 0);
     html += '<table class="import-table">';
     html += '<thead><tr>';
-    html += '<th>Imported At</th>';
-    html += '<th>File</th>';
-    html += '<th>Source</th>';
-    html += '<th>Size</th>';
-    html += '<th>Imported To</th>';
-    html += '<th>Status</th>';
-    html += '<th>Files Created</th>';
-    html += '<th>Stats</th>';
-    html += '<th>Duration</th>';
+    html += '<th>imported at</th>';
+    html += '<th>file</th>';
+    html += '<th>source</th>';
+    html += '<th>size</th>';
+    html += '<th>imported to</th>';
+    html += '<th>status</th>';
+    html += '<th>files created</th>';
+    html += '<th>stats</th>';
+    html += '<th>duration</th>';
     html += '</tr></thead><tbody>';
 
     imports.forEach(imp => {
@@ -1245,7 +1245,7 @@ function markRowStalled(importId) {
     row.classList.add('import-row--stalled');
     const statusCell = row.querySelector('.status-cell');
     if (statusCell) {
-      statusCell.innerHTML = `<span class="import-status stalled">Stalled</span><div class="progress-detail import-stalled-meta">Stalled — no updates in 10 minutes. Import ID: ${escapeHtml(importId)}. Reload to retry.</div>`;
+      statusCell.innerHTML = `<span class="import-status stalled">stalled</span><div class="progress-detail import-stalled-meta">stalled — no updates in 10 minutes. import ID: ${escapeHtml(importId)}. reload to retry.</div>`;
     }
   }
 
@@ -1299,7 +1299,7 @@ function updateImportRow(importId, eventData) {
     }
   } else if (eventData.event === 'completed') {
     if (statusCell) {
-      statusCell.innerHTML = '<span class="import-status success">Completed</span>';
+      statusCell.innerHTML = '<span class="import-status success">completed</span>';
     }
     if (filesCell && eventData.total_files_created !== undefined) {
       filesCell.textContent = eventData.total_files_created;
@@ -1313,7 +1313,7 @@ function updateImportRow(importId, eventData) {
     setTimeout(() => loadImports(), 1000);
   } else if (eventData.event === 'error') {
     if (statusCell) {
-      statusCell.innerHTML = `<span class="import-status failed">Failed</span><div class="progress-detail">${escapeHtml(eventData.error || 'Unknown error')}</div>`;
+      statusCell.innerHTML = `<span class="import-status failed">failed</span><div class="progress-detail">${escapeHtml(eventData.error || 'unknown error')}</div>`;
     }
   }
 
@@ -1347,7 +1347,7 @@ async function loadGuidedFlow(sourceName) {
   }
 
   if (!source) {
-    guideSteps.innerHTML = '<div class="no-imports">Unknown import source</div>';
+    guideSteps.innerHTML = '<div class="no-imports">unknown import source</div>';
     return;
   }
 
@@ -1380,8 +1380,8 @@ async function loadGuidedFlow(sourceName) {
             placeholder="${escapeHtml(source.upload_prompt || 'Paste the full path to your folder')}" />
           <div id="guidedPathStatus" style="margin-top: 0.5em; font-size: 0.9em; color: #666;"></div>
         ` : `
-          <h4>Upload your export</h4>
-          <div class="import-upload-area" id="guidedDropArea" role="button" tabindex="0" aria-label="Choose file to upload">
+          <h4>upload your export</h4>
+          <div class="import-upload-area" id="guidedDropArea" role="button" tabindex="0" aria-label="choose file to upload">
             <p>${escapeHtml(source.upload_prompt || 'Select a file to import')}</p>
             <div class="import-upload-help">${escapeHtml(source.accept ? `Accepted: ${source.accept}` : 'Any supported file')}</div>
             <input id="guidedFileInput" type="file" accept="${escapeHtml(source.accept || '')}" style="display:none" />
@@ -1392,19 +1392,19 @@ async function loadGuidedFlow(sourceName) {
       </div></li>
       <li><div class="import-step">
         <div class="import-step-number">Step 3</div>
-        <h4>Configure and start</h4>
+        <h4>configure and start</h4>
         <div class="import-inline-fields">
           <div class="confirm-field">
-            <label for="guidedFacetSelect">Facet</label>
+            <label for="guidedFacetSelect">facet</label>
             <select id="guidedFacetSelect"><option value="">None</option></select>
           </div>
           <div class="confirm-field">
-            <label for="guidedSettingInput">Setting</label>
-            <input id="guidedSettingInput" placeholder="e.g. Weekly planning" />
+            <label for="guidedSettingInput">setting</label>
+            <input id="guidedSettingInput" placeholder="e.g. weekly planning" />
           </div>
         </div>
         <div class="import-action-row">
-          <button id="guidedStartBtn" class="import-primary-btn" type="submit">Start Import</button>
+          <button id="guidedStartBtn" class="import-primary-btn" type="submit">start import</button>
         </div>
       </div></li>
     </ol></form>
@@ -1458,14 +1458,14 @@ function renderQuickImportFlow() {
 
   guideSteps.innerHTML = `
     <div>
-      <h3 class="import-guide-title">⚡ Quick Import</h3>
+      <h3 class="import-guide-title">⚡ quick import</h3>
       <p class="import-guide-subtitle">Paste text or drop a file, then confirm the detected timestamp in the modal.</p>
     </div>
     <form id="importForm">
       <ol class="import-steps-list">
         <li><div class="import-step">
           <div class="import-step-number">Step 1</div>
-          <div class="import-upload-area" id="dropArea" role="button" tabindex="0" aria-label="Choose file to upload">
+          <div class="import-upload-area" id="dropArea" role="button" tabindex="0" aria-label="choose file to upload">
             <p>Drag file here or click to select</p>
             <input id="fileInput" type="file" style="display:none" />
             <div id="fileLabel" class="import-file-label"></div>
@@ -1473,19 +1473,19 @@ function renderQuickImportFlow() {
         </div></li>
         <li><div class="import-step">
           <div class="import-step-number">Step 2</div>
-          <textarea id="pasteText" class="import-paste-text" placeholder="Paste text here..."></textarea>
+          <textarea id="pasteText" class="import-paste-text" placeholder="paste text here..."></textarea>
           <div class="import-inline-fields">
             <div class="confirm-field">
-              <label for="quickFacetSelect">Facet</label>
+              <label for="quickFacetSelect">facet</label>
               <select id="quickFacetSelect"><option value="">None</option></select>
             </div>
             <div class="confirm-field">
-              <label for="quickSettingInput">Setting</label>
-              <input id="quickSettingInput" placeholder="e.g. Paste from notes app" />
+              <label for="quickSettingInput">setting</label>
+              <input id="quickSettingInput" placeholder="e.g. paste from notes app" />
             </div>
           </div>
           <div class="import-action-row">
-            <button type="submit" id="validateBtn" class="import-primary-btn">Validate</button>
+            <button type="submit" id="validateBtn" class="import-primary-btn">validate</button>
           </div>
         </div></li>
       </ol>
@@ -1598,7 +1598,7 @@ function setupQuickImportForm() {
     }
 
     validateBtn.disabled = true;
-    validateBtn.innerHTML = 'Validating<span class="spinner"></span>';
+    validateBtn.innerHTML = 'validating<span class="spinner"></span>';
 
     try {
       const fd = new FormData();
@@ -1620,7 +1620,7 @@ function setupQuickImportForm() {
       const response = await fetch('/app/import/api/save', { method: 'POST', body: fd });
       const data = await response.json();
       validateBtn.disabled = false;
-      validateBtn.textContent = 'Validate';
+      validateBtn.textContent = 'validate';
 
       if (!response.ok) {
         if (window.showError) {
@@ -1631,7 +1631,7 @@ function setupQuickImportForm() {
       showDetect(data);
     } catch (_err) {
       validateBtn.disabled = false;
-      validateBtn.textContent = 'Validate';
+      validateBtn.textContent = 'validate';
       if (window.showError) {
         showError('Validation failed');
       }
@@ -1679,13 +1679,13 @@ function showDedupNotice(dedup) {
   if (!container) return;
   container.innerHTML = `
     <div class="import-dedup-notice">
-      <span class="dedup-text">This file was already imported on ${escapeHtml(dedup.imported_at)}${dedup.entry_count ? ` (${dedup.entry_count} entries)` : ''}.</span>
-      <button type="button" id="dedupForceBtn">Re-import anyway</button>
+      <span class="dedup-text">this file was already imported on ${escapeHtml(dedup.imported_at)}${dedup.entry_count ? ` (${dedup.entry_count} entries)` : ''}.</span>
+      <button type="button" id="dedupForceBtn">re-import anyway</button>
     </div>
   `;
   document.getElementById('dedupForceBtn').addEventListener('click', () => {
     window._guidedForceImport = true;
-    container.innerHTML = '<div class="import-dedup-notice"><span class="dedup-text">Will re-import. Click Start Import to proceed.</span></div>';
+    container.innerHTML = '<div class="import-dedup-notice"><span class="dedup-text">will re-import. click start import to proceed.</span></div>';
   });
 }
 
@@ -1721,7 +1721,7 @@ async function startGuidedImport(source) {
   const originalText = startButton.textContent;
 
   startButton.disabled = true;
-  startButton.innerHTML = 'Starting<span class="spinner"></span>';
+  startButton.innerHTML = 'starting<span class="spinner"></span>';
 
   try {
     let saved;
@@ -1811,9 +1811,9 @@ function showProgressView(importId, eventData = null) {
         <div><strong>Date range:</strong> ${escapeHtml(formatDateRange(range) || '-')}</div>
         <div><strong>Duration:</strong> ${formatElapsed(completedInfo.duration_ms || 0)}</div>
         <div class="import-action-row">
-          <a class="import-secondary-btn" href="/app/import/${completedInfo.processed_timestamp || importId}#content">Browse what was imported →</a>
-          ${day ? `<a class="import-secondary-btn" href="/app/activities/${day}">View in activities</a>` : ''}
-          <a href="#" class="import-secondary-btn" onclick="showGrid(); return false;">Import another source</a>
+          <a class="import-secondary-btn" href="/app/import/${completedInfo.processed_timestamp || importId}#content">browse what was imported →</a>
+          ${day ? `<a class="import-secondary-btn" href="/app/activities/${day}">view in activities</a>` : ''}
+          <a href="#" class="import-secondary-btn" onclick="showGrid(); return false;">import another source</a>
         </div>
       </div>
     `;
@@ -1823,7 +1823,7 @@ function showProgressView(importId, eventData = null) {
       <div class="import-completion-summary failed">
         <div><strong>Error:</strong> ${escapeHtml(errorText)}</div>
         <div class="import-action-row">
-          <a href="#" class="import-secondary-btn" onclick="showGrid(); return false;">Import another source</a>
+          <a href="#" class="import-secondary-btn" onclick="showGrid(); return false;">import another source</a>
         </div>
       </div>
     `;
@@ -1833,7 +1833,7 @@ function showProgressView(importId, eventData = null) {
         <div><strong>Import ID:</strong> ${escapeHtml(importId)}</div>
         <div>Stalled — no updates in 10 minutes. Reload to retry.</div>
         <div class="import-action-row">
-          <a href="#" class="import-secondary-btn" onclick="showGrid(); return false;">Import another source</a>
+          <a href="#" class="import-secondary-btn" onclick="showGrid(); return false;">import another source</a>
         </div>
       </div>
     `;
@@ -1864,7 +1864,7 @@ startBtn.addEventListener('click', async () => {
 
   const originalText = startBtn.textContent;
   startBtn.disabled = true;
-  startBtn.innerHTML = 'Starting<span class="spinner"></span>';
+  startBtn.innerHTML = 'starting<span class="spinner"></span>';
 
   try {
     const response = await fetch('/app/import/api/facet', {

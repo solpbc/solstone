@@ -432,7 +432,7 @@
 
   function renderTalentView(data) {
     if (!modalTitle || !modalStatus || !modalTimeline) return;
-    modalTitle.textContent = data.task || 'Talent run';
+    modalTitle.textContent = data.task || 'talent run';
     modalTitle.title = data.task || '';
     modalStatus.textContent = data.status || '';
     modalStatus.dataset.status = data.status || '';
@@ -441,7 +441,7 @@
     if (!Array.isArray(data.events) || !data.events.length) {
       var empty = document.createElement('p');
       empty.className = 'talent-view-empty';
-      empty.textContent = 'No events yet.';
+      empty.textContent = 'no events yet.';
       modalTimeline.appendChild(empty);
       return;
     }
@@ -453,7 +453,7 @@
 
   function renderTalentViewError(message) {
     if (!modalTitle || !modalStatus || !modalTimeline) return;
-    modalTitle.textContent = 'Talent run';
+    modalTitle.textContent = 'talent run';
     modalStatus.textContent = 'errored';
     modalStatus.dataset.status = 'errored';
     modalTimeline.innerHTML = '';
@@ -474,7 +474,7 @@
       } catch (_err) {
         // Fall back to generic talent-run copy when the error body is not JSON.
       }
-      throw new Error(body.error || 'Unable to load talent run');
+      throw new Error(body.error || 'unable to load talent run');
     }
     return response.json();
   }
@@ -513,7 +513,7 @@
       }
     } catch (err) {
       stopTalentLiveUpdates();
-      renderTalentViewError(err && err.message ? err.message : 'Unable to load talent run');
+      renderTalentViewError(err && err.message ? err.message : 'unable to load talent run');
     }
   }
 
@@ -524,7 +524,7 @@
     stopTalentLiveUpdates();
     modalStatus.textContent = '';
     modalStatus.dataset.status = '';
-    modalTitle.textContent = 'Loading...';
+    modalTitle.textContent = 'loading...';
     modalTimeline.innerHTML = '';
     showTalentView();
     refreshTalentView(modalUseId);

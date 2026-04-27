@@ -1,12 +1,12 @@
 <main class="link-dashboard">
   <header class="link-header">
-    <h1 class="link-h1">Reach your solstone from anywhere</h1>
+    <h1 class="link-h1">reach your solstone from anywhere</h1>
     <p class="link-trust">spl is blind by construction. Cloudflare and sol pbc cannot see anything inside the tunnel.</p>
     <div class="link-status-row" id="link-status-panel">
       <span id="link-status-indicator" class="link-status-indicator" aria-live="polite">
         Service status: <span id="link-status-text">loading…</span>
       </span>
-      <button type="button" class="link-pair-btn" id="link-pair-btn">Pair a phone</button>
+      <button type="button" class="link-pair-btn" id="link-pair-btn">pair a phone</button>
     </div>
   </header>
 
@@ -18,7 +18,7 @@
   </div>
 
   <section class="link-paired-section" aria-labelledby="link-paired-h2">
-    <h2 id="link-paired-h2">Paired devices</h2>
+    <h2 id="link-paired-h2">paired devices</h2>
     <div id="link-devices-list" class="link-devices-list" aria-live="polite">
       <p class="link-empty-state" id="link-empty-state">No phones paired yet.</p>
     </div>
@@ -26,14 +26,14 @@
 
   <div id="link-pair-modal" class="link-modal" hidden role="dialog" aria-modal="true" aria-labelledby="link-pair-modal-title">
     <div class="link-modal-box">
-      <h3 id="link-pair-modal-title">Pair a phone</h3>
+      <h3 id="link-pair-modal-title">pair a phone</h3>
       <label class="link-modal-label">
         Device label
-        <input type="text" id="link-device-label" placeholder="e.g. My iPhone" maxlength="80" />
+        <input type="text" id="link-device-label" placeholder="e.g. my iPhone" maxlength="80" />
       </label>
       <div class="link-modal-actions">
-        <button type="button" id="link-pair-generate">Generate pair code</button>
-        <button type="button" id="link-pair-cancel" class="link-modal-cancel">Cancel</button>
+        <button type="button" id="link-pair-generate">generate pair code</button>
+        <button type="button" id="link-pair-cancel" class="link-modal-cancel">cancel</button>
       </div>
 
       <div id="link-pair-code" class="link-pair-code" hidden>
@@ -53,11 +53,11 @@
 
   <div id="link-unpair-modal" class="link-modal" hidden role="dialog" aria-modal="true" aria-labelledby="link-unpair-title">
     <div class="link-modal-box">
-      <h3 id="link-unpair-title">Unpair this phone?</h3>
+      <h3 id="link-unpair-title">unpair this phone?</h3>
       <p>Are you sure? This phone will lose access immediately.</p>
       <div class="link-modal-actions">
-        <button type="button" id="link-unpair-confirm" class="link-modal-danger">Unpair</button>
-        <button type="button" id="link-unpair-cancel" class="link-modal-cancel">Cancel</button>
+        <button type="button" id="link-unpair-confirm" class="link-modal-danger">unpair</button>
+        <button type="button" id="link-unpair-cancel" class="link-modal-cancel">cancel</button>
       </div>
     </div>
   </div>
@@ -265,7 +265,7 @@
       const btn = document.createElement('button');
       btn.className = 'link-unpair-btn';
       btn.type = 'button';
-      btn.textContent = 'Unpair';
+      btn.textContent = 'unpair';
       btn.addEventListener('click', () => openUnpair(d));
       row.appendChild(left);
       row.appendChild(btn);
@@ -281,7 +281,7 @@
     const note = document.createElement('p');
     note.style.fontSize = '0.85em';
     note.style.color = '#555';
-    note.textContent = 'Paste this URL into solstone mobile (QR rendering lib not bundled yet):';
+    note.textContent = 'paste this URL into solstone mobile (QR rendering lib not bundled yet):';
     qrContainer.appendChild(note);
     const code = document.createElement('code');
     code.textContent = data.pair_url;
@@ -319,7 +319,7 @@
         await refreshDevices();
         if (Date.now() - started > 310000) {
           clearInterval(interval);
-          pairWaiting.textContent = 'Timed out. Pair code expired.';
+          pairWaiting.textContent = 'timed out. pair code expired.';
         }
       }, 2000);
     } catch (e) {

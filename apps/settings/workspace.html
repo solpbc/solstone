@@ -2007,32 +2007,32 @@ button:focus:not(:focus-visible) {
       <!-- Setup prompt (shown when no facets) -->
       <div class="setup-section" id="setupSection" style="display:none">
         <h3>welcome to solstone</h3>
-        <p>Create your first facet to start organizing your journal.</p>
-        <button class="setup-btn" id="createPersonalBtn">Create Personal Facet</button>
+        <p>create your first facet to start organizing your journal.</p>
+        <button class="setup-btn" id="createPersonalBtn">create personal facet</button>
       </div>
 
       <div class="settings-field">
         <label for="field-name">full name</label>
-        <input type="text" id="field-name" data-section="identity" data-key="name" placeholder="Your full name">
-        <small>Your full legal or formal name</small>
+        <input type="text" id="field-name" data-section="identity" data-key="name" placeholder="your full name">
+        <small>your full legal or formal name</small>
       </div>
 
       <div class="settings-field">
         <label for="field-preferred">preferred name</label>
-        <input type="text" id="field-preferred" data-section="identity" data-key="preferred" placeholder="Your preferred name">
-        <small>Preferred name or nickname to be used when addressing you</small>
+        <input type="text" id="field-preferred" data-section="identity" data-key="preferred" placeholder="your preferred name">
+        <small>preferred name or nickname to be used when addressing you</small>
       </div>
 
       <div class="settings-field">
         <label for="field-bio">bio</label>
         <textarea id="field-bio" data-section="identity" data-key="bio" rows="2" placeholder="e.g., a software engineer interested in AI"></textarea>
-        <small>Brief description of yourself used in AI templates</small>
+        <small>brief description of yourself used in ai templates</small>
       </div>
 
       <div class="settings-field">
         <label for="field-pronouns">pronouns</label>
         <select id="field-pronouns" data-section="identity" data-key="pronouns">
-          <option value="">Select pronouns...</option>
+          <option value="">select pronouns...</option>
           <option value="she/her/her/herself">she/her/hers/herself</option>
           <option value="he/him/his/himself">he/him/his/himself</option>
           <option value="they/them/their/themselves">they/them/their/themselves</option>
@@ -2040,19 +2040,19 @@ button:focus:not(:focus-visible) {
           <option value="xe/xem/xyr/xemself">xe/xem/xyrs/xemself</option>
           <option value="it/it/its/itself">it/its/its/itself</option>
         </select>
-        <small>Pronouns for use in templates (subject/object/possessive/reflexive)</small>
+        <small>pronouns for use in templates (subject/object/possessive/reflexive)</small>
       </div>
 
       <div class="settings-field">
         <label for="field-aliases">aliases</label>
         <input type="text" id="field-aliases" data-section="identity" data-key="aliases" placeholder="e.g., nickname1, nickname2">
-        <small>Comma-separated alternative names that may appear in transcripts</small>
+        <small>comma-separated alternative names that may appear in transcripts</small>
       </div>
 
       <div class="settings-field">
         <label for="field-emails">email addresses</label>
         <input type="text" id="field-emails" data-section="identity" data-key="email_addresses" placeholder="e.g., work@company.com, personal@example.com">
-        <small>Comma-separated email addresses for participant detection</small>
+        <small>comma-separated email addresses for participant detection</small>
       </div>
 
       <div class="settings-field">
@@ -2097,12 +2097,12 @@ button:focus:not(:focus-visible) {
     <!-- Providers Section -->
     <section class="settings-section" id="section-providers" role="tabpanel" aria-labelledby="tab-providers">
       <h2>providers</h2>
-      <p class="settings-section-desc">Configure AI providers separately for generation (text analysis) and cogitate (tool-calling agents).</p>
+      <p class="settings-section-desc">configure ai providers separately for generation (text analysis) and cogitate (tool-calling agents).</p>
 
       <form class="settings-form" onsubmit="return false;">
 
       <h3 class="settings-subsection-title">generate</h3>
-      <p class="settings-subsection-desc">Text generation for analysis, extraction, and transcription tasks.</p>
+      <p class="settings-subsection-desc">text generation for analysis, extraction, and transcription tasks.</p>
       <div class="provider-row">
         <div class="settings-field">
           <label for="field-generate-provider">provider</label>
@@ -2114,9 +2114,9 @@ button:focus:not(:focus-visible) {
         <div class="settings-field">
           <label for="field-generate-tier">tier</label>
           <select id="field-generate-tier">
-            <option value="1">Best - Most capable</option>
-            <option value="2">Average - Balanced</option>
-            <option value="3">Fast - Lightweight</option>
+            <option value="1">best - most capable</option>
+            <option value="2">average - balanced</option>
+            <option value="3">fast - lightweight</option>
           </select>
           <small></small>
         </div>
@@ -2131,11 +2131,11 @@ button:focus:not(:focus-visible) {
       <div id="generateProviderKeyWarning" class="provider-key-warning" style="display:none">
         <span>&#9888;</span>
         <span>API key not configured for generate provider.</span>
-        <a href="#" id="generateProviderKeyLink">Configure in API Keys</a>
+        <a href="#" id="generateProviderKeyLink">configure in API keys</a>
       </div>
 
       <h3 class="settings-subsection-title">cogitate</h3>
-      <p class="settings-subsection-desc">Tool-calling agents for interactive chat, daily briefings, and complex reasoning.</p>
+      <p class="settings-subsection-desc">tool-calling agents for interactive chat, daily briefings, and complex reasoning.</p>
       <div class="provider-row">
         <div class="settings-field">
           <label for="field-cogitate-provider">provider</label>
@@ -2147,9 +2147,9 @@ button:focus:not(:focus-visible) {
         <div class="settings-field">
           <label for="field-cogitate-tier">tier</label>
           <select id="field-cogitate-tier">
-            <option value="1">Best - Most capable</option>
-            <option value="2">Average - Balanced</option>
-            <option value="3">Fast - Lightweight</option>
+            <option value="1">best - most capable</option>
+            <option value="2">average - balanced</option>
+            <option value="3">fast - lightweight</option>
           </select>
           <small></small>
         </div>
@@ -2165,10 +2165,10 @@ button:focus:not(:focus-visible) {
         <div class="settings-field">
           <label for="field-cogitate-auth">auth</label>
           <select id="field-cogitate-auth">
-            <option value="platform">Platform Account</option>
-            <option value="api_key">API Key</option>
+            <option value="platform">platform account</option>
+            <option value="api_key">API key</option>
           </select>
-          <small>How the CLI authenticates with the provider</small>
+          <small>how the CLI authenticates with the provider</small>
         </div>
       </div>
       <h3 class="settings-subsection-title">google backend</h3>
@@ -2177,11 +2177,11 @@ button:focus:not(:focus-visible) {
         <div class="settings-field">
           <label for="field-google-backend">backend</label>
           <select id="field-google-backend">
-            <option value="auto">Auto-detect</option>
+            <option value="auto">auto-detect</option>
             <option value="aistudio">AI Studio</option>
             <option value="vertex">Vertex AI</option>
           </select>
-          <small>Auto-detect probes your key on first use</small>
+          <small>auto-detect probes your key on first use</small>
         </div>
       </div>
       <div id="vertexFields" style="display:none">
@@ -2192,15 +2192,15 @@ button:focus:not(:focus-visible) {
               <span id="vertex-creds-email" style="color:#666;font-size:0.9em">not configured</span>
             </div>
             <div id="vertex-creds-actions">
-              <button type="button" id="btn-vertex-creds-file" onclick="document.getElementById('vertex-creds-file-input').click()" style="margin-right:0.4em">Choose file</button>
-              <button type="button" id="btn-vertex-creds-paste" onclick="toggleVertexCredsPaste()">Paste JSON</button>
-              <button type="button" id="btn-vertex-creds-remove" onclick="removeVertexCreds()" style="display:none;color:#c33">Remove</button>
+              <button type="button" id="btn-vertex-creds-file" onclick="document.getElementById('vertex-creds-file-input').click()" style="margin-right:0.4em">choose file</button>
+              <button type="button" id="btn-vertex-creds-paste" onclick="toggleVertexCredsPaste()">paste JSON</button>
+              <button type="button" id="btn-vertex-creds-remove" onclick="removeVertexCreds()" style="display:none;color:#c33">remove</button>
             </div>
             <input type="file" id="vertex-creds-file-input" accept=".json" style="display:none" onchange="uploadVertexCredsFile(this)">
-            <textarea id="vertex-creds-paste-input" rows="6" style="display:none;width:100%;margin-top:0.5em;font-family:monospace;font-size:0.85em" placeholder="Paste service account JSON here"></textarea>
+            <textarea id="vertex-creds-paste-input" rows="6" style="display:none;width:100%;margin-top:0.5em;font-family:monospace;font-size:0.85em" placeholder="paste service account JSON here"></textarea>
             <div id="vertex-creds-paste-actions" style="display:none;margin-top:0.4em">
-              <button type="button" onclick="submitVertexCredsPaste()">Save</button>
-              <button type="button" onclick="cancelVertexCredsPaste()" style="margin-left:0.4em">Cancel</button>
+              <button type="button" onclick="submitVertexCredsPaste()">save</button>
+              <button type="button" onclick="cancelVertexCredsPaste()" style="margin-left:0.4em">cancel</button>
             </div>
             <small>JSON credentials for Vertex AI authentication</small>
           </div>
@@ -2209,18 +2209,18 @@ button:focus:not(:focus-visible) {
       <div id="cogitateProviderKeyWarning" class="provider-key-warning" style="display:none">
         <span>&#9888;</span>
         <span>API key not configured for cogitate provider.</span>
-        <a href="#" id="cogitateProviderKeyLink">Configure in API Keys</a>
+        <a href="#" id="cogitateProviderKeyLink">configure in API keys</a>
       </div>
-      <small id="providerStatus">Loading...</small>
+      <small id="providerStatus">loading...</small>
 
       <!-- Detailed Tasks -->
       <div class="context-overrides expanded" id="contextOverrides">
         <div class="context-overrides-header">
-          <span class="context-overrides-title">Detailed Tasks</span>
+          <span class="context-overrides-title">detailed tasks</span>
         </div>
         <div class="context-overrides-body" id="contextOverridesBody">
-          <p style="color:#666;font-size:0.9em;margin:0 0 1em 0">Override provider or tier for specific tasks. Unset values use defaults.</p>
-          <div id="contextGroups">Loading...</div>
+          <p style="color:#666;font-size:0.9em;margin:0 0 1em 0">override provider or tier for specific tasks. unset values use defaults.</p>
+          <div id="contextGroups">loading...</div>
         </div>
       </div>
       </form>
@@ -2229,62 +2229,62 @@ button:focus:not(:focus-visible) {
     <!-- API Keys Section -->
     <section class="settings-section" id="section-apikeys" role="tabpanel" aria-labelledby="tab-apikeys">
       <h2>API keys</h2>
-      <p class="settings-section-desc">Configure API keys for AI providers. Keys are stored in your journal config.</p>
+      <p class="settings-section-desc">configure API keys for AI providers. keys are stored in your journal config.</p>
 
       <form class="settings-form" onsubmit="return false;">
       <div style="margin-bottom: 1em;">
-        <button type="button" id="revalidateAllKeys" class="btn-secondary" onclick="revalidateAllKeys()">Re-validate All Keys</button>
+        <button type="button" id="revalidateAllKeys" class="btn-secondary" onclick="revalidateAllKeys()">re-validate all keys</button>
         <span id="revalidateStatus" style="margin-left: 0.5em; font-size: 0.85em;"></span>
       </div>
 
       <div id="googleApiKeyField" class="settings-field">
         <label for="field-env-google">Google AI (Gemini)</label>
         <div class="password-wrap">
-          <input type="text" id="field-env-google" data-section="env" data-key="GOOGLE_API_KEY" placeholder="Enter API key" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore="true">
-          <button type="button" class="password-toggle" data-toggle="field-env-google" title="Hide key">
+          <input type="text" id="field-env-google" data-section="env" data-key="GOOGLE_API_KEY" placeholder="enter API key" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore="true">
+          <button type="button" class="password-toggle" data-toggle="field-env-google" title="hide key">
             <span>&#128064;</span>
           </button>
         </div>
-        <small>Primary provider for transcription and insights. <a href="https://aistudio.google.com/apikey" target="_blank">Get key</a></small>
+        <small>primary provider for transcription and insights. <a href="https://aistudio.google.com/apikey" target="_blank">get key</a></small>
       </div>
 
       <div class="settings-field">
         <label for="field-env-openai">OpenAI</label>
         <div class="password-wrap">
-          <input type="text" id="field-env-openai" data-section="env" data-key="OPENAI_API_KEY" placeholder="Enter API key" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore="true">
-          <button type="button" class="password-toggle" data-toggle="field-env-openai" title="Hide key">
+          <input type="text" id="field-env-openai" data-section="env" data-key="OPENAI_API_KEY" placeholder="enter API key" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore="true">
+          <button type="button" class="password-toggle" data-toggle="field-env-openai" title="hide key">
             <span>&#128064;</span>
           </button>
         </div>
-        <small>Alternative provider for chat and agents. <a href="https://platform.openai.com/api-keys" target="_blank">Get key</a></small>
+        <small>alternative provider for chat and agents. <a href="https://platform.openai.com/api-keys" target="_blank">get key</a></small>
       </div>
 
       <div class="settings-field">
         <label for="field-env-anthropic">Anthropic</label>
         <div class="password-wrap">
-          <input type="text" id="field-env-anthropic" data-section="env" data-key="ANTHROPIC_API_KEY" placeholder="Enter API key" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore="true">
-          <button type="button" class="password-toggle" data-toggle="field-env-anthropic" title="Hide key">
+          <input type="text" id="field-env-anthropic" data-section="env" data-key="ANTHROPIC_API_KEY" placeholder="enter API key" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore="true">
+          <button type="button" class="password-toggle" data-toggle="field-env-anthropic" title="hide key">
             <span>&#128064;</span>
           </button>
         </div>
-        <small>Alternative provider for chat and agents. <a href="https://console.anthropic.com/settings/keys" target="_blank">Get key</a></small>
+        <small>alternative provider for chat and agents. <a href="https://console.anthropic.com/settings/keys" target="_blank">get key</a></small>
       </div>
 
       <div class="settings-field">
         <label for="field-env-revai">Rev.ai</label>
         <div class="password-wrap">
-          <input type="text" id="field-env-revai" data-section="env" data-key="REVAI_ACCESS_TOKEN" placeholder="Enter access token" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore="true">
-          <button type="button" class="password-toggle" data-toggle="field-env-revai" title="Hide token">
+          <input type="text" id="field-env-revai" data-section="env" data-key="REVAI_ACCESS_TOKEN" placeholder="enter access token" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore="true">
+          <button type="button" class="password-toggle" data-toggle="field-env-revai" title="hide token">
             <span>&#128064;</span>
           </button>
         </div>
-        <small>Audio transcription for imported files. <a href="https://www.rev.ai/access_token" target="_blank">Get token</a></small>
+        <small>audio transcription for imported files. <a href="https://www.rev.ai/access_token" target="_blank">get token</a></small>
       </div>
       <div class="settings-field">
         <label for="field-env-plaud">Plaud</label>
         <div class="password-wrap">
-          <input type="text" id="field-env-plaud" data-section="env" data-key="PLAUD_ACCESS_TOKEN" placeholder="Enter access token" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore="true">
-          <button type="button" class="password-toggle" data-toggle="field-env-plaud" title="Hide token">
+          <input type="text" id="field-env-plaud" data-section="env" data-key="PLAUD_ACCESS_TOKEN" placeholder="enter access token" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore="true">
+          <button type="button" class="password-toggle" data-toggle="field-env-plaud" title="hide token">
             <span>&#128064;</span>
           </button>
         </div>
@@ -2313,7 +2313,7 @@ button:focus:not(:focus-visible) {
       <div id="backendKeyWarning" class="provider-key-warning" style="display:none">
         <span>&#9888;</span>
         <span id="backendKeyWarningText">API key not configured.</span>
-        <a href="#" id="backendKeyLink">Configure in API Keys</a>
+        <a href="#" id="backendKeyLink">configure in API keys</a>
       </div>
 
       <!-- Whisper-specific settings -->
@@ -2421,7 +2421,7 @@ button:focus:not(:focus-visible) {
             <input type="checkbox" id="field-transcribe-preserve" data-section="transcribe" data-key="preserve_all">
             <span class="slider"></span>
           </label>
-          <label for="field-transcribe-preserve" class="toggle-label" style="cursor: pointer;">preserve silent recordings</label>
+          <label for="field-transcribe-preserve" class="toggle-label" style="cursor: pointer;">preserve silent audio</label>
         </div>
         <small>Keep audio files even when no speech is detected</small>
       </div>
@@ -2434,7 +2434,7 @@ button:focus:not(:focus-visible) {
           </label>
           <label for="field-transcribe-noise-upgrade" class="toggle-label" style="cursor: pointer;">noise upgrade</label>
         </div>
-        <small>Automatically use Rev.ai for noisy recordings (requires Rev.ai token)</small>
+        <small>automatically use Rev.ai for noisy audio (requires Rev.ai token)</small>
       </div>
       </form>
     </section>
@@ -2459,7 +2459,7 @@ button:focus:not(:focus-visible) {
             <input type="checkbox" id="field-tmux-enabled">
             <span class="slider"></span>
           </label>
-          <span style="color: #666; font-size: 0.9em;">Take in tmux sessions when screen is idle</span>
+          <span style="color: #666; font-size: 0.9em;">take in tmux sessions when screen is idle</span>
         </div>
       </div>
 
@@ -2491,15 +2491,15 @@ button:focus:not(:focus-visible) {
       <!-- Redaction Rules -->
       <div class="context-overrides expanded" id="visionRedaction">
         <div class="context-overrides-header" id="visionRedactionHeader">
-          <span class="context-overrides-title">Redaction Rules</span>
+          <span class="context-overrides-title">redaction rules</span>
           <span class="context-overrides-toggle">&#9660;</span>
         </div>
         <div class="context-overrides-body">
-          <p style="color:#666;font-size:0.9em;margin:0 0 1em 0">Instructions the AI follows to redact sensitive content from screen analysis. Double-click a rule to edit it.</p>
+          <p style="color:#666;font-size:0.9em;margin:0 0 1em 0">instructions the ai follows to redact sensitive content from screen analysis. double-click a rule to edit it.</p>
           <div class="redact-list" id="redactRulesList"></div>
           <div class="redact-add-row">
-            <input type="text" class="redact-add-input" id="redactAddInput" placeholder="Add a redaction rule..." maxlength="200">
-            <button class="redact-add-btn" id="redactAddBtn">+ Add</button>
+            <input type="text" class="redact-add-input" id="redactAddInput" placeholder="add a redaction rule..." maxlength="200">
+            <button class="redact-add-btn" id="redactAddBtn">+ add</button>
           </div>
           <div class="redact-validation" id="redactValidation" style="display:none"></div>
         </div>
@@ -2592,8 +2592,8 @@ button:focus:not(:focus-visible) {
       <div class="settings-field">
         <label for="field-password">web password</label>
         <div class="password-wrap">
-          <input type="password" id="field-password" data-section="convey" data-key="password" placeholder="Enter password to protect web access">
-          <button type="button" class="password-toggle" id="passwordToggle" title="Show password">
+          <input type="password" id="field-password" data-section="convey" data-key="password" placeholder="enter password to protect web access">
+          <button type="button" class="password-toggle" id="passwordToggle" title="show password">
             <span id="passwordToggleIcon">&#128065;</span>
           </button>
         </div>
@@ -2605,7 +2605,7 @@ button:focus:not(:focus-visible) {
     <!-- Sync Section -->
     <section class="settings-section" id="section-sync" role="tabpanel" aria-labelledby="tab-sync">
       <h2>sync</h2>
-      <p class="settings-section-desc">Configure automatic syncing of recordings from external devices.</p>
+      <p class="settings-section-desc">configure automatic syncing of observations from external devices.</p>
       <div id="syncLoadState" class="settings-load-state" aria-live="polite"></div>
 
       <form class="settings-form" onsubmit="return false;">
@@ -2613,7 +2613,7 @@ button:focus:not(:focus-visible) {
       <div id="plaudSyncCard">
         <h3 class="settings-subsection-title">Plaud</h3>
         <p class="settings-subsection-desc">
-          Automatically sync and import recordings from your Plaud device every hour.
+          automatically sync and import observations from your Plaud device every hour.
         </p>
 
         <div class="settings-field" id="plaudSyncField">
@@ -2623,19 +2623,19 @@ button:focus:not(:focus-visible) {
               <input type="checkbox" id="field-plaud-sync-enabled">
               <span class="slider"></span>
             </label>
-            <span style="color: #666; font-size: 0.9em;">Sync and import Plaud recordings every hour</span>
+            <span style="color: #666; font-size: 0.9em;">sync and import Plaud observations every hour</span>
           </div>
         </div>
 
         <p id="plaudSyncTokenNote" style="display: none; color: #888; font-size: 0.85em; margin-top: 1em; padding: 0.75em; background: #f8f9fa; border-radius: 4px;">
-          Configure your Plaud token in <a href="#apikeys" style="color: #667eea;">API Keys</a> to enable sync.
+          configure your Plaud token in <a href="#apikeys" style="color: #667eea;">API keys</a> to enable sync.
         </p>
       </div>
 
       <div id="granolaSyncCard">
         <h3 class="settings-subsection-title">Granola (via muesli)</h3>
         <p class="settings-subsection-desc">
-          Automatically sync new meeting transcripts from Granola.
+          automatically sync new meeting transcripts from Granola.
         </p>
 
         <div class="settings-field" id="granolaSyncField">
@@ -2645,7 +2645,7 @@ button:focus:not(:focus-visible) {
               <input type="checkbox" id="field-granola-sync-enabled">
               <span class="slider"></span>
             </label>
-            <span style="color: #666; font-size: 0.9em;">Check for new transcripts every hour</span>
+            <span style="color: #666; font-size: 0.9em;">check for new transcripts every hour</span>
           </div>
         </div>
       </div>
@@ -2653,7 +2653,7 @@ button:focus:not(:focus-visible) {
       <div id="obsidianSyncCard">
         <h3 class="settings-subsection-title">Obsidian vault</h3>
         <p class="settings-subsection-desc">
-          Automatically sync new and updated notes from your vault.
+          automatically sync new and updated notes from your vault.
         </p>
 
         <div class="settings-field" id="obsidianSyncField">
@@ -2663,7 +2663,7 @@ button:focus:not(:focus-visible) {
               <input type="checkbox" id="field-obsidian-sync-enabled">
               <span class="slider"></span>
             </label>
-            <span style="color: #666; font-size: 0.9em;">Check for changes every hour</span>
+            <span style="color: #666; font-size: 0.9em;">check for changes every hour</span>
           </div>
         </div>
       </div>
@@ -2673,7 +2673,7 @@ button:focus:not(:focus-visible) {
     <!-- Storage Section -->
     <section class="settings-section" id="section-storage" role="tabpanel" aria-labelledby="tab-storage">
       <h2>your observed media (raw audio and screencast files)</h2>
-      <p class="settings-section-desc">Manage raw media retention and view storage usage.</p>
+      <p class="settings-section-desc">manage raw media retention and view storage usage.</p>
       <div id="storageLoadState" class="settings-load-state" aria-live="polite"></div>
       <div id="storageWarnings"></div>
 
@@ -2683,15 +2683,15 @@ button:focus:not(:focus-visible) {
         <div class="storage-summary-grid">
           <div>
             <div class="storage-stat-value" id="storageSummaryRaw">—</div>
-            <div class="storage-stat-label">Raw Media</div>
+            <div class="storage-stat-label">raw media</div>
           </div>
           <div>
             <div class="storage-stat-value" id="storageSummaryDerived">—</div>
-            <div class="storage-stat-label">Derived Content</div>
+            <div class="storage-stat-label">derived content</div>
           </div>
           <div>
             <div class="storage-stat-value" id="storageSummarySegments">—</div>
-            <div class="storage-stat-label">Segments</div>
+            <div class="storage-stat-label">segments</div>
           </div>
         </div>
         <div style="margin-top: 0.75em; font-size: 0.8em; color: #888; text-align: center;" id="storageSummaryDetail"></div>
@@ -2699,12 +2699,12 @@ button:focus:not(:focus-visible) {
 
       <div class="settings-field" id="retentionModeField">
         <label>retention mode</label>
-        <small>Controls how long raw media files (audio, video, screen diffs) are kept after processing. <a href="https://solpbc.org/privacy#recording-laws" target="_blank" rel="noopener">recording-consent laws</a> may apply in your jurisdiction.</small>
+        <small>controls how long raw media files (audio, video, screen diffs) are kept after processing. <a href="https://solpbc.org/privacy#recording-laws" target="_blank" rel="noopener">recording-consent laws</a> may apply in your jurisdiction.</small>
         <div id="retentionDaysField" class="retention-days-row" style="margin-top: 0.5em;">
           <button type="button" class="settings-preset-btn" data-days="7">7</button>
           <button type="button" class="settings-preset-btn" data-days="30">30</button>
           <button type="button" class="settings-preset-btn" data-days="90">90</button>
-          <input type="number" id="retentionDaysInput" min="1" max="365" style="width: 5em; padding: 0.4em 0.6em; border: 1px solid #ccc; border-radius: 4px;" placeholder="Custom">
+          <input type="number" id="retentionDaysInput" min="1" max="365" style="width: 5em; padding: 0.4em 0.6em; border: 1px solid #ccc; border-radius: 4px;" placeholder="custom">
           <span style="color: #666; font-size: 0.9em;">days</span>
         </div>
         <label for="retentionDontRetain" style="display: flex; align-items: center; gap: 0.5em; margin-top: 0.75em; color: #666; font-size: 0.9em;">
@@ -2716,18 +2716,18 @@ button:focus:not(:focus-visible) {
 
       <div class="context-overrides" id="streamOverridesContainer" style="display: none;">
         <div class="context-overrides-header" id="streamOverridesToggle" style="cursor: pointer;">
-          <span class="context-overrides-title">Per-Stream Overrides</span>
+          <span class="context-overrides-title">per-stream overrides</span>
           <span class="context-overrides-toggle">&#9660;</span>
         </div>
         <div class="context-overrides-body" id="streamOverridesBody">
-          <p style="color: #666; font-size: 0.85em; margin: 0 0 1em 0;">Override the global retention mode for individual streams.</p>
+          <p style="color: #666; font-size: 0.85em; margin: 0 0 1em 0;">override the global retention mode for individual streams.</p>
           <div id="streamOverridesList"></div>
         </div>
       </div>
 
       <div class="settings-danger-section">
-        <button type="button" id="cleanupNowBtn" class="action-button-danger">Clean Up Now</button>
-        <small style="display: block; margin-top: 0.5em; color: #666;">Manually purge raw media older than a specified number of days.</small>
+        <button type="button" id="cleanupNowBtn" class="action-button-danger">clean up now</button>
+        <small style="display: block; margin-top: 0.5em; color: #666;">manually purge raw media older than a specified number of days.</small>
       </div>
       </form>
     </section>
@@ -2812,12 +2812,12 @@ button:focus:not(:focus-visible) {
       <div class="settings-field">
         <label>named date</label>
         <span id="agent-named-date" class="field-display">—</span>
-        <small>When the name was last changed</small>
+        <small>when the name was last changed</small>
       </div>
 
       <div class="settings-field">
-        <button class="setup-btn" id="resetAgentName" style="background: #6c757d; font-size: 0.85em; padding: 0.4em 1em;">Reset to Default</button>
-        <small>Reset the agent name back to "sol"</small>
+        <button class="setup-btn" id="resetAgentName" style="background: #6c757d; font-size: 0.85em; padding: 0.4em 1em;">reset to default</button>
+        <small>reset the agent name back to "sol"</small>
       </div>
       </form>
     </section>
@@ -2827,38 +2827,38 @@ button:focus:not(:focus-visible) {
       <div class="facet-header">
         <h2>appearance</h2>
         <div class="toggle-container">
-          <span class="toggle-label" id="toggleLabel">Active</span>
+          <span class="toggle-label" id="toggleLabel">active</span>
           <label class="toggle-switch">
             <input type="checkbox" id="mutedToggle">
             <span class="slider"></span>
           </label>
         </div>
       </div>
-      <p class="settings-section-desc">Customize how this facet appears in the interface.</p>
+      <p class="settings-section-desc">customize how this facet appears in the interface.</p>
 
       <div class="settings-field">
         <label for="facetTitleInput">title</label>
         <div class="editable-field" id="facetTitleField">
-          <span class="field-display" id="facetTitleDisplay">Loading...</span>
+          <span class="field-display" id="facetTitleDisplay">loading...</span>
           <input type="text" class="field-input" id="facetTitleInput" style="display:none">
         </div>
-        <small id="facetTitleField-hint">Double-click or press Enter to edit</small>
+        <small id="facetTitleField-hint">double-click or press Enter to edit</small>
       </div>
 
       <div class="settings-field">
         <label for="facetDescInput">description</label>
         <div class="editable-field" id="facetDescField">
-          <span class="field-display" id="facetDescDisplay">No description set</span>
+          <span class="field-display" id="facetDescDisplay">no description set</span>
           <textarea class="field-input" id="facetDescInput" rows="3" style="display:none"></textarea>
         </div>
-        <small id="facetDescField-hint">Double-click or press Enter to edit</small>
+        <small id="facetDescField-hint">double-click or press Enter to edit</small>
       </div>
 
       <div class="settings-field">
         <label for="emojiInput">icon</label>
         <div class="emoji-display" id="emojiDisplay" tabindex="0" role="button">&#128230;</div>
-        <input type="text" id="emojiInput" class="emoji-input" maxlength="4" placeholder="Paste emoji" style="display:none">
-        <small>Click to change emoji</small>
+        <input type="text" id="emojiInput" class="emoji-input" maxlength="4" placeholder="paste emoji" style="display:none">
+        <small>click to change emoji</small>
       </div>
 
       <div class="settings-field">
@@ -2867,7 +2867,7 @@ button:focus:not(:focus-visible) {
           <div class="color-preview" id="colorPreview"></div>
           <span id="colorHexDisplay">#667eea</span>
         </div>
-        <small>Click to choose a color</small>
+        <small>click to choose a color</small>
       </div>
     </section>
 
@@ -2879,25 +2879,25 @@ button:focus:not(:focus-visible) {
       <!-- Attached Activities -->
       <div class="activities-section">
         <div class="activities-header">
-          <span class="activities-title">Attached Activities</span>
+          <span class="activities-title">attached activities</span>
           <span class="activities-count" id="attachedActivitiesCount"></span>
         </div>
         <div class="activities-list" id="attachedActivitiesList">
-          <div class="activities-empty">No activities attached yet</div>
+          <div class="activities-empty">no activities attached yet</div>
         </div>
       </div>
 
       <!-- Add Activities -->
       <div class="activities-section" style="margin-top: 1.5em;">
         <div class="activities-header">
-          <span class="activities-title">Add Activity</span>
+          <span class="activities-title">add activity</span>
         </div>
         <div class="activities-add-panel">
           <div class="activities-defaults" id="defaultActivitiesList">
-            Loading...
+            loading...
           </div>
           <div class="activities-custom">
-            <button class="activities-add-custom-btn" id="addCustomActivityBtn">+ Add Custom Activity</button>
+            <button class="activities-add-custom-btn" id="addCustomActivityBtn">+ add custom activity</button>
           </div>
         </div>
       </div>
@@ -2909,11 +2909,11 @@ button:focus:not(:focus-visible) {
           <h3 id="customActivityHeading">add custom activity</h3>
           <div class="settings-field">
             <label for="customActivityName">name</label>
-            <input type="text" id="customActivityName" placeholder="e.g., Research">
+            <input type="text" id="customActivityName" placeholder="e.g., research">
           </div>
           <div class="settings-field">
             <label for="customActivityDesc">description</label>
-            <textarea id="customActivityDesc" rows="2" placeholder="Brief description of this activity"></textarea>
+            <textarea id="customActivityDesc" rows="2" placeholder="brief description of this activity"></textarea>
           </div>
           <div class="settings-field">
             <label for="customActivityIcon">icon (emoji)</label>
@@ -2921,9 +2921,9 @@ button:focus:not(:focus-visible) {
           </div>
           <div class="settings-field">
             <label for="customActivityInstructions">instructions <span style="font-weight:normal;color:#888;">(optional)</span></label>
-            <textarea id="customActivityInstructions" rows="2" placeholder="Detection hints and level guidance for the AI agent"></textarea>
+            <textarea id="customActivityInstructions" rows="2" placeholder="detection hints and level guidance for the ai agent"></textarea>
           </div>
-          <button class="save-color-btn" id="saveCustomActivityBtn">Add Activity</button>
+          <button class="save-color-btn" id="saveCustomActivityBtn">add activity</button>
         </div>
       </div>
     </section>
@@ -2931,15 +2931,15 @@ button:focus:not(:focus-visible) {
     <!-- Facet Activity Section -->
     <section class="settings-section" id="section-facet-activity" data-requires-facet role="tabpanel" aria-labelledby="tab-facet-activity">
       <h2>activity log</h2>
-      <p class="settings-section-desc">Recent actions and changes to this facet.</p>
+      <p class="settings-section-desc">recent actions and changes to this facet.</p>
 
       <div class="log-panel">
-        <div class="log-header">Action Log</div>
+        <div class="log-header">action log</div>
         <div class="log-entries" id="logEntries">
-          <div class="log-empty">Loading...</div>
+          <div class="log-empty">loading...</div>
         </div>
         <div class="log-more" id="logMore" style="display:none">
-          <button class="log-more-btn" id="logMoreBtn">Load older</button>
+          <button class="log-more-btn" id="logMoreBtn">load older</button>
         </div>
       </div>
     </section>
@@ -2964,10 +2964,10 @@ button:focus:not(:focus-visible) {
       <h4>preview</h4>
       <div class="modal-preview-pill" id="modalPreview">
         <span class="modal-preview-emoji" id="modalPreviewEmoji">&#128230;</span>
-        <span class="modal-preview-title" id="modalPreviewTitle">Facet</span>
+        <span class="modal-preview-title" id="modalPreviewTitle">facet</span>
       </div>
     </div>
-    <button class="save-color-btn" id="saveColorBtn">Apply Color</button>
+    <button class="save-color-btn" id="saveColorBtn">apply color</button>
   </div>
 </div>
 
@@ -2976,7 +2976,7 @@ button:focus:not(:focus-visible) {
   <div class="color-modal-content" style="max-width: 480px;">
     <span class="color-close" id="cleanupModalClose">&times;</span>
     <h3 id="cleanupHeading">clean up raw media</h3>
-    <p style="color: #666; font-size: 0.9em; margin-bottom: 1em;">Delete raw media files (audio, video, screen-frame originals) from segments older than the specified number of days.</p>
+    <p style="color: #666; font-size: 0.9em; margin-bottom: 1em;">delete raw media files (audio, video, screen-frame originals) from segments older than the specified number of days.</p>
 
     <div class="settings-field" style="margin-bottom: 1em;">
       <label for="cleanupDaysInput">older than</label>
@@ -2989,18 +2989,18 @@ button:focus:not(:focus-visible) {
     <div class="settings-field" style="margin-bottom: 1em;">
       <label for="cleanupStreamFilter">stream filter (optional)</label>
       <select id="cleanupStreamFilter" style="padding: 0.4em 0.6em; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
-        <option value="">All streams</option>
+        <option value="">all streams</option>
       </select>
     </div>
 
     <div id="cleanupPreview" style="background: #f8f8f8; border-radius: 6px; padding: 1em; margin-bottom: 1em; display: none;">
-      <div style="font-weight: 600; margin-bottom: 0.5em;">Preview</div>
+      <div style="font-weight: 600; margin-bottom: 0.5em;">preview</div>
       <div id="cleanupPreviewText" style="font-size: 0.9em; color: #666;"></div>
     </div>
 
     <div style="display: flex; gap: 0.75em; justify-content: flex-end;">
-      <button type="button" id="cleanupPreviewBtn" class="cleanup-preview-btn">Preview</button>
-      <button type="button" id="cleanupConfirmBtn" class="cleanup-confirm-btn" disabled>Delete Files</button>
+      <button type="button" id="cleanupPreviewBtn" class="cleanup-preview-btn">preview</button>
+      <button type="button" id="cleanupConfirmBtn" class="cleanup-confirm-btn" disabled>delete files</button>
     </div>
   </div>
 </div>
@@ -3182,10 +3182,10 @@ async function loadMutedFacets() {
       btn.className = 'setup-btn';
       btn.style.fontSize = '0.85em';
       btn.style.padding = '0.3em 0.8em';
-      btn.textContent = 'Unmute';
+      btn.textContent = 'unmute';
       btn.onclick = async () => {
         btn.disabled = true;
-        btn.textContent = 'Unmuting...';
+        btn.textContent = 'unmuting...';
         try {
           const res = await fetch(`/app/settings/api/facet/${facet.name}`, {
             method: 'PUT',
@@ -3201,7 +3201,7 @@ async function loadMutedFacets() {
           notifySuccess('Unmuted', `${facet.title} will appear in the facet bar on reload.`);
         } catch (err) {
           btn.disabled = false;
-          btn.textContent = 'Unmute';
+          btn.textContent = 'unmute';
           notifyError('Error', 'Failed to unmute facet');
         }
       };
@@ -3756,7 +3756,7 @@ function showFieldStatus(el, type, message) {
 
   // Set status text and class
   if (type === 'saved') {
-    small.textContent = 'Saved';
+    small.textContent = 'saved';
     small.classList.add('status-saved');
   } else {
     small.textContent = message || 'Error';
@@ -4054,7 +4054,7 @@ function loadLogs(facetName, cursor = null) {
     .catch(err => {
       console.error('Error loading logs:', err);
       if (!cursor) {
-        document.getElementById('logEntries').innerHTML = '<div class="log-empty">Error loading logs</div>';
+        document.getElementById('logEntries').innerHTML = '<div class="log-empty">error loading logs</div>';
       }
     });
 }
@@ -4109,7 +4109,7 @@ function checkShowSetup() {
 document.getElementById('createPersonalBtn').onclick = async () => {
   const btn = document.getElementById('createPersonalBtn');
   btn.disabled = true;
-  btn.textContent = 'Creating...';
+  btn.textContent = 'creating...';
 
   try {
     const response = await fetch('/app/settings/api/facet', {
@@ -4127,7 +4127,7 @@ document.getElementById('createPersonalBtn').onclick = async () => {
   } catch (err) {
     console.error('Error creating facet:', err);
     btn.disabled = false;
-    btn.textContent = 'Create Personal Facet';
+    btn.textContent = 'create personal facet';
     notifyError( 'Creation Failed', err.message);
   }
 };
@@ -4207,7 +4207,7 @@ async function loadProviders() {
     populateProviders(providersData);
   } catch (err) {
     console.error('Error loading providers:', err);
-    document.getElementById('providerStatus').textContent = 'Error loading providers';
+    document.getElementById('providerStatus').textContent = 'error loading providers';
   }
 }
 
@@ -4332,7 +4332,7 @@ async function revalidateAllKeys() {
   const btn = document.getElementById('revalidateAllKeys');
   const status = document.getElementById('revalidateStatus');
   btn.disabled = true;
-  status.textContent = 'Validating...';
+  status.textContent = 'validating...';
   status.className = 'key-status-validating';
   try {
     const response = await fetch('api/validate-keys', { method: 'POST' });
@@ -4361,11 +4361,11 @@ async function revalidateAllKeys() {
         }
       }
     }
-    status.textContent = 'Done';
+    status.textContent = 'done';
     status.className = 'key-status-valid';
     setTimeout(() => { status.textContent = ''; }, 2000);
   } catch (err) {
-    status.textContent = 'Error: ' + err.message;
+    status.textContent = 'error: ' + err.message;
     status.className = 'key-status-invalid';
   } finally {
     btn.disabled = false;
@@ -4430,7 +4430,7 @@ function renderContextGroups(data) {
       // Action area (reset button or save indicator)
       html += `<span class="context-action" data-pattern="${item.pattern}">`;
       if (hasOverride) {
-        html += `<button class="context-reset" data-pattern="${item.pattern}" title="Reset to default">&times;</button>`;
+        html += `<button class="context-reset" data-pattern="${item.pattern}" title="reset to default">&times;</button>`;
       }
       html += `</span>`;
 
@@ -4510,7 +4510,7 @@ async function saveContextOverride(pattern, provider, tier, remove = false) {
           if (saved) saved.classList.add('fade');
           setTimeout(() => {
             if (hasOverride) {
-              actionArea.innerHTML = `<button class="context-reset" data-pattern="${pattern}" title="Reset to default">&times;</button>`;
+              actionArea.innerHTML = `<button class="context-reset" data-pattern="${pattern}" title="reset to default">&times;</button>`;
               // Re-attach click handler for the new reset button
               actionArea.querySelector('.context-reset')?.addEventListener('click', () => {
                 saveContextOverride(pattern, null, null, true);
@@ -5161,7 +5161,7 @@ async function loadVision() {
     populateVision(visionData);
   } catch (err) {
     console.error('Error loading vision:', err);
-    document.getElementById('visionCategoryGroups').textContent = 'Error loading categories';
+    document.getElementById('visionCategoryGroups').textContent = 'error loading categories';
   }
 }
 
@@ -5218,14 +5218,14 @@ function renderVisionCategories(data) {
 
         // Move buttons
         html += `<div class="vision-move-buttons">`;
-        html += `<button class="vision-move-btn vision-move-up" data-category="${item.name}" title="Move up" ${isFirst ? 'disabled' : ''}>↑</button>`;
-        html += `<button class="vision-move-btn vision-move-down" data-category="${item.name}" title="Move down" ${isLast ? 'disabled' : ''}>↓</button>`;
+        html += `<button class="vision-move-btn vision-move-up" data-category="${item.name}" title="move up" ${isFirst ? 'disabled' : ''}>↑</button>`;
+        html += `<button class="vision-move-btn vision-move-down" data-category="${item.name}" title="move down" ${isLast ? 'disabled' : ''}>↓</button>`;
         html += `</div>`;
 
         // Reset button
         html += `<span class="context-action" data-category="${item.name}">`;
         if (override.importance || override.extraction) {
-          html += `<button class="context-reset vision-reset" data-category="${item.name}" title="Reset to default">&times;</button>`;
+          html += `<button class="context-reset vision-reset" data-category="${item.name}" title="reset to default">&times;</button>`;
         }
         html += `</span>`;
 
@@ -5336,7 +5336,7 @@ function setupVisionEventListeners() {
         display.classList.remove('vision-extraction-empty');
         display.classList.add('vision-extraction-default');
       } else {
-        display.textContent = 'No extraction guidance';
+        display.textContent = 'no extraction guidance';
         display.classList.remove('vision-extraction-default');
         display.classList.add('vision-extraction-empty');
       }
@@ -5454,7 +5454,7 @@ function renderRedactRules(data) {
     <div class="redact-item" data-index="${index}">
       <span class="redact-text" data-index="${index}">${escapeHtml(rule)}</span>
       <input type="text" class="redact-input" data-index="${index}" value="${escapeHtml(rule)}" maxlength="200" style="display:none">
-      <button class="redact-remove" data-index="${index}" title="Remove">&times;</button>
+      <button class="redact-remove" data-index="${index}" title="remove">&times;</button>
     </div>
   `).join('');
 
@@ -5616,8 +5616,8 @@ async function loadInsights() {
     populateInsights(insightsData);
   } catch (err) {
     console.error('Error loading insights:', err);
-    document.getElementById('segmentInsightsList').textContent = 'Error loading insights';
-    document.getElementById('dailyInsightsList').textContent = 'Error loading insights';
+    document.getElementById('segmentInsightsList').textContent = 'error loading insights';
+    document.getElementById('dailyInsightsList').textContent = 'error loading insights';
   }
 }
 
@@ -5767,7 +5767,7 @@ async function loadActivities(facetName) {
     renderActivities(activitiesData);
   } catch (err) {
     console.error('Error loading activities:', err);
-    document.getElementById('attachedActivitiesList').innerHTML = '<div class="activities-empty">Error loading activities</div>';
+    document.getElementById('attachedActivitiesList').innerHTML = '<div class="activities-empty">error loading activities</div>';
   }
 }
 
@@ -5790,8 +5790,8 @@ function renderActivities(data) {
         <span class="activity-icon">${a.icon || '📌'}</span>
         <div class="activity-info">
           <div class="activity-name">${escapeHtml(a.name)}</div>
-          <div class="activity-desc activity-desc-editable" data-id="${a.id}" title="Double-click to edit">${escapeHtml(a.description) || '<em>No description</em>'}</div>
-          <div class="activity-instructions activity-instructions-editable" data-id="${a.id}" title="Double-click to edit instructions" style="font-size:0.8em;color:#888;margin-top:2px;">${a.instructions ? escapeHtml(a.instructions) : '<em>No instructions</em>'}</div>
+          <div class="activity-desc activity-desc-editable" data-id="${a.id}" title="double-click to edit">${escapeHtml(a.description) || '<em>no description</em>'}</div>
+          <div class="activity-instructions activity-instructions-editable" data-id="${a.id}" title="double-click to edit instructions" style="font-size:0.8em;color:#888;margin-top:2px;">${a.instructions ? escapeHtml(a.instructions) : '<em>no instructions</em>'}</div>
         </div>
         <div class="activity-controls">
           <select class="activity-priority" data-id="${a.id}">
@@ -5799,7 +5799,7 @@ function renderActivities(data) {
             <option value="normal" ${a.priority === 'normal' ? 'selected' : ''}>Normal</option>
             <option value="low" ${a.priority === 'low' ? 'selected' : ''}>Low</option>
           </select>
-          <button class="activity-remove" data-id="${a.id}" title="Remove">&times;</button>
+          <button class="activity-remove" data-id="${a.id}" title="remove">&times;</button>
         </div>
       </div>
     `).join('');
@@ -5818,7 +5818,7 @@ function renderActivities(data) {
     defaultsList.innerHTML = defaults.map(d => {
       const isAttached = attachedIds.has(d.id);
       return `
-        <span class="activity-chip ${isAttached ? 'activity-chip-attached' : ''}" data-id="${d.id}" ${isAttached ? '' : 'tabindex="0" role="button" title="Click to add"'}>
+        <span class="activity-chip ${isAttached ? 'activity-chip-attached' : ''}" data-id="${d.id}" ${isAttached ? '' : 'tabindex="0" role="button" title="click to add"'}>
           <span class="activity-chip-icon">${d.icon || '📌'}</span>
           <span>${escapeHtml(d.name)}</span>
         </span>
@@ -6359,7 +6359,7 @@ async function runCleanupPreview() {
   const previewDiv = document.getElementById('cleanupPreview');
   const previewText = document.getElementById('cleanupPreviewText');
 
-  previewText.textContent = 'Scanning...';
+  previewText.textContent = 'scanning...';
   previewDiv.style.display = '';
 
   try {
@@ -6376,7 +6376,7 @@ async function runCleanupPreview() {
     if (result.error) throw new Error(result.error);
 
     if (result.files_deleted === 0) {
-      previewText.textContent = 'No files to clean up.';
+      previewText.textContent = 'no files to clean up.';
       document.getElementById('cleanupConfirmBtn').disabled = true;
     } else {
       previewText.textContent = result.files_deleted + ' files (' + result.bytes_freed_human
@@ -6384,7 +6384,7 @@ async function runCleanupPreview() {
       document.getElementById('cleanupConfirmBtn').disabled = false;
     }
   } catch (err) {
-    previewText.textContent = 'Error: ' + err.message;
+    previewText.textContent = 'error: ' + err.message;
     document.getElementById('cleanupConfirmBtn').disabled = true;
   }
 }
@@ -6399,7 +6399,7 @@ async function runCleanupExecute() {
   const streamFilter = document.getElementById('cleanupStreamFilter').value;
   const btn = document.getElementById('cleanupConfirmBtn');
   btn.disabled = true;
-  btn.textContent = 'Deleting...';
+  btn.textContent = 'deleting...';
 
   try {
     const response = await fetch('api/storage/purge', {
@@ -6421,7 +6421,7 @@ async function runCleanupExecute() {
     notifyError('Cleanup Failed', err.message);
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Delete Files';
+    btn.textContent = 'delete files';
   }
 }
 

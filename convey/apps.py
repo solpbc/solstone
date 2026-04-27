@@ -223,7 +223,7 @@ def _resolve_placeholder(awareness_current: dict, day_count: int) -> str:
         if day_count >= 7:
             return "Ask me about your day, search your journal, or explore insights..."
         return "Your daily analysis is ready — ask about today or anything in your journal..."
-    return "Capture is running — your first daily analysis will be ready soon..."
+    return "observing — your first daily analysis will be ready soon..."
 
 
 def register_app_context(app: Flask, registry: AppRegistry) -> None:

@@ -15,7 +15,7 @@
         <button class="graph-time-btn" data-days="">all</button>
       </div>
       <div class="graph-strength-filter">
-        <label for="min-strength" title="filter out weaker connections -- higher means only stronger relationships">Min strength</label>
+        <label for="min-strength" title="filter out weaker connections -- higher means only stronger relationships">min strength</label>
         <input type="range" id="min-strength" min="0" max="500" value="0" step="5">
         <span id="min-strength-val">0</span>
       </div>
@@ -35,7 +35,7 @@
     <div class="graph-empty" id="graph-empty" style="display:none;">
       <div class="surface-state surface-state--empty">
         <div class="surface-state-icon" aria-hidden="true">🕸️</div>
-        <h2 class="surface-state-heading">Your knowledge graph builds itself from daily use</h2>
+        <h2 class="surface-state-heading">your knowledge graph builds itself from daily use</h2>
         <p class="surface-state-desc">as solstone takes in your meetings, conversations, and work, entities and relationships appear here automatically.</p>
         <div class="surface-state-action"><a href="/app/home" class="graph-empty-action">get started with solstone →</a></div>
       </div>
@@ -48,7 +48,7 @@
         <div class="surface-state-action"><a href="#" id="graph-retry">try again</a></div>
       </div>
     </div>
-    <div id="graph-canvas" tabindex="0" role="img" aria-label="Knowledge graph" style="width:100%;height:100%;display:none;"></div>
+    <div id="graph-canvas" tabindex="0" role="img" aria-label="knowledge graph" style="width:100%;height:100%;display:none;"></div>
     <div id="graph-stabilize"><div id="graph-stabilize-bar"></div></div>
     <div id="graph-reload-overlay"><div class="graph-spinner"></div></div>
     <div id="graph-sr-summary" class="sr-only" aria-live="polite"></div>
@@ -56,10 +56,10 @@
       <table class="graph-table">
         <thead>
           <tr>
-            <th role="button" tabindex="0" aria-sort="none" data-col="name">Name</th>
-            <th role="button" tabindex="0" aria-sort="none" data-col="type">Type</th>
-            <th role="button" tabindex="0" aria-sort="descending" data-col="score">Score</th>
-            <th role="button" tabindex="0" aria-sort="none" data-col="connections">Connections</th>
+            <th role="button" tabindex="0" aria-sort="none" data-col="name">name</th>
+            <th role="button" tabindex="0" aria-sort="none" data-col="type">type</th>
+            <th role="button" tabindex="0" aria-sort="descending" data-col="score">score</th>
+            <th role="button" tabindex="0" aria-sort="none" data-col="connections">connections</th>
           </tr>
         </thead>
         <tbody id="graph-list-body"></tbody>
@@ -68,7 +68,7 @@
   </div>
 
   <!-- Entity detail panel (slide-in from right) -->
-  <div class="graph-detail-panel" id="graph-detail-panel" tabindex="-1" aria-label="Entity details">
+  <div class="graph-detail-panel" id="graph-detail-panel" tabindex="-1" aria-label="entity details">
     <div class="graph-detail-header">
       <h2 id="detail-name" tabindex="-1"></h2>
       <button class="graph-detail-close" id="detail-close">&times;</button>
@@ -945,7 +945,7 @@ body.presentation-mode .detail-activity-day { font-size: 0.95rem; }
     }
     const top = data.nodes.slice().sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, 10);
     const topList = top.map(n => n.name + ' (' + n.type + ')').join(', ');
-    el.textContent = 'Knowledge graph showing ' + data.nodes.length + ' entities and ' + data.edges.length + ' connections. Top entities: ' + topList + '.';
+    el.textContent = 'knowledge graph showing ' + data.nodes.length + ' entities and ' + data.edges.length + ' connections. top entities: ' + topList + '.';
   }
 
   function renderList() {
@@ -1030,7 +1030,7 @@ body.presentation-mode .detail-activity-day { font-size: 0.95rem; }
     html += '<div>';
     html += '<span class="detail-type-badge" style="background:' + typeColor + '">' + escapeHtml(identity.type || nodeData.type) + '</span>';
     if (identity.is_principal) {
-      html += '<span class="detail-principal-badge">You</span>';
+      html += '<span class="detail-principal-badge">you</span>';
     }
     html += '</div>';
 
@@ -1084,7 +1084,7 @@ body.presentation-mode .detail-activity-day { font-size: 0.95rem; }
     }
 
     // Link to entities app
-    html += '<a class="detail-entity-link" href="/app/entities#' + encodeURIComponent(identity.entity_id || nodeData.id) + '">View full intelligence →</a>';
+    html += '<a class="detail-entity-link" href="/app/entities#' + encodeURIComponent(identity.entity_id || nodeData.id) + '">view full intelligence →</a>';
 
     bodyEl.innerHTML = html;
 

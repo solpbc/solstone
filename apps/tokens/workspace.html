@@ -2,33 +2,33 @@
   <div id="tokens-loading">
     <div class="surface-state surface-state--loading" role="status" aria-busy="true">
       <div class="surface-state-spinner" aria-hidden="true"></div>
-      <span class="surface-state-text" data-role="loading-status">Loading token usage data...</span>
+      <span class="surface-state-text" data-role="loading-status">loading token usage data...</span>
     </div>
   </div>
 
   <div class="dashboard-content" id="dashboard" style="display: none;">
     <!-- Daily Summary Card -->
-    <section class="summary-card" aria-label="Daily summary">
+    <section class="summary-card" aria-label="daily summary">
       <table class="summary-table">
         <thead>
           <tr>
-            <th scope="col" aria-label="Category"></th>
-            <th scope="col">Cost</th>
-            <th scope="col">Tokens</th>
-            <th scope="col">Requests</th>
-            <th scope="col">Avg / Segment</th>
+            <th scope="col" aria-label="category"></th>
+            <th scope="col">cost</th>
+            <th scope="col">tokens</th>
+            <th scope="col">requests</th>
+            <th scope="col">avg / segment</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td class="row-label" title="Generate">Processing</td>
+            <td class="row-label" title="generate">processing</td>
             <td id="generate-cost">-</td>
             <td id="generate-tokens">-</td>
             <td id="generate-requests">-</td>
             <td id="generate-seg-avg">-</td>
           </tr>
           <tr>
-            <td class="row-label" title="Cogitate">Analysis</td>
+            <td class="row-label" title="cogitate">analysis</td>
             <td id="cogitate-cost">-</td>
             <td id="cogitate-tokens">-</td>
             <td id="cogitate-requests">-</td>
@@ -42,23 +42,23 @@
 
     <!-- By Provider -->
     <section class="breakdown-section" aria-labelledby="section-provider">
-      <h2 id="section-provider">By Provider</h2>
+      <h2 id="section-provider">by provider</h2>
       <table class="breakdown-table" id="provider-table">
         <thead>
           <tr>
-            <th scope="col" class="sortable" data-sort="provider" role="button" tabindex="0" aria-sort="none">Provider</th>
-            <th scope="col" class="sortable num" data-sort="requests" role="button" tabindex="0" aria-sort="none">Requests</th>
-            <th scope="col" class="sortable num" data-sort="tokens" role="button" tabindex="0" aria-sort="none">Tokens</th>
-            <th scope="col" class="sortable num" data-sort="input_cost" role="button" tabindex="0" aria-sort="none">Input Cost</th>
-            <th scope="col" class="sortable num" data-sort="output_cost" role="button" tabindex="0" aria-sort="none">Output Cost</th>
-            <th scope="col" class="sortable num" data-sort="cached_tokens" role="button" tabindex="0" aria-sort="none">Cached</th>
-            <th scope="col" class="sortable num" data-sort="cost" role="button" tabindex="0" aria-sort="none">Total</th>
-            <th scope="col" class="num">% of Day</th>
+            <th scope="col" class="sortable" data-sort="provider" role="button" tabindex="0" aria-sort="none">provider</th>
+            <th scope="col" class="sortable num" data-sort="requests" role="button" tabindex="0" aria-sort="none">requests</th>
+            <th scope="col" class="sortable num" data-sort="tokens" role="button" tabindex="0" aria-sort="none">tokens</th>
+            <th scope="col" class="sortable num" data-sort="input_cost" role="button" tabindex="0" aria-sort="none">input cost</th>
+            <th scope="col" class="sortable num" data-sort="output_cost" role="button" tabindex="0" aria-sort="none">output cost</th>
+            <th scope="col" class="sortable num" data-sort="cached_tokens" role="button" tabindex="0" aria-sort="none">cached</th>
+            <th scope="col" class="sortable num" data-sort="cost" role="button" tabindex="0" aria-sort="none">total</th>
+            <th scope="col" class="num">% of day</th>
           </tr>
         </thead>
         <tbody id="provider-body">
           <tr class="empty-row">
-            <td colspan="8">No data for this day</td>
+            <td colspan="8">no data for this day</td>
           </tr>
         </tbody>
       </table>
@@ -66,21 +66,21 @@
 
     <!-- By Model -->
     <section class="breakdown-section" aria-labelledby="section-model">
-      <h2 id="section-model">By Model</h2>
+      <h2 id="section-model">by model</h2>
       <table class="breakdown-table" id="model-table">
         <thead>
           <tr>
-            <th scope="col" class="sortable" data-sort="model" role="button" tabindex="0" aria-sort="none">Model</th>
-            <th scope="col" class="sortable num" data-sort="requests" role="button" tabindex="0" aria-sort="none">Requests</th>
-            <th scope="col" class="sortable num" data-sort="tokens" role="button" tabindex="0" aria-sort="none">Tokens</th>
-            <th scope="col" class="sortable num" data-sort="cost" role="button" tabindex="0" aria-sort="none">Total Cost</th>
-            <th scope="col" class="num">% of Day</th>
-            <th scope="col" class="sortable num" data-sort="avg_cost_per_request" role="button" tabindex="0" aria-sort="none">Per-Request Avg</th>
+            <th scope="col" class="sortable" data-sort="model" role="button" tabindex="0" aria-sort="none">model</th>
+            <th scope="col" class="sortable num" data-sort="requests" role="button" tabindex="0" aria-sort="none">requests</th>
+            <th scope="col" class="sortable num" data-sort="tokens" role="button" tabindex="0" aria-sort="none">tokens</th>
+            <th scope="col" class="sortable num" data-sort="cost" role="button" tabindex="0" aria-sort="none">total cost</th>
+            <th scope="col" class="num">% of day</th>
+            <th scope="col" class="sortable num" data-sort="avg_cost_per_request" role="button" tabindex="0" aria-sort="none">per-request avg</th>
           </tr>
         </thead>
         <tbody id="model-body">
           <tr class="empty-row">
-            <td colspan="6">No data for this day</td>
+            <td colspan="6">no data for this day</td>
           </tr>
         </tbody>
       </table>
@@ -88,20 +88,20 @@
 
     <!-- By Token Type -->
     <section class="breakdown-section" aria-labelledby="section-token-type">
-      <h2 id="section-token-type">By Token Type</h2>
+      <h2 id="section-token-type">by token type</h2>
       <table class="breakdown-table" id="token-type-table">
         <thead>
           <tr>
-            <th scope="col">Token Type</th>
-            <th scope="col" class="num">Total Tokens</th>
-            <th scope="col" class="num">Cost</th>
-            <th scope="col" class="num">% of Total Cost</th>
-            <th scope="col" class="num">Avg Rate</th>
+            <th scope="col">token type</th>
+            <th scope="col" class="num">total tokens</th>
+            <th scope="col" class="num">cost</th>
+            <th scope="col" class="num">% of total cost</th>
+            <th scope="col" class="num">avg rate</th>
           </tr>
         </thead>
         <tbody id="token-type-body">
           <tr class="empty-row">
-            <td colspan="5">No data for this day</td>
+            <td colspan="5">no data for this day</td>
           </tr>
         </tbody>
       </table>
@@ -109,25 +109,25 @@
 
     <!-- By Context Prefix -->
     <section class="breakdown-section" aria-labelledby="section-context">
-      <h2 id="section-context">By Context Prefix</h2>
+      <h2 id="section-context">by context prefix</h2>
       <div class="search-box">
-        <label for="context-search" class="sr-only">Filter context prefixes</label>
-        <input type="text" id="context-search" placeholder="Filter contexts..." />
+        <label for="context-search" class="sr-only">filter context prefixes</label>
+        <input type="text" id="context-search" placeholder="filter contexts..." />
       </div>
       <table class="breakdown-table" id="context-table">
         <thead>
           <tr>
-            <th scope="col" class="sortable" data-sort="context" role="button" tabindex="0" aria-sort="none">Context Prefix</th>
-            <th scope="col" class="sortable num" data-sort="requests" role="button" tabindex="0" aria-sort="none">Requests</th>
-            <th scope="col" class="sortable num" data-sort="tokens" role="button" tabindex="0" aria-sort="none">Tokens</th>
-            <th scope="col" class="sortable num" data-sort="cost" role="button" tabindex="0" aria-sort="none">Total Cost</th>
-            <th scope="col" class="num">% of Day</th>
-            <th scope="col">Models Used</th>
+            <th scope="col" class="sortable" data-sort="context" role="button" tabindex="0" aria-sort="none">context prefix</th>
+            <th scope="col" class="sortable num" data-sort="requests" role="button" tabindex="0" aria-sort="none">requests</th>
+            <th scope="col" class="sortable num" data-sort="tokens" role="button" tabindex="0" aria-sort="none">tokens</th>
+            <th scope="col" class="sortable num" data-sort="cost" role="button" tabindex="0" aria-sort="none">total cost</th>
+            <th scope="col" class="num">% of day</th>
+            <th scope="col">models used</th>
           </tr>
         </thead>
         <tbody id="context-body">
           <tr class="empty-row">
-            <td colspan="6">No data for this day</td>
+            <td colspan="6">no data for this day</td>
           </tr>
         </tbody>
       </table>
@@ -135,25 +135,25 @@
 
     <!-- By Segment -->
     <section class="breakdown-section" aria-labelledby="section-segment">
-      <h2 id="section-segment">By Segment</h2>
+      <h2 id="section-segment">by segment</h2>
       <div class="search-box">
-        <label for="segment-search" class="sr-only">Filter segments</label>
-        <input type="text" id="segment-search" placeholder="Filter segments..." />
+        <label for="segment-search" class="sr-only">filter segments</label>
+        <input type="text" id="segment-search" placeholder="filter segments..." />
       </div>
       <table class="breakdown-table" id="segment-table">
         <thead>
           <tr>
-            <th scope="col" class="sortable" data-sort="segment" role="button" tabindex="0" aria-sort="none">Segment</th>
-            <th scope="col" class="sortable num" data-sort="requests" role="button" tabindex="0" aria-sort="none">Requests</th>
-            <th scope="col" class="sortable num" data-sort="tokens" role="button" tabindex="0" aria-sort="none">Tokens</th>
-            <th scope="col" class="sortable num" data-sort="cost" role="button" tabindex="0" aria-sort="none">Total Cost</th>
-            <th scope="col" class="num">% of Day</th>
-            <th scope="col">Models Used</th>
+            <th scope="col" class="sortable" data-sort="segment" role="button" tabindex="0" aria-sort="none">segment</th>
+            <th scope="col" class="sortable num" data-sort="requests" role="button" tabindex="0" aria-sort="none">requests</th>
+            <th scope="col" class="sortable num" data-sort="tokens" role="button" tabindex="0" aria-sort="none">tokens</th>
+            <th scope="col" class="sortable num" data-sort="cost" role="button" tabindex="0" aria-sort="none">total cost</th>
+            <th scope="col" class="num">% of day</th>
+            <th scope="col">models used</th>
           </tr>
         </thead>
         <tbody id="segment-body">
           <tr class="empty-row">
-            <td colspan="6">No segment data for this day</td>
+            <td colspan="6">no segment data for this day</td>
           </tr>
         </tbody>
       </table>

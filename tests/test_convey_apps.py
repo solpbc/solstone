@@ -27,7 +27,7 @@ class TestPlaceholderResolution:
 
         current = {"imports": {"has_imported": True}}
         result = _resolve_placeholder(current, 0)
-        assert "Capture is running" in result
+        assert "observing" in result
 
     def test_first_daily_young(self):
         from convey.apps import _resolve_placeholder
@@ -58,7 +58,7 @@ class TestPlaceholderResolution:
         from convey.apps import _resolve_placeholder
 
         result = _resolve_placeholder({}, 5)
-        assert "Capture is running" in result
+        assert "observing" in result
 
 
 class TestAttentionResolution:

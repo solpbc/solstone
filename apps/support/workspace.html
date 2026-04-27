@@ -522,7 +522,7 @@
       <div class="support-feedback-form">
         <form id="feedback-form" novalidate>
           <label for="feedback-text">your feedback</label>
-          <textarea id="feedback-text" placeholder="What's on your mind?" required></textarea>
+          <textarea id="feedback-text" placeholder="what's on your mind?" required></textarea>
           <div class="support-field-error" id="feedback-error">please write something before sending</div>
           <div class="support-feedback-options">
             <label><input type="checkbox" id="feedback-anonymous"> Submit anonymously</label>
@@ -713,7 +713,7 @@
       const statusClass = 'support-status-' + (t.status || 'open').replace(/[^a-z-]/g, '');
 
       let html = `
-        <button class="support-detail-back" id="back-to-list">&larr; Back to tickets</button>
+        <button class="support-detail-back" id="back-to-list">&larr; back to tickets</button>
         <h2>${esc(t.subject || 'Untitled')} <span class="support-status ${statusClass}">${esc(t.status || 'open')}</span></h2>
         <div class="support-ticket-meta">#${t.id} &middot; ${esc(t.product || '')} &middot; ${esc(t.severity || '')} &middot; ${timeAgo(t.created_at)}</div>
         <div class="support-message" style="margin-top:1rem;">
@@ -745,9 +745,9 @@
         html += `<div class="support-reply-form">
           <form id="reply-form" novalidate>
             <label for="reply-text">your reply</label>
-            <textarea id="reply-text" placeholder="Write a reply..." required></textarea>
+            <textarea id="reply-text" placeholder="write a reply..." required></textarea>
             <div class="support-field-error" id="reply-error">please write something before sending</div>
-            <div class="support-drop-zone" id="attach-zone" role="button" tabindex="0" aria-label="Attach files — drop files here or click to browse">
+            <div class="support-drop-zone" id="attach-zone" role="button" tabindex="0" aria-label="attach files — drop files here or click to browse">
               <input type="file" id="attach-input" multiple accept=".png,.jpg,.jpeg,.gif,.webp,.svg,.pdf,.txt,.csv,.html,.md,.xml,.json">
               Drop files here or click to attach (max 10 MB each, up to 5 files)
             </div>
@@ -807,7 +807,7 @@
         fileList.innerHTML = pendingFiles.map((f, i) =>
           `<div class="support-file-entry">
             <span>\u{1F4CE} ${esc(f.name)} (${formatSize(f.size)})</span>
-            <button class="remove-file" data-idx="${i}">\u00D7</button>
+            <button class="remove-file" data-idx="${i}">\u00d7</button>
           </div>`
         ).join('');
         fileList.querySelectorAll('.remove-file').forEach(btn => {
@@ -892,7 +892,7 @@
               pendingFiles = [];
               renderFileList();
             }
-            status.textContent = text ? 'Reply sent.' : 'Files uploaded.';
+            status.textContent = text ? 'reply sent.' : 'files uploaded.';
             status.className = 'support-status-msg success';
             document.getElementById('reply-text').value = '';
             setTimeout(() => openTicket(id), 500);
@@ -925,7 +925,7 @@
             await uploadPendingFiles(id);
             pendingFiles = [];
             renderFileList();
-            status.textContent = 'Files uploaded.';
+            status.textContent = 'files uploaded.';
             status.className = 'support-status-msg success';
             setTimeout(() => openTicket(id), 500);
           } catch (e) {
@@ -945,7 +945,7 @@
         '<div class="support-empty-heading">Couldn\'t load ticket.</div>' +
         serverMessage +
         '<div class="support-empty-hint">Go back and select it again.</div>' +
-        '<button class="support-empty-action" id="error-back-btn">Back to tickets</button>' +
+        '<button class="support-empty-action" id="error-back-btn">back to tickets</button>' +
       '</div>';
       window.logError(err, { context: 'support-open-ticket' });
       const errorBackBtn = document.getElementById('error-back-btn');
@@ -981,7 +981,7 @@
         body: JSON.stringify({body: text, anonymous: anon})
       });
       if (resp.ok) {
-        status.textContent = 'Thanks for your feedback!';
+        status.textContent = 'thanks for your feedback!';
         status.className = 'support-status-msg success';
         feedbackTextEl.value = '';
       } else {
@@ -1037,7 +1037,7 @@
         const stale = document.createElement('div');
         stale.id = 'support-announcements-stale';
         stale.className = 'support-announcements-stale';
-        stale.textContent = 'Couldn\'t refresh announcements - showing last known state.' +
+        stale.textContent = 'couldn\'t refresh announcements - showing last known state.' +
           (announcementsLastSuccessAt ? ' Last updated ' + announcementsLastSuccessAt.toLocaleString() + '.' : '');
         banner.insertAdjacentElement('afterend', stale);
       }

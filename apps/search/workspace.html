@@ -454,7 +454,7 @@ button.day-header {
         <div class="filter-list" id="facet-list">
           <label class="filter-item active">
             <input type="radio" name="facet" value="" checked>
-            <span class="filter-label">All</span>
+            <span class="filter-label">all</span>
           </label>
         </div>
       </div>
@@ -472,7 +472,7 @@ button.day-header {
       <form class="search-input-form" id="search-input-form" role="search">
         <label for="search-input" class="visually-hidden">search your journal</label>
         <input type="search" class="search-input" id="search-input"
-               placeholder="Search your journal..." autocomplete="off">
+               placeholder="search your journal..." autocomplete="off">
       </form>
 
       <div class="search-summary" id="search-summary" role="status" aria-live="polite" style="display: none;"></div>
@@ -486,7 +486,7 @@ button.day-header {
           <div class="surface-state-action">
             <div class="search-example-chips">
               <button class="search-example-chip" type="button">a recent meeting</button>
-              <button class="search-example-chip" type="button">something I learned</button>
+              <button class="search-example-chip" type="button">something i learned</button>
               <button class="search-example-chip" type="button">project ideas</button>
             </div>
           </div>
@@ -681,7 +681,7 @@ button.day-header {
     let facetHtml = `
       <label class="filter-item ${!currentFacet ? 'active' : ''}">
         <input type="radio" name="facet" value="" ${!currentFacet ? 'checked' : ''}>
-        <span class="filter-label">All</span>
+        <span class="filter-label">all</span>
       </label>
     `;
 
@@ -718,7 +718,7 @@ button.day-header {
       let agentHtml = `
         <label class="filter-item ${!currentAgent ? 'active' : ''}">
           <input type="radio" name="agent" value="" ${!currentAgent ? 'checked' : ''}>
-          <span class="filter-label">All</span>
+          <span class="filter-label">all</span>
         </label>
       `;
       for (const t of agents) {
@@ -865,7 +865,7 @@ button.day-header {
   function loadMoreForDay(day, currentOffset, resultsDiv, btn) {
     loadMoreController?.abort();
     loadMoreController = new AbortController();
-    btn.textContent = 'Loading...';
+    btn.textContent = 'loading...';
     btn.disabled = true;
 
     const url = new URL(dayResultsUrl, window.location.origin);
@@ -900,7 +900,7 @@ button.day-header {
       .catch(err => {
         if (err.name === 'AbortError') return;
         console.error('Load more error:', err);
-        btn.textContent = 'Error - click to retry';
+        btn.textContent = 'error - click to retry';
         btn.disabled = false;
       });
   }

@@ -1085,14 +1085,14 @@
   <div class="spk-layout">
     <nav class="spk-segments" aria-label="segments">
       <h2 class="spk-segments-header">
-        Segments
+        segments
       </h2>
       <div id="spkSegmentsStatus" class="spk-segments-status" aria-live="polite"></div>
       <ul class="spk-segments-list" id="spkSegmentList" role="listbox">
-        <li class="spk-empty">Loading...</li>
+        <li class="spk-empty">loading...</li>
       </ul>
       <div class="spk-load-more" id="spkLoadMore" style="display: none;">
-        <button class="spk-load-more-btn" id="spkLoadMoreBtn">Load more segments</button>
+        <button class="spk-load-more-btn" id="spkLoadMoreBtn">load more segments</button>
       </div>
     </nav>
 
@@ -1154,7 +1154,7 @@
         const msg = document.createElement('div');
         msg.className = 'spk-status spk-status-error';
         msg.setAttribute('role', 'alert');
-        msg.innerHTML = 'Couldn\'t load this audio<button class="spk-status-dismiss" aria-label="Dismiss">&times;</button>';
+        msg.innerHTML = 'couldn\'t load this audio<button class="spk-status-dismiss" aria-label="dismiss">&times;</button>';
         msg.querySelector('.spk-status-dismiss').addEventListener('click', (e) => {
           e.target.closest('.spk-status-error').remove();
         });
@@ -1270,13 +1270,13 @@
     const name = input.value.trim();
 
     if (!name) {
-      status.textContent = 'Please enter a name.';
+      status.textContent = 'please enter a name.';
       return;
     }
 
     btn.disabled = true;
     input.disabled = true;
-    status.textContent = 'Identifying...';
+    status.textContent = 'identifying...';
 
     fetch('/app/speakers/api/discovery/identify', {
       method: 'POST',
@@ -1292,7 +1292,7 @@
           return;
         }
 
-        status.textContent = `Identified as ${data.entity_name} (${data.voiceprints_saved} voiceprints, ${data.segments_updated} segments updated)`;
+        status.textContent = `identified as ${data.entity_name} (${data.voiceprints_saved} voiceprints, ${data.segments_updated} segments updated)`;
         card.style.opacity = '0.5';
         loadSegments();
         if (selectedSegment && selectedSource) {
@@ -1309,7 +1309,7 @@
         }, 3000);
       })
       .catch(() => {
-        status.textContent = 'Failed to identify. Try again.';
+        status.textContent = 'failed to identify. try again.';
         btn.disabled = false;
         input.disabled = false;
       });
@@ -1407,8 +1407,8 @@
           `).join('')}
         </div>
         <div class="spk-owner-actions">
-          <button class="spk-owner-btn spk-owner-btn-confirm" id="spkOwnerConfirm">Yes, that's me</button>
-          <button class="spk-owner-btn spk-owner-btn-reject" id="spkOwnerReject">No, try again</button>
+          <button class="spk-owner-btn spk-owner-btn-confirm" id="spkOwnerConfirm">yes, that's me</button>
+          <button class="spk-owner-btn spk-owner-btn-reject" id="spkOwnerReject">no, try again</button>
         </div>
       </div>
     `;
@@ -1474,17 +1474,17 @@
         </div>
         <div class="spk-owner-actions">
           <button class="spk-owner-btn spk-owner-btn-confirm" id="spkOwnerHelp">
-            Help solstone learn faster
+            help solstone learn faster
           </button>
         </div>
         <div class="spk-owner-toast" id="spkOwnerGuideToast"></div>
         <details class="spk-owner-diagnostics">
-          <summary class="spk-owner-diagnostics-summary">Why not yet?</summary>
+          <summary class="spk-owner-diagnostics-summary">why not yet?</summary>
           <div class="spk-owner-diagnostics-body">
-            <div class="spk-owner-diagnostics-line">Source: ${escapeHtml(data.source || 'auto')}</div>
+            <div class="spk-owner-diagnostics-line">source: ${escapeHtml(data.source || 'auto')}</div>
             ${data.low_quality_reason ? `
               <div class="spk-owner-diagnostics-line">
-                Gate: ${escapeHtml(data.low_quality_reason)} — observed ${escapeHtml(formatOwnerMetric(data.observed_value))}, threshold ${escapeHtml(formatOwnerMetric(data.threshold_value))}
+                gate: ${escapeHtml(data.low_quality_reason)} — observed ${escapeHtml(formatOwnerMetric(data.observed_value))}, threshold ${escapeHtml(formatOwnerMetric(data.threshold_value))}
               </div>
             ` : ''}
             <div class="spk-owner-diagnostics-line">Manual tags: ${escapeHtml(String(data.manual_tags_count || 0))}</div>
@@ -1570,8 +1570,8 @@
                 </div>
               `).join('')}
               <form class="spk-discovery-form">
-                <input type="text" class="spk-discovery-input" aria-label="Speaker name" placeholder="Enter speaker name..." />
-                <button class="spk-discovery-btn">Name</button>
+                <input type="text" class="spk-discovery-input" aria-label="speaker name" placeholder="enter speaker name..." />
+                <button class="spk-discovery-btn">name</button>
               </form>
               <div class="spk-discovery-status"></div>
             </div>
@@ -1671,7 +1671,7 @@
       }) + '</li>';
       const header = document.querySelector('.spk-segments-header');
       if (header) {
-        header.textContent = 'Segments';
+        header.textContent = 'segments';
       }
       return;
     }
@@ -1732,9 +1732,9 @@
     const header = document.querySelector('.spk-segments-header');
     if (header) {
       if (segmentTotal > 20) {
-        header.innerHTML = `Segments <span class="spk-segments-count">${segments.length} of ${segmentTotal}</span>`;
+        header.innerHTML = `segments <span class="spk-segments-count">${segments.length} of ${segmentTotal}</span>`;
       } else {
-        header.textContent = 'Segments';
+        header.textContent = 'segments';
       }
     }
   }
@@ -1798,11 +1798,11 @@
     html += '<div class="spk-audio-player" id="spkAudioContainer"></div>';
 
     if (!detailExpanded) {
-      html += '<button class="spk-expand-btn" id="spkExpandBtn">Show sentences and details</button>';
+      html += '<button class="spk-expand-btn" id="spkExpandBtn">show sentences and details</button>';
     }
 
     html += '<div id="spkReviewStatus" class="spk-review-status" aria-live="polite"></div>';
-    html += '<div class="spk-sentences" id="spkSentences"><div class="spk-empty">Loading...</div></div>';
+    html += '<div class="spk-sentences" id="spkSentences"><div class="spk-empty">loading...</div></div>';
     detailPanel.innerHTML = html;
 
     if (!detailExpanded) {
@@ -1946,17 +1946,17 @@
     if (audio_file) {
       audioContainer.innerHTML = `
         <div class="spk-player-controls">
-          <button class="spk-skip-back" id="spkSkipBack" title="Back 5s">&#8634; 5s</button>
+          <button class="spk-skip-back" id="spkSkipBack" title="back 5s">&#8634; 5s</button>
           <audio id="spkAudio" controls preload="metadata">
             <source src="${audio_file}" type="audio/flac">
           </audio>
-          <button class="spk-speed-toggle" id="spkSpeedToggle" title="Playback speed">1x</button>
+          <button class="spk-speed-toggle" id="spkSpeedToggle" title="playback speed">1x</button>
         </div>
       `;
       audioPlayer = document.getElementById('spkAudio');
       setupAudioListeners();
     } else {
-      audioContainer.innerHTML = '<div class="spk-empty">No audio file available</div>';
+      audioContainer.innerHTML = '<div class="spk-empty">no audio file available</div>';
       audioPlayer = null;
     }
 
@@ -1994,10 +1994,10 @@
         const nonOwnerTotal = seg?.attribution_non_owner_total || 0;
         const nullCount = seg?.attribution_null || 0;
         const showPrompt = seg?.speaker_count > 0 && nonOwnerTotal > 0 && (nullCount / nonOwnerTotal) > 0.5;
-        return showPrompt ? `<div class="spk-seeding-prompt">This meeting has ${seg.speaker_count} named speakers but I can't match voices yet. Assigning even a few sentences will help me learn their voices for future meetings.</div>` : '';
+        return showPrompt ? `<div class="spk-seeding-prompt">this meeting has ${seg.speaker_count} named speakers but I can't match voices yet. assigning even a few sentences will help me learn their voices for future meetings.</div>` : '';
       })()}
       ${!hasLabels ? '<div class="spk-status spk-status-info">speakers haven\'t been identified yet — assign a few sentences to help solstone learn their voices</div>' : ''}
-      ${sentences.length === 0 ? '<div class="spk-empty">No sentences match this filter</div>' : sentences.map(renderSentence).join('')}
+      ${sentences.length === 0 ? '<div class="spk-empty">no sentences match this filter</div>' : sentences.map(renderSentence).join('')}
     `;
 
     container.querySelectorAll('.spk-filter-btn').forEach(btn => {
@@ -2023,9 +2023,9 @@
 
   function countLabelForFilter(visible, total) {
     if (currentFilter === 'all') {
-      return `Sentences (${total})`;
+      return `sentences (${total})`;
     }
-    return `Sentences (${visible} of ${total})`;
+    return `sentences (${visible} of ${total})`;
   }
 
   function renderSentence(sentence) {
@@ -2042,7 +2042,7 @@
           <div class="spk-status-container" id="status-${sentence.id}" role="status" aria-live="polite"></div>
         </div>
         <div class="spk-sentence-actions">
-          <button class="spk-btn spk-btn-icon spk-play-btn" aria-label="Play from here" title="Play from here">&#9654;</button>
+          <button class="spk-btn spk-btn-icon spk-play-btn" aria-label="play from here" title="play from here">&#9654;</button>
           ${actionsHtml}
         </div>
       </div>
@@ -2051,7 +2051,7 @@
 
   function renderSpeakerDisplay(sentence) {
     if (!sentence.speaker_name) {
-      return '<span class="spk-review-state">Unassigned</span>';
+      return '<span class="spk-review-state">unassigned</span>';
     }
 
     let dotClass = '';
@@ -2074,7 +2074,7 @@
     html += `<span>${escapeHtml(sentence.speaker_name)}</span>`;
 
     if (sentence.needs_review) {
-      html += '<span class="spk-review-state">Needs review</span>';
+      html += '<span class="spk-review-state">needs review</span>';
     } else if (sentence.method) {
       html += `<span class="spk-review-state">${escapeHtml(METHOD_DISPLAY[sentence.method] || sentence.method)}</span>`;
     }
@@ -2093,16 +2093,16 @@
 
     if (sentence.speaker_entity_id) {
       const correctSelect = `
-        <select class="spk-select-small spk-correct-select" aria-label="Correct attribution" data-sentence-id="${sentence.id}">
-          <option value="">Correct...</option>
+        <select class="spk-select-small spk-correct-select" aria-label="correct attribution" data-sentence-id="${sentence.id}">
+          <option value="">correct...</option>
           ${options}
         </select>
-        <button class="spk-btn spk-btn-primary spk-apply-btn" data-sentence-id="${sentence.id}" data-action="correct" style="display:none" aria-label="Apply correction">&#10003;</button>
+        <button class="spk-btn spk-btn-primary spk-apply-btn" data-sentence-id="${sentence.id}" data-action="correct" style="display:none" aria-label="apply correction">&#10003;</button>
       `;
 
       if (sentence.confidence === 'medium') {
         return `
-          <button class="spk-btn spk-btn-primary spk-confirm-btn" data-sentence-id="${sentence.id}">Confirm &#10003;</button>
+          <button class="spk-btn spk-btn-primary spk-confirm-btn" data-sentence-id="${sentence.id}">confirm &#10003;</button>
           ${correctSelect}
         `;
       }
@@ -2111,11 +2111,11 @@
     }
 
     return `
-      <select class="spk-select-small spk-assign-select" aria-label="Assign speaker" data-sentence-id="${sentence.id}">
-        <option value="">Assign...</option>
+      <select class="spk-select-small spk-assign-select" aria-label="assign speaker" data-sentence-id="${sentence.id}">
+        <option value="">assign...</option>
         ${options}
       </select>
-      <button class="spk-btn spk-btn-primary spk-apply-btn" data-sentence-id="${sentence.id}" data-action="assign" style="display:none" aria-label="Apply assignment">&#10003;</button>
+      <button class="spk-btn spk-btn-primary spk-apply-btn" data-sentence-id="${sentence.id}" data-action="assign" style="display:none" aria-label="apply assignment">&#10003;</button>
     `;
   }
 
@@ -2298,7 +2298,7 @@
     }
     if (type === 'error') {
       container.setAttribute('aria-live', 'assertive');
-      container.innerHTML = `<div class="spk-status spk-status-${type}">${escapeHtml(message)}<button class="spk-status-dismiss" aria-label="Dismiss" onclick="this.closest('.spk-status-container').innerHTML='';this.closest('.spk-status-container').setAttribute('aria-live','polite')">&times;</button></div>`;
+      container.innerHTML = `<div class="spk-status spk-status-${type}">${escapeHtml(message)}<button class="spk-status-dismiss" aria-label="dismiss" onclick="this.closest('.spk-status-container').innerHTML='';this.closest('.spk-status-container').setAttribute('aria-live','polite')">&times;</button></div>`;
     } else {
       container.setAttribute('aria-live', 'polite');
       container.innerHTML = `<div class="spk-status spk-status-${type}">${escapeHtml(message)}</div>`;
@@ -2349,7 +2349,7 @@
     audioPlayer.addEventListener('error', () => {
       const container = document.getElementById('spkAudioContainer');
       if (container) {
-        container.innerHTML = '<div class="spk-status spk-status-error" role="alert">Couldn\'t load audio — the file may be missing or in an unsupported format<button class="spk-status-dismiss" aria-label="Dismiss">&times;</button></div>';
+        container.innerHTML = '<div class="spk-status spk-status-error" role="alert">couldn\'t load audio — the file may be missing or in an unsupported format<button class="spk-status-dismiss" aria-label="dismiss">&times;</button></div>';
         container.querySelector('.spk-status-dismiss')?.addEventListener('click', (e) => {
           e.target.closest('.spk-status-error').remove();
         });

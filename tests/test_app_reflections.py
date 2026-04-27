@@ -54,8 +54,8 @@ def test_reflections_detail_renders_week(journal_copy):
     assert response.status_code == 200
     assert "weekly reflection" in html
     assert "week of Sunday March 8th" in html
-    assert ">Copy<" in html
-    assert ">Download PDF<" in html
+    assert ">copy<" in html
+    assert ">download PDF<" in html
 
 
 def test_reflections_detail_canonicalizes_to_sunday(journal_copy):

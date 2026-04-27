@@ -1306,7 +1306,7 @@ body.presentation-mode .entity-desc { color: #4b5563; }
   <div id="entities-loading" class="entities-loading">
     <div class="surface-state surface-state--loading" role="status" aria-busy="true">
       <div class="surface-state-spinner spinner" aria-hidden="true"></div>
-      <span class="surface-state-text" data-role="loading-status">Loading entities...</span>
+      <span class="surface-state-text" data-role="loading-status">loading entities...</span>
     </div>
   </div>
 
@@ -1315,14 +1315,14 @@ body.presentation-mode .entity-desc { color: #4b5563; }
     <div class="entities-section">
       <h3>
         <span>your entities</span>
-        <input type="text" id="journal-entity-card-search" class="entity-search-input" placeholder="search entities..." aria-label="Search entity cards">
+        <input type="text" id="journal-entity-card-search" class="entity-search-input" placeholder="search entities..." aria-label="search entity cards">
         <span id="journal-card-search-count" class="entity-card-search-count" style="display: none;"></span>
       </h3>
       <p class="entities-subtitle">people, places, and things across your journal</p>
       <div class="entity-cards-container">
         <div id="journal-entity-cards-content"></div>
         <div id="no-journal-entities" class="no-journal-entities" style="display: none;">
-          <h2>No entities yet</h2>
+          <h2>no entities yet</h2>
           <p>Select a facet to add entities to your journal.</p>
         </div>
         <div id="no-journal-card-matches" class="no-card-matches" style="display: none;">No entities match your search.</div>
@@ -1333,7 +1333,7 @@ body.presentation-mode .entity-desc { color: #4b5563; }
   <!-- Journal entity detail view (all-facet mode) -->
   <div id="journal-entity-detail-view" class="entity-detail-view" style="display: none;">
     <div class="entity-detail-header">
-      <a class="entity-detail-back" href="#" onclick="event.preventDefault(); navigateToList()">← Back to entities</a>
+      <a class="entity-detail-back" href="#" onclick="event.preventDefault(); navigateToList()">← back to entities</a>
       <div class="entity-detail-title">
         <h2 class="entity-detail-name" id="journal-detail-name"></h2>
         <span class="entity-detail-type" id="journal-detail-type"></span>
@@ -1352,11 +1352,11 @@ body.presentation-mode .entity-desc { color: #4b5563; }
       <div id="journal-detail-edit-error" class="error-message" style="display: none;"></div>
       <form class="entity-edit-form" id="journal-detail-edit-form">
         <div class="form-group">
-          <label for="journal-detail-edit-name">Name</label>
+          <label for="journal-detail-edit-name">name</label>
           <input type="text" id="journal-detail-edit-name" required>
         </div>
         <div class="form-group">
-          <label for="journal-detail-edit-type">Type</label>
+          <label for="journal-detail-edit-type">type</label>
           <select id="journal-detail-edit-type">
             <!-- Populated by loadEntityTypes() -->
           </select>
@@ -1364,7 +1364,7 @@ body.presentation-mode .entity-desc { color: #4b5563; }
         <div class="form-group">
           <label for="journal-detail-edit-akas">alternative names (AKAs)</label>
           <input type="text" id="journal-detail-edit-akas" placeholder="alias1, alias2, alias3">
-          <small>Comma-separated list of alternative names for audio transcription</small>
+          <small>comma-separated list of alternative names for audio transcription</small>
         </div>
         <div class="form-actions">
           <button type="submit" class="btn btn-primary" id="journal-detail-save-btn">save changes</button>
@@ -1374,13 +1374,13 @@ body.presentation-mode .entity-desc { color: #4b5563; }
 
     <div class="entity-action-section entity-detach-section">
       <div style="display: flex; gap: 0.5em; flex-wrap: wrap;">
-        <button class="btn btn-secondary" id="journal-detail-block-btn">Block</button>
-        <button class="btn btn-danger" id="journal-detail-delete-btn">Delete</button>
+        <button class="btn btn-secondary" id="journal-detail-block-btn">block</button>
+        <button class="btn btn-danger" id="journal-detail-delete-btn">delete</button>
       </div>
       <div id="block-action-error" class="error-message" style="display: none;"></div>
       <p style="margin-top: 0.75em; font-size: 0.85em; color: #6c757d;">
-        <strong>Block</strong> hides the entity from all views but preserves data.
-        <strong>Delete</strong> permanently removes the entity and all associated data.
+        <strong>block</strong> hides the entity from all views but preserves data.
+        <strong>delete</strong> permanently removes the entity and all associated data.
       </p>
     </div>
   </div>
@@ -1391,16 +1391,16 @@ body.presentation-mode .entity-desc { color: #4b5563; }
     <div class="entities-section">
       <h3 id="facet-entities-heading">
         <span>entities</span>
-        <input type="text" id="entity-card-search" class="entity-search-input" placeholder="search entities..." aria-label="Search entity cards">
+        <input type="text" id="entity-card-search" class="entity-search-input" placeholder="search entities..." aria-label="search entity cards">
         <span id="facet-card-search-count" class="entity-card-search-count" style="display: none;"></span>
       </h3>
       <p class="entities-subtitle" id="facet-entities-subtitle">people, places, and things you're tending</p>
       <div class="entity-cards-container">
         <div id="entity-cards-content"></div>
         <div id="no-facet-entities" class="no-entities" style="display: none;">
-          No entities added to this facet yet. Star entities below to add them.
+          no entities added to this facet yet. star entities below to add them.
         </div>
-        <div id="no-facet-card-matches" class="no-card-matches" style="display: none;">No entities match your search.</div>
+        <div id="no-facet-card-matches" class="no-card-matches" style="display: none;">no entities match your search.</div>
       </div>
     </div>
 
@@ -1409,7 +1409,7 @@ body.presentation-mode .entity-desc { color: #4b5563; }
       <div class="entities-container">
         <h3 id="all-entities-title">
           <span>detected entities</span>
-          <input type="text" id="entity-search" class="entity-search-input" placeholder="search entities..." aria-label="Search detected entities">
+          <input type="text" id="entity-search" class="entity-search-input" placeholder="search entities..." aria-label="search detected entities">
         </h3>
         <p class="entities-subtitle">found by AI in the last 30 days — star to add to your journal</p>
         <div id="detected-action-error" class="error-message" style="display: none;"></div>
@@ -1433,7 +1433,7 @@ body.presentation-mode .entity-desc { color: #4b5563; }
   <!-- Entity detail view -->
   <div id="entity-detail-view" class="entity-detail-view" style="display: none;">
     <div class="entity-detail-header">
-      <a class="entity-detail-back" href="#" onclick="event.preventDefault(); navigateToList()">← Back to entities</a>
+      <a class="entity-detail-back" href="#" onclick="event.preventDefault(); navigateToList()">← back to entities</a>
       <div class="entity-detail-title">
         <h2 class="entity-detail-name" id="detail-name"></h2>
         <span class="entity-detail-type" id="detail-type"></span>
@@ -1461,11 +1461,11 @@ body.presentation-mode .entity-desc { color: #4b5563; }
     <div class="entity-attach-section" id="detail-attach-section" style="display: none;">
       <h4>attach to <span id="attach-facet-name"></span></h4>
       <label class="attach-description-label">
-        Description <span class="required">*</span>
-        <small style="font-weight: normal; color: #6c757d;">(How does this entity relate to this facet?)</small>
+        description <span class="required">*</span>
+        <small style="font-weight: normal; color: #6c757d;">(how does this entity relate to this facet?)</small>
       </label>
-      <textarea id="attach-description" placeholder="e.g., Lead engineer on the project, Primary contact for sales..."></textarea>
-      <button class="btn-attach" id="attach-entity-btn" disabled>Attach to Facet</button>
+      <textarea id="attach-description" placeholder="e.g., lead engineer on the project, primary contact for sales..."></textarea>
+      <button class="btn-attach" id="attach-entity-btn" disabled>attach to facet</button>
       <div id="attach-error" style="color: #dc3545; margin-top: 0.5em; display: none;"></div>
     </div>
   </div>
@@ -1476,21 +1476,21 @@ body.presentation-mode .entity-desc { color: #4b5563; }
   <div class="modal-content">
     <div class="modal-header danger">
       <h3>delete detected entity</h3>
-      <button class="close" aria-label="Close" onclick="closeDeleteModal()">&times;</button>
+      <button class="close" aria-label="close" onclick="closeDeleteModal()">&times;</button>
     </div>
     <div class="modal-body">
       <div class="delete-warning">
-        ⚠️ This will permanently remove this entity from all detected day files. This action cannot be undone.
+        ⚠️ this will permanently remove this entity from all detected day files. this action cannot be undone.
       </div>
-      <p>Entity: <strong id="deleteEntityName"></strong></p>
+      <p>entity: <strong id="deleteEntityName"></strong></p>
       <div id="deleteDaysContainer" style="display: none;">
-        <p>Found in <strong id="deleteDaysCount"></strong>:</p>
+        <p>found in <strong id="deleteDaysCount"></strong>:</p>
         <div class="delete-days-list" id="deleteDaysList"></div>
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeDeleteModal()">Cancel</button>
-      <button id="confirmDeleteBtn" class="btn btn-danger" onclick="confirmEntityDelete()">Delete</button>
+      <button class="btn btn-secondary" onclick="closeDeleteModal()">cancel</button>
+      <button id="confirmDeleteBtn" class="btn btn-danger" onclick="confirmEntityDelete()">delete</button>
     </div>
   </div>
 </div>
@@ -1500,17 +1500,17 @@ body.presentation-mode .entity-desc { color: #4b5563; }
   <div class="modal-content">
     <div class="modal-header danger">
       <h3>delete entity permanently</h3>
-      <button class="close" aria-label="Close" onclick="closeDeleteJournalEntityModal()">&times;</button>
+      <button class="close" aria-label="close" onclick="closeDeleteJournalEntityModal()">&times;</button>
     </div>
     <div class="modal-body">
       <div class="delete-warning">
-        ⚠️ This will permanently delete this entity and all associated data. This action cannot be undone.
+        ⚠️ this will permanently delete this entity and all associated data. this action cannot be undone.
       </div>
-      <p>Entity: <strong id="deleteJournalEntityName"></strong></p>
+      <p>entity: <strong id="deleteJournalEntityName"></strong></p>
       <div id="deleteJournalEntityInfo">
-        <p>This will remove:</p>
+        <p>this will remove:</p>
         <ul style="margin: 0.5em 0; padding-left: 1.5em; color: #495057;">
-          <li>The entity record</li>
+          <li>the entity record</li>
           <li id="deleteJournalEntityFacets"></li>
           <li id="deleteJournalEntityObs"></li>
         </ul>
@@ -1518,7 +1518,7 @@ body.presentation-mode .entity-desc { color: #4b5563; }
       <div id="delete-modal-error" class="error-message" style="display: none; margin-top: 0.5em;"></div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeDeleteJournalEntityModal()">Cancel</button>
+      <button class="btn btn-secondary" onclick="closeDeleteJournalEntityModal()">cancel</button>
       <button id="confirmDeleteJournalEntityBtn" class="btn btn-danger" onclick="confirmDeleteJournalEntity()">delete permanently</button>
     </div>
   </div>
@@ -1730,12 +1730,12 @@ function showDetailView(entityId) {
 
 function showFacetDetailView(entityId) {
   // Show loading state
-  document.getElementById('detail-name').textContent = 'Loading...';
+  document.getElementById('detail-name').textContent = 'loading...';
   document.getElementById('detail-type').textContent = '';
   document.getElementById('detail-aka').textContent = '';
   document.getElementById('detail-indicators').innerHTML = '';
-  document.getElementById('detail-description-container').innerHTML = '<span class="entity-desc-display empty">Loading...</span>';
-  document.getElementById('detail-observations').innerHTML = '<span class="observations-empty">Loading...</span>';
+  document.getElementById('detail-description-container').innerHTML = '<span class="entity-desc-display empty">loading...</span>';
+  document.getElementById('detail-observations').innerHTML = '<span class="observations-empty">loading...</span>';
 
   // Fetch entity details
   fetch(`api/${encodeURIComponent(currentFacet)}/entity/${encodeURIComponent(entityId)}`)
@@ -1749,7 +1749,7 @@ function showFacetDetailView(entityId) {
     })
     .catch(error => {
       console.error('Error loading entity:', error);
-      document.getElementById('detail-name').textContent = 'Error';
+      document.getElementById('detail-name').textContent = 'error';
       document.getElementById('detail-description-container').innerHTML =
         `<div class="error-message">${window.AppServices.escapeHtml(error.message)}</div>`;
     });
@@ -1757,11 +1757,11 @@ function showFacetDetailView(entityId) {
 
 function showJournalDetailView(entityId) {
   // Show loading state
-  document.getElementById('journal-detail-name').textContent = 'Loading...';
+  document.getElementById('journal-detail-name').textContent = 'loading...';
   document.getElementById('journal-detail-type').textContent = '';
   document.getElementById('journal-detail-aka').textContent = '';
   document.getElementById('journal-detail-indicators').innerHTML = '';
-  document.getElementById('journal-detail-facets').innerHTML = '<span class="observations-empty">Loading...</span>';
+  document.getElementById('journal-detail-facets').innerHTML = '<span class="observations-empty">loading...</span>';
 
   // Fetch journal entity details
   fetch(`api/journal/entity/${encodeURIComponent(entityId)}`)
@@ -1775,7 +1775,7 @@ function showJournalDetailView(entityId) {
     })
     .catch(error => {
       console.error('Error loading journal entity:', error);
-      document.getElementById('journal-detail-name').textContent = 'Error';
+      document.getElementById('journal-detail-name').textContent = 'error';
       document.getElementById('journal-detail-facets').innerHTML =
         `<div class="error-message">${window.AppServices.escapeHtml(error.message)}</div>`;
     });
@@ -1806,7 +1806,7 @@ function renderJournalDetailView(entity) {
       principalBadge.id = 'journal-detail-principal-badge';
       principalBadge.className = 'entity-detail-principal-badge';
       principalBadge.textContent = 'you';
-      principalBadge.title = 'This is you';
+      principalBadge.title = 'this is you';
       typeEl.parentNode.insertBefore(principalBadge, typeEl.nextSibling);
     }
   } else if (principalBadge) {
@@ -1820,8 +1820,8 @@ function renderJournalDetailView(entity) {
       blockedBadge = document.createElement('span');
       blockedBadge.id = 'journal-detail-blocked-badge';
       blockedBadge.className = 'entity-detail-blocked-badge';
-      blockedBadge.textContent = 'Blocked';
-      blockedBadge.title = 'This entity is blocked';
+      blockedBadge.textContent = 'blocked';
+      blockedBadge.title = 'this entity is blocked';
       typeEl.parentNode.insertBefore(blockedBadge, typeEl.nextSibling);
     }
   } else if (blockedBadge) {
@@ -1835,17 +1835,17 @@ function renderJournalDetailView(entity) {
   if (isPrincipal) {
     // Principal cannot be blocked or deleted
     blockBtn.disabled = true;
-    blockBtn.textContent = 'Block';
-    blockBtn.title = 'Cannot block yourself';
+    blockBtn.textContent = 'block';
+    blockBtn.title = 'cannot block yourself';
     blockBtn.onclick = null;
     deleteBtn.disabled = true;
-    deleteBtn.title = 'Cannot delete yourself';
+    deleteBtn.title = 'cannot delete yourself';
     deleteBtn.onclick = null;
   } else if (isBlocked) {
     // Show unblock option
     blockBtn.disabled = false;
-    blockBtn.textContent = 'Unblock';
-    blockBtn.title = 'Unblock this entity';
+    blockBtn.textContent = 'unblock';
+    blockBtn.title = 'unblock this entity';
     blockBtn.onclick = unblockJournalEntity;
     deleteBtn.disabled = false;
     deleteBtn.title = '';
@@ -1853,7 +1853,7 @@ function renderJournalDetailView(entity) {
   } else {
     // Normal state
     blockBtn.disabled = false;
-    blockBtn.textContent = 'Block';
+    blockBtn.textContent = 'block';
     blockBtn.title = '';
     blockBtn.onclick = blockJournalEntity;
     deleteBtn.disabled = false;
@@ -1888,7 +1888,7 @@ function renderJournalDetailView(entity) {
   const facets = entity.facets || [];
 
   if (facets.length === 0) {
-    facetsContainer.innerHTML = '<div class="no-facet-relationships">Not attached to any facets yet.</div>';
+    facetsContainer.innerHTML = '<div class="no-facet-relationships">not attached to any facets yet.</div>';
   } else {
     facetsContainer.innerHTML = '<div class="facet-relationships-list"></div>';
     const list = facetsContainer.querySelector('.facet-relationships-list');
@@ -2016,13 +2016,13 @@ document.getElementById('journal-detail-edit-form').addEventListener('submit', f
   const saveBtn = document.getElementById('journal-detail-save-btn');
 
   if (!name) {
-    errorEl.textContent = 'Name is required';
+    errorEl.textContent = 'name is required';
     errorEl.style.display = 'block';
     return;
   }
 
   saveBtn.disabled = true;
-  saveBtn.textContent = 'Saving...';
+  saveBtn.textContent = 'saving...';
 
   fetch(`api/journal/entity/${encodeURIComponent(entityId)}`, {
     method: 'PUT',
@@ -2047,7 +2047,7 @@ document.getElementById('journal-detail-edit-form').addEventListener('submit', f
     document.getElementById('journal-detail-type').textContent = type;
     const akaEl = document.getElementById('journal-detail-aka');
     if (aka.length > 0) {
-      akaEl.textContent = `Also known as: ${aka.join(', ')}`;
+      akaEl.textContent = `also known as: ${aka.join(', ')}`;
     } else {
       akaEl.textContent = '';
     }
@@ -2063,7 +2063,7 @@ document.getElementById('journal-detail-edit-form').addEventListener('submit', f
   })
   .catch(error => {
     console.error('Error updating journal entity:', error);
-    errorEl.textContent = error.message || 'Failed to save changes';
+    errorEl.textContent = error.message || 'failed to save changes';
     errorEl.style.display = 'block';
     saveBtn.textContent = 'save changes';
     saveBtn.disabled = false;
@@ -2077,7 +2077,7 @@ function blockJournalEntity() {
 
   const btn = document.getElementById('journal-detail-block-btn');
   btn.disabled = true;
-  btn.textContent = 'Blocking...';
+  btn.textContent = 'blocking...';
 
   fetch(`api/journal/entity/${encodeURIComponent(entityId)}/block`, {
     method: 'POST'
@@ -2096,7 +2096,7 @@ function blockJournalEntity() {
     console.error('Error blocking entity:', error);
     showInlineError('block-action-error', "couldn't block entity");
     btn.disabled = false;
-    btn.textContent = 'Block';
+    btn.textContent = 'block';
   });
 }
 
@@ -2106,7 +2106,7 @@ function unblockJournalEntity() {
 
   const btn = document.getElementById('journal-detail-block-btn');
   btn.disabled = true;
-  btn.textContent = 'Unblocking...';
+  btn.textContent = 'unblocking...';
 
   fetch(`api/journal/entity/${encodeURIComponent(entityId)}/unblock`, {
     method: 'POST'
@@ -2125,7 +2125,7 @@ function unblockJournalEntity() {
     console.error('Error unblocking entity:', error);
     showInlineError('block-action-error', "couldn't unblock entity");
     btn.disabled = false;
-    btn.textContent = 'Unblock';
+    btn.textContent = 'unblock';
   });
 }
 
@@ -2161,7 +2161,7 @@ function confirmDeleteJournalEntity() {
 
   const btn = document.getElementById('confirmDeleteJournalEntityBtn');
   btn.disabled = true;
-  btn.textContent = 'Deleting...';
+  btn.textContent = 'deleting...';
 
   fetch(`api/journal/entity/${encodeURIComponent(entityId)}`, {
     method: 'DELETE'
@@ -2346,7 +2346,7 @@ function renderDetailView(entity, observations) {
       list.appendChild(item);
     });
   } else {
-    obsContainer.innerHTML = '<span class="observations-empty">No observations recorded yet.</span>';
+    obsContainer.innerHTML = '<span class="observations-empty">no observations yet.</span>';
   }
 
   // Detach/Re-attach button or Attach section
@@ -2383,11 +2383,11 @@ function renderDetailView(entity, observations) {
     attachSection.style.display = 'none';
 
     if (isDetached) {
-      detachBtn.textContent = 'Re-attach';
+      detachBtn.textContent = 're-attach';
       detachBtn.className = 'btn btn-primary';
       detachBtn.onclick = () => reattachEntity(entity);
     } else {
-      detachBtn.textContent = 'Detach';
+      detachBtn.textContent = 'detach';
       detachBtn.className = 'btn btn-danger';
       detachBtn.onclick = () => detachEntity(entity);
     }
@@ -2400,7 +2400,7 @@ function renderDescriptionSection(entity) {
 
   const descSpan = document.createElement('span');
   descSpan.className = entity.description ? 'entity-desc-display' : 'entity-desc-display empty';
-  descSpan.textContent = entity.description || 'No description. Click to add...';
+  descSpan.textContent = entity.description || 'no description. click to add...';
   descSpan.style.cursor = 'pointer';
   descSpan.onclick = () => startDescriptionEdit(entity);
 
@@ -2417,7 +2417,7 @@ function startDescriptionEdit(entity) {
   const textarea = document.createElement('textarea');
   textarea.className = 'entity-desc-input';
   textarea.value = entity.description || '';
-  textarea.placeholder = 'Enter description...';
+  textarea.placeholder = 'enter description...';
 
   const btnContainer = document.createElement('div');
   btnContainer.style.display = 'flex';
@@ -2428,17 +2428,17 @@ function startDescriptionEdit(entity) {
   generateBtn.type = 'button';
   generateBtn.className = 'btn-icon';
   generateBtn.textContent = '✨';
-  generateBtn.title = 'Generate with AI';
+  generateBtn.title = 'generate with AI';
 
   const saveBtn = document.createElement('button');
   saveBtn.type = 'button';
   saveBtn.className = 'btn btn-primary btn-sm';
-  saveBtn.textContent = 'Save';
+  saveBtn.textContent = 'save';
 
   const cancelBtn = document.createElement('button');
   cancelBtn.type = 'button';
   cancelBtn.className = 'btn btn-secondary btn-sm';
-  cancelBtn.textContent = 'Cancel';
+  cancelBtn.textContent = 'cancel';
 
   btnContainer.appendChild(generateBtn);
   btnContainer.appendChild(saveBtn);
@@ -2588,7 +2588,7 @@ function attachEntityToFacet(entity, description) {
   const attachError = document.getElementById('attach-error');
 
   attachBtn.disabled = true;
-  attachBtn.textContent = 'Attaching...';
+  attachBtn.textContent = 'attaching...';
   attachError.style.display = 'none';
 
   fetch(`api/${encodeURIComponent(currentFacet)}`, {
@@ -2607,7 +2607,7 @@ function attachEntityToFacet(entity, description) {
       showDetailView(entity.id);
       loadEntities();  // Refresh list in background
     } else {
-      throw new Error(data.error || 'Failed to attach');
+      throw new Error(data.error || 'failed to attach');
     }
   })
   .catch(error => {
@@ -2615,7 +2615,7 @@ function attachEntityToFacet(entity, description) {
     attachError.textContent = error.message;
     attachError.style.display = 'block';
     attachBtn.disabled = false;
-    attachBtn.textContent = 'Attach to Facet';
+    attachBtn.textContent = 'attach to facet';
   });
 }
 
@@ -2881,7 +2881,7 @@ function createJournalEntityCard(entity) {
 
     const blockedBadge = document.createElement('div');
     blockedBadge.className = 'entity-card-blocked-badge';
-    blockedBadge.textContent = 'Blocked';
+    blockedBadge.textContent = 'blocked';
     card.appendChild(blockedBadge);
   }
 
@@ -2898,7 +2898,7 @@ function createJournalEntityCard(entity) {
     const badge = document.createElement('div');
     badge.className = 'entity-card-badge';
     badge.textContent = entity.total_observation_count;
-    badge.title = `${entity.total_observation_count} mention${entity.total_observation_count !== 1 ? 's' : ''} — observations recorded about this entity`;
+    badge.title = `${entity.total_observation_count} mention${entity.total_observation_count !== 1 ? 's' : ''} — observations about this entity`;
     card.appendChild(badge);
   }
 
@@ -3061,7 +3061,7 @@ function createEntityCard(entity) {
     const badge = document.createElement('div');
     badge.className = 'entity-card-mention-badge';
     badge.textContent = entity.observation_count;
-    badge.title = `${entity.observation_count} mention${entity.observation_count > 1 ? 's' : ''} — observations recorded about this entity`;
+    badge.title = `${entity.observation_count} mention${entity.observation_count > 1 ? 's' : ''} — observations about this entity`;
     card.appendChild(badge);
   }
 
@@ -3115,7 +3115,7 @@ function createPendingCard(name, agentId) {
 
   const meta = document.createElement('div');
   meta.className = 'entity-card-meta';
-  meta.textContent = 'Adding...';
+  meta.textContent = 'adding...';
   card.appendChild(meta);
 
   return card;

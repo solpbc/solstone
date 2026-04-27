@@ -1385,15 +1385,15 @@ body.presentation-mode .tr-screen-text { font-size: 16px; padding: 12px 16px; bo
 <div class="tr-wrap">
   <div class="tr-card">
     <!-- Left timeline -->
-    <div id="trTimeline" class="tr-timeline" aria-label="Day timeline">
+    <div id="trTimeline" class="tr-timeline" aria-label="day timeline">
       <div class="tr-timeline-label">day</div>
       <div class="tr-grid" id="trGrid"></div>
       <div class="tr-labels" id="trLabels"></div>
       <div class="tr-segments" id="trSegments"></div>
       <div class="tr-sel-wrap" id="trSelWrap">
         <div class="tr-sel" data-handle="move">
-          <div class="tr-bumper tr-bumper-top" data-handle="start" title="Drag to adjust start"></div>
-          <div class="tr-bumper tr-bumper-bottom" data-handle="end" title="Drag to adjust end"></div>
+          <div class="tr-bumper tr-bumper-top" data-handle="start" title="drag to adjust start"></div>
+          <div class="tr-bumper tr-bumper-bottom" data-handle="end" title="drag to adjust end"></div>
         </div>
       </div>
       <div class="tr-timeline-legend">
@@ -1414,11 +1414,11 @@ body.presentation-mode .tr-screen-text { font-size: 16px; padding: 12px 16px; bo
     <div class="tr-content">
       <div class="tr-header">
         <div>
-          <h2 class="tr-title">Transcripts</h2>
+          <h2 class="tr-title">transcripts</h2>
           <div class="tr-range-text" id="trRangeText"></div>
           <span class="tr-nav-hint" id="trNavHint">[ ] to navigate</span>
         </div>
-        <button type="button" id="trDeleteBtn" class="tr-delete-btn" title="Delete segment">
+        <button type="button" id="trDeleteBtn" class="tr-delete-btn" title="delete segment">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="3 6 5 6 21 6"></polyline>
             <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -1444,15 +1444,15 @@ body.presentation-mode .tr-screen-text { font-size: 16px; padding: 12px 16px; bo
 <div id="trDeleteSegmentModal" class="modal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="trDeleteSegmentModalTitle">
   <div class="modal-content">
     <div class="modal-header danger">
-      <h3 id="trDeleteSegmentModalTitle">Delete segment?</h3>
+      <h3 id="trDeleteSegmentModalTitle">delete segment?</h3>
       <span class="close" id="trDeleteSegmentModalClose" onclick="closeDeleteSegmentModal()">&times;</span>
     </div>
     <div class="modal-body">
       <div id="trDeleteSegmentModalBody" class="delete-warning"></div>
     </div>
     <div class="modal-footer">
-      <button type="button" class="btn-secondary" onclick="closeDeleteSegmentModal()">Cancel</button>
-      <button type="button" id="trDeleteSegmentModalConfirm" class="btn-danger" onclick="confirmDeleteSegment()">Delete</button>
+      <button type="button" class="btn-secondary" onclick="closeDeleteSegmentModal()">cancel</button>
+      <button type="button" id="trDeleteSegmentModalConfirm" class="btn-danger" onclick="confirmDeleteSegment()">delete</button>
     </div>
   </div>
 </div>
@@ -2365,7 +2365,7 @@ body.presentation-mode .tr-screen-text { font-size: 16px; padding: 12px 16px; bo
       const statusEl = targetEl.querySelector('[data-role="loading-status"]');
       if (!statusEl) return;
       if (!totalFrames) {
-        statusEl.textContent = 'Loading screen entries...';
+        statusEl.textContent = 'loading screen entries...';
         return;
       }
       const decoded = Array.from(perVideoProgress.values()).reduce((sum, count) => sum + count, 0);
@@ -2562,7 +2562,7 @@ body.presentation-mode .tr-screen-text { font-size: 16px; padding: 12px 16px; bo
     const displayItems = textOnlyScreen ? chunks : groupBasicScreenFrames(chunks);
     groupEntriesByIdx = new Map();
 
-    let html = `<div class="tr-unified" role="list" aria-label="Transcript entries, ${displayItems.length} items">`;
+    let html = `<div class="tr-unified" role="list" aria-label="transcript entries, ${displayItems.length} items">`;
 
     // Audio player section (if we have audio)
     if (data.audio_file && showAudio) {
@@ -2585,7 +2585,7 @@ body.presentation-mode .tr-screen-text { font-size: 16px; padding: 12px 16px; bo
         html += renderScreenGroup(item, idx);
       } else if (item.type === 'audio') {
         const timeStr = item.time || '';
-        html += `<div class="tr-entry tr-entry-audio" data-idx="${idx}" data-type="audio" data-timestamp="${item.timestamp}" role="listitem" tabindex="0" aria-label="Play from ${timeStr}">`;
+        html += `<div class="tr-entry tr-entry-audio" data-idx="${idx}" data-type="audio" data-timestamp="${item.timestamp}" role="listitem" tabindex="0" aria-label="play from ${timeStr}">`;
         html += `<div class="tr-entry-time">${timeStr}</div>`;
         html += '<div class="tr-entry-content">';
         html += '<span class="sr-only">Audio: </span>';
@@ -2595,7 +2595,7 @@ body.presentation-mode .tr-screen-text { font-size: 16px; padding: 12px 16px; bo
           const labelClass = sl.is_owner ? 'tr-speaker-label tr-speaker-label-owner' : 'tr-speaker-label';
           const displayName = sl.is_owner ? 'You' : escapeHtml(sl.name);
           const entityHref = '/app/entities#' + encodeURIComponent(sl.entity_id);
-          html += `<div class="${labelClass}" aria-label="Speaker: ${displayName}, ${sl.confidence} confidence"><span class="tr-speaker-dot ${dotClass}"></span><a href="${entityHref}">${displayName}</a><span class="sr-only">${sl.confidence} confidence</span></div>`;
+          html += `<div class="${labelClass}" aria-label="speaker: ${displayName}, ${sl.confidence} confidence"><span class="tr-speaker-dot ${dotClass}"></span><a href="${entityHref}">${displayName}</a><span class="sr-only">${sl.confidence} confidence</span></div>`;
         }
         html += `<div class="tr-entry-text">${escapeHtml(item.markdown)}</div>`;
         html += '</div></div>';
@@ -2964,22 +2964,22 @@ body.presentation-mode .tr-screen-text { font-size: 16px; padding: 12px 16px; bo
       const hasNext = currentFrameIndex < allScreenFrames.length - 1;
 
       modal.innerHTML = `
-        <div class="tr-modal-nav${hasPrev ? '' : ' disabled'}" data-dir="prev" title="Previous frame (Left arrow)" role="button" tabindex="${hasPrev ? '0' : '-1'}">
+        <div class="tr-modal-nav${hasPrev ? '' : ' disabled'}" data-dir="prev" title="previous frame (left arrow)" role="button" tabindex="${hasPrev ? '0' : '-1'}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
         </div>
         <div class="tr-modal-center">
           <div class="tr-modal-header">
             ${monitorPos ? `<span class="tr-modal-badge tr-modal-badge-monitor">${monitorPos}</span>` : ''}
             ${category ? `<span class="tr-modal-badge tr-modal-badge-category">${escapeHtml(category)}</span>` : ''}
-            ${isMasked ? '<span class="tr-modal-badge tr-modal-badge-masked" title="Click image to reveal">Masked</span>' : ''}
-            <button class="tr-modal-close" title="Close (Esc)" aria-label="Close">&times;</button>
+            ${isMasked ? '<span class="tr-modal-badge tr-modal-badge-masked" title="click image to reveal">masked</span>' : ''}
+            <button class="tr-modal-close" title="close (esc)" aria-label="close">&times;</button>
           </div>
           <div class="tr-modal-img-wrap">
             <canvas id="trModalCanvas" class="loading${isMasked ? ' tr-masked-canvas' : ''}"></canvas>
           </div>
           ${description ? `<div class="tr-modal-description">${escapeHtml(description)}</div>` : ''}
         </div>
-        <div class="tr-modal-nav${hasNext ? '' : ' disabled'}" data-dir="next" title="Next frame (Right arrow)" role="button" tabindex="${hasNext ? '0' : '-1'}">
+        <div class="tr-modal-nav${hasNext ? '' : ' disabled'}" data-dir="next" title="next frame (right arrow)" role="button" tabindex="${hasNext ? '0' : '-1'}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
         </div>
       `;
@@ -3169,7 +3169,7 @@ body.presentation-mode .tr-screen-text { font-size: 16px; padding: 12px 16px; bo
         panel.innerHTML = window.SurfaceState.empty({
           icon: emptyIcons.nothing,
           heading: 'nothing here',
-          desc: 'no recordings were found for this day'
+          desc: 'no observations were found for this day'
         });
       }
 
@@ -3534,7 +3534,7 @@ body.presentation-mode .tr-screen-text { font-size: 16px; padding: 12px 16px; bo
     history.replaceState(null, '', window.location.pathname);
 
     // Reset UI
-    titleEl.textContent = 'Transcripts';
+    titleEl.textContent = 'transcripts';
     rangeText.textContent = '';
     tabsContainer.innerHTML = '';
     tabsContainer.classList.remove('visible');

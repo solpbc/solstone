@@ -232,7 +232,7 @@ def observe_skill(
             _pattern_observation_key(pattern, observation) == target_key
             for observation in existing
         ):
-            raise _PatternCommandError("already recorded", 0)
+            raise _PatternCommandError("already observed", 0)
         existing.append(
             {
                 "day": day,
@@ -251,7 +251,7 @@ def observe_skill(
     _emit_pattern_result(
         pattern,
         json_output=json_output,
-        text_message=f"recorded observation: {slug}",
+        text_message=f"observation saved: {slug}",
     )
 
 

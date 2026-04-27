@@ -499,19 +499,19 @@
     </div>
   </div>
   <section aria-label="observers">
-    <h2 class="section-title">Observers</h2>
+    <h2 class="section-title">observers</h2>
     <section aria-label="add observer">
-      <h2 class="section-title">Add Observer</h2>
+      <h2 class="section-title">add observer</h2>
       <form class="add-observer-form" id="addObserverForm">
-        <label for="observerName">Observer name</label>
+        <label for="observerName">observer name</label>
         <input type="text" id="observerName" placeholder="e.g., laptop, desktop" maxlength="64" required>
-        <button type="submit">Add Observer</button>
+        <button type="submit">add observer</button>
       </form>
     </section>
     <div id="observersList" role="list">
       <div class="surface-state surface-state--loading" role="status" aria-busy="true">
         <div class="surface-state-spinner" aria-hidden="true"></div>
-        <span class="surface-state-text" data-role="loading-status">Loading observers...</span>
+        <span class="surface-state-text" data-role="loading-status">loading observers...</span>
       </div>
     </div>
   </section>
@@ -520,25 +520,25 @@
 <!-- Observer Key Modal (for new observers and viewing existing keys) -->
 <div id="keyModal" class="modal" role="dialog" aria-modal="true" aria-label="observer key">
   <div class="modal-content">
-    <button type="button" class="modal-close" id="keyModalClose" aria-label="Close">&times;</button>
-    <h3 id="keyModalTitle">Observer: <span id="modalObserverName"></span></h3>
+    <button type="button" class="modal-close" id="keyModalClose" aria-label="close">&times;</button>
+    <h3 id="keyModalTitle">observer: <span id="modalObserverName"></span></h3>
     <p>Use these credentials in your solstone app's service settings. Bearer authentication (header) is recommended; URL path auth is legacy.</p>
     <div class="credential-label">Server URL</div>
     <div class="command-box">
       <code id="serverUrlText"></code>
-      <button class="copy-btn" id="copyServerUrlBtn">Copy</button>
+      <button class="copy-btn" id="copyServerUrlBtn">copy</button>
     </div>
     <div class="credential-label">Key</div>
     <div class="command-box">
       <code id="keyText"></code>
-      <button class="copy-btn" id="revealKeyBtn">Reveal</button>
-      <button class="copy-btn" id="copyKeyBtn">Copy</button>
+      <button class="copy-btn" id="revealKeyBtn">reveal</button>
+      <button class="copy-btn" id="copyKeyBtn">copy</button>
     </div>
     <p class="modal-warning">
       Keep this key secret — anyone with it can upload to your journal.
     </p>
     <div class="modal-actions">
-      <button id="doneBtn" class="modal-primary-btn">Done</button>
+      <button id="doneBtn" class="modal-primary-btn">done</button>
     </div>
   </div>
 </div>
@@ -578,7 +578,7 @@ const GROUP_LABELS = {
 };
 
 function emptyStateHTML() {
-  return '<h3 class="observer-empty-heading">Add your first observer</h3>';
+  return '<h3 class="observer-empty-heading">add your first observer</h3>';
 }
 
 function statsHTML(observer, statusClass) {
@@ -680,8 +680,8 @@ function observerCardHTML(observer) {
       </div>
       <div class="observer-stats">${statsHTML(observer, statusClass)}</div>
       <div class="observer-actions">
-        ${observer.revoked ? '' : `<button onclick="viewObserverKey('${observer.key_prefix}', '${escapeHtml(observer.name)}')">View Key</button>`}
-        ${observer.revoked ? '' : `<button class="danger" onclick="revokeObserver('${observer.key_prefix}', '${escapeHtml(observer.name)}')">Revoke</button>`}
+        ${observer.revoked ? '' : `<button onclick="viewObserverKey('${observer.key_prefix}', '${escapeHtml(observer.name)}')">view key</button>`}
+        ${observer.revoked ? '' : `<button class="danger" onclick="revokeObserver('${observer.key_prefix}', '${escapeHtml(observer.name)}')">revoke</button>`}
       </div>
     </div>
   `;
@@ -846,7 +846,7 @@ function showKeyModal(name, key, trigger) {
   serverUrlText.textContent = window.location.origin;
   currentFullKey = key;
   keyText.textContent = key.slice(0, 8) + '••••••••••••••••';
-  revealKeyBtn.textContent = 'Reveal';
+  revealKeyBtn.textContent = 'reveal';
   if (revealTimer) { clearTimeout(revealTimer); revealTimer = null; }
   keyModal.style.display = 'block';
   keyModalTrigger = trigger || null;
@@ -911,7 +911,7 @@ function handleKeyModalKeys(e) {
 function closeKeyModal() {
   if (revealTimer) { clearTimeout(revealTimer); revealTimer = null; }
   currentFullKey = null;
-  revealKeyBtn.textContent = 'Reveal';
+  revealKeyBtn.textContent = 'reveal';
   keyModal.style.display = 'none';
   document.removeEventListener('keydown', handleKeyModalKeys);
   if (keyModalTrigger && document.contains(keyModalTrigger)) {
@@ -949,15 +949,15 @@ function copyText(text) {
 function setupCopyBtn(btn, codeEl) {
   btn.onclick = () => {
     copyText(codeEl.textContent).then(() => {
-      btn.textContent = 'Copied!';
+      btn.textContent = 'copied!';
       btn.classList.add('copied');
       setTimeout(() => {
-        btn.textContent = 'Copy';
+        btn.textContent = 'copy';
         btn.classList.remove('copied');
       }, 2000);
     }, () => {
-      btn.textContent = 'Failed';
-      setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+      btn.textContent = 'failed';
+      setTimeout(() => { btn.textContent = 'copy'; }, 2000);
     });
   };
 }
@@ -966,15 +966,15 @@ setupCopyBtn(copyServerUrlBtn, serverUrlText);
 copyKeyBtn.onclick = () => {
   if (!currentFullKey) return;
   copyText(currentFullKey).then(() => {
-    copyKeyBtn.textContent = 'Copied!';
+    copyKeyBtn.textContent = 'copied!';
     copyKeyBtn.classList.add('copied');
     setTimeout(() => {
-      copyKeyBtn.textContent = 'Copy';
+      copyKeyBtn.textContent = 'copy';
       copyKeyBtn.classList.remove('copied');
     }, 2000);
   }, () => {
-    copyKeyBtn.textContent = 'Failed';
-    setTimeout(() => { copyKeyBtn.textContent = 'Copy'; }, 2000);
+    copyKeyBtn.textContent = 'failed';
+    setTimeout(() => { copyKeyBtn.textContent = 'copy'; }, 2000);
   });
 };
 revealKeyBtn.onclick = () => {
@@ -982,16 +982,16 @@ revealKeyBtn.onclick = () => {
   const isRevealed = keyText.textContent === currentFullKey;
   if (isRevealed) {
     keyText.textContent = currentFullKey.slice(0, 8) + '••••••••••••••••';
-    revealKeyBtn.textContent = 'Reveal';
+    revealKeyBtn.textContent = 'reveal';
     if (revealTimer) { clearTimeout(revealTimer); revealTimer = null; }
   } else {
     keyText.textContent = currentFullKey;
-    revealKeyBtn.textContent = 'Hide';
+    revealKeyBtn.textContent = 'hide';
     if (revealTimer) clearTimeout(revealTimer);
     revealTimer = setTimeout(() => {
       if (currentFullKey && keyText.textContent === currentFullKey) {
         keyText.textContent = currentFullKey.slice(0, 8) + '••••••••••••••••';
-        revealKeyBtn.textContent = 'Reveal';
+        revealKeyBtn.textContent = 'reveal';
       }
       revealTimer = null;
     }, 30000);
