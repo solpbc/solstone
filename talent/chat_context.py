@@ -18,6 +18,11 @@ from talent._routine_context import render_active_routines, render_routine_sugge
 from think.utils import get_journal
 
 logger = logging.getLogger(__name__)
+STOP_AND_REPORT_CONTRACT = (
+    "stop-and-report turn, not a dispatch turn. Do not retry this task or request "
+    "another talent for it. Stop here and report to the owner directly using the "
+    "{result_field_label} below."
+)
 
 
 def _count_triggers(msg: str, facet: str | None, config: dict) -> bool:
@@ -114,35 +119,9 @@ def pre_process(context: dict) -> dict:
             elif event["kind"] == "sol_message":
                 messages.append({"role": "assistant", "content": event["text"]})
 
-        if trigger_kind == "talent_finished":
-            messages.append(
-                {
-                    "role": "user",
-                    "content": (
-                        "[internal follow-up: talent "
-                        f"{trigger_payload['name']} finished. This is a "
-                        "report-back turn, not a dispatch turn. Do not "
-                        "request another talent for this task. Use the "
-                        "result below to answer the owner's pending request "
-                        f"with a short summary. Result: {trigger_payload['summary']}]"
-                    ),
-                }
-            )
-        elif trigger_kind == "talent_errored":
-            messages.append(
-                {
-                    "role": "user",
-                    "content": (
-                        "[internal follow-up: talent "
-                        f"{trigger_payload['name']} errored. This is a "
-                        "stop-and-report turn, not a dispatch turn. Do "
-                        "not retry this task or request another talent for "
-                        "it. Stop here and report the failure to the owner "
-                        "directly using the reason below. Reason: "
-                        f"{trigger_payload['reason']}]"
-                    ),
-                }
-            )
+        terminal_followup = _render_terminal_followup(trigger_kind, trigger_payload)
+        if terminal_followup:
+            messages.append({"role": "user", "content": terminal_followup})
 
         if messages:
             result["messages"] = messages
@@ -204,17 +183,8 @@ def _normalize_trigger(context: dict) -> tuple[str | None, dict[str, Any]]:
     payload: dict[str, Any] = {}
 
     if isinstance(trigger_info, dict):
-        kind = trigger_info.get("kind")
-        raw_payload = trigger_info.get("payload")
-        if isinstance(raw_payload, dict):
-            payload.update(raw_payload)
-
-    if not kind:
-        kind = context.get("trigger_kind")
-
-    raw_payload = context.get("trigger_payload")
-    if isinstance(raw_payload, dict):
-        payload.update(raw_payload)
+        kind = trigger_info.get("type")
+        payload.update({k: v for k, v in trigger_info.items() if k != "type"})
 
     location = context.get("location")
     if isinstance(location, dict):
@@ -229,17 +199,48 @@ def _normalize_trigger(context: dict) -> tuple[str | None, dict[str, Any]]:
         payload["facet"] = context["facet"]
     if "app" not in payload and context.get("app"):
         payload["app"] = context["app"]
-    if "path" not in payload and context.get("ui_path"):
-        payload["path"] = context["ui_path"]
-    if "ts" not in payload and isinstance(context.get("trigger_ts"), int):
-        payload["ts"] = context["trigger_ts"]
+    if "path" not in payload and context.get("path"):
+        payload["path"] = context["path"]
 
     if not kind and context.get("prompt"):
         kind = "owner_message"
-    if kind == "owner_message" and "text" not in payload and context.get("prompt"):
-        payload["text"] = context["prompt"]
+    if kind == "owner_message" and "text" not in payload:
+        if payload.get("message"):
+            payload["text"] = payload["message"]
+        elif context.get("prompt"):
+            payload["text"] = context["prompt"]
 
     return kind, payload
+
+
+def _terminal_result_details(
+    trigger_kind: str | None,
+    payload: dict[str, Any],
+) -> tuple[str, str, str] | None:
+    if trigger_kind == "talent_finished":
+        return "finished", "result", str(payload.get("summary") or "")
+    if trigger_kind == "talent_errored":
+        return "errored", "reason", str(payload.get("reason") or "")
+    return None
+
+
+def _render_terminal_followup(
+    trigger_kind: str | None,
+    payload: dict[str, Any],
+) -> str:
+    details = _terminal_result_details(trigger_kind, payload)
+    if details is None:
+        return ""
+    kind_label, result_field_label, result_value = details
+    field_title = result_field_label.capitalize()
+    contract = STOP_AND_REPORT_CONTRACT.format(
+        result_field_label=result_field_label
+    )
+    return (
+        "[internal follow-up: talent "
+        f"{payload.get('name', 'exec')} {kind_label}. This is a {contract} "
+        f"{field_title}: {result_value}]"
+    )
 
 
 def _resolve_day(context: dict, trigger_payload: dict[str, Any]) -> str:
@@ -288,26 +289,9 @@ def _render_trigger_context(
         if text:
             lines.append(f"- Message: {text}")
     elif trigger_kind == "talent_finished":
-        if payload.get("name"):
-            lines.append(f"- Talent: {payload['name']}")
-        lines.append("- Mode: report_back_only")
-        lines.append(
-            "- Instruction: Answer the owner directly; do not dispatch or "
-            "redispatch a talent for this trigger."
-        )
-        if payload.get("summary"):
-            lines.append(f"- Summary: {payload['summary']}")
+        _append_terminal_trigger_context(lines, trigger_kind, payload)
     elif trigger_kind == "talent_errored":
-        if payload.get("name"):
-            lines.append(f"- Talent: {payload['name']}")
-        lines.append("- Mode: report_back_only")
-        lines.append(
-            "- Instruction: Answer the owner directly; report the failure to "
-            "the owner and stop; do not retry, dispatch, or redispatch a "
-            "talent for this trigger."
-        )
-        if payload.get("reason"):
-            lines.append(f"- Reason: {payload['reason']}")
+        _append_terminal_trigger_context(lines, trigger_kind, payload)
     elif trigger_kind == "synthetic-max-active":
         if payload.get("reason"):
             lines.append(f"- Reason: {payload['reason']}")
@@ -319,9 +303,28 @@ def _render_trigger_context(
     return "\n".join(lines)
 
 
+def _append_terminal_trigger_context(
+    lines: list[str],
+    trigger_kind: str,
+    payload: dict[str, Any],
+) -> None:
+    details = _terminal_result_details(trigger_kind, payload)
+    if details is None:
+        return
+    _, result_field_label, result_value = details
+    if payload.get("name"):
+        lines.append(f"- Talent: {payload['name']}")
+    instruction = STOP_AND_REPORT_CONTRACT.format(
+        result_field_label=result_field_label
+    )
+    lines.append(f"- Instruction: This is a {instruction}")
+    if result_value:
+        lines.append(f"- {result_field_label.capitalize()}: {result_value}")
+
+
 def _render_location(payload: dict[str, Any], context: dict[str, Any]) -> str:
     app = payload.get("app") or context.get("app")
-    path = payload.get("path") or context.get("ui_path")
+    path = payload.get("path") or context.get("path")
     facet = payload.get("facet") or context.get("facet")
 
     if not any((app, path, facet)):
