@@ -70,6 +70,14 @@ def test_grab_level_0_human_lists_days_with_counts(monkeypatch, capsys):
     assert "20240103" in out
 
 
+def test_grab_level_0_human_ends_with_next_footer(monkeypatch, capsys):
+    code, message, out, err = _invoke_grab(monkeypatch, capsys)
+    assert code == 0
+    assert message == ""
+    assert err == ""
+    assert out.rstrip().endswith("Next: sol grab <day>")
+
+
 def test_grab_level_1_json_matches_fixture(monkeypatch, capsys):
     code, message, out, err = _invoke_grab(monkeypatch, capsys, "--json", "20240102")
     assert code == 0
@@ -78,12 +86,21 @@ def test_grab_level_1_json_matches_fixture(monkeypatch, capsys):
     assert json.loads(out) == _expected("level_1.json")
 
 
+def test_grab_level_1_human_ends_with_next_footer(monkeypatch, capsys):
+    code, message, out, err = _invoke_grab(monkeypatch, capsys, "20240102")
+    assert code == 0
+    assert message == ""
+    assert err == ""
+    assert out.rstrip().endswith("Next: sol grab <day> <stream>")
+
+
 def test_grab_missing_day_errors(monkeypatch, capsys):
     code, message, out, err = _invoke_grab(monkeypatch, capsys, "20990101")
     assert code == 1
     assert out == ""
     assert err == ""
-    assert message == "day 20990101 not found"
+    assert message.startswith("day 20990101 not found\n\n")
+    assert "Available days (closest 5):\n  20240102" in message
 
 
 def test_grab_level_2_json_matches_fixture(monkeypatch, capsys):
@@ -96,12 +113,23 @@ def test_grab_level_2_json_matches_fixture(monkeypatch, capsys):
     assert json.loads(out) == _expected("level_2.json")
 
 
+def test_grab_level_2_human_ends_with_next_footer(monkeypatch, capsys):
+    code, message, out, err = _invoke_grab(monkeypatch, capsys, "20240103", "default")
+    assert code == 0
+    assert message == ""
+    assert err == ""
+    assert out.rstrip().endswith("Next: sol grab <day> <stream> <segment>")
+
+
 def test_grab_missing_stream_errors(monkeypatch, capsys):
     code, message, out, err = _invoke_grab(monkeypatch, capsys, "20240102", "missing")
     assert code == 1
     assert out == ""
     assert err == ""
-    assert message == "stream missing not found in 20240102"
+    assert (
+        message
+        == "stream missing not found in 20240102\n\nAvailable streams in 20240102:\n  default"
+    )
 
 
 def test_grab_level_3_json_matches_fixture(monkeypatch, capsys):
@@ -112,6 +140,37 @@ def test_grab_level_3_json_matches_fixture(monkeypatch, capsys):
     assert message == ""
     assert err == ""
     assert json.loads(out) == _expected("level_3.json")
+
+
+def test_grab_level_3_purged_json_matches_fixture(monkeypatch, capsys):
+    code, message, out, err = _invoke_grab(
+        monkeypatch, capsys, "--json", "20240104", "default", "120000_300"
+    )
+    assert code == 0
+    assert message == ""
+    assert err == ""
+    assert json.loads(out) == _expected("level_3_purged.json")
+
+
+def test_grab_level_3_pins_all_status_strings(monkeypatch, capsys):
+    statuses = set()
+    for args in (
+        ("20240102", "default", "233000_300"),
+        ("20240103", "default", "110000_300"),
+        ("20240104", "default", "120000_300"),
+    ):
+        code, message, out, err = _invoke_grab(monkeypatch, capsys, "--json", *args)
+        assert code == 0
+        assert message == ""
+        assert err == ""
+        payload = json.loads(out)
+        statuses.update(screen["status"] for screen in payload["data"]["screens"])
+
+    assert statuses == {
+        "analyzed",
+        "analyzed; raw media purged by retention",
+        "captured but not analyzed",
+    }
 
 
 def test_grab_level_3_lists_named_monitors(monkeypatch, capsys):
@@ -130,6 +189,16 @@ def test_grab_level_3_lists_named_monitors(monkeypatch, capsys):
     assert payload["data"]["screens"][1]["connector"] == "HDMI-1"
 
 
+def test_grab_level_3_human_ends_with_next_footer(monkeypatch, capsys):
+    code, message, out, err = _invoke_grab(
+        monkeypatch, capsys, "20240103", "default", "100000_300"
+    )
+    assert code == 0
+    assert message == ""
+    assert err == ""
+    assert out.rstrip().endswith("Next: sol grab <day> <stream> <segment> <screen>")
+
+
 def test_grab_missing_segment_errors(monkeypatch, capsys):
     code, message, out, err = _invoke_grab(
         monkeypatch, capsys, "20240103", "default", "999999_300"
@@ -137,7 +206,12 @@ def test_grab_missing_segment_errors(monkeypatch, capsys):
     assert code == 1
     assert out == ""
     assert err == ""
-    assert message == "segment 999999_300 not found in 20240103/default"
+    assert (
+        message == "segment 999999_300 not found in 20240103/default\n\n"
+        "Available segments in 20240103/default:\n"
+        "  100000_300\n"
+        "  110000_300"
+    )
 
 
 def test_grab_level_4_json_matches_fixture(monkeypatch, capsys):
@@ -148,6 +222,26 @@ def test_grab_level_4_json_matches_fixture(monkeypatch, capsys):
     assert message == ""
     assert err == ""
     assert json.loads(out) == _expected("level_4.json")
+
+
+def test_grab_level_4_purged_json_matches_fixture(monkeypatch, capsys):
+    code, message, out, err = _invoke_grab(
+        monkeypatch, capsys, "--json", "20240104", "default", "120000_300", "screen"
+    )
+    assert code == 0
+    assert message == ""
+    assert err == ""
+    assert json.loads(out) == _expected("level_4_purged.json")
+
+
+def test_grab_level_4_header_only_json_matches_fixture(monkeypatch, capsys):
+    code, message, out, err = _invoke_grab(
+        monkeypatch, capsys, "--json", "20240105", "default", "130000_300", "screen"
+    )
+    assert code == 0
+    assert message == ""
+    assert err == ""
+    assert json.loads(out) == _expected("level_4_header_only.json")
 
 
 def test_grab_level_4_human_includes_error_notes(monkeypatch, capsys):
@@ -161,6 +255,27 @@ def test_grab_level_4_human_includes_error_notes(monkeypatch, capsys):
     assert "error: Vision request timed out while describing frame 18." in out
 
 
+def test_grab_level_4_human_includes_extraction_footer(monkeypatch, capsys):
+    code, message, out, err = _invoke_grab(
+        monkeypatch, capsys, "20240102", "default", "233000_300", "screen"
+    )
+    assert code == 0
+    assert message == ""
+    assert err == ""
+    assert out.rstrip().endswith(
+        "Inspect:    sol grab <day> <stream> <segment> <screen> <id>\n"
+        "Save one:   sol grab <day> <stream> <segment> <screen> <id> --out PATH\n"
+        "Save many:  sol grab <day> <stream> <segment> <screen> "
+        "<id1>,<id2>,... --out PATH\n"
+        "\n"
+        "How extraction works:\n"
+        "  Decoding walks the video linearly from frame 0 — seeking is unsafe at the\n"
+        "  1 Hz capture rate. Cost is dominated by the highest requested frame_id, not\n"
+        "  the count. Asking for ids 7,12,23 costs the same as asking for 23 alone.\n"
+        "  Prefer batch mode when you want more than one frame from the same screen."
+    )
+
+
 def test_grab_level_4_legacy_schema_reports_zero_frames(monkeypatch, capsys):
     code, message, out, err = _invoke_grab(
         monkeypatch, capsys, "20240101", "default", "123456_300", "screen"
@@ -169,6 +284,53 @@ def test_grab_level_4_legacy_schema_reports_zero_frames(monkeypatch, capsys):
     assert message == ""
     assert err == ""
     assert out.strip() == "0 frames analyzed: file uses pre-frame_id schema"
+
+
+def test_grab_level_4_header_only_reports_no_qualified_frames(monkeypatch, capsys):
+    code, message, out, err = _invoke_grab(
+        monkeypatch, capsys, "20240105", "default", "130000_300", "screen"
+    )
+    assert code == 0
+    assert message == ""
+    assert err == ""
+    assert out == "No qualified frames in this screen's analysis.\n"
+
+
+def test_grab_level_4_legacy_and_header_only_are_distinct(monkeypatch, capsys):
+    code, message, out, err = _invoke_grab(
+        monkeypatch, capsys, "--json", "20240101", "default", "123456_300", "screen"
+    )
+    assert code == 0
+    assert message == ""
+    assert err == ""
+    assert json.loads(out)["data"]["summary"]["legacy_schema"] is True
+
+    code, message, out, err = _invoke_grab(
+        monkeypatch, capsys, "--json", "20240105", "default", "130000_300", "screen"
+    )
+    assert code == 0
+    assert message == ""
+    assert err == ""
+    payload = json.loads(out)
+    assert payload["data"]["summary"]["frames_analyzed"] == 0
+    assert payload["data"]["frames"] == []
+    assert payload["data"]["summary"]["legacy_schema"] is False
+
+
+def test_grab_level_4_purged_human_uses_metadata_only_footer(monkeypatch, capsys):
+    code, message, out, err = _invoke_grab(
+        monkeypatch, capsys, "20240104", "default", "120000_300", "screen"
+    )
+    assert code == 0
+    assert message == ""
+    assert err == ""
+    assert "--out PATH" not in out
+    assert out.rstrip().endswith(
+        "Save mode unavailable: raw video has been purged by retention.\n"
+        "Frame metadata above is still readable.\n"
+        "\n"
+        "Inspect: sol grab <day> <stream> <segment> <screen> <id>"
+    )
 
 
 def test_grab_level_4_captured_but_not_analyzed_errors(monkeypatch, capsys):
@@ -188,7 +350,11 @@ def test_grab_missing_screen_errors(monkeypatch, capsys):
     assert code == 1
     assert out == ""
     assert err == ""
-    assert message == "screen missing_screen not found in 20240102/default/233000_300"
+    assert (
+        message == "screen missing_screen not found in 20240102/default/233000_300\n\n"
+        "Available screens in 20240102/default/233000_300:\n"
+        "  screen"
+    )
 
 
 def test_grab_level_5a_json_matches_fixture(monkeypatch, capsys):
@@ -219,6 +385,30 @@ def test_grab_level_5a_human_shows_frame_metadata(monkeypatch, capsys):
     assert '"frame_id": 7' in out
 
 
+def test_grab_level_5a_human_shows_save_and_batch_footer(monkeypatch, capsys):
+    code, message, out, err = _invoke_grab(
+        monkeypatch, capsys, "20240102", "default", "233000_300", "screen", "7"
+    )
+    assert code == 0
+    assert message == ""
+    assert err == ""
+    assert out.rstrip().endswith(
+        "Save: sol grab <day> <stream> <segment> <screen> <id> --out PATH\n"
+        "Batch: sol grab <day> <stream> <segment> <screen> "
+        "<id1>,<id2>,... --out PATH"
+    )
+
+
+def test_grab_json_outputs_do_not_include_footer_prose(monkeypatch, capsys):
+    code, message, out, err = _invoke_grab(monkeypatch, capsys, "--json")
+    assert code == 0
+    assert message == ""
+    assert err == ""
+    assert "Next:" not in out
+    assert "Save:" not in out
+    assert "How extraction works:" not in out
+
+
 def test_grab_level_5a_legacy_schema_errors(monkeypatch, capsys):
     code, message, out, err = _invoke_grab(
         monkeypatch, capsys, "20240101", "default", "123456_300", "screen", "1"
@@ -240,6 +430,27 @@ def test_grab_missing_frame_id_errors(monkeypatch, capsys):
     assert out == ""
     assert err == ""
     assert message == "frame id 999 not found in screen for 233000_300"
+
+
+def test_grab_save_purged_video_reports_retention_message(
+    monkeypatch, capsys, tmp_path
+):
+    code, message, out, err = _invoke_grab(
+        monkeypatch,
+        capsys,
+        "--out",
+        str(tmp_path / "frame.png"),
+        "20240104",
+        "default",
+        "120000_300",
+        "screen",
+        "7",
+    )
+    assert code == 1
+    assert out == ""
+    assert err == ""
+    assert "purged by retention" in message
+    assert "sol grab 20240104 default 120000_300 screen 7" in message
 
 
 def test_grab_level_5b_json_matches_fixture_and_writes_png(
@@ -443,6 +654,23 @@ def test_grab_out_requires_level_5(monkeypatch, capsys, tmp_path):
     assert message == ""
     assert out == ""
     assert "--out requires day stream segment screen and frame-id" in err
+
+
+def test_grab_malformed_jsonl_quiet_by_default(monkeypatch, capsys, caplog):
+    code, message, out, err = _invoke_grab(monkeypatch, capsys)
+    assert code == 0
+    assert message == ""
+    assert "20240106" in out
+    assert "WARNING:observe.utils:" not in err
+    assert "Invalid JSON" not in caplog.text
+
+
+def test_grab_malformed_jsonl_warns_with_verbose(monkeypatch, capsys, caplog):
+    code, message, out, err = _invoke_grab(monkeypatch, capsys, "-v")
+    assert code == 0
+    assert message == ""
+    assert "20240106" in out
+    assert "Invalid JSON" in caplog.text
 
 
 @pytest.mark.parametrize("token", ["0", "-1", "abc", "7,7", "1,,2"])

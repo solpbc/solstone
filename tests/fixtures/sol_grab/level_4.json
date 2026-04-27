@@ -10,7 +10,8 @@
     "summary": {
       "frames_analyzed": 9,
       "error_frames": 1,
-      "legacy_schema": false
+      "legacy_schema": false,
+      "video_present": true
     },
     "frames": [
       {
