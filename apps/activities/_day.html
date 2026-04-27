@@ -590,6 +590,10 @@ button.activity-detail-back {
   }
 
   function fmtDuration(mins) {
+    if (mins == null || !Number.isFinite(Number(mins))) {
+      return '—';
+    }
+    mins = Number(mins);
     if (mins >= 60) {
       const h = Math.floor(mins / 60);
       const m = mins % 60;
@@ -697,7 +701,8 @@ button.activity-detail-back {
       const top = ((sMin - startHour * 60) / totalMinutes) * 100;
       const height = Math.max((eMin - sMin) / totalMinutes * 100, 0.4);
       const color = levelColor(a.level_avg);
-      html += `<a class='occ occ-activity' data-activity-id='${escapeHtml(a.id)}' tabindex='0' role='button' style='top:${top}%;height:${height}%;left:0;width:100%;border-color:${color};background:${color}' title='${escapeHtml(a.icon + " " + a.name)}'>${escapeHtml(a.icon)} ${escapeHtml(a.name)}</a>`;
+      const icon = a.icon || '🗓️';
+      html += `<a class='occ occ-activity' data-activity-id='${escapeHtml(a.id)}' tabindex='0' role='button' style='top:${top}%;height:${height}%;left:0;width:100%;border-color:${color};background:${color}' title='${escapeHtml(icon + " " + a.name)}'>${escapeHtml(icon)} ${escapeHtml(a.name)}</a>`;
     });
 
     html += '</section>';
@@ -721,15 +726,16 @@ button.activity-detail-back {
       const lvl = levelLabel(a.level_avg);
       const timeStr = a.startTime ? fmtTime(a.startTime) : '';
       const color = levelColor(a.level_avg);
+      const icon = a.icon || '🗓️';
       html += `<div class="activity-card" data-activity-id="${escapeHtml(a.id)}" tabindex="0" role="button" style="border-left-color:${color}">`;
-      html += `<span class="act-icon">${escapeHtml(a.icon || '')}</span>`;
+      html += `<span class="act-icon">${escapeHtml(icon)}</span>`;
       html += `<div class="act-body">`;
       html += `<div class="act-name">${escapeHtml(a.name)}</div>`;
       if (a.description) html += `<div class="act-desc">${escapeHtml(a.description)}</div>`;
       html += `</div>`;
       html += `<div class="act-meta">`;
       if (timeStr) html += `<div>${timeStr}</div>`;
-      html += `<div class="act-duration">${dur}<span class="act-level level-${lvl}" aria-hidden="true"></span><span class="sr-only">${lvl} engagement</span></div>`;
+      if (a.duration_minutes != null) html += `<div class="act-duration">${dur}<span class="act-level level-${lvl}" aria-hidden="true"></span><span class="sr-only">${lvl} engagement</span></div>`;
       if (a.outputs.length) html += `<div>${a.outputs.length} output${a.outputs.length > 1 ? 's' : ''}</div>`;
       html += `</div></div>`;
     });
@@ -762,11 +768,12 @@ button.activity-detail-back {
     const timeRange = a.startTime
       ? `${fmtTime(a.startTime)}${a.endTime ? ' – ' + fmtTime(a.endTime) : ''}`
       : '';
+    const icon = a.icon || '🗓️';
 
     let html = '';
     html += `<button type="button" class="activity-detail-back">← back to day</button>`;
     html += `<div class="activity-detail-header">`;
-    html += `<h2>${escapeHtml(a.icon || '')} ${escapeHtml(a.name)}</h2>`;
+    html += `<h2>${escapeHtml(icon)} ${escapeHtml(a.name)}</h2>`;
     html += `<div class="ad-subtitle">${escapeHtml(a.facet)}</div>`;
     html += `</div>`;
 
@@ -785,7 +792,9 @@ button.activity-detail-back {
     if (timeRange) {
       html += `<dt>Time</dt><dd>${timeRange}</dd>`;
     }
-    html += `<dt>Duration</dt><dd>${fmtDuration(a.duration_minutes)}</dd>`;
+    if (a.duration_minutes != null) {
+      html += `<dt>Duration</dt><dd>${fmtDuration(a.duration_minutes)}</dd>`;
+    }
     html += `<dt>Engagement</dt><dd><span class="act-level level-${lvl}" aria-hidden="true"></span> ${lvl}</dd>`;
     html += `<dt>Segments</dt><dd>${a.segments.length}</dd>`;
     if (a.active_entities && a.active_entities.length) {

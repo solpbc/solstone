@@ -153,6 +153,69 @@
       "id": "browsing",
       "instructions": "Levels: high=actively navigating/researching, medium=reading a page, low=browser open but idle. Detect via: browser tabs, URL changes, search queries.",
       "name": "Browsing"
+    },
+    {
+      "description": "a call you have planned",
+      "icon": "📞",
+      "id": "call",
+      "instructions": "Scheduled events emitted by talent/schedule.md; not detected from sense data.",
+      "name": "call"
+    },
+    {
+      "description": "a celebration on the calendar",
+      "icon": "🎉",
+      "id": "celebration",
+      "instructions": "Scheduled events emitted by talent/schedule.md; not detected from sense data.",
+      "name": "celebration"
+    },
+    {
+      "description": "a deadline you are working toward",
+      "icon": "⏰",
+      "id": "deadline",
+      "instructions": "Scheduled events emitted by talent/schedule.md; not detected from sense data.",
+      "name": "deadline"
+    },
+    {
+      "description": "a medical appointment on your calendar",
+      "icon": "🩺",
+      "id": "doctor_appointment",
+      "instructions": "Scheduled events emitted by talent/schedule.md; not detected from sense data.",
+      "name": "doctor appointment"
+    },
+    {
+      "description": "a reminder for something upcoming",
+      "icon": "🔔",
+      "id": "reminder",
+      "instructions": "Scheduled events emitted by talent/schedule.md; not detected from sense data.",
+      "name": "reminder"
+    },
+    {
+      "description": "an appointment on your calendar",
+      "icon": "📌",
+      "id": "appointment",
+      "instructions": "Scheduled events emitted by talent/schedule.md; not detected from sense data.",
+      "name": "appointment"
+    },
+    {
+      "description": "an errand you plan to do",
+      "icon": "🧾",
+      "id": "errand",
+      "instructions": "Scheduled events emitted by talent/schedule.md; not detected from sense data.",
+      "name": "errand"
+    },
+    {
+      "description": "an event you plan to attend",
+      "icon": "🎟️",
+      "id": "event",
+      "instructions": "Scheduled events emitted by talent/schedule.md; not detected from sense data.",
+      "name": "event"
+    },
+    {
+      "description": "travel you have planned",
+      "icon": "✈️",
+      "id": "travel",
+      "instructions": "Scheduled events emitted by talent/schedule.md; not detected from sense data.",
+      "name": "travel"
     }
   ]
 }

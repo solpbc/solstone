@@ -918,9 +918,9 @@ def test_facet_summaries_detailed_activity_cap_appends_trailing_bullet(
     summary = facet_summaries(detailed=True)
 
     assert "    - Meetings" in summary
-    assert "    - Design:" in summary
-    assert "    - _and 1 more activities_" in summary
-    assert "    - Music:" not in summary
+    assert "    - doctor appointment:" in summary
+    assert "    - _and 10 more activities_" in summary
+    assert "    - Writing:" not in summary
     assert "_and 1 more entities_" not in summary
 
 
@@ -1000,7 +1000,7 @@ def test_facet_summaries_exactly_at_caps_has_no_trailing_bullets(
     assert "_and 0 more entities_" not in simple_summary
     assert "_and 0 more activities_" not in simple_summary
     assert "  - **Exact Cap Entities**: Entity 01; Entity 02" in simple_summary
-    assert "  - **Exact Cap Activities**: Meetings; Coding" in simple_summary
+    assert "  - **Exact Cap Activities**: Meetings; call" in simple_summary
 
 
 def test_facet_summaries_none_entity_cap_is_unbounded(tmp_path, monkeypatch):

@@ -49,6 +49,69 @@ DEFAULT_ACTIVITIES: list[dict[str, str]] = [
         ),
     },
     {
+        "id": "call",
+        "name": "call",
+        "description": "a call you have planned",
+        "icon": "📞",
+        "instructions": "Scheduled events emitted by talent/schedule.md; not detected from sense data.",
+    },
+    {
+        "id": "deadline",
+        "name": "deadline",
+        "description": "a deadline you are working toward",
+        "icon": "⏰",
+        "instructions": "Scheduled events emitted by talent/schedule.md; not detected from sense data.",
+    },
+    {
+        "id": "appointment",
+        "name": "appointment",
+        "description": "an appointment on your calendar",
+        "icon": "📌",
+        "instructions": "Scheduled events emitted by talent/schedule.md; not detected from sense data.",
+    },
+    {
+        "id": "event",
+        "name": "event",
+        "description": "an event you plan to attend",
+        "icon": "🎟️",
+        "instructions": "Scheduled events emitted by talent/schedule.md; not detected from sense data.",
+    },
+    {
+        "id": "travel",
+        "name": "travel",
+        "description": "travel you have planned",
+        "icon": "✈️",
+        "instructions": "Scheduled events emitted by talent/schedule.md; not detected from sense data.",
+    },
+    {
+        "id": "reminder",
+        "name": "reminder",
+        "description": "a reminder for something upcoming",
+        "icon": "🔔",
+        "instructions": "Scheduled events emitted by talent/schedule.md; not detected from sense data.",
+    },
+    {
+        "id": "errand",
+        "name": "errand",
+        "description": "an errand you plan to do",
+        "icon": "🧾",
+        "instructions": "Scheduled events emitted by talent/schedule.md; not detected from sense data.",
+    },
+    {
+        "id": "celebration",
+        "name": "celebration",
+        "description": "a celebration on the calendar",
+        "icon": "🎉",
+        "instructions": "Scheduled events emitted by talent/schedule.md; not detected from sense data.",
+    },
+    {
+        "id": "doctor_appointment",
+        "name": "doctor appointment",
+        "description": "a medical appointment on your calendar",
+        "icon": "🩺",
+        "instructions": "Scheduled events emitted by talent/schedule.md; not detected from sense data.",
+    },
+    {
         "id": "coding",
         "name": "Coding",
         "description": "Programming, code review, and debugging",
@@ -425,6 +488,14 @@ def save_facet_activities(facet: str, activities: list[dict[str, Any]]) -> None:
         entries.append(entry)
 
     _save_activities_jsonl(facet, entries)
+
+
+def get_default_activity_by_id(activity_id: str) -> dict[str, Any] | None:
+    """Look up a predefined default activity by ID."""
+    for activity in DEFAULT_ACTIVITIES:
+        if activity.get("id") == activity_id:
+            return dict(activity)
+    return None
 
 
 def get_activity_by_id(facet: str, activity_id: str) -> dict[str, Any] | None:

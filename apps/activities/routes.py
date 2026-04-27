@@ -6,12 +6,21 @@ from __future__ import annotations
 import calendar
 import os
 from datetime import date, datetime
+from pathlib import Path
 from typing import Any
 
 from flask import Blueprint, jsonify, redirect, render_template, request, url_for
 
+from convey import state
 from convey.utils import DATE_RE, format_date
 from observe.utils import VIDEO_EXTENSIONS
+from think.activities import (
+    estimate_duration_minutes,
+    get_activity_by_id,
+    get_default_activity_by_id,
+    load_activity_records,
+)
+from think.facets import get_facets
 from think.utils import day_path, iter_segments, segment_parse
 from think.utils import segment_path as get_segment_path
 
@@ -20,6 +29,8 @@ activities_bp = Blueprint(
     __name__,
     url_prefix="/app/activities",
 )
+
+_GENERIC_ACTIVITY_ICON = "\U0001f5d3"
 
 
 @activities_bp.route("/")
@@ -45,9 +56,6 @@ def activities_day(day: str) -> str:
 
 
 def _month_activity_counts(month: str) -> dict[str, dict[str, int]]:
-    from think.activities import load_activity_records
-    from think.facets import get_facets
-
     year = int(month[:4])
     month_num = int(month[4:6])
     _, days_in_month = calendar.monthrange(year, month_num)
@@ -79,30 +87,102 @@ def activities_stats(month: str) -> Any:
         return jsonify({"error": "Invalid month format, expected YYYYMM"}), 400
 
 
+def _enrich_activity_record(
+    record: dict[str, Any],
+    facet: str,
+    day: str,
+) -> dict[str, Any] | None:
+    activity_type = record.get("activity", "")
+    activity_def = get_activity_by_id(facet, activity_type)
+    if activity_def is None:
+        activity_def = get_default_activity_by_id(activity_type)
+
+    name = activity_def.get("name", activity_type) if activity_def else activity_type
+    icon = activity_def.get("icon", "") if activity_def else ""
+    if not icon:
+        icon = _GENERIC_ACTIVITY_ICON
+
+    segments = record.get("segments", [])
+    start_time = end_time = None
+    duration_minutes: int | None = None
+
+    if record.get("source") == "anticipated":
+        start = record.get("start")
+        end = record.get("end")
+        if start:
+            start_time = f"{day[:4]}-{day[4:6]}-{day[6:]}T{start}"
+        if end:
+            end_time = f"{day[:4]}-{day[4:6]}-{day[6:]}T{end}"
+        if start and end:
+            start_h, start_m, start_s = (int(part) for part in start.split(":"))
+            end_h, end_m, end_s = (int(part) for part in end.split(":"))
+            delta_seconds = (
+                end_h * 3600
+                + end_m * 60
+                + end_s
+                - (start_h * 3600 + start_m * 60 + start_s)
+            )
+            if delta_seconds >= 0:
+                duration_minutes = delta_seconds // 60
+    else:
+        if segments:
+            first_start, _ = segment_parse(segments[0])
+            _, last_end = segment_parse(segments[-1])
+            if first_start:
+                start_time = (
+                    f"{day[:4]}-{day[4:6]}-{day[6:]}T{first_start.strftime('%H:%M:%S')}"
+                )
+            if last_end:
+                end_time = (
+                    f"{day[:4]}-{day[4:6]}-{day[6:]}T{last_end.strftime('%H:%M:%S')}"
+                )
+        computed_minutes = estimate_duration_minutes(segments)
+        if computed_minutes >= 0:
+            duration_minutes = computed_minutes
+
+    outputs = []
+    journal_root = Path(state.journal_root)
+    output_dir = journal_root / "facets" / facet / "activities" / day / record["id"]
+    if output_dir.is_dir():
+        for f in sorted(output_dir.iterdir()):
+            if f.is_file():
+                rel = f.relative_to(journal_root)
+                outputs.append({"filename": f.name, "path": str(rel)})
+
+    enriched = {
+        "id": record["id"],
+        "activity": activity_type,
+        "name": name,
+        "icon": icon,
+        "facet": facet,
+        "description": record.get("description", ""),
+        "level_avg": record.get("level_avg", 0.5),
+        "segments": segments,
+        "active_entities": record.get("active_entities", []),
+        "outputs": outputs,
+    }
+    if start_time:
+        enriched["startTime"] = start_time
+    if end_time:
+        enriched["endTime"] = end_time
+    if duration_minutes is not None:
+        enriched["duration_minutes"] = duration_minutes
+
+    return enriched
+
+
 @activities_bp.route("/api/day/<day>/activities")
 def activities_day_activities(day: str) -> Any:
     """Return enriched activity records for a specific day.
 
-    Loads activity records from all facets (or a single facet if ``facet``
-    query param is set), enriches each with activity metadata (name, icon),
-    computed timing from segment keys, and lists any output files.
+    Returns enriched activity records: timing comes from ``start``/``end`` for
+    anticipated records and from segment keys for realized records.
 
     Returns JSON array of activity objects.
     """
     if not DATE_RE.fullmatch(day):
         return jsonify({"error": "Invalid day format"}), 400
 
-    from pathlib import Path
-
-    from convey import state
-    from think.activities import (
-        estimate_duration_minutes,
-        get_activity_by_id,
-        load_activity_records,
-    )
-    from think.facets import get_facets
-
-    journal_root = state.journal_root
     facet_filter = request.args.get("facet")
 
     if facet_filter:
@@ -110,73 +190,17 @@ def activities_day_activities(day: str) -> Any:
     else:
         facet_names = list(get_facets().keys())
 
-    result = []
+    enriched_records = []
     for facet in facet_names:
         records = load_activity_records(facet, day)
         for record in records:
-            activity_type = record.get("activity", "")
-            activity_def = get_activity_by_id(facet, activity_type)
-
-            # Derive start/end times from first/last segment keys
-            segments = record.get("segments", [])
-            start_time = end_time = None
-            if segments:
-                first_start, _ = segment_parse(segments[0])
-                _, last_end = segment_parse(segments[-1])
-                if first_start:
-                    start_time = (
-                        f"{day[:4]}-{day[4:6]}-{day[6:]}T"
-                        f"{first_start.strftime('%H:%M:%S')}"
-                    )
-                if last_end:
-                    end_time = (
-                        f"{day[:4]}-{day[4:6]}-{day[6:]}T"
-                        f"{last_end.strftime('%H:%M:%S')}"
-                    )
-
-            # Scan for output files
-            outputs = []
-            output_dir = (
-                Path(journal_root)
-                / "facets"
-                / facet
-                / "activities"
-                / day
-                / record["id"]
-            )
-            if output_dir.is_dir():
-                for f in sorted(output_dir.iterdir()):
-                    if f.is_file():
-                        rel = f.relative_to(journal_root)
-                        outputs.append({"filename": f.name, "path": str(rel)})
-
-            enriched = {
-                "id": record["id"],
-                "activity": activity_type,
-                "name": (
-                    activity_def.get("name", activity_type)
-                    if activity_def
-                    else activity_type
-                ),
-                "icon": activity_def.get("icon", "") if activity_def else "",
-                "facet": facet,
-                "description": record.get("description", ""),
-                "level_avg": record.get("level_avg", 0.5),
-                "duration_minutes": estimate_duration_minutes(segments),
-                "segments": segments,
-                "active_entities": record.get("active_entities", []),
-                "outputs": outputs,
-            }
-            if start_time:
-                enriched["startTime"] = start_time
-            if end_time:
-                enriched["endTime"] = end_time
-
-            result.append(enriched)
+            enriched = _enrich_activity_record(record, facet, day)
+            if enriched is not None:
+                enriched_records.append(enriched)
 
     # Sort by start time (activities without times go last)
-    result.sort(key=lambda a: a.get("startTime", "z"))
-    return jsonify(result)
+    enriched_records.sort(key=lambda a: a.get("startTime", "z"))
+    return jsonify(enriched_records)
 
 
 @activities_bp.route("/api/activity_output/<path:filename>")
@@ -186,10 +210,6 @@ def activities_activity_output(filename: str) -> Any:
     Only serves files under ``facets/`` in the journal directory.
     Returns JSON with content, format, and filename.
     """
-    from pathlib import Path
-
-    from convey import state
-
     if not filename.startswith("facets/"):
         return jsonify(error="Invalid path"), 400
 
