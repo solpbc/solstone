@@ -89,7 +89,8 @@ def support_feedback(
     product: str = "solstone",
     portal_url: str | None = None,
     anonymous: bool = False,
-) -> dict[str, Any]:
+    user_email: str | None = None,
+) -> dict[str, object]:
     """Submit feedback (lower-friction path).
 
     Feedback is a ticket with ``category="feedback"`` and low severity.
@@ -100,6 +101,7 @@ def support_feedback(
         product=product,
         severity="low",
         category="feedback",
+        user_email=user_email,
         portal_url=portal_url,
         anonymous=anonymous,
     )

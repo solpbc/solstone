@@ -59,3 +59,82 @@ def test_badge_count_error_returns_500(support_client, monkeypatch):
 
     assert resp.status_code == 500
     assert "error" in resp.get_json()
+
+
+def test_feedback_anonymous_no_email_kwarg(support_client, monkeypatch):
+    captured: list[dict] = []
+
+    def recorder(**kwargs):
+        captured.append(kwargs)
+        return {"ok": True, "ticket_id": "t1"}
+
+    monkeypatch.setattr("apps.support.routes._enabled", lambda: True)
+    monkeypatch.setattr("apps.support.tools.support_feedback", recorder)
+
+    resp = support_client.post(
+        "/app/support/api/feedback", json={"body": "hi", "anonymous": True}
+    )
+
+    assert resp.status_code == 201
+    assert len(captured) == 1
+    assert "user_email" not in captured[0]
+
+
+def test_feedback_identified_forwards_email(support_client, monkeypatch):
+    captured: list[dict] = []
+
+    def recorder(**kwargs):
+        captured.append(kwargs)
+        return {"ok": True, "ticket_id": "t1"}
+
+    monkeypatch.setattr("apps.support.routes._enabled", lambda: True)
+    monkeypatch.setattr("apps.support.tools.support_feedback", recorder)
+
+    resp = support_client.post(
+        "/app/support/api/feedback",
+        json={"body": "hi", "anonymous": False, "user_email": "a@b.com"},
+    )
+
+    assert resp.status_code == 201
+    assert len(captured) == 1
+    assert captured[0]["user_email"] == "a@b.com"
+
+
+def test_feedback_anonymous_drops_smuggled_email(support_client, monkeypatch):
+    captured: list[dict] = []
+
+    def recorder(**kwargs):
+        captured.append(kwargs)
+        return {"ok": True, "ticket_id": "t1"}
+
+    monkeypatch.setattr("apps.support.routes._enabled", lambda: True)
+    monkeypatch.setattr("apps.support.tools.support_feedback", recorder)
+
+    resp = support_client.post(
+        "/app/support/api/feedback",
+        json={"body": "hi", "anonymous": True, "user_email": "smug@x.com"},
+    )
+
+    assert resp.status_code == 201
+    assert len(captured) == 1
+    assert "user_email" not in captured[0]
+
+
+def test_feedback_identified_empty_email_omits_kwarg(support_client, monkeypatch):
+    captured: list[dict] = []
+
+    def recorder(**kwargs):
+        captured.append(kwargs)
+        return {"ok": True, "ticket_id": "t1"}
+
+    monkeypatch.setattr("apps.support.routes._enabled", lambda: True)
+    monkeypatch.setattr("apps.support.tools.support_feedback", recorder)
+
+    resp = support_client.post(
+        "/app/support/api/feedback",
+        json={"body": "hi", "anonymous": False, "user_email": "   "},
+    )
+
+    assert resp.status_code == 201
+    assert len(captured) == 1
+    assert "user_email" not in captured[0]

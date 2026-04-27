@@ -194,11 +194,19 @@ def submit_feedback() -> Any:
     try:
         from apps.support.tools import support_feedback
 
-        result = support_feedback(
-            body=body,
-            product=payload.get("product", "solstone"),
-            anonymous=payload.get("anonymous", False),
-        )
+        product = payload.get("product", "solstone")
+        anonymous = bool(payload.get("anonymous"))
+        feedback_kwargs: dict[str, object] = {
+            "body": body,
+            "product": product,
+            "anonymous": anonymous,
+        }
+        if not anonymous:
+            raw_email = (payload.get("user_email") or "").strip()
+            if raw_email:
+                feedback_kwargs["user_email"] = raw_email
+
+        result = support_feedback(**feedback_kwargs)
         return jsonify(result), 201
     except Exception as exc:
         logger.exception("Failed to submit feedback")

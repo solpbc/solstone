@@ -137,6 +137,31 @@
     margin-bottom: 0.5rem;
     font-size: 0.85rem;
   }
+  .support-feedback-email-row {
+    margin-bottom: 0.75rem;
+  }
+  .support-feedback-email-row input {
+    width: 100%;
+    padding: 0.65rem 0.75rem;
+    border: 1px solid var(--facet-border, #e5e0db);
+    border-radius: 6px;
+    font: inherit;
+    box-sizing: border-box;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .support-feedback-email-row input:hover { border-color: #bbb; }
+  .support-feedback-email-row input:focus {
+    outline: none;
+    border-color: var(--facet-color, #3b82f6);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+  }
+  .support-feedback-email-row .support-field-error:not(:empty) { display: block; }
+  .support-feedback-email-hint {
+    display: block;
+    margin-top: 0.35rem;
+    color: #666;
+    font-size: 0.8rem;
+  }
 
   /* Help */
   .support-help-card {
@@ -525,7 +550,16 @@
           <textarea id="feedback-text" placeholder="what's on your mind?" required></textarea>
           <div class="support-field-error" id="feedback-error">please write something before sending</div>
           <div class="support-feedback-options">
-            <label><input type="checkbox" id="feedback-anonymous"> Submit anonymously</label>
+            <label><input type="checkbox" id="feedback-anonymous" checked> Submit anonymously</label>
+          </div>
+          <div class="support-feedback-email-row" id="feedback-email-row" hidden>
+            <label for="feedback-email">your email</label>
+            <input type="email" id="feedback-email" autocomplete="email" required>
+            <div class="support-field-error" id="feedback-email-error"></div>
+            <small class="support-feedback-email-hint">
+              we never use your email for anything beyond replying — see our
+              <a href="https://solpbc.org/privacy" target="_blank" rel="noopener">privacy policy</a>.
+            </small>
           </div>
           <button class="support-btn" id="feedback-submit" type="submit">send feedback</button>
           <span class="support-keyboard-hint">ctrl+enter to send</span>
@@ -970,29 +1004,67 @@
   const feedbackForm = document.getElementById('feedback-form');
   const feedbackError = document.getElementById('feedback-error');
   const feedbackTextEl = document.getElementById('feedback-text');
+  const feedbackAnonymous = document.getElementById('feedback-anonymous');
+  const feedbackEmailRow = document.getElementById('feedback-email-row');
+  const feedbackEmailInput = document.getElementById('feedback-email');
+  const feedbackEmailError = document.getElementById('feedback-email-error');
+  feedbackAnonymous.addEventListener('change', () => {
+    if (feedbackAnonymous.checked) {
+      feedbackEmailRow.hidden = true;
+      feedbackEmailInput.value = '';
+      feedbackEmailError.textContent = '';
+    } else {
+      feedbackEmailRow.hidden = false;
+      feedbackEmailInput.focus();
+    }
+  });
   feedbackForm.addEventListener('submit', async e => {
     e.preventDefault();
     const text = feedbackTextEl.value.trim();
     if (!text) {
+      feedbackError.textContent = 'please write something before sending';
       feedbackError.style.display = 'block';
       feedbackTextEl.focus();
       return;
     }
     feedbackError.style.display = 'none';
-    const anon = document.getElementById('feedback-anonymous').checked;
+    feedbackEmailError.textContent = '';
+    let email = '';
+    if (!feedbackAnonymous.checked) {
+      email = feedbackEmailInput.value.trim();
+      if (!email) {
+        feedbackEmailError.textContent = 'enter an email or check submit anonymously';
+        feedbackEmailInput.focus();
+        return;
+      }
+      if (!feedbackEmailInput.checkValidity()) {
+        feedbackEmailError.textContent = "that doesn't look like a valid email";
+        feedbackEmailInput.focus();
+        return;
+      }
+    }
     const status = document.getElementById('feedback-status');
     document.getElementById('feedback-submit').disabled = true;
+    const payload = {body: text, anonymous: feedbackAnonymous.checked};
+    if (!feedbackAnonymous.checked) {
+      payload.user_email = email;
+    }
 
     try {
       const resp = await fetch('/app/support/api/feedback', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({body: text, anonymous: anon})
+        body: JSON.stringify(payload)
       });
       if (resp.ok) {
+        feedbackTextEl.value = '';
+        feedbackAnonymous.checked = true;
+        feedbackEmailRow.hidden = true;
+        feedbackEmailInput.value = '';
+        feedbackEmailError.textContent = '';
+        feedbackError.textContent = '';
         status.textContent = 'thanks for your feedback!';
         status.className = 'support-status-msg success';
-        feedbackTextEl.value = '';
       } else {
         throw new Error('Failed');
       }
@@ -1004,6 +1076,9 @@
   });
   feedbackTextEl.addEventListener('input', () => {
     feedbackError.style.display = 'none';
+  });
+  feedbackEmailInput.addEventListener('input', () => {
+    feedbackEmailError.textContent = '';
   });
   feedbackTextEl.addEventListener('keydown', e => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
