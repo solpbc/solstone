@@ -648,6 +648,9 @@
 
       list.innerHTML = tickets.map(t => {
         const statusClass = 'support-status-' + (t.status || 'open').replace(/[^a-z-]/g, '');
+        const createdAt = t.created_at
+          ? `${relativeTime(Date.now() - new Date(t.created_at + (t.created_at.includes('Z') ? '' : 'Z')).getTime())} ago`
+          : '';
         return `<div class="support-ticket" data-id="${t.id}" tabindex="0" role="button">
           <div class="support-ticket-header">
             <span class="support-ticket-subject">${esc(t.subject || 'Untitled')}</span>
@@ -656,7 +659,7 @@
           <div class="support-ticket-meta">
             <span class="support-ticket-id">#${t.id}</span> &middot;
             ${esc(t.product || '')} &middot;
-            ${timeAgo(t.created_at)}
+            ${createdAt}
           </div>
         </div>`;
       }).join('');
@@ -711,11 +714,14 @@
     try {
       const t = await window.apiJson('/app/support/api/tickets/' + encodeURIComponent(id));
       const statusClass = 'support-status-' + (t.status || 'open').replace(/[^a-z-]/g, '');
+      const createdAt = t.created_at
+        ? `${relativeTime(Date.now() - new Date(t.created_at + (t.created_at.includes('Z') ? '' : 'Z')).getTime())} ago`
+        : '';
 
       let html = `
         <button class="support-detail-back" id="back-to-list">&larr; back to tickets</button>
         <h2>${esc(t.subject || 'Untitled')} <span class="support-status ${statusClass}">${esc(t.status || 'open')}</span></h2>
-        <div class="support-ticket-meta">#${t.id} &middot; ${esc(t.product || '')} &middot; ${esc(t.severity || '')} &middot; ${timeAgo(t.created_at)}</div>
+        <div class="support-ticket-meta">#${t.id} &middot; ${esc(t.product || '')} &middot; ${esc(t.severity || '')} &middot; ${createdAt}</div>
         <div class="support-message" style="margin-top:1rem;">
           <p>${esc(t.description || '')}</p>
         </div>`;
@@ -724,6 +730,9 @@
       if (msgs.length) {
         html += '<h3 style="margin-top:1.5rem;">thread</h3>';
         msgs.forEach(m => {
+          const messageCreatedAt = m.created_at
+            ? `${relativeTime(Date.now() - new Date(m.created_at + (m.created_at.includes('Z') ? '' : 'Z')).getTime())} ago`
+            : '';
           let attachHtml = '';
           const atts = m.attachments || [];
           if (atts.length) {
@@ -734,7 +743,7 @@
             attachHtml += '</div>';
           }
           html += `<div class="support-message">
-            <div class="support-message-meta">${esc(m.handle || 'unknown')} &middot; ${timeAgo(m.created_at)}</div>
+            <div class="support-message-meta">${esc(m.handle || 'unknown')} &middot; ${messageCreatedAt}</div>
             <p>${esc(m.content || '')}</p>
             ${attachHtml}
           </div>`;
@@ -1064,17 +1073,6 @@
       el.textContent = msg;
       el.className = 'support-status-msg ' + type;
     }
-  }
-
-  function timeAgo(dateStr) {
-    if (!dateStr) return '';
-    const now = Date.now();
-    const then = new Date(dateStr + (dateStr.includes('Z') ? '' : 'Z')).getTime();
-    const s = Math.floor((now - then) / 1000);
-    if (s < 60) return 'just now';
-    if (s < 3600) return Math.floor(s / 60) + 'm ago';
-    if (s < 86400) return Math.floor(s / 3600) + 'h ago';
-    return Math.floor(s / 86400) + 'd ago';
   }
 
   // Diagnostics

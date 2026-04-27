@@ -1552,7 +1552,7 @@
     }
 
     if (state.lastAgentFinishTs) {
-      const ago = formatElapsed(Math.floor((Date.now() - state.lastAgentFinishTs) / 1000));
+      const ago = relativeTime(Date.now() - state.lastAgentFinishTs);
       const el = ensureChild(idx++);
       el.textContent = 'last agent finished ' + ago + ' ago';
       el.style.color = '';
@@ -1655,7 +1655,7 @@
       }
 
       const icon = e.type === 'agent' ? '⚙' : e.type === 'import' ? '↓' : '⚠';
-      const ago = formatElapsed(Math.floor((Date.now() - e.ts) / 1000));
+      const ago = relativeTime(Date.now() - e.ts);
       const info = row.children[0];
       info.textContent = '';
       info.appendChild(document.createTextNode(icon + ' '));
@@ -2301,7 +2301,7 @@
     if (!observer.last_seen) return 'never seen';
     const deltaMs = Date.now() - observer.last_seen;
     if (deltaMs < 0) return 'last seen from future';
-    return `last seen ${formatElapsed(Math.floor(deltaMs / 1000))} ago`;
+    return `last seen ${relativeTime(deltaMs)} ago`;
   }
 
   function renderRegisteredObservers(observers) {
@@ -3122,14 +3122,15 @@
       return;
     }
     const ago = Math.floor((Date.now() - state.lastEventTs) / 1000);
+    const agoText = relativeTime(ago * 1000);
     if (ago >= 60) {
-      el.textContent = `⚠ Disconnected (${formatElapsed(ago)})`;
+      el.textContent = `⚠ Disconnected (${agoText})`;
       el.className = 'connection-indicator disconnected';
     } else if (ago >= 30) {
-      el.textContent = `Stale (${formatElapsed(ago)})`;
+      el.textContent = `Stale (${agoText})`;
       el.className = 'connection-indicator stale';
     } else {
-      el.textContent = `Updated ${formatElapsed(ago)} ago`;
+      el.textContent = `Updated ${agoText} ago`;
       el.className = 'connection-indicator';
     }
   }

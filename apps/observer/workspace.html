@@ -582,8 +582,14 @@ function emptyStateHTML() {
 }
 
 function statsHTML(observer, statusClass) {
+  const lastSeenBase = observer.last_seen ? `${relativeTime(Date.now() - observer.last_seen)} ago` : 'never';
+  const lastSeen = statusClass === 'stale'
+    ? `${lastSeenBase} — stale`
+    : statusClass === 'disconnected'
+      ? `${lastSeenBase} — offline`
+      : lastSeenBase;
   return `<dl>
-    <div><dt>Last seen</dt><dd data-last-seen="${observer.last_seen || ''}" data-state="${statusClass}">${formatTimeAgo(observer.last_seen, statusClass)}</dd></div>
+    <div><dt>Last seen</dt><dd data-last-seen="${observer.last_seen || ''}" data-state="${statusClass}">${lastSeen}</dd></div>
     <div><dt>Segments (5-min chunks)</dt><dd>${observer.stats?.segments_received ?? 0}</dd></div>
     <div><dt>Data</dt><dd>${formatBytes(observer.stats?.bytes_received || 0)}</dd></div>
   </dl>`;
@@ -721,19 +727,6 @@ function formatBytes(bytes) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
-function formatTimeAgo(timestamp, state) {
-  if (!timestamp) return 'never';
-  const seconds = Math.floor((Date.now() - timestamp) / 1000);
-  let text;
-  if (seconds < 60) text = 'just now';
-  else if (seconds < 3600) text = `${Math.floor(seconds / 60)} min ago`;
-  else if (seconds < 86400) text = `${Math.floor(seconds / 3600)} hours ago`;
-  else text = `${Math.floor(seconds / 86400)} days ago`;
-  if (state === 'stale') return `${text} — stale`;
-  if (state === 'disconnected') return `${text} — offline`;
-  return text;
-}
-
 async function loadObservers() {
   lastPollTime = Date.now();
   if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
@@ -797,7 +790,13 @@ function refreshTimestamps() {
   for (const span of spans) {
     const lastSeen = parseInt(span.getAttribute('data-last-seen'), 10);
     if (!lastSeen) continue;
-    span.textContent = formatTimeAgo(lastSeen, span.getAttribute('data-state'));
+    const text = `${relativeTime(Date.now() - lastSeen)} ago`;
+    const state = span.getAttribute('data-state');
+    span.textContent = state === 'stale'
+      ? `${text} — stale`
+      : state === 'disconnected'
+        ? `${text} — offline`
+        : text;
   }
 }
 

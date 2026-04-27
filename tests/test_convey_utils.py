@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-from convey.utils import format_date, format_date_short, time_since
+import math
+
+from convey.utils import format_date, format_date_short, relative_time, time_since
 from think.utils import day_path
 
 
@@ -48,6 +50,35 @@ def test_format_date_short(monkeypatch):
 def test_time_since(monkeypatch):
     monkeypatch.setattr("time.time", lambda: 120)
     assert time_since(60) == "1 minute ago"
+
+
+def test_relative_time():
+    cases = [
+        (-1, "0 seconds"),
+        (math.inf, "0 seconds"),
+        (0, "0 seconds"),
+        (1, "1 second"),
+        (59, "59 seconds"),
+        (60, "1 minute"),
+        (119, "1 minute"),
+        (120, "2 minutes"),
+        (3599, "59 minutes"),
+        (3600, "1 hour"),
+        (7199, "1 hour"),
+        (7200, "2 hours"),
+        (86399, "23 hours"),
+        (86400, "1 day"),
+        (604799, "6 days"),
+        (604800, "1 week"),
+        (1209600, "2 weeks"),
+        (2419199, "3 weeks"),
+        (2419200, "1 month"),
+        (5183999, "1 month"),
+        (5184000, "2 months"),
+        (31536000, "12 months"),
+    ]
+    for seconds, expected in cases:
+        assert relative_time(seconds) == expected
 
 
 def test_list_day_folders(tmp_path, monkeypatch):

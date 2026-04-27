@@ -19,7 +19,7 @@ from flask import Blueprint, jsonify, render_template
 
 from convey.apps import _resolve_attention
 from convey.bridge import get_cached_state
-from convey.utils import DATE_RE, format_date
+from convey.utils import DATE_RE, format_date, relative_time
 from think import skills as think_skills
 from think.awareness import get_current
 from think.capture_health import get_capture_health
@@ -1095,12 +1095,7 @@ def _collect_routines() -> list[dict[str, Any]]:
                 continue
 
             delta = now - last_run_dt
-            if delta.total_seconds() < 60:
-                run_time_display = "just now"
-            elif delta.total_seconds() < 3600:
-                run_time_display = f"{int(delta.total_seconds() / 60)}m ago"
-            else:
-                run_time_display = f"{int(delta.total_seconds() / 3600)}h ago"
+            run_time_display = f"{relative_time(delta.total_seconds())} ago"
 
             routine_id = value.get("id", "")
             output_dir = journal / "routines" / routine_id
@@ -1299,14 +1294,7 @@ def _build_pulse_context() -> dict[str, Any]:
     if last_observe_ts:
         try:
             delta = now - datetime.fromtimestamp(last_observe_ts)
-            if delta.total_seconds() < 60:
-                last_observe_relative = "just now"
-            elif delta.total_seconds() < 3600:
-                mins = int(delta.total_seconds() / 60)
-                last_observe_relative = f"{mins}m ago"
-            else:
-                hours = int(delta.total_seconds() / 3600)
-                last_observe_relative = f"{hours}h ago"
+            last_observe_relative = f"{relative_time(delta.total_seconds())} ago"
         except Exception:
             logger.warning(
                 "home: failed to compute last_observe_relative", exc_info=True

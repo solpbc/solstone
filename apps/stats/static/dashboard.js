@@ -50,17 +50,6 @@ const Dashboard = (function() {
     return String(Math.round(value));
   }
 
-  function fmtRelativeTime(isoString) {
-    const seconds = Math.floor((Date.now() - new Date(isoString).getTime()) / 1000);
-    if (seconds < 60) return 'just now';
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return minutes + (minutes === 1 ? ' minute ago' : ' minutes ago');
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return hours + (hours === 1 ? ' hour ago' : ' hours ago');
-    const days = Math.floor(hours / 24);
-    return days + (days === 1 ? ' day ago' : ' days ago');
-  }
-
   function fmtDay(raw) {
     const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     if (raw.length === 8) {
@@ -591,7 +580,7 @@ const Dashboard = (function() {
     const freshnessEl = document.getElementById('statsFreshness');
     if (freshnessEl) {
       freshnessEl.textContent = stats.generated_at
-        ? 'Stats generated ' + fmtRelativeTime(stats.generated_at)
+        ? 'Stats generated ' + relativeTime(Date.now() - new Date(stats.generated_at).getTime()) + ' ago'
         : '';
       const refreshLink = el('a', {
         className: 'stats-refresh',

@@ -14,6 +14,7 @@ import time
 
 import typer
 
+from convey.utils import relative_time
 from think.link.auth import AuthorizedClients
 from think.link.ca import generate_nonce, load_or_generate_ca
 from think.link.nonces import NONCE_TTL_SECONDS, NonceStore
@@ -65,16 +66,8 @@ def _relative_time(iso: str | None) -> str:
     except ValueError:
         return iso
     now = dt.datetime.now(dt.UTC)
-    delta = (now - then).total_seconds()
-    if delta < 15:
-        return "just now"
-    if delta < 60:
-        return f"{int(delta)} seconds ago"
-    if delta < 3600:
-        return f"{int(delta // 60)} minutes ago"
-    if delta < 86400:
-        return f"{int(delta // 3600)} hours ago"
-    return f"{int(delta // 86400)} days ago"
+    delta_seconds = max(0, (now - then).total_seconds())
+    return f"{relative_time(delta_seconds)} ago"
 
 
 @app.command()

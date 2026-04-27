@@ -2,6 +2,7 @@
 # Copyright (c) 2026 sol pbc
 
 import json
+import math
 import re
 import time
 from datetime import datetime
@@ -64,22 +65,37 @@ def format_date_short(date_str: str) -> str:
         return date_str
 
 
-def time_since(epoch: int) -> str:
-    """Return short human readable age for ``epoch`` seconds."""
-    seconds = int(time.time() - epoch)
+def _plural(value: int, unit: str) -> str:
+    return f"{value} {unit}{'s' if value != 1 else ''}"
+
+
+def relative_time(seconds: int | float) -> str:
+    """Return canonical human readable duration for ``seconds``."""
+    if not math.isfinite(seconds) or seconds < 0:
+        seconds = 0
+    seconds = int(seconds)
     if seconds < 60:
-        return f"{seconds} seconds ago"
+        return _plural(seconds, "second")
     minutes = seconds // 60
     if minutes < 60:
-        return f"{minutes} minute{'s' if minutes != 1 else ''} ago"
+        return _plural(minutes, "minute")
     hours = minutes // 60
     if hours < 24:
-        return f"{hours} hour{'s' if hours != 1 else ''} ago"
+        return _plural(hours, "hour")
     days = hours // 24
     if days < 7:
-        return f"{days} day{'s' if days != 1 else ''} ago"
-    weeks = days // 7
-    return f"{weeks} week{'s' if weeks != 1 else ''} ago"
+        return _plural(days, "day")
+    if days < 28:
+        return _plural(days // 7, "week")
+    if days < 60:
+        return "1 month"
+    return _plural(days // 30, "month")
+
+
+def time_since(epoch: int) -> str:
+    """Return short human readable age for ``epoch`` seconds."""
+    delta_seconds = max(0, time.time() - epoch)
+    return f"{relative_time(delta_seconds)} ago"
 
 
 def spawn_agent(

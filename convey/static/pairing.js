@@ -100,10 +100,16 @@
 
       const details = document.createElement("p");
       details.className = "pairing-device-details";
+      const pairedAt = device.paired_at
+        ? `${relativeTime(Date.now() - new Date(device.paired_at).getTime())} ago`
+        : "unknown";
+      const lastSeenAt = device.last_seen_at
+        ? `${relativeTime(Date.now() - new Date(device.last_seen_at).getTime())} ago`
+        : "never";
       details.textContent = [
         device.platform || "unknown",
-        `paired ${device.paired_at || "unknown"}`,
-        `last seen ${device.last_seen_at || "never"}`,
+        `paired ${pairedAt}`,
+        `last seen ${lastSeenAt}`,
       ].join(" · ");
       meta.appendChild(details);
 
