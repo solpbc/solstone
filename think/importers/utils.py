@@ -423,7 +423,78 @@ def get_import_details(
         except Exception:
             pass
 
+    imported_json = result.get("imported_json")
+    if (
+        isinstance(imported_json, dict)
+        and imported_json.get("merge_summary") is not None
+    ):
+        merge_log_path = imported_json.get("merge_log_path")
+        merge_staging_path = imported_json.get("merge_staging_path")
+        if merge_log_path and merge_staging_path:
+            result["merge_artifact_paths"] = {
+                "decisions": merge_log_path,
+                "staging": merge_staging_path,
+            }
+            decision_highlights = _load_decision_highlights(Path(merge_log_path))
+            if decision_highlights is not None:
+                result["decision_highlights"] = decision_highlights
+
+        summary_errors = imported_json.get("summary_errors")
+        if isinstance(summary_errors, list) and summary_errors:
+            result["summary_errors"] = summary_errors
+
     return result
+
+
+def _load_decision_highlights(decisions_path: Path) -> dict | None:
+    """Load selected decision-log rows for detail-view highlights."""
+    if not decisions_path.exists():
+        return None
+
+    staged_entities: list[dict[str, str]] = []
+    errored_segments: list[dict[str, str]] = []
+    qualifying_rows = 0
+
+    try:
+        with open(decisions_path, "r", encoding="utf-8") as handle:
+            for line in handle:
+                if qualifying_rows >= 50:
+                    break
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    row = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+
+                action = row.get("action")
+                if action == "entity_staged":
+                    staged_entities.append(
+                        {
+                            "source_name": row["source"]["name"],
+                            "target_name": row["target"]["name"],
+                            "staging_path": row["staging_path"],
+                        }
+                    )
+                    qualifying_rows += 1
+                elif action == "segment_errored":
+                    errored_segments.append(
+                        {
+                            "item_id": row["item_id"],
+                            "reason": row["reason"],
+                        }
+                    )
+                    qualifying_rows += 1
+    except FileNotFoundError:
+        return None
+
+    if not staged_entities and not errored_segments:
+        return None
+    return {
+        "staged_entities": staged_entities,
+        "errored_segments": errored_segments,
+    }
 
 
 def _backfill_item_type(source_type: str) -> str:

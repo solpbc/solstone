@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from think.importers.utils import (
+    _load_decision_highlights,
     build_import_info,
     calculate_duration_from_files,
     get_import_details,
@@ -324,3 +325,99 @@ def test_get_import_details_includes_segments(temp_journal):
 
     details = get_import_details(temp_journal, timestamp)
     assert details["segments_json"] == segments_data
+
+
+def test_load_decision_highlights_filters_and_caps(temp_journal):
+    decision_log = temp_journal / "journal.merge" / "run" / "decisions.jsonl"
+    decision_log.parent.mkdir(parents=True)
+
+    rows = [
+        '{"action":"ignored","item_id":"skip-me"}',
+        "not json at all",
+    ]
+    for idx in range(30):
+        rows.append(
+            json.dumps(
+                {
+                    "action": "entity_staged",
+                    "item_id": f"entity-{idx}",
+                    "source": {"name": f"Source {idx}"},
+                    "target": {"name": f"Target {idx}"},
+                    "staging_path": f"/tmp/staging/entity-{idx}/entity.json",
+                }
+            )
+        )
+    for idx in range(30):
+        rows.append(
+            json.dumps(
+                {
+                    "action": "segment_errored",
+                    "item_id": f"20260101/default/{idx:06d}_300",
+                    "reason": f"segment failure {idx}",
+                }
+            )
+        )
+    decision_log.write_text("\n".join(rows) + "\n", encoding="utf-8")
+
+    highlights = _load_decision_highlights(decision_log)
+
+    assert highlights is not None
+    assert len(highlights["staged_entities"]) == 30
+    assert len(highlights["errored_segments"]) == 20
+    assert highlights["staged_entities"][0] == {
+        "source_name": "Source 0",
+        "target_name": "Target 0",
+        "staging_path": "/tmp/staging/entity-0/entity.json",
+    }
+    assert highlights["errored_segments"][0] == {
+        "item_id": "20260101/default/000000_300",
+        "reason": "segment failure 0",
+    }
+
+
+def test_load_decision_highlights_returns_none_without_qualifying_rows(temp_journal):
+    decision_log = temp_journal / "journal.merge" / "run" / "decisions.jsonl"
+    decision_log.parent.mkdir(parents=True)
+    decision_log.write_text(
+        "\n".join(
+            [
+                '{"action":"segment_copied","item_id":"20260101/default/090000_300"}',
+                "not json at all",
+                '{"action":"entity_created","item_id":"source_person"}',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    assert _load_decision_highlights(decision_log) is None
+
+
+def test_load_decision_highlights_propagates_non_missing_io_errors(
+    temp_journal, monkeypatch
+):
+    decision_log = temp_journal / "journal.merge" / "run" / "decisions.jsonl"
+    decision_log.parent.mkdir(parents=True)
+    decision_log.write_text(
+        json.dumps(
+            {
+                "action": "segment_errored",
+                "item_id": "20260101/default/090000_300",
+                "reason": "segment copy failed",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    real_open = open
+
+    def broken_open(path, *args, **kwargs):
+        if Path(path) == decision_log:
+            raise PermissionError("permission denied")
+        return real_open(path, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.open", broken_open)
+
+    with pytest.raises(PermissionError, match="permission denied"):
+        _load_decision_highlights(decision_log)
