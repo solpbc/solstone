@@ -28,6 +28,7 @@ def _run_nested(
     pytester: pytest.Pytester,
     env_overrides: dict[str, str | None] | None = None,
 ) -> subprocess.CompletedProcess[str]:
+    basetemp = pytester.path / "basetemp"
     env = os.environ.copy()
     env.pop("TMPDIR", None)
     env.pop("_SOLSTONE_TMPDIR_FALLBACK_NOTIFIED", None)
@@ -39,7 +40,16 @@ def _run_nested(
             else:
                 env[key] = value
     return subprocess.run(
-        [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider"],
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-q",
+            "-p",
+            "no:cacheprovider",
+            "--basetemp",
+            str(basetemp),
+        ],
         cwd=pytester.path,
         env=env,
         capture_output=True,
@@ -180,6 +190,8 @@ def test_subprocess_pytest_lands_in_var_tmp(pytester: pytest.Pytester) -> None:
             "-q",
             "-p",
             "no:cacheprovider",
+            "--basetemp",
+            str(pytester.path / "basetemp"),
             str(test_path),
         ],
         cwd=pytester.path,
