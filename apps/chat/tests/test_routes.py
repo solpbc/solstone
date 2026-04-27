@@ -99,7 +99,7 @@ def test_chat_day_renders_empty_state_for_today(journal_copy, monkeypatch):
 
     assert response.status_code == 200
     assert "no chat yet on this day" in html
-    assert 'id="chatComposerForm"' in html
+    assert 'id="chatBarForm"' in html
 
 
 def test_chat_day_renders_all_event_kinds(journal_copy, monkeypatch):
@@ -284,23 +284,16 @@ def test_chat_invalid_days_return_404(journal_copy, monkeypatch):
     assert env.client.get("/app/chat/20260101extra").status_code == 404
 
 
-def test_past_day_hides_composer(journal_copy, monkeypatch):
+def test_universal_chat_bar_renders_on_today_and_past_day(journal_copy, monkeypatch):
     today = "20990102"
     past_day = "20990101"
     _set_today(monkeypatch, today)
     env = _make_env(journal_copy, monkeypatch)
 
-    html = env.client.get(f"/app/chat/{past_day}").get_data(as_text=True)
+    today_html = env.client.get(f"/app/chat/{today}").get_data(as_text=True)
+    past_html = env.client.get(f"/app/chat/{past_day}").get_data(as_text=True)
 
-    assert 'id="chatComposerForm"' not in html
-    assert "past-day view" in html
-
-
-def test_today_shows_composer(journal_copy, monkeypatch):
-    today = "20990102"
-    _set_today(monkeypatch, today)
-    env = _make_env(journal_copy, monkeypatch)
-
-    html = env.client.get(f"/app/chat/{today}").get_data(as_text=True)
-
-    assert 'id="chatComposerForm"' in html
+    for html in (today_html, past_html):
+        assert 'id="chatBarForm"' in html
+        assert "past-day view" not in html
+        assert html.count('id="chatBarForm"') == 1

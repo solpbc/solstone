@@ -24,14 +24,6 @@
     {% endfor %}
   </ol>
 
-  {% if day == today_day %}
-    <form id="chatComposerForm" class="chat-composer">
-      <textarea id="chatComposerInput" rows="1" placeholder="{{ chat_bar_placeholder }}" aria-label="chat input"></textarea>
-      <button id="chatComposerSend" type="submit" aria-label="send">send</button>
-    </form>
-  {% else %}
-    <p class="chat-composer-past">past-day view — new messages go to <a href="{{ url_for('app:chat.day', day=today_day) }}">today</a></p>
-  {% endif %}
 </section>
 
 <style>
@@ -99,19 +91,6 @@
       live: target.dataset.talentStatus === 'active'
     });
   });
-
-  const form = document.getElementById('chatComposerForm');
-  if (form) {
-    const input = document.getElementById('chatComposerInput');
-    resizeComposer(input);
-    input.addEventListener('input', () => resizeComposer(input));
-    form.addEventListener('submit', (event) => {
-      event.preventDefault();
-      const text = (input.value || '').trim();
-      if (!text) return;
-      postChat(text, form);
-    });
-  }
 
   wireSearch();
 
@@ -366,32 +345,6 @@
     return card;
   }
 
-  async function postChat(text, formNode) {
-    const button = formNode.querySelector('button[type=submit]');
-    const input = formNode.querySelector('textarea');
-    button.disabled = true;
-    input.disabled = true;
-    try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: text,
-          app: 'chat',
-          path: window.location.pathname,
-          facet: window.selectedFacet || ''
-        })
-      });
-      if (!response.ok) throw new Error('chat post failed');
-      input.value = '';
-      resizeComposer(input);
-    } finally {
-      button.disabled = false;
-      input.disabled = false;
-      input.focus();
-    }
-  }
-
   function wireSearch() {
     if (!searchInput || !searchResults) return;
     searchInput.addEventListener('input', () => {
@@ -473,11 +426,6 @@
     });
 
     searchResults.appendChild(list);
-  }
-
-  function resizeComposer(input) {
-    input.style.height = 'auto';
-    input.style.height = Math.min(120, input.scrollHeight) + 'px';
   }
 
   function formatDay(ts) {
