@@ -129,7 +129,6 @@ def test_session_endpoint_reduces_from_chat_stream(chat_client, monkeypatch):
             "use_id": "1713626000001",
         }
     ]
-    assert chat_client.get(f"/api/chat/stream/{day}").status_code == 200
 
 
 def test_chat_session_retries_unresolved_trigger_when_idle(chat_client, monkeypatch):
@@ -187,49 +186,6 @@ def test_chat_session_retries_again_when_spawn_fails_and_trigger_remains_unresol
     assert len(starts) == 2
     assert starts[0]["trigger"]["type"] == "owner_message"
     assert starts[1]["trigger"]["type"] == "owner_message"
-
-
-def test_stream_endpoint_ordered_with_limit(chat_client):
-    start = _ms(2026, 4, 20, 12, 0, 0)
-    for index in range(4):
-        append_chat_event(
-            "owner_message",
-            ts=start + (index * 300_000),
-            text=f"m{index}",
-            app="sol",
-            path="/app/sol",
-            facet="work",
-        )
-
-    response = chat_client.get("/api/chat/stream/20260420?limit=2")
-    assert response.status_code == 200
-    payload = response.get_json()
-    assert [event["text"] for event in payload["events"]] == ["m2", "m3"]
-
-
-def test_result_endpoint_reads_stream_not_talent_log(chat_client, tmp_path):
-    use_id = str(_ms(2026, 4, 20, 12, 0, 0))
-    append_chat_event(
-        "sol_message",
-        ts=_ms(2026, 4, 20, 12, 0, 0),
-        use_id=use_id,
-        text="stream reply",
-        notes="done",
-        requested_target=None,
-        requested_task=None,
-    )
-
-    talents_dir = tmp_path / "journal" / "talents" / "chat"
-    talents_dir.mkdir(parents=True, exist_ok=True)
-    (talents_dir / f"{use_id}.jsonl").write_text(
-        '{"event":"finish","result":"log reply"}\n'
-    )
-
-    response = chat_client.get(f"/api/chat/result/{use_id}")
-    assert response.status_code == 200
-    payload = response.get_json()
-    assert payload["state"] == "finished"
-    assert payload["summary"] == "stream reply"
 
 
 def test_talent_log_endpoint_returns_completed_run(chat_client, tmp_path):

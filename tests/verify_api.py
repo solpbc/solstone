@@ -96,20 +96,6 @@ ENDPOINTS = [
         "params": {},
         "status": 200,
     },
-    {
-        "app": "chat",
-        "name": "stream",
-        "path": "/api/chat/stream/20260304",
-        "params": {"limit": "20"},
-        "status": 200,
-    },
-    {
-        "app": "chat",
-        "name": "result",
-        "path": "/api/chat/result/1700000000001",
-        "params": {},
-        "status": 404,
-    },
     # apps/activities/routes.py
     {
         "app": "activities",

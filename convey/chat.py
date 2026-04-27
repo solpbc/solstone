@@ -11,7 +11,6 @@ import json
 import logging
 import os
 import pprint
-import re
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -36,14 +35,11 @@ chat_bp = Blueprint("chat", __name__, url_prefix="/api/chat")
 
 MAX_ACTIVE_TALENTS = 2
 MAX_LOOP_RETRIES = 3
-DEFAULT_STREAM_LIMIT = 200
-MAX_STREAM_LIMIT = 1000
 _CHAT_WATCHDOG_SECONDS = 180
 MAX_ACTIVE_REASON = "max active — waiting for one to finish"
 CHAT_TROUBLE_REASON = "chat had trouble — try again"
 CHAT_WATCHDOG_REASON = "chat took too long — try again"
 
-_DAY_RE = re.compile(r"^\d{8}$")
 _state_lock = threading.Lock()
 _runtime_lock = threading.Lock()
 _current_chat_use_id: str | None = None
@@ -114,31 +110,6 @@ def chat_session() -> Any:
     """Return reduced state for today's chat stream."""
     _recover_chat_if_needed()
     return jsonify(reduce_chat_state(_today_day()))
-
-
-@chat_bp.route("/stream/<day>", methods=["GET"])
-def chat_stream(day: str) -> Any:
-    """Return ordered chat events for a day."""
-    if not _DAY_RE.fullmatch(day):
-        return error_response("day must be YYYYMMDD", 400)
-
-    limit_raw = request.args.get("limit", str(DEFAULT_STREAM_LIMIT))
-    try:
-        limit = int(limit_raw)
-    except (TypeError, ValueError):
-        limit = DEFAULT_STREAM_LIMIT
-    limit = max(1, min(limit, MAX_STREAM_LIMIT))
-
-    return jsonify(events=read_chat_events(day, limit=limit))
-
-
-@chat_bp.route("/result/<use_id>", methods=["GET"])
-def chat_result(use_id: str) -> Any:
-    """Return chat or exec state from the chat stream."""
-    result = _read_result_state(use_id)
-    if result is None:
-        return jsonify(error="not found"), 404
-    return jsonify(result)
 
 
 @chat_bp.route("/talent-log/<use_id>", methods=["GET"])
@@ -1057,58 +1028,6 @@ def _talent_terminal_trigger(
     }
 
 
-def _read_result_state(use_id: str) -> dict[str, Any] | None:
-    day = _day_for_use_id(use_id)
-    if day is None:
-        return None
-
-    latest_sol: dict[str, Any] | None = None
-    talent_state: dict[str, Any] | None = None
-    chat_error: dict[str, Any] | None = None
-    spawned_task: str | None = None
-
-    for event in read_chat_events(day):
-        kind = event.get("kind")
-        if kind == "sol_message" and str(event.get("use_id")) == use_id:
-            latest_sol = event
-        elif kind == "chat_error" and str(event.get("use_id") or "") == use_id:
-            chat_error = event
-        elif kind == "talent_spawned" and str(event.get("use_id")) == use_id:
-            spawned_task = event.get("task")
-            talent_state = {"state": "active", "task": spawned_task}
-        elif kind == "talent_finished" and str(event.get("use_id")) == use_id:
-            talent_state = {
-                "state": "finished",
-                "summary": event.get("summary", ""),
-                "task": spawned_task,
-            }
-        elif kind == "talent_errored" and str(event.get("use_id")) == use_id:
-            talent_state = {
-                "state": "errored",
-                "reason": event.get("reason", ""),
-                "task": spawned_task,
-            }
-
-    with _state_lock:
-        if _current_chat_use_id == use_id:
-            task = None
-            if latest_sol and latest_sol.get("requested_target"):
-                task = latest_sol.get("requested_task")
-            return {"state": "active", "task": task}
-
-    if chat_error is not None:
-        return {
-            "state": "errored",
-            "reason": chat_error.get("reason", CHAT_TROUBLE_REASON),
-        }
-    if latest_sol is not None:
-        return {
-            "state": "finished",
-            "summary": latest_sol.get("text", ""),
-        }
-    return talent_state
-
-
 def _read_talent_log(use_id: str) -> dict[str, Any] | None:
     log_path = _find_talent_log_path(use_id)
     if log_path is None:
@@ -1209,12 +1128,3 @@ def _reserve_use_id_locked() -> str:
 
 def _today_day() -> str:
     return datetime.now().strftime("%Y%m%d")
-
-
-def _day_for_use_id(use_id: str) -> str | None:
-    if not use_id.isdigit():
-        return None
-    try:
-        return datetime.fromtimestamp(int(use_id) / 1000).strftime("%Y%m%d")
-    except (OSError, OverflowError, ValueError):
-        return None

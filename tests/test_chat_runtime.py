@@ -1303,11 +1303,6 @@ def test_chat_watchdog_marks_timed_out_talent_result_as_errored(tmp_path, monkey
 
     timers[-1].fire()
 
-    assert chat._read_result_state(talent_use_id) == {
-        "state": "errored",
-        "reason": "chat took too long — try again",
-        "task": "summarize",
-    }
     parent_errors = [
         event
         for event in read_chat_events(chat._today_day())
