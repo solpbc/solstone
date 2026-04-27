@@ -70,7 +70,13 @@ def test_make_skills_idempotent(tmp_path):
     shutil.copy2(repo_root / "Makefile", temp_root / "Makefile")
     shutil.copytree(repo_root / "talent", temp_root / "talent", symlinks=True)
     shutil.copytree(repo_root / "apps", temp_root / "apps", symlinks=True)
-    shutil.copytree(repo_root / "journal", temp_root / "journal", symlinks=True)
+    # `make skills` only reads talent/ and apps/*/talent/, and writes symlinks
+    # under journal/.agents/skills and journal/.claude/skills. Copying the live
+    # journal/ pulls in whatever real capture data the dev box has accumulated
+    # (chronicle/ alone can be 100+ GB), and copytree blows past the 30s budget
+    # on os.sendfile before make skills ever runs. An empty journal/ is all the
+    # target needs.
+    (temp_root / "journal").mkdir()
 
     subprocess.run(
         ["make", "skills"],
