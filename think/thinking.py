@@ -667,10 +667,11 @@ def run_segment_sense(
             segment=segment,
         )
         if state_machine is not None:
+            routing_day = state_machine.last_segment_day or day
             idle_changes = state_machine.update(sense_json, segment, day)
             # Persist completed activity records from idle transitions
             ended_pairs = [
-                (c["id"], c.get("_facet", "__"))
+                (c["id"], c.get("facet", "__"))
                 for c in idle_changes
                 if c.get("state") == "ended"
             ]
@@ -689,7 +690,7 @@ def run_segment_sense(
                 )
                 rec = completed_lookup.get(activity_id)
                 if rec:
-                    append_activity_record(facet, day, rec)
+                    append_activity_record(facet, routing_day, rec)
                     _jsonl_log(
                         "activity.persisted",
                         mode=target_schedule,
@@ -706,22 +707,33 @@ def run_segment_sense(
                     facet,
                 )
                 run_activity_prompts(
-                    day=day,
+                    day=routing_day,
                     activity_id=str(activity_id),
                     facet=str(facet),
                     refresh=refresh,
                     verbose=verbose,
                     max_concurrency=max_concurrency,
                 )
-            # Persist activity state even on idle segments
-            try:
-                awareness_dir = Path(get_journal()) / "awareness"
-                _write_json_atomic(
-                    awareness_dir / "activity_state.json",
-                    state_machine.get_current_state(),
-                )
-            except Exception:
-                logging.debug("Failed to persist activity state", exc_info=True)
+            if state_machine.journal_root is not None:
+                try:
+                    snapshot = {
+                        "last_segment_key": state_machine.last_segment_key,
+                        "last_segment_day": state_machine.last_segment_day,
+                        "active": {
+                            facet: {k: v for k, v in entry.items() if k != "_change"}
+                            for facet, entry in state_machine.state.items()
+                        },
+                    }
+                    _write_json_atomic(
+                        state_machine.journal_root
+                        / "awareness"
+                        / "activity_state.json",
+                        snapshot,
+                    )
+                except Exception:
+                    logging.debug(
+                        "Failed to write activity state snapshot", exc_info=True
+                    )
 
         duration_ms = int((time.time() - start_time) * 1000)
         emit(
@@ -900,10 +912,11 @@ def run_segment_sense(
         )
 
     if state_machine is not None:
+        routing_day = state_machine.last_segment_day or day
         changes = state_machine.update(sense_json, segment, day)
         # Persist completed activity records before running activity agents
         ended_pairs = [
-            (c["id"], c.get("_facet", "__"))
+            (c["id"], c.get("facet", "__"))
             for c in changes
             if c.get("state") == "ended"
         ]
@@ -922,7 +935,7 @@ def run_segment_sense(
             )
             rec = completed_lookup.get(activity_id)
             if rec:
-                append_activity_record(facet, day, rec)
+                append_activity_record(facet, routing_day, rec)
                 _jsonl_log(
                     "activity.persisted",
                     mode=target_schedule,
@@ -931,19 +944,26 @@ def run_segment_sense(
                     activity=str(activity_id),
                     facet=str(facet),
                 )
-        # Persist activity state for awareness.md consumption
-        try:
-            awareness_dir = Path(get_journal()) / "awareness"
-            _write_json_atomic(
-                awareness_dir / "activity_state.json",
-                state_machine.get_current_state(),
-            )
-        except Exception:
-            logging.debug("Failed to persist activity state", exc_info=True)
+        if state_machine.journal_root is not None:
+            try:
+                snapshot = {
+                    "last_segment_key": state_machine.last_segment_key,
+                    "last_segment_day": state_machine.last_segment_day,
+                    "active": {
+                        facet: {k: v for k, v in entry.items() if k != "_change"}
+                        for facet, entry in state_machine.state.items()
+                    },
+                }
+                _write_json_atomic(
+                    state_machine.journal_root / "awareness" / "activity_state.json",
+                    snapshot,
+                )
+            except Exception:
+                logging.debug("Failed to write activity state snapshot", exc_info=True)
         for change in changes:
             if change.get("state") != "ended":
                 continue
-            facet = change.get("_facet")
+            facet = change.get("facet")
             activity_id = change.get("id")
             if not facet or not activity_id:
                 continue
@@ -953,7 +973,7 @@ def run_segment_sense(
                 facet,
             )
             run_activity_prompts(
-                day=day,
+                day=routing_day,
                 activity_id=str(activity_id),
                 facet=str(facet),
                 refresh=refresh,
@@ -3100,7 +3120,7 @@ def main() -> None:
                 max_concurrency=args.jobs,
                 stream=resolved_stream,
                 timeout=None if args.no_timeout else 610,
-                state_machine=ActivityStateMachine(),
+                state_machine=ActivityStateMachine(journal_root=Path(get_journal())),
             )
         else:
             success_count, fail_count, failed_names = run_daily_prompts(

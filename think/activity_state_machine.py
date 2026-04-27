@@ -3,7 +3,10 @@
 
 """Deterministic activity state machine replacing LLM-based activity tracking."""
 
+import json
+import logging
 import time
+from pathlib import Path
 
 from think.activities import LEVEL_VALUES, make_activity_id
 from think.utils import segment_parse
@@ -13,12 +16,55 @@ GAP_THRESHOLD_SECONDS = 600
 
 
 class ActivityStateMachine:
-    def __init__(self) -> None:
+    def __init__(self, journal_root: Path | None = None) -> None:
         self.state: dict[str, dict] = {}
         self.last_segment_key: str | None = None
         self.last_segment_day: str | None = None
-        self.history: list[dict] = []
         self._completed: list[dict] = []
+        self.journal_root = Path(journal_root) if journal_root else None
+
+        if self.journal_root is None:
+            return
+
+        state_path = self.journal_root / "awareness" / "activity_state.json"
+        try:
+            data = json.loads(state_path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            return
+        except (OSError, json.JSONDecodeError) as exc:
+            logging.debug("Failed to hydrate activity state: %s", exc)
+            return
+
+        if isinstance(data, list):
+            active = {
+                str(entry.get("facet") or "__"): entry
+                for entry in data
+                if isinstance(entry, dict)
+            }
+        elif isinstance(data, dict):
+            raw_active = data.get("active")
+            active = raw_active if isinstance(raw_active, dict) else {}
+            self.last_segment_key = data.get("last_segment_key")
+            self.last_segment_day = data.get("last_segment_day")
+        else:
+            logging.debug("Ignoring unexpected activity state shape")
+            return
+
+        for facet, raw_entry in active.items():
+            if not isinstance(raw_entry, dict):
+                continue
+            entry = dict(raw_entry)
+            if not all(
+                key in entry for key in ("id", "activity", "since", "description")
+            ):
+                logging.debug(
+                    "Ignoring incomplete activity state entry for facet %s", facet
+                )
+                continue
+            entry.setdefault("facet", facet)
+            entry.setdefault("segment", entry.get("since"))
+            entry.setdefault("segments", [entry["since"]])
+            self.state[str(facet)] = entry
 
     def _parse_segment_seconds(self, segment_key: str) -> int | None:
         start_time, _end_time = segment_parse(segment_key)
@@ -62,8 +108,8 @@ class ActivityStateMachine:
                 "since": prior["since"],
                 "description": prior["description"],
                 "_change": change,
-                "_facet": facet,
-                "_segment": segment_key,
+                "facet": facet,
+                "segment": segment_key,
             }
             changes.append(entry)
             self._completed.append(self._make_completed_record(prior))
@@ -75,7 +121,7 @@ class ActivityStateMachine:
         return {
             "id": entry["id"],
             "activity": entry["activity"],
-            "segments": entry.get("_segments", [entry["since"]]),
+            "segments": entry.get("segments", [entry["since"]]),
             "level_avg": LEVEL_VALUES.get(entry.get("level", "medium"), 0.5),
             "description": entry["description"],
             "active_entities": entry.get("active_entities", []),
@@ -109,7 +155,6 @@ class ActivityStateMachine:
             changes.extend(self._end_all(segment_key, "ended_idle"))
             self.last_segment_key = segment_key
             self.last_segment_day = day
-            self.history.extend(dict(change) for change in changes)
             return changes
 
         facet_map = {}
@@ -127,8 +172,8 @@ class ActivityStateMachine:
                 "since": prior["since"],
                 "description": prior["description"],
                 "_change": "ended_facet_gone",
-                "_facet": facet,
-                "_segment": segment_key,
+                "facet": facet,
+                "segment": segment_key,
             }
             changes.append(entry)
             self._completed.append(self._make_completed_record(prior))
@@ -149,8 +194,8 @@ class ActivityStateMachine:
                         "since": prior["since"],
                         "description": prior["description"],
                         "_change": "ended_type_change",
-                        "_facet": facet,
-                        "_segment": segment_key,
+                        "facet": facet,
+                        "segment": segment_key,
                     }
                     changes.append(ended)
                     self._completed.append(self._make_completed_record(prior))
@@ -164,9 +209,9 @@ class ActivityStateMachine:
                         "level": level,
                         "active_entities": entity_names,
                         "_change": "new",
-                        "_facet": facet,
-                        "_segment": segment_key,
-                        "_segments": [segment_key],
+                        "facet": facet,
+                        "segment": segment_key,
+                        "segments": [segment_key],
                     }
                     self.state[facet] = new_entry
                     changes.append(dict(new_entry))
@@ -175,10 +220,10 @@ class ActivityStateMachine:
                     prior["level"] = level
                     prior["active_entities"] = entity_names
                     prior["_change"] = "continuing"
-                    prior["_segment"] = segment_key
-                    prior.setdefault("_segments", [prior["since"]])
-                    if segment_key not in prior["_segments"]:
-                        prior["_segments"].append(segment_key)
+                    prior["segment"] = segment_key
+                    prior.setdefault("segments", [prior["since"]])
+                    if segment_key not in prior["segments"]:
+                        prior["segments"].append(segment_key)
                     changes.append(dict(prior))
             else:
                 new_entry = {
@@ -190,27 +235,16 @@ class ActivityStateMachine:
                     "level": level,
                     "active_entities": entity_names,
                     "_change": "new",
-                    "_facet": facet,
-                    "_segment": segment_key,
-                    "_segments": [segment_key],
+                    "facet": facet,
+                    "segment": segment_key,
+                    "segments": [segment_key],
                 }
                 self.state[facet] = new_entry
                 changes.append(dict(new_entry))
 
         self.last_segment_key = segment_key
         self.last_segment_day = day
-        self.history.extend(dict(change) for change in changes)
         return changes
-
-    def get_current_state(self) -> list[dict]:
-        result = []
-        for facet in sorted(self.state):
-            entry = self.state[facet]
-            clean = {k: v for k, v in entry.items() if not k.startswith("_")}
-            if "active_entities" in clean:
-                clean["active_entities"] = list(clean["active_entities"])
-            result.append(clean)
-        return result
 
     def get_completed_activities(self) -> list[dict]:
         return list(self._completed)

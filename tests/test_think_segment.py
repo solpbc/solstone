@@ -168,11 +168,16 @@ class TestRunSegmentSense:
         updates = []
 
         class StubStateMachine:
+            def __init__(self):
+                self.state = {}
+                self.last_segment_key = None
+                self.last_segment_day = None
+                self.journal_root = segment_dir.parents[3]
+
             def update(self, sense_output, segment, day):
                 updates.append((sense_output, segment, day))
-                return []
-
-            def get_current_state(self):
+                self.last_segment_key = segment
+                self.last_segment_day = day
                 return []
 
             def get_completed_activities(self):
@@ -230,7 +235,11 @@ class TestRunSegmentSense:
         )
         assert activity_state_path.exists()
         state_data = json.loads(activity_state_path.read_text())
-        assert state_data == []
+        assert state_data == {
+            "last_segment_key": "120000_300",
+            "last_segment_day": "20240115",
+            "active": {},
+        }
 
     def test_conditional_screen_dispatch(self, segment_dir, monkeypatch):
         from think import thinking as think
@@ -492,12 +501,24 @@ class TestRunSegmentSense:
         activity_calls = []
 
         class StubStateMachine:
+            def __init__(self):
+                self.state = {}
+                self.last_segment_key = None
+                self.last_segment_day = None
+                self.journal_root = segment_dir.parents[3]
+
             def update(self, sense_output, segment, day):
                 updates.append((sense_output, segment, day))
-                return [{"state": "ended", "id": "coding_120000_300", "_facet": "work"}]
-
-            def get_current_state(self):
-                return [{"facet": "work", "state": "active", "id": "coding_120000_300"}]
+                self.last_segment_key = segment
+                self.last_segment_day = day
+                self.state = {
+                    "work": {
+                        "facet": "work",
+                        "state": "active",
+                        "id": "coding_120000_300",
+                    }
+                }
+                return [{"state": "ended", "id": "coding_120000_300", "facet": "work"}]
 
             def get_completed_activities(self):
                 return [
@@ -570,9 +591,13 @@ class TestRunSegmentSense:
         )
         assert activity_state_path.exists()
         state_data = json.loads(activity_state_path.read_text())
-        assert state_data == [
-            {"facet": "work", "state": "active", "id": "coding_120000_300"}
-        ]
+        assert state_data == {
+            "last_segment_key": "120000_300",
+            "last_segment_day": "20240115",
+            "active": {
+                "work": {"facet": "work", "state": "active", "id": "coding_120000_300"}
+            },
+        }
 
     def test_generator_triggers_incremental_indexing(self, segment_dir, monkeypatch):
         from think import thinking as think

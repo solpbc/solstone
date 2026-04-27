@@ -169,7 +169,7 @@ class TestPipelineSmokeTest:
         journal = tmp_path / "journal"
         monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
 
-        state_machine = ActivityStateMachine()
+        state_machine = ActivityStateMachine(journal_root=journal)
         activity_calls = []
 
         def _segment_configs():
@@ -328,7 +328,10 @@ class TestPipelineSmokeTest:
         state_path = journal / "awareness" / "activity_state.json"
         assert state_path.exists()
         state = json.loads(state_path.read_text())
-        assert len(state) == 1
-        assert state[0]["activity"] == "coding"
-        assert state[0]["state"] == "active"
-        assert state[0]["id"] == make_activity_id("coding", "100000_300")
+        assert state["last_segment_key"] == "100000_300"
+        assert state["last_segment_day"] == DAY
+        assert set(state["active"]) == {"work"}
+        active = state["active"]["work"]
+        assert active["activity"] == "coding"
+        assert active["state"] == "active"
+        assert active["id"] == make_activity_id("coding", "100000_300")

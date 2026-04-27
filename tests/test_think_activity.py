@@ -714,7 +714,7 @@ class TestActivityPersistence:
             # Find the ended change
             ended = [c for c in changes if c.get("state") == "ended"]
             assert len(ended) == 1
-            facet = ended[0]["_facet"]
+            facet = ended[0]["facet"]
 
             # Persist completed record (what thinking.py now does)
             completed = sm.get_completed_activities()
@@ -777,7 +777,7 @@ class TestActivityPersistenceRoundTrip:
 
             # Simulate thinking.py facet_by_id logic
             facet_by_id = {
-                c["id"]: c.get("_facet", "__")
+                c["id"]: c.get("facet", "__")
                 for c in changes
                 if c.get("state") == "ended"
             }
@@ -808,7 +808,7 @@ class TestActivityPersistenceRoundTrip:
             changes = sm.update(self._sense(density="idle"), "091000_300", "20260304")
 
             facet_by_id = {
-                c["id"]: c.get("_facet", "__")
+                c["id"]: c.get("facet", "__")
                 for c in changes
                 if c.get("state") == "ended"
             }
@@ -859,7 +859,7 @@ class TestActivityPersistenceRoundTrip:
                 self._sense(content_type="meeting"), "090500_300", "20260304"
             )
             facet_by_id = {
-                c["id"]: c.get("_facet", "__")
+                c["id"]: c.get("facet", "__")
                 for c in changes1
                 if c.get("state") == "ended"
             }
@@ -873,7 +873,7 @@ class TestActivityPersistenceRoundTrip:
             )
             # No ended changes in this update
             facet_by_id2 = {
-                c["id"]: c.get("_facet", "__")
+                c["id"]: c.get("facet", "__")
                 for c in changes2
                 if c.get("state") == "ended"
             }
@@ -938,7 +938,7 @@ class TestActivityPersistenceRoundTrip:
             changes = sm.update(self._sense(density="idle"), "090500_300", "20260304")
 
             facet_by_id = {
-                c["id"]: c.get("_facet", "__")
+                c["id"]: c.get("facet", "__")
                 for c in changes
                 if c.get("state") == "ended"
             }
@@ -976,7 +976,7 @@ class TestActivityPersistenceRoundTrip:
 
             # Use the fixed ended_pairs approach (matches thinking.py)
             ended_pairs = [
-                (c["id"], c.get("_facet", "__"))
+                (c["id"], c.get("facet", "__"))
                 for c in changes
                 if c.get("state") == "ended"
             ]
@@ -1111,7 +1111,7 @@ class TestCreatedAtRoutesCompat:
             )
             # Persist first completed
             facet_by_id = {
-                c["id"]: c.get("_facet", "__")
+                c["id"]: c.get("facet", "__")
                 for c in changes1
                 if c.get("state") == "ended"
             }
@@ -1139,7 +1139,7 @@ class TestCreatedAtRoutesCompat:
                 "20260304",
             )
             facet_by_id2 = {
-                c["id"]: c.get("_facet", "__")
+                c["id"]: c.get("facet", "__")
                 for c in changes2
                 if c.get("state") == "ended"
             }

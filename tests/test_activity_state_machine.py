@@ -40,7 +40,7 @@ class TestNewActivity:
         assert changes[0]["activity"] == "coding"
         assert changes[0]["state"] == "active"
         assert changes[0]["since"] == "090000_300"
-        assert changes[0]["_facet"] == "work"
+        assert changes[0]["facet"] == "work"
 
 
 class TestContinuation:
@@ -87,7 +87,7 @@ class TestIdleTransition:
         ended = [c for c in changes if c["state"] == "ended"]
         assert len(ended) == 1
         assert ended[0]["_change"] == "ended_idle"
-        assert sm.get_current_state() == []
+        assert sm.state == {}
 
 
 class TestTimeGap:
@@ -137,7 +137,7 @@ class TestMultiFacet:
         changes = sm.update(_sense(facets=facets), "090000_300", "20260304")
 
         assert len(changes) == 2
-        facet_names = {c["_facet"] for c in changes}
+        facet_names = {c["facet"] for c in changes}
         assert facet_names == {"work", "personal"}
 
 
@@ -156,28 +156,31 @@ class TestFacetDisappearing:
 
         ended = [c for c in changes if c["_change"] == "ended_facet_gone"]
         assert len(ended) == 1
-        assert ended[0]["_facet"] == "personal"
+        assert ended[0]["facet"] == "personal"
 
 
-class TestGetCurrentState:
-    def test_returns_clean_entries(self):
+class TestStateShape:
+    def test_active_entries_use_persisted_field_names(self):
         from think.activity_state_machine import ActivityStateMachine
 
         sm = ActivityStateMachine()
         sm.update(_sense(), "090000_300", "20260304")
-        state = sm.get_current_state()
 
-        assert len(state) == 1
-        entry = state[0]
+        assert set(sm.state) == {"work"}
+        entry = sm.state["work"]
         assert "id" in entry
         assert "activity" in entry
         assert "state" in entry and entry["state"] == "active"
         assert "since" in entry
         assert "level" in entry
         assert "active_entities" in entry
-        assert "_change" not in entry
+        assert entry["facet"] == "work"
+        assert entry["segment"] == "090000_300"
+        assert entry["segments"] == ["090000_300"]
+        assert entry["_change"] == "new"
         assert "_facet" not in entry
         assert "_segment" not in entry
+        assert "_segments" not in entry
 
 
 class TestGetCompletedActivities:
@@ -232,16 +235,14 @@ class TestSegmentAccumulation:
         assert len(completed) == 1
         assert len(completed[0]["segments"]) == 10
 
-    def test_segments_not_in_current_state(self):
+    def test_segments_accumulate_in_state(self):
         from think.activity_state_machine import ActivityStateMachine
 
         sm = ActivityStateMachine()
         sm.update(_sense(content_type="coding"), "090000_300", "20260304")
         sm.update(_sense(content_type="coding"), "090500_300", "20260304")
 
-        state = sm.get_current_state()
-        assert len(state) == 1
-        assert "_segments" not in state[0]
+        assert sm.state["work"]["segments"] == ["090000_300", "090500_300"]
 
 
 class TestPseudoFacet:
@@ -252,7 +253,7 @@ class TestPseudoFacet:
         changes = sm.update(_sense(facets=[]), "090000_300", "20260304")
 
         assert len(changes) == 1
-        assert changes[0]["_facet"] == "__"
+        assert changes[0]["facet"] == "__"
 
 
 class TestEntityTracking:
