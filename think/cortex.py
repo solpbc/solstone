@@ -468,8 +468,11 @@ class CortexService:
                                             provider
                                         )
 
-                        # Handle finish or error event
-                        if event.get("event") in ["finish", "error"]:
+                        # Handle finish or terminal error event
+                        terminal_error = event.get("event") == "error" and event.get(
+                            "terminal", True
+                        )
+                        if event.get("event") == "finish" or terminal_error:
                             # Check for output (only on finish)
                             if event.get("event") == "finish":
                                 result = event.get("result", "")
@@ -605,13 +608,16 @@ class CortexService:
                         self.logger.warning(f"Failed to write stderr event: {e}")
 
     def _has_finish_event(self, file_path: Path) -> bool:
-        """Check if the JSONL file contains a finish or error event."""
+        """Check if the JSONL file contains a finish or terminal error event."""
         try:
             with open(file_path, "r") as f:
                 for line in f:
                     try:
                         event = json.loads(line)
-                        if event.get("event") in ["finish", "error"]:
+                        terminal_error = event.get("event") == "error" and event.get(
+                            "terminal", True
+                        )
+                        if event.get("event") == "finish" or terminal_error:
                             return True
                     except json.JSONDecodeError as exc:
                         self.logger.warning(

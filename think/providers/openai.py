@@ -43,6 +43,7 @@ from typing import Any, Callable
 from think.models import GPT_5, OPENAI_EFFORT_SUFFIXES
 from think.providers.cli import (
     CLIRunner,
+    QuotaExhaustedError,
     ThinkingAggregator,
     assemble_prompt,
     build_cogitate_env,
@@ -224,6 +225,8 @@ async def run_cogitate(
 
     try:
         result = await runner.run()
+    except QuotaExhaustedError:
+        raise
     except Exception as exc:
         if not getattr(exc, "_evented", False):
             cb.emit(

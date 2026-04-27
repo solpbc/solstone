@@ -45,6 +45,7 @@ from think.utils import now_ms
 
 from .cli import (
     CLIRunner,
+    QuotaExhaustedError,
     ThinkingAggregator,
     assemble_prompt,
     build_cogitate_env,
@@ -819,6 +820,8 @@ async def run_cogitate(
             finish_event["cli_session_id"] = runner.cli_session_id
         callback.emit(finish_event)
         return result
+    except QuotaExhaustedError:
+        raise
     except Exception as exc:
         callback.emit(
             {

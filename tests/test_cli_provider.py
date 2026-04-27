@@ -13,6 +13,7 @@ import pytest
 
 from think.providers.cli import (
     CLIRunner,
+    QuotaExhaustedError,
     ThinkingAggregator,
     assemble_prompt,
     build_cogitate_env,
@@ -286,15 +287,17 @@ class _FirstEmitThenHangStdout:
 class TestCLIRunnerExitCode:
     """Tests for CLIRunner handling of non-zero exit codes."""
 
-    def test_nonzero_exit_no_output_raises(self):
-        """CLI exits with error and no result → RuntimeError with stderr."""
+    def test_quota_exhausted_stderr_raises_quota_error(self):
+        """CLI quota stderr raises QuotaExhaustedError before generic exit handling."""
         events = []
         callback = JSONEventCallback(events.append)
         aggregator = ThinkingAggregator(callback, model="test-model")
 
         process = _make_process(
             stdout_lines=[],
-            stderr_lines=[b"TerminalQuotaError: quota exhausted\n"],
+            stderr_lines=[
+                b'TerminalQuotaError: quota exhausted {"retryDelayMs": 120000}\n'
+            ],
             return_code=1,
         )
 
@@ -312,13 +315,43 @@ class TestCLIRunnerExitCode:
                 AsyncMock(return_value=process),
             ),
             patch("think.providers.cli.shutil.which", return_value="/usr/bin/fakecli"),
-            pytest.raises(RuntimeError, match="quota exhausted"),
+            pytest.raises(QuotaExhaustedError, match="quota exhausted") as exc_info,
         ):
             asyncio.run(runner.run())
 
+        assert exc_info.value.retry_delay_ms == 120000
         # CLIRunner should NOT emit error events — that's the caller's job
         error_events = [e for e in events if e.get("event") == "error"]
         assert len(error_events) == 0
+
+    def test_quota_exhausted_stdout_raises_quota_error(self):
+        events = []
+        callback = JSONEventCallback(events.append)
+        aggregator = ThinkingAggregator(callback, model="test-model")
+        process = _make_process(
+            stdout_lines=[b'{"error":"QUOTA_EXHAUSTED","retryDelayMs":42}\n'],
+            stderr_lines=[],
+            return_code=1,
+        )
+        runner = CLIRunner(
+            cmd=["fakecli", "--json"],
+            prompt_text="test",
+            translate=lambda _e, _a, _c: None,
+            callback=callback,
+            aggregator=aggregator,
+        )
+
+        with (
+            patch(
+                "think.providers.cli.asyncio.create_subprocess_exec",
+                AsyncMock(return_value=process),
+            ),
+            patch("think.providers.cli.shutil.which", return_value="/usr/bin/fakecli"),
+            pytest.raises(QuotaExhaustedError) as exc_info,
+        ):
+            asyncio.run(runner.run())
+
+        assert exc_info.value.retry_delay_ms == 42
 
     def test_nonzero_exit_with_output_returns_result(self):
         """CLI exits with error but produced output → return result + warning."""

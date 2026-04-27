@@ -28,6 +28,7 @@ from string import Template
 from typing import Any, Callable, Optional
 
 from think.cluster import cluster, cluster_period, cluster_span
+from think.providers.cli import QuotaExhaustedError
 from think.providers.shared import Event
 from think.talent import (
     get_output_path,
@@ -809,6 +810,7 @@ _NON_RETRYABLE_ERRORS = (
     FileNotFoundError,
     PermissionError,
     NotImplementedError,
+    QuotaExhaustedError,
 )
 
 
@@ -819,6 +821,10 @@ def _is_retryable_error(exc: Exception) -> bool:
     Returns True for everything else (SDK connection, timeout, server errors).
     """
     return not isinstance(exc, _NON_RETRYABLE_ERRORS)
+
+
+def _should_fallback(exc: Exception) -> bool:
+    return _is_retryable_error(exc) or isinstance(exc, QuotaExhaustedError)
 
 
 async def _execute_with_tools(
@@ -861,8 +867,19 @@ async def _execute_with_tools(
     try:
         await provider_mod.run_cogitate(config=config, on_event=talent_emit_event)
     except Exception as exc:
-        if not _is_retryable_error(exc) or config.get("fallback_from"):
+        if config.get("fallback_from") or not _should_fallback(exc):
             raise
+        if isinstance(exc, QuotaExhaustedError):
+            reset_at_ms = now_ms() + (exc.retry_delay_ms or 0)
+            emit_event(
+                {
+                    "event": "error",
+                    "reason": "quota_exhausted",
+                    "error": str(exc),
+                    "reset_at_ms": reset_at_ms,
+                    "terminal": False,
+                }
+            )
         from think.models import (
             get_backup_provider,
             resolve_model_for_provider,
@@ -986,7 +1003,7 @@ async def _execute_generate(
             timeout_s=timeout_s,
         )
     except Exception as exc:
-        if not _is_retryable_error(exc) or config.get("fallback_from"):
+        if config.get("fallback_from") or not _should_fallback(exc):
             raise
         from think.models import (
             get_backup_provider,
