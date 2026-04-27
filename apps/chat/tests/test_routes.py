@@ -172,7 +172,7 @@ def test_chat_day_renders_all_event_kinds(journal_copy, monkeypatch):
     assert "chat had trouble" in html
 
 
-def test_chat_day_marks_talent_summary_for_markdown_bootstrap(
+def test_chat_day_emits_raw_talent_markdown_source_for_bootstrap(
     journal_copy, monkeypatch
 ):
     day = "20990102"
@@ -212,6 +212,8 @@ def test_chat_day_marks_talent_summary_for_markdown_bootstrap(
         '<div class="chat-talent-card-detail '
         'chat-talent-card-detail--markdown" data-markdown="1">**bad args**</div>'
     ) in html
+    assert "<strong>done</strong>" not in html
+    assert "<strong>bad args</strong>" not in html
 
 
 def test_chat_event_anchor_ids_are_stable(journal_copy, monkeypatch):

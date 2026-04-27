@@ -74,7 +74,9 @@
 
   insertTimeSeparators(transcript);
   decorateBubbles(transcript);
-  bootstrapMarkdownDetails(transcript);
+  document.addEventListener('DOMContentLoaded', () => {
+    bootstrapMarkdownDetails(transcript);
+  }, { once: true });
 
   if (isToday && window.appEvents) {
     chatEventsCleanup = window.appEvents.listen('chat', {
@@ -170,11 +172,24 @@
   }
 
   function bootstrapMarkdownDetails(list) {
-    list.querySelectorAll('[data-markdown="1"]').forEach((node) => {
-      const text = node.textContent || '';
-      node.innerHTML = window.AppServices.renderMarkdown(text);
-      node.removeAttribute('data-markdown');
+    const nodes = Array.from(list.querySelectorAll('[data-markdown="1"]'));
+    nodes.forEach((node) => {
+      renderTalentMarkdownInto(node, node.textContent || '');
     });
+    const remaining = list.querySelectorAll('[data-markdown="1"]');
+    if (remaining.length) {
+      throw new Error('unrendered talent markdown details remain');
+    }
+  }
+
+  function renderTalentMarkdownInto(node, source) {
+    // Single path from markdown source to rendered HTML for talent card details.
+    // SSR initial-transcript bootstrap and live-append flow both route here.
+    if (!window.AppServices || typeof window.AppServices.renderMarkdown !== 'function') {
+      throw new Error('talent markdown renderer is unavailable');
+    }
+    node.innerHTML = window.AppServices.renderMarkdown(source || '');
+    node.removeAttribute('data-markdown');
   }
 
   function appendEventFromLive(msg, list) {
@@ -295,7 +310,7 @@
       if (status === 'finished' || status === 'errored') {
         const detailNode = document.createElement('div');
         detailNode.className = 'chat-talent-card-detail chat-talent-card-detail--markdown';
-        detailNode.innerHTML = window.AppServices.renderMarkdown(detail || '');
+        renderTalentMarkdownInto(detailNode, detail || '');
         card.appendChild(detailNode);
       } else {
         const detailNode = document.createElement('span');
