@@ -18,6 +18,7 @@ import asyncio
 import json
 import logging
 import os
+import signal
 import sys
 import traceback
 from datetime import datetime
@@ -1239,6 +1240,16 @@ async def main_async() -> None:
 
     app_logger = setup_logging(args.verbose)
     event_writer = JSONEventWriter(None)
+    loop = asyncio.get_running_loop()
+    main_task = asyncio.current_task()
+    registered_signals: list[signal.Signals] = []
+    if main_task:
+        for sig in (signal.SIGTERM, signal.SIGINT):
+            try:
+                loop.add_signal_handler(sig, main_task.cancel)
+                registered_signals.append(sig)
+            except (NotImplementedError, RuntimeError):
+                LOG.debug("Signal handler registration unavailable for %s", sig)
 
     def emit_event(data: Event) -> None:
         if "ts" not in data:
@@ -1301,6 +1312,8 @@ async def main_async() -> None:
             emit_event(err)
         raise
     finally:
+        for sig in registered_signals:
+            loop.remove_signal_handler(sig)
         event_writer.close()
 
 

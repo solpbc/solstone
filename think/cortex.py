@@ -20,6 +20,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import signal
 import subprocess
 import sys
 import threading
@@ -58,15 +59,33 @@ class TalentProcess:
 
         if self.process.poll() is None:
             # First try SIGTERM for graceful shutdown
-            self.process.terminate()
+            try:
+                self.process.terminate()
+            except ProcessLookupError:
+                pass
+            self._signal_process_group(signal.SIGTERM)
             try:
                 self.process.wait(timeout=10)  # Give more time for graceful shutdown
             except subprocess.TimeoutExpired:
                 logging.getLogger(__name__).warning(
                     f"Talent {self.use_id} didn't stop gracefully, killing"
                 )
-                self.process.kill()
+                self._signal_process_group(signal.SIGKILL)
+                try:
+                    self.process.kill()
+                except ProcessLookupError:
+                    pass
                 self.process.wait()  # Ensure zombie is reaped
+
+    def _signal_process_group(self, sig: int) -> None:
+        try:
+            pgid = os.getpgid(self.process.pid)
+        except ProcessLookupError:
+            return
+        try:
+            os.killpg(pgid, sig)
+        except ProcessLookupError:
+            return
 
 
 class CortexService:
@@ -321,6 +340,7 @@ class CortexService:
                 env=env,
                 bufsize=1,
                 cwd=subprocess_cwd,
+                start_new_session=True,
             )
 
             # Send input and close stdin
