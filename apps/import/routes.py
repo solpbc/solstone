@@ -116,6 +116,17 @@ SOURCE_METADATA = [
         "accept": ".txt",
     },
     {
+        "name": "journal_archive",
+        "display_name": "Journal",
+        "emoji": "📓",
+        "icon": "book",
+        "description": "Import a full journal export from another solstone journal",
+        "input_type": "file",
+        "upload_prompt": "Upload your journal export .zip file",
+        "has_guide": True,
+        "accept": ".zip",
+    },
+    {
         "name": "granola",
         "display_name": "Granola",
         "emoji": "🌾",
