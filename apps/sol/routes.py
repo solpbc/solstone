@@ -143,86 +143,6 @@ def _parse_use_events(
     return result
 
 
-def _parse_use_file(use_file: Path) -> dict[str, Any] | None:
-    """Parse a use JSONL file and extract metadata.
-
-    Returns dict with: id, name, start, status, prompt, facet, failed,
-    runtime_seconds, thinking_count, tool_count, cost, model, provider,
-    error_message.
-    Returns None if file cannot be parsed.
-    """
-    from think.cortex_client import get_use_end_state
-
-    try:
-        with open(use_file, "r") as f:
-            lines = f.readlines()
-
-        if not lines:
-            return None
-
-        first_line = lines[0].strip()
-        if not first_line:
-            return None
-
-        request_event = json.loads(first_line)
-        if request_event.get("event") != "request":
-            return None
-
-        is_active = "_active.jsonl" in use_file.name
-        use_id = use_file.stem.replace("_active", "")
-
-        # Parse events using shared helper
-        event_data = _parse_use_events(lines[1:])
-
-        use_info: dict[str, Any] = {
-            "id": use_id,
-            "name": request_event["name"],
-            "start": request_event.get("ts", 0),
-            "status": "running" if is_active else "completed",
-            "prompt": request_event.get("prompt", ""),
-            "facet": request_event.get("facet"),
-            "failed": False,
-            "runtime_seconds": None,
-            "thinking_count": event_data["thinking_count"],
-            "tool_count": event_data["tool_count"],
-            "cost": None,
-            "model": event_data["model"],
-            "provider": request_event.get("provider") or event_data.get("provider"),
-            "error_message": event_data["error_message"],
-        }
-
-        # Check for output file (generators only)
-        output_file = None
-        req_output = request_event.get("output")
-        if req_output:
-            out_path = _resolve_output_path(request_event, state.journal_root)
-            if out_path and out_path.exists():
-                req_day = request_event.get("day")
-                day_dir = Path(state.journal_root) / req_day if req_day else None
-                if day_dir and out_path.is_relative_to(day_dir):
-                    output_file = str(out_path.relative_to(day_dir))
-                else:
-                    output_file = str(out_path.relative_to(state.journal_root))
-        use_info["output_file"] = output_file
-
-        # For completed uses, determine end state and calculate cost
-        if not is_active:
-            end_state = get_use_end_state(use_id)
-            use_info["failed"] = end_state in ("error", "unknown")
-
-            # Calculate runtime from finish or error timestamp
-            end_ts = event_data["finish_ts"] or event_data["error_ts"]
-            if end_ts and use_info["start"]:
-                use_info["runtime_seconds"] = (end_ts - use_info["start"]) / 1000.0
-
-            # Calculate cost
-            use_info["cost"] = calc_agent_cost(event_data["model"], event_data["usage"])
-
-        return use_info
-    except (json.JSONDecodeError, IOError):
-        return None
-
-
 def _get_use_day(use_file: Path) -> str:
     """Get the logical day for a use from its request event.
 
@@ -244,6 +164,82 @@ def _get_use_day(use_file: Path) -> str:
     return _use_id_to_day(use_id)
 
 
+def _parse_active_use_file(use_file: Path) -> dict[str, Any] | None:
+    """Parse an active use JSONL file for the day listing."""
+    try:
+        with open(use_file, "r") as f:
+            lines = f.readlines()
+
+        if not lines:
+            return None
+
+        first_line = lines[0].strip()
+        if not first_line:
+            return None
+
+        request_event = json.loads(first_line)
+        if request_event.get("event") != "request":
+            return None
+
+        thinking_count = 0
+        tool_count = 0
+        model = None
+        provider = request_event.get("provider")
+
+        for line in lines[1:]:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+
+            event_type = event.get("event")
+            if event_type == "thinking":
+                thinking_count += 1
+            elif event_type == "tool_start":
+                tool_count += 1
+            elif event_type == "start":
+                model = event.get("model")
+                provider = provider or event.get("provider")
+
+        output_file = None
+        if request_event.get("output"):
+            out_path = _resolve_output_path(request_event, state.journal_root)
+            if out_path and out_path.exists():
+                req_day = request_event.get("day")
+                day_dir = Path(state.journal_root) / req_day if req_day else None
+                try:
+                    if day_dir and out_path.is_relative_to(day_dir):
+                        output_file = str(out_path.relative_to(day_dir))
+                    else:
+                        output_file = str(out_path.relative_to(state.journal_root))
+                except ValueError:
+                    output_file = None
+
+        use_id = use_file.stem.replace("_active", "")
+        return {
+            "id": use_id,
+            "name": request_event["name"],
+            "start": request_event.get("ts", 0),
+            "status": "running",
+            "prompt": request_event.get("prompt", ""),
+            "facet": request_event.get("facet"),
+            "failed": False,
+            "runtime_seconds": None,
+            "thinking_count": thinking_count,
+            "tool_count": tool_count,
+            "cost": None,
+            "model": model,
+            "provider": provider,
+            "error_message": None,
+            "output_file": output_file,
+        }
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
 def _get_uses_for_day(day: str, facet_filter: str | None = None) -> list[dict]:
     """Get all talent uses for a specific day.
 
@@ -260,7 +256,7 @@ def _get_uses_for_day(day: str, facet_filter: str | None = None) -> list[dict]:
     if not talents_dir.exists():
         return []
 
-    uses = []
+    uses: list[dict[str, Any]] = []
 
     # Read day index for completed uses
     day_index_path = talents_dir / f"{day}.jsonl"
@@ -280,17 +276,30 @@ def _get_uses_for_day(day: str, facet_filter: str | None = None) -> list[dict]:
                     if facet_filter is not None and entry.get("facet") != facet_filter:
                         continue
 
-                    # Locate the actual file for full parsing
-                    use_id = entry.get("use_id", "")
-                    name = entry["name"]
-                    safe_name = name.replace(":", "--")
-                    use_file = talents_dir / safe_name / f"{use_id}.jsonl"
-                    if not use_file.exists():
+                    use_id = entry.get("use_id") or entry.get("agent_id")
+                    if not use_id:
                         continue
 
-                    use_info = _parse_use_file(use_file)
-                    if use_info:
-                        uses.append(use_info)
+                    status = entry.get("status")
+                    uses.append(
+                        {
+                            "id": use_id,
+                            "name": entry.get("name"),
+                            "start": entry.get("ts"),
+                            "status": status,
+                            "prompt": entry.get("prompt"),
+                            "facet": entry.get("facet"),
+                            "failed": status in ("error", "unknown"),
+                            "runtime_seconds": entry.get("runtime_seconds"),
+                            "thinking_count": entry.get("thinking_count"),
+                            "tool_count": entry.get("tool_count"),
+                            "cost": entry.get("cost"),
+                            "model": entry.get("model"),
+                            "provider": entry.get("provider"),
+                            "error_message": entry.get("error_message"),
+                            "output_file": entry.get("output_file"),
+                        }
+                    )
         except OSError as exc:
             logging.warning("Failed to read use day index %s: %s", day_index_path, exc)
 
@@ -301,7 +310,7 @@ def _get_uses_for_day(day: str, facet_filter: str | None = None) -> list[dict]:
         if _get_use_day(use_file) != day:
             continue
 
-        use_info = _parse_use_file(use_file)
+        use_info = _parse_active_use_file(use_file)
         if not use_info:
             continue
 
@@ -311,7 +320,7 @@ def _get_uses_for_day(day: str, facet_filter: str | None = None) -> list[dict]:
         uses.append(use_info)
 
     # Sort by start time (newest first)
-    uses.sort(key=lambda x: x["start"], reverse=True)
+    uses.sort(key=lambda x: x.get("start") or 0, reverse=True)
     return uses
 
 

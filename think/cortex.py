@@ -29,7 +29,9 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from think.callosum import CallosumConnection
+from think.models import calc_agent_cost
 from think.runner import _atomic_symlink
+from think.talent import get_output_path
 from think.talents import TALENT_EXECUTION_MODULE
 from think.utils import get_journal, get_project_root, get_rev, now_ms
 
@@ -662,6 +664,40 @@ class CortexService:
         except Exception as e:
             self.logger.error(f"Failed to complete talent file {use_id}: {e}")
 
+    def _summarize_output_file(self, request: Dict[str, Any]) -> str | None:
+        """Return the API-facing output path if it exists at completion time."""
+        if not request.get("output"):
+            return None
+
+        try:
+            if request.get("output_path"):
+                out_path = Path(request["output_path"])
+            else:
+                req_day = request.get("day")
+                if not req_day:
+                    return None
+                day_dir = self.talents_dir.parent / req_day
+                req_env = request.get("env") or {}
+                out_path = get_output_path(
+                    day_dir,
+                    request["name"],
+                    segment=request.get("segment"),
+                    output_format=request.get("output"),
+                    facet=request.get("facet"),
+                    stream=req_env.get("SOL_STREAM"),
+                )
+
+            if not out_path.exists():
+                return None
+
+            req_day = request.get("day")
+            day_dir = self.talents_dir.parent / req_day if req_day else None
+            if day_dir and out_path.is_relative_to(day_dir):
+                return str(out_path.relative_to(day_dir))
+            return str(out_path.relative_to(self.talents_dir.parent))
+        except (OSError, ValueError, KeyError):
+            return None
+
     def _append_day_index(
         self, use_id: str, request: Dict[str, Any], completed_path: Path
     ) -> None:
@@ -677,30 +713,43 @@ class CortexService:
 
             start_ts = request.get("ts", 0)
 
-            # Read last few lines to find finish/error event for runtime
+            thinking_count = 0
+            tool_count = 0
+            finish_usage = None
+            error_message = None
+            model = None
             runtime_seconds = None
             status = "completed"
             try:
                 with open(completed_path, "r") as f:
                     lines = f.readlines()
-                for line in reversed(lines[-10:]):
+                for line in lines:
                     line = line.strip()
                     if not line:
                         continue
                     try:
                         event = json.loads(line)
                         event_type = event.get("event")
+                        if event_type == "thinking":
+                            thinking_count += 1
+                        elif event_type == "tool_start":
+                            tool_count += 1
+                        elif event_type == "start":
+                            model = event.get("model")
+
                         if event_type == "finish":
+                            status = "completed"
+                            finish_usage = event.get("usage")
                             end_ts = event.get("ts", 0)
                             if end_ts and start_ts:
                                 runtime_seconds = round((end_ts - start_ts) / 1000.0, 1)
-                            break
                         if event_type == "error":
                             status = "error"
+                            msg = event.get("error", "")
+                            error_message = msg[:200] if msg else None
                             end_ts = event.get("ts", 0)
                             if end_ts and start_ts:
                                 runtime_seconds = round((end_ts - start_ts) / 1000.0, 1)
-                            break
                     except json.JSONDecodeError:
                         continue
             except Exception:
@@ -715,8 +764,14 @@ class CortexService:
                 "status": status,
                 "runtime_seconds": runtime_seconds,
                 "provider": request.get("provider"),
-                "model": request.get("model"),
+                "model": model,
                 "schedule": request.get("schedule"),
+                "thinking_count": thinking_count,
+                "tool_count": tool_count,
+                "cost": calc_agent_cost(model, finish_usage),
+                "error_message": error_message if status == "error" else None,
+                "output_file": self._summarize_output_file(request),
+                "prompt": request.get("prompt", ""),
             }
 
             day_index_path = self.talents_dir / f"{day}.jsonl"

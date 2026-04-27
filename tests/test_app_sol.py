@@ -323,6 +323,168 @@ class TestApiOutputFile:
         assert resp.status_code == 404
 
 
+@pytest.fixture
+def sol_listing_client(tmp_path, monkeypatch):
+    """Create a sol app client backed by a temporary journal."""
+    from flask import Flask
+
+    from apps.sol.routes import sol_bp
+    from convey import state
+
+    app = Flask(__name__)
+    app.register_blueprint(sol_bp)
+
+    talents_dir = tmp_path / "talents"
+    talents_dir.mkdir()
+
+    monkeypatch.setattr(state, "journal_root", str(tmp_path))
+    monkeypatch.setattr("apps.sol.routes.get_facets", lambda: {})
+    monkeypatch.setattr("apps.sol.routes._build_talents_meta", lambda: {})
+
+    return app.test_client(), talents_dir
+
+
+def _write_day_index(talents_dir: Path, day: str, entries: list[dict]) -> Path:
+    path = talents_dir / f"{day}.jsonl"
+    lines = [json.dumps(entry) + "\n" for entry in entries]
+    path.write_text("".join(lines), encoding="utf-8")
+    return path
+
+
+class TestApiTalentsDayListing:
+    """Tests for day-index-backed talent listing."""
+
+    def test_index_only_entry_returns_full_summary(self, sol_listing_client):
+        """A complete day-index entry is enough without a per-use file."""
+        client, talents_dir = sol_listing_client
+        day = "20990101"
+        entry = {
+            "use_id": "4070908800001",
+            "name": "flow",
+            "day": day,
+            "facet": "work",
+            "ts": 4070908800000,
+            "status": "error",
+            "runtime_seconds": 12.3,
+            "provider": "google",
+            "model": "gemini-2.5-flash",
+            "schedule": "daily",
+            "thinking_count": 4,
+            "tool_count": 2,
+            "cost": 0.0123,
+            "error_message": "rate limited",
+            "output_file": "talents/flow.md",
+            "prompt": "Summarize the day",
+        }
+        _write_day_index(talents_dir, day, [entry])
+
+        resp = client.get(f"/app/sol/api/talents/{day}")
+
+        assert resp.status_code == 200
+        uses = resp.get_json()["uses"]
+        assert len(uses) == 1
+        assert uses[0] == {
+            "id": "4070908800001",
+            "name": "flow",
+            "start": 4070908800000,
+            "status": "error",
+            "prompt": "Summarize the day",
+            "facet": "work",
+            "failed": True,
+            "runtime_seconds": 12.3,
+            "thinking_count": 4,
+            "tool_count": 2,
+            "cost": 0.0123,
+            "model": "gemini-2.5-flash",
+            "provider": "google",
+            "error_message": "rate limited",
+            "output_file": "talents/flow.md",
+        }
+
+    def test_legacy_agent_id_entry_returns_with_blank_new_fields(
+        self, sol_listing_client
+    ):
+        """Legacy agent_id day-index entries are visible with missing fields blank."""
+        client, talents_dir = sol_listing_client
+        day = "20990102"
+        agent_id = "4070995200001"
+        _write_day_index(
+            talents_dir,
+            day,
+            [
+                {
+                    "agent_id": agent_id,
+                    "name": "entities",
+                    "day": day,
+                    "facet": "personal",
+                    "ts": 4070995200000,
+                    "status": "completed",
+                    "runtime_seconds": 8.4,
+                    "provider": "google",
+                    "model": "gemini-2.5-flash-lite",
+                }
+            ],
+        )
+
+        resp = client.get(f"/app/sol/api/talents/{day}")
+
+        assert resp.status_code == 200
+        use = resp.get_json()["uses"][0]
+        assert use["id"] == agent_id
+        assert use["failed"] is False
+        for field in (
+            "thinking_count",
+            "tool_count",
+            "cost",
+            "error_message",
+            "output_file",
+            "prompt",
+        ):
+            assert use[field] is None
+
+    def test_current_thin_entry_returns_without_rewriting_index(
+        self, sol_listing_client
+    ):
+        """Current thin use_id entries return with missing fields blank."""
+        client, talents_dir = sol_listing_client
+        day = "20990103"
+        index_path = _write_day_index(
+            talents_dir,
+            day,
+            [
+                {
+                    "use_id": "4071081600001",
+                    "name": "knowledge_graph",
+                    "day": day,
+                    "facet": None,
+                    "ts": 4071081600000,
+                    "status": "completed",
+                    "runtime_seconds": 9.1,
+                    "provider": "anthropic",
+                    "model": "claude-sonnet-4-5",
+                    "schedule": "daily",
+                }
+            ],
+        )
+        before = index_path.read_bytes()
+
+        resp = client.get(f"/app/sol/api/talents/{day}")
+
+        assert resp.status_code == 200
+        use = resp.get_json()["uses"][0]
+        assert use["id"] == "4071081600001"
+        for field in (
+            "thinking_count",
+            "tool_count",
+            "cost",
+            "error_message",
+            "output_file",
+            "prompt",
+        ):
+            assert use[field] is None
+        assert index_path.read_bytes() == before
+
+
 class TestApiUpdatedDays:
     """Tests for api_updated_days endpoint."""
 
