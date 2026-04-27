@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import errno
 import json
 import logging
 import os
@@ -72,6 +73,7 @@ class JSONEventWriter:
     def __init__(self, path: Optional[str] = None) -> None:
         self.path = path
         self.file = None
+        self._pipe_dead = False
         if path:
             try:
                 Path(path).parent.mkdir(parents=True, exist_ok=True)
@@ -81,8 +83,14 @@ class JSONEventWriter:
 
     def emit(self, data: Event) -> None:
         line = json.dumps(data, ensure_ascii=False)
-        print(line)
-        sys.stdout.flush()  # Ensure immediate output for cortex
+        if not self._pipe_dead:
+            try:
+                print(line)
+                sys.stdout.flush()  # Ensure immediate output for cortex
+            except (BrokenPipeError, OSError) as exc:
+                if not isinstance(exc, BrokenPipeError) and exc.errno != errno.EPIPE:
+                    raise
+                self._pipe_dead = True
         if self.file:
             try:
                 self.file.write(line + "\n")
