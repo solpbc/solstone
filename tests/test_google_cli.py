@@ -325,34 +325,67 @@ class TestRunCogitateCommand:
             def __init__(self, **kwargs):
                 self.cmd = kwargs["cmd"]
                 self.prompt_text = kwargs["prompt_text"]
+                self.kwargs = kwargs
                 self.cli_session_id = "test-session"
                 self.run = AsyncMock(return_value="result")
                 MockCLIRunner.last_instance = self
 
         return MockCLIRunner
 
-    def test_no_write_uses_yolo_with_policy(self):
+    def test_no_write_uses_yolo_with_policy(self, tmp_path):
         provider = _google_provider()
         MockCLIRunner = self._mock_runner()
-        with patch("think.providers.google.CLIRunner", MockCLIRunner):
+        policy_path = tmp_path / "policy.toml"
+        policy_path.write_text("# generated\n", encoding="utf-8")
+        with (
+            patch("think.providers.google.CLIRunner", MockCLIRunner),
+            patch(
+                "think.providers.google.build_per_task_policy",
+                return_value=policy_path,
+            ) as build_policy,
+        ):
             asyncio.run(
                 provider.run_cogitate(
-                    {"prompt": "hello", "model": "gemini-2.5-flash"}, lambda e: None
+                    {
+                        "prompt": "hello",
+                        "model": "gemini-2.5-flash",
+                        "name": "morning_briefing",
+                    },
+                    lambda e: None,
                 )
             )
         cmd = MockCLIRunner.last_instance.cmd
         idx = cmd.index("--approval-mode")
         assert cmd[idx + 1] == "yolo"
         policy_idx = cmd.index("--policy")
-        assert cmd[policy_idx + 1].endswith("policies/cogitate.toml")
+        assert cmd[policy_idx + 1] == str(policy_path)
+        build_policy.assert_called_once()
+        assert not policy_path.exists()
         prompt_text = MockCLIRunner.last_instance.prompt_text
         assert "through the `run_shell_command` tool" in prompt_text
         assert "Do not invent or call a tool literally named `sol`." in prompt_text
+        assert MockCLIRunner.last_instance.kwargs["read_call_budget"] == 200
 
     def test_write_mode_uses_yolo_approval(self):
         runner = _assert_write_mode_uses_yolo_approval(self._mock_runner)
         prompt_text = runner.prompt_text
         assert "Do not invent or call a tool literally named `sol`." not in prompt_text
+
+    def test_write_mode_does_not_build_policy(self, tmp_path):
+        provider = _google_provider()
+        MockCLIRunner = self._mock_runner()
+        with (
+            patch("think.providers.google.CLIRunner", MockCLIRunner),
+            patch("think.providers.google.build_per_task_policy") as build_policy,
+        ):
+            asyncio.run(
+                provider.run_cogitate(
+                    {"prompt": "hello", "model": "gemini-2.5-flash", "write": True},
+                    lambda e: None,
+                )
+            )
+        assert "--policy" not in MockCLIRunner.last_instance.cmd
+        build_policy.assert_not_called()
 
     def test_sandbox_none(self):
         provider = _google_provider()

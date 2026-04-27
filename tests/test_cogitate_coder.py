@@ -147,7 +147,7 @@ class TestGoogleWriteFlag:
         return importlib.import_module("think.providers.google")
 
     @patch("think.providers.google.CLIRunner")
-    def test_no_write_uses_yolo_with_policy(self, mock_runner_cls):
+    def test_no_write_uses_yolo_with_policy(self, mock_runner_cls, tmp_path):
         """Without write flag, approval-mode is yolo with scoped policy."""
         provider = self._provider()
         mock_instance = AsyncMock()
@@ -155,14 +155,22 @@ class TestGoogleWriteFlag:
         mock_instance.cli_session_id = None
         mock_runner_cls.return_value = mock_instance
 
+        policy_path = tmp_path / "policy.toml"
+        policy_path.write_text("# generated\n", encoding="utf-8")
         config = {"prompt": "test", "model": "gemini-2.5-flash"}
-        asyncio.run(provider.run_cogitate(config))
+        with patch(
+            "think.providers.google.build_per_task_policy",
+            return_value=policy_path,
+        ) as build_policy:
+            asyncio.run(provider.run_cogitate(config))
 
         cmd = mock_runner_cls.call_args.kwargs["cmd"]
         idx = cmd.index("--approval-mode")
         assert cmd[idx + 1] == "yolo"
         policy_idx = cmd.index("--policy")
-        assert cmd[policy_idx + 1].endswith("policies/cogitate.toml")
+        assert cmd[policy_idx + 1] == str(policy_path)
+        build_policy.assert_called_once()
+        assert not policy_path.exists()
 
     @patch("think.providers.google.CLIRunner")
     def test_write_true_uses_yolo_mode(self, mock_runner_cls):
@@ -181,12 +189,12 @@ class TestGoogleWriteFlag:
         assert cmd[idx + 1] == "yolo"
         assert "--policy" not in cmd
 
-    def test_cogitate_policy_file_exists_on_disk(self):
-        """The policy path wired into argv must resolve to a real file."""
-        from think.providers.google import _COGITATE_POLICY_PATH
+    def test_cogitate_base_policy_file_exists_on_disk(self):
+        """The per-task policy generator's base policy must exist."""
+        from think.cogitate_policy import _BASE_POLICY_PATH
 
-        assert _COGITATE_POLICY_PATH.is_file(), (
-            f"Expected policy file at {_COGITATE_POLICY_PATH}"
+        assert _BASE_POLICY_PATH.is_file(), (
+            f"Expected policy file at {_BASE_POLICY_PATH}"
         )
 
 

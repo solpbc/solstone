@@ -98,6 +98,21 @@ class TestAssemblePrompt:
         assert body == "hello"
         assert system == "Base system"
 
+    def test_assemble_prompt_appends_read_scope_hint(self):
+        body, system = assemble_prompt(
+            {
+                "prompt": "hello",
+                "system_instruction": "Base system",
+                "read_scope": ["chronicle/<day>"],
+            },
+            sol_tool_name="run_shell_command",
+        )
+
+        assert body == "hello"
+        assert system is not None
+        assert "through the `run_shell_command` tool" in system
+        assert "Limit filesystem reads to today's segment dir" in system
+
 
 # ---------------------------------------------------------------------------
 # ThinkingAggregator
@@ -497,6 +512,61 @@ class TestCLIRunnerExitCode:
             asyncio.run(runner.run())
 
         assert captured_cwd == "/tmp"
+
+    def test_read_tool_budget_overflow_terminates_process_group(self):
+        events = []
+        callback = JSONEventCallback(events.append)
+        aggregator = ThinkingAggregator(callback, model="test-model")
+        stdout_lines = [
+            (json.dumps({"type": "tool_use", "tool_name": "read_file"}) + "\n").encode(
+                "utf-8"
+            )
+            for _ in range(201)
+        ]
+        process = _make_process(stdout_lines, [], 0)
+        translated = []
+
+        def translate(event, _agg, _cb):
+            translated.append(event)
+            return None
+
+        runner = CLIRunner(
+            cmd=["fakecli", "--json"],
+            prompt_text="test",
+            translate=translate,
+            callback=callback,
+            aggregator=aggregator,
+            read_call_budget=200,
+        )
+        runner._terminate_process_group = AsyncMock()
+
+        with (
+            patch(
+                "think.providers.cli.asyncio.create_subprocess_exec",
+                AsyncMock(return_value=process),
+            ),
+            patch("think.providers.cli.shutil.which", return_value="/usr/bin/fakecli"),
+            pytest.raises(RuntimeError) as exc_info,
+        ):
+            asyncio.run(runner.run())
+
+        assert "tool_budget_exhausted" in str(exc_info.value)
+        assert "(201/200)" in str(exc_info.value)
+        assert len(translated) == 200
+        exhausted = [
+            event for event in events if event["event"] == "tool_budget_exhausted"
+        ]
+        assert exhausted == [
+            {
+                "event": "tool_budget_exhausted",
+                "tool": "read_file",
+                "budget": 200,
+                "count": 201,
+                "read_tools": ["read_file", "glob", "list_directory", "grep_search"],
+                "ts": exhausted[0]["ts"],
+            }
+        ]
+        runner._terminate_process_group.assert_called_once_with(process)
 
 
 class TestCLIRunnerFirstEventTimeout:

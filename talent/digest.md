@@ -5,7 +5,8 @@
   "description": "Synthesize a plain-English digest of who sol is and what's happening now.",
   "schedule": "none",
   "priority": 10,
-  "max_output_tokens": 1000
+  "max_output_tokens": 1000,
+  "read_scope": ["chronicle/<day>"]
 }
 
 # Digest

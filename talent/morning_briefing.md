@@ -6,7 +6,8 @@
   "color": "#1565c0",
   "schedule": "daily",
   "priority": 50,
-  "output": "md"
+  "output": "md",
+  "read_scope": ["chronicle/<day>", "facets", "entities", "imports", "health", "identity"]
 }
 
 $facets

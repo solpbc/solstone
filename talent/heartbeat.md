@@ -4,7 +4,8 @@
   "title": "Heartbeat",
   "description": "Sol's periodic self-awareness — journal health, agency tending, curation scan",
   "schedule": "none",
-  "priority": 10
+  "priority": 10,
+  "read_scope": ["chronicle/<day>", "health", "talents", "identity", "entities", "facets", "imports"]
 }
 
 $facets

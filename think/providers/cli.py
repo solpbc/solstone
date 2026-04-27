@@ -33,6 +33,13 @@ _TIMEOUT_LOG_DIR: Path = Path("/tmp")
 
 _QUOTA_TOKENS = ("QUOTA_EXHAUSTED", "TerminalQuotaError")
 _RETRY_DELAY_RE = re.compile(r'"?retryDelayMs"?\s*[:=]\s*"?([0-9]+(?:\.[0-9]+)?)')
+_READ_BUDGET_TOOL_NAMES: tuple[str, ...] = (
+    "read_file",
+    "glob",
+    "list_directory",
+    "grep_search",
+)
+_READ_BUDGET_TOOLS: frozenset[str] = frozenset(_READ_BUDGET_TOOL_NAMES)
 
 
 class QuotaExhaustedError(Exception):
@@ -114,6 +121,15 @@ def assemble_prompt(
             system_instruction = f"{system_instruction}\n\n{hint}"
         else:
             system_instruction = hint
+    if config.get("read_scope"):
+        scope_hint = (
+            "Limit filesystem reads to today's segment dir unless the task explicitly requires broader history. "
+            "If you need broader scope, state what and why in your reasoning."
+        )
+        if system_instruction:
+            system_instruction = f"{system_instruction}\n\n{scope_hint}"
+        else:
+            system_instruction = scope_hint
     return prompt_body, system_instruction
 
 
@@ -208,6 +224,7 @@ class CLIRunner:
         env: Optional complete environment for the subprocess (used as-is, not merged). When None, inherits os.environ.
         timeout: Subprocess timeout in seconds. Default 600.
         first_event_timeout: Timeout for first stdout line in seconds. Default 90.
+        read_call_budget: Optional combined budget for native read-tool calls.
     """
 
     def __init__(
@@ -224,6 +241,7 @@ class CLIRunner:
         env: dict[str, str] | None = None,
         timeout: int = 600,
         first_event_timeout: int = 90,
+        read_call_budget: int | None = None,
     ) -> None:
         self.cmd = cmd
         self.prompt_text = prompt_text
@@ -237,6 +255,9 @@ class CLIRunner:
         self._timed_out_waiting_for_first_event = False
         self._already_retried_first_event: bool = False
         self._quota_error: QuotaExhaustedError | None = None
+        self._read_call_budget = read_call_budget
+        self._read_call_count = 0
+        self._read_budget_tools = _READ_BUDGET_TOOLS
         self.cli_session_id: str | None = None
 
     async def run(self) -> str:
@@ -490,7 +511,7 @@ class CLIRunner:
         if not process.stdout:
             return
 
-        def _process_line(raw_line: bytes) -> None:
+        async def _process_line(raw_line: bytes) -> None:
             line = raw_line.decode("utf-8", errors="replace").strip()
             if not line:
                 return
@@ -505,6 +526,32 @@ class CLIRunner:
             except json.JSONDecodeError:
                 LOG.warning("Non-JSON stdout line: %s", line[:200])
                 return
+
+            tool_name = event_data.get("tool_name")
+            if (
+                event_data.get("type") == "tool_use"
+                and tool_name in self._read_budget_tools
+            ):
+                self._read_call_count += 1
+                if (
+                    self._read_call_budget is not None
+                    and self._read_call_count > self._read_call_budget
+                ):
+                    self.callback.emit(
+                        {
+                            "event": "tool_budget_exhausted",
+                            "tool": tool_name,
+                            "budget": self._read_call_budget,
+                            "count": self._read_call_count,
+                            "read_tools": list(_READ_BUDGET_TOOL_NAMES),
+                            "ts": now_ms(),
+                        }
+                    )
+                    await self._terminate_process_group(process)
+                    raise RuntimeError(
+                        "tool_budget_exhausted: read tool call budget exceeded "
+                        f"({self._read_call_count}/{self._read_call_budget})"
+                    )
 
             try:
                 session_id = self.translate(event_data, self.aggregator, self.callback)
@@ -525,7 +572,7 @@ class CLIRunner:
             raise
         if not first_line:
             return
-        _process_line(first_line)
+        await _process_line(first_line)
 
         while True:
             try:
@@ -548,7 +595,7 @@ class CLIRunner:
                 continue
             if not raw_line:
                 break
-            _process_line(raw_line)
+            await _process_line(raw_line)
 
     def _write_timeout_log(
         self,

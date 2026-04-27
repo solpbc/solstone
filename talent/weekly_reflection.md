@@ -4,7 +4,8 @@
   "description": "Sunday-start weekly reflection synthesized from the journal",
   "schedule": "weekly",
   "priority": 90,
-  "output": "md"
+  "output": "md",
+  "read_scope_span": 7
 }
 
 $facets
