@@ -790,6 +790,9 @@ def main() -> None:
             processing_results["entities_seeded"] = result.entities_seeded
             if result.merge_summary is not None:
                 processing_results["merge_summary"] = result.merge_summary
+                processing_results["merge_log_path"] = result.merge_log_path
+                processing_results["merge_staging_path"] = result.merge_staging_path
+                processing_results["summary_errors"] = list(result.errors)
             if result.principal_collision is not None:
                 processing_results["principal_collision"] = result.principal_collision
 
@@ -815,6 +818,9 @@ def main() -> None:
             }
             if result.merge_summary is not None:
                 file_imported_payload["merge_summary"] = result.merge_summary
+                file_imported_payload["merge_log_path"] = result.merge_log_path
+                file_imported_payload["merge_staging_path"] = result.merge_staging_path
+                file_imported_payload["summary_errors"] = list(result.errors)
             if result.principal_collision is not None:
                 file_imported_payload["principal_collision"] = (
                     result.principal_collision
@@ -923,6 +929,9 @@ def main() -> None:
                             "summary": result.summary,
                             "merge_summary": result.merge_summary,
                             "principal_collision": result.principal_collision,
+                            "merge_log_path": result.merge_log_path,
+                            "merge_staging_path": result.merge_staging_path,
+                            "summary_errors": list(result.errors),
                         }
                     )
                 )

@@ -241,6 +241,15 @@ def _merge_segments(
             raise
         except Exception as exc:
             summary.segments_errored += 1
+            _log_decision(
+                log_path,
+                {
+                    "action": "segment_errored",
+                    "item_type": "segment",
+                    "item_id": item_id,
+                    "reason": str(exc),
+                },
+            )
             summary.errors.append(f"segment {day_name}/{stream}/{seg_key}: {exc}")
         finally:
             _report_progress(progress, "segments", index, total, item_id)
@@ -307,6 +316,9 @@ def _merge_entities(
                                 "reason": "id_collision_no_match",
                                 "source": source_entity,
                                 "target": dict(target_entities[entity_id]),
+                                "staging_path": str(
+                                    staging_path / entity_id / "entity.json"
+                                ),
                             },
                         )
                     else:

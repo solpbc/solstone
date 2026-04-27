@@ -121,6 +121,8 @@ def test_journal_archive_importer_process_merges_wrapped_archive(tmp_path, monke
     assert result.errors == []
     assert result.merge_summary is not None
     assert result.merge_summary["segments_copied"] == 1
+    assert result.merge_log_path is not None
+    assert result.merge_staging_path is not None
     assert (target / "chronicle" / "20260101" / "default" / "090000_300").exists()
     assert (target / "entities" / "source_person" / "entity.json").exists()
     assert (target / "imports" / "20260101_090000" / "manifest.json").exists()
@@ -349,6 +351,102 @@ def test_journal_archive_importer_process_reports_principal_collision(
     }
 
 
+def test_journal_archive_importer_logs_segment_errors(tmp_path, monkeypatch):
+    archive_path = tmp_path / "journal-export.zip"
+    _write_archive(archive_path, _build_archive_members())
+    extract_root = tmp_path / "extracts"
+    extract_root.mkdir()
+    monkeypatch.setattr(journal_archive, "TEMP_EXTRACT_ROOT", extract_root)
+
+    target = tmp_path / "target"
+    _reset_journal(monkeypatch, target)
+    monkeypatch.setattr(journal_archive.subprocess, "Popen", MagicMock())
+
+    merge_mod = importlib.import_module("think.merge")
+    original_copytree = merge_mod.shutil.copytree
+
+    def failing_copytree(src, dst, *args, **kwargs):
+        if Path(src).name == "090000_300":
+            raise OSError("segment copy failed")
+        return original_copytree(src, dst, *args, **kwargs)
+
+    monkeypatch.setattr(merge_mod.shutil, "copytree", failing_copytree)
+
+    result = journal_archive.JournalArchiveImporter().process(
+        archive_path,
+        target,
+        import_id="20260426_120000",
+    )
+
+    assert result.merge_summary is not None
+    assert result.merge_summary["segments_errored"] == 1
+    assert result.merge_log_path is not None
+    decision_log = Path(result.merge_log_path)
+    rows = [
+        json.loads(line)
+        for line in decision_log.read_text(encoding="utf-8").splitlines()
+        if line
+    ]
+    assert {
+        "action": "segment_errored",
+        "item_type": "segment",
+        "item_id": "20260101/default/090000_300",
+        "reason": "segment copy failed",
+    }.items() <= next(
+        row.items() for row in rows if row.get("action") == "segment_errored"
+    )
+
+
+def test_journal_archive_importer_logs_staged_entity_paths(tmp_path, monkeypatch):
+    archive_path = tmp_path / "journal-export.zip"
+    _write_archive(
+        archive_path,
+        _build_archive_members(
+            source_entity_id="shared_person",
+            source_name="Source Person",
+        ),
+    )
+    extract_root = tmp_path / "extracts"
+    extract_root.mkdir()
+    monkeypatch.setattr(journal_archive, "TEMP_EXTRACT_ROOT", extract_root)
+
+    target = tmp_path / "target"
+    _reset_journal(monkeypatch, target)
+    monkeypatch.setattr(journal_archive.subprocess, "Popen", MagicMock())
+    _write_json(
+        target / "entities" / "shared_person" / "entity.json",
+        {
+            "id": "shared_person",
+            "name": "Target Person",
+            "type": "person",
+            "created_at": 1,
+        },
+    )
+
+    result = journal_archive.JournalArchiveImporter().process(
+        archive_path,
+        target,
+        import_id="20260426_120000",
+    )
+
+    assert result.merge_summary is not None
+    assert result.merge_summary["entities_staged"] == 1
+    assert result.merge_log_path is not None
+    assert result.merge_staging_path is not None
+    decision_log = Path(result.merge_log_path)
+    rows = [
+        json.loads(line)
+        for line in decision_log.read_text(encoding="utf-8").splitlines()
+        if line
+    ]
+    staged_row = next(row for row in rows if row.get("action") == "entity_staged")
+    expected_path = str(
+        Path(result.merge_staging_path) / "shared_person" / "entity.json"
+    )
+    assert staged_row["staging_path"] == expected_path
+    assert staged_row["staging_path"].startswith(result.merge_staging_path)
+
+
 def test_journal_archive_importer_process_dry_run_is_read_only(tmp_path, monkeypatch):
     archive_path = tmp_path / "journal-export.zip"
     _write_archive(archive_path, _build_archive_members())
@@ -566,10 +664,12 @@ def test_importer_cli_emits_merge_summary_and_principal_collision(
         entries_written=1,
         entities_seeded=0,
         files_created=[],
-        errors=[],
+        errors=["segment 20260101/default/090000_300: segment copy failed"],
         summary="Merged archive",
         merge_summary={"segments_copied": 1},
         principal_collision={"source_entity_id": "a"},
+        merge_log_path="/tmp/journal.merge/run/decisions.jsonl",
+        merge_staging_path="/tmp/journal.merge/run/staging",
     )
 
     monkeypatch.setattr(
@@ -600,10 +700,33 @@ def test_importer_cli_emits_merge_summary_and_principal_collision(
     )
     assert file_imported.kwargs["merge_summary"] == {"segments_copied": 1}
     assert file_imported.kwargs["principal_collision"] == {"source_entity_id": "a"}
+    assert (
+        file_imported.kwargs["merge_log_path"]
+        == "/tmp/journal.merge/run/decisions.jsonl"
+    )
+    assert (
+        file_imported.kwargs["merge_staging_path"] == "/tmp/journal.merge/run/staging"
+    )
+    assert file_imported.kwargs["summary_errors"] == [
+        "segment 20260101/default/090000_300: segment copy failed"
+    ]
 
     payload = json.loads(capsys.readouterr().out)
     assert payload["merge_summary"] == {"segments_copied": 1}
     assert payload["principal_collision"] == {"source_entity_id": "a"}
+    assert payload["merge_log_path"] == "/tmp/journal.merge/run/decisions.jsonl"
+    assert payload["merge_staging_path"] == "/tmp/journal.merge/run/staging"
+    assert payload["summary_errors"] == [
+        "segment 20260101/default/090000_300: segment copy failed"
+    ]
+
+    imported_path = tmp_path / "imports" / "20260303_120000" / "imported.json"
+    imported = json.loads(imported_path.read_text(encoding="utf-8"))
+    assert imported["merge_log_path"] == "/tmp/journal.merge/run/decisions.jsonl"
+    assert imported["merge_staging_path"] == "/tmp/journal.merge/run/staging"
+    assert imported["summary_errors"] == [
+        "segment 20260101/default/090000_300: segment copy failed"
+    ]
 
 
 def test_acquire_merge_lock_reclaims_stale_pid(tmp_path, monkeypatch):

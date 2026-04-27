@@ -575,6 +575,8 @@ class JournalArchiveImporter:
                     date_range=_collect_day_range(extracted_root),
                     merge_summary=merge_summary,
                     principal_collision=principal_collision,
+                    merge_log_path=str(log_path),
+                    merge_staging_path=str(staging_path),
                 )
             finally:
                 shutil.rmtree(extract_dir, ignore_errors=True)

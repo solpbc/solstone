@@ -34,6 +34,8 @@ class ImportResult:
     date_range: tuple[str, str] | None = None
     merge_summary: dict[str, Any] | None = None
     principal_collision: dict[str, Any] | None = None
+    merge_log_path: str | None = None
+    merge_staging_path: str | None = None
 
 
 @runtime_checkable
