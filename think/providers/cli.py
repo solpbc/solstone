@@ -510,6 +510,8 @@ class CLIRunner:
                 session_id = self.translate(event_data, self.aggregator, self.callback)
                 if session_id:
                     self.cli_session_id = session_id
+            except QuotaExhaustedError:
+                raise
             except Exception:
                 LOG.exception("Error translating CLI event: %s", line[:200])
 
@@ -619,52 +621,75 @@ def check_cli_binary(name: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def build_cogitate_env(env_key: str) -> dict[str, str]:
+_BASE_ALLOWLIST = [
+    "PATH",
+    "HOME",
+    "USER",
+    "LOGNAME",
+    "SHELL",
+    "PWD",
+    "TERM",
+    "TMPDIR",
+    "TZ",
+    "LANG",
+    "LC_*",
+    "XDG_*",
+    "SOLSTONE_*",
+    "SOL_*",
+    "SSL_CERT_FILE",
+    "SSL_CERT_DIR",
+]
+
+_PROVIDER_ALLOWLIST: dict[str, list[str]] = {
+    "anthropic": ["ANTHROPIC_*", "CLAUDE_*"],
+    "openai": ["OPENAI_*"],
+    "google": ["GOOGLE_*", "GEMINI_*", "VERTEX_*"],
+}
+
+
+def _matches_env_pattern(key: str, pattern: str) -> bool:
+    if pattern.endswith("*"):
+        return key.startswith(pattern[:-1])
+    return key == pattern
+
+
+def build_cogitate_env(provider_name: str) -> dict[str, str]:
     """Build environment dict for a cogitate CLI subprocess.
 
-    By default, strips the provider's API key so the CLI uses its own
-    platform/account-based auth. Controlled by the ``providers.auth``
-    section in journal config:
-
-        "providers": {
-            "auth": {
-                "anthropic": "platform"   // default — strip key
-            }
-        }
-
-    Values: ``"platform"`` (default) strips the key; ``"api_key"`` preserves it.
+    The child environment is built from an allowlist. Patterns ending in ``*``
+    match the prefix before the star, including the exact prefix string.
+    No other glob characters are supported.
 
     Args:
-        env_key: Environment variable name to consider stripping
-            (e.g., ``"ANTHROPIC_API_KEY"``).
+        provider_name: Provider name (``anthropic``, ``openai``, or ``google``).
 
     Returns:
-        Copy of ``os.environ`` with the key removed when auth mode is platform.
+        Filtered environment for the provider CLI.
     """
+    from think.providers import PROVIDER_METADATA
     from think.utils import get_config
 
+    if provider_name not in _PROVIDER_ALLOWLIST:
+        valid = ", ".join(sorted(_PROVIDER_ALLOWLIST))
+        raise ValueError(f"Unsupported cogitate provider: {provider_name!r} ({valid})")
+
     config = get_config()
-    auth_config = config.get("providers", {}).get("auth", {})
+    providers_config = config.get("providers", {})
+    auth_config = providers_config.get("auth", {})
+    auth_mode = auth_config.get(provider_name, "platform")
+    env_key = PROVIDER_METADATA[provider_name]["env_key"]
+    allowlist = _BASE_ALLOWLIST + _PROVIDER_ALLOWLIST[provider_name]
+    env = {
+        key: value
+        for key, value in os.environ.items()
+        if any(_matches_env_pattern(key, pattern) for pattern in allowlist)
+    }
 
-    # Determine provider name from env_key for config lookup
-    # e.g., "ANTHROPIC_API_KEY" -> lookup auth_config for matching provider
-    # We check all auth entries; default is "platform" for any missing provider
-    auth_mode = "platform"
-    for provider, mode in auth_config.items():
-        from think.providers import PROVIDER_METADATA
-
-        meta = PROVIDER_METADATA.get(provider, {})
-        if meta.get("env_key") == env_key:
-            auth_mode = mode
-            break
-
-    env = os.environ.copy()
     if auth_mode == "platform":
         env.pop(env_key, None)
 
     # Vertex AI / AI Studio: set backend env vars for Google provider
-    if env_key == "GOOGLE_API_KEY":
-        providers_config = config.get("providers", {})
+    if provider_name == "google":
         google_backend = providers_config.get("google_backend", "auto")
 
         # Determine effective backend
@@ -685,24 +710,24 @@ def build_cogitate_env(env_key: str) -> dict[str, str]:
             env.pop("GOOGLE_API_KEY", None)
             # SA credentials: set GOOGLE_APPLICATION_CREDENTIALS
             creds_path = providers_config.get("vertex_credentials")
-            if creds_path and os.path.exists(creds_path):
-                env["GOOGLE_APPLICATION_CREDENTIALS"] = creds_path
-                # Project context lets the Gemini CLI use Vertex instead of
-                # falling back to AI Studio auth.
-                try:
-                    with open(creds_path, encoding="utf-8") as _f:
-                        _sa_data = json.load(_f)
-                    if "project_id" in _sa_data:
-                        env["GOOGLE_CLOUD_PROJECT"] = _sa_data["project_id"]
-                    else:
-                        LOG.warning(
-                            "SA credentials at %s missing project_id", creds_path
-                        )
-                except (OSError, json.JSONDecodeError) as exc:
-                    LOG.warning(
-                        "Could not read project_id from %s: %s", creds_path, exc
-                    )
-            # else: GOOGLE_APPLICATION_CREDENTIALS may be inherited from env
+            if not creds_path or not os.path.exists(creds_path):
+                raise ValueError(
+                    f"Vertex provider configured but no usable SA credentials at {creds_path}"
+                )
+            try:
+                with open(creds_path, encoding="utf-8") as _f:
+                    _sa_data = json.load(_f)
+            except (OSError, json.JSONDecodeError) as exc:
+                raise ValueError(
+                    f"Vertex provider configured but no usable SA credentials at {creds_path}"
+                ) from exc
+            project_id = _sa_data.get("project_id")
+            if not project_id:
+                raise ValueError(
+                    f"Vertex provider configured but no usable SA credentials at {creds_path}"
+                )
+            env["GOOGLE_APPLICATION_CREDENTIALS"] = creds_path
+            env["GOOGLE_CLOUD_PROJECT"] = project_id
             env["GOOGLE_CLOUD_LOCATION"] = "global"
             from think.utils import get_journal
 

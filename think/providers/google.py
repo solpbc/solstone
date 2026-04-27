@@ -803,7 +803,7 @@ async def run_cogitate(
             callback=callback,
             aggregator=aggregator,
             cwd=Path(cwd_value) if cwd_value else None,
-            env=build_cogitate_env("GOOGLE_API_KEY"),
+            env=build_cogitate_env("google"),
         )
 
         result = await runner.run()

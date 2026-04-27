@@ -220,7 +220,7 @@ async def run_cogitate(
         callback=cb,
         aggregator=aggregator,
         cwd=Path(cwd_value) if cwd_value else None,
-        env=build_cogitate_env("OPENAI_API_KEY"),
+        env=build_cogitate_env("openai"),
     )
 
     try:

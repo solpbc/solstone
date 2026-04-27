@@ -942,6 +942,116 @@ class TestSafeRaw:
 # ---------------------------------------------------------------------------
 
 
+def test_build_cogitate_env_allowlist_anthropic():
+    config = {"providers": {"auth": {"anthropic": "api_key"}}}
+    with (
+        patch.dict(
+            os.environ,
+            {
+                "PATH": "/bin",
+                "HOME": "/home/test",
+                "ANTHROPIC_API_KEY": "sk-ant",
+                "CLAUDE_CONFIG_DIR": "/tmp/claude",
+                "OPENAI_API_KEY": "sk-oai",
+                "GOOGLE_API_KEY": "gk",
+                "HTTPS_PROXY": "http://proxy",
+            },
+            clear=True,
+        ),
+        patch("think.utils.get_config", return_value=config),
+    ):
+        env = build_cogitate_env("anthropic")
+
+    assert env["ANTHROPIC_API_KEY"] == "sk-ant"
+    assert env["CLAUDE_CONFIG_DIR"] == "/tmp/claude"
+    assert env["PATH"] == "/bin"
+    assert "OPENAI_API_KEY" not in env
+    assert "GOOGLE_API_KEY" not in env
+    assert "HTTPS_PROXY" not in env
+
+
+def test_build_cogitate_env_allowlist_openai():
+    config = {"providers": {"auth": {"openai": "api_key"}}}
+    with (
+        patch.dict(
+            os.environ,
+            {
+                "PATH": "/bin",
+                "OPENAI_API_KEY": "sk-oai",
+                "OPENAI_ORG_ID": "org",
+                "ANTHROPIC_API_KEY": "sk-ant",
+                "GOOGLE_API_KEY": "gk",
+                "NODE_OPTIONS": "--inspect",
+            },
+            clear=True,
+        ),
+        patch("think.utils.get_config", return_value=config),
+    ):
+        env = build_cogitate_env("openai")
+
+    assert env["OPENAI_API_KEY"] == "sk-oai"
+    assert env["OPENAI_ORG_ID"] == "org"
+    assert "ANTHROPIC_API_KEY" not in env
+    assert "GOOGLE_API_KEY" not in env
+    assert "NODE_OPTIONS" not in env
+
+
+def test_build_cogitate_env_allowlist_google():
+    config = {
+        "providers": {
+            "google_backend": "aistudio",
+            "auth": {"google": "api_key"},
+        }
+    }
+    with (
+        patch.dict(
+            os.environ,
+            {
+                "PATH": "/bin",
+                "GOOGLE_API_KEY": "gk",
+                "GEMINI_HOME": "/tmp/gemini",
+                "VERTEX_REGION": "global",
+                "OPENAI_API_KEY": "sk-oai",
+                "ANTHROPIC_API_KEY": "sk-ant",
+                "HTTPS_PROXY": "http://proxy",
+            },
+            clear=True,
+        ),
+        patch("think.utils.get_config", return_value=config),
+    ):
+        env = build_cogitate_env("google")
+
+    assert env["GOOGLE_API_KEY"] == "gk"
+    assert env["GEMINI_HOME"] == "/tmp/gemini"
+    assert env["VERTEX_REGION"] == "global"
+    assert "OPENAI_API_KEY" not in env
+    assert "ANTHROPIC_API_KEY" not in env
+    assert "HTTPS_PROXY" not in env
+
+
+def test_build_cogitate_env_vertex_strict_validation_raises():
+    config = {
+        "providers": {
+            "google_backend": "vertex",
+            "vertex_credentials": "/tmp/missing-sa.json",
+            "auth": {"google": "platform"},
+        }
+    }
+    with (
+        patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
+        patch("think.utils.get_config", return_value=config),
+        patch("os.path.exists", return_value=False),
+        pytest.raises(
+            ValueError,
+            match=(
+                r"^Vertex provider configured but no usable SA credentials at "
+                r"/tmp/missing-sa\.json$"
+            ),
+        ),
+    ):
+        build_cogitate_env("google")
+
+
 class TestBuildCogitateEnv:
     """Tests for build_cogitate_env — API key stripping for CLI subprocesses."""
 
@@ -952,7 +1062,7 @@ class TestBuildCogitateEnv:
             patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-secret"}, clear=False),
             patch("think.utils.get_config", return_value=config),
         ):
-            env = build_cogitate_env("ANTHROPIC_API_KEY")
+            env = build_cogitate_env("anthropic")
         assert "ANTHROPIC_API_KEY" not in env
 
     def test_explicit_platform_strips_key(self):
@@ -962,7 +1072,7 @@ class TestBuildCogitateEnv:
             patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-secret"}, clear=False),
             patch("think.utils.get_config", return_value=config),
         ):
-            env = build_cogitate_env("ANTHROPIC_API_KEY")
+            env = build_cogitate_env("anthropic")
         assert "ANTHROPIC_API_KEY" not in env
 
     def test_api_key_mode_preserves_key(self):
@@ -972,7 +1082,7 @@ class TestBuildCogitateEnv:
             patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-secret"}, clear=False),
             patch("think.utils.get_config", return_value=config),
         ):
-            env = build_cogitate_env("ANTHROPIC_API_KEY")
+            env = build_cogitate_env("anthropic")
         assert env["ANTHROPIC_API_KEY"] == "sk-secret"
 
     def test_missing_auth_section_strips_key(self):
@@ -982,7 +1092,7 @@ class TestBuildCogitateEnv:
             patch.dict(os.environ, {"OPENAI_API_KEY": "sk-openai"}, clear=False),
             patch("think.utils.get_config", return_value=config),
         ):
-            env = build_cogitate_env("OPENAI_API_KEY")
+            env = build_cogitate_env("openai")
         assert "OPENAI_API_KEY" not in env
 
     def test_other_env_vars_preserved(self):
@@ -996,7 +1106,7 @@ class TestBuildCogitateEnv:
             ),
             patch("think.utils.get_config", return_value=config),
         ):
-            env = build_cogitate_env("ANTHROPIC_API_KEY")
+            env = build_cogitate_env("anthropic")
         assert env["HOME"] == "/home/test"
 
     def test_key_not_in_env_is_harmless(self):
@@ -1006,7 +1116,7 @@ class TestBuildCogitateEnv:
             patch.dict(os.environ, {}, clear=False),
             patch("think.utils.get_config", return_value=config),
         ):
-            env = build_cogitate_env("GOOGLE_API_KEY")
+            env = build_cogitate_env("google")
         assert "GOOGLE_API_KEY" not in env
 
     def test_per_provider_independence(self):
@@ -1027,8 +1137,8 @@ class TestBuildCogitateEnv:
             ),
             patch("think.utils.get_config", return_value=config),
         ):
-            ant_env = build_cogitate_env("ANTHROPIC_API_KEY")
-            oai_env = build_cogitate_env("OPENAI_API_KEY")
+            ant_env = build_cogitate_env("anthropic")
+            oai_env = build_cogitate_env("openai")
         assert ant_env["ANTHROPIC_API_KEY"] == "sk-ant"
         assert "OPENAI_API_KEY" not in oai_env
 
@@ -1037,14 +1147,23 @@ class TestBuildCogitateEnv:
         config = {
             "providers": {
                 "google_backend": "vertex",
+                "vertex_credentials": "/tmp/fake-sa.json",
                 "auth": {"google": "platform"},
             }
         }
         with (
             patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
             patch("think.utils.get_config", return_value=config),
+            patch("os.path.exists", return_value=True),
+            patch(
+                "builtins.open",
+                mock_open(
+                    read_data='{"type": "service_account", "project_id": "my-gcp-project"}'
+                ),
+            ),
+            patch.object(Path, "exists", return_value=True),
         ):
-            env = build_cogitate_env("GOOGLE_API_KEY")
+            env = build_cogitate_env("google")
         assert env["GOOGLE_GENAI_USE_VERTEXAI"] == "true"
         assert "GOOGLE_API_KEY" not in env
 
@@ -1061,8 +1180,15 @@ class TestBuildCogitateEnv:
             patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
             patch("think.utils.get_config", return_value=config),
             patch("os.path.exists", return_value=True),
+            patch(
+                "builtins.open",
+                mock_open(
+                    read_data='{"type": "service_account", "project_id": "my-gcp-project"}'
+                ),
+            ),
+            patch.object(Path, "exists", return_value=True),
         ):
-            env = build_cogitate_env("GOOGLE_API_KEY")
+            env = build_cogitate_env("google")
         assert env["GOOGLE_GENAI_USE_VERTEXAI"] == "true"
         assert env["GOOGLE_APPLICATION_CREDENTIALS"] == "/tmp/fake-sa.json"
         assert "GOOGLE_API_KEY" not in env
@@ -1079,19 +1205,32 @@ class TestBuildCogitateEnv:
             patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
             patch("think.utils.get_config", return_value=config),
         ):
-            env = build_cogitate_env("GOOGLE_API_KEY")
+            env = build_cogitate_env("google")
         assert "GOOGLE_GENAI_USE_VERTEXAI" not in env
         assert env["GOOGLE_API_KEY"] == "gk-test"
 
     def test_auto_backend_detects_vertex(self):
         """Auto backend with Vertex detection sets env vars."""
-        config = {"providers": {"auth": {"google": "platform"}}}
+        config = {
+            "providers": {
+                "auth": {"google": "platform"},
+                "vertex_credentials": "/tmp/fake-sa.json",
+            }
+        }
         with (
             patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
             patch("think.utils.get_config", return_value=config),
             patch("think.providers.google._detect_backend", return_value="vertex"),
+            patch("os.path.exists", return_value=True),
+            patch(
+                "builtins.open",
+                mock_open(
+                    read_data='{"type": "service_account", "project_id": "my-gcp-project"}'
+                ),
+            ),
+            patch.object(Path, "exists", return_value=True),
         ):
-            env = build_cogitate_env("GOOGLE_API_KEY")
+            env = build_cogitate_env("google")
         assert env["GOOGLE_GENAI_USE_VERTEXAI"] == "true"
         assert "GOOGLE_API_KEY" not in env
 
@@ -1107,7 +1246,7 @@ class TestBuildCogitateEnv:
             patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant"}, clear=True),
             patch("think.utils.get_config", return_value=config),
         ):
-            env = build_cogitate_env("ANTHROPIC_API_KEY")
+            env = build_cogitate_env("anthropic")
         assert "GOOGLE_GENAI_USE_VERTEXAI" not in env
         assert env["ANTHROPIC_API_KEY"] == "sk-ant"
 
@@ -1130,8 +1269,9 @@ class TestBuildCogitateEnv:
                     read_data='{"type": "service_account", "project_id": "my-gcp-project"}'
                 ),
             ),
+            patch.object(Path, "exists", return_value=True),
         ):
-            env = build_cogitate_env("GOOGLE_API_KEY")
+            env = build_cogitate_env("google")
         assert env["GOOGLE_GENAI_USE_VERTEXAI"] == "true"
         assert env["GOOGLE_APPLICATION_CREDENTIALS"] == "/tmp/fake-sa.json"
         assert env["GOOGLE_CLOUD_PROJECT"] == "my-gcp-project"
@@ -1139,7 +1279,7 @@ class TestBuildCogitateEnv:
         assert "GOOGLE_API_KEY" not in env
 
     def test_vertex_backend_missing_creds_no_project(self):
-        """Vertex backend still sets location without explicit SA credentials."""
+        """Vertex backend raises without explicit SA credentials."""
         config = {
             "providers": {
                 "google_backend": "vertex",
@@ -1149,13 +1289,17 @@ class TestBuildCogitateEnv:
         with (
             patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
             patch("think.utils.get_config", return_value=config),
+            pytest.raises(
+                ValueError,
+                match=(
+                    r"^Vertex provider configured but no usable SA credentials at None$"
+                ),
+            ),
         ):
-            env = build_cogitate_env("GOOGLE_API_KEY")
-        assert "GOOGLE_CLOUD_PROJECT" not in env
-        assert env["GOOGLE_CLOUD_LOCATION"] == "global"
+            build_cogitate_env("google")
 
     def test_vertex_backend_invalid_sa_json_no_project(self):
-        """Invalid SA JSON logs and skips project configuration."""
+        """Invalid SA JSON raises before spawning Gemini CLI."""
         config = {
             "providers": {
                 "google_backend": "vertex",
@@ -1168,13 +1312,18 @@ class TestBuildCogitateEnv:
             patch("think.utils.get_config", return_value=config),
             patch("os.path.exists", return_value=True),
             patch("builtins.open", mock_open(read_data="not json")),
+            pytest.raises(
+                ValueError,
+                match=(
+                    r"^Vertex provider configured but no usable SA credentials at "
+                    r"/tmp/fake-sa\.json$"
+                ),
+            ),
         ):
-            env = build_cogitate_env("GOOGLE_API_KEY")
-        assert "GOOGLE_CLOUD_PROJECT" not in env
-        assert env["GOOGLE_CLOUD_LOCATION"] == "global"
+            build_cogitate_env("google")
 
     def test_vertex_backend_sa_missing_project_id(self):
-        """Missing project_id in SA JSON leaves project env unset."""
+        """Missing project_id in SA JSON raises before spawning Gemini CLI."""
         config = {
             "providers": {
                 "google_backend": "vertex",
@@ -1194,10 +1343,15 @@ class TestBuildCogitateEnv:
                     )
                 ),
             ),
+            pytest.raises(
+                ValueError,
+                match=(
+                    r"^Vertex provider configured but no usable SA credentials at "
+                    r"/tmp/fake-sa\.json$"
+                ),
+            ),
         ):
-            env = build_cogitate_env("GOOGLE_API_KEY")
-        assert "GOOGLE_CLOUD_PROJECT" not in env
-        assert env["GOOGLE_CLOUD_LOCATION"] == "global"
+            build_cogitate_env("google")
 
     def test_aistudio_clears_project_and_location(self):
         """AI Studio clears inherited Vertex project context."""
@@ -1219,7 +1373,7 @@ class TestBuildCogitateEnv:
             ),
             patch("think.utils.get_config", return_value=config),
         ):
-            env = build_cogitate_env("GOOGLE_API_KEY")
+            env = build_cogitate_env("google")
         assert "GOOGLE_CLOUD_PROJECT" not in env
         assert "GOOGLE_CLOUD_LOCATION" not in env
 
@@ -1228,6 +1382,7 @@ class TestBuildCogitateEnv:
         config = {
             "providers": {
                 "google_backend": "vertex",
+                "vertex_credentials": "/tmp/fake-sa.json",
                 "auth": {"google": "platform"},
             }
         }
@@ -1235,9 +1390,16 @@ class TestBuildCogitateEnv:
             patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
             patch("think.utils.get_config", return_value=config),
             patch("think.utils.get_journal", return_value="/fake/journal"),
+            patch("os.path.exists", return_value=True),
+            patch(
+                "builtins.open",
+                mock_open(
+                    read_data='{"type": "service_account", "project_id": "my-gcp-project"}'
+                ),
+            ),
             patch.object(Path, "exists", return_value=True),
         ):
-            env = build_cogitate_env("GOOGLE_API_KEY")
+            env = build_cogitate_env("google")
         assert (
             env["GEMINI_CLI_SYSTEM_SETTINGS_PATH"]
             == "/fake/journal/.config/gemini-vertex-settings.json"
@@ -1255,7 +1417,7 @@ class TestBuildCogitateEnv:
             patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
             patch("think.utils.get_config", return_value=config),
         ):
-            env = build_cogitate_env("GOOGLE_API_KEY")
+            env = build_cogitate_env("google")
         assert "GEMINI_CLI_SYSTEM_SETTINGS_PATH" not in env
 
     def test_aistudio_clears_inherited_system_settings_path(self):
@@ -1277,57 +1439,63 @@ class TestBuildCogitateEnv:
             ),
             patch("think.utils.get_config", return_value=config),
         ):
-            env = build_cogitate_env("GOOGLE_API_KEY")
+            env = build_cogitate_env("google")
         assert "GEMINI_CLI_SYSTEM_SETTINGS_PATH" not in env
 
-    def test_vertex_writes_settings_file_when_absent(self):
+    def test_vertex_writes_settings_file_when_absent(self, tmp_path):
         """Vertex backend creates Gemini CLI system settings when missing."""
+        creds_path = tmp_path / "fake-sa.json"
+        creds_path.write_text(
+            '{"type": "service_account", "project_id": "my-gcp-project"}',
+            encoding="utf-8",
+        )
+        journal_path = tmp_path / "journal"
         config = {
             "providers": {
                 "google_backend": "vertex",
+                "vertex_credentials": str(creds_path),
                 "auth": {"google": "platform"},
             }
         }
         with (
             patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
             patch("think.utils.get_config", return_value=config),
-            patch("think.utils.get_journal", return_value="/fake/journal"),
-            patch.object(Path, "exists", return_value=False),
-            patch("os.makedirs") as mock_mkdirs,
-            patch("builtins.open", mock_open()) as mock_file,
-            patch("os.chmod") as mock_chmod,
+            patch("think.utils.get_journal", return_value=str(journal_path)),
         ):
-            env = build_cogitate_env("GOOGLE_API_KEY")
-        written = "".join(call.args[0] for call in mock_file().write.call_args_list)
+            env = build_cogitate_env("google")
         assert env["GEMINI_CLI_SYSTEM_SETTINGS_PATH"] == (
-            "/fake/journal/.config/gemini-vertex-settings.json"
+            str(journal_path / ".config" / "gemini-vertex-settings.json")
         )
-        assert mock_mkdirs.called
-        assert mock_file.called
+        written = (journal_path / ".config" / "gemini-vertex-settings.json").read_text(
+            encoding="utf-8"
+        )
         assert json.loads(written) == {
             "security": {"auth": {"selectedType": "vertex-ai"}}
         }
-        mock_chmod.assert_called_once_with(
-            "/fake/journal/.config/gemini-vertex-settings.json", 0o600
-        )
 
-    def test_vertex_skips_settings_write_when_exists(self):
+    def test_vertex_skips_settings_write_when_exists(self, tmp_path):
         """Vertex backend does not rewrite existing Gemini CLI settings."""
+        creds_path = tmp_path / "fake-sa.json"
+        creds_path.write_text(
+            '{"type": "service_account", "project_id": "my-gcp-project"}',
+            encoding="utf-8",
+        )
+        journal_path = tmp_path / "journal"
+        settings_path = journal_path / ".config" / "gemini-vertex-settings.json"
+        settings_path.parent.mkdir(parents=True)
+        settings_path.write_text('{"existing": true}', encoding="utf-8")
         config = {
             "providers": {
                 "google_backend": "vertex",
+                "vertex_credentials": str(creds_path),
                 "auth": {"google": "platform"},
             }
         }
         with (
             patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
             patch("think.utils.get_config", return_value=config),
-            patch("think.utils.get_journal", return_value="/fake/journal"),
-            patch.object(Path, "exists", return_value=True),
-            patch("builtins.open", mock_open()) as mock_file,
+            patch("think.utils.get_journal", return_value=str(journal_path)),
         ):
-            env = build_cogitate_env("GOOGLE_API_KEY")
-        assert env["GEMINI_CLI_SYSTEM_SETTINGS_PATH"] == (
-            "/fake/journal/.config/gemini-vertex-settings.json"
-        )
-        mock_file.assert_not_called()
+            env = build_cogitate_env("google")
+        assert env["GEMINI_CLI_SYSTEM_SETTINGS_PATH"] == (str(settings_path))
+        assert settings_path.read_text(encoding="utf-8") == '{"existing": true}'

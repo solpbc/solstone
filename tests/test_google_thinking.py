@@ -34,6 +34,10 @@ def test_google_thinking_events(monkeypatch, tmp_path, capsys):
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
     monkeypatch.setattr(
+        "think.utils.get_config",
+        lambda: {"providers": {"google_backend": "aistudio"}},
+    )
+    monkeypatch.setattr(
         "think.providers.cli.shutil.which",
         lambda name: "/usr/bin/gemini" if name == "gemini" else None,
     )
