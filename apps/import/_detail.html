@@ -51,6 +51,24 @@
 .info-label { font-weight: bold; color: #666; }
 .info-value { color: #333; }
 
+.merge-summary-card { grid-column: 1 / -1; margin-top: 1rem; padding: 1rem; background: #f7f9fc; border: 1px solid var(--facet-border, #e5e0db); border-radius: 8px; }
+.merge-summary-card h3 { margin: 0 0 0.75rem; font-size: 1rem; }
+.merge-summary-grid { display: grid; gap: 0.65rem; }
+.merge-summary-row { display: grid; grid-template-columns: minmax(7rem, auto) 1fr; gap: 0.75rem; align-items: baseline; }
+.merge-summary-label { font-weight: 600; color: #555; }
+.merge-summary-value { color: #222; }
+.merge-collision-callout { grid-column: 1 / -1; margin-top: 1rem; padding: 0.9rem 1rem; border-left: 4px solid #d97706; background: #fff7ed; border-radius: 6px; }
+.merge-collision-callout h3 { margin: 0 0 0.35rem; font-size: 0.98rem; color: #9a3412; }
+.merge-collision-callout p { margin: 0; color: #7c2d12; }
+.merge-highlights { grid-column: 1 / -1; margin-top: 1rem; padding: 1rem; border: 1px solid var(--facet-border, #e5e0db); border-radius: 8px; background: #fff; }
+.merge-highlights h3 { margin: 0 0 0.75rem; font-size: 1rem; }
+.merge-highlights-section + .merge-highlights-section { margin-top: 0.9rem; }
+.merge-highlights-section h4 { margin: 0 0 0.4rem; font-size: 0.92rem; color: #555; }
+.merge-highlights-list { margin: 0; padding-left: 1.25rem; color: #333; }
+.merge-highlights-list li + li { margin-top: 0.35rem; }
+.merge-artifact-paths { margin-top: 0.9rem; font-size: 0.9rem; color: #555; }
+.merge-artifact-paths code { display: inline-block; margin-top: 0.15rem; background: #f3f4f6; border-radius: 4px; padding: 0.1rem 0.35rem; color: #222; }
+
 .no-data { color: #999; font-style: italic; padding: 2em; text-align: center; }
 
 /* Content tab */
@@ -511,6 +529,82 @@ window.apiJson('/app/import/api/{{ timestamp }}')
       overviewHtml += `<div class="info-label">Target Day:</div><div class="info-value">${data.imported_json.target_day || '-'}</div>`;
       overviewHtml += `<div class="info-label">Files Created:</div><div class="info-value">${data.imported_json.total_files_created || 0}</div>`;
       overviewHtml += `<div class="info-label">Processing Time:</div><div class="info-value">${new Date(data.imported_json.processing_completed).toLocaleString()}</div>`;
+
+      if (data.imported_json.merge_summary) {
+        const mergeSummary = data.imported_json.merge_summary;
+        overviewHtml += `
+          <div class="merge-summary-card">
+            <h3>Merge Summary</h3>
+            <div class="merge-summary-grid">
+              <div class="merge-summary-row">
+                <div class="merge-summary-label">Segments</div>
+                <div class="merge-summary-value">${mergeSummary.segments_copied || 0} copied · ${mergeSummary.segments_skipped || 0} skipped · ${mergeSummary.segments_errored || 0} errored</div>
+              </div>
+              <div class="merge-summary-row">
+                <div class="merge-summary-label">Entities</div>
+                <div class="merge-summary-value">${mergeSummary.entities_created || 0} created · ${mergeSummary.entities_merged || 0} merged · ${mergeSummary.entities_staged || 0} staged</div>
+              </div>
+              <div class="merge-summary-row">
+                <div class="merge-summary-label">Facets</div>
+                <div class="merge-summary-value">${mergeSummary.facets_created || 0} created · ${mergeSummary.facets_merged || 0} merged</div>
+              </div>
+              <div class="merge-summary-row">
+                <div class="merge-summary-label">Imports</div>
+                <div class="merge-summary-value">${mergeSummary.imports_copied || 0} copied · ${mergeSummary.imports_skipped || 0} skipped</div>
+              </div>
+            </div>
+          </div>
+        `;
+
+        if (data.imported_json.principal_collision) {
+          const principalCollision = data.imported_json.principal_collision;
+          overviewHtml += `
+            <div class="merge-collision-callout">
+              <h3>Owner identity differs between journals</h3>
+              <p>This journal belongs to ${escapeHtml(principalCollision.target_name || '')}, and the imported archive marks ${escapeHtml(principalCollision.source_name || '')} as the owner. Solstone kept this journal&#39;s owner and brought the other person in as a regular entity.</p>
+            </div>
+          `;
+        }
+
+        const stagedEntities = data.decision_highlights?.staged_entities || [];
+        const erroredSegments = data.decision_highlights?.errored_segments || [];
+        const summaryErrors = data.summary_errors || [];
+        const artifactPaths = data.merge_artifact_paths || null;
+        if (stagedEntities.length || erroredSegments.length || summaryErrors.length || artifactPaths) {
+          let highlightsHtml = '<div class="merge-highlights"><h3>Merge Highlights</h3>';
+          if (stagedEntities.length) {
+            highlightsHtml += '<div class="merge-highlights-section"><h4>Staged entities</h4><ul class="merge-highlights-list">';
+            stagedEntities.forEach(item => {
+              highlightsHtml += `<li>${escapeHtml(item.source_name || '')} → ${escapeHtml(item.target_name || '')}<br><code>${escapeHtml(item.staging_path || '')}</code></li>`;
+            });
+            highlightsHtml += '</ul></div>';
+          }
+          if (erroredSegments.length) {
+            highlightsHtml += '<div class="merge-highlights-section"><h4>Errored segments</h4><ul class="merge-highlights-list">';
+            erroredSegments.forEach(item => {
+              highlightsHtml += `<li><strong>${escapeHtml(item.item_id || '')}</strong>: ${escapeHtml(item.reason || '')}</li>`;
+            });
+            highlightsHtml += '</ul></div>';
+          }
+          if (summaryErrors.length) {
+            highlightsHtml += '<div class="merge-highlights-section"><h4>Summary errors</h4><ul class="merge-highlights-list">';
+            summaryErrors.forEach(item => {
+              highlightsHtml += `<li>${escapeHtml(item || '')}</li>`;
+            });
+            highlightsHtml += '</ul></div>';
+          }
+          if (artifactPaths) {
+            highlightsHtml += `
+              <div class="merge-artifact-paths">
+                <div>Decisions log: <code>${escapeHtml(artifactPaths.decisions || '')}</code></div>
+                <div>Staging: <code>${escapeHtml(artifactPaths.staging || '')}</code></div>
+              </div>
+            `;
+          }
+          highlightsHtml += '</div>';
+          overviewHtml += highlightsHtml;
+        }
+      }
 
       // Show quick links
       if (data.imported_json.target_day) {
