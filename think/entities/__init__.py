@@ -89,6 +89,7 @@ from think.entities.merge import merge_entity
 # Observations
 from think.entities.observations import (
     add_observation,
+    count_observations,
     load_observations,
     observations_file_path,
     save_observations,
@@ -99,6 +100,7 @@ from think.entities.relationships import (
     ensure_entity_memory,
     entity_memory_path,
     facet_relationship_path,
+    load_all_facet_relationships,
     load_facet_relationship,
     rename_entity_memory,
     save_facet_relationship,
@@ -149,6 +151,7 @@ __all__ = [
     "ensure_entity_memory",
     "entity_memory_path",
     "facet_relationship_path",
+    "load_all_facet_relationships",
     "load_facet_relationship",
     "rename_entity_memory",
     "save_facet_relationship",
@@ -184,6 +187,7 @@ __all__ = [
     "touch_entity",
     # Observations
     "add_observation",
+    "count_observations",
     "load_observations",
     "observations_file_path",
     "save_observations",

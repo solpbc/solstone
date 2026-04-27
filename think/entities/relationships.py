@@ -141,6 +141,34 @@ def scan_facet_relationships(facet: str) -> list[str]:
     return entity_ids
 
 
+def load_all_facet_relationships(facet: str) -> dict[str, EntityDict]:
+    """Load all facet relationships for a facet.
+
+    Returns:
+        Dict mapping entity_id to relationship dict
+    """
+    global _RELATIONSHIP_CACHE
+    entity_ids = scan_facet_relationships(facet)
+    if _RELATIONSHIP_CACHE is not None and all(
+        (facet, entity_id) in _RELATIONSHIP_CACHE for entity_id in entity_ids
+    ):
+        return {
+            entity_id: _RELATIONSHIP_CACHE[(facet, entity_id)]
+            for entity_id in entity_ids
+        }
+
+    if _RELATIONSHIP_CACHE is None:
+        _RELATIONSHIP_CACHE = {}
+
+    relationships = {}
+    for entity_id in entity_ids:
+        relationship = load_facet_relationship(facet, entity_id)
+        if relationship:
+            relationships[entity_id] = relationship
+
+    return relationships
+
+
 def enrich_relationship_with_journal(
     relationship: EntityDict,
     journal_entity: EntityDict | None,

@@ -30,6 +30,7 @@ from think.entities.loading import clear_entity_loading_cache
 from think.entities.observations import (
     add_observation,
     clear_observation_cache,
+    clear_observation_count_cache,
     save_observations,
 )
 from think.entities.relationships import clear_relationship_caches
@@ -51,6 +52,7 @@ def journal_copy(tmp_path, monkeypatch):
     clear_entity_loading_cache()
     clear_relationship_caches()
     clear_observation_cache()
+    clear_observation_count_cache()
     import think.utils
 
     think.utils._journal_path_cache = None
@@ -85,6 +87,7 @@ def entity_env(tmp_path, monkeypatch):
     clear_entity_loading_cache()
     clear_relationship_caches()
     clear_observation_cache()
+    clear_observation_count_cache()
     import think.utils
 
     think.utils._journal_path_cache = None
@@ -111,6 +114,7 @@ def entity_env(tmp_path, monkeypatch):
     clear_entity_loading_cache()
     clear_relationship_caches()
     clear_observation_cache()
+    clear_observation_count_cache()
     import think.utils
 
     think.utils._journal_path_cache = None
@@ -124,6 +128,7 @@ def entity_move_env(tmp_path, monkeypatch):
     clear_entity_loading_cache()
     clear_relationship_caches()
     clear_observation_cache()
+    clear_observation_count_cache()
     import think.utils
 
     think.utils._journal_path_cache = None
@@ -169,6 +174,7 @@ def entity_move_env(tmp_path, monkeypatch):
     clear_entity_loading_cache()
     clear_relationship_caches()
     clear_observation_cache()
+    clear_observation_count_cache()
     import think.utils
 
     think.utils._journal_path_cache = None

@@ -350,8 +350,11 @@ def delete_journal_entity(entity_id: str) -> dict[str, Any]:
     if journal_entity.get("is_principal"):
         raise ValueError("Cannot delete the principal (self) entity")
 
+    from think.entities.relationships import clear_relationship_caches
+
     # Clear cache on modification
     clear_journal_entity_cache()
+    clear_relationship_caches()
 
     facets_deleted = []
 

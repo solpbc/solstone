@@ -23,10 +23,13 @@ from apps.utils import log_app_action
 from convey import state
 from think.entities import (
     block_journal_entity,
+    count_observations,
     entity_last_active_ts,
     entity_memory_path,
     entity_slug,
     is_valid_entity_type,
+    load_all_facet_relationships,
+    load_all_journal_entities,
     load_detected_entities_recent,
     load_entities,
     load_facet_relationship,
@@ -34,7 +37,6 @@ from think.entities import (
     rename_entity_memory,
     save_entities,
     save_journal_entity,
-    scan_journal_entities,
     unblock_journal_entity,
     validate_aka_uniqueness,
 )
@@ -51,34 +53,15 @@ ENTITY_DELETE_TTL = 10.0
 
 
 def _get_entity_metadata(facet_name: str, entity_name: str) -> dict:
-    """Get observation count and voiceprint status for an entity.
-
-    Args:
-        facet_name: The facet name
-        entity_name: The entity name
-
-    Returns:
-        dict with observation_count and has_voiceprint keys
-    """
+    """Get observation count and voiceprint status for an entity."""
     try:
         folder = entity_memory_path(facet_name, entity_name)
     except ValueError:
         return {"observation_count": 0, "has_voiceprint": False}
-
-    # Count observations
-    obs_file = folder / "observations.jsonl"
-    obs_count = 0
-    if obs_file.exists():
-        try:
-            with open(obs_file, "r", encoding="utf-8") as f:
-                obs_count = sum(1 for line in f if line.strip())
-        except OSError:
-            pass  # File read error, default to 0
-
-    # Check for voiceprint
-    has_voiceprint = (folder / "voiceprints.npz").exists()
-
-    return {"observation_count": obs_count, "has_voiceprint": has_voiceprint}
+    return {
+        "observation_count": count_observations(facet_name, entity_name),
+        "has_voiceprint": (folder / "voiceprints.npz").exists(),
+    }
 
 
 def get_facet_entities_data(facet_name: str) -> dict:
@@ -743,14 +726,12 @@ def get_journal_entities_data() -> dict:
             - entities: list of journal entities enriched with facet info
     """
     facets_config = get_facets()
-    entity_ids = scan_journal_entities()
+    journal_entities = load_all_journal_entities()
+    for facet_name in facets_config:
+        load_all_facet_relationships(facet_name)
 
     entities = []
-    for entity_id in entity_ids:
-        journal_entity = load_journal_entity(entity_id)
-        if not journal_entity:
-            continue
-
+    for entity_id, journal_entity in journal_entities.items():
         entity_name = journal_entity.get("name", "")
 
         # Build facet relationships
