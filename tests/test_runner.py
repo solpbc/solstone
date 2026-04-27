@@ -4,7 +4,11 @@
 """Tests for think.runner and logs tract integration."""
 
 import os
+import signal
+import subprocess
+import time
 from io import StringIO
+from unittest.mock import Mock, call
 
 import pytest
 
@@ -21,6 +25,58 @@ def journal_path(tmp_path):
     # Cleanup
     if "SOLSTONE_JOURNAL" in os.environ:
         del os.environ["SOLSTONE_JOURNAL"]
+
+
+def _managed_for_process(process):
+    return ManagedProcess(
+        process=process,
+        name="test",
+        log_writer=Mock(),
+        cmd=["test"],
+        _threads=[],
+        ref="ref",
+        _start_time=time.time(),
+        _callosum=None,
+    )
+
+
+def test_terminate_uses_process_group(monkeypatch):
+    killpg = Mock()
+    monkeypatch.setattr("think.runner.os.getpgid", lambda pid: 456)
+    monkeypatch.setattr("think.runner.os.killpg", killpg)
+
+    graceful_process = Mock()
+    graceful_process.pid = 123
+    graceful_process.wait.return_value = -15
+    graceful_process.returncode = -15
+    graceful = _managed_for_process(graceful_process)
+
+    assert graceful.terminate(timeout=2) == -15
+    graceful_process.terminate.assert_called_once_with()
+    graceful_process.wait.assert_called_once_with(timeout=2)
+    graceful_process.kill.assert_not_called()
+    killpg.assert_called_once_with(456, signal.SIGTERM)
+
+    killpg.reset_mock()
+    timeout_process = Mock()
+    timeout_process.pid = 124
+    timeout_process.wait.side_effect = [
+        subprocess.TimeoutExpired(cmd=["test"], timeout=2),
+        -9,
+    ]
+    timeout_process.returncode = -9
+    timeout = _managed_for_process(timeout_process)
+
+    with pytest.raises(subprocess.TimeoutExpired):
+        timeout.terminate(timeout=2)
+
+    timeout_process.terminate.assert_called_once_with()
+    timeout_process.kill.assert_called_once_with()
+    assert timeout_process.wait.call_args_list == [call(timeout=2), call()]
+    assert killpg.call_args_list == [
+        call(456, signal.SIGTERM),
+        call(456, signal.SIGKILL),
+    ]
 
 
 def test_managed_process_has_ref_and_pid(journal_path, mock_callosum):

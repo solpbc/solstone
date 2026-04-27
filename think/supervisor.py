@@ -43,12 +43,78 @@ DEFAULT_THRESHOLD = 60
 CHECK_INTERVAL = 30
 MAX_UPDATED_CATCHUP = 4
 TEMPFAIL_DELAY = 15  # seconds to wait before retrying a tempfail exit
+_ORPHAN_WORKER_NAMES = {
+    "sol:convey",
+    "sol:sense",
+    "sol:cortex",
+    "sol:link",
+    "sol:think",
+    "sol:heartbeat",
+}
 
 # Global shutdown flag
 shutdown_requested = False
 # Supervisor identity (set in main() once ref is assigned)
 _supervisor_ref: str | None = None
 _supervisor_start: float | None = None
+
+
+def _find_reparented_sol_workers() -> list[tuple[int, str]]:
+    if sys.platform != "linux":
+        return []
+
+    orphans: list[tuple[int, str]] = []
+    for proc in psutil.process_iter(["pid", "name", "ppid"]):
+        try:
+            info = proc.info
+            pid = int(info["pid"])
+            name = str(info.get("name") or "")
+            ppid = int(info.get("ppid") or 0)
+        except (KeyError, TypeError, ValueError):
+            continue
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            continue
+        if name in _ORPHAN_WORKER_NAMES and ppid == 1:
+            orphans.append((pid, name))
+    return orphans
+
+
+def _reap_orphan_workers(orphans: list[tuple[int, str]], grace: float = 5.0) -> int:
+    if not orphans:
+        return 0
+
+    reaped = 0
+    for pid, name in orphans:
+        try:
+            logging.warning("Terminating orphaned sol worker %s (PID %d)", name, pid)
+            os.kill(pid, signal.SIGTERM)
+            reaped += 1
+        except ProcessLookupError:
+            reaped += 1
+        except (PermissionError, OSError):
+            logging.exception(
+                "Failed to terminate orphaned sol worker %s (PID %d)", name, pid
+            )
+
+    deadline = time.time() + grace
+    while time.time() < deadline:
+        if all(not psutil.pid_exists(pid) for pid, _name in orphans):
+            return reaped
+        time.sleep(0.1)
+
+    for pid, name in orphans:
+        if not psutil.pid_exists(pid):
+            continue
+        try:
+            logging.warning("Killing orphaned sol worker %s (PID %d)", name, pid)
+            os.kill(pid, signal.SIGKILL)
+        except ProcessLookupError:
+            continue
+        except (PermissionError, OSError):
+            logging.exception(
+                "Failed to kill orphaned sol worker %s (PID %d)", name, pid
+            )
+    return reaped
 
 
 class CallosumLogHandler(logging.Handler):
@@ -1554,6 +1620,8 @@ def main() -> None:
     # Written here, not at _supervisor_start, to minimize drift from psutil create_time().
     start_time_path.write_text(str(time.time()))
     logging.info("Singleton lock acquired (PID %d)", os.getpid())
+    orphans = _find_reparented_sol_workers()
+    _reap_orphan_workers(orphans)
 
     # Set up signal handlers
     signal.signal(signal.SIGINT, handle_shutdown)
@@ -1728,26 +1796,17 @@ def main() -> None:
 
         def _stop_process(managed: ManagedProcess) -> None:
             name = managed.name
-            proc = managed.process
-            logging.info(f"Stopping {name}...")
+            logging.info("Stopping %s...", name)
             print(f"  Stopping {name}...", end="", flush=True)
             try:
-                proc.terminate()
-            except Exception:
-                pass
-            try:
                 timeout = getattr(managed, "shutdown_timeout", 15)
-                proc.wait(timeout=timeout)
+                managed.terminate(timeout=timeout)
                 print(" done", flush=True)
             except subprocess.TimeoutExpired:
-                logging.warning(f"{name} did not terminate gracefully, killing...")
+                logging.warning("%s did not terminate gracefully, killing...", name)
                 print(" timeout, forcing kill...", flush=True)
-                try:
-                    proc.kill()
-                    proc.wait(timeout=1)
-                except Exception:
-                    pass
-            managed.cleanup()
+            finally:
+                managed.cleanup()
 
         # Stop services in reverse order
         for managed in reversed(procs):

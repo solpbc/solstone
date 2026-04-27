@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import logging
 import os
+import signal
 import subprocess
 import threading
 import time
@@ -290,6 +291,7 @@ class ManagedProcess:
                 text=True,
                 bufsize=1,
                 env=env,
+                start_new_session=True,
             )
         except Exception as exc:
             log_writer.close()
@@ -386,27 +388,40 @@ class ManagedProcess:
         return self.process.poll() is None
 
     def terminate(self, timeout: float = 15) -> int:
-        """Gracefully terminate process with automatic escalation.
+        """Terminate the managed process and its session group.
 
-        This method handles the full termination sequence in ONE CALL:
-        1. Send SIGTERM (graceful shutdown request)
-        2. Wait up to `timeout` seconds for process to exit
-        3. If still alive, send SIGKILL (force kill)
-        4. Wait for final cleanup (max 1 second)
-        5. Return exit code
+        Sends SIGTERM to the immediate child and the process group. Waits up to
+        `timeout` seconds for graceful exit. If the process is still alive after
+        `timeout`, escalates to SIGKILL on the group and child, then re-raises
+        `subprocess.TimeoutExpired` after the kill completes.
 
         Args:
-            timeout: Seconds to wait after SIGTERM before SIGKILL (default: 15)
+            timeout: Seconds to wait after SIGTERM before SIGKILL (default: 15).
 
         Returns:
-            Exit code (may be negative for signals, e.g., -15 for SIGTERM)
+            Exit code on graceful termination (may be negative for signals,
+            e.g., -15 for SIGTERM).
 
-        Example:
-            exit_code = managed.terminate(timeout=10)  # One call, blocks until dead
+        Raises:
+            subprocess.TimeoutExpired: Re-raised after SIGKILL when graceful
+                shutdown did not complete within `timeout`.
         """
         logger.debug(f"Terminating {self.name} (PID {self.pid})...")
         try:
-            self.process.terminate()
+            pgid = os.getpgid(self.process.pid)
+        except (ProcessLookupError, OSError):
+            pgid = None
+
+        try:
+            try:
+                self.process.terminate()
+            except (ProcessLookupError, OSError):
+                pass
+            if pgid is not None:
+                try:
+                    os.killpg(pgid, signal.SIGTERM)
+                except (ProcessLookupError, OSError):
+                    pass
             exit_code = self.process.wait(timeout=timeout)
             logger.debug(f"{self.name} terminated gracefully with code {exit_code}")
             return exit_code
@@ -414,10 +429,18 @@ class ManagedProcess:
             logger.warning(
                 f"{self.name} did not terminate after {timeout}s, force killing..."
             )
-            self.process.kill()
-            exit_code = self.process.wait(timeout=1)
-            logger.debug(f"{self.name} killed with code {exit_code}")
-            return exit_code
+            if pgid is not None:
+                try:
+                    os.killpg(pgid, signal.SIGKILL)
+                except (ProcessLookupError, OSError):
+                    pass
+            try:
+                self.process.kill()
+            except (ProcessLookupError, OSError):
+                pass
+            self.process.wait()
+            logger.debug(f"{self.name} killed with code {self.process.returncode}")
+            raise
 
     def cleanup(self) -> None:
         """Wait for output threads to finish and close log file.
