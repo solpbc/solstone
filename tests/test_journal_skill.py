@@ -109,10 +109,12 @@ def test_make_skills_idempotent(tmp_path):
     second = link_state(temp_root / "journal")
     assert first == second
 
-
-def test_skill_discovery_from_journal_cwd():
-    repo_root = _repo_root()
-    skill_path = repo_root / "journal" / ".claude" / "skills" / "journal" / "SKILL.md"
-
-    assert skill_path.is_file()
-    assert skill_path.read_text(encoding="utf-8").startswith("---")
+    # Skill-discovery contract: claude code looks at <cwd>/.claude/skills/, so
+    # after `make skills` the journal-cwd path must resolve to a real SKILL.md
+    # whose content starts with frontmatter. Verifying it here against the tmp
+    # tree (rather than the gitignored repo_root/journal/.claude/...) means
+    # the test is hermetic — it doesn't depend on the dev box having
+    # previously run `make install` or `make skills` to produce the artifact.
+    discovered = temp_root / "journal" / ".claude" / "skills" / "journal" / "SKILL.md"
+    assert discovered.is_file()
+    assert discovered.read_text(encoding="utf-8").startswith("---")
