@@ -325,16 +325,6 @@ body.has-app-bar.has-date-nav .workspace:has(.tr-wrap) {
   font-variant-numeric: tabular-nums;
 }
 
-.tr-nav-hint {
-  font-size: 12px;
-  color: #9ca3af;
-  display: none;
-}
-
-.tr-nav-hint.visible {
-  display: inline;
-}
-
 .tr-tabs {
   gap: 8px;
   padding: 8px 0;
@@ -1416,7 +1406,6 @@ body.presentation-mode .tr-screen-text { font-size: 16px; padding: 12px 16px; bo
         <div>
           <h2 class="tr-title">transcripts</h2>
           <div class="tr-range-text" id="trRangeText"></div>
-          <span class="tr-nav-hint" id="trNavHint">[ ] to navigate</span>
         </div>
         <button type="button" id="trDeleteBtn" class="tr-delete-btn" title="delete segment">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2143,7 +2132,6 @@ body.presentation-mode .tr-screen-text { font-size: 16px; padding: 12px 16px; bo
     zoomSegments.innerHTML = '';
 
     if (filtered.length === 0) {
-      document.getElementById('trNavHint').classList.remove('visible');
       zoomSegments.innerHTML = window.SurfaceState.empty({
         icon: emptyIcons.nothing,
         heading: 'no segments in this range',
@@ -2152,7 +2140,6 @@ body.presentation-mode .tr-screen-text { font-size: 16px; padding: 12px 16px; bo
       return;
     }
 
-    document.getElementById('trNavHint').classList.add('visible');
     filtered.forEach(seg => {
       const segStart = parseTime(seg.start);
       const segEnd = parseTime(seg.end);
@@ -2448,12 +2435,12 @@ body.presentation-mode .tr-screen-text { font-size: 16px; padding: 12px 16px; bo
       tabsContainer.appendChild(btn);
     };
 
-    addTab('transcript', 'Transcript');
+    addTab('transcript', 'transcript');
     if (data.audio_file) {
-      addTab('audio', 'Audio');
+      addTab('audio', 'audio');
     }
     if ((data.chunks || []).some(chunk => chunk.type === 'screen')) {
-      addTab('screen', 'Screen');
+      addTab('screen', 'screen');
     }
 
     const mdStems = Object.keys(data.md_files || {}).sort((a, b) => a.localeCompare(b));

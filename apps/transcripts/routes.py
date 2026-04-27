@@ -517,6 +517,14 @@ def segment_content(day: str, stream: str, segment_key: str) -> Any:
             except Exception:
                 continue
 
+    # UI dedup: when a segment has screen chunks, the structural "screen" tab
+    # already covers it — drop talents/screen.md from md_files so the tab row
+    # doesn't render two screen-labeled tabs. Speaker attribution reads
+    # talents/screen.md directly from disk (apps/speakers/attribution.py),
+    # unaffected by this UI-side suppression.
+    if any(c["type"] == "screen" for c in chunks):
+        md_files.pop("screen", None)
+
     return jsonify(
         {
             "chunks": chunks,

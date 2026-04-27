@@ -187,6 +187,18 @@ def test_segment_content_happy_path_returns_segment_payload(client):
     assert "media_sizes" in data
 
 
+def test_segment_content_drops_screen_md_when_screen_chunks_present(client):
+    response = client.get(
+        f"/app/transcripts/api/segment/{FIXTURE_DAY}/{FIXTURE_STREAM}/{FIXTURE_SEGMENT}"
+    )
+
+    assert response.status_code == 200
+    data = response.get_json()
+    assert any(c["type"] == "screen" for c in data["chunks"])
+    assert "screen" not in data["md_files"]
+    assert "audio" in data["md_files"]
+
+
 def test_delete_segment_happy_path_removes_segment_directory(
     client, journal_copy, monkeypatch
 ):

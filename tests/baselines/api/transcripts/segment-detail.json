@@ -129,8 +129,7 @@
   ],
   "cost": 0.0,
   "md_files": {
-    "audio": "# Audio Summary\n\nMorning keynote at Denver Tech Summit. Juliet Capulet presented on unified API gateway architecture. Romeo Montague and Mercutio Escalus attended. Mercutio noted the similarity to Montague Tech's approach.\n",
-    "screen": "# Screen Summary\n\nConference live stream showing presentation slides on enterprise API architecture. Juliet Capulet presenting unified gateway concept.\n"
+    "audio": "# Audio Summary\n\nMorning keynote at Denver Tech Summit. Juliet Capulet presented on unified API gateway architecture. Romeo Montague and Mercutio Escalus attended. Mercutio noted the similarity to Montague Tech's approach.\n"
   },
   "media_purged": true,
   "media_sizes": {
