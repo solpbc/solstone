@@ -51,6 +51,15 @@ _ORPHAN_WORKER_NAMES = {
     "sol:think",
     "sol:heartbeat",
 }
+_SERVICE_LIFECYCLE_VERBS = {
+    "start",
+    "stop",
+    "restart",
+    "status",
+    "install",
+    "uninstall",
+    "logs",
+}
 
 # Global shutdown flag
 shutdown_requested = False
@@ -148,6 +157,22 @@ class CallosumLogHandler(logging.Handler):
             pass
         finally:
             self._emitting = False
+
+
+class SupervisorArgumentParser(argparse.ArgumentParser):
+    def error(self, message: str) -> None:
+        mistaken = next(
+            (arg for arg in sys.argv[1:] if arg in _SERVICE_LIFECYCLE_VERBS),
+            None,
+        )
+        if mistaken:
+            self.exit(
+                2,
+                "sol supervisor is the server-launch command (takes a port). "
+                "For lifecycle, use: sol service <verb>. "
+                f"Did you mean: sol service {mistaken} ?\n",
+            )
+        super().error(message)
 
 
 # Desktop notification system
@@ -1498,7 +1523,7 @@ async def supervise(
 
 
 def parse_args() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Monitor journaling health")
+    parser = SupervisorArgumentParser(description="Monitor journaling health")
     parser.add_argument(
         "port",
         nargs="?",

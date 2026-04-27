@@ -131,6 +131,23 @@ def test_parse_args_remote_flag_optional():
     assert args.remote is None
 
 
+def test_parse_args_lifecycle_verb_hint(monkeypatch, capsys):
+    mod = importlib.reload(importlib.import_module("think.supervisor"))
+    monkeypatch.setattr(sys, "argv", ["sol", "supervisor", "stop"])
+
+    parser = mod.parse_args()
+    with pytest.raises(SystemExit) as exc_info:
+        parser.parse_args(["stop"])
+
+    captured = capsys.readouterr()
+    assert exc_info.value.code == 2
+    assert (
+        "sol supervisor is the server-launch command (takes a port). "
+        "For lifecycle, use: sol service <verb>. "
+        "Did you mean: sol service stop ?"
+    ) in captured.err
+
+
 def test_shutdown_stops_in_reverse_order(monkeypatch):
     """Shutdown stops services in reverse order."""
     operations = []
