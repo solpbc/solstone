@@ -121,10 +121,14 @@ def test_ssr_talent_markdown_bootstraps_to_rendered_dom(tmp_path, monkeypatch):
                 browser = _launch_chromium(playwright)
                 try:
                     page = browser.new_page()
-                    page.goto(f"{base_url}/app/chat/{day}", wait_until="domcontentloaded")
+                    page.goto(
+                        f"{base_url}/app/chat/{day}", wait_until="domcontentloaded"
+                    )
 
                     assert (
-                        page.locator(".chat-talent-card-detail--markdown strong").count()
+                        page.locator(
+                            ".chat-talent-card-detail--markdown strong"
+                        ).count()
                         > 0
                     )
                     assert page.locator('[data-markdown="1"]').count() == 0

@@ -233,9 +233,7 @@ def _render_terminal_followup(
         return ""
     kind_label, result_field_label, result_value = details
     field_title = result_field_label.capitalize()
-    contract = STOP_AND_REPORT_CONTRACT.format(
-        result_field_label=result_field_label
-    )
+    contract = STOP_AND_REPORT_CONTRACT.format(result_field_label=result_field_label)
     return (
         "[internal follow-up: talent "
         f"{payload.get('name', 'exec')} {kind_label}. This is a {contract} "
@@ -314,9 +312,7 @@ def _append_terminal_trigger_context(
     _, result_field_label, result_value = details
     if payload.get("name"):
         lines.append(f"- Talent: {payload['name']}")
-    instruction = STOP_AND_REPORT_CONTRACT.format(
-        result_field_label=result_field_label
-    )
+    instruction = STOP_AND_REPORT_CONTRACT.format(result_field_label=result_field_label)
     lines.append(f"- Instruction: This is a {instruction}")
     if result_value:
         lines.append(f"- {result_field_label.capitalize()}: {result_value}")

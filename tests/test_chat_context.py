@@ -430,7 +430,9 @@ def test_chat_context_talent_followups_are_observably_distinct(monkeypatch, tmp_
     assert "using the result below. Result:" in finished_message
     assert "using the reason below. Reason:" in errored_message
     assert "Do not retry this task or request another talent for it." in errored_message
-    assert "Do not retry this task or request another talent for it." in finished_message
+    assert (
+        "Do not retry this task or request another talent for it." in finished_message
+    )
 
     finished_instruction = (
         "Instruction: This is a stop-and-report turn, not a dispatch turn. "
