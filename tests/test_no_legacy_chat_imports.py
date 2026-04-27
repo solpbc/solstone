@@ -4,9 +4,23 @@
 from __future__ import annotations
 
 import ast
+import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def _git_ls(*patterns: str) -> list[str]:
+    result = subprocess.run(
+        ["git", "ls-files", *patterns],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return [line for line in result.stdout.splitlines() if line]
+
+
 ALLOWED_UNIFIED_PATHS = {
     ROOT / "apps/sol/maint/006_rename_unified_triage_providers.py",
     ROOT / "tests/test_maint_006_rename_unified_triage_providers.py",
@@ -52,23 +66,18 @@ LEGACY_NAME = _parts("uni", "fied")
 
 
 def _python_files() -> list[Path]:
-    return [
-        path
-        for path in ROOT.rglob("*.py")
-        if ".venv" not in path.parts and "__pycache__" not in path.parts
-    ]
+    # `git ls-files` excludes anything gitignored (`/journal/*` on dev boxes can
+    # be 100+ GB of capture data; `ROOT.rglob` walks all of it on every call).
+    return [ROOT / line for line in _git_ls("*.py")]
 
 
 def _text_scan_files() -> list[Path]:
-    blocked_parts = {"tests/fixtures", ".venv", "node_modules", "__pycache__"}
-    files: list[Path] = []
-    for pattern in ("*.html", "*.js"):
-        for path in ROOT.rglob(pattern):
-            path_str = str(path)
-            if any(part in path_str for part in blocked_parts):
-                continue
-            files.append(path)
-    return files
+    blocked_parts = ("tests/fixtures",)
+    return [
+        ROOT / line
+        for line in _git_ls("*.html", "*.js")
+        if not any(part in line for part in blocked_parts)
+    ]
 
 
 def _parse(path: Path) -> ast.Module | None:
