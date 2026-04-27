@@ -161,7 +161,7 @@ class AppRegistry:
 
         # Get icon and label (with defaults)
         icon = metadata.get("icon", "📦")
-        label = metadata.get("label", app_name.replace("_", " ").title())
+        label = metadata.get("label", app_name.replace("_", " "))
 
         # Parse facets config
         facets_config = metadata.get("facets", {})

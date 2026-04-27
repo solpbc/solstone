@@ -2551,7 +2551,7 @@ body.presentation-mode .tr-screen-text { font-size: 16px; padding: 12px 16px; bo
       const tabEmptyMap = {
         transcript: { icon: emptyIcons.transcript, heading: 'no transcript entries', desc: 'this segment has no transcript content' },
         audio: { icon: emptyIcons.audio, heading: 'no audio entries', desc: 'this segment has no audio content' },
-        screen: { icon: emptyIcons.screen, heading: 'no screen entries', desc: 'this segment has no screen captures' }
+        screen: { icon: emptyIcons.screen, heading: 'no screen entries', desc: 'this segment has no screen observations' }
       };
       const emptyInfo = tabEmptyMap[tabType] || tabEmptyMap.transcript;
       targetEl.innerHTML = window.SurfaceState.empty(emptyInfo);
@@ -3168,7 +3168,7 @@ body.presentation-mode .tr-screen-text { font-size: 16px; padding: 12px 16px; bo
       if (allSegments.length === 0) {
         panel.innerHTML = window.SurfaceState.empty({
           icon: emptyIcons.nothing,
-          heading: 'nothing captured',
+          heading: 'nothing here',
           desc: 'no recordings were found for this day'
         });
       }

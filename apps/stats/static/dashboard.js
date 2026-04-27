@@ -6,7 +6,7 @@ const Dashboard = (function() {
   'use strict';
 
   const EXPECTED_SCHEMA_VERSION = 4;
-  const DISPLAY_LABELS = { transcript: 'Audio', percept: 'Screen' };
+  const DISPLAY_LABELS = { transcript: 'audio', percept: 'screen' };
 
   // DOM element factory
   function el(tag, attrs = {}, children = []) {
@@ -266,8 +266,8 @@ const Dashboard = (function() {
       container.appendChild(
         el('div', {className: 'empty-chart'}, [
           el('div', {style: 'font-size: 2em;'}, ['🎙️']),
-          el('div', {style: 'font-weight: 600; font-size: 1.1em;'}, ['No capture data']),
-          el('div', {style: 'color: #999;'}, ['No audio or screen capture hours recorded'])
+          el('div', {style: 'font-weight: 600; font-size: 1.1em;'}, ['no observations yet']),
+          el('div', {style: 'color: #999;'}, ['no audio or screen observations yet'])
         ])
       );
       return;
@@ -276,7 +276,7 @@ const Dashboard = (function() {
     // Calculate max total for scaling
     const maxTotal = Math.max(...data.map(d => d.audio + d.screen)) || 1;
 
-    const chart = el('div', {className: 'bar-chart', role: 'img', 'aria-label': 'Captured hours bar chart showing audio and screen time per day'});
+    const chart = el('div', {className: 'bar-chart', role: 'img', 'aria-label': 'observation hours bar chart showing audio and screen time per day'});
 
     data.forEach((d, i) => {
       const total = d.audio + d.screen;
@@ -334,7 +334,7 @@ const Dashboard = (function() {
     const legend = el('div', {className: 'token-legend'}, [
       el('div', {className: 'legend-item'}, [
         el('div', {className: 'legend-color', style: {background: '#2171b5'}, 'aria-hidden': 'true'}),
-        'Audio'
+        'audio'
       ]),
       el('div', {className: 'legend-item'}, [
         el('div', {
@@ -345,7 +345,7 @@ const Dashboard = (function() {
           },
           'aria-hidden': 'true'
         }),
-        'Screen'
+        'screen'
       ])
     ]);
     container.appendChild(legend);
@@ -356,7 +356,7 @@ const Dashboard = (function() {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     const maxVal = Math.max(...data.flat()) || 1;
     
-    const heatmap = el('div', {className: 'heatmap', role: 'grid', 'aria-label': 'Activity heatmap showing captures by day of week and hour'});
+    const heatmap = el('div', {className: 'heatmap', role: 'grid', 'aria-label': 'activity heatmap showing observations by day of week and hour'});
     
     // Empty top-left corner
     heatmap.appendChild(el('div'));

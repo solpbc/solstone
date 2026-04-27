@@ -1328,7 +1328,7 @@
   {% if not entities and not show_welcome %}
   <div class="pulse-empty-state">
     <h2 class="pulse-section-header">network pulse</h2>
-    <div class="pulse-empty-message">no one has appeared in today's record yet.</div>
+    <div class="pulse-empty-message">no one has appeared in today's journal yet.</div>
   </div>
   {% endif %}
 
@@ -1610,7 +1610,7 @@
           html += '</div>';
         }
         if (data.last_observe_relative) {
-          html += '<div class="pulse-vitals-sep"></div><div class="pulse-vitals-item">Last observation ' + esc(data.last_observe_relative) + '</div>';
+          html += '<div class="pulse-vitals-sep"></div><div class="pulse-vitals-item">last observation ' + esc(data.last_observe_relative) + '</div>';
         }
         if (data.attention) {
           html += '<div class="pulse-vitals-sep"></div><div class="pulse-vitals-item pulse-vitals-attention">' + esc(data.attention.placeholder_text) + '</div>';

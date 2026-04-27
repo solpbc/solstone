@@ -1214,7 +1214,7 @@
   let detailExpanded = false;
   let ownerDetectionInFlight = false;
   const OWNER_HELP_TOAST_KEY = 'speakers-owner-help-toast';
-  const OWNER_HELP_TOAST_MESSAGE = 'Click on segments and tag your own statements with the assign button. Solstone needs ~30 longer ones to lock in your voice.';
+  const OWNER_HELP_TOAST_MESSAGE = 'click on segments and tag your own statements with the assign button. solstone needs ~30 longer ones to lock in your voice.';
 
   checkOwnerStatus();
   loadSegments();
@@ -1468,9 +1468,9 @@
     ownerBanner.style.display = 'block';
     ownerBanner.innerHTML = `
       <div class="spk-owner-panel">
-        <div class="spk-owner-title">Solstone is still learning your voice</div>
+        <div class="spk-owner-title">solstone is still learning your voice</div>
         <div class="spk-owner-copy">
-          We're tagging audio segments to recognize you. Help Solstone learn faster by tagging your own statements.
+          we're tagging audio segments to recognize you. help solstone learn faster by tagging your own statements.
         </div>
         <div class="spk-owner-actions">
           <button class="spk-owner-btn spk-owner-btn-confirm" id="spkOwnerHelp">

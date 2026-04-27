@@ -361,7 +361,7 @@
   white-space: nowrap;
 }
 
-/* Capture hosts card */
+/* Observations card */
 .observers-card {
   border-left: 4px solid #22c55e;
 }
@@ -1126,7 +1126,7 @@
   <div class="dashboard-card observe-card">
     <div class="card-header">
       <div class="card-title">
-        Local capture
+        observations
       </div>
       <div class="health-badge idle" id="observeModeBadge">
         <span id="observeModeLabel">Waiting...</span>
@@ -1134,7 +1134,7 @@
     </div>
     <div id="observeEmpty">
       <div class="surface-state surface-state--empty">
-        <h2 class="surface-state-heading">No local capture active</h2>
+        <h2 class="surface-state-heading">no observations active</h2>
         <div class="surface-state-action"><a href="/app/observer/">Manage observers →</a></div>
       </div>
     </div>
@@ -1150,7 +1150,7 @@
         <div class="observe-section-detail" id="tmuxDetail"></div>
       </div>
       <div class="observe-section">
-        <div class="observe-section-title">Audio Capture</div>
+        <div class="observe-section-title">audio</div>
         <div class="observe-section-value" id="audioStatus">Waiting...</div>
         <div class="observe-section-detail" id="audioDetail"></div>
       </div>
@@ -1172,11 +1172,11 @@
     </div>
   </div>
 
-  <!-- Capture hosts card -->
+  <!-- Observations card -->
   <div class="dashboard-card observers-card hidden" id="observersCard">
     <div class="card-header">
       <div class="card-title">
-        Capture hosts
+        observations
       </div>
     </div>
     <div class="observers-grid" id="observersGrid"></div>
@@ -2044,7 +2044,7 @@
   function updateObserveMode() {
     if (state.observers.size === 0) {
       elements.observeModeBadge.className = 'health-badge idle';
-      elements.observeModeLabel.textContent = 'No capture';
+      elements.observeModeLabel.textContent = 'idle';
       return;
     }
 
@@ -2054,7 +2054,7 @@
 
     if (mode === 'screencast') {
       badge.className = 'health-badge recording';
-      label.textContent = 'Recording';
+      label.textContent = 'observing';
     } else if (mode === 'tmux') {
       badge.className = 'health-badge tmux';
       label.textContent = 'Terminal Sessions';
@@ -2115,7 +2115,7 @@
           const elapsed = tmux.tmux.window_elapsed_seconds || 0;
           const mins = Math.max(1, Math.round(elapsed / 60));
           return {
-            status: `Capturing (${captures} snapshots, ~${mins} min)`,
+            status: `observing (${captures} snapshots, ~${mins} min)`,
             detail: sessions.length > 0 ? sessions.join(', ') : '',
           };
         },

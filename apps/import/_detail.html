@@ -561,7 +561,7 @@ window.apiJson('/app/import/api/{{ timestamp }}')
           overviewHtml += `
             <div class="merge-collision-callout">
               <h3>Owner identity differs between journals</h3>
-              <p>This journal belongs to ${escapeHtml(principalCollision.target_name || '')}, and the imported archive marks ${escapeHtml(principalCollision.source_name || '')} as the owner. Solstone kept this journal&#39;s owner and brought the other person in as a regular entity.</p>
+              <p>This journal belongs to ${escapeHtml(principalCollision.target_name || '')}, and the imported archive marks ${escapeHtml(principalCollision.source_name || '')} as the owner. solstone kept this journal&#39;s owner and brought the other person in as a regular entity.</p>
             </div>
           `;
         }
