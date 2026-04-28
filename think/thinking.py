@@ -645,7 +645,7 @@ def run_segment_sense(
         return (total_success, total_failed + 1, failed_names)
 
     write_sense_outputs(sense_json, seg_dir, stream=stream)
-    density = sense_json.get("density") or "active"
+    density = sense_json["density"]
     _jsonl_log(
         "sense.complete",
         mode=target_schedule,

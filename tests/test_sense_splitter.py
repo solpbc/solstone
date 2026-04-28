@@ -171,52 +171,6 @@ class TestMeetingDetection:
 
 
 class TestEdgeCases:
-    def test_missing_optional_fields(self, tmp_path):
-        from think.sense_splitter import write_sense_outputs
-
-        seg_dir = Path(tmp_path) / "20260304" / "default" / "090000_300"
-
-        # Advisory schema validation means the splitter must still tolerate degraded input.
-        write_sense_outputs({}, seg_dir)
-
-        agents_dir = seg_dir / "talents"
-        assert (agents_dir / "activity.md").exists()
-        assert (agents_dir / "facets.json").exists()
-        assert (agents_dir / "density.json").exists()
-        assert (agents_dir / "sense.json").exists()
-        assert (agents_dir / "activity.md").read_text(encoding="utf-8") == ""
-        assert (
-            json.loads((agents_dir / "facets.json").read_text(encoding="utf-8")) == []
-        )
-        density = json.loads((agents_dir / "density.json").read_text(encoding="utf-8"))
-        assert density["classification"] == "active"
-
-    def test_null_fields(self, tmp_path):
-        from think.sense_splitter import write_sense_outputs
-
-        seg_dir = Path(tmp_path) / "20260304" / "default" / "090000_300"
-        sense_json = {
-            "density": None,
-            "content_type": None,
-            "activity_summary": None,
-            "entities": None,
-            "facets": None,
-            "meeting_detected": None,
-            "speakers": None,
-        }
-
-        # Advisory schema validation means the splitter must still tolerate degraded input.
-        write_sense_outputs(sense_json, seg_dir)
-
-        agents_dir = seg_dir / "talents"
-        assert (agents_dir / "activity.md").read_text(encoding="utf-8") == ""
-        assert (
-            json.loads((agents_dir / "facets.json").read_text(encoding="utf-8")) == []
-        )
-        density = json.loads((agents_dir / "density.json").read_text(encoding="utf-8"))
-        assert density["classification"] == "active"
-        assert not (agents_dir / "speakers.json").exists()
-
     def test_empty_activity_summary(self, tmp_path):
         from think.sense_splitter import write_sense_outputs
 

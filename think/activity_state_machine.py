@@ -140,8 +140,8 @@ class ActivityStateMachine:
         if self._should_reset(segment_key, day, previous_segment_key):
             changes.extend(self._end_all(segment_key, "ended_gap"))
 
-        density = sense_output.get("density") or "active"
-        content_type = sense_output.get("content_type") or "idle"
+        density = sense_output["density"]
+        content_type = sense_output["content_type"]
         activity_summary = sense_output.get("activity_summary") or ""
         raw_entities = sense_output.get("entities") or []
         entity_names = [

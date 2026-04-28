@@ -14,6 +14,8 @@
 
 $daily_preamble
 
+$facets
+
 # Future Schedule Extraction
 
 **Input:** A markdown file containing chronologically ordered transcripts of a workday plus the screen agent's output for the same day. Calendar views, meeting invitations, scheduling UIs, and project-management interfaces are captured in the screen content; verbal mentions of future plans appear in transcripts.
@@ -95,7 +97,7 @@ Return **only** a JSON array. Each element is an anticipation object with these 
 
 - **`participation_confidence`** — `0.0`–`1.0` — overall confidence in the participation list for this item. Lower when many attendees are inferred rather than confirmed.
 
-- **`facet`** — Facet ID from the configured facets context. Required. If no facet fits cleanly, skip the item rather than miscategorizing.
+- **`facet`** — Required. The facet ID slug; MUST be one of the configured facets listed in the input. Pick the closest configured facet for the scheduled item; if multiple plausibly fit, choose the one most central to the event's purpose. Do not invent slugs.
 
 - **`cancelled`** — Boolean. `true` when the screen shows this item as cancelled (strikethrough, "Cancelled" label, declined, greyed out). `false` otherwise.
 

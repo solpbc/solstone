@@ -6,24 +6,16 @@ from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
-from think.talent import get_talent
+from think.activities import DEFAULT_ACTIVITIES
+from think.talent import (
+    RUNTIME_FACETS_SENTINEL,
+    get_talent,
+    hydrate_runtime_enums,
+)
 
 TALENT_DIR = Path(__file__).resolve().parents[1] / "talent"
 PARTICIPATION_ENTRY_SCHEMA_PATH = TALENT_DIR / "participation_entry.schema.json"
 SCHEDULE_SCHEMA_PATH = TALENT_DIR / "schedule.schema.json"
-
-SCHEDULE_ACTIVITY_ENUM = {
-    "meeting",
-    "call",
-    "deadline",
-    "appointment",
-    "event",
-    "travel",
-    "reminder",
-    "errand",
-    "celebration",
-    "doctor_appointment",
-}
 
 SCHEDULE_REQUIRED_FIELDS = {
     "activity",
@@ -48,6 +40,18 @@ def _load_schedule_schema() -> dict:
     schema = _load_json(SCHEDULE_SCHEMA_PATH)
     assert isinstance(schema, dict)
     return schema
+
+
+def _expected_schedule_activity_ids() -> set[str]:
+    # Why: `meeting` is emitted by both the schedule talent and sense; the
+    # other 9 are schedule-only (their instructions carry the marker).
+    schedule_only = {
+        a["id"]
+        for a in DEFAULT_ACTIVITIES
+        if "Scheduled events emitted by talent/schedule.md"
+        in a.get("instructions", "")
+    }
+    return {"meeting"} | schedule_only
 
 
 def _sample_schedule_payloads() -> list[list[dict]]:
@@ -145,6 +149,22 @@ def test_schedule_talent_loads_schema():
     assert get_talent("schedule")["json_schema"] == _load_schedule_schema()
 
 
+def test_schedule_schema_facet_uses_runtime_sentinel_constant():
+    schema = _load_schedule_schema()
+    facet_schema = schema["items"]["properties"]["facet"]
+
+    assert facet_schema["enum"] == [RUNTIME_FACETS_SENTINEL]
+
+
+def test_schedule_activity_enum_matches_default_activities_drift_detector():
+    schema = _load_schedule_schema()
+    item_schema = schema["items"]
+
+    assert set(item_schema["properties"]["activity"]["enum"]) == (
+        _expected_schedule_activity_ids()
+    )
+
+
 def test_schedule_participation_entry_diverges_from_shared_fragment():
     """Schedule omits entity_id because the hook fills it via find_matching_entity."""
     schedule_schema = _load_schedule_schema()
@@ -175,7 +195,7 @@ def test_schedule_schema_mirrors_hook_requirements():
 
     assert schedule_schema["type"] == "array"
     assert set(item_schema["required"]) == SCHEDULE_REQUIRED_FIELDS
-    assert set(properties["activity"]["enum"]) == SCHEDULE_ACTIVITY_ENUM
+    assert set(properties["activity"]["enum"]) == _expected_schedule_activity_ids()
     assert (
         participation_items["properties"]["role"]["enum"]
         == fragment["properties"]["role"]["enum"]
@@ -189,8 +209,9 @@ def test_schedule_schema_mirrors_hook_requirements():
     assert properties["cancelled"]["type"] == "boolean"
 
 
-def test_schedule_hook_fixtures_validate_against_schema():
-    validator = Draft202012Validator(_load_schedule_schema())
+def test_schedule_hook_fixtures_validate_against_schema(monkeypatch):
+    monkeypatch.setattr("think.talent.get_facets", lambda: {"work": {}})
+    validator = Draft202012Validator(hydrate_runtime_enums(_load_schedule_schema()))
 
     for payload in _sample_schedule_payloads():
         assert list(validator.iter_errors(payload)) == []

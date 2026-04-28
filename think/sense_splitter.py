@@ -30,7 +30,7 @@ def write_sense_outputs(
     """Write unified Sense output into per-agent files."""
     agents_dir = seg_dir / "talents"
 
-    density = sense_json.get("density") or "active"
+    density = sense_json["density"]
     activity_summary = sense_json.get("activity_summary") or ""
     entities = sense_json.get("entities") or []
     facets = sense_json.get("facets") or []

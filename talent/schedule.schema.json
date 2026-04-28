@@ -93,7 +93,7 @@
       },
       "facet": {
         "type": "string",
-        "minLength": 1
+        "enum": ["__RUNTIME_FACETS__"]
       },
       "cancelled": {
         "type": "boolean"
