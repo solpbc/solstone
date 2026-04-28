@@ -39,7 +39,7 @@ Read, in order, when you enter the repo for a coding task:
 | `convey/` | Web app framework — app discovery, routing, bridge, screenshot tooling | layout / framework-level UI changes | `docs/CONVEY.md` |
 | `apps/` | Convey apps — each self-contained (`call.py` Typer sub-app + `routes.py` + `templates/`) | adding a user-facing feature, a `sol call <app>` verb, a UI surface | `docs/APPS.md` (required reading before modifying `apps/`) |
 | `talent/` | AI talent configs (markdown prompts + optional `.py` post-hooks) + `SKILL.md`s (journal, coder, partner, …) | defining or tuning a talent; adding a journal-side skill | `talent/journal/SKILL.md`, `docs/PROMPT_TEMPLATES.md` |
-| `scripts/` | Repo maintenance scripts — `check_layer_hygiene.py`, `gate_agents_rename.py` | tooling that guards the codebase; wired into `make ci` | (none) |
+| `scripts/` | Repo maintenance scripts — `check_layer_hygiene.py` | tooling that guards the codebase; wired into `make ci` | (none) |
 | `tests/` | Pytest suites + `tests/fixtures/journal/` mock journal | writing tests; debugging flakiness; `make dev` / `make sandbox` use fixtures as the journal | `docs/testing.md` |
 | `docs/` | All longform documentation | reference lookups; never your first stop | §10 below |
 | `journal/` | The live journal (user data). Git-ignored content; checked-in template (`AGENTS.md`, skills symlinks) | **rarely as a coder** — modify `think/`, `apps/`, or `talent/`, not journal data | `talent/journal/SKILL.md` |
@@ -116,11 +116,10 @@ Verified against `Makefile`. Grouped by use.
 | `make test-all` | Everything — core + apps + integration. Pre-ship gate. |
 | `make coverage` | HTML coverage report under `htmlcov/`. Occasional. |
 | `make watch` | pytest-watch — reruns tests on file change. Useful during a test-heavy sprint. |
-| `make ci` | Format-check + ruff + agents-rename gate + layer-hygiene + tests. **Run before every commit.** |
+| `make ci` | Format-check + ruff + layer-hygiene + tests. **Run before every commit.** |
 | `make verify` | Same steps as `make ci`. Either name is fine. |
-| `make install-checks` | The pre-test half of `make ci` (format-check + ruff + gates). Called by `ci` / `verify`. |
+| `make install-checks` | The pre-test half of `make ci` (format-check + ruff + layer-hygiene). Called by `ci` / `verify`. |
 | `make check-layer-hygiene` | Run `scripts/check_layer_hygiene.py` alone. Useful when iterating on an L1–L2 violation flagged by CI. |
-| `make gate-agents-rename` | Guard against reintroducing the old `agents/` naming. Part of `install-checks`. |
 
 ### Verification against a running sandbox
 

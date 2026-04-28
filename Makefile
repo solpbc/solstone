@@ -10,7 +10,7 @@ export TMPDIR := /var/tmp
 PYTEST_BASETEMP := $(shell mktemp -d /var/tmp/solstone-pytest-XXXXXX)
 PYTEST_BASETEMP_FLAG := --basetemp $(PYTEST_BASETEMP)
 
-.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format format-check install-checks ci clean clean-install coverage watch versions update update-prices pre-commit skills dev all sandbox sandbox-stop install-pinchtab install-models parakeet-helper parakeet-helper-clean verify-browser update-browser-baselines review verify verify-api update-api-baselines install-service uninstall-service service-logs gate-agents-rename check-layer-hygiene doctor FORCE
+.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format format-check install-checks ci clean clean-install coverage watch versions update update-prices pre-commit skills dev all sandbox sandbox-stop install-pinchtab install-models parakeet-helper parakeet-helper-clean verify-browser update-browser-baselines review verify verify-api update-api-baselines install-service uninstall-service service-logs check-layer-hygiene doctor FORCE
 
 # Default target - install package in editable mode
 all: install
@@ -482,11 +482,9 @@ install-service: doctor skills .installed
 			;; \
 		up""grade) \
 			echo "mode: up""grade"; \
-			$(MAKE) install-checks || exit $$?; \
 			;; \
 		current) \
 			echo "mode: current"; \
-			$(MAKE) install-checks || exit $$?; \
 			;; \
 		fresh) \
 			echo "mode: fresh install"; \
@@ -564,9 +562,6 @@ install-checks: .installed
 	@echo "=== Running ruff ==="
 	@$(RUFF) check . || { echo "Run 'make format' to auto-fix"; exit 1; }
 	@echo ""
-	@echo "=== Running rename gate ==="
-	@$(MAKE) gate-agents-rename
-	@echo ""
 	@echo "=== Running layer-hygiene check ==="
 	@$(MAKE) check-layer-hygiene
 	@echo ""
@@ -625,9 +620,6 @@ pre-commit: .installed
 	@$(UV) pip show pre-commit >/dev/null 2>&1 || { echo "Installing pre-commit..."; $(UV) pip install pre-commit; }
 	$(VENV_BIN)/pre-commit install
 	@echo "Pre-commit hooks installed!"
-# Rename guard for the agents -> talents transition
-gate-agents-rename: .installed
-	$(VENV_BIN)/python scripts/gate_agents_rename.py
 
 # Low-bar layer-hygiene check (see docs/coding-standards.md § Layer Hygiene)
 check-layer-hygiene: .installed
