@@ -671,9 +671,7 @@ def run_segment_sense(
             idle_changes = state_machine.update(sense_json, segment, day)
             # Persist completed activity records from idle transitions
             ended_pairs = [
-                (c["id"], c.get("facet", "__"))
-                for c in idle_changes
-                if c.get("state") == "ended"
+                (c["id"], c["facet"]) for c in idle_changes if c.get("state") == "ended"
             ]
             completed_lookup = {}
             for rec in state_machine.get_completed_activities():
@@ -916,9 +914,7 @@ def run_segment_sense(
         changes = state_machine.update(sense_json, segment, day)
         # Persist completed activity records before running activity agents
         ended_pairs = [
-            (c["id"], c.get("facet", "__"))
-            for c in changes
-            if c.get("state") == "ended"
+            (c["id"], c["facet"]) for c in changes if c.get("state") == "ended"
         ]
         completed_lookup = {}
         for rec in state_machine.get_completed_activities():

@@ -51,7 +51,7 @@ def _append_ended_records(
             continue
         record = completed_lookup.get(change["id"])
         if record:
-            append_activity_record(change.get("facet", "__"), day, record)
+            append_activity_record(change["facet"], day, record)
 
 
 def test_state_survives_subprocess_boundary(tmp_path: Path, monkeypatch):
@@ -109,39 +109,6 @@ def test_day_boundary_routes_ended_record_to_prior_day(tmp_path: Path, monkeypat
     assert prior_day_records[0]["segments"] == ["233000_300"]
     assert sm2.state["test"]["since"] == "001500_300"
     assert sm2.last_segment_day == "20260305"
-
-
-def test_legacy_flat_list_format_promotes(tmp_path: Path, monkeypatch):
-    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
-    legacy_state = [
-        {
-            "id": make_activity_id("coding", "090000_300"),
-            "activity": "coding",
-            "state": "active",
-            "since": "090000_300",
-            "description": "legacy coding",
-            "level": "medium",
-            "active_entities": [],
-        }
-    ]
-    _write_json_atomic(tmp_path / "awareness" / "activity_state.json", legacy_state)
-
-    sm = ActivityStateMachine(journal_root=tmp_path)
-    assert set(sm.state) == {"__"}
-    assert sm.last_segment_key is None
-    assert sm.last_segment_day is None
-    assert sm.state["__"]["facet"] == "__"
-    assert sm.state["__"]["segments"] == ["090000_300"]
-
-    changes = sm.update(_sense(content_type="meeting"), "090500_300", "20260427")
-    ended = [change for change in changes if change.get("state") == "ended"]
-    assert len(ended) == 1
-    _append_ended_records(sm, changes, "20260427")
-
-    records = load_activity_records("__", "20260427")
-    assert len(records) == 1
-    assert records[0]["segments"] == ["090000_300"]
-    assert sm.state["test"]["since"] == "090500_300"
 
 
 def test_three_active_segments_then_idle_writes_one_record(tmp_path: Path, monkeypatch):

@@ -777,9 +777,7 @@ class TestActivityPersistenceRoundTrip:
 
             # Simulate thinking.py facet_by_id logic
             facet_by_id = {
-                c["id"]: c.get("facet", "__")
-                for c in changes
-                if c.get("state") == "ended"
+                c["id"]: c["facet"] for c in changes if c.get("state") == "ended"
             }
             for rec in sm.get_completed_activities():
                 if rec["id"] in facet_by_id:
@@ -808,9 +806,7 @@ class TestActivityPersistenceRoundTrip:
             changes = sm.update(self._sense(density="idle"), "091000_300", "20260304")
 
             facet_by_id = {
-                c["id"]: c.get("facet", "__")
-                for c in changes
-                if c.get("state") == "ended"
+                c["id"]: c["facet"] for c in changes if c.get("state") == "ended"
             }
             for rec in sm.get_completed_activities():
                 if rec["id"] in facet_by_id:
@@ -859,9 +855,7 @@ class TestActivityPersistenceRoundTrip:
                 self._sense(content_type="meeting"), "090500_300", "20260304"
             )
             facet_by_id = {
-                c["id"]: c.get("facet", "__")
-                for c in changes1
-                if c.get("state") == "ended"
+                c["id"]: c["facet"] for c in changes1 if c.get("state") == "ended"
             }
             for rec in sm.get_completed_activities():
                 if rec["id"] in facet_by_id:
@@ -873,9 +867,7 @@ class TestActivityPersistenceRoundTrip:
             )
             # No ended changes in this update
             facet_by_id2 = {
-                c["id"]: c.get("facet", "__")
-                for c in changes2
-                if c.get("state") == "ended"
+                c["id"]: c["facet"] for c in changes2 if c.get("state") == "ended"
             }
             # get_completed_activities() still returns activity 1, but
             # facet_by_id2 is empty so nothing should be re-written
@@ -923,34 +915,6 @@ class TestActivityPersistenceRoundTrip:
             assert loaded["active_entities"] == rec["active_entities"]
             assert loaded["created_at"] == rec["created_at"]
 
-    def test_pseudo_facet_persistence(self, monkeypatch):
-        """Activities with no facets use '__' pseudo-facet for persistence."""
-        from think.activities import append_activity_record, load_activity_records
-        from think.activity_state_machine import ActivityStateMachine
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
-
-            sm = ActivityStateMachine()
-            sm.update(
-                self._sense(content_type="coding", facets=[]), "090000_300", "20260304"
-            )
-            changes = sm.update(self._sense(density="idle"), "090500_300", "20260304")
-
-            facet_by_id = {
-                c["id"]: c.get("facet", "__")
-                for c in changes
-                if c.get("state") == "ended"
-            }
-            for rec in sm.get_completed_activities():
-                if rec["id"] in facet_by_id:
-                    append_activity_record(facet_by_id[rec["id"]], "20260304", rec)
-
-            # Record lands under the "__" pseudo-facet
-            records = load_activity_records("__", "20260304")
-            assert len(records) == 1
-            assert records[0]["activity"] == "coding"
-
     def test_multi_facet_ending_persists_both(self, monkeypatch):
         """Multiple facets ending simultaneously all persist correctly.
 
@@ -976,9 +940,7 @@ class TestActivityPersistenceRoundTrip:
 
             # Use the fixed ended_pairs approach (matches thinking.py)
             ended_pairs = [
-                (c["id"], c.get("facet", "__"))
-                for c in changes
-                if c.get("state") == "ended"
+                (c["id"], c["facet"]) for c in changes if c.get("state") == "ended"
             ]
             completed_lookup = {}
             for rec in sm.get_completed_activities():
@@ -1111,9 +1073,7 @@ class TestCreatedAtRoutesCompat:
             )
             # Persist first completed
             facet_by_id = {
-                c["id"]: c.get("facet", "__")
-                for c in changes1
-                if c.get("state") == "ended"
+                c["id"]: c["facet"] for c in changes1 if c.get("state") == "ended"
             }
             for rec in sm.get_completed_activities():
                 if rec["id"] in facet_by_id:
@@ -1139,9 +1099,7 @@ class TestCreatedAtRoutesCompat:
                 "20260304",
             )
             facet_by_id2 = {
-                c["id"]: c.get("facet", "__")
-                for c in changes2
-                if c.get("state") == "ended"
+                c["id"]: c["facet"] for c in changes2 if c.get("state") == "ended"
             }
             for rec in sm.get_completed_activities():
                 if rec["id"] in facet_by_id2:

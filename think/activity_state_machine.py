@@ -37,9 +37,9 @@ class ActivityStateMachine:
 
         if isinstance(data, list):
             active = {
-                str(entry.get("facet") or "__"): entry
+                str(entry["facet"]): entry
                 for entry in data
-                if isinstance(entry, dict)
+                if isinstance(entry, dict) and entry.get("facet")
             }
         elif isinstance(data, dict):
             raw_active = data.get("active")
@@ -161,7 +161,7 @@ class ActivityStateMachine:
         for facet in raw_facets:
             if isinstance(facet, dict) and facet.get("facet"):
                 facet_map[facet["facet"]] = facet
-        current_facets = set(facet_map.keys()) if facet_map else {"__"}
+        current_facets = set(facet_map.keys())
 
         for facet in sorted(set(self.state.keys()) - current_facets):
             prior = self.state.pop(facet)

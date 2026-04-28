@@ -245,17 +245,6 @@ class TestSegmentAccumulation:
         assert sm.state["work"]["segments"] == ["090000_300", "090500_300"]
 
 
-class TestPseudoFacet:
-    def test_no_facets_uses_underscore(self):
-        from think.activity_state_machine import ActivityStateMachine
-
-        sm = ActivityStateMachine()
-        changes = sm.update(_sense(facets=[]), "090000_300", "20260304")
-
-        assert len(changes) == 1
-        assert changes[0]["facet"] == "__"
-
-
 class TestEntityTracking:
     def test_extracts_names(self):
         from think.activity_state_machine import ActivityStateMachine
