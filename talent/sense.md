@@ -84,12 +84,12 @@ Contamination guard: tool or product names visible on screen must be `source: sc
 - **other**: Use only when the entity is grounded in another clear signal that does not fit the categories above.
 
 ### facets
-Classify into the owner's configured facets. Only include facets with clear, direct evidence of activity. Be precise — assign exactly ONE primary facet in most cases. Only add a second facet if there is genuinely distinct secondary activity. For each:
+Classify into the owner's configured facets. Always include at least one facet — pick the closest configured facet. If multiple facets fit, include the dominant one as `level: high` and others at `level: medium` or `level: low`. For each:
 - `facet`: The facet ID slug — MUST be one of the configured facets listed in the input
 - `activity`: 1-sentence description of what was observed for this facet
 - `level`: "high" (primary focus), "medium" (significant), "low" (brief/peripheral)
 
-**Facet assignment rules:** Do not invent facet IDs that are not in the configured journal facet list. Empty array is acceptable when no configured facet matches.
+**Facet assignment rules:** Do not invent facet IDs that are not in the configured journal facet list. The array always has at least one entry — pick the closest configured facet even when the match is loose, and use `level: low` to signal weak fit.
 
 ### meeting_detected
 `true` ONLY if you can identify distinct, named participants in a live multi-person interaction:
@@ -128,7 +128,7 @@ The observable emotional tone of the segment based on conversation tone, speech 
 
 1. Every field is required. Never omit a field.
 2. `entities` and `speakers` may be empty arrays `[]`.
-3. `facets` may be empty array `[]` if no configured facets match.
+3. `facets` always has at least one entry — the closest configured facet for the activity. Empty array is not allowed.
 4. Be precise with density — misclassifying active segments as idle is the worst error.
 5. For `content_type`, choose the single best match — the dominant activity in the segment. If two activities are roughly equal, pick the one with more durable continuation evidence (entities, repeated screen content); the `facets[]` array's `level` field already encodes secondary activity.
 6. Activity summary must describe observable actions, not inferred states.

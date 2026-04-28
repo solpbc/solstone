@@ -460,6 +460,7 @@ def hydrate_runtime_enums(schema: Any) -> Any:
     replaces it with the sorted list of valid runtime facet slugs. If no
     valid facets exist, drops the `enum` key and sets `minLength: 1` on
     that node so the schema remains satisfiable.
+    Also removes the parent facets array `minItems` constraint in that case.
 
     Returns None when given None. Deep-copies non-None input. Idempotent
     for already-hydrated schemas (sentinel is gone after first call).
@@ -490,6 +491,9 @@ def hydrate_runtime_enums(schema: Any) -> Any:
     _walk(hydrated)
 
     if used_empty_fallback:
+        facets_node = hydrated.get("properties", {}).get("facets")
+        if isinstance(facets_node, dict):
+            facets_node.pop("minItems", None)
         LOG.info(
             "hydrate_runtime_enums: no valid runtime facets; using minLength fallback"
         )
