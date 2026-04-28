@@ -287,7 +287,9 @@ def _install(port: int = DEFAULT_SERVICE_PORT) -> int:
         path.write_text(unit_content)
         print(f"Wrote {path}")
 
+        print("Reloading systemd user units...")
         subprocess.run(["systemctl", "--user", "daemon-reload"], check=True)
+        print("Enabling solstone.service...")
         subprocess.run(["systemctl", "--user", "enable", SYSTEMD_UNIT], check=True)
         print("Service enabled")
 
@@ -411,6 +413,10 @@ def _restart(if_installed: bool = False) -> int:
         )
         return 1
 
+    print(
+        "Stopping old supervisor (waits for in-flight work to finish — may take a moment)..."
+    )
+
     if platform == "darwin":
         uid = os.getuid()
         subprocess.run(
@@ -435,7 +441,7 @@ def _restart(if_installed: bool = False) -> int:
             print(f"Error restarting service: {result.stderr.strip()}", file=sys.stderr)
             return 1
 
-    print("Service restarted")
+    print("New supervisor process started (warming up)")
     return 0
 
 

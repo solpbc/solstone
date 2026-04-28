@@ -1672,6 +1672,7 @@ def main() -> None:
     try:
         ran, succeeded = run_pending_tasks(journal_path, emit_fn=None)
         if ran > 0:
+            print(f"  Ran {ran} maintenance task(s)", flush=True)
             if ran == succeeded:
                 logging.info("Completed %d/%d maintenance task(s)", succeeded, ran)
             else:
@@ -1694,6 +1695,7 @@ def main() -> None:
 
     # Start Callosum in-process first - it's the message bus that other services depend on
     try:
+        print("  Starting Callosum bus...", flush=True)
         start_callosum_in_process()
     except RuntimeError as e:
         logging.error(f"Failed to start Callosum server: {e}")
@@ -1734,18 +1736,23 @@ def main() -> None:
         # Local mode: convey first, then sense for file processing
         os.environ["SOL_SUPERVISOR_SPAWNED"] = "1"
         if not args.no_convey:
+            print(f"  Starting convey on port {args.port}...", flush=True)
             proc, convey_port = start_convey_server(
                 verbose=args.verbose, debug=args.debug, port=args.port
             )
             procs.append(proc)
             wait_for_convey_ready(proc)
+            print("  Convey ready", flush=True)
         # Sense handles file processing
+        print("  Starting sense...", flush=True)
         procs.append(start_sense())
         # Cortex for agent execution
         if not args.no_cortex:
+            print("  Starting cortex...", flush=True)
             procs.append(start_cortex_server())
         # Link tunnel service (opt-out via --no-link)
         if not args.no_link:
+            print("  Starting link...", flush=True)
             procs.append(start_link_server())
 
     # Make procs accessible to restart handler
@@ -1806,6 +1813,7 @@ def main() -> None:
                     )
 
     try:
+        print("  Supervisor ready", flush=True)
         asyncio.run(
             supervise(
                 daily=daily_enabled,

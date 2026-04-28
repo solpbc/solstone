@@ -48,8 +48,7 @@ def _expected_schedule_activity_ids() -> set[str]:
     schedule_only = {
         a["id"]
         for a in DEFAULT_ACTIVITIES
-        if "Scheduled events emitted by talent/schedule.md"
-        in a.get("instructions", "")
+        if "Scheduled events emitted by talent/schedule.md" in a.get("instructions", "")
     }
     return {"meeting"} | schedule_only
 

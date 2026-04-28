@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import plistlib
+import subprocess
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -317,6 +318,22 @@ class TestRestart:
         result = service._restart()
         assert result == 1
         assert "not installed" in capsys.readouterr().err
+
+    def test_linux_happy_path_narrates(self, capsys, monkeypatch):
+        """_restart prints stopping-old + new-process-started narration on the Linux happy path."""
+        monkeypatch.setattr(service, "_platform", lambda: "linux")
+        monkeypatch.setattr(service, "service_is_installed", lambda: True)
+        monkeypatch.setattr(
+            "subprocess.run",
+            lambda *a, **kw: subprocess.CompletedProcess(
+                args=a, returncode=0, stdout="", stderr=""
+            ),
+        )
+        result = service._restart()
+        assert result == 0
+        out = capsys.readouterr().out
+        assert "Stopping old supervisor" in out
+        assert "New supervisor process started" in out
 
 
 class TestInstall:

@@ -498,16 +498,21 @@ install-service: doctor skills .installed
 	CI=true npx --yes skills add ./skills/solstone -g -a claude-code -y; \
 	$(VENV_BIN)/sol service install --port $(or $(PORT),5015); \
 	$(VENV_BIN)/sol service restart; \
-	echo "Waiting for service readiness..."; \
+	echo "Waiting for supervisor to report healthy..."; \
 	READY=false; \
 	for i in $$(seq 1 20); do \
 		if $(VENV_BIN)/sol health > /dev/null 2>&1; then \
 			READY=true; \
 			break; \
 		fi; \
+		printf .; \
 		sleep 1; \
 	done; \
-	if [ "$$READY" = "false" ]; then \
+	if [ "$$READY" = "true" ]; then \
+		printf '\n'; \
+		echo "Service is healthy."; \
+	else \
+		printf '\n' >&2; \
 		echo "Service readiness timeout after 20s" >&2; \
 		exit 1; \
 	fi; \

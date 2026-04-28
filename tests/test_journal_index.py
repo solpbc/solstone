@@ -1765,6 +1765,5 @@ def test_scan_journal_is_pure_wrt_entity_state(journal_copy):
     snap_after = snapshot_entities(journal_path)
 
     assert snap_before == snap_between == snap_after, (
-        "scan_journal() mutated journal/entities/ — see "
-        "docs/coding-standards.md § L6"
+        "scan_journal() mutated journal/entities/ — see docs/coding-standards.md § L6"
     )
