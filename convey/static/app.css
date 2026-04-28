@@ -210,7 +210,7 @@ body.has-app-bar.has-error-log .workspace {
   top: 0;
   left: 0;
   right: 0;
-  background: white;
+  background: linear-gradient(var(--facet-bg, transparent), var(--facet-bg, transparent)), white;
   z-index: var(--z-bars);
   height: var(--facet-bar-height);
   padding: 14px 16px 12px 16px;
@@ -219,19 +219,6 @@ body.has-app-bar.has-error-log .workspace {
   display: flex;
   align-items: center;
   gap: 12px;
-}
-
-.facet-bar::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: var(--facet-bg, transparent);
-  transition: background-color 0.3s ease;
-  pointer-events: none;
-  z-index: -1;
 }
 
 /* Border as pseudo-element for selective positioning */
@@ -428,7 +415,16 @@ body:has(.status-pane.visible) .facet-bar::after {
   font-weight: 600;
   color: #9ca3af;
   border-radius: 4px;
-  transition: background 0.15s, color 0.15s, font-weight 0.15s;
+  transition: background 0.15s, color 0.15s, font-weight 0.15s, opacity 0.15s;
+}
+
+.date-nav-today:not(.is-other-day) {
+  opacity: 0;
+}
+
+.date-nav:hover .date-nav-today:not(.is-other-day),
+.date-nav:focus-within .date-nav-today:not(.is-other-day) {
+  opacity: 1;
 }
 
 .date-nav-today:hover {
@@ -824,7 +820,8 @@ body:has(.status-pane.visible) .facet-bar::after {
   gap: 10px;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
+  overflow-x: clip;
+  overflow-y: visible;
   min-width: 0;  /* Allow container to shrink below content size */
 }
 
@@ -1047,6 +1044,10 @@ body:not(.menu-full) .menu-bar .menu-item.current {
   font-weight: 500;
   padding-right: 12px;
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .menu-bar .menu-item .star-toggle {
@@ -1121,6 +1122,7 @@ body.menu-full .menu-bar .menu-item:hover .star-toggle,
 
 body.menu-full .menu-bar .menu-item .drag-handle {
   display: inline-flex;
+  opacity: 0.4;
 }
 
 body.menu-full .menu-bar .menu-item:hover .drag-handle {
@@ -1184,13 +1186,11 @@ body.menu-full .menu-bar .menu-item .drag-handle:active {
   align-items: center;
   justify-content: center;
   font: inherit;
-  font-size: 20px;
+  font-size: 22px;
   cursor: pointer;
   color: inherit;
   border: none;
   border-right: none;
-  border-top: 1px solid var(--facet-border, #e5e0db);
-  padding-top: 8px;
   background: var(--facet-bg, white);
   transition: background 0.2s;
   user-select: none;
@@ -1204,11 +1204,15 @@ body.menu-full .menu-bar .menu-item .drag-handle:active {
 
 
 .menu-bar .menu-expander:hover {
-  background: rgba(0,0,0,0.05);
+  background:
+    linear-gradient(rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.05)),
+    var(--facet-bg, white);
 }
 
 .menu-bar .menu-expander:active {
-  background: rgba(0, 0, 0, 0.10);
+  background:
+    linear-gradient(rgba(0, 0, 0, 0.10), rgba(0, 0, 0, 0.10)),
+    var(--facet-bg, white);
 }
 
 /* Hide only when sidebar is menu-full (keep visible during menu-all) */
