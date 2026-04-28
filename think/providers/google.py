@@ -760,11 +760,11 @@ async def run_cogitate(
         #   - Read-only cogitate talents run yolo + a scoped policy: full tool
         #     registry (no plan-mode stripping), but write_file / replace denied
         #     and run_shell_command narrowed to `sol` invocations.
-        # Plan mode strips run_shell_command from the registry, which drove the
-        # tool-name hallucination loop documented in
-        # vpe/workspace/gemini-cli-tool-hallucination-research.md. Deprecated
-        # --allowed-tools controls auto-approval, not availability, so it can't
-        # replace the policy file for this purpose.
+        # Plan mode strips run_shell_command from the registry, which drove a
+        # tool-name hallucination loop in earlier prototypes (documented in sol
+        # pbc's internal engineering notes). The deprecated --allowed-tools
+        # flag controls auto-approval, not availability, so it can't replace
+        # the policy file for this purpose.
         cmd = [
             "gemini",
             "-p",

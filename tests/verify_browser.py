@@ -243,8 +243,8 @@ class PinchTab:
         profile_dir = Path.home() / ".pinchtab" / "profiles" / "default"
         if profile_dir.exists():
             # Clear cached default profile for deterministic runs — pinchtab persists
-            # cookies/storage across sessions. extro-linkedin uses a separate profile
-            # (~/.pinchtab/profiles/linkedin/) so this nuke is isolated to test state.
+            # cookies/storage across sessions. Other tools that share pinchtab use
+            # their own named profiles, so this nuke is isolated to test state.
             try:
                 shutil.rmtree(profile_dir)
             except OSError as exc:

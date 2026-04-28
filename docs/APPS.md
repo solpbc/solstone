@@ -352,7 +352,7 @@ def post_process(result: str, context: dict) -> str | None:
 - **Natural-key dedup.** Read the existing output, compute a natural key per row (e.g., `(facet, event_day, title, start, end)` for facet events), skip rows already present, and append only the new ones. Use this when the output is append-only history and you want to preserve prior writes from other agents.
 - **Atomic replace.** Recompute the full output, write it to a temp file, and rename into place. `atomic_write()` in `think/entities/core.py` is the established helper for text outputs; for JSONL, write the full set of lines to a tempfile and `os.replace()`. Use this when the hook owns the file end-to-end.
 
-(Retired 2026-04-18 Sprint 4.) An earlier `write_events_jsonl` hook in `think/hooks.py` opened facet-event logs in `"a"` mode with no dedup and doubled row counts on every `sol think --refresh` — see the 2026-04-17 layer-violations audit (V6) in the sol pbc internal extro repo (`vpe/workspace/solstone-layer-violations-audit.md`) for the full write-up.
+(Retired 2026-04-18 Sprint 4.) An earlier `write_events_jsonl` hook in `think/hooks.py` opened facet-event logs in `"a"` mode with no dedup and doubled row counts on every `sol think --refresh` — see the 2026-04-17 layer-violations audit (V6) tracked in sol pbc's internal engineering notes for the full write-up.
 
 See `docs/coding-standards.md` L8/L9 for the broader principles.
 

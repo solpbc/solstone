@@ -16,9 +16,8 @@ direct write (``atomic_write``, ``json.dump``, ``.write_text``,
 
 By design this is a grep-level check with known false-positive surface. Known
 audit-tracked violations are allowlisted below with a TODO and an audit
-reference. An allowlist entry is expected to disappear once its bundle ships —
-see ``vpe/workspace/solstone-layer-violations-audit.md`` in the sol pbc
-internal extro repo for the canonical list (V1-V14).
+reference (V1-V14, tracked in sol pbc's internal engineering notes). An
+allowlist entry is expected to disappear once its bundle ships.
 
 Exit codes:
   0 — no un-tracked violations

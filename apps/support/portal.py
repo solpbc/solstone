@@ -4,7 +4,7 @@
 """Welcome-mat client for support.solpbc.org.
 
 Implements the full DPoP + self-signed access token auth flow per the
-welcome-mat spec and the extro-support SKILL.md interface contract.
+welcome-mat spec.
 
 All cryptographic operations use the ``cryptography`` library (already a
 solstone dependency).  The keypair, access token, and cached TOS are

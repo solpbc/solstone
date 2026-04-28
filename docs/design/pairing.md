@@ -2,9 +2,9 @@
 
 ## 1. Summary
 
-Wave 5 adds a self-hosted iOS pairing flow to the existing Convey process: one JSON API blueprint at `/api/pairing/*` plus one owner-facing HTML blueprint at `/app/pairing/*`, both defined in `convey/pairing.py`. This follows the Wave 2 / Wave 3 root-blueprint pattern rather than adding an `apps/pairing/` package (`convey/voice.py:27-197`, `convey/push.py:24-127`, `convey/__init__.py:110-169`, `/home/jer/projects/extro/vpe/workspace/hop-solstone-pairing-wave-5-server.md:20-78`).
+Wave 5 adds a self-hosted iOS pairing flow to the existing Convey process: one JSON API blueprint at `/api/pairing/*` plus one owner-facing HTML blueprint at `/app/pairing/*`, both defined in `convey/pairing.py`. This follows the Wave 2 / Wave 3 root-blueprint pattern rather than adding an `apps/pairing/` package (`convey/voice.py:27-197`, `convey/push.py:24-127`, `convey/__init__.py:110-169`).
 
-The server mints one-time `ptk_...` pairing tokens in memory, accepts ssh-ed25519 public keys from the iOS client, stores paired devices in `journal/config/paired_devices.json`, and returns a one-time `dsk_...` bearer session key whose hash is the only value persisted at rest. The companion iOS contract is fixed: `solstone://pair?token=...&host=...`, `POST {host}/api/pairing/confirm`, then `Authorization: Bearer <session_key>` on subsequent API calls (`/home/jer/projects/extro/vpe/workspace/hop-solstone-pairing-wave-5-server.md:26-56`, `/home/jer/projects/extro/vpe/workspace/hop-solstone-swift-wave-5-client.md:115-137`).
+The server mints one-time `ptk_...` pairing tokens in memory, accepts ssh-ed25519 public keys from the iOS client, stores paired devices in `journal/config/paired_devices.json`, and returns a one-time `dsk_...` bearer session key whose hash is the only value persisted at rest. The companion iOS contract is fixed: `solstone://pair?token=...&host=...`, `POST {host}/api/pairing/confirm`, then `Authorization: Bearer <session_key>` on subsequent API calls.
 
 The design keeps config defaults compatible with existing journals by using both a new `pairing` block in `think/journal_default.json` and in-code defaults in `think/pairing/config.py`, because `get_config()` does not merge defaults once `config/journal.json` exists (`think/journal_default.json:1-53`, `think/utils.py:557-588`, `tests/conftest.py:77-84`). It also promotes `cryptography` to a direct dependency: the repo already imports it directly in the link pairing surface, but `pyproject.toml` does not currently declare it (`apps/link/routes.py:33-35`, `pyproject.toml:32-93`).
 
@@ -35,61 +35,61 @@ The public function surface is intentionally small and explicit.
 #### `think/pairing/config.py`
 
 - `def get_host_url() -> str:`
-  Return the configured pairing host URL, or synthesize `http://localhost:<convey-port>` when `pairing.host_url` is null by reading the recorded Convey port and falling back to the installed default port `5015` (`think/utils.py:922-935`, `think/service.py:32-34`).
+ Return the configured pairing host URL, or synthesize `http://localhost:<convey-port>` when `pairing.host_url` is null by reading the recorded Convey port and falling back to the installed default port `5015` (`think/utils.py:922-935`, `think/service.py:32-34`).
 - `def get_token_ttl_seconds() -> int:`
-  Return the configured token TTL, clamped to `60..3600`, defaulting to `600`.
+ Return the configured token TTL, clamped to `60..3600`, defaulting to `600`.
 - `def get_owner_identity() -> str:`
-  Return `config.identity.preferred`, else `config.identity.name`, else `""` (`think/journal_default.json:2-15`).
+ Return `config.identity.preferred`, else `config.identity.name`, else `""` (`think/journal_default.json:2-15`).
 
 #### `think/pairing/tokens.py`
 
 - `def create_token(*, ttl_seconds: int | None = None, now: int | None = None) -> PairingToken:`
-  Mint a `ptk_...` token, insert it into the in-memory store, and return its issued/expires metadata.
+ Mint a `ptk_...` token, insert it into the in-memory store, and return its issued/expires metadata.
 - `def consume_token(token: str, *, now: int | None = None) -> PairingToken | None:`
-  Atomically validate and consume a token; return `None` for missing, expired, or already-consumed tokens.
+ Atomically validate and consume a token; return `None` for missing, expired, or already-consumed tokens.
 - `def peek_token(token: str, *, now: int | None = None) -> PairingToken | None:`
-  Return current token metadata without consuming it while still pruning expired entries.
+ Return current token metadata without consuming it while still pruning expired entries.
 - `def purge_expired_tokens(*, now: int | None = None) -> int:`
-  Remove expired tokens and return the number purged.
+ Remove expired tokens and return the number purged.
 
 #### `think/pairing/keys.py`
 
 - `def validate_public_key(public_key: str) -> str:`
-  Parse and validate an ssh-ed25519 public key, reject any non-Ed25519 algorithm, and return the normalized string.
+ Parse and validate an ssh-ed25519 public key, reject any non-Ed25519 algorithm, and return the normalized string.
 - `def generate_session_key() -> str:`
-  Mint a one-time `dsk_...` bearer session key for the paired device.
+ Mint a one-time `dsk_...` bearer session key for the paired device.
 - `def hash_session_key(session_key: str) -> str:`
-  Return `sha256:<hex>` for storage and lookup.
+ Return `sha256:<hex>` for storage and lookup.
 - `def mask_session_key(session_key: str) -> str:`
-  Return a log-safe mask showing only the last four characters and the total length.
+ Return a log-safe mask showing only the last four characters and the total length.
 
 #### `think/pairing/devices.py`
 
 - `def load_devices() -> list[Device]:`
-  Load and validate `paired_devices.json`, returning `[]` on missing or malformed stores with a warning.
+ Load and validate `paired_devices.json`, returning `[]` on missing or malformed stores with a warning.
 - `def find_device_by_id(device_id: str) -> Device | None:`
-  Return one paired device by `id`, or `None`.
+ Return one paired device by `id`, or `None`.
 - `def find_device_by_session_key_hash(session_key_hash: str) -> Device | None:`
-  Return one paired device matching a stored `session_key_hash`, or `None`.
+ Return one paired device matching a stored `session_key_hash`, or `None`.
 - `def register_device(*, name: str, platform: str, public_key: str, session_key_hash: str, bundle_id: str, app_version: str, paired_at: str | None = None) -> Device:`
-  Create or update a device row keyed by `public_key`, generating a stable `dev_...` id on first registration and rotating the stored `session_key_hash` on re-pair.
+ Create or update a device row keyed by `public_key`, generating a stable `dev_...` id on first registration and rotating the stored `session_key_hash` on re-pair.
 - `def touch_last_seen(device_id: str, *, last_seen_at: str | None = None) -> bool:`
-  Update `last_seen_at` for an existing paired device.
+ Update `last_seen_at` for an existing paired device.
 - `def remove_device(device_id: str) -> bool:`
-  Remove one paired device by `id`.
+ Remove one paired device by `id`.
 - `def status_view(device: Device) -> dict[str, Any]:`
-  Return the non-secret JSON view exposed by `GET /api/pairing/devices`.
+ Return the non-secret JSON view exposed by `GET /api/pairing/devices`.
 
 #### `convey/auth.py`
 
 - `def extract_bearer_token() -> str | None:`
-  Return the trimmed `Authorization: Bearer ...` token if present, else `None`.
+ Return the trimmed `Authorization: Bearer ...` token if present, else `None`.
 - `def resolve_paired_device() -> Device | None:`
-  Hash the presented bearer token, load the matching paired device, and return it when valid.
+ Hash the presented bearer token, load the matching paired device, and return it when valid.
 - `def is_owner_authed() -> bool:`
-  Return `True` when the current request already satisfies the owner checks used by `require_login()` without triggering redirects: session cookie, Basic Auth, or the completed-setup localhost bypass (`convey/root.py:49-57`, `81-139`).
+ Return `True` when the current request already satisfies the owner checks used by `require_login()` without triggering redirects: session cookie, Basic Auth, or the completed-setup localhost bypass (`convey/root.py:49-57`, `81-139`).
 - `def require_paired_device(f):`
-  Decorator that resolves a paired-device bearer, stores it on `g.paired_device`, and returns `401` JSON when no valid paired-device bearer is present.
+ Decorator that resolves a paired-device bearer, stores it on `g.paired_device`, and returns `401` JSON when no valid paired-device bearer is present.
 
 ## 3. Flow diagrams
 
@@ -97,11 +97,11 @@ The public function surface is intentionally small and explicit.
 
 ```text
 owner browser on /app/pairing/
-  -> POST /api/pairing/create (owner-auth via require_login)
-  -> pairing config resolves host URL + TTL
-  -> think.pairing.tokens.create_token(...)
-  -> response includes token, expires_at, pairing_url, qr_data
-  -> pairing.js renders QR client-side and starts countdown
+ -> POST /api/pairing/create (owner-auth via require_login)
+ -> pairing config resolves host URL + TTL
+ -> think.pairing.tokens.create_token(...)
+ -> response includes token, expires_at, pairing_url, qr_data
+ -> pairing.js renders QR client-side and starts countdown
 ```
 
 This mirrors the local-request-validation shape of `convey/voice.py` and `convey/push.py`, but the write target is an in-memory store rather than journal state (`convey/voice.py:30-53`, `convey/push.py:27-50`, `think/link/nonces.py:45-103`).
@@ -110,26 +110,26 @@ This mirrors the local-request-validation shape of `convey/voice.py` and `convey
 
 ```text
 iOS client
-  -> POST /api/pairing/confirm
-  -> allowlist bypasses require_login
-  -> route validates JSON object + token/public_key/device metadata
-  -> think.pairing.tokens.consume_token(token)
-  -> think.pairing.keys.validate_public_key(public_key)
-  -> think.pairing.keys.generate_session_key() + hash_session_key(...)
-  -> think.pairing.devices.register_device(...)
-  -> response returns session_key once, plus device_id/journal_root/owner_identity/server_version
+ -> POST /api/pairing/confirm
+ -> allowlist bypasses require_login
+ -> route validates JSON object + token/public_key/device metadata
+ -> think.pairing.tokens.consume_token(token)
+ -> think.pairing.keys.validate_public_key(public_key)
+ -> think.pairing.keys.generate_session_key() + hash_session_key(...)
+ -> think.pairing.devices.register_device(...)
+ -> response returns session_key once, plus device_id/journal_root/owner_identity/server_version
 ```
 
-The confirm flow deliberately follows the existing “token in header/body, then validate against a feature-owned store” pattern from observer ingest and journal-source ingest, but pairing consumes its own in-memory token and persists only the device ledger (`apps/observer/routes.py:524-538`, `apps/import/journal_sources.py:108-128`, `/home/jer/projects/extro/vpe/workspace/hop-solstone-swift-wave-5-client.md:115-124`).
+The confirm flow deliberately follows the existing “token in header/body, then validate against a feature-owned store” pattern from observer ingest and journal-source ingest, but pairing consumes its own in-memory token and persists only the device ledger (`apps/observer/routes.py:524-538`, `apps/import/journal_sources.py:108-128`).
 
 ### 3.3 List / heartbeat (`GET /api/pairing/devices`, `POST /api/pairing/heartbeat`)
 
 ```text
 paired device
-  -> Authorization: Bearer dsk_...
-  -> list: resolve paired device or owner path, return non-secret device rows
-  -> heartbeat: @require_paired_device resolves bearer and stores g.paired_device
-  -> think.pairing.devices.touch_last_seen(g.paired_device["id"])
+ -> Authorization: Bearer dsk_...
+ -> list: resolve paired device or owner path, return non-secret device rows
+ -> heartbeat: @require_paired_device resolves bearer and stores g.paired_device
+ -> think.pairing.devices.touch_last_seen(g.paired_device["id"])
 ```
 
 Heartbeat is bearer-only. List is mixed-auth: allowlist bypass at `require_login()`, then explicit handler-level acceptance of either a paired-device bearer or an already-owner-authenticated request.
@@ -138,10 +138,10 @@ Heartbeat is bearer-only. List is mixed-auth: allowlist bypass at `require_login
 
 ```text
 paired device OR owner browser
-  -> allowlist bypasses require_login
-  -> route resolves either bearer device or owner auth
-  -> think.pairing.devices.remove_device(device_id)
-  -> 200 {"unpaired": true} on success
+ -> allowlist bypasses require_login
+ -> route resolves either bearer device or owner auth
+ -> think.pairing.devices.remove_device(device_id)
+ -> 200 {"unpaired": true} on success
 ```
 
 The storage rule is simple: unpair removes the row from `paired_devices.json` rather than soft-deleting it. That keeps the store authoritative for current pairings only, matching the existing push-device store style (`think/push/devices.py:76-124`).
@@ -150,13 +150,13 @@ The storage rule is simple: unpair removes the row from `paired_devices.json` ra
 
 ```text
 process restart
-  -> in-memory token store is empty
-  -> pending QR codes immediately stop working
-  -> paired_devices.json persists
-  -> existing dsk_... bearer tokens continue to resolve
+ -> in-memory token store is empty
+ -> pending QR codes immediately stop working
+ -> paired_devices.json persists
+ -> existing dsk_... bearer tokens continue to resolve
 ```
 
-This split is deliberate. The token store is ephemeral by scope; the device ledger is durable config (`/home/jer/projects/extro/vpe/workspace/hop-solstone-pairing-wave-5-server.md:32`, `147-148`).
+This split is deliberate. The token store is ephemeral by scope; the device ledger is durable config.
 
 ## 4. Endpoint specs
 
@@ -200,20 +200,20 @@ Add this block to `think/journal_default.json` after `push` and before `retentio
 
 ```json
 "pairing": {
-  "host_url": null,
-  "token_ttl_seconds": 600
+ "host_url": null,
+ "token_ttl_seconds": 600
 }
 ```
 
 Key rules:
 
 - `pairing.host_url`
-  - Default in `journal_default.json`: `null`.
-  - Runtime behavior: when null, synthesize `http://localhost:<convey-port>` using `read_service_port("convey")` and fall back to `DEFAULT_SERVICE_PORT = 5015` (`think/utils.py:922-935`, `think/service.py:32-34`).
-  - Operator behavior: set this explicitly when Convey is exposed through a tunnel, reverse proxy, or non-localhost origin.
+ - Default in `journal_default.json`: `null`.
+ - Runtime behavior: when null, synthesize `http://localhost:<convey-port>` using `read_service_port("convey")` and fall back to `DEFAULT_SERVICE_PORT = 5015` (`think/utils.py:922-935`, `think/service.py:32-34`).
+ - Operator behavior: set this explicitly when Convey is exposed through a tunnel, reverse proxy, or non-localhost origin.
 - `pairing.token_ttl_seconds`
-  - Default: `600`.
-  - Runtime clamp: `60..3600`.
+ - Default: `600`.
+ - Runtime clamp: `60..3600`.
 
 `owner_identity` does not need its own config key; it resolves from existing identity fields: `identity.preferred`, then `identity.name`, then `""` (`think/journal_default.json:2-15`).
 
@@ -221,7 +221,7 @@ Key rules:
 
 ### 6.1 Token store
 
-Decision: use a module-level singleton store backed by `threading.Lock` and a plain dict. Rationale: the scope explicitly accepts restart-invalidated tokens, and the existing link nonce store shows the TTL + single-use semantics we need without implying journal persistence (`think/link/nonces.py:45-103`, `/home/jer/projects/extro/vpe/workspace/hop-solstone-pairing-wave-5-server.md:32`, `147-148`).
+Decision: use a module-level singleton store backed by `threading.Lock` and a plain dict. Rationale: the scope explicitly accepts restart-invalidated tokens, and the existing link nonce store shows the TTL + single-use semantics we need without implying journal persistence (`think/link/nonces.py:45-103`).
 
 Token rules:
 
@@ -233,11 +233,11 @@ Token rules:
 
 ### 6.2 Session-key crypto
 
-Decision: bearer session keys are `dsk_<urlsafe-base64-32-bytes>` and are stored only as `sha256:<hex>`. Rationale: this matches the scope’s one-time-return contract and keeps the journal ledger non-secret at rest (`/home/jer/projects/extro/vpe/workspace/hop-solstone-pairing-wave-5-server.md:41-54`, `147-148`).
+Decision: bearer session keys are `dsk_<urlsafe-base64-32-bytes>` and are stored only as `sha256:<hex>`. Rationale: this matches the scope’s one-time-return contract and keeps the journal ledger non-secret at rest.
 
 ### 6.3 Public-key validation
 
-Decision: accept ssh-ed25519 only, with a `2048`-character cap on the incoming public-key string and a `128`-character cap on `device_name`. Rationale: the client contract already generates Ed25519 keys, and tight bounds keep the parser and logs safe (`/home/jer/projects/extro/vpe/workspace/hop-solstone-swift-wave-5-client.md:116-122`).
+Decision: accept ssh-ed25519 only, with a `2048`-character cap on the incoming public-key string and a `128`-character cap on `device_name`. Rationale: the client contract already generates Ed25519 keys, and tight bounds keep the parser and logs safe.
 
 ### 6.4 `paired_devices.json` schema
 
@@ -245,19 +245,19 @@ The on-disk store is a single JSON object:
 
 ```json
 {
-  "devices": [
-    {
-      "id": "dev_...",
-      "name": "jer's iPhone 15 Pro",
-      "platform": "ios",
-      "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI...",
-      "session_key_hash": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-      "bundle_id": "org.solpbc.solstone-swift",
-      "app_version": "0.1.0",
-      "paired_at": "2026-04-20T15:31:02Z",
-      "last_seen_at": null
-    }
-  ]
+ "devices": [
+ {
+ "id": "dev_...",
+ "name": "jer's iPhone 15 Pro",
+ "platform": "ios",
+ "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI...",
+ "session_key_hash": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+ "bundle_id": "org.solpbc.solstone-swift",
+ "app_version": "0.1.0",
+ "paired_at": "2026-04-20T15:31:02Z",
+ "last_seen_at": null
+ }
+ ]
 }
 ```
 
@@ -270,7 +270,7 @@ Store rules:
 
 ### 6.5 Auth chain
 
-Decision: ship a pairing-focused `convey/auth.py` now, but do not thread it into existing voice/push/observer routes. Rationale: Wave 5 needs the helper surface immediately, but the scope explicitly defers cross-route enforcement to Wave 5.1 (`/home/jer/projects/extro/vpe/workspace/hop-solstone-pairing-wave-5-server.md:66-72`, `134-148`).
+Decision: ship a pairing-focused `convey/auth.py` now, but do not thread it into existing voice/push/observer routes. Rationale: Wave 5 needs the helper surface immediately, but the scope explicitly defers cross-route enforcement to Wave 5.1.
 
 Helper contract:
 
@@ -285,11 +285,11 @@ Decision: every API error is JSON shaped as `{"error": "<human message>", "reaso
 
 ### 6.7 QR generation
 
-Decision: vendor `qrcode-generator` version `1.4.4` under `convey/static/pairing-qr.js` and generate the SVG client-side from the `qr_data` field returned by `POST /api/pairing/create`. Rationale: the repo packaging only includes flat `static/*` assets, and this keeps the QR dependency browser-only, MIT-licensed, and separate from the page logic in `convey/static/pairing.js` (`pyproject.toml:110-118`, `convey/__init__.py:118-133`, `/home/jer/projects/extro/vpe/workspace/hop-solstone-pairing-wave-5-server.md:60-64`).
+Decision: vendor `qrcode-generator` version `1.4.4` under `convey/static/pairing-qr.js` and generate the SVG client-side from the `qr_data` field returned by `POST /api/pairing/create`. Rationale: the repo packaging only includes flat `static/*` assets, and this keeps the QR dependency browser-only, MIT-licensed, and separate from the page logic in `convey/static/pairing.js` (`pyproject.toml:110-118`, `convey/__init__.py:118-133`).
 
 ### 6.8 Logging
 
-Decision: use `logging` only; never log raw `session_key`; log masked session keys as last four chars + total length; log public keys only at `DEBUG` with truncation. Rationale: the scope forbids raw secret leakage and pairing is explicitly bearer-token based (`/home/jer/projects/extro/vpe/workspace/hop-solstone-pairing-wave-5-server.md:147-148`).
+Decision: use `logging` only; never log raw `session_key`; log masked session keys as last four chars + total length; log public keys only at `DEBUG` with truncation. Rationale: the scope forbids raw secret leakage and pairing is explicitly bearer-token based.
 
 ## 7. Domain write-ownership (L1-L9 declarations)
 
@@ -339,19 +339,19 @@ Exercise the full owner-create -> confirm -> bearer-list -> heartbeat -> unpair 
 
 ### Token reuse and replay
 
-`consume_token()` is the only mutating read path and it enforces single-use + TTL. Tokens are not written to disk, so process restart invalidates all outstanding QR codes, which the scope explicitly accepts (`/home/jer/projects/extro/vpe/workspace/hop-solstone-pairing-wave-5-server.md:32`, `147-148`, `think/link/nonces.py:66-85`).
+`consume_token()` is the only mutating read path and it enforces single-use + TTL. Tokens are not written to disk, so process restart invalidates all outstanding QR codes, which the scope explicitly accepts (`think/link/nonces.py:66-85`).
 
 ### Key validation and bounded input
 
-Only ssh-ed25519 public keys are accepted. Rejecting all other SSH algorithms aligns the server with the iOS client contract and keeps the parser surface narrow (`/home/jer/projects/extro/vpe/workspace/hop-solstone-swift-wave-5-client.md:116-122`).
+Only ssh-ed25519 public keys are accepted. Rejecting all other SSH algorithms aligns the server with the iOS client contract and keeps the parser surface narrow.
 
 ### Log masking
 
-No raw `session_key` appears in logs, error messages, or `paired_devices.json`. Public keys are truncated when logged at `DEBUG`. This is stricter than the existing link pair route, which still echoes CSR parse failures in the JSON error body; pairing should not repeat that pattern (`apps/link/routes.py:230-235`, `/home/jer/projects/extro/vpe/workspace/hop-solstone-pairing-wave-5-server.md:147-148`).
+No raw `session_key` appears in logs, error messages, or `paired_devices.json`. Public keys are truncated when logged at `DEBUG`. This is stricter than the existing link pair route, which still echoes CSR parse failures in the JSON error body; pairing should not repeat that pattern (`apps/link/routes.py:230-235`).
 
 ### Restart semantics
 
-Ephemeral pairing tokens disappear on restart; paired-device bearers remain valid because only their hashes are persisted. This split is acceptable at MVP scale and keeps the durable store strictly journal-config scoped (`/home/jer/projects/extro/vpe/workspace/hop-solstone-pairing-wave-5-server.md:32`, `41-54`, `147-148`).
+Ephemeral pairing tokens disappear on restart; paired-device bearers remain valid because only their hashes are persisted. This split is acceptable at MVP scale and keeps the durable store strictly journal-config scoped.
 
 ### Wave 5.1 enforcement gap
 
@@ -375,9 +375,9 @@ ssh-keygen -q -t ed25519 -N '' -f "$KEY_PREFIX" >/dev/null
 PUBLIC_KEY=$(tr -d '\n' < "$KEY_PREFIX.pub")
 
 CREATE_JSON=$(curl -u "$AUTH" \
-  -H 'Content-Type: application/json' \
-  -X POST "$BASE_URL/api/pairing/create" \
-  -d '{}')
+ -H 'Content-Type: application/json' \
+ -X POST "$BASE_URL/api/pairing/create" \
+ -d '{}')
 printf '%s\n' "$CREATE_JSON"
 
 TOKEN=$(CREATE_JSON="$CREATE_JSON" python - <<'PY'
@@ -387,17 +387,17 @@ PY
 )
 
 CONFIRM_JSON=$(curl \
-  -H 'Content-Type: application/json' \
-  -X POST "$BASE_URL/api/pairing/confirm" \
-  -d '{
-    "token": "'"$TOKEN"'",
-    "public_key": "'"$PUBLIC_KEY"'",
-    "device_name": "Pairing Smoke iPhone",
-    "platform": "ios",
-    "bundle_id": "org.solpbc.solstone-swift",
-    "app_version": "0.1.0"
-  }' \
-  "$BASE_URL/api/pairing/confirm")
+ -H 'Content-Type: application/json' \
+ -X POST "$BASE_URL/api/pairing/confirm" \
+ -d '{
+ "token": "'"$TOKEN"'",
+ "public_key": "'"$PUBLIC_KEY"'",
+ "device_name": "Pairing Smoke iPhone",
+ "platform": "ios",
+ "bundle_id": "org.solpbc.solstone-swift",
+ "app_version": "0.1.0"
+ }' \
+ "$BASE_URL/api/pairing/confirm")
 printf '%s\n' "$CONFIRM_JSON"
 
 SESSION_KEY=$(CONFIRM_JSON="$CONFIRM_JSON" python - <<'PY'
@@ -412,18 +412,18 @@ PY
 )
 
 curl -H "Authorization: Bearer $SESSION_KEY" \
-  "$BASE_URL/api/pairing/devices"
+ "$BASE_URL/api/pairing/devices"
 
 curl -H "Authorization: Bearer $SESSION_KEY" \
-  -H 'Content-Type: application/json' \
-  -X POST "$BASE_URL/api/pairing/heartbeat" \
-  -d '{}'
+ -H 'Content-Type: application/json' \
+ -X POST "$BASE_URL/api/pairing/heartbeat" \
+ -d '{}'
 
 curl -u "$AUTH" \
-  "$BASE_URL/api/pairing/devices"
+ "$BASE_URL/api/pairing/devices"
 
 curl -H "Authorization: Bearer $SESSION_KEY" \
-  -X DELETE "$BASE_URL/api/pairing/devices/$DEVICE_ID"
+ -X DELETE "$BASE_URL/api/pairing/devices/$DEVICE_ID"
 ```
 
 Basic Auth uses only the password component, so `-u ":$SOL_PASSWORD"` is the portable form for owner-auth pairing routes (`convey/root.py:49-57`, `docs/design/push.md:609-646`).
@@ -446,8 +446,6 @@ The follow-up will be a targeted auth-enforcement sweep only; the helper surface
 
 ## 13. Sources
 
-- Wave 5 server scope: `/home/jer/projects/extro/vpe/workspace/hop-solstone-pairing-wave-5-server.md:1-161`
-- Wave 5 iOS companion scope: `/home/jer/projects/extro/vpe/workspace/hop-solstone-swift-wave-5-client.md:112-137`
 - Root blueprint pattern: `convey/voice.py:27-197`, `convey/push.py:24-127`, `convey/__init__.py:110-169`
 - Current auth gate and owner auth semantics: `convey/root.py:30-57`, `81-139`
 - Existing Bearer-auth prior art: `apps/observer/routes.py:63-70`, `503-538`, `apps/import/journal_sources.py:108-128`

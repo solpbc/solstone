@@ -10,10 +10,10 @@
 # run_shell_command deny (priority 100). User-tier rules here override the
 # engine's built-in yolo catch-all.
 #
-# Rationale: vpe/workspace/gemini-cli-tool-hallucination-research.md — plan
-# mode strips run_shell_command from the tool registry, which caused the
-# tool-name hallucination loop we saw in cortex. Scoped yolo keeps the
-# registry intact without widening the blast radius to direct writes.
+# Rationale: plan mode strips run_shell_command from the tool registry,
+# which caused a tool-name hallucination loop we saw in earlier cortex
+# prototypes. Scoped yolo keeps the registry intact without widening the
+# blast radius to direct writes.
 
 [[rule]]
 toolName = ["write_file", "replace"]

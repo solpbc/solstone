@@ -1766,6 +1766,5 @@ def test_scan_journal_is_pure_wrt_entity_state(journal_copy):
 
     assert snap_before == snap_between == snap_after, (
         "scan_journal() mutated journal/entities/ — see "
-        "vpe/workspace/plan-bundle-a-entity-write-ownership.md and "
         "docs/coding-standards.md § L6"
     )

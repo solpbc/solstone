@@ -314,7 +314,7 @@ The live journal also carries `journal/AGENTS.md` as its runtime-facing breadcru
 ## 13. Owner-facing copy: the system-anatomy canon
 
 - **The trinity.** In owner-facing copy, name the system in canonical order: `solstone = observers + sol agent + journal`.
-- **The canon lives elsewhere.** The source of truth is `~/projects/extro/cmo/brand/system-anatomy.md` in the extro repo. The companion is `~/projects/extro/cmo/brand/voice-terminology.md` for owner / keeper / partner voices.
+- **The canon lives elsewhere.** The source of truth is sol pbc's internal brand canon (system anatomy + voice terminology guides). This repo's branded prose follows it; the canon itself is not vendored here.
 - **Ban surveillance verbs in branded surfaces.** Never use "capture", "watch", "record", "monitor", "track", or "collect" in template copy, settings labels, error messages, onboarding text, or README / INSTALL prose. Prefer "observe alongside", "experience along with", or "take in what you take in".
 - **`capture` is code-only.** Keep it in module names such as `observe/`, function names, OS subsystem identifiers such as `com.solstone.capture`, and internal architecture diagrams. That is intentional and aligned with the canon.
 - **Name artifacts for owners, not pipelines.** In branded prose, say "raw media", "the originals", or "observations". Never say "raw captures" or "screen captures" in owner-facing strings. Code-side artifact names stay as-is.
@@ -327,4 +327,4 @@ The live journal also carries `journal/AGENTS.md` as its runtime-facing breadcru
 | Code surfaces | `capture` is fine in code, module names, function names, subsystem ids, and internal architecture docs. |
 | Branded surfaces | `capture` is banned. Use owner-facing phrasing such as "observe alongside", "experience along with", "take in what you take in", "raw media", "the originals", or "observations". |
 
-Canon source of truth: `~/projects/extro/cmo/brand/system-anatomy.md`.
+Canon source of truth: sol pbc's internal brand canon (system-anatomy guide).
