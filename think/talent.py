@@ -17,14 +17,19 @@ use think.prompts.load_prompt() directly.
 
 from __future__ import annotations
 
+import copy
 import importlib.util
 import json
+import logging
 import os
+import re
 from pathlib import Path
 from typing import Any, Callable
 
 import frontmatter
 from jsonschema import Draft202012Validator, SchemaError
+
+from think.facets import get_facets
 
 # Import core prompt utilities from think.prompts
 from think.prompts import _load_prompt_metadata, load_prompt
@@ -35,6 +40,9 @@ from think.prompts import _load_prompt_metadata, load_prompt
 
 TALENT_DIR = Path(__file__).parent.parent / "talent"
 APPS_DIR = Path(__file__).parent.parent / "apps"
+RUNTIME_FACETS_SENTINEL = "__RUNTIME_FACETS__"
+SLUG_RE = re.compile(r"^[a-z][a-z0-9_-]*$")
+LOG = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -438,6 +446,55 @@ def get_talent_filter(value: bool | str | dict) -> dict[str, bool | str] | None:
     if value is False:
         return {}  # No talents
     return None  # All talents (True or "required")
+
+
+def _valid_runtime_facets() -> list[str]:
+    """Return sorted list of facet directory names matching SLUG_RE."""
+    return sorted(slug for slug in get_facets() if SLUG_RE.fullmatch(slug))
+
+
+def hydrate_runtime_enums(schema: Any) -> Any:
+    """Replace runtime sentinels in schema enums with current journal state.
+
+    Walks the schema; wherever an `enum` is exactly [RUNTIME_FACETS_SENTINEL],
+    replaces it with the sorted list of valid runtime facet slugs. If no
+    valid facets exist, drops the `enum` key and sets `minLength: 1` on
+    that node so the schema remains satisfiable.
+
+    Returns None when given None. Deep-copies non-None input. Idempotent
+    for already-hydrated schemas (sentinel is gone after first call).
+    """
+    if schema is None:
+        return None
+
+    hydrated = copy.deepcopy(schema)
+    facets = _valid_runtime_facets()
+    used_empty_fallback = False
+
+    def _walk(node: Any) -> None:
+        nonlocal used_empty_fallback
+        if isinstance(node, dict):
+            if node.get("enum") == [RUNTIME_FACETS_SENTINEL]:
+                if facets:
+                    node["enum"] = list(facets)
+                else:
+                    node.pop("enum", None)
+                    node["minLength"] = 1
+                    used_empty_fallback = True
+            for value in node.values():
+                _walk(value)
+        elif isinstance(node, list):
+            for item in node:
+                _walk(item)
+
+    _walk(hydrated)
+
+    if used_empty_fallback:
+        LOG.info(
+            "hydrate_runtime_enums: no valid runtime facets; using minLength fallback"
+        )
+
+    return hydrated
 
 
 # ---------------------------------------------------------------------------

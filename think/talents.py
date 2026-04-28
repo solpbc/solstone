@@ -975,7 +975,7 @@ async def _execute_generate(
         emit_event: Event emission callback
     """
     from think.models import generate_with_result
-    from think.talent import key_to_context
+    from think.talent import hydrate_runtime_enums, key_to_context
 
     name = config["name"]
     messages = config.get("messages")
@@ -1014,6 +1014,7 @@ async def _execute_generate(
             contents = ["No input provided."]
 
     context = key_to_context(name)
+    runtime_json_schema = hydrate_runtime_enums(config.get("json_schema"))
     try:
         gen_result = generate_with_result(
             contents=contents,
@@ -1023,7 +1024,7 @@ async def _execute_generate(
             thinking_budget=thinking_budget,
             system_instruction=system_instruction,
             json_output=is_json_output,
-            json_schema=config.get("json_schema"),
+            json_schema=runtime_json_schema,
             timeout_s=timeout_s,
         )
     except Exception as exc:
@@ -1069,7 +1070,7 @@ async def _execute_generate(
                 thinking_budget=thinking_budget,
                 system_instruction=system_instruction,
                 json_output=is_json_output,
-                json_schema=config.get("json_schema"),
+                json_schema=runtime_json_schema,
                 timeout_s=timeout_s,
                 provider=backup,
                 model=backup_model,

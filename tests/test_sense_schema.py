@@ -1,12 +1,19 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
+import copy
 import json
 from pathlib import Path
 
 import frontmatter
+from jsonschema import Draft202012Validator
 
-from think.talent import get_talent
+from think.activities import DEFAULT_ACTIVITIES
+from think.talent import (
+    RUNTIME_FACETS_SENTINEL,
+    get_talent,
+    hydrate_runtime_enums,
+)
 
 SENSE_PATH = Path(__file__).resolve().parents[1] / "talent" / "sense.md"
 SENSE_SCHEMA_PATH = SENSE_PATH.with_suffix(".schema.json")
@@ -51,6 +58,70 @@ def test_sense_loaded_json_schema_matches_on_disk_schema():
     on_disk = json.loads(SENSE_SCHEMA_PATH.read_text(encoding="utf-8"))
 
     assert get_talent("sense")["json_schema"] == on_disk
+
+
+def test_content_type_enum_matches_default_activities_drift_detector():
+    schedule_only = "Scheduled events emitted by talent/schedule.md"
+    expected = [
+        a["id"]
+        for a in DEFAULT_ACTIVITIES
+        if schedule_only not in a.get("instructions", "")
+    ] + ["idle"]
+    schema = json.loads(SENSE_SCHEMA_PATH.read_text(encoding="utf-8"))
+
+    assert schema["properties"]["content_type"]["enum"] == expected
+
+
+def test_sense_schema_facet_uses_runtime_sentinel_constant():
+    schema = json.loads(SENSE_SCHEMA_PATH.read_text(encoding="utf-8"))
+    facet_schema = schema["properties"]["facets"]["items"]["properties"]["facet"]
+
+    assert facet_schema["enum"] == [RUNTIME_FACETS_SENTINEL]
+
+
+def test_hydrate_runtime_enums_replaces_facet_sentinel(monkeypatch):
+    monkeypatch.setattr(
+        "think.talent.get_facets",
+        lambda: {"alpha": {}, "Beta": {}, "weird,name": {}, "valid_one": {}},
+    )
+    schema = {
+        "properties": {"facet": {"type": "string", "enum": [RUNTIME_FACETS_SENTINEL]}}
+    }
+
+    hydrated = hydrate_runtime_enums(schema)
+
+    assert hydrated["properties"]["facet"]["enum"] == ["alpha", "valid_one"]
+
+
+def test_hydrate_runtime_enums_empty_facets_fallback(monkeypatch):
+    monkeypatch.setattr("think.talent.get_facets", lambda: {})
+    schema = {
+        "type": "object",
+        "properties": {"facet": {"type": "string", "enum": [RUNTIME_FACETS_SENTINEL]}},
+    }
+
+    hydrated = hydrate_runtime_enums(schema)
+    facet_schema = hydrated["properties"]["facet"]
+
+    assert facet_schema == {"type": "string", "minLength": 1}
+    Draft202012Validator.check_schema(hydrated)
+
+
+def test_hydrate_runtime_enums_idempotent_and_pure(monkeypatch):
+    monkeypatch.setattr("think.talent.get_facets", lambda: {})
+    original = {"type": "object", "properties": {"x": {"type": "string"}}}
+    saved_copy = copy.deepcopy(original)
+
+    hydrated = hydrate_runtime_enums(original)
+
+    assert hydrated == original
+    assert original == saved_copy
+    assert hydrated is not original
+    assert hydrate_runtime_enums(hydrated) == hydrated
+
+
+def test_hydrate_runtime_enums_none_passthrough():
+    assert hydrate_runtime_enums(None) is None
 
 
 def test_role_and_source_do_not_leak_into_other_sense_sections():

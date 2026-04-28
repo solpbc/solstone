@@ -5,7 +5,7 @@
   "required": ["density","content_type","activity_summary","entities","facets","meeting_detected","speakers","recommend","emotional_register"],
   "properties": {
     "density": {"type": "string", "enum": ["active","low_change","idle"]},
-    "content_type": {"type": "string", "enum": ["meeting","coding","browsing","email","messaging","reading","idle","mixed"]},
+    "content_type": {"type": "string", "enum": ["meeting","coding","browsing","email","messaging","ai_conversation","writing","reading","video","gaming","social","planning","productivity","terminal","design","music","idle"]},
     "activity_summary": {"type": "string", "minLength": 1},
     "entities": {
       "type": "array",
@@ -29,7 +29,7 @@
         "additionalProperties": false,
         "required": ["facet","activity","level"],
         "properties": {
-          "facet": {"type": "string", "minLength": 1},
+          "facet": {"type": "string", "enum": ["__RUNTIME_FACETS__"]},
           "activity": {"type": "string", "minLength": 1},
           "level": {"type": "string", "enum": ["high","medium","low"]}
         }
