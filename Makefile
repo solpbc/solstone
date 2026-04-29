@@ -2,13 +2,17 @@
 # Python-based AI-driven desktop journaling toolkit
 
 # Route pytest tmp dirs to /var/tmp (disk) instead of default /tmp (tmpfs/RAM).
-# Each top-level pytest invocation also gets a unique --basetemp so concurrent
-# runs in different worktrees do not share /var/tmp/pytest-of-$USER/pytest-N/.
-# Do not re-add --basetemp to pyproject — it would pin all runs to one path and
+# Each top-level pytest invocation gets its own --basetemp so concurrent runs
+# in different worktrees do not share /var/tmp/pytest-of-$USER/pytest-N/. The
+# basetemp is created at recipe runtime (not parse time) and removed via shell
+# trap on exit, so non-test make targets don't leak empty dirs and test runs
+# don't leak full ones. PYTEST_BASETEMP_INIT must be on the same recipe shell
+# line as PYTEST_BASETEMP_FLAG (each recipe line is its own shell). Do not
+# re-add --basetemp to pyproject — it would pin all runs to one path and
 # pytest wipes it on startup, destroying concurrent state.
 export TMPDIR := /var/tmp
-PYTEST_BASETEMP := $(shell mktemp -d /var/tmp/solstone-pytest-XXXXXX)
-PYTEST_BASETEMP_FLAG := --basetemp $(PYTEST_BASETEMP)
+PYTEST_BASETEMP_INIT := BASETEMP=$$(mktemp -d /var/tmp/solstone-pytest-XXXXXX); trap 'rm -rf "$$BASETEMP"' EXIT INT TERM;
+PYTEST_BASETEMP_FLAG := --basetemp "$$BASETEMP"
 
 .PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format format-check install-checks ci clean clean-install coverage watch versions update update-prices pre-commit skills dev all sandbox sandbox-stop install-pinchtab install-models parakeet-helper parakeet-helper-clean verify-browser update-browser-baselines review verify verify-api update-api-baselines install-service uninstall-service service-logs check-layer-hygiene doctor FORCE
 
@@ -377,12 +381,12 @@ format-check: .installed
 # Run core tests (excluding integration and app tests)
 test: .installed format-check
 	@echo "Running core tests..."
-	$(TEST_ENV) $(PYTEST) $(PYTEST_BASETEMP_FLAG) tests/ -q --cov=. --ignore=tests/integration $(LINK_LIVE_TESTS)
+	$(PYTEST_BASETEMP_INIT) $(TEST_ENV) $(PYTEST) $(PYTEST_BASETEMP_FLAG) tests/ -q --cov=. --ignore=tests/integration $(LINK_LIVE_TESTS)
 
 # Run app tests
 test-apps: .installed
 	@echo "Running app tests..."
-	$(TEST_ENV) $(PYTEST) $(PYTEST_BASETEMP_FLAG) apps/ -q
+	$(PYTEST_BASETEMP_INIT) $(TEST_ENV) $(PYTEST) $(PYTEST_BASETEMP_FLAG) apps/ -q
 
 # Run specific app tests
 test-app: .installed
@@ -391,7 +395,7 @@ test-app: .installed
 		echo "Example: make test-app APP=todos"; \
 		exit 1; \
 	fi
-	$(TEST_ENV) $(PYTEST) $(PYTEST_BASETEMP_FLAG) apps/$(APP)/tests/ -v
+	$(PYTEST_BASETEMP_INIT) $(TEST_ENV) $(PYTEST) $(PYTEST_BASETEMP_FLAG) apps/$(APP)/tests/ -v
 
 # Run specific test file or pattern
 test-only: .installed
@@ -401,12 +405,12 @@ test-only: .installed
 		echo "Example: make test-only TEST=\"-k test_function_name\""; \
 		exit 1; \
 	fi
-	$(TEST_ENV) $(PYTEST) $(PYTEST_BASETEMP_FLAG) $(TEST)
+	$(PYTEST_BASETEMP_INIT) $(TEST_ENV) $(PYTEST) $(PYTEST_BASETEMP_FLAG) $(TEST)
 
 # Run integration tests
 test-integration: .installed
 	@echo "Running integration tests..."
-	@STATUS=0; \
+	@$(PYTEST_BASETEMP_INIT) STATUS=0; \
 	$(TEST_ENV) $(PYTEST) $(PYTEST_BASETEMP_FLAG) tests/integration/ tests/link/test_integration.py tests/link/test_privacy_scan.py -v --tb=short --timeout=20 || STATUS=$$?; \
 	if [ "$$STATUS" -ne 0 ] && [ "$$STATUS" -ne 5 ]; then exit $$STATUS; fi
 
@@ -417,7 +421,7 @@ test-integration-only: .installed
 		echo "Example: make test-integration-only TEST=test_api.py"; \
 		exit 1; \
 	fi
-	@TARGET="$(TEST)"; \
+	@$(PYTEST_BASETEMP_INIT) TARGET="$(TEST)"; \
 	case "$$TARGET" in \
 		tests/*|-*) ;; \
 		*) TARGET="tests/integration/$$TARGET" ;; \
@@ -429,7 +433,7 @@ test-integration-only: .installed
 # Run all tests (core + apps + integration)
 test-all: .installed
 	@echo "Running all tests (core + apps + integration)..."
-	$(TEST_ENV) $(PYTEST) $(PYTEST_BASETEMP_FLAG) tests/ -v --cov=. --ignore=tests/integration $(LINK_LIVE_TESTS) && $(TEST_ENV) $(PYTEST) $(PYTEST_BASETEMP_FLAG) apps/ -v --cov=. --cov-append
+	$(PYTEST_BASETEMP_INIT) $(TEST_ENV) $(PYTEST) $(PYTEST_BASETEMP_FLAG) tests/ -v --cov=. --ignore=tests/integration $(LINK_LIVE_TESTS) && $(TEST_ENV) $(PYTEST) $(PYTEST_BASETEMP_FLAG) apps/ -v --cov=. --cov-append
 
 # Auto-format and fix code, then report any remaining issues
 format: .installed
@@ -599,8 +603,8 @@ watch: .installed
 
 # Generate coverage report (core + apps, excluding core integration tests)
 coverage: .installed
-	$(TEST_ENV) $(PYTEST) $(PYTEST_BASETEMP_FLAG) tests/ --cov=. --cov-report=html --cov-report=term --ignore=tests/integration $(LINK_LIVE_TESTS)
-	$(TEST_ENV) $(PYTEST) $(PYTEST_BASETEMP_FLAG) apps/ --cov=. --cov-report=html --cov-report=term --cov-append
+	$(PYTEST_BASETEMP_INIT) $(TEST_ENV) $(PYTEST) $(PYTEST_BASETEMP_FLAG) tests/ --cov=. --cov-report=html --cov-report=term --ignore=tests/integration $(LINK_LIVE_TESTS)
+	$(PYTEST_BASETEMP_INIT) $(TEST_ENV) $(PYTEST) $(PYTEST_BASETEMP_FLAG) apps/ --cov=. --cov-report=html --cov-report=term --cov-append
 	@echo "Coverage report generated in htmlcov/index.html"
 
 # Update all dependencies to latest versions and refresh genai-prices
