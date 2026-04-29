@@ -12,60 +12,6 @@ import psutil
 import pytest
 
 
-@pytest.mark.asyncio
-async def test_send_notification(monkeypatch):
-    mod = importlib.import_module("think.supervisor")
-    called = []
-
-    class FakeNotifier:
-        async def send(self, title, message, urgency):
-            called.append({"title": title, "message": message, "urgency": urgency})
-            return "test-notification-id"
-
-    def fake_get_notifier():
-        return FakeNotifier()
-
-    monkeypatch.setattr(mod, "_get_notifier", fake_get_notifier)
-    await mod.send_notification("test message", alert_key=("test", "key"))
-    assert len(called) == 1
-    assert called[0]["message"] == "test message"
-    assert called[0]["title"] == "solstone Supervisor"
-    assert ("test", "key") in mod._notification_ids
-    assert mod._notification_ids[("test", "key")] == "test-notification-id"
-
-
-@pytest.mark.asyncio
-async def test_clear_notification(monkeypatch):
-    mod = importlib.import_module("think.supervisor")
-    cleared = []
-
-    class FakeNotifier:
-        async def send(self, title, message, urgency):
-            return "test-notification-id"
-
-        async def clear(self, notification_id):
-            cleared.append(notification_id)
-
-    def fake_get_notifier():
-        return FakeNotifier()
-
-    monkeypatch.setattr(mod, "_get_notifier", fake_get_notifier)
-
-    # First send a notification to track
-    await mod.send_notification("test message", alert_key=("test", "key"))
-    assert ("test", "key") in mod._notification_ids
-
-    # Now clear it
-    await mod.clear_notification(("test", "key"))
-    assert len(cleared) == 1
-    assert cleared[0] == "test-notification-id"
-    assert ("test", "key") not in mod._notification_ids
-
-    # Clearing a non-existent notification should be a no-op
-    await mod.clear_notification(("nonexistent", "key"))
-    assert len(cleared) == 1  # Still just one clear call
-
-
 def test_start_sense(tmp_path, mock_callosum, monkeypatch):
     """Test that sense launches correctly."""
     mod = importlib.import_module("think.supervisor")

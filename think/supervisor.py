@@ -18,7 +18,6 @@ from datetime import datetime
 from pathlib import Path
 
 import psutil
-from desktop_notifier import DesktopNotifier, Urgency
 
 from think import routines, scheduler
 from think.callosum import CallosumConnection, CallosumServer
@@ -173,51 +172,6 @@ class SupervisorArgumentParser(argparse.ArgumentParser):
                 f"Did you mean: sol service {mistaken} ?\n",
             )
         super().error(message)
-
-
-# Desktop notification system
-_notifier: DesktopNotifier | None = None
-_notification_ids: dict[tuple, str] = {}  # Maps alert_key -> notification_id
-
-
-class AlertManager:
-    """Manages alerts with exponential backoff and notification clearing."""
-
-    def __init__(self, initial_backoff: int = 60, max_backoff: int = 3600):
-        self._state: dict[tuple, tuple[float, int]] = {}  # {key: (last_time, backoff)}
-        self._initial_backoff = initial_backoff
-        self._max_backoff = max_backoff
-
-    async def alert_if_ready(self, key: tuple, message: str) -> bool:
-        """Send alert with exponential backoff. Returns True if sent."""
-        now = time.time()
-
-        if key in self._state:
-            last_time, backoff = self._state[key]
-            if now - last_time >= backoff:
-                await send_notification(message, alert_key=key)
-                new_backoff = min(backoff * 2, self._max_backoff)
-                self._state[key] = (now, new_backoff)
-                logging.info(f"Alert sent, next backoff: {new_backoff}s")
-                return True
-            else:
-                remaining = int(backoff - (now - last_time))
-                logging.info(f"Suppressing alert, next in {remaining}s")
-                return False
-        else:
-            await send_notification(message, alert_key=key)
-            self._state[key] = (now, self._initial_backoff)
-            return True
-
-    async def clear(self, key: tuple) -> None:
-        """Clear alert state and notification."""
-        if key in self._state:
-            del self._state[key]
-        await clear_notification(key)
-
-    def clear_matching(self, predicate) -> None:
-        """Clear alert states matching predicate."""
-        self._state = {k: v for k, v in self._state.items() if not predicate(k, v)}
 
 
 class TaskQueue:
@@ -742,58 +696,6 @@ def _launch_process(
     )
 
 
-def _get_notifier() -> DesktopNotifier:
-    """Get or create the global desktop notifier instance."""
-    global _notifier
-    if _notifier is None:
-        _notifier = DesktopNotifier(app_name="solstone Supervisor")
-    return _notifier
-
-
-async def send_notification(message: str, alert_key: tuple | None = None) -> None:
-    """Send a desktop notification with ``message``.
-
-    Args:
-        message: The notification message to display
-        alert_key: Optional key to track this notification for later clearing
-    """
-    try:
-        notifier = _get_notifier()
-        notification_id = await notifier.send(
-            title="solstone Supervisor",
-            message=message,
-            urgency=Urgency.Critical,
-        )
-
-        # Store notification ID if we have an alert key
-        if alert_key and notification_id:
-            _notification_ids[alert_key] = notification_id
-            logging.debug(f"Stored notification {notification_id} for key {alert_key}")
-
-    except Exception as exc:  # pragma: no cover - system issues
-        logging.error("Failed to send notification: %s", exc)
-
-
-async def clear_notification(alert_key: tuple) -> None:
-    """Clear a notification by its alert key.
-
-    Args:
-        alert_key: The key used when the notification was sent
-    """
-    if alert_key not in _notification_ids:
-        return
-
-    try:
-        notifier = _get_notifier()
-        notification_id = _notification_ids[alert_key]
-        await notifier.clear(notification_id)
-        del _notification_ids[alert_key]
-        logging.debug(f"Cleared notification for key {alert_key}")
-
-    except Exception as exc:  # pragma: no cover - system issues
-        logging.error("Failed to clear notification: %s", exc)
-
-
 def _emit_queue_event(cmd_name: str, running_ref: str, queue: list) -> None:
     """Emit supervisor.queue event with current queue state for a command.
 
@@ -1102,17 +1004,13 @@ def check_runner_exits(procs: list[ManagedProcess]) -> list[ManagedProcess]:
     return exited
 
 
-async def handle_runner_exits(
-    procs: list[ManagedProcess],
-    alert_mgr: AlertManager,
-) -> None:
+async def handle_runner_exits(procs: list[ManagedProcess]) -> None:
     """Check for and handle exited processes with restart policy."""
     exited = check_runner_exits(procs)
     if not exited:
         return
 
     exited_names = [managed.name for managed in exited]
-    exit_key = ("runner_exit", tuple(sorted(exited_names)))
 
     # Check if all exits are tempfail (session not ready)
     all_tempfail = all(m.process.returncode == EXIT_TEMPFAIL for m in exited)
@@ -1122,7 +1020,6 @@ async def handle_runner_exits(
     else:
         msg = f"Runner process exited: {', '.join(sorted(exited_names))}"
         logging.error(msg)
-        await alert_mgr.alert_if_ready(exit_key, msg)
 
     for managed in exited:
         # Clear any pending restart request for this service
@@ -1183,8 +1080,6 @@ async def handle_runner_exits(
 
             procs.append(new_proc)
             logging.info("Restarted %s after exit code %s", managed.name, returncode)
-            # Clear the notification now that process has restarted
-            await alert_mgr.clear(exit_key)
         else:
             logging.info("Not restarting %s", managed.name)
 
@@ -1468,7 +1363,6 @@ async def supervise(
     Monitors runner health, emits status, triggers daily processing,
     and checks scheduled agents.
     """
-    alert_mgr = AlertManager()
     last_status_emit = 0.0
 
     try:
@@ -1491,7 +1385,7 @@ async def supervise(
 
             # Check for runner exits first (immediate alert)
             if procs:
-                await handle_runner_exits(procs, alert_mgr)
+                await handle_runner_exits(procs)
 
             # Emit status every 5 seconds
             now = time.time()
