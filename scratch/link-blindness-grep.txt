@@ -1,2 +1,0 @@
-$ tail -n 2000 scratch/link-blindness-journal/health/supervisor.log scratch/link-blindness-journal/link/*.log 2>/dev/null | grep -iE 'authorization|bearer |cookie|payload|ca private|BEGIN PRIVATE|client_cert|home_attestation' || echo "no matches"
-no matches
