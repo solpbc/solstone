@@ -227,6 +227,7 @@ def check_callosum_available() -> bool:
     return socket_path.exists()
 
 
+_SKIPPED: object = object()
 _SEND_RETRY_DELAYS = (0.5, 1.0)  # seconds between retries (3 attempts total)
 
 
@@ -470,6 +471,7 @@ def run_segment_sense(
     state_machine: ActivityStateMachine | None = None,
     *,
     skip_activity_prompts: bool = False,
+    skip_talents: frozenset[str] = frozenset(),
 ) -> tuple[int, int, list[str]]:
     """Run Sense-first linear orchestrator for a single segment.
 
@@ -486,7 +488,17 @@ def run_segment_sense(
     def _cfg(name: str) -> dict | None:
         return all_prompts.get(name)
 
-    def _dispatch_agent(name: str, config: dict) -> str | None:
+    def _dispatch_agent(name: str, config: dict) -> str | None | object:
+        if name in skip_talents:
+            _log_skip(
+                name,
+                "skip_talents_flag",
+                "Skipped by --skip-talents",
+                day=day,
+                segment=segment,
+            )
+            return _SKIPPED
+
         is_generate = config["type"] == "generate"
         request_config: dict = {"day": day, "segment": segment}
         if is_generate:
@@ -575,51 +587,51 @@ def run_segment_sense(
             duration_ms=duration_ms,
         )
         return (0, 1, ["sense (send)"])
-
-    emit(
-        "talent_started",
-        mode=target_schedule,
-        day=day,
-        segment=segment,
-        name="sense",
-        use_id=sense_agent_id,
-    )
-    _jsonl_log(
-        "talent.dispatch",
-        mode=target_schedule,
-        day=day,
-        segment=segment,
-        name="sense",
-        use_id=sense_agent_id,
-    )
-    _update_status(current_agents=["sense"])
-
-    s, f, fn = _drain_priority_batch(
-        [(sense_agent_id, "sense", sense_config, None)],
-        target_schedule,
-        day,
-        segment,
-        stream,
-        timeout,
-    )
-    total_success += s
-    total_failed += f
-    all_failed_names.extend(fn)
-    _update_status(agents_completed=total_success + total_failed, current_agents=[])
-
-    if f > 0:
-        duration_ms = int((time.time() - start_time) * 1000)
+    elif sense_agent_id is not _SKIPPED:
         emit(
-            "completed",
+            "talent_started",
             mode=target_schedule,
             day=day,
             segment=segment,
-            success=total_success,
-            failed=total_failed,
-            failed_names=all_failed_names,
-            duration_ms=duration_ms,
+            name="sense",
+            use_id=sense_agent_id,
         )
-        return (total_success, total_failed, all_failed_names)
+        _jsonl_log(
+            "talent.dispatch",
+            mode=target_schedule,
+            day=day,
+            segment=segment,
+            name="sense",
+            use_id=sense_agent_id,
+        )
+        _update_status(current_agents=["sense"])
+
+        s, f, fn = _drain_priority_batch(
+            [(sense_agent_id, "sense", sense_config, None)],
+            target_schedule,
+            day,
+            segment,
+            stream,
+            timeout,
+        )
+        total_success += s
+        total_failed += f
+        all_failed_names.extend(fn)
+        _update_status(agents_completed=total_success + total_failed, current_agents=[])
+
+        if f > 0:
+            duration_ms = int((time.time() - start_time) * 1000)
+            emit(
+                "completed",
+                mode=target_schedule,
+                day=day,
+                segment=segment,
+                success=total_success,
+                failed=total_failed,
+                failed_names=all_failed_names,
+                duration_ms=duration_ms,
+            )
+            return (total_success, total_failed, all_failed_names)
 
     sense_output_path = get_output_path(
         day_dir,
@@ -853,6 +865,8 @@ def run_segment_sense(
     spawned: list[tuple[str, str, dict, str | None]] = []
     for agent_name, config in agents_to_run:
         use_id = _dispatch_agent(agent_name, config)
+        if use_id is _SKIPPED:
+            continue
         if use_id is None:
             _log_skip(
                 agent_name,
@@ -1016,7 +1030,7 @@ def run_segment_sense(
             total_failed += 1
             all_failed_names.append("awareness_tender (send)")
             _update_status(agents_completed=total_success + total_failed)
-        else:
+        elif at_agent_id is not _SKIPPED:
             emit(
                 "talent_started",
                 mode=target_schedule,
@@ -1064,7 +1078,7 @@ def run_segment_sense(
             total_failed += 1
             all_failed_names.append("pulse (send)")
             _update_status(agents_completed=total_success + total_failed)
-        else:
+        elif pulse_agent_id is not _SKIPPED:
             emit(
                 "talent_started",
                 mode=target_schedule,
@@ -2835,6 +2849,18 @@ def parse_args() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--skip-talents",
+        type=str,
+        default="",
+        help=(
+            "Comma-separated segment-scheduled talent names to suppress during "
+            "--segments/--segment runs (e.g., 'awareness_tender,pulse' for "
+            "realizer-backfill speedup). Recognized: sense, entities, documents, "
+            "screen, speaker_attribution, awareness_tender, pulse. Skipping 'sense' "
+            "relies on a cached talents/sense.json from a prior run."
+        ),
+    )
+    parser.add_argument(
         "--updated",
         action="store_true",
         help="List days with pending daily processing and exit",
@@ -2915,6 +2941,10 @@ def main() -> None:
 
     if args.no_activity_prompts and args.activity:
         parser.error("--no-activity-prompts cannot be combined with --activity")
+
+    skip_talents: frozenset[str] = frozenset(
+        name.strip() for name in (args.skip_talents or "").split(",") if name.strip()
+    )
 
     if args.activity and (args.segment or args.segments or args.flush):
         parser.error(
@@ -3042,6 +3072,7 @@ def main() -> None:
                         timeout=None if args.no_timeout else 610,
                         state_machine=batch_state_machine,
                         skip_activity_prompts=args.no_activity_prompts,
+                        skip_talents=skip_talents,
                     )
                     # Touch stream.updated marker after each segment
                     try:
@@ -3156,6 +3187,7 @@ def main() -> None:
                 timeout=None if args.no_timeout else 610,
                 state_machine=ActivityStateMachine(journal_root=Path(get_journal())),
                 skip_activity_prompts=args.no_activity_prompts,
+                skip_talents=skip_talents,
             )
         else:
             success_count, fail_count, failed_names = run_daily_prompts(
