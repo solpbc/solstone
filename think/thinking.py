@@ -468,6 +468,8 @@ def run_segment_sense(
     stream: str | None = None,
     timeout: int | None = 610,
     state_machine: ActivityStateMachine | None = None,
+    *,
+    skip_activity_prompts: bool = False,
 ) -> tuple[int, int, list[str]]:
     """Run Sense-first linear orchestrator for a single segment.
 
@@ -704,6 +706,17 @@ def run_segment_sense(
                     activity_id,
                     facet,
                 )
+                if skip_activity_prompts:
+                    _jsonl_log(
+                        "activity.prompts_skipped",
+                        day=day,
+                        segment=segment,
+                        activity=str(activity_id),
+                        facet=str(facet),
+                        mode=target_schedule,
+                        reason="--no-activity-prompts",
+                    )
+                    continue
                 run_activity_prompts(
                     day=routing_day,
                     activity_id=str(activity_id),
@@ -968,6 +981,17 @@ def run_segment_sense(
                 activity_id,
                 facet,
             )
+            if skip_activity_prompts:
+                _jsonl_log(
+                    "activity.prompts_skipped",
+                    day=day,
+                    segment=segment,
+                    activity=str(activity_id),
+                    facet=str(facet),
+                    mode=target_schedule,
+                    reason="--no-activity-prompts",
+                )
+                continue
             run_activity_prompts(
                 day=routing_day,
                 activity_id=str(activity_id),
@@ -2801,6 +2825,16 @@ def parse_args() -> argparse.ArgumentParser:
         help="Disable per-batch agent wait timeout in --segments mode",
     )
     parser.add_argument(
+        "--no-activity-prompts",
+        action="store_true",
+        help=(
+            "Write realized activity records but skip per-activity cogitate runs "
+            '(schedule="activity" talents). Used by realizer backfill to write '
+            "activity records cheaply without firing per-activity prompts. "
+            "Incompatible with --activity."
+        ),
+    )
+    parser.add_argument(
         "--updated",
         action="store_true",
         help="List days with pending daily processing and exit",
@@ -2878,6 +2912,9 @@ def main() -> None:
 
     if args.activity and not args.day:
         parser.error("--activity requires --day")
+
+    if args.no_activity_prompts and args.activity:
+        parser.error("--no-activity-prompts cannot be combined with --activity")
 
     if args.activity and (args.segment or args.segments or args.flush):
         parser.error(
@@ -3004,6 +3041,7 @@ def main() -> None:
                         stream=seg_stream,
                         timeout=None if args.no_timeout else 610,
                         state_machine=batch_state_machine,
+                        skip_activity_prompts=args.no_activity_prompts,
                     )
                     # Touch stream.updated marker after each segment
                     try:
@@ -3117,6 +3155,7 @@ def main() -> None:
                 stream=resolved_stream,
                 timeout=None if args.no_timeout else 610,
                 state_machine=ActivityStateMachine(journal_root=Path(get_journal())),
+                skip_activity_prompts=args.no_activity_prompts,
             )
         else:
             success_count, fail_count, failed_names = run_daily_prompts(
