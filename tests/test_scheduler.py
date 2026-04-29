@@ -158,6 +158,116 @@ class TestLoadConfig:
 
         assert load_config() == {}
 
+    def test_max_runtime_valid_string_round_trips(self, journal_path):
+        # D-E/D-F: assert the accepted Plaud cap via test-local config,
+        # leaving the synthetic fixture schedule minimal.
+        _write_config(
+            journal_path,
+            {
+                "sync:plaud": {
+                    "cmd": ["sol", "import", "--sync", "plaud"],
+                    "every": "hourly",
+                    "max_runtime": "30m",
+                },
+            },
+        )
+        from think.scheduler import load_config
+
+        entries = load_config()
+        assert entries["sync:plaud"]["max_runtime"] == 1800
+
+    def test_max_runtime_valid_int_round_trips(self, journal_path):
+        _write_config(
+            journal_path,
+            {
+                "sync:plaud": {
+                    "cmd": ["sol", "import", "--sync", "plaud"],
+                    "every": "hourly",
+                    "max_runtime": 1800,
+                },
+            },
+        )
+        from think.scheduler import load_config
+
+        entries = load_config()
+        assert entries["sync:plaud"]["max_runtime"] == 1800
+
+    def test_max_runtime_invalid_negative_logged_and_dropped(
+        self, journal_path, caplog
+    ):
+        _write_config(
+            journal_path,
+            {
+                "sync:plaud": {
+                    "cmd": ["sol", "import", "--sync", "plaud"],
+                    "every": "hourly",
+                    "max_runtime": -5,
+                },
+            },
+        )
+        from think.scheduler import load_config
+
+        entries = load_config()
+        assert "max_runtime" not in entries["sync:plaud"]
+        assert "Schedule 'sync:plaud': invalid max_runtime -5" in caplog.text
+
+    def test_max_runtime_invalid_garbage_logged_and_dropped(self, journal_path, caplog):
+        _write_config(
+            journal_path,
+            {
+                "sync:plaud": {
+                    "cmd": ["sol", "import", "--sync", "plaud"],
+                    "every": "hourly",
+                    "max_runtime": "garbage",
+                },
+            },
+        )
+        from think.scheduler import load_config
+
+        entries = load_config()
+        assert "max_runtime" not in entries["sync:plaud"]
+        assert "Schedule 'sync:plaud': invalid max_runtime 'garbage'" in caplog.text
+
+    def test_max_runtime_invalid_type_logged_and_dropped(self, journal_path, caplog):
+        _write_config(
+            journal_path,
+            {
+                "sync:plaud": {
+                    "cmd": ["sol", "import", "--sync", "plaud"],
+                    "every": "hourly",
+                    "max_runtime": [1, 2],
+                },
+            },
+        )
+        from think.scheduler import load_config
+
+        entries = load_config()
+        assert "max_runtime" not in entries["sync:plaud"]
+        assert "Schedule 'sync:plaud': invalid max_runtime [1, 2]" in caplog.text
+
+    def test_collect_runtime_caps_returns_only_capped_entries(self, journal_path):
+        _write_config(
+            journal_path,
+            {
+                "sync:plaud": {
+                    "cmd": ["sol", "import", "--sync", "plaud"],
+                    "every": "hourly",
+                    "max_runtime": "30m",
+                },
+                "heartbeat": {
+                    "cmd": ["sol", "heartbeat"],
+                    "every": "daily",
+                },
+            },
+        )
+        import think.scheduler as mod
+
+        mod.init(Mock())
+
+        assert mod.collect_runtime_caps() == [
+            (["sol", "import", "--sync", "plaud"], 1800)
+        ]
+
 
 # ---------------------------------------------------------------------------
 # load_state / save_state

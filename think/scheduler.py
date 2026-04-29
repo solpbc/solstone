@@ -22,7 +22,13 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from think.utils import get_journal, now_ms, require_solstone, setup_cli
+from think.utils import (
+    get_journal,
+    now_ms,
+    parse_duration_seconds,
+    require_solstone,
+    setup_cli,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -125,7 +131,21 @@ def load_config() -> dict[str, dict[str, Any]]:
         if not entry.get("enabled", True):
             continue
 
-        entries[name] = {"cmd": cmd, "every": every}
+        validated = {"cmd": cmd, "every": every}
+        max_runtime = entry.get("max_runtime")
+        if max_runtime is not None:
+            # D-C / design §2: preserve caps for TaskQueue registration,
+            # not as extra supervisor.request payload fields.
+            try:
+                validated["max_runtime"] = parse_duration_seconds(max_runtime)
+            except ValueError:
+                logger.warning(
+                    "Schedule '%s': invalid max_runtime %r, dropping cap",
+                    name,
+                    max_runtime,
+                )
+
+        entries[name] = validated
 
     return entries
 
@@ -303,6 +323,16 @@ def init(callosum: Any) -> None:
         )
     else:
         logger.info("Scheduler initialized (no schedules configured)")
+
+
+def collect_runtime_caps() -> list[tuple[list[str], int]]:
+    """Return configured task runtime caps from loaded schedule entries."""
+    caps: list[tuple[list[str], int]] = []
+    for entry in _entries.values():
+        max_runtime = entry.get("max_runtime")
+        if max_runtime is not None:
+            caps.append((list(entry["cmd"]), max_runtime))
+    return caps
 
 
 def register_defaults() -> None:

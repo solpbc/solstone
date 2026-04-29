@@ -13,7 +13,7 @@ import subprocess
 import tempfile
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -25,6 +25,7 @@ API_BASE = "https://api.plaud.ai"
 
 # Skip recordings shorter than this (milliseconds)
 MIN_DURATION_MS = 30_000
+SYNC_INACTIVITY_TIMEOUT = 3600
 
 
 def make_session() -> requests.Session:
@@ -163,39 +164,59 @@ def sanitize_filename(filename: str) -> str:
 
 
 def download_to_file(
-    session: requests.Session, url: str, dest_path: pathlib.Path
+    session: requests.Session,
+    url: str,
+    dest_path: pathlib.Path,
+    progress_cb: Callable[[], None] | None = None,
 ) -> bool:
     """Stream-download URL to dest_path atomically."""
     dest_path.parent.mkdir(parents=True, exist_ok=True)
-    with session.get(url, stream=True, timeout=60) as r:
-        if r.status_code != 200:
-            logger.warning(
-                "[%s] Download error %s: %s",
-                dest_path.stem,
-                r.status_code,
-                r.text[:200],
-            )
-            return False
-        total = int(r.headers.get("Content-Length", "0")) or None
-        # Write to a temp file then atomically move
-        with tempfile.NamedTemporaryFile(
-            dir=str(dest_path.parent), delete=False
-        ) as tmp:
-            tmp_path = pathlib.Path(tmp.name)
-            try:
-                downloaded = 0
-                for chunk in r.iter_content(chunk_size=1024 * 256):
-                    if not chunk:
-                        continue
-                    tmp.write(chunk)
-                    downloaded += len(chunk)
-                tmp.flush()
-                os.fsync(tmp.fileno())
-            except Exception as e:
-                tmp.close()
-                tmp_path.unlink(missing_ok=True)
-                logger.warning("[%s] Error while writing file: %s", dest_path.stem, e)
+    tmp_path: pathlib.Path | None = None
+    try:
+        # Design §4-§5: fail stalled streaming reads and refresh outer progress.
+        with session.get(url, stream=True, timeout=(30, 45)) as r:
+            if r.status_code != 200:
+                logger.warning(
+                    "[%s] Download error %s: %s",
+                    dest_path.stem,
+                    r.status_code,
+                    r.text[:200],
+                )
                 return False
+            total = int(r.headers.get("Content-Length", "0")) or None
+            # Write to a temp file then atomically move
+            with tempfile.NamedTemporaryFile(
+                dir=str(dest_path.parent), delete=False
+            ) as tmp:
+                tmp_path = pathlib.Path(tmp.name)
+                try:
+                    downloaded = 0
+                    last_refresh = time.monotonic()
+                    for chunk in r.iter_content(chunk_size=1024 * 256):
+                        if not chunk:
+                            continue
+                        tmp.write(chunk)
+                        downloaded += len(chunk)
+                        now = time.monotonic()
+                        if progress_cb is not None and now - last_refresh >= 5:
+                            progress_cb()
+                            last_refresh = now
+                    tmp.flush()
+                    os.fsync(tmp.fileno())
+                except requests.exceptions.RequestException:
+                    raise
+                except (IOError, OSError) as e:
+                    tmp.close()
+                    tmp_path.unlink(missing_ok=True)
+                    logger.warning(
+                        "[%s] Error while writing file: %s", dest_path.stem, e
+                    )
+                    return False
+    except requests.exceptions.RequestException as exc:
+        if tmp_path is not None:
+            tmp_path.unlink(missing_ok=True)
+        logger.warning("Plaud download for %s failed: %s", dest_path.name, exc)
+        return False
 
     tmp_path.replace(dest_path)
     size_info = f" ({total} bytes)" if total else ""
@@ -433,8 +454,12 @@ class PlaudBackend:
             # within this window.  The inner import process has its own
             # 600s inactivity timeout for stall detection, so this is a
             # generous outer safety net.
-            sync_timeout = 3600
+            sync_timeout = SYNC_INACTIVITY_TIMEOUT
             last_completed = time.monotonic()
+
+            def _refresh() -> None:
+                nonlocal last_completed
+                last_completed = time.monotonic()
 
             for idx, (file_id, info) in enumerate(to_process, 1):
                 # Check inactivity timeout (time since last file completed)
@@ -496,7 +521,9 @@ class PlaudBackend:
                     errors.append(msg)
                     continue
 
-                if not download_to_file(session, temp_url, dest_path):
+                if not download_to_file(
+                    session, temp_url, dest_path, progress_cb=_refresh
+                ):
                     msg = f"{filename}: download failed"
                     logger.warning("    FAILED — %s", msg)
                     errors.append(msg)

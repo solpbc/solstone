@@ -153,6 +153,24 @@ def get_journal() -> str:
     return path
 
 
+def parse_duration_seconds(spec) -> int:
+    # D-D: shared parser for scheduler max_runtime values.
+    if isinstance(spec, int) and not isinstance(spec, bool):
+        if spec > 0:
+            return spec
+        raise ValueError(f"invalid duration: {spec!r}")
+
+    if isinstance(spec, str):
+        match = re.fullmatch(r"(\d+)([smh])", spec)
+        if match:
+            amount = int(match.group(1))
+            if amount <= 0:
+                raise ValueError(f"invalid duration: {spec!r}")
+            return amount * {"s": 1, "m": 60, "h": 3600}[match.group(2)]
+
+    raise ValueError(f"invalid duration: {spec!r}")
+
+
 def resolve_journal_path(journal: str | Path, rel: str) -> Path:
     """Resolve a chronicle-free journal-relative path to its on-disk location."""
     if not rel:

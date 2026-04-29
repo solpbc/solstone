@@ -4,6 +4,7 @@
 import importlib
 import io
 import os
+import signal
 import subprocess
 import sys
 from unittest.mock import MagicMock
@@ -549,6 +550,89 @@ def test_stale_queue_detected_on_submit(monkeypatch):
 
     # Old queued entries should still be in queue (stale clear only removes _running)
     assert len(mod._task_queue._queues["indexer"]) == 1
+
+
+class _TaskProcessStub:
+    def __init__(self):
+        self.send_signal = MagicMock()
+        self.kill = MagicMock()
+
+
+class _TaskManagedStub:
+    def __init__(self, *, cmd, start_time=100.0):
+        self.cmd = cmd
+        self.start_time = start_time
+        self.process = _TaskProcessStub()
+
+
+def test_taskqueue_set_cap_records_cap():
+    mod = importlib.import_module("think.supervisor")
+    queue = mod.TaskQueue(on_queue_change=None)
+
+    queue.set_cap("import", 1800)
+
+    assert queue._caps["import"] == 1800
+
+
+def test_enforce_deadlines_sends_sigterm_when_elapsed_exceeds_cap(caplog):
+    mod = importlib.import_module("think.supervisor")
+    queue = mod.TaskQueue(on_queue_change=None)
+    managed = _TaskManagedStub(
+        cmd=["sol", "import", "--sync", "plaud", "--save"],
+        start_time=100.0,
+    )
+    queue._active["ref-1"] = managed
+    queue.set_cap("import", 50)
+
+    caplog.set_level("WARNING")
+    queue.enforce_deadlines(200.0)
+
+    managed.process.send_signal.assert_called_once_with(signal.SIGTERM)
+    assert queue._terminations["ref-1"] == 200.0
+    assert (
+        "Task import (cmd=sol import --sync plaud --save, ref=ref-1) exceeded "
+        "max_runtime of 50s (elapsed=100s); sending SIGTERM"
+    ) in caplog.text
+
+
+def test_enforce_deadlines_escalates_to_sigkill_after_15s(caplog):
+    mod = importlib.import_module("think.supervisor")
+    queue = mod.TaskQueue(on_queue_change=None)
+    managed = _TaskManagedStub(cmd=["sol", "import"], start_time=100.0)
+    queue._active["ref-1"] = managed
+    queue._terminations["ref-1"] = 200.0
+
+    caplog.set_level("WARNING")
+    queue.enforce_deadlines(216.0)
+
+    managed.process.kill.assert_called_once_with()
+    assert queue._terminations["ref-1"] == 0.0
+    assert (
+        "Task import (ref=ref-1) did not exit 15s after SIGTERM; sending SIGKILL"
+    ) in caplog.text
+
+
+def test_enforce_deadlines_clears_termination_state_when_ref_exits():
+    mod = importlib.import_module("think.supervisor")
+    queue = mod.TaskQueue(on_queue_change=None)
+    queue._terminations["ref-1"] = 200.0
+
+    queue.enforce_deadlines(216.0)
+
+    assert "ref-1" not in queue._terminations
+
+
+def test_enforce_deadlines_noop_when_no_cap():
+    mod = importlib.import_module("think.supervisor")
+    queue = mod.TaskQueue(on_queue_change=None)
+    managed = _TaskManagedStub(cmd=["sol", "import"], start_time=100.0)
+    queue._active["ref-1"] = managed
+
+    queue.enforce_deadlines(10_000.0)
+
+    managed.process.send_signal.assert_not_called()
+    managed.process.kill.assert_not_called()
+    assert queue._terminations == {}
 
 
 def test_supervisor_singleton_lock_acquired(tmp_path, monkeypatch):

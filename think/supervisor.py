@@ -197,6 +197,8 @@ class TaskQueue:
         ] = {}  # command_name -> {"ref": str, "thread": Thread}
         self._queues: dict[str, list] = {}  # command_name -> list of {refs, cmd} dicts
         self._active: dict[str, RunnerManagedProcess] = {}  # ref -> process
+        self._caps: dict[str, int] = {}
+        self._terminations: dict[str, float] = {}
         self._pending: list[dict] = []
         self._ready = ready
         self._lock = threading.Lock()
@@ -319,6 +321,63 @@ class TaskQueue:
 
         return None
 
+    def set_cap(self, cmd_name: str, seconds: int) -> None:
+        """Set a max runtime cap in seconds for a queued command name."""
+        with self._lock:
+            self._caps[cmd_name] = seconds
+
+    def enforce_deadlines(self, now: float) -> None:
+        """Enforce configured task runtime caps without blocking the supervisor tick."""
+        with self._lock:
+            active_refs = set(self._active)
+            for ref in list(self._terminations):
+                if ref not in active_refs:
+                    self._terminations.pop(ref, None)
+
+            for ref, managed in list(self._active.items()):
+                cmd_name = self.get_command_name(managed.cmd)
+                termination_started = self._terminations.get(ref)
+                if termination_started is not None:
+                    if termination_started <= 0:
+                        continue
+                    if now - termination_started >= 15:
+                        logging.warning(
+                            "Task %s (ref=%s) did not exit 15s after SIGTERM; "
+                            "sending SIGKILL",
+                            cmd_name,
+                            ref,
+                        )
+                        try:
+                            managed.process.kill()
+                        except (ProcessLookupError, OSError):
+                            pass
+                        self._terminations[ref] = 0.0
+                    continue
+
+                cap = self._caps.get(cmd_name)
+                if not cap:
+                    continue
+
+                elapsed = now - managed.start_time
+                if elapsed <= cap:
+                    continue
+
+                elapsed_seconds = int(elapsed)
+                logging.warning(
+                    "Task %s (cmd=%s, ref=%s) exceeded max_runtime of %ds "
+                    "(elapsed=%ds); sending SIGTERM",
+                    cmd_name,
+                    " ".join(managed.cmd),
+                    ref,
+                    cap,
+                    elapsed_seconds,
+                )
+                try:
+                    managed.process.send_signal(signal.SIGTERM)
+                    self._terminations[ref] = now
+                except (ProcessLookupError, OSError):
+                    pass
+
     def set_ready(self) -> None:
         """Allow buffered tasks to start dispatching through the normal queue path."""
         with self._lock:
@@ -365,7 +424,8 @@ class TaskQueue:
             managed = RunnerManagedProcess.spawn(
                 cmd, ref=primary_ref, callosum=callosum, day=day
             )
-            self._active[primary_ref] = managed
+            with self._lock:
+                self._active[primary_ref] = managed
 
             callosum.emit(
                 "supervisor",
@@ -415,7 +475,8 @@ class TaskQueue:
                     managed.cleanup()
             except Exception:
                 logging.exception(f"Task {cmd_name} ({primary_ref}): cleanup failed")
-            self._active.pop(primary_ref, None)
+            with self._lock:
+                self._active.pop(primary_ref, None)
             try:
                 callosum.stop()
             except Exception:
@@ -1383,6 +1444,9 @@ async def supervise(
                         logging.error(f"Failed to kill {service}: {e}")
                     # Don't delete here - let handle_runner_exits clean up
 
+            if _task_queue:
+                _task_queue.enforce_deadlines(time.time())
+
             # Check for runner exits first (immediate alert)
             if procs:
                 await handle_runner_exits(procs)
@@ -1660,6 +1724,15 @@ def main() -> None:
     if schedule_enabled and _supervisor_callosum:
         scheduler.init(_supervisor_callosum)
         scheduler.register_defaults()
+        if _task_queue:
+            for cmd, seconds in scheduler.collect_runtime_caps():
+                cmd_name = TaskQueue.get_command_name(cmd)
+                _task_queue.set_cap(cmd_name, seconds)
+                logging.info(
+                    "Registered max_runtime cap for %s: %ss",
+                    cmd_name,
+                    seconds,
+                )
         routines.init(_supervisor_callosum)
 
     if _task_queue:
