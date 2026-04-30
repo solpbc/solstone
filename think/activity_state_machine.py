@@ -13,6 +13,7 @@ from think.utils import segment_parse
 
 # 10 min; R&D default. Existing LLM hook uses 3600.
 GAP_THRESHOLD_SECONDS = 600
+END_HYSTERESIS_SEGMENTS = 2
 
 
 class ActivityStateMachine:
@@ -163,20 +164,33 @@ class ActivityStateMachine:
                 facet_map[facet["facet"]] = facet
         current_facets = set(facet_map.keys())
 
+        # Hysteresis invariant: pending segments bridge into the prior activity's segments[];
+        # the segment that commits the K-th condition does NOT.
         for facet in sorted(set(self.state.keys()) - current_facets):
-            prior = self.state.pop(facet)
-            entry = {
-                "id": prior["id"],
-                "activity": prior["activity"],
-                "state": "ended",
-                "since": prior["since"],
-                "description": prior["description"],
-                "_change": "ended_facet_gone",
-                "facet": facet,
-                "segment": segment_key,
-            }
-            changes.append(entry)
-            self._completed.append(self._make_completed_record(prior))
+            prior = self.state[facet]
+            misses = prior.get("_pending_facet_misses", 0) + 1
+            if misses >= END_HYSTERESIS_SEGMENTS:
+                prior = self.state.pop(facet)
+                entry = {
+                    "id": prior["id"],
+                    "activity": prior["activity"],
+                    "state": "ended",
+                    "since": prior["since"],
+                    "description": prior["description"],
+                    "_change": "ended_facet_gone",
+                    "facet": facet,
+                    "segment": segment_key,
+                }
+                changes.append(entry)
+                self._completed.append(self._make_completed_record(prior))
+            else:
+                prior["_pending_facet_misses"] = misses
+                prior["_change"] = "facet_gone_pending"
+                prior["segment"] = segment_key
+                prior.setdefault("segments", [prior["since"]])
+                if segment_key not in prior["segments"]:
+                    prior["segments"].append(segment_key)
+                changes.append(dict(prior))
 
         for facet in sorted(current_facets):
             facet_data = facet_map.get(facet, {})
@@ -186,39 +200,62 @@ class ActivityStateMachine:
 
             if facet in self.state:
                 prior = self.state[facet]
+                prior["_pending_facet_misses"] = 0
                 if prior["activity"] != content_type:
-                    ended = {
-                        "id": prior["id"],
-                        "activity": prior["activity"],
-                        "state": "ended",
-                        "since": prior["since"],
-                        "description": prior["description"],
-                        "_change": "ended_type_change",
-                        "facet": facet,
-                        "segment": segment_key,
-                    }
-                    changes.append(ended)
-                    self._completed.append(self._make_completed_record(prior))
+                    pending_type = prior.get("_pending_type")
+                    if pending_type == content_type:
+                        pending_count = prior.get("_pending_type_count", 0) + 1
+                    else:
+                        pending_type = content_type
+                        pending_count = 1
 
-                    new_entry = {
-                        "id": make_activity_id(content_type, segment_key),
-                        "activity": content_type,
-                        "state": "active",
-                        "since": segment_key,
-                        "description": activity_summary,
-                        "level": level,
-                        "active_entities": entity_names,
-                        "_change": "new",
-                        "facet": facet,
-                        "segment": segment_key,
-                        "segments": [segment_key],
-                    }
-                    self.state[facet] = new_entry
-                    changes.append(dict(new_entry))
+                    if pending_count >= END_HYSTERESIS_SEGMENTS:
+                        ended = {
+                            "id": prior["id"],
+                            "activity": prior["activity"],
+                            "state": "ended",
+                            "since": prior["since"],
+                            "description": prior["description"],
+                            "_change": "ended_type_change",
+                            "facet": facet,
+                            "segment": segment_key,
+                        }
+                        changes.append(ended)
+                        self._completed.append(self._make_completed_record(prior))
+
+                        new_entry = {
+                            "id": make_activity_id(content_type, segment_key),
+                            "activity": content_type,
+                            "state": "active",
+                            "since": segment_key,
+                            "description": activity_summary,
+                            "level": level,
+                            "active_entities": entity_names,
+                            "_change": "new",
+                            "facet": facet,
+                            "segment": segment_key,
+                            "segments": [segment_key],
+                        }
+                        self.state[facet] = new_entry
+                        changes.append(dict(new_entry))
+                    else:
+                        prior["_pending_type"] = pending_type
+                        prior["_pending_type_count"] = pending_count
+                        prior["_change"] = "type_change_pending"
+                        prior["segment"] = segment_key
+                        prior["level"] = level
+                        prior["active_entities"] = entity_names
+                        prior.setdefault("segments", [prior["since"]])
+                        if segment_key not in prior["segments"]:
+                            prior["segments"].append(segment_key)
+                        changes.append(dict(prior))
                 else:
                     prior["description"] = activity_summary
                     prior["level"] = level
                     prior["active_entities"] = entity_names
+                    prior["_pending_facet_misses"] = 0
+                    prior["_pending_type"] = None
+                    prior["_pending_type_count"] = 0
                     prior["_change"] = "continuing"
                     prior["segment"] = segment_key
                     prior.setdefault("segments", [prior["since"]])

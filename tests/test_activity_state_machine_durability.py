@@ -224,7 +224,7 @@ def test_run_segment_sense_emits_activity_events(tmp_path: Path, monkeypatch):
         think, "_drain_priority_batch", lambda *args, **kwargs: (1, 0, [])
     )
     monkeypatch.setattr(
-        think, "_jsonl_log", lambda event, **fields: events.append(event)
+        think, "_jsonl_log", lambda event, **fields: events.append((event, fields))
     )
     monkeypatch.setattr(think, "run_activity_prompts", lambda **kwargs: True)
     monkeypatch.setattr(think, "_callosum", None)
@@ -239,5 +239,10 @@ def test_run_segment_sense_emits_activity_events(tmp_path: Path, monkeypatch):
     )
 
     assert (success, failed, failed_names) == (1, 0, [])
-    assert "activity.detected" in events
-    assert "activity.persisted" in events
+    event_names = [event for event, _fields in events]
+    assert "activity.detected" in event_names
+    assert "activity.persisted" in event_names
+    detected = [fields for event, fields in events if event == "activity.detected"]
+    persisted = [fields for event, fields in events if event == "activity.persisted"]
+    assert detected[0]["change"] == "ended_idle"
+    assert persisted[0]["change"] == "ended_idle"

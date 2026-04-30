@@ -63,8 +63,11 @@ class TestContentTypeChange:
 
         sm = ActivityStateMachine()
         sm.update(_sense(content_type="coding"), "090000_300", "20260304")
-        changes = sm.update(_sense(content_type="meeting"), "090500_300", "20260304")
+        pending = sm.update(_sense(content_type="meeting"), "090500_300", "20260304")
+        changes = sm.update(_sense(content_type="meeting"), "091000_300", "20260304")
 
+        assert all(c["state"] != "ended" for c in pending)
+        assert pending[0]["_change"] == "type_change_pending"
         assert len(changes) == 2
         ended = [c for c in changes if c["state"] == "ended"]
         started = [c for c in changes if c["state"] == "active"]
@@ -152,8 +155,10 @@ class TestFacetDisappearing:
         ]
         sm.update(_sense(facets=two_facets), "090000_300", "20260304")
         one_facet = [{"facet": "work", "activity": "coding", "level": "high"}]
-        changes = sm.update(_sense(facets=one_facet), "090500_300", "20260304")
+        pending = sm.update(_sense(facets=one_facet), "090500_300", "20260304")
+        changes = sm.update(_sense(facets=one_facet), "091000_300", "20260304")
 
+        assert pending[0]["_change"] == "facet_gone_pending"
         ended = [c for c in changes if c["_change"] == "ended_facet_gone"]
         assert len(ended) == 1
         assert ended[0]["facet"] == "personal"
@@ -190,6 +195,7 @@ class TestGetCompletedActivities:
         sm = ActivityStateMachine()
         sm.update(_sense(content_type="coding"), "090000_300", "20260304")
         sm.update(_sense(content_type="meeting"), "090500_300", "20260304")
+        sm.update(_sense(content_type="meeting"), "091000_300", "20260304")
         completed = sm.get_completed_activities()
 
         assert len(completed) == 1
@@ -197,6 +203,7 @@ class TestGetCompletedActivities:
         assert "id" in rec
         assert "activity" in rec and rec["activity"] == "coding"
         assert "segments" in rec and isinstance(rec["segments"], list)
+        assert rec["segments"] == ["090000_300", "090500_300"]
         assert "level_avg" in rec and isinstance(rec["level_avg"], float)
         assert "description" in rec
         assert "active_entities" in rec
@@ -214,11 +221,17 @@ class TestSegmentAccumulation:
         sm.update(_sense(content_type="coding"), "091000_300", "20260304")
         # End by type change
         sm.update(_sense(content_type="meeting"), "091500_300", "20260304")
+        sm.update(_sense(content_type="meeting"), "092000_300", "20260304")
 
         completed = sm.get_completed_activities()
         assert len(completed) == 1
         rec = completed[0]
-        assert rec["segments"] == ["090000_300", "090500_300", "091000_300"]
+        assert rec["segments"] == [
+            "090000_300",
+            "090500_300",
+            "091000_300",
+            "091500_300",
+        ]
 
     def test_ten_segments_produces_ten_keys(self):
         from think.activity_state_machine import ActivityStateMachine
@@ -312,6 +325,7 @@ class TestSegmentAccumulationEdgeCases:
         sm.update(_sense(facets=two), "091000_300", "20260304")
         # personal disappears
         sm.update(_sense(facets=one), "091500_300", "20260304")
+        sm.update(_sense(facets=one), "092000_300", "20260304")
 
         completed = sm.get_completed_activities()
         assert len(completed) == 1
@@ -321,6 +335,7 @@ class TestSegmentAccumulationEdgeCases:
             "090000_300",
             "090500_300",
             "091000_300",
+            "091500_300",
         ]
 
     def test_gap_ending_preserves_accumulated_segments(self):
@@ -347,6 +362,7 @@ class TestSegmentAccumulationEdgeCases:
         sm.update(_sense(content_type="coding"), "091000_300", "20260304")
         sm.update(_sense(content_type="coding"), "091500_300", "20260304")
         sm.update(_sense(content_type="meeting"), "092000_300", "20260304")
+        sm.update(_sense(content_type="meeting"), "092500_300", "20260304")
 
         completed = sm.get_completed_activities()
         assert len(completed) == 1
@@ -355,6 +371,7 @@ class TestSegmentAccumulationEdgeCases:
             "090500_300",
             "091000_300",
             "091500_300",
+            "092000_300",
         ]
 
     def test_single_segment_activity_has_one_segment(self):
@@ -363,7 +380,7 @@ class TestSegmentAccumulationEdgeCases:
 
         sm = ActivityStateMachine()
         sm.update(_sense(content_type="coding"), "090000_300", "20260304")
-        sm.update(_sense(content_type="meeting"), "090500_300", "20260304")
+        sm.update(_sense(density="idle"), "090500_300", "20260304")
 
         completed = sm.get_completed_activities()
         assert len(completed) == 1
@@ -378,10 +395,11 @@ class TestSegmentAccumulationEdgeCases:
         # Same segment key again (shouldn't happen in practice, but defensive)
         sm.update(_sense(content_type="coding"), "090000_300", "20260304")
         sm.update(_sense(content_type="meeting"), "090500_300", "20260304")
+        sm.update(_sense(content_type="meeting"), "091000_300", "20260304")
 
         completed = sm.get_completed_activities()
         assert len(completed) == 1
-        assert completed[0]["segments"] == ["090000_300"]
+        assert completed[0]["segments"] == ["090000_300", "090500_300"]
 
     def test_multi_facet_simultaneous_ending_all_have_segments(self):
         """Multiple facets ending simultaneously each have their own segments."""
@@ -421,6 +439,7 @@ class TestCompletedRecordFields:
         sm = ActivityStateMachine()
         sm.update(_sense(content_type="coding"), "090000_300", "20260304")
         sm.update(_sense(content_type="meeting"), "090500_300", "20260304")
+        sm.update(_sense(content_type="meeting"), "091000_300", "20260304")
         after = int(time.time() * 1000)
 
         rec = sm.get_completed_activities()[0]
@@ -436,6 +455,7 @@ class TestCompletedRecordFields:
         sm = ActivityStateMachine()
         sm.update(_sense(content_type="coding"), "090000_300", "20260304")
         sm.update(_sense(content_type="meeting"), "090500_300", "20260304")
+        sm.update(_sense(content_type="meeting"), "091000_300", "20260304")
 
         rec = sm.get_completed_activities()[0]
         # Simulate routes.py cutoff calculation
@@ -459,6 +479,7 @@ class TestCompletedRecordFields:
             "20260304",
         )
         sm.update(_sense(content_type="meeting"), "090500_300", "20260304")
+        sm.update(_sense(content_type="meeting"), "091000_300", "20260304")
 
         rec = sm.get_completed_activities()[0]
         assert isinstance(rec["level_avg"], float)
@@ -471,6 +492,7 @@ class TestCompletedRecordFields:
         sm = ActivityStateMachine()
         sm.update(_sense(content_type="coding"), "090000_300", "20260304")
         sm.update(_sense(content_type="meeting"), "090500_300", "20260304")
+        sm.update(_sense(content_type="meeting"), "091000_300", "20260304")
 
         rec = sm.get_completed_activities()[0]
         required = {
@@ -497,7 +519,7 @@ class TestCompletedRecordFields:
         sm.update(
             _sense(content_type="coding", entities=entities), "090000_300", "20260304"
         )
-        sm.update(_sense(content_type="meeting"), "090500_300", "20260304")
+        sm.update(_sense(density="idle"), "090500_300", "20260304")
 
         rec = sm.get_completed_activities()[0]
         assert rec["active_entities"] == ["Alice", "VSCode"]
@@ -513,8 +535,10 @@ class TestCumulativeCompletedList:
         # Activity 1: coding
         sm.update(_sense(content_type="coding"), "090000_300", "20260304")
         sm.update(_sense(content_type="meeting"), "090500_300", "20260304")
+        sm.update(_sense(content_type="meeting"), "091000_300", "20260304")
         # Activity 2: meeting
-        sm.update(_sense(content_type="coding"), "091000_300", "20260304")
+        sm.update(_sense(content_type="coding"), "091500_300", "20260304")
+        sm.update(_sense(content_type="coding"), "092000_300", "20260304")
 
         completed = sm.get_completed_activities()
         assert len(completed) == 2
@@ -528,6 +552,7 @@ class TestCumulativeCompletedList:
         sm = ActivityStateMachine()
         sm.update(_sense(content_type="coding"), "090000_300", "20260304")
         sm.update(_sense(content_type="meeting"), "090500_300", "20260304")
+        sm.update(_sense(content_type="meeting"), "091000_300", "20260304")
 
         list1 = sm.get_completed_activities()
         list2 = sm.get_completed_activities()

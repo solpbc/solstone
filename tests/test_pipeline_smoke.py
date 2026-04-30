@@ -288,19 +288,19 @@ class TestPipelineSmokeTest:
 
         coding_rec = records[0]
         assert coding_rec["activity"] == "coding"
-        assert coding_rec["segments"] == ["090000_300", "090500_300"]
+        assert coding_rec["segments"] == ["090000_300", "090500_300", "091000_300"]
         assert coding_rec["id"] == make_activity_id("coding", "090000_300")
         assert isinstance(coding_rec["created_at"], int)
         assert isinstance(coding_rec["level_avg"], float)
-        assert coding_rec["level_avg"] == 1.0
+        assert coding_rec["level_avg"] == 0.5
         assert isinstance(coding_rec["active_entities"], list)
         assert isinstance(coding_rec["description"], str)
         assert len(coding_rec["description"]) > 0
 
         meeting_rec = records[1]
         assert meeting_rec["activity"] == "meeting"
-        assert meeting_rec["segments"] == ["091000_300", "091500_300"]
-        assert meeting_rec["id"] == make_activity_id("meeting", "091000_300")
+        assert meeting_rec["segments"] == ["091500_300"]
+        assert meeting_rec["id"] == make_activity_id("meeting", "091500_300")
         assert isinstance(meeting_rec["created_at"], int)
         assert isinstance(meeting_rec["level_avg"], float)
         assert meeting_rec["level_avg"] == 0.5
@@ -309,7 +309,7 @@ class TestPipelineSmokeTest:
         assert len(meeting_rec["description"]) > 0
 
         # Activity agents fire for BOTH endings:
-        # 1. Coding ended by type change (segment 3, active path)
+        # 1. Coding ended by type change (segment 4, active path)
         # 2. Meeting ended by idle (segment 5, idle path)
         assert len(activity_calls) == 2
 
@@ -321,7 +321,7 @@ class TestPipelineSmokeTest:
 
         assert activity_calls[1]["facet"] == "work"
         assert activity_calls[1]["activity_id"] == make_activity_id(
-            "meeting", "091000_300"
+            "meeting", "091500_300"
         )
         assert activity_calls[1]["day"] == DAY
 

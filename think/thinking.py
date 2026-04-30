@@ -684,13 +684,15 @@ def run_segment_sense(
             routing_day = state_machine.last_segment_day or day
             idle_changes = state_machine.update(sense_json, segment, day)
             # Persist completed activity records from idle transitions
-            ended_pairs = [
-                (c["id"], c["facet"]) for c in idle_changes if c.get("state") == "ended"
+            ended_triples = [
+                (c["id"], c["facet"], c.get("_change"))
+                for c in idle_changes
+                if c.get("state") == "ended"
             ]
             completed_lookup = {}
             for rec in state_machine.get_completed_activities():
                 completed_lookup.setdefault(rec["id"], rec)
-            for activity_id, facet in ended_pairs:
+            for activity_id, facet, change in ended_triples:
                 _jsonl_log(
                     "activity.detected",
                     mode=target_schedule,
@@ -699,6 +701,7 @@ def run_segment_sense(
                     activity=str(activity_id),
                     facet=str(facet),
                     state="ended",
+                    change=change,
                 )
                 rec = completed_lookup.get(activity_id)
                 if rec:
@@ -710,9 +713,10 @@ def run_segment_sense(
                         segment=segment,
                         activity=str(activity_id),
                         facet=str(facet),
+                        change=change,
                     )
             # Run activity agents for completed activities
-            for activity_id, facet in ended_pairs:
+            for activity_id, facet, _change in ended_triples:
                 logging.info(
                     "Activity completed (idle): %s facet=%s, running activity agents",
                     activity_id,
@@ -940,13 +944,15 @@ def run_segment_sense(
         routing_day = state_machine.last_segment_day or day
         changes = state_machine.update(sense_json, segment, day)
         # Persist completed activity records before running activity agents
-        ended_pairs = [
-            (c["id"], c["facet"]) for c in changes if c.get("state") == "ended"
+        ended_triples = [
+            (c["id"], c["facet"], c.get("_change"))
+            for c in changes
+            if c.get("state") == "ended"
         ]
         completed_lookup = {}
         for rec in state_machine.get_completed_activities():
             completed_lookup.setdefault(rec["id"], rec)
-        for activity_id, facet in ended_pairs:
+        for activity_id, facet, change in ended_triples:
             _jsonl_log(
                 "activity.detected",
                 mode=target_schedule,
@@ -955,6 +961,7 @@ def run_segment_sense(
                 activity=str(activity_id),
                 facet=str(facet),
                 state="ended",
+                change=change,
             )
             rec = completed_lookup.get(activity_id)
             if rec:
@@ -966,6 +973,7 @@ def run_segment_sense(
                     segment=segment,
                     activity=str(activity_id),
                     facet=str(facet),
+                    change=change,
                 )
         if state_machine.journal_root is not None:
             try:
