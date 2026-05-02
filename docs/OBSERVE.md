@@ -21,6 +21,9 @@ sol observer list
 # Register a new observer
 sol observer create <name>
 
+# Install and pair an observer
+sol observer install <name>
+
 # Check observer status
 sol observer status <name>
 

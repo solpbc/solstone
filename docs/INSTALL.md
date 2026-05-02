@@ -219,35 +219,31 @@ See [DOCTOR.md](DOCTOR.md) for troubleshooting.
 
 ## Observers
 
-Observers capture screen and audio and upload to the solstone server. Each platform has its own standalone observer. Packages are not yet on PyPI — install from source.
+Observers run alongside each platform and send observations to the solstone server. The `sol observer install` command handles the normal local setup path.
 
-### Linux Observer
-
-```bash
-git clone https://github.com/solpbc/solstone-linux.git
-cd solstone-linux
-pipx install --system-site-packages .
-solstone-linux setup
-solstone-linux install-service
-```
-
-`--system-site-packages` is required for PyGObject/GStreamer access.
-
-**Note:** Activity detection (idle, lock, power save) requires GNOME desktop. Other desktops: capture works but activity-based segment boundaries won't trigger.
-
-### tmux Observer
+### Install
 
 ```bash
-git clone https://github.com/solpbc/solstone-tmux.git
-cd solstone-tmux
-pipx install .
-solstone-tmux setup
-solstone-tmux install-service
+sol observer install
+sol observer install laptop
+sol observer install laptop --platform linux
+sol observer install laptop --platform tmux
+sol observer install --dry-run
 ```
+
+With no name, `sol observer install` uses the machine hostname. Pass a name for a stable stream name, pass `--platform` to choose linux or tmux explicitly, and use `--dry-run` to see the plan before anything changes.
+
+Linux installs from `https://github.com/solpbc/solstone-linux.git`; tmux installs from `https://github.com/solpbc/solstone-tmux.git`. If a system package is missing, the command reports the distro-specific install command and stops before changing observer state.
 
 ### macOS Observer
 
-See [solstone-macos](https://github.com/solpbc/solstone-macos) — requires Xcode (full IDE, not just CLI tools).
+```bash
+sol observer install --platform macos
+```
+
+macOS is delivered as a signed app bundle. The command directs you to https://solstone.app/observers.
+
+For manual build-from-source troubleshooting, use each observer repo's `INSTALL.md`. The linux repo includes distro package details and desktop notes; the tmux repo covers its pure-python service path.
 
 ---
 

@@ -98,29 +98,21 @@ if the service fails to start, check `sol service logs`.
 
 ## install an observer
 
-solstone doesn't observe anything on its own — it needs an observer for the platform.
+solstone needs a platform observer alongside the server.
 
 ```bash
-uname -s
+sol observer install
+sol observer install laptop
+sol observer install laptop --platform linux
+sol observer install --platform tmux
+sol observer install --dry-run
 ```
 
-clone the observer into solstone's observers directory and follow its INSTALL.md:
+with no name, `sol observer install` uses the machine hostname. pass a name when you want a stable stream name, pass `--platform` to choose linux or tmux explicitly, and use `--dry-run` to see the plan before anything is changed.
 
-```bash
-cd "$(sol root)/observers"
-```
+on macOS, `sol observer install --platform macos` directs you to the signed app bundle at https://solstone.app/observers.
 
-**linux:**
-```bash
-git clone https://github.com/solpbc/solstone-linux.git
-```
-then read `solstone-linux/INSTALL.md` and follow it.
-
-**macOS:**
-```bash
-git clone https://github.com/solpbc/solstone-macos.git
-```
-then read `solstone-macos/INSTALL.md` and follow it.
+for manual build-from-source troubleshooting, use the per-observer repo docs: `solstone-linux/INSTALL.md`, `solstone-tmux/INSTALL.md`, or the macOS app instructions.
 
 ## updating after a code change
 
