@@ -108,6 +108,71 @@ def _status_emitter() -> None:
         time.sleep(5)
 
 
+def _wait_for_segments(
+    message_queue: "queue.Queue[dict[str, Any]]",
+    pending: set[str],
+    segment_timeout: float,
+    *,
+    completed_count_start: int = 0,
+    total_segments: int | None = None,
+    poll_timeout: float = 5.0,
+) -> tuple[list[str], int]:
+    """Drain message_queue until pending is empty or stall timeout trips.
+    Returns (failed_segments, completed_count)."""
+    failed_segments: list[str] = []
+    completed_count = completed_count_start
+    if total_segments is None:
+        total_segments = completed_count_start + len(pending)
+    last_progress = time.monotonic()
+    transcribe_start = time.monotonic()
+
+    logger.info(f"Waiting for {len(pending)} segments to complete")
+
+    while pending:
+        # Check for timeout since last progress
+        stall_duration = time.monotonic() - last_progress
+        if stall_duration > segment_timeout:
+            total_elapsed = int(time.monotonic() - transcribe_start)
+            timed_out = sorted(pending)
+            logger.error(
+                f"Transcription stalled: no progress for "
+                f"{int(stall_duration)}s ({total_elapsed}s total). "
+                f"{completed_count}/{total_segments} segments "
+                f"completed, {len(timed_out)} still pending: {timed_out}"
+            )
+            failed_segments.extend(timed_out)
+            break
+
+        # Poll for observe.observed events from message queue
+        try:
+            msg = message_queue.get(timeout=poll_timeout)
+        except queue.Empty:
+            continue
+
+        tract = msg.get("tract")
+        event = msg.get("event")
+        seg = msg.get("segment")
+
+        if tract == "observe" and event == "observed" and seg in pending:
+            pending.discard(seg)
+            completed_count += 1
+            last_progress = time.monotonic()
+            if msg.get("error"):
+                errors = msg.get("errors", [])
+                logger.warning(
+                    f"Segment {seg} failed: {errors} ({len(pending)} remaining)"
+                )
+                failed_segments.append(seg)
+            else:
+                logger.info(
+                    f"Segment {seg} transcribed "
+                    f"({completed_count}/{total_segments} done, "
+                    f"{len(pending)} remaining)"
+                )
+
+    return failed_segments, completed_count
+
+
 def _format_timestamp_display(timestamp: str) -> str:
     """Format timestamp for human-readable display."""
     try:
@@ -1061,56 +1126,15 @@ def main() -> None:
             # Wait for transcription to complete
             _set_stage("transcribing")
             pending = set(created_segments)
-            completed_count = 0
             segment_timeout = 600  # 10 minutes since last progress
-            last_progress = time.monotonic()
             transcribe_start = time.monotonic()
-
-            logger.info(f"Waiting for {len(pending)} segments to complete")
-
-            while pending:
-                # Check for timeout since last progress
-                stall_duration = time.monotonic() - last_progress
-                if stall_duration > segment_timeout:
-                    total_elapsed = int(time.monotonic() - transcribe_start)
-                    timed_out = sorted(pending)
-                    logger.error(
-                        f"Transcription stalled: no progress for "
-                        f"{int(stall_duration)}s ({total_elapsed}s total). "
-                        f"{completed_count}/{len(created_segments)} segments "
-                        f"completed, {len(timed_out)} still pending: {timed_out}"
-                    )
-                    failed_segments.extend(timed_out)
-                    break
-
-                # Poll for observe.observed events from message queue
-                try:
-                    msg = _message_queue.get(timeout=5.0)
-                except queue.Empty:
-                    continue
-
-                tract = msg.get("tract")
-                event = msg.get("event")
-                seg = msg.get("segment")
-
-                if tract == "observe" and event == "observed" and seg in pending:
-                    pending.discard(seg)
-                    completed_count += 1
-                    last_progress = time.monotonic()
-                    if msg.get("error"):
-                        errors = msg.get("errors", [])
-                        logger.warning(
-                            f"Segment {seg} failed: {errors} ({len(pending)} remaining)"
-                        )
-                        failed_segments.append(seg)
-                    else:
-                        logger.info(
-                            f"Segment {seg} transcribed "
-                            f"({completed_count}/{len(created_segments)} done, "
-                            f"{len(pending)} remaining)"
-                        )
-                elif tract == "observe" and event == "status":
-                    last_progress = time.monotonic()
+            new_failed_segments, _completed_count = _wait_for_segments(
+                _message_queue,
+                pending,
+                segment_timeout,
+                total_segments=len(created_segments),
+            )
+            failed_segments.extend(new_failed_segments)
 
             if failed_segments:
                 logger.warning(
