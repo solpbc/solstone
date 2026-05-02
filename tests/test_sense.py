@@ -3,6 +3,7 @@
 
 """Tests for observe.sense module."""
 
+import signal
 import tempfile
 import threading
 import time
@@ -33,6 +34,18 @@ def test_queued_item_with_observer():
 
     assert item.file_path == path
     assert item.observer == "my-observer"
+
+
+def test_sense_installs_sigterm_handler():
+    from observe import sense
+
+    previous = signal.getsignal(signal.SIGTERM)
+    signal.signal(signal.SIGTERM, signal.SIG_DFL)
+    try:
+        sense._install_sigterm_handler(MagicMock())
+        assert signal.getsignal(signal.SIGTERM) is not signal.SIG_DFL
+    finally:
+        signal.signal(signal.SIGTERM, previous)
 
 
 # --- HandlerQueue Tests ---

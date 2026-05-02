@@ -24,6 +24,7 @@ from think.importers.shared import (
 )
 from think.importers.text import _read_transcript, process_transcript
 from think.importers.utils import save_import_segments
+from think.indexer.journal import index_file
 from think.streams import stream_name, update_stream, write_segment_stream
 from think.utils import (
     day_path,
@@ -321,154 +322,37 @@ def _run_sync(backend_name: str, *, dry_run: bool = True, **extra: Any) -> None:
         print("Everything is up to date.")
 
 
-def main() -> None:
+def import_one(
+    media: str | Path,
+    *,
+    timestamp: str | None = None,
+    facet: str | None = None,
+    setting: str | None = None,
+    source: str | None = None,
+    force: bool = False,
+    auto: bool | str | None = None,
+    dry_run: bool = False,
+    json_output: bool = False,
+    verbose: bool = False,
+) -> dict[str, Any] | None:
+    args = argparse.Namespace(
+        media=os.path.expanduser(str(media)),
+        timestamp=timestamp,
+        facet=facet,
+        setting=setting,
+        source=source,
+        force=force,
+        auto=auto,
+        dry_run=dry_run,
+        json=json_output,
+        verbose=verbose,
+    )
+    return _import_one_from_args(args)
+
+
+def _import_one_from_args(args: argparse.Namespace) -> dict[str, Any] | None:
     global _callosum, _message_queue, _import_id, _current_stage, _start_time
     global _stage_start_time, _stages_run, _status_thread, _status_running
-
-    parser = argparse.ArgumentParser(description="Import a media file into the journal")
-    parser.add_argument("media", nargs="?", help="Path to audio or text file")
-    parser.add_argument(
-        "--timestamp", help="Timestamp YYYYMMDD_HHMMSS for journal entry"
-    )
-    parser.add_argument(
-        "--facet",
-        type=str,
-        default=None,
-        help="Facet name for this import",
-    )
-    parser.add_argument(
-        "--setting",
-        type=str,
-        default=None,
-        help="Contextual setting description to store with import metadata",
-    )
-    parser.add_argument(
-        "--source",
-        type=str,
-        default=None,
-        help="Import source type (apple, plaud, audio, text, or a file importer name). Auto-detected if omitted.",
-    )
-    parser.add_argument(
-        "--force",
-        action="store_true",
-        help="Force re-import by deleting existing import directory",
-    )
-    parser.add_argument(
-        "--auto",
-        nargs="?",
-        const=True,
-        default=None,
-        help="Auto-accept detected timestamp. Optionally provide guidance text for the LLM (e.g., --auto 'timestamps are Pacific time').",
-    )
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Show what would be imported without writing to the journal",
-    )
-    parser.add_argument(
-        "--backends",
-        action="store_true",
-        help="List syncable importer backends",
-    )
-    parser.add_argument(
-        "--sync",
-        type=str,
-        metavar="BACKEND",
-        help="Sync catalog from a backend (e.g., plaud). Shows status by default.",
-    )
-    parser.add_argument(
-        "--save",
-        action="store_true",
-        help="With --sync: download and import new files (default is dry-run)",
-    )
-    parser.add_argument(
-        "--path",
-        type=str,
-        default=None,
-        help="With --sync: override the default source directory path",
-    )
-    parser.add_argument(
-        "--list-importers",
-        action="store_true",
-        help="List available file importers",
-    )
-    parser.add_argument(
-        "--json",
-        action="store_true",
-        help="Output results as JSON (file importers only)",
-    )
-    args, extra = setup_cli(parser, parse_known=True)
-    require_solstone()
-    if extra and not args.timestamp:
-        args.timestamp = extra[0]
-
-    # Dispatch journal-source subcommand
-    if args.media == "journal-source":
-        import sys
-
-        from think.importers.journal_source_cli import main as journal_source_main
-
-        forwarded_args = sys.argv[1:]
-        if "journal-source" in forwarded_args:
-            idx = forwarded_args.index("journal-source")
-            forwarded_args = forwarded_args[:idx] + forwarded_args[idx + 1 :]
-        else:
-            forwarded_args = extra
-        sys.argv = [sys.argv[0]] + forwarded_args
-        journal_source_main()
-        return
-
-    if args.backends:
-        from think.importers.sync import get_syncable_backends
-
-        backends = get_syncable_backends()
-        if backends:
-            print("Syncable backends:")
-            for b in backends:
-                print(f"  {b.name}")
-        else:
-            print("No syncable backends available")
-        return
-
-    if args.list_importers:
-        from think.importers.file_importer import get_file_importers
-
-        importers = get_file_importers()
-        if args.json:
-            print(
-                json.dumps(
-                    [
-                        {
-                            "name": imp.name,
-                            "display_name": imp.display_name,
-                            "file_patterns": imp.file_patterns,
-                            "description": imp.description,
-                        }
-                        for imp in importers
-                    ]
-                )
-            )
-        elif importers:
-            print("File importers:")
-            for imp in importers:
-                patterns = ", ".join(imp.file_patterns)
-                print(f"  {imp.name:<12} {imp.display_name} ({patterns})")
-                print(f"               {imp.description}")
-        else:
-            print("No file importers available")
-        return
-
-    if args.sync:
-        extra: dict[str, Any] = {}
-        if args.path:
-            extra["source_path"] = Path(os.path.expanduser(args.path))
-        if args.force:
-            extra["force"] = True
-        _run_sync(args.sync, dry_run=not args.save, **extra)
-        return
-
-    if not args.media:
-        parser.error("the following arguments are required: media")
 
     args.media = os.path.expanduser(args.media)
 
@@ -488,7 +372,7 @@ def main() -> None:
         if args.source in FILE_IMPORTER_REGISTRY:
             _file_importer = get_file_importer(args.source)
             if _file_importer is None:
-                raise SystemExit(f"Failed to load file importer: {args.source}")
+                raise ValueError(f"Failed to load file importer: {args.source}")
             import_source = args.source
 
     # Also try file importer detection for directories
@@ -539,14 +423,18 @@ def main() -> None:
                 print(f"Detected timestamp: {detected_timestamp} ({display})")
                 print("\nRun:")
                 print(f"  sol import {args.media} --timestamp {detected_timestamp}")
-                return
+                return {
+                    "skipped": True,
+                    "reason": "timestamp_required",
+                    "detected_timestamp": detected_timestamp,
+                }
         else:
-            raise SystemExit(
+            raise ValueError(
                 "Could not detect timestamp. Please provide --timestamp YYYYMMDD_HHMMSS"
             )
 
     if not TIME_RE.fullmatch(args.timestamp):
-        raise SystemExit("timestamp must be in YYYYMMDD_HHMMSS format")
+        raise ValueError("timestamp must be in YYYYMMDD_HHMMSS format")
 
     base_dt = dt.datetime.strptime(args.timestamp, "%Y%m%d_%H%M%S")
     day = base_dt.strftime("%Y%m%d")
@@ -596,7 +484,13 @@ def main() -> None:
             print(f"  Entities:   {preview.entity_count}")
             print(f"  Summary:    {preview.summary}")
             print()
-        return
+        return {
+            "dry_run": True,
+            "importer": _file_importer.name,
+            "source": args.media,
+            "item_count": preview.item_count,
+            "entity_count": preview.entity_count,
+        }
 
     if args.dry_run:
         from think.importers.plaud import format_size
@@ -702,7 +596,12 @@ def main() -> None:
                 force=True,
                 dry_run=True,
             )
-        return
+        return {
+            "dry_run": True,
+            "source": args.media,
+            "timestamp": args.timestamp,
+            "source_type": import_source,
+        }
 
     # Copy to imports/ if file is not already there
     if needs_setup:
@@ -806,7 +705,12 @@ def main() -> None:
                         f"This file was already imported on {imported_at} "
                         f"({entry_count} entries). Use --force to re-import."
                     )
-                    return
+                    return {
+                        "skipped": True,
+                        "reason": "already_imported",
+                        "imported_at": imported_at,
+                        "entry_count": entry_count,
+                    }
             else:
                 from think.importers.shared import hash_source
 
@@ -938,15 +842,10 @@ def main() -> None:
             # Index imported files so they're searchable
             if result.files_created:
                 _set_stage("indexing")
-                import subprocess
 
                 for created_file in result.files_created:
                     try:
-                        subprocess.run(
-                            ["sol", "indexer", "--rescan-file", created_file],
-                            capture_output=True,
-                            timeout=60,
-                        )
+                        index_file(str(journal_root), created_file)
                     except Exception as exc:
                         logger.warning("Failed to index %s: %s", created_file, exc)
 
@@ -1228,6 +1127,7 @@ def main() -> None:
             entities_seeded=processing_results.get("entities_seeded", 0),
             date_range=processing_results.get("date_range"),
         )
+        return processing_results
 
     except Exception as e:
         duration_ms = int((time.monotonic() - _start_time) * 1000)
@@ -1282,6 +1182,172 @@ def main() -> None:
             _status_thread.join(timeout=6)
         if _callosum:
             _callosum.stop()
+
+
+def main() -> None:
+    global _callosum, _message_queue, _import_id, _current_stage, _start_time
+    global _stage_start_time, _stages_run, _status_thread, _status_running
+
+    parser = argparse.ArgumentParser(description="Import a media file into the journal")
+    parser.add_argument("media", nargs="?", help="Path to audio or text file")
+    parser.add_argument(
+        "--timestamp", help="Timestamp YYYYMMDD_HHMMSS for journal entry"
+    )
+    parser.add_argument(
+        "--facet",
+        type=str,
+        default=None,
+        help="Facet name for this import",
+    )
+    parser.add_argument(
+        "--setting",
+        type=str,
+        default=None,
+        help="Contextual setting description to store with import metadata",
+    )
+    parser.add_argument(
+        "--source",
+        type=str,
+        default=None,
+        help="Import source type (apple, plaud, audio, text, or a file importer name). Auto-detected if omitted.",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Force re-import by deleting existing import directory",
+    )
+    parser.add_argument(
+        "--auto",
+        nargs="?",
+        const=True,
+        default=None,
+        help="Auto-accept detected timestamp. Optionally provide guidance text for the LLM (e.g., --auto 'timestamps are Pacific time').",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be imported without writing to the journal",
+    )
+    parser.add_argument(
+        "--backends",
+        action="store_true",
+        help="List syncable importer backends",
+    )
+    parser.add_argument(
+        "--sync",
+        type=str,
+        metavar="BACKEND",
+        help="Sync catalog from a backend (e.g., plaud). Shows status by default.",
+    )
+    parser.add_argument(
+        "--save",
+        action="store_true",
+        help="With --sync: download and import new files (default is dry-run)",
+    )
+    parser.add_argument(
+        "--path",
+        type=str,
+        default=None,
+        help="With --sync: override the default source directory path",
+    )
+    parser.add_argument(
+        "--list-importers",
+        action="store_true",
+        help="List available file importers",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Output results as JSON (file importers only)",
+    )
+    args, extra = setup_cli(parser, parse_known=True)
+    require_solstone()
+    if extra and not args.timestamp:
+        args.timestamp = extra[0]
+
+    # Dispatch journal-source subcommand
+    if args.media == "journal-source":
+        import sys
+
+        from think.importers.journal_source_cli import main as journal_source_main
+
+        forwarded_args = sys.argv[1:]
+        if "journal-source" in forwarded_args:
+            idx = forwarded_args.index("journal-source")
+            forwarded_args = forwarded_args[:idx] + forwarded_args[idx + 1 :]
+        else:
+            forwarded_args = extra
+        sys.argv = [sys.argv[0]] + forwarded_args
+        journal_source_main()
+        return
+
+    if args.backends:
+        from think.importers.sync import get_syncable_backends
+
+        backends = get_syncable_backends()
+        if backends:
+            print("Syncable backends:")
+            for b in backends:
+                print(f"  {b.name}")
+        else:
+            print("No syncable backends available")
+        return
+
+    if args.list_importers:
+        from think.importers.file_importer import get_file_importers
+
+        importers = get_file_importers()
+        if args.json:
+            print(
+                json.dumps(
+                    [
+                        {
+                            "name": imp.name,
+                            "display_name": imp.display_name,
+                            "file_patterns": imp.file_patterns,
+                            "description": imp.description,
+                        }
+                        for imp in importers
+                    ]
+                )
+            )
+        elif importers:
+            print("File importers:")
+            for imp in importers:
+                patterns = ", ".join(imp.file_patterns)
+                print(f"  {imp.name:<12} {imp.display_name} ({patterns})")
+                print(f"               {imp.description}")
+        else:
+            print("No file importers available")
+        return
+
+    if args.sync:
+        extra: dict[str, Any] = {}
+        if args.path:
+            extra["source_path"] = Path(os.path.expanduser(args.path))
+        if args.force:
+            extra["force"] = True
+        _run_sync(args.sync, dry_run=not args.save, **extra)
+        return
+
+    if not args.media:
+        parser.error("the following arguments are required: media")
+
+    try:
+        import_one(
+            args.media,
+            timestamp=args.timestamp,
+            facet=args.facet,
+            setting=args.setting,
+            source=args.source,
+            force=args.force,
+            auto=args.auto,
+            dry_run=args.dry_run,
+            json_output=args.json,
+            verbose=args.verbose,
+        )
+    except Exception as exc:
+        raise SystemExit(str(exc)) from exc
 
 
 if __name__ == "__main__":

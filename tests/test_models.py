@@ -35,6 +35,7 @@ from think.models import (
     get_context_registry,
     get_usage_cost,
     iter_token_log,
+    request_health_recheck,
     resolve_provider,
 )
 
@@ -989,3 +990,25 @@ class TestGenerateJsonSchemaPlumbing:
                 )
 
         mock_validate_schema.assert_not_called()
+
+
+def test_request_health_recheck_emits_callosum_request():
+    with patch("think.models.callosum_send", return_value=True) as send:
+        request_health_recheck()
+
+    send.assert_called_once_with(
+        "supervisor",
+        "request",
+        cmd=["sol", "providers", "check", "--targeted"],
+    )
+
+
+def test_request_health_recheck_does_not_raise_on_send_failure(caplog):
+    with (
+        patch("think.models.callosum_send", return_value=False) as send,
+        caplog.at_level(logging.WARNING),
+    ):
+        request_health_recheck()
+
+    send.assert_called_once()
+    assert "request_health_recheck: callosum_send returned false" in caplog.text

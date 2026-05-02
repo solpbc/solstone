@@ -5,24 +5,26 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import concurrent.futures
 import json
 import logging
 import os
 import signal
 import subprocess
 import sys
+import tempfile
 import threading
 import time
-from dataclasses import dataclass, field
+from collections import deque
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import psutil
 
 from think import routines, scheduler
 from think.callosum import CallosumConnection, CallosumServer
 from think.maint import run_pending_tasks
-from think.runner import DailyLogWriter
 from think.runner import ManagedProcess as RunnerManagedProcess
 from think.utils import (
     EXIT_TEMPFAIL,
@@ -42,14 +44,7 @@ DEFAULT_THRESHOLD = 60
 CHECK_INTERVAL = 30
 MAX_UPDATED_CATCHUP = 4
 TEMPFAIL_DELAY = 15  # seconds to wait before retrying a tempfail exit
-_ORPHAN_WORKER_NAMES = {
-    "sol:convey",
-    "sol:sense",
-    "sol:cortex",
-    "sol:link",
-    "sol:think",
-    "sol:heartbeat",
-}
+logger = logging.getLogger(__name__)
 _SERVICE_LIFECYCLE_VERBS = {
     "start",
     "stop",
@@ -67,62 +62,67 @@ _supervisor_ref: str | None = None
 _supervisor_start: float | None = None
 
 
-def _find_reparented_sol_workers() -> list[tuple[int, str]]:
+def _parse_self_cgroup_path(text: str) -> str | None:
+    """Parse cgroup v2 line `0::/path` from /proc/self/cgroup contents."""
+    for line in text.splitlines():
+        if line.startswith("0::"):
+            return line[3:].strip() or None
+    return None
+
+
+def _read_self_cgroup_path() -> str | None:
+    try:
+        return _parse_self_cgroup_path(Path("/proc/self/cgroup").read_text())
+    except OSError:
+        return None
+
+
+def _is_systemd_service_cgroup(cgroup_path: str | None) -> bool:
+    # Only sweep when this supervisor owns the cgroup; dev shells share scopes.
+    if not cgroup_path:
+        return False
+    from think.service import SYSTEMD_UNIT
+
+    return f"{SYSTEMD_UNIT}.service" in cgroup_path
+
+
+def _sweep_cgroup_at_startup(grace: float = 5.0) -> int:
     if sys.platform != "linux":
-        return []
-
-    orphans: list[tuple[int, str]] = []
-    for proc in psutil.process_iter(["pid", "name", "ppid"]):
-        try:
-            info = proc.info
-            pid = int(info["pid"])
-            name = str(info.get("name") or "")
-            ppid = int(info.get("ppid") or 0)
-        except (KeyError, TypeError, ValueError):
-            continue
-        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-            continue
-        if name in _ORPHAN_WORKER_NAMES and ppid == 1:
-            orphans.append((pid, name))
-    return orphans
-
-
-def _reap_orphan_workers(orphans: list[tuple[int, str]], grace: float = 5.0) -> int:
-    if not orphans:
+        return 0
+    cgroup_path = _read_self_cgroup_path()
+    if not _is_systemd_service_cgroup(cgroup_path):
+        return 0
+    procs_file = Path("/sys/fs/cgroup") / cgroup_path.lstrip("/") / "cgroup.procs"
+    try:
+        pids = [int(pid) for pid in procs_file.read_text().split() if pid.strip()]
+    except OSError:
         return 0
 
-    reaped = 0
-    for pid, name in orphans:
+    own_pid = os.getpid()
+    targets = [pid for pid in pids if pid != own_pid]
+    if not targets:
+        return 0
+
+    logger.info("cgroup sweep: terminating %d residual process(es)", len(targets))
+    for pid in targets:
         try:
-            logging.warning("Terminating orphaned sol worker %s (PID %d)", name, pid)
             os.kill(pid, signal.SIGTERM)
-            reaped += 1
         except ProcessLookupError:
-            reaped += 1
-        except (PermissionError, OSError):
-            logging.exception(
-                "Failed to terminate orphaned sol worker %s (PID %d)", name, pid
-            )
+            pass
 
     deadline = time.time() + grace
     while time.time() < deadline:
-        if all(not psutil.pid_exists(pid) for pid, _name in orphans):
-            return reaped
-        time.sleep(0.1)
+        if not any(psutil.pid_exists(pid) for pid in targets):
+            break
+        time.sleep(0.2)
 
-    for pid, name in orphans:
-        if not psutil.pid_exists(pid):
-            continue
+    survivors = [pid for pid in targets if psutil.pid_exists(pid)]
+    for pid in survivors:
         try:
-            logging.warning("Killing orphaned sol worker %s (PID %d)", name, pid)
             os.kill(pid, signal.SIGKILL)
         except ProcessLookupError:
-            continue
-        except (PermissionError, OSError):
-            logging.exception(
-                "Failed to kill orphaned sol worker %s (PID %d)", name, pid
-            )
-    return reaped
+            pass
+    return len(targets)
 
 
 class CallosumLogHandler(logging.Handler):
@@ -197,8 +197,9 @@ class TaskQueue:
         ] = {}  # command_name -> {"ref": str, "thread": Thread}
         self._queues: dict[str, list] = {}  # command_name -> list of {refs, cmd} dicts
         self._active: dict[str, RunnerManagedProcess] = {}  # ref -> process
+        self._history: deque[dict[str, Any]] = deque(maxlen=100)
+        self._cap_terminated: set[str] = set()
         self._caps: dict[str, int] = {}
-        self._terminations: dict[str, float] = {}
         self._pending: list[dict] = []
         self._ready = ready
         self._lock = threading.Lock()
@@ -235,6 +236,7 @@ class TaskQueue:
         cmd: list[str],
         ref: str | None = None,
         day: str | None = None,
+        scheduler_name: str | None = None,
     ) -> str | None:
         """Submit a task for execution.
 
@@ -254,7 +256,14 @@ class TaskQueue:
 
         with self._lock:
             if not self._ready:
-                self._pending.append({"refs": [ref], "cmd": cmd, "day": day})
+                self._pending.append(
+                    {
+                        "refs": [ref],
+                        "cmd": cmd,
+                        "day": day,
+                        "scheduler_name": scheduler_name,
+                    }
+                )
                 should_notify_pending = True
             else:
                 should_notify_pending = False
@@ -293,7 +302,14 @@ class TaskQueue:
                         logging.debug(f"Ref already tracked for queued task: {ref}")
                         return None
                 else:
-                    queue.append({"refs": [ref], "cmd": cmd, "day": day})
+                    queue.append(
+                        {
+                            "refs": [ref],
+                            "cmd": cmd,
+                            "day": day,
+                            "scheduler_name": scheduler_name,
+                        }
+                    )
                     logging.info(
                         f"Queued task {cmd_name}: {' '.join(cmd)} ref={ref} "
                         f"(queue: {len(queue)})"
@@ -302,7 +318,11 @@ class TaskQueue:
             else:
                 # Not running - mark as running and start
                 # Thread is set to None here; _run_task registers it on entry
-                self._running[cmd_name] = {"ref": ref, "thread": None}
+                self._running[cmd_name] = {
+                    "ref": ref,
+                    "thread": None,
+                    "scheduler_name": scheduler_name,
+                }
                 should_start = True
 
         # Notify outside lock
@@ -314,7 +334,7 @@ class TaskQueue:
         if should_start:
             threading.Thread(
                 target=self._run_task,
-                args=([ref], cmd, cmd_name, day),
+                args=([ref], cmd, cmd_name, day, scheduler_name),
                 daemon=True,
             ).start()
             return ref
@@ -326,34 +346,19 @@ class TaskQueue:
         with self._lock:
             self._caps[cmd_name] = seconds
 
+    def get_active_by_cmd_name(self, name: str) -> str | None:
+        """Return the first active ref matching a command name."""
+        with self._lock:
+            for ref, managed in self._active.items():
+                if self.get_command_name(managed.cmd) == name:
+                    return ref
+        return None
+
     def enforce_deadlines(self, now: float) -> None:
         """Enforce configured task runtime caps without blocking the supervisor tick."""
         with self._lock:
-            active_refs = set(self._active)
-            for ref in list(self._terminations):
-                if ref not in active_refs:
-                    self._terminations.pop(ref, None)
-
             for ref, managed in list(self._active.items()):
                 cmd_name = self.get_command_name(managed.cmd)
-                termination_started = self._terminations.get(ref)
-                if termination_started is not None:
-                    if termination_started <= 0:
-                        continue
-                    if now - termination_started >= 15:
-                        logging.warning(
-                            "Task %s (ref=%s) did not exit 15s after SIGTERM; "
-                            "sending SIGKILL",
-                            cmd_name,
-                            ref,
-                        )
-                        try:
-                            managed.process.kill()
-                        except (ProcessLookupError, OSError):
-                            pass
-                        self._terminations[ref] = 0.0
-                    continue
-
                 cap = self._caps.get(cmd_name)
                 if not cap:
                     continue
@@ -365,18 +370,15 @@ class TaskQueue:
                 elapsed_seconds = int(elapsed)
                 logging.warning(
                     "Task %s (cmd=%s, ref=%s) exceeded max_runtime of %ds "
-                    "(elapsed=%ds); sending SIGTERM",
+                    "(elapsed=%ds); terminating",
                     cmd_name,
                     " ".join(managed.cmd),
                     ref,
                     cap,
                     elapsed_seconds,
                 )
-                try:
-                    managed.process.send_signal(signal.SIGTERM)
-                    self._terminations[ref] = now
-                except (ProcessLookupError, OSError):
-                    pass
+                self._cap_terminated.add(ref)
+                _start_termination_thread(ref, managed, timeout=2.0, reason="cap")
 
     def set_ready(self) -> None:
         """Allow buffered tasks to start dispatching through the normal queue path."""
@@ -390,7 +392,12 @@ class TaskQueue:
         if pending:
             self._notify_queue_change("pending")
         for entry in pending:
-            self.submit(entry["cmd"], ref=entry["refs"][0], day=entry.get("day"))
+            self.submit(
+                entry["cmd"],
+                ref=entry["refs"][0],
+                day=entry.get("day"),
+                scheduler_name=entry.get("scheduler_name"),
+            )
 
     def _run_task(
         self,
@@ -398,6 +405,7 @@ class TaskQueue:
         cmd: list[str],
         cmd_name: str,
         day: str | None = None,
+        scheduler_name: str | None = None,
     ) -> None:
         """Execute a task and handle completion.
 
@@ -416,6 +424,7 @@ class TaskQueue:
         managed = None
         primary_ref = refs[0]
         service = cmd_name
+        exit_status = "error"
 
         try:
             callosum.start()
@@ -436,6 +445,7 @@ class TaskQueue:
             )
 
             exit_code = managed.wait()
+            exit_status = "ok" if exit_code == 0 else "error"
 
             for ref in refs:
                 callosum.emit(
@@ -455,6 +465,8 @@ class TaskQueue:
                 )
 
         except Exception as e:
+            if isinstance(e, subprocess.TimeoutExpired):
+                exit_status = "timeout"
             logging.exception(
                 f"Task {cmd_name} ({primary_ref}) encountered exception: {e}"
             )
@@ -468,8 +480,6 @@ class TaskQueue:
                     exit_code=-1,
                 )
         finally:
-            # Each cleanup step is isolated so _process_next always runs.
-            # A disk-full or other OS error in cleanup must never stall the queue.
             try:
                 if managed:
                     managed.cleanup()
@@ -477,6 +487,31 @@ class TaskQueue:
                 logging.exception(f"Task {cmd_name} ({primary_ref}): cleanup failed")
             with self._lock:
                 self._active.pop(primary_ref, None)
+                if primary_ref in self._cap_terminated:
+                    exit_status = "timeout"
+                self._cap_terminated.discard(primary_ref)
+                ended_at = time.time()
+                self._history.append(
+                    {
+                        "name": cmd_name,
+                        "cmd": list(cmd),
+                        "ref": primary_ref,
+                        "ended_at": ended_at,
+                        "exit_status": exit_status,
+                        "scheduler_name": scheduler_name,
+                    }
+                )
+            if scheduler_name:
+                try:
+                    _record_scheduler_completion(
+                        scheduler_name,
+                        ended_at=ended_at,
+                        exit_status=exit_status,
+                        ref=primary_ref,
+                        cmd=cmd,
+                    )
+                except Exception as exc:
+                    logger.warning("scheduler completion writeback failed: %s", exc)
             try:
                 callosum.stop()
             except Exception:
@@ -490,6 +525,7 @@ class TaskQueue:
         next_cmd = None
         refs = None
         day = None
+        scheduler_name = None
 
         with self._lock:
             queue = self._queues.get(cmd_name, [])
@@ -498,8 +534,13 @@ class TaskQueue:
                 refs = entry["refs"]
                 next_cmd = entry["cmd"]
                 day = entry.get("day")
+                scheduler_name = entry.get("scheduler_name")
                 # Thread is set to None here; _run_task registers it on entry
-                self._running[cmd_name] = {"ref": refs[0], "thread": None}
+                self._running[cmd_name] = {
+                    "ref": refs[0],
+                    "thread": None,
+                    "scheduler_name": scheduler_name,
+                }
                 logging.info(
                     f"Dequeued task {cmd_name}: {' '.join(next_cmd)} refs={refs} "
                     f"(remaining: {len(queue)})"
@@ -512,7 +553,7 @@ class TaskQueue:
         if next_cmd:
             threading.Thread(
                 target=self._run_task,
-                args=(refs, next_cmd, cmd_name, day),
+                args=(refs, next_cmd, cmd_name, day, scheduler_name),
                 daemon=True,
             ).start()
 
@@ -534,6 +575,27 @@ class TaskQueue:
         logging.info(f"Cancelling task {ref}...")
         managed.terminate()
         return True
+
+    def shutdown(self, timeout: float = 10.0) -> int:
+        with self._lock:
+            active = list(self._active.items())
+        if not active:
+            return 0
+
+        def _terminate(item: tuple[str, RunnerManagedProcess]) -> None:
+            ref, managed = item
+            try:
+                managed.terminate(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                logger.warning(
+                    "task %s did not exit within %ss; KILL sent", ref, timeout
+                )
+            except OSError as exc:
+                logger.warning("task %s terminate raised: %s", ref, exc)
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(active)) as executor:
+            list(executor.map(_terminate, active))
+        return len(active)
 
     def get_status(self, ref: str) -> dict:
         """Get status of a task."""
@@ -586,14 +648,15 @@ _task_queue: TaskQueue | None = None
 _supervisor_callosum: CallosumConnection | None = None
 
 # Global reference to managed processes for restart control
-_managed_procs: list[ManagedProcess] = []
+_managed_procs: list[RunnerManagedProcess] = []
+_SERVICE_STATE: dict[str, dict[str, Any]] = {}
+_termination_threads: dict[str, threading.Thread] = {}
+_termination_threads_lock = threading.Lock()
+_SCHEDULER_JSON_LOCK = threading.Lock()
 
 # Global reference to in-process Callosum server
 _callosum_server: CallosumServer | None = None
 _callosum_thread: threading.Thread | None = None
-
-# Restart request tracking for SIGKILL enforcement
-_restart_requests: dict[str, tuple[float, subprocess.Popen]] = {}
 
 # Track whether running in remote mode (upload-only, no local processing)
 _is_remote_mode: bool = False
@@ -687,32 +750,14 @@ def _get_restart_policy(name: str) -> RestartPolicy:
     return _RESTART_POLICIES.setdefault(name, RestartPolicy())
 
 
-@dataclass
-class ManagedProcess:
-    """Wrapper around RunnerManagedProcess for restart policy tracking."""
-
-    process: subprocess.Popen
-    name: str
-    log_writer: DailyLogWriter
-    cmd: list[str]
-    restart: bool = False
-    shutdown_timeout: int = 15
-    threads: list[threading.Thread] = field(default_factory=list)
-    ref: str = ""
-
-    def cleanup(self) -> None:
-        for thread in self.threads:
-            thread.join(timeout=1)
-        self.log_writer.close()
-
-
 def _launch_process(
     name: str,
     cmd: list[str],
     *,
     restart: bool = False,
+    shutdown_timeout: int = 15,
     ref: str | None = None,
-) -> ManagedProcess:
+) -> RunnerManagedProcess:
     # NOTE: All child processes should include -v for verbose logging by default.
     # This ensures their output is captured in logs for debugging.
     """Launch process with automatic output logging and restart policy tracking."""
@@ -734,6 +779,10 @@ def _launch_process(
 
     if policy:
         policy.record_start()
+    _SERVICE_STATE[name] = {
+        "restart": restart,
+        "shutdown_timeout": shutdown_timeout,
+    }
 
     # Emit started event
     if _supervisor_callosum:
@@ -745,16 +794,101 @@ def _launch_process(
             ref=managed.ref,
         )
 
-    # Wrap in ManagedProcess for restart tracking
-    return ManagedProcess(
-        process=managed.process,
-        name=name,
-        log_writer=managed.log_writer,
-        cmd=list(cmd),
-        restart=restart,
-        threads=managed._threads,
-        ref=managed.ref,
-    )
+    return managed
+
+
+def _terminate_managed(
+    managed: RunnerManagedProcess, timeout: float, *, reason: str
+) -> None:
+    logger.info("Terminating %s for %s", managed.name, reason)
+    try:
+        managed.terminate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        logger.warning(
+            "%s did not terminate within %.1fs for %s",
+            managed.name,
+            timeout,
+            reason,
+        )
+
+
+def _start_termination_thread(
+    key: str, managed: RunnerManagedProcess, timeout: float, reason: str
+) -> None:
+    def run() -> None:
+        try:
+            _terminate_managed(managed, timeout, reason=reason)
+        finally:
+            with _termination_threads_lock:
+                if _termination_threads.get(key) is threading.current_thread():
+                    _termination_threads.pop(key, None)
+
+    with _termination_threads_lock:
+        existing = _termination_threads.get(key)
+        if existing and existing.is_alive():
+            return
+
+        thread = threading.Thread(
+            target=run,
+            daemon=True,
+            name=f"terminate-{key}",
+        )
+        _termination_threads[key] = thread
+        thread.start()
+
+
+def _stop_process(managed: RunnerManagedProcess) -> None:
+    timeout = _SERVICE_STATE.get(managed.name, {}).get("shutdown_timeout", 15)
+    _terminate_managed(managed, timeout, reason="shutdown")
+    managed.cleanup()
+
+
+def _record_scheduler_completion(
+    scheduler_name: str,
+    *,
+    ended_at: float,
+    exit_status: str,
+    ref: str,
+    cmd: list[str],
+) -> None:
+    health_dir = Path(get_journal()) / "health"
+    health_dir.mkdir(parents=True, exist_ok=True)
+    state_path = health_dir / "scheduler.json"
+    with _SCHEDULER_JSON_LOCK:
+        try:
+            with open(state_path, "r", encoding="utf-8") as file:
+                state = json.load(file)
+        except FileNotFoundError:
+            state = {}
+        except (json.JSONDecodeError, OSError) as exc:
+            logger.warning(
+                "Failed to load scheduler state for completion write: %s", exc
+            )
+            state = {}
+
+        current = state.get(scheduler_name)
+        if not isinstance(current, dict):
+            current = {}
+        current.update(
+            {
+                "last_run": ended_at,
+                "last_status": exit_status,
+                "last_ref": ref,
+            }
+        )
+        state[scheduler_name] = current
+
+        fd, tmp_path = tempfile.mkstemp(
+            dir=health_dir, suffix=".tmp", prefix=".scheduler_"
+        )
+        tmp_file = Path(tmp_path)
+        try:
+            with open(fd, "w", encoding="utf-8") as file:
+                json.dump(state, file, indent=2)
+            tmp_file.replace(state_path)
+        except BaseException:
+            tmp_file.unlink(missing_ok=True)
+            raise
 
 
 def _emit_queue_event(cmd_name: str, running_ref: str, queue: list) -> None:
@@ -802,14 +936,34 @@ def _handle_task_request(message: dict) -> None:
         logging.error(f"Invalid task request: missing cmd: {message}")
         return
 
-    ref = message.get("ref")
+    ref = message.get("ref") or str(now_ms())
     day = message.get("day")
+    scheduler_name = message.get("scheduler_name")
     if _task_queue:
-        _task_queue.submit(cmd, ref, day=day)
+        cmd_name = TaskQueue.get_command_name(cmd)
+        active_ref = _task_queue.get_active_by_cmd_name(cmd_name)
+        if active_ref:
+            with _task_queue._lock:
+                managed = _task_queue._active.get(active_ref)
+                cap = _task_queue._caps.get(cmd_name, 0)
+            runtime = time.time() - managed.start_time if managed else 0
+            reason = "wedged" if cap and runtime > 2 * cap else "still_running"
+            if _supervisor_callosum:
+                _supervisor_callosum.emit(
+                    "supervisor",
+                    "skipped",
+                    reason=reason,
+                    ref=ref,
+                    active_ref=active_ref,
+                    cmd=cmd,
+                    scheduler_name=scheduler_name,
+                )
+            return
+        _task_queue.submit(cmd, ref, day=day, scheduler_name=scheduler_name)
 
 
 def _restart_service(service: str) -> bool:
-    """Send SIGINT to a managed service to trigger graceful restart.
+    """Terminate a managed service to trigger graceful restart.
 
     Returns True if the service was found and running, False if not found
     or already exited.
@@ -822,7 +976,11 @@ def _restart_service(service: str) -> bool:
                 )
                 return False
 
-            logging.info(f"Restart requested for {service}, sending SIGINT...")
+            state = _SERVICE_STATE.setdefault(service, {})
+            state["restart"] = True
+            timeout = state.get("shutdown_timeout", 15)
+
+            logging.info(f"Restart requested for {service}, terminating...")
 
             if _supervisor_callosum:
                 _supervisor_callosum.emit(
@@ -833,11 +991,7 @@ def _restart_service(service: str) -> bool:
                     ref=proc.ref,
                 )
 
-            try:
-                proc.process.send_signal(signal.SIGINT)
-                _restart_requests[service] = (time.time(), proc.process)
-            except Exception as e:
-                logging.error(f"Failed to send SIGINT to {service}: {e}")
+            _start_termination_thread(service, proc, timeout=timeout, reason="restart")
             return True
 
     logging.warning(f"Cannot restart {service}: not found in managed processes")
@@ -874,7 +1028,7 @@ def get_task_status(ref: str) -> dict:
     return {"status": "not_found"}
 
 
-def collect_status(procs: list[ManagedProcess]) -> dict:
+def collect_status(procs: list[RunnerManagedProcess]) -> dict:
     """Collect current supervisor status for broadcasting."""
     now = time.time()
 
@@ -938,7 +1092,7 @@ def collect_status(procs: list[ManagedProcess]) -> dict:
     }
 
 
-def start_sense() -> ManagedProcess:
+def start_sense() -> RunnerManagedProcess:
     """Launch sol sense with output logging."""
     return _launch_process("sense", ["sol", "sense", "-v"], restart=True)
 
@@ -1023,13 +1177,13 @@ def stop_callosum_in_process() -> None:
     _callosum_thread = None
 
 
-def start_cortex_server() -> ManagedProcess:
+def start_cortex_server() -> RunnerManagedProcess:
     """Launch the Cortex WebSocket API server."""
     cmd = ["sol", "cortex", "-v"]
     return _launch_process("cortex", cmd, restart=True)
 
 
-def start_link_server() -> ManagedProcess:
+def start_link_server() -> RunnerManagedProcess:
     """Launch the link tunnel service (spl home-side endpoint)."""
     cmd = ["sol", "link", "-v"]
     return _launch_process("link", cmd, restart=True)
@@ -1037,11 +1191,11 @@ def start_link_server() -> ManagedProcess:
 
 def start_convey_server(
     verbose: bool, debug: bool = False, port: int = 0
-) -> tuple[ManagedProcess, int]:
+) -> tuple[RunnerManagedProcess, int]:
     """Launch the Convey web application with optional verbose and debug logging.
 
     Returns:
-        Tuple of (ManagedProcess, resolved_port) where resolved_port is the
+        Tuple of (RunnerManagedProcess, resolved_port) where resolved_port is the
         actual port being used (auto-selected if port was 0).
     """
     # Resolve port 0 to an available port before launching
@@ -1055,17 +1209,19 @@ def start_convey_server(
     return _launch_process("convey", cmd, restart=True), resolved_port
 
 
-def check_runner_exits(procs: list[ManagedProcess]) -> list[ManagedProcess]:
+def check_runner_exits(
+    procs: list[RunnerManagedProcess],
+) -> list[RunnerManagedProcess]:
     """Return managed processes that have exited."""
 
-    exited: list[ManagedProcess] = []
+    exited: list[RunnerManagedProcess] = []
     for managed in procs:
         if managed.process.poll() is not None:
             exited.append(managed)
     return exited
 
 
-async def handle_runner_exits(procs: list[ManagedProcess]) -> None:
+async def handle_runner_exits(procs: list[RunnerManagedProcess]) -> None:
     """Check for and handle exited processes with restart policy."""
     exited = check_runner_exits(procs)
     if not exited:
@@ -1083,9 +1239,6 @@ async def handle_runner_exits(procs: list[ManagedProcess]) -> None:
         logging.error(msg)
 
     for managed in exited:
-        # Clear any pending restart request for this service
-        _restart_requests.pop(managed.name, None)
-
         returncode = managed.process.returncode
         is_tempfail = returncode == EXIT_TEMPFAIL
         logging.info("%s exited with code %s", managed.name, returncode)
@@ -1110,7 +1263,8 @@ async def handle_runner_exits(procs: list[ManagedProcess]) -> None:
         managed.cleanup()
 
         # Handle restart if needed
-        if managed.restart and not shutdown_requested:
+        restart = _SERVICE_STATE.get(managed.name, {}).get("restart", False)
+        if restart and not shutdown_requested:
             # Tempfail: use fixed longer delay, don't burn through backoff
             if is_tempfail:
                 delay = TEMPFAIL_DELAY
@@ -1130,10 +1284,12 @@ async def handle_runner_exits(procs: list[ManagedProcess]) -> None:
                 continue
             logging.info("Restarting %s...", managed.name)
             try:
+                state = _SERVICE_STATE.get(managed.name, {})
                 new_proc = _launch_process(
                     managed.name,
                     managed.cmd,
                     restart=True,
+                    shutdown_timeout=state.get("shutdown_timeout", 15),
                 )
             except Exception as exc:
                 logging.exception("Failed to restart %s: %s", managed.name, exc)
@@ -1417,7 +1573,7 @@ async def supervise(
     *,
     daily: bool = True,
     schedule: bool = True,
-    procs: list[ManagedProcess] | None = None,
+    procs: list[RunnerManagedProcess] | None = None,
 ) -> None:
     """Main supervision loop. Runs at 1-second intervals for responsiveness.
 
@@ -1430,20 +1586,6 @@ async def supervise(
         while (
             not shutdown_requested
         ):  # pragma: no cover - loop checked via unit tests by patching
-            # Check for restart timeouts (enforce SIGKILL after 15s)
-            for service, (start_time, proc) in list(_restart_requests.items()):
-                if proc.poll() is not None:  # Already exited
-                    _restart_requests.pop(service, None)
-                elif time.time() - start_time > 15:
-                    logging.warning(
-                        f"{service} did not exit within 15s after SIGINT, sending SIGKILL"
-                    )
-                    try:
-                        proc.kill()
-                    except Exception as e:
-                        logging.error(f"Failed to kill {service}: {e}")
-                    # Don't delete here - let handle_runner_exits clean up
-
             if _task_queue:
                 _task_queue.enforce_deadlines(time.time())
 
@@ -1603,8 +1745,7 @@ def main() -> None:
     # Written here, not at _supervisor_start, to minimize drift from psutil create_time().
     start_time_path.write_text(str(time.time()))
     logging.info("Singleton lock acquired (PID %d)", os.getpid())
-    orphans = _find_reparented_sol_workers()
-    _reap_orphan_workers(orphans)
+    _sweep_cgroup_at_startup()
 
     # Set up signal handlers
     signal.signal(signal.SIGINT, handle_shutdown)
@@ -1618,7 +1759,7 @@ def main() -> None:
     global _managed_procs, _supervisor_callosum, _is_remote_mode
     global _digest_submitted_this_boot
     global _task_queue
-    procs: list[ManagedProcess] = []
+    procs: list[RunnerManagedProcess] = []
     convey_port = None
 
     # Remote mode: run sync instead of local processing
@@ -1794,30 +1935,12 @@ def main() -> None:
         logging.info("Stopping all processes...")
         print("\nShutting down gracefully (this may take a moment)...", flush=True)
 
-        def _stop_process(managed: ManagedProcess) -> None:
-            name = managed.name
-            logging.info("Stopping %s...", name)
-            print(f"  Stopping {name}...", end="", flush=True)
-            try:
-                timeout = getattr(managed, "shutdown_timeout", 15)
-                managed.terminate(timeout=timeout)
-                print(" done", flush=True)
-            except subprocess.TimeoutExpired:
-                logging.warning("%s did not terminate gracefully, killing...", name)
-                print(" timeout, forcing kill...", flush=True)
-            finally:
-                managed.cleanup()
+        if _task_queue:
+            _task_queue.shutdown(timeout=10)
 
         # Stop services in reverse order
         for managed in reversed(procs):
             _stop_process(managed)
-
-        # Save scheduler state before disconnecting
-        if schedule_enabled and scheduler._state:
-            try:
-                scheduler.save_state()
-            except Exception as exc:
-                logging.warning("Failed to save scheduler state on shutdown: %s", exc)
 
         if schedule_enabled:
             try:

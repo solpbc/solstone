@@ -412,6 +412,63 @@ def test_plaud_sync_skips_trashed_and_short(tmp_path, monkeypatch):
     assert state["files"]["short1"]["skip_reason"] == "too_short"
 
 
+def test_plaud_sync_save_calls_import_one_in_process(tmp_path, monkeypatch):
+    from think.importers.plaud import PlaudBackend
+    from think.importers.sync import load_sync_state
+
+    monkeypatch.setenv("PLAUD_ACCESS_TOKEN", "test-token")
+
+    def fake_download(_session, _url, dest_path, progress_cb=None):
+        dest_path.write_bytes(b"audio")
+        if progress_cb:
+            progress_cb()
+        return True
+
+    with (
+        patch("think.importers.plaud.list_files", side_effect=_mock_list_files),
+        patch("think.importers.plaud.get_temp_url", return_value="https://temp"),
+        patch("think.importers.plaud.download_to_file", side_effect=fake_download),
+        patch("think.importers.plaud.import_one") as import_mock,
+    ):
+        result = PlaudBackend().sync(tmp_path, dry_run=False)
+
+    assert result["downloaded"] == 2
+    assert import_mock.call_count == 2
+    for call in import_mock.call_args_list:
+        assert call.kwargs["source"] == "plaud"
+        assert call.kwargs["auto"] is True
+        assert call.kwargs["timestamp"]
+
+    state = load_sync_state(tmp_path, "plaud")
+    assert state["files"]["file1"]["status"] == "imported"
+    assert state["files"]["file2"]["status"] == "imported"
+
+
+def test_plaud_sync_save_records_import_one_errors(tmp_path, monkeypatch):
+    from think.importers.plaud import PlaudBackend
+
+    monkeypatch.setenv("PLAUD_ACCESS_TOKEN", "test-token")
+
+    def fake_download(_session, _url, dest_path, progress_cb=None):
+        dest_path.write_bytes(b"audio")
+        return True
+
+    with (
+        patch("think.importers.plaud.list_files", side_effect=_mock_list_files),
+        patch("think.importers.plaud.get_temp_url", return_value="https://temp"),
+        patch("think.importers.plaud.download_to_file", side_effect=fake_download),
+        patch(
+            "think.importers.plaud.import_one",
+            side_effect=RuntimeError("import boom"),
+        ),
+    ):
+        result = PlaudBackend().sync(tmp_path, dry_run=False)
+
+    assert result["downloaded"] == 0
+    assert len(result["errors"]) == 2
+    assert all("import boom" in error for error in result["errors"])
+
+
 def test_plaud_sync_cli_flag(capsys, monkeypatch, tmp_path):
     """sol import --sync plaud runs sync in dry-run mode."""
     import sys

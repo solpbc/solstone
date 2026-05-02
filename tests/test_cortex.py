@@ -5,6 +5,7 @@
 
 import json
 import os
+import signal
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -87,6 +88,18 @@ def test_cortex_service_initialization(cortex_service, mock_journal):
     assert cortex_service.talents_dir.exists()
 
 
+def test_cortex_installs_sigterm_handler():
+    from think import cortex
+
+    previous = signal.getsignal(signal.SIGTERM)
+    signal.signal(signal.SIGTERM, signal.SIG_DFL)
+    try:
+        cortex._install_sigterm_handler(MagicMock())
+        assert signal.getsignal(signal.SIGTERM) is not signal.SIG_DFL
+    finally:
+        signal.signal(signal.SIGTERM, previous)
+
+
 @patch("think.cortex.subprocess.Popen")
 @patch("think.cortex.threading.Thread")
 @patch("think.cortex.threading.Timer")
@@ -133,6 +146,7 @@ def test_spawn_subprocess(
     assert call_args[1]["stdin"] is not None
     assert call_args[1]["stdout"] is not None
     assert call_args[1]["stderr"] is not None
+    assert call_args[1]["process_group"] == 0
 
     # Check NDJSON was written to stdin
     mock_process.stdin.write.assert_called_once()

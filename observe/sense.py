@@ -15,6 +15,7 @@ import argparse
 import json
 import logging
 import os
+import signal
 import subprocess
 import threading
 import time
@@ -1038,6 +1039,14 @@ def scan_day(day_dir: Path) -> dict:
     }
 
 
+def _install_sigterm_handler(sensor: FileSensor) -> None:
+    def handle_sigterm(_signum, _frame) -> None:
+        logger.info("SIGTERM received, shutting down observe sensor")
+        sensor.stop()
+
+    signal.signal(signal.SIGTERM, handle_sigterm)
+
+
 def main():
     """CLI entry point."""
     parser = argparse.ArgumentParser(description="Unified observe file processor")
@@ -1153,6 +1162,7 @@ def main():
     else:
         # Event mode: listen for Callosum events
         logger.info("Starting observe sensor in event mode...")
+        _install_sigterm_handler(sensor)
         try:
             sensor.start()
         except KeyboardInterrupt:

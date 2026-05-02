@@ -6,7 +6,7 @@ your co-brain — observers experience your day along with you, sol curates your
 
 solstone runs in the background on your computer, experiencing your day along with you. AI agents transcribe, extract entities, detect meetings, build knowledge graphs, and surface daily insights — all without any manual input. everything stays on your machine in daily journal directories. open source, local-first, no cloud required.
 
-Python 3.10+, Linux + macOS, AGPL-3.0-only, maintained by [sol pbc](https://solpbc.org).
+Python 3.11+, Linux + macOS, AGPL-3.0-only, maintained by [sol pbc](https://solpbc.org).
 
 <img src="docs/static/screenshot-home.png" alt="solstone daily dashboard" width="800">
 

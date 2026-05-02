@@ -222,6 +222,8 @@ def _generate_systemd_unit(
         f"ExecStart={sol} supervisor {port}\n"
         f"Restart=on-failure\n"
         f"RestartSec=5\n"
+        f"KillMode=control-group\n"
+        f"TimeoutStopSec=30\n"
         f"{env_lines}\n"
         f"\n"
         f"[Install]\n"

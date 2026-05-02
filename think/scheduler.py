@@ -17,7 +17,6 @@ import argparse
 import json
 import logging
 import tempfile
-import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -408,7 +407,7 @@ def check() -> None:
     Called each supervisor tick (~1s). Does nothing unless an hour or day
     boundary has been crossed since the last check.
     """
-    global _entries, _last_hour, _last_daily_mark, _last_weekly_mark
+    global _entries, _state, _last_hour, _last_daily_mark, _last_weekly_mark
 
     if _last_hour is None:
         return
@@ -430,6 +429,7 @@ def check() -> None:
 
     # Boundary crossed — reload config for freshest definitions
     _entries = load_config()
+    _state = load_state()
     _last_hour = current_hour
     # Recompute with potentially updated _daily_time from config reload
     new_daily_mark = _compute_daily_mark(now, _daily_time)
@@ -466,7 +466,13 @@ def check() -> None:
         cmd = entry["cmd"]
 
         if _callosum:
-            ok = _callosum.emit("supervisor", "request", cmd=cmd, ref=ref)
+            ok = _callosum.emit(
+                "supervisor",
+                "request",
+                cmd=cmd,
+                ref=ref,
+                scheduler_name=name,
+            )
             if ok:
                 logger.info(
                     "Scheduled task submitted: %s → %s (ref=%s)",
@@ -474,7 +480,6 @@ def check() -> None:
                     " ".join(cmd),
                     ref,
                 )
-                _state.setdefault(name, {})["last_run"] = time.time()
                 submitted = True
             else:
                 logger.warning(
@@ -484,10 +489,7 @@ def check() -> None:
             logger.warning("No callosum connection for scheduled task: %s", name)
 
     if submitted:
-        try:
-            save_state()
-        except Exception as exc:
-            logger.warning("Failed to save scheduler state: %s", exc)
+        logger.debug("Submitted scheduled task batch")
 
 
 def collect_status() -> list[dict[str, Any]]:

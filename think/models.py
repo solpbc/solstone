@@ -7,7 +7,6 @@ import inspect
 import json
 import logging
 import os
-import subprocess
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -16,6 +15,7 @@ from typing import Any, Dict, List, Optional, Union
 import frontmatter
 from jsonschema import Draft202012Validator
 
+from think.callosum import callosum_send
 from think.utils import get_config, get_journal, now_ms
 
 logger = logging.getLogger(__name__)
@@ -1280,20 +1280,14 @@ def should_recheck_health(health_data: Optional[dict]) -> bool:
 
 
 def request_health_recheck() -> None:
-    """Request a health re-check by spawning a background process.
-
-    Fire-and-forget; errors are logged but never propagated.
-    """
-    try:
-        subprocess.Popen(
-            ["sol", "providers", "check", "--targeted"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-    except Exception:
-        logging.getLogger(__name__).debug(
-            "Failed to request health recheck", exc_info=True
-        )
+    """Request a health re-check through the supervisor."""
+    ok = callosum_send(
+        "supervisor",
+        "request",
+        cmd=["sol", "providers", "check", "--targeted"],
+    )
+    if not ok:
+        logger.warning("request_health_recheck: callosum_send returned false")
 
 
 def generate_with_result(

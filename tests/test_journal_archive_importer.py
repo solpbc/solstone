@@ -109,8 +109,8 @@ def test_journal_archive_importer_process_merges_wrapped_archive(tmp_path, monke
     target = tmp_path / "target"
     _reset_journal(monkeypatch, target)
 
-    popen = MagicMock()
-    monkeypatch.setattr(journal_archive.subprocess, "Popen", popen)
+    send = MagicMock(return_value=True)
+    monkeypatch.setattr(journal_archive, "callosum_send", send)
 
     result = journal_archive.JournalArchiveImporter().process(
         archive_path,
@@ -126,11 +126,10 @@ def test_journal_archive_importer_process_merges_wrapped_archive(tmp_path, monke
     assert (target / "chronicle" / "20260101" / "default" / "090000_300").exists()
     assert (target / "entities" / "source_person" / "entity.json").exists()
     assert (target / "imports" / "20260101_090000" / "manifest.json").exists()
-    popen.assert_called_once_with(
-        ["sol", "indexer", "--rescan-full"],
-        stdout=journal_archive.subprocess.DEVNULL,
-        stderr=journal_archive.subprocess.DEVNULL,
-        start_new_session=True,
+    send.assert_called_once_with(
+        "supervisor",
+        "request",
+        cmd=["sol", "indexer", "--rescan-full"],
     )
 
 
@@ -173,7 +172,7 @@ def test_dispatcher_blocks_file_import_when_merge_lock_held(tmp_path, monkeypatc
     monkeypatch.setattr(mod, "get_rev", lambda: "test-rev")
     monkeypatch.setattr(mod, "_status_emitter", lambda: None)
 
-    with pytest.raises(journal_archive.MergeLockError, match="pid"):
+    with pytest.raises(SystemExit, match="pid"):
         mod.main()
 
     assert mock_imp.process.call_count == 0
@@ -217,9 +216,9 @@ def test_dispatcher_treats_archive_lock_contention_as_failure(tmp_path, monkeypa
     monkeypatch.setattr(mod, "CallosumConnection", lambda **kwargs: callosum)
     monkeypatch.setattr(mod, "get_rev", lambda: "test-rev")
     monkeypatch.setattr(mod, "_status_emitter", lambda: None)
-    monkeypatch.setattr(journal_archive.subprocess, "Popen", MagicMock())
+    monkeypatch.setattr(journal_archive, "callosum_send", MagicMock(return_value=True))
 
-    with pytest.raises(journal_archive.MergeLockError, match="pid"):
+    with pytest.raises(SystemExit, match="pid"):
         mod.main()
 
     emit_kinds = [call.args[:2] for call in callosum.emit.call_args_list]
@@ -289,7 +288,7 @@ def test_journal_archive_importer_process_bridges_merge_progress(tmp_path, monke
 
     target = tmp_path / "target"
     _reset_journal(monkeypatch, target)
-    monkeypatch.setattr(journal_archive.subprocess, "Popen", MagicMock())
+    monkeypatch.setattr(journal_archive, "callosum_send", MagicMock(return_value=True))
 
     events: list[tuple[int, int, str | None]] = []
 
@@ -360,7 +359,7 @@ def test_journal_archive_importer_logs_segment_errors(tmp_path, monkeypatch):
 
     target = tmp_path / "target"
     _reset_journal(monkeypatch, target)
-    monkeypatch.setattr(journal_archive.subprocess, "Popen", MagicMock())
+    monkeypatch.setattr(journal_archive, "callosum_send", MagicMock(return_value=True))
 
     merge_mod = importlib.import_module("think.merge")
     original_copytree = merge_mod.shutil.copytree
@@ -412,7 +411,7 @@ def test_journal_archive_importer_logs_staged_entity_paths(tmp_path, monkeypatch
 
     target = tmp_path / "target"
     _reset_journal(monkeypatch, target)
-    monkeypatch.setattr(journal_archive.subprocess, "Popen", MagicMock())
+    monkeypatch.setattr(journal_archive, "callosum_send", MagicMock(return_value=True))
     _write_json(
         target / "entities" / "shared_person" / "entity.json",
         {
@@ -456,8 +455,8 @@ def test_journal_archive_importer_process_dry_run_is_read_only(tmp_path, monkeyp
 
     target = tmp_path / "target"
     _reset_journal(monkeypatch, target)
-    popen = MagicMock()
-    monkeypatch.setattr(journal_archive.subprocess, "Popen", popen)
+    send = MagicMock(return_value=True)
+    monkeypatch.setattr(journal_archive, "callosum_send", send)
 
     result = journal_archive.JournalArchiveImporter().process(
         archive_path,
@@ -469,7 +468,7 @@ def test_journal_archive_importer_process_dry_run_is_read_only(tmp_path, monkeyp
     assert result.merge_summary is not None
     assert result.merge_summary["segments_copied"] == 1
     assert not (target / "chronicle").exists()
-    popen.assert_not_called()
+    send.assert_not_called()
 
 
 def test_journal_archive_importer_safe_extract_rejects_escape_target(
@@ -542,7 +541,7 @@ def test_journal_archive_importer_safe_extract_skips_metadata_entries(
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
-def test_journal_archive_importer_process_starts_async_full_rescan(
+def test_journal_archive_importer_process_requests_async_full_rescan(
     tmp_path, monkeypatch
 ):
     archive_path = tmp_path / "journal-export.zip"
@@ -553,8 +552,8 @@ def test_journal_archive_importer_process_starts_async_full_rescan(
 
     target = tmp_path / "target"
     _reset_journal(monkeypatch, target)
-    popen = MagicMock()
-    monkeypatch.setattr(journal_archive.subprocess, "Popen", popen)
+    send = MagicMock(return_value=True)
+    monkeypatch.setattr(journal_archive, "callosum_send", send)
 
     journal_archive.JournalArchiveImporter().process(
         archive_path,
@@ -562,15 +561,14 @@ def test_journal_archive_importer_process_starts_async_full_rescan(
         import_id="20260426_120000",
     )
 
-    popen.assert_called_once_with(
-        ["sol", "indexer", "--rescan-full"],
-        stdout=journal_archive.subprocess.DEVNULL,
-        stderr=journal_archive.subprocess.DEVNULL,
-        start_new_session=True,
+    send.assert_called_once_with(
+        "supervisor",
+        "request",
+        cmd=["sol", "indexer", "--rescan-full"],
     )
 
 
-def test_journal_archive_importer_process_warns_when_full_rescan_launch_fails(
+def test_journal_archive_importer_warns_when_callosum_send_fails(
     tmp_path, monkeypatch, caplog
 ):
     archive_path = tmp_path / "journal-export.zip"
@@ -581,11 +579,7 @@ def test_journal_archive_importer_process_warns_when_full_rescan_launch_fails(
 
     target = tmp_path / "target"
     _reset_journal(monkeypatch, target)
-    monkeypatch.setattr(
-        journal_archive.subprocess,
-        "Popen",
-        MagicMock(side_effect=OSError("nope")),
-    )
+    monkeypatch.setattr(journal_archive, "callosum_send", MagicMock(return_value=False))
 
     with caplog.at_level("WARNING"):
         result = journal_archive.JournalArchiveImporter().process(
@@ -595,7 +589,7 @@ def test_journal_archive_importer_process_warns_when_full_rescan_launch_fails(
         )
 
     assert result.errors == []
-    assert "Failed to start full index rescan" in caplog.text
+    assert "post-merge full reindex: callosum_send returned false" in caplog.text
 
 
 def test_journal_archive_importer_process_cleans_extract_dir_on_success_and_error(
@@ -609,7 +603,7 @@ def test_journal_archive_importer_process_cleans_extract_dir_on_success_and_erro
 
     target = tmp_path / "target"
     _reset_journal(monkeypatch, target)
-    monkeypatch.setattr(journal_archive.subprocess, "Popen", MagicMock())
+    monkeypatch.setattr(journal_archive, "callosum_send", MagicMock(return_value=True))
 
     journal_archive.JournalArchiveImporter().process(
         archive_path,

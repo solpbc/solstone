@@ -291,7 +291,7 @@ class ManagedProcess:
                 text=True,
                 bufsize=1,
                 env=env,
-                start_new_session=True,
+                process_group=0,
             )
         except Exception as exc:
             log_writer.close()

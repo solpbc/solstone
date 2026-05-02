@@ -259,7 +259,7 @@ class PinchTab:
                 env=env,
                 stdout=subprocess.DEVNULL,
                 stderr=self._stderr_file,
-                start_new_session=True,
+                process_group=0,
             )
         except Exception as exc:
             self._stderr_file.close()

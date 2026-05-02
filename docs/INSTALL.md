@@ -4,7 +4,7 @@ Complete setup instructions for solstone on Linux and macOS.
 
 ## Prerequisites
 
-- Python 3.10 or later
+- Python 3.11 or later
 - [uv](https://docs.astral.sh/uv/) (Python package manager)
 - Git
 - ffmpeg (for audio processing)

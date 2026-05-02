@@ -32,6 +32,7 @@ def test_task_queue_defers_submit_when_not_ready(monkeypatch):
             "refs": ["pending-ref"],
             "cmd": ["sol", "indexer", "--rescan"],
             "day": "20260418",
+            "scheduler_name": None,
         }
     ]
     assert queue.collect_queue_counts() == {"pending": 1}
@@ -82,7 +83,12 @@ def test_task_queue_set_ready_dedupes_same_cmd_in_pending(monkeypatch):
     assert len(started) == 1
     assert started[0][0] == ["ref-1"]
     assert queue._queues["indexer"] == [
-        {"refs": ["ref-2"], "cmd": ["sol", "indexer", "--rescan"], "day": None}
+        {
+            "refs": ["ref-2"],
+            "cmd": ["sol", "indexer", "--rescan"],
+            "day": None,
+            "scheduler_name": None,
+        }
     ]
 
 

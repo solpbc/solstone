@@ -3,10 +3,11 @@
 
 import importlib
 import io
+import json
 import os
-import signal
 import subprocess
 import sys
+import threading
 from unittest.mock import MagicMock
 
 import psutil
@@ -37,7 +38,7 @@ def test_start_sense(tmp_path, mock_callosum, monkeypatch):
         stderr=None,
         text=False,
         bufsize=-1,
-        start_new_session=False,
+        process_group=None,
         env=None,
     ):
         proc = DummyProc()
@@ -56,6 +57,47 @@ def test_start_sense(tmp_path, mock_callosum, monkeypatch):
     for cmd, stdout, stderr in started:
         assert stdout == subprocess.PIPE
         assert stderr == subprocess.PIPE
+
+
+def test_launch_process_records_service_state(monkeypatch):
+    mod = importlib.import_module("think.supervisor")
+    mod._SERVICE_STATE.clear()
+
+    process = MagicMock()
+    process.pid = 12345
+    managed = mod.RunnerManagedProcess(
+        process=process,
+        name="unit",
+        log_writer=MagicMock(),
+        cmd=["sol", "sense"],
+        _threads=[],
+        ref="ref-1",
+        _start_time=100.0,
+        _callosum=None,
+    )
+
+    def fake_spawn(cmd, *, ref=None, callosum=None, day=None):
+        assert cmd == ["sol", "sense"]
+        assert ref == "ref-1"
+        assert day is None
+        return managed
+
+    monkeypatch.setattr(mod.RunnerManagedProcess, "spawn", fake_spawn)
+
+    result = mod._launch_process(
+        "unit",
+        ["sol", "sense"],
+        restart=True,
+        shutdown_timeout=7,
+        ref="ref-1",
+    )
+
+    assert result is managed
+    assert isinstance(result, mod.RunnerManagedProcess)
+    assert mod._SERVICE_STATE["unit"] == {
+        "restart": True,
+        "shutdown_timeout": 7,
+    }
 
 
 def test_parse_args_remote_flag():
@@ -97,60 +139,42 @@ def test_parse_args_lifecycle_verb_hint(monkeypatch, capsys):
 
 def test_shutdown_stops_in_reverse_order(monkeypatch):
     """Shutdown stops services in reverse order."""
+    mod = importlib.import_module("think.supervisor")
     operations = []
-
-    class MockProc:
-        def __init__(self, name):
-            self._name = name
-
-        def terminate(self):
-            operations.append(("terminate", self._name))
-
-        def wait(self, timeout=None):
-            operations.append(("wait", self._name))
-
-        def kill(self):
-            pass
-
-        def poll(self):
-            return None
 
     class MockManaged:
         def __init__(self, name):
             self.name = name
-            self.process = MockProc(name)
-            self.shutdown_timeout = 15
-
-        def cleanup(self):
-            operations.append(("cleanup", self.name))
+            self.terminate = MagicMock(
+                side_effect=lambda timeout=None: operations.append(
+                    ("terminate", self.name, timeout)
+                )
+            )
+            self.cleanup = MagicMock(
+                side_effect=lambda: operations.append(("cleanup", self.name))
+            )
 
     procs = [
         MockManaged("convey"),
         MockManaged("sense"),
         MockManaged("cortex"),
     ]
+    mod._SERVICE_STATE.clear()
+    for managed in procs:
+        mod._SERVICE_STATE[managed.name] = {
+            "restart": True,
+            "shutdown_timeout": 15,
+        }
 
     for managed in reversed(procs):
-        proc = managed.process
-        try:
-            proc.terminate()
-        except Exception:
-            pass
-        try:
-            proc.wait(timeout=managed.shutdown_timeout)
-        except Exception:
-            pass
-        managed.cleanup()
+        mod._stop_process(managed)
 
     assert operations == [
-        ("terminate", "cortex"),
-        ("wait", "cortex"),
+        ("terminate", "cortex", 15),
         ("cleanup", "cortex"),
-        ("terminate", "sense"),
-        ("wait", "sense"),
+        ("terminate", "sense", 15),
         ("cleanup", "sense"),
-        ("terminate", "convey"),
-        ("wait", "convey"),
+        ("terminate", "convey", 15),
         ("cleanup", "convey"),
     ]
 
@@ -554,15 +578,19 @@ def test_stale_queue_detected_on_submit(monkeypatch):
 
 class _TaskProcessStub:
     def __init__(self):
-        self.send_signal = MagicMock()
-        self.kill = MagicMock()
+        self.poll = MagicMock(return_value=None)
+        self.pid = 12345
 
 
 class _TaskManagedStub:
     def __init__(self, *, cmd, start_time=100.0):
+        self.name = "task"
         self.cmd = cmd
         self.start_time = start_time
         self.process = _TaskProcessStub()
+        self.ref = "ref-1"
+        self.terminate = MagicMock()
+        self.cleanup = MagicMock()
 
 
 def test_taskqueue_set_cap_records_cap():
@@ -574,7 +602,301 @@ def test_taskqueue_set_cap_records_cap():
     assert queue._caps["import"] == 1800
 
 
-def test_enforce_deadlines_sends_sigterm_when_elapsed_exceeds_cap(caplog):
+def test_task_queue_history_records_completion(tmp_path, monkeypatch):
+    mod = importlib.import_module("think.supervisor")
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
+    (tmp_path / "health").mkdir(parents=True, exist_ok=True)
+
+    queue = mod.TaskQueue(on_queue_change=None)
+    callosum = MagicMock()
+
+    class FakeCallosum:
+        def start(self, callback=None):
+            return None
+
+        def emit(self, *args, **kwargs):
+            return callosum.emit(*args, **kwargs)
+
+        def stop(self):
+            return None
+
+    managed = MagicMock()
+    managed.pid = 12345
+    managed.wait.return_value = 0
+    managed.cleanup = MagicMock()
+
+    def fake_spawn(cmd, *, ref=None, callosum=None, day=None):
+        managed.cmd = cmd
+        managed.ref = ref
+        return managed
+
+    monkeypatch.setattr(mod, "CallosumConnection", FakeCallosum)
+    monkeypatch.setattr(mod.RunnerManagedProcess, "spawn", fake_spawn)
+
+    queue._run_task(
+        ["ref-1"],
+        ["sol", "heartbeat"],
+        "heartbeat",
+        None,
+        "heartbeat",
+    )
+
+    assert list(queue._history) == [
+        {
+            "name": "heartbeat",
+            "cmd": ["sol", "heartbeat"],
+            "ref": "ref-1",
+            "ended_at": queue._history[0]["ended_at"],
+            "exit_status": "ok",
+            "scheduler_name": "heartbeat",
+        }
+    ]
+
+
+def test_scheduler_completion_updates_scheduler_json(tmp_path, monkeypatch):
+    mod = importlib.import_module("think.supervisor")
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
+    health_dir = tmp_path / "health"
+    health_dir.mkdir(parents=True, exist_ok=True)
+    state_path = health_dir / "scheduler.json"
+    state_path.write_text(
+        '{"heartbeat": {"custom": "kept"}, "other": {"last_run": 1}}',
+        encoding="utf-8",
+    )
+
+    mod._record_scheduler_completion(
+        "heartbeat",
+        ended_at=123.0,
+        exit_status="ok",
+        ref="ref-1",
+        cmd=["sol", "heartbeat"],
+    )
+
+    data = json.loads(state_path.read_text(encoding="utf-8"))
+    assert data["heartbeat"] == {
+        "custom": "kept",
+        "last_run": 123.0,
+        "last_status": "ok",
+        "last_ref": "ref-1",
+    }
+    assert data["other"] == {"last_run": 1}
+
+
+def test_run_task_completes_when_scheduler_writeback_fails(monkeypatch):
+    mod = importlib.import_module("think.supervisor")
+    queue = mod.TaskQueue(on_queue_change=None)
+    callosum = MagicMock()
+
+    class FakeCallosum:
+        def start(self, callback=None):
+            return None
+
+        def emit(self, *args, **kwargs):
+            return callosum.emit(*args, **kwargs)
+
+        def stop(self):
+            return callosum.stop()
+
+    managed = MagicMock()
+    managed.pid = 12345
+    managed.wait.return_value = 0
+    managed.cleanup = MagicMock()
+
+    def fake_spawn(cmd, *, ref=None, callosum=None, day=None):
+        managed.cmd = cmd
+        managed.ref = ref
+        return managed
+
+    monkeypatch.setattr(mod, "CallosumConnection", FakeCallosum)
+    monkeypatch.setattr(mod.RunnerManagedProcess, "spawn", fake_spawn)
+    monkeypatch.setattr(
+        mod,
+        "_record_scheduler_completion",
+        MagicMock(side_effect=OSError("disk full")),
+    )
+    process_next = MagicMock()
+    monkeypatch.setattr(queue, "_process_next", process_next)
+
+    queue._run_task(
+        ["ref-1"],
+        ["sol", "heartbeat"],
+        "heartbeat",
+        None,
+        "heartbeat",
+    )
+
+    callosum.stop.assert_called_once()
+    process_next.assert_called_once_with("heartbeat")
+
+
+def test_record_scheduler_completion_serializes_concurrent_writes(
+    tmp_path, monkeypatch
+):
+    mod = importlib.import_module("think.supervisor")
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
+
+    threads = [
+        threading.Thread(
+            target=mod._record_scheduler_completion,
+            args=(name,),
+            kwargs={
+                "ended_at": ended_at,
+                "exit_status": "ok",
+                "ref": f"ref-{name}",
+                "cmd": ["sol", name],
+            },
+        )
+        for name, ended_at in [("first", 101.0), ("second", 202.0)]
+    ]
+
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    state_path = tmp_path / "health" / "scheduler.json"
+    data = json.loads(state_path.read_text(encoding="utf-8"))
+    assert data["first"]["last_run"] == 101.0
+    assert data["second"]["last_run"] == 202.0
+
+
+def test_task_history_records_cap_kill_as_timeout(monkeypatch):
+    mod = importlib.import_module("think.supervisor")
+    queue = mod.TaskQueue(on_queue_change=None)
+    queue.set_cap("import", 50)
+    callosum = MagicMock()
+
+    class FakeCallosum:
+        def start(self, callback=None):
+            return None
+
+        def emit(self, *args, **kwargs):
+            return callosum.emit(*args, **kwargs)
+
+        def stop(self):
+            return None
+
+    managed = MagicMock()
+    managed.pid = 12345
+    managed.cmd = ["sol", "import"]
+    managed.ref = "ref-1"
+    managed.start_time = 100.0
+    managed.cleanup = MagicMock()
+
+    def wait():
+        queue.enforce_deadlines(200.0)
+        return -15
+
+    managed.wait.side_effect = wait
+
+    def fake_spawn(cmd, *, ref=None, callosum=None, day=None):
+        return managed
+
+    monkeypatch.setattr(mod, "CallosumConnection", FakeCallosum)
+    monkeypatch.setattr(mod.RunnerManagedProcess, "spawn", fake_spawn)
+    monkeypatch.setattr(mod, "_start_termination_thread", MagicMock())
+
+    queue._run_task(["ref-1"], ["sol", "import"], "import")
+
+    assert queue._history[0]["exit_status"] == "timeout"
+
+
+def test_handle_task_request_skips_still_running(monkeypatch):
+    mod = importlib.import_module("think.supervisor")
+    queue = mod.TaskQueue(on_queue_change=None)
+    managed = _TaskManagedStub(cmd=["sol", "import"], start_time=100.0)
+    queue._active["active-ref"] = managed
+    queue.set_cap("import", 50)
+    callosum = MagicMock()
+
+    monkeypatch.setattr(mod, "_task_queue", queue)
+    monkeypatch.setattr(mod, "_supervisor_callosum", callosum)
+    monkeypatch.setattr(mod.time, "time", lambda: 150.0)
+
+    mod._handle_task_request(
+        {
+            "tract": "supervisor",
+            "event": "request",
+            "cmd": ["sol", "import", "--sync", "plaud"],
+            "ref": "requested-ref",
+            "scheduler_name": "sync-plaud",
+        }
+    )
+
+    callosum.emit.assert_called_once_with(
+        "supervisor",
+        "skipped",
+        reason="still_running",
+        ref="requested-ref",
+        active_ref="active-ref",
+        cmd=["sol", "import", "--sync", "plaud"],
+        scheduler_name="sync-plaud",
+    )
+    assert queue._queues == {}
+
+
+def test_handle_task_request_skips_wedged(monkeypatch):
+    mod = importlib.import_module("think.supervisor")
+    queue = mod.TaskQueue(on_queue_change=None)
+    managed = _TaskManagedStub(cmd=["sol", "import"], start_time=100.0)
+    queue._active["active-ref"] = managed
+    queue.set_cap("import", 50)
+    callosum = MagicMock()
+
+    monkeypatch.setattr(mod, "_task_queue", queue)
+    monkeypatch.setattr(mod, "_supervisor_callosum", callosum)
+    monkeypatch.setattr(mod.time, "time", lambda: 201.0)
+
+    mod._handle_task_request(
+        {
+            "tract": "supervisor",
+            "event": "request",
+            "cmd": ["sol", "import", "--sync", "plaud"],
+            "ref": "requested-ref",
+        }
+    )
+
+    assert callosum.emit.call_args.kwargs["reason"] == "wedged"
+    assert callosum.emit.call_args.kwargs["active_ref"] == "active-ref"
+
+
+def test_task_queue_shutdown_terminates_active_tasks():
+    mod = importlib.import_module("think.supervisor")
+    queue = mod.TaskQueue(on_queue_change=None)
+    first = _TaskManagedStub(cmd=["sol", "import"])
+    second = _TaskManagedStub(cmd=["sol", "indexer"])
+    queue._active = {"first": first, "second": second}
+
+    assert queue.shutdown() == 2
+
+    first.terminate.assert_called_once_with(timeout=10.0)
+    second.terminate.assert_called_once_with(timeout=10.0)
+
+
+def test_task_queue_shutdown_empty_is_noop():
+    mod = importlib.import_module("think.supervisor")
+    queue = mod.TaskQueue(on_queue_change=None)
+
+    assert queue.shutdown() == 0
+
+
+def test_task_queue_shutdown_continues_after_timeout():
+    mod = importlib.import_module("think.supervisor")
+    queue = mod.TaskQueue(on_queue_change=None)
+    first = _TaskManagedStub(cmd=["sol", "import"])
+    second = _TaskManagedStub(cmd=["sol", "indexer"])
+    first.terminate.side_effect = subprocess.TimeoutExpired(
+        cmd=["sol", "import"], timeout=10
+    )
+    queue._active = {"first": first, "second": second}
+
+    assert queue.shutdown() == 2
+
+    first.terminate.assert_called_once_with(timeout=10.0)
+    second.terminate.assert_called_once_with(timeout=10.0)
+
+
+def test_enforce_deadlines_terminates_when_elapsed_exceeds_cap(caplog, monkeypatch):
     mod = importlib.import_module("think.supervisor")
     queue = mod.TaskQueue(on_queue_change=None)
     managed = _TaskManagedStub(
@@ -584,42 +906,36 @@ def test_enforce_deadlines_sends_sigterm_when_elapsed_exceeds_cap(caplog):
     queue._active["ref-1"] = managed
     queue.set_cap("import", 50)
 
+    def terminate_now(key, managed_arg, timeout, reason):
+        assert key == "ref-1"
+        assert managed_arg is managed
+        assert timeout == 2.0
+        assert reason == "cap"
+        managed_arg.terminate(timeout=timeout)
+
+    monkeypatch.setattr(mod, "_start_termination_thread", terminate_now)
     caplog.set_level("WARNING")
     queue.enforce_deadlines(200.0)
 
-    managed.process.send_signal.assert_called_once_with(signal.SIGTERM)
-    assert queue._terminations["ref-1"] == 200.0
+    managed.terminate.assert_called_once_with(timeout=2.0)
     assert (
         "Task import (cmd=sol import --sync plaud --save, ref=ref-1) exceeded "
-        "max_runtime of 50s (elapsed=100s); sending SIGTERM"
+        "max_runtime of 50s (elapsed=100s); terminating"
     ) in caplog.text
 
 
-def test_enforce_deadlines_escalates_to_sigkill_after_15s(caplog):
+def test_terminate_managed_logs_timeout(caplog):
     mod = importlib.import_module("think.supervisor")
-    queue = mod.TaskQueue(on_queue_change=None)
     managed = _TaskManagedStub(cmd=["sol", "import"], start_time=100.0)
-    queue._active["ref-1"] = managed
-    queue._terminations["ref-1"] = 200.0
+    managed.terminate.side_effect = subprocess.TimeoutExpired(
+        cmd=managed.cmd, timeout=3
+    )
 
     caplog.set_level("WARNING")
-    queue.enforce_deadlines(216.0)
+    mod._terminate_managed(managed, 3, reason="test")
 
-    managed.process.kill.assert_called_once_with()
-    assert queue._terminations["ref-1"] == 0.0
-    assert (
-        "Task import (ref=ref-1) did not exit 15s after SIGTERM; sending SIGKILL"
-    ) in caplog.text
-
-
-def test_enforce_deadlines_clears_termination_state_when_ref_exits():
-    mod = importlib.import_module("think.supervisor")
-    queue = mod.TaskQueue(on_queue_change=None)
-    queue._terminations["ref-1"] = 200.0
-
-    queue.enforce_deadlines(216.0)
-
-    assert "ref-1" not in queue._terminations
+    managed.terminate.assert_called_once_with(timeout=3)
+    assert "task did not terminate within 3.0s for test" in caplog.text
 
 
 def test_enforce_deadlines_noop_when_no_cap():
@@ -630,9 +946,49 @@ def test_enforce_deadlines_noop_when_no_cap():
 
     queue.enforce_deadlines(10_000.0)
 
-    managed.process.send_signal.assert_not_called()
-    managed.process.kill.assert_not_called()
-    assert queue._terminations == {}
+    managed.terminate.assert_not_called()
+
+
+def test_restart_service_uses_single_termination_path(monkeypatch):
+    mod = importlib.import_module("think.supervisor")
+    managed = _TaskManagedStub(cmd=["sol", "sense"], start_time=100.0)
+    managed.name = "sense"
+    managed.ref = "ref-sense"
+    mod._managed_procs = [managed]
+    mod._SERVICE_STATE.clear()
+    mod._SERVICE_STATE["sense"] = {
+        "restart": False,
+        "shutdown_timeout": 7,
+    }
+
+    def terminate_now(key, managed_arg, timeout, reason):
+        assert key == "sense"
+        assert managed_arg is managed
+        assert timeout == 7
+        assert reason == "restart"
+        managed_arg.terminate(timeout=timeout)
+
+    monkeypatch.setattr(mod, "_start_termination_thread", terminate_now)
+
+    assert mod._restart_service("sense") is True
+    managed.terminate.assert_called_once_with(timeout=7)
+    assert mod._SERVICE_STATE["sense"]["restart"] is True
+
+
+def test_stop_process_uses_service_shutdown_timeout():
+    mod = importlib.import_module("think.supervisor")
+    managed = _TaskManagedStub(cmd=["sol", "link"], start_time=100.0)
+    managed.name = "link"
+    mod._SERVICE_STATE.clear()
+    mod._SERVICE_STATE["link"] = {
+        "restart": True,
+        "shutdown_timeout": 9,
+    }
+
+    mod._stop_process(managed)
+
+    managed.terminate.assert_called_once_with(timeout=9)
+    managed.cleanup.assert_called_once_with()
 
 
 def test_supervisor_singleton_lock_acquired(tmp_path, monkeypatch):

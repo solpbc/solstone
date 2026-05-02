@@ -21,7 +21,7 @@ Each package has a README.md symlink pointing to its documentation in `docs/`.
 
 ## Package Organization
 
-- **Python**: Requires Python 3.10+
+- **Python**: Requires Python 3.11+
 - **Modules**: Each top-level folder is a Python package with `__init__.py` unless it is data-only (e.g., `tests/fixtures/`)
 - **Imports**: Prefer absolute imports (e.g., `from think.utils import setup_cli`) whenever feasible
 - **Entry Points**: Commands are registered in `think/sol_cli.py`'s `COMMANDS` dict (pyproject.toml just defines the `sol` entry point)

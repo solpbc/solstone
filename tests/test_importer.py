@@ -1174,6 +1174,91 @@ def test_file_importer_with_timestamp(tmp_path, monkeypatch):
     assert (tmp_path / "imports" / "20260303_120000" / "manifest.json").exists()
 
 
+def test_import_one_returns_metadata(tmp_path, monkeypatch):
+    mod = importlib.import_module("think.importers.cli")
+
+    ics_file = tmp_path / "calendar.ics"
+    ics_file.write_text("BEGIN:VCALENDAR\nEND:VCALENDAR")
+
+    mock_imp = _make_mock_file_importer()
+    callosum = MagicMock()
+
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
+    monkeypatch.setattr(
+        "think.importers.file_importer.get_file_importer", lambda name: mock_imp
+    )
+    monkeypatch.setattr(mod, "CallosumConnection", lambda **kwargs: callosum)
+    monkeypatch.setattr(mod, "get_rev", lambda: "test-rev")
+    monkeypatch.setattr(mod, "_status_emitter", lambda: None)
+    monkeypatch.setattr(mod, "index_file", lambda journal, file_path: True)
+
+    result = mod.import_one(
+        ics_file,
+        source="ics",
+        timestamp="20260303_120000",
+    )
+
+    assert result is not None
+    assert result["processed_timestamp"] == "20260303_120000"
+    assert result["entries_written"] == 42
+    assert result["entities_seeded"] == 5
+    assert result["all_created_files"] == [
+        "/journal/20250101/import.ics/imported.jsonl"
+    ]
+    assert result["source_type"] == "ics"
+
+
+def test_import_one_invalid_timestamp_raises_value_error(tmp_path):
+    mod = importlib.import_module("think.importers.cli")
+    media = tmp_path / "note.txt"
+    media.write_text("hello", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="timestamp must be in YYYYMMDD_HHMMSS format"):
+        mod.import_one(media, timestamp="not-a-timestamp")
+
+
+def test_file_importer_indexes_created_files_in_process(tmp_path, monkeypatch):
+    mod = importlib.import_module("think.importers.cli")
+
+    ics_file = tmp_path / "calendar.ics"
+    ics_file.write_text("BEGIN:VCALENDAR\nEND:VCALENDAR")
+
+    created_files = [
+        str(tmp_path / "chronicle" / "20250101" / "import.ics" / "one.md"),
+        str(tmp_path / "chronicle" / "20250102" / "import.ics" / "two.md"),
+    ]
+    mock_imp = _make_mock_file_importer()
+    mock_imp.process.return_value = ImportResult(
+        entries_written=2,
+        entities_seeded=0,
+        files_created=created_files,
+        errors=[],
+        summary="Imported 2 events",
+    )
+    callosum = MagicMock()
+    index_mock = MagicMock(return_value=True)
+
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
+    monkeypatch.setattr(
+        "think.importers.file_importer.get_file_importer", lambda name: mock_imp
+    )
+    monkeypatch.setattr(mod, "CallosumConnection", lambda **kwargs: callosum)
+    monkeypatch.setattr(mod, "get_rev", lambda: "test-rev")
+    monkeypatch.setattr(mod, "_status_emitter", lambda: None)
+    monkeypatch.setattr(mod, "index_file", index_mock)
+
+    mod.import_one(
+        ics_file,
+        source="ics",
+        timestamp="20260303_120000",
+    )
+
+    assert [call.args for call in index_mock.call_args_list] == [
+        (str(tmp_path), created_files[0]),
+        (str(tmp_path), created_files[1]),
+    ]
+
+
 def test_ics_creation_timestamp_last_modified():
     mod = importlib.import_module("think.importers.ics")
     icalendar = importlib.import_module("icalendar")

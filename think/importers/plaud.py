@@ -9,7 +9,6 @@ import logging
 import os
 import pathlib
 import re
-import subprocess
 import tempfile
 import time
 from pathlib import Path
@@ -18,6 +17,8 @@ from typing import Any, Callable, Dict, List, Optional
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+
+from think.importers.cli import import_one
 
 logger = logging.getLogger(__name__)
 
@@ -446,10 +447,6 @@ class PlaudBackend:
             downloaded = 0
             errors: list[str] = []
 
-            # Verbose detection — pass logging flags to subprocesses
-            verbose = logger.isEnabledFor(logging.INFO)
-            debug = logger.isEnabledFor(logging.DEBUG)
-
             # Inactivity-based sync timeout: bail if no file completes
             # within this window.  The inner import process has its own
             # 600s inactivity timeout for stall detection, so this is a
@@ -531,60 +528,32 @@ class PlaudBackend:
 
                 logger.info("    Downloaded -> %s", dest_path.name)
 
-                # Run through import pipeline
-                import_cmd = [
-                    "sol",
-                    "import",
-                    str(dest_path),
-                    "--timestamp",
-                    ts,
-                    "--source",
-                    "plaud",
-                    "--auto",
-                ]
-                if debug:
-                    import_cmd.append("-d")
-                elif verbose:
-                    import_cmd.append("-v")
-
                 logger.info("    Importing %s...", ts)
                 import_start = time.monotonic()
 
-                # No subprocess timeout — the inner import process has its
-                # own inactivity-based timeout (600s) for stall detection.
-                if verbose:
-                    proc = subprocess.run(import_cmd)
-                else:
-                    proc = subprocess.run(
-                        import_cmd,
-                        capture_output=True,
-                        text=True,
+                try:
+                    import_one(
+                        dest_path,
+                        timestamp=ts,
+                        source="plaud",
+                        auto=True,
+                        verbose=False,
                     )
-                import_elapsed = int(time.monotonic() - import_start)
-                last_completed = time.monotonic()
-
-                if proc.returncode == 0:
+                except Exception as exc:
+                    import_elapsed = int(time.monotonic() - import_start)
+                    last_completed = time.monotonic()
+                    msg = f"{filename}: import failed — {exc}"
+                    logger.warning("Import failed for %s: %s", filename, exc)
+                    logger.warning("    FAILED — %s", msg)
+                    errors.append(msg)
+                else:
+                    import_elapsed = int(time.monotonic() - import_start)
+                    last_completed = time.monotonic()
                     info["status"] = "imported"
                     info["import_timestamp"] = ts
                     info["imported_at"] = dt.datetime.now().isoformat()
                     downloaded += 1
                     logger.info("    Imported successfully (%ss)", import_elapsed)
-                else:
-                    if verbose:
-                        msg = (
-                            f"{filename}: import failed "
-                            f"(exit code {proc.returncode}, {import_elapsed}s)"
-                        )
-                    else:
-                        stderr_tail = (
-                            proc.stderr.strip().split("\n")[-1] if proc.stderr else ""
-                        )
-                        msg = f"{filename}: import failed — {stderr_tail}"
-                        logger.warning(
-                            "Import failed for %s: %s", filename, proc.stderr
-                        )
-                    logger.warning("    FAILED — %s", msg)
-                    errors.append(msg)
 
             result["downloaded"] = downloaded
             result["errors"] = errors

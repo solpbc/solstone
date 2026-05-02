@@ -921,14 +921,10 @@ class TestCheck:
         assert call_kwargs[0][1] == "request"
         assert call_kwargs[1]["cmd"] == ["sol", "test-task", "-v"]
         assert call_kwargs[1]["ref"].startswith("sched:a:")
+        assert call_kwargs[1]["scheduler_name"] == "a"
 
-        # State should be updated
-        assert "a" in mod._state
-        assert mod._state["a"]["last_run"] > 0
-
-        # State file should be written
-        saved = _read_state(journal_path)
-        assert "a" in saved
+        assert "a" not in mod._state
+        assert not (journal_path / "health" / "scheduler.json").exists()
 
     def test_daily_boundary_submits(self, journal_path):
         """Crossing a day boundary submits due daily tasks."""
@@ -1014,6 +1010,36 @@ class TestCheck:
 
         callosum.emit.assert_called_once()
         assert callosum.emit.call_args[1]["cmd"] == ["sol", "new-task"]
+
+    def test_check_reloads_state_before_due_checks(self, journal_path):
+        """State written by supervisor is reloaded before due checks."""
+        import think.scheduler as mod
+
+        callosum = Mock()
+        callosum.emit = Mock(return_value=True)
+
+        _write_config(
+            journal_path,
+            {
+                "a": {"cmd": ["sol", "x"], "every": "hourly"},
+            },
+        )
+        mod.init(callosum)
+        mod._state = {}
+        mod._last_hour = datetime(2026, 2, 17, 13, 0)
+        mod._last_daily_mark = datetime(2026, 2, 17, 0, 0)
+        _write_state(
+            journal_path,
+            {
+                "a": {"last_run": datetime(2026, 2, 17, 14, 0, 30).timestamp()},
+            },
+        )
+
+        with _fake_now(datetime(2026, 2, 17, 14, 1)):
+            mod.check()
+
+        callosum.emit.assert_not_called()
+        assert "a" in mod._state
 
     def test_emit_failure_no_state_update(self, journal_path):
         """If emit fails, last_run should not be updated."""

@@ -436,7 +436,7 @@ class CLIRunner:
             limit=1024 * 1024,
             cwd=str(self.cwd),
             env=proc_env,
-            start_new_session=True,
+            process_group=0,
         )
 
     def _send_prompt(self, process: asyncio.subprocess.Process) -> None:

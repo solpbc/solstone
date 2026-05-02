@@ -11,13 +11,13 @@ import logging
 import os
 import re
 import shutil
-import subprocess
 import zipfile
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Iterator
 
+from think.callosum import callosum_send
 from think.entities.journal import get_journal_principal
 from think.importers.file_importer import ImportPreview, ImportResult
 from think.merge import ProgressCallback, merge_journals
@@ -549,18 +549,14 @@ class JournalArchiveImporter:
                 )
                 merge_summary = asdict(summary)
                 if not dry_run:
-                    try:
-                        subprocess.Popen(
-                            ["sol", "indexer", "--rescan-full"],
-                            stdout=subprocess.DEVNULL,
-                            stderr=subprocess.DEVNULL,
-                            start_new_session=True,
-                        )
-                    except OSError as exc:
+                    ok = callosum_send(
+                        "supervisor",
+                        "request",
+                        cmd=["sol", "indexer", "--rescan-full"],
+                    )
+                    if not ok:
                         logger.warning(
-                            "Failed to start full index rescan for journal archive import %s: %s",
-                            import_id,
-                            exc,
+                            "post-merge full reindex: callosum_send returned false"
                         )
 
                 return ImportResult(

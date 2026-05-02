@@ -69,6 +69,8 @@ class TestSystemdUnit:
 
         assert "Type=simple" in unit
         assert "Restart=on-failure" in unit
+        assert "KillMode=control-group" in unit
+        assert "TimeoutStopSec=30" in unit
         assert (
             f"ExecStart={Path.home() / '.local' / 'bin' / 'sol'} supervisor 5015"
             in unit

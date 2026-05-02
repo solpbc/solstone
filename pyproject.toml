@@ -7,7 +7,7 @@ name = "solstone"
 version = "0.1.0"
 description = "Navigate Life Intelligently"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = {text = "AGPL-3.0-only"}
 authors = [
     {name = "Jer+AI", email = "jeremie.miller@gmail.com"}
@@ -19,7 +19,6 @@ classifiers = [
     "Operating System :: POSIX :: Linux",
     "Operating System :: MacOS :: MacOS X",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -97,14 +96,12 @@ dependencies = [
 [project.optional-dependencies]
 parakeet-onnx-cpu = [
     "onnx-asr>=0.11.0",
-    "onnxruntime>=1.20.0,!=1.24.1,<1.25.0; python_version < '3.11'",
-    "onnxruntime>=1.25.0; python_version >= '3.11'",
+    "onnxruntime>=1.25.0",
     "huggingface-hub>=0.24",
 ]
 parakeet-onnx-cuda = [
     "onnx-asr>=0.11.0",
-    "onnxruntime-gpu>=1.20.0,!=1.24.1,<1.25.0; python_version < '3.11'",
-    "onnxruntime-gpu>=1.25.0; python_version >= '3.11'",
+    "onnxruntime-gpu>=1.25.0",
     "huggingface-hub>=0.24",
     "nvidia-cuda-runtime-cu12",
     "nvidia-cudnn-cu12",

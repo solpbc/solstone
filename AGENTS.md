@@ -263,7 +263,7 @@ Generic software principles (DRY, KISS, YAGNI, single responsibility, small focu
 - **Imports:** prefer absolute (`from think.utils import get_journal`), grouped stdlib → third-party → local, one per line.
 - **Type hints** on function signatures; `mypy` via `make check`.
 - **Dependencies:** managed by [uv](https://docs.astral.sh/uv/). `pyproject.toml` is authoritative; `uv.lock` is committed; `make install` syncs; `make update` refreshes.
-- **Python 3.10+.**
+- **Python 3.11+.**
 
 ## 10. Commit hygiene
 

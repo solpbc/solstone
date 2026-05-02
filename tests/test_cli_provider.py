@@ -487,10 +487,12 @@ class TestCLIRunnerExitCode:
         callback = JSONEventCallback(events.append)
         aggregator = ThinkingAggregator(callback, model="test-model")
         captured_cwd = None
+        captured_process_group = None
 
         async def create_subprocess_exec(*args, **kwargs):
-            nonlocal captured_cwd
+            nonlocal captured_cwd, captured_process_group
             captured_cwd = kwargs["cwd"]
+            captured_process_group = kwargs["process_group"]
             return _make_process([], [], 0)
 
         runner = CLIRunner(
@@ -512,6 +514,7 @@ class TestCLIRunnerExitCode:
             asyncio.run(runner.run())
 
         assert captured_cwd == "/tmp"
+        assert captured_process_group == 0
 
     def test_read_tool_budget_overflow_terminates_process_group(self):
         events = []

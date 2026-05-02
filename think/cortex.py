@@ -342,7 +342,7 @@ class CortexService:
                 env=env,
                 bufsize=1,
                 cwd=subprocess_cwd,
-                start_new_session=True,
+                process_group=0,
             )
 
             # Send input and close stdin
@@ -891,12 +891,21 @@ def main() -> None:
 
     # Start the service
     cortex = CortexService()
+    _install_sigterm_handler(cortex)
 
     try:
         cortex.start()
     except KeyboardInterrupt:
         logging.getLogger(__name__).info("Shutting down Cortex service")
         cortex.stop()
+
+
+def _install_sigterm_handler(cortex: CortexService) -> None:
+    def handle_sigterm(_signum, _frame) -> None:
+        logging.getLogger(__name__).info("SIGTERM received, shutting down Cortex")
+        cortex.stop()
+
+    signal.signal(signal.SIGTERM, handle_sigterm)
 
 
 if __name__ == "__main__":
