@@ -107,16 +107,17 @@ def _fmt_time(ms: int | None) -> str:
     return dt.strftime("%Y-%m-%d %H:%M")
 
 
-# === Subcommands ===
-
-
-def cmd_create(args: argparse.Namespace) -> int:
-    """Create a new observer registration."""
-    name = args.name
-
-    if find_observer_by_name(name):
-        print(f"Error: observer '{name}' already exists", file=sys.stderr)
-        return 1
+def create_observer_record(
+    name: str, *, permit_duplicate_name: bool = False
+) -> tuple[dict, str]:
+    """Create and save an observer record, returning the record and raw key."""
+    existing_active = [
+        observer
+        for observer in list_observers()
+        if observer.get("name") == name and not observer.get("revoked", False)
+    ]
+    if existing_active and not permit_duplicate_name:
+        raise ValueError(f"observer already exists: {name}")
 
     key = _generate_key()
     observer_data = {
@@ -133,8 +134,7 @@ def cmd_create(args: argparse.Namespace) -> int:
     }
 
     if not save_observer(observer_data):
-        print("Error: failed to save observer", file=sys.stderr)
-        return 1
+        raise RuntimeError("failed to save observer")
 
     log_app_action(
         app="observer",
@@ -142,6 +142,50 @@ def cmd_create(args: argparse.Namespace) -> int:
         action="observer_create",
         params={"name": name, "key_prefix": key[:8]},
     )
+    return observer_data, key
+
+
+def revoke_observer_record(identifier: str) -> dict:
+    """Revoke an observer registration and return the mutated record."""
+    observer = _find_observer(identifier)
+    if not observer:
+        raise ValueError(f"observer not found: {identifier}")
+
+    if observer.get("revoked", False):
+        raise ValueError(f"observer already revoked: {observer.get('name')}")
+
+    name = observer.get("name", "")
+    key_prefix = observer.get("key", "")[:8]
+    observer["revoked"] = True
+    observer["revoked_at"] = now_ms()
+
+    if not save_observer(observer):
+        raise RuntimeError("failed to save observer")
+
+    log_app_action(
+        app="observer",
+        facet=None,
+        action="observer_revoke",
+        params={"name": name, "key_prefix": key_prefix},
+    )
+    return observer
+
+
+# === Subcommands ===
+
+
+def cmd_create(args: argparse.Namespace) -> int:
+    """Create a new observer registration."""
+    name = args.name
+
+    try:
+        observer_data, key = create_observer_record(name)
+    except ValueError:
+        print(f"Error: observer '{name}' already exists", file=sys.stderr)
+        return 1
+    except RuntimeError:
+        print("Error: failed to save observer", file=sys.stderr)
+        return 1
 
     if args.json_output:
         print(json.dumps({"name": name, "key": key, "prefix": key[:8]}))
@@ -219,31 +263,22 @@ def cmd_revoke(args: argparse.Namespace) -> int:
     """Revoke an observer registration (soft-delete)."""
     identifier = args.identifier
 
-    observer = _find_observer(identifier)
-    if not observer:
-        print(f"Error: observer '{identifier}' not found", file=sys.stderr)
+    try:
+        observer = revoke_observer_record(identifier)
+    except ValueError as exc:
+        message = str(exc)
+        if message.startswith("observer not found:"):
+            print(f"Error: observer '{identifier}' not found", file=sys.stderr)
+            return 1
+        name = message.removeprefix("observer already revoked: ")
+        print(f"Observer '{name}' is already revoked.", file=sys.stderr)
         return 1
-
-    if observer.get("revoked", False):
-        print(f"Observer '{observer.get('name')}' is already revoked.", file=sys.stderr)
+    except RuntimeError:
+        print("Error: failed to save observer", file=sys.stderr)
         return 1
 
     name = observer.get("name", "")
     key_prefix = observer.get("key", "")[:8]
-
-    observer["revoked"] = True
-    observer["revoked_at"] = now_ms()
-
-    if not save_observer(observer):
-        print("Error: failed to save observer", file=sys.stderr)
-        return 1
-
-    log_app_action(
-        app="observer",
-        facet=None,
-        action="observer_revoke",
-        params={"name": name, "key_prefix": key_prefix},
-    )
 
     if args.json_output:
         print(json.dumps({"name": name, "prefix": key_prefix, "revoked": True}))
