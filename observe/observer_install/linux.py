@@ -318,10 +318,17 @@ def _check_tools() -> list[tuple[str, bool, str | None]]:
     ]
 
 
+_PIPX_PACKAGE_NAMES = {"pipx", "python3-pipx"}
+
+
 def _check_packages(distro: str) -> list[tuple[str, bool]]:
     packages, _install_command, query_method = DISTRO_PACKAGES[distro]
+    pipx_on_path = run_probe(["sh", "-c", "command -v pipx"]).returncode == 0
     result = []
     for package in packages:
+        if package in _PIPX_PACKAGE_NAMES and pipx_on_path:
+            result.append((package, True))
+            continue
         if query_method == "dpkg":
             cmd = ["dpkg", "-s", package]
         elif query_method == "pacman":
