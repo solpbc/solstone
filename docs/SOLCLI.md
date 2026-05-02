@@ -299,6 +299,7 @@ solstone/
 | Talent (AI agents) | `agents`, `cortex`, `talent`, `call`, `engage` |
 | Convey (web UI) | `convey`, `restart-convey`, `maint` |
 | Specialized | `config`, `streams`, `journal-stats`, `formatter`, `detect-created` |
+| Installation | `doctor` |
 | Help | `help`, `chat` |
 
 ### Call (`sol call <app> <cmd>`)

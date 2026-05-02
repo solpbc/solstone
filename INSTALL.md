@@ -80,6 +80,8 @@ make install
 
 sets up the repo-local python environment and installs all dependencies for development. it does not add `sol` to your PATH or install any user/system services.
 
+once installed, run `sol doctor` to diagnose the install. before `make install` has run, or on a machine without `.venv`, run `python3 scripts/doctor.py` from the repo root for the same diagnostic.
+
 for repo-local use after this step, run `.venv/bin/sol`.
 
 ## start solstone
