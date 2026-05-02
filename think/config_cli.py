@@ -552,7 +552,11 @@ def cmd_show() -> int:
             user_source = "wrapper-embedded"
         else:
             user_source = "caller-override"
-    else:
+    elif info_source == "config":
+        user_source = "user config (~/.config/solstone/config.toml)"
+    elif info_source == "default":
+        user_source = "built-in default (~/Documents/journal)"
+    else:  # "source"
         user_source = "source-tree fallback"
 
     print(f"path: {path}")

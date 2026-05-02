@@ -4,11 +4,14 @@
 
 `get_journal()` / `get_journal_info()` in `think.utils` are the canonical journal resolvers. Trust them unconditionally.
 
-Resolver order:
+Resolver order (with the source label `get_journal_info()` returns):
 
-1. `SOLSTONE_JOURNAL` if it is set
-2. source-tree fallback: `<project_root>/journal` when both `<project_root>/pyproject.toml` and `<project_root>/.git` exist
-3. `SolstoneNotConfigured` if neither branch resolves
+1. `SOLSTONE_JOURNAL` env var, when set and non-empty → `"env"`
+2. `~/.config/solstone/config.toml`, when it has a non-empty `journal = "..."` key → `"config"`
+3. source-tree fallback: `<project_root>/journal` when both `<project_root>/pyproject.toml` and `<project_root>/.git` exist → `"source"`
+4. built-in default: `~/Documents/journal` → `"default"`
+
+`get_journal_info()` no longer raises — there is always a resolved path. `get_journal()` raises `SolstoneNotConfigured` only when `os.makedirs` on the resolved path fails.
 
 Who sets `SOLSTONE_JOURNAL`:
 

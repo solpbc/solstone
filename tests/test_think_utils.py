@@ -992,26 +992,28 @@ class TestJournalResolution:
         assert path == str(tmp_path)
         assert source == "env"
 
-    def test_get_journal_info_source_tree_fallback(self, monkeypatch):
+    def test_get_journal_info_source_tree_fallback(self, monkeypatch, tmp_path):
         monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
 
         path, source = get_journal_info()
 
         assert path == str(Path(get_project_root()) / "journal")
         assert source == "source"
 
-    def test_get_journal_info_raises_when_unconfigured(self, monkeypatch, tmp_path):
+    def test_get_journal_info_returns_default_when_nothing_else_resolves(
+        self, monkeypatch, tmp_path
+    ):
         import think.utils as utils
 
         monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
         monkeypatch.setattr(utils, "get_project_root", lambda: str(tmp_path))
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
 
-        with pytest.raises(SolstoneNotConfigured) as excinfo:
-            get_journal_info()
+        path, source = get_journal_info()
 
-        message = str(excinfo.value)
-        assert "SOLSTONE_JOURNAL" in message
-        assert str(tmp_path) in message
+        assert source == "default"
+        assert path == str(tmp_path / "Documents" / "journal")
 
     def test_get_journal_mkdir_failure_raises_solstone_not_configured(
         self, monkeypatch, tmp_path
@@ -1031,3 +1033,73 @@ class TestJournalResolution:
 
         assert excinfo.value.path == str(target)
         assert isinstance(excinfo.value.error, PermissionError)
+
+
+class TestGetJournalInfoConfigBranch:
+    def write_config(self, home: Path, content: str) -> Path:
+        cfg = home / ".config" / "solstone" / "config.toml"
+        cfg.parent.mkdir(parents=True)
+        cfg.write_text(content, encoding="utf-8")
+        return cfg
+
+    def test_config_branch_used_when_env_unset_and_config_present(
+        self, monkeypatch, tmp_path
+    ):
+        monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        self.write_config(tmp_path, 'journal = "/tmp/from-config"\n')
+
+        path, source = get_journal_info()
+
+        assert path == "/tmp/from-config"
+        assert source == "config"
+
+    def test_env_wins_over_config(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        self.write_config(tmp_path, 'journal = "/tmp/from-config"\n')
+        monkeypatch.setenv("SOLSTONE_JOURNAL", "/tmp/from-env")
+
+        path, source = get_journal_info()
+
+        assert path == "/tmp/from-env"
+        assert source == "env"
+
+    def test_empty_env_treated_as_unset_and_falls_through_to_config(
+        self, monkeypatch, tmp_path
+    ):
+        monkeypatch.setenv("SOLSTONE_JOURNAL", "")
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        self.write_config(tmp_path, 'journal = "/tmp/from-config"\n')
+
+        path, source = get_journal_info()
+
+        assert path == "/tmp/from-config"
+        assert source == "config"
+
+    def test_empty_journal_key_in_config_falls_through(self, monkeypatch, tmp_path):
+        monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        self.write_config(tmp_path, 'journal = ""\n')
+
+        _path, source = get_journal_info()
+
+        assert source == "source"
+
+    def test_whitespace_only_journal_key_falls_through(self, monkeypatch, tmp_path):
+        monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        self.write_config(tmp_path, 'journal = "   "\n')
+
+        _path, source = get_journal_info()
+
+        assert source == "source"
+
+    def test_config_branch_wins_over_source_branch(self, monkeypatch, tmp_path):
+        monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        self.write_config(tmp_path, 'journal = "/tmp/from-config"\n')
+
+        path, source = get_journal_info()
+
+        assert path == "/tmp/from-config"
+        assert source == "config"

@@ -104,36 +104,46 @@ def get_project_root() -> str:
 def get_journal_info() -> tuple[str, str]:
     """Resolve the journal path and its source.
 
-    Returns ``(path, source)`` where source is one of ``{"env", "source"}``:
+    Returns ``(path, source)`` where source is one of
+    ``{"env", "config", "source", "default"}``:
 
     - ``"env"`` — ``SOLSTONE_JOURNAL`` is set
+    - ``"config"`` — ``~/.config/solstone/config.toml`` has a non-empty
+      ``journal`` key
     - ``"source"`` — running from a source checkout; journal is
       ``<project_root>/journal``
+    - ``"default"`` — built-in default at ``~/Documents/journal``
 
-    Raises ``SolstoneNotConfigured`` if neither branch resolves. The wrapper
-    at ``~/.local/bin/sol`` is responsible for setting ``SOLSTONE_JOURNAL``
-    on installed runs; tests set it via the autouse fixture.
+    The wrapper at ``~/.local/bin/sol`` is responsible for setting
+    ``SOLSTONE_JOURNAL`` on installed runs; tests set it via the autouse
+    fixture.
     """
     env_path = os.environ.get("SOLSTONE_JOURNAL")
     if env_path:
         return env_path, "env"
 
+    from think.user_config import read_user_config
+
+    user_cfg_path = read_user_config().get("journal", "").strip()
+    if user_cfg_path:
+        return user_cfg_path, "config"
+
     project_root = Path(get_project_root())
     if (project_root / "pyproject.toml").exists() and (project_root / ".git").exists():
         return str(project_root / "journal"), "source"
 
-    raise SolstoneNotConfigured(
-        "solstone is not configured: set SOLSTONE_JOURNAL or run from a "
-        f"source checkout (project_root={project_root})"
-    )
+    from think.user_config import default_journal
+
+    return default_journal(), "default"
 
 
 def get_journal() -> str:
     """Return the journal path. Auto-creates the directory.
 
-    Reads ``SOLSTONE_JOURNAL`` if set, otherwise falls back to the
-    source-tree journal at ``<project_root>/journal``. Raises
-    ``SolstoneNotConfigured`` if neither branch resolves or if mkdir fails.
+    Resolves the journal from ``SOLSTONE_JOURNAL``, user config, the
+    source-tree journal at ``<project_root>/journal``, or the built-in
+    ``~/Documents/journal`` default. Raises ``SolstoneNotConfigured`` only if
+    mkdir fails for the resolved path.
 
     Trust this function — never bypass it, cache its result, or set
     ``SOLSTONE_JOURNAL`` from application code, agent prompts, subprocess
