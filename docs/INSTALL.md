@@ -51,10 +51,13 @@ make install
 
 This creates an isolated virtual environment in `.venv/` for local development. Your system Python remains untouched, and no user-level CLI alias or service is installed yet.
 
-To remove installed user/system artifacts:
+To remove installed user/system artifacts later:
 
 ```bash
-make uninstall-service
+sol service stop
+sol service uninstall
+sol skills uninstall
+python -m think.install_guard uninstall
 ```
 
 To reset the repo-local development environment:
@@ -130,16 +133,16 @@ For transcribing imported audio files. Sign up at [Rev.ai](https://www.rev.ai/),
 
 ### Install as a Background Service
 
-The recommended way to run solstone is as a system service that starts automatically on login:
+The recommended way to run solstone is through setup, which installs the runtime artifacts and starts the service:
 
 ```bash
-make install-service
+.venv/bin/sol setup
 ```
 
-This creates or refreshes the `~/.local/bin/sol` alias, installs the global `solstone` skill for claude-code, and installs, enables, and starts a systemd user service (Linux) or launchd agent (macOS) with convey on port 5015. Re-running it upgrades an existing install instead of conflicting. To use a custom port:
+This creates or refreshes the `~/.local/bin/sol` wrapper for source-checkout installs, installs the global `solstone` skill for Claude Code when Claude is configured, and installs, enables, and starts a systemd user service (Linux) or launchd agent (macOS) with convey on port 5015. After the first run, the wrapper at `~/.local/bin/sol` lets you use just `sol` from anywhere. Service installation runs only on source-checkout installs in v1; packaged installs skip the service step. Re-running it is safe. To use a custom port on the first run:
 
 ```bash
-make install-service PORT=8000
+.venv/bin/sol setup --port 8000
 ```
 
 Manage the service with:

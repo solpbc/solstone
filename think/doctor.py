@@ -657,7 +657,7 @@ def stale_alias_symlink_check(args: Args) -> CheckResult:
         check,
         "fail",
         detail,
-        "run `make uninstall-service` from the installed repo, or remove `~/.local/bin/sol` manually if the repo is gone",
+        "run `sol setup` from the repo that owns the wrapper, or remove `~/.local/bin/sol` manually if the repo is gone",
     )
 
 
@@ -735,7 +735,7 @@ def launchd_stale_plist_check(args: Args) -> CheckResult:
             check,
             "fail",
             f"could not parse plist: {type(exc).__name__}: {exc}",
-            "rm ~/Library/LaunchAgents/org.solpbc.solstone.plist && make install-service",
+            "rm ~/Library/LaunchAgents/org.solpbc.solstone.plist && sol setup",
         )
     program_arguments = data.get("ProgramArguments")
     if not isinstance(program_arguments, list) or not program_arguments:
@@ -743,7 +743,7 @@ def launchd_stale_plist_check(args: Args) -> CheckResult:
             check,
             "fail",
             "plist is missing ProgramArguments[0]",
-            "rm ~/Library/LaunchAgents/org.solpbc.solstone.plist && make install-service",
+            "rm ~/Library/LaunchAgents/org.solpbc.solstone.plist && sol setup",
         )
     executable = Path(str(program_arguments[0]))
     if not executable.exists():
@@ -751,7 +751,7 @@ def launchd_stale_plist_check(args: Args) -> CheckResult:
             check,
             "fail",
             f"plist points to missing executable: {executable}",
-            "rm ~/Library/LaunchAgents/org.solpbc.solstone.plist && make install-service",
+            "rm ~/Library/LaunchAgents/org.solpbc.solstone.plist && sol setup",
         )
     return make_result(check, "ok", f"launchd plist target exists ({executable})")
 

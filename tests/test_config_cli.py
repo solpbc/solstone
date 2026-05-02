@@ -241,7 +241,7 @@ def test_journal_refuses_without_managed_wrapper(home_root, tmp_path, capsys):
 
     assert rc == 1
     assert captured.out == ""
-    assert "make install-service" in captured.err
+    assert "sol setup" in captured.err
 
 
 def test_journal_refuses_legacy_symlink(home_root, tmp_path, capsys):
@@ -253,7 +253,7 @@ def test_journal_refuses_legacy_symlink(home_root, tmp_path, capsys):
 
     assert rc == 1
     assert captured.out == ""
-    assert "make install-service" in captured.err
+    assert "sol setup" in captured.err
 
 
 def test_journal_refuses_invalid_chars(home_root, capsys):

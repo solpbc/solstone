@@ -8,7 +8,7 @@ the latest version of these instructions is at https://solstone.app/install
 
 ## before you begin
 
-`make install-service` now auto-adds `~/.local/bin` to your shell `PATH` via the `userpath` library, updating `~/.bashrc`, `~/.zshrc`, or `~/.config/fish/config.fish` as needed. if `~/.local/bin` was not already on `PATH`, restart your shell after install or run `exec $SHELL -l` before continuing.
+`sol setup` adds `~/.local/bin` to your shell `PATH` when it installs the source-checkout wrapper via the `userpath` library, updating `~/.bashrc`, `~/.zshrc`, or `~/.config/fish/config.fish` as needed. if `~/.local/bin` was not already on `PATH`, restart your shell after setup or run `exec $SHELL -l` before continuing.
 
 check if solstone is already installed and running:
 
@@ -87,10 +87,10 @@ for repo-local use after this step, run `.venv/bin/sol`.
 ## start solstone
 
 ```bash
-make install-service
+.venv/bin/sol setup
 ```
 
-creates or refreshes the `~/.local/bin/sol` alias, installs the `solstone` skill for claude-code, and starts a background service (systemd on linux, launchd on macOS) with the web interface on port 5015. re-running it performs the upgrade path safely instead of conflicting with an existing install.
+runs doctor, confirms the journal path, installs local models, installs the `solstone` skill for Claude Code when Claude is configured, creates or refreshes the `~/.local/bin/sol` wrapper for source-checkout installs, and starts a background service (systemd on linux, launchd on macOS) with the web interface on port 5015. use `.venv/bin/sol setup --port 8000` to choose another port on the first run. after the first run, the wrapper at `~/.local/bin/sol` lets you use just `sol` from anywhere. Service installation runs only on source-checkout installs in v1; packaged installs skip the service step. re-running it is safe.
 
 let your human know: **open http://localhost:5015 in a browser.** the first-run setup wizard walks them through choosing a password, setting their identity, and connecting a Gemini API key. once they've completed it, solstone is configured and ready.
 
@@ -117,10 +117,10 @@ for manual build-from-source troubleshooting, use the per-observer repo docs: `s
 ## updating after a code change
 
 ```bash
-git pull && make install-service
+git pull && make install && .venv/bin/sol setup
 ```
 
-re-running `make install-service` handles both fresh installs and upgrades. on upgrade it runs fast install-time gates (`make install-checks` — formatting, lint, layer hygiene, mypy) first and aborts if anything fails, leaving the installed service untouched. the full test suite is no longer gated on install, because tests can flake under real service load. for a high-confidence upgrade, run `make verify && make install-service` to execute install-checks plus the test suite before touching the running service.
+`make install` refreshes the repo-local Python environment. `.venv/bin/sol setup` then reruns the runtime setup gates and refreshes user-level artifacts. for a high-confidence upgrade, run `make verify && make install && .venv/bin/sol setup` before touching the running service.
 
 ## done
 

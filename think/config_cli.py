@@ -105,8 +105,8 @@ def _read_wrapper_status() -> tuple[str, str | None]:
 def _wrapper_refusal(alias: Path) -> str:
     return (
         "sol config: refused: "
-        f"{alias} is not a managed wrapper (run 'make install-service' to "
-        "install the wrapper first)"
+        f"{alias} is not a managed wrapper (run 'sol setup' from the solstone "
+        "source checkout to install the wrapper first)"
     )
 
 

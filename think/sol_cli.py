@@ -76,6 +76,7 @@ COMMANDS: dict[str, str] = {
     "restart-convey": "convey.restart",
     "maint": "convey.maint_cli",
     "service": "think.service",
+    "setup": "think.setup",
 }
 
 # =============================================================================
@@ -128,7 +129,7 @@ GROUPS: dict[str, list[str]] = {
         "restart-convey",
         "maint",
     ],
-    "Setup": ["install-models"],
+    "Setup": ["setup", "install-models"],
     "Specialized tools": [
         "password",
         "config",

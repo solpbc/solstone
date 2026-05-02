@@ -87,10 +87,10 @@ def test_happy_path_writes_config_and_marker(
             return subprocess.CompletedProcess(cmd, 0, f"{linux.SOURCE_URL}\n", "")
         return subprocess.CompletedProcess(cmd, 0, "ok\n", "")
 
-    steps: list[str] = []
+    steps: list[tuple[str, list[str]]] = []
 
     def fake_step(label, cmd, **kwargs):
-        steps.append(label)
+        steps.append((label, cmd))
         return common.StepResult(subprocess.CompletedProcess(cmd, 0, "", ""))
 
     monkeypatch.setattr(linux, "run_probe", fake_probe)
@@ -98,7 +98,7 @@ def test_happy_path_writes_config_and_marker(
 
     assert linux.LinuxDriver().run(args_factory()) == 0
 
-    assert "run make install-service" in steps
+    assert ("run observer install-service target", ["make", "install-service"]) in steps
     config = json.loads(linux.CONFIG_PATH.read_text(encoding="utf-8"))
     assert config["server_url"] == "http://127.0.0.1:5015"
     assert config["stream"] == "archon"
@@ -151,10 +151,10 @@ def test_marker_present_no_upstream_changes_is_noop(
             return subprocess.CompletedProcess(cmd, 0, "active\n", "")
         return subprocess.CompletedProcess(cmd, 0, "ok\n", "")
 
-    steps: list[str] = []
+    steps: list[tuple[str, list[str]]] = []
 
     def fake_step(label, cmd, **kwargs):
-        steps.append(label)
+        steps.append((label, cmd))
         return common.StepResult(subprocess.CompletedProcess(cmd, 0, "", ""))
 
     monkeypatch.setattr(linux, "run_probe", fake_probe)
@@ -162,7 +162,7 @@ def test_marker_present_no_upstream_changes_is_noop(
 
     assert linux.LinuxDriver().run(args_factory()) == 0
 
-    assert "run make install-service" not in steps
+    assert all(label != "run observer install-service target" for label, _cmd in steps)
     assert "already installed" in capsys.readouterr().out
     assert common.read_marker(linux.INSTALL_NAME)["last_run"] == "2026-05-02T00:00:00Z"
 
@@ -185,10 +185,10 @@ def test_second_run_after_install_is_noop(
             return subprocess.CompletedProcess(cmd, 0, "active\n", "")
         return subprocess.CompletedProcess(cmd, 0, "ok\n", "")
 
-    steps: list[str] = []
+    steps: list[tuple[str, list[str]]] = []
 
     def fake_step(label, cmd, **kwargs):
-        steps.append(label)
+        steps.append((label, cmd))
         if label.startswith("clone "):
             (common.xdg_install_dir(linux.INSTALL_NAME) / ".git").mkdir(parents=True)
         return common.StepResult(subprocess.CompletedProcess(cmd, 0, "", ""))
@@ -216,7 +216,12 @@ def test_second_run_after_install_is_noop(
     assert linux.LinuxDriver().run(args_factory()) == 0
     assert linux.LinuxDriver().run(args_factory()) == 0
 
-    assert steps.count("run make install-service") == 1
+    assert (
+        steps.count(
+            ("run observer install-service target", ["make", "install-service"])
+        )
+        == 1
+    )
     assert config_writes == 1
     assert marker_writes == 1
     assert "already installed" in capsys.readouterr().out

@@ -3,9 +3,9 @@
 # Copyright (c) 2026 sol pbc
 """Stdlib-only bootstrap shim for `sol doctor`.
 
-Used by `make doctor` and as a pre-install entry point on machines that
-do not yet have `.venv` populated. Delegates to `think.doctor.main`,
-which holds the canonical diagnostic logic.
+Used as a pre-install entry point on machines that do not yet have `.venv`
+populated. Delegates to `think.doctor.main`, which holds the canonical
+diagnostic logic.
 """
 
 from __future__ import annotations

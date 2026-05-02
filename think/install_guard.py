@@ -226,7 +226,7 @@ def format_error(
         "ERROR: Another solstone install owns ~/.local/bin/sol.",
         f"  this repo:  {curdir}",
         installed,
-        "Run 'make uninstall-service' from the installed repo first,",
+        "Run 'sol setup' from the installed repo first,",
         "or remove ~/.local/bin/sol manually if that repo is gone.",
     ]
     if allow_force:

@@ -77,7 +77,7 @@ make install
 # See docs/INSTALL.md for setup instructions
 
 # Install the CLI on PATH and start the background service (port 5015)
-make install-service
+.venv/bin/sol setup
 
 # Or start manually for development
 sol supervisor

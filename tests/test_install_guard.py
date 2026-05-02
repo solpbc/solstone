@@ -197,7 +197,7 @@ def alias_error(curdir: Path, installed: str, *, allow_force: bool = False) -> s
         "ERROR: Another solstone install owns ~/.local/bin/sol.\n"
         f"  this repo:  {curdir}\n"
         f"{installed}\n"
-        "Run 'make uninstall-service' from the installed repo first,\n"
+        "Run 'sol setup' from the installed repo first,\n"
         "or remove ~/.local/bin/sol manually if that repo is gone.\n"
     )
     if allow_force:

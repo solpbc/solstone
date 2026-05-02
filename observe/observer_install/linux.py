@@ -225,7 +225,7 @@ class LinuxDriver:
         registration = create_or_reuse_registration(name, force=args.force)
         _write_config(server_url, registration.key, name)
         run_step(
-            "run make install-service",
+            "run observer install-service target",
             ["make", "install-service"],
             cwd=clone_dir,
             json_output=args.json_output,
@@ -545,7 +545,7 @@ def _print_dry_run(
     print(f"  would clone {SOURCE_URL} into {clone_dir}")
     print(f"  would create observer registration '{name}'")
     print(f"  would write {CONFIG_PATH}")
-    print("  would run: make install-service")
+    print("  would run observer install-service target")
     print("  would wait up to 30s for observer status")
     print(f"  would write marker {marker_path(INSTALL_NAME)}")
     print()

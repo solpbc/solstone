@@ -18,10 +18,10 @@ def test_tmux_happy_path_writes_config_and_marker(monkeypatch, args_factory):
             return subprocess.CompletedProcess(cmd, 0, "tmuxsha\n", "")
         return subprocess.CompletedProcess(cmd, 0, "ok\n", "")
 
-    steps: list[str] = []
+    steps: list[tuple[str, list[str]]] = []
 
     def fake_step(label, cmd, **kwargs):
-        steps.append(label)
+        steps.append((label, cmd))
         return common.StepResult(subprocess.CompletedProcess(cmd, 0, "", ""))
 
     monkeypatch.setattr(tmux, "run_probe", fake_probe)
@@ -29,7 +29,7 @@ def test_tmux_happy_path_writes_config_and_marker(monkeypatch, args_factory):
 
     assert tmux.TmuxDriver().run(args_factory(platform="tmux")) == 0
 
-    assert "run make install-service" in steps
+    assert ("run observer install-service target", ["make", "install-service"]) in steps
     config = json.loads(tmux.CONFIG_PATH.read_text(encoding="utf-8"))
     assert config["stream"] == "archon"
     assert config["status_indicator"] is True
@@ -93,10 +93,10 @@ def test_tmux_second_run_after_install_is_noop(monkeypatch, args_factory, capsys
             return subprocess.CompletedProcess(cmd, 0, "active\n", "")
         return subprocess.CompletedProcess(cmd, 0, "ok\n", "")
 
-    steps: list[str] = []
+    steps: list[tuple[str, list[str]]] = []
 
     def fake_step(label, cmd, **kwargs):
-        steps.append(label)
+        steps.append((label, cmd))
         if label.startswith("clone "):
             (common.xdg_install_dir(tmux.INSTALL_NAME) / ".git").mkdir(parents=True)
         return common.StepResult(subprocess.CompletedProcess(cmd, 0, "", ""))
@@ -124,7 +124,12 @@ def test_tmux_second_run_after_install_is_noop(monkeypatch, args_factory, capsys
     assert tmux.TmuxDriver().run(args_factory(platform="tmux")) == 0
     assert tmux.TmuxDriver().run(args_factory(platform="tmux")) == 0
 
-    assert steps.count("run make install-service") == 1
+    assert (
+        steps.count(
+            ("run observer install-service target", ["make", "install-service"])
+        )
+        == 1
+    )
     assert config_writes == 1
     assert marker_writes == 1
     assert "already installed" in capsys.readouterr().out
