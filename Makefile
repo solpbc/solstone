@@ -67,7 +67,6 @@ USER_BIN := $(HOME)/.local/bin
 		echo "parakeet install: PARAKEET_ONNX_VARIANT=$(PARAKEET_ONNX_VARIANT)"; \
 		$(UV) sync --extra parakeet-onnx-$(PARAKEET_ONNX_VARIANT) || { echo "parakeet install: uv sync --extra parakeet-onnx-$(PARAKEET_ONNX_VARIANT) failed" >&2; exit 1; }; \
 	fi
-	@$(VENV_BIN)/python -c "from observe.transcribe.main import PYANNOTE_OVERLAP_MODEL_PATH, PYANNOTE_OVERLAP_MODEL_SHA256, WESPEAKER_MODEL_PATH, WESPEAKER_MODEL_SHA256; from observe.utils import compute_file_sha256; actual = compute_file_sha256(WESPEAKER_MODEL_PATH); assert actual == WESPEAKER_MODEL_SHA256, f'WeSpeaker asset hash mismatch: got {actual}, expected {WESPEAKER_MODEL_SHA256}'; print(f'wespeaker asset ok ({actual[:12]}...)'); actual = compute_file_sha256(PYANNOTE_OVERLAP_MODEL_PATH); assert actual == PYANNOTE_OVERLAP_MODEL_SHA256, f'pyannote asset hash mismatch: got {actual}, expected {PYANNOTE_OVERLAP_MODEL_SHA256}'; print(f'pyannote asset ok ({actual[:12]}...)')"
 	@$(MAKE) --no-print-directory skills
 	@touch .installed
 
@@ -107,11 +106,7 @@ install: doctor skills .installed
 		exit 1; \
 	fi
 	@touch .installed
-	@OS_NAME=$$(uname -s); \
-	ARCH=$$(uname -m); \
-	if [ "$$OS_NAME" = "Darwin" ] && [ "$$ARCH" = "arm64" ] || [ "$$OS_NAME" = "Linux" ] && [ "$$ARCH" = "x86_64" ]; then \
-		PARAKEET_ONNX_VARIANT=$(PARAKEET_ONNX_VARIANT) $(VENV_PY) scripts/install_parakeet_model.py || { echo "parakeet install: install_parakeet_model.py failed" >&2; exit 1; }; \
-	fi
+	@$(VENV_BIN)/sol install-models || { echo "sol install-models failed" >&2; exit 1; }
 
 # Directories where AI coding agents look for skills
 SKILL_DIRS := journal/.agents/skills journal/.claude/skills
@@ -284,11 +279,12 @@ install-pinchtab:
 		curl -fsSL https://pinchtab.com/install.sh | bash; \
 	fi
 
-# Build the parakeet helper binary (macOS/arm64 only, requires Xcode CLT)
+# Install and verify local ML models
 install-models:
-	@test -x "$(VENV_PY)" || { echo "parakeet install: missing $(VENV_PY); run make install first" >&2; exit 1; }
-	PARAKEET_ONNX_VARIANT=$(PARAKEET_ONNX_VARIANT) $(VENV_PY) scripts/install_parakeet_model.py
+	@test -x "$(VENV_BIN)/sol" || { echo "missing $(VENV_BIN)/sol; run make install first" >&2; exit 1; }
+	$(VENV_BIN)/sol install-models
 
+# Build the parakeet helper binary (macOS/arm64 only, requires Xcode CLT)
 parakeet-helper:
 	cd observe/transcribe/parakeet_helper && swift build -c release
 	@echo "built: $$(pwd)/observe/transcribe/parakeet_helper/.build/release/parakeet-helper"

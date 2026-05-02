@@ -48,6 +48,7 @@ COMMANDS: dict[str, str] = {
     "notify": "think.notify_cli",
     "doctor": "think.doctor",
     "config": "think.config_cli",
+    "install-models": "think.install_models",
     "password": "think.password_cli",
     "streams": "think.streams",
     "segment": "think.segment",
@@ -126,6 +127,7 @@ GROUPS: dict[str, list[str]] = {
         "restart-convey",
         "maint",
     ],
+    "Setup": ["install-models"],
     "Specialized tools": [
         "password",
         "config",

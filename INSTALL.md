@@ -65,10 +65,10 @@ brew install git uv
 
 - `device: "auto"` is primarily for Linux; macOS always routes to the CoreML helper on Apple Silicon.
 - `quantization: "auto"` resolves to fp32 on Linux. The old `precision` key is still accepted as a one-release deprecated alias for `quantization`.
-- `make install` builds the platform prerequisites and then runs `make install-models`.
-- `make install-models` is idempotent and prints `model ready: <path>` when the local model cache is ready.
-- **macOS (Apple Silicon):** Xcode command line tools are required because the helper is a Swift package; if the `xcodebuild -version` check above fails, fix that first. `make install-models` downloads roughly 461 MB of model data into `~/Library/Application Support/solstone/parakeet/models`.
-- **Linux (x86_64):** `make install` auto-detects `PARAKEET_ONNX_VARIANT` (`cuda` when `nvidia-smi -L` succeeds, otherwise `cpu`), runs `uv sync --extra parakeet-onnx-<variant>`, then runs `make install-models`. Override detection with `PARAKEET_ONNX_VARIANT=cuda make install` or `PARAKEET_ONNX_VARIANT=cpu make install`. The CPU extra installs `parakeet-onnx-cpu`; the CUDA extra installs `parakeet-onnx-cuda`. The ONNX model footprint is roughly 2.55 GB, and the CUDA wheels add roughly 700 MB more when using the CUDA variant.
+- `make install` builds the platform prerequisites and then runs `sol install-models`.
+- `sol install-models` is idempotent and prints `model ready: <path>` when the local model cache is ready.
+- **macOS (Apple Silicon):** Xcode command line tools are required because the helper is a Swift package; if the `xcodebuild -version` check above fails, fix that first. `sol install-models` downloads roughly 461 MB of model data into `~/Library/Application Support/solstone/parakeet/models`.
+- **Linux (x86_64):** `make install` auto-detects `PARAKEET_ONNX_VARIANT` (`cuda` when `nvidia-smi -L` succeeds, otherwise `cpu`), runs `uv sync --extra parakeet-onnx-<variant>`, then runs `sol install-models`. Override direct model installation with `sol install-models --variant cuda` or `sol install-models --variant cpu`; `PARAKEET_ONNX_VARIANT` is honored for one release cycle as a fallback when `--variant auto` is used. The CPU extra installs `parakeet-onnx-cpu`; the CUDA extra installs `parakeet-onnx-cuda`. The ONNX model footprint is roughly 2.55 GB, and the CUDA wheels add roughly 700 MB more when using the CUDA variant.
 - To use Whisper instead, set `transcribe.backend = "whisper"` in `journal/config/journal.json` or switch the backend in the settings UI. The Whisper code and dependencies remain available for rollback.
 - helper contract details live in `observe/transcribe/parakeet_helper/README.md`.
 
