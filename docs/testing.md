@@ -35,7 +35,6 @@ The `tests/fixtures/journal/` directory contains a complete mock journal structu
 - `make coverage` to generate a coverage report
 - `make ci` before committing (formats, lints, tests)
 - Always run `sol restart-convey` after editing `convey/` or `apps/` to reload code
-- Use `sol screenshot <route>` to capture UI screenshots for visual testing
 
 ## Worktree Development
 
@@ -45,12 +44,11 @@ Run the full stack (supervisor + callosum + sense + cortex + convey) against tes
 make dev                    # Start stack (Ctrl+C to stop)
 ```
 
-In a second terminal, take screenshots or hit endpoints:
+In a second terminal, hit endpoints:
 
 ```bash
 export SOLSTONE_JOURNAL=tests/fixtures/journal
 export PATH=$(pwd)/.venv/bin:$PATH
-sol screenshot / -o scratch/home.png
 curl -s http://localhost:$(cat tests/fixtures/journal/health/convey.port)/
 ```
 

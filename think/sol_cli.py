@@ -71,7 +71,6 @@ COMMANDS: dict[str, str] = {
     # convey package - web UI
     "convey": "convey.cli",
     "restart-convey": "convey.restart",
-    "screenshot": "convey.screenshot",
     "maint": "convey.maint_cli",
     "service": "think.service",
 }
@@ -124,7 +123,6 @@ GROUPS: dict[str, list[str]] = {
     "Convey (web UI)": [
         "convey",
         "restart-convey",
-        "screenshot",
         "maint",
     ],
     "Specialized tools": [

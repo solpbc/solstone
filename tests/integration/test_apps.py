@@ -47,6 +47,5 @@ def test_app_endpoint(convey_client, app_name: str):
     response = convey_client.get(route, follow_redirects=True)
 
     assert response.status_code == 200, (
-        f"App '{app_name}' at {route} returned {response.status_code}. "
-        "Always use 'make screenshot' to validate this failure"
+        f"App '{app_name}' at {route} returned {response.status_code}."
     )

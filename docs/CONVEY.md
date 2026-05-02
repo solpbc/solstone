@@ -38,7 +38,6 @@ convey/
   state.py           - global state (journal_root)
   bridge.py          - Callosum WebSocket bridge for real-time events
   utils.py           - shared helpers (format_date, spawn_agent, etc.)
-  screenshot.py      - screenshot utility for testing
   views/
       __init__.py    - blueprint registration
       home.py        - authentication (login/logout) and root redirect

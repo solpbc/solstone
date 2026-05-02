@@ -36,7 +36,7 @@ Read, in order, when you enter the repo for a coding task:
 | `think/sol_cli.py` | CLI entry point — `COMMANDS` / `ALIASES` / `GROUPS` dicts | adding a top-level `sol <cmd>` | `docs/SOLCLI.md` |
 | `observe/` | Multimodal capture — screen, audio, transcribe, describe, sense, transfer | capture-side bugs, new input modalities | `docs/OBSERVE.md` |
 | `think/` | Post-processing core — cortex, talent, callosum, indexer, entities, facets, activities, scheduler, heartbeat, supervisor | anything downstream of capture; most coder work lives here | `docs/THINK.md`, `docs/CORTEX.md`, `docs/CALLOSUM.md` |
-| `convey/` | Web app framework — app discovery, routing, bridge, screenshot tooling | layout / framework-level UI changes | `docs/CONVEY.md` |
+| `convey/` | Web app framework — app discovery, routing, bridge | layout / framework-level UI changes | `docs/CONVEY.md` |
 | `apps/` | Convey apps — each self-contained (`call.py` Typer sub-app + `routes.py` + `templates/`) | adding a user-facing feature, a `sol call <app>` verb, a UI surface | `docs/APPS.md` (required reading before modifying `apps/`) |
 | `talent/` | AI talent configs (markdown prompts + optional `.py` post-hooks) + `SKILL.md`s (journal, coder, partner, …) | defining or tuning a talent; adding a journal-side skill | `talent/journal/SKILL.md`, `docs/PROMPT_TEMPLATES.md` |
 | `scripts/` | Repo maintenance scripts — `check_layer_hygiene.py` | tooling that guards the codebase; wired into `make ci` | (none) |
@@ -86,7 +86,7 @@ Verified against `Makefile`. Grouped by use.
 
 | Target | When to use |
 |--------|-------------|
-| `make install` | First setup and whenever `pyproject.toml` or `uv.lock` changes. Creates `.venv/`, syncs deps, installs Playwright chromium, runs `make skills`. |
+| `make install` | First setup and whenever `pyproject.toml` or `uv.lock` changes. Creates `.venv/`, syncs deps, runs `make skills`. |
 | `make skills` | After adding or renaming a `SKILL.md` under `talent/` or `apps/*/talent/`. Rewrites the `.claude/` + `.agents/` skill symlinks into `journal/`. (`make install` depends on this; rarely run alone.) |
 | `make update` | Upgrade all deps to latest, regenerate `uv.lock`. Expect test churn. |
 | `make update-prices` | Refresh genai-prices model-cost data when adding a new provider model or when pricing tests fail. |
@@ -161,7 +161,6 @@ Verified against `Makefile`. Grouped by use.
 - **Run app tests:** `make test-apps` or `make test-app APP=<name>`.
 - **Integration tests** (`tests/integration/`): hit real provider APIs, require `.env` keys, run via `make test-integration`.
 - **After editing `convey/` or `apps/`:** `sol restart-convey` to reload code in a running stack.
-- **Screenshots for UI review:** `sol screenshot <route>` (captures into `scratch/`).
 - **`make dev` + `make sandbox`** both write runtime artifacts into the fixtures journal; `tests/fixtures/journal/.gitignore` covers those — never commit them.
 
 Full depth: `docs/testing.md`.

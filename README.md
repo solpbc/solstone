@@ -95,7 +95,6 @@ sol supervisor         # Start the full stack (capture + processing + web)
 sol chat               # Interactive AI chat from the terminal
 sol transcribe <file>  # Transcribe an audio file
 sol indexer            # Rebuild the search index
-sol screenshot /       # Capture a screenshot of the web UI
 ```
 
 Run `sol help` for the full command reference.
@@ -120,7 +119,7 @@ Run `sol help` for the full command reference.
 
 See [AGENTS.md](AGENTS.md) for development guidelines, coding standards, and testing instructions.
 
-Use `make dev` to run the full stack against test fixtures, `make ci` for pre-commit checks, and `sol screenshot` for UI testing workflows.
+Use `make dev` to run the full stack against test fixtures and `make ci` for pre-commit checks.
 
 ## contributing
 

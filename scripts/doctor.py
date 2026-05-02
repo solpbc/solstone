@@ -12,7 +12,7 @@ check failed.
 Decision log:
 - uv floor: 0.7.12 — `uv.lock` revision=3 requires >= 0.7.12 per
   astral-sh/uv#15220.
-- disk threshold: 10 GiB — measured `.venv`=7.88 GiB + playwright=0.61 GiB +
+- disk threshold: 10 GiB — measured `.venv`=7.88 GiB +
   uv-cache first-install growth ~1 GiB + buffer.
 - Makefile UV-guard strategy: MAKECMDGOALS filter; prep verified the
   doctor-only matrix on GNU make.

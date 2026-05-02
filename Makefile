@@ -68,8 +68,6 @@ USER_BIN := $(HOME)/.local/bin
 		$(UV) sync --extra parakeet-onnx-$(PARAKEET_ONNX_VARIANT) || { echo "parakeet install: uv sync --extra parakeet-onnx-$(PARAKEET_ONNX_VARIANT) failed" >&2; exit 1; }; \
 	fi
 	@$(VENV_BIN)/python -c "from observe.transcribe.main import PYANNOTE_OVERLAP_MODEL_PATH, PYANNOTE_OVERLAP_MODEL_SHA256, WESPEAKER_MODEL_PATH, WESPEAKER_MODEL_SHA256; from observe.utils import compute_file_sha256; actual = compute_file_sha256(WESPEAKER_MODEL_PATH); assert actual == WESPEAKER_MODEL_SHA256, f'WeSpeaker asset hash mismatch: got {actual}, expected {WESPEAKER_MODEL_SHA256}'; print(f'wespeaker asset ok ({actual[:12]}...)'); actual = compute_file_sha256(PYANNOTE_OVERLAP_MODEL_PATH); assert actual == PYANNOTE_OVERLAP_MODEL_SHA256, f'pyannote asset hash mismatch: got {actual}, expected {PYANNOTE_OVERLAP_MODEL_SHA256}'; print(f'pyannote asset ok ({actual[:12]}...)')"
-	@echo "Installing Playwright browser for sol screenshot..."
-	$(VENV_BIN)/playwright install chromium
 	@$(MAKE) --no-print-directory skills
 	@touch .installed
 

@@ -297,7 +297,7 @@ solstone/
 | Service | `service` (+ aliases `up`, `down`, `start`) |
 | Observe (capture) | `transcribe`, `describe`, `sense`, `transfer`, `observer` |
 | Talent (AI agents) | `agents`, `cortex`, `talent`, `call`, `engage` |
-| Convey (web UI) | `convey`, `restart-convey`, `screenshot`, `maint` |
+| Convey (web UI) | `convey`, `restart-convey`, `maint` |
 | Specialized | `config`, `streams`, `journal-stats`, `formatter`, `detect-created` |
 | Help | `help`, `chat` |
 
