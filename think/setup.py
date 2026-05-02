@@ -61,6 +61,7 @@ class SetupContext:
     skip_skills: bool
     skip_service: bool
     accept_existing_journal: bool
+    force: bool
     stdin_is_tty: bool
     stdout_is_tty: bool
     args_resolved: dict[str, object]
@@ -148,6 +149,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="allow setup to use a non-empty existing journal directory",
     )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="re-run all steps unconditionally (today: only changes the preface wording)",
+    )
     return parser
 
 
@@ -192,6 +198,10 @@ def resolve_context(args: argparse.Namespace, raw_argv: list[str]) -> SetupConte
             "source": "cli" if variant_supplied else "default",
         },
         "yes": {"value": bool(args.yes), "source": "cli" if args.yes else "default"},
+        "force": {
+            "value": bool(args.force),
+            "source": "cli" if args.force else "default",
+        },
         "dry_run": {
             "value": bool(args.dry_run),
             "source": "cli" if args.dry_run else "default",
@@ -244,6 +254,7 @@ def resolve_context(args: argparse.Namespace, raw_argv: list[str]) -> SetupConte
         skip_skills=bool(args.skip_skills),
         skip_service=bool(args.skip_service),
         accept_existing_journal=bool(args.accept_existing_journal),
+        force=bool(args.force),
         stdin_is_tty=sys.stdin.isatty(),
         stdout_is_tty=sys.stdout.isatty(),
         args_resolved=args_resolved,
@@ -298,6 +309,29 @@ def read_manifest(ctx: SetupContext) -> dict[str, Any] | None:
         return json.loads(ctx.manifest_path.read_text(encoding="utf-8"))
     except (FileNotFoundError, json.JSONDecodeError):
         return None
+
+
+@dataclass(frozen=True)
+class PriorRunStatus:
+    state: str  # "none" | "clean" | "partial"
+    timestamp: str | None
+    failed_steps: tuple[str, ...]
+
+
+def prior_run_status(ctx: SetupContext) -> PriorRunStatus:
+    manifest = read_manifest(ctx)
+    if manifest is None:
+        return PriorRunStatus("none", None, ())
+    steps = manifest.get("steps") or []
+    failed = tuple(
+        s.get("name", "<unknown>")
+        for s in steps
+        if s.get("status") not in ("ok", "skipped")
+    )
+    completed_at = manifest.get("completed_at")
+    if completed_at and not failed:
+        return PriorRunStatus("clean", completed_at, ())
+    return PriorRunStatus("partial", manifest.get("started_at"), failed)
 
 
 def write_manifest(ctx: SetupContext, manifest: dict[str, Any]) -> None:
@@ -505,14 +539,18 @@ def maybe_dead_end_on_port(ctx: SetupContext) -> None:
 def step_journal(ctx: SetupContext, step_index: int) -> StepResult:
     started_at = utc_now()
     print_step_header(step_index, "journal config")
-    if non_empty_journal(ctx.journal_path) and not ctx.accept_existing_journal:
+    persisted = read_user_config().get("journal", "").strip()
+    persisted_matches = bool(persisted) and expand_path(persisted) == ctx.journal_path
+    if (
+        non_empty_journal(ctx.journal_path)
+        and not ctx.accept_existing_journal
+        and not persisted_matches
+    ):
         if ctx.mode is SetupMode.NON_INTERACTIVE:
             dead_end_existing_journal(ctx)
         if not prompt_accept_existing_journal(ctx.journal_path):
             raise SetupDeadEnd("setup aborted by user", 2)
 
-    persisted = read_user_config().get("journal", "").strip()
-    persisted_matches = bool(persisted) and expand_path(persisted) == ctx.journal_path
     if not persisted_matches:
         write_user_config(journal=str(ctx.journal_path))
         print(f"[step {step_index}/{TOTAL_STEPS}] wrote {ctx.config_path}")
@@ -830,6 +868,26 @@ def artifact_paths(ctx: SetupContext, manifest: dict[str, Any]) -> list[str]:
     return paths
 
 
+def print_prior_run_preface(ctx: SetupContext) -> None:
+    status = prior_run_status(ctx)
+    if status.state == "none":
+        return
+    if status.state == "clean":
+        suffix = (
+            "re-running all steps (--force)."
+            if ctx.force
+            else "verifying current state."
+        )
+        print(f"sol setup last ran cleanly on {status.timestamp}; {suffix}")
+        if not ctx.force:
+            print("Use --force to re-run all steps unconditionally.")
+        return
+    print(f"sol setup last run on {status.timestamp} left these steps incomplete:")
+    for name in status.failed_steps:
+        print(f"  - {name} (failed)")
+    print("Re-running will pick up where the previous run left off.")
+
+
 def run_setup(ctx: SetupContext) -> int:
     if ctx.mode is SetupMode.EXPLAIN:
         print_plan(ctx, dry_run=False)
@@ -838,6 +896,7 @@ def run_setup(ctx: SetupContext) -> int:
         print_plan(ctx, dry_run=True)
         return 0
 
+    print_prior_run_preface(ctx)
     manifest = initial_manifest(ctx)
     steps = [
         step_doctor,

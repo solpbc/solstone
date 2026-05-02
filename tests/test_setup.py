@@ -12,6 +12,7 @@ from typing import Any
 import pytest
 
 from think import health_cli, service, setup
+from think.user_config import write_user_config
 
 
 def patch_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
@@ -264,30 +265,250 @@ def test_manifest_round_trip(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     assert {step["status"] for step in manifest["steps"]} <= {"ok", "skipped", "failed"}
 
 
-def test_idempotent_rerun_short_circuits(
+def test_persisted_journal_skips_existing_journal_check_non_interactive(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
-    home = patch_home(monkeypatch, tmp_path)
+    patch_home(monkeypatch, tmp_path)
     patch_source_checkout(monkeypatch, tmp_path)
     monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
-    (home / ".claude").mkdir()
+    journal = tmp_path / "journal"
+    (journal / "config").mkdir(parents=True)
+    write_user_config(journal=str(journal))
+    patch_subprocess(monkeypatch)
+    patch_service_health(monkeypatch)
+
+    rc = setup.main(["--yes"])
+
+    assert rc == 0
+    assert "already contains journal data" not in capsys.readouterr().err
+    journal_step = next(
+        step for step in read_manifest(journal)["steps"] if step["name"] == "journal"
+    )
+    assert journal_step["status"] == "ok"
+
+
+def test_persisted_journal_skips_existing_journal_check_interactive(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    patch_home(monkeypatch, tmp_path)
+    patch_source_checkout(monkeypatch, tmp_path)
+    patch_tty(monkeypatch)
+    monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
+    journal = tmp_path / "journal"
+    (journal / "config").mkdir(parents=True)
+    write_user_config(journal=str(journal))
+    patch_subprocess(monkeypatch)
+    patch_service_health(monkeypatch)
+
+    def fail_on_prompt(path: Path) -> bool:
+        raise AssertionError(f"unexpected existing-journal prompt for {path}")
+
+    monkeypatch.setattr(setup, "prompt_accept_existing_journal", fail_on_prompt)
+
+    rc = setup.main([])
+
+    assert rc == 0
+    assert "Use existing journal" not in capsys.readouterr().out
+
+
+def test_existing_journal_dead_end_still_fires_when_path_not_persisted(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    patch_home(monkeypatch, tmp_path)
+    patch_source_checkout(monkeypatch, tmp_path)
+    monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
+    patch_subprocess(monkeypatch)
+    patch_service_health(monkeypatch)
+    journal = tmp_path / "journal"
+    (journal / "config").mkdir(parents=True)
+
+    rc = setup.main(["--yes", "--journal", str(journal)])
+
+    assert rc == 2
+    assert "already contains journal data" in capsys.readouterr().err
+
+
+def test_clean_rerun_preface_when_manifest_complete(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    patch_home(monkeypatch, tmp_path)
+    patch_source_checkout(monkeypatch, tmp_path)
+    monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
+    patch_subprocess(monkeypatch)
+    patch_service_health(monkeypatch)
     journal = tmp_path / "journal"
     journal.mkdir()
+    completed_at = "2026-05-02T21:30:42Z"
+    started_at = "2026-05-02T21:29:42Z"
+    steps = [
+        {
+            "name": name,
+            "status": "ok",
+            "paths": [],
+            "started_at": started_at,
+            "finished_at": completed_at,
+            "error": None,
+        }
+        for name in (
+            "doctor",
+            "journal",
+            "install_models",
+            "skills",
+            "wrapper",
+            "service",
+        )
+    ]
     (journal / ".setup-state.json").write_text(
-        json.dumps({"schema_version": 1, "completed_at": "2026-05-02T21:30:42Z"}),
+        json.dumps(
+            {
+                "schema_version": 1,
+                "started_at": started_at,
+                "completed_at": completed_at,
+                "mode": "non_interactive",
+                "args_resolved": {},
+                "steps": steps,
+            }
+        ),
         encoding="utf-8",
     )
-    calls = patch_subprocess(monkeypatch)
-    patch_service_health(monkeypatch)
 
     rc = setup.main(["--yes", "--journal", str(journal)])
 
     assert rc == 0
-    assert command_contains(calls, "doctor")
-    assert command_contains(calls, "install-models")
-    assert command_contains(calls, "think.install_guard")
-    assert read_manifest(journal)["completed_at"] is not None
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[0] == (
+        f"sol setup last ran cleanly on {completed_at}; verifying current state."
+    )
+    assert lines[1] == "Use --force to re-run all steps unconditionally."
+
+
+def test_partial_rerun_preface_when_steps_failed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    patch_home(monkeypatch, tmp_path)
+    patch_source_checkout(monkeypatch, tmp_path)
+    monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
+    patch_subprocess(monkeypatch)
+    patch_service_health(monkeypatch)
+    journal = tmp_path / "journal"
+    journal.mkdir()
+    started_at = "2026-05-02T21:29:42Z"
+    (journal / ".setup-state.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "started_at": started_at,
+                "completed_at": None,
+                "mode": "non_interactive",
+                "args_resolved": {},
+                "steps": [
+                    {
+                        "name": "install_models",
+                        "status": "failed",
+                        "paths": [],
+                        "started_at": started_at,
+                        "finished_at": "2026-05-02T21:30:42Z",
+                        "error": {"message": "install failed", "exit_code": 1},
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    rc = setup.main(["--yes", "--journal", str(journal)])
+
+    assert rc == 0
+    assert (
+        f"sol setup last run on {started_at} left these steps incomplete:\n"
+        "  - install_models (failed)\n"
+        "Re-running will pick up where the previous run left off."
+    ) in capsys.readouterr().out
+
+
+def test_no_preface_without_manifest(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    patch_home(monkeypatch, tmp_path)
+    patch_source_checkout(monkeypatch, tmp_path)
+    monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
+    patch_subprocess(monkeypatch)
+    patch_service_health(monkeypatch)
+    journal = tmp_path / "journal"
+
+    rc = setup.main(["--yes", "--journal", str(journal)])
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "last ran cleanly" not in out and "left these steps incomplete" not in out
+
+
+def test_force_flag_changes_preface_text(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    patch_home(monkeypatch, tmp_path)
+    patch_source_checkout(monkeypatch, tmp_path)
+    monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
+    patch_subprocess(monkeypatch)
+    patch_service_health(monkeypatch)
+    journal = tmp_path / "journal"
+    journal.mkdir()
+    completed_at = "2026-05-02T21:30:42Z"
+    started_at = "2026-05-02T21:29:42Z"
+    steps = [
+        {
+            "name": name,
+            "status": "ok",
+            "paths": [],
+            "started_at": started_at,
+            "finished_at": completed_at,
+            "error": None,
+        }
+        for name in (
+            "doctor",
+            "journal",
+            "install_models",
+            "skills",
+            "wrapper",
+            "service",
+        )
+    ]
+    (journal / ".setup-state.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "started_at": started_at,
+                "completed_at": completed_at,
+                "mode": "non_interactive",
+                "args_resolved": {},
+                "steps": steps,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    rc = setup.main(["--yes", "--force", "--journal", str(journal)])
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert out.startswith(
+        f"sol setup last ran cleanly on {completed_at}; re-running all steps (--force)."
+    )
+    assert "Use --force to re-run all steps unconditionally." not in out
 
 
 def test_partial_completion_resumption(
