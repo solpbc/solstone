@@ -9,6 +9,8 @@ from pathlib import Path
 
 import pytest
 
+from think.skills_cli import install_project
+
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parent.parent
@@ -63,6 +65,7 @@ def test_journal_template_symlinks_resolve_inside_repo():
 
 @pytest.mark.timeout(30)
 def test_make_skills_idempotent(tmp_path):
+    """The make skills wrapper delegates to the idempotent project installer."""
     repo_root = _repo_root()
     temp_root = tmp_path / "repo"
     temp_root.mkdir()
@@ -70,21 +73,6 @@ def test_make_skills_idempotent(tmp_path):
     shutil.copy2(repo_root / "Makefile", temp_root / "Makefile")
     shutil.copytree(repo_root / "talent", temp_root / "talent", symlinks=True)
     shutil.copytree(repo_root / "apps", temp_root / "apps", symlinks=True)
-    # `make skills` only reads talent/ and apps/*/talent/, and writes symlinks
-    # under journal/.agents/skills and journal/.claude/skills. Copying the live
-    # journal/ pulls in whatever real capture data the dev box has accumulated
-    # (chronicle/ alone can be 100+ GB), and copytree blows past the 30s budget
-    # on os.sendfile before make skills ever runs. An empty journal/ is all the
-    # target needs.
-    (temp_root / "journal").mkdir()
-
-    subprocess.run(
-        ["make", "skills"],
-        cwd=temp_root,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
 
     def link_state(root: Path) -> dict[str, tuple[str, int]]:
         return {
@@ -96,25 +84,25 @@ def test_make_skills_idempotent(tmp_path):
             if path.is_symlink()
         }
 
-    first = link_state(temp_root / "journal")
+    first_report = install_project(temp_root, temp_root, ["all"])
+    assert first_report.error_count == 0
 
-    subprocess.run(
-        ["make", "skills"],
-        cwd=temp_root,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
+    first = link_state(temp_root)
 
-    second = link_state(temp_root / "journal")
+    second_report = install_project(temp_root, temp_root, ["all"])
+    assert second_report.error_count == 0
+
+    second = link_state(temp_root)
     assert first == second
+    assert (
+        temp_root / ".claude" / "skills" / "journal"
+    ).readlink().as_posix() == "../../talent/journal"
 
     # Skill-discovery contract: claude code looks at <cwd>/.claude/skills/, so
-    # after `make skills` the journal-cwd path must resolve to a real SKILL.md
-    # whose content starts with frontmatter. Verifying it here against the tmp
-    # tree (rather than the gitignored repo_root/journal/.claude/...) means
-    # the test is hermetic — it doesn't depend on the dev box having
-    # previously run `make install` or `make skills` to produce the artifact.
-    discovered = temp_root / "journal" / ".claude" / "skills" / "journal" / "SKILL.md"
+    # after project skill installation the cwd path must resolve to a real
+    # SKILL.md whose content starts with frontmatter. Verifying it here against
+    # the tmp tree means the test is hermetic — it doesn't depend on the dev box
+    # having previously run `make install` or `make skills`.
+    discovered = temp_root / ".claude" / "skills" / "journal" / "SKILL.md"
     assert discovered.is_file()
     assert discovered.read_text(encoding="utf-8").startswith("---")

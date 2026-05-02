@@ -75,7 +75,7 @@ uv.lock: pyproject.toml
 	$(UV) lock
 
 # Install package in editable mode with isolated venv
-install: doctor skills .installed
+install: doctor .installed
 	@(cd /tmp && $(CURDIR)/$(VENV_BIN)/python -c "from think.sol_cli import main") 2>/dev/null || { \
 		echo ">>> re-registering editable install"; \
 		$(UV) pip install -e . --no-deps; \
@@ -108,55 +108,9 @@ install: doctor skills .installed
 	@touch .installed
 	@$(VENV_BIN)/sol install-models || { echo "sol install-models failed" >&2; exit 1; }
 
-# Directories where AI coding agents look for skills
-SKILL_DIRS := journal/.agents/skills journal/.claude/skills
-
-# Discover SKILL.md files in talent/ and apps/*/talent/, symlink into agent skill dirs
+# Setup skill symlinks
 skills:
-	@rm -rf .agents/skills .claude/skills
-	@# Collect all skill directories (containing SKILL.md)
-	@SKILLS=""; \
-	for skill_md in talent/*/SKILL.md apps/*/talent/*/SKILL.md; do \
-		[ -f "$$skill_md" ] || continue; \
-		skill_dir=$$(dirname "$$skill_md"); \
-		skill_name=$$(basename "$$skill_dir"); \
-		if echo "$$SKILLS" | grep -qw "$$skill_name"; then \
-			echo "Error: duplicate skill name '$$skill_name' found in $$skill_dir" >&2; \
-			echo "Each skill directory name must be unique across talent/ and apps/*/talent/." >&2; \
-			exit 1; \
-		fi; \
-		SKILLS="$$SKILLS $$skill_name"; \
-	done; \
-	for dir in $(SKILL_DIRS); do \
-		mkdir -p "$$dir"; \
-		for link in "$$dir"/*; do \
-			([ -e "$$link" ] || [ -L "$$link" ]) || continue; \
-			skill_name=$$(basename "$$link"); \
-			if ! echo "$$SKILLS" | grep -qw "$$skill_name"; then \
-				rm -rf "$$link"; \
-			fi; \
-		done; \
-	done; \
-	count=0; \
-	for skill_md in talent/*/SKILL.md apps/*/talent/*/SKILL.md; do \
-		[ -f "$$skill_md" ] || continue; \
-		skill_dir=$$(dirname "$$skill_md"); \
-		skill_name=$$(basename "$$skill_dir"); \
-		for dir in $(SKILL_DIRS); do \
-			target="../../../$$skill_dir"; \
-			link="$$dir/$$skill_name"; \
-			if [ -L "$$link" ] && [ "$$(readlink "$$link")" = "$$target" ]; then \
-				:; \
-			else \
-				rm -rf "$$link"; \
-				ln -s "$$target" "$$link"; \
-			fi; \
-		done; \
-		count=$$((count + 1)); \
-	done; \
-	if [ "$$count" -gt 0 ]; then \
-		echo "Linked $$count skill(s) into $(SKILL_DIRS)"; \
-	fi
+	@$(VENV_BIN)/sol skills install --project
 
 # Start local dev stack against fixture journal (no observers, no daily processing)
 dev: .installed
@@ -464,7 +418,7 @@ doctor:
 	@python3 scripts/doctor.py $(if $(VERBOSE),--verbose) $(if $(JSON),--json) $(if $(PORT),--port $(PORT))
 
 # Service management (override port: make install-service PORT=8000)
-install-service: doctor skills .installed
+install-service: doctor .installed
 	@MODE=$$($(PYTHON) -m think.install_guard check); \
 	RC=$$?; \
 	case "$$MODE" in \
@@ -499,7 +453,7 @@ install-service: doctor skills .installed
 			;; \
 	esac; \
 	$(PYTHON) -m think.install_guard install; \
-	CI=true npx --yes skills add ./skills/solstone -g -a claude-code -y; \
+	$(VENV_BIN)/sol skills install; \
 	$(VENV_BIN)/sol service install --port $(or $(PORT),5015); \
 	$(VENV_BIN)/sol service restart; \
 	echo "Waiting for supervisor to report healthy..."; \
@@ -549,7 +503,7 @@ uninstall-service:
 	fi; \
 	$(VENV_BIN)/sol service stop > /dev/null 2>&1 || true; \
 	$(VENV_BIN)/sol service uninstall; \
-	CI=true npx --yes skills remove -g -a claude-code -y solstone; \
+	$(VENV_BIN)/sol skills uninstall; \
 	$(PYTHON) -m think.install_guard uninstall
 
 uninstall:

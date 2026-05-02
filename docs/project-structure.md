@@ -34,7 +34,7 @@ Each package has a README.md symlink pointing to its documentation in `docs/`.
 
 ## Agent & Skill Organization
 
-`talent/*.md` stores agent personas and generator templates. Apps can add their own in `apps/*/talent/*.md`. Skills live at `talent/*/SKILL.md` and are symlinked into `journal/.agents/skills/` and `journal/.claude/skills/` via `make skills`.
+`talent/*.md` stores agent personas and generator templates. Apps can add their own in `apps/*/talent/*.md`. Skills live at `talent/*/SKILL.md` and are symlinked into `journal/.agents/skills/` and `journal/.claude/skills/` via `sol skills install --project`, wrapped by `make skills`.
 
 ## File Locations
 
@@ -43,5 +43,5 @@ Each package has a README.md symlink pointing to its documentation in `docs/`.
 - **Live Logs**: `journal/health/<service>.log`
 - **Agent Personas**: `talent/*.md` (apps can add their own in `talent/`, see [docs/APPS.md](docs/APPS.md))
 - **Generator Templates**: `talent/*.md` (apps can add their own in `talent/`, see [docs/APPS.md](docs/APPS.md))
-- **Agent Skills**: `talent/*/SKILL.md` - symlinked into `journal/.agents/skills/` and `journal/.claude/skills/` via `make skills`, read https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices to create the best skills
+- **Agent Skills**: `talent/*/SKILL.md` - symlinked into `journal/.agents/skills/` and `journal/.claude/skills/` via `sol skills install --project`, wrapped by `make skills`; read https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices to create the best skills
 - **Scratch Space**: `scratch/` - git-ignored local workspace
