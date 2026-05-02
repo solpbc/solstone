@@ -324,6 +324,16 @@ class TestPurge:
         (day3 / "stream.json").write_text('{"stream":"default"}')
 
         monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
+        fixed_now = datetime(2026, 4, 15)
+
+        class FixedDateTime(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                if tz is not None:
+                    return fixed_now.replace(tzinfo=tz)
+                return fixed_now
+
+        monkeypatch.setattr("think.retention.datetime", FixedDateTime)
         # Clear cached journal path
         import think.utils
 
