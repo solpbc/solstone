@@ -1,0 +1,43 @@
+Dry-run: would install solstone-linux observer
+
+Platform: linux
+Stream:   archon
+Server:   http://127.0.0.1:5015
+Source:   https://github.com/solpbc/solstone-linux.git
+Target:   /home/jer/.local/share/solstone/observers/solstone-linux
+Config:   /home/jer/.local/share/solstone-linux/config/config.json
+Service:  solstone-linux.service
+Marker:   /home/jer/.local/share/solstone/observers/solstone-linux/.installed.json
+
+Preflight:
+  ✓ git found
+  ✓ uv found
+  ✓ pipx found
+  ✓ make found
+  ✓ systemctl --user available
+  ✓ distro detected: fedora
+  ✓ package python3-gobject installed
+  ✓ package gtk4 installed
+  ✓ package gstreamer1-plugins-base installed
+  ✓ package gstreamer1-plugin-pipewire installed
+  ✓ package pipewire-gstreamer installed
+  ✓ package alsa-lib-devel installed
+  ✓ package pulseaudio-utils installed
+  ✓ package pipewire-pulseaudio installed
+  ✓ package xdg-desktop-portal installed
+  ✓ package pipx installed
+
+Plan:
+  would clone https://github.com/solpbc/solstone-linux.git into /home/jer/.local/share/solstone/observers/solstone-linux
+  would create observer registration 'archon'
+  would write /home/jer/.local/share/solstone-linux/config/config.json
+  would run: make install-service
+  would wait up to 30s for observer status
+  would write marker /home/jer/.local/share/solstone/observers/solstone-linux/.installed.json
+
+Summary:
+  Key prefix: <not generated in dry-run>
+  Logs:       journalctl --user -u solstone-linux.service -f
+  Status:     sol observer status archon
+
+Dry-run complete; no files were written.
