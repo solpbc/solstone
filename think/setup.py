@@ -17,7 +17,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Callable, Literal
 
 from think.user_config import (
     config_path,
@@ -77,6 +77,7 @@ class StepResult:
     started_at: str
     finished_at: str
     error: dict[str, object] | None
+    reason: str | None = None
 
 
 class SetupDeadEnd(Exception):
@@ -152,7 +153,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--force",
         action="store_true",
-        help="re-run all steps unconditionally (today: only changes the preface wording)",
+        help="re-run all steps unconditionally",
     )
     return parser
 
@@ -236,7 +237,7 @@ def resolve_context(args: argparse.Namespace, raw_argv: list[str]) -> SetupConte
         },
     }
 
-    return SetupContext(
+    ctx = SetupContext(
         mode=mode,
         project_root=project_root,
         is_source_checkout=is_source_checkout,
@@ -260,11 +261,18 @@ def resolve_context(args: argparse.Namespace, raw_argv: list[str]) -> SetupConte
         args_resolved=args_resolved,
         doctor_advisories=[],
     )
+    if ctx.journal_path.exists() and not ctx.journal_path.is_dir():
+        dead_end_journal_is_file(ctx)
+    return ctx
 
 
 def resolve_journal_path(args: argparse.Namespace) -> tuple[Path, str]:
     if args.journal is not None:
         return expand_path(args.journal), "cli"
+
+    env_path = os.environ.get("SOLSTONE_JOURNAL", "").strip()
+    if env_path:
+        return expand_path(env_path), "env"
 
     configured = read_user_config().get("journal", "").strip()
     if configured:
@@ -334,6 +342,19 @@ def prior_run_status(ctx: SetupContext) -> PriorRunStatus:
     return PriorRunStatus("partial", manifest.get("started_at"), failed)
 
 
+def prior_step_lookup(manifest: dict[str, Any]) -> dict[str, dict]:
+    lookup = {}
+    for step in manifest.get("steps", []):
+        lookup[step["name"]] = step
+    return lookup
+
+
+def can_skip(prior_step: dict | None) -> bool:
+    if prior_step is None or prior_step.get("status") != "ok":
+        return False
+    return all(Path(path).exists() for path in prior_step.get("paths", []))
+
+
 def write_manifest(ctx: SetupContext, manifest: dict[str, Any]) -> None:
     try:
         ctx.manifest_path.parent.mkdir(parents=True, exist_ok=True)
@@ -380,6 +401,7 @@ def step_result(
     paths: list[Path | str],
     started_at: str,
     error: dict[str, object] | None = None,
+    reason: str | None = None,
 ) -> StepResult:
     return StepResult(
         name=name,
@@ -388,6 +410,7 @@ def step_result(
         started_at=started_at,
         finished_at=utc_now(),
         error=error,
+        reason=reason,
     )
 
 
@@ -552,11 +575,12 @@ def step_journal(ctx: SetupContext, step_index: int) -> StepResult:
             raise SetupDeadEnd("setup aborted by user", 2)
 
     if not persisted_matches:
+        ctx.journal_path.mkdir(parents=True, exist_ok=True)
         write_user_config(journal=str(ctx.journal_path))
         print(f"[step {step_index}/{TOTAL_STEPS}] wrote {ctx.config_path}")
     else:
         print(f"[step {step_index}/{TOTAL_STEPS}] journal config already current")
-    ctx.journal_path.mkdir(parents=True, exist_ok=True)
+        ctx.journal_path.mkdir(parents=True, exist_ok=True)
     return step_result(
         "journal",
         "ok",
@@ -598,7 +622,9 @@ def step_install_models(ctx: SetupContext, step_index: int) -> StepResult:
     started_at = utc_now()
     if ctx.skip_models:
         print_step_skipped(step_index, "install_models", "--skip-models")
-        return step_result("install_models", "skipped", [], started_at)
+        return step_result(
+            "install_models", "skipped", [], started_at, reason="--skip-models"
+        )
     command = install_models_command(ctx)
     print_step_header(step_index, "install-models", command)
     rc = run_inherited(command)
@@ -619,11 +645,13 @@ def step_skills(ctx: SetupContext, step_index: int) -> StepResult:
     skill_path = claude_dir / "skills" / "solstone" / "SKILL.md"
     if ctx.skip_skills:
         print_step_skipped(step_index, "skills", "--skip-skills")
-        return step_result("skills", "skipped", [], started_at)
+        return step_result("skills", "skipped", [], started_at, reason="--skip-skills")
     if not claude_dir.exists():
         reason = f"Claude Code config not found at {claude_dir}"
         print_step_skipped(step_index, "skills", reason)
-        return step_result("skills", "skipped", [], started_at)
+        return step_result(
+            "skills", "skipped", [], started_at, reason="claude_config_missing"
+        )
     command = skills_command()
     print_step_header(step_index, "skills", command)
     rc = run_inherited(command)
@@ -643,7 +671,9 @@ def step_wrapper(ctx: SetupContext, step_index: int) -> StepResult:
     wrapper_path = Path.home() / ".local" / "bin" / "sol"
     if not ctx.is_source_checkout:
         print_step_skipped(step_index, "wrapper", "packaged install")
-        return step_result("wrapper", "skipped", [], started_at)
+        return step_result(
+            "wrapper", "skipped", [], started_at, reason="packaged_install"
+        )
     command = wrapper_command()
     print_step_header(step_index, "wrapper", command)
     rc = run_inherited(command)
@@ -672,7 +702,9 @@ def step_service(ctx: SetupContext, step_index: int) -> StepResult:
     paths = [artifact] if artifact is not None else []
     if ctx.skip_service:
         print_step_skipped(step_index, "service", "--skip-service")
-        return step_result("service", "skipped", [], started_at)
+        return step_result(
+            "service", "skipped", [], started_at, reason="--skip-service"
+        )
     if not ctx.is_source_checkout:
         ctx.service_skipped_packaged = True
         reason = (
@@ -681,7 +713,13 @@ def step_service(ctx: SetupContext, step_index: int) -> StepResult:
             "again from a source checkout to install the background service."
         )
         print_step_skipped(step_index, "service", reason)
-        return step_result("service", "skipped", [], started_at)
+        return step_result(
+            "service",
+            "skipped",
+            [],
+            started_at,
+            reason="packaged_service_unsupported",
+        )
 
     command = service_install_command(ctx)
     print_step_header(step_index, "service install", command)
@@ -747,6 +785,14 @@ def dead_end_existing_journal(ctx: SetupContext) -> None:
     raise SetupDeadEnd(message, 2)
 
 
+def dead_end_journal_is_file(ctx: SetupContext) -> None:
+    message = (
+        f"expected a directory at {ctx.journal_path}; got a regular file. "
+        "Re-run with --journal <other-path>."
+    )
+    raise SetupDeadEnd(message, 2)
+
+
 def dead_end_port_in_use(ctx: SetupContext) -> None:
     message = "\n".join(
         [
@@ -778,27 +824,27 @@ def print_plan(ctx: SetupContext, *, dry_run: bool) -> None:
     print(f"  variant: {ctx.variant} ({ctx.variant_source})")
     print(f"  source checkout: {ctx.is_source_checkout}")
     print()
-    print("[step 1/6] doctor")
+    print(f"[step 1/6] {_STEP_NAME[step_doctor]}")
     print(f"  would run: {format_command(doctor_command(ctx))}")
-    print("[step 2/6] journal")
+    print(f"[step 2/6] {_STEP_NAME[step_journal]}")
     print(f"  would write: {ctx.config_path}")
     print(f"  would use journal: {ctx.journal_path}")
-    print("[step 3/6] install_models")
+    print(f"[step 3/6] {_STEP_NAME[step_install_models]}")
     if ctx.skip_models:
         print("  skipped: --skip-models")
     else:
         print(f"  would run: {format_command(install_models_command(ctx))}")
-    print("[step 4/6] skills")
+    print(f"[step 4/6] {_STEP_NAME[step_skills]}")
     if ctx.skip_skills:
         print("  skipped: --skip-skills")
     else:
         print(f"  would run: {format_command(skills_command())}")
-    print("[step 5/6] wrapper")
+    print(f"[step 5/6] {_STEP_NAME[step_wrapper]}")
     if not ctx.is_source_checkout:
         print("  skipped: packaged install")
     else:
         print(f"  would run: {format_command(wrapper_command())}")
-    print("[step 6/6] service")
+    print(f"[step 6/6] {_STEP_NAME[step_service]}")
     if ctx.skip_service:
         print("  skipped: --skip-service")
     elif not ctx.is_source_checkout:
@@ -820,6 +866,16 @@ def print_failure(result: StepResult) -> None:
 def print_success_summary(ctx: SetupContext, manifest: dict[str, Any]) -> None:
     print()
     print("solstone is set up.")
+    print()
+    steps = manifest.get("steps", [])
+    n_skipped_prior = sum(1 for step in steps if step.get("reason") == "prior_run_ok")
+    n_skipped_other = sum(
+        1
+        for step in steps
+        if step.get("status") == "skipped" and step.get("reason") != "prior_run_ok"
+    )
+    n_ran = TOTAL_STEPS - n_skipped_prior - n_skipped_other
+    print(f"{n_skipped_prior} of {TOTAL_STEPS} steps already done; ran {n_ran}")
     print()
     print("artifacts:")
     paths = artifact_paths(ctx, manifest)
@@ -885,7 +941,61 @@ def print_prior_run_preface(ctx: SetupContext) -> None:
     print(f"sol setup last run on {status.timestamp} left these steps incomplete:")
     for name in status.failed_steps:
         print(f"  - {name} (failed)")
-    print("Re-running will pick up where the previous run left off.")
+    print("Re-running will verify state and re-run incomplete steps.")
+
+
+def _resume_service(
+    ctx: SetupContext, step_index: int, prior_step: dict
+) -> StepResult | None:
+    started_at = utc_now()
+    from think.service import service_is_installed
+
+    if not service_is_installed():
+        return None
+
+    from think.health_cli import health_check
+
+    paths = prior_step.get("paths", [])
+    if health_check() == 0:
+        return step_result(
+            "service", "skipped", paths, started_at, reason="prior_run_ok"
+        )
+
+    print(
+        f"[step {step_index}/{TOTAL_STEPS}] service installed but unhealthy; restarting..."
+    )
+    run_inherited([sys.executable, "-m", "think.sol_cli", "service", "restart"])
+    for attempt in range(1, HEALTH_ATTEMPTS + 1):
+        if health_check() == 0:
+            return step_result(
+                "service",
+                "ok",
+                paths,
+                started_at,
+                reason="resumed_after_restart",
+            )
+        if attempt < HEALTH_ATTEMPTS:
+            time.sleep(HEALTH_SLEEP_SECONDS)
+    return None
+
+
+_STEP_NAME: dict[Callable[[SetupContext, int], StepResult], str] = {
+    step_doctor: "doctor",
+    step_journal: "journal",
+    step_install_models: "install_models",
+    step_skills: "skills",
+    step_wrapper: "wrapper",
+    step_service: "service",
+}
+
+_STEPS: tuple[Callable[[SetupContext, int], StepResult], ...] = (
+    step_doctor,
+    step_journal,
+    step_install_models,
+    step_skills,
+    step_wrapper,
+    step_service,
+)
 
 
 def run_setup(ctx: SetupContext) -> int:
@@ -897,17 +1007,46 @@ def run_setup(ctx: SetupContext) -> int:
         return 0
 
     print_prior_run_preface(ctx)
+    prior_manifest = read_manifest(ctx) or {}
+    prior = {} if ctx.force else prior_step_lookup(prior_manifest)
     manifest = initial_manifest(ctx)
-    steps = [
-        step_doctor,
-        step_journal,
-        step_install_models,
-        step_skills,
-        step_wrapper,
-        step_service,
-    ]
-    for index, step in enumerate(steps, start=1):
-        result = step(ctx, index)
+    for index, step in enumerate(_STEPS, start=1):
+        step_name = _STEP_NAME[step]
+        prior_step = prior.get(step_name)
+        started_at = utc_now()
+        try:
+            if can_skip(prior_step):
+                if step is step_service:
+                    result = _resume_service(ctx, index, prior_step)
+                    if result is None:
+                        result = step(ctx, index)
+                else:
+                    result = step_result(
+                        step_name,
+                        "skipped",
+                        prior_step.get("paths", []),
+                        started_at,
+                        reason="prior_run_ok",
+                    )
+            else:
+                result = step(ctx, index)
+        except SetupDeadEnd:
+            raise
+        except Exception as exc:
+            result = step_result(
+                step_name,
+                "failed",
+                [],
+                started_at,
+                {
+                    "message": str(exc) or exc.__class__.__name__,
+                    "exit_code": 1,
+                },
+            )
+            append_step(manifest, result)
+            write_manifest(ctx, manifest)
+            print_failure(result)
+            return 1
         append_step(manifest, result)
         write_manifest(ctx, manifest)
         if result.status == "failed":
@@ -925,8 +1064,8 @@ def main(argv: list[str] | None = None) -> int:
     raw_argv = list(argv) if argv is not None else sys.argv[1:]
     parser = build_parser()
     args = parser.parse_args(raw_argv)
-    ctx = resolve_context(args, raw_argv)
     try:
+        ctx = resolve_context(args, raw_argv)
         return run_setup(ctx)
     except SetupDeadEnd as exc:
         print(exc.message, file=sys.stderr)
