@@ -57,12 +57,28 @@ def doctor_payload(checks: list[dict[str, Any]] | None = None) -> str:
     )
 
 
+def port_advisory_payload() -> str:
+    return doctor_payload(
+        [
+            {
+                "name": "port_5015_free",
+                "severity": "advisory",
+                "status": "warn",
+                "detail": "port 5015 is in use by pid 123",
+                "fix": "kill 123",
+            }
+        ]
+    )
+
+
 def patch_subprocess(
     monkeypatch: pytest.MonkeyPatch,
     *,
     doctor_stdout: str | None = None,
     doctor_returncode: int = 0,
     command_returncode: int = 0,
+    doctor_timeout: bool = False,
+    popen_timeout_command: list[str] | None = None,
 ) -> list[list[str]]:
     calls: list[list[str]] = []
 
@@ -71,6 +87,8 @@ def patch_subprocess(
     ) -> subprocess.CompletedProcess[str]:
         calls.append(command)
         if "doctor" in command:
+            if doctor_timeout:
+                raise subprocess.TimeoutExpired(command, setup.DOCTOR_TIMEOUT_SECONDS)
             return subprocess.CompletedProcess(
                 command,
                 doctor_returncode,
@@ -79,7 +97,26 @@ def patch_subprocess(
             )
         return subprocess.CompletedProcess(command, command_returncode)
 
+    class FakePopen:
+        def __init__(self, command: list[str], **kwargs: object) -> None:
+            del kwargs
+            self.command = command
+            self.terminated = False
+            calls.append(command)
+
+        def wait(self, timeout: float | None = None) -> int:
+            if self.command == popen_timeout_command and not self.terminated:
+                raise subprocess.TimeoutExpired(self.command, timeout)
+            return command_returncode
+
+        def terminate(self) -> None:
+            self.terminated = True
+
+        def kill(self) -> None:
+            self.terminated = True
+
     monkeypatch.setattr(setup.subprocess, "run", fake_run)
+    monkeypatch.setattr(setup.subprocess, "Popen", FakePopen)
     return calls
 
 
@@ -689,17 +726,7 @@ def test_port_in_use_default_non_interactive_dead_end(
     monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
     calls = patch_subprocess(
         monkeypatch,
-        doctor_stdout=doctor_payload(
-            [
-                {
-                    "name": "port_5015_free",
-                    "severity": "advisory",
-                    "status": "warn",
-                    "detail": "port 5015 is in use by pid 123",
-                    "fix": "kill 123",
-                }
-            ]
-        ),
+        doctor_stdout=port_advisory_payload(),
     )
     journal = tmp_path / "journal"
 
@@ -709,6 +736,162 @@ def test_port_in_use_default_non_interactive_dead_end(
     assert "port 5015 is already in use" in capsys.readouterr().err
     assert_command(calls, 0, expected_doctor_command())
     assert len(calls) == 1
+
+
+def test_interactive_port_in_use_prompts_for_choice(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    home = patch_home(monkeypatch, tmp_path)
+    patch_source_checkout(monkeypatch, tmp_path)
+    patch_tty(monkeypatch)
+    monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
+    (home / ".claude").mkdir()
+    answers = iter(["1", "8080"])
+    monkeypatch.setattr("builtins.input", lambda _prompt: next(answers))
+    calls = patch_subprocess(monkeypatch, doctor_stdout=port_advisory_payload())
+    patch_service_health(monkeypatch)
+
+    rc = setup.main([])
+
+    assert rc == 0
+    journal = home / "Documents" / "journal"
+    assert read_manifest(journal)["args_resolved"]["port"] == {
+        "value": 8080,
+        "source": "prompt",
+    }
+    assert_command(calls, 0, expected_doctor_command())
+    assert_command(calls, 4, expected_service_install_command(port=8080))
+    assert len(calls) == 5
+
+
+def test_interactive_port_in_use_proceed_anyway(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    home = patch_home(monkeypatch, tmp_path)
+    patch_source_checkout(monkeypatch, tmp_path)
+    patch_tty(monkeypatch)
+    monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
+    (home / ".claude").mkdir()
+    answers = iter(["2"])
+    monkeypatch.setattr("builtins.input", lambda _prompt: next(answers))
+    calls = patch_subprocess(monkeypatch, doctor_stdout=port_advisory_payload())
+    patch_service_health(monkeypatch)
+
+    rc = setup.main([])
+
+    assert rc == 0
+    assert_command(calls, 0, expected_doctor_command())
+    assert_command(calls, 4, expected_service_install_command(port=5015))
+    assert len(calls) == 5
+
+
+def test_interactive_port_in_use_abort(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    patch_home(monkeypatch, tmp_path)
+    patch_source_checkout(monkeypatch, tmp_path)
+    patch_tty(monkeypatch)
+    monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
+    answers = iter(["3"])
+    monkeypatch.setattr("builtins.input", lambda _prompt: next(answers))
+    calls = patch_subprocess(monkeypatch, doctor_stdout=port_advisory_payload())
+
+    rc = setup.main([])
+
+    assert rc == 2
+    assert "setup aborted by user" in capsys.readouterr().err
+    assert_command(calls, 0, expected_doctor_command())
+    assert expected_service_install_command() not in calls
+    assert len(calls) == 1
+
+
+def test_doctor_timeout_records_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    patch_home(monkeypatch, tmp_path)
+    patch_source_checkout(monkeypatch, tmp_path)
+    monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
+    journal = tmp_path / "journal"
+    patch_subprocess(monkeypatch, doctor_timeout=True)
+
+    rc = setup.main(["--yes", "--journal", str(journal)])
+
+    assert rc == 1
+    step = read_manifest(journal)["steps"][-1]
+    assert step["name"] == "doctor"
+    assert step["status"] == "failed"
+    assert "timed out after 30s" in step["error"]["message"]
+    assert step["error"]["exit_code"] == 1
+
+
+def test_install_models_timeout_records_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    patch_home(monkeypatch, tmp_path)
+    patch_source_checkout(monkeypatch, tmp_path)
+    monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
+    journal = tmp_path / "journal"
+    patch_subprocess(
+        monkeypatch,
+        popen_timeout_command=expected_install_models_command(),
+    )
+
+    rc = setup.main(["--yes", "--journal", str(journal), "--step-timeout-seconds", "1"])
+
+    assert rc == 1
+    step = read_manifest(journal)["steps"][-1]
+    assert step["name"] == "install_models"
+    assert step["status"] == "failed"
+    assert "timed out after 1s" in step["error"]["message"]
+    assert step["error"]["exit_code"] == 1
+
+
+def test_step_timeout_seconds_passes_through_to_help_and_explain(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as raised:
+        setup.main(["--help"])
+    assert raised.value.code == 0
+    assert "--step-timeout-seconds" in capsys.readouterr().out
+
+    patch_home(monkeypatch, tmp_path)
+    patch_source_checkout(monkeypatch, tmp_path)
+    monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
+
+    rc = setup.main(["--explain", "--yes"])
+
+    assert rc == 0
+    assert "step_timeout_seconds: 1800" in capsys.readouterr().out
+
+
+def test_empty_journal_arg_rejected_at_parse_time(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as raised:
+        setup.main(["--journal", ""])
+
+    assert raised.value.code == 2
+    assert "--journal must not be empty" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("port", ["0", "99999"])
+def test_port_out_of_range_rejected_at_parse_time(
+    capsys: pytest.CaptureFixture[str],
+    port: str,
+) -> None:
+    with pytest.raises(SystemExit) as raised:
+        setup.main(["--port", port])
+
+    assert raised.value.code == 2
+    assert "--port must be in 1024-65535" in capsys.readouterr().err
 
 
 def test_packaged_install_skips_service(

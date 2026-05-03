@@ -31,6 +31,7 @@ TOTAL_STEPS = 6
 MANIFEST_SCHEMA_VERSION = 1
 HEALTH_ATTEMPTS = 20
 HEALTH_SLEEP_SECONDS = 1.0
+DOCTOR_TIMEOUT_SECONDS = 30
 
 StepStatus = Literal["ok", "skipped", "failed"]
 
@@ -54,6 +55,7 @@ class SetupContext:
     port: int
     port_source: str
     port_supplied: bool
+    step_timeout_seconds: int
     variant: str
     variant_source: str
     yes: bool
@@ -87,6 +89,33 @@ class SetupDeadEnd(Exception):
         self.exit_code = exit_code
 
 
+def _journal_arg(value: str) -> Path:
+    if not value or not value.strip():
+        raise argparse.ArgumentTypeError("--journal must not be empty")
+    path = Path(value).expanduser()
+    try:
+        resolved = path.resolve()
+    except (OSError, RuntimeError) as exc:
+        raise argparse.ArgumentTypeError(
+            f"--journal could not be resolved: {exc}"
+        ) from exc
+    if resolved == Path.cwd().resolve():
+        raise argparse.ArgumentTypeError("--journal must not be empty")
+    return path
+
+
+def _port_arg(value: str) -> int:
+    try:
+        port = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            f"--port must be in 1024-65535 (got {value})"
+        ) from exc
+    if not 1024 <= port <= 65535:
+        raise argparse.ArgumentTypeError(f"--port must be in 1024-65535 (got {port})")
+    return port
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="sol setup",
@@ -95,14 +124,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--journal",
         metavar="PATH",
-        type=Path,
+        type=_journal_arg,
         default=None,
         help="journal directory to persist in ~/.config/solstone/config.toml",
     )
     parser.add_argument(
         "--port",
         metavar="INT",
-        type=int,
+        type=_port_arg,
         default=5015,
         help="convey service port (default: 5015)",
     )
@@ -111,6 +140,16 @@ def build_parser() -> argparse.ArgumentParser:
         choices=("auto", "cpu", "cuda", "coreml"),
         default="auto",
         help="Parakeet model/runtime variant passed to sol install-models (default: auto)",
+    )
+    parser.add_argument(
+        "--step-timeout-seconds",
+        metavar="INT",
+        type=int,
+        default=1800,
+        help=(
+            "timeout for model, skill, and wrapper steps in seconds "
+            "(default: 1800; doctor uses a separate 30s timeout)"
+        ),
     )
     parser.add_argument(
         "-y",
@@ -183,6 +222,7 @@ def resolve_context(args: argparse.Namespace, raw_argv: list[str]) -> SetupConte
     cfg_path = config_path()
     manifest_path = journal_path / ".setup-state.json"
     port_supplied = arg_supplied(raw_argv, "--port")
+    step_timeout_supplied = arg_supplied(raw_argv, "--step-timeout-seconds")
     variant_supplied = arg_supplied(raw_argv, "--variant")
 
     args_resolved: dict[str, object] = {
@@ -193,6 +233,10 @@ def resolve_context(args: argparse.Namespace, raw_argv: list[str]) -> SetupConte
         "port": {
             "value": args.port,
             "source": "cli" if port_supplied else "default",
+        },
+        "step_timeout_seconds": {
+            "value": args.step_timeout_seconds,
+            "source": "cli" if step_timeout_supplied else "default",
         },
         "variant": {
             "value": args.variant,
@@ -248,6 +292,7 @@ def resolve_context(args: argparse.Namespace, raw_argv: list[str]) -> SetupConte
         port=args.port,
         port_source="cli" if port_supplied else "default",
         port_supplied=port_supplied,
+        step_timeout_seconds=args.step_timeout_seconds,
         variant=args.variant,
         variant_source="cli" if variant_supplied else "default",
         yes=bool(args.yes),
@@ -433,9 +478,21 @@ def format_command(command: list[str]) -> str:
     return " ".join(command)
 
 
-def run_inherited(command: list[str]) -> int:
-    result = subprocess.run(command, stdout=None, stderr=None, check=False)
-    return int(result.returncode)
+def run_inherited(command: list[str], *, timeout: float | None = None) -> int:
+    if timeout is None:
+        result = subprocess.run(command, stdout=None, stderr=None, check=False)
+        return int(result.returncode)
+    proc = subprocess.Popen(command, stdout=None, stderr=None)
+    try:
+        return int(proc.wait(timeout=timeout))
+    except subprocess.TimeoutExpired:
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait()
+        raise
 
 
 def doctor_command(ctx: SetupContext) -> list[str]:
@@ -493,12 +550,25 @@ def step_doctor(ctx: SetupContext, step_index: int) -> StepResult:
     started_at = utc_now()
     command = doctor_command(ctx)
     print_step_header(step_index, "doctor", command)
-    result = subprocess.run(
-        command,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    try:
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=DOCTOR_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired:
+        return step_result(
+            "doctor",
+            "failed",
+            [],
+            started_at,
+            {
+                "message": f"doctor timed out after {DOCTOR_TIMEOUT_SECONDS}s",
+                "exit_code": 1,
+            },
+        )
     if result.returncode != 0:
         if result.stdout:
             print(result.stdout, end="" if result.stdout.endswith("\n") else "\n")
@@ -539,24 +609,71 @@ def step_doctor(ctx: SetupContext, step_index: int) -> StepResult:
             and check.get("severity") == "advisory"
             and check.get("status") in ("warn", "fail")
         ]
-    maybe_dead_end_on_port(ctx)
+    maybe_handle_port_in_use(ctx)
     print(f"[step {step_index}/{TOTAL_STEPS}] doctor passed")
     return step_result("doctor", "ok", [], started_at)
 
 
-def maybe_dead_end_on_port(ctx: SetupContext) -> None:
-    if (
-        ctx.skip_service
-        or ctx.port_supplied
-        or ctx.mode is not SetupMode.NON_INTERACTIVE
-    ):
-        return
+def _port_advisory_present(ctx: SetupContext) -> bool:
     for advisory in ctx.doctor_advisories:
         if advisory.get("name") == "port_5015_free":
-            dead_end_port_in_use(ctx)
+            return True
+        detail = str(advisory.get("detail", ""))
+        if f"port {ctx.port}" in detail:
+            return True
+    return False
+
+
+def maybe_handle_port_in_use(ctx: SetupContext) -> None:
+    if ctx.skip_service or ctx.port_supplied:
+        return
+    if not _port_advisory_present(ctx):
+        return
+    if ctx.mode is SetupMode.NON_INTERACTIVE:
+        dead_end_port_in_use(ctx)
+        return
+    prompt_port_choice(ctx)
+
+
+def prompt_port_choice(ctx: SetupContext) -> None:
+    advisory = next(
+        (
+            item
+            for item in ctx.doctor_advisories
+            if item.get("name") == "port_5015_free"
+        ),
+        None,
+    )
+    if advisory:
         detail = advisory.get("detail")
-        if isinstance(detail, str) and f"port {ctx.port}" in detail:
-            dead_end_port_in_use(ctx)
+        if detail:
+            print(f"  {detail}")
+        fix = advisory.get("fix")
+        if fix:
+            print(f"  suggested fix: {fix}")
+    print()
+    print("  1) enter a different port")
+    print("  2) proceed anyway on this port")
+    print("  3) abort setup")
+    while True:
+        choice = input("choice [1/2/3]: ").strip()
+        if choice == "1":
+            while True:
+                raw = input("port: ").strip()
+                try:
+                    new_port = _port_arg(raw)
+                except argparse.ArgumentTypeError as exc:
+                    print(f"  {exc}")
+                    continue
+                ctx.port = new_port
+                ctx.port_source = "prompt"
+                ctx.args_resolved["port"] = {"value": new_port, "source": "prompt"}
+                return
+        if choice == "2":
+            return
+        if choice == "3":
+            raise SetupDeadEnd("setup aborted by user", 2)
+        print("  invalid choice; enter 1, 2, or 3")
 
 
 def step_journal(ctx: SetupContext, step_index: int) -> StepResult:
@@ -627,7 +744,21 @@ def step_install_models(ctx: SetupContext, step_index: int) -> StepResult:
         )
     command = install_models_command(ctx)
     print_step_header(step_index, "install-models", command)
-    rc = run_inherited(command)
+    try:
+        rc = run_inherited(command, timeout=ctx.step_timeout_seconds)
+    except subprocess.TimeoutExpired:
+        return step_result(
+            "install_models",
+            "failed",
+            model_paths(),
+            started_at,
+            {
+                "message": (
+                    f"install_models timed out after {ctx.step_timeout_seconds}s"
+                ),
+                "exit_code": 1,
+            },
+        )
     if rc != 0:
         return step_result(
             "install_models",
@@ -654,7 +785,19 @@ def step_skills(ctx: SetupContext, step_index: int) -> StepResult:
         )
     command = skills_command()
     print_step_header(step_index, "skills", command)
-    rc = run_inherited(command)
+    try:
+        rc = run_inherited(command, timeout=ctx.step_timeout_seconds)
+    except subprocess.TimeoutExpired:
+        return step_result(
+            "skills",
+            "failed",
+            [skill_path],
+            started_at,
+            {
+                "message": f"skills timed out after {ctx.step_timeout_seconds}s",
+                "exit_code": 1,
+            },
+        )
     if rc != 0:
         return step_result(
             "skills",
@@ -676,7 +819,19 @@ def step_wrapper(ctx: SetupContext, step_index: int) -> StepResult:
         )
     command = wrapper_command()
     print_step_header(step_index, "wrapper", command)
-    rc = run_inherited(command)
+    try:
+        rc = run_inherited(command, timeout=ctx.step_timeout_seconds)
+    except subprocess.TimeoutExpired:
+        return step_result(
+            "wrapper",
+            "failed",
+            [wrapper_path],
+            started_at,
+            {
+                "message": f"wrapper timed out after {ctx.step_timeout_seconds}s",
+                "exit_code": 1,
+            },
+        )
     if rc != 0:
         return step_result(
             "wrapper",
@@ -822,6 +977,9 @@ def print_plan(ctx: SetupContext, *, dry_run: bool) -> None:
     print(f"  journal: {ctx.journal_path} ({ctx.journal_source})")
     print(f"  port: {ctx.port} ({ctx.port_source})")
     print(f"  variant: {ctx.variant} ({ctx.variant_source})")
+    timeout_resolved = ctx.args_resolved["step_timeout_seconds"]
+    timeout_source = timeout_resolved["source"]
+    print(f"  step_timeout_seconds: {ctx.step_timeout_seconds} ({timeout_source})")
     print(f"  source checkout: {ctx.is_source_checkout}")
     print()
     print(f"[step 1/6] {_STEP_NAME[step_doctor]}")
