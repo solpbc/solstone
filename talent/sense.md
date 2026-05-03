@@ -61,9 +61,9 @@ Describe what $preferred did during this segment using action verbs. Be specific
 
 ### entities
 Extract ALL named entities mentioned in the content. Be thorough — extract every entity you can identify, not just the most prominent ones. Four types only:
-- **Person**: Individual people by name. Prefer full names. Consolidate variants ("JB" + "John Borthwick" → one entity "John Borthwick"). Skip ambiguous first-name-only references. Include historical figures, authors, scientists, politicians — anyone mentioned by name.
+- **Person**: Individual people by name. Prefer full names. Consolidate variants ("JB" + "John Borthwick" → one entity "John Borthwick"). ALWAYS skip first-name-only references unless the same segment locks the identity with surrounding context (role, organization, or full-name introduction). NEVER include generic speaker labels like "Speaker 1", "Speaker 2", "Colleague", "Person A" — these belong only in the `speakers` array when `meeting_detected=true`. Include historical figures, authors, scientists, politicians — anyone mentioned by full name.
 - **Company**: Businesses and organizations. Include companies, government agencies (NASA, NOAA), universities, media outlets.
-- **Project**: Named projects, products, or codebases. Include missions (OSIRIS-REx), initiatives, specific product models.
+- **Project**: Named projects, products, or codebases. Include missions (OSIRIS-REx), initiatives, specific product models. EXCLUDE generic git/file identifiers ("main", "dev", "staging", "src", "tmp"), file extensions, path components, and one-word lowercase tokens that are likely branch or directory names rather than named projects.
 - **Tool**: Software applications and services. Include websites (Fox News, Wikipedia, Amazon), browser extensions, developer tools, hardware products mentioned by name.
 
 **For screen content specifically:** Extract entities from visible text in screen descriptions — article headlines, page titles, product names, people mentioned in articles, organizations referenced. If the user is browsing a website about the Renaissance, extract the specific historical figures, art movements, and institutions mentioned.
@@ -107,6 +107,8 @@ If `meeting_detected` is true, extract participant names from:
 
 Prefer complete canonical forms (full names when identifiable). Do NOT include the journal owner's name. Return `[]` if no meeting or no names identified.
 
+**Consistency rule:** If `meeting_detected=true`, this array must have at least one entry. If you cannot identify any names, use generic labels ("Speaker 1", "Speaker 2", "Colleague A") rather than emptying the array — an empty `speakers` array with `meeting_detected=true` is invalid.
+
 ### recommend
 Processing recommendations for downstream agents:
 - **screen_record**: `true` if density is "active" AND there is meaningful screen content worth documenting (not just a static/repetitive screen)
@@ -127,10 +129,12 @@ The observable emotional tone of the segment based on conversation tone, speech 
 ## Rules
 
 1. Every field is required. Never omit a field.
-2. `entities` and `speakers` may be empty arrays `[]`.
+2. `entities` and `speakers` may be empty arrays `[]` (subject to rule 8 for speakers when `meeting_detected=true`).
 3. `facets` always has at least one entry — the closest configured facet for the activity. Empty array is not allowed.
 4. Be precise with density — misclassifying active segments as idle is the worst error.
 5. For `content_type`, choose the single best match — the dominant activity in the segment. If two activities are roughly equal, pick the one with more durable continuation evidence (entities, repeated screen content); the `facets[]` array's `level` field already encodes secondary activity.
 6. Activity summary must describe observable actions, not inferred states.
+7. Skip entities whose name contains a speaker-uncertainty placeholder. If the transcript says "a game called Museum something" or "the new whatever-thing-it's-called", the speaker is signaling they don't know the actual name — do not extract a placeholder name as an entity.
+8. If `meeting_detected=true`, `speakers` must contain at least one entry (use generic labels if no names are identifiable). If `activity_summary` mentions specific named people, projects, or tools, those names should also appear in `entities` (subject to the per-type rules above) — don't reference an entity by name in the summary and then omit it from `entities`.
 
 Return ONLY the JSON object, no other text or explanation.
