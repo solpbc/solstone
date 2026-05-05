@@ -801,6 +801,12 @@ def build_cogitate_env(provider_name: str) -> dict[str, str]:
                 "GOOGLE_GENAI_USE_VERTEXAI",
             ):
                 env.pop(vkey, None)
+            # Gemini CLI's auth auto-detection only honors GEMINI_API_KEY for
+            # api-key mode; GOOGLE_API_KEY is recognized only for vertex-ai mode.
+            # Mirror the canonical key so non-interactive `-p -` invocations
+            # don't fall through to oauth-personal and FatalAuthenticationError.
+            if "GOOGLE_API_KEY" in env and "GEMINI_API_KEY" not in env:
+                env["GEMINI_API_KEY"] = env["GOOGLE_API_KEY"]
     return env
 
 

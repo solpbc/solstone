@@ -1515,6 +1515,83 @@ class TestBuildCogitateEnv:
             env = build_cogitate_env("google")
         assert "GEMINI_CLI_SYSTEM_SETTINGS_PATH" not in env
 
+    def test_aistudio_mirrors_google_api_key_to_gemini_api_key(self):
+        """AI Studio mirrors GOOGLE_API_KEY → GEMINI_API_KEY for gemini-cli auth auto-detect."""
+        config = {
+            "providers": {
+                "google_backend": "aistudio",
+                "auth": {"google": "api_key"},
+            }
+        }
+        with (
+            patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
+            patch("think.utils.get_config", return_value=config),
+        ):
+            env = build_cogitate_env("google")
+        assert env["GOOGLE_API_KEY"] == "gk-test"
+        assert env["GEMINI_API_KEY"] == "gk-test"
+
+    def test_aistudio_preserves_explicit_gemini_api_key(self):
+        """If GEMINI_API_KEY is already set, mirror does not overwrite it."""
+        config = {
+            "providers": {
+                "google_backend": "aistudio",
+                "auth": {"google": "api_key"},
+            }
+        }
+        with (
+            patch.dict(
+                os.environ,
+                {"GOOGLE_API_KEY": "gk-test", "GEMINI_API_KEY": "gemini-explicit"},
+                clear=True,
+            ),
+            patch("think.utils.get_config", return_value=config),
+        ):
+            env = build_cogitate_env("google")
+        assert env["GOOGLE_API_KEY"] == "gk-test"
+        assert env["GEMINI_API_KEY"] == "gemini-explicit"
+
+    def test_aistudio_no_mirror_when_google_key_absent(self):
+        """Platform-mode strips GOOGLE_API_KEY; mirror does not synthesize GEMINI_API_KEY."""
+        config = {
+            "providers": {
+                "google_backend": "aistudio",
+                "auth": {"google": "platform"},
+            }
+        }
+        with (
+            patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
+            patch("think.utils.get_config", return_value=config),
+        ):
+            env = build_cogitate_env("google")
+        assert "GOOGLE_API_KEY" not in env
+        assert "GEMINI_API_KEY" not in env
+
+    def test_vertex_does_not_mirror_to_gemini_api_key(self):
+        """Vertex backend strips GOOGLE_API_KEY; no GEMINI_API_KEY mirror happens."""
+        config = {
+            "providers": {
+                "google_backend": "vertex",
+                "vertex_credentials": "/tmp/fake-sa.json",
+                "auth": {"google": "platform"},
+            }
+        }
+        with (
+            patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
+            patch("think.utils.get_config", return_value=config),
+            patch("os.path.exists", return_value=True),
+            patch(
+                "builtins.open",
+                mock_open(
+                    read_data='{"type": "service_account", "project_id": "my-gcp-project"}'
+                ),
+            ),
+            patch.object(Path, "exists", return_value=True),
+        ):
+            env = build_cogitate_env("google")
+        assert "GOOGLE_API_KEY" not in env
+        assert "GEMINI_API_KEY" not in env
+
     def test_vertex_writes_settings_file_when_absent(self, tmp_path):
         """Vertex backend creates Gemini CLI system settings when missing."""
         creds_path = tmp_path / "fake-sa.json"
