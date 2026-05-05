@@ -74,7 +74,9 @@ def service_is_running() -> bool:
             capture_output=True,
             text=True,
         )
-        return result.returncode == 0
+        if result.returncode != 0:
+            return False
+        return "\n\tstate = running\n" in result.stdout
     result = subprocess.run(
         ["systemctl", "--user", "is-active", SYSTEMD_UNIT],
         capture_output=True,

@@ -247,15 +247,86 @@ class TestServiceHelpers:
         monkeypatch.setattr(service, "service_is_installed", lambda: True)
         monkeypatch.setattr(service, "_platform", lambda: "darwin")
         monkeypatch.setattr(service.os, "getuid", lambda: 501)
-        run_mock = MagicMock(return_value=MagicMock(returncode=0))
+        launchctl_stdout = """gui/501/org.solpbc.solstone = {
+\tactive count = 1
+\tpath = /Users/jer/Library/LaunchAgents/org.solpbc.solstone.plist
+\ttype = LaunchAgent
+\tstate = running
+\tprogram = /Users/jer/.local/bin/sol
+\tpid = 12345
+\tdomain = gui/501
+\tasid = 100012
+\tlast exit code = 0
+\trun interval = 0
+\tactive transactions = 0
+\tdefault environment = {
+\t\tPATH => /usr/bin:/bin
+\t}
+\tenvironment = {
+\t\tHOME => /Users/jer
+\t}
+\tdomain = gui/501
+\tminimum runtime = 10
+\texit timeout = 5
+\tendpoints = {
+\t}
+\tevent triggers = {
+\t}
+\tpid local dispatch queue = {
+\t\tjob state = running
+\t}
+}
+"""
+        run_mock = MagicMock(
+            return_value=MagicMock(returncode=0, stdout=launchctl_stdout)
+        )
         monkeypatch.setattr(service.subprocess, "run", run_mock)
         assert service.service_is_running() is True
 
-    def test_service_is_running_false_darwin(self, monkeypatch):
+    def test_service_is_running_false_when_not_loaded_darwin(self, monkeypatch):
         monkeypatch.setattr(service, "service_is_installed", lambda: True)
         monkeypatch.setattr(service, "_platform", lambda: "darwin")
         monkeypatch.setattr(service.os, "getuid", lambda: 501)
-        run_mock = MagicMock(return_value=MagicMock(returncode=1))
+        run_mock = MagicMock(return_value=MagicMock(returncode=1, stdout=""))
+        monkeypatch.setattr(service.subprocess, "run", run_mock)
+        assert service.service_is_running() is False
+
+    def test_service_is_running_false_when_loaded_but_stopped_darwin(self, monkeypatch):
+        monkeypatch.setattr(service, "service_is_installed", lambda: True)
+        monkeypatch.setattr(service, "_platform", lambda: "darwin")
+        monkeypatch.setattr(service.os, "getuid", lambda: 501)
+        launchctl_stdout = """gui/501/org.solpbc.solstone = {
+\tactive count = 0
+\tpath = /Users/jer/Library/LaunchAgents/org.solpbc.solstone.plist
+\ttype = LaunchAgent
+\tstate = not running
+\tprogram = /Users/jer/.local/bin/sol
+\tdomain = gui/501
+\tasid = 100012
+\trun interval = 0
+\tactive transactions = 0
+\tdefault environment = {
+\t\tPATH => /usr/bin:/bin
+\t}
+\tenvironment = {
+\t\tHOME => /Users/jer
+\t}
+\tdomain = gui/501
+\tminimum runtime = 10
+\texit timeout = 5
+\tendpoints = {
+\t}
+\tevent triggers = {
+\t}
+\tpid local dispatch queue = {
+\t\tjob state = exited
+\t}
+\tlast exit code = 0
+}
+"""
+        run_mock = MagicMock(
+            return_value=MagicMock(returncode=0, stdout=launchctl_stdout)
+        )
         monkeypatch.setattr(service.subprocess, "run", run_mock)
         assert service.service_is_running() is False
 
