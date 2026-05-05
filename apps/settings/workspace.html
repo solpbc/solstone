@@ -2230,6 +2230,7 @@ button:focus:not(:focus-visible) {
     <section class="settings-section" id="section-apikeys" role="tabpanel" aria-labelledby="tab-apikeys">
       <h2>API keys</h2>
       <p class="settings-section-desc">configure API keys for AI providers. keys are stored in your journal config.</p>
+      <p class="settings-section-desc" style="margin-top:-0.5em">tool-using agents (entity detection, etc.) also need each provider's CLI binary installed (`gemini`, `claude`, `codex`, `opencode`) — see <a href="https://github.com/solpbc/solstone/blob/main/docs/INSTALL.md#cogitate-cli-binaries-required-for-tool-using-agents" target="_blank">install docs</a>.</p>
 
       <form class="settings-form" onsubmit="return false;">
       <div style="margin-bottom: 1em;">

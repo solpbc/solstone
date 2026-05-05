@@ -22,6 +22,8 @@ if `sol` isn't found, try `~/.local/bin/sol`. if solstone is running and healthy
 
 the only hard requirement is `uv` — the Makefile checks for it and errors with install instructions if missing.
 
+tool-using agents (entity detection, entity assist, etc.) additionally shell out to provider CLI binaries — `gemini`, `claude`, `codex`, or `opencode` — one per configured provider. install them after setting your API keys; see [docs/INSTALL.md § Cogitate CLI Binaries](docs/INSTALL.md#cogitate-cli-binaries-required-for-tool-using-agents) for the table.
+
 ### linux
 
 ```bash
