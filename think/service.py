@@ -116,7 +116,7 @@ def _generate_plist(env: dict[str, str], port: int = DEFAULT_SERVICE_PORT) -> by
         "ProgramArguments": [sol, "supervisor", str(port)],
         "EnvironmentVariables": env,
         "RunAtLoad": True,
-        "KeepAlive": True,
+        "KeepAlive": {"SuccessfulExit": False},
     }
     return plistlib.dumps(plist)
 

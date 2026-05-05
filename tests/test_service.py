@@ -47,10 +47,22 @@ class TestPlistGeneration:
         )
         assert plist["ProgramArguments"][1] == "supervisor"
         assert plist["EnvironmentVariables"] == env
-        assert plist["KeepAlive"] is True
+        assert plist["KeepAlive"] == {"SuccessfulExit": False}
         assert plist["RunAtLoad"] is True
         assert "StandardOutPath" not in plist
         assert "StandardErrorPath" not in plist
+
+    def test_keep_alive_is_sticky_stop(self):
+        env = {
+            "HOME": "/Users/test",
+            "PATH": "/usr/bin",
+        }
+        data = service._generate_plist(env)
+        plist = plistlib.loads(data)
+
+        # Clean exits stay stopped; non-zero exits respawn.
+        assert isinstance(plist["KeepAlive"], dict)
+        assert plist["KeepAlive"]["SuccessfulExit"] is False
 
 
 class TestSystemdUnit:
