@@ -229,6 +229,11 @@ def update_config() -> Any:
                 if old_value != new_value:
                     changed_fields[key] = {"old": old_value, "new": new_value}
                 config[section][key] = new_value
+                if section == "env":
+                    if new_value:
+                        os.environ[key] = new_value
+                    else:
+                        os.environ.pop(key, None)
 
         # Hash password before writing to disk
         if section == "convey" and "password" in data:

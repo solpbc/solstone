@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 from unittest.mock import Mock, patch
 
 import pytest
@@ -307,6 +308,34 @@ def test_update_config_clears_key_validation(settings_client):
     saved = json.loads(config_path.read_text())
     assert saved["providers"]["auth"]["google"] == "platform"
     assert "google" not in saved["providers"]["key_validation"]
+
+
+def test_update_config_env_mirrors_os_environ(settings_client, monkeypatch):
+    """The HTTP env-section save path must mirror into os.environ in-process,
+    matching the CLI pattern (apps/settings/call.py keys_set/keys_clear).
+    Without this, /api/providers reports `configured: false` until restart."""
+    client, _ = settings_client
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+
+    with patch(
+        "think.providers.validate_key",
+        return_value={"valid": True},
+    ):
+        response = client.put(
+            "/app/settings/api/config",
+            json={"section": "env", "data": {"GOOGLE_API_KEY": "live-key"}},
+        )
+
+    assert response.status_code == 200
+    assert os.environ.get("GOOGLE_API_KEY") == "live-key"
+
+    response = client.put(
+        "/app/settings/api/config",
+        json={"section": "env", "data": {"GOOGLE_API_KEY": ""}},
+    )
+
+    assert response.status_code == 200
+    assert "GOOGLE_API_KEY" not in os.environ
 
 
 def test_get_providers_includes_key_validation(settings_client):
