@@ -54,13 +54,14 @@ def test_sense_installs_sigterm_handler():
 def test_handler_queue_can_start_empty():
     """Test can_start returns True when no process running."""
     queue = HandlerQueue("test")
+    assert queue.running == []
     assert queue.can_start() is True
 
 
-def test_handler_queue_can_start_with_current():
+def test_handler_queue_can_start_when_full():
     """Test can_start returns False when process is running."""
     queue = HandlerQueue("test")
-    queue.current_process = MagicMock()  # Simulate running process
+    queue.add_running(MagicMock())
     assert queue.can_start() is False
 
 
@@ -121,18 +122,189 @@ def test_handler_queue_pop_next_empty():
     assert queue.pop_next() is None
 
 
-def test_handler_queue_set_clear_current():
-    """Test set_current and clear_current."""
+def test_handler_queue_add_remove_running():
+    """Test add_running and remove_running."""
     queue = HandlerQueue("test")
     mock_proc = MagicMock()
 
-    queue.set_current(mock_proc)
-    assert queue.current_process is mock_proc
+    queue.add_running(mock_proc)
+    assert queue.running == [mock_proc]
     assert queue.can_start() is False
 
-    queue.clear_current()
-    assert queue.current_process is None
+    queue.remove_running(mock_proc)
+    assert queue.running == []
     assert queue.can_start() is True
+
+
+def test_handler_queue_backwards_compat_n1():
+    """Test default single-slot queue behavior stays FIFO and capacity-limited."""
+    queue = HandlerQueue("test")
+    running = MagicMock()
+    path1 = Path("/tmp/test1.flac")
+    path2 = Path("/tmp/test2.flac")
+
+    assert queue.can_start() is True
+    queue.add_running(running)
+    assert queue.can_start() is False
+
+    assert queue.enqueue(path1) is True
+    assert queue.enqueue(path2) is True
+    assert queue.pop_next().file_path == path1
+    assert queue.pop_next().file_path == path2
+    assert queue.pop_next() is None
+
+
+def test_handler_queue_multi_slot_dispatch():
+    """Test max_concurrent allows multiple running handler processes."""
+    queue = HandlerQueue("test", max_concurrent=3)
+    procs = [MagicMock(), MagicMock(), MagicMock()]
+
+    for proc in procs:
+        assert queue.can_start() is True
+        queue.add_running(proc)
+
+    assert queue.can_start() is False
+    assert queue.running == procs
+    assert queue.available_slots() == 0
+
+
+def test_handler_queue_slot_release_on_completion():
+    """Test removing a running process frees one slot."""
+    queue = HandlerQueue("test", max_concurrent=2)
+    proc1 = MagicMock()
+    proc2 = MagicMock()
+
+    queue.add_running(proc1)
+    queue.add_running(proc2)
+    assert queue.can_start() is False
+
+    queue.remove_running(proc1)
+    assert queue.running == [proc2]
+    assert queue.available_slots() == 1
+    assert queue.can_start() is True
+
+
+def test_handler_queue_concurrent_enqueue_completion():
+    """Test serialized concurrent queue mutations stay consistent."""
+    queue = HandlerQueue("test", max_concurrent=5)
+    lock = threading.Lock()
+
+    def enqueue_items():
+        for idx in range(10):
+            with lock:
+                queue.enqueue(Path(f"/tmp/test{idx}.flac"))
+
+    def complete_items():
+        for _ in range(5):
+            proc = MagicMock()
+            with lock:
+                queue.add_running(proc)
+                queue.remove_running(proc)
+
+    enqueue_thread = threading.Thread(target=enqueue_items)
+    completion_thread = threading.Thread(target=complete_items)
+    enqueue_thread.start()
+    completion_thread.start()
+    enqueue_thread.join()
+    completion_thread.join()
+
+    queued_paths = [item.file_path for item in queue.queue]
+    assert len(queue.running) == 0
+    assert len(queued_paths) == 10
+    assert len(set(queued_paths)) == 10
+
+
+def test_resolve_concurrency_per_handler_uniform(tmp_path, monkeypatch, caplog):
+    """Test handler concurrency config is applied uniformly."""
+    import observe.sense as sense_module
+
+    monkeypatch.setattr(
+        sense_module,
+        "get_config",
+        lambda: {
+            "describe": {"max_concurrent": 4},
+            "transcribe": {"max_concurrent": 2},
+        },
+    )
+
+    sensor = FileSensor(tmp_path)
+
+    assert sensor.handler_queues["describe"].max_concurrent == 4
+    assert sensor.handler_queues["transcribe"].max_concurrent == 2
+
+    monkeypatch.setattr(
+        sense_module,
+        "get_config",
+        lambda: {
+            "describe": {"max_concurrent": "bad"},
+            "transcribe": {"max_concurrent": -1},
+        },
+    )
+
+    caplog.clear()
+    invalid_sensor = FileSensor(tmp_path)
+
+    assert invalid_sensor.handler_queues["describe"].max_concurrent == 1
+    assert invalid_sensor.handler_queues["transcribe"].max_concurrent == 1
+    assert "Invalid describe.max_concurrent" in caplog.text
+    assert "Invalid transcribe.max_concurrent" in caplog.text
+
+
+def test_process_next_queued_dispatches_on_slot_release(tmp_path, monkeypatch):
+    """Test queued work dispatches one item per freed handler slot."""
+    import observe.sense as sense_module
+
+    monkeypatch.setattr(sense_module, "HANDLER_NAMES", ("test",))
+    monkeypatch.setattr(
+        sense_module, "get_config", lambda: {"test": {"max_concurrent": 2}}
+    )
+
+    segment_dir = tmp_path / "chronicle" / "20250101" / "default" / "143022_300"
+    segment_dir.mkdir(parents=True)
+    path1 = segment_dir / "first.fake"
+    path2 = segment_dir / "second.fake"
+    path3 = segment_dir / "third.fake"
+    for path in (path1, path2, path3):
+        path.write_text("content")
+
+    sensor = FileSensor(tmp_path)
+    sensor.register("*.fake", "test", ["echo", "{file}"])
+    handler_queue = sensor.handler_queues["test"]
+    mock_proc_a = MagicMock()
+    mock_proc_b = MagicMock()
+    dispatched = []
+
+    def mock_spawn(file_path, handler_name, command, **_kwargs):
+        dispatched_proc = MagicMock()
+        dispatched_proc.file_path = file_path
+        dispatched.append((file_path, handler_name, command, dispatched_proc))
+        handler_queue.add_running(dispatched_proc)
+        sensor.running[file_path] = dispatched_proc
+
+    monkeypatch.setattr(sensor, "_spawn_handler", mock_spawn)
+
+    handler_queue.add_running(mock_proc_a)
+    handler_queue.add_running(mock_proc_b)
+    handler_queue.enqueue(path1)
+    handler_queue.enqueue(path2)
+    handler_queue.enqueue(path3)
+
+    sensor._process_next_queued(handler_queue, mock_proc_a)
+
+    assert mock_proc_a not in handler_queue.running
+    assert len(dispatched) == 1
+    assert len(handler_queue.running) == 2
+    assert handler_queue.running[0] is mock_proc_b
+    assert dispatched[0][0] == path1
+    assert [item.file_path for item in handler_queue.queue] == [path2, path3]
+
+    sensor._process_next_queued(handler_queue, mock_proc_b)
+
+    assert mock_proc_b not in handler_queue.running
+    assert len(dispatched) == 2
+    assert len(handler_queue.running) == 2
+    assert dispatched[1][0] == path2
+    assert [item.file_path for item in handler_queue.queue] == [path3]
 
 
 def test_handler_queue_queue_size():

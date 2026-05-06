@@ -29,6 +29,7 @@ from think.utils import (
     CHRONICLE_DIR,
     DATE_RE,
     day_path,
+    get_config,
     get_journal,
     get_rev,
     iter_segments,
@@ -40,6 +41,9 @@ from think.utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Handlers with serialized HandlerQueues. Add a new entry here when registering one in main().
+HANDLER_NAMES = ("describe", "transcribe")
 
 
 class QueuedItem:
@@ -60,20 +64,34 @@ class QueuedItem:
 
 
 class HandlerQueue:
-    """Queue for serializing handler execution (one at a time).
+    """Queue for serializing handler execution.
 
-    Ensures only one handler process runs at a time for resource-intensive
-    operations like describe (GPU) or transcribe (memory/API constraints).
+    Up to `max_concurrent` handler processes can run simultaneously per handler
+    type. Default is 1 (serial); operators raise via {handler}.max_concurrent in
+    journal.json where API quota / hardware allows it.
     """
 
-    def __init__(self, name: str):
+    def __init__(self, name: str, max_concurrent: int = 1):
         self.name = name
+        self.max_concurrent = max_concurrent
         self.queue: List[QueuedItem] = []
-        self.current_process: Optional["HandlerProcess"] = None
+        self.running: List["HandlerProcess"] = []
 
     def can_start(self) -> bool:
-        """Returns True if no handler is currently running."""
-        return self.current_process is None
+        """Returns True if a handler slot is available."""
+        return len(self.running) < self.max_concurrent
+
+    def available_slots(self) -> int:
+        """Return number of available handler slots."""
+        return self.max_concurrent - len(self.running)
+
+    def add_running(self, proc: "HandlerProcess") -> None:
+        """Track a running handler process."""
+        self.running.append(proc)
+
+    def remove_running(self, proc: "HandlerProcess") -> None:
+        """Stop tracking a running handler process."""
+        self.running.remove(proc)
 
     def enqueue(
         self,
@@ -87,14 +105,6 @@ class HandlerQueue:
             self.queue.append(QueuedItem(file_path, observer, meta))
             return True
         return False
-
-    def set_current(self, proc: "HandlerProcess") -> None:
-        """Set the currently running handler process."""
-        self.current_process = proc
-
-    def clear_current(self) -> None:
-        """Clear the current process reference."""
-        self.current_process = None
 
     def pop_next(self) -> Optional[QueuedItem]:
         """Pop and return next queued item, or None if empty."""
@@ -145,10 +155,10 @@ class FileSensor:
         self.running: Dict[Path, HandlerProcess] = {}
         self.lock = threading.RLock()
 
-        # Serialized handler queues (only one process at a time per handler type)
+        # Serialized handler queues (bounded concurrent processes per handler type)
         self.handler_queues: Dict[str, HandlerQueue] = {
-            "describe": HandlerQueue("describe"),
-            "transcribe": HandlerQueue("transcribe"),
+            name: HandlerQueue(name, max_concurrent=self._resolve_concurrency(name))
+            for name in HANDLER_NAMES
         }
 
         self.running_flag = True
@@ -173,6 +183,18 @@ class FileSensor:
         self.segment_errors: Dict[str, list[str]] = {}
         # Track stream identity per segment: {segment_key: stream_name}
         self.segment_stream: Dict[str, str] = {}
+
+    def _resolve_concurrency(self, handler_name: str) -> int:
+        cfg = get_config()
+        raw = cfg.get(handler_name, {}).get("max_concurrent", 1)
+        if not isinstance(raw, int) or isinstance(raw, bool) or raw < 1:
+            logger.warning(
+                "Invalid %s.max_concurrent in journal config: %r — defaulting to 1",
+                handler_name,
+                raw,
+            )
+            return 1
+        return raw
 
     def register(self, pattern: str, handler_name: str, command: List[str]):
         """
@@ -342,11 +364,6 @@ class FileSensor:
             )
         except RuntimeError as exc:
             logger.error(str(exc))
-            # Release handler queue lock if this handler uses serialized execution
-            handler_queue = self.handler_queues.get(handler_name)
-            if handler_queue:
-                with self.lock:
-                    handler_queue.clear_current()
             return
 
         handler_proc = HandlerProcess(
@@ -355,10 +372,10 @@ class FileSensor:
 
         with self.lock:
             self.running[file_path] = handler_proc
-            # Track as current process if using serialized execution
+            # Track running processes if using serialized execution
             handler_queue = self.handler_queues.get(handler_name)
             if handler_queue:
-                handler_queue.set_current(handler_proc)
+                handler_queue.add_running(handler_proc)
 
         # Monitor process completion in background
         threading.Thread(
@@ -455,20 +472,23 @@ class FileSensor:
                 exc_info=True,
             )
         finally:
-            # Process next queued item if this handler uses serialized execution
+            # Process queued items if this handler uses serialized execution
             handler_queue = self.handler_queues.get(handler_proc.handler_name)
-            if handler_queue and handler_proc is handler_queue.current_process:
-                self._process_next_queued(handler_queue)
+            if handler_queue is not None:
+                self._process_next_queued(handler_queue, handler_proc)
 
-    def _process_next_queued(self, handler_queue: HandlerQueue):
-        """Process next queued task for a serialized handler."""
+    def _process_next_queued(
+        self, handler_queue: HandlerQueue, completed_proc: HandlerProcess
+    ):
+        """Free a slot and dispatch as many queued items as capacity allows."""
         with self.lock:
-            handler_queue.clear_current()
-            item = handler_queue.pop_next()
-            if item:
+            handler_queue.remove_running(completed_proc)
+            while handler_queue.queue and handler_queue.can_start():
+                item = handler_queue.pop_next()
+                if item is None:
+                    break
                 logger.info(
-                    f"Starting queued {handler_queue.name} for {item.file_path.name} "
-                    f"({handler_queue.queue_size()} remaining)"
+                    "Starting queued %s for %s", handler_queue.name, item.file_path
                 )
                 handler_info = self._match_pattern(item.file_path)
                 if handler_info:
@@ -688,23 +708,25 @@ class FileSensor:
             for handler_name, handler_queue in self.handler_queues.items():
                 handler_status = {}
 
-                # Current running process
-                if handler_queue.current_process is not None:
-                    handler_proc = handler_queue.current_process
-                    try:
-                        rel_file = journal_relative_path(
-                            journal_path, handler_proc.file_path
-                        )
-                    except ValueError:
-                        rel_file = str(handler_proc.file_path)
+                # Current running processes
+                if handler_queue.running:
+                    running_list = []
+                    for handler_proc in handler_queue.running:
+                        try:
+                            rel_file = journal_relative_path(
+                                journal_path, handler_proc.file_path
+                            )
+                        except ValueError:
+                            rel_file = str(handler_proc.file_path)
 
-                    handler_status["running"] = {
-                        "file": rel_file,
-                        "ref": handler_proc.managed.ref,
-                    }
-                    handler_status["running"]["duration_seconds"] = int(
-                        now - handler_proc.started_at
-                    )
+                        running_list.append(
+                            {
+                                "file": rel_file,
+                                "ref": handler_proc.managed.ref,
+                                "duration_seconds": int(now - handler_proc.started_at),
+                            }
+                        )
+                    handler_status["running"] = running_list
 
                 # Queued items with age
                 if handler_queue.queue_size() > 0:

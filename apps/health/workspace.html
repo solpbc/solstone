@@ -1490,8 +1490,8 @@
     }
 
     const processingDetails = [];
-    if (observers.some(observer => observer.describe?.running)) processingDetails.push('scene analysis');
-    if (observers.some(observer => observer.transcribe?.running)) processingDetails.push('audio transcription');
+    if (observers.some(observer => observer.describe?.running?.length)) processingDetails.push('scene analysis');
+    if (observers.some(observer => observer.transcribe?.running?.length)) processingDetails.push('audio transcription');
     if (processingDetails.length > 0) {
       parts.push(`Processing (${processingDetails.join(', ')})`);
     }
@@ -2188,19 +2188,22 @@
       } else if (result.processor) {
         // Describe/transcribe processor logic
         const p = result.processor;
-        const isRunning = !!p.running;
+        const running = p.running || [];
+        const isRunning = running.length > 0;
         const queued = p.queued?.length || 0;
         if (isRunning && queued > 0) {
-          ch.statusEl.textContent = `running (+${queued} queued)`;
+          ch.statusEl.textContent = running.length > 1
+            ? `running (${running.length}, +${queued} queued)`
+            : `running (+${queued} queued)`;
         } else if (isRunning) {
-          ch.statusEl.textContent = 'running';
+          ch.statusEl.textContent = running.length > 1 ? `running (${running.length})` : 'running';
         } else if (queued > 0) {
           ch.statusEl.textContent = `queued: ${queued}`;
         } else {
           ch.statusEl.textContent = 'idle';
         }
-        if (isRunning && p.running.file) {
-          ch.detailEl.textContent = truncate(p.running.file.split('/').pop(), 30);
+        if (isRunning && running[0]?.file) {
+          ch.detailEl.textContent = truncate(running[0].file.split('/').pop(), 30);
         } else {
           ch.detailEl.textContent = '';
         }

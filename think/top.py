@@ -605,11 +605,12 @@ class ServiceManager:
             return "─".ljust(width)
 
         parts = []
-        if handler_dict.get("running"):
-            parts.append("▸1")
-        queued = handler_dict.get("queued", [])
-        if queued:
-            parts.append(f"+{len(queued)}")
+        running_count = len(handler_dict.get("running") or [])
+        if running_count > 0:
+            parts.append(f"▸{running_count}")
+        queued_count = len(handler_dict.get("queued") or [])
+        if queued_count > 0:
+            parts.append(f"+{queued_count}")
 
         result = " ".join(parts) if parts else "─"
         return result.ljust(width)
