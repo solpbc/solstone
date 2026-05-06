@@ -334,7 +334,12 @@ def import_one(
     dry_run: bool = False,
     json_output: bool = False,
     verbose: bool = False,
+    wait_for_processing: bool = True,
 ) -> dict[str, Any] | None:
+    """When False, returns after segment creation without awaiting transcription completion;
+    failed_segments is omitted from the result and created_segments is the durable
+    record of what was queued.
+    """
     args = argparse.Namespace(
         media=os.path.expanduser(str(media)),
         timestamp=timestamp,
@@ -346,6 +351,7 @@ def import_one(
         dry_run=dry_run,
         json=json_output,
         verbose=verbose,
+        wait_for_processing=wait_for_processing,
     )
     return _import_one_from_args(args)
 
@@ -1022,30 +1028,31 @@ def _import_one_from_args(args: argparse.Namespace) -> dict[str, Any] | None:
                 )
                 logger.info(f"Emitted observe.observing for segment: {day}/{seg_key}")
 
-            # Wait for transcription to complete
-            _set_stage("transcribing")
-            pending = set(created_segments)
-            segment_timeout = 600  # 10 minutes since last progress
-            transcribe_start = time.monotonic()
-            new_failed_segments, _completed_count = _wait_for_segments(
-                _message_queue,
-                pending,
-                segment_timeout,
-                total_segments=len(created_segments),
-            )
-            failed_segments.extend(new_failed_segments)
+            if args.wait_for_processing:
+                # Wait for transcription to complete
+                _set_stage("transcribing")
+                pending = set(created_segments)
+                segment_timeout = 600  # 10 minutes since last progress
+                transcribe_start = time.monotonic()
+                new_failed_segments, _completed_count = _wait_for_segments(
+                    _message_queue,
+                    pending,
+                    segment_timeout,
+                    total_segments=len(created_segments),
+                )
+                failed_segments.extend(new_failed_segments)
 
-            if failed_segments:
-                logger.warning(
-                    f"{len(failed_segments)} of {len(created_segments)} "
-                    f"segments failed: {failed_segments}"
-                )
-            else:
-                total_elapsed = int(time.monotonic() - transcribe_start)
-                logger.info(
-                    f"All {len(created_segments)} segments "
-                    f"transcribed successfully ({total_elapsed}s)"
-                )
+                if failed_segments:
+                    logger.warning(
+                        f"{len(failed_segments)} of {len(created_segments)} "
+                        f"segments failed: {failed_segments}"
+                    )
+                else:
+                    total_elapsed = int(time.monotonic() - transcribe_start)
+                    logger.info(
+                        f"All {len(created_segments)} segments "
+                        f"transcribed successfully ({total_elapsed}s)"
+                    )
 
         # Complete processing metadata
         processing_results["processing_completed"] = dt.datetime.now().isoformat()

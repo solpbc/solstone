@@ -538,6 +538,7 @@ class PlaudBackend:
                         source="plaud",
                         auto=True,
                         verbose=False,
+                        wait_for_processing=False,
                     )
                 except Exception as exc:
                     import_elapsed = int(time.monotonic() - import_start)
@@ -552,6 +553,7 @@ class PlaudBackend:
                     info["status"] = "imported"
                     info["import_timestamp"] = ts
                     info["imported_at"] = dt.datetime.now().isoformat()
+                    save_sync_state(journal_root, "plaud", state)
                     downloaded += 1
                     logger.info("    Imported successfully (%ss)", import_elapsed)
 

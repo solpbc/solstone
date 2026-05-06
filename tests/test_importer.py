@@ -6,6 +6,7 @@ import hashlib
 import importlib
 import json
 import subprocess
+import time
 import zipfile
 from pathlib import Path
 from unittest.mock import ANY, MagicMock, patch
@@ -1215,6 +1216,50 @@ def test_import_one_invalid_timestamp_raises_value_error(tmp_path):
 
     with pytest.raises(ValueError, match="timestamp must be in YYYYMMDD_HHMMSS format"):
         mod.import_one(media, timestamp="not-a-timestamp")
+
+
+def test_import_one_skips_wait_when_disabled(tmp_path, monkeypatch):
+    mod = importlib.import_module("think.importers.cli")
+
+    audio_file = tmp_path / "test.mp3"
+    audio_file.write_bytes(b"fake audio")
+    callosum = MagicMock()
+
+    def fake_prepare_audio_segments(media_path, day_dir, base_dt, import_id, stream):
+        seg_dir = Path(day_dir) / stream / "120000_300"
+        seg_dir.mkdir(parents=True, exist_ok=True)
+        (seg_dir / "imported_audio.mp3").write_bytes(b"sliced audio")
+        return [("120000_300", seg_dir, ["imported_audio.mp3"])]
+
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
+    monkeypatch.setattr(mod, "CallosumConnection", lambda **kwargs: callosum)
+    monkeypatch.setattr(mod, "get_rev", lambda: "test-rev")
+    monkeypatch.setattr(mod, "_status_emitter", lambda: None)
+    monkeypatch.setattr(mod, "prepare_audio_segments", fake_prepare_audio_segments)
+    monkeypatch.setattr(
+        mod,
+        "update_stream",
+        lambda stream, day, seg, **kwargs: {
+            "prev_day": None,
+            "prev_segment": None,
+            "seq": 1,
+        },
+    )
+    monkeypatch.setattr(mod, "write_segment_stream", lambda *args, **kwargs: None)
+
+    start = time.monotonic()
+    result = mod.import_one(
+        audio_file,
+        timestamp="20260303_120000",
+        source="audio",
+        wait_for_processing=False,
+    )
+    elapsed = time.monotonic() - start
+
+    assert result is not None
+    assert elapsed < 5
+    assert result.get("segments")
+    assert "failed_segments" not in result
 
 
 def test_file_importer_indexes_created_files_in_process(tmp_path, monkeypatch):

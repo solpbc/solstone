@@ -438,10 +438,47 @@ def test_plaud_sync_save_calls_import_one_in_process(tmp_path, monkeypatch):
         assert call.kwargs["source"] == "plaud"
         assert call.kwargs["auto"] is True
         assert call.kwargs["timestamp"]
+        assert call.kwargs["wait_for_processing"] is False
 
     state = load_sync_state(tmp_path, "plaud")
     assert state["files"]["file1"]["status"] == "imported"
     assert state["files"]["file2"]["status"] == "imported"
+
+
+def test_plaud_sync_checkpoints_catalog_per_file(tmp_path, monkeypatch):
+    from think.importers.plaud import PlaudBackend
+
+    monkeypatch.setenv("PLAUD_ACCESS_TOKEN", "test-token")
+    saved_states = []
+
+    def fake_download(_session, _url, dest_path, progress_cb=None):
+        dest_path.write_bytes(b"audio")
+        if progress_cb:
+            progress_cb()
+        return True
+
+    def fake_save_sync_state(_journal_root, _backend, state):
+        saved_states.append(json.loads(json.dumps(state)))
+
+    with (
+        patch("think.importers.plaud.list_files", side_effect=_mock_list_files),
+        patch("think.importers.plaud.get_temp_url", return_value="https://temp"),
+        patch("think.importers.plaud.download_to_file", side_effect=fake_download),
+        patch("think.importers.plaud.import_one", return_value={"segments": ["seg"]}),
+        patch(
+            "think.importers.sync.save_sync_state",
+            side_effect=fake_save_sync_state,
+        ) as save_mock,
+    ):
+        result = PlaudBackend().sync(tmp_path, dry_run=False)
+
+    assert result["downloaded"] == 2
+    assert save_mock.call_count == 3
+    per_iteration_states = saved_states[:-1]
+    assert any(
+        any(info.get("status") == "imported" for info in state["files"].values())
+        for state in per_iteration_states
+    )
 
 
 def test_plaud_sync_save_records_import_one_errors(tmp_path, monkeypatch):
