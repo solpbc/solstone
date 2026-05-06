@@ -4,10 +4,13 @@
 import importlib
 import io
 import json
+import logging
 import os
+import signal
 import subprocess
 import sys
 import threading
+import time
 from unittest.mock import MagicMock
 
 import psutil
@@ -594,6 +597,30 @@ class _TaskManagedStub:
         self.cleanup = MagicMock()
 
 
+def test_ensure_venv_bin_on_path_prepends_when_missing(monkeypatch):
+    mod = importlib.import_module("think.supervisor")
+    monkeypatch.setenv("PATH", "/usr/bin")
+    monkeypatch.setattr(sys, "executable", "/fake/venv/bin/python3")
+
+    mod._ensure_venv_bin_on_path()
+
+    parts = os.environ["PATH"].split(os.pathsep)
+    assert parts[0] == "/fake/venv/bin"
+    assert "/usr/bin" in parts[1:]
+
+
+def test_ensure_venv_bin_on_path_idempotent(monkeypatch):
+    mod = importlib.import_module("think.supervisor")
+    monkeypatch.setenv("PATH", "/usr/bin")
+    monkeypatch.setattr(sys, "executable", "/fake/venv/bin/python3")
+
+    mod._ensure_venv_bin_on_path()
+    mod._ensure_venv_bin_on_path()
+
+    parts = os.environ["PATH"].split(os.pathsep)
+    assert parts.count("/fake/venv/bin") == 1
+
+
 def test_taskqueue_set_cap_records_cap():
     mod = importlib.import_module("think.supervisor")
     queue = mod.TaskQueue(on_queue_change=None)
@@ -923,6 +950,49 @@ def test_enforce_deadlines_terminates_when_elapsed_exceeds_cap(caplog, monkeypat
         "Task import (cmd=sol import --sync plaud --save, ref=ref-1) exceeded "
         "max_runtime of 50s (elapsed=100s); terminating"
     ) in caplog.text
+
+
+def test_enforce_deadlines_terminates_stopped_task(caplog, monkeypatch):
+    mod = importlib.import_module("think.supervisor")
+    proc = subprocess.Popen(["sh", "-c", "kill -STOP $$; sleep 60"])
+    try:
+        child = psutil.Process(proc.pid)
+        for _ in range(30):
+            if child.status() == psutil.STATUS_STOPPED:
+                break
+            time.sleep(0.1)
+        else:
+            pytest.fail("subprocess did not enter stopped state")
+
+        queue = mod.TaskQueue(on_queue_change=None)
+        managed = _TaskManagedStub(cmd=["sleep"], start_time=time.time())
+        managed.process.pid = proc.pid
+        queue._caps["sleep"] = 60
+        queue._active["ref-1"] = managed
+        terminate = MagicMock()
+        monkeypatch.setattr(mod, "_start_termination_thread", terminate)
+        caplog.set_level(logging.WARNING)
+
+        queue.enforce_deadlines(time.time())
+        terminate.assert_not_called()
+
+        queue.enforce_deadlines(time.time())
+
+        terminate.assert_called_once_with(
+            "ref-1", managed, timeout=2.0, reason="stopped"
+        )
+        assert "stopped" in caplog.text
+    finally:
+        try:
+            os.kill(proc.pid, signal.SIGCONT)
+        except ProcessLookupError:
+            pass
+        try:
+            proc.terminate()
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=5)
 
 
 def test_terminate_managed_logs_timeout(caplog):

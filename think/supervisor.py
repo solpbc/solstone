@@ -44,6 +44,7 @@ DEFAULT_THRESHOLD = 60
 CHECK_INTERVAL = 30
 MAX_UPDATED_CATCHUP = 4
 TEMPFAIL_DELAY = 15  # seconds to wait before retrying a tempfail exit
+STOPPED_TICKS_THRESHOLD = 2
 logger = logging.getLogger(__name__)
 _SERVICE_LIFECYCLE_VERBS = {
     "start",
@@ -199,6 +200,7 @@ class TaskQueue:
         self._active: dict[str, RunnerManagedProcess] = {}  # ref -> process
         self._history: deque[dict[str, Any]] = deque(maxlen=100)
         self._cap_terminated: set[str] = set()
+        self._stopped_ticks: dict[str, int] = {}
         self._caps: dict[str, int] = {}
         self._pending: list[dict] = []
         self._ready = ready
@@ -380,6 +382,38 @@ class TaskQueue:
                 self._cap_terminated.add(ref)
                 _start_termination_thread(ref, managed, timeout=2.0, reason="cap")
 
+            for ref, managed in list(self._active.items()):
+                if ref in self._cap_terminated:
+                    continue
+
+                try:
+                    state = psutil.Process(managed.process.pid).status()
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    self._stopped_ticks.pop(ref, None)
+                    continue
+
+                if state in (psutil.STATUS_STOPPED, psutil.STATUS_TRACING_STOP):
+                    ticks = self._stopped_ticks.get(ref, 0) + 1
+                    self._stopped_ticks[ref] = ticks
+                    if ticks >= STOPPED_TICKS_THRESHOLD:
+                        cmd_name = self.get_command_name(managed.cmd)
+                        logging.warning(
+                            "Task %s (cmd=%s, ref=%s) was stopped (state=%s) "
+                            "for %d consecutive ticks; terminating",
+                            cmd_name,
+                            " ".join(managed.cmd),
+                            ref,
+                            state,
+                            ticks,
+                        )
+                        self._cap_terminated.add(ref)
+                        _start_termination_thread(
+                            ref, managed, timeout=2.0, reason="stopped"
+                        )
+                        self._stopped_ticks.pop(ref, None)
+                else:
+                    self._stopped_ticks.pop(ref, None)
+
     def set_ready(self) -> None:
         """Allow buffered tasks to start dispatching through the normal queue path."""
         with self._lock:
@@ -490,6 +524,7 @@ class TaskQueue:
                 if primary_ref in self._cap_terminated:
                     exit_status = "timeout"
                 self._cap_terminated.discard(primary_ref)
+                self._stopped_ticks.pop(primary_ref, None)
                 ended_at = time.time()
                 self._history.append(
                     {
@@ -1682,6 +1717,21 @@ def handle_shutdown(signum, frame):
     raise KeyboardInterrupt
 
 
+def _ensure_venv_bin_on_path() -> None:
+    """Prepend the venv bin dir (sibling of sys.executable) to PATH if absent.
+
+    Idempotent — safe to call repeatedly. Lets the supervisor spawn `sol` and
+    other venv-installed entry points even when the operator's shell PATH does
+    not include the venv bin dir.
+    """
+    venv_bin = os.path.dirname(sys.executable)
+    parts = os.environ.get("PATH", "").split(os.pathsep)
+    if parts and parts[0] == venv_bin:
+        return
+    parts = [venv_bin] + [p for p in parts if p != venv_bin]
+    os.environ["PATH"] = os.pathsep.join(parts)
+
+
 def main() -> None:
     parser = parse_args()
 
@@ -1689,6 +1739,7 @@ def main() -> None:
     journal_info = get_journal_info()
 
     args = setup_cli(parser)
+    _ensure_venv_bin_on_path()
 
     journal_path = _get_journal_path()
 
