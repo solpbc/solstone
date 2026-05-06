@@ -311,6 +311,35 @@ def test_error_exit_code_in_exit_event(journal_path, mock_callosum):
     listener.stop()
 
 
+def test_spawned_process_sees_eof_on_stdin(journal_path, mock_callosum):
+    r_fd, w_fd = os.pipe()
+    saved_stdin = os.dup(0)
+
+    try:
+        os.write(w_fd, b"smuggled\n")
+        os.close(w_fd)
+        w_fd = -1
+        os.dup2(r_fd, 0)
+        os.close(r_fd)
+        r_fd = -1
+
+        managed = ManagedProcess.spawn(["sh", "-c", "read x; echo got=$x"])
+        exit_code = managed.wait()
+        managed.cleanup()
+
+        content = managed.log_writer.path.read_text()
+        assert exit_code == 0
+        assert "got=" in content
+        assert "got=smuggled" not in content
+    finally:
+        os.dup2(saved_stdin, 0)
+        os.close(saved_stdin)
+        if r_fd != -1:
+            os.close(r_fd)
+        if w_fd != -1:
+            os.close(w_fd)
+
+
 def test_process_creates_health_log(journal_path, mock_callosum):
     """Test that process output is logged to health directory."""
     managed = ManagedProcess.spawn(["echo", "logged output"])

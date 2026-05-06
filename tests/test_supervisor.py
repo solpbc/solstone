@@ -34,6 +34,7 @@ def test_start_sense(tmp_path, mock_callosum, monkeypatch):
 
     def fake_popen(
         cmd,
+        stdin=None,
         stdout=None,
         stderr=None,
         text=False,

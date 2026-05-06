@@ -36,6 +36,7 @@ def slice_audio_segment(
     """
     cmd = [
         "ffmpeg",
+        "-nostdin",
         "-ss",
         str(start_seconds),
         "-i",
@@ -55,6 +56,7 @@ def slice_audio_segment(
         logger.debug(f"Stream copy failed, re-encoding: {output_path}")
         cmd_reencode = [
             "ffmpeg",
+            "-nostdin",
             "-ss",
             str(start_seconds),
             "-i",
