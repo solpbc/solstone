@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from apps.observer.utils import list_observers, save_observer
-from observe.observer_install import common, linux
+from solstone.apps.observer.utils import list_observers, save_observer
+from solstone.observe.observer_install import common, linux
 
 
 @pytest.mark.parametrize(
@@ -239,7 +239,9 @@ def test_force_revokes_and_recreates_registration(monkeypatch: pytest.MonkeyPatc
             "stats": {"segments_received": 0, "bytes_received": 0},
         }
     )
-    monkeypatch.setattr("observe.observer_cli._generate_key", lambda: "new-key")
+    monkeypatch.setattr(
+        "solstone.observe.observer_cli._generate_key", lambda: "new-key"
+    )
 
     result = common.create_or_reuse_registration("archon", force=True)
 

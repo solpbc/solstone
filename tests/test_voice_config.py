@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from think.voice import config
+from solstone.think.voice import config
 
 
 def test_voice_config_defaults(monkeypatch):

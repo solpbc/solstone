@@ -8,7 +8,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from observe.utils import SAMPLE_RATE
+from solstone.observe.utils import SAMPLE_RATE
 
 
 class _Input:
@@ -34,7 +34,7 @@ def _dominant_log_probs(classes: np.ndarray) -> np.ndarray:
 
 
 def test_compute_overlap_fraction_silent_audio_returns_zero(monkeypatch):
-    from observe.transcribe import overlap
+    from solstone.observe.transcribe import overlap
 
     monkeypatch.setattr(
         overlap,
@@ -50,7 +50,7 @@ def test_compute_overlap_fraction_silent_audio_returns_zero(monkeypatch):
 
 
 def test_compute_overlap_fraction_short_audio_padded(monkeypatch):
-    from observe.transcribe import overlap
+    from solstone.observe.transcribe import overlap
 
     monkeypatch.setattr(
         overlap,
@@ -67,7 +67,7 @@ def test_compute_overlap_fraction_short_audio_padded(monkeypatch):
 
 
 def test_compute_overlap_fraction_non_aligned_length(monkeypatch):
-    from observe.transcribe import overlap
+    from solstone.observe.transcribe import overlap
 
     monkeypatch.setattr(
         overlap,
@@ -82,14 +82,14 @@ def test_compute_overlap_fraction_non_aligned_length(monkeypatch):
 
 
 def test_compute_overlap_fraction_rejects_wrong_sample_rate():
-    from observe.transcribe.overlap import compute_overlap_fraction
+    from solstone.observe.transcribe.overlap import compute_overlap_fraction
 
     with pytest.raises(ValueError, match="requires 16000 Hz audio"):
         compute_overlap_fraction(np.zeros(16000, dtype=np.float32), sample_rate=8000)
 
 
 def test_get_overlap_session_loads_and_caches():
-    from observe.transcribe.overlap import _get_overlap_session
+    from solstone.observe.transcribe.overlap import _get_overlap_session
 
     first = _get_overlap_session()
     second = _get_overlap_session()
@@ -98,7 +98,7 @@ def test_get_overlap_session_loads_and_caches():
 
 
 def test_compute_overlap_fraction_uses_conditioned_formula(monkeypatch):
-    from observe.transcribe import overlap
+    from solstone.observe.transcribe import overlap
 
     classes = np.concatenate(
         [

@@ -3,10 +3,10 @@ import json
 
 import pytest
 
-from apps.observer.routes import ACTIVE_THRESHOLD_MS, STALE_THRESHOLD_MS
-from apps.observer.utils import save_observer
-from convey import create_app
-from think.utils import now_ms
+from solstone.apps.observer.routes import ACTIVE_THRESHOLD_MS, STALE_THRESHOLD_MS
+from solstone.apps.observer.utils import save_observer
+from solstone.convey import create_app
+from solstone.think.utils import now_ms
 
 
 def _read_config(journal_dir):
@@ -88,7 +88,7 @@ class TestInitValidateProvider:
 
     def test_validate_provider_valid_key(self, fresh_client, monkeypatch):
         monkeypatch.setattr(
-            "think.providers.validate_key",
+            "solstone.think.providers.validate_key",
             lambda provider, key: {"valid": True},
         )
         resp = fresh_client.post(
@@ -102,7 +102,7 @@ class TestInitValidateProvider:
 
     def test_validate_provider_invalid_key(self, fresh_client, monkeypatch):
         monkeypatch.setattr(
-            "think.providers.validate_key",
+            "solstone.think.providers.validate_key",
             lambda provider, key: {"valid": False, "error": "Invalid key"},
         )
         resp = fresh_client.post(
@@ -120,7 +120,7 @@ class TestInitValidateProvider:
     ):
         """Validate endpoint must not write to config."""
         monkeypatch.setattr(
-            "think.providers.validate_key",
+            "solstone.think.providers.validate_key",
             lambda provider, key: {"valid": True},
         )
         config_before = _read_config(journal_copy)
@@ -140,7 +140,7 @@ class TestInitObservers:
         self, fresh_client, monkeypatch
     ):
         monkeypatch.setattr(
-            "apps.observer.utils.list_observers",
+            "solstone.apps.observer.utils.list_observers",
             lambda: [],
         )
         resp = fresh_client.get("/init/observers")
@@ -159,7 +159,7 @@ class TestInitObservers:
     def test_observers_no_password_required(self, fresh_client, monkeypatch):
         """Observers endpoint works without password_hash set."""
         monkeypatch.setattr(
-            "apps.observer.utils.list_observers",
+            "solstone.apps.observer.utils.list_observers",
             lambda: [],
         )
         resp = fresh_client.get("/init/observers")
@@ -167,7 +167,7 @@ class TestInitObservers:
 
     def test_observers_returns_list(self, fresh_client, monkeypatch):
         monkeypatch.setattr(
-            "apps.observer.utils.list_observers",
+            "solstone.apps.observer.utils.list_observers",
             lambda: [
                 {
                     "key": "abcd1234xxxx",

@@ -118,16 +118,16 @@ def _install_heavy_module_stubs():
         sys.modules["dotenv"] = dotenv_mod
 
 
-from convey.chat import stop_all_chat_runtime
+from solstone.convey.chat import stop_all_chat_runtime
+from solstone.think.entities.journal import clear_journal_entity_cache
+from solstone.think.entities.loading import clear_entity_loading_cache
+from solstone.think.entities.observations import clear_observation_cache
+from solstone.think.entities.relationships import clear_relationship_caches
+from solstone.think.push.runtime import stop_all_push_runtime
+from solstone.think.utils import now_ms
+from solstone.think.voice import brain as voice_brain
+from solstone.think.voice.runtime import stop_all_voice_runtime
 from tests._baseline_harness import copytree_tracked
-from think.entities.journal import clear_journal_entity_cache
-from think.entities.loading import clear_entity_loading_cache
-from think.entities.observations import clear_observation_cache
-from think.entities.relationships import clear_relationship_caches
-from think.push.runtime import stop_all_push_runtime
-from think.utils import now_ms
-from think.voice import brain as voice_brain
-from think.voice.runtime import stop_all_voice_runtime
 
 
 @pytest.fixture(autouse=True)
@@ -203,41 +203,41 @@ def add_module_stubs(request, monkeypatch):
 
     _install_heavy_module_stubs()
     # Import real observe package first to avoid shadowing with stubs
-    if "observe" not in sys.modules:
-        importlib.import_module("observe")
-    if "observe.detect" not in sys.modules:
-        detect_mod = types.ModuleType("observe.detect")
+    if "solstone.observe" not in sys.modules:
+        importlib.import_module("solstone.observe")
+    if "solstone.observe.detect" not in sys.modules:
+        detect_mod = types.ModuleType("solstone.observe.detect")
 
         def input_detect():
             return None, None
 
         detect_mod.input_detect = input_detect
-        sys.modules["observe.detect"] = detect_mod
-        observe_pkg = sys.modules.get("observe")
+        sys.modules["solstone.observe.detect"] = detect_mod
+        observe_pkg = sys.modules.get("solstone.observe")
         setattr(observe_pkg, "detect", detect_mod)
-    if "observe.hear" not in sys.modules:
+    if "solstone.observe.hear" not in sys.modules:
         # Import the real module for format_audio and load_transcript
-        hear_mod = importlib.import_module("observe.hear")
-        sys.modules["observe.hear"] = hear_mod
-        observe_pkg = sys.modules.get("observe")
+        hear_mod = importlib.import_module("solstone.observe.hear")
+        sys.modules["solstone.observe.hear"] = hear_mod
+        observe_pkg = sys.modules.get("solstone.observe")
         setattr(observe_pkg, "hear", hear_mod)
-    if "observe.sense" not in sys.modules:
+    if "solstone.observe.sense" not in sys.modules:
         # Import the real module - it has minimal dependencies
-        sense_mod = importlib.import_module("observe.sense")
-        sys.modules["observe.sense"] = sense_mod
-        observe_pkg = sys.modules.get("observe")
+        sense_mod = importlib.import_module("solstone.observe.sense")
+        sys.modules["solstone.observe.sense"] = sense_mod
+        observe_pkg = sys.modules.get("solstone.observe")
         setattr(observe_pkg, "sense", sense_mod)
-    if "observe.utils" not in sys.modules:
+    if "solstone.observe.utils" not in sys.modules:
         # Import the real module
-        utils_mod = importlib.import_module("observe.utils")
-        sys.modules["observe.utils"] = utils_mod
-        observe_pkg = sys.modules.get("observe")
+        utils_mod = importlib.import_module("solstone.observe.utils")
+        sys.modules["solstone.observe.utils"] = utils_mod
+        observe_pkg = sys.modules.get("solstone.observe")
         setattr(observe_pkg, "utils", utils_mod)
-    if "observe.screen" not in sys.modules:
+    if "solstone.observe.screen" not in sys.modules:
         # Import the real module for format_screen
-        screen_mod = importlib.import_module("observe.screen")
-        sys.modules["observe.screen"] = screen_mod
-        observe_pkg = sys.modules.get("observe")
+        screen_mod = importlib.import_module("solstone.observe.screen")
+        sys.modules["solstone.observe.screen"] = screen_mod
+        observe_pkg = sys.modules.get("solstone.observe")
         setattr(observe_pkg, "screen", screen_mod)
     if "gi" not in sys.modules:
         gi_mod = types.ModuleType("gi")
@@ -322,7 +322,7 @@ def add_module_stubs(request, monkeypatch):
 def reset_supervisor_state():
     """Reset supervisor module state before/after tests to prevent cross-test pollution."""
     try:
-        import think.supervisor as mod
+        import solstone.think.supervisor as mod
 
         # Reset before test
         mod._daily_state["last_day"] = None
@@ -333,7 +333,7 @@ def reset_supervisor_state():
         pass  # supervisor not loaded yet
     yield
     try:
-        import think.supervisor as mod
+        import solstone.think.supervisor as mod
 
         # Reset after test
         mod._daily_state["last_day"] = None
@@ -357,7 +357,7 @@ def mock_callosum(monkeypatch):
 
     Usage:
         def test_example(mock_callosum):
-            from think.callosum import CallosumConnection
+            from solstone.think.callosum import CallosumConnection
 
             received = []
             listener = CallosumConnection()
@@ -407,9 +407,15 @@ def mock_callosum(monkeypatch):
             self.callback = None
 
     # Patch both import locations
-    monkeypatch.setattr("think.runner.CallosumConnection", MockCallosumConnection)
-    monkeypatch.setattr("think.callosum.CallosumConnection", MockCallosumConnection)
-    monkeypatch.setattr("think.supervisor.CallosumConnection", MockCallosumConnection)
+    monkeypatch.setattr(
+        "solstone.think.runner.CallosumConnection", MockCallosumConnection
+    )
+    monkeypatch.setattr(
+        "solstone.think.callosum.CallosumConnection", MockCallosumConnection
+    )
+    monkeypatch.setattr(
+        "solstone.think.supervisor.CallosumConnection", MockCallosumConnection
+    )
 
 
 def setup_google_genai_stub(monkeypatch, *, with_thinking=False):

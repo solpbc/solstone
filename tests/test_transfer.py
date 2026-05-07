@@ -17,7 +17,7 @@ class TestSegmentDeconfliction:
 
     def test_find_available_segment_returns_original_if_free(self, tmp_path):
         """Test find_available_segment returns original if available."""
-        from observe.utils import find_available_segment
+        from solstone.observe.utils import find_available_segment
 
         # No existing segments
         result = find_available_segment(tmp_path, "120000_300")
@@ -25,7 +25,7 @@ class TestSegmentDeconfliction:
 
     def test_find_available_segment_finds_alternative(self, tmp_path):
         """Test find_available_segment finds alternative when original taken."""
-        from observe.utils import find_available_segment
+        from solstone.observe.utils import find_available_segment
 
         # Create existing segment
         (tmp_path / "120000_300").mkdir()
@@ -38,7 +38,7 @@ class TestSegmentDeconfliction:
 
     def test_find_available_segment_returns_none_when_exhausted(self, tmp_path):
         """Test find_available_segment returns None when all slots taken."""
-        from observe.utils import find_available_segment
+        from solstone.observe.utils import find_available_segment
 
         # Create many segments around the target
         for delta in range(-50, 51):
@@ -63,7 +63,7 @@ class TestComputeSha256:
 
     def test_compute_file_sha256(self, tmp_path):
         """Test compute_file_sha256 returns correct hash."""
-        from observe.utils import compute_file_sha256
+        from solstone.observe.utils import compute_file_sha256
 
         test_file = tmp_path / "test.txt"
         test_file.write_bytes(b"hello world")
@@ -74,7 +74,7 @@ class TestComputeSha256:
 
     def test_compute_bytes_sha256(self):
         """Test compute_bytes_sha256 returns correct hash."""
-        from observe.utils import compute_bytes_sha256
+        from solstone.observe.utils import compute_bytes_sha256
 
         # Known SHA256 of "hello world"
         expected = "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9"
@@ -86,7 +86,7 @@ class TestTransferExport:
 
     def test_create_archive_basic(self, tmp_path, monkeypatch):
         """Test create_archive creates valid archive."""
-        from observe.transfer import create_archive
+        from solstone.observe.transfer import create_archive
 
         # Set up mock journal with day/stream/segment structure
         journal_path = tmp_path / "journal"
@@ -101,9 +101,9 @@ class TestTransferExport:
         monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_path))
 
         # Clear cache
-        import think.utils
+        import solstone.think.utils as think_utils
 
-        think.utils._journal_path_cache = None
+        think_utils._journal_path_cache = None
 
         output_path = tmp_path / "test.tgz"
         result = create_archive("20250101", output_path)
@@ -127,7 +127,7 @@ class TestTransferExport:
 
     def test_create_archive_no_segments_error(self, tmp_path, monkeypatch):
         """Test create_archive raises error for empty day."""
-        from observe.transfer import create_archive
+        from solstone.observe.transfer import create_archive
 
         journal_path = tmp_path / "journal"
         day_dir = journal_path / "chronicle" / "20250101"
@@ -135,25 +135,25 @@ class TestTransferExport:
 
         monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_path))
 
-        import think.utils
+        import solstone.think.utils as think_utils
 
-        think.utils._journal_path_cache = None
+        think_utils._journal_path_cache = None
 
         with pytest.raises(ValueError, match="No segments found"):
             create_archive("20250101")
 
     def test_create_archive_no_day_error(self, tmp_path, monkeypatch):
         """Test create_archive raises error for missing day."""
-        from observe.transfer import create_archive
+        from solstone.observe.transfer import create_archive
 
         journal_path = tmp_path / "journal"
         journal_path.mkdir(parents=True)
 
         monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_path))
 
-        import think.utils
+        import solstone.think.utils as think_utils
 
-        think.utils._journal_path_cache = None
+        think_utils._journal_path_cache = None
 
         with pytest.raises(ValueError, match="does not exist"):
             create_archive("20250101")
@@ -179,7 +179,7 @@ class TestTransferImport:
                 manifest["segments"][segment] = {"files": []}
                 for filename, content in files.items():
                     # Add to manifest
-                    from observe.utils import compute_bytes_sha256
+                    from solstone.observe.utils import compute_bytes_sha256
 
                     manifest["segments"][segment]["files"].append(
                         {
@@ -208,7 +208,7 @@ class TestTransferImport:
 
     def test_validate_archive_all_new(self, tmp_path, monkeypatch):
         """Test validate_archive with no existing segments."""
-        from observe.transfer import validate_archive
+        from solstone.observe.transfer import validate_archive
 
         # Create archive
         archive_path = self._create_test_archive(
@@ -225,9 +225,9 @@ class TestTransferImport:
 
         monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_path))
 
-        import think.utils
+        import solstone.think.utils as think_utils
 
-        think.utils._journal_path_cache = None
+        think_utils._journal_path_cache = None
 
         result = validate_archive(archive_path)
 
@@ -238,7 +238,7 @@ class TestTransferImport:
 
     def test_validate_archive_skip_matching(self, tmp_path, monkeypatch):
         """Test validate_archive skips segments with matching hashes."""
-        from observe.transfer import validate_archive
+        from solstone.observe.transfer import validate_archive
 
         # Create archive
         content = b"audio data"
@@ -255,9 +255,9 @@ class TestTransferImport:
 
         monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_path))
 
-        import think.utils
+        import solstone.think.utils as think_utils
 
-        think.utils._journal_path_cache = None
+        think_utils._journal_path_cache = None
 
         result = validate_archive(archive_path)
 
@@ -266,7 +266,7 @@ class TestTransferImport:
 
     def test_validate_archive_deconflict_different(self, tmp_path, monkeypatch):
         """Test validate_archive deconflicts segments with different content."""
-        from observe.transfer import validate_archive
+        from solstone.observe.transfer import validate_archive
 
         # Create archive
         archive_path = self._create_test_archive(
@@ -282,9 +282,9 @@ class TestTransferImport:
 
         monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_path))
 
-        import think.utils
+        import solstone.think.utils as think_utils
 
-        think.utils._journal_path_cache = None
+        think_utils._journal_path_cache = None
 
         result = validate_archive(archive_path)
 
@@ -293,7 +293,7 @@ class TestTransferImport:
 
     def test_import_archive_basic(self, tmp_path, monkeypatch):
         """Test import_archive extracts segments correctly."""
-        from observe.transfer import import_archive
+        from solstone.observe.transfer import import_archive
 
         # Create archive
         audio_content = b"fake audio data"
@@ -315,9 +315,9 @@ class TestTransferImport:
 
         monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_path))
 
-        import think.utils
+        import solstone.think.utils as think_utils
 
-        think.utils._journal_path_cache = None
+        think_utils._journal_path_cache = None
 
         # Mock subprocess to avoid running real indexer
         with patch("subprocess.run"):
@@ -334,7 +334,7 @@ class TestTransferImport:
 
     def test_import_archive_dry_run(self, tmp_path, monkeypatch):
         """Test import_archive dry run doesn't modify filesystem."""
-        from observe.transfer import import_archive
+        from solstone.observe.transfer import import_archive
 
         archive_path = self._create_test_archive(
             tmp_path,
@@ -346,9 +346,9 @@ class TestTransferImport:
 
         monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_path))
 
-        import think.utils
+        import solstone.think.utils as think_utils
 
-        think.utils._journal_path_cache = None
+        think_utils._journal_path_cache = None
 
         result = import_archive(archive_path, dry_run=True)
 
@@ -358,7 +358,7 @@ class TestTransferImport:
 
     def test_import_archive_nothing_to_import(self, tmp_path, monkeypatch):
         """Test import_archive when all segments already synced."""
-        from observe.transfer import import_archive
+        from solstone.observe.transfer import import_archive
 
         content = b"audio data"
         archive_path = self._create_test_archive(
@@ -374,9 +374,9 @@ class TestTransferImport:
 
         monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_path))
 
-        import think.utils
+        import solstone.think.utils as think_utils
 
-        think.utils._journal_path_cache = None
+        think_utils._journal_path_cache = None
 
         result = import_archive(archive_path)
 
@@ -388,7 +388,7 @@ class TestManifestValidation:
 
     def test_read_manifest_missing(self, tmp_path):
         """Test error when manifest is missing from archive."""
-        from observe.transfer import _read_manifest
+        from solstone.observe.transfer import _read_manifest
 
         # Create archive without manifest
         archive_path = tmp_path / "test.tgz"
@@ -404,7 +404,7 @@ class TestManifestValidation:
 
     def test_read_manifest_wrong_version(self, tmp_path):
         """Test error when manifest has wrong version."""
-        from observe.transfer import _read_manifest
+        from solstone.observe.transfer import _read_manifest
 
         archive_path = tmp_path / "test.tgz"
         with tarfile.open(archive_path, "w:gz") as tar:
@@ -420,7 +420,7 @@ class TestManifestValidation:
 
     def test_read_manifest_missing_fields(self, tmp_path):
         """Test error when manifest has missing required fields."""
-        from observe.transfer import _read_manifest
+        from solstone.observe.transfer import _read_manifest
 
         archive_path = tmp_path / "test.tgz"
         with tarfile.open(archive_path, "w:gz") as tar:
@@ -451,9 +451,9 @@ class TestTransferSend:
     def _set_journal_override(self, monkeypatch, journal: Path) -> None:
         monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
 
-        import think.utils
+        import solstone.think.utils as think_utils
 
-        think.utils._journal_path_cache = None
+        think_utils._journal_path_cache = None
 
     def _make_session(
         self,
@@ -483,7 +483,7 @@ class TestTransferSend:
         return mock_session
 
     def test_parse_day_spec_single(self, tmp_path):
-        from observe.transfer import _parse_day_spec
+        from solstone.observe.transfer import _parse_day_spec
 
         journal_root = tmp_path / "journal"
         journal_root.mkdir()
@@ -491,7 +491,7 @@ class TestTransferSend:
         assert _parse_day_spec("20250103", journal_root) == ["20250103"]
 
     def test_parse_day_spec_range(self, tmp_path):
-        from observe.transfer import _parse_day_spec
+        from solstone.observe.transfer import _parse_day_spec
 
         journal_root = tmp_path / "journal"
         journal_root.mkdir()
@@ -503,7 +503,7 @@ class TestTransferSend:
         ]
 
     def test_parse_day_spec_all_days(self, tmp_path):
-        from observe.transfer import _parse_day_spec
+        from solstone.observe.transfer import _parse_day_spec
 
         journal_root = tmp_path / "journal"
         journal_root.mkdir()
@@ -515,7 +515,7 @@ class TestTransferSend:
         assert _parse_day_spec(None, journal_root) == ["20250101", "20250103"]
 
     def test_parse_day_spec_invalid(self, tmp_path):
-        from observe.transfer import _parse_day_spec
+        from solstone.observe.transfer import _parse_day_spec
 
         journal_root = tmp_path / "journal"
         journal_root.mkdir()
@@ -524,7 +524,7 @@ class TestTransferSend:
             _parse_day_spec("invalid", journal_root)
 
     def test_normalize_url(self):
-        from observe.transfer import _normalize_url
+        from solstone.observe.transfer import _normalize_url
 
         assert _normalize_url("example.com") == "https://example.com"
         assert _normalize_url("example.com/") == "https://example.com"
@@ -532,14 +532,16 @@ class TestTransferSend:
         assert _normalize_url("http://example.com/api/") == "http://example.com/api"
 
     def test_send_dry_run(self, tmp_path, monkeypatch, capsys):
-        from observe.transfer import send_segments
+        from solstone.observe.transfer import send_segments
 
         journal = self._setup_journal(tmp_path)
         self._set_journal_override(monkeypatch, journal)
 
         mock_session = self._make_session(get_json=[])
 
-        with patch("observe.transfer.requests.Session", return_value=mock_session):
+        with patch(
+            "solstone.observe.transfer.requests.Session", return_value=mock_session
+        ):
             send_segments("https://example.com", "test-key", ["20250103"], dry_run=True)
 
         assert mock_session.get.call_count == 1
@@ -550,8 +552,8 @@ class TestTransferSend:
         assert "Dry run: would send 1, skip 0" in capsys.readouterr().out
 
     def test_send_skips_matching(self, tmp_path, monkeypatch, capsys):
-        from observe.transfer import send_segments
-        from observe.utils import compute_file_sha256
+        from solstone.observe.transfer import send_segments
+        from solstone.observe.utils import compute_file_sha256
 
         journal = self._setup_journal(tmp_path)
         self._set_journal_override(monkeypatch, journal)
@@ -571,7 +573,9 @@ class TestTransferSend:
             get_json=[{"key": "120000_300", "observed": False, "files": remote_files}]
         )
 
-        with patch("observe.transfer.requests.Session", return_value=mock_session):
+        with patch(
+            "solstone.observe.transfer.requests.Session", return_value=mock_session
+        ):
             send_segments(
                 "https://example.com", "test-key", ["20250103"], dry_run=False
             )
@@ -582,7 +586,7 @@ class TestTransferSend:
         assert "Nothing to send - remote is up to date" in output
 
     def test_send_uploads_new(self, tmp_path, monkeypatch, capsys):
-        from observe.transfer import send_segments
+        from solstone.observe.transfer import send_segments
 
         journal = self._setup_journal(tmp_path)
         self._set_journal_override(monkeypatch, journal)
@@ -592,7 +596,9 @@ class TestTransferSend:
             post_json={"status": "ok", "bytes": 100},
         )
 
-        with patch("observe.transfer.requests.Session", return_value=mock_session):
+        with patch(
+            "solstone.observe.transfer.requests.Session", return_value=mock_session
+        ):
             send_segments(
                 "https://example.com", "test-key", ["20250103"], dry_run=False
             )
@@ -610,7 +616,7 @@ class TestTransferSend:
         )
 
     def test_send_retry_on_5xx(self, tmp_path, monkeypatch, capsys):
-        from observe.transfer import send_segments
+        from solstone.observe.transfer import send_segments
 
         journal = self._setup_journal(tmp_path)
         self._set_journal_override(monkeypatch, journal)
@@ -623,8 +629,10 @@ class TestTransferSend:
         mock_session.post.side_effect = [first, second, success]
 
         with (
-            patch("observe.transfer.requests.Session", return_value=mock_session),
-            patch("observe.transfer.time.sleep"),
+            patch(
+                "solstone.observe.transfer.requests.Session", return_value=mock_session
+            ),
+            patch("solstone.observe.transfer.time.sleep"),
         ):
             send_segments(
                 "https://example.com", "test-key", ["20250103"], dry_run=False
@@ -637,7 +645,7 @@ class TestTransferSend:
         )
 
     def test_send_auth_error(self):
-        from observe.transfer import _query_remote_segments
+        from solstone.observe.transfer import _query_remote_segments
 
         mock_session = self._make_session(get_status=401)
 
@@ -649,8 +657,8 @@ class TestTransferSend:
             )
 
     def test_send_idempotent(self, tmp_path, monkeypatch, capsys):
-        from observe.transfer import send_segments
-        from observe.utils import compute_file_sha256
+        from solstone.observe.transfer import send_segments
+        from solstone.observe.utils import compute_file_sha256
 
         journal = self._setup_journal(tmp_path)
         self._set_journal_override(monkeypatch, journal)
@@ -678,7 +686,9 @@ class TestTransferSend:
         mock_session = self._make_session()
         mock_session.get.side_effect = [first_get, second_get]
 
-        with patch("observe.transfer.requests.Session", return_value=mock_session):
+        with patch(
+            "solstone.observe.transfer.requests.Session", return_value=mock_session
+        ):
             send_segments(
                 "https://example.com", "test-key", ["20250103"], dry_run=False
             )
@@ -698,14 +708,16 @@ class TestTransferSend:
         )
 
     def test_send_excludes_stream_json(self, tmp_path, monkeypatch):
-        from observe.transfer import send_segments
+        from solstone.observe.transfer import send_segments
 
         journal = self._setup_journal(tmp_path, include_stream_json=True)
         self._set_journal_override(monkeypatch, journal)
 
         mock_session = self._make_session(get_json=[])
 
-        with patch("observe.transfer.requests.Session", return_value=mock_session):
+        with patch(
+            "solstone.observe.transfer.requests.Session", return_value=mock_session
+        ):
             send_segments(
                 "https://example.com", "test-key", ["20250103"], dry_run=False
             )

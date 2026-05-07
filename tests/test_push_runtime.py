@@ -6,8 +6,8 @@ from __future__ import annotations
 import pytest
 from flask import Flask
 
-from think.push import runtime
-from think.push.runtime import (
+from solstone.think.push import runtime
+from solstone.think.push.runtime import (
     get_runtime_state,
     start_push_runtime,
     stop_all_push_runtime,
@@ -25,11 +25,11 @@ def reset_runtime():
 def test_start_push_runtime_attaches_state(monkeypatch):
     calls: list[str] = []
     monkeypatch.setattr(
-        "think.push.runtime.CallosumConnection.start",
+        "solstone.think.push.runtime.CallosumConnection.start",
         lambda self, callback=None: calls.append("start"),
     )
     monkeypatch.setattr(
-        "think.push.runtime.CallosumConnection.stop",
+        "solstone.think.push.runtime.CallosumConnection.stop",
         lambda self: calls.append("stop"),
     )
     app = Flask(__name__)
@@ -48,9 +48,12 @@ def test_start_push_runtime_attaches_state(monkeypatch):
 
 def test_start_push_runtime_is_idempotent(monkeypatch):
     monkeypatch.setattr(
-        "think.push.runtime.CallosumConnection.start", lambda self, callback=None: None
+        "solstone.think.push.runtime.CallosumConnection.start",
+        lambda self, callback=None: None,
     )
-    monkeypatch.setattr("think.push.runtime.CallosumConnection.stop", lambda self: None)
+    monkeypatch.setattr(
+        "solstone.think.push.runtime.CallosumConnection.stop", lambda self: None
+    )
     app = Flask(__name__)
 
     start_push_runtime(app)
@@ -70,9 +73,12 @@ def test_start_push_runtime_is_idempotent(monkeypatch):
 
 def test_stop_push_runtime_cleans_last_app(monkeypatch):
     monkeypatch.setattr(
-        "think.push.runtime.CallosumConnection.start", lambda self, callback=None: None
+        "solstone.think.push.runtime.CallosumConnection.start",
+        lambda self, callback=None: None,
     )
-    monkeypatch.setattr("think.push.runtime.CallosumConnection.stop", lambda self: None)
+    monkeypatch.setattr(
+        "solstone.think.push.runtime.CallosumConnection.stop", lambda self: None
+    )
     app = Flask(__name__)
 
     start_push_runtime(app)
@@ -84,9 +90,12 @@ def test_stop_push_runtime_cleans_last_app(monkeypatch):
 
 def test_stop_all_push_runtime_clears_runtime(monkeypatch):
     monkeypatch.setattr(
-        "think.push.runtime.CallosumConnection.start", lambda self, callback=None: None
+        "solstone.think.push.runtime.CallosumConnection.start",
+        lambda self, callback=None: None,
     )
-    monkeypatch.setattr("think.push.runtime.CallosumConnection.stop", lambda self: None)
+    monkeypatch.setattr(
+        "solstone.think.push.runtime.CallosumConnection.stop", lambda self: None
+    )
     app = Flask(__name__)
 
     start_push_runtime(app)

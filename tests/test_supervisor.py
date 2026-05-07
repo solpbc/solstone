@@ -19,7 +19,7 @@ import pytest
 
 def test_start_sense(tmp_path, mock_callosum, monkeypatch):
     """Test that sense launches correctly."""
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.import_module("solstone.think.supervisor")
 
     started = []
 
@@ -64,7 +64,7 @@ def test_start_sense(tmp_path, mock_callosum, monkeypatch):
 
 
 def test_launch_process_records_service_state(monkeypatch):
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.import_module("solstone.think.supervisor")
     mod._SERVICE_STATE.clear()
 
     process = MagicMock()
@@ -106,7 +106,7 @@ def test_launch_process_records_service_state(monkeypatch):
 
 def test_parse_args_remote_flag():
     """Test that parse_args includes --remote flag."""
-    mod = importlib.reload(importlib.import_module("think.supervisor"))
+    mod = importlib.reload(importlib.import_module("solstone.think.supervisor"))
 
     parser = mod.parse_args()
     args = parser.parse_args(["--remote", "https://server/ingest/key"])
@@ -116,7 +116,7 @@ def test_parse_args_remote_flag():
 
 def test_parse_args_remote_flag_optional():
     """Test that --remote is optional."""
-    mod = importlib.reload(importlib.import_module("think.supervisor"))
+    mod = importlib.reload(importlib.import_module("solstone.think.supervisor"))
 
     parser = mod.parse_args()
     args = parser.parse_args([])
@@ -125,7 +125,7 @@ def test_parse_args_remote_flag_optional():
 
 
 def test_parse_args_lifecycle_verb_hint(monkeypatch, capsys):
-    mod = importlib.reload(importlib.import_module("think.supervisor"))
+    mod = importlib.reload(importlib.import_module("solstone.think.supervisor"))
     monkeypatch.setattr(sys, "argv", ["sol", "supervisor", "stop"])
 
     parser = mod.parse_args()
@@ -143,7 +143,7 @@ def test_parse_args_lifecycle_verb_hint(monkeypatch, capsys):
 
 def test_shutdown_stops_in_reverse_order(monkeypatch):
     """Shutdown stops services in reverse order."""
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.import_module("solstone.think.supervisor")
     operations = []
 
     class MockManaged:
@@ -185,7 +185,7 @@ def test_shutdown_stops_in_reverse_order(monkeypatch):
 
 def test_get_command_name():
     """Test command name extraction for queue serialization."""
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.import_module("solstone.think.supervisor")
     get = mod.TaskQueue.get_command_name
 
     # sol X -> X
@@ -203,7 +203,7 @@ def test_get_command_name():
 
 def test_task_queue_same_command_queued(monkeypatch):
     """Test that same command is queued when already running."""
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.import_module("solstone.think.supervisor")
 
     # Create fresh task queue (no callback to avoid callosum events)
     mod._task_queue = mod.TaskQueue(on_queue_change=None)
@@ -248,7 +248,7 @@ def test_task_queue_same_command_queued(monkeypatch):
 
 def test_task_queue_dedupe_exact_match(monkeypatch):
     """Test that exact same command is deduped in queue."""
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.import_module("solstone.think.supervisor")
 
     # Create fresh task queue (no callback to avoid callosum events)
     mod._task_queue = mod.TaskQueue(on_queue_change=None)
@@ -291,7 +291,7 @@ def test_task_queue_dedupe_exact_match(monkeypatch):
 
 def test_task_queue_different_commands_independent(monkeypatch):
     """Test that different commands have independent queues."""
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.import_module("solstone.think.supervisor")
 
     # Create fresh task queue (no callback to avoid callosum events)
     mod._task_queue = mod.TaskQueue(on_queue_change=None)
@@ -326,7 +326,7 @@ def test_task_queue_different_commands_independent(monkeypatch):
 
 def test_process_queue_spawns_next(monkeypatch):
     """Test that _process_next spawns next queued task."""
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.import_module("solstone.think.supervisor")
 
     # Create task queue with pre-set state
     mod._task_queue = mod.TaskQueue(on_queue_change=None)
@@ -359,7 +359,7 @@ def test_process_queue_spawns_next(monkeypatch):
 
 def test_process_queue_clears_running_when_empty(monkeypatch):
     """Test that _process_next clears running state when queue is empty."""
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.import_module("solstone.think.supervisor")
 
     # Create task queue with pre-set state (no queued tasks)
     mod._task_queue = mod.TaskQueue(on_queue_change=None)
@@ -385,7 +385,7 @@ def test_process_queue_clears_running_when_empty(monkeypatch):
 
 def test_task_request_uses_caller_provided_ref(monkeypatch):
     """Test that caller-provided ref is used and preserved through queue."""
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.import_module("solstone.think.supervisor")
 
     # Create fresh task queue (no callback to avoid callosum events)
     mod._task_queue = mod.TaskQueue(on_queue_change=None)
@@ -413,7 +413,7 @@ def test_task_request_uses_caller_provided_ref(monkeypatch):
 
 def test_task_queue_preserves_caller_ref(monkeypatch):
     """Test that queued requests preserve their caller-provided ref."""
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.import_module("solstone.think.supervisor")
 
     # Create fresh task queue (no callback to avoid callosum events)
     mod._task_queue = mod.TaskQueue(on_queue_change=None)
@@ -455,7 +455,7 @@ def test_task_queue_preserves_caller_ref(monkeypatch):
 
 def test_task_queue_coalesces_refs_on_dedupe(monkeypatch):
     """Test that duplicate queued requests coalesce their refs."""
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.import_module("solstone.think.supervisor")
 
     # Create fresh task queue (no callback to avoid callosum events)
     mod._task_queue = mod.TaskQueue(on_queue_change=None)
@@ -505,7 +505,7 @@ def test_task_queue_coalesces_refs_on_dedupe(monkeypatch):
 
 def test_process_queue_spawns_with_multiple_refs(monkeypatch):
     """Test that dequeued task has all coalesced refs."""
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.import_module("solstone.think.supervisor")
 
     # Create task queue with pre-set state (queued task with multiple refs)
     mod._task_queue = mod.TaskQueue(on_queue_change=None)
@@ -539,7 +539,7 @@ def test_stale_queue_detected_on_submit(monkeypatch):
     """Test that a dead task thread is detected and cleared on next submit."""
     import threading
 
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.import_module("solstone.think.supervisor")
 
     mod._task_queue = mod.TaskQueue(on_queue_change=None)
 
@@ -598,7 +598,7 @@ class _TaskManagedStub:
 
 
 def test_ensure_venv_bin_on_path_prepends_when_missing(monkeypatch):
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.import_module("solstone.think.supervisor")
     monkeypatch.setenv("PATH", "/usr/bin")
     monkeypatch.setattr(sys, "executable", "/fake/venv/bin/python3")
 
@@ -610,7 +610,7 @@ def test_ensure_venv_bin_on_path_prepends_when_missing(monkeypatch):
 
 
 def test_ensure_venv_bin_on_path_idempotent(monkeypatch):
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.import_module("solstone.think.supervisor")
     monkeypatch.setenv("PATH", "/usr/bin")
     monkeypatch.setattr(sys, "executable", "/fake/venv/bin/python3")
 
@@ -622,7 +622,7 @@ def test_ensure_venv_bin_on_path_idempotent(monkeypatch):
 
 
 def test_taskqueue_set_cap_records_cap():
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.import_module("solstone.think.supervisor")
     queue = mod.TaskQueue(on_queue_change=None)
 
     queue.set_cap("import", 1800)
@@ -631,7 +631,7 @@ def test_taskqueue_set_cap_records_cap():
 
 
 def test_task_queue_history_records_completion(tmp_path, monkeypatch):
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.import_module("solstone.think.supervisor")
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     (tmp_path / "health").mkdir(parents=True, exist_ok=True)
 
@@ -682,7 +682,7 @@ def test_task_queue_history_records_completion(tmp_path, monkeypatch):
 
 
 def test_scheduler_completion_updates_scheduler_json(tmp_path, monkeypatch):
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.import_module("solstone.think.supervisor")
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     health_dir = tmp_path / "health"
     health_dir.mkdir(parents=True, exist_ok=True)
@@ -711,7 +711,7 @@ def test_scheduler_completion_updates_scheduler_json(tmp_path, monkeypatch):
 
 
 def test_run_task_completes_when_scheduler_writeback_fails(monkeypatch):
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.import_module("solstone.think.supervisor")
     queue = mod.TaskQueue(on_queue_change=None)
     callosum = MagicMock()
 
@@ -760,7 +760,7 @@ def test_run_task_completes_when_scheduler_writeback_fails(monkeypatch):
 def test_record_scheduler_completion_serializes_concurrent_writes(
     tmp_path, monkeypatch
 ):
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.import_module("solstone.think.supervisor")
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     threads = [
@@ -789,7 +789,7 @@ def test_record_scheduler_completion_serializes_concurrent_writes(
 
 
 def test_task_history_records_cap_kill_as_timeout(monkeypatch):
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.import_module("solstone.think.supervisor")
     queue = mod.TaskQueue(on_queue_change=None)
     queue.set_cap("import", 50)
     callosum = MagicMock()
@@ -830,7 +830,7 @@ def test_task_history_records_cap_kill_as_timeout(monkeypatch):
 
 
 def test_handle_task_request_skips_still_running(monkeypatch):
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.import_module("solstone.think.supervisor")
     queue = mod.TaskQueue(on_queue_change=None)
     managed = _TaskManagedStub(cmd=["sol", "import"], start_time=100.0)
     queue._active["active-ref"] = managed
@@ -864,7 +864,7 @@ def test_handle_task_request_skips_still_running(monkeypatch):
 
 
 def test_handle_task_request_skips_wedged(monkeypatch):
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.import_module("solstone.think.supervisor")
     queue = mod.TaskQueue(on_queue_change=None)
     managed = _TaskManagedStub(cmd=["sol", "import"], start_time=100.0)
     queue._active["active-ref"] = managed
@@ -889,7 +889,7 @@ def test_handle_task_request_skips_wedged(monkeypatch):
 
 
 def test_task_queue_shutdown_terminates_active_tasks():
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.import_module("solstone.think.supervisor")
     queue = mod.TaskQueue(on_queue_change=None)
     first = _TaskManagedStub(cmd=["sol", "import"])
     second = _TaskManagedStub(cmd=["sol", "indexer"])
@@ -902,14 +902,14 @@ def test_task_queue_shutdown_terminates_active_tasks():
 
 
 def test_task_queue_shutdown_empty_is_noop():
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.import_module("solstone.think.supervisor")
     queue = mod.TaskQueue(on_queue_change=None)
 
     assert queue.shutdown() == 0
 
 
 def test_task_queue_shutdown_continues_after_timeout():
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.import_module("solstone.think.supervisor")
     queue = mod.TaskQueue(on_queue_change=None)
     first = _TaskManagedStub(cmd=["sol", "import"])
     second = _TaskManagedStub(cmd=["sol", "indexer"])
@@ -925,7 +925,7 @@ def test_task_queue_shutdown_continues_after_timeout():
 
 
 def test_enforce_deadlines_terminates_when_elapsed_exceeds_cap(caplog, monkeypatch):
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.import_module("solstone.think.supervisor")
     queue = mod.TaskQueue(on_queue_change=None)
     managed = _TaskManagedStub(
         cmd=["sol", "import", "--sync", "plaud", "--save"],
@@ -953,7 +953,7 @@ def test_enforce_deadlines_terminates_when_elapsed_exceeds_cap(caplog, monkeypat
 
 
 def test_enforce_deadlines_terminates_stopped_task(caplog, monkeypatch):
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.import_module("solstone.think.supervisor")
     proc = subprocess.Popen(["sh", "-c", "kill -STOP $$; sleep 60"])
     try:
         child = psutil.Process(proc.pid)
@@ -996,7 +996,7 @@ def test_enforce_deadlines_terminates_stopped_task(caplog, monkeypatch):
 
 
 def test_terminate_managed_logs_timeout(caplog):
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.import_module("solstone.think.supervisor")
     managed = _TaskManagedStub(cmd=["sol", "import"], start_time=100.0)
     managed.terminate.side_effect = subprocess.TimeoutExpired(
         cmd=managed.cmd, timeout=3
@@ -1010,7 +1010,7 @@ def test_terminate_managed_logs_timeout(caplog):
 
 
 def test_enforce_deadlines_noop_when_no_cap():
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.import_module("solstone.think.supervisor")
     queue = mod.TaskQueue(on_queue_change=None)
     managed = _TaskManagedStub(cmd=["sol", "import"], start_time=100.0)
     queue._active["ref-1"] = managed
@@ -1021,7 +1021,7 @@ def test_enforce_deadlines_noop_when_no_cap():
 
 
 def test_restart_service_uses_single_termination_path(monkeypatch):
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.import_module("solstone.think.supervisor")
     managed = _TaskManagedStub(cmd=["sol", "sense"], start_time=100.0)
     managed.name = "sense"
     managed.ref = "ref-sense"
@@ -1047,7 +1047,7 @@ def test_restart_service_uses_single_termination_path(monkeypatch):
 
 
 def test_stop_process_uses_service_shutdown_timeout():
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.import_module("solstone.think.supervisor")
     managed = _TaskManagedStub(cmd=["sol", "link"], start_time=100.0)
     managed.name = "link"
     mod._SERVICE_STATE.clear()
@@ -1063,7 +1063,7 @@ def test_stop_process_uses_service_shutdown_timeout():
 
 
 def test_supervisor_singleton_lock_acquired(tmp_path, monkeypatch):
-    mod = importlib.reload(importlib.import_module("think.supervisor"))
+    mod = importlib.reload(importlib.import_module("solstone.think.supervisor"))
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     (tmp_path / "health").mkdir(parents=True, exist_ok=True)
@@ -1094,7 +1094,7 @@ def test_supervisor_singleton_lock_acquired(tmp_path, monkeypatch):
 def test_supervisor_singleton_lock_blocked(tmp_path, monkeypatch, capsys):
     import fcntl
 
-    mod = importlib.reload(importlib.import_module("think.supervisor"))
+    mod = importlib.reload(importlib.import_module("solstone.think.supervisor"))
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     health_dir = tmp_path / "health"
@@ -1123,7 +1123,7 @@ def test_supervisor_singleton_lock_blocked(tmp_path, monkeypatch, capsys):
 def test_supervisor_singleton_lock_blocked_with_health(tmp_path, monkeypatch, capsys):
     import fcntl
 
-    mod = importlib.reload(importlib.import_module("think.supervisor"))
+    mod = importlib.reload(importlib.import_module("solstone.think.supervisor"))
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     health_dir = tmp_path / "health"
@@ -1137,7 +1137,7 @@ def test_supervisor_singleton_lock_blocked_with_health(tmp_path, monkeypatch, ca
     start_mock = MagicMock()
     health_mock = MagicMock(return_value=0)
     monkeypatch.setattr(mod, "start_callosum_in_process", start_mock)
-    monkeypatch.setattr("think.health_cli.health_check", health_mock)
+    monkeypatch.setattr("solstone.think.health_cli.health_check", health_mock)
 
     try:
         with pytest.raises(SystemExit) as exc:
@@ -1154,7 +1154,7 @@ def test_supervisor_singleton_lock_blocked_with_health(tmp_path, monkeypatch, ca
 
 
 def test_is_supervisor_up_without_pid_file(tmp_path, monkeypatch):
-    mod = importlib.reload(importlib.import_module("think.supervisor"))
+    mod = importlib.reload(importlib.import_module("solstone.think.supervisor"))
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     (tmp_path / "health").mkdir(parents=True, exist_ok=True)
@@ -1163,7 +1163,7 @@ def test_is_supervisor_up_without_pid_file(tmp_path, monkeypatch):
 
 
 def test_is_supervisor_up_with_dead_pid(tmp_path, monkeypatch):
-    mod = importlib.reload(importlib.import_module("think.supervisor"))
+    mod = importlib.reload(importlib.import_module("solstone.think.supervisor"))
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     health_dir = tmp_path / "health"
@@ -1177,7 +1177,7 @@ def test_is_supervisor_up_with_dead_pid(tmp_path, monkeypatch):
 
 
 def test_is_supervisor_up_with_live_pid_missing_start_time(tmp_path, monkeypatch):
-    mod = importlib.reload(importlib.import_module("think.supervisor"))
+    mod = importlib.reload(importlib.import_module("solstone.think.supervisor"))
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     health_dir = tmp_path / "health"
@@ -1188,7 +1188,7 @@ def test_is_supervisor_up_with_live_pid_missing_start_time(tmp_path, monkeypatch
 
 
 def test_is_supervisor_up_with_live_pid_mismatched_start_time(tmp_path, monkeypatch):
-    mod = importlib.reload(importlib.import_module("think.supervisor"))
+    mod = importlib.reload(importlib.import_module("solstone.think.supervisor"))
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     health_dir = tmp_path / "health"
@@ -1201,7 +1201,7 @@ def test_is_supervisor_up_with_live_pid_mismatched_start_time(tmp_path, monkeypa
 
 
 def test_is_supervisor_up_with_matching_process_identity(tmp_path, monkeypatch):
-    mod = importlib.reload(importlib.import_module("think.supervisor"))
+    mod = importlib.reload(importlib.import_module("solstone.think.supervisor"))
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     health_dir = tmp_path / "health"

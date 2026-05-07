@@ -5,7 +5,7 @@
 
 import time
 
-from think.utils import updated_days
+from solstone.think.utils import updated_days
 
 
 def test_updated_days_fixture(monkeypatch):

@@ -12,7 +12,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from think import install_guard
+from solstone.think import install_guard
 
 V1_WRAPPER_TEMPLATE = """\
 #!/bin/sh
@@ -201,7 +201,7 @@ def alias_error(curdir: Path, installed: str, *, allow_force: bool = False) -> s
         "or remove ~/.local/bin/sol manually if that repo is gone.\n"
     )
     if allow_force:
-        message += "Rerun 'python -m think.install_guard install --force' only if you intend to replace it from this repo.\n"
+        message += "Rerun 'python -m solstone.think.install_guard install --force' only if you intend to replace it from this repo.\n"
     return message
 
 
@@ -219,7 +219,7 @@ class TestWrapperHelpers:
     def test_current_journal_for_alias_falls_back_to_documents_journal(
         self, home_root, monkeypatch
     ):
-        from think import utils as think_utils
+        from solstone.think import utils as think_utils
 
         def raise_not_configured():
             raise think_utils.SolstoneNotConfigured("not configured")
@@ -587,7 +587,7 @@ class TestInstall:
     @pytest.fixture(autouse=True)
     def path_already_present(self, monkeypatch):
         monkeypatch.setattr(
-            "think.install_guard.userpath.in_current_path",
+            "solstone.think.install_guard.userpath.in_current_path",
             lambda _path: True,
         )
 
@@ -798,12 +798,12 @@ class TestInstall:
         append_mock = Mock(return_value=True)
         restart_mock = Mock(return_value=False)
         monkeypatch.setattr(
-            "think.install_guard.userpath.in_current_path",
+            "solstone.think.install_guard.userpath.in_current_path",
             lambda _path: False,
         )
-        monkeypatch.setattr("think.install_guard.userpath.append", append_mock)
+        monkeypatch.setattr("solstone.think.install_guard.userpath.append", append_mock)
         monkeypatch.setattr(
-            "think.install_guard.userpath.need_shell_restart",
+            "solstone.think.install_guard.userpath.need_shell_restart",
             restart_mock,
         )
 

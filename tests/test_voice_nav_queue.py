@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 
-from think.voice.nav_queue import NavHintQueue
+from solstone.think.voice.nav_queue import NavHintQueue
 
 
 def test_nav_queue_returns_empty_for_unknown_call_id():

@@ -12,7 +12,7 @@ runner = CliRunner()
 
 
 def _engage_app():
-    mod = importlib.reload(importlib.import_module("think.engage"))
+    mod = importlib.reload(importlib.import_module("solstone.think.engage"))
     return mod.engage_app
 
 
@@ -23,7 +23,7 @@ def _invoke_engage(*args, input_text=""):
 class TestEngage:
     def test_fire_and_forget(self):
         with patch(
-            "think.cortex_client.cortex_request", return_value="agent-123"
+            "solstone.think.cortex_client.cortex_request", return_value="agent-123"
         ) as mock_cr:
             result = _invoke_engage("coder", input_text="fix the bug\n")
 
@@ -41,20 +41,22 @@ class TestEngage:
         )
 
     def test_cortex_failure(self):
-        with patch("think.cortex_client.cortex_request", return_value=None):
+        with patch("solstone.think.cortex_client.cortex_request", return_value=None):
             result = _invoke_engage("coder", input_text="fix the bug\n")
 
         assert result.exit_code == 1
 
     def test_wait_success(self):
         with (
-            patch("think.cortex_client.cortex_request", return_value="agent-123"),
             patch(
-                "think.cortex_client.wait_for_uses",
+                "solstone.think.cortex_client.cortex_request", return_value="agent-123"
+            ),
+            patch(
+                "solstone.think.cortex_client.wait_for_uses",
                 return_value=({"agent-123": "finish"}, []),
             ),
             patch(
-                "think.cortex_client.read_use_events",
+                "solstone.think.cortex_client.read_use_events",
                 return_value=[{"event": "finish", "result": "All fixed!"}],
             ),
         ):
@@ -65,9 +67,11 @@ class TestEngage:
 
     def test_wait_error(self):
         with (
-            patch("think.cortex_client.cortex_request", return_value="agent-123"),
             patch(
-                "think.cortex_client.wait_for_uses",
+                "solstone.think.cortex_client.cortex_request", return_value="agent-123"
+            ),
+            patch(
+                "solstone.think.cortex_client.wait_for_uses",
                 return_value=({"agent-123": "error"}, []),
             ),
         ):
@@ -77,9 +81,11 @@ class TestEngage:
 
     def test_wait_timeout(self):
         with (
-            patch("think.cortex_client.cortex_request", return_value="agent-123"),
             patch(
-                "think.cortex_client.wait_for_uses",
+                "solstone.think.cortex_client.cortex_request", return_value="agent-123"
+            ),
+            patch(
+                "solstone.think.cortex_client.wait_for_uses",
                 return_value=({}, ["agent-123"]),
             ),
         ):
@@ -93,7 +99,7 @@ class TestEngage:
 
     def test_facet_and_day(self):
         with patch(
-            "think.cortex_client.cortex_request", return_value="agent-123"
+            "solstone.think.cortex_client.cortex_request", return_value="agent-123"
         ) as mock_cr:
             result = _invoke_engage(
                 "coder",
@@ -113,7 +119,7 @@ class TestEngage:
 
     def test_facet_only(self):
         with patch(
-            "think.cortex_client.cortex_request", return_value="agent-123"
+            "solstone.think.cortex_client.cortex_request", return_value="agent-123"
         ) as mock_cr:
             result = _invoke_engage("coder", "--facet", "work", input_text="do stuff\n")
 
@@ -124,7 +130,7 @@ class TestEngage:
 
     def test_day_only(self):
         with patch(
-            "think.cortex_client.cortex_request", return_value="agent-123"
+            "solstone.think.cortex_client.cortex_request", return_value="agent-123"
         ) as mock_cr:
             result = _invoke_engage(
                 "coder", "--day", "20260404", input_text="do stuff\n"

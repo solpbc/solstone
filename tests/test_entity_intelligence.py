@@ -3,7 +3,7 @@
 
 import pytest
 
-from think.indexer.journal import (
+from solstone.think.indexer.journal import (
     get_entity_intelligence,
     get_entity_strength,
     scan_journal,

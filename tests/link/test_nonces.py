@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from think.link.nonces import NONCE_TTL_SECONDS, Nonce, NonceStore
+from solstone.think.link.nonces import NONCE_TTL_SECONDS, Nonce, NonceStore
 
 
 def test_add_and_consume(tmp_path: Path) -> None:

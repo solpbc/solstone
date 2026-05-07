@@ -34,7 +34,7 @@ The `tests/fixtures/journal/` directory contains a complete mock journal structu
 - `make test-only TEST=path` to run specific tests
 - `make coverage` to generate a coverage report
 - `make ci` before committing (formats, lints, tests)
-- Always run `sol restart-convey` after editing `convey/` or `apps/` to reload code
+- Always run `sol restart-convey` after editing `solstone/convey/` or `solstone/apps/` to reload code
 
 ## Worktree Development
 

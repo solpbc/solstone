@@ -11,8 +11,8 @@ from typing import Any
 
 import pytest
 
-from think import health_cli, service, setup
-from think.user_config import write_user_config
+from solstone.think import health_cli, service, setup
+from solstone.think.user_config import write_user_config
 
 
 def patch_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
@@ -139,7 +139,7 @@ def expected_doctor_command(port: int = 5015) -> list[str]:
     return [
         sys.executable,
         "-m",
-        "think.sol_cli",
+        "solstone.think.sol_cli",
         "doctor",
         "--json",
         "--port",
@@ -151,7 +151,7 @@ def expected_install_models_command() -> list[str]:
     return [
         sys.executable,
         "-m",
-        "think.sol_cli",
+        "solstone.think.sol_cli",
         "install-models",
         "--variant",
         "auto",
@@ -162,7 +162,7 @@ def expected_skills_command() -> list[str]:
     return [
         sys.executable,
         "-m",
-        "think.sol_cli",
+        "solstone.think.sol_cli",
         "skills",
         "install",
         "--agent",
@@ -171,14 +171,14 @@ def expected_skills_command() -> list[str]:
 
 
 def expected_wrapper_command() -> list[str]:
-    return [sys.executable, "-m", "think.install_guard", "install"]
+    return [sys.executable, "-m", "solstone.think.install_guard", "install"]
 
 
 def expected_service_install_command(port: int = 5015) -> list[str]:
     return [
         sys.executable,
         "-m",
-        "think.sol_cli",
+        "solstone.think.sol_cli",
         "service",
         "install",
         "--port",
@@ -187,7 +187,7 @@ def expected_service_install_command(port: int = 5015) -> list[str]:
 
 
 def expected_service_restart_command() -> list[str]:
-    return [sys.executable, "-m", "think.sol_cli", "service", "restart"]
+    return [sys.executable, "-m", "solstone.think.sol_cli", "service", "restart"]
 
 
 def assert_command(

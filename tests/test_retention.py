@@ -9,7 +9,7 @@ import os
 import shutil
 from datetime import datetime
 
-from think.retention import (
+from solstone.think.retention import (
     RetentionConfig,
     RetentionPolicy,
     StorageSummary,
@@ -245,7 +245,7 @@ class TestRetentionConfig:
 
 class TestLoadRetentionConfig:
     def test_default_config(self, monkeypatch):
-        monkeypatch.setattr("think.utils.get_config", lambda: {})
+        monkeypatch.setattr("solstone.think.utils.get_config", lambda: {})
         cfg = load_retention_config()
         assert cfg.default.mode == "keep"
         assert cfg.default.days is None
@@ -253,7 +253,7 @@ class TestLoadRetentionConfig:
 
     def test_custom_config(self, monkeypatch):
         monkeypatch.setattr(
-            "think.utils.get_config",
+            "solstone.think.utils.get_config",
             lambda: {
                 "retention": {
                     "raw_media": "days",
@@ -271,7 +271,7 @@ class TestLoadRetentionConfig:
 
     def test_existing_journal_days_config_unchanged(self, monkeypatch):
         monkeypatch.setattr(
-            "think.utils.get_config",
+            "solstone.think.utils.get_config",
             lambda: {
                 "retention": {
                     "raw_media": "days",
@@ -333,11 +333,11 @@ class TestPurge:
                     return fixed_now.replace(tzinfo=tz)
                 return fixed_now
 
-        monkeypatch.setattr("think.retention.datetime", FixedDateTime)
+        monkeypatch.setattr("solstone.think.retention.datetime", FixedDateTime)
         # Clear cached journal path
-        import think.utils
+        import solstone.think.utils as think_utils
 
-        think.utils._journal_path_cache = None
+        think_utils._journal_path_cache = None
 
         return journal
 

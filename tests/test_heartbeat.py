@@ -17,36 +17,38 @@ def journal_path(tmp_path, monkeypatch):
 @pytest.fixture
 def heartbeat_mocks(monkeypatch):
     monkeypatch.setattr(
-        "think.heartbeat.setup_cli",
+        "solstone.think.heartbeat.setup_cli",
         lambda parser: argparse.Namespace(force=False),
     )
-    monkeypatch.setattr("think.heartbeat.ensure_identity_directory", lambda: None)
     monkeypatch.setattr(
-        "think.heartbeat.cortex_request", lambda *args, **kwargs: "agent-123"
+        "solstone.think.heartbeat.ensure_identity_directory", lambda: None
     )
     monkeypatch.setattr(
-        "think.heartbeat.wait_for_uses",
+        "solstone.think.heartbeat.cortex_request", lambda *args, **kwargs: "agent-123"
+    )
+    monkeypatch.setattr(
+        "solstone.think.heartbeat.wait_for_uses",
         lambda *args, **kwargs: ({"agent-123": "finish"}, []),
     )
 
 
 def test_heartbeat_command_mapping():
-    """heartbeat key in COMMANDS maps to think.heartbeat module."""
-    from think.sol_cli import COMMANDS
+    """heartbeat key in COMMANDS maps to solstone.think.heartbeat module."""
+    from solstone.think.sol_cli import COMMANDS
 
-    assert COMMANDS["heartbeat"] == "think.heartbeat"
+    assert COMMANDS["heartbeat"] == "solstone.think.heartbeat"
 
 
 def test_heartbeat_main_is_callable():
-    """think.heartbeat.main is a callable function."""
-    from think.heartbeat import main
+    """solstone.think.heartbeat.main is a callable function."""
+    from solstone.think.heartbeat import main
 
     assert callable(main)
 
 
 def test_pid_guard_live_process_exits_zero(journal_path, heartbeat_mocks):
     """When PID file contains current process PID, main() exits 0 without cortex."""
-    import think.heartbeat as mod
+    import solstone.think.heartbeat as mod
 
     pid_file = journal_path / "health" / "heartbeat.pid"
     pid_file.write_text(str(os.getpid()))
@@ -62,7 +64,7 @@ def test_pid_guard_live_process_exits_zero(journal_path, heartbeat_mocks):
 
 def test_pid_guard_dead_process_removes_stale_pid(journal_path, heartbeat_mocks):
     """When PID file contains a dead PID, main() removes it and proceeds to cortex."""
-    import think.heartbeat as mod
+    import solstone.think.heartbeat as mod
 
     pid_file = journal_path / "health" / "heartbeat.pid"
     dead_pid = 99999999
@@ -90,7 +92,7 @@ def test_pid_guard_dead_process_removes_stale_pid(journal_path, heartbeat_mocks)
 
 def test_pid_file_created_and_removed_on_success(journal_path, heartbeat_mocks):
     """PID file exists during execution and is removed after main() completes."""
-    import think.heartbeat as mod
+    import solstone.think.heartbeat as mod
 
     pid_file = journal_path / "health" / "heartbeat.pid"
     pid_during_run = []
@@ -113,7 +115,7 @@ def test_pid_file_created_and_removed_on_success(journal_path, heartbeat_mocks):
 
 def test_pid_file_removed_on_error(journal_path, heartbeat_mocks):
     """PID file is removed even when cortex_request returns None (error path)."""
-    import think.heartbeat as mod
+    import solstone.think.heartbeat as mod
 
     pid_file = journal_path / "health" / "heartbeat.pid"
     mod.cortex_request = lambda *a, **kw: None
@@ -126,7 +128,7 @@ def test_pid_file_removed_on_error(journal_path, heartbeat_mocks):
 
 def test_pid_file_removed_on_timeout(journal_path, heartbeat_mocks):
     """PID file is removed on timeout path."""
-    import think.heartbeat as mod
+    import solstone.think.heartbeat as mod
 
     pid_file = journal_path / "health" / "heartbeat.pid"
     mod.wait_for_uses = lambda *a, **kw: ({}, ["agent-123"])
@@ -141,7 +143,7 @@ def test_log_run_appends_line(journal_path):
     """_log_run appends a correctly formatted line to heartbeat.log."""
     import time
 
-    from think.heartbeat import _log_run
+    from solstone.think.heartbeat import _log_run
 
     health_dir = journal_path / "health"
     start_time = time.monotonic() - 5
@@ -159,7 +161,7 @@ def test_log_run_appends_line(journal_path):
 
 def test_log_written_after_successful_run(journal_path, heartbeat_mocks):
     """After a successful main() run, heartbeat.log has a success entry."""
-    import think.heartbeat as mod
+    import solstone.think.heartbeat as mod
 
     with pytest.raises(SystemExit) as exc_info:
         mod.main()
@@ -173,7 +175,7 @@ def test_log_written_after_successful_run(journal_path, heartbeat_mocks):
 
 def test_cortex_prompt_does_not_contain_journal_path(journal_path, heartbeat_mocks):
     """cortex_request prompt must not leak filesystem paths."""
-    import think.heartbeat as mod
+    import solstone.think.heartbeat as mod
 
     captured_kwargs = {}
 
@@ -196,7 +198,7 @@ def test_recency_check_skips_recent_heartbeat(journal_path, heartbeat_mocks):
     """When heartbeat.log has a recent success, main() exits 0 without cortex."""
     from datetime import datetime
 
-    import think.heartbeat as mod
+    import solstone.think.heartbeat as mod
 
     # Write a recent success entry
     log_file = journal_path / "health" / "heartbeat.log"
@@ -216,7 +218,7 @@ def test_recency_check_runs_after_old_heartbeat(journal_path, heartbeat_mocks):
     """When heartbeat.log success is older than the window, main() runs cortex."""
     from datetime import datetime, timedelta
 
-    import think.heartbeat as mod
+    import solstone.think.heartbeat as mod
 
     # Write an old success entry (24 hours ago)
     log_file = journal_path / "health" / "heartbeat.log"
@@ -238,15 +240,17 @@ def test_recency_check_runs_after_old_heartbeat(journal_path, heartbeat_mocks):
 
 def test_force_flag_bypasses_recency_check(journal_path, monkeypatch):
     """--force runs full check even with a recent success."""
-    import think.heartbeat as mod
+    import solstone.think.heartbeat as mod
 
     monkeypatch.setattr(
-        "think.heartbeat.setup_cli",
+        "solstone.think.heartbeat.setup_cli",
         lambda parser: argparse.Namespace(force=True),
     )
-    monkeypatch.setattr("think.heartbeat.ensure_identity_directory", lambda: None)
     monkeypatch.setattr(
-        "think.heartbeat.wait_for_uses",
+        "solstone.think.heartbeat.ensure_identity_directory", lambda: None
+    )
+    monkeypatch.setattr(
+        "solstone.think.heartbeat.wait_for_uses",
         lambda *args, **kwargs: ({"agent-123": "finish"}, []),
     )
 
@@ -272,7 +276,7 @@ def test_force_flag_bypasses_recency_check(journal_path, monkeypatch):
 
 def test_last_success_time_parses_log(journal_path):
     """_last_success_time returns the timestamp of the most recent success."""
-    from think.heartbeat import _last_success_time
+    from solstone.think.heartbeat import _last_success_time
 
     health_dir = journal_path / "health"
     log_file = health_dir / "heartbeat.log"
@@ -290,7 +294,7 @@ def test_last_success_time_parses_log(journal_path):
 
 def test_last_success_time_returns_none_for_no_log(journal_path):
     """_last_success_time returns None when no log file exists."""
-    from think.heartbeat import _last_success_time
+    from solstone.think.heartbeat import _last_success_time
 
     result = _last_success_time(journal_path / "health")
     assert result is None
@@ -298,7 +302,7 @@ def test_last_success_time_returns_none_for_no_log(journal_path):
 
 def test_last_success_time_returns_none_for_no_successes(journal_path):
     """_last_success_time returns None when log has no success entries."""
-    from think.heartbeat import _last_success_time
+    from solstone.think.heartbeat import _last_success_time
 
     health_dir = journal_path / "health"
     log_file = health_dir / "heartbeat.log"
@@ -315,7 +319,7 @@ def test_think_emit_daily_complete_shape(monkeypatch):
     """think.emit('daily_complete', ...) calls _callosum.emit with correct tract and fields."""
     from unittest.mock import Mock
 
-    import think.thinking as think_mod
+    import solstone.think.thinking as think_mod
 
     mock_conn = Mock()
     monkeypatch.setattr(think_mod, "_callosum", mock_conn)
@@ -336,7 +340,7 @@ def test_think_emit_daily_complete_shape(monkeypatch):
 
 def test_think_emit_noop_without_callosum(monkeypatch):
     """think.emit() does nothing when _callosum is None."""
-    import think.thinking as think_mod
+    import solstone.think.thinking as think_mod
 
     monkeypatch.setattr(think_mod, "_callosum", None)
     think_mod.emit("daily_complete", day="20260318")

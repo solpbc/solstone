@@ -6,8 +6,8 @@ from __future__ import annotations
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
-from convey import create_app
-from think.pairing.devices import load_devices
+from solstone.convey import create_app
+from solstone.think.pairing.devices import load_devices
 
 
 def _owner_login(client) -> None:

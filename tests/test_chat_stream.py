@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from convey.chat_stream import (
+from solstone.convey.chat_stream import (
     append_chat_event,
     find_unresponded_trigger,
     read_chat_events,
@@ -82,7 +82,7 @@ def test_append_broadcasts_on_chat_tract_with_stored_event_payload(
     tmp_path, monkeypatch
 ):
     _setup_journal(tmp_path, monkeypatch)
-    import convey.chat as chat
+    import solstone.convey.chat as chat
 
     calls: list[tuple[str, str, dict]] = []
 
@@ -108,7 +108,7 @@ def test_append_broadcasts_on_chat_tract_with_stored_event_payload(
 
 def test_append_broadcast_failure_is_swallowed(tmp_path, monkeypatch):
     journal = _setup_journal(tmp_path, monkeypatch)
-    import convey.chat as chat
+    import solstone.convey.chat as chat
 
     class FakeCallosum:
         def emit(self, tract, event, **fields):

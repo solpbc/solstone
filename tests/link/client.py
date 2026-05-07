@@ -20,8 +20,8 @@ from OpenSSL import SSL, crypto
 from websockets.asyncio.client import ClientConnection
 from websockets.exceptions import ConnectionClosed
 
-from think.link.ca import cert_fingerprint
-from think.link.framing import (
+from solstone.think.link.ca import cert_fingerprint
+from solstone.think.link.framing import (
     FLAG_CLOSE,
     FLAG_DATA,
     FLAG_OPEN,

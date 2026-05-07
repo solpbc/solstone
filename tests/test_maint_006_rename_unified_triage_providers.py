@@ -5,7 +5,9 @@ import importlib
 import json
 from pathlib import Path
 
-mod = importlib.import_module("apps.sol.maint.006_rename_unified_triage_providers")
+mod = importlib.import_module(
+    "solstone.apps.sol.maint.006_rename_unified_triage_providers"
+)
 
 
 def _write_journal_config(journal: Path, data: object) -> Path:

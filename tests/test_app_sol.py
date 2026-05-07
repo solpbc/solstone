@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from apps.sol.routes import _resolve_output_path
-from think.talent import _resolve_talent_path, get_talent, get_talent_configs
+from solstone.apps.sol.routes import _resolve_output_path
+from solstone.think.talent import _resolve_talent_path, get_talent, get_talent_configs
 
 
 @pytest.fixture
@@ -54,12 +54,12 @@ def app_with_agent(tmp_path, monkeypatch):
 
     # Monkeypatch the parent directory so apps discovery finds our temp apps
     monkeypatch.setattr(
-        "think.utils.Path.__file__",
+        "solstone.think.utils.Path.__file__",
         str(tmp_path / "think" / "utils.py"),
     )
 
     # Actually we need to patch where get_agents looks for apps
-    # It uses Path(__file__).parent.parent / "apps"
+    # It uses the package root / "apps"
     # Let's patch it differently - create a mock apps dir structure
     yield {
         "tmp_path": tmp_path,
@@ -262,8 +262,8 @@ def agents_client(tmp_path):
     """Create a Flask test client with agents blueprint and tmp journal."""
     from flask import Flask
 
-    from apps.sol.routes import sol_bp
-    from convey import state
+    from solstone.apps.sol.routes import sol_bp
+    from solstone.convey import state
 
     app = Flask(__name__)
     app.register_blueprint(sol_bp)
@@ -328,8 +328,8 @@ def sol_listing_client(tmp_path, monkeypatch):
     """Create a sol app client backed by a temporary journal."""
     from flask import Flask
 
-    from apps.sol.routes import sol_bp
-    from convey import state
+    from solstone.apps.sol.routes import sol_bp
+    from solstone.convey import state
 
     app = Flask(__name__)
     app.register_blueprint(sol_bp)
@@ -338,8 +338,8 @@ def sol_listing_client(tmp_path, monkeypatch):
     talents_dir.mkdir()
 
     monkeypatch.setattr(state, "journal_root", str(tmp_path))
-    monkeypatch.setattr("apps.sol.routes.get_facets", lambda: {})
-    monkeypatch.setattr("apps.sol.routes._build_talents_meta", lambda: {})
+    monkeypatch.setattr("solstone.apps.sol.routes.get_facets", lambda: {})
+    monkeypatch.setattr("solstone.apps.sol.routes._build_talents_meta", lambda: {})
 
     return app.test_client(), talents_dir
 
@@ -494,7 +494,7 @@ class TestApiUpdatedDays:
         def boom(**_kwargs):
             raise RuntimeError("simulated")
 
-        monkeypatch.setattr("apps.sol.routes.updated_days", boom)
+        monkeypatch.setattr("solstone.apps.sol.routes.updated_days", boom)
         resp = agents_client.get("/app/sol/api/updated-days")
         assert resp.status_code == 500
         payload = resp.get_json()

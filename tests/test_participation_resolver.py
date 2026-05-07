@@ -16,8 +16,8 @@ def _write_detected_entities(tmp_path, facet: str, day: str, rows: list[dict]) -
 def test_participation_post_hook_resolves_entity_ids_without_mutating_entities(
     tmp_path, monkeypatch
 ):
-    from talent.participation import post_process
-    from think.activities import append_activity_record, load_activity_records
+    from solstone.talent.participation import post_process
+    from solstone.think.activities import append_activity_record, load_activity_records
 
     facet = "work"
     day = "20260418"

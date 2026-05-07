@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from think.user_config import (
+from solstone.think.user_config import (
     config_path,
     default_journal,
     read_user_config,

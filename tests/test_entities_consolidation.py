@@ -8,9 +8,9 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from think.call import call_app
-from think.entities.consolidation import consolidate_detected_entities
-from think.entities.journal import save_journal_entity
+from solstone.think.call import call_app
+from solstone.think.entities.consolidation import consolidate_detected_entities
+from solstone.think.entities.journal import save_journal_entity
 
 runner = CliRunner()
 

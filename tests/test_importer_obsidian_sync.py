@@ -55,15 +55,15 @@ UPDATED_NOTE = dedent("""\
 
 def test_obsidian_sync_protocol_conformance():
     """ObsidianSyncBackend satisfies SyncableBackend protocol."""
-    from think.importers.obsidian import ObsidianSyncBackend
-    from think.importers.sync import SyncableBackend
+    from solstone.think.importers.obsidian import ObsidianSyncBackend
+    from solstone.think.importers.sync import SyncableBackend
 
     assert isinstance(ObsidianSyncBackend(), SyncableBackend)
 
 
 def test_obsidian_sync_registry_discovery():
     """Registry discovery includes obsidian."""
-    from think.importers.sync import get_syncable_backends
+    from solstone.think.importers.sync import get_syncable_backends
 
     backends = get_syncable_backends()
     assert "obsidian" in [backend.name for backend in backends]
@@ -71,8 +71,8 @@ def test_obsidian_sync_registry_discovery():
 
 def test_obsidian_sync_dry_run(tmp_path):
     """Dry-run catalogs notes and saves state."""
-    from think.importers.obsidian import ObsidianSyncBackend
-    from think.importers.sync import load_sync_state
+    from solstone.think.importers.obsidian import ObsidianSyncBackend
+    from solstone.think.importers.sync import load_sync_state
 
     vault = tmp_path / "vault"
     _write_note(vault, "Projects/Alpha.md", SAMPLE_NOTE, mtime=1_700_000_000)
@@ -93,8 +93,8 @@ def test_obsidian_sync_dry_run(tmp_path):
 
 def test_obsidian_sync_import(tmp_path, monkeypatch):
     """Import mode writes note segments and updates state."""
-    from think.importers.obsidian import ObsidianSyncBackend
-    from think.importers.sync import load_sync_state
+    from solstone.think.importers.obsidian import ObsidianSyncBackend
+    from solstone.think.importers.sync import load_sync_state
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     vault = tmp_path / "vault"
@@ -124,8 +124,8 @@ def test_obsidian_sync_import(tmp_path, monkeypatch):
 
 def test_obsidian_sync_edit_creates_new_segments(tmp_path, monkeypatch):
     """Editing a note creates new segments and preserves old ones."""
-    from think.importers.obsidian import ObsidianSyncBackend
-    from think.importers.sync import load_sync_state
+    from solstone.think.importers.obsidian import ObsidianSyncBackend
+    from solstone.think.importers.sync import load_sync_state
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     vault = tmp_path / "vault"
@@ -174,7 +174,7 @@ def test_obsidian_sync_edit_creates_new_segments(tmp_path, monkeypatch):
 
 def test_obsidian_sync_unchanged_skip(tmp_path, monkeypatch):
     """Mtime-only changes are skipped when content hash matches."""
-    from think.importers.obsidian import ObsidianSyncBackend
+    from solstone.think.importers.obsidian import ObsidianSyncBackend
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     vault = tmp_path / "vault"
@@ -190,8 +190,8 @@ def test_obsidian_sync_unchanged_skip(tmp_path, monkeypatch):
 
 def test_obsidian_sync_deleted_note(tmp_path, monkeypatch):
     """Deleted notes are marked removed in state."""
-    from think.importers.obsidian import ObsidianSyncBackend
-    from think.importers.sync import load_sync_state
+    from solstone.think.importers.obsidian import ObsidianSyncBackend
+    from solstone.think.importers.sync import load_sync_state
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     vault = tmp_path / "vault"
@@ -209,7 +209,7 @@ def test_obsidian_sync_deleted_note(tmp_path, monkeypatch):
 
 def test_obsidian_sync_force(tmp_path, monkeypatch):
     """Force re-detects notes by clearing state."""
-    from think.importers.obsidian import ObsidianSyncBackend
+    from solstone.think.importers.obsidian import ObsidianSyncBackend
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     vault = tmp_path / "vault"
@@ -224,11 +224,11 @@ def test_obsidian_sync_force(tmp_path, monkeypatch):
 
 def test_obsidian_sync_vault_auto_detection(tmp_path, monkeypatch):
     """Raises when no vault can be auto-detected."""
-    from think.importers.obsidian import ObsidianSyncBackend
+    from solstone.think.importers.obsidian import ObsidianSyncBackend
 
     home = tmp_path / "home"
     home.mkdir()
-    monkeypatch.setattr("think.importers.obsidian.Path.home", lambda: home)
+    monkeypatch.setattr("solstone.think.importers.obsidian.Path.home", lambda: home)
 
     with pytest.raises(
         ValueError,
@@ -239,7 +239,7 @@ def test_obsidian_sync_vault_auto_detection(tmp_path, monkeypatch):
 
 def test_obsidian_sync_entity_seeding(tmp_path, monkeypatch):
     """Wikilinks are converted into Topic entities on import."""
-    from think.importers.obsidian import ObsidianSyncBackend
+    from solstone.think.importers.obsidian import ObsidianSyncBackend
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     vault = tmp_path / "vault"
@@ -256,7 +256,8 @@ def test_obsidian_sync_entity_seeding(tmp_path, monkeypatch):
         return entities
 
     with patch(
-        "think.importers.obsidian.seed_entities", side_effect=_fake_seed_entities
+        "solstone.think.importers.obsidian.seed_entities",
+        side_effect=_fake_seed_entities,
     ):
         ObsidianSyncBackend().sync(tmp_path, source_path=vault, dry_run=False)
 
@@ -272,7 +273,7 @@ def test_obsidian_sync_entity_seeding(tmp_path, monkeypatch):
 
 def test_obsidian_sync_incremental(tmp_path, monkeypatch):
     """Incremental sync imports only newly added notes."""
-    from think.importers.obsidian import ObsidianSyncBackend
+    from solstone.think.importers.obsidian import ObsidianSyncBackend
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     vault = tmp_path / "vault"
@@ -292,7 +293,7 @@ def test_obsidian_sync_incremental(tmp_path, monkeypatch):
 
 def test_infer_entity_type_from_path():
     """Folder path entity type inference."""
-    from think.importers.obsidian import infer_entity_type_from_path
+    from solstone.think.importers.obsidian import infer_entity_type_from_path
 
     # Direct folder match
     assert infer_entity_type_from_path("People/Jane Smith.md") == "Person"
@@ -323,7 +324,7 @@ def test_infer_entity_type_from_path():
 
 def test_clean_at_prefix():
     """@ prefix stripping from entity names."""
-    from think.importers.obsidian import _clean_at_prefix
+    from solstone.think.importers.obsidian import _clean_at_prefix
 
     assert _clean_at_prefix("@JaneSmith") == ("JaneSmith", True)
     assert _clean_at_prefix("@ Jane Smith") == ("Jane Smith", True)
@@ -334,7 +335,7 @@ def test_clean_at_prefix():
 
 def test_build_entity_dicts_precedence():
     """Entity type inference precedence: @ > folder-path > Topic."""
-    from think.importers.obsidian import _build_entity_dicts
+    from solstone.think.importers.obsidian import _build_entity_dicts
 
     # Basic Topic fallback
     result = _build_entity_dicts({"Design Doc"}, {})
@@ -366,7 +367,7 @@ def test_build_entity_dicts_precedence():
 
 def test_obsidian_sync_folder_path_entity_typing(tmp_path, monkeypatch):
     """Notes in typed folders produce typed entities."""
-    from think.importers.obsidian import ObsidianSyncBackend
+    from solstone.think.importers.obsidian import ObsidianSyncBackend
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     vault = tmp_path / "vault"
@@ -387,7 +388,9 @@ def test_obsidian_sync_folder_path_entity_typing(tmp_path, monkeypatch):
         captured.append((facet, day, entities))
         return entities
 
-    with patch("think.importers.obsidian.seed_entities", side_effect=_fake_seed):
+    with patch(
+        "solstone.think.importers.obsidian.seed_entities", side_effect=_fake_seed
+    ):
         ObsidianSyncBackend().sync(tmp_path, source_path=vault, dry_run=False)
 
     all_entities = {}
@@ -401,7 +404,7 @@ def test_obsidian_sync_folder_path_entity_typing(tmp_path, monkeypatch):
 
 def test_obsidian_sync_at_prefix_entity_typing(tmp_path, monkeypatch):
     """Wikilinks with @ prefix produce Person entities."""
-    from think.importers.obsidian import ObsidianSyncBackend
+    from solstone.think.importers.obsidian import ObsidianSyncBackend
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     vault = tmp_path / "vault"
@@ -419,7 +422,9 @@ def test_obsidian_sync_at_prefix_entity_typing(tmp_path, monkeypatch):
         captured.append((facet, day, entities))
         return entities
 
-    with patch("think.importers.obsidian.seed_entities", side_effect=_fake_seed):
+    with patch(
+        "solstone.think.importers.obsidian.seed_entities", side_effect=_fake_seed
+    ):
         ObsidianSyncBackend().sync(tmp_path, source_path=vault, dry_run=False)
 
     all_entities = {}
@@ -433,7 +438,7 @@ def test_obsidian_sync_at_prefix_entity_typing(tmp_path, monkeypatch):
 
 def test_obsidian_sync_numeric_prefix_folder(tmp_path, monkeypatch):
     """Numeric-prefixed folder names are matched after stripping."""
-    from think.importers.obsidian import ObsidianSyncBackend
+    from solstone.think.importers.obsidian import ObsidianSyncBackend
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     vault = tmp_path / "vault"
@@ -452,7 +457,9 @@ def test_obsidian_sync_numeric_prefix_folder(tmp_path, monkeypatch):
         captured.append((facet, day, entities))
         return entities
 
-    with patch("think.importers.obsidian.seed_entities", side_effect=_fake_seed):
+    with patch(
+        "solstone.think.importers.obsidian.seed_entities", side_effect=_fake_seed
+    ):
         ObsidianSyncBackend().sync(tmp_path, source_path=vault, dry_run=False)
 
     all_entities = {}
@@ -465,7 +472,7 @@ def test_obsidian_sync_numeric_prefix_folder(tmp_path, monkeypatch):
 
 def test_obsidian_walk_excludes_templates(tmp_path):
     """templates/ and _templates/ folders are excluded from file walking."""
-    from think.importers.obsidian import _walk_md_files
+    from solstone.think.importers.obsidian import _walk_md_files
 
     vault = tmp_path / "vault"
     _write_note(vault, "Notes/real.md", "# Real note", mtime=1_700_000_000)
@@ -482,7 +489,7 @@ def test_obsidian_walk_excludes_templates(tmp_path):
 
 def test_obsidian_walk_excludes_templates_case_insensitive(tmp_path):
     """Template folder exclusion is case-insensitive."""
-    from think.importers.obsidian import _walk_md_files
+    from solstone.think.importers.obsidian import _walk_md_files
 
     vault = tmp_path / "vault"
     _write_note(vault, "Notes/real.md", "# Real note", mtime=1_700_000_000)
@@ -501,7 +508,7 @@ def test_obsidian_walk_excludes_templates_case_insensitive(tmp_path):
 
 def test_obsidian_walk_excludes_hidden_dirs(tmp_path):
     """Hidden dirs (.obsidian, .trash) are excluded by _is_hidden."""
-    from think.importers.obsidian import _walk_md_files
+    from solstone.think.importers.obsidian import _walk_md_files
 
     vault = tmp_path / "vault"
     _write_note(vault, "Notes/real.md", "# Real note", mtime=1_700_000_000)
@@ -518,7 +525,7 @@ def test_obsidian_walk_excludes_hidden_dirs(tmp_path):
 
 def test_obsidian_walk_excludes_nested_templates(tmp_path):
     """Templates folders nested inside other folders are also excluded."""
-    from think.importers.obsidian import _walk_md_files
+    from solstone.think.importers.obsidian import _walk_md_files
 
     vault = tmp_path / "vault"
     _write_note(vault, "Notes/real.md", "# Real note", mtime=1_700_000_000)
@@ -535,8 +542,8 @@ def test_obsidian_walk_excludes_nested_templates(tmp_path):
 
 def test_obsidian_sync_excludes_templates(tmp_path, monkeypatch):
     """Incremental sync skips template folders."""
-    from think.importers.obsidian import ObsidianSyncBackend
-    from think.importers.sync import load_sync_state
+    from solstone.think.importers.obsidian import ObsidianSyncBackend
+    from solstone.think.importers.sync import load_sync_state
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     vault = tmp_path / "vault"
@@ -565,7 +572,7 @@ def test_obsidian_backends_cli_flag(capsys, monkeypatch):
     """sol import --backends lists obsidian."""
     import sys
 
-    from think.importers.cli import main
+    from solstone.think.importers.cli import main
 
     monkeypatch.setattr(sys, "argv", ["sol import", "--backends"])
     monkeypatch.setenv("SOLSTONE_JOURNAL", "/tmp/test-journal")

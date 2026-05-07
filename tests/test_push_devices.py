@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from think.push import devices
+from solstone.think.push import devices
 
 
 def _devices_path(tmp_path: Path) -> Path:

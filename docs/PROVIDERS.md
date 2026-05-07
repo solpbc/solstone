@@ -6,7 +6,7 @@ For a high-level overview of the think module, see [THINK.md](THINK.md).
 
 ## Required Exports
 
-Each provider module in `think/providers/` must export three functions:
+Each provider module in `solstone/think/providers/` must export three functions:
 
 | Function | Purpose |
 |----------|---------|
@@ -14,7 +14,7 @@ Each provider module in `think/providers/` must export three functions:
 | `run_agenerate()` | Asynchronous text generation, returns `GenerateResult` |
 | `run_cogitate()` | Tool-calling execution |
 
-See `think/providers/__init__.py` for the canonical export list and `think/providers/google.py` as a reference implementation.
+See `solstone/think/providers/__init__.py` for the canonical export list and `solstone/think/providers/google.py` as a reference implementation.
 
 Each provider module must also define `__all__` exporting these three functions.
 
@@ -45,15 +45,15 @@ def _get_client():
     return _client
 ```
 
-**Settings app integration:** Add your provider to `PROVIDER_METADATA` in `think/providers/__init__.py` with `label` and `env_key` fields. The settings UI dynamically builds provider dropdowns from the registry. Add corresponding API key UI fields in `apps/settings/workspace.html` for owner configuration.
+**Settings app integration:** Add your provider to `PROVIDER_METADATA` in `solstone/think/providers/__init__.py` with `label` and `env_key` fields. The settings UI dynamically builds provider dropdowns from the registry. Add corresponding API key UI fields in `solstone/apps/settings/workspace.html` for owner configuration.
 
 ## run_generate() / run_agenerate()
 
-These functions handle direct LLM text generation. The unified API in `think/models.py` routes requests to provider-specific implementations and handles token logging and JSON validation centrally.
+These functions handle direct LLM text generation. The unified API in `solstone/think/models.py` routes requests to provider-specific implementations and handles token logging and JSON validation centrally.
 
 **Function signature:**
 ```python
-from think.providers.shared import GenerateResult
+from solstone.think.providers.shared import GenerateResult
 
 def run_generate(
     contents: Union[str, List[Any]],
@@ -98,7 +98,7 @@ class GenerateResult(TypedDict, total=False):
 - Normalize `finish_reason` to standard values: `"stop"`, `"max_tokens"`, `"safety"`, etc.
 - Handle provider-specific response parsing
 
-**Note:** Token logging and JSON validation are handled by the wrapper in `think/models.py`, not by providers.
+**Note:** Token logging and JSON validation are handled by the wrapper in `solstone/think/models.py`, not by providers.
 
 **Important:** Providers should gracefully ignore unsupported parameters rather than raising errors.
 
@@ -113,7 +113,7 @@ async def run_cogitate(
 ) -> str:
 ```
 
-**Config dict fields** (see `think/agents.py` `main_async()` for routing logic):
+**Config dict fields** (see `solstone/think/agents.py` `main_async()` for routing logic):
 - `prompt`: User's input (required)
 - `model`: Model identifier
 - `max_tokens`: Output token limit
@@ -127,7 +127,7 @@ async def run_cogitate(
 
 **Event emission:**
 
-Providers must emit events via the `on_event` callback. See `think/providers/shared.py` for TypedDict definitions:
+Providers must emit events via the `on_event` callback. See `solstone/think/providers/shared.py` for TypedDict definitions:
 
 | Event | When |
 |-------|------|
@@ -138,7 +138,7 @@ Providers must emit events via the `on_event` callback. See `think/providers/sha
 | `FinishEvent` | Agent run completes successfully |
 | `ErrorEvent` | Error occurs |
 
-Use `JSONEventCallback` from `think/providers/shared.py` to wrap the callback and auto-add timestamps.
+Use `JSONEventCallback` from `solstone/think/providers/shared.py` to wrap the callback and auto-add timestamps.
 
 **Finish event format:**
 
@@ -190,11 +190,11 @@ for all subsequent continuations within the same chat.
 
 ## Token Logging
 
-Token logging is handled centrally by the wrapper in `think/models.py`. Providers return usage data in their `GenerateResult`, and the wrapper calls `log_token_usage()`.
+Token logging is handled centrally by the wrapper in `solstone/think/models.py`. Providers return usage data in their `GenerateResult`, and the wrapper calls `log_token_usage()`.
 
 **Usage dict format:**
 
-Providers normalize usage into the unified schema defined by `USAGE_KEYS` in `think/providers/shared.py`. Each provider's `_extract_usage()` is responsible for mapping API-specific field names to these canonical keys. `log_token_usage()` passes through known keys — it does **not** re-normalize.
+Providers normalize usage into the unified schema defined by `USAGE_KEYS` in `solstone/think/providers/shared.py`. Each provider's `_extract_usage()` is responsible for mapping API-specific field names to these canonical keys. `log_token_usage()` passes through known keys — it does **not** re-normalize.
 
 ```python
 usage_dict = {
@@ -224,14 +224,14 @@ Context strings determine provider and model selection. Providers receive alread
   - Examples: `observe.describe.frame`, `app.chat.title`
 
 **Dynamic discovery:** All context metadata (tier/label/group) is defined in prompt .md files via YAML frontmatter:
-- Prompt files: Listed in `PROMPT_PATHS` in `think/models.py` - add `context`, `tier`, `label`, `group` fields
-- Categories: `observe/categories/*.md` - add `tier`, `label`, `group` fields
-- System talent: `talent/*.md` - add `tier`, `label`, `group` fields in frontmatter
-- App talent: `apps/*/talent/*.md` - add `tier`, `label`, `group` fields in frontmatter
+- Prompt files: Listed in `PROMPT_PATHS` in `solstone/think/models.py` - add `context`, `tier`, `label`, `group` fields
+- Categories: `solstone/observe/categories/*.md` - add `tier`, `label`, `group` fields
+- System talent: `solstone/talent/*.md` - add `tier`, `label`, `group` fields in frontmatter
+- App talent: `solstone/apps/*/talent/*.md` - add `tier`, `label`, `group` fields in frontmatter
 
 All contexts are discovered at runtime. Use `get_context_registry()` to get the complete context map.
 
-**Resolution** (handled by `think/models.py` `resolve_provider(context, agent_type)`):
+**Resolution** (handled by `solstone/think/models.py` `resolve_provider(context, agent_type)`):
 1. Exact match in journal.json `providers.contexts`
 2. Glob pattern match (fnmatch) with specificity ranking
 3. Dynamic context registry (discovered prompts, categories, talent configs)
@@ -274,7 +274,7 @@ Each section has its own provider, tier, and backup provider.
 - 2 = FLASH (balanced)
 - 3 = LITE (fast/cheap)
 
-See `tests/fixtures/journal/config/journal.json` for a complete example and `think/models.py` `PROVIDER_DEFAULTS` for tier-to-model mappings.
+See `tests/fixtures/journal/config/journal.json` for a complete example and `solstone/think/models.py` `PROVIDER_DEFAULTS` for tier-to-model mappings.
 
 ## Testing
 
@@ -298,7 +298,7 @@ Run integration tests with: `make test-integration`
 
 ## Batch Processing
 
-The `Batch` class in `think/batch.py` automatically works with all providers via the unified `agenerate()` API in `think/models.py`. No provider-specific batch implementation is needed - just ensure your `run_agenerate()` works correctly.
+The `Batch` class in `solstone/think/batch.py` automatically works with all providers via the unified `agenerate()` API in `solstone/think/models.py`. No provider-specific batch implementation is needed - just ensure your `run_agenerate()` works correctly.
 
 ## OpenAI-Compatible Providers
 
@@ -315,7 +315,7 @@ client = OpenAI(
 
 This allows reusing much of the OpenAI provider's patterns for request/response handling.
 
-The Ollama provider (`think/providers/ollama.py`) takes a different approach —
+The Ollama provider (`solstone/think/providers/ollama.py`) takes a different approach —
 it uses Ollama's native ``/api/chat`` endpoint directly via ``httpx`` for
 reliable thinking control. See the Ollama section below.
 
@@ -346,23 +346,23 @@ from cloud providers:
 ## Checklist for New Providers
 
 **Core implementation:**
-1. Create `think/providers/<name>.py` with `__all__ = ["run_generate", "run_agenerate", "run_cogitate"]`
+1. Create `solstone/think/providers/<name>.py` with `__all__ = ["run_generate", "run_agenerate", "run_cogitate"]`
 2. Implement `run_generate()`, `run_agenerate()`, `run_cogitate()` following signatures above
 3. Import `GenerateResult` from `think.providers.shared` and return it from generate functions
 
-**Model constants** in `think/models.py`:
+**Model constants** in `solstone/think/models.py`:
 4. Add model constants using the pattern `{PROVIDER}_{TIER}` (e.g., `DO_LLAMA_70B`, `DO_MISTRAL_NEMO`)
    - Existing examples: `GEMINI_FLASH`, `GPT_5`, `CLAUDE_SONNET_4`
 5. Add provider tier mappings to `PROVIDER_DEFAULTS` dict
 6. Update `get_model_provider()` to detect your models by prefix (critical for cost tracking)
 
 **Registry:**
-7. Add provider to `PROVIDER_REGISTRY` in `think/providers/__init__.py`
-8. Add routing case in `think/agents.py` `main_async()` (around line 331)
+7. Add provider to `PROVIDER_REGISTRY` in `solstone/think/providers/__init__.py`
+8. Add routing case in `solstone/think/agents.py` `main_async()` (around line 331)
 
 **Settings UI:**
-9. Add provider to `PROVIDER_METADATA` in `think/providers/__init__.py` with `label` and `env_key`
-10. Add API key UI field in `apps/settings/workspace.html`
+9. Add provider to `PROVIDER_METADATA` in `solstone/think/providers/__init__.py` with `label` and `env_key`
+10. Add API key UI field in `solstone/apps/settings/workspace.html`
 
 **Testing:**
 11. Create unit tests in `tests/test_<name>.py`
@@ -370,6 +370,6 @@ from cloud providers:
 13. Add test contexts to `tests/fixtures/journal/config/journal.json`
 
 **Documentation:**
-14. Update `think/providers/__init__.py` docstring
+14. Update `solstone/think/providers/__init__.py` docstring
 15. Update `docs/THINK.md` providers table
 16. Update `docs/CORTEX.md` valid provider values

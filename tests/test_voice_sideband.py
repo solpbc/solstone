@@ -7,7 +7,7 @@ import asyncio
 import json
 from concurrent.futures import Future
 
-from think.voice import sideband
+from solstone.think.voice import sideband
 
 
 class _FakeEvent:

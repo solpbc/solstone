@@ -6,8 +6,8 @@
 import json
 from pathlib import Path
 
-from think.activity_state_machine import ActivityStateMachine
-from think.thinking import _write_json_atomic
+from solstone.think.activity_state_machine import ActivityStateMachine
+from solstone.think.thinking import _write_json_atomic
 
 DAY = "20260304"
 

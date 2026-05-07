@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 from slugify import slugify
 
-from think.facets import (
+from solstone.think.facets import (
     _format_principal_role,
     _get_principal_display_name,
     _rank_entities_by_signal,
@@ -258,7 +258,7 @@ def test_get_facets_with_entities(monkeypatch):
     assert "entities" not in test_facet
 
     # Instead, verify entities can be loaded via load_entity_names()
-    from think.entities import load_entity_names
+    from solstone.think.entities import load_entity_names
 
     entity_names = load_entity_names(facet="test-facet")
     assert entity_names is not None
@@ -289,7 +289,7 @@ def test_get_facets_empty_entities(monkeypatch):
         assert "entities" not in minimal_facet
 
         # Verify load_entity_names returns None for facets without entities
-        from think.entities import load_entity_names
+        from solstone.think.entities import load_entity_names
 
         entity_names = load_entity_names(facet="minimal-facet")
         assert entity_names is None
@@ -856,7 +856,7 @@ def test_facet_summaries_detailed_entity_cap_appends_trailing_bullet(
     monkeypatch,
 ):
     """Detailed mode caps entities and appends the trailing bullet."""
-    from think.activities import save_facet_activities
+    from solstone.think.activities import save_facet_activities
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     setup_facet(
@@ -893,7 +893,7 @@ def test_facet_summaries_detailed_activity_cap_appends_trailing_bullet(
     monkeypatch,
 ):
     """Detailed mode caps activities and appends the trailing bullet."""
-    from think.activities import DEFAULT_ACTIVITIES, save_facet_activities
+    from solstone.think.activities import DEFAULT_ACTIVITIES, save_facet_activities
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     setup_facet(
@@ -929,7 +929,7 @@ def test_facet_summaries_simple_cap_trips_switches_capped_sections_to_bullets(
     monkeypatch,
 ):
     """Simple mode only switches capped sections to bullet lists."""
-    from think.activities import save_facet_activities
+    from solstone.think.activities import save_facet_activities
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     setup_facet(
@@ -966,7 +966,7 @@ def test_facet_summaries_exactly_at_caps_has_no_trailing_bullets(
     monkeypatch,
 ):
     """Exactly-at-cap output stays uncapped and keeps simple one-line formatting."""
-    from think.activities import DEFAULT_ACTIVITIES, save_facet_activities
+    from solstone.think.activities import DEFAULT_ACTIVITIES, save_facet_activities
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     setup_facet(
@@ -1005,7 +1005,7 @@ def test_facet_summaries_exactly_at_caps_has_no_trailing_bullets(
 
 def test_facet_summaries_none_entity_cap_is_unbounded(tmp_path, monkeypatch):
     """None entity cap restores the full entity list."""
-    from think.activities import save_facet_activities
+    from solstone.think.activities import save_facet_activities
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     setup_facet(
@@ -1036,7 +1036,7 @@ def test_facet_summaries_none_entity_cap_is_unbounded(tmp_path, monkeypatch):
 
 def test_facet_summaries_none_activity_cap_is_unbounded(tmp_path, monkeypatch):
     """None activity cap restores the full activity list."""
-    from think.activities import DEFAULT_ACTIVITIES, save_facet_activities
+    from solstone.think.activities import DEFAULT_ACTIVITIES, save_facet_activities
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     setup_facet(
@@ -1066,7 +1066,7 @@ def test_facet_summaries_principal_is_excluded_from_entity_budget(
     monkeypatch,
 ):
     """Principal role line does not count against the entity cap."""
-    from think.activities import save_facet_activities
+    from solstone.think.activities import save_facet_activities
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     write_identity_config(tmp_path)

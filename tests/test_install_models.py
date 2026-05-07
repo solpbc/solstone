@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from think import install_models
+from solstone.think import install_models
 
 
 def _sha256(data: bytes) -> str:

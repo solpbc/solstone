@@ -20,7 +20,7 @@ import requests
 from werkzeug.security import generate_password_hash
 from werkzeug.serving import make_server
 
-from think.utils import write_service_port
+from solstone.think.utils import write_service_port
 
 RELAY_URL = "https://spl-relay-staging.jer-3f2.workers.dev"
 CONVEY_PASSWORD = "pytest-link-pass"
@@ -125,7 +125,7 @@ class LinkProcessCapture:
 
 @contextlib.contextmanager
 def running_convey_server(journal_path: Path) -> Iterator[str]:
-    from convey import create_app
+    from solstone.convey import create_app
 
     _prepare_journal(journal_path)
     app = create_app(str(journal_path))

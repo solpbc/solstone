@@ -10,7 +10,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from think import config_cli, install_guard
+from solstone.think import config_cli, install_guard
 
 
 @pytest.fixture
@@ -83,9 +83,9 @@ def service_run_mock(*, returncodes: list[int] | None = None):
 
 
 def test_config_command_registered():
-    from think import sol_cli as sol
+    from solstone.think import sol_cli as sol
 
-    assert sol.COMMANDS["config"] == "think.config_cli"
+    assert sol.COMMANDS["config"] == "solstone.think.config_cli"
     assert "config" in sol.GROUPS["Specialized tools"]
 
 

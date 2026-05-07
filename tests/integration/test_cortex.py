@@ -10,10 +10,10 @@ import time
 
 import pytest
 
-from think.callosum import CallosumServer
-from think.cortex import CortexService
-from think.cortex_client import cortex_request, cortex_uses
-from think.utils import now_ms
+from solstone.think.callosum import CallosumServer
+from solstone.think.cortex import CortexService
+from solstone.think.cortex_client import cortex_request, cortex_uses
+from solstone.think.utils import now_ms
 
 
 @pytest.fixture
@@ -68,7 +68,7 @@ def test_cortex_request_creation(integration_journal_path, callosum_server):
     def callback(msg):
         received_messages.append(msg)
 
-    from think.callosum import CallosumConnection
+    from solstone.think.callosum import CallosumConnection
 
     listener = CallosumConnection()
     listener.start(callback=callback)
@@ -116,7 +116,7 @@ def test_cortex_end_to_end_with_echo_agent(integration_journal_path, callosum_se
         received_events.append(message)
 
     # Start watching with CallosumConnection
-    from think.callosum import CallosumConnection
+    from solstone.think.callosum import CallosumConnection
 
     watcher = CallosumConnection()
     watcher.start(callback=callback)
@@ -195,7 +195,7 @@ def test_cortex_error_handling(integration_journal_path, callosum_server):
     def callback(msg):
         received_events.append(msg)
 
-    from think.callosum import CallosumConnection
+    from solstone.think.callosum import CallosumConnection
 
     listener = CallosumConnection()
     listener.start(callback=callback)

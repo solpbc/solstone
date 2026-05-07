@@ -9,7 +9,7 @@ For details on the Callosum protocol and message format, see [CALLOSUM.md](CALLO
 ### Event Flow
 1. **Request Creation**: Client calls `cortex_request()` which broadcasts to Callosum (`tract="cortex"`, `event="request"`)
 2. **Request Reception**: Cortex receives message via Callosum callback and creates `<name>/<timestamp>_active.jsonl`
-3. **Talent Spawning**: Cortex spawns a talent process via `python -m think.talents` with merged configuration
+3. **Talent Spawning**: Cortex spawns a talent process via `python -m solstone.think.talents` with merged configuration
 4. **Event Emission**: Talents write JSON events to stdout (captured by Cortex)
 5. **Event Distribution**: Cortex appends events to JSONL file AND broadcasts to Callosum
 6. **Agent Completion**: Cortex renames file to `<name>/<timestamp>.jsonl` when agent finishes
@@ -17,7 +17,7 @@ For details on the Callosum protocol and message format, see [CALLOSUM.md](CALLO
 ### Key Components
 - **Message Bus Integration**: Cortex connects to Callosum to receive requests and broadcast events
 - **Process Management**: Spawns talent subprocesses (both tool talents and generators)
-- **Configuration Delegation**: Passes raw requests to `python -m think.talents`, which handles all config loading, validation, and hydration
+- **Configuration Delegation**: Passes raw requests to `python -m solstone.think.talents`, which handles all config loading, validation, and hydration
 - **Event Capture**: Monitors agent stdout/stderr and appends to JSONL files
 - **Dual Event Distribution**: Events go to both persistent files and real-time message bus
 - **NDJSON Input Mode**: Agent processes accept newline-delimited JSON via stdin containing the full merged configuration
@@ -240,14 +240,14 @@ When an agent completes successfully, its result can be automatically written to
 
 ## Talent Configuration
 
-Talents use configurations stored in the `talent/` directory. Each talent is a `.md` file containing:
+Talents use configurations stored in the `solstone/talent/` directory. Each talent is a `.md` file containing:
 - JSON frontmatter with metadata and configuration
 - The talent-specific prompt and instructions in the content
 
 When spawning a talent:
-1. Cortex passes the raw request to `python -m think.talents` via stdin (NDJSON format)
-2. The talent process (`think/talents.py`) handles all config loading via `prepare_config()`:
-   - Loads talent configuration using `get_talent()` from `think/talent.py`
+1. Cortex passes the raw request to `python -m solstone.think.talents` via stdin (NDJSON format)
+2. The talent process (`solstone/think/talents.py`) handles all config loading via `prepare_config()`:
+   - Loads talent configuration using `get_talent()` from `solstone/think/talent.py`
    - Merges request parameters with talent defaults
    - Resolves provider and model based on context
 3. The agent validates the config via `validate_config()` before execution
@@ -256,7 +256,7 @@ When spawning a talent:
    - `extra_context`: Runtime context (facets, generators list, datetime)
    - `user_instruction`: The agent's `.md` file content
 
-Agents define specialized behaviors and facet expertise. Available agents can be discovered using `get_talent_configs(type="cogitate")` or by listing files in the `talent/` directory.
+Agents define specialized behaviors and facet expertise. Available agents can be discovered using `get_talent_configs(type="cogitate")` or by listing files in the `solstone/talent/` directory.
 
 ### Agent Configuration Options
 
@@ -301,9 +301,9 @@ This allows controlling model selection via tier configuration rather than hardc
 
 The system supports multiple AI providers, each implementing the same event interface:
 
-- **OpenAI** (`think/providers/openai.py`): GPT models with OpenAI Agents SDK
-- **Google** (`think/providers/google.py`): Gemini models with Google AI SDK
-- **Anthropic** (`think/providers/anthropic.py`): Claude models with Anthropic SDK
+- **OpenAI** (`solstone/think/providers/openai.py`): GPT models with OpenAI Agents SDK
+- **Google** (`solstone/think/providers/google.py`): Gemini models with Google AI SDK
+- **Anthropic** (`solstone/think/providers/anthropic.py`): Claude models with Anthropic SDK
 
 All providers:
 - Emit JSON events to stdout (one per line)
@@ -336,7 +336,7 @@ When an agent has `"multi_facet": true`:
 
 #### Daily Multi-Facet Agents
 
-**Active Facet Detection**: By default, daily multi-facet agents only run for facets that had activity the previous day. `think/facets.py:get_active_facets()` determines activity by scanning segment-level `facets.json` files from the previous day, not facet event files. This prevents unnecessary agent runs for inactive facets.
+**Active Facet Detection**: By default, daily multi-facet agents only run for facets that had activity the previous day. `solstone/think/facets.py:get_active_facets()` determines activity by scanning segment-level `facets.json` files from the previous day, not facet event files. This prevents unnecessary agent runs for inactive facets.
 
 To force an agent to run for all facets regardless of activity, set `"always": true`:
 

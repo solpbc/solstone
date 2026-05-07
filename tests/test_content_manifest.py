@@ -5,10 +5,13 @@ import datetime as dt
 import json
 import zipfile
 
-from think.importers.chatgpt import ChatGPTImporter
-from think.importers.ics import ICSImporter
-from think.importers.shared import map_items_to_segments, write_content_manifest
-from think.importers.utils import generate_content_manifest
+from solstone.think.importers.chatgpt import ChatGPTImporter
+from solstone.think.importers.ics import ICSImporter
+from solstone.think.importers.shared import (
+    map_items_to_segments,
+    write_content_manifest,
+)
+from solstone.think.importers.utils import generate_content_manifest
 
 
 def test_write_content_manifest(tmp_path, monkeypatch):

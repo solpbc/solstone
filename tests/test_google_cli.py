@@ -7,19 +7,19 @@ import asyncio
 import importlib
 from unittest.mock import AsyncMock, patch
 
-from think.providers.cli import ThinkingAggregator
-from think.providers.google import _translate_gemini
-from think.providers.shared import JSONEventCallback
+from solstone.think.providers.cli import ThinkingAggregator
+from solstone.think.providers.google import _translate_gemini
+from solstone.think.providers.shared import JSONEventCallback
 
 
 def _google_provider():
-    return importlib.reload(importlib.import_module("think.providers.google"))
+    return importlib.reload(importlib.import_module("solstone.think.providers.google"))
 
 
 def _assert_write_mode_uses_yolo_approval(make_runner):
     provider = _google_provider()
     MockCLIRunner = make_runner()
-    with patch("think.providers.google.CLIRunner", MockCLIRunner):
+    with patch("solstone.think.providers.google.CLIRunner", MockCLIRunner):
         asyncio.run(
             provider.run_cogitate(
                 {"prompt": "hello", "model": "gemini-2.5-flash", "write": True},
@@ -338,9 +338,9 @@ class TestRunCogitateCommand:
         policy_path = tmp_path / "policy.toml"
         policy_path.write_text("# generated\n", encoding="utf-8")
         with (
-            patch("think.providers.google.CLIRunner", MockCLIRunner),
+            patch("solstone.think.providers.google.CLIRunner", MockCLIRunner),
             patch(
-                "think.providers.google.build_per_task_policy",
+                "solstone.think.providers.google.build_per_task_policy",
                 return_value=policy_path,
             ) as build_policy,
         ):
@@ -375,8 +375,10 @@ class TestRunCogitateCommand:
         provider = _google_provider()
         MockCLIRunner = self._mock_runner()
         with (
-            patch("think.providers.google.CLIRunner", MockCLIRunner),
-            patch("think.providers.google.build_per_task_policy") as build_policy,
+            patch("solstone.think.providers.google.CLIRunner", MockCLIRunner),
+            patch(
+                "solstone.think.providers.google.build_per_task_policy"
+            ) as build_policy,
         ):
             asyncio.run(
                 provider.run_cogitate(
@@ -390,7 +392,7 @@ class TestRunCogitateCommand:
     def test_sandbox_none(self):
         provider = _google_provider()
         MockCLIRunner = self._mock_runner()
-        with patch("think.providers.google.CLIRunner", MockCLIRunner):
+        with patch("solstone.think.providers.google.CLIRunner", MockCLIRunner):
             asyncio.run(
                 provider.run_cogitate(
                     {"prompt": "hello", "model": "gemini-2.5-flash"}, lambda e: None

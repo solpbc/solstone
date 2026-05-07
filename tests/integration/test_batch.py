@@ -10,8 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from think.batch import Batch
-from think.models import GEMINI_FLASH, GEMINI_LITE
+from solstone.think.batch import Batch
+from solstone.think.models import GEMINI_FLASH, GEMINI_LITE
 
 # Lite model for timing-sensitive tests (faster responses, less variance)
 _TIMING_MODEL = GEMINI_LITE
@@ -290,7 +290,7 @@ async def test_batch_error_recovery():
 @pytest.mark.requires_api
 async def test_batch_client_reuse():
     """Test that client is reused across requests in batch (Google-specific)."""
-    from think.providers.google import get_or_create_client
+    from solstone.think.providers.google import get_or_create_client
 
     # Create shared client
     client = get_or_create_client()

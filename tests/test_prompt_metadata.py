@@ -7,9 +7,9 @@ import json
 
 import pytest
 
-import think.prompts as prompts
-import think.talent as talent
-from think.prompts import PromptMetadataError, _load_prompt_metadata
+import solstone.think.prompts as prompts
+import solstone.think.talent as talent
+from solstone.think.prompts import PromptMetadataError, _load_prompt_metadata
 
 
 def test_load_prompt_metadata_returns_expected_fields(tmp_path):

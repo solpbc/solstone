@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from think.skills import (
+from solstone.think.skills import (
     edit_requests_lock_path,
     edit_requests_path,
     find_pattern,

@@ -9,7 +9,9 @@ TEMPLATE_VAR_KEYS = frozenset({"active_routines", "routine_suggestion"})
 
 
 def _load_exec_context_module():
-    path = Path(__file__).resolve().parents[1] / "talent" / "exec_context.py"
+    path = (
+        Path(__file__).resolve().parents[1] / "solstone" / "talent" / "exec_context.py"
+    )
     spec = importlib.util.spec_from_file_location("test_exec_context_local", path)
     assert spec is not None
     assert spec.loader is not None
@@ -19,7 +21,9 @@ def _load_exec_context_module():
 
 
 def _load_chat_context_module():
-    path = Path(__file__).resolve().parents[1] / "talent" / "chat_context.py"
+    path = (
+        Path(__file__).resolve().parents[1] / "solstone" / "talent" / "chat_context.py"
+    )
     spec = importlib.util.spec_from_file_location("test_chat_context_local", path)
     assert spec is not None
     assert spec.loader is not None
@@ -51,7 +55,7 @@ def test_exec_pre_process_populated_state(monkeypatch, tmp_path):
     )
 
     monkeypatch.setattr(
-        "think.routines.get_routine_state",
+        "solstone.think.routines.get_routine_state",
         lambda: [
             {
                 "name": "Morning Briefing",
@@ -64,7 +68,7 @@ def test_exec_pre_process_populated_state(monkeypatch, tmp_path):
         ],
     )
     monkeypatch.setattr(
-        "think.routines.get_config",
+        "solstone.think.routines.get_config",
         lambda: {
             "_meta": {
                 "suggestions_enabled": True,
@@ -81,7 +85,7 @@ def test_exec_pre_process_populated_state(monkeypatch, tmp_path):
             }
         },
     )
-    monkeypatch.setattr("think.routines.save_config", lambda config: None)
+    monkeypatch.setattr("solstone.think.routines.save_config", lambda config: None)
 
     result = _load_exec_context_module().pre_process({"day": "20260420"})
 
@@ -103,12 +107,12 @@ def test_exec_pre_process_empty_state(monkeypatch, tmp_path):
         journal, {"agent": {"name": "Sol-agent", "name_status": "custom"}}
     )
 
-    monkeypatch.setattr("think.routines.get_routine_state", lambda: [])
+    monkeypatch.setattr("solstone.think.routines.get_routine_state", lambda: [])
     monkeypatch.setattr(
-        "think.routines.get_config",
+        "solstone.think.routines.get_config",
         lambda: {"_meta": {"suggestions_enabled": True, "suggestions": {}}},
     )
-    monkeypatch.setattr("think.routines.save_config", lambda config: None)
+    monkeypatch.setattr("solstone.think.routines.save_config", lambda config: None)
 
     result = _load_exec_context_module().pre_process({"day": "20260420"})
 
@@ -129,19 +133,19 @@ def test_exec_pre_process_errors_swallowed(monkeypatch, tmp_path):
     def _boom(*_args, **_kwargs):
         raise RuntimeError("boom")
 
-    monkeypatch.setattr("think.routines.get_routine_state", _boom)
+    monkeypatch.setattr("solstone.think.routines.get_routine_state", _boom)
     monkeypatch.setattr(
-        "think.routines.get_config",
+        "solstone.think.routines.get_config",
         lambda: {"_meta": {"suggestions_enabled": True, "suggestions": {}}},
     )
-    monkeypatch.setattr("think.routines.save_config", _boom)
+    monkeypatch.setattr("solstone.think.routines.save_config", _boom)
 
     result = module.pre_process({"day": "20260420"})
     template_vars = _assert_template_vars_result(result)
     assert template_vars["active_routines"] == ""
 
-    monkeypatch.setattr("think.routines.get_routine_state", lambda: [])
-    monkeypatch.setattr("think.routines.get_config", _boom)
+    monkeypatch.setattr("solstone.think.routines.get_routine_state", lambda: [])
+    monkeypatch.setattr("solstone.think.routines.get_config", _boom)
 
     result = module.pre_process({"day": "20260420"})
     template_vars = _assert_template_vars_result(result)
@@ -152,12 +156,12 @@ def test_exec_pre_process_returned_dict_shape(monkeypatch, tmp_path):
     journal = tmp_path / "journal"
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
 
-    monkeypatch.setattr("think.routines.get_routine_state", lambda: [])
+    monkeypatch.setattr("solstone.think.routines.get_routine_state", lambda: [])
     monkeypatch.setattr(
-        "think.routines.get_config",
+        "solstone.think.routines.get_config",
         lambda: {"_meta": {"suggestions_enabled": False, "suggestions": {}}},
     )
-    monkeypatch.setattr("think.routines.save_config", lambda config: None)
+    monkeypatch.setattr("solstone.think.routines.save_config", lambda config: None)
 
     result = _load_exec_context_module().pre_process({"day": "20260420"})
 
@@ -175,12 +179,12 @@ def test_exec_pre_process_never_calls_save_config(monkeypatch, tmp_path):
     def _fail_save(*_args, **_kwargs):
         raise AssertionError("save_config should not be called")
 
-    monkeypatch.setattr("think.routines.get_routine_state", lambda: [])
+    monkeypatch.setattr("solstone.think.routines.get_routine_state", lambda: [])
     monkeypatch.setattr(
-        "think.routines.get_config",
+        "solstone.think.routines.get_config",
         lambda: {"_meta": {"suggestions_enabled": True, "suggestions": {}}},
     )
-    monkeypatch.setattr("think.routines.save_config", _fail_save)
+    monkeypatch.setattr("solstone.think.routines.save_config", _fail_save)
 
     module = _load_exec_context_module()
     owner_result = module.pre_process(
@@ -237,9 +241,11 @@ def test_exec_and_chat_render_identical_routine_vars(monkeypatch, tmp_path):
     def _fail_save(*_args, **_kwargs):
         raise AssertionError("save_config should not be called")
 
-    monkeypatch.setattr("think.routines.get_routine_state", lambda: routine_state)
-    monkeypatch.setattr("think.routines.get_config", lambda: routines_config)
-    monkeypatch.setattr("think.routines.save_config", _fail_save)
+    monkeypatch.setattr(
+        "solstone.think.routines.get_routine_state", lambda: routine_state
+    )
+    monkeypatch.setattr("solstone.think.routines.get_config", lambda: routines_config)
+    monkeypatch.setattr("solstone.think.routines.save_config", _fail_save)
 
     context = {"day": "20260420"}
     chat_result = _load_chat_context_module().pre_process(context)

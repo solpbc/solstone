@@ -30,7 +30,7 @@ If no password is set, the login page will prompt you to run `sol password set`.
 
 ## Architecture
 
-Convey uses an **app plugin system** where all functional views are implemented as independent apps in the `/apps/` directory. The core `convey/` package provides authentication, WebSocket communication, and the app loading infrastructure.
+Convey uses an **app plugin system** where all functional views are implemented as independent apps in the `/apps/` directory. The core `solstone/convey/` package provides authentication, WebSocket communication, and the app loading infrastructure.
 
 ```
 convey/
@@ -75,7 +75,7 @@ Browse `/apps/` to see available apps.
 
 ### Core Routes
 
-The `convey/views/home.py` module provides essential routes:
+The `solstone/convey/views/home.py` module provides essential routes:
 
 - `/` - Redirects to `/app/home/`
 - `/login` - Authentication page

@@ -7,10 +7,13 @@ from pathlib import Path
 import pytest
 from jsonschema import Draft202012Validator
 
-from think.talent import get_talent
+from solstone.think.talent import get_talent
 
 SCHEMA_PATH = (
-    Path(__file__).parent.parent / "talent" / "speaker_attribution.schema.json"
+    Path(__file__).parent.parent
+    / "solstone"
+    / "talent"
+    / "speaker_attribution.schema.json"
 )
 
 

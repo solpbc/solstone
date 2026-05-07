@@ -98,7 +98,7 @@ def _write_transcript(muesli_dir: Path, filename: str, content: str) -> Path:
 
 def test_parse_muesli_file(tmp_path):
     """Parse frontmatter and body from a muesli markdown file."""
-    from think.importers.granola import _parse_muesli_file
+    from solstone.think.importers.granola import _parse_muesli_file
 
     path = _write_transcript(tmp_path, "test.md", SAMPLE_TRANSCRIPT)
     fm, body = _parse_muesli_file(path)
@@ -112,7 +112,7 @@ def test_parse_muesli_file(tmp_path):
 
 def test_parse_muesli_file_missing_fields(tmp_path):
     """Handles files with minimal frontmatter."""
-    from think.importers.granola import _parse_muesli_file
+    from solstone.think.importers.granola import _parse_muesli_file
 
     content = dedent("""\
         ---
@@ -136,7 +136,7 @@ def test_parse_muesli_file_missing_fields(tmp_path):
 
 def test_parse_participants():
     """Extract participant info from ## Participants section."""
-    from think.importers.granola import _parse_participants
+    from solstone.think.importers.granola import _parse_participants
 
     participants = _parse_participants(SAMPLE_TRANSCRIPT)
     assert len(participants) == 2
@@ -154,7 +154,7 @@ def test_parse_participants():
 
 def test_parse_participants_with_linkedin():
     """Extract LinkedIn handle from participant line."""
-    from think.importers.granola import _parse_participants
+    from solstone.think.importers.granola import _parse_participants
 
     body = dedent("""\
         ## Participants
@@ -172,14 +172,14 @@ def test_parse_participants_with_linkedin():
 
 def test_parse_participants_no_section():
     """Returns empty list when no ## Participants section exists."""
-    from think.importers.granola import _parse_participants
+    from solstone.think.importers.granola import _parse_participants
 
     assert _parse_participants("# Meeting\n\nJust some text.") == []
 
 
 def test_parse_participants_wikilinks():
     """Strips [[wikilink]] brackets from participant names."""
-    from think.importers.granola import _parse_participants
+    from solstone.think.importers.granola import _parse_participants
 
     body = dedent("""\
         ## Participants
@@ -199,7 +199,7 @@ def test_parse_transcript_entries():
     """Parse speaker-labeled entries into timestamped messages."""
     import datetime as dt
 
-    from think.importers.granola import _parse_transcript_entries
+    from solstone.think.importers.granola import _parse_transcript_entries
 
     base_dt = dt.datetime(2025, 10, 28, 0, 0, 0, tzinfo=dt.timezone.utc)
     messages = _parse_transcript_entries(SAMPLE_TRANSCRIPT, base_dt, dt.timezone.utc)
@@ -221,7 +221,7 @@ def test_parse_transcript_entries_empty_body():
     """Returns empty list when no transcript entries found."""
     import datetime as dt
 
-    from think.importers.granola import _parse_transcript_entries
+    from solstone.think.importers.granola import _parse_transcript_entries
 
     base_dt = dt.datetime(2025, 10, 28, 0, 0, 0, tzinfo=dt.timezone.utc)
     messages = _parse_transcript_entries(
@@ -239,7 +239,7 @@ def test_date_from_filename():
     """Extract date from muesli filename."""
     import datetime as dt
 
-    from think.importers.granola import _date_from_filename
+    from solstone.think.importers.granola import _date_from_filename
 
     assert _date_from_filename("2025-10-28_q1-planning.md") == dt.date(2025, 10, 28)
     assert _date_from_filename("random-file.md") is None
@@ -250,7 +250,7 @@ def test_parse_created_at():
     """Parse created_at from frontmatter with timezone."""
     import datetime as dt
 
-    from think.importers.granola import _parse_created_at
+    from solstone.think.importers.granola import _parse_created_at
 
     fm = {"created_at": "2025-10-28T15:04:05Z"}
     created_dt, tz = _parse_created_at(fm, "test.md")
@@ -260,7 +260,7 @@ def test_parse_created_at():
 
 def test_parse_created_at_fallback_to_filename():
     """Falls back to filename date when created_at is missing."""
-    from think.importers.granola import _parse_created_at
+    from solstone.think.importers.granola import _parse_created_at
 
     fm = {}
     created_dt, tz = _parse_created_at(fm, "2025-10-28_meeting.md")
@@ -270,7 +270,7 @@ def test_parse_created_at_fallback_to_filename():
 
 def test_parse_created_at_no_date():
     """Returns None when no date source available."""
-    from think.importers.granola import _parse_created_at
+    from solstone.think.importers.granola import _parse_created_at
 
     fm = {}
     created_dt, tz = _parse_created_at(fm, "random.md")
@@ -284,15 +284,15 @@ def test_parse_created_at_no_date():
 
 def test_granola_protocol_conformance():
     """GranolaBackend satisfies SyncableBackend protocol."""
-    from think.importers.granola import GranolaBackend
-    from think.importers.sync import SyncableBackend
+    from solstone.think.importers.granola import GranolaBackend
+    from solstone.think.importers.sync import SyncableBackend
 
     assert isinstance(GranolaBackend(), SyncableBackend)
 
 
 def test_granola_in_registry():
     """Granola is registered in the syncable backend registry."""
-    from think.importers.sync import get_syncable_backends
+    from solstone.think.importers.sync import get_syncable_backends
 
     backends = get_syncable_backends()
     names = [b.name for b in backends]
@@ -306,7 +306,7 @@ def test_granola_in_registry():
 
 def test_granola_sync_no_muesli(tmp_path):
     """Raises ValueError when muesli is not installed."""
-    from think.importers.granola import GranolaBackend
+    from solstone.think.importers.granola import GranolaBackend
 
     nonexistent = tmp_path / "nonexistent" / "transcripts"
     with pytest.raises(ValueError, match="muesli to extract"):
@@ -315,7 +315,7 @@ def test_granola_sync_no_muesli(tmp_path):
 
 def test_granola_sync_no_transcripts(tmp_path):
     """Raises ValueError when muesli dir exists but no transcripts."""
-    from think.importers.granola import GranolaBackend
+    from solstone.think.importers.granola import GranolaBackend
 
     muesli_dir = tmp_path / "muesli" / "transcripts"
     # Create parent but not transcripts dir
@@ -331,8 +331,8 @@ def test_granola_sync_no_transcripts(tmp_path):
 
 def test_granola_sync_dry_run(tmp_path):
     """Dry-run catalogs transcripts and saves state."""
-    from think.importers.granola import GranolaBackend
-    from think.importers.sync import load_sync_state
+    from solstone.think.importers.granola import GranolaBackend
+    from solstone.think.importers.sync import load_sync_state
 
     muesli_dir = tmp_path / "muesli"
     _write_transcript(muesli_dir, "2025-10-28_q1.md", SAMPLE_TRANSCRIPT)
@@ -357,7 +357,7 @@ def test_granola_sync_dry_run(tmp_path):
 
 def test_granola_sync_skips_no_docid(tmp_path):
     """Transcripts without doc_id in frontmatter are skipped."""
-    from think.importers.granola import GranolaBackend
+    from solstone.think.importers.granola import GranolaBackend
 
     muesli_dir = tmp_path / "muesli"
     _write_transcript(muesli_dir, "orphan.md", NO_DOCID_TRANSCRIPT)
@@ -374,8 +374,8 @@ def test_granola_sync_skips_no_docid(tmp_path):
 
 def test_granola_sync_incremental(tmp_path):
     """Second sync skips already-imported transcripts."""
-    from think.importers.granola import GranolaBackend
-    from think.importers.sync import save_sync_state
+    from solstone.think.importers.granola import GranolaBackend
+    from solstone.think.importers.sync import save_sync_state
 
     muesli_dir = tmp_path / "muesli"
     _write_transcript(muesli_dir, "2025-10-28_q1.md", SAMPLE_TRANSCRIPT)
@@ -405,8 +405,8 @@ def test_granola_sync_incremental(tmp_path):
 
 def test_granola_sync_detects_updated(tmp_path):
     """Re-imports when remote_updated_at is newer than last sync."""
-    from think.importers.granola import GranolaBackend
-    from think.importers.sync import save_sync_state
+    from solstone.think.importers.granola import GranolaBackend
+    from solstone.think.importers.sync import save_sync_state
 
     muesli_dir = tmp_path / "muesli"
     _write_transcript(muesli_dir, "2025-10-28_q1.md", SAMPLE_TRANSCRIPT)
@@ -433,8 +433,8 @@ def test_granola_sync_detects_updated(tmp_path):
 
 def test_granola_sync_detects_removed(tmp_path):
     """Marks files as removed when they disappear from muesli dir."""
-    from think.importers.granola import GranolaBackend
-    from think.importers.sync import load_sync_state, save_sync_state
+    from solstone.think.importers.granola import GranolaBackend
+    from solstone.think.importers.sync import load_sync_state, save_sync_state
 
     muesli_dir = tmp_path / "muesli"
     muesli_dir.mkdir(parents=True)
@@ -461,8 +461,8 @@ def test_granola_sync_detects_removed(tmp_path):
 
 def test_granola_sync_force(tmp_path):
     """Force flag clears state and re-imports everything."""
-    from think.importers.granola import GranolaBackend
-    from think.importers.sync import save_sync_state
+    from solstone.think.importers.granola import GranolaBackend
+    from solstone.think.importers.sync import save_sync_state
 
     muesli_dir = tmp_path / "muesli"
     _write_transcript(muesli_dir, "2025-10-28_q1.md", SAMPLE_TRANSCRIPT)
@@ -494,8 +494,8 @@ def test_granola_sync_force(tmp_path):
 
 def test_granola_sync_import(tmp_path, monkeypatch):
     """Import mode writes segments and updates state."""
-    from think.importers.granola import GranolaBackend
-    from think.importers.sync import load_sync_state
+    from solstone.think.importers.granola import GranolaBackend
+    from solstone.think.importers.sync import load_sync_state
 
     # Point journal to tmp_path
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
@@ -567,7 +567,7 @@ def test_granola_backends_cli_flag(capsys, monkeypatch):
     """sol import --backends lists granola."""
     import sys
 
-    from think.importers.cli import main
+    from solstone.think.importers.cli import main
 
     monkeypatch.setattr(sys, "argv", ["sol import", "--backends"])
     monkeypatch.setenv("SOLSTONE_JOURNAL", "/tmp/test-journal")
@@ -580,7 +580,7 @@ def test_granola_sync_cli(capsys, monkeypatch, tmp_path):
     """sol import --sync granola --path <dir> runs catalog."""
     import sys
 
-    from think.importers.cli import main
+    from solstone.think.importers.cli import main
 
     muesli_dir = tmp_path / "muesli"
     _write_transcript(muesli_dir, "2025-10-28_q1.md", SAMPLE_TRANSCRIPT)
@@ -636,8 +636,8 @@ ENRICHED_TRANSCRIPT = dedent("""\
 
 def test_observations_created_on_import(tmp_path, monkeypatch):
     """Observations are created for participants with enrichment data."""
-    from think.entities.observations import load_observations
-    from think.importers.granola import GranolaBackend
+    from solstone.think.entities.observations import load_observations
+    from solstone.think.importers.granola import GranolaBackend
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
@@ -677,8 +677,8 @@ def test_observations_created_on_import(tmp_path, monkeypatch):
 
 def test_observations_not_duplicated_on_reimport(tmp_path, monkeypatch):
     """Re-importing the same transcript does not duplicate observations."""
-    from think.entities.observations import load_observations
-    from think.importers.granola import GranolaBackend
+    from solstone.think.entities.observations import load_observations
+    from solstone.think.importers.granola import GranolaBackend
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
@@ -703,8 +703,8 @@ def test_observations_not_duplicated_on_reimport(tmp_path, monkeypatch):
 
 def test_observations_source_day(tmp_path, monkeypatch):
     """Observation source_day matches the segment day, not today."""
-    from think.entities.observations import load_observations
-    from think.importers.granola import GranolaBackend
+    from solstone.think.entities.observations import load_observations
+    from solstone.think.importers.granola import GranolaBackend
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
@@ -720,7 +720,7 @@ def test_observations_source_day(tmp_path, monkeypatch):
 
 def test_seed_entities_without_observations(tmp_path, monkeypatch):
     """seed_entities() works unchanged when no observations are provided."""
-    from think.entities.seeding import seed_entities
+    from solstone.think.entities.seeding import seed_entities
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
@@ -734,8 +734,8 @@ def test_seed_entities_without_observations(tmp_path, monkeypatch):
 
 def test_seed_entities_observation_formatting(tmp_path, monkeypatch):
     """seed_entities() creates observations with correct formatting for all field combos."""
-    from think.entities.observations import load_observations
-    from think.entities.seeding import seed_entities
+    from solstone.think.entities.observations import load_observations
+    from solstone.think.entities.seeding import seed_entities
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
@@ -792,8 +792,8 @@ def test_seed_entities_observation_formatting(tmp_path, monkeypatch):
 
 def test_seed_entities_observation_dedup(tmp_path, monkeypatch):
     """seed_entities() does not duplicate observations on re-call."""
-    from think.entities.observations import load_observations
-    from think.entities.seeding import seed_entities
+    from solstone.think.entities.observations import load_observations
+    from solstone.think.entities.seeding import seed_entities
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 

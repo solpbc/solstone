@@ -10,8 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from think import skills_cli
-from think.skills_cli import (
+from solstone.think import skills_cli
+from solstone.think.skills_cli import (
     GLOBAL_SKIP_MESSAGE,
     discover_user_bundles,
     get_project_root,
@@ -36,9 +36,9 @@ def _mini_user_repo(tmp_path: Path, content: bytes | None = None) -> Path:
 
 def _mini_project_repo(tmp_path: Path) -> Path:
     repo = tmp_path / "repo"
-    _write_skill(repo / "talent" / "journal")
-    _write_skill(repo / "talent" / "routines")
-    _write_skill(repo / "apps" / "foo" / "talent" / "bar")
+    _write_skill(repo / "solstone" / "talent" / "journal")
+    _write_skill(repo / "solstone" / "talent" / "routines")
+    _write_skill(repo / "solstone" / "apps" / "foo" / "talent" / "bar")
     return repo
 
 
@@ -233,7 +233,10 @@ def test_install_project_creates_symlinks(tmp_path):
             link = link_parent / name
             assert link.is_symlink()
             assert os.readlink(link) == os.path.relpath(
-                repo / ("talent" if name != "bar" else "apps/foo/talent") / name,
+                repo
+                / "solstone"
+                / ("talent" if name != "bar" else "apps/foo/talent")
+                / name,
                 link_parent,
             )
 
@@ -262,7 +265,7 @@ def test_install_project_cleans_stale_symlinks(tmp_path):
     repo = _mini_project_repo(tmp_path)
     target = tmp_path / "work"
     install_project(repo, target, ["all"])
-    shutil.rmtree(repo / "talent" / "routines")
+    shutil.rmtree(repo / "solstone" / "talent" / "routines")
 
     report = install_project(repo, target, ["all"])
 
@@ -273,15 +276,15 @@ def test_install_project_cleans_stale_symlinks(tmp_path):
 
 def test_install_project_dedupe_error(tmp_path):
     repo = tmp_path / "repo"
-    _write_skill(repo / "talent" / "foo")
-    _write_skill(repo / "apps" / "x" / "talent" / "foo")
+    _write_skill(repo / "solstone" / "talent" / "foo")
+    _write_skill(repo / "solstone" / "apps" / "x" / "talent" / "foo")
 
     with pytest.raises(ValueError) as exc_info:
         install_project(repo, tmp_path / "work", ["all"])
 
     message = str(exc_info.value)
-    assert str(repo / "talent" / "foo") in message
-    assert str(repo / "apps" / "x" / "talent" / "foo") in message
+    assert str(repo / "solstone" / "talent" / "foo") in message
+    assert str(repo / "solstone" / "apps" / "x" / "talent" / "foo") in message
 
 
 def test_install_project_agent_claude_only(tmp_path):
@@ -313,7 +316,7 @@ def test_install_project_relative_target_outside_repo(tmp_path):
     link_parent = target / ".claude" / "skills"
     link = link_parent / "journal"
     assert os.readlink(link) == os.path.relpath(
-        repo / "talent" / "journal", link_parent
+        repo / "solstone" / "talent" / "journal", link_parent
     )
 
 

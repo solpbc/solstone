@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from think.call import call_app
+from solstone.think.call import call_app
 
 runner = CliRunner()
 

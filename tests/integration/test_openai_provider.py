@@ -11,8 +11,8 @@ from pathlib import Path
 import pytest
 from dotenv import load_dotenv
 
+from solstone.think.models import GPT_5
 from tests.integration.conftest import require_cli_tool
-from think.models import GPT_5
 
 
 def get_fixtures_env():
@@ -62,7 +62,7 @@ def test_openai_provider_basic():
         }
     )
 
-    # Run the sol think.talents command
+    # Run the sol solstone.think.talents command
     cmd = ["sol", "providers", "check"]
     result = subprocess.run(
         cmd,
@@ -162,7 +162,7 @@ def test_openai_provider_with_reasoning():
         }
     )
 
-    # Run the sol think.talents command
+    # Run the sol solstone.think.talents command
     cmd = ["sol", "providers", "check"]
     result = subprocess.run(
         cmd,
@@ -249,7 +249,7 @@ def test_openai_provider_with_extra_context():
         }
     )
 
-    # Run the sol think.talents command
+    # Run the sol solstone.think.talents command
     cmd = ["sol", "providers", "check"]
     result = subprocess.run(
         cmd,
@@ -307,7 +307,7 @@ def test_openai_json_truncation_detection():
         pytest.skip("OPENAI_API_KEY not found in tests/fixtures/.env file")
 
     # Import provider directly for this test
-    from think.providers import openai as openai_provider
+    from solstone.think.providers import openai as openai_provider
 
     # Request JSON output with small token limit to force truncation
     # Use run_generate which returns GenerateResult, then check finish_reason

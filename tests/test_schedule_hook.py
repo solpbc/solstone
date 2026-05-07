@@ -35,8 +35,8 @@ def test_schedule_post_process_writes_record_and_resolves_entities(
     tmp_path,
     monkeypatch,
 ):
-    from talent.schedule import post_process
-    from think.activities import load_activity_records
+    from solstone.talent.schedule import post_process
+    from solstone.think.activities import load_activity_records
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _write_facet(tmp_path, "work")
@@ -107,8 +107,8 @@ def test_schedule_post_process_writes_record_and_resolves_entities(
 
 
 def test_schedule_post_process_marks_cancelled_records_hidden(tmp_path, monkeypatch):
-    from talent.schedule import post_process
-    from think.activities import load_activity_records
+    from solstone.talent.schedule import post_process
+    from solstone.think.activities import load_activity_records
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _write_facet(tmp_path, "work")
@@ -144,12 +144,12 @@ def test_schedule_post_process_skips_missing_required_field(
     monkeypatch,
     caplog,
 ):
-    from talent.schedule import post_process
-    from think.activities import load_activity_records
+    from solstone.talent.schedule import post_process
+    from solstone.think.activities import load_activity_records
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _write_facet(tmp_path, "work")
-    caplog.set_level(logging.WARNING, logger="talent.schedule")
+    caplog.set_level(logging.WARNING, logger="solstone.talent.schedule")
 
     post_process(
         json.dumps(
@@ -176,11 +176,11 @@ def test_schedule_post_process_skips_missing_required_field(
 
 
 def test_schedule_post_process_skips_unknown_facet(tmp_path, monkeypatch, caplog):
-    from talent.schedule import post_process
+    from solstone.talent.schedule import post_process
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _write_facet(tmp_path, "work")
-    caplog.set_level(logging.WARNING, logger="talent.schedule")
+    caplog.set_level(logging.WARNING, logger="solstone.talent.schedule")
 
     post_process(
         json.dumps(
@@ -207,12 +207,12 @@ def test_schedule_post_process_skips_unknown_facet(tmp_path, monkeypatch, caplog
 
 
 def test_schedule_post_process_skips_non_future_items(tmp_path, monkeypatch, caplog):
-    from talent.schedule import post_process
-    from think.activities import load_activity_records
+    from solstone.talent.schedule import post_process
+    from solstone.think.activities import load_activity_records
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _write_facet(tmp_path, "work")
-    caplog.set_level(logging.WARNING, logger="talent.schedule")
+    caplog.set_level(logging.WARNING, logger="solstone.talent.schedule")
 
     post_process(
         json.dumps(
@@ -242,19 +242,19 @@ def test_schedule_post_process_skips_non_future_items(tmp_path, monkeypatch, cap
 def test_schedule_post_process_logs_error_on_invalid_json(
     tmp_path, monkeypatch, caplog
 ):
-    from talent.schedule import post_process
+    from solstone.talent.schedule import post_process
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _write_facet(tmp_path, "work")
-    caplog.set_level(logging.ERROR, logger="talent.schedule")
+    caplog.set_level(logging.ERROR, logger="solstone.talent.schedule")
 
     assert post_process("{not valid json", {"day": "20260418"}) is None
     assert "failed to parse JSON" in caplog.text
 
 
 def test_schedule_post_process_is_idempotent(tmp_path, monkeypatch):
-    from talent.schedule import post_process
-    from think.activities import load_activity_records
+    from solstone.talent.schedule import post_process
+    from solstone.think.activities import load_activity_records
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _write_facet(tmp_path, "work")
@@ -286,8 +286,8 @@ def test_schedule_post_process_is_idempotent(tmp_path, monkeypatch):
 
 
 def test_schedule_post_process_fuzzy_supersedes_previous_record(tmp_path, monkeypatch):
-    from talent.schedule import post_process
-    from think.activities import append_activity_record, load_activity_records
+    from solstone.talent.schedule import post_process
+    from solstone.think.activities import append_activity_record, load_activity_records
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _write_facet(tmp_path, "work")
@@ -355,8 +355,8 @@ def test_schedule_post_process_cancelled_record_supersedes_pending(
     tmp_path,
     monkeypatch,
 ):
-    from talent.schedule import post_process
-    from think.activities import append_activity_record, load_activity_records
+    from solstone.talent.schedule import post_process
+    from solstone.think.activities import append_activity_record, load_activity_records
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _write_facet(tmp_path, "work")

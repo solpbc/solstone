@@ -25,7 +25,7 @@ def _invoke_grab(monkeypatch, capsys, *argv: str):
     monkeypatch.setenv("SOL_SKIP_SUPERVISOR_CHECK", "1")
     monkeypatch.setattr("sys.argv", ["sol grab", *argv])
 
-    from observe.grab import main
+    from solstone.observe.grab import main
 
     exit_code = 0
     exit_message = ""
@@ -576,7 +576,7 @@ def test_grab_level_5c_conflict_scan_happens_before_decode(
     out_path = tmp_path / "frame.png"
     (tmp_path / "frame_12.png").write_bytes(b"existing")
     decode_mock = Mock(side_effect=AssertionError("decode should not run"))
-    monkeypatch.setattr("observe.grab.decode_frames", decode_mock)
+    monkeypatch.setattr("solstone.observe.grab.decode_frames", decode_mock)
     code, message, out, err = _invoke_grab(
         monkeypatch,
         capsys,
@@ -598,7 +598,8 @@ def test_grab_level_5c_conflict_scan_happens_before_decode(
 def test_grab_level_5c_decode_failure_writes_no_files(monkeypatch, capsys, tmp_path):
     out_path = tmp_path / "frame.png"
     monkeypatch.setattr(
-        "observe.grab.decode_frames", Mock(side_effect=RuntimeError("decode blew up"))
+        "solstone.observe.grab.decode_frames",
+        Mock(side_effect=RuntimeError("decode blew up")),
     )
     code, message, out, err = _invoke_grab(
         monkeypatch,
@@ -675,13 +676,13 @@ def test_grab_malformed_jsonl_warns_with_verbose(monkeypatch, capsys, caplog):
 
 @pytest.mark.parametrize("token", ["0", "-1", "abc", "7,7", "1,,2"])
 def test_grab_frame_id_token_rejects_invalid_values(token):
-    from observe.grab import parse_frame_id_token
+    from solstone.observe.grab import parse_frame_id_token
 
     with pytest.raises(ValueError):
         parse_frame_id_token(token)
 
 
 def test_grab_frame_id_token_sorts_batch_ids():
-    from observe.grab import parse_frame_id_token
+    from solstone.observe.grab import parse_frame_id_token
 
     assert parse_frame_id_token("23,7,12") == [7, 12, 23]

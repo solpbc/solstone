@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from think.models import (
+from solstone.think.models import (
     CLAUDE_HAIKU_4,
     CLAUDE_OPUS_4,
     CLAUDE_SONNET_4,
@@ -237,7 +237,7 @@ def test_prompt_paths_exist():
 
     import frontmatter
 
-    base_dir = Path(__file__).parent.parent  # Project root
+    base_dir = Path(__file__).parent.parent / "solstone"  # Package root
     required_keys = {"context", "tier", "label", "group"}
 
     for rel_path in PROMPT_PATHS:
@@ -420,7 +420,7 @@ def test_context_registry_includes_prompt_contexts():
     import frontmatter
 
     registry = get_context_registry()
-    base_dir = Path(__file__).parent.parent
+    base_dir = Path(__file__).parent.parent / "solstone"
 
     # All prompt contexts should be in registry with correct tier
     for rel_path in PROMPT_PATHS:
@@ -636,7 +636,7 @@ def test_log_token_usage_computes_total_tokens(tmp_path, monkeypatch):
     """total_tokens is computed from input+output when missing (Codex CLI format)."""
     import json
 
-    from think.models import log_token_usage
+    from solstone.think.models import log_token_usage
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
@@ -658,7 +658,7 @@ def test_log_token_usage_preserves_existing_total_tokens(tmp_path, monkeypatch):
     """total_tokens is preserved when already present and non-zero."""
     import json
 
-    from think.models import log_token_usage
+    from solstone.think.models import log_token_usage
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
@@ -677,7 +677,7 @@ def test_log_token_usage_maps_cached_input_tokens(tmp_path, monkeypatch):
     """cached_input_tokens (Codex CLI format) maps to cached_tokens."""
     import json
 
-    from think.models import log_token_usage
+    from solstone.think.models import log_token_usage
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
@@ -701,7 +701,7 @@ def test_log_token_usage_passes_through_reasoning_tokens(tmp_path, monkeypatch):
     """reasoning_tokens from provider-normalized usage are preserved in log."""
     import json
 
-    from think.models import log_token_usage
+    from solstone.think.models import log_token_usage
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
@@ -729,7 +729,7 @@ def test_log_token_usage_passes_through_cache_creation_tokens(tmp_path, monkeypa
     """cache_creation_tokens from Anthropic provider are preserved in log."""
     import json
 
-    from think.models import log_token_usage
+    from solstone.think.models import log_token_usage
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
@@ -868,8 +868,13 @@ class TestGenerateJsonSchemaPlumbing:
         )
 
         with (
-            patch("think.models.resolve_provider", return_value=("fake", "model")),
-            patch("think.providers.get_provider_module", return_value=provider_module),
+            patch(
+                "solstone.think.models.resolve_provider", return_value=("fake", "model")
+            ),
+            patch(
+                "solstone.think.providers.get_provider_module",
+                return_value=provider_module,
+            ),
         ):
             result = generate("hello", "test.context", json_schema=schema)
 
@@ -887,8 +892,13 @@ class TestGenerateJsonSchemaPlumbing:
         )
 
         with (
-            patch("think.models.resolve_provider", return_value=("fake", "model")),
-            patch("think.providers.get_provider_module", return_value=provider_module),
+            patch(
+                "solstone.think.models.resolve_provider", return_value=("fake", "model")
+            ),
+            patch(
+                "solstone.think.providers.get_provider_module",
+                return_value=provider_module,
+            ),
         ):
             result = asyncio.run(agenerate("hello", "test.context", json_schema=schema))
 
@@ -904,9 +914,14 @@ class TestGenerateJsonSchemaPlumbing:
         validation = {"valid": True, "errors": []}
 
         with (
-            patch("think.models.resolve_provider", return_value=("fake", "model")),
-            patch("think.providers.get_provider_module", return_value=provider_module),
-            patch("think.models._validate_schema", return_value=validation),
+            patch(
+                "solstone.think.models.resolve_provider", return_value=("fake", "model")
+            ),
+            patch(
+                "solstone.think.providers.get_provider_module",
+                return_value=provider_module,
+            ),
+            patch("solstone.think.models._validate_schema", return_value=validation),
         ):
             result = generate_with_result(
                 "hello",
@@ -922,9 +937,14 @@ class TestGenerateJsonSchemaPlumbing:
         )
 
         with (
-            patch("think.models.resolve_provider", return_value=("fake", "model")),
-            patch("think.providers.get_provider_module", return_value=provider_module),
-            patch("think.models._validate_schema") as mock_validate_schema,
+            patch(
+                "solstone.think.models.resolve_provider", return_value=("fake", "model")
+            ),
+            patch(
+                "solstone.think.providers.get_provider_module",
+                return_value=provider_module,
+            ),
+            patch("solstone.think.models._validate_schema") as mock_validate_schema,
         ):
             result = generate_with_result("hello", "test.context")
 
@@ -942,10 +962,15 @@ class TestGenerateJsonSchemaPlumbing:
         )
 
         with (
-            patch("think.models.resolve_provider", return_value=("fake", "model")),
-            patch("think.providers.get_provider_module", return_value=sync_provider),
             patch(
-                "think.models._validate_schema",
+                "solstone.think.models.resolve_provider", return_value=("fake", "model")
+            ),
+            patch(
+                "solstone.think.providers.get_provider_module",
+                return_value=sync_provider,
+            ),
+            patch(
+                "solstone.think.models._validate_schema",
                 return_value={"valid": True, "errors": []},
             ) as mock_validate_schema,
         ):
@@ -954,10 +979,15 @@ class TestGenerateJsonSchemaPlumbing:
             )
 
         with (
-            patch("think.models.resolve_provider", return_value=("fake", "model")),
-            patch("think.providers.get_provider_module", return_value=async_provider),
             patch(
-                "think.models._validate_schema",
+                "solstone.think.models.resolve_provider", return_value=("fake", "model")
+            ),
+            patch(
+                "solstone.think.providers.get_provider_module",
+                return_value=async_provider,
+            ),
+            patch(
+                "solstone.think.models._validate_schema",
                 return_value={"valid": True, "errors": []},
             ) as mock_async_validate,
         ):
@@ -976,13 +1006,18 @@ class TestGenerateJsonSchemaPlumbing:
         )
 
         with (
-            patch("think.models.resolve_provider", return_value=("fake", "model")),
-            patch("think.providers.get_provider_module", return_value=provider_module),
             patch(
-                "think.models._validate_json_response",
+                "solstone.think.models.resolve_provider", return_value=("fake", "model")
+            ),
+            patch(
+                "solstone.think.providers.get_provider_module",
+                return_value=provider_module,
+            ),
+            patch(
+                "solstone.think.models._validate_json_response",
                 side_effect=IncompleteJSONError("max_tokens", "{}"),
             ),
-            patch("think.models._validate_schema") as mock_validate_schema,
+            patch("solstone.think.models._validate_schema") as mock_validate_schema,
         ):
             with pytest.raises(IncompleteJSONError):
                 generate_with_result(
@@ -993,7 +1028,7 @@ class TestGenerateJsonSchemaPlumbing:
 
 
 def test_request_health_recheck_emits_callosum_request():
-    with patch("think.models.callosum_send", return_value=True) as send:
+    with patch("solstone.think.models.callosum_send", return_value=True) as send:
         request_health_recheck()
 
     send.assert_called_once_with(
@@ -1005,7 +1040,7 @@ def test_request_health_recheck_emits_callosum_request():
 
 def test_request_health_recheck_does_not_raise_on_send_failure(caplog):
     with (
-        patch("think.models.callosum_send", return_value=False) as send,
+        patch("solstone.think.models.callosum_send", return_value=False) as send,
         caplog.at_level(logging.WARNING),
     ):
         request_health_recheck()

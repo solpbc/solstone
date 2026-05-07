@@ -46,9 +46,9 @@ const html = marked.parse(markdown, {
 ```
 
 **Currently Used By** (legacy references):
-- `convey/templates/chat.html` (via `convey/static/marked.min.js`)
-- `convey/templates/facet_detail.html` (via CDN)
-- `convey/templates/agents.html` (via CDN)
+- `solstone/convey/templates/chat.html` (via `solstone/convey/static/marked.min.js`)
+- `solstone/convey/templates/facet_detail.html` (via CDN)
+- `solstone/convey/templates/agents.html` (via CDN)
 
 ### DOMPurify (v3.4.0)
 
@@ -76,7 +76,7 @@ const clean = DOMPurify.sanitize(marked.parse(dirty));
 ```
 
 **Currently Used By**:
-- All apps (shell-level include via `convey/templates/app.html`)
+- All apps (shell-level include via `solstone/convey/templates/app.html`)
 
 ## Adding New Libraries
 

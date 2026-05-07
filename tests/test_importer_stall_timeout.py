@@ -5,7 +5,7 @@ import logging
 import queue
 import time
 
-from think.importers.cli import _wait_for_segments
+from solstone.think.importers.cli import _wait_for_segments
 
 
 def _status_event(index: int) -> dict:
@@ -47,7 +47,7 @@ def test_status_only_stream_stalls(caplog):
         message_queue.put(_status_event(index))
 
     pending = {"seg-a", "seg-b"}
-    caplog.set_level(logging.ERROR, logger="think.importers.cli")
+    caplog.set_level(logging.ERROR, logger="solstone.think.importers.cli")
 
     started_at = time.monotonic()
     failed_segments, completed_count = _wait_for_segments(
@@ -73,7 +73,7 @@ def test_mixed_observed_and_status_stalls_remaining_segments(caplog):
         message_queue.put(_status_event(index))
 
     pending = {"seg-a", "seg-b", "seg-c", "seg-d"}
-    caplog.set_level(logging.ERROR, logger="think.importers.cli")
+    caplog.set_level(logging.ERROR, logger="solstone.think.importers.cli")
 
     started_at = time.monotonic()
     failed_segments, completed_count = _wait_for_segments(

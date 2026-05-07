@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, mock_open, patch
 
 import pytest
 
-from think.providers.cli import (
+from solstone.think.providers.cli import (
     CLIRunner,
     QuotaExhaustedError,
     ThinkingAggregator,
@@ -19,7 +19,7 @@ from think.providers.cli import (
     build_cogitate_env,
     cogitate_sol_tool_hint,
 )
-from think.providers.shared import JSONEventCallback, safe_raw
+from solstone.think.providers.shared import JSONEventCallback, safe_raw
 
 # ---------------------------------------------------------------------------
 # assemble_prompt
@@ -326,10 +326,13 @@ class TestCLIRunnerExitCode:
 
         with (
             patch(
-                "think.providers.cli.asyncio.create_subprocess_exec",
+                "solstone.think.providers.cli.asyncio.create_subprocess_exec",
                 AsyncMock(return_value=process),
             ),
-            patch("think.providers.cli.shutil.which", return_value="/usr/bin/fakecli"),
+            patch(
+                "solstone.think.providers.cli.shutil.which",
+                return_value="/usr/bin/fakecli",
+            ),
             pytest.raises(QuotaExhaustedError, match="quota exhausted") as exc_info,
         ):
             asyncio.run(runner.run())
@@ -358,10 +361,13 @@ class TestCLIRunnerExitCode:
 
         with (
             patch(
-                "think.providers.cli.asyncio.create_subprocess_exec",
+                "solstone.think.providers.cli.asyncio.create_subprocess_exec",
                 AsyncMock(return_value=process),
             ),
-            patch("think.providers.cli.shutil.which", return_value="/usr/bin/fakecli"),
+            patch(
+                "solstone.think.providers.cli.shutil.which",
+                return_value="/usr/bin/fakecli",
+            ),
             pytest.raises(QuotaExhaustedError) as exc_info,
         ):
             asyncio.run(runner.run())
@@ -396,10 +402,13 @@ class TestCLIRunnerExitCode:
 
         with (
             patch(
-                "think.providers.cli.asyncio.create_subprocess_exec",
+                "solstone.think.providers.cli.asyncio.create_subprocess_exec",
                 AsyncMock(return_value=process),
             ),
-            patch("think.providers.cli.shutil.which", return_value="/usr/bin/fakecli"),
+            patch(
+                "solstone.think.providers.cli.shutil.which",
+                return_value="/usr/bin/fakecli",
+            ),
         ):
             result = asyncio.run(runner.run())
 
@@ -431,10 +440,13 @@ class TestCLIRunnerExitCode:
 
         with (
             patch(
-                "think.providers.cli.asyncio.create_subprocess_exec",
+                "solstone.think.providers.cli.asyncio.create_subprocess_exec",
                 AsyncMock(return_value=process),
             ),
-            patch("think.providers.cli.shutil.which", return_value="/usr/bin/fakecli"),
+            patch(
+                "solstone.think.providers.cli.shutil.which",
+                return_value="/usr/bin/fakecli",
+            ),
         ):
             result = asyncio.run(runner.run())
 
@@ -467,11 +479,12 @@ class TestCLIRunnerExitCode:
         try:
             with (
                 patch(
-                    "think.providers.cli.asyncio.create_subprocess_exec",
+                    "solstone.think.providers.cli.asyncio.create_subprocess_exec",
                     AsyncMock(side_effect=create_subprocess_exec),
                 ),
                 patch(
-                    "think.providers.cli.shutil.which", return_value="/usr/bin/fakecli"
+                    "solstone.think.providers.cli.shutil.which",
+                    return_value="/usr/bin/fakecli",
                 ),
             ):
                 asyncio.run(runner.run())
@@ -506,10 +519,13 @@ class TestCLIRunnerExitCode:
 
         with (
             patch(
-                "think.providers.cli.asyncio.create_subprocess_exec",
+                "solstone.think.providers.cli.asyncio.create_subprocess_exec",
                 AsyncMock(side_effect=create_subprocess_exec),
             ),
-            patch("think.providers.cli.shutil.which", return_value="/usr/bin/fakecli"),
+            patch(
+                "solstone.think.providers.cli.shutil.which",
+                return_value="/usr/bin/fakecli",
+            ),
         ):
             asyncio.run(runner.run())
 
@@ -545,10 +561,13 @@ class TestCLIRunnerExitCode:
 
         with (
             patch(
-                "think.providers.cli.asyncio.create_subprocess_exec",
+                "solstone.think.providers.cli.asyncio.create_subprocess_exec",
                 AsyncMock(return_value=process),
             ),
-            patch("think.providers.cli.shutil.which", return_value="/usr/bin/fakecli"),
+            patch(
+                "solstone.think.providers.cli.shutil.which",
+                return_value="/usr/bin/fakecli",
+            ),
             pytest.raises(RuntimeError) as exc_info,
         ):
             asyncio.run(runner.run())
@@ -597,10 +616,13 @@ class TestCLIRunnerFirstEventTimeout:
 
         with (
             patch(
-                "think.providers.cli.asyncio.create_subprocess_exec",
+                "solstone.think.providers.cli.asyncio.create_subprocess_exec",
                 AsyncMock(return_value=process),
             ),
-            patch("think.providers.cli.shutil.which", return_value="/usr/bin/fakecli"),
+            patch(
+                "solstone.think.providers.cli.shutil.which",
+                return_value="/usr/bin/fakecli",
+            ),
             pytest.raises(RuntimeError) as exc_info,
         ):
             asyncio.run(runner.run())
@@ -625,7 +647,7 @@ class TestCLIRunnerFirstEventRetry:
     def test_short_first_event_timeout_with_slow_first_emit_raises(
         self, monkeypatch, tmp_path
     ):
-        monkeypatch.setattr("think.providers.cli._TIMEOUT_LOG_DIR", tmp_path)
+        monkeypatch.setattr("solstone.think.providers.cli._TIMEOUT_LOG_DIR", tmp_path)
         events = []
         callback = JSONEventCallback(events.append)
         aggregator = ThinkingAggregator(callback, model="test-model")
@@ -646,10 +668,13 @@ class TestCLIRunnerFirstEventRetry:
 
         with (
             patch(
-                "think.providers.cli.asyncio.create_subprocess_exec",
+                "solstone.think.providers.cli.asyncio.create_subprocess_exec",
                 AsyncMock(side_effect=[process_one, process_two]),
             ) as mock_create,
-            patch("think.providers.cli.shutil.which", return_value="/usr/bin/fakecli"),
+            patch(
+                "solstone.think.providers.cli.shutil.which",
+                return_value="/usr/bin/fakecli",
+            ),
             pytest.raises(RuntimeError),
         ):
             asyncio.run(runner.run())
@@ -657,7 +682,7 @@ class TestCLIRunnerFirstEventRetry:
         assert mock_create.call_count == 2
 
     def test_first_event_timeout_with_headroom_succeeds(self, monkeypatch, tmp_path):
-        monkeypatch.setattr("think.providers.cli._TIMEOUT_LOG_DIR", tmp_path)
+        monkeypatch.setattr("solstone.think.providers.cli._TIMEOUT_LOG_DIR", tmp_path)
         events = []
         callback = JSONEventCallback(events.append)
         aggregator = ThinkingAggregator(callback, model="test-model")
@@ -676,10 +701,13 @@ class TestCLIRunnerFirstEventRetry:
 
         with (
             patch(
-                "think.providers.cli.asyncio.create_subprocess_exec",
+                "solstone.think.providers.cli.asyncio.create_subprocess_exec",
                 AsyncMock(return_value=process),
             ) as mock_create,
-            patch("think.providers.cli.shutil.which", return_value="/usr/bin/fakecli"),
+            patch(
+                "solstone.think.providers.cli.shutil.which",
+                return_value="/usr/bin/fakecli",
+            ),
         ):
             result = asyncio.run(runner.run())
 
@@ -688,7 +716,7 @@ class TestCLIRunnerFirstEventRetry:
         assert runner._already_retried_first_event is False
 
     def test_first_event_timeout_triggers_one_retry(self, monkeypatch, tmp_path):
-        monkeypatch.setattr("think.providers.cli._TIMEOUT_LOG_DIR", tmp_path)
+        monkeypatch.setattr("solstone.think.providers.cli._TIMEOUT_LOG_DIR", tmp_path)
         events = []
         callback = JSONEventCallback(events.append)
         aggregator = ThinkingAggregator(callback, model="test-model")
@@ -708,10 +736,13 @@ class TestCLIRunnerFirstEventRetry:
 
         with (
             patch(
-                "think.providers.cli.asyncio.create_subprocess_exec",
+                "solstone.think.providers.cli.asyncio.create_subprocess_exec",
                 AsyncMock(side_effect=[hanging_proc_1, hanging_proc_2]),
             ) as mock_create,
-            patch("think.providers.cli.shutil.which", return_value="/usr/bin/fakecli"),
+            patch(
+                "solstone.think.providers.cli.shutil.which",
+                return_value="/usr/bin/fakecli",
+            ),
             pytest.raises(RuntimeError),
         ):
             asyncio.run(runner.run())
@@ -720,7 +751,7 @@ class TestCLIRunnerFirstEventRetry:
         assert runner._already_retried_first_event is True
 
     def test_retry_succeeds_when_second_spawn_emits(self, monkeypatch, tmp_path):
-        monkeypatch.setattr("think.providers.cli._TIMEOUT_LOG_DIR", tmp_path)
+        monkeypatch.setattr("solstone.think.providers.cli._TIMEOUT_LOG_DIR", tmp_path)
         events = []
         callback = JSONEventCallback(events.append)
         aggregator = ThinkingAggregator(callback, model="test-model")
@@ -743,10 +774,13 @@ class TestCLIRunnerFirstEventRetry:
 
         with (
             patch(
-                "think.providers.cli.asyncio.create_subprocess_exec",
+                "solstone.think.providers.cli.asyncio.create_subprocess_exec",
                 AsyncMock(side_effect=[hanging_proc, healthy_proc]),
             ) as mock_create,
-            patch("think.providers.cli.shutil.which", return_value="/usr/bin/fakecli"),
+            patch(
+                "solstone.think.providers.cli.shutil.which",
+                return_value="/usr/bin/fakecli",
+            ),
         ):
             result = asyncio.run(runner.run())
 
@@ -756,7 +790,7 @@ class TestCLIRunnerFirstEventRetry:
         assert [event for event in events if event.get("event") == "text"]
 
     def test_timeout_log_redacts_env_values_and_prompt(self, monkeypatch, tmp_path):
-        monkeypatch.setattr("think.providers.cli._TIMEOUT_LOG_DIR", tmp_path)
+        monkeypatch.setattr("solstone.think.providers.cli._TIMEOUT_LOG_DIR", tmp_path)
         events = []
         callback = JSONEventCallback(events.append)
         aggregator = ThinkingAggregator(callback, model="test-model")
@@ -777,10 +811,13 @@ class TestCLIRunnerFirstEventRetry:
 
         with (
             patch(
-                "think.providers.cli.asyncio.create_subprocess_exec",
+                "solstone.think.providers.cli.asyncio.create_subprocess_exec",
                 AsyncMock(side_effect=[hanging_proc_1, hanging_proc_2]),
             ),
-            patch("think.providers.cli.shutil.which", return_value="/usr/bin/fakecli"),
+            patch(
+                "solstone.think.providers.cli.shutil.which",
+                return_value="/usr/bin/fakecli",
+            ),
             pytest.raises(RuntimeError),
         ):
             asyncio.run(runner.run())
@@ -795,7 +832,7 @@ class TestCLIRunnerFirstEventRetry:
             assert file_path.stat().st_mode & 0o777 == 0o600
 
     def test_full_run_timeout_writes_log(self, monkeypatch, tmp_path):
-        monkeypatch.setattr("think.providers.cli._TIMEOUT_LOG_DIR", tmp_path)
+        monkeypatch.setattr("solstone.think.providers.cli._TIMEOUT_LOG_DIR", tmp_path)
         events = []
         callback = JSONEventCallback(events.append)
         aggregator = ThinkingAggregator(callback, model="test-model")
@@ -815,10 +852,13 @@ class TestCLIRunnerFirstEventRetry:
 
         with (
             patch(
-                "think.providers.cli.asyncio.create_subprocess_exec",
+                "solstone.think.providers.cli.asyncio.create_subprocess_exec",
                 AsyncMock(return_value=process),
             ),
-            patch("think.providers.cli.shutil.which", return_value="/usr/bin/fakecli"),
+            patch(
+                "solstone.think.providers.cli.shutil.which",
+                return_value="/usr/bin/fakecli",
+            ),
             pytest.raises(RuntimeError),
         ):
             asyncio.run(runner.run())
@@ -913,10 +953,13 @@ class TestCLIRunnerOversizedOutput:
 
         with (
             patch(
-                "think.providers.cli.asyncio.create_subprocess_exec",
+                "solstone.think.providers.cli.asyncio.create_subprocess_exec",
                 AsyncMock(return_value=process),
             ),
-            patch("think.providers.cli.shutil.which", return_value="/usr/bin/fakecli"),
+            patch(
+                "solstone.think.providers.cli.shutil.which",
+                return_value="/usr/bin/fakecli",
+            ),
         ):
             asyncio.run(runner.run())
 
@@ -1031,7 +1074,7 @@ def test_build_cogitate_env_allowlist_anthropic():
             },
             clear=True,
         ),
-        patch("think.utils.get_config", return_value=config),
+        patch("solstone.think.utils.get_config", return_value=config),
     ):
         env = build_cogitate_env("anthropic")
 
@@ -1058,7 +1101,7 @@ def test_build_cogitate_env_allowlist_openai():
             },
             clear=True,
         ),
-        patch("think.utils.get_config", return_value=config),
+        patch("solstone.think.utils.get_config", return_value=config),
     ):
         env = build_cogitate_env("openai")
 
@@ -1090,7 +1133,7 @@ def test_build_cogitate_env_allowlist_google():
             },
             clear=True,
         ),
-        patch("think.utils.get_config", return_value=config),
+        patch("solstone.think.utils.get_config", return_value=config),
     ):
         env = build_cogitate_env("google")
 
@@ -1112,7 +1155,7 @@ def test_build_cogitate_env_vertex_strict_validation_raises():
     }
     with (
         patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
-        patch("think.utils.get_config", return_value=config),
+        patch("solstone.think.utils.get_config", return_value=config),
         patch("os.path.exists", return_value=False),
         pytest.raises(
             ValueError,
@@ -1133,7 +1176,7 @@ class TestBuildCogitateEnv:
         config = {"providers": {}}
         with (
             patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-secret"}, clear=False),
-            patch("think.utils.get_config", return_value=config),
+            patch("solstone.think.utils.get_config", return_value=config),
         ):
             env = build_cogitate_env("anthropic")
         assert "ANTHROPIC_API_KEY" not in env
@@ -1143,7 +1186,7 @@ class TestBuildCogitateEnv:
         config = {"providers": {"auth": {"anthropic": "platform"}}}
         with (
             patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-secret"}, clear=False),
-            patch("think.utils.get_config", return_value=config),
+            patch("solstone.think.utils.get_config", return_value=config),
         ):
             env = build_cogitate_env("anthropic")
         assert "ANTHROPIC_API_KEY" not in env
@@ -1153,7 +1196,7 @@ class TestBuildCogitateEnv:
         config = {"providers": {"auth": {"anthropic": "api_key"}}}
         with (
             patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-secret"}, clear=False),
-            patch("think.utils.get_config", return_value=config),
+            patch("solstone.think.utils.get_config", return_value=config),
         ):
             env = build_cogitate_env("anthropic")
         assert env["ANTHROPIC_API_KEY"] == "sk-secret"
@@ -1163,7 +1206,7 @@ class TestBuildCogitateEnv:
         config = {}
         with (
             patch.dict(os.environ, {"OPENAI_API_KEY": "sk-openai"}, clear=False),
-            patch("think.utils.get_config", return_value=config),
+            patch("solstone.think.utils.get_config", return_value=config),
         ):
             env = build_cogitate_env("openai")
         assert "OPENAI_API_KEY" not in env
@@ -1177,7 +1220,7 @@ class TestBuildCogitateEnv:
                 {"ANTHROPIC_API_KEY": "sk-secret", "HOME": "/home/test"},
                 clear=False,
             ),
-            patch("think.utils.get_config", return_value=config),
+            patch("solstone.think.utils.get_config", return_value=config),
         ):
             env = build_cogitate_env("anthropic")
         assert env["HOME"] == "/home/test"
@@ -1187,7 +1230,7 @@ class TestBuildCogitateEnv:
         config = {"providers": {}}
         with (
             patch.dict(os.environ, {}, clear=False),
-            patch("think.utils.get_config", return_value=config),
+            patch("solstone.think.utils.get_config", return_value=config),
         ):
             env = build_cogitate_env("google")
         assert "GOOGLE_API_KEY" not in env
@@ -1208,7 +1251,7 @@ class TestBuildCogitateEnv:
                 {"ANTHROPIC_API_KEY": "sk-ant", "OPENAI_API_KEY": "sk-oai"},
                 clear=False,
             ),
-            patch("think.utils.get_config", return_value=config),
+            patch("solstone.think.utils.get_config", return_value=config),
         ):
             ant_env = build_cogitate_env("anthropic")
             oai_env = build_cogitate_env("openai")
@@ -1226,7 +1269,7 @@ class TestBuildCogitateEnv:
         }
         with (
             patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
-            patch("think.utils.get_config", return_value=config),
+            patch("solstone.think.utils.get_config", return_value=config),
             patch("os.path.exists", return_value=True),
             patch(
                 "builtins.open",
@@ -1251,7 +1294,7 @@ class TestBuildCogitateEnv:
         }
         with (
             patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
-            patch("think.utils.get_config", return_value=config),
+            patch("solstone.think.utils.get_config", return_value=config),
             patch("os.path.exists", return_value=True),
             patch(
                 "builtins.open",
@@ -1276,7 +1319,7 @@ class TestBuildCogitateEnv:
         }
         with (
             patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
-            patch("think.utils.get_config", return_value=config),
+            patch("solstone.think.utils.get_config", return_value=config),
         ):
             env = build_cogitate_env("google")
         assert "GOOGLE_GENAI_USE_VERTEXAI" not in env
@@ -1292,8 +1335,10 @@ class TestBuildCogitateEnv:
         }
         with (
             patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
-            patch("think.utils.get_config", return_value=config),
-            patch("think.providers.google._detect_backend", return_value="vertex"),
+            patch("solstone.think.utils.get_config", return_value=config),
+            patch(
+                "solstone.think.providers.google._detect_backend", return_value="vertex"
+            ),
             patch("os.path.exists", return_value=True),
             patch(
                 "builtins.open",
@@ -1317,7 +1362,7 @@ class TestBuildCogitateEnv:
         }
         with (
             patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant"}, clear=True),
-            patch("think.utils.get_config", return_value=config),
+            patch("solstone.think.utils.get_config", return_value=config),
         ):
             env = build_cogitate_env("anthropic")
         assert "GOOGLE_GENAI_USE_VERTEXAI" not in env
@@ -1334,7 +1379,7 @@ class TestBuildCogitateEnv:
         }
         with (
             patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
-            patch("think.utils.get_config", return_value=config),
+            patch("solstone.think.utils.get_config", return_value=config),
             patch("os.path.exists", return_value=True),
             patch(
                 "builtins.open",
@@ -1361,7 +1406,7 @@ class TestBuildCogitateEnv:
         }
         with (
             patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
-            patch("think.utils.get_config", return_value=config),
+            patch("solstone.think.utils.get_config", return_value=config),
             pytest.raises(
                 ValueError,
                 match=(
@@ -1382,7 +1427,7 @@ class TestBuildCogitateEnv:
         }
         with (
             patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
-            patch("think.utils.get_config", return_value=config),
+            patch("solstone.think.utils.get_config", return_value=config),
             patch("os.path.exists", return_value=True),
             patch("builtins.open", mock_open(read_data="not json")),
             pytest.raises(
@@ -1406,7 +1451,7 @@ class TestBuildCogitateEnv:
         }
         with (
             patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
-            patch("think.utils.get_config", return_value=config),
+            patch("solstone.think.utils.get_config", return_value=config),
             patch("os.path.exists", return_value=True),
             patch(
                 "builtins.open",
@@ -1444,7 +1489,7 @@ class TestBuildCogitateEnv:
                 },
                 clear=True,
             ),
-            patch("think.utils.get_config", return_value=config),
+            patch("solstone.think.utils.get_config", return_value=config),
         ):
             env = build_cogitate_env("google")
         assert "GOOGLE_CLOUD_PROJECT" not in env
@@ -1461,8 +1506,8 @@ class TestBuildCogitateEnv:
         }
         with (
             patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
-            patch("think.utils.get_config", return_value=config),
-            patch("think.utils.get_journal", return_value="/fake/journal"),
+            patch("solstone.think.utils.get_config", return_value=config),
+            patch("solstone.think.utils.get_journal", return_value="/fake/journal"),
             patch("os.path.exists", return_value=True),
             patch(
                 "builtins.open",
@@ -1488,7 +1533,7 @@ class TestBuildCogitateEnv:
         }
         with (
             patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
-            patch("think.utils.get_config", return_value=config),
+            patch("solstone.think.utils.get_config", return_value=config),
         ):
             env = build_cogitate_env("google")
         assert "GEMINI_CLI_SYSTEM_SETTINGS_PATH" not in env
@@ -1510,7 +1555,7 @@ class TestBuildCogitateEnv:
                 },
                 clear=True,
             ),
-            patch("think.utils.get_config", return_value=config),
+            patch("solstone.think.utils.get_config", return_value=config),
         ):
             env = build_cogitate_env("google")
         assert "GEMINI_CLI_SYSTEM_SETTINGS_PATH" not in env
@@ -1525,7 +1570,7 @@ class TestBuildCogitateEnv:
         }
         with (
             patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
-            patch("think.utils.get_config", return_value=config),
+            patch("solstone.think.utils.get_config", return_value=config),
         ):
             env = build_cogitate_env("google")
         assert env["GOOGLE_API_KEY"] == "gk-test"
@@ -1545,7 +1590,7 @@ class TestBuildCogitateEnv:
                 {"GOOGLE_API_KEY": "gk-test", "GEMINI_API_KEY": "gemini-explicit"},
                 clear=True,
             ),
-            patch("think.utils.get_config", return_value=config),
+            patch("solstone.think.utils.get_config", return_value=config),
         ):
             env = build_cogitate_env("google")
         assert env["GOOGLE_API_KEY"] == "gk-test"
@@ -1561,7 +1606,7 @@ class TestBuildCogitateEnv:
         }
         with (
             patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
-            patch("think.utils.get_config", return_value=config),
+            patch("solstone.think.utils.get_config", return_value=config),
         ):
             env = build_cogitate_env("google")
         assert "GOOGLE_API_KEY" not in env
@@ -1578,7 +1623,7 @@ class TestBuildCogitateEnv:
         }
         with (
             patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
-            patch("think.utils.get_config", return_value=config),
+            patch("solstone.think.utils.get_config", return_value=config),
             patch("os.path.exists", return_value=True),
             patch(
                 "builtins.open",
@@ -1609,8 +1654,8 @@ class TestBuildCogitateEnv:
         }
         with (
             patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
-            patch("think.utils.get_config", return_value=config),
-            patch("think.utils.get_journal", return_value=str(journal_path)),
+            patch("solstone.think.utils.get_config", return_value=config),
+            patch("solstone.think.utils.get_journal", return_value=str(journal_path)),
         ):
             env = build_cogitate_env("google")
         assert env["GEMINI_CLI_SYSTEM_SETTINGS_PATH"] == (
@@ -1643,8 +1688,8 @@ class TestBuildCogitateEnv:
         }
         with (
             patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
-            patch("think.utils.get_config", return_value=config),
-            patch("think.utils.get_journal", return_value=str(journal_path)),
+            patch("solstone.think.utils.get_config", return_value=config),
+            patch("solstone.think.utils.get_journal", return_value=str(journal_path)),
         ):
             env = build_cogitate_env("google")
         assert env["GEMINI_CLI_SYSTEM_SETTINGS_PATH"] == (str(settings_path))

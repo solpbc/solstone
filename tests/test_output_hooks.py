@@ -15,10 +15,10 @@ import json
 import os
 from pathlib import Path
 
+from solstone.think.talent import load_post_hook, load_pre_hook
+from solstone.think.talents import _apply_template_vars
+from solstone.think.utils import day_path
 from tests.conftest import copytree_tracked
-from think.talent import load_post_hook, load_pre_hook
-from think.talents import _apply_template_vars
-from think.utils import day_path
 
 FIXTURES = Path("tests/fixtures")
 
@@ -136,7 +136,7 @@ def test_load_post_hook_file_not_found(tmp_path):
 
 def test_prompt_metadata_no_hook_path(tmp_path):
     """Test that _load_prompt_metadata no longer sets hook_path."""
-    talent = importlib.import_module("think.talent")
+    talent = importlib.import_module("solstone.think.talent")
 
     md_file = tmp_path / "test_generator.md"
     md_file.write_text(
@@ -157,13 +157,13 @@ def test_prompt_metadata_no_hook_path(tmp_path):
 
 def test_output_hook_invocation(tmp_path, monkeypatch):
     """Test that agents.py invokes hook and uses transformed result."""
-    mod = importlib.import_module("think.talents")
+    mod = importlib.import_module("solstone.think.talents")
     copy_day(tmp_path)
 
     # Use tmp_path as talent directory to avoid polluting real talent/
-    import think.talent
+    import solstone.think.talent as talent
 
-    monkeypatch.setattr(think.talent, "TALENT_DIR", tmp_path)
+    monkeypatch.setattr(talent, "TALENT_DIR", tmp_path)
 
     prompt_file = tmp_path / "hooked_test.md"
     prompt_file.write_text(
@@ -180,11 +180,11 @@ def post_process(result, context):
     return result + "\\n\\n## Hook was here"
 """)
 
-    # Mock the underlying generation function in think.models
-    import think.models
+    # Mock the underlying generation function in models
+    from solstone.think import models
 
     monkeypatch.setattr(
-        think.models,
+        models,
         "generate_with_result",
         lambda *a, **k: MOCK_RESULT,
     )
@@ -212,12 +212,12 @@ def post_process(result, context):
 
 def test_output_hook_returns_none(tmp_path, monkeypatch):
     """Test that hook returning None uses original result."""
-    mod = importlib.import_module("think.talents")
+    mod = importlib.import_module("solstone.think.talents")
     copy_day(tmp_path)
 
-    import think.talent
+    import solstone.think.talent as talent
 
-    monkeypatch.setattr(think.talent, "TALENT_DIR", tmp_path)
+    monkeypatch.setattr(talent, "TALENT_DIR", tmp_path)
 
     prompt_file = tmp_path / "noop_test.md"
     prompt_file.write_text(
@@ -230,11 +230,11 @@ def post_process(result, context):
     return None  # Signal to use original
 """)
 
-    # Mock the underlying generation function in think.models
-    import think.models
+    # Mock the underlying generation function in models
+    from solstone.think import models
 
     monkeypatch.setattr(
-        think.models,
+        models,
         "generate_with_result",
         lambda *a, **k: MOCK_RESULT,
     )
@@ -258,12 +258,12 @@ def post_process(result, context):
 
 def test_output_hook_error_fallback(tmp_path, monkeypatch):
     """Test that hook errors fall back to original result."""
-    mod = importlib.import_module("think.talents")
+    mod = importlib.import_module("solstone.think.talents")
     copy_day(tmp_path)
 
-    import think.talent
+    import solstone.think.talent as talent
 
-    monkeypatch.setattr(think.talent, "TALENT_DIR", tmp_path)
+    monkeypatch.setattr(talent, "TALENT_DIR", tmp_path)
 
     prompt_file = tmp_path / "broken_test.md"
     prompt_file.write_text(
@@ -276,11 +276,11 @@ def post_process(result, context):
     raise RuntimeError("Hook exploded!")
 """)
 
-    # Mock the underlying generation function in think.models
-    import think.models
+    # Mock the underlying generation function in models
+    from solstone.think import models
 
     monkeypatch.setattr(
-        think.models,
+        models,
         "generate_with_result",
         lambda *a, **k: MOCK_RESULT,
     )
@@ -375,12 +375,12 @@ def test_load_pre_hook_file_not_found(tmp_path):
 
 def test_pre_hook_invocation(tmp_path, monkeypatch):
     """Test that agents.py invokes pre-hook and uses modified inputs."""
-    mod = importlib.import_module("think.talents")
+    mod = importlib.import_module("solstone.think.talents")
     copy_day(tmp_path)
 
-    import think.talent
+    import solstone.think.talent as talent
 
-    monkeypatch.setattr(think.talent, "TALENT_DIR", tmp_path)
+    monkeypatch.setattr(talent, "TALENT_DIR", tmp_path)
 
     prompt_file = tmp_path / "prehooked_test.md"
     prompt_file.write_text(
@@ -406,9 +406,9 @@ def pre_process(context):
         received_kwargs["contents"] = args[0] if args else kwargs.get("contents")
         return MOCK_RESULT
 
-    import think.models
+    from solstone.think import models
 
-    monkeypatch.setattr(think.models, "generate_with_result", mock_generate)
+    monkeypatch.setattr(models, "generate_with_result", mock_generate)
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
@@ -541,12 +541,12 @@ def test_template_vars_popped_from_modifications():
 
 def test_pre_hook_template_vars_integration(tmp_path, monkeypatch):
     """Test pre-hook template_vars reach the model as substituted text."""
-    mod = importlib.import_module("think.talents")
+    mod = importlib.import_module("solstone.think.talents")
     copy_day(tmp_path)
 
-    import think.talent
+    import solstone.think.talent as talent
 
-    monkeypatch.setattr(think.talent, "TALENT_DIR", tmp_path)
+    monkeypatch.setattr(talent, "TALENT_DIR", tmp_path)
 
     prompt_file = tmp_path / "prehook_template_vars.md"
     prompt_file.write_text(
@@ -566,9 +566,9 @@ def pre_process(context):
         received_kwargs["contents"] = args[0] if args else kwargs.get("contents")
         return MOCK_RESULT
 
-    import think.models
+    from solstone.think import models
 
-    monkeypatch.setattr(think.models, "generate_with_result", mock_generate)
+    monkeypatch.setattr(models, "generate_with_result", mock_generate)
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
@@ -592,12 +592,12 @@ def pre_process(context):
 
 def test_pre_hook_template_vars_with_field_mods(tmp_path, monkeypatch):
     """Test pre-hook can return field mods and template_vars together."""
-    mod = importlib.import_module("think.talents")
+    mod = importlib.import_module("solstone.think.talents")
     copy_day(tmp_path)
 
-    import think.talent
+    import solstone.think.talent as talent
 
-    monkeypatch.setattr(think.talent, "TALENT_DIR", tmp_path)
+    monkeypatch.setattr(talent, "TALENT_DIR", tmp_path)
 
     prompt_file = tmp_path / "prehook_template_with_mods.md"
     prompt_file.write_text(
@@ -620,9 +620,9 @@ def pre_process(context):
         received_kwargs["contents"] = args[0] if args else kwargs.get("contents")
         return MOCK_RESULT
 
-    import think.models
+    from solstone.think import models
 
-    monkeypatch.setattr(think.models, "generate_with_result", mock_generate)
+    monkeypatch.setattr(models, "generate_with_result", mock_generate)
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
@@ -646,12 +646,12 @@ def pre_process(context):
 
 def test_both_pre_and_post_hooks(tmp_path, monkeypatch):
     """Test that both pre and post hooks can be configured together."""
-    mod = importlib.import_module("think.talents")
+    mod = importlib.import_module("solstone.think.talents")
     copy_day(tmp_path)
 
-    import think.talent
+    import solstone.think.talent as talent
 
-    monkeypatch.setattr(think.talent, "TALENT_DIR", tmp_path)
+    monkeypatch.setattr(talent, "TALENT_DIR", tmp_path)
 
     prompt_file = tmp_path / "both_hooks_test.md"
     prompt_file.write_text(
@@ -674,9 +674,9 @@ def post_process(result, context):
         received_kwargs["contents"] = args[0] if args else kwargs.get("contents")
         return MOCK_RESULT
 
-    import think.models
+    from solstone.think import models
 
-    monkeypatch.setattr(think.models, "generate_with_result", mock_generate)
+    monkeypatch.setattr(models, "generate_with_result", mock_generate)
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 

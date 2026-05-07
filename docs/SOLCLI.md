@@ -23,12 +23,12 @@ The CLI has two tiers with distinct purposes:
 
 ### How they work
 
-`think/sol_cli.py` contains a static `COMMANDS` dict mapping command names to module paths:
+`solstone/think/sol_cli.py` contains a static `COMMANDS` dict mapping command names to module paths:
 
 ```python
 COMMANDS: dict[str, str] = {
-    "think": "think.thinking",
-    "import": "think.importers.cli",
+    "think": "solstone.think.thinking",
+    "import": "solstone.think.importers.cli",
     ...
 }
 ```
@@ -42,7 +42,7 @@ Commands are organized into `GROUPS` for help display, and `ALIASES` provide sho
 1. **Create the module** with a `main()` function:
 
 ```python
-# think/my_cmd.py
+# solstone/think/my_cmd.py
 import argparse
 
 def main() -> None:
@@ -52,12 +52,12 @@ def main() -> None:
     # ... implementation
 ```
 
-2. **Register in `think/sol_cli.py`** — add to `COMMANDS`:
+2. **Register in `solstone/think/sol_cli.py`** — add to `COMMANDS`:
 
 ```python
 COMMANDS: dict[str, str] = {
     ...
-    "my-cmd": "think.my_cmd",
+    "my-cmd": "solstone.think.my_cmd",
 }
 ```
 
@@ -69,17 +69,17 @@ COMMANDS: dict[str, str] = {
 
 | File | What to do |
 |------|-----------|
-| `think/sol_cli.py` `COMMANDS` dict | Register the command |
-| `think/sol_cli.py` `GROUPS` dict | Add to appropriate group |
-| Module file (e.g., `think/my_cmd.py`) | Implement with `main()` |
+| `solstone/think/sol_cli.py` `COMMANDS` dict | Register the command |
+| `solstone/think/sol_cli.py` `GROUPS` dict | Add to appropriate group |
+| Module file (e.g., `solstone/think/my_cmd.py`) | Implement with `main()` |
 
 ## Call Commands (`sol call <app> <cmd>`)
 
 ### How they work
 
-`think/call.py` is the gateway. It creates a root `typer.Typer()` and mounts sub-apps from two sources:
+`solstone/think/call.py` is the gateway. It creates a root `typer.Typer()` and mounts sub-apps from two sources:
 
-**Auto-discovered apps** — scans `apps/*/call.py` at import time:
+**Auto-discovered apps** — scans `solstone/apps/*/call.py` at import time:
 ```
 apps/todos/call.py      → sol call todos ...
 apps/activities/call.py → sol call activities ...
@@ -88,13 +88,13 @@ apps/entities/call.py   → sol call entities ...
 
 Each `call.py` must export `app = typer.Typer()`. The directory name becomes the sub-command name. Errors in one app don't prevent others from loading.
 
-**Manually mounted built-ins** — for commands tightly coupled to `think/` internals:
+**Manually mounted built-ins** — for commands tightly coupled to `solstone/think/` internals:
 ```python
 # think/call.py
-from think.tools.call import app as journal_app
-from think.tools.navigate import app as navigate_app
-from think.tools.routines import app as routines_app
-from think.tools.sol import app as sol_app
+from solstone.think.tools.call import app as journal_app
+from solstone.think.tools.navigate import app as navigate_app
+from solstone.think.tools.routines import app as routines_app
+from solstone.think.tools.sol import app as sol_app
 
 call_app.add_typer(journal_app, name="journal")
 call_app.add_typer(navigate_app, name="navigate")
@@ -102,18 +102,18 @@ call_app.add_typer(routines_app, name="routines")
 call_app.add_typer(sol_app, name="identity")
 ```
 
-These live under `think/tools/` because they import think-internal APIs directly.
+These live under `solstone/think/tools/` because they import think-internal APIs directly.
 
 ### Adding a new auto-discovered app
 
 This is the happy path for most new commands.
 
-1. **Create `apps/<name>/call.py`**:
+1. **Create `solstone/apps/<name>/call.py`**:
 
 ```python
-# apps/myapp/call.py
+# solstone/apps/myapp/call.py
 import typer
-from think.facets import log_call_action
+from solstone.think.facets import log_call_action
 
 app = typer.Typer(help="Short description of what this app does.")
 
@@ -123,7 +123,7 @@ def list_items(
     facet: str | None = typer.Option(None, "--facet", "-f", help="Facet name."),
 ) -> None:
     """List items."""
-    from think.utils import resolve_sol_day, resolve_sol_facet
+    from solstone.think.utils import resolve_sol_day, resolve_sol_facet
     day = resolve_sol_day(day)
     facet = resolve_sol_facet(facet)
     # ... implementation
@@ -134,7 +134,7 @@ def list_items(
 3. **Create the agent skill** (if agents should use these commands):
 
 ```markdown
-# apps/myapp/talent/myapp/SKILL.md
+# solstone/apps/myapp/talent/myapp/SKILL.md
 ---
 name: myapp
 description: >
@@ -167,22 +167,22 @@ List items for a day.
 
 ### Adding a manually-mounted built-in
 
-Use this when the command depends heavily on `think/` internals and shouldn't live in `apps/`.
+Use this when the command depends heavily on `solstone/think/` internals and shouldn't live in `solstone/apps/`.
 
-1. **Create `think/tools/<name>.py`** with `app = typer.Typer()`.
-2. **Mount in `think/call.py`**:
+1. **Create `solstone/think/tools/<name>.py`** with `app = typer.Typer()`.
+2. **Mount in `solstone/think/call.py`**:
 ```python
-from think.tools.mytools import app as mytools_app
+from solstone.think.tools.mytools import app as mytools_app
 call_app.add_typer(mytools_app, name="mytools")
 ```
-3. **Optionally create a skill** in `talent/<name>/SKILL.md`.
+3. **Optionally create a skill** in `solstone/talent/<name>/SKILL.md`.
 
 ### Files to maintain for a new call command
 
 | File | What to do | Required? |
 |------|-----------|-----------|
-| `apps/<name>/call.py` | Typer app with commands | Yes |
-| `apps/<name>/talent/<name>/SKILL.md` | Skill doc for agents | If agents should use it |
+| `solstone/apps/<name>/call.py` | Typer app with commands | Yes |
+| `solstone/apps/<name>/talent/<name>/SKILL.md` | Skill doc for agents | If agents should use it |
 | `journal/.agents/skills/<name>` | Symlink (via `sol skills install --project`; `make skills` wrapper) | Auto-generated |
 | `AGENTS.md` Skills table | Add trigger description | If skill exists |
 | `tests/test_<name>_call.py` | CLI tests | Yes |
@@ -194,7 +194,7 @@ call_app.add_typer(mytools_app, name="mytools")
 Commands that take `--day` or `--facet` should respect `SOL_DAY` and `SOL_FACET` environment variables as defaults. Use the helpers:
 
 ```python
-from think.utils import resolve_sol_day, resolve_sol_facet
+from solstone.think.utils import resolve_sol_day, resolve_sol_facet
 
 day = resolve_sol_day(day_arg)    # Falls back to SOL_DAY env
 facet = resolve_sol_facet(facet_arg)  # Falls back to SOL_FACET env
@@ -205,7 +205,7 @@ facet = resolve_sol_facet(facet_arg)  # Falls back to SOL_FACET env
 All mutating `sol call` commands should log their actions for audit:
 
 ```python
-from think.facets import log_call_action
+from solstone.think.facets import log_call_action
 
 log_call_action(
     facet=facet,
@@ -260,7 +260,7 @@ solstone/
 │   │   ├── routines.py             # sol call routines (built-in)
 │   │   └── sol.py                  # sol call identity (built-in)
 │   └── *.py                        # Top-level command modules
-├── apps/
+├── solstone/apps/
 │   ├── todos/
 │   │   ├── call.py                 # sol call todos (auto-discovered)
 │   │   ├── todo.py                 # Data models
@@ -283,9 +283,9 @@ solstone/
 └── AGENTS.md                        # Sol identity + skill table
 ```
 
-### The `apps/` dual role
+### The `solstone/apps/` dual role
 
-`apps/` contains both CLI apps (with `call.py`) and convey web routes (without). The presence of `call.py` is the marker for "this app exposes CLI commands." Web-only apps (home, search, settings, stats, etc.) only serve the convey UI.
+`solstone/apps/` contains both CLI apps (with `call.py`) and convey web routes (without). The presence of `call.py` is the marker for "this app exposes CLI commands." Web-only apps (home, search, settings, stats, etc.) only serve the convey UI.
 
 ## Current Command Inventory
 
@@ -306,19 +306,19 @@ solstone/
 
 | App | Source | Commands |
 |-----|--------|----------|
-| `todos` | `apps/todos/call.py` | list, add, done, cancel, move, upcoming, list-nudges-due, dispatch-nudges |
-| `activities` | `apps/activities/call.py` | list, get, create, update, mute, unmute |
-| `entities` | `apps/entities/call.py` | list, show, search, observe, merge |
-| `speakers` | `apps/speakers/call.py` | list, show, detect-owner, confirm-owner, clusters, suggest |
-| `skills` | `apps/skills/call.py` | list, show, observe, seed, promote, refresh, mark-dormant, retire, edit-request, rename |
-| `transcripts` | `apps/transcripts/call.py` | list, read, segments |
-| `support` | `apps/support/call.py` | register, search, article, create, list, show, reply, attach, feedback, announcements, diagnose |
-| `sol` | `apps/sol/call.py` | name, set-name, reset, thickness, set-owner, sol-init |
-| `awareness` | `apps/awareness/call.py` | status, imports, log, log-read |
-| `journal` | `think/tools/call.py` | search, events, facets, facet (show/create/update/rename/mute/unmute/delete/merge), news, agents, read, imports, import, retention purge, storage-summary |
-| `routines` | `think/tools/routines.py` | list, templates, create, edit, delete, run, output, suggestions, suggest-respond, suggest-state |
-| `identity` | `think/tools/sol.py` | self, partner, agency, pulse, awareness, briefing |
-| `navigate` | `think/tools/navigate.py` | *(single command)* |
+| `todos` | `solstone/apps/todos/call.py` | list, add, done, cancel, move, upcoming, list-nudges-due, dispatch-nudges |
+| `activities` | `solstone/apps/activities/call.py` | list, get, create, update, mute, unmute |
+| `entities` | `solstone/apps/entities/call.py` | list, show, search, observe, merge |
+| `speakers` | `solstone/apps/speakers/call.py` | list, show, detect-owner, confirm-owner, clusters, suggest |
+| `skills` | `solstone/apps/skills/call.py` | list, show, observe, seed, promote, refresh, mark-dormant, retire, edit-request, rename |
+| `transcripts` | `solstone/apps/transcripts/call.py` | list, read, segments |
+| `support` | `solstone/apps/support/call.py` | register, search, article, create, list, show, reply, attach, feedback, announcements, diagnose |
+| `sol` | `solstone/apps/sol/call.py` | name, set-name, reset, thickness, set-owner, sol-init |
+| `awareness` | `solstone/apps/awareness/call.py` | status, imports, log, log-read |
+| `journal` | `solstone/think/tools/call.py` | search, events, facets, facet (show/create/update/rename/mute/unmute/delete/merge), news, agents, read, imports, import, retention purge, storage-summary |
+| `routines` | `solstone/think/tools/routines.py` | list, templates, create, edit, delete, run, output, suggestions, suggest-respond, suggest-state |
+| `identity` | `solstone/think/tools/sol.py` | self, partner, agency, pulse, awareness, briefing |
+| `navigate` | `solstone/think/tools/navigate.py` | *(single command)* |
 
 `sol skills` manages coding-agent skill installation; `sol call skills` manages owner-wide journal skill patterns.
 
@@ -327,8 +327,8 @@ solstone/
 Skills are documented in `SKILL.md` files and symlinked into `journal/.agents/skills/` by `sol skills install --project`; `make skills` wraps this.
 
 **Skill locations:**
-- App skills: `apps/<name>/talent/<name>/SKILL.md`
-- Core skills: `talent/<name>/SKILL.md`
+- App skills: `solstone/apps/<name>/talent/<name>/SKILL.md`
+- Core skills: `solstone/talent/<name>/SKILL.md`
 
 **Skill ≠ call command.** Not every skill has a corresponding `call.py`, and not every `call.py` has a skill:
 - `health`, `coding`, `vit` have skills but no `call.py`

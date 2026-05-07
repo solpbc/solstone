@@ -40,7 +40,7 @@ def _make_sense_output(**overrides):
 
 class TestWriteSenseOutputs:
     def test_writes_all_standard_files(self, tmp_path):
-        from think.sense_splitter import write_sense_outputs
+        from solstone.think.sense_splitter import write_sense_outputs
 
         seg_dir = Path(tmp_path) / "20260304" / "default" / "090000_300"
         sense_json = _make_sense_output()
@@ -77,7 +77,7 @@ class TestWriteSenseOutputs:
         )
 
     def test_preserves_raw_payload_with_extra_keys_for_defensive_replay(self, tmp_path):
-        from think.sense_splitter import write_sense_outputs
+        from solstone.think.sense_splitter import write_sense_outputs
 
         seg_dir = Path(tmp_path) / "20260304" / "default" / "090000_300"
         # Advisory validation means unexpected keys can still reach the splitter.
@@ -90,7 +90,7 @@ class TestWriteSenseOutputs:
         assert stored == sense_json
 
     def test_writes_sense_markdown_when_entities_exist(self, tmp_path):
-        from think.sense_splitter import write_sense_outputs
+        from solstone.think.sense_splitter import write_sense_outputs
 
         seg_dir = Path(tmp_path) / "20260304" / "default" / "090000_300"
         sense_json = _make_sense_output(
@@ -123,7 +123,7 @@ class TestWriteSenseOutputs:
         )
 
     def test_skips_sense_markdown_when_entities_empty(self, tmp_path):
-        from think.sense_splitter import write_sense_outputs
+        from solstone.think.sense_splitter import write_sense_outputs
 
         seg_dir = Path(tmp_path) / "20260304" / "default" / "090000_300"
 
@@ -134,7 +134,7 @@ class TestWriteSenseOutputs:
 
 class TestMeetingDetection:
     def test_writes_speakers_when_meeting_detected(self, tmp_path):
-        from think.sense_splitter import write_sense_outputs
+        from solstone.think.sense_splitter import write_sense_outputs
 
         seg_dir = Path(tmp_path) / "20260304" / "default" / "090000_300"
         sense_json = _make_sense_output(
@@ -149,7 +149,7 @@ class TestMeetingDetection:
         assert json.loads(speakers_path.read_text(encoding="utf-8")) == ["Alice", "Bob"]
 
     def test_no_speakers_when_not_meeting(self, tmp_path):
-        from think.sense_splitter import write_sense_outputs
+        from solstone.think.sense_splitter import write_sense_outputs
 
         seg_dir = Path(tmp_path) / "20260304" / "default" / "090000_300"
 
@@ -158,7 +158,7 @@ class TestMeetingDetection:
         assert not (seg_dir / "talents" / "speakers.json").exists()
 
     def test_meeting_with_no_speakers_writes_empty_array(self, tmp_path):
-        from think.sense_splitter import write_sense_outputs
+        from solstone.think.sense_splitter import write_sense_outputs
 
         seg_dir = Path(tmp_path) / "20260304" / "default" / "090000_300"
         sense_json = _make_sense_output(meeting_detected=True, speakers=None)
@@ -172,7 +172,7 @@ class TestMeetingDetection:
 
 class TestEdgeCases:
     def test_empty_activity_summary(self, tmp_path):
-        from think.sense_splitter import write_sense_outputs
+        from solstone.think.sense_splitter import write_sense_outputs
 
         seg_dir = Path(tmp_path) / "20260304" / "default" / "090000_300"
 
@@ -183,7 +183,7 @@ class TestEdgeCases:
 
 class TestMultipleFacets:
     def test_multiple_facets_as_flat_array(self, tmp_path):
-        from think.sense_splitter import write_sense_outputs
+        from solstone.think.sense_splitter import write_sense_outputs
 
         seg_dir = Path(tmp_path) / "20260304" / "default" / "090000_300"
         facets = [
@@ -200,7 +200,7 @@ class TestMultipleFacets:
 
 class TestWriteIdleStubs:
     def test_writes_density_only(self, tmp_path):
-        from think.sense_splitter import write_idle_stubs
+        from solstone.think.sense_splitter import write_idle_stubs
 
         seg_dir = Path(tmp_path) / "20260304" / "default" / "090000_300"
 

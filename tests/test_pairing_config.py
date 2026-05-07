@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from think.pairing import config
+from solstone.think.pairing import config
 
 
 def _write_config(journal: Path, payload: dict) -> None:
@@ -52,7 +52,9 @@ def test_pairing_host_url_uses_detected_lan_ip_when_network_access_enabled(
     health_dir.mkdir(parents=True, exist_ok=True)
     (health_dir / "convey.port").write_text("6123", encoding="utf-8")
 
-    with patch("think.pairing.config._detect_lan_ipv4", return_value="192.168.1.44"):
+    with patch(
+        "solstone.think.pairing.config._detect_lan_ipv4", return_value="192.168.1.44"
+    ):
         assert config.get_host_url() == "http://192.168.1.44:6123"
 
 
@@ -81,7 +83,7 @@ def test_pairing_host_url_falls_back_to_localhost_when_lan_detect_fails(journal_
     mock_socket.__enter__ = Mock(return_value=mock_socket)
     mock_socket.__exit__ = Mock(return_value=None)
     mock_socket.connect.side_effect = OSError("boom")
-    with patch("think.pairing.config.socket.socket", return_value=mock_socket):
+    with patch("solstone.think.pairing.config.socket.socket", return_value=mock_socket):
         assert config.get_host_url() == "http://localhost:6123"
 
 

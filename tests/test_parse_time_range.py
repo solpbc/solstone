@@ -6,7 +6,7 @@ from datetime import datetime
 
 
 def test_parse_time_range():
-    util = importlib.import_module("think.utils")
+    util = importlib.import_module("solstone.think.utils")
     res = util.parse_time_range("July 19 3p-4p")
     assert res is not None
     day, start, end = res

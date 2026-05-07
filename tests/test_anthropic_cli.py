@@ -11,13 +11,15 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from think.providers.anthropic import _translate_claude
-from think.providers.cli import ThinkingAggregator
-from think.providers.shared import JSONEventCallback
+from solstone.think.providers.anthropic import _translate_claude
+from solstone.think.providers.cli import ThinkingAggregator
+from solstone.think.providers.shared import JSONEventCallback
 
 
 def _anthropic_provider():
-    return importlib.reload(importlib.import_module("think.providers.anthropic"))
+    return importlib.reload(
+        importlib.import_module("solstone.think.providers.anthropic")
+    )
 
 
 def _assert_write_mode_bypasses_restrictions(make_runner, config_override=None):
@@ -27,8 +29,8 @@ def _assert_write_mode_bypasses_restrictions(make_runner, config_override=None):
     if config_override:
         config.update(config_override)
     with (
-        patch("think.providers.anthropic.CLIRunner", MockCLIRunner),
-        patch("think.providers.anthropic.check_cli_binary"),
+        patch("solstone.think.providers.anthropic.CLIRunner", MockCLIRunner),
+        patch("solstone.think.providers.anthropic.check_cli_binary"),
     ):
         asyncio.run(provider.run_cogitate(config, lambda e: None))
     cmd = MockCLIRunner.last_instance.cmd
@@ -397,8 +399,8 @@ class TestRunCogitateCommand:
         provider = _anthropic_provider()
         MockCLIRunner = self._mock_runner()
         with (
-            patch("think.providers.anthropic.CLIRunner", MockCLIRunner),
-            patch("think.providers.anthropic.check_cli_binary"),
+            patch("solstone.think.providers.anthropic.CLIRunner", MockCLIRunner),
+            patch("solstone.think.providers.anthropic.check_cli_binary"),
         ):
             asyncio.run(
                 provider.run_cogitate(

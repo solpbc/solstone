@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from think.importers.utils import (
+from solstone.think.importers.utils import (
     _load_decision_highlights,
     build_import_info,
     calculate_duration_from_files,

@@ -3,8 +3,8 @@
 
 """Tests for observe/describe.py category discovery and configuration."""
 
-from observe import describe as describe_module
-from observe.describe import _build_redact_instruction
+from solstone.observe import describe as describe_module
+from solstone.observe.describe import _build_redact_instruction
 
 
 def test_categories_discovered():

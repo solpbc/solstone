@@ -72,10 +72,10 @@ uv.lock: pyproject.toml
 
 # Install package in editable mode with isolated venv
 install: .installed
-	@(cd /tmp && $(CURDIR)/$(VENV_BIN)/python -c "from think.sol_cli import main") 2>/dev/null || { \
+	@(cd /tmp && $(CURDIR)/$(VENV_BIN)/python -c "from solstone.think.sol_cli import main") 2>/dev/null || { \
 		echo ">>> re-registering editable install"; \
 		$(UV) pip install -e . --no-deps; \
-		if (cd /tmp && $(CURDIR)/$(VENV_BIN)/python -c "from think.sol_cli import main"); then \
+		if (cd /tmp && $(CURDIR)/$(VENV_BIN)/python -c "from solstone.think.sol_cli import main"); then \
 			echo ">>> re-registered successfully"; \
 		else \
 			echo ">>> editable install still broken; run make clean-install"; \
@@ -236,12 +236,12 @@ install-models:
 
 # Build the parakeet helper binary (macOS/arm64 only, requires Xcode CLT)
 parakeet-helper:
-	cd observe/transcribe/parakeet_helper && swift build -c release
-	@echo "built: $$(pwd)/observe/transcribe/parakeet_helper/.build/release/parakeet-helper"
+	cd solstone/observe/transcribe/parakeet_helper && swift build -c release
+	@echo "built: $$(pwd)/solstone/observe/transcribe/parakeet_helper/.build/release/parakeet-helper"
 
 # Remove parakeet helper build artifacts
 parakeet-helper-clean:
-	rm -rf observe/transcribe/parakeet_helper/.build observe/transcribe/parakeet_helper/.swiftpm observe/transcribe/parakeet_helper/Package.resolved
+	rm -rf solstone/observe/transcribe/parakeet_helper/.build solstone/observe/transcribe/parakeet_helper/.swiftpm solstone/observe/transcribe/parakeet_helper/Package.resolved
 
 # Run browser scenarios against sandbox
 verify-browser: .installed
@@ -330,7 +330,7 @@ test: .installed format-check
 # Run app tests
 test-apps: .installed
 	@echo "Running app tests..."
-	$(PYTEST_BASETEMP_INIT) $(TEST_ENV) $(PYTEST) $(PYTEST_BASETEMP_FLAG) apps/ -q
+	$(PYTEST_BASETEMP_INIT) $(TEST_ENV) $(PYTEST) $(PYTEST_BASETEMP_FLAG) solstone/apps/ -q
 
 # Run specific app tests
 test-app: .installed
@@ -339,7 +339,7 @@ test-app: .installed
 		echo "Example: make test-app APP=todos"; \
 		exit 1; \
 	fi
-	$(PYTEST_BASETEMP_INIT) $(TEST_ENV) $(PYTEST) $(PYTEST_BASETEMP_FLAG) apps/$(APP)/tests/ -v
+	$(PYTEST_BASETEMP_INIT) $(TEST_ENV) $(PYTEST) $(PYTEST_BASETEMP_FLAG) solstone/apps/$(APP)/tests/ -v
 
 # Run specific test file or pattern
 test-only: .installed
@@ -377,7 +377,7 @@ test-integration-only: .installed
 # Run all tests (core + apps + integration)
 test-all: .installed
 	@echo "Running all tests (core + apps + integration)..."
-	$(PYTEST_BASETEMP_INIT) $(TEST_ENV) $(PYTEST) $(PYTEST_BASETEMP_FLAG) tests/ -v --cov=. --ignore=tests/integration $(LINK_LIVE_TESTS) && $(TEST_ENV) $(PYTEST) $(PYTEST_BASETEMP_FLAG) apps/ -v --cov=. --cov-append
+	$(PYTEST_BASETEMP_INIT) $(TEST_ENV) $(PYTEST) $(PYTEST_BASETEMP_FLAG) tests/ -v --cov=. --ignore=tests/integration $(LINK_LIVE_TESTS) && $(TEST_ENV) $(PYTEST) $(PYTEST_BASETEMP_FLAG) solstone/apps/ -v --cov=. --cov-append
 
 # Auto-format and fix code, then report any remaining issues
 format: .installed
@@ -414,7 +414,7 @@ service-logs:
 	$(VENV_BIN)/sol service logs -f
 
 uninstall:
-	@echo "Error: 'make uninstall' is disabled. Use 'sol service uninstall', 'sol skills uninstall', and 'python -m think.install_guard uninstall' to remove installed user artifacts, or 'make clean-install' to rebuild the local dev environment." >&2
+	@echo "Error: 'make uninstall' is disabled. Use 'sol service uninstall', 'sol skills uninstall', and 'python -m solstone.think.install_guard uninstall' to remove installed user artifacts, or 'make clean-install' to rebuild the local dev environment." >&2
 	@exit 1
 
 FORCE:
@@ -459,7 +459,7 @@ watch: .installed
 # Generate coverage report (core + apps, excluding core integration tests)
 coverage: .installed
 	$(PYTEST_BASETEMP_INIT) $(TEST_ENV) $(PYTEST) $(PYTEST_BASETEMP_FLAG) tests/ --cov=. --cov-report=html --cov-report=term --ignore=tests/integration $(LINK_LIVE_TESTS)
-	$(PYTEST_BASETEMP_INIT) $(TEST_ENV) $(PYTEST) $(PYTEST_BASETEMP_FLAG) apps/ --cov=. --cov-report=html --cov-report=term --cov-append
+	$(PYTEST_BASETEMP_INIT) $(TEST_ENV) $(PYTEST) $(PYTEST_BASETEMP_FLAG) solstone/apps/ --cov=. --cov-report=html --cov-report=term --cov-append
 	@echo "Coverage report generated in htmlcov/index.html"
 
 # Update all dependencies to latest versions and refresh genai-prices

@@ -9,11 +9,11 @@ from importlib import import_module
 import pytest
 from flask import Blueprint, Flask
 
-import convey.state
-import think.utils
+import solstone.convey.state as convey_state
+import solstone.think.utils as think_utils
 
-journal_sources = import_module("apps.import.journal_sources")
-ingest = import_module("apps.import.ingest")
+journal_sources = import_module("solstone.apps.import.journal_sources")
+ingest = import_module("solstone.apps.import.ingest")
 
 create_state_directory = journal_sources.create_state_directory
 generate_key = journal_sources.generate_key
@@ -25,9 +25,9 @@ register_ingest_routes = ingest.register_ingest_routes
 
 @pytest.fixture
 def journal_env(tmp_path, monkeypatch):
-    monkeypatch.setattr(convey.state, "journal_root", str(tmp_path), raising=False)
+    monkeypatch.setattr(convey_state, "journal_root", str(tmp_path), raising=False)
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
-    think.utils._journal_path_cache = None
+    think_utils._journal_path_cache = None
     (tmp_path / "apps" / "import" / "journal_sources").mkdir(
         parents=True, exist_ok=True
     )
@@ -110,7 +110,7 @@ def _write_target_config(root, config):
     (config_dir / "journal.json").write_text(
         json.dumps(config, ensure_ascii=False), encoding="utf-8"
     )
-    think.utils._journal_path_cache = None
+    think_utils._journal_path_cache = None
 
 
 def _read_json(path):

@@ -5,7 +5,7 @@
 
 import time
 
-from think.utils import day_path
+from solstone.think.utils import day_path
 
 
 def test_stream_updated_marker_created(tmp_path, monkeypatch):

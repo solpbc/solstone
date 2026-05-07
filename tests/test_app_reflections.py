@@ -6,7 +6,7 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
-from convey import create_app
+from solstone.convey import create_app
 
 REFLECTION_FIXTURE = Path("tests/fixtures/journal/reflections/weekly/20260308.md")
 
@@ -133,7 +133,7 @@ gaps: []
             "urllib.request.urlopen",
             side_effect=AssertionError("network disabled during reflection pdf render"),
         ),
-        patch("apps.reflections.routes.default_url_fetcher") as mock_fetcher,
+        patch("solstone.apps.reflections.routes.default_url_fetcher") as mock_fetcher,
     ):
         response = client.get("/app/reflections/20260308/pdf")
 

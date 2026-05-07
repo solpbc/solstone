@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 from typer.testing import CliRunner
 
-from apps.settings.copy import (
+from solstone.apps.settings.copy import (
     CONVEY_HOST_URL_CLEARED,
     CONVEY_HOST_URL_SET_DONE,
     CONVEY_NETWORK_DISABLE_DONE,
@@ -22,8 +22,8 @@ from apps.settings.copy import (
     CONVEY_TRUST_DISABLE_DONE,
     format_convey_status,
 )
-from convey import create_app
-from think.call import call_app
+from solstone.convey import create_app
+from solstone.think.call import call_app
 
 runner = CliRunner()
 
@@ -89,7 +89,8 @@ def test_cli_status_reports_auto_detected_host(journal_copy):
     (health_dir / "convey.port").write_text("6123", encoding="utf-8")
 
     with patch(
-        "apps.settings.call.get_host_url", return_value="http://192.168.1.44:6123"
+        "solstone.apps.settings.call.get_host_url",
+        return_value="http://192.168.1.44:6123",
     ):
         result = runner.invoke(call_app, ["settings", "convey", "status"])
 
@@ -120,10 +121,10 @@ def test_cli_network_access_enable_refuses_without_password(journal_copy):
 def test_cli_network_access_enable_restarts_and_prints_host_url(journal_copy):
     with (
         patch(
-            "convey.restart.wait_for_convey_restart", return_value=(True, [])
+            "solstone.convey.restart.wait_for_convey_restart", return_value=(True, [])
         ) as restart,
         patch(
-            "apps.settings.call.get_host_url",
+            "solstone.apps.settings.call.get_host_url",
             return_value="http://192.168.1.44:5015",
         ),
     ):
@@ -147,7 +148,9 @@ def test_cli_network_access_disable_timeout_exits_nonzero(journal_copy):
     config["convey"]["allow_network_access"] = True
     _write_config(journal_copy, config)
 
-    with patch("convey.restart.wait_for_convey_restart", return_value=(False, [])):
+    with patch(
+        "solstone.convey.restart.wait_for_convey_restart", return_value=(False, [])
+    ):
         result = runner.invoke(
             call_app, ["settings", "convey", "network-access", "disable"]
         )
@@ -163,7 +166,9 @@ def test_cli_network_access_disable_success_uses_localhost_copy(journal_copy):
     config["convey"]["allow_network_access"] = True
     _write_config(journal_copy, config)
 
-    with patch("convey.restart.wait_for_convey_restart", return_value=(True, [])):
+    with patch(
+        "solstone.convey.restart.wait_for_convey_restart", return_value=(True, [])
+    ):
         result = runner.invoke(
             call_app, ["settings", "convey", "network-access", "disable"]
         )
@@ -189,7 +194,7 @@ def test_cli_trust_localhost_disable_refuses_without_password(journal_copy):
 
 
 def test_cli_trust_localhost_disable_does_not_restart(journal_copy):
-    with patch("convey.restart.wait_for_convey_restart") as restart:
+    with patch("solstone.convey.restart.wait_for_convey_restart") as restart:
         result = runner.invoke(
             call_app, ["settings", "convey", "trust-localhost", "disable"]
         )
@@ -273,10 +278,10 @@ def test_api_put_network_access_returns_restart_payload(journal_copy):
 
     with (
         patch(
-            "convey.restart.wait_for_convey_restart", return_value=(True, [])
+            "solstone.convey.restart.wait_for_convey_restart", return_value=(True, [])
         ) as restart,
         patch(
-            "apps.settings.routes.get_host_url",
+            "solstone.apps.settings.routes.get_host_url",
             return_value="http://192.168.1.44:5015",
         ),
     ):
@@ -300,9 +305,12 @@ def test_api_put_network_access_timeout_still_saves(journal_copy):
     client = _settings_client(journal_copy)
 
     with (
-        patch("convey.restart.wait_for_convey_restart", return_value=(False, [])),
         patch(
-            "apps.settings.routes.get_host_url", return_value="http://localhost:5015"
+            "solstone.convey.restart.wait_for_convey_restart", return_value=(False, [])
+        ),
+        patch(
+            "solstone.apps.settings.routes.get_host_url",
+            return_value="http://localhost:5015",
         ),
     ):
         response = client.put(

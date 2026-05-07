@@ -8,8 +8,8 @@ from concurrent.futures import TimeoutError as FutureTimeoutError
 
 import pytest
 
-from convey import create_app
-from think.voice.observer_queue import get_observer_queue
+from solstone.convey import create_app
+from solstone.think.voice.observer_queue import get_observer_queue
 
 
 @pytest.fixture
@@ -31,7 +31,7 @@ def test_session_rejects_non_object_json(voice_client):
 
 
 def test_session_requires_openai_key(voice_client, monkeypatch):
-    monkeypatch.setattr("convey.voice.get_openai_api_key", lambda: None)
+    monkeypatch.setattr("solstone.convey.voice.get_openai_api_key", lambda: None)
     response = voice_client.post("/api/voice/session")
     assert response.status_code == 503
     assert response.get_json() == {
@@ -40,9 +40,9 @@ def test_session_requires_openai_key(voice_client, monkeypatch):
 
 
 def test_session_returns_brain_not_ready(voice_client, monkeypatch):
-    monkeypatch.setattr("convey.voice.get_openai_api_key", lambda: "sk-test")
+    monkeypatch.setattr("solstone.convey.voice.get_openai_api_key", lambda: "sk-test")
     monkeypatch.setattr(
-        "convey.voice.brain.wait_until_ready", lambda app, timeout: False
+        "solstone.convey.voice.brain.wait_until_ready", lambda app, timeout: False
     )
     response = voice_client.post("/api/voice/session")
     assert response.status_code == 503
@@ -50,7 +50,7 @@ def test_session_returns_brain_not_ready(voice_client, monkeypatch):
 
 
 def test_connect_requires_call_id(voice_client, monkeypatch):
-    monkeypatch.setattr("convey.voice.get_openai_api_key", lambda: "sk-test")
+    monkeypatch.setattr("solstone.convey.voice.get_openai_api_key", lambda: "sk-test")
     response = voice_client.post("/api/voice/connect", json={})
     assert response.status_code == 400
     assert response.get_json() == {"error": "call_id is required"}
@@ -108,8 +108,8 @@ def test_status_reports_all_fields(voice_client, voice_app, monkeypatch):
     voice_app.voice_tasks.update({pending, done})
     voice_app.voice_brain_instruction = "Ready voice"
     voice_app.voice_brain_refreshed_at = 1.0
-    monkeypatch.setattr("convey.voice.get_openai_api_key", lambda: "sk-test")
-    monkeypatch.setattr("convey.voice.brain.brain_age_seconds", lambda app: 12)
+    monkeypatch.setattr("solstone.convey.voice.get_openai_api_key", lambda: "sk-test")
+    monkeypatch.setattr("solstone.convey.voice.brain.brain_age_seconds", lambda app: 12)
 
     response = voice_client.get("/api/voice/status")
 
@@ -128,7 +128,7 @@ def test_refresh_brain_returns_202_while_running(voice_client, monkeypatch):
             raise FutureTimeoutError()
 
     monkeypatch.setattr(
-        "convey.voice.brain.schedule_refresh",
+        "solstone.convey.voice.brain.schedule_refresh",
         lambda app, force: PendingFuture(),
     )
 
@@ -143,9 +143,9 @@ def test_refresh_brain_returns_preview(voice_client, monkeypatch, voice_app):
     future.set_result(("session-1", "Voice preview"))
     voice_app.voice_brain_instruction = "Voice preview"
     monkeypatch.setattr(
-        "convey.voice.brain.schedule_refresh", lambda app, force: future
+        "solstone.convey.voice.brain.schedule_refresh", lambda app, force: future
     )
-    monkeypatch.setattr("convey.voice.brain.brain_age_seconds", lambda app: 0)
+    monkeypatch.setattr("solstone.convey.voice.brain.brain_age_seconds", lambda app: 0)
 
     response = voice_client.post("/api/voice/refresh-brain")
 

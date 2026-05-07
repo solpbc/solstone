@@ -10,7 +10,7 @@ import re
 import pytest
 from typer.testing import CliRunner
 
-from think.tools.sol import app
+from solstone.think.tools.sol import app
 
 runner = CliRunner()
 _HISTORY_FIELDS = [
@@ -594,7 +594,7 @@ class TestHeartbeatEnsureIdentityDirectory:
 
     def test_ensure_identity_directory_no_args(self):
         """ensure_identity_directory accepts no positional args (heartbeat.py:32 fix)."""
-        from think.identity import ensure_identity_directory
+        from solstone.think.identity import ensure_identity_directory
 
         sig = inspect.signature(ensure_identity_directory)
         params = [
@@ -609,7 +609,9 @@ class TestHeartbeatEnsureIdentityDirectory:
         import ast
         from pathlib import Path
 
-        heartbeat_path = Path(__file__).parent.parent / "think" / "heartbeat.py"
+        heartbeat_path = (
+            Path(__file__).parent.parent / "solstone" / "think" / "heartbeat.py"
+        )
         tree = ast.parse(heartbeat_path.read_text())
 
         for node in ast.walk(tree):

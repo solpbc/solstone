@@ -10,16 +10,16 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from think.models import (
+from solstone.think.models import (
     TYPE_DEFAULTS,
     get_backup_provider,
     is_provider_healthy,
     is_provider_model_interface_healthy,
     should_recheck_health,
 )
-from think.providers.cli import QuotaExhaustedError
-from think.talents import _is_retryable_error
-from think.utils import now_ms
+from solstone.think.providers.cli import QuotaExhaustedError
+from solstone.think.talents import _is_retryable_error
+from solstone.think.utils import now_ms
 
 
 def test_is_provider_healthy_all_failed():
@@ -142,21 +142,21 @@ def test_should_recheck_health_honors_reset_at_ms():
 
 def test_get_backup_provider_from_config(monkeypatch):
     monkeypatch.setattr(
-        "think.models.get_config",
+        "solstone.think.models.get_config",
         lambda: {"providers": {"generate": {"provider": "google", "backup": "openai"}}},
     )
     assert get_backup_provider("generate") == "openai"
 
 
 def test_get_backup_provider_fallback_constant(monkeypatch):
-    monkeypatch.setattr("think.models.get_config", lambda: {})
+    monkeypatch.setattr("solstone.think.models.get_config", lambda: {})
     assert get_backup_provider("generate") == TYPE_DEFAULTS["generate"]["backup"]
     assert get_backup_provider("cogitate") == TYPE_DEFAULTS["cogitate"]["backup"]
 
 
 def test_get_backup_provider_none_when_same_as_primary(monkeypatch):
     monkeypatch.setattr(
-        "think.models.get_config",
+        "solstone.think.models.get_config",
         lambda: {
             "providers": {
                 "generate": {"provider": "openai", "backup": "openai"},
@@ -180,23 +180,24 @@ def _mock_base_agent_config() -> dict:
 
 def _patch_prepare_config_dependencies(monkeypatch):
     monkeypatch.setattr(
-        "think.talent.get_talent", lambda *args, **kwargs: _mock_base_agent_config()
+        "solstone.think.talent.get_talent",
+        lambda *args, **kwargs: _mock_base_agent_config(),
     )
     monkeypatch.setattr(
-        "think.talent.key_to_context", lambda _name: "talent.system.default"
+        "solstone.think.talent.key_to_context", lambda _name: "talent.system.default"
     )
     monkeypatch.setattr(
-        "think.models.resolve_provider",
+        "solstone.think.models.resolve_provider",
         lambda _context, _type: ("google", "gemini-3-flash-preview"),
     )
 
 
 def test_preflight_swap_unhealthy_primary(monkeypatch):
-    from think.talents import prepare_config
+    from solstone.think.talents import prepare_config
 
     _patch_prepare_config_dependencies(monkeypatch)
     monkeypatch.setattr(
-        "think.models.load_health_status",
+        "solstone.think.models.load_health_status",
         lambda: {
             "results": [
                 {
@@ -208,10 +209,12 @@ def test_preflight_swap_unhealthy_primary(monkeypatch):
             ]
         },
     )
-    monkeypatch.setattr("think.models.should_recheck_health", lambda _h: False)
-    monkeypatch.setattr("think.models.get_backup_provider", lambda _type: "anthropic")
+    monkeypatch.setattr("solstone.think.models.should_recheck_health", lambda _h: False)
     monkeypatch.setattr(
-        "think.models.resolve_model_for_provider",
+        "solstone.think.models.get_backup_provider", lambda _type: "anthropic"
+    )
+    monkeypatch.setattr(
+        "solstone.think.models.resolve_model_for_provider",
         lambda _context, _provider, _type="generate": "claude-sonnet-4-5",
     )
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
@@ -224,11 +227,11 @@ def test_preflight_swap_unhealthy_primary(monkeypatch):
 
 
 def test_preflight_no_swap_healthy_primary(monkeypatch):
-    from think.talents import prepare_config
+    from solstone.think.talents import prepare_config
 
     _patch_prepare_config_dependencies(monkeypatch)
     monkeypatch.setattr(
-        "think.models.load_health_status",
+        "solstone.think.models.load_health_status",
         lambda: {
             "results": [
                 {
@@ -240,7 +243,7 @@ def test_preflight_no_swap_healthy_primary(monkeypatch):
             ]
         },
     )
-    monkeypatch.setattr("think.models.should_recheck_health", lambda _h: False)
+    monkeypatch.setattr("solstone.think.models.should_recheck_health", lambda _h: False)
 
     config = prepare_config({"name": "chat", "prompt": "hello"})
 
@@ -249,11 +252,11 @@ def test_preflight_no_swap_healthy_primary(monkeypatch):
 
 
 def test_preflight_no_swap_no_backup_key(monkeypatch):
-    from think.talents import prepare_config
+    from solstone.think.talents import prepare_config
 
     _patch_prepare_config_dependencies(monkeypatch)
     monkeypatch.setattr(
-        "think.models.load_health_status",
+        "solstone.think.models.load_health_status",
         lambda: {
             "results": [
                 {
@@ -265,8 +268,10 @@ def test_preflight_no_swap_no_backup_key(monkeypatch):
             ]
         },
     )
-    monkeypatch.setattr("think.models.should_recheck_health", lambda _h: False)
-    monkeypatch.setattr("think.models.get_backup_provider", lambda _type: "anthropic")
+    monkeypatch.setattr("solstone.think.models.should_recheck_health", lambda _h: False)
+    monkeypatch.setattr(
+        "solstone.think.models.get_backup_provider", lambda _type: "anthropic"
+    )
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
 
     config = prepare_config({"name": "chat", "prompt": "hello"})
@@ -276,7 +281,7 @@ def test_preflight_no_swap_no_backup_key(monkeypatch):
 
 
 def test_on_failure_retry_cogitate(monkeypatch):
-    from think.talents import _execute_with_tools
+    from solstone.think.talents import _execute_with_tools
 
     events = []
     attempts = {"primary": 0, "backup": 0}
@@ -293,17 +298,19 @@ def test_on_failure_retry_cogitate(monkeypatch):
         return "backup result"
 
     monkeypatch.setattr(
-        "think.providers.PROVIDER_REGISTRY", {"google": "x", "anthropic": "y"}
+        "solstone.think.providers.PROVIDER_REGISTRY", {"google": "x", "anthropic": "y"}
     )
     monkeypatch.setattr(
-        "think.providers.get_provider_module",
+        "solstone.think.providers.get_provider_module",
         lambda provider: SimpleNamespace(
             run_cogitate=fail_cogitate if provider == "google" else pass_cogitate
         ),
     )
-    monkeypatch.setattr("think.models.get_backup_provider", lambda _type: "anthropic")
     monkeypatch.setattr(
-        "think.models.resolve_model_for_provider",
+        "solstone.think.models.get_backup_provider", lambda _type: "anthropic"
+    )
+    monkeypatch.setattr(
+        "solstone.think.models.resolve_model_for_provider",
         lambda _context, _provider, _type="cogitate": "claude-sonnet-4-5",
     )
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
@@ -326,7 +333,7 @@ def test_on_failure_retry_cogitate(monkeypatch):
 
 
 def test_quota_failure_records_health_and_falls_back(monkeypatch):
-    from think.talents import _execute_with_tools
+    from solstone.think.talents import _execute_with_tools
 
     events = []
     record_mock = MagicMock()
@@ -341,20 +348,22 @@ def test_quota_failure_records_health_and_falls_back(monkeypatch):
         return "backup result"
 
     monkeypatch.setattr(
-        "think.providers.PROVIDER_REGISTRY", {"google": "x", "anthropic": "y"}
+        "solstone.think.providers.PROVIDER_REGISTRY", {"google": "x", "anthropic": "y"}
     )
     monkeypatch.setattr(
-        "think.providers.get_provider_module",
+        "solstone.think.providers.get_provider_module",
         lambda provider: SimpleNamespace(
             run_cogitate=fail_quota if provider == "google" else pass_cogitate
         ),
     )
-    monkeypatch.setattr("think.models.get_backup_provider", lambda _type: "anthropic")
     monkeypatch.setattr(
-        "think.models.resolve_model_for_provider",
+        "solstone.think.models.get_backup_provider", lambda _type: "anthropic"
+    )
+    monkeypatch.setattr(
+        "solstone.think.models.resolve_model_for_provider",
         lambda _context, _provider, _type="cogitate": "claude-sonnet-4-5",
     )
-    monkeypatch.setattr("think.models.record_provider_failure", record_mock)
+    monkeypatch.setattr("solstone.think.models.record_provider_failure", record_mock)
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
 
     config = {
@@ -384,7 +393,7 @@ def test_quota_failure_records_health_and_falls_back(monkeypatch):
 
 
 def test_on_failure_retry_cogitate_uses_context_from_name(monkeypatch):
-    from think.talents import _execute_with_tools
+    from solstone.think.talents import _execute_with_tools
 
     events = []
     seen = {}
@@ -403,20 +412,24 @@ def test_on_failure_retry_cogitate_uses_context_from_name(monkeypatch):
         return "claude-sonnet-4-5"
 
     monkeypatch.setattr(
-        "think.providers.PROVIDER_REGISTRY", {"google": "x", "anthropic": "y"}
+        "solstone.think.providers.PROVIDER_REGISTRY", {"google": "x", "anthropic": "y"}
     )
     monkeypatch.setattr(
-        "think.providers.get_provider_module",
+        "solstone.think.providers.get_provider_module",
         lambda provider: SimpleNamespace(
             run_cogitate=fail_cogitate if provider == "google" else pass_cogitate
         ),
     )
     monkeypatch.setattr(
-        "think.talent.key_to_context",
+        "solstone.think.talent.key_to_context",
         lambda _name: "talent.system.default",
     )
-    monkeypatch.setattr("think.models.get_backup_provider", lambda _type: "anthropic")
-    monkeypatch.setattr("think.models.resolve_model_for_provider", resolve_model)
+    monkeypatch.setattr(
+        "solstone.think.models.get_backup_provider", lambda _type: "anthropic"
+    )
+    monkeypatch.setattr(
+        "solstone.think.models.resolve_model_for_provider", resolve_model
+    )
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
 
     config = {
@@ -432,7 +445,7 @@ def test_on_failure_retry_cogitate_uses_context_from_name(monkeypatch):
 
 
 def test_execute_generate_uses_messages_when_present(monkeypatch):
-    from think.talents import _execute_generate
+    from solstone.think.talents import _execute_generate
 
     events = []
     seen = {}
@@ -447,9 +460,11 @@ def test_execute_generate_uses_messages_when_present(monkeypatch):
         return {"text": "ok", "usage": {"input_tokens": 1, "output_tokens": 1}}
 
     monkeypatch.setattr(
-        "think.talent.key_to_context", lambda _name: "talent.system.default"
+        "solstone.think.talent.key_to_context", lambda _name: "talent.system.default"
     )
-    monkeypatch.setattr("think.models.generate_with_result", mock_generate_with_result)
+    monkeypatch.setattr(
+        "solstone.think.models.generate_with_result", mock_generate_with_result
+    )
 
     config = {
         "name": "chat",
@@ -467,7 +482,7 @@ def test_execute_generate_uses_messages_when_present(monkeypatch):
 
 
 def test_execute_generate_preserves_string_contents_order(monkeypatch):
-    from think.talents import _execute_generate
+    from solstone.think.talents import _execute_generate
 
     events = []
     seen = {}
@@ -477,9 +492,11 @@ def test_execute_generate_preserves_string_contents_order(monkeypatch):
         return {"text": "ok", "usage": {"input_tokens": 1, "output_tokens": 1}}
 
     monkeypatch.setattr(
-        "think.talent.key_to_context", lambda _name: "talent.system.default"
+        "solstone.think.talent.key_to_context", lambda _name: "talent.system.default"
     )
-    monkeypatch.setattr("think.models.generate_with_result", mock_generate_with_result)
+    monkeypatch.setattr(
+        "solstone.think.models.generate_with_result", mock_generate_with_result
+    )
 
     config = {
         "name": "chat",
@@ -496,7 +513,7 @@ def test_execute_generate_preserves_string_contents_order(monkeypatch):
 
 
 def test_on_failure_retry_generate(monkeypatch):
-    from think.talents import _execute_generate
+    from solstone.think.talents import _execute_generate
 
     events = []
     calls = {"count": 0}
@@ -510,12 +527,16 @@ def test_on_failure_retry_generate(monkeypatch):
         return {"text": "backup text", "usage": {"input_tokens": 1, "output_tokens": 1}}
 
     monkeypatch.setattr(
-        "think.talent.key_to_context", lambda _name: "talent.system.default"
+        "solstone.think.talent.key_to_context", lambda _name: "talent.system.default"
     )
-    monkeypatch.setattr("think.models.generate_with_result", mock_generate_with_result)
-    monkeypatch.setattr("think.models.get_backup_provider", lambda _type: "anthropic")
     monkeypatch.setattr(
-        "think.models.resolve_model_for_provider",
+        "solstone.think.models.generate_with_result", mock_generate_with_result
+    )
+    monkeypatch.setattr(
+        "solstone.think.models.get_backup_provider", lambda _type: "anthropic"
+    )
+    monkeypatch.setattr(
+        "solstone.think.models.resolve_model_for_provider",
         lambda _context, _provider, _type="generate": "claude-sonnet-4-5",
     )
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
@@ -539,7 +560,7 @@ def test_on_failure_retry_generate(monkeypatch):
 
 
 def test_on_failure_no_retry_value_error(monkeypatch):
-    from think.talents import _execute_generate
+    from solstone.think.talents import _execute_generate
 
     events = []
     assert _is_retryable_error(ValueError("bad input")) is False
@@ -548,9 +569,9 @@ def test_on_failure_no_retry_value_error(monkeypatch):
         raise ValueError("bad input")
 
     monkeypatch.setattr(
-        "think.talent.key_to_context", lambda _name: "talent.system.default"
+        "solstone.think.talent.key_to_context", lambda _name: "talent.system.default"
     )
-    monkeypatch.setattr("think.models.generate_with_result", bad_generate)
+    monkeypatch.setattr("solstone.think.models.generate_with_result", bad_generate)
 
     config = {
         "name": "chat",
@@ -567,7 +588,7 @@ def test_on_failure_no_retry_value_error(monkeypatch):
 
 
 def test_on_failure_both_fail_raises_original(monkeypatch):
-    from think.talents import _execute_generate
+    from solstone.think.talents import _execute_generate
 
     events = []
     calls = {"count": 0}
@@ -579,12 +600,14 @@ def test_on_failure_both_fail_raises_original(monkeypatch):
         raise RuntimeError("primary failed")
 
     monkeypatch.setattr(
-        "think.talent.key_to_context", lambda _name: "talent.system.default"
+        "solstone.think.talent.key_to_context", lambda _name: "talent.system.default"
     )
-    monkeypatch.setattr("think.models.generate_with_result", always_fail)
-    monkeypatch.setattr("think.models.get_backup_provider", lambda _type: "anthropic")
+    monkeypatch.setattr("solstone.think.models.generate_with_result", always_fail)
     monkeypatch.setattr(
-        "think.models.resolve_model_for_provider",
+        "solstone.think.models.get_backup_provider", lambda _type: "anthropic"
+    )
+    monkeypatch.setattr(
+        "solstone.think.models.resolve_model_for_provider",
         lambda _context, _provider, _type="generate": "claude-sonnet-4-5",
     )
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
@@ -604,7 +627,7 @@ def test_on_failure_both_fail_raises_original(monkeypatch):
 
 
 def test_fallback_event_emitted():
-    from think.talents import _run_talent
+    from solstone.think.talents import _run_talent
 
     events = []
     config = {
@@ -624,7 +647,7 @@ def test_fallback_event_emitted():
 
 
 def test_recheck_requested_on_stale(monkeypatch):
-    from think.talents import _execute_with_tools
+    from solstone.think.talents import _execute_with_tools
 
     async def pass_cogitate(*_args, **kwargs):
         on_event = kwargs.get("on_event")
@@ -634,12 +657,12 @@ def test_recheck_requested_on_stale(monkeypatch):
 
     recheck_mock = MagicMock()
 
-    monkeypatch.setattr("think.providers.PROVIDER_REGISTRY", {"google": "x"})
+    monkeypatch.setattr("solstone.think.providers.PROVIDER_REGISTRY", {"google": "x"})
     monkeypatch.setattr(
-        "think.providers.get_provider_module",
+        "solstone.think.providers.get_provider_module",
         lambda _provider: SimpleNamespace(run_cogitate=pass_cogitate),
     )
-    monkeypatch.setattr("think.models.request_health_recheck", recheck_mock)
+    monkeypatch.setattr("solstone.think.models.request_health_recheck", recheck_mock)
 
     config = {
         "provider": "google",
@@ -654,7 +677,7 @@ def test_recheck_requested_on_stale(monkeypatch):
 
 
 def test_main_async_no_duplicate_error_when_evented(monkeypatch, capsys):
-    from think.talents import main_async
+    from solstone.think.talents import main_async
 
     ndjson_input = json.dumps({"name": "chat", "prompt": "hello"})
     monkeypatch.setattr("sys.stdin", StringIO(ndjson_input))
@@ -670,16 +693,16 @@ def test_main_async_no_duplicate_error_when_evented(monkeypatch, capsys):
     mock_args.dry_run = False
     mock_args.subcommand = None
 
-    monkeypatch.setattr("think.talents.setup_cli", lambda _parser: mock_args)
+    monkeypatch.setattr("solstone.think.talents.setup_cli", lambda _parser: mock_args)
     monkeypatch.setattr(
-        "think.talents.setup_logging",
+        "solstone.think.talents.setup_logging",
         lambda _verbose=False: MagicMock(),
     )
     monkeypatch.setattr(
-        "think.talents.prepare_config", lambda _request: {"type": "cogitate"}
+        "solstone.think.talents.prepare_config", lambda _request: {"type": "cogitate"}
     )
-    monkeypatch.setattr("think.talents.validate_config", lambda _config: None)
-    monkeypatch.setattr("think.talents._run_talent", fake_run_talent)
+    monkeypatch.setattr("solstone.think.talents.validate_config", lambda _config: None)
+    monkeypatch.setattr("solstone.think.talents._run_talent", fake_run_talent)
 
     asyncio.run(main_async())
 

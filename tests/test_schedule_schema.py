@@ -6,14 +6,14 @@ from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
-from think.activities import DEFAULT_ACTIVITIES
-from think.talent import (
+from solstone.think.activities import DEFAULT_ACTIVITIES
+from solstone.think.talent import (
     RUNTIME_FACETS_SENTINEL,
     get_talent,
     hydrate_runtime_enums,
 )
 
-TALENT_DIR = Path(__file__).resolve().parents[1] / "talent"
+TALENT_DIR = Path(__file__).resolve().parents[1] / "solstone" / "talent"
 PARTICIPATION_ENTRY_SCHEMA_PATH = TALENT_DIR / "participation_entry.schema.json"
 SCHEDULE_SCHEMA_PATH = TALENT_DIR / "schedule.schema.json"
 
@@ -209,7 +209,7 @@ def test_schedule_schema_mirrors_hook_requirements():
 
 
 def test_schedule_hook_fixtures_validate_against_schema(monkeypatch):
-    monkeypatch.setattr("think.talent.get_facets", lambda: {"work": {}})
+    monkeypatch.setattr("solstone.think.talent.get_facets", lambda: {"work": {}})
     validator = Draft202012Validator(hydrate_runtime_enums(_load_schedule_schema()))
 
     for payload in _sample_schedule_payloads():

@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from apps.utils import log_app_action
-from think.facets import log_call_action
+from solstone.apps.utils import log_app_action
+from solstone.think.facets import log_call_action
 
 
 @pytest.fixture

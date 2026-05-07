@@ -34,13 +34,13 @@ def _setup_genai(monkeypatch):
 
 
 def test_generate_plan(monkeypatch):
-    sys.modules.pop("think.planner", None)
-    mod = importlib.import_module("think.planner")
+    sys.modules.pop("solstone.think.planner", None)
+    mod = importlib.import_module("solstone.think.planner")
 
     # Mock generate to return "plan"
     def mock_generate(**kwargs):
         return "plan"
 
-    monkeypatch.setattr("think.models.generate", mock_generate)
+    monkeypatch.setattr("solstone.think.models.generate", mock_generate)
     result = mod.generate_plan("do something")
     assert result == "plan"

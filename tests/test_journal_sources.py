@@ -11,10 +11,10 @@ from importlib import import_module
 import pytest
 from flask import Flask, abort, g, jsonify
 
-import convey.state
-from think.utils import now_ms
+import solstone.convey.state as convey_state
+from solstone.think.utils import now_ms
 
-journal_sources = import_module("apps.import.journal_sources")
+journal_sources = import_module("solstone.apps.import.journal_sources")
 STATE_AREAS = journal_sources.STATE_AREAS
 create_state_directory = journal_sources.create_state_directory
 find_journal_source_by_name = journal_sources.find_journal_source_by_name
@@ -29,7 +29,7 @@ save_journal_source = journal_sources.save_journal_source
 
 @pytest.fixture
 def journal_env(tmp_path, monkeypatch):
-    monkeypatch.setattr(convey.state, "journal_root", str(tmp_path), raising=False)
+    monkeypatch.setattr(convey_state, "journal_root", str(tmp_path), raising=False)
     (tmp_path / "apps" / "import" / "journal_sources").mkdir(
         parents=True, exist_ok=True
     )

@@ -9,7 +9,7 @@ from datetime import datetime
 import pytest
 from flask import Flask
 
-from convey.chat_stream import append_chat_event, read_chat_events
+from solstone.convey.chat_stream import append_chat_event, read_chat_events
 
 
 def _reset_chat_state(chat_module) -> None:
@@ -61,7 +61,7 @@ def _install_fake_timers(monkeypatch):
                 return
             self.function(*self.args, **self.kwargs)
 
-    monkeypatch.setattr("convey.chat.threading.Timer", FakeTimer)
+    monkeypatch.setattr("solstone.convey.chat.threading.Timer", FakeTimer)
     return timers
 
 
@@ -104,7 +104,7 @@ def _append_recoverable_talent_events(
 def test_chat_result_with_two_active_talents_retriggers_with_max_active_reason(
     tmp_path, monkeypatch
 ):
-    import convey.chat as chat
+    import solstone.convey.chat as chat
 
     _setup_journal(tmp_path, monkeypatch)
     _reset_chat_state(chat)
@@ -126,10 +126,14 @@ def test_chat_result_with_two_active_talents_retriggers_with_max_active_reason(
 
     actions: list[dict] = []
     monkeypatch.setattr(
-        "convey.chat._run_next_action", lambda action: actions.append(action)
+        "solstone.convey.chat._run_next_action", lambda action: actions.append(action)
     )
-    monkeypatch.setattr("convey.chat._emit_finish", lambda *args, **kwargs: None)
-    monkeypatch.setattr("convey.chat._emit_error", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        "solstone.convey.chat._emit_finish", lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(
+        "solstone.convey.chat._emit_error", lambda *args, **kwargs: None
+    )
 
     with chat._state_lock:
         chat._current_chat_use_id = "1713620000100"
@@ -169,7 +173,7 @@ def test_chat_result_with_two_active_talents_retriggers_with_max_active_reason(
 def test_exec_retrigger_loop_stops_after_three_without_owner_reset(
     tmp_path, monkeypatch
 ):
-    import convey.chat as chat
+    import solstone.convey.chat as chat
 
     _setup_journal(tmp_path, monkeypatch)
     _reset_chat_state(chat)
@@ -201,11 +205,13 @@ def test_exec_retrigger_loop_stops_after_three_without_owner_reset(
     emitted_errors: list[tuple[str, str]] = []
     actions: list[dict | None] = []
     monkeypatch.setattr(
-        "convey.chat._run_next_action", lambda action: actions.append(action)
+        "solstone.convey.chat._run_next_action", lambda action: actions.append(action)
     )
-    monkeypatch.setattr("convey.chat._emit_finish", lambda *args, **kwargs: None)
     monkeypatch.setattr(
-        "convey.chat._emit_error",
+        "solstone.convey.chat._emit_finish", lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(
+        "solstone.convey.chat._emit_error",
         lambda use_id, reason: emitted_errors.append((use_id, reason)),
     )
 
@@ -239,7 +245,7 @@ def test_exec_retrigger_loop_stops_after_three_without_owner_reset(
 
 
 def test_talent_loop_count_skips_chat_error_between_retry_hops(tmp_path, monkeypatch):
-    import convey.chat as chat
+    import solstone.convey.chat as chat
 
     _setup_journal(tmp_path, monkeypatch)
     _reset_chat_state(chat)
@@ -300,7 +306,7 @@ def test_talent_loop_count_skips_chat_error_between_retry_hops(tmp_path, monkeyp
 def test_talent_loop_count_counts_through_talent_errored_and_reflection_ready(
     tmp_path, monkeypatch
 ):
-    import convey.chat as chat
+    import solstone.convey.chat as chat
 
     _setup_journal(tmp_path, monkeypatch)
     _reset_chat_state(chat)
@@ -366,17 +372,21 @@ def test_talent_loop_count_counts_through_talent_errored_and_reflection_ready(
 def test_cortex_finish_and_error_append_exec_terminal_events_by_use_id(
     tmp_path, monkeypatch
 ):
-    import convey.chat as chat
+    import solstone.convey.chat as chat
 
     _setup_journal(tmp_path, monkeypatch)
     _reset_chat_state(chat)
 
     actions: list[dict] = []
     monkeypatch.setattr(
-        "convey.chat._run_next_action", lambda action: actions.append(action)
+        "solstone.convey.chat._run_next_action", lambda action: actions.append(action)
     )
-    monkeypatch.setattr("convey.chat._emit_finish", lambda *args, **kwargs: None)
-    monkeypatch.setattr("convey.chat._emit_error", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        "solstone.convey.chat._emit_finish", lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(
+        "solstone.convey.chat._emit_error", lambda *args, **kwargs: None
+    )
 
     with chat._state_lock:
         chat._current_chat_use_id = "1713623000000"
@@ -443,20 +453,22 @@ def test_terminal_talent_reports_back_without_redispatch(
     result_field_label,
     result_value,
 ):
-    import convey.chat as chat
-    from talent import chat_context
+    import solstone.convey.chat as chat
+    from solstone.talent import chat_context
 
     _setup_journal(tmp_path, monkeypatch)
     _reset_chat_state(chat)
     _install_fake_timers(monkeypatch)
 
-    monkeypatch.setattr("convey.chat._emit_cortex_event", lambda *args, **kwargs: None)
-    monkeypatch.setattr("think.routines.get_routine_state", lambda: [])
     monkeypatch.setattr(
-        "think.routines.get_config",
+        "solstone.convey.chat._emit_cortex_event", lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr("solstone.think.routines.get_routine_state", lambda: [])
+    monkeypatch.setattr(
+        "solstone.think.routines.get_config",
         lambda: {"_meta": {"suggestions_enabled": False, "suggestions": {}}},
     )
-    monkeypatch.setattr("think.routines.save_config", lambda config: None)
+    monkeypatch.setattr("solstone.think.routines.save_config", lambda config: None)
 
     spawns: list[dict] = []
 
@@ -472,7 +484,7 @@ def test_terminal_talent_reports_back_without_redispatch(
         )
         return use_id
 
-    monkeypatch.setattr("convey.utils.spawn_agent", fake_spawn_agent)
+    monkeypatch.setattr("solstone.convey.utils.spawn_agent", fake_spawn_agent)
 
     app = Flask(__name__)
     app.register_blueprint(chat.chat_bp)
@@ -562,7 +574,7 @@ def test_terminal_talent_reports_back_without_redispatch(
 def test_start_chat_runtime_recovers_exactly_one_unresponded_trigger(
     tmp_path, monkeypatch
 ):
-    import convey.chat as chat
+    import solstone.convey.chat as chat
 
     _setup_journal(tmp_path, monkeypatch)
     _reset_chat_state(chat)
@@ -577,11 +589,15 @@ def test_start_chat_runtime_recovers_exactly_one_unresponded_trigger(
 
     starts: list[dict] = []
     monkeypatch.setattr(
-        "convey.chat.CallosumConnection.start", lambda self, callback=None: None
+        "solstone.convey.chat.CallosumConnection.start",
+        lambda self, callback=None: None,
     )
-    monkeypatch.setattr("convey.chat.CallosumConnection.stop", lambda self: None)
     monkeypatch.setattr(
-        "convey.chat._spawn_chat_generate", lambda action: starts.append(action) or True
+        "solstone.convey.chat.CallosumConnection.stop", lambda self: None
+    )
+    monkeypatch.setattr(
+        "solstone.convey.chat._spawn_chat_generate",
+        lambda action: starts.append(action) or True,
     )
 
     app = Flask(__name__)
@@ -592,17 +608,19 @@ def test_start_chat_runtime_recovers_exactly_one_unresponded_trigger(
 
 
 def test_start_chat_runtime_skips_debug_reloader_parent(tmp_path, monkeypatch, caplog):
-    import convey.chat as chat
+    import solstone.convey.chat as chat
 
     _setup_journal(tmp_path, monkeypatch)
     _reset_chat_state(chat)
 
     starts: list[object] = []
     monkeypatch.setattr(
-        "convey.chat.CallosumConnection.start",
+        "solstone.convey.chat.CallosumConnection.start",
         lambda self, callback=None: starts.append(callback),
     )
-    monkeypatch.setattr("convey.chat.CallosumConnection.stop", lambda self: None)
+    monkeypatch.setattr(
+        "solstone.convey.chat.CallosumConnection.stop", lambda self: None
+    )
 
     app = Flask(__name__)
     app.debug = True
@@ -625,13 +643,13 @@ def test_start_chat_runtime_skips_debug_reloader_parent(tmp_path, monkeypatch, c
 
 
 def test_recover_active_talents_repopulates_from_chat_stream(tmp_path, monkeypatch):
-    import convey.chat as chat
+    import solstone.convey.chat as chat
 
     _setup_journal(tmp_path, monkeypatch)
     _reset_chat_state(chat)
     timers = _install_fake_timers(monkeypatch)
     day = datetime.now().strftime("%Y%m%d")
-    monkeypatch.setattr("convey.chat._today_day", lambda: day)
+    monkeypatch.setattr("solstone.convey.chat._today_day", lambda: day)
 
     chat_use_id = "1713624500000"
     talent_use_id = "1713624500001"
@@ -653,13 +671,13 @@ def test_recover_active_talents_repopulates_from_chat_stream(tmp_path, monkeypat
 def test_late_talent_finish_after_recovery_routes_to_chat_continuation(
     tmp_path, monkeypatch, caplog
 ):
-    import convey.chat as chat
+    import solstone.convey.chat as chat
 
     _setup_journal(tmp_path, monkeypatch)
     _reset_chat_state(chat)
     _install_fake_timers(monkeypatch)
     day = datetime.now().strftime("%Y%m%d")
-    monkeypatch.setattr("convey.chat._today_day", lambda: day)
+    monkeypatch.setattr("solstone.convey.chat._today_day", lambda: day)
 
     chat_use_id = "1713624600000"
     talent_use_id = "1713624600001"
@@ -668,10 +686,14 @@ def test_late_talent_finish_after_recovery_routes_to_chat_continuation(
 
     actions: list[dict | None] = []
     monkeypatch.setattr(
-        "convey.chat._run_next_action", lambda action: actions.append(action)
+        "solstone.convey.chat._run_next_action", lambda action: actions.append(action)
     )
-    monkeypatch.setattr("convey.chat._emit_finish", lambda *args, **kwargs: None)
-    monkeypatch.setattr("convey.chat._emit_error", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        "solstone.convey.chat._emit_finish", lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(
+        "solstone.convey.chat._emit_error", lambda *args, **kwargs: None
+    )
 
     with chat._state_lock:
         chat._current_chat_use_id = chat_use_id
@@ -696,13 +718,13 @@ def test_late_talent_finish_after_recovery_routes_to_chat_continuation(
 
 
 def test_recovery_is_idempotent_for_active_talents(tmp_path, monkeypatch):
-    import convey.chat as chat
+    import solstone.convey.chat as chat
 
     _setup_journal(tmp_path, monkeypatch)
     _reset_chat_state(chat)
     timers = _install_fake_timers(monkeypatch)
     day = datetime.now().strftime("%Y%m%d")
-    monkeypatch.setattr("convey.chat._today_day", lambda: day)
+    monkeypatch.setattr("solstone.convey.chat._today_day", lambda: day)
 
     chat_use_id = "1713624700000"
     talent_use_id = "1713624700001"
@@ -720,7 +742,7 @@ def test_recovery_is_idempotent_for_active_talents(tmp_path, monkeypatch):
 def test_chat_generate_schema_violation_retries_once_then_chat_errors(
     tmp_path, monkeypatch
 ):
-    import convey.chat as chat
+    import solstone.convey.chat as chat
 
     _setup_journal(tmp_path, monkeypatch)
     _reset_chat_state(chat)
@@ -728,11 +750,13 @@ def test_chat_generate_schema_violation_retries_once_then_chat_errors(
     actions: list[dict | None] = []
     emitted_errors: list[tuple[str, str]] = []
     monkeypatch.setattr(
-        "convey.chat._run_next_action", lambda action: actions.append(action)
+        "solstone.convey.chat._run_next_action", lambda action: actions.append(action)
     )
-    monkeypatch.setattr("convey.chat._emit_finish", lambda *args, **kwargs: None)
     monkeypatch.setattr(
-        "convey.chat._emit_error",
+        "solstone.convey.chat._emit_finish", lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(
+        "solstone.convey.chat._emit_error",
         lambda use_id, reason: emitted_errors.append((use_id, reason)),
     )
 
@@ -767,17 +791,21 @@ def test_chat_generate_schema_violation_retries_once_then_chat_errors(
 def test_superseded_raw_finish_after_retry_is_dropped_without_warning(
     tmp_path, monkeypatch, caplog
 ):
-    import convey.chat as chat
+    import solstone.convey.chat as chat
 
     _setup_journal(tmp_path, monkeypatch)
     _reset_chat_state(chat)
 
     actions: list[dict | None] = []
     monkeypatch.setattr(
-        "convey.chat._run_next_action", lambda action: actions.append(action)
+        "solstone.convey.chat._run_next_action", lambda action: actions.append(action)
     )
-    monkeypatch.setattr("convey.chat._emit_finish", lambda *args, **kwargs: None)
-    monkeypatch.setattr("convey.chat._emit_error", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        "solstone.convey.chat._emit_finish", lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(
+        "solstone.convey.chat._emit_error", lambda *args, **kwargs: None
+    )
 
     raw_use_id = "1713625100001"
     with chat._state_lock:
@@ -824,17 +852,21 @@ def test_superseded_raw_finish_after_retry_is_dropped_without_warning(
 def test_superseded_raw_error_after_followup_rotation_is_dropped_without_warning(
     tmp_path, monkeypatch, caplog
 ):
-    import convey.chat as chat
+    import solstone.convey.chat as chat
 
     _setup_journal(tmp_path, monkeypatch)
     _reset_chat_state(chat)
 
     actions: list[dict | None] = []
     monkeypatch.setattr(
-        "convey.chat._run_next_action", lambda action: actions.append(action)
+        "solstone.convey.chat._run_next_action", lambda action: actions.append(action)
     )
-    monkeypatch.setattr("convey.chat._emit_finish", lambda *args, **kwargs: None)
-    monkeypatch.setattr("convey.chat._emit_error", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        "solstone.convey.chat._emit_finish", lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(
+        "solstone.convey.chat._emit_error", lambda *args, **kwargs: None
+    )
 
     stale_raw_use_id = "1713625200001"
     with chat._state_lock:
@@ -886,7 +918,7 @@ def test_superseded_raw_error_after_followup_rotation_is_dropped_without_warning
 
 
 def test_unknown_raw_use_id_still_warns(tmp_path, monkeypatch, caplog):
-    import convey.chat as chat
+    import solstone.convey.chat as chat
 
     _setup_journal(tmp_path, monkeypatch)
     _reset_chat_state(chat)
@@ -913,14 +945,16 @@ def test_unknown_raw_use_id_still_warns(tmp_path, monkeypatch, caplog):
 def test_exec_dispatch_appends_sol_message_and_spawns_talent_real_path(
     tmp_path, monkeypatch
 ):
-    import convey.chat as chat
+    import solstone.convey.chat as chat
 
     _setup_journal(tmp_path, monkeypatch)
     _reset_chat_state(chat)
     timers = _install_fake_timers(monkeypatch)
 
     spawn_calls: list[dict[str, object]] = []
-    monkeypatch.setattr("convey.chat._emit_cortex_event", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        "solstone.convey.chat._emit_cortex_event", lambda *args, **kwargs: None
+    )
 
     def fake_spawn_agent(prompt, name, provider=None, config=None, use_id=None):
         spawn_calls.append(
@@ -934,7 +968,7 @@ def test_exec_dispatch_appends_sol_message_and_spawns_talent_real_path(
         )
         return use_id
 
-    monkeypatch.setattr("convey.utils.spawn_agent", fake_spawn_agent)
+    monkeypatch.setattr("solstone.convey.utils.spawn_agent", fake_spawn_agent)
 
     with chat._state_lock:
         start_info = chat._activate_current_locked(
@@ -982,13 +1016,15 @@ def test_exec_dispatch_appends_sol_message_and_spawns_talent_real_path(
 
 
 def test_watchdog_refreshed_by_progress_event(tmp_path, monkeypatch):
-    import convey.chat as chat
+    import solstone.convey.chat as chat
 
     _setup_journal(tmp_path, monkeypatch)
     _reset_chat_state(chat)
     timers = _install_fake_timers(monkeypatch)
 
-    monkeypatch.setattr("convey.chat._emit_cortex_event", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        "solstone.convey.chat._emit_cortex_event", lambda *args, **kwargs: None
+    )
 
     with chat._state_lock:
         start_info = chat._activate_current_locked(
@@ -1014,13 +1050,15 @@ def test_watchdog_refreshed_by_progress_event(tmp_path, monkeypatch):
 
 
 def test_watchdog_refresh_is_no_op_when_no_timer_registered(tmp_path, monkeypatch):
-    import convey.chat as chat
+    import solstone.convey.chat as chat
 
     _setup_journal(tmp_path, monkeypatch)
     _reset_chat_state(chat)
     timers = _install_fake_timers(monkeypatch)
 
-    monkeypatch.setattr("convey.chat._emit_cortex_event", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        "solstone.convey.chat._emit_cortex_event", lambda *args, **kwargs: None
+    )
 
     with chat._state_lock:
         chat._current_chat_use_id = "1713627850000"
@@ -1044,13 +1082,15 @@ def test_watchdog_refresh_is_no_op_when_no_timer_registered(tmp_path, monkeypatc
 
 
 def test_watchdog_refreshed_by_talent_progress(tmp_path, monkeypatch):
-    import convey.chat as chat
+    import solstone.convey.chat as chat
 
     _setup_journal(tmp_path, monkeypatch)
     _reset_chat_state(chat)
     timers = _install_fake_timers(monkeypatch)
 
-    monkeypatch.setattr("convey.chat._emit_cortex_event", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        "solstone.convey.chat._emit_cortex_event", lambda *args, **kwargs: None
+    )
 
     with chat._state_lock:
         chat._current_chat_use_id = "1713627900000"
@@ -1085,7 +1125,7 @@ def test_watchdog_refreshed_by_talent_progress(tmp_path, monkeypatch):
 
 
 def test_stalled_run_still_times_out_after_inactivity(tmp_path, monkeypatch):
-    import convey.chat as chat
+    import solstone.convey.chat as chat
 
     _setup_journal(tmp_path, monkeypatch)
     _reset_chat_state(chat)
@@ -1093,13 +1133,16 @@ def test_stalled_run_still_times_out_after_inactivity(tmp_path, monkeypatch):
 
     emitted_errors: list[tuple[str, str]] = []
     run_actions: list[dict | None] = []
-    monkeypatch.setattr("convey.chat._emit_cortex_event", lambda *args, **kwargs: None)
     monkeypatch.setattr(
-        "convey.chat._emit_error",
+        "solstone.convey.chat._emit_cortex_event", lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(
+        "solstone.convey.chat._emit_error",
         lambda use_id, reason: emitted_errors.append((use_id, reason)),
     )
     monkeypatch.setattr(
-        "convey.chat._run_next_action", lambda action: run_actions.append(action)
+        "solstone.convey.chat._run_next_action",
+        lambda action: run_actions.append(action),
     )
 
     with chat._state_lock:
@@ -1140,7 +1183,7 @@ def test_stalled_run_still_times_out_after_inactivity(tmp_path, monkeypatch):
 
 
 def test_chat_watchdog_times_out_current_chat_generate(tmp_path, monkeypatch):
-    import convey.chat as chat
+    import solstone.convey.chat as chat
 
     _setup_journal(tmp_path, monkeypatch)
     _reset_chat_state(chat)
@@ -1149,11 +1192,12 @@ def test_chat_watchdog_times_out_current_chat_generate(tmp_path, monkeypatch):
     emitted_errors: list[tuple[str, str]] = []
     run_actions: list[dict | None] = []
     monkeypatch.setattr(
-        "convey.chat._emit_error",
+        "solstone.convey.chat._emit_error",
         lambda use_id, reason: emitted_errors.append((use_id, reason)),
     )
     monkeypatch.setattr(
-        "convey.chat._run_next_action", lambda action: run_actions.append(action)
+        "solstone.convey.chat._run_next_action",
+        lambda action: run_actions.append(action),
     )
 
     with chat._state_lock:
@@ -1186,20 +1230,22 @@ def test_chat_watchdog_times_out_current_chat_generate(tmp_path, monkeypatch):
 def test_chat_watchdog_times_out_active_talent_and_clears_blocked_chat(
     tmp_path, monkeypatch
 ):
-    import convey.chat as chat
+    import solstone.convey.chat as chat
 
     _setup_journal(tmp_path, monkeypatch)
     _reset_chat_state(chat)
     timers = _install_fake_timers(monkeypatch)
 
     emitted_errors: list[tuple[str, str]] = []
-    monkeypatch.setattr("convey.chat._emit_cortex_event", lambda *args, **kwargs: None)
     monkeypatch.setattr(
-        "convey.chat._emit_error",
+        "solstone.convey.chat._emit_cortex_event", lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(
+        "solstone.convey.chat._emit_error",
         lambda use_id, reason: emitted_errors.append((use_id, reason)),
     )
     monkeypatch.setattr(
-        "convey.utils.spawn_agent", lambda *args, **kwargs: kwargs["use_id"]
+        "solstone.convey.utils.spawn_agent", lambda *args, **kwargs: kwargs["use_id"]
     )
 
     with chat._state_lock:
@@ -1249,16 +1295,20 @@ def test_chat_watchdog_times_out_active_talent_and_clears_blocked_chat(
 
 
 def test_chat_watchdog_marks_timed_out_talent_result_as_errored(tmp_path, monkeypatch):
-    import convey.chat as chat
+    import solstone.convey.chat as chat
 
     _setup_journal(tmp_path, monkeypatch)
     _reset_chat_state(chat)
     timers = _install_fake_timers(monkeypatch)
 
-    monkeypatch.setattr("convey.chat._emit_cortex_event", lambda *args, **kwargs: None)
-    monkeypatch.setattr("convey.chat._emit_error", lambda *args, **kwargs: None)
     monkeypatch.setattr(
-        "convey.utils.spawn_agent", lambda *args, **kwargs: kwargs["use_id"]
+        "solstone.convey.chat._emit_cortex_event", lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(
+        "solstone.convey.chat._emit_error", lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(
+        "solstone.convey.utils.spawn_agent", lambda *args, **kwargs: kwargs["use_id"]
     )
 
     with chat._state_lock:
@@ -1322,7 +1372,7 @@ def test_chat_watchdog_marks_timed_out_talent_result_as_errored(tmp_path, monkey
 def test_cortex_finish_logs_warning_for_unrouteable_use_id(
     tmp_path, monkeypatch, caplog
 ):
-    import convey.chat as chat
+    import solstone.convey.chat as chat
 
     _setup_journal(tmp_path, monkeypatch)
     _reset_chat_state(chat)
@@ -1339,7 +1389,7 @@ def test_cortex_finish_logs_warning_for_unrouteable_use_id(
 def test_cortex_error_logs_warning_for_unrouteable_use_id(
     tmp_path, monkeypatch, caplog
 ):
-    import convey.chat as chat
+    import solstone.convey.chat as chat
 
     _setup_journal(tmp_path, monkeypatch)
     _reset_chat_state(chat)
@@ -1354,7 +1404,7 @@ def test_cortex_error_logs_warning_for_unrouteable_use_id(
 
 
 def test_parse_chat_result_accepts_reflection_target():
-    import convey.chat as chat
+    import solstone.convey.chat as chat
 
     parsed = chat._parse_chat_result(
         {
@@ -1376,7 +1426,7 @@ def test_parse_chat_result_accepts_reflection_target():
 
 
 def test_parse_chat_result_rejects_unknown_target():
-    import convey.chat as chat
+    import solstone.convey.chat as chat
 
     with pytest.raises(ValueError, match="unknown talent target: foo"):
         chat._parse_chat_result(
@@ -1389,7 +1439,7 @@ def test_parse_chat_result_rejects_unknown_target():
 
 
 def test_parse_chat_result_rejects_missing_target():
-    import convey.chat as chat
+    import solstone.convey.chat as chat
 
     with pytest.raises(ValueError, match="chat talent_request.target must be a string"):
         chat._parse_chat_result(
@@ -1402,17 +1452,21 @@ def test_parse_chat_result_rejects_missing_target():
 
 
 def test_reflection_dispatch_spawns_reflection_talent(tmp_path, monkeypatch):
-    import convey.chat as chat
+    import solstone.convey.chat as chat
 
     _setup_journal(tmp_path, monkeypatch)
     _reset_chat_state(chat)
 
     actions: list[dict | None] = []
     monkeypatch.setattr(
-        "convey.chat._run_next_action", lambda action: actions.append(action)
+        "solstone.convey.chat._run_next_action", lambda action: actions.append(action)
     )
-    monkeypatch.setattr("convey.chat._emit_finish", lambda *args, **kwargs: None)
-    monkeypatch.setattr("convey.chat._emit_error", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        "solstone.convey.chat._emit_finish", lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(
+        "solstone.convey.chat._emit_error", lambda *args, **kwargs: None
+    )
 
     with chat._state_lock:
         chat._current_chat_use_id = "1713626000000"
@@ -1446,17 +1500,21 @@ def test_reflection_dispatch_spawns_reflection_talent(tmp_path, monkeypatch):
 
 
 def test_reflection_finish_retriggers_chat_like_exec(tmp_path, monkeypatch):
-    import convey.chat as chat
+    import solstone.convey.chat as chat
 
     _setup_journal(tmp_path, monkeypatch)
     _reset_chat_state(chat)
 
     actions: list[dict | None] = []
     monkeypatch.setattr(
-        "convey.chat._run_next_action", lambda action: actions.append(action)
+        "solstone.convey.chat._run_next_action", lambda action: actions.append(action)
     )
-    monkeypatch.setattr("convey.chat._emit_finish", lambda *args, **kwargs: None)
-    monkeypatch.setattr("convey.chat._emit_error", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        "solstone.convey.chat._emit_finish", lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(
+        "solstone.convey.chat._emit_error", lambda *args, **kwargs: None
+    )
 
     with chat._state_lock:
         chat._current_chat_use_id = "1713627000000"

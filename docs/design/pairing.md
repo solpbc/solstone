@@ -2,46 +2,46 @@
 
 ## 1. Summary
 
-Wave 5 adds a self-hosted iOS pairing flow to the existing Convey process: one JSON API blueprint at `/api/pairing/*` plus one owner-facing HTML blueprint at `/app/pairing/*`, both defined in `convey/pairing.py`. This follows the Wave 2 / Wave 3 root-blueprint pattern rather than adding an `apps/pairing/` package (`convey/voice.py:27-197`, `convey/push.py:24-127`, `convey/__init__.py:110-169`).
+Wave 5 adds a self-hosted iOS pairing flow to the existing Convey process: one JSON API blueprint at `/api/pairing/*` plus one owner-facing HTML blueprint at `/app/pairing/*`, both defined in `solstone/convey/pairing.py`. This follows the Wave 2 / Wave 3 root-blueprint pattern rather than adding an `solstone/apps/pairing/` package (`solstone/convey/voice.py:27-197`, `solstone/convey/push.py:24-127`, `solstone/convey/__init__.py:110-169`).
 
 The server mints one-time `ptk_...` pairing tokens in memory, accepts ssh-ed25519 public keys from the iOS client, stores paired devices in `journal/config/paired_devices.json`, and returns a one-time `dsk_...` bearer session key whose hash is the only value persisted at rest. The companion iOS contract is fixed: `solstone://pair?token=...&host=...`, `POST {host}/api/pairing/confirm`, then `Authorization: Bearer <session_key>` on subsequent API calls.
 
-The design keeps config defaults compatible with existing journals by using both a new `pairing` block in `think/journal_default.json` and in-code defaults in `think/pairing/config.py`, because `get_config()` does not merge defaults once `config/journal.json` exists (`think/journal_default.json:1-53`, `think/utils.py:557-588`, `tests/conftest.py:77-84`). It also promotes `cryptography` to a direct dependency: the repo already imports it directly in the link pairing surface, but `pyproject.toml` does not currently declare it (`apps/link/routes.py:33-35`, `pyproject.toml:32-93`).
+The design keeps config defaults compatible with existing journals by using both a new `pairing` block in `solstone/think/journal_default.json` and in-code defaults in `solstone/think/pairing/config.py`, because `get_config()` does not merge defaults once `config/journal.json` exists (`solstone/think/journal_default.json:1-53`, `solstone/think/utils.py:557-588`, `tests/conftest.py:77-84`). It also promotes `cryptography` to a direct dependency: the repo already imports it directly in the link pairing surface, but `pyproject.toml` does not currently declare it (`solstone/apps/link/routes.py:33-35`, `pyproject.toml:32-93`).
 
 ## 2. Module layout
 
 | Path | Role |
 |---|---|
-| `pyproject.toml` | Add direct dependency `cryptography>=42` because pairing will import `cryptography` directly, and the repo already does so in `apps/link/routes.py` (`apps/link/routes.py:33-35`, `pyproject.toml:55-61`). |
-| `think/journal_default.json` | Add a flat `pairing` config block beside `voice` and `push`. `identity.name` and `identity.preferred` already exist here and are the source for `owner_identity` resolution (`think/journal_default.json:2-15`, `35-53`). |
-| `think/pairing/__init__.py` | Narrow re-export surface so callers do not reach into module-private helpers, matching the small package-surface pattern used by `think/push` and `think/voice` (`docs/design/push.md:13-24`, `docs/design/voice-server.md:11-26`). |
-| `think/pairing/config.py` | Config readers for `pairing.host_url`, `pairing.token_ttl_seconds`, and owner identity fallback. Mirrors the small-reader style in `think/push/config.py` and must supply defaults in code because fixture journals already have a `journal.json` (`think/push/config.py:17-81`, `think/utils.py:557-588`). |
-| `think/pairing/tokens.py` | In-memory token store with a module-level singleton and `threading.Lock`, modeled after `think/link/nonces.py`’s single-use TTL store but intentionally kept process-local instead of journal-backed (`think/link/nonces.py:25-103`). |
-| `think/pairing/keys.py` | Public-key validation, bearer-session-key generation, SHA-256 hashing, and log masking. This is the only module that knows the `ptk_...` / `dsk_...` wire formats and the ssh-ed25519-only rule. |
-| `think/pairing/devices.py` | Sole writer for `journal/config/paired_devices.json`, mirroring the whole-file atomic rewrite pattern from `think/push/devices.py` (`think/push/devices.py:21-153`). |
-| `convey/auth.py` | Shared bearer/owner auth helpers. Factors the Bearer extraction pattern out of `apps/observer/routes.py` / `apps/import/journal_sources.py` and adds paired-device resolution and owner-auth inspection without redirects (`apps/observer/routes.py:63-70`, `503-538`, `apps/import/journal_sources.py:108-128`, `convey/root.py:49-57`, `81-139`). |
-| `convey/pairing.py` | Defines `pairing_bp = Blueprint("pairing", ..., url_prefix="/api/pairing")` and `pairing_ui_bp = Blueprint("pairing_ui", ..., url_prefix="/app/pairing")`, using the same local `_error`, `_required_json_object`, and `_optional_json_object` request-validation pattern as `convey/voice.py` / `convey/push.py` (`convey/voice.py:27-53`, `convey/push.py:24-50`). |
-| `convey/__init__.py` | Import and register both pairing blueprints in the same root-blueprint block as `voice_bp` / `push_bp`, before app discovery (`convey/__init__.py:112-161`). |
-| `convey/root.py` | Extend the exact-name allowlist in `require_login()` with `pairing.confirm_pairing`, `pairing.heartbeat`, `pairing.list_devices`, and `pairing.unpair_device`. Leave `pairing.create_token` and `pairing_ui.index` owner-authed (`convey/root.py:81-139`). |
-| `convey/templates/pairing.html` | Flat owner-facing desktop page. Use a heading of “Pair a phone” to distinguish this flow from tunnel pairing in `apps/link/routes.py` (`apps/link/routes.py:4-24`). |
-| `convey/static/pairing-qr.js` | Vendored `qrcode-generator` browser build, loaded directly because package data currently only includes flat `static/*` assets (`pyproject.toml:110-118`, `convey/__init__.py:118-133`). |
-| `convey/static/pairing.js` | Page logic: mint token, render QR, countdown, 5-second polling against `GET /api/pairing/devices`, copy-paste fallback, success/error state. |
-| `convey/static/pairing.css` | Minimal page styling only if `app.css` reuse is insufficient. |
+| `pyproject.toml` | Add direct dependency `cryptography>=42` because pairing will import `cryptography` directly, and the repo already does so in `solstone/apps/link/routes.py` (`solstone/apps/link/routes.py:33-35`, `pyproject.toml:55-61`). |
+| `solstone/think/journal_default.json` | Add a flat `pairing` config block beside `voice` and `push`. `identity.name` and `identity.preferred` already exist here and are the source for `owner_identity` resolution (`solstone/think/journal_default.json:2-15`, `35-53`). |
+| `solstone/think/pairing/__init__.py` | Narrow re-export surface so callers do not reach into module-private helpers, matching the small package-surface pattern used by `solstone/think/push` and `solstone/think/voice` (`docs/design/push.md:13-24`, `docs/design/voice-server.md:11-26`). |
+| `solstone/think/pairing/config.py` | Config readers for `pairing.host_url`, `pairing.token_ttl_seconds`, and owner identity fallback. Mirrors the small-reader style in `solstone/think/push/config.py` and must supply defaults in code because fixture journals already have a `journal.json` (`solstone/think/push/config.py:17-81`, `solstone/think/utils.py:557-588`). |
+| `solstone/think/pairing/tokens.py` | In-memory token store with a module-level singleton and `threading.Lock`, modeled after `solstone/think/link/nonces.py`’s single-use TTL store but intentionally kept process-local instead of journal-backed (`solstone/think/link/nonces.py:25-103`). |
+| `solstone/think/pairing/keys.py` | Public-key validation, bearer-session-key generation, SHA-256 hashing, and log masking. This is the only module that knows the `ptk_...` / `dsk_...` wire formats and the ssh-ed25519-only rule. |
+| `solstone/think/pairing/devices.py` | Sole writer for `journal/config/paired_devices.json`, mirroring the whole-file atomic rewrite pattern from `solstone/think/push/devices.py` (`solstone/think/push/devices.py:21-153`). |
+| `solstone/convey/auth.py` | Shared bearer/owner auth helpers. Factors the Bearer extraction pattern out of `solstone/apps/observer/routes.py` / `solstone/apps/import/journal_sources.py` and adds paired-device resolution and owner-auth inspection without redirects (`solstone/apps/observer/routes.py:63-70`, `503-538`, `solstone/apps/import/journal_sources.py:108-128`, `solstone/convey/root.py:49-57`, `81-139`). |
+| `solstone/convey/pairing.py` | Defines `pairing_bp = Blueprint("pairing", ..., url_prefix="/api/pairing")` and `pairing_ui_bp = Blueprint("pairing_ui", ..., url_prefix="/app/pairing")`, using the same local `_error`, `_required_json_object`, and `_optional_json_object` request-validation pattern as `solstone/convey/voice.py` / `solstone/convey/push.py` (`solstone/convey/voice.py:27-53`, `solstone/convey/push.py:24-50`). |
+| `solstone/convey/__init__.py` | Import and register both pairing blueprints in the same root-blueprint block as `voice_bp` / `push_bp`, before app discovery (`solstone/convey/__init__.py:112-161`). |
+| `solstone/convey/root.py` | Extend the exact-name allowlist in `require_login()` with `pairing.confirm_pairing`, `pairing.heartbeat`, `pairing.list_devices`, and `pairing.unpair_device`. Leave `pairing.create_token` and `pairing_ui.index` owner-authed (`solstone/convey/root.py:81-139`). |
+| `solstone/convey/templates/pairing.html` | Flat owner-facing desktop page. Use a heading of “Pair a phone” to distinguish this flow from tunnel pairing in `solstone/apps/link/routes.py` (`solstone/apps/link/routes.py:4-24`). |
+| `solstone/convey/static/pairing-qr.js` | Vendored `qrcode-generator` browser build, loaded directly because package data currently only includes flat `static/*` assets (`pyproject.toml:110-118`, `solstone/convey/__init__.py:118-133`). |
+| `solstone/convey/static/pairing.js` | Page logic: mint token, render QR, countdown, 5-second polling against `GET /api/pairing/devices`, copy-paste fallback, success/error state. |
+| `solstone/convey/static/pairing.css` | Minimal page styling only if `app.css` reuse is insufficient. |
 
 ### Public API surface
 
 The public function surface is intentionally small and explicit.
 
-#### `think/pairing/config.py`
+#### `solstone/think/pairing/config.py`
 
 - `def get_host_url() -> str:`
- Return the configured pairing host URL, or synthesize `http://localhost:<convey-port>` when `pairing.host_url` is null by reading the recorded Convey port and falling back to the installed default port `5015` (`think/utils.py:922-935`, `think/service.py:32-34`).
+ Return the configured pairing host URL, or synthesize `http://localhost:<convey-port>` when `pairing.host_url` is null by reading the recorded Convey port and falling back to the installed default port `5015` (`solstone/think/utils.py:922-935`, `solstone/think/service.py:32-34`).
 - `def get_token_ttl_seconds() -> int:`
  Return the configured token TTL, clamped to `60..3600`, defaulting to `600`.
 - `def get_owner_identity() -> str:`
- Return `config.identity.preferred`, else `config.identity.name`, else `""` (`think/journal_default.json:2-15`).
+ Return `config.identity.preferred`, else `config.identity.name`, else `""` (`solstone/think/journal_default.json:2-15`).
 
-#### `think/pairing/tokens.py`
+#### `solstone/think/pairing/tokens.py`
 
 - `def create_token(*, ttl_seconds: int | None = None, now: int | None = None) -> PairingToken:`
  Mint a `ptk_...` token, insert it into the in-memory store, and return its issued/expires metadata.
@@ -52,7 +52,7 @@ The public function surface is intentionally small and explicit.
 - `def purge_expired_tokens(*, now: int | None = None) -> int:`
  Remove expired tokens and return the number purged.
 
-#### `think/pairing/keys.py`
+#### `solstone/think/pairing/keys.py`
 
 - `def validate_public_key(public_key: str) -> str:`
  Parse and validate an ssh-ed25519 public key, reject any non-Ed25519 algorithm, and return the normalized string.
@@ -63,7 +63,7 @@ The public function surface is intentionally small and explicit.
 - `def mask_session_key(session_key: str) -> str:`
  Return a log-safe mask showing only the last four characters and the total length.
 
-#### `think/pairing/devices.py`
+#### `solstone/think/pairing/devices.py`
 
 - `def load_devices() -> list[Device]:`
  Load and validate `paired_devices.json`, returning `[]` on missing or malformed stores with a warning.
@@ -80,14 +80,14 @@ The public function surface is intentionally small and explicit.
 - `def status_view(device: Device) -> dict[str, Any]:`
  Return the non-secret JSON view exposed by `GET /api/pairing/devices`.
 
-#### `convey/auth.py`
+#### `solstone/convey/auth.py`
 
 - `def extract_bearer_token() -> str | None:`
  Return the trimmed `Authorization: Bearer ...` token if present, else `None`.
 - `def resolve_paired_device() -> Device | None:`
  Hash the presented bearer token, load the matching paired device, and return it when valid.
 - `def is_owner_authed() -> bool:`
- Return `True` when the current request already satisfies the owner checks used by `require_login()` without triggering redirects: session cookie, Basic Auth, or the completed-setup localhost bypass (`convey/root.py:49-57`, `81-139`).
+ Return `True` when the current request already satisfies the owner checks used by `require_login()` without triggering redirects: session cookie, Basic Auth, or the completed-setup localhost bypass (`solstone/convey/root.py:49-57`, `81-139`).
 - `def require_paired_device(f):`
  Decorator that resolves a paired-device bearer, stores it on `g.paired_device`, and returns `401` JSON when no valid paired-device bearer is present.
 
@@ -104,7 +104,7 @@ owner browser on /app/pairing/
  -> pairing.js renders QR client-side and starts countdown
 ```
 
-This mirrors the local-request-validation shape of `convey/voice.py` and `convey/push.py`, but the write target is an in-memory store rather than journal state (`convey/voice.py:30-53`, `convey/push.py:27-50`, `think/link/nonces.py:45-103`).
+This mirrors the local-request-validation shape of `solstone/convey/voice.py` and `solstone/convey/push.py`, but the write target is an in-memory store rather than journal state (`solstone/convey/voice.py:30-53`, `solstone/convey/push.py:27-50`, `solstone/think/link/nonces.py:45-103`).
 
 ### 3.2 Confirm (`POST /api/pairing/confirm`)
 
@@ -120,7 +120,7 @@ iOS client
  -> response returns session_key once, plus device_id/journal_root/owner_identity/server_version
 ```
 
-The confirm flow deliberately follows the existing “token in header/body, then validate against a feature-owned store” pattern from observer ingest and journal-source ingest, but pairing consumes its own in-memory token and persists only the device ledger (`apps/observer/routes.py:524-538`, `apps/import/journal_sources.py:108-128`).
+The confirm flow deliberately follows the existing “token in header/body, then validate against a feature-owned store” pattern from observer ingest and journal-source ingest, but pairing consumes its own in-memory token and persists only the device ledger (`solstone/apps/observer/routes.py:524-538`, `solstone/apps/import/journal_sources.py:108-128`).
 
 ### 3.3 List / heartbeat (`GET /api/pairing/devices`, `POST /api/pairing/heartbeat`)
 
@@ -144,7 +144,7 @@ paired device OR owner browser
  -> 200 {"unpaired": true} on success
 ```
 
-The storage rule is simple: unpair removes the row from `paired_devices.json` rather than soft-deleting it. That keeps the store authoritative for current pairings only, matching the existing push-device store style (`think/push/devices.py:76-124`).
+The storage rule is simple: unpair removes the row from `paired_devices.json` rather than soft-deleting it. That keeps the store authoritative for current pairings only, matching the existing push-device store style (`solstone/think/push/devices.py:76-124`).
 
 ### 3.5 Restart semantics
 
@@ -173,14 +173,14 @@ This split is deliberate. The token store is ephemeral by scope; the device ledg
 
 ### 4.2 Allowlist additions
 
-Add these exact endpoint names to `convey/root.py`’s `require_login()` allowlist and no others:
+Add these exact endpoint names to `solstone/convey/root.py`’s `require_login()` allowlist and no others:
 
 - `pairing.confirm_pairing`
 - `pairing.heartbeat`
 - `pairing.list_devices`
 - `pairing.unpair_device`
 
-Do **not** add `pairing.create_token`. Do **not** add `pairing_ui.index` (`convey/root.py:81-139`).
+Do **not** add `pairing.create_token`. Do **not** add `pairing_ui.index` (`solstone/convey/root.py:81-139`).
 
 ### 4.3 Mixed-auth chain for `list_devices` and `unpair_device`
 
@@ -192,11 +192,11 @@ The mixed-auth routes intentionally do **not** use `@require_paired_device`, bec
 4. If no device is found, the handler calls `is_owner_authed()`.
 5. If neither path succeeds, the handler returns `401 {"error": "...", "reason": "auth_required"}`.
 
-This keeps the bypass explicit, preserves owner access via cookie / Basic Auth / localhost semantics, and avoids redirect responses on API routes (`convey/root.py:49-57`, `81-139`).
+This keeps the bypass explicit, preserves owner access via cookie / Basic Auth / localhost semantics, and avoids redirect responses on API routes (`solstone/convey/root.py:49-57`, `81-139`).
 
 ## 5. Config keys
 
-Add this block to `think/journal_default.json` after `push` and before `retention`:
+Add this block to `solstone/think/journal_default.json` after `push` and before `retention`:
 
 ```json
 "pairing": {
@@ -209,19 +209,19 @@ Key rules:
 
 - `pairing.host_url`
  - Default in `journal_default.json`: `null`.
- - Runtime behavior: when null, synthesize `http://localhost:<convey-port>` using `read_service_port("convey")` and fall back to `DEFAULT_SERVICE_PORT = 5015` (`think/utils.py:922-935`, `think/service.py:32-34`).
+ - Runtime behavior: when null, synthesize `http://localhost:<convey-port>` using `read_service_port("convey")` and fall back to `DEFAULT_SERVICE_PORT = 5015` (`solstone/think/utils.py:922-935`, `solstone/think/service.py:32-34`).
  - Operator behavior: set this explicitly when Convey is exposed through a tunnel, reverse proxy, or non-localhost origin.
 - `pairing.token_ttl_seconds`
  - Default: `600`.
  - Runtime clamp: `60..3600`.
 
-`owner_identity` does not need its own config key; it resolves from existing identity fields: `identity.preferred`, then `identity.name`, then `""` (`think/journal_default.json:2-15`).
+`owner_identity` does not need its own config key; it resolves from existing identity fields: `identity.preferred`, then `identity.name`, then `""` (`solstone/think/journal_default.json:2-15`).
 
 ## 6. Feature-specific detail
 
 ### 6.1 Token store
 
-Decision: use a module-level singleton store backed by `threading.Lock` and a plain dict. Rationale: the scope explicitly accepts restart-invalidated tokens, and the existing link nonce store shows the TTL + single-use semantics we need without implying journal persistence (`think/link/nonces.py:45-103`).
+Decision: use a module-level singleton store backed by `threading.Lock` and a plain dict. Rationale: the scope explicitly accepts restart-invalidated tokens, and the existing link nonce store shows the TTL + single-use semantics we need without implying journal persistence (`solstone/think/link/nonces.py:45-103`).
 
 Token rules:
 
@@ -270,7 +270,7 @@ Store rules:
 
 ### 6.5 Auth chain
 
-Decision: ship a pairing-focused `convey/auth.py` now, but do not thread it into existing voice/push/observer routes. Rationale: Wave 5 needs the helper surface immediately, but the scope explicitly defers cross-route enforcement to Wave 5.1.
+Decision: ship a pairing-focused `solstone/convey/auth.py` now, but do not thread it into existing voice/push/observer routes. Rationale: Wave 5 needs the helper surface immediately, but the scope explicitly defers cross-route enforcement to Wave 5.1.
 
 Helper contract:
 
@@ -281,11 +281,11 @@ Helper contract:
 
 ### 6.6 Error model
 
-Decision: every API error is JSON shaped as `{"error": "<human message>", "reason": "<stable_reason>"}`. Rationale: this preserves the concise error-helper style from `convey/voice.py` / `convey/push.py` while giving the client a stable machine-readable string that does not echo input back (`convey/voice.py:30-53`, `convey/push.py:27-50`).
+Decision: every API error is JSON shaped as `{"error": "<human message>", "reason": "<stable_reason>"}`. Rationale: this preserves the concise error-helper style from `solstone/convey/voice.py` / `solstone/convey/push.py` while giving the client a stable machine-readable string that does not echo input back (`solstone/convey/voice.py:30-53`, `solstone/convey/push.py:27-50`).
 
 ### 6.7 QR generation
 
-Decision: vendor `qrcode-generator` version `1.4.4` under `convey/static/pairing-qr.js` and generate the SVG client-side from the `qr_data` field returned by `POST /api/pairing/create`. Rationale: the repo packaging only includes flat `static/*` assets, and this keeps the QR dependency browser-only, MIT-licensed, and separate from the page logic in `convey/static/pairing.js` (`pyproject.toml:110-118`, `convey/__init__.py:118-133`).
+Decision: vendor `qrcode-generator` version `1.4.4` under `solstone/convey/static/pairing-qr.js` and generate the SVG client-side from the `qr_data` field returned by `POST /api/pairing/create`. Rationale: the repo packaging only includes flat `static/*` assets, and this keeps the QR dependency browser-only, MIT-licensed, and separate from the page logic in `solstone/convey/static/pairing.js` (`pyproject.toml:110-118`, `solstone/convey/__init__.py:118-133`).
 
 ### 6.8 Logging
 
@@ -295,8 +295,8 @@ Decision: use `logging` only; never log raw `session_key`; log masked session ke
 
 This lode stays within the repo’s layer-hygiene invariants (`scripts/check_layer_hygiene.py:38-110`, `183-240`).
 
-- **L1 Layer boundaries**: `think/pairing/devices.py` owns the device ledger. `convey/pairing.py` only validates requests, coordinates feature calls, and returns HTTP responses, matching the root-blueprint split in voice/push (`convey/voice.py:30-197`, `convey/push.py:27-127`).
-- **L2 Domain write ownership**: `journal/config/paired_devices.json` is owned exclusively by `think/pairing/devices.py`. No other module writes it. The token store is in memory only, so no extra journal domain is created.
+- **L1 Layer boundaries**: `solstone/think/pairing/devices.py` owns the device ledger. `solstone/convey/pairing.py` only validates requests, coordinates feature calls, and returns HTTP responses, matching the root-blueprint split in voice/push (`solstone/convey/voice.py:30-197`, `solstone/convey/push.py:27-127`).
+- **L2 Domain write ownership**: `journal/config/paired_devices.json` is owned exclusively by `solstone/think/pairing/devices.py`. No other module writes it. The token store is in memory only, so no extra journal domain is created.
 - **L3 Naming contract**: read helpers use read verbs (`load_devices`, `find_device_by_id`, `find_device_by_session_key_hash`); write helpers use write verbs (`register_device`, `touch_last_seen`, `remove_device`).
 - **L4 CLI read verbs are read-only**: no new CLI surface is introduced in this lode.
 - **L5 Write-verb defaults**: not applicable to CLI; the only mutating surfaces are explicit HTTP write routes.
@@ -309,11 +309,11 @@ This lode stays within the repo’s layer-hygiene invariants (`scripts/check_lay
 
 ### 8.1 `tests/test_pairing_config.py`
 
-Verify config defaults, null-host synthesis, TTL clamp behavior, and owner-identity fallback against fixture journals that already contain `config/journal.json` (`think/utils.py:557-588`, `tests/conftest.py:77-84`).
+Verify config defaults, null-host synthesis, TTL clamp behavior, and owner-identity fallback against fixture journals that already contain `config/journal.json` (`solstone/think/utils.py:557-588`, `tests/conftest.py:77-84`).
 
 ### 8.2 `tests/test_pairing_tokens.py`
 
-Verify token shape, TTL metadata, single-use semantics, expiry purge, and restart-local assumptions of the module singleton (`think/link/nonces.py:45-103`).
+Verify token shape, TTL metadata, single-use semantics, expiry purge, and restart-local assumptions of the module singleton (`solstone/think/link/nonces.py:45-103`).
 
 ### 8.3 `tests/test_pairing_keys.py`
 
@@ -321,11 +321,11 @@ Verify ssh-ed25519 acceptance, rejection of ssh-rsa / ecdsa / malformed keys, se
 
 ### 8.4 `tests/test_pairing_devices.py`
 
-Verify malformed-store recovery, atomic whole-file rewrites, public-key-keyed upsert behavior, `last_seen_at` updates, removal by id, and `status_view()` redaction pattern matching the push-device precedent (`think/push/devices.py:64-153`).
+Verify malformed-store recovery, atomic whole-file rewrites, public-key-keyed upsert behavior, `last_seen_at` updates, removal by id, and `status_view()` redaction pattern matching the push-device precedent (`solstone/think/push/devices.py:64-153`).
 
 ### 8.5 `tests/test_pairing_auth.py`
 
-Verify `extract_bearer_token()`, `resolve_paired_device()`, `require_paired_device`, and `is_owner_authed()` against cookie, Basic Auth, and `trust_localhost` cases from `convey/root.py` (`convey/root.py:49-57`, `81-139`).
+Verify `extract_bearer_token()`, `resolve_paired_device()`, `require_paired_device`, and `is_owner_authed()` against cookie, Basic Auth, and `trust_localhost` cases from `solstone/convey/root.py` (`solstone/convey/root.py:49-57`, `81-139`).
 
 ### 8.6 `tests/test_pairing_routes.py`
 
@@ -339,7 +339,7 @@ Exercise the full owner-create -> confirm -> bearer-list -> heartbeat -> unpair 
 
 ### Token reuse and replay
 
-`consume_token()` is the only mutating read path and it enforces single-use + TTL. Tokens are not written to disk, so process restart invalidates all outstanding QR codes, which the scope explicitly accepts (`think/link/nonces.py:66-85`).
+`consume_token()` is the only mutating read path and it enforces single-use + TTL. Tokens are not written to disk, so process restart invalidates all outstanding QR codes, which the scope explicitly accepts (`solstone/think/link/nonces.py:66-85`).
 
 ### Key validation and bounded input
 
@@ -347,7 +347,7 @@ Only ssh-ed25519 public keys are accepted. Rejecting all other SSH algorithms al
 
 ### Log masking
 
-No raw `session_key` appears in logs, error messages, or `paired_devices.json`. Public keys are truncated when logged at `DEBUG`. This is stricter than the existing link pair route, which still echoes CSR parse failures in the JSON error body; pairing should not repeat that pattern (`apps/link/routes.py:230-235`).
+No raw `session_key` appears in logs, error messages, or `paired_devices.json`. Public keys are truncated when logged at `DEBUG`. This is stricter than the existing link pair route, which still echoes CSR parse failures in the JSON error body; pairing should not repeat that pattern (`solstone/apps/link/routes.py:230-235`).
 
 ### Restart semantics
 
@@ -355,11 +355,11 @@ Ephemeral pairing tokens disappear on restart; paired-device bearers remain vali
 
 ### Wave 5.1 enforcement gap
 
-This lode ships `convey/auth.py` and the pairing-only route protections, but it does not yet enforce paired-device auth on existing voice, push, or observer routes. That follow-up is explicit and documented below.
+This lode ships `solstone/convey/auth.py` and the pairing-only route protections, but it does not yet enforce paired-device auth on existing voice, push, or observer routes. That follow-up is explicit and documented below.
 
 ### Naming and UI risk
 
-There is already a separate “pair” concept in the tunnel subsystem (`apps/link/routes.py:4-24`, `161-256`, `think/link/README.md:1-20`). To reduce operator confusion, the desktop page heading should read **“Pair a phone”** rather than the more ambiguous **“Pair a device.”** This is a UX pitfall to revisit if operators continue to confuse iOS app pairing with tunnel pairing.
+There is already a separate “pair” concept in the tunnel subsystem (`solstone/apps/link/routes.py:4-24`, `161-256`, `solstone/think/link/README.md:1-20`). To reduce operator confusion, the desktop page heading should read **“Pair a phone”** rather than the more ambiguous **“Pair a device.”** This is a UX pitfall to revisit if operators continue to confuse iOS app pairing with tunnel pairing.
 
 ## 10. Live validation
 
@@ -426,7 +426,7 @@ curl -H "Authorization: Bearer $SESSION_KEY" \
  -X DELETE "$BASE_URL/api/pairing/devices/$DEVICE_ID"
 ```
 
-Basic Auth uses only the password component, so `-u ":$SOL_PASSWORD"` is the portable form for owner-auth pairing routes (`convey/root.py:49-57`, `docs/design/push.md:609-646`).
+Basic Auth uses only the password component, so `-u ":$SOL_PASSWORD"` is the portable form for owner-auth pairing routes (`solstone/convey/root.py:49-57`, `docs/design/push.md:609-646`).
 
 ## 11. Wave 5.1 follow-up
 
@@ -434,9 +434,9 @@ Wave 5.1 will apply `@require_paired_device` to existing iOS-facing routes, but 
 
 Routes queued for Wave 5.1:
 
-- `POST /api/voice/session`, `POST /api/voice/connect`, `POST /api/voice/refresh-brain`, `GET /api/voice/nav-hints`, `GET /api/voice/observer-actions`, `GET /api/voice/status` in `convey/voice.py` (`convey/voice.py:65-194`).
-- `POST /api/push/register`, `DELETE /api/push/register`, `GET /api/push/status`, `POST /api/push/test` in `convey/push.py` (`convey/push.py:53-124`).
-- `GET /api/voice/observer-actions` remains the immediate observer-actions surface requiring paired-device auth in addition to the pairing routes themselves (`convey/voice.py:170-176`).
+- `POST /api/voice/session`, `POST /api/voice/connect`, `POST /api/voice/refresh-brain`, `GET /api/voice/nav-hints`, `GET /api/voice/observer-actions`, `GET /api/voice/status` in `solstone/convey/voice.py` (`solstone/convey/voice.py:65-194`).
+- `POST /api/push/register`, `DELETE /api/push/register`, `GET /api/push/status`, `POST /api/push/test` in `solstone/convey/push.py` (`solstone/convey/push.py:53-124`).
+- `GET /api/voice/observer-actions` remains the immediate observer-actions surface requiring paired-device auth in addition to the pairing routes themselves (`solstone/convey/voice.py:170-176`).
 
 The follow-up will be a targeted auth-enforcement sweep only; the helper surface is shipped in Wave 5 so that sweep can stay mechanical.
 
@@ -446,12 +446,12 @@ The follow-up will be a targeted auth-enforcement sweep only; the helper surface
 
 ## 13. Sources
 
-- Root blueprint pattern: `convey/voice.py:27-197`, `convey/push.py:24-127`, `convey/__init__.py:110-169`
-- Current auth gate and owner auth semantics: `convey/root.py:30-57`, `81-139`
-- Existing Bearer-auth prior art: `apps/observer/routes.py:63-70`, `503-538`, `apps/import/journal_sources.py:108-128`
-- Durable config/default behavior: `think/journal_default.json:2-53`, `think/utils.py:557-588`, `tests/conftest.py:77-84`
-- Push-device storage prior art: `think/push/devices.py:21-153`, `think/push/config.py:17-81`
-- Convey packaging/static constraints: `pyproject.toml:110-118`, `convey/__init__.py:118-133`
-- Link pairing naming collision and prior-art nonce store: `apps/link/routes.py:4-24`, `74-89`, `161-256`, `think/link/nonces.py:25-103`, `think/link/README.md:1-20`, `think/link/paths.py:74-95`
+- Root blueprint pattern: `solstone/convey/voice.py:27-197`, `solstone/convey/push.py:24-127`, `solstone/convey/__init__.py:110-169`
+- Current auth gate and owner auth semantics: `solstone/convey/root.py:30-57`, `81-139`
+- Existing Bearer-auth prior art: `solstone/apps/observer/routes.py:63-70`, `503-538`, `solstone/apps/import/journal_sources.py:108-128`
+- Durable config/default behavior: `solstone/think/journal_default.json:2-53`, `solstone/think/utils.py:557-588`, `tests/conftest.py:77-84`
+- Push-device storage prior art: `solstone/think/push/devices.py:21-153`, `solstone/think/push/config.py:17-81`
+- Convey packaging/static constraints: `pyproject.toml:110-118`, `solstone/convey/__init__.py:118-133`
+- Link pairing naming collision and prior-art nonce store: `solstone/apps/link/routes.py:4-24`, `74-89`, `161-256`, `solstone/think/link/nonces.py:25-103`, `solstone/think/link/README.md:1-20`, `solstone/think/link/paths.py:74-95`
 - Design-doc structure precedent: `docs/design/push.md:1-654`, `docs/design/voice-server.md:1-465`
 - Layer-hygiene scope: `scripts/check_layer_hygiene.py:38-110`, `183-240`

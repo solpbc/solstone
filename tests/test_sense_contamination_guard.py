@@ -7,7 +7,7 @@ from pathlib import Path
 
 import frontmatter
 
-SENSE_PATH = Path(__file__).resolve().parents[1] / "talent" / "sense.md"
+SENSE_PATH = Path(__file__).resolve().parents[1] / "solstone" / "talent" / "sense.md"
 
 
 def _role_section() -> str:
@@ -116,8 +116,8 @@ def _participation_result(role: str) -> str:
 def test_participation_clamps_attendees_when_all_segments_are_non_meetings(
     tmp_path, monkeypatch, caplog
 ):
-    from talent.participation import post_process
-    from think.activities import append_activity_record, load_activity_records
+    from solstone.talent.participation import post_process
+    from solstone.think.activities import append_activity_record, load_activity_records
 
     facet = "work"
     day = "20260418"
@@ -139,7 +139,7 @@ def test_participation_clamps_attendees_when_all_segments_are_non_meetings(
     activity = _activity_record(segments)
     append_activity_record(facet, day, activity)
 
-    with caplog.at_level(logging.WARNING, logger="talent.participation"):
+    with caplog.at_level(logging.WARNING, logger="solstone.talent.participation"):
         post_process(
             _participation_result("attendee"),
             {"activity": activity, "facet": facet, "day": day},
@@ -158,8 +158,8 @@ def test_participation_clamps_attendees_when_all_segments_are_non_meetings(
 def test_participation_preserves_attendees_when_any_segment_is_meeting(
     tmp_path, monkeypatch, caplog
 ):
-    from talent.participation import post_process
-    from think.activities import append_activity_record, load_activity_records
+    from solstone.talent.participation import post_process
+    from solstone.think.activities import append_activity_record, load_activity_records
 
     facet = "work"
     day = "20260418"
@@ -183,7 +183,7 @@ def test_participation_preserves_attendees_when_any_segment_is_meeting(
     activity = _activity_record(segments)
     append_activity_record(facet, day, activity)
 
-    with caplog.at_level(logging.WARNING, logger="talent.participation"):
+    with caplog.at_level(logging.WARNING, logger="solstone.talent.participation"):
         post_process(
             _participation_result("attendee"),
             {"activity": activity, "facet": facet, "day": day},
@@ -198,8 +198,8 @@ def test_participation_preserves_attendees_when_any_segment_is_meeting(
 def test_participation_clamp_is_idempotent_on_second_pass(
     tmp_path, monkeypatch, caplog
 ):
-    from talent.participation import post_process
-    from think.activities import append_activity_record, load_activity_records
+    from solstone.talent.participation import post_process
+    from solstone.think.activities import append_activity_record, load_activity_records
 
     facet = "work"
     day = "20260418"
@@ -221,7 +221,7 @@ def test_participation_clamp_is_idempotent_on_second_pass(
     activity = _activity_record(segments)
     append_activity_record(facet, day, activity)
 
-    with caplog.at_level(logging.WARNING, logger="talent.participation"):
+    with caplog.at_level(logging.WARNING, logger="solstone.talent.participation"):
         post_process(
             _participation_result("attendee"),
             {"activity": activity, "facet": facet, "day": day},
@@ -234,7 +234,7 @@ def test_participation_clamp_is_idempotent_on_second_pass(
     record = load_activity_records(facet, day)[0]
     second_result = json.dumps({"participation": record["participation"]})
 
-    with caplog.at_level(logging.WARNING, logger="talent.participation"):
+    with caplog.at_level(logging.WARNING, logger="solstone.talent.participation"):
         post_process(
             second_result,
             {"activity": record, "facet": facet, "day": day},
@@ -249,8 +249,8 @@ def test_participation_clamp_is_idempotent_on_second_pass(
 def test_participation_treats_missing_sense_json_as_non_meeting(
     tmp_path, monkeypatch, caplog
 ):
-    from talent.participation import post_process
-    from think.activities import append_activity_record, load_activity_records
+    from solstone.talent.participation import post_process
+    from solstone.think.activities import append_activity_record, load_activity_records
 
     facet = "work"
     day = "20260418"
@@ -272,7 +272,7 @@ def test_participation_treats_missing_sense_json_as_non_meeting(
     activity = _activity_record(segments)
     append_activity_record(facet, day, activity)
 
-    with caplog.at_level(logging.WARNING, logger="talent.participation"):
+    with caplog.at_level(logging.WARNING, logger="solstone.talent.participation"):
         post_process(
             _participation_result("attendee"),
             {"activity": activity, "facet": facet, "day": day},

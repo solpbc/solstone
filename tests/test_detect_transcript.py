@@ -8,7 +8,7 @@ import pytest
 
 
 def test_number_lines_and_segments():
-    mod = importlib.import_module("think.detect_transcript")
+    mod = importlib.import_module("solstone.think.detect_transcript")
     numbered, lines = mod.number_lines("a\nb\nc\nd")
     assert numbered == "1: a\n2: b\n3: c\n4: d"
     assert lines == ["a", "b", "c", "d"]
@@ -32,7 +32,7 @@ def test_number_lines_and_segments():
 
 
 def test_parse_segment_boundaries_invalid():
-    mod = importlib.import_module("think.detect_transcript")
+    mod = importlib.import_module("solstone.think.detect_transcript")
 
     # Invalid JSON
     with pytest.raises(ValueError):
@@ -69,7 +69,7 @@ def test_parse_segment_boundaries_invalid():
 
 
 def test_detect_transcript_segment(monkeypatch):
-    mod = importlib.import_module("think.detect_transcript")
+    mod = importlib.import_module("solstone.think.detect_transcript")
 
     # Mock returns new format with start_at and line
     def mock_generate(**kwargs):
@@ -77,7 +77,7 @@ def test_detect_transcript_segment(monkeypatch):
             '[{"start_at": "14:30:00", "line": 1}, {"start_at": "14:35:00", "line": 3}]'
         )
 
-    monkeypatch.setattr("think.models.generate", mock_generate)
+    monkeypatch.setattr("solstone.think.models.generate", mock_generate)
 
     # Now requires start_time argument
     result = mod.detect_transcript_segment("a\nb\nc\nd", "14:30:00")

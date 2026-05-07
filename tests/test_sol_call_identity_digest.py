@@ -10,10 +10,10 @@ import time
 import pytest
 from typer.testing import CliRunner
 
-from think.identity import ensure_identity_directory, write_identity
-from think.talent import get_talent
-from think.talents import validate_config
-from think.tools.sol import app
+from solstone.think.identity import ensure_identity_directory, write_identity
+from solstone.think.talent import get_talent
+from solstone.think.talents import validate_config
+from solstone.think.tools.sol import app
 
 runner = CliRunner()
 _HISTORY_FIELDS = [
@@ -134,8 +134,8 @@ def test_digest_default_mode_success(digest_journal, monkeypatch):
         )
         return {"digest-use-1": "finish"}, []
 
-    monkeypatch.setattr("think.tools.sol.cortex_request", fake_cortex_request)
-    monkeypatch.setattr("think.tools.sol.wait_for_uses", fake_wait_for_uses)
+    monkeypatch.setattr("solstone.think.tools.sol.cortex_request", fake_cortex_request)
+    monkeypatch.setattr("solstone.think.tools.sol.wait_for_uses", fake_wait_for_uses)
 
     result = runner.invoke(app, ["digest"])
 
@@ -173,8 +173,8 @@ def test_supervisor_triggered_digest_runs_with_body_only_validator(
         )
         return {"digest-use-1": "finish"}, []
 
-    monkeypatch.setattr("think.tools.sol.cortex_request", fake_cortex_request)
-    monkeypatch.setattr("think.tools.sol.wait_for_uses", fake_wait_for_uses)
+    monkeypatch.setattr("solstone.think.tools.sol.cortex_request", fake_cortex_request)
+    monkeypatch.setattr("solstone.think.tools.sol.wait_for_uses", fake_wait_for_uses)
 
     result = runner.invoke(app, ["digest"])
 
@@ -186,11 +186,11 @@ def test_supervisor_triggered_digest_runs_with_body_only_validator(
 
 def test_digest_default_mode_failure_timeout(digest_journal, monkeypatch):
     monkeypatch.setattr(
-        "think.tools.sol.cortex_request",
+        "solstone.think.tools.sol.cortex_request",
         lambda **kwargs: "digest-use-1",
     )
     monkeypatch.setattr(
-        "think.tools.sol.wait_for_uses",
+        "solstone.think.tools.sol.wait_for_uses",
         lambda use_ids, timeout: ({}, ["digest-use-1"]),
     )
 

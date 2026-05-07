@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-from think.talents import validate_config
+from solstone.think.talents import validate_config
 
 
 def test_validate_config_allows_cogitate_with_user_instruction_only():

@@ -9,7 +9,7 @@ import json
 import zipfile
 from pathlib import Path
 
-import think.importers.journal_archive as journal_archive
+import solstone.think.importers.journal_archive as journal_archive
 
 
 def _write_zip(path: Path, members: dict[str, str]) -> None:

@@ -8,7 +8,7 @@ import json
 
 import pytest
 
-from think.segment import cmd_inspect, cmd_list, cmd_move, cmd_verify
+from solstone.think.segment import cmd_inspect, cmd_list, cmd_move, cmd_verify
 
 
 def _make_segment(
@@ -518,7 +518,7 @@ def test_verify_no_args(tmp_path, monkeypatch, capsys):
 
 
 def test_main_no_subcommand(monkeypatch, capsys):
-    from think.segment import main
+    from solstone.think.segment import main
 
     monkeypatch.setattr("sys.argv", ["sol"])
     with pytest.raises(SystemExit) as excinfo:
@@ -562,9 +562,9 @@ def test_move_basic(tmp_path, monkeypatch, capsys):
 
     assert not (tmp_path / "chronicle" / "20240101" / "default" / "090000_300").exists()
     assert (tmp_path / "chronicle" / "20240115" / "default" / "090000_300").is_dir()
-    import think.streams
+    from solstone.think import streams
 
-    marker = think.streams.read_segment_stream(
+    marker = streams.read_segment_stream(
         tmp_path / "chronicle" / "20240115" / "default" / "090000_300"
     )
     assert marker["stream"] == "default"
@@ -768,9 +768,9 @@ def test_move_patches_successor(tmp_path, monkeypatch, capsys):
     )
     cmd_move(args)
 
-    import think.streams
+    from solstone.think import streams
 
-    succ_marker = think.streams.read_segment_stream(
+    succ_marker = streams.read_segment_stream(
         tmp_path / "chronicle" / "20240101" / "default" / "140000_300"
     )
     assert succ_marker["prev_day"] == "20240115"

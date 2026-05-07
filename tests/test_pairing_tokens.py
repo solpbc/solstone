@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from think.pairing import tokens
+from solstone.think.pairing import tokens
 
 
 def setup_function() -> None:

@@ -48,7 +48,7 @@ def _args(
 
 
 def test_parse_log_line_runner():
-    from think.logs_cli import parse_log_line
+    from solstone.think.logs_cli import parse_log_line
 
     result = parse_log_line("2026-02-09T10:00:00 [echo:stdout] hello world")
     assert result is not None
@@ -59,7 +59,7 @@ def test_parse_log_line_runner():
 
 
 def test_parse_log_line_supervisor():
-    from think.logs_cli import parse_log_line
+    from solstone.think.logs_cli import parse_log_line
 
     result = parse_log_line(
         "2026-02-09T10:00:00 [supervisor:log] INFO Starting service"
@@ -71,7 +71,7 @@ def test_parse_log_line_supervisor():
 
 
 def test_parse_log_line_malformed():
-    from think.logs_cli import parse_log_line
+    from solstone.think.logs_cli import parse_log_line
 
     assert parse_log_line("not a log line") is None
     assert parse_log_line("") is None
@@ -79,7 +79,7 @@ def test_parse_log_line_malformed():
 
 
 def test_parse_since_relative():
-    from think.logs_cli import parse_since
+    from solstone.think.logs_cli import parse_since
 
     result = parse_since("30m")
     delta = datetime.now() - result
@@ -87,7 +87,7 @@ def test_parse_since_relative():
 
 
 def test_parse_since_absolute():
-    from think.logs_cli import parse_since
+    from solstone.think.logs_cli import parse_since
 
     result = parse_since("16:00")
     assert result.hour == 16
@@ -96,7 +96,7 @@ def test_parse_since_absolute():
 
 
 def test_parse_since_absolute_ampm():
-    from think.logs_cli import parse_since
+    from solstone.think.logs_cli import parse_since
 
     result = parse_since("4pm")
     assert result.hour == 16
@@ -106,21 +106,21 @@ def test_parse_since_absolute_ampm():
 
 
 def test_parse_since_invalid():
-    from think.logs_cli import parse_since
+    from solstone.think.logs_cli import parse_since
 
     with pytest.raises(argparse.ArgumentTypeError):
         parse_since("xyz")
 
 
 def test_filter_grep_invalid_regex():
-    from think.logs_cli import compile_grep
+    from solstone.think.logs_cli import compile_grep
 
     with pytest.raises(argparse.ArgumentTypeError):
         compile_grep("[invalid")
 
 
 def test_tail_lines_large(tmp_path):
-    from think.logs_cli import tail_lines_large
+    from solstone.think.logs_cli import tail_lines_large
 
     path = tmp_path / "big.log"
     lines = [f"line {i}" for i in range(1000)]
@@ -130,7 +130,7 @@ def test_tail_lines_large(tmp_path):
 
 
 def test_get_day_log_files_filters_non_symlinks(tmp_path):
-    from think.logs_cli import get_day_log_files
+    from solstone.think.logs_cli import get_day_log_files
 
     health = tmp_path / "health"
     health.mkdir()
@@ -143,7 +143,7 @@ def test_get_day_log_files_filters_non_symlinks(tmp_path):
 
 
 def test_collect_default(tmp_path, monkeypatch, capsys):
-    from think import logs_cli
+    from solstone.think import logs_cli
 
     day = datetime.now().strftime("%Y%m%d")
     lines = [f"2026-02-09T10:{i:02d}:00 [echo:stdout] line {i}" for i in range(10)]
@@ -159,7 +159,7 @@ def test_collect_default(tmp_path, monkeypatch, capsys):
 
 
 def test_collect_count(tmp_path, monkeypatch, capsys):
-    from think import logs_cli
+    from solstone.think import logs_cli
 
     day = datetime.now().strftime("%Y%m%d")
     lines = [f"2026-02-09T11:{i:02d}:00 [echo:stdout] line {i}" for i in range(10)]
@@ -176,7 +176,7 @@ def test_collect_count(tmp_path, monkeypatch, capsys):
 
 def test_collect_headers_on_tty(tmp_path, monkeypatch, capsys):
     """Service headers appear when stdout is a TTY."""
-    from think import logs_cli
+    from solstone.think import logs_cli
 
     day = datetime.now().strftime("%Y%m%d")
     echo_lines = [
@@ -206,7 +206,7 @@ def test_collect_headers_on_tty(tmp_path, monkeypatch, capsys):
 
 def test_collect_no_headers_when_piped(tmp_path, monkeypatch, capsys):
     """No headers when stdout is not a TTY (piped)."""
-    from think import logs_cli
+    from solstone.think import logs_cli
 
     day = datetime.now().strftime("%Y%m%d")
     echo_lines = [
@@ -227,7 +227,7 @@ def test_collect_no_headers_when_piped(tmp_path, monkeypatch, capsys):
 
 
 def test_filter_service(tmp_path, monkeypatch, capsys):
-    from think import logs_cli
+    from solstone.think import logs_cli
 
     day = datetime.now().strftime("%Y%m%d")
     echo_lines = [
@@ -249,7 +249,7 @@ def test_filter_service(tmp_path, monkeypatch, capsys):
 
 
 def test_filter_grep(tmp_path, monkeypatch, capsys):
-    from think import logs_cli
+    from solstone.think import logs_cli
 
     day = datetime.now().strftime("%Y%m%d")
     lines = [
@@ -269,7 +269,7 @@ def test_filter_grep(tmp_path, monkeypatch, capsys):
 
 
 def test_filter_grep_regex_or(tmp_path, monkeypatch, capsys):
-    from think import logs_cli
+    from solstone.think import logs_cli
 
     day = datetime.now().strftime("%Y%m%d")
     lines = [
@@ -289,7 +289,7 @@ def test_filter_grep_regex_or(tmp_path, monkeypatch, capsys):
 
 
 def test_filter_since(tmp_path, monkeypatch, capsys):
-    from think import logs_cli
+    from solstone.think import logs_cli
 
     day = datetime.now().strftime("%Y%m%d")
     lines = [
@@ -307,7 +307,7 @@ def test_filter_since(tmp_path, monkeypatch, capsys):
 
 
 def test_count_limits_filtered_output(tmp_path, monkeypatch, capsys):
-    from think import logs_cli
+    from solstone.think import logs_cli
 
     day = datetime.now().strftime("%Y%m%d")
     lines = [
@@ -326,7 +326,7 @@ def test_count_limits_filtered_output(tmp_path, monkeypatch, capsys):
 
 
 def test_filters_compose(tmp_path, monkeypatch, capsys):
-    from think import logs_cli
+    from solstone.think import logs_cli
 
     day = datetime.now().strftime("%Y%m%d")
     echo_lines = [
@@ -348,7 +348,7 @@ def test_filters_compose(tmp_path, monkeypatch, capsys):
 
 
 def test_supervisor_included_default(tmp_path, monkeypatch, capsys):
-    from think import logs_cli
+    from solstone.think import logs_cli
 
     day = datetime.now().strftime("%Y%m%d")
     echo_lines = [
@@ -373,7 +373,7 @@ def test_supervisor_included_default(tmp_path, monkeypatch, capsys):
 
 
 def test_supervisor_excluded_with_filters(tmp_path, monkeypatch, capsys):
-    from think import logs_cli
+    from solstone.think import logs_cli
 
     day = datetime.now().strftime("%Y%m%d")
     echo_lines = [

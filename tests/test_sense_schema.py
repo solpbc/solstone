@@ -8,14 +8,14 @@ from pathlib import Path
 import frontmatter
 from jsonschema import Draft202012Validator
 
-from think.activities import DEFAULT_ACTIVITIES
-from think.talent import (
+from solstone.think.activities import DEFAULT_ACTIVITIES
+from solstone.think.talent import (
     RUNTIME_FACETS_SENTINEL,
     get_talent,
     hydrate_runtime_enums,
 )
 
-SENSE_PATH = Path(__file__).resolve().parents[1] / "talent" / "sense.md"
+SENSE_PATH = Path(__file__).resolve().parents[1] / "solstone" / "talent" / "sense.md"
 SENSE_SCHEMA_PATH = SENSE_PATH.with_suffix(".schema.json")
 
 
@@ -81,7 +81,7 @@ def test_sense_schema_facet_uses_runtime_sentinel_constant():
 
 def test_hydrate_runtime_enums_replaces_facet_sentinel(monkeypatch):
     monkeypatch.setattr(
-        "think.talent.get_facets",
+        "solstone.think.talent.get_facets",
         lambda: {"alpha": {}, "Beta": {}, "weird,name": {}, "valid_one": {}},
     )
     schema = {
@@ -106,7 +106,7 @@ def test_hydrate_runtime_enums_preserves_facet_minItems_when_facets_exist(
     monkeypatch,
 ):
     monkeypatch.setattr(
-        "think.talent.get_facets",
+        "solstone.think.talent.get_facets",
         lambda: {"alpha": {}, "Beta": {}, "weird,name": {}, "valid_one": {}},
     )
     schema = {
@@ -138,7 +138,7 @@ def test_hydrate_runtime_enums_preserves_facet_minItems_when_facets_exist(
 
 
 def test_hydrate_runtime_enums_empty_facets_fallback(monkeypatch):
-    monkeypatch.setattr("think.talent.get_facets", lambda: {})
+    monkeypatch.setattr("solstone.think.talent.get_facets", lambda: {})
     schema = {
         "type": "object",
         "properties": {"facet": {"type": "string", "enum": [RUNTIME_FACETS_SENTINEL]}},
@@ -154,7 +154,7 @@ def test_hydrate_runtime_enums_empty_facets_fallback(monkeypatch):
 def test_hydrate_runtime_enums_drops_facet_minItems_on_empty_facets_fallback(
     monkeypatch,
 ):
-    monkeypatch.setattr("think.talent.get_facets", lambda: {})
+    monkeypatch.setattr("solstone.think.talent.get_facets", lambda: {})
     schema = {
         "type": "object",
         "properties": {
@@ -185,7 +185,7 @@ def test_hydrate_runtime_enums_drops_facet_minItems_on_empty_facets_fallback(
 
 
 def test_hydrate_runtime_enums_idempotent_and_pure(monkeypatch):
-    monkeypatch.setattr("think.talent.get_facets", lambda: {})
+    monkeypatch.setattr("solstone.think.talent.get_facets", lambda: {})
     original = {"type": "object", "properties": {"x": {"type": "string"}}}
     saved_copy = copy.deepcopy(original)
 

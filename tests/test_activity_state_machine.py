@@ -30,7 +30,7 @@ def _sense(
 
 class TestNewActivity:
     def test_first_segment_starts_new(self):
-        from think.activity_state_machine import ActivityStateMachine
+        from solstone.think.activity_state_machine import ActivityStateMachine
 
         sm = ActivityStateMachine()
         changes = sm.update(_sense(), "090000_300", "20260304")
@@ -45,7 +45,7 @@ class TestNewActivity:
 
 class TestContinuation:
     def test_same_type_continues(self):
-        from think.activity_state_machine import ActivityStateMachine
+        from solstone.think.activity_state_machine import ActivityStateMachine
 
         sm = ActivityStateMachine()
         sm.update(_sense(), "090000_300", "20260304")
@@ -59,7 +59,7 @@ class TestContinuation:
 
 class TestContentTypeChange:
     def test_type_change_ends_old_starts_new(self):
-        from think.activity_state_machine import ActivityStateMachine
+        from solstone.think.activity_state_machine import ActivityStateMachine
 
         sm = ActivityStateMachine()
         sm.update(_sense(content_type="coding"), "090000_300", "20260304")
@@ -81,7 +81,7 @@ class TestContentTypeChange:
 
 class TestIdleTransition:
     def test_idle_ends_all(self):
-        from think.activity_state_machine import ActivityStateMachine
+        from solstone.think.activity_state_machine import ActivityStateMachine
 
         sm = ActivityStateMachine()
         sm.update(_sense(), "090000_300", "20260304")
@@ -95,7 +95,7 @@ class TestIdleTransition:
 
 class TestTimeGap:
     def test_gap_over_600s_resets(self):
-        from think.activity_state_machine import ActivityStateMachine
+        from solstone.think.activity_state_machine import ActivityStateMachine
 
         sm = ActivityStateMachine()
         sm.update(_sense(), "090000_300", "20260304")
@@ -107,7 +107,7 @@ class TestTimeGap:
         assert len(new) == 1
 
     def test_gap_equal_600s_no_reset(self):
-        from think.activity_state_machine import ActivityStateMachine
+        from solstone.think.activity_state_machine import ActivityStateMachine
 
         sm = ActivityStateMachine()
         sm.update(_sense(), "090000_300", "20260304")
@@ -118,7 +118,7 @@ class TestTimeGap:
 
 class TestDayBoundary:
     def test_day_change_resets(self):
-        from think.activity_state_machine import ActivityStateMachine
+        from solstone.think.activity_state_machine import ActivityStateMachine
 
         sm = ActivityStateMachine()
         sm.update(_sense(), "230000_300", "20260304")
@@ -130,7 +130,7 @@ class TestDayBoundary:
 
 class TestMultiFacet:
     def test_independent_facet_tracking(self):
-        from think.activity_state_machine import ActivityStateMachine
+        from solstone.think.activity_state_machine import ActivityStateMachine
 
         sm = ActivityStateMachine()
         facets = [
@@ -146,7 +146,7 @@ class TestMultiFacet:
 
 class TestFacetDisappearing:
     def test_facet_gone_emits_ended(self):
-        from think.activity_state_machine import ActivityStateMachine
+        from solstone.think.activity_state_machine import ActivityStateMachine
 
         sm = ActivityStateMachine()
         two_facets = [
@@ -166,7 +166,7 @@ class TestFacetDisappearing:
 
 class TestStateShape:
     def test_active_entries_use_persisted_field_names(self):
-        from think.activity_state_machine import ActivityStateMachine
+        from solstone.think.activity_state_machine import ActivityStateMachine
 
         sm = ActivityStateMachine()
         sm.update(_sense(), "090000_300", "20260304")
@@ -190,7 +190,7 @@ class TestStateShape:
 
 class TestGetCompletedActivities:
     def test_completed_format(self):
-        from think.activity_state_machine import ActivityStateMachine
+        from solstone.think.activity_state_machine import ActivityStateMachine
 
         sm = ActivityStateMachine()
         sm.update(_sense(content_type="coding"), "090000_300", "20260304")
@@ -213,7 +213,7 @@ class TestGetCompletedActivities:
 
 class TestSegmentAccumulation:
     def test_continuing_accumulates_segments(self):
-        from think.activity_state_machine import ActivityStateMachine
+        from solstone.think.activity_state_machine import ActivityStateMachine
 
         sm = ActivityStateMachine()
         sm.update(_sense(content_type="coding"), "090000_300", "20260304")
@@ -234,7 +234,7 @@ class TestSegmentAccumulation:
         ]
 
     def test_ten_segments_produces_ten_keys(self):
-        from think.activity_state_machine import ActivityStateMachine
+        from solstone.think.activity_state_machine import ActivityStateMachine
 
         sm = ActivityStateMachine()
         for i in range(10):
@@ -249,7 +249,7 @@ class TestSegmentAccumulation:
         assert len(completed[0]["segments"]) == 10
 
     def test_segments_accumulate_in_state(self):
-        from think.activity_state_machine import ActivityStateMachine
+        from solstone.think.activity_state_machine import ActivityStateMachine
 
         sm = ActivityStateMachine()
         sm.update(_sense(content_type="coding"), "090000_300", "20260304")
@@ -260,7 +260,7 @@ class TestSegmentAccumulation:
 
 class TestEntityTracking:
     def test_extracts_names(self):
-        from think.activity_state_machine import ActivityStateMachine
+        from solstone.think.activity_state_machine import ActivityStateMachine
 
         sm = ActivityStateMachine()
         entities = [
@@ -272,7 +272,7 @@ class TestEntityTracking:
         assert changes[0]["active_entities"] == ["Alice", "VSCode"]
 
     def test_skips_blank_names(self):
-        from think.activity_state_machine import ActivityStateMachine
+        from solstone.think.activity_state_machine import ActivityStateMachine
 
         sm = ActivityStateMachine()
         entities = [
@@ -289,7 +289,7 @@ class TestSegmentAccumulationEdgeCases:
 
     def test_idle_ending_preserves_accumulated_segments(self):
         """Idle transition after multi-segment activity must carry all segments."""
-        from think.activity_state_machine import ActivityStateMachine
+        from solstone.think.activity_state_machine import ActivityStateMachine
 
         sm = ActivityStateMachine()
         sm.update(_sense(content_type="coding"), "090000_300", "20260304")
@@ -312,7 +312,7 @@ class TestSegmentAccumulationEdgeCases:
         Note: the state machine uses the top-level content_type for all facets,
         not the per-facet activity field. So both facets have activity=="coding".
         """
-        from think.activity_state_machine import ActivityStateMachine
+        from solstone.think.activity_state_machine import ActivityStateMachine
 
         sm = ActivityStateMachine()
         two = [
@@ -340,7 +340,7 @@ class TestSegmentAccumulationEdgeCases:
 
     def test_gap_ending_preserves_accumulated_segments(self):
         """Time gap after multi-segment activity must carry all segments."""
-        from think.activity_state_machine import ActivityStateMachine
+        from solstone.think.activity_state_machine import ActivityStateMachine
 
         sm = ActivityStateMachine()
         sm.update(_sense(content_type="coding"), "090000_300", "20260304")
@@ -354,7 +354,7 @@ class TestSegmentAccumulationEdgeCases:
 
     def test_type_change_preserves_accumulated_segments(self):
         """Type change after multi-segment activity must carry all segments."""
-        from think.activity_state_machine import ActivityStateMachine
+        from solstone.think.activity_state_machine import ActivityStateMachine
 
         sm = ActivityStateMachine()
         sm.update(_sense(content_type="coding"), "090000_300", "20260304")
@@ -376,7 +376,7 @@ class TestSegmentAccumulationEdgeCases:
 
     def test_single_segment_activity_has_one_segment(self):
         """Activity lasting exactly one segment has segments: [that_segment]."""
-        from think.activity_state_machine import ActivityStateMachine
+        from solstone.think.activity_state_machine import ActivityStateMachine
 
         sm = ActivityStateMachine()
         sm.update(_sense(content_type="coding"), "090000_300", "20260304")
@@ -388,7 +388,7 @@ class TestSegmentAccumulationEdgeCases:
 
     def test_duplicate_segment_key_not_appended(self):
         """Same segment key processed twice doesn't duplicate in _segments."""
-        from think.activity_state_machine import ActivityStateMachine
+        from solstone.think.activity_state_machine import ActivityStateMachine
 
         sm = ActivityStateMachine()
         sm.update(_sense(content_type="coding"), "090000_300", "20260304")
@@ -403,7 +403,7 @@ class TestSegmentAccumulationEdgeCases:
 
     def test_multi_facet_simultaneous_ending_all_have_segments(self):
         """Multiple facets ending simultaneously each have their own segments."""
-        from think.activity_state_machine import ActivityStateMachine
+        from solstone.think.activity_state_machine import ActivityStateMachine
 
         sm = ActivityStateMachine()
         two = [
@@ -433,7 +433,7 @@ class TestCompletedRecordFields:
         """created_at must be an integer in milliseconds (not ISO string)."""
         import time
 
-        from think.activity_state_machine import ActivityStateMachine
+        from solstone.think.activity_state_machine import ActivityStateMachine
 
         before = int(time.time() * 1000)
         sm = ActivityStateMachine()
@@ -450,7 +450,7 @@ class TestCompletedRecordFields:
         """created_at must be comparable with float (routes.py cutoff_ts)."""
         from datetime import datetime, timedelta
 
-        from think.activity_state_machine import ActivityStateMachine
+        from solstone.think.activity_state_machine import ActivityStateMachine
 
         sm = ActivityStateMachine()
         sm.update(_sense(content_type="coding"), "090000_300", "20260304")
@@ -467,7 +467,7 @@ class TestCompletedRecordFields:
         assert isinstance(dt, datetime)
 
     def test_level_avg_is_float(self):
-        from think.activity_state_machine import ActivityStateMachine
+        from solstone.think.activity_state_machine import ActivityStateMachine
 
         sm = ActivityStateMachine()
         sm.update(
@@ -487,7 +487,7 @@ class TestCompletedRecordFields:
 
     def test_all_required_fields_present(self):
         """Completed record must have every field run_activity_prompts expects."""
-        from think.activity_state_machine import ActivityStateMachine
+        from solstone.think.activity_state_machine import ActivityStateMachine
 
         sm = ActivityStateMachine()
         sm.update(_sense(content_type="coding"), "090000_300", "20260304")
@@ -509,7 +509,7 @@ class TestCompletedRecordFields:
         assert not any(k.startswith("_") for k in rec.keys())
 
     def test_active_entities_preserved_in_completed(self):
-        from think.activity_state_machine import ActivityStateMachine
+        from solstone.think.activity_state_machine import ActivityStateMachine
 
         sm = ActivityStateMachine()
         entities = [
@@ -529,7 +529,7 @@ class TestCumulativeCompletedList:
     """Verify get_completed_activities() is cumulative and correct."""
 
     def test_multiple_endings_accumulate(self):
-        from think.activity_state_machine import ActivityStateMachine
+        from solstone.think.activity_state_machine import ActivityStateMachine
 
         sm = ActivityStateMachine()
         # Activity 1: coding
@@ -547,7 +547,7 @@ class TestCumulativeCompletedList:
 
     def test_completed_list_is_copy(self):
         """get_completed_activities returns a copy, not internal state."""
-        from think.activity_state_machine import ActivityStateMachine
+        from solstone.think.activity_state_machine import ActivityStateMachine
 
         sm = ActivityStateMachine()
         sm.update(_sense(content_type="coding"), "090000_300", "20260304")

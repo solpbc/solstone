@@ -16,10 +16,10 @@ class TestAnthropicWriteFlag:
     """Verify --allowedTools is controlled by config write flag."""
 
     def _provider(self):
-        return importlib.import_module("think.providers.anthropic")
+        return importlib.import_module("solstone.think.providers.anthropic")
 
-    @patch("think.providers.anthropic.check_cli_binary")
-    @patch("think.providers.anthropic.CLIRunner")
+    @patch("solstone.think.providers.anthropic.check_cli_binary")
+    @patch("solstone.think.providers.anthropic.CLIRunner")
     def test_no_write_restricts_tools(self, mock_runner_cls, mock_check):
         """Without write flag, --allowedTools restricts to sol."""
         provider = self._provider()
@@ -35,8 +35,8 @@ class TestAnthropicWriteFlag:
         assert "--allowedTools" in cmd
         assert "Bash(sol *)" in cmd
 
-    @patch("think.providers.anthropic.check_cli_binary")
-    @patch("think.providers.anthropic.CLIRunner")
+    @patch("solstone.think.providers.anthropic.check_cli_binary")
+    @patch("solstone.think.providers.anthropic.CLIRunner")
     def test_write_true_grants_full_access(self, mock_runner_cls, mock_check):
         """With write=True, --allowedTools is omitted for full tool access."""
         provider = self._provider()
@@ -51,8 +51,8 @@ class TestAnthropicWriteFlag:
         cmd = mock_runner_cls.call_args.kwargs["cmd"]
         assert "--allowedTools" not in cmd
 
-    @patch("think.providers.anthropic.check_cli_binary")
-    @patch("think.providers.anthropic.CLIRunner")
+    @patch("solstone.think.providers.anthropic.check_cli_binary")
+    @patch("solstone.think.providers.anthropic.CLIRunner")
     def test_write_false_restricts_tools(self, mock_runner_cls, mock_check):
         """Explicit write=False keeps restriction."""
         provider = self._provider()
@@ -77,9 +77,9 @@ class TestOpenAIWriteFlag:
     """Verify sandbox mode is controlled by config write flag."""
 
     def _provider(self):
-        return importlib.import_module("think.providers.openai")
+        return importlib.import_module("solstone.think.providers.openai")
 
-    @patch("think.providers.openai.CLIRunner")
+    @patch("solstone.think.providers.openai.CLIRunner")
     def test_no_write_uses_readonly_sandbox(self, mock_runner_cls):
         """Without write flag, sandbox is read-only."""
         provider = self._provider()
@@ -96,7 +96,7 @@ class TestOpenAIWriteFlag:
         s_idx = cmd.index("-s")
         assert cmd[s_idx + 1] == "read-only"
 
-    @patch("think.providers.openai.CLIRunner")
+    @patch("solstone.think.providers.openai.CLIRunner")
     def test_write_true_uses_write_sandbox(self, mock_runner_cls):
         """With write=True, sandbox is write."""
         provider = self._provider()
@@ -112,7 +112,7 @@ class TestOpenAIWriteFlag:
         s_idx = cmd.index("-s")
         assert cmd[s_idx + 1] == "workspace-write"
 
-    @patch("think.providers.openai.CLIRunner")
+    @patch("solstone.think.providers.openai.CLIRunner")
     def test_write_true_with_session_resume(self, mock_runner_cls):
         """Write flag works correctly with session resume path."""
         provider = self._provider()
@@ -144,9 +144,9 @@ class TestGoogleWriteFlag:
     """Verify --approval-mode is controlled by config write flag."""
 
     def _provider(self):
-        return importlib.import_module("think.providers.google")
+        return importlib.import_module("solstone.think.providers.google")
 
-    @patch("think.providers.google.CLIRunner")
+    @patch("solstone.think.providers.google.CLIRunner")
     def test_no_write_uses_yolo_with_policy(self, mock_runner_cls, tmp_path):
         """Without write flag, approval-mode is yolo with scoped policy."""
         provider = self._provider()
@@ -159,7 +159,7 @@ class TestGoogleWriteFlag:
         policy_path.write_text("# generated\n", encoding="utf-8")
         config = {"prompt": "test", "model": "gemini-2.5-flash"}
         with patch(
-            "think.providers.google.build_per_task_policy",
+            "solstone.think.providers.google.build_per_task_policy",
             return_value=policy_path,
         ) as build_policy:
             asyncio.run(provider.run_cogitate(config))
@@ -172,7 +172,7 @@ class TestGoogleWriteFlag:
         build_policy.assert_called_once()
         assert not policy_path.exists()
 
-    @patch("think.providers.google.CLIRunner")
+    @patch("solstone.think.providers.google.CLIRunner")
     def test_write_true_uses_yolo_mode(self, mock_runner_cls):
         """With write=True, approval-mode is yolo (full access)."""
         provider = self._provider()
@@ -191,7 +191,7 @@ class TestGoogleWriteFlag:
 
     def test_cogitate_base_policy_file_exists_on_disk(self):
         """The per-task policy generator's base policy must exist."""
-        from think.cogitate_policy import _BASE_POLICY_PATH
+        from solstone.think.cogitate_policy import _BASE_POLICY_PATH
 
         assert _BASE_POLICY_PATH.is_file(), (
             f"Expected policy file at {_BASE_POLICY_PATH}"
@@ -210,7 +210,7 @@ class TestCoderAgent:
         """talent/coder.md must exist in the repo."""
         from pathlib import Path
 
-        coder_path = Path(__file__).parent.parent / "talent" / "coder.md"
+        coder_path = Path(__file__).parent.parent / "solstone" / "talent" / "coder.md"
         assert coder_path.exists(), "talent/coder.md not found"
 
     def test_coder_frontmatter(self):
@@ -219,7 +219,7 @@ class TestCoderAgent:
 
         import frontmatter
 
-        coder_path = Path(__file__).parent.parent / "talent" / "coder.md"
+        coder_path = Path(__file__).parent.parent / "solstone" / "talent" / "coder.md"
         post = frontmatter.load(coder_path)
 
         assert post.metadata.get("type") == "cogitate"
@@ -231,7 +231,7 @@ class TestCoderAgent:
         """coder.md must reference the developer docs instead of inlining guidelines."""
         from pathlib import Path
 
-        coder_path = Path(__file__).parent.parent / "talent" / "coder.md"
+        coder_path = Path(__file__).parent.parent / "solstone" / "talent" / "coder.md"
         content = coder_path.read_text(encoding="utf-8")
 
         # Should reference the developer guide/docs, not inline dev guidelines

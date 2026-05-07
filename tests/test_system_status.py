@@ -14,8 +14,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-import convey
-from convey import create_app
+import solstone.convey as convey
+from solstone.convey import create_app
 
 system_mod = convey.system
 

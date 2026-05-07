@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from think.link.paths import (
+from solstone.think.link.paths import (
     DEFAULT_RELAY_URL,
     LinkState,
     account_token_path,

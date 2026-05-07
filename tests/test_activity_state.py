@@ -13,25 +13,25 @@ class TestExtractFacetFromOutputPath:
     """Tests for _extract_facet_from_output_path."""
 
     def test_extracts_facet_from_valid_path(self):
-        from talent.activity_state import _extract_facet_from_output_path
+        from solstone.talent.activity_state import _extract_facet_from_output_path
 
         path = "/journal/20260130/143000_300/talents/work/activity_state.json"
         assert _extract_facet_from_output_path(path) == "work"
 
     def test_extracts_facet_with_hyphen(self):
-        from talent.activity_state import _extract_facet_from_output_path
+        from solstone.talent.activity_state import _extract_facet_from_output_path
 
         path = "/journal/20260130/143000_300/talents/my-project/activity_state.json"
         assert _extract_facet_from_output_path(path) == "my-project"
 
     def test_returns_none_for_empty_path(self):
-        from talent.activity_state import _extract_facet_from_output_path
+        from solstone.talent.activity_state import _extract_facet_from_output_path
 
         assert _extract_facet_from_output_path("") is None
         assert _extract_facet_from_output_path(None) is None
 
     def test_returns_none_for_non_matching_path(self):
-        from talent.activity_state import _extract_facet_from_output_path
+        from solstone.talent.activity_state import _extract_facet_from_output_path
 
         # Different generator name
         assert _extract_facet_from_output_path("/path/to/facets.json") is None
@@ -46,7 +46,7 @@ class TestFindPreviousSegment:
     """Tests for find_previous_segment."""
 
     def test_finds_previous_segment(self):
-        from talent.activity_state import find_previous_segment
+        from solstone.talent.activity_state import find_previous_segment
 
         with tempfile.TemporaryDirectory() as tmpdir:
             original_path = os.environ.get("SOLSTONE_JOURNAL")
@@ -70,7 +70,7 @@ class TestFindPreviousSegment:
                     os.environ["SOLSTONE_JOURNAL"] = original_path
 
     def test_returns_none_for_nonexistent_day(self):
-        from talent.activity_state import find_previous_segment
+        from solstone.talent.activity_state import find_previous_segment
 
         with tempfile.TemporaryDirectory() as tmpdir:
             original_path = os.environ.get("SOLSTONE_JOURNAL")
@@ -83,7 +83,7 @@ class TestFindPreviousSegment:
                     os.environ["SOLSTONE_JOURNAL"] = original_path
 
     def test_handles_segments_with_suffix(self):
-        from talent.activity_state import find_previous_segment
+        from solstone.talent.activity_state import find_previous_segment
 
         with tempfile.TemporaryDirectory() as tmpdir:
             original_path = os.environ.get("SOLSTONE_JOURNAL")
@@ -110,19 +110,19 @@ class TestCheckTimeout:
     """Tests for check_timeout."""
 
     def test_no_timeout_within_threshold(self):
-        from talent.activity_state import check_timeout
+        from solstone.talent.activity_state import check_timeout
 
         # 5 minute gap (300 seconds)
         assert check_timeout("100500_300", "100000_300", timeout_seconds=3600) is False
 
     def test_timeout_exceeds_threshold(self):
-        from talent.activity_state import check_timeout
+        from solstone.talent.activity_state import check_timeout
 
         # 2 hour gap
         assert check_timeout("120000_300", "100000_300", timeout_seconds=3600) is True
 
     def test_uses_segment_end_time(self):
-        from talent.activity_state import check_timeout
+        from solstone.talent.activity_state import check_timeout
 
         # Previous segment: 10:00:00 - 10:05:00 (300 seconds)
         # Current segment: 10:10:00
@@ -134,7 +134,7 @@ class TestLoadPreviousState:
     """Tests for load_previous_state."""
 
     def test_loads_valid_state(self):
-        from talent.activity_state import load_previous_state
+        from solstone.talent.activity_state import load_previous_state
 
         with tempfile.TemporaryDirectory() as tmpdir:
             original_path = os.environ.get("SOLSTONE_JOURNAL")
@@ -173,7 +173,7 @@ class TestLoadPreviousState:
                     os.environ["SOLSTONE_JOURNAL"] = original_path
 
     def test_returns_none_for_missing_file(self):
-        from talent.activity_state import load_previous_state
+        from solstone.talent.activity_state import load_previous_state
 
         with tempfile.TemporaryDirectory() as tmpdir:
             original_path = os.environ.get("SOLSTONE_JOURNAL")
@@ -197,7 +197,7 @@ class TestLoadPreviousState:
                     os.environ["SOLSTONE_JOURNAL"] = original_path
 
     def test_rejects_non_array(self):
-        from talent.activity_state import load_previous_state
+        from solstone.talent.activity_state import load_previous_state
 
         with tempfile.TemporaryDirectory() as tmpdir:
             original_path = os.environ.get("SOLSTONE_JOURNAL")
@@ -230,7 +230,7 @@ class TestFormatActivitiesContext:
     """Tests for format_activities_context."""
 
     def test_formats_activities_list(self):
-        from talent.activity_state import format_activities_context
+        from solstone.talent.activity_state import format_activities_context
 
         with tempfile.TemporaryDirectory() as tmpdir:
             original_path = os.environ.get("SOLSTONE_JOURNAL")
@@ -261,7 +261,7 @@ class TestFormatActivitiesContext:
 
     def test_handles_empty_activities(self):
         """Facet with no activities.jsonl still gets always-on defaults."""
-        from talent.activity_state import format_activities_context
+        from solstone.talent.activity_state import format_activities_context
 
         with tempfile.TemporaryDirectory() as tmpdir:
             original_path = os.environ.get("SOLSTONE_JOURNAL")
@@ -287,7 +287,7 @@ class TestFormatPreviousState:
     """Tests for format_previous_state."""
 
     def test_formats_active_activities(self):
-        from talent.activity_state import format_previous_state
+        from solstone.talent.activity_state import format_previous_state
 
         state = [
             {
@@ -309,7 +309,7 @@ class TestFormatPreviousState:
         assert "since" not in result
 
     def test_formats_ended_activities(self):
-        from talent.activity_state import format_previous_state
+        from solstone.talent.activity_state import format_previous_state
 
         state = [
             {
@@ -327,7 +327,7 @@ class TestFormatPreviousState:
         assert "email" in result
 
     def test_handles_timeout(self):
-        from talent.activity_state import format_previous_state
+        from solstone.talent.activity_state import format_previous_state
 
         state = [{"activity": "meeting", "state": "active"}]
         result = format_previous_state(
@@ -337,13 +337,13 @@ class TestFormatPreviousState:
         assert "meeting" not in result
 
     def test_handles_no_previous_state(self):
-        from talent.activity_state import format_previous_state
+        from solstone.talent.activity_state import format_previous_state
 
         result = format_previous_state(None, None, "100000_300", timed_out=False)
         assert "No previous segment state" in result
 
     def test_handles_empty_list(self):
-        from talent.activity_state import format_previous_state
+        from solstone.talent.activity_state import format_previous_state
 
         result = format_previous_state([], "100000_300", "100500_300", timed_out=False)
         assert "No activities were detected" in result
@@ -353,7 +353,7 @@ class TestPreProcess:
     """Tests for the pre_process hook function."""
 
     def test_builds_enriched_context(self):
-        from talent.activity_state import pre_process
+        from solstone.talent.activity_state import pre_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
             original_path = os.environ.get("SOLSTONE_JOURNAL")
@@ -420,7 +420,7 @@ class TestPreProcess:
                     os.environ["SOLSTONE_JOURNAL"] = original_path
 
     def test_returns_none_without_day(self):
-        from talent.activity_state import pre_process
+        from solstone.talent.activity_state import pre_process
 
         context = {
             "segment": "100000_300",
@@ -429,7 +429,7 @@ class TestPreProcess:
         assert pre_process(context) is None
 
     def test_returns_none_without_segment(self):
-        from talent.activity_state import pre_process
+        from solstone.talent.activity_state import pre_process
 
         context = {
             "day": "20260130",
@@ -438,7 +438,7 @@ class TestPreProcess:
         assert pre_process(context) is None
 
     def test_returns_none_without_facet_in_path(self):
-        from talent.activity_state import pre_process
+        from solstone.talent.activity_state import pre_process
 
         context = {
             "day": "20260130",
@@ -452,7 +452,7 @@ class TestPostProcess:
     """Tests for the post_process hook function."""
 
     def test_new_activity_gets_current_segment(self):
-        from talent.activity_state import post_process
+        from solstone.talent.activity_state import post_process
 
         llm_output = json.dumps(
             [
@@ -474,7 +474,7 @@ class TestPostProcess:
         assert items[0]["level"] == "high"
 
     def test_continuing_activity_copies_since(self):
-        from talent.activity_state import post_process
+        from solstone.talent.activity_state import post_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
             original_path = os.environ.get("SOLSTONE_JOURNAL")
@@ -532,7 +532,7 @@ class TestPostProcess:
                     os.environ["SOLSTONE_JOURNAL"] = original_path
 
     def test_ended_activity_copies_since(self):
-        from talent.activity_state import post_process
+        from solstone.talent.activity_state import post_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
             original_path = os.environ.get("SOLSTONE_JOURNAL")
@@ -589,7 +589,7 @@ class TestPostProcess:
                     os.environ["SOLSTONE_JOURNAL"] = original_path
 
     def test_no_previous_state_continuing_becomes_new(self):
-        from talent.activity_state import post_process
+        from solstone.talent.activity_state import post_process
 
         llm_output = json.dumps(
             [
@@ -613,7 +613,7 @@ class TestPostProcess:
     def test_unmatched_ended_with_novel_description_becomes_active(self):
         """Ended activity with no previous active match but novel description
         is treated as a new active activity (LLM mis-tagged)."""
-        from talent.activity_state import post_process
+        from solstone.talent.activity_state import post_process
 
         llm_output = json.dumps(
             [
@@ -638,7 +638,7 @@ class TestPostProcess:
     def test_unmatched_ended_with_empty_description_dropped(self):
         """Ended activity with no previous active match and no description
         is dropped as redundant."""
-        from talent.activity_state import post_process
+        from solstone.talent.activity_state import post_process
 
         llm_output = json.dumps(
             [
@@ -656,7 +656,7 @@ class TestPostProcess:
 
     def test_unmatched_ended_matching_prev_ended_dropped(self):
         """Ended activity that matches a previously ended activity is dropped."""
-        from talent.activity_state import post_process
+        from solstone.talent.activity_state import post_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
             original_path = os.environ.get("SOLSTONE_JOURNAL")
@@ -712,7 +712,7 @@ class TestPostProcess:
     def test_unmatched_ended_novel_desc_with_prev_ended_becomes_active(self):
         """Ended activity with novel description (different from prev ended)
         is promoted to active."""
-        from talent.activity_state import post_process
+        from solstone.talent.activity_state import post_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
             original_path = os.environ.get("SOLSTONE_JOURNAL")
@@ -768,33 +768,33 @@ class TestPostProcess:
                     os.environ["SOLSTONE_JOURNAL"] = original_path
 
     def test_empty_array_passthrough(self):
-        from talent.activity_state import post_process
+        from solstone.talent.activity_state import post_process
 
         result = post_process("[]", {"segment": "143000_300"})
         assert result is not None
         assert json.loads(result) == []
 
     def test_malformed_json_returns_none(self):
-        from talent.activity_state import post_process
+        from solstone.talent.activity_state import post_process
 
         result = post_process("not json", {"segment": "143000_300"})
         assert result is None
 
     def test_non_array_returns_none(self):
-        from talent.activity_state import post_process
+        from solstone.talent.activity_state import post_process
 
         result = post_process('{"active": []}', {"segment": "143000_300"})
         assert result is None
 
     def test_missing_segment_returns_none(self):
-        from talent.activity_state import post_process
+        from solstone.talent.activity_state import post_process
 
         result = post_process("[]", {})
         assert result is None
 
     def test_same_type_transition_end_and_new(self):
         """One meeting ends, another starts — both get correct since."""
-        from talent.activity_state import post_process
+        from solstone.talent.activity_state import post_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
             original_path = os.environ.get("SOLSTONE_JOURNAL")
@@ -863,7 +863,7 @@ class TestPostProcess:
 
     def test_default_level_for_new(self):
         """New activity without level gets default 'medium'."""
-        from talent.activity_state import post_process
+        from solstone.talent.activity_state import post_process
 
         llm_output = json.dumps(
             [{"activity": "coding", "state": "new", "description": "Writing code"}]
@@ -875,7 +875,7 @@ class TestPostProcess:
 
     def test_active_entities_passthrough_on_new(self):
         """active_entities array is passed through on new activities."""
-        from talent.activity_state import post_process
+        from solstone.talent.activity_state import post_process
 
         llm_output = json.dumps(
             [
@@ -895,7 +895,7 @@ class TestPostProcess:
 
     def test_active_entities_omitted_when_empty(self):
         """active_entities is omitted from output when not provided or empty."""
-        from talent.activity_state import post_process
+        from solstone.talent.activity_state import post_process
 
         llm_output = json.dumps(
             [
@@ -915,7 +915,7 @@ class TestPostProcess:
 
     def test_active_entities_omitted_on_ended(self):
         """active_entities is not included on ended activities."""
-        from talent.activity_state import post_process
+        from solstone.talent.activity_state import post_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
             original_path = os.environ.get("SOLSTONE_JOURNAL")
@@ -972,7 +972,7 @@ class TestPostProcess:
 
     def test_fuzzy_match_disambiguates_same_type(self):
         """Multiple same-type previous activities matched by description."""
-        from talent.activity_state import post_process
+        from solstone.talent.activity_state import post_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
             original_path = os.environ.get("SOLSTONE_JOURNAL")
@@ -1039,7 +1039,7 @@ class TestActivityId:
     """Tests for the id field added to resolved activity entries."""
 
     def test_new_activity_gets_id(self):
-        from talent.activity_state import post_process
+        from solstone.talent.activity_state import post_process
 
         llm_output = json.dumps(
             [
@@ -1057,7 +1057,7 @@ class TestActivityId:
         assert items[0]["id"] == "coding_143000_300"
 
     def test_continuing_activity_preserves_since_in_id(self):
-        from talent.activity_state import post_process
+        from solstone.talent.activity_state import post_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
             original_path = os.environ.get("SOLSTONE_JOURNAL")
@@ -1112,7 +1112,7 @@ class TestActivityId:
                     os.environ["SOLSTONE_JOURNAL"] = original_path
 
     def test_ended_activity_gets_id(self):
-        from talent.activity_state import post_process
+        from solstone.talent.activity_state import post_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
             original_path = os.environ.get("SOLSTONE_JOURNAL")
@@ -1167,7 +1167,7 @@ class TestActivityId:
 
     def test_promoted_ended_gets_new_id(self):
         """Ended activity promoted to active gets id with current segment."""
-        from talent.activity_state import post_process
+        from solstone.talent.activity_state import post_process
 
         llm_output = json.dumps(
             [
@@ -1191,7 +1191,7 @@ class TestActivityLiveEvents:
     def test_emits_live_for_new_activity(self):
         from unittest.mock import patch
 
-        from talent.activity_state import post_process
+        from solstone.talent.activity_state import post_process
 
         llm_output = json.dumps(
             [
@@ -1211,7 +1211,7 @@ class TestActivityLiveEvents:
             "output_path": "/j/20260130/143000_300/talents/work/activity_state.json",
         }
 
-        with patch("talent.activity_state.callosum_send") as mock_send:
+        with patch("solstone.talent.activity_state.callosum_send") as mock_send:
             mock_send.return_value = True
             post_process(llm_output, context)
 
@@ -1232,7 +1232,7 @@ class TestActivityLiveEvents:
     def test_emits_live_for_continuing_activity(self):
         from unittest.mock import patch
 
-        from talent.activity_state import post_process
+        from solstone.talent.activity_state import post_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
             original_path = os.environ.get("SOLSTONE_JOURNAL")
@@ -1278,7 +1278,7 @@ class TestActivityLiveEvents:
                     "output_path": f"{tmpdir}/20260130/100500_300/talents/work/activity_state.json",
                 }
 
-                with patch("talent.activity_state.callosum_send") as mock_send:
+                with patch("solstone.talent.activity_state.callosum_send") as mock_send:
                     mock_send.return_value = True
                     post_process(llm_output, context)
 
@@ -1294,7 +1294,7 @@ class TestActivityLiveEvents:
     def test_no_live_event_for_ended_activity(self):
         from unittest.mock import patch
 
-        from talent.activity_state import post_process
+        from solstone.talent.activity_state import post_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
             original_path = os.environ.get("SOLSTONE_JOURNAL")
@@ -1339,7 +1339,7 @@ class TestActivityLiveEvents:
                     "output_path": f"{tmpdir}/20260130/100500_300/talents/work/activity_state.json",
                 }
 
-                with patch("talent.activity_state.callosum_send") as mock_send:
+                with patch("solstone.talent.activity_state.callosum_send") as mock_send:
                     post_process(llm_output, context)
                     mock_send.assert_not_called()
 
@@ -1350,7 +1350,7 @@ class TestActivityLiveEvents:
     def test_no_live_events_without_day_or_facet(self):
         from unittest.mock import patch
 
-        from talent.activity_state import post_process
+        from solstone.talent.activity_state import post_process
 
         llm_output = json.dumps(
             [
@@ -1364,14 +1364,14 @@ class TestActivityLiveEvents:
         )
 
         # No day — events should not fire
-        with patch("talent.activity_state.callosum_send") as mock_send:
+        with patch("solstone.talent.activity_state.callosum_send") as mock_send:
             post_process(llm_output, {"segment": "143000_300"})
             mock_send.assert_not_called()
 
     def test_live_event_failure_does_not_break_posthook(self):
         from unittest.mock import patch
 
-        from talent.activity_state import post_process
+        from solstone.talent.activity_state import post_process
 
         llm_output = json.dumps(
             [
@@ -1390,7 +1390,7 @@ class TestActivityLiveEvents:
             "output_path": "/j/20260130/143000_300/talents/work/activity_state.json",
         }
 
-        with patch("talent.activity_state.callosum_send") as mock_send:
+        with patch("solstone.talent.activity_state.callosum_send") as mock_send:
             mock_send.side_effect = OSError("socket error")
             result = post_process(llm_output, context)
             # Should still return valid resolved output
@@ -1407,7 +1407,7 @@ class TestActivityIdValidation:
         """Post-hook drops LLM output entries with activity IDs not in config."""
         from unittest.mock import patch
 
-        from talent.activity_state import post_process
+        from solstone.talent.activity_state import post_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
             original_path = os.environ.get("SOLSTONE_JOURNAL")
@@ -1443,7 +1443,7 @@ class TestActivityIdValidation:
                     "output_path": f"{tmpdir}/20260130/143000_300/talents/work/activity_state.json",
                 }
 
-                with patch("talent.activity_state.callosum_send"):
+                with patch("solstone.talent.activity_state.callosum_send"):
                     result = post_process(llm_output, context)
 
                 items = json.loads(result)
@@ -1459,7 +1459,7 @@ class TestActivityIdValidation:
         import logging
         from unittest.mock import patch
 
-        from talent.activity_state import post_process
+        from solstone.talent.activity_state import post_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
             original_path = os.environ.get("SOLSTONE_JOURNAL")
@@ -1486,8 +1486,10 @@ class TestActivityIdValidation:
                     "output_path": f"{tmpdir}/20260130/143000_300/talents/work/activity_state.json",
                 }
 
-                with caplog.at_level(logging.WARNING, logger="talent.activity_state"):
-                    with patch("talent.activity_state.callosum_send"):
+                with caplog.at_level(
+                    logging.WARNING, logger="solstone.talent.activity_state"
+                ):
+                    with patch("solstone.talent.activity_state.callosum_send"):
                         post_process(llm_output, context)
 
                 assert "Dropped 1 activity entries" in caplog.text
@@ -1501,7 +1503,7 @@ class TestActivityIdValidation:
         """Post-hook preserves entries with valid activity IDs."""
         from unittest.mock import patch
 
-        from talent.activity_state import post_process
+        from solstone.talent.activity_state import post_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
             original_path = os.environ.get("SOLSTONE_JOURNAL")
@@ -1542,7 +1544,7 @@ class TestActivityIdValidation:
                     "output_path": f"{tmpdir}/20260130/143000_300/talents/work/activity_state.json",
                 }
 
-                with patch("talent.activity_state.callosum_send"):
+                with patch("solstone.talent.activity_state.callosum_send"):
                     result = post_process(llm_output, context)
 
                 items = json.loads(result)
@@ -1559,7 +1561,7 @@ class TestActivityIdValidation:
         """Post-hook allows all default activity IDs for unconfigured facets."""
         from unittest.mock import patch
 
-        from talent.activity_state import post_process
+        from solstone.talent.activity_state import post_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
             original_path = os.environ.get("SOLSTONE_JOURNAL")
@@ -1592,7 +1594,7 @@ class TestActivityIdValidation:
                     "output_path": f"{tmpdir}/20260130/143000_300/talents/new_facet/activity_state.json",
                 }
 
-                with patch("talent.activity_state.callosum_send"):
+                with patch("solstone.talent.activity_state.callosum_send"):
                     result = post_process(llm_output, context)
 
                 items = json.loads(result)

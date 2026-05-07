@@ -15,7 +15,7 @@ import soundfile as sf
 if platform.system() != "Linux":
     pytest.skip("Linux-only ONNX test", allow_module_level=True)
 
-import observe.transcribe._parakeet_onnx as parakeet_onnx
+import solstone.observe.transcribe._parakeet_onnx as parakeet_onnx
 
 
 def _require_onnx() -> None:

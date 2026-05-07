@@ -3,7 +3,7 @@
 
 import json
 
-from think.talents import JSONEventWriter
+from solstone.think.talents import JSONEventWriter
 
 
 class _BrokenPipeStdout:

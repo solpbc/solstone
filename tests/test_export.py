@@ -11,8 +11,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
-import think.utils
-from observe.utils import compute_bytes_sha256
+import solstone.think.utils as think_utils
+from solstone.observe.utils import compute_bytes_sha256
 
 
 def _setup_journal(tmp_path, *, include_stream_json: bool = False):
@@ -35,7 +35,7 @@ def _setup_journal(tmp_path, *, include_stream_json: bool = False):
 
 def _set_journal_override(monkeypatch, journal_path):
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_path))
-    think.utils._journal_path_cache = None
+    think_utils._journal_path_cache = None
 
 
 def _make_session(
@@ -231,7 +231,7 @@ def _setup_config(tmp_path):
 
 class TestExportSegments:
     def test_manifest_query_and_delta(self, tmp_path, monkeypatch):
-        from observe.export import export_segments
+        from solstone.observe.export import export_segments
 
         journal = _setup_journal(tmp_path)
         _set_journal_override(monkeypatch, journal)
@@ -256,7 +256,9 @@ class TestExportSegments:
         }
         mock_session = _make_session(manifest_data=manifest_data)
 
-        with patch("observe.export.requests.Session", return_value=mock_session):
+        with patch(
+            "solstone.observe.export.requests.Session", return_value=mock_session
+        ):
             export_segments(
                 "https://example.com", "test-key", ["20260413"], dry_run=False
             )
@@ -266,14 +268,16 @@ class TestExportSegments:
         assert metadata["segments"][0]["segment_key"] == "150000_600"
 
     def test_dry_run_output(self, tmp_path, monkeypatch, capsys):
-        from observe.export import export_segments
+        from solstone.observe.export import export_segments
 
         journal = _setup_journal(tmp_path)
         _set_journal_override(monkeypatch, journal)
 
         mock_session = _make_session(manifest_data={})
 
-        with patch("observe.export.requests.Session", return_value=mock_session):
+        with patch(
+            "solstone.observe.export.requests.Session", return_value=mock_session
+        ):
             export_segments(
                 "https://example.com", "test-key", ["20260413"], dry_run=True
             )
@@ -284,7 +288,7 @@ class TestExportSegments:
         assert "Dry run: would send 2, skip 0" in output
 
     def test_dry_run_skipped_not_double_counted(self, tmp_path, monkeypatch, capsys):
-        from observe.export import export_segments
+        from solstone.observe.export import export_segments
 
         journal = _setup_journal(tmp_path)
         _set_journal_override(monkeypatch, journal)
@@ -309,7 +313,9 @@ class TestExportSegments:
         }
         mock_session = _make_session(manifest_data=manifest_data)
 
-        with patch("observe.export.requests.Session", return_value=mock_session):
+        with patch(
+            "solstone.observe.export.requests.Session", return_value=mock_session
+        ):
             export_segments(
                 "https://example.com", "test-key", ["20260413"], dry_run=True
             )
@@ -320,7 +326,7 @@ class TestExportSegments:
         assert "Dry run: would send 1, skip 1" in output
 
     def test_retry_on_5xx(self, tmp_path, monkeypatch):
-        from observe.export import export_segments
+        from solstone.observe.export import export_segments
 
         journal = _setup_journal(tmp_path)
         _set_journal_override(monkeypatch, journal)
@@ -343,8 +349,10 @@ class TestExportSegments:
         mock_session.post.side_effect = [first, second, success]
 
         with (
-            patch("observe.export.requests.Session", return_value=mock_session),
-            patch("observe.export.time.sleep") as mock_sleep,
+            patch(
+                "solstone.observe.export.requests.Session", return_value=mock_session
+            ),
+            patch("solstone.observe.export.time.sleep") as mock_sleep,
         ):
             export_segments(
                 "https://example.com", "test-key", ["20260413"], dry_run=False
@@ -354,7 +362,7 @@ class TestExportSegments:
         assert mock_sleep.called
 
     def test_auth_error_401(self):
-        from observe.export import _query_manifest
+        from solstone.observe.export import _query_manifest
 
         mock_session = _make_session(get_status=401)
 
@@ -362,7 +370,7 @@ class TestExportSegments:
             _query_manifest(mock_session, "https://example.com", "test-key")
 
     def test_auth_error_403(self):
-        from observe.export import _query_manifest
+        from solstone.observe.export import _query_manifest
 
         mock_session = _make_session(get_status=403)
 
@@ -370,7 +378,7 @@ class TestExportSegments:
             _query_manifest(mock_session, "https://example.com", "test-key")
 
     def test_connection_error(self, tmp_path, monkeypatch, capsys):
-        from observe.export import export_segments
+        from solstone.observe.export import export_segments
 
         journal = _setup_journal(tmp_path)
         _set_journal_override(monkeypatch, journal)
@@ -378,7 +386,9 @@ class TestExportSegments:
         mock_session = _make_session(manifest_data={})
         mock_session.get.side_effect = requests.ConnectionError
 
-        with patch("observe.export.requests.Session", return_value=mock_session):
+        with patch(
+            "solstone.observe.export.requests.Session", return_value=mock_session
+        ):
             export_segments(
                 "https://example.com", "test-key", ["20260413"], dry_run=False
             )
@@ -387,7 +397,7 @@ class TestExportSegments:
         assert "Connection failed" in capsys.readouterr().out
 
     def test_idempotent(self, tmp_path, monkeypatch, capsys):
-        from observe.export import export_segments
+        from solstone.observe.export import export_segments
 
         journal = _setup_journal(tmp_path)
         _set_journal_override(monkeypatch, journal)
@@ -426,7 +436,9 @@ class TestExportSegments:
         }
         mock_session = _make_session(manifest_data=manifest_data)
 
-        with patch("observe.export.requests.Session", return_value=mock_session):
+        with patch(
+            "solstone.observe.export.requests.Session", return_value=mock_session
+        ):
             export_segments(
                 "https://example.com", "test-key", ["20260413"], dry_run=False
             )
@@ -435,7 +447,7 @@ class TestExportSegments:
         assert "up to date" in capsys.readouterr().out
 
     def test_upload_error_isolation(self, tmp_path, monkeypatch, capsys):
-        from observe.export import export_segments
+        from solstone.observe.export import export_segments
 
         journal = _setup_journal(tmp_path)
         _set_journal_override(monkeypatch, journal)
@@ -451,7 +463,9 @@ class TestExportSegments:
         }
         mock_session.post.side_effect = [first, second]
 
-        with patch("observe.export.requests.Session", return_value=mock_session):
+        with patch(
+            "solstone.observe.export.requests.Session", return_value=mock_session
+        ):
             export_segments(
                 "https://example.com", "test-key", ["20260413"], dry_run=False
             )
@@ -462,14 +476,16 @@ class TestExportSegments:
         assert "1 failed" in output
 
     def test_stream_json_excluded(self, tmp_path, monkeypatch):
-        from observe.export import export_segments
+        from solstone.observe.export import export_segments
 
         journal = _setup_journal(tmp_path, include_stream_json=True)
         _set_journal_override(monkeypatch, journal)
 
         mock_session = _make_session(manifest_data={})
 
-        with patch("observe.export.requests.Session", return_value=mock_session):
+        with patch(
+            "solstone.observe.export.requests.Session", return_value=mock_session
+        ):
             export_segments(
                 "https://example.com", "test-key", ["20260413"], dry_run=False
             )
@@ -484,7 +500,7 @@ class TestExportSegments:
 
 class TestExportEntities:
     def test_manifest_delta(self, tmp_path, monkeypatch):
-        from observe.export import export_entities
+        from solstone.observe.export import export_entities
 
         entities = _setup_entities(tmp_path)
         _set_journal_override(monkeypatch, tmp_path)
@@ -503,7 +519,9 @@ class TestExportEntities:
         }
         mock_session = _make_session(manifest_data=manifest_data, post_json=post_json)
 
-        with patch("observe.export.requests.Session", return_value=mock_session):
+        with patch(
+            "solstone.observe.export.requests.Session", return_value=mock_session
+        ):
             export_entities("https://example.com", "test-key", dry_run=False)
 
         assert mock_session.post.call_count == 1
@@ -517,7 +535,7 @@ class TestExportEntities:
         assert "blocked_user" not in posted_ids
 
     def test_dry_run(self, tmp_path, monkeypatch, capsys):
-        from observe.export import export_entities
+        from solstone.observe.export import export_entities
 
         entities = _setup_entities(tmp_path)
         _set_journal_override(monkeypatch, tmp_path)
@@ -529,7 +547,9 @@ class TestExportEntities:
         }
         mock_session = _make_session(manifest_data=manifest_data)
 
-        with patch("observe.export.requests.Session", return_value=mock_session):
+        with patch(
+            "solstone.observe.export.requests.Session", return_value=mock_session
+        ):
             export_entities("https://example.com", "test-key", dry_run=True)
 
         assert mock_session.post.call_count == 0
@@ -538,7 +558,7 @@ class TestExportEntities:
         assert "1 unchanged" in output
 
     def test_idempotent(self, tmp_path, monkeypatch, capsys):
-        from observe.export import export_entities
+        from solstone.observe.export import export_entities
 
         entities = _setup_entities(tmp_path)
         _set_journal_override(monkeypatch, tmp_path)
@@ -551,7 +571,9 @@ class TestExportEntities:
         }
         mock_session = _make_session(manifest_data=manifest_data)
 
-        with patch("observe.export.requests.Session", return_value=mock_session):
+        with patch(
+            "solstone.observe.export.requests.Session", return_value=mock_session
+        ):
             export_entities("https://example.com", "test-key", dry_run=False)
 
         assert mock_session.post.call_count == 0
@@ -559,7 +581,7 @@ class TestExportEntities:
         assert "up to date" in output
 
     def test_changed_entity(self, tmp_path, monkeypatch):
-        from observe.export import export_entities
+        from solstone.observe.export import export_entities
 
         entities = _setup_entities(tmp_path)
         _set_journal_override(monkeypatch, tmp_path)
@@ -579,7 +601,9 @@ class TestExportEntities:
         }
         mock_session = _make_session(manifest_data=manifest_data, post_json=post_json)
 
-        with patch("observe.export.requests.Session", return_value=mock_session):
+        with patch(
+            "solstone.observe.export.requests.Session", return_value=mock_session
+        ):
             export_entities("https://example.com", "test-key", dry_run=False)
 
         assert mock_session.post.call_count == 1
@@ -591,21 +615,23 @@ class TestExportEntities:
         assert "bob_smith" not in posted_ids
 
     def test_auth_error_401(self, tmp_path, monkeypatch, capsys):
-        from observe.export import export_entities
+        from solstone.observe.export import export_entities
 
         _setup_entities(tmp_path)
         _set_journal_override(monkeypatch, tmp_path)
 
         mock_session = _make_session(get_status=401)
 
-        with patch("observe.export.requests.Session", return_value=mock_session):
+        with patch(
+            "solstone.observe.export.requests.Session", return_value=mock_session
+        ):
             export_entities("https://example.com", "test-key", dry_run=False)
 
         assert mock_session.post.call_count == 0
         assert "Authentication failed" in capsys.readouterr().out
 
     def test_connection_error(self, tmp_path, monkeypatch, capsys):
-        from observe.export import export_entities
+        from solstone.observe.export import export_entities
 
         _setup_entities(tmp_path)
         _set_journal_override(monkeypatch, tmp_path)
@@ -613,14 +639,16 @@ class TestExportEntities:
         mock_session = _make_session()
         mock_session.get.side_effect = requests.ConnectionError
 
-        with patch("observe.export.requests.Session", return_value=mock_session):
+        with patch(
+            "solstone.observe.export.requests.Session", return_value=mock_session
+        ):
             export_entities("https://example.com", "test-key", dry_run=False)
 
         assert mock_session.post.call_count == 0
         assert "Connection failed" in capsys.readouterr().out
 
     def test_empty_manifest(self, tmp_path, monkeypatch):
-        from observe.export import export_entities
+        from solstone.observe.export import export_entities
 
         _setup_entities(tmp_path)
         _set_journal_override(monkeypatch, tmp_path)
@@ -634,7 +662,9 @@ class TestExportEntities:
         }
         mock_session = _make_session(manifest_data={}, post_json=post_json)
 
-        with patch("observe.export.requests.Session", return_value=mock_session):
+        with patch(
+            "solstone.observe.export.requests.Session", return_value=mock_session
+        ):
             export_entities("https://example.com", "test-key", dry_run=False)
 
         assert mock_session.post.call_count == 1
@@ -647,7 +677,7 @@ class TestExportEntities:
         assert "blocked_user" not in posted_ids
 
     def test_response_errors_reported(self, tmp_path, monkeypatch, capsys):
-        from observe.export import export_entities
+        from solstone.observe.export import export_entities
 
         _setup_entities(tmp_path)
         _set_journal_override(monkeypatch, tmp_path)
@@ -661,7 +691,9 @@ class TestExportEntities:
         }
         mock_session = _make_session(manifest_data={}, post_json=post_json)
 
-        with patch("observe.export.requests.Session", return_value=mock_session):
+        with patch(
+            "solstone.observe.export.requests.Session", return_value=mock_session
+        ):
             export_entities("https://example.com", "test-key", dry_run=False)
 
         output = capsys.readouterr().out
@@ -671,7 +703,7 @@ class TestExportEntities:
 
 class TestExportFacets:
     def test_full_export(self, tmp_path, monkeypatch):
-        from observe.export import export_facets
+        from solstone.observe.export import export_facets
 
         _setup_facets(tmp_path)
         _set_journal_override(monkeypatch, tmp_path)
@@ -681,7 +713,9 @@ class TestExportFacets:
             manifest_data={"received": {}}, post_json=post_json
         )
 
-        with patch("observe.export.requests.Session", return_value=mock_session):
+        with patch(
+            "solstone.observe.export.requests.Session", return_value=mock_session
+        ):
             export_facets("https://example.com", "test-key", dry_run=False)
 
         assert mock_session.post.call_count == 2
@@ -743,7 +777,7 @@ class TestExportFacets:
         }
 
     def test_delta_mixed(self, tmp_path, monkeypatch):
-        from observe.export import export_facets
+        from solstone.observe.export import export_facets
 
         facets_dir = _setup_facets(tmp_path)
         _set_journal_override(monkeypatch, tmp_path)
@@ -767,7 +801,9 @@ class TestExportFacets:
         post_json = {"created": 0, "merged": 1, "skipped": 0, "staged": 0, "errors": []}
         mock_session = _make_session(manifest_data=manifest_data, post_json=post_json)
 
-        with patch("observe.export.requests.Session", return_value=mock_session):
+        with patch(
+            "solstone.observe.export.requests.Session", return_value=mock_session
+        ):
             export_facets("https://example.com", "test-key", dry_run=False)
 
         assert mock_session.post.call_count == 1
@@ -783,14 +819,16 @@ class TestExportFacets:
         ]
 
     def test_dry_run(self, tmp_path, monkeypatch, capsys):
-        from observe.export import export_facets
+        from solstone.observe.export import export_facets
 
         _setup_facets(tmp_path)
         _set_journal_override(monkeypatch, tmp_path)
 
         mock_session = _make_session(manifest_data={"received": {}})
 
-        with patch("observe.export.requests.Session", return_value=mock_session):
+        with patch(
+            "solstone.observe.export.requests.Session", return_value=mock_session
+        ):
             export_facets("https://example.com", "test-key", dry_run=True)
 
         assert mock_session.post.call_count == 0
@@ -802,7 +840,7 @@ class TestExportFacets:
         )
 
     def test_idempotent(self, tmp_path, monkeypatch, capsys):
-        from observe.export import export_facets
+        from solstone.observe.export import export_facets
 
         facets_dir = _setup_facets(tmp_path)
         _set_journal_override(monkeypatch, tmp_path)
@@ -819,14 +857,16 @@ class TestExportFacets:
                     )
         mock_session = _make_session(manifest_data={"received": manifest_received})
 
-        with patch("observe.export.requests.Session", return_value=mock_session):
+        with patch(
+            "solstone.observe.export.requests.Session", return_value=mock_session
+        ):
             export_facets("https://example.com", "test-key", dry_run=False)
 
         assert mock_session.post.call_count == 0
         assert "up to date" in capsys.readouterr().out
 
     def test_error_isolation(self, tmp_path, monkeypatch, capsys):
-        from observe.export import export_facets
+        from solstone.observe.export import export_facets
 
         _setup_facets(tmp_path)
         _set_journal_override(monkeypatch, tmp_path)
@@ -843,7 +883,9 @@ class TestExportFacets:
         }
         mock_session.post.side_effect = [first, second]
 
-        with patch("observe.export.requests.Session", return_value=mock_session):
+        with patch(
+            "solstone.observe.export.requests.Session", return_value=mock_session
+        ):
             export_facets("https://example.com", "test-key", dry_run=False)
 
         assert mock_session.post.call_count == 2
@@ -852,7 +894,7 @@ class TestExportFacets:
         assert "1 failed" in output
 
     def test_new_facet_vs_changed(self, tmp_path, monkeypatch, capsys):
-        from observe.export import export_facets
+        from solstone.observe.export import export_facets
 
         facets_dir = _setup_facets(tmp_path)
         _set_journal_override(monkeypatch, tmp_path)
@@ -867,7 +909,9 @@ class TestExportFacets:
         }
         mock_session = _make_session(manifest_data=manifest_data)
 
-        with patch("observe.export.requests.Session", return_value=mock_session):
+        with patch(
+            "solstone.observe.export.requests.Session", return_value=mock_session
+        ):
             export_facets("https://example.com", "test-key", dry_run=True)
 
         assert mock_session.post.call_count == 0
@@ -876,7 +920,7 @@ class TestExportFacets:
         assert "work: 0 new, 5 changed, 0 unchanged" in output
 
     def test_skips_invalid_facet_names(self, tmp_path, monkeypatch):
-        from observe.export import export_facets
+        from solstone.observe.export import export_facets
 
         _setup_facets(tmp_path)
         bad_dir = tmp_path / "facets" / "BadName"
@@ -889,7 +933,9 @@ class TestExportFacets:
             manifest_data={"received": {}}, post_json=post_json
         )
 
-        with patch("observe.export.requests.Session", return_value=mock_session):
+        with patch(
+            "solstone.observe.export.requests.Session", return_value=mock_session
+        ):
             export_facets("https://example.com", "test-key", dry_run=False)
 
         assert mock_session.post.call_count == 2
@@ -900,7 +946,7 @@ class TestExportFacets:
         assert posted_facets == {"personal", "work"}
 
     def test_skips_events_directory(self, tmp_path, monkeypatch):
-        from observe.export import export_facets
+        from solstone.observe.export import export_facets
 
         _setup_facets(tmp_path)
         events_dir = tmp_path / "facets" / "work" / "events"
@@ -915,7 +961,9 @@ class TestExportFacets:
             manifest_data={"received": {}}, post_json=post_json
         )
 
-        with patch("observe.export.requests.Session", return_value=mock_session):
+        with patch(
+            "solstone.observe.export.requests.Session", return_value=mock_session
+        ):
             export_facets("https://example.com", "test-key", dry_run=False)
 
         calls_by_facet = {
@@ -931,7 +979,7 @@ class TestExportFacets:
         assert "events/20260413.jsonl" not in uploaded_paths
 
     def test_response_errors_reported(self, tmp_path, monkeypatch, capsys):
-        from observe.export import export_facets
+        from solstone.observe.export import export_facets
 
         _setup_facets(tmp_path)
         _set_journal_override(monkeypatch, tmp_path)
@@ -947,7 +995,9 @@ class TestExportFacets:
             manifest_data={"received": {}}, post_json=post_json
         )
 
-        with patch("observe.export.requests.Session", return_value=mock_session):
+        with patch(
+            "solstone.observe.export.requests.Session", return_value=mock_session
+        ):
             export_facets("https://example.com", "test-key", dry_run=False)
 
         output = capsys.readouterr().out
@@ -957,7 +1007,7 @@ class TestExportFacets:
 
 class TestExportImports:
     def test_manifest_delta(self, tmp_path, monkeypatch):
-        from observe.export import export_imports
+        from solstone.observe.export import export_imports
 
         imports = _setup_imports(tmp_path)
         _set_journal_override(monkeypatch, tmp_path)
@@ -968,7 +1018,9 @@ class TestExportImports:
         post_json = {"copied": 1, "staged": 0, "skipped": 0, "errors": []}
         mock_session = _make_session(manifest_data=manifest_data, post_json=post_json)
 
-        with patch("observe.export.requests.Session", return_value=mock_session):
+        with patch(
+            "solstone.observe.export.requests.Session", return_value=mock_session
+        ):
             export_imports("https://example.com", "test-key", dry_run=False)
 
         assert mock_session.post.call_count == 1
@@ -979,14 +1031,16 @@ class TestExportImports:
         assert posted_ids == ["20260102_100000"]
 
     def test_dry_run(self, tmp_path, monkeypatch, capsys):
-        from observe.export import export_imports
+        from solstone.observe.export import export_imports
 
         _setup_imports(tmp_path)
         _set_journal_override(monkeypatch, tmp_path)
 
         mock_session = _make_session(manifest_data={"received": {}})
 
-        with patch("observe.export.requests.Session", return_value=mock_session):
+        with patch(
+            "solstone.observe.export.requests.Session", return_value=mock_session
+        ):
             export_imports("https://example.com", "test-key", dry_run=True)
 
         assert mock_session.post.call_count == 0
@@ -995,7 +1049,7 @@ class TestExportImports:
         assert "0 changed" in output
 
     def test_idempotent(self, tmp_path, monkeypatch, capsys):
-        from observe.export import export_imports
+        from solstone.observe.export import export_imports
 
         imports = _setup_imports(tmp_path)
         _set_journal_override(monkeypatch, tmp_path)
@@ -1008,14 +1062,16 @@ class TestExportImports:
         }
         mock_session = _make_session(manifest_data=manifest_data)
 
-        with patch("observe.export.requests.Session", return_value=mock_session):
+        with patch(
+            "solstone.observe.export.requests.Session", return_value=mock_session
+        ):
             export_imports("https://example.com", "test-key", dry_run=False)
 
         assert mock_session.post.call_count == 0
         assert "up to date" in capsys.readouterr().out
 
     def test_sync_state_excluded(self, tmp_path, monkeypatch):
-        from observe.export import export_imports
+        from solstone.observe.export import export_imports
 
         _setup_imports(tmp_path)
         _set_journal_override(monkeypatch, tmp_path)
@@ -1025,7 +1081,9 @@ class TestExportImports:
             post_json={"copied": 2, "staged": 0, "skipped": 0, "errors": []},
         )
 
-        with patch("observe.export.requests.Session", return_value=mock_session):
+        with patch(
+            "solstone.observe.export.requests.Session", return_value=mock_session
+        ):
             export_imports("https://example.com", "test-key", dry_run=False)
 
         posted_data = mock_session.post.call_args.kwargs.get(
@@ -1035,7 +1093,7 @@ class TestExportImports:
         assert "plaud.json" not in posted_ids
 
     def test_source_dir_excluded(self, tmp_path, monkeypatch):
-        from observe.export import export_imports
+        from solstone.observe.export import export_imports
 
         _setup_imports(tmp_path)
         _set_journal_override(monkeypatch, tmp_path)
@@ -1045,7 +1103,9 @@ class TestExportImports:
             post_json={"copied": 2, "staged": 0, "skipped": 0, "errors": []},
         )
 
-        with patch("observe.export.requests.Session", return_value=mock_session):
+        with patch(
+            "solstone.observe.export.requests.Session", return_value=mock_session
+        ):
             export_imports("https://example.com", "test-key", dry_run=False)
 
         posted_data = mock_session.post.call_args.kwargs.get(
@@ -1057,7 +1117,7 @@ class TestExportImports:
 
 class TestExportConfig:
     def test_config_export(self, tmp_path, monkeypatch):
-        from observe.export import export_config
+        from solstone.observe.export import export_config
 
         _setup_config(tmp_path)
         _set_journal_override(monkeypatch, tmp_path)
@@ -1067,27 +1127,31 @@ class TestExportConfig:
             post_json={"staged": True, "skipped": False, "diff_fields": 3},
         )
 
-        with patch("observe.export.requests.Session", return_value=mock_session):
+        with patch(
+            "solstone.observe.export.requests.Session", return_value=mock_session
+        ):
             export_config("https://example.com", "test-key", dry_run=False)
 
         assert mock_session.post.call_count == 1
 
     def test_dry_run(self, tmp_path, monkeypatch, capsys):
-        from observe.export import export_config
+        from solstone.observe.export import export_config
 
         _setup_config(tmp_path)
         _set_journal_override(monkeypatch, tmp_path)
 
         mock_session = _make_session(manifest_data={})
 
-        with patch("observe.export.requests.Session", return_value=mock_session):
+        with patch(
+            "solstone.observe.export.requests.Session", return_value=mock_session
+        ):
             export_config("https://example.com", "test-key", dry_run=True)
 
         assert mock_session.post.call_count == 0
         assert "would send snapshot" in capsys.readouterr().out
 
     def test_idempotent(self, tmp_path, monkeypatch, capsys):
-        from observe.export import _strip_never_transfer, export_config
+        from solstone.observe.export import _strip_never_transfer, export_config
 
         config = _setup_config(tmp_path)
         _set_journal_override(monkeypatch, tmp_path)
@@ -1098,14 +1162,16 @@ class TestExportConfig:
         ).hexdigest()
         mock_session = _make_session(manifest_data={"last_hash": content_hash})
 
-        with patch("observe.export.requests.Session", return_value=mock_session):
+        with patch(
+            "solstone.observe.export.requests.Session", return_value=mock_session
+        ):
             export_config("https://example.com", "test-key", dry_run=False)
 
         assert mock_session.post.call_count == 0
         assert "up to date" in capsys.readouterr().out
 
     def test_never_transfer_stripped(self, tmp_path, monkeypatch):
-        from observe.export import export_config
+        from solstone.observe.export import export_config
 
         _setup_config(tmp_path)
         _set_journal_override(monkeypatch, tmp_path)
@@ -1115,7 +1181,9 @@ class TestExportConfig:
             post_json={"staged": True, "skipped": False, "diff_fields": 3},
         )
 
-        with patch("observe.export.requests.Session", return_value=mock_session):
+        with patch(
+            "solstone.observe.export.requests.Session", return_value=mock_session
+        ):
             export_config("https://example.com", "test-key", dry_run=False)
 
         posted_data = mock_session.post.call_args.kwargs.get(

@@ -10,8 +10,8 @@ from unittest.mock import patch
 
 import httpx
 
-from convey import create_app
-from think.push import devices, runtime, triggers
+from solstone.convey import create_app
+from solstone.think.push import devices, runtime, triggers
 
 TEST_KEY = """-----BEGIN PRIVATE KEY-----
 MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg+Zj7Bk6Dzp080/PU
@@ -58,10 +58,12 @@ def test_push_integration_briefing_dispatch_and_log(journal_copy, monkeypatch):
         platform="ios",
     )
     monkeypatch.setattr(
-        "think.push.runtime.CallosumConnection.start",
+        "solstone.think.push.runtime.CallosumConnection.start",
         lambda self, callback=None: None,
     )
-    monkeypatch.setattr("think.push.runtime.CallosumConnection.stop", lambda self: None)
+    monkeypatch.setattr(
+        "solstone.think.push.runtime.CallosumConnection.stop", lambda self: None
+    )
     monkeypatch.setattr(triggers, "datetime", FixedDateTime)
     captured: list[str] = []
 

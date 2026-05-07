@@ -16,8 +16,8 @@ import os
 from pathlib import Path
 from unittest.mock import MagicMock
 
+from solstone.think.utils import day_path
 from tests.conftest import copytree_tracked
-from think.utils import day_path
 
 FIXTURES = Path("tests/fixtures")
 
@@ -82,23 +82,23 @@ def _write_schema_file(tmp_path: Path, name: str, schema: dict) -> None:
 
 def test_generate_output_ndjson(tmp_path, monkeypatch):
     """Test basic output generation via NDJSON protocol."""
-    mod = importlib.import_module("think.talents")
+    mod = importlib.import_module("solstone.think.talents")
     copy_day(tmp_path)
 
-    import think.talent
+    import solstone.think.talent as talent
 
-    monkeypatch.setattr(think.talent, "TALENT_DIR", tmp_path)
+    monkeypatch.setattr(talent, "TALENT_DIR", tmp_path)
 
     test_generator = tmp_path / "test_gen.md"
     test_generator.write_text(
         '{\n  "type": "generate",\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md",\n  "load": {"transcripts": true, "percepts": true}\n}\n\nTest prompt'
     )
 
-    # Mock the underlying generation function in think.models
-    import think.models
+    # Mock the underlying generation function in models
+    from solstone.think import models
 
     monkeypatch.setattr(
-        think.models,
+        models,
         "generate_with_result",
         lambda *a, **k: MOCK_RESULT,
     )
@@ -128,13 +128,12 @@ def test_generate_output_ndjson(tmp_path, monkeypatch):
 
 def test_dispatcher_passes_json_schema(tmp_path, monkeypatch):
     """Test that generator execution forwards json_schema to the model layer."""
-    mod = importlib.import_module("think.talents")
+    mod = importlib.import_module("solstone.think.talents")
     copy_day(tmp_path)
 
-    import think.models
-    import think.talent
+    from solstone.think import models, talent
 
-    monkeypatch.setattr(think.talent, "TALENT_DIR", tmp_path)
+    monkeypatch.setattr(talent, "TALENT_DIR", tmp_path)
     schema = {"type": "object", "properties": {"summary": {"type": "string"}}}
     _write_schema_file(tmp_path, "schema.json", schema)
     _write_generator_file(
@@ -156,7 +155,7 @@ def test_dispatcher_passes_json_schema(tmp_path, monkeypatch):
             "usage": {"input_tokens": 10, "output_tokens": 5},
         }
     )
-    monkeypatch.setattr(think.models, "generate_with_result", mock_generate)
+    monkeypatch.setattr(models, "generate_with_result", mock_generate)
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
@@ -179,13 +178,12 @@ def test_dispatcher_passes_json_schema(tmp_path, monkeypatch):
 
 def test_dispatcher_omits_json_schema_when_absent(tmp_path, monkeypatch):
     """Test that generator execution passes json_schema=None when absent."""
-    mod = importlib.import_module("think.talents")
+    mod = importlib.import_module("solstone.think.talents")
     copy_day(tmp_path)
 
-    import think.models
-    import think.talent
+    from solstone.think import models, talent
 
-    monkeypatch.setattr(think.talent, "TALENT_DIR", tmp_path)
+    monkeypatch.setattr(talent, "TALENT_DIR", tmp_path)
     _write_generator_file(
         tmp_path,
         "plain_gen",
@@ -199,7 +197,7 @@ def test_dispatcher_omits_json_schema_when_absent(tmp_path, monkeypatch):
     )
 
     mock_generate = MagicMock(return_value=MOCK_RESULT)
-    monkeypatch.setattr(think.models, "generate_with_result", mock_generate)
+    monkeypatch.setattr(models, "generate_with_result", mock_generate)
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
@@ -220,13 +218,12 @@ def test_dispatcher_omits_json_schema_when_absent(tmp_path, monkeypatch):
 
 def test_finish_event_includes_schema_validation(tmp_path, monkeypatch):
     """Test that finish events surface schema_validation when returned."""
-    mod = importlib.import_module("think.talents")
+    mod = importlib.import_module("solstone.think.talents")
     copy_day(tmp_path)
 
-    import think.models
-    import think.talent
+    from solstone.think import models, talent
 
-    monkeypatch.setattr(think.talent, "TALENT_DIR", tmp_path)
+    monkeypatch.setattr(talent, "TALENT_DIR", tmp_path)
     schema = {"type": "object", "properties": {"summary": {"type": "string"}}}
     validation = {"valid": True, "errors": []}
     _write_schema_file(tmp_path, "schema.json", schema)
@@ -244,7 +241,7 @@ def test_finish_event_includes_schema_validation(tmp_path, monkeypatch):
     )
 
     monkeypatch.setattr(
-        think.models,
+        models,
         "generate_with_result",
         MagicMock(
             return_value={
@@ -276,13 +273,12 @@ def test_finish_event_includes_schema_validation(tmp_path, monkeypatch):
 
 def test_finish_event_omits_schema_validation_when_absent(tmp_path, monkeypatch):
     """Test that finish events omit schema_validation when not returned."""
-    mod = importlib.import_module("think.talents")
+    mod = importlib.import_module("solstone.think.talents")
     copy_day(tmp_path)
 
-    import think.models
-    import think.talent
+    from solstone.think import models, talent
 
-    monkeypatch.setattr(think.talent, "TALENT_DIR", tmp_path)
+    monkeypatch.setattr(talent, "TALENT_DIR", tmp_path)
     _write_generator_file(
         tmp_path,
         "no_schema_validation_gen",
@@ -296,7 +292,7 @@ def test_finish_event_omits_schema_validation_when_absent(tmp_path, monkeypatch)
     )
 
     monkeypatch.setattr(
-        think.models,
+        models,
         "generate_with_result",
         MagicMock(return_value=MOCK_RESULT),
     )
@@ -322,12 +318,12 @@ def test_finish_event_omits_schema_validation_when_absent(tmp_path, monkeypatch)
 
 def test_generate_hook_invoked_with_context(tmp_path, monkeypatch):
     """Test that hooks receive correct context including span flag."""
-    mod = importlib.import_module("think.talents")
+    mod = importlib.import_module("solstone.think.talents")
     copy_day(tmp_path)
 
-    import think.talent
+    import solstone.think.talent as talent
 
-    monkeypatch.setattr(think.talent, "TALENT_DIR", tmp_path)
+    monkeypatch.setattr(talent, "TALENT_DIR", tmp_path)
 
     hook_file = tmp_path / "test_hook.py"
     hook_file.write_text("""
@@ -355,11 +351,11 @@ def post_process(result, context):
         '{\n  "type": "generate",\n  "title": "Hooked",\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md",\n  "hook": {"post": "test_hook"},\n  "load": {"transcripts": true, "percepts": true}\n}\n\nTest prompt'
     )
 
-    # Mock the underlying generation function in think.models
-    import think.models
+    # Mock the underlying generation function in models
+    from solstone.think import models
 
     monkeypatch.setattr(
-        think.models,
+        models,
         "generate_with_result",
         lambda *a, **k: MOCK_RESULT,
     )
@@ -397,23 +393,23 @@ def post_process(result, context):
 
 def test_generate_without_hook_succeeds(tmp_path, monkeypatch):
     """Test that generators without hooks still work correctly."""
-    mod = importlib.import_module("think.talents")
+    mod = importlib.import_module("solstone.think.talents")
     copy_day(tmp_path)
 
-    import think.talent
+    import solstone.think.talent as talent
 
-    monkeypatch.setattr(think.talent, "TALENT_DIR", tmp_path)
+    monkeypatch.setattr(talent, "TALENT_DIR", tmp_path)
 
     test_generator = tmp_path / "nohook_gen.md"
     test_generator.write_text(
         '{\n  "type": "generate",\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md",\n  "load": {"transcripts": true, "percepts": true}\n}\n\nNo hook prompt'
     )
 
-    # Mock the underlying generation function in think.models
-    import think.models
+    # Mock the underlying generation function in models
+    from solstone.think import models
 
     monkeypatch.setattr(
-        think.models,
+        models,
         "generate_with_result",
         lambda *a, **k: MOCK_RESULT,
     )
@@ -439,7 +435,7 @@ def test_generate_without_hook_succeeds(tmp_path, monkeypatch):
 
 def test_generate_error_event_on_missing_generator(tmp_path, monkeypatch):
     """Test that missing generator name emits error event."""
-    mod = importlib.import_module("think.talents")
+    mod = importlib.import_module("solstone.think.talents")
     copy_day(tmp_path)
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
@@ -460,16 +456,16 @@ def test_generate_error_event_on_missing_generator(tmp_path, monkeypatch):
 
 def test_generate_skipped_on_no_input(tmp_path, monkeypatch):
     """Test that generator emits skipped finish when no input."""
-    mod = importlib.import_module("think.talents")
+    mod = importlib.import_module("solstone.think.talents")
 
     # Create empty day directory (no transcripts)
     os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
     day_dir = day_path("20240101")
     day_dir.mkdir(parents=True, exist_ok=True)
 
-    import think.talent
+    import solstone.think.talent as talent
 
-    monkeypatch.setattr(think.talent, "TALENT_DIR", tmp_path)
+    monkeypatch.setattr(talent, "TALENT_DIR", tmp_path)
 
     test_generator = tmp_path / "empty_gen.md"
     test_generator.write_text(
@@ -497,16 +493,16 @@ def test_generate_skipped_on_no_input(tmp_path, monkeypatch):
 
 def test_cogitate_not_skipped_without_sources(tmp_path, monkeypatch):
     """Test that cogitate agents with day but no sources are not skipped."""
-    mod = importlib.import_module("think.talents")
+    mod = importlib.import_module("solstone.think.talents")
 
     # Create empty day directory (no transcripts)
     os.environ["SOLSTONE_JOURNAL"] = str(tmp_path)
     day_dir = day_path("20240101")
     day_dir.mkdir(parents=True, exist_ok=True)
 
-    import think.talent
+    import solstone.think.talent as talent
 
-    monkeypatch.setattr(think.talent, "TALENT_DIR", tmp_path)
+    monkeypatch.setattr(talent, "TALENT_DIR", tmp_path)
 
     test_agent = tmp_path / "test_cogitate.md"
     test_agent.write_text(
@@ -528,7 +524,7 @@ def test_cogitate_not_skipped_without_sources(tmp_path, monkeypatch):
 
 def test_named_hook_resolution(tmp_path, monkeypatch):
     """Test that named hooks are resolved via load_post_hook."""
-    from think.talent import load_post_hook
+    from solstone.think.talent import load_post_hook
 
     # Config with named hook (new format)
     config = {"hook": {"post": "schedule"}}

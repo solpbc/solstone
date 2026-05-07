@@ -9,10 +9,10 @@ import pytest
 from flask import Flask, g, jsonify
 from werkzeug.security import generate_password_hash
 
-from convey import create_app
-from convey.auth import require_paired_device
-from think.pairing.devices import register_device
-from think.pairing.keys import hash_session_key
+from solstone.convey import create_app
+from solstone.convey.auth import require_paired_device
+from solstone.think.pairing.devices import register_device
+from solstone.think.pairing.keys import hash_session_key
 
 
 def _read_config(journal_copy) -> dict:

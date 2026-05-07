@@ -5,7 +5,7 @@ import json
 
 import pytest
 
-from think.tools.sol import _SPECIES_PREAMBLE, _hydrate
+from solstone.think.tools.sol import _SPECIES_PREAMBLE, _hydrate
 
 
 @pytest.fixture

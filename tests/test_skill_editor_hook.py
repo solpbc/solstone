@@ -8,13 +8,13 @@ from pathlib import Path
 
 import pytest
 
-from apps.skills.talent.skill_editor import (
+from solstone.apps.skills.talent.skill_editor import (
     NO_PENDING_SKILL_WORK,
     WATCHING_AND_LEARNING,
     post_process,
     pre_process,
 )
-from think import skills as think_skills
+from solstone.think import skills as think_skills
 
 
 @pytest.fixture

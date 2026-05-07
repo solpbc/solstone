@@ -7,7 +7,7 @@ import json
 
 import pytest
 
-from think.talent_cli import (
+from solstone.think.talent_cli import (
     _collect_configs,
     _format_bytes,
     _format_cost,
@@ -236,7 +236,7 @@ def test_show_prompt_as_json(capsys):
 
 def test_truncate_content():
     """Content truncation works correctly."""
-    from think.talent_cli import _truncate_content
+    from solstone.think.talent_cli import _truncate_content
 
     # Short content not truncated
     short = "line1\nline2\nline3"
@@ -255,7 +255,7 @@ def test_truncate_content():
 
 def test_yesterday():
     """Yesterday helper returns correct format."""
-    from think.talent_cli import _yesterday
+    from solstone.think.talent_cli import _yesterday
 
     result = _yesterday()
     assert len(result) == 8
@@ -264,7 +264,7 @@ def test_yesterday():
 
 def test_show_prompt_context_segment_validation(capsys):
     """Segment-scheduled prompts require --segment."""
-    from think.talent_cli import show_prompt_context
+    from solstone.think.talent_cli import show_prompt_context
 
     with pytest.raises(SystemExit):
         show_prompt_context("screen", day="20260101")
@@ -275,7 +275,7 @@ def test_show_prompt_context_segment_validation(capsys):
 
 def test_show_prompt_context_multi_facet_validation(capsys):
     """Multi-facet prompts require --facet."""
-    from think.talent_cli import show_prompt_context
+    from solstone.think.talent_cli import show_prompt_context
 
     with pytest.raises(SystemExit):
         show_prompt_context("entities:entities")
@@ -286,7 +286,7 @@ def test_show_prompt_context_multi_facet_validation(capsys):
 
 def test_show_prompt_context_day_format_validation(capsys):
     """Day argument must be YYYYMMDD format."""
-    from think.talent_cli import show_prompt_context
+    from solstone.think.talent_cli import show_prompt_context
 
     # Too short
     with pytest.raises(SystemExit):
@@ -599,7 +599,7 @@ def test_log_run_error_run(capsys):
 
 def test_show_prompt_context_activity_requires_facet(capsys):
     """Activity-scheduled prompts require --facet."""
-    from think.talent_cli import show_prompt_context
+    from solstone.think.talent_cli import show_prompt_context
 
     with pytest.raises(SystemExit):
         show_prompt_context("work", day="20260214")
@@ -611,7 +611,7 @@ def test_show_prompt_context_activity_requires_facet(capsys):
 
 def test_show_prompt_context_activity_requires_activity_id(capsys):
     """Activity-scheduled prompts require --activity and list available IDs."""
-    from think.talent_cli import show_prompt_context
+    from solstone.think.talent_cli import show_prompt_context
 
     with pytest.raises(SystemExit):
         show_prompt_context("work", day="20260214", facet="full-featured")
@@ -624,7 +624,7 @@ def test_show_prompt_context_activity_requires_activity_id(capsys):
 
 def test_show_prompt_context_activity_not_found(capsys):
     """Activity-scheduled prompt with unknown activity ID errors."""
-    from think.talent_cli import show_prompt_context
+    from solstone.think.talent_cli import show_prompt_context
 
     with pytest.raises(SystemExit):
         show_prompt_context(

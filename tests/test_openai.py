@@ -7,13 +7,13 @@ import importlib
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from think.models import GPT_5
-from think.providers.cli import ThinkingAggregator
-from think.providers.shared import JSONEventCallback
+from solstone.think.models import GPT_5
+from solstone.think.providers.cli import ThinkingAggregator
+from solstone.think.providers.shared import JSONEventCallback
 
 
 def _openai_provider():
-    return importlib.reload(importlib.import_module("think.providers.openai"))
+    return importlib.reload(importlib.import_module("solstone.think.providers.openai"))
 
 
 def _assert_write_mode_sandbox():
@@ -30,7 +30,7 @@ def _assert_write_mode_sandbox():
             self.run = AsyncMock(return_value="test result")
             MockCLIRunner.last_instance = self
 
-    with patch("think.providers.openai.CLIRunner", MockCLIRunner):
+    with patch("solstone.think.providers.openai.CLIRunner", MockCLIRunner):
         asyncio.run(
             provider.run_cogitate(
                 {"prompt": "hello", "model": GPT_5, "write": True},
@@ -284,7 +284,7 @@ class TestRunCogitate:
                 self.run = AsyncMock(return_value="test result")
                 MockCLIRunner.last_instance = self
 
-        with patch("think.providers.openai.CLIRunner", MockCLIRunner):
+        with patch("solstone.think.providers.openai.CLIRunner", MockCLIRunner):
             result = asyncio.run(
                 provider.run_cogitate(
                     {"prompt": "hello", "model": GPT_5}, events.append
@@ -332,7 +332,7 @@ class TestRunCogitate:
                 self.run = AsyncMock(return_value="test result")
                 MockCLIRunner.last_instance = self
 
-        with patch("think.providers.openai.CLIRunner", MockCLIRunner):
+        with patch("solstone.think.providers.openai.CLIRunner", MockCLIRunner):
             asyncio.run(
                 provider.run_cogitate(
                     {
@@ -363,7 +363,7 @@ class TestRunCogitate:
                 self.run = AsyncMock(return_value="test result")
                 MockCLIRunner.last_instance = self
 
-        with patch("think.providers.openai.CLIRunner", MockCLIRunner):
+        with patch("solstone.think.providers.openai.CLIRunner", MockCLIRunner):
             asyncio.run(
                 provider.run_cogitate(
                     {
@@ -393,7 +393,7 @@ class TestRunCogitate:
                 self.run = AsyncMock(return_value="test result")
                 MockCLIRunner.last_instance = self
 
-        with patch("think.providers.openai.CLIRunner", MockCLIRunner):
+        with patch("solstone.think.providers.openai.CLIRunner", MockCLIRunner):
             asyncio.run(
                 provider.run_cogitate(
                     {
@@ -422,7 +422,7 @@ class TestRunCogitate:
                 self.cli_session_id = "test-session-id"
                 self.run = AsyncMock(return_value="result text")
 
-        with patch("think.providers.openai.CLIRunner", MockCLIRunner):
+        with patch("solstone.think.providers.openai.CLIRunner", MockCLIRunner):
             result = asyncio.run(
                 provider.run_cogitate(
                     {"prompt": "hello", "model": GPT_5}, events.append
@@ -446,7 +446,7 @@ class TestRunCogitate:
                 self.cli_session_id = None  # no session ID
                 self.run = AsyncMock(return_value="result text")
 
-        with patch("think.providers.openai.CLIRunner", MockCLIRunner):
+        with patch("solstone.think.providers.openai.CLIRunner", MockCLIRunner):
             asyncio.run(
                 provider.run_cogitate(
                     {"prompt": "hello", "model": GPT_5}, events.append
@@ -477,7 +477,7 @@ class TestRunCogitate:
                 translate_fn(turn_event, agg, cb)
                 self.run = AsyncMock(return_value="done")
 
-        with patch("think.providers.openai.CLIRunner", MockCLIRunner):
+        with patch("solstone.think.providers.openai.CLIRunner", MockCLIRunner):
             asyncio.run(
                 provider.run_cogitate(
                     {"prompt": "hello", "model": GPT_5}, events.append
@@ -501,7 +501,7 @@ class TestRunCogitate:
                 self.run = AsyncMock(side_effect=RuntimeError("boom"))
 
         exc = None
-        with patch("think.providers.openai.CLIRunner", MockCLIRunner):
+        with patch("solstone.think.providers.openai.CLIRunner", MockCLIRunner):
             try:
                 asyncio.run(
                     provider.run_cogitate(
@@ -667,7 +667,8 @@ class TestRunGenerate:
         mock_client.responses.create.return_value = mock_response
 
         with patch(
-            "think.providers.openai._get_openai_client", return_value=mock_client
+            "solstone.think.providers.openai._get_openai_client",
+            return_value=mock_client,
         ):
             result = provider.run_generate("hello", model="gpt-5.2")
 
@@ -703,7 +704,8 @@ class TestRunGenerate:
         ]
 
         with patch(
-            "think.providers.openai._get_openai_client", return_value=mock_client
+            "solstone.think.providers.openai._get_openai_client",
+            return_value=mock_client,
         ):
             provider.run_generate(messages, system_instruction="Be helpful")
 
@@ -724,7 +726,8 @@ class TestRunGenerate:
         mock_client.responses.create.return_value = mock_response
 
         with patch(
-            "think.providers.openai._get_openai_client", return_value=mock_client
+            "solstone.think.providers.openai._get_openai_client",
+            return_value=mock_client,
         ):
             provider.run_generate("hello", model="gpt-5.2-high")
 
@@ -745,7 +748,8 @@ class TestRunGenerate:
         mock_client.responses.create.return_value = mock_response
 
         with patch(
-            "think.providers.openai._get_openai_client", return_value=mock_client
+            "solstone.think.providers.openai._get_openai_client",
+            return_value=mock_client,
         ):
             provider.run_generate("hello", model="gpt-5.2", json_output=True)
 
@@ -765,7 +769,8 @@ class TestRunGenerate:
         mock_client.responses.create.return_value = mock_response
 
         with patch(
-            "think.providers.openai._get_openai_client", return_value=mock_client
+            "solstone.think.providers.openai._get_openai_client",
+            return_value=mock_client,
         ):
             provider.run_generate(
                 "hello",
@@ -791,7 +796,8 @@ class TestRunGenerate:
         schema = {"type": "object"}
 
         with patch(
-            "think.providers.openai._get_openai_client", return_value=mock_client
+            "solstone.think.providers.openai._get_openai_client",
+            return_value=mock_client,
         ):
             provider.run_generate("hello", model="gpt-5.2", json_schema=schema)
 
@@ -818,7 +824,8 @@ class TestRunGenerate:
         mock_client.responses.create.return_value = mock_response
 
         with patch(
-            "think.providers.openai._get_openai_client", return_value=mock_client
+            "solstone.think.providers.openai._get_openai_client",
+            return_value=mock_client,
         ):
             provider.run_generate(
                 "hello",
@@ -842,7 +849,8 @@ class TestRunGenerate:
         mock_client.responses.create.return_value = mock_response
 
         with patch(
-            "think.providers.openai._get_openai_client", return_value=mock_client
+            "solstone.think.providers.openai._get_openai_client",
+            return_value=mock_client,
         ):
             provider.run_generate(
                 "hello",
@@ -866,7 +874,8 @@ class TestRunGenerate:
         mock_client.responses.create.return_value = mock_response
 
         with patch(
-            "think.providers.openai._get_openai_client", return_value=mock_client
+            "solstone.think.providers.openai._get_openai_client",
+            return_value=mock_client,
         ):
             provider.run_generate("hello", system_instruction="Be helpful")
 
@@ -886,7 +895,8 @@ class TestRunGenerate:
         mock_client.responses.create.return_value = mock_response
 
         with patch(
-            "think.providers.openai._get_openai_client", return_value=mock_client
+            "solstone.think.providers.openai._get_openai_client",
+            return_value=mock_client,
         ):
             provider.run_generate("hello", timeout_s=30.0)
 
@@ -913,7 +923,8 @@ class TestRunAgenerate:
         mock_client.responses.create.return_value = mock_response
 
         with patch(
-            "think.providers.openai._get_async_openai_client", return_value=mock_client
+            "solstone.think.providers.openai._get_async_openai_client",
+            return_value=mock_client,
         ):
             result = asyncio.run(provider.run_agenerate("hello", model="gpt-5.2"))
 
@@ -943,7 +954,8 @@ class TestRunAgenerate:
         mock_client.responses.create.return_value = mock_response
 
         with patch(
-            "think.providers.openai._get_async_openai_client", return_value=mock_client
+            "solstone.think.providers.openai._get_async_openai_client",
+            return_value=mock_client,
         ):
             result = asyncio.run(provider.run_agenerate("hello", model="gpt-5.2"))
 
@@ -962,7 +974,8 @@ class TestRunAgenerate:
         mock_client.responses.create.return_value = mock_response
 
         with patch(
-            "think.providers.openai._get_async_openai_client", return_value=mock_client
+            "solstone.think.providers.openai._get_async_openai_client",
+            return_value=mock_client,
         ):
             asyncio.run(
                 provider.run_agenerate(
@@ -990,7 +1003,8 @@ class TestRunAgenerate:
         schema = {"type": "object"}
 
         with patch(
-            "think.providers.openai._get_async_openai_client", return_value=mock_client
+            "solstone.think.providers.openai._get_async_openai_client",
+            return_value=mock_client,
         ):
             asyncio.run(
                 provider.run_agenerate("hello", model="gpt-5.2", json_schema=schema)
@@ -1019,7 +1033,8 @@ class TestRunAgenerate:
         mock_client.responses.create.return_value = mock_response
 
         with patch(
-            "think.providers.openai._get_async_openai_client", return_value=mock_client
+            "solstone.think.providers.openai._get_async_openai_client",
+            return_value=mock_client,
         ):
             asyncio.run(
                 provider.run_agenerate(
@@ -1045,7 +1060,8 @@ class TestRunAgenerate:
         mock_client.responses.create.return_value = mock_response
 
         with patch(
-            "think.providers.openai._get_async_openai_client", return_value=mock_client
+            "solstone.think.providers.openai._get_async_openai_client",
+            return_value=mock_client,
         ):
             asyncio.run(
                 provider.run_agenerate(

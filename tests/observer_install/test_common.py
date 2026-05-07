@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import pytest
 
-from observe.observer_install import common
+from solstone.observe.observer_install import common
 
 
 def test_detect_platform_override():

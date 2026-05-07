@@ -9,14 +9,14 @@ import json
 from flask import Flask, g, jsonify, session
 from werkzeug.security import generate_password_hash
 
-from convey.auth import (
+from solstone.convey.auth import (
     extract_bearer_token,
     is_owner_authed,
     require_paired_device,
     resolve_paired_device,
 )
-from think.pairing.devices import register_device
-from think.pairing.keys import hash_session_key
+from solstone.think.pairing.devices import register_device
+from solstone.think.pairing.keys import hash_session_key
 
 
 def _write_config(journal_copy, payload: dict) -> None:

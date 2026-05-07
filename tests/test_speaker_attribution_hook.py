@@ -12,15 +12,15 @@ def _run_pre_process(context, seg_dir, attribute_result):
     """Helper: run pre_process with mocked dependencies."""
     with (
         patch(
-            "apps.speakers.attribution.attribute_segment",
+            "solstone.apps.speakers.attribution.attribute_segment",
             return_value=attribute_result,
         ),
         patch(
-            "think.utils.segment_path",
+            "solstone.think.utils.segment_path",
             return_value=seg_dir,
         ),
     ):
-        from talent.speaker_attribution import pre_process
+        from solstone.talent.speaker_attribution import pre_process
 
         return pre_process(context)
 
@@ -82,8 +82,8 @@ class TestPreProcessStub:
     def test_no_segment_context_no_stub(self, tmp_path):
         """Missing day/segment -> returns early before any stub logic."""
         (tmp_path / "audio.npz").write_bytes(b"x")
-        with patch("think.utils.segment_path", return_value=tmp_path):
-            from talent.speaker_attribution import pre_process
+        with patch("solstone.think.utils.segment_path", return_value=tmp_path):
+            from solstone.talent.speaker_attribution import pre_process
 
             result = pre_process({"stream": "default"})
         stub_path = tmp_path / "talents" / "speaker_labels.json"
@@ -179,21 +179,23 @@ class TestPostProcess:
         context = _post_process_context()
 
         with (
-            patch("apps.speakers.attribution.save_speaker_labels") as save_mock,
             patch(
-                "apps.speakers.attribution.accumulate_voiceprints"
+                "solstone.apps.speakers.attribution.save_speaker_labels"
+            ) as save_mock,
+            patch(
+                "solstone.apps.speakers.attribution.accumulate_voiceprints"
             ) as accumulate_mock,
             patch(
-                "think.entities.find_matching_entity",
+                "solstone.think.entities.find_matching_entity",
                 side_effect=_match_entity,
             ),
             patch(
-                "think.entities.journal.load_all_journal_entities",
+                "solstone.think.entities.journal.load_all_journal_entities",
                 return_value={"alice": {"id": "alice"}},
             ),
-            patch("think.utils.segment_path", return_value=tmp_path),
+            patch("solstone.think.utils.segment_path", return_value=tmp_path),
         ):
-            from talent.speaker_attribution import post_process
+            from solstone.talent.speaker_attribution import post_process
 
             post_process(result, context)
 
@@ -219,19 +221,21 @@ class TestPostProcess:
         context = _post_process_context()
 
         with (
-            patch("apps.speakers.attribution.save_speaker_labels") as save_mock,
-            patch("apps.speakers.attribution.accumulate_voiceprints"),
             patch(
-                "think.entities.find_matching_entity",
+                "solstone.apps.speakers.attribution.save_speaker_labels"
+            ) as save_mock,
+            patch("solstone.apps.speakers.attribution.accumulate_voiceprints"),
+            patch(
+                "solstone.think.entities.find_matching_entity",
                 side_effect=_match_entity,
             ) as match_mock,
             patch(
-                "think.entities.journal.load_all_journal_entities",
+                "solstone.think.entities.journal.load_all_journal_entities",
                 return_value={"alice": {"id": "alice"}},
             ) as load_mock,
-            patch("think.utils.segment_path", return_value=tmp_path),
+            patch("solstone.think.utils.segment_path", return_value=tmp_path),
         ):
-            from talent.speaker_attribution import post_process
+            from solstone.talent.speaker_attribution import post_process
 
             post_process(result, context)
 
@@ -255,20 +259,22 @@ class TestPostProcess:
         context = _post_process_context()
 
         with (
-            patch("apps.speakers.attribution.save_speaker_labels") as save_mock,
-            patch("apps.speakers.attribution.accumulate_voiceprints"),
             patch(
-                "think.entities.find_matching_entity",
+                "solstone.apps.speakers.attribution.save_speaker_labels"
+            ) as save_mock,
+            patch("solstone.apps.speakers.attribution.accumulate_voiceprints"),
+            patch(
+                "solstone.think.entities.find_matching_entity",
                 side_effect=_match_entity,
             ) as match_mock,
             patch(
-                "think.entities.journal.load_all_journal_entities",
+                "solstone.think.entities.journal.load_all_journal_entities",
                 return_value={"alice": {"id": "alice"}},
             ) as load_mock,
-            patch("think.utils.segment_path", return_value=tmp_path),
+            patch("solstone.think.utils.segment_path", return_value=tmp_path),
             caplog.at_level(logging.WARNING),
         ):
-            from talent.speaker_attribution import post_process
+            from solstone.talent.speaker_attribution import post_process
 
             post_process("42", context)
 

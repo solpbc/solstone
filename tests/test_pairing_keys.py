@@ -6,7 +6,7 @@ from __future__ import annotations
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec, ed25519, rsa
 
-from think.pairing import keys
+from solstone.think.pairing import keys
 
 
 def _openssh_public_key(public_key) -> str:

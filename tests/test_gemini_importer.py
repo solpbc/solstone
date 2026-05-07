@@ -9,7 +9,7 @@ import tempfile
 import zipfile
 from pathlib import Path
 
-from think.importers.gemini import GeminiImporter, _parse_activity, _strip_html
+from solstone.think.importers.gemini import GeminiImporter, _parse_activity, _strip_html
 
 importer = GeminiImporter()
 
@@ -252,7 +252,10 @@ def test_process_multiple_windows():
 
 
 def test_registered_in_registry():
-    from think.importers.file_importer import FILE_IMPORTER_REGISTRY, get_file_importer
+    from solstone.think.importers.file_importer import (
+        FILE_IMPORTER_REGISTRY,
+        get_file_importer,
+    )
 
     assert "gemini" in FILE_IMPORTER_REGISTRY
     imp = get_file_importer("gemini")

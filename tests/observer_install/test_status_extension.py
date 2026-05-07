@@ -5,9 +5,9 @@ from __future__ import annotations
 
 import subprocess
 
-from apps.observer.utils import save_observer
-from observe import observer_cli
-from observe.observer_install import common, linux
+from solstone.apps.observer.utils import save_observer
+from solstone.observe import observer_cli
+from solstone.observe.observer_install import common, linux
 
 
 def _save_status_observer() -> None:

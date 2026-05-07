@@ -8,12 +8,13 @@ from types import SimpleNamespace
 import numpy as np
 from jsonschema import Draft202012Validator
 
-import observe.transcribe.gemini as gemini_mod
+import solstone.observe.transcribe.gemini as gemini_mod
 
 
 def _load_schema() -> dict:
     with (
         Path(__file__).resolve().parents[1]
+        / "solstone"
         / "observe"
         / "transcribe"
         / "gemini.schema.json"

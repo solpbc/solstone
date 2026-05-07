@@ -12,7 +12,7 @@ from unittest.mock import Mock, call
 
 import pytest
 
-from think.runner import ManagedProcess, run_task
+from solstone.think.runner import ManagedProcess, run_task
 
 
 @pytest.fixture
@@ -42,8 +42,8 @@ def _managed_for_process(process):
 
 def test_terminate_uses_process_group(monkeypatch):
     killpg = Mock()
-    monkeypatch.setattr("think.runner.os.getpgid", lambda pid: 456)
-    monkeypatch.setattr("think.runner.os.killpg", killpg)
+    monkeypatch.setattr("solstone.think.runner.os.getpgid", lambda pid: 456)
+    monkeypatch.setattr("solstone.think.runner.os.killpg", killpg)
 
     graceful_process = Mock()
     graceful_process.pid = 123
@@ -111,7 +111,7 @@ def test_managed_process_uses_ref_as_ref(journal_path, mock_callosum):
 
 def test_logs_tract_exec_event(journal_path, mock_callosum):
     """Test that exec event is emitted when process starts."""
-    from think.callosum import CallosumConnection
+    from solstone.think.callosum import CallosumConnection
 
     received = []
     listener = CallosumConnection()
@@ -141,10 +141,10 @@ def test_logs_tract_exec_event(journal_path, mock_callosum):
 
 def test_logs_tract_line_event(journal_path, mock_callosum):
     """Test that line events are emitted for stdout/stderr."""
-    import think.callosum
+    from solstone.think import callosum
 
     received = []
-    listener = think.callosum.CallosumConnection()
+    listener = callosum.CallosumConnection()
     listener.start(callback=lambda msg: received.append(msg))
 
     # Spawn process that outputs text
@@ -175,7 +175,7 @@ def test_logs_tract_line_event(journal_path, mock_callosum):
 
 def test_logs_tract_exit_event(journal_path, mock_callosum):
     """Test that exit event is emitted when process completes."""
-    from think.callosum import CallosumConnection
+    from solstone.think.callosum import CallosumConnection
 
     received = []
     listener = CallosumConnection()
@@ -207,7 +207,7 @@ def test_logs_tract_exit_event(journal_path, mock_callosum):
 
 def test_logs_tract_all_events_have_common_fields(journal_path, mock_callosum):
     """Test that all logs tract events have process, name, and pid."""
-    from think.callosum import CallosumConnection
+    from solstone.think.callosum import CallosumConnection
 
     received = []
     listener = CallosumConnection()
@@ -237,7 +237,7 @@ def test_logs_tract_all_events_have_common_fields(journal_path, mock_callosum):
 
 def test_run_task_emits_logs_tract_events(journal_path, mock_callosum):
     """Test that run_task function emits logs tract events."""
-    from think.callosum import CallosumConnection
+    from solstone.think.callosum import CallosumConnection
 
     received = []
     listener = CallosumConnection()
@@ -264,7 +264,7 @@ def test_run_task_emits_logs_tract_events(journal_path, mock_callosum):
 
 def test_ref_links_to_task_tract(journal_path, mock_callosum):
     """Test that providing ref links logs to task tract."""
-    from think.callosum import CallosumConnection
+    from solstone.think.callosum import CallosumConnection
 
     received = []
     listener = CallosumConnection()
@@ -287,7 +287,7 @@ def test_ref_links_to_task_tract(journal_path, mock_callosum):
 
 def test_error_exit_code_in_exit_event(journal_path, mock_callosum):
     """Test that non-zero exit codes are captured in exit event."""
-    from think.callosum import CallosumConnection
+    from solstone.think.callosum import CallosumConnection
 
     received = []
     listener = CallosumConnection()
@@ -466,7 +466,7 @@ def test_think_mode_name_derivation(
         def kill(self):
             self.returncode = -9
 
-    monkeypatch.setattr("think.runner.subprocess.Popen", FakePopen)
+    monkeypatch.setattr("solstone.think.runner.subprocess.Popen", FakePopen)
 
     managed = ManagedProcess.spawn(cmd, ref="testref")
 

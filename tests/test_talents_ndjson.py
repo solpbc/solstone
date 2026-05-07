@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from think.models import GPT_5
+from solstone.think.models import GPT_5
 
 
 @pytest.fixture
@@ -81,13 +81,13 @@ def mock_all_providers(monkeypatch):
         mock_module = MagicMock()
         mock_module.run_cogitate = mock_run_cogitate
         monkeypatch.setitem(
-            sys.modules, f"think.providers.{provider_name}", mock_module
+            sys.modules, f"solstone.think.providers.{provider_name}", mock_module
         )
 
     monkeypatch.setitem(sys.modules, "agents", MagicMock())
 
     # Mock prepare_config to avoid needing real agent configs
-    monkeypatch.setattr("think.talents.prepare_config", mock_prepare_config)
+    monkeypatch.setattr("solstone.think.talents.prepare_config", mock_prepare_config)
 
 
 def test_ndjson_single_request(mock_journal, monkeypatch, capsys):
@@ -110,9 +110,9 @@ def test_ndjson_single_request(mock_journal, monkeypatch, capsys):
 
     mock_all_providers(monkeypatch)
 
-    from think.talents import main_async
+    from solstone.think.talents import main_async
 
-    with patch("think.talents.setup_cli", return_value=mock_args):
+    with patch("solstone.think.talents.setup_cli", return_value=mock_args):
         asyncio.run(main_async())
 
     captured = capsys.readouterr()
@@ -162,9 +162,9 @@ def test_ndjson_multiple_requests(mock_journal, monkeypatch, capsys):
 
     mock_all_providers(monkeypatch)
 
-    from think.talents import main_async
+    from solstone.think.talents import main_async
 
-    with patch("think.talents.setup_cli", return_value=mock_args):
+    with patch("solstone.think.talents.setup_cli", return_value=mock_args):
         asyncio.run(main_async())
 
     captured = capsys.readouterr()
@@ -198,9 +198,9 @@ not valid json
 
     mock_all_providers(monkeypatch)
 
-    from think.talents import main_async
+    from solstone.think.talents import main_async
 
-    with patch("think.talents.setup_cli", return_value=mock_args):
+    with patch("solstone.think.talents.setup_cli", return_value=mock_args):
         asyncio.run(main_async())
 
     captured = capsys.readouterr()
@@ -233,9 +233,9 @@ def test_ndjson_missing_prompt(mock_journal, monkeypatch, capsys):
 
     mock_all_providers(monkeypatch)
 
-    from think.talents import main_async
+    from solstone.think.talents import main_async
 
-    with patch("think.talents.setup_cli", return_value=mock_args):
+    with patch("solstone.think.talents.setup_cli", return_value=mock_args):
         asyncio.run(main_async())
 
     captured = capsys.readouterr()
@@ -263,9 +263,9 @@ def test_ndjson_empty_lines(mock_journal, monkeypatch, capsys):
 
     mock_all_providers(monkeypatch)
 
-    from think.talents import main_async
+    from solstone.think.talents import main_async
 
-    with patch("think.talents.setup_cli", return_value=mock_args):
+    with patch("solstone.think.talents.setup_cli", return_value=mock_args):
         asyncio.run(main_async())
 
     captured = capsys.readouterr()

@@ -9,13 +9,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from think.models import OLLAMA_FLASH, OLLAMA_LITE, OLLAMA_PRO
+from solstone.think.models import OLLAMA_FLASH, OLLAMA_LITE, OLLAMA_PRO
 
 
 def _ollama_provider():
     import importlib
 
-    return importlib.reload(importlib.import_module("think.providers.ollama"))
+    return importlib.reload(importlib.import_module("solstone.think.providers.ollama"))
 
 
 # ---------------------------------------------------------------------------
@@ -574,8 +574,8 @@ class TestRunAgenerate:
 
 def _make_test_harness():
     """Create a callback/aggregator pair for testing _translate_opencode."""
-    from think.providers.cli import ThinkingAggregator
-    from think.providers.shared import JSONEventCallback
+    from solstone.think.providers.cli import ThinkingAggregator
+    from solstone.think.providers.shared import JSONEventCallback
 
     events = []
     cb = JSONEventCallback(lambda e: events.append(e))
@@ -767,7 +767,7 @@ class TestRunCogitate:
 
         with (
             patch("shutil.which", return_value="/usr/bin/opencode"),
-            patch("think.providers.ollama.CLIRunner", MockCLIRunner),
+            patch("solstone.think.providers.ollama.CLIRunner", MockCLIRunner),
         ):
             events = []
             asyncio.run(
@@ -806,7 +806,7 @@ class TestRunCogitate:
 
         with (
             patch("shutil.which", return_value="/usr/bin/opencode"),
-            patch("think.providers.ollama.CLIRunner", MockCLIRunner),
+            patch("solstone.think.providers.ollama.CLIRunner", MockCLIRunner),
         ):
             asyncio.run(
                 provider.run_cogitate(
@@ -834,7 +834,7 @@ class TestRunCogitate:
 
         with (
             patch("shutil.which", return_value="/usr/bin/opencode"),
-            patch("think.providers.ollama.CLIRunner", MockCLIRunner),
+            patch("solstone.think.providers.ollama.CLIRunner", MockCLIRunner),
         ):
             asyncio.run(
                 provider.run_cogitate(
@@ -867,7 +867,7 @@ class TestRunCogitate:
 
         with (
             patch("shutil.which", return_value="/usr/bin/opencode"),
-            patch("think.providers.ollama.CLIRunner", MockCLIRunner),
+            patch("solstone.think.providers.ollama.CLIRunner", MockCLIRunner),
         ):
             asyncio.run(
                 provider.run_cogitate(
@@ -897,7 +897,7 @@ class TestRunCogitate:
         events = []
         with (
             patch("shutil.which", return_value="/usr/bin/opencode"),
-            patch("think.providers.ollama.CLIRunner", MockCLIRunner),
+            patch("solstone.think.providers.ollama.CLIRunner", MockCLIRunner),
         ):
             with pytest.raises(RuntimeError, match="CLI not found"):
                 asyncio.run(
@@ -1016,14 +1016,14 @@ class TestModelConstants:
         assert OLLAMA_LITE.startswith("ollama-local/")
 
     def test_get_model_provider(self):
-        from think.models import get_model_provider
+        from solstone.think.models import get_model_provider
 
         assert get_model_provider(OLLAMA_PRO) == "ollama"
         assert get_model_provider(OLLAMA_FLASH) == "ollama"
         assert get_model_provider(OLLAMA_LITE) == "ollama"
 
     def test_provider_defaults_exist(self):
-        from think.models import PROVIDER_DEFAULTS
+        from solstone.think.models import PROVIDER_DEFAULTS
 
         assert "ollama" in PROVIDER_DEFAULTS
         assert 1 in PROVIDER_DEFAULTS["ollama"]
@@ -1031,7 +1031,7 @@ class TestModelConstants:
         assert 3 in PROVIDER_DEFAULTS["ollama"]
 
     def test_calc_token_cost_zero(self):
-        from think.models import calc_token_cost
+        from solstone.think.models import calc_token_cost
 
         result = calc_token_cost(
             {
@@ -1043,7 +1043,7 @@ class TestModelConstants:
         assert result["total_cost"] == 0.0
 
     def test_provider_registry(self):
-        from think.providers import PROVIDER_METADATA, PROVIDER_REGISTRY
+        from solstone.think.providers import PROVIDER_METADATA, PROVIDER_REGISTRY
 
         assert "ollama" in PROVIDER_REGISTRY
         assert "ollama" in PROVIDER_METADATA

@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from think.models import GPT_5
+from solstone.think.models import GPT_5
 
 
 class MockPipe:
@@ -53,14 +53,14 @@ def mock_journal(tmp_path, monkeypatch):
 @pytest.fixture
 def cortex_service(mock_journal):
     """Create a CortexService instance for testing."""
-    from think.cortex import CortexService
+    from solstone.think.cortex import CortexService
 
     return CortexService(str(mock_journal))
 
 
 def test_agent_process_creation():
     """Test TalentProcess class initialization and methods."""
-    from think.cortex import TalentProcess
+    from solstone.think.cortex import TalentProcess
 
     mock_process = MagicMock()
     mock_process.poll.return_value = None  # Running
@@ -89,7 +89,7 @@ def test_cortex_service_initialization(cortex_service, mock_journal):
 
 
 def test_cortex_installs_sigterm_handler():
-    from think import cortex
+    from solstone.think import cortex
 
     previous = signal.getsignal(signal.SIGTERM)
     signal.signal(signal.SIGTERM, signal.SIG_DFL)
@@ -100,9 +100,9 @@ def test_cortex_installs_sigterm_handler():
         signal.signal(signal.SIGTERM, previous)
 
 
-@patch("think.cortex.subprocess.Popen")
-@patch("think.cortex.threading.Thread")
-@patch("think.cortex.threading.Timer")
+@patch("solstone.think.cortex.subprocess.Popen")
+@patch("solstone.think.cortex.threading.Thread")
+@patch("solstone.think.cortex.threading.Timer")
 def test_spawn_subprocess(
     mock_timer, mock_thread, mock_popen, cortex_service, mock_journal
 ):
@@ -135,14 +135,14 @@ def test_spawn_subprocess(
         use_id,
         file_path,
         request,
-        [sys.executable, "-m", "think.talents"],
+        [sys.executable, "-m", "solstone.think.talents"],
         "talent",
     )
 
     # Check subprocess was called
     mock_popen.assert_called_once()
     call_args = mock_popen.call_args
-    assert call_args[0][0] == [sys.executable, "-m", "think.talents"]
+    assert call_args[0][0] == [sys.executable, "-m", "solstone.think.talents"]
     assert call_args[1]["stdin"] is not None
     assert call_args[1]["stdout"] is not None
     assert call_args[1]["stderr"] is not None
@@ -175,9 +175,9 @@ def test_spawn_subprocess(
     mock_timer_instance.start.assert_called_once()
 
 
-@patch("think.cortex.subprocess.Popen")
-@patch("think.cortex.threading.Thread")
-@patch("think.cortex.threading.Timer")
+@patch("solstone.think.cortex.subprocess.Popen")
+@patch("solstone.think.cortex.threading.Thread")
+@patch("solstone.think.cortex.threading.Timer")
 def test_spawn_generator_via_subprocess(
     mock_timer, mock_thread, mock_popen, cortex_service, mock_journal
 ):
@@ -211,14 +211,14 @@ def test_spawn_generator_via_subprocess(
         use_id,
         file_path,
         config,
-        [sys.executable, "-m", "think.talents"],
+        [sys.executable, "-m", "solstone.think.talents"],
         "talent",
     )
 
     # Check subprocess was called with agents command (generators route through agents)
     mock_popen.assert_called_once()
     call_args = mock_popen.call_args
-    assert call_args[0][0] == [sys.executable, "-m", "think.talents"]
+    assert call_args[0][0] == [sys.executable, "-m", "solstone.think.talents"]
     assert call_args[1]["stdin"] is not None
     assert call_args[1]["stdout"] is not None
     assert call_args[1]["stderr"] is not None
@@ -249,10 +249,10 @@ def test_spawn_generator_via_subprocess(
     mock_timer_instance.start.assert_called_once()
 
 
-@patch("think.talent.get_talent")
-@patch("think.cortex.subprocess.Popen")
-@patch("think.cortex.threading.Thread")
-@patch("think.cortex.threading.Timer")
+@patch("solstone.think.talent.get_talent")
+@patch("solstone.think.cortex.subprocess.Popen")
+@patch("solstone.think.cortex.threading.Thread")
+@patch("solstone.think.cortex.threading.Timer")
 def test_spawn_subprocess_uses_cwd_from_talent(
     mock_timer,
     mock_thread,
@@ -288,17 +288,17 @@ def test_spawn_subprocess_uses_cwd_from_talent(
         use_id,
         file_path,
         request,
-        [sys.executable, "-m", "think.talents"],
+        [sys.executable, "-m", "solstone.think.talents"],
         "talent",
     )
 
     assert mock_popen.call_args.kwargs["cwd"] == str(mock_journal)
 
 
-@patch("think.talent.get_talent")
-@patch("think.cortex.subprocess.Popen")
-@patch("think.cortex.threading.Thread")
-@patch("think.cortex.threading.Timer")
+@patch("solstone.think.talent.get_talent")
+@patch("solstone.think.cortex.subprocess.Popen")
+@patch("solstone.think.cortex.threading.Thread")
+@patch("solstone.think.cortex.threading.Timer")
 def test_spawn_subprocess_skips_cwd_for_generate(
     mock_timer,
     mock_thread,
@@ -333,7 +333,7 @@ def test_spawn_subprocess_skips_cwd_for_generate(
         use_id,
         file_path,
         request,
-        [sys.executable, "-m", "think.talents"],
+        [sys.executable, "-m", "solstone.think.talents"],
         "talent",
     )
 
@@ -344,7 +344,7 @@ def test_monitor_stdout_json_events(cortex_service, mock_journal):
     """Test monitoring stdout with JSON events."""
     from io import StringIO
 
-    from think.cortex import TalentProcess
+    from solstone.think.cortex import TalentProcess
 
     use_id = "123456789"
     log_path = mock_journal / "talents" / f"{use_id}_active.jsonl"
@@ -390,7 +390,7 @@ def test_monitor_stdout_non_json_output(cortex_service, mock_journal):
     """Test monitoring stdout with non-JSON output."""
     from io import StringIO
 
-    from think.cortex import TalentProcess
+    from solstone.think.cortex import TalentProcess
 
     use_id = "123456789"
     log_path = mock_journal / "talents" / f"{use_id}_active.jsonl"
@@ -421,7 +421,7 @@ def test_monitor_stdout_no_finish_event(cortex_service, mock_journal):
     """Test monitoring stdout when process exits without finish event."""
     from io import StringIO
 
-    from think.cortex import TalentProcess
+    from solstone.think.cortex import TalentProcess
 
     use_id = "123456789"
     log_path = mock_journal / "talents" / f"{use_id}_active.jsonl"
@@ -450,7 +450,7 @@ def test_monitor_stderr(cortex_service, mock_journal):
     """Test monitoring stderr for errors."""
     from io import StringIO
 
-    from think.cortex import TalentProcess
+    from solstone.think.cortex import TalentProcess
 
     use_id = "123456789"
     log_path = mock_journal / "talents" / f"{use_id}_active.jsonl"
@@ -597,7 +597,7 @@ def test_write_error_and_complete(cortex_service, mock_journal):
 
 def test_get_status(cortex_service):
     """Test getting service status."""
-    from think.cortex import TalentProcess
+    from solstone.think.cortex import TalentProcess
 
     # Empty status
     status = cortex_service.get_status()
@@ -711,7 +711,7 @@ def test_write_output_json_format(cortex_service, mock_journal):
 
 def test_monitor_stdout_with_output(cortex_service, mock_journal):
     """Test monitor_stdout writes output when output_path is present."""
-    from think.cortex import TalentProcess
+    from solstone.think.cortex import TalentProcess
 
     use_id = "output_test"
     active_path = mock_journal / "talents" / f"{use_id}_active.jsonl"
@@ -748,7 +748,7 @@ def test_monitor_stdout_with_output(cortex_service, mock_journal):
 
 def test_monitor_stdout_with_output_and_day(cortex_service, mock_journal):
     """Test monitor_stdout writes output to specific day via output_path."""
-    from think.cortex import TalentProcess
+    from solstone.think.cortex import TalentProcess
 
     use_id = "output_day_test"
     active_path = mock_journal / "talents" / f"{use_id}_active.jsonl"

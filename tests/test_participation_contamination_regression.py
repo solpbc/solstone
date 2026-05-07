@@ -17,8 +17,8 @@ import pytest
 def test_sense_entity_role_source_survive_splitter_without_changing_active_entity_flatten(
     tmp_path, entity_name: str, entity_type: str, source: str
 ):
-    from think.activity_state_machine import ActivityStateMachine
-    from think.sense_splitter import write_sense_outputs
+    from solstone.think.activity_state_machine import ActivityStateMachine
+    from solstone.think.sense_splitter import write_sense_outputs
 
     # This is a schema/plumbing regression test, not an LLM-behavioral test.
     day = "20260418"

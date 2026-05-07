@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from think.identity import update_identity_section, write_identity
+from solstone.think.identity import update_identity_section, write_identity
 
 
 @pytest.fixture(autouse=True)
@@ -65,7 +65,7 @@ def test_write_identity_atomic_failure(tmp_path, monkeypatch):
     def fail_replace(src, dst):
         raise OSError("replace failed")
 
-    monkeypatch.setattr("think.identity.os.replace", fail_replace)
+    monkeypatch.setattr("solstone.think.identity.os.replace", fail_replace)
 
     with pytest.raises(OSError, match="replace failed"):
         write_identity(

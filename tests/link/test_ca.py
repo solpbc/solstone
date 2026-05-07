@@ -14,7 +14,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.utils import encode_dss_signature
 
-from think.link.ca import (
+from solstone.think.link.ca import (
     cert_fingerprint,
     generate_ca,
     load_ca,

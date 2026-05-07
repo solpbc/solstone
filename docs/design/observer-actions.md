@@ -2,28 +2,28 @@
 
 ## 1. Summary
 
-Wave 4 adds a second per-session voice side-effect queue beside nav hints: observer actions. The new queue is purpose-built for structured action payloads, not string hints, and it extends the established Wave 2 tool-dispatch pattern rather than refactoring it. `observer.start_listening` stops being a pure stub and starts returning an internal `_observer_action` sentinel; `dispatch_tool_call(...)` strips that sentinel from the model-facing JSON, enqueues a structured action under the voice session `call_id`, and leaves the existing sideband/runtime flow unchanged. A new root voice route, `GET /api/voice/observer-actions`, lets the iOS client poll for queued actions and drain them with intentionally lenient semantics: missing, blank, or unknown `call_id` returns HTTP 200 with `{"actions": [], "consumed": true}` so polling can stay robust on a simple cadence even if the client temporarily loses the echoed call id (`think/voice/tools.py:686-739`, `convey/voice.py:160-166`, `think/voice/sideband.py:20-37`, `think/voice/nav_queue.py:17-84`).
+Wave 4 adds a second per-session voice side-effect queue beside nav hints: observer actions. The new queue is purpose-built for structured action payloads, not string hints, and it extends the established Wave 2 tool-dispatch pattern rather than refactoring it. `observer.start_listening` stops being a pure stub and starts returning an internal `_observer_action` sentinel; `dispatch_tool_call(...)` strips that sentinel from the model-facing JSON, enqueues a structured action under the voice session `call_id`, and leaves the existing sideband/runtime flow unchanged. A new root voice route, `GET /api/voice/observer-actions`, lets the iOS client poll for queued actions and drain them with intentionally lenient semantics: missing, blank, or unknown `call_id` returns HTTP 200 with `{"actions": [], "consumed": true}` so polling can stay robust on a simple cadence even if the client temporarily loses the echoed call id (`solstone/think/voice/tools.py:686-739`, `solstone/convey/voice.py:160-166`, `solstone/think/voice/sideband.py:20-37`, `solstone/think/voice/nav_queue.py:17-84`).
 
 ## 2. Module layout
 
 New files:
 
-- `think/voice/observer_queue.py` — thread-safe per-`call_id` FIFO for observer action payloads. Mirrors `think/voice/nav_queue.py` mechanically, but stores dict payloads instead of strings, owns its own TTL/capacity constants, and exports a module-level singleton accessor.
+- `solstone/think/voice/observer_queue.py` — thread-safe per-`call_id` FIFO for observer action payloads. Mirrors `solstone/think/voice/nav_queue.py` mechanically, but stores dict payloads instead of strings, owns its own TTL/capacity constants, and exports a module-level singleton accessor.
 - `tests/test_voice_observer_queue.py` — unit coverage for TTL expiry, FIFO capacity, drain-clears semantics, malformed enqueue rejection, and basic thread-safety, following the pattern in `tests/test_voice_nav_queue.py`.
 
 Existing files changed:
 
-- `think/voice/tools.py` — keep the `observer.start_listening` manifest entry and valid modes, but change `handle_observer_start_listening(...)` from stub-ack to sentinel-emitting return data; extend `dispatch_tool_call(...)` so it strips `_observer_action` and enqueues the structured payload keyed by the session `call_id` it already receives (`think/voice/tools.py:121-135`, `think/voice/tools.py:686-739`).
-- `convey/voice.py` — add `GET /api/voice/observer-actions` beside `GET /api/voice/nav-hints`, with intentionally lenient `call_id` semantics and drain-on-read behavior (`convey/voice.py:26-30`, `convey/voice.py:160-166`).
+- `solstone/think/voice/tools.py` — keep the `observer.start_listening` manifest entry and valid modes, but change `handle_observer_start_listening(...)` from stub-ack to sentinel-emitting return data; extend `dispatch_tool_call(...)` so it strips `_observer_action` and enqueues the structured payload keyed by the session `call_id` it already receives (`solstone/think/voice/tools.py:121-135`, `solstone/think/voice/tools.py:686-739`).
+- `solstone/convey/voice.py` — add `GET /api/voice/observer-actions` beside `GET /api/voice/nav-hints`, with intentionally lenient `call_id` semantics and drain-on-read behavior (`solstone/convey/voice.py:26-30`, `solstone/convey/voice.py:160-166`).
 - `tests/test_voice_routes.py` — add route coverage for the new endpoint.
 - `tests/test_voice_tools.py` — update the observer handler happy-path assertion and add dispatch-enqueue coverage parallel to the existing nav-target stripping test.
 - `tests/test_voice_integration.py` — add a fake-Realtime round trip that drives `observer.start_listening`, verifies the stripped public tool output, and drains the observer action queue through the new route.
 
 Deliberate non-changes:
 
-- No `think/voice/nav_queue.py` refactor into a shared generic base. The payload type, validation semantics, and current scale do not justify generification.
-- No `think/voice/sideband.py` or `think/voice/runtime.py` changes. The existing sideband loop already routes every tool call through `dispatch_tool_call(...)`, which remains the single place where per-session queue side effects happen (`think/voice/sideband.py:20-37`).
-- No `apps/observer/routes.py` changes. The existing ingest endpoint is already compatible with the planned iOS multipart upload shape; this design only documents that compatibility and the filename-stem caveat (`apps/observer/routes.py:503-643`).
+- No `solstone/think/voice/nav_queue.py` refactor into a shared generic base. The payload type, validation semantics, and current scale do not justify generification.
+- No `solstone/think/voice/sideband.py` or `solstone/think/voice/runtime.py` changes. The existing sideband loop already routes every tool call through `dispatch_tool_call(...)`, which remains the single place where per-session queue side effects happen (`solstone/think/voice/sideband.py:20-37`).
+- No `solstone/apps/observer/routes.py` changes. The existing ingest endpoint is already compatible with the planned iOS multipart upload shape; this design only documents that compatibility and the filename-stem caveat (`solstone/apps/observer/routes.py:503-643`).
 
 Public surface for the new queue module:
 
@@ -129,7 +129,7 @@ Side effects:
 
 Intentional divergence from nav hints:
 
-- `GET /api/voice/nav-hints` currently rejects missing `call_id` with HTTP 400 (`convey/voice.py:160-166`).
+- `GET /api/voice/nav-hints` currently rejects missing `call_id` with HTTP 400 (`solstone/convey/voice.py:160-166`).
 - `GET /api/voice/observer-actions` is intentionally lenient and always returns HTTP 200 with an array payload, because the iOS polling loop is simple cadence-based infrastructure, not in-web-session UI state. Robust empty success responses are a better failure mode than hard 400s when the client temporarily misses or delays the echoed `call_id`.
 
 ## 5. Action shape and handler return shape
@@ -169,13 +169,13 @@ Queued observer action payload:
 
 Rules:
 
-- Valid modes remain `meeting` and `voice_memo`, matching the existing manifest contract (`think/voice/tools.py:121-135`).
-- `dispatch_tool_call(...)` remains the only place that turns an internal handler sentinel into a per-session side effect, matching the existing `_nav_target` pattern (`think/voice/tools.py:736-739`).
+- Valid modes remain `meeting` and `voice_memo`, matching the existing manifest contract (`solstone/think/voice/tools.py:121-135`).
+- `dispatch_tool_call(...)` remains the only place that turns an internal handler sentinel into a per-session side effect, matching the existing `_nav_target` pattern (`solstone/think/voice/tools.py:736-739`).
 - Handler signature stays uniform: `(payload, app) -> dict[str, Any]`.
 
 ## 6. Queue semantics
 
-`ObserverActionQueue` intentionally matches the proven shape of `NavHintQueue` while keeping its own module and payload typing (`think/voice/nav_queue.py:21-84`):
+`ObserverActionQueue` intentionally matches the proven shape of `NavHintQueue` while keeping its own module and payload typing (`solstone/think/voice/nav_queue.py:21-84`):
 
 - Per-`call_id` queue stored in a lock-protected `defaultdict(deque)`.
 - TTL: 60 seconds.
@@ -202,12 +202,12 @@ Observer-actions polling should mirror nav-hints polling:
 - Default poll interval: 500ms.
 - The client should stop polling when the voice session ends.
 - Because the route is lenient, empty 200 responses are part of the normal cadence rather than a client error condition.
-- The client should use the same session `call_id` it passed to `POST /api/voice/connect`, because that is the key `dispatch_tool_call(...)` uses for queueing. The route is not keyed by the per-tool `event.call_id` echoed back in the `function_call_output` envelope (`convey/voice.py:119-127`, `think/voice/sideband.py:24-35`).
+- The client should use the same session `call_id` it passed to `POST /api/voice/connect`, because that is the key `dispatch_tool_call(...)` uses for queueing. The route is not keyed by the per-tool `event.call_id` echoed back in the `function_call_output` envelope (`solstone/convey/voice.py:119-127`, `solstone/think/voice/sideband.py:24-35`).
 
 ## 8. Failure semantics
 
-- Tool JSON decode errors, unknown tools, and handler exceptions remain inside the existing `dispatch_tool_call(...)` wrapper and return the existing inline error payloads; no observer action is enqueued in those cases (`think/voice/tools.py:720-739`).
-- Invalid listen modes still return `{"error": "invalid mode"}` and do not enqueue an action (`think/voice/tools.py:690-698`).
+- Tool JSON decode errors, unknown tools, and handler exceptions remain inside the existing `dispatch_tool_call(...)` wrapper and return the existing inline error payloads; no observer action is enqueued in those cases (`solstone/think/voice/tools.py:720-739`).
+- Invalid listen modes still return `{"error": "invalid mode"}` and do not enqueue an action (`solstone/think/voice/tools.py:690-698`).
 - Queue overflow drops the oldest queued action for that `call_id`, logs a warning, and keeps processing the new action.
 - TTL expiry drops stale queued actions without turning them into route or tool failures.
 - Blank enqueue inputs are no-ops with warning logs, not raised exceptions.
@@ -224,34 +224,34 @@ Compatibility verdict:
   - Legacy fallback: `POST /app/observer/ingest/<key>`
 - Required fields: `segment=HHMMSS_LEN`, `day=YYYYMMDD`, and one or more `files`.
 - Optional fields: `host`, `platform`, and `meta` (JSON object encoded as a form field).
-- The ingest layer is binary-format-agnostic: it reads uploaded file bytes, sanitizes filenames, skips empty uploads, and writes the files to disk, but does not validate MIME type, codec, sample rate, or channel layout (`apps/observer/routes.py:309-367`, `apps/observer/routes.py:503-585`).
+- The ingest layer is binary-format-agnostic: it reads uploaded file bytes, sanitizes filenames, skips empty uploads, and writes the files to disk, but does not validate MIME type, codec, sample rate, or channel layout (`solstone/apps/observer/routes.py:309-367`, `solstone/apps/observer/routes.py:503-585`).
 
 Stream resolution:
 
 - If `meta["stream"]` is present and matches the stream-name regex, the server trusts it.
 - Otherwise the server derives the stream from the observer registration name via `stream_name(observer=observer_name)`.
-- `meta.stream` is therefore optional. The client only needs to send it when it wants a qualified stream name that should not be normalized from the observer registration name (`apps/observer/routes.py:589-600`).
-- The existing regression coverage for qualified stream preservation is in `apps/observer/tests/test_routes.py:1654-1694`.
+- `meta.stream` is therefore optional. The client only needs to send it when it wants a qualified stream name that should not be normalized from the observer registration name (`solstone/apps/observer/routes.py:589-600`).
+- The existing regression coverage for qualified stream preservation is in `solstone/apps/observer/tests/test_routes.py:1654-1694`.
 
 Host / platform semantics:
 
 - `host` and `platform` are metadata only.
 - If both form fields and `meta` contain those values, the `meta` dict wins.
-- Hostname mismatch against the registered observer name logs a warning but does not reject the upload (`apps/observer/routes.py:547-567`, `apps/observer/routes.py:627-643`).
+- Hostname mismatch against the registered observer name logs a warning but does not reject the upload (`solstone/apps/observer/routes.py:547-567`, `solstone/apps/observer/routes.py:627-643`).
 - The client should send a deterministic `host` so observer records remain coherent across sessions.
 
 Filename-stem constraint:
 
 - The ingest layer does not enforce a filename stem, but downstream consumers do care.
 - The client should upload `audio.m4a`, not an arbitrary stem like `meeting.m4a`, so transcription writes `audio.jsonl` and existing readers keep finding the transcript under their current glob conventions.
-- The transcribe pipeline writes the transcript as a sibling JSONL using the raw file stem, so `audio.m4a` becomes `audio.jsonl` (`observe/transcribe/main.py:165`, `observe/transcribe/main.py:594-609`).
-- Transcript/cluster consumers currently glob for `*audio.jsonl`, `audio.jsonl`, or `*_audio.jsonl`, not arbitrary stems (`think/cluster.py:132-136`, `think/cluster.py:397-405`, `apps/transcripts/routes.py:256-258`, `think/retention.py:73-100`).
-- `.m4a` itself is supported end-to-end: the media registry includes it, the sensor registers all `AUDIO_EXTENSIONS`, and transcribe accepts `.m4a` as a supported raw input (`think/media.py:6-25`, `observe/sense.py:606-667`, `observe/sense.py:1096-1100`, `observe/transcribe/main.py:58`, `observe/transcribe/main.py:885-889`).
+- The transcribe pipeline writes the transcript as a sibling JSONL using the raw file stem, so `audio.m4a` becomes `audio.jsonl` (`solstone/observe/transcribe/main.py:165`, `solstone/observe/transcribe/main.py:594-609`).
+- Transcript/cluster consumers currently glob for `*audio.jsonl`, `audio.jsonl`, or `*_audio.jsonl`, not arbitrary stems (`solstone/think/cluster.py:132-136`, `solstone/think/cluster.py:397-405`, `solstone/apps/transcripts/routes.py:256-258`, `solstone/think/retention.py:73-100`).
+- `.m4a` itself is supported end-to-end: the media registry includes it, the sensor registers all `AUDIO_EXTENSIONS`, and transcribe accepts `.m4a` as a supported raw input (`solstone/think/media.py:6-25`, `solstone/observe/sense.py:606-667`, `solstone/observe/sense.py:1096-1100`, `solstone/observe/transcribe/main.py:58`, `solstone/observe/transcribe/main.py:885-889`).
 
 Operational caveats:
 
-- Duplicate submissions short-circuit with `status="duplicate"` and do not emit `observe.observing` (`apps/observer/routes.py:369-395`, `apps/observer/routes.py:604-605`, `apps/observer/tests/test_routes.py:1276-1368`).
-- Segment collisions can rewrite the final segment key; the server returns the adjusted `segment` in the response body and records `segment_original` in history (`apps/observer/routes.py:406-425`, `apps/observer/routes.py:470-500`, `apps/observer/tests/test_routes.py:1552-1586`).
+- Duplicate submissions short-circuit with `status="duplicate"` and do not emit `observe.observing` (`solstone/apps/observer/routes.py:369-395`, `solstone/apps/observer/routes.py:604-605`, `solstone/apps/observer/tests/test_routes.py:1276-1368`).
+- Segment collisions can rewrite the final segment key; the server returns the adjusted `segment` in the response body and records `segment_original` in history (`solstone/apps/observer/routes.py:406-425`, `solstone/apps/observer/routes.py:470-500`, `solstone/apps/observer/tests/test_routes.py:1552-1586`).
 - If the client ever needs server-truth correlation after upload, it should trust the response body’s `segment`, not assume the requested key survived unchanged.
 
 ## 10. Tests
@@ -295,7 +295,7 @@ Expected non-change:
 
 ## 11. Decision list
 
-- Separate queue module vs. generic refactor: separate module, `think/voice/observer_queue.py`.
+- Separate queue module vs. generic refactor: separate module, `solstone/think/voice/observer_queue.py`.
 - Lenient `call_id` semantics: `GET /api/voice/observer-actions` is always HTTP 200 with an `actions` array, even for missing or unknown `call_id`.
 - Sentinel `_observer_action` vs. handler `call_id` parameter: sentinel. `dispatch_tool_call(...)` remains the uniform side-effect seam, matching `_nav_target`.
 - Filename-stem constraint surfaced to iOS client: document `audio.m4a` as the required raw filename shape for downstream transcript discoverability.
@@ -313,21 +313,21 @@ Expected non-change:
 
 - `docs/design/voice-server.md:71-87`, `docs/design/voice-server.md:172-191`, `docs/design/voice-server.md:215-233`, `docs/design/voice-server.md:412-446`
 - `docs/design/push.md:11-45`, `docs/design/push.md:117-224`, `docs/design/push.md:500-583`
-- `convey/__init__.py:152-169`
-- `convey/voice.py:26-30`, `convey/voice.py:105-127`, `convey/voice.py:160-166`
-- `think/voice/nav_queue.py:17-84`
-- `think/voice/sideband.py:20-37`
-- `think/voice/tools.py:121-135`, `think/voice/tools.py:686-739`
+- `solstone/convey/__init__.py:152-169`
+- `solstone/convey/voice.py:26-30`, `solstone/convey/voice.py:105-127`, `solstone/convey/voice.py:160-166`
+- `solstone/think/voice/nav_queue.py:17-84`
+- `solstone/think/voice/sideband.py:20-37`
+- `solstone/think/voice/tools.py:121-135`, `solstone/think/voice/tools.py:686-739`
 - `tests/test_voice_nav_queue.py:11-59`
 - `tests/test_voice_tools.py:251-289`
 - `tests/test_voice_routes.py:51-61`
 - `tests/test_voice_sideband.py:60-90`
 - `tests/test_voice_integration.py:15-57`, `tests/test_voice_integration.py:115-159`
-- `apps/observer/routes.py:309-367`, `apps/observer/routes.py:503-643`
-- `apps/observer/tests/test_routes.py:1276-1368`, `apps/observer/tests/test_routes.py:1552-1586`, `apps/observer/tests/test_routes.py:1654-1694`
-- `observe/transcribe/main.py:58`, `observe/transcribe/main.py:165`, `observe/transcribe/main.py:594-609`, `observe/transcribe/main.py:885-889`
-- `observe/sense.py:606-667`, `observe/sense.py:1096-1100`
-- `think/media.py:6-25`
-- `think/cluster.py:132-136`, `think/cluster.py:397-405`
-- `apps/transcripts/routes.py:256-258`
-- `think/retention.py:73-100`
+- `solstone/apps/observer/routes.py:309-367`, `solstone/apps/observer/routes.py:503-643`
+- `solstone/apps/observer/tests/test_routes.py:1276-1368`, `solstone/apps/observer/tests/test_routes.py:1552-1586`, `solstone/apps/observer/tests/test_routes.py:1654-1694`
+- `solstone/observe/transcribe/main.py:58`, `solstone/observe/transcribe/main.py:165`, `solstone/observe/transcribe/main.py:594-609`, `solstone/observe/transcribe/main.py:885-889`
+- `solstone/observe/sense.py:606-667`, `solstone/observe/sense.py:1096-1100`
+- `solstone/think/media.py:6-25`
+- `solstone/think/cluster.py:132-136`, `solstone/think/cluster.py:397-405`
+- `solstone/apps/transcripts/routes.py:256-258`
+- `solstone/think/retention.py:73-100`

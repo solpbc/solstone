@@ -31,7 +31,7 @@ class _Response:
 
 @pytest.mark.timeout(5)
 def test_download_to_file_returns_false_on_read_timeout(tmp_path, caplog):
-    from think.importers.plaud import download_to_file
+    from solstone.think.importers.plaud import download_to_file
 
     session = Mock()
     session.get.return_value = _Response(exc=requests.exceptions.ReadTimeout("stalled"))
@@ -45,7 +45,7 @@ def test_download_to_file_returns_false_on_read_timeout(tmp_path, caplog):
 
 
 def test_download_to_file_calls_progress_cb_throttled(tmp_path, monkeypatch):
-    from think.importers import plaud
+    from solstone.think.importers import plaud
 
     session = Mock()
     session.get.return_value = _Response(chunks=[b"x"] * 12)
@@ -69,7 +69,7 @@ def test_download_to_file_calls_progress_cb_throttled(tmp_path, monkeypatch):
 
 
 def test_sync_inactivity_timer_trips_when_progress_stops(tmp_path, monkeypatch, caplog):
-    from think.importers import plaud
+    from solstone.think.importers import plaud
 
     files = [
         {

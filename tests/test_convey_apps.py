@@ -17,20 +17,20 @@ def _temp_journal(monkeypatch, tmp_path):
 
 class TestPlaceholderResolution:
     def test_no_imports_young(self):
-        from convey.apps import _resolve_placeholder
+        from solstone.convey.apps import _resolve_placeholder
 
         result = _resolve_placeholder({}, 0)
         assert "Bring in past conversations" in result
 
     def test_no_daily(self):
-        from convey.apps import _resolve_placeholder
+        from solstone.convey.apps import _resolve_placeholder
 
         current = {"imports": {"has_imported": True}}
         result = _resolve_placeholder(current, 0)
         assert "observing" in result
 
     def test_first_daily_young(self):
-        from convey.apps import _resolve_placeholder
+        from solstone.convey.apps import _resolve_placeholder
 
         current = {
             "imports": {"has_imported": True},
@@ -40,7 +40,7 @@ class TestPlaceholderResolution:
         assert "first daily analysis is ready" in result
 
     def test_first_daily_mid(self):
-        from convey.apps import _resolve_placeholder
+        from solstone.convey.apps import _resolve_placeholder
 
         current = {"journal": {"first_daily_ready": True}}
         result = _resolve_placeholder(current, 3)
@@ -48,14 +48,14 @@ class TestPlaceholderResolution:
         assert "first" not in result
 
     def test_first_daily_mature(self):
-        from convey.apps import _resolve_placeholder
+        from solstone.convey.apps import _resolve_placeholder
 
         current = {"journal": {"first_daily_ready": True}}
         result = _resolve_placeholder(current, 10)
         assert "Ask me about your day" in result
 
     def test_default_fallback(self):
-        from convey.apps import _resolve_placeholder
+        from solstone.convey.apps import _resolve_placeholder
 
         result = _resolve_placeholder({}, 5)
         assert "observing" in result
@@ -65,12 +65,12 @@ class TestAttentionResolution:
     """Tests for _resolve_attention() and attention-aware placeholder resolution."""
 
     def test_no_attention_returns_none(self):
-        from convey.apps import _resolve_attention
+        from solstone.convey.apps import _resolve_attention
 
         assert _resolve_attention({}) is None
 
     def test_no_attention_empty_sections(self):
-        from convey.apps import _resolve_attention
+        from solstone.convey.apps import _resolve_attention
 
         current = {"imports": {"has_imported": True}, "journal": {}}
         assert _resolve_attention(current) is None
@@ -78,7 +78,7 @@ class TestAttentionResolution:
     def test_p1_recent_import(self):
         from datetime import datetime
 
-        from convey.apps import _resolve_attention
+        from solstone.convey.apps import _resolve_attention
 
         current = {
             "imports": {
@@ -95,7 +95,7 @@ class TestAttentionResolution:
     def test_p2_old_import_no_attention(self):
         from datetime import datetime, timedelta
 
-        from convey.apps import _resolve_attention
+        from solstone.convey.apps import _resolve_attention
 
         old_time = (datetime.now() - timedelta(hours=2)).isoformat()
         current = {
@@ -112,7 +112,7 @@ class TestAttentionResolution:
         import json
         from datetime import datetime
 
-        from convey.apps import _resolve_attention
+        from solstone.convey.apps import _resolve_attention
 
         monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
@@ -154,7 +154,7 @@ class TestAttentionResolution:
         import json
         from datetime import datetime
 
-        from convey.apps import _resolve_attention
+        from solstone.convey.apps import _resolve_attention
 
         monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
@@ -193,7 +193,7 @@ class TestAttentionResolution:
         import json
         from datetime import datetime
 
-        from convey.apps import _resolve_attention
+        from solstone.convey.apps import _resolve_attention
 
         monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
@@ -227,7 +227,7 @@ class TestAttentionResolution:
 
     def test_placeholder_no_attention_preserves_behavior(self):
         """When no attention items, existing placeholder logic unchanged."""
-        from convey.apps import _resolve_placeholder
+        from solstone.convey.apps import _resolve_placeholder
 
         current = {"journal": {"first_daily_ready": True}}
         result = _resolve_placeholder(current, 10)
@@ -238,7 +238,7 @@ class TestAttentionResolution:
         import json
         from datetime import datetime
 
-        from convey.apps import _resolve_attention
+        from solstone.convey.apps import _resolve_attention
 
         monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
@@ -271,7 +271,7 @@ class TestAttentionResolution:
         """P3: daily analysis outputs available."""
         from datetime import datetime
 
-        from convey.apps import _resolve_attention
+        from solstone.convey.apps import _resolve_attention
 
         monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 

@@ -8,7 +8,7 @@ import os
 
 import pytest
 
-from think.prompts import _flatten_identity_to_template_vars, load_prompt
+from solstone.think.prompts import _flatten_identity_to_template_vars, load_prompt
 
 
 @pytest.fixture
@@ -119,7 +119,7 @@ def test_flatten_identity_nested_pronouns():
 
 def test_flatten_identity_with_bio(mock_journal_with_config):
     """Test bio field extraction."""
-    from think.utils import get_config
+    from solstone.think.utils import get_config
 
     config = get_config()
     identity = config["identity"]

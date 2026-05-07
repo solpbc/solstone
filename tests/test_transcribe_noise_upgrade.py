@@ -9,8 +9,8 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from observe.utils import SAMPLE_RATE
-from observe.vad import VadResult
+from solstone.observe.utils import SAMPLE_RATE
+from solstone.observe.vad import VadResult
 
 
 @pytest.fixture
@@ -36,21 +36,21 @@ class TestHasToken:
 
     def test_has_token_when_present(self):
         """has_token() returns True when token is configured."""
-        from observe.transcribe.revai import has_token
+        from solstone.observe.transcribe.revai import has_token
 
         with patch.dict("os.environ", {"REVAI_ACCESS_TOKEN": "test-token"}):
             assert has_token() is True
 
     def test_has_token_when_missing(self):
         """has_token() returns False when token is not configured."""
-        from observe.transcribe.revai import has_token
+        from solstone.observe.transcribe.revai import has_token
 
         with patch.dict("os.environ", {}, clear=True):
             assert has_token() is False
 
     def test_has_token_with_alternate_env_var(self):
         """has_token() returns True with REV_ACCESS_TOKEN."""
-        from observe.transcribe.revai import has_token
+        from solstone.observe.transcribe.revai import has_token
 
         with patch.dict("os.environ", {"REV_ACCESS_TOKEN": "test-token"}):
             assert has_token() is True
@@ -160,7 +160,7 @@ class TestBackendMetadata:
         import datetime
         import json
 
-        from observe.transcribe.main import _statements_to_jsonl
+        from solstone.observe.transcribe.main import _statements_to_jsonl
 
         statements = [{"id": 1, "start": 0.0, "end": 1.0, "text": "Hello"}]
         model_info = {"model": "medium.en", "device": "cpu", "compute_type": "int8"}
@@ -185,7 +185,7 @@ class TestBackendMetadata:
         import datetime
         import json
 
-        from observe.transcribe.main import _statements_to_jsonl
+        from solstone.observe.transcribe.main import _statements_to_jsonl
 
         statements = [{"id": 1, "start": 0.0, "end": 1.0, "text": "Hello"}]
         model_info = {"model": "medium.en", "device": "cpu", "compute_type": "int8"}
@@ -198,7 +198,7 @@ class TestBackendMetadata:
 
 class TestNoiseUpgradeGate:
     def test_gate_blocks_on_low_ratio(self, audio_path, args, audio_buffer):
-        from observe.transcribe.main import _process_one
+        from solstone.observe.transcribe.main import _process_one
 
         vad = VadResult(
             duration=10.0,
@@ -218,18 +218,25 @@ class TestNoiseUpgradeGate:
         }
 
         with (
-            patch("observe.transcribe.main.load_audio", return_value=audio_buffer),
-            patch("observe.transcribe.main.run_vad", return_value=vad),
-            patch("observe.transcribe.main.reduce_audio", return_value=(None, None)),
-            patch("observe.transcribe.main.process_audio") as mock_process_audio,
-            patch("observe.transcribe.revai.has_token", return_value=True),
+            patch(
+                "solstone.observe.transcribe.main.load_audio", return_value=audio_buffer
+            ),
+            patch("solstone.observe.transcribe.main.run_vad", return_value=vad),
+            patch(
+                "solstone.observe.transcribe.main.reduce_audio",
+                return_value=(None, None),
+            ),
+            patch(
+                "solstone.observe.transcribe.main.process_audio"
+            ) as mock_process_audio,
+            patch("solstone.observe.transcribe.revai.has_token", return_value=True),
         ):
             _process_one(audio_path, args, transcribe_config, [])
 
         assert mock_process_audio.call_args.kwargs["backend"] == "whisper"
 
     def test_gate_admits_on_high_ratio(self, audio_path, args, audio_buffer):
-        from observe.transcribe.main import _process_one
+        from solstone.observe.transcribe.main import _process_one
 
         vad = VadResult(
             duration=10.0,
@@ -249,18 +256,25 @@ class TestNoiseUpgradeGate:
         }
 
         with (
-            patch("observe.transcribe.main.load_audio", return_value=audio_buffer),
-            patch("observe.transcribe.main.run_vad", return_value=vad),
-            patch("observe.transcribe.main.reduce_audio", return_value=(None, None)),
-            patch("observe.transcribe.main.process_audio") as mock_process_audio,
-            patch("observe.transcribe.revai.has_token", return_value=True),
+            patch(
+                "solstone.observe.transcribe.main.load_audio", return_value=audio_buffer
+            ),
+            patch("solstone.observe.transcribe.main.run_vad", return_value=vad),
+            patch(
+                "solstone.observe.transcribe.main.reduce_audio",
+                return_value=(None, None),
+            ),
+            patch(
+                "solstone.observe.transcribe.main.process_audio"
+            ) as mock_process_audio,
+            patch("solstone.observe.transcribe.revai.has_token", return_value=True),
         ):
             _process_one(audio_path, args, transcribe_config, [])
 
         assert mock_process_audio.call_args.kwargs["backend"] == "revai"
 
     def test_gate_fallback_when_ratio_none(self, audio_path, args, audio_buffer):
-        from observe.transcribe.main import _process_one
+        from solstone.observe.transcribe.main import _process_one
 
         vad = VadResult(
             duration=10.0,
@@ -280,18 +294,25 @@ class TestNoiseUpgradeGate:
         }
 
         with (
-            patch("observe.transcribe.main.load_audio", return_value=audio_buffer),
-            patch("observe.transcribe.main.run_vad", return_value=vad),
-            patch("observe.transcribe.main.reduce_audio", return_value=(None, None)),
-            patch("observe.transcribe.main.process_audio") as mock_process_audio,
-            patch("observe.transcribe.revai.has_token", return_value=True),
+            patch(
+                "solstone.observe.transcribe.main.load_audio", return_value=audio_buffer
+            ),
+            patch("solstone.observe.transcribe.main.run_vad", return_value=vad),
+            patch(
+                "solstone.observe.transcribe.main.reduce_audio",
+                return_value=(None, None),
+            ),
+            patch(
+                "solstone.observe.transcribe.main.process_audio"
+            ) as mock_process_audio,
+            patch("solstone.observe.transcribe.revai.has_token", return_value=True),
         ):
             _process_one(audio_path, args, transcribe_config, [])
 
         assert mock_process_audio.call_args.kwargs["backend"] == "revai"
 
     def test_gate_blocks_when_not_noisy(self, audio_path, args, audio_buffer):
-        from observe.transcribe.main import _process_one
+        from solstone.observe.transcribe.main import _process_one
 
         vad = VadResult(
             duration=10.0,
@@ -311,11 +332,18 @@ class TestNoiseUpgradeGate:
         }
 
         with (
-            patch("observe.transcribe.main.load_audio", return_value=audio_buffer),
-            patch("observe.transcribe.main.run_vad", return_value=vad),
-            patch("observe.transcribe.main.reduce_audio", return_value=(None, None)),
-            patch("observe.transcribe.main.process_audio") as mock_process_audio,
-            patch("observe.transcribe.revai.has_token", return_value=True),
+            patch(
+                "solstone.observe.transcribe.main.load_audio", return_value=audio_buffer
+            ),
+            patch("solstone.observe.transcribe.main.run_vad", return_value=vad),
+            patch(
+                "solstone.observe.transcribe.main.reduce_audio",
+                return_value=(None, None),
+            ),
+            patch(
+                "solstone.observe.transcribe.main.process_audio"
+            ) as mock_process_audio,
+            patch("solstone.observe.transcribe.revai.has_token", return_value=True),
         ):
             _process_one(audio_path, args, transcribe_config, [])
 
@@ -377,7 +405,7 @@ class TestNoiseUpgradeGate:
         has_token,
         expected_backend,
     ):
-        from observe.transcribe.main import _process_one
+        from solstone.observe.transcribe.main import _process_one
 
         transcribe_config = {
             "backend": "parakeet",
@@ -387,11 +415,20 @@ class TestNoiseUpgradeGate:
         }
 
         with (
-            patch("observe.transcribe.main.load_audio", return_value=audio_buffer),
-            patch("observe.transcribe.main.run_vad", return_value=vad),
-            patch("observe.transcribe.main.reduce_audio", return_value=(None, None)),
-            patch("observe.transcribe.main.process_audio") as mock_process_audio,
-            patch("observe.transcribe.revai.has_token", return_value=has_token),
+            patch(
+                "solstone.observe.transcribe.main.load_audio", return_value=audio_buffer
+            ),
+            patch("solstone.observe.transcribe.main.run_vad", return_value=vad),
+            patch(
+                "solstone.observe.transcribe.main.reduce_audio",
+                return_value=(None, None),
+            ),
+            patch(
+                "solstone.observe.transcribe.main.process_audio"
+            ) as mock_process_audio,
+            patch(
+                "solstone.observe.transcribe.revai.has_token", return_value=has_token
+            ),
         ):
             _process_one(audio_path, args, transcribe_config, [])
 

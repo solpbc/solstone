@@ -8,7 +8,7 @@ import importlib
 
 def test_main_runs_with_mocked_prompts(journal_copy, monkeypatch):
     """Test that main() runs pre/post phases and prompts by priority."""
-    mod = importlib.import_module("think.thinking")
+    mod = importlib.import_module("solstone.think.thinking")
 
     commands_run = []
     prompts_run = False
@@ -50,7 +50,7 @@ def test_main_runs_with_mocked_prompts(journal_copy, monkeypatch):
 
 def test_segment_mode_skips_pre_post_phases(journal_copy, monkeypatch):
     """Test that segment mode skips sense and journal-stats."""
-    mod = importlib.import_module("think.thinking")
+    mod = importlib.import_module("solstone.think.thinking")
 
     # Create segment directory
     segment_dir = journal_copy / "chronicle" / "20240101" / "default" / "120000_300"
@@ -86,7 +86,7 @@ def test_segment_mode_skips_pre_post_phases(journal_copy, monkeypatch):
 
 def test_priority_validation_required():
     """Test that get_talent_configs raises error for scheduled prompts without priority."""
-    from think.talent import get_talent_configs
+    from solstone.think.talent import get_talent_configs
 
     # This test verifies the validation exists - actual validation tested in test_utils.py
     # Here we just confirm all existing scheduled prompts have priority

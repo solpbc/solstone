@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import json
 
-from think.pairing import devices
+from solstone.think.pairing import devices
 
 
 def _devices_path(journal_copy):

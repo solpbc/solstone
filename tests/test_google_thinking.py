@@ -7,9 +7,9 @@ import json
 import sys
 from unittest.mock import AsyncMock
 
+from solstone.think.models import GEMINI_FLASH
 from tests.conftest import setup_google_genai_stub
 from tests.test_google import make_mock_process
-from think.models import GEMINI_FLASH
 
 
 async def run_main(mod, argv, stdin_data=None):
@@ -24,9 +24,9 @@ async def run_main(mod, argv, stdin_data=None):
 def test_google_thinking_events(monkeypatch, tmp_path, capsys):
     setup_google_genai_stub(monkeypatch, with_thinking=True)
 
-    sys.modules.pop("think.providers.google", None)
-    importlib.reload(importlib.import_module("think.providers.google"))
-    mod = importlib.reload(importlib.import_module("think.talents"))
+    sys.modules.pop("solstone.think.providers.google", None)
+    importlib.reload(importlib.import_module("solstone.think.providers.google"))
+    mod = importlib.reload(importlib.import_module("solstone.think.talents"))
 
     journal = tmp_path / "journal"
     journal.mkdir()
@@ -34,11 +34,11 @@ def test_google_thinking_events(monkeypatch, tmp_path, capsys):
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
     monkeypatch.setattr(
-        "think.utils.get_config",
+        "solstone.think.utils.get_config",
         lambda: {"providers": {"google_backend": "aistudio"}},
     )
     monkeypatch.setattr(
-        "think.providers.cli.shutil.which",
+        "solstone.think.providers.cli.shutil.which",
         lambda name: "/usr/bin/gemini" if name == "gemini" else None,
     )
 
@@ -101,7 +101,7 @@ def test_google_thinking_events(monkeypatch, tmp_path, capsys):
     ]
     process = make_mock_process(stdout_lines)
     monkeypatch.setattr(
-        "think.providers.cli.asyncio.create_subprocess_exec",
+        "solstone.think.providers.cli.asyncio.create_subprocess_exec",
         AsyncMock(return_value=process),
     )
 
@@ -114,7 +114,7 @@ def test_google_thinking_events(monkeypatch, tmp_path, capsys):
             "tools": ["search_insights"],
         }
     )
-    asyncio.run(run_main(mod, ["sol think.talents"], stdin_data=ndjson_input))
+    asyncio.run(run_main(mod, ["sol solstone.think.talents"], stdin_data=ndjson_input))
 
     out_lines = capsys.readouterr().out.strip().splitlines()
     events = [json.loads(line) for line in out_lines]

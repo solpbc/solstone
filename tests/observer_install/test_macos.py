@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from observe.observer_install.macos import REDIRECT_TEXT, MacosDriver
+from solstone.observe.observer_install.macos import REDIRECT_TEXT, MacosDriver
 
 
 def test_macos_redirect(args_factory, capsys):

@@ -8,9 +8,9 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from jsonschema import Draft202012Validator
 
-from observe import describe as describe_mod
-from observe.categories import meeting as meeting_mod
-from think.batch import Batch
+from solstone.observe import describe as describe_mod
+from solstone.observe.categories import meeting as meeting_mod
+from solstone.think.batch import Batch
 
 
 def _load_schema() -> dict:
@@ -125,7 +125,7 @@ def test_discover_categories_attaches_meeting_schema():
 
 
 @pytest.mark.asyncio
-@patch("think.batch.agenerate", new_callable=AsyncMock)
+@patch("solstone.think.batch.agenerate", new_callable=AsyncMock)
 async def test_meeting_extract_batch_call_passes_schema(mock_agenerate):
     mock_agenerate.return_value = (
         '{"platform":"zoom","participants":[{"name":"Alice","status":"active",'
@@ -150,7 +150,7 @@ async def test_meeting_extract_batch_call_passes_schema(mock_agenerate):
 
 
 def test_meeting_formatter_skips_non_dict_participant(caplog):
-    with caplog.at_level("WARNING", logger="observe.categories.meeting"):
+    with caplog.at_level("WARNING", logger="solstone.observe.categories.meeting"):
         result = meeting_mod.format(
             {
                 "platform": "zoom",

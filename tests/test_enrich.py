@@ -10,7 +10,7 @@ from unittest.mock import patch
 import numpy as np
 import soundfile as sf
 
-from observe.enrich import _statement_to_flac_bytes
+from solstone.observe.enrich import _statement_to_flac_bytes
 
 
 class TestStatementToFlacBytes:
@@ -65,10 +65,10 @@ class TestStatementToFlacBytes:
 class TestEnrichTranscript:
     """Test the main enrichment function."""
 
-    @patch("observe.enrich.generate")
+    @patch("solstone.observe.enrich.generate")
     def test_returns_enrichment_data(self, mock_generate):
         """Should return enrichment dict on success."""
-        from observe.enrich import enrich_transcript
+        from solstone.observe.enrich import enrich_transcript
 
         # Create audio buffer directly
         sample_rate = 16000
@@ -104,10 +104,10 @@ class TestEnrichTranscript:
         assert result["topics"] == "testing, software"
         assert result["setting"] == "workplace"
 
-    @patch("observe.enrich.generate")
+    @patch("solstone.observe.enrich.generate")
     def test_returns_none_on_api_error(self, mock_generate):
         """Should return None if Gemini call fails."""
-        from observe.enrich import enrich_transcript
+        from solstone.observe.enrich import enrich_transcript
 
         wav = np.zeros(16000 * 10, dtype=np.float32)
         mock_generate.side_effect = Exception("API error")
@@ -118,10 +118,10 @@ class TestEnrichTranscript:
 
         assert result is None
 
-    @patch("observe.enrich.generate")
+    @patch("solstone.observe.enrich.generate")
     def test_returns_none_on_invalid_response(self, mock_generate):
         """Should return None if response missing required fields."""
-        from observe.enrich import enrich_transcript
+        from solstone.observe.enrich import enrich_transcript
 
         wav = np.zeros(16000 * 10, dtype=np.float32)
         # Missing 'statements' field
@@ -133,10 +133,10 @@ class TestEnrichTranscript:
 
         assert result is None
 
-    @patch("observe.enrich.generate")
+    @patch("solstone.observe.enrich.generate")
     def test_bare_list_response_returns_none(self, mock_generate):
         """Should return None when response is a bare list (schema rejection)."""
-        from observe.enrich import enrich_transcript
+        from solstone.observe.enrich import enrich_transcript
 
         wav = np.zeros(16000 * 10, dtype=np.float32)
         # Gemini returns bare list instead of {"statements": [...], "topics": ...}
@@ -154,17 +154,17 @@ class TestEnrichTranscript:
 
     def test_returns_none_for_empty_statements(self):
         """Should return None for empty statement list."""
-        from observe.enrich import enrich_transcript
+        from solstone.observe.enrich import enrich_transcript
 
         wav = np.zeros(16000, dtype=np.float32)
         result = enrich_transcript(wav, 16000, [])
 
         assert result is None
 
-    @patch("observe.enrich.generate")
+    @patch("solstone.observe.enrich.generate")
     def test_builds_interleaved_content(self, mock_generate):
         """Should send numbered text labels and audio clips interleaved."""
-        from observe.enrich import enrich_transcript
+        from solstone.observe.enrich import enrich_transcript
 
         sample_rate = 16000
         wav = np.zeros(sample_rate * 10, dtype=np.float32)  # 10 seconds
@@ -216,7 +216,7 @@ class TestStatementsToJsonl:
         """_statements_to_jsonl should work without enrichment."""
         import datetime
 
-        from observe.transcribe.main import _statements_to_jsonl
+        from solstone.observe.transcribe.main import _statements_to_jsonl
 
         statements = [{"id": 1, "start": 0.0, "end": 2.0, "text": "Hello."}]
         base_dt = datetime.datetime(2026, 1, 10, 14, 30, 0)
@@ -240,7 +240,7 @@ class TestStatementsToJsonl:
         """_statements_to_jsonl should include enrichment data."""
         import datetime
 
-        from observe.transcribe.main import _statements_to_jsonl
+        from solstone.observe.transcribe.main import _statements_to_jsonl
 
         statements = [
             {"id": 1, "start": 0.0, "end": 2.0, "text": "Hello."},
@@ -284,7 +284,7 @@ class TestStatementsToJsonl:
         """_statements_to_jsonl should not include corrected if same as original."""
         import datetime
 
-        from observe.transcribe.main import _statements_to_jsonl
+        from solstone.observe.transcribe.main import _statements_to_jsonl
 
         statements = [{"id": 1, "start": 0.0, "end": 2.0, "text": "Hello."}]
         base_dt = datetime.datetime(2026, 1, 10, 14, 30, 0)
@@ -310,7 +310,7 @@ class TestStatementsToJsonl:
         """_statements_to_jsonl should handle partial enrichment."""
         import datetime
 
-        from observe.transcribe.main import _statements_to_jsonl
+        from solstone.observe.transcribe.main import _statements_to_jsonl
 
         statements = [
             {"id": 1, "start": 0.0, "end": 2.0, "text": "Hello."},
@@ -345,7 +345,7 @@ class TestFormatAudioCorrectedText:
 
     def test_prefers_corrected_over_text(self):
         """format_audio should display corrected text when available."""
-        from observe.hear import format_audio
+        from solstone.observe.hear import format_audio
 
         entries = [
             {"raw": "audio.flac"},
@@ -368,7 +368,7 @@ class TestFormatAudioCorrectedText:
 
     def test_falls_back_to_text_without_corrected(self):
         """format_audio should use text when corrected is not present."""
-        from observe.hear import format_audio
+        from solstone.observe.hear import format_audio
 
         entries = [
             {"raw": "audio.flac"},

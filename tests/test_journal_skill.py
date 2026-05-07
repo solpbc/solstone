@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from think.skills_cli import install_project
+from solstone.think.skills_cli import install_project
 
 
 def _repo_root() -> Path:
@@ -39,7 +39,7 @@ def _tracked_symlinks(*roots: str) -> list[Path]:
 
 def test_journal_skill_references_exist_and_linked():
     repo_root = _repo_root()
-    skill_path = repo_root / "talent" / "journal" / "SKILL.md"
+    skill_path = repo_root / "solstone" / "talent" / "journal" / "SKILL.md"
     skill_text = skill_path.read_text(encoding="utf-8")
     references = [
         "references/cli.md",
@@ -71,8 +71,17 @@ def test_make_skills_idempotent(tmp_path):
     temp_root.mkdir()
 
     shutil.copy2(repo_root / "Makefile", temp_root / "Makefile")
-    shutil.copytree(repo_root / "talent", temp_root / "talent", symlinks=True)
-    shutil.copytree(repo_root / "apps", temp_root / "apps", symlinks=True)
+    (temp_root / "solstone").mkdir()
+    shutil.copytree(
+        repo_root / "solstone" / "talent",
+        temp_root / "solstone" / "talent",
+        symlinks=True,
+    )
+    shutil.copytree(
+        repo_root / "solstone" / "apps",
+        temp_root / "solstone" / "apps",
+        symlinks=True,
+    )
 
     def link_state(root: Path) -> dict[str, tuple[str, int]]:
         return {
@@ -96,7 +105,7 @@ def test_make_skills_idempotent(tmp_path):
     assert first == second
     assert (
         temp_root / ".claude" / "skills" / "journal"
-    ).readlink().as_posix() == "../../talent/journal"
+    ).readlink().as_posix() == "../../solstone/talent/journal"
 
     # Skill-discovery contract: claude code looks at <cwd>/.claude/skills/, so
     # after project skill installation the cwd path must resolve to a real

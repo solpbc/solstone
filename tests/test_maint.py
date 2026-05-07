@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from think.maint import (
+from solstone.think.maint import (
     MaintTask,
     get_state_file,
     get_task_status,
@@ -115,7 +115,7 @@ class TestListTasks:
         def mock_discover_tasks():
             return tasks
 
-        monkeypatch.setattr("think.maint.discover_tasks", mock_discover_tasks)
+        monkeypatch.setattr("solstone.think.maint.discover_tasks", mock_discover_tasks)
 
         # Success task with timestamp
         success_file = get_state_file(temp_journal, "chat", "done")
@@ -164,7 +164,7 @@ class TestListTasks:
         def mock_discover_tasks():
             return tasks
 
-        monkeypatch.setattr("think.maint.discover_tasks", mock_discover_tasks)
+        monkeypatch.setattr("solstone.think.maint.discover_tasks", mock_discover_tasks)
 
         # Success task with line events and duration
         success_file = get_state_file(temp_journal, "chat", "done")
@@ -199,7 +199,7 @@ class TestListTasks:
         def mock_discover_tasks():
             return tasks
 
-        monkeypatch.setattr("think.maint.discover_tasks", mock_discover_tasks)
+        monkeypatch.setattr("solstone.think.maint.discover_tasks", mock_discover_tasks)
 
         # In-progress task: exec event but no exit event
         state_file = get_state_file(temp_journal, "chat", "running")
@@ -223,21 +223,21 @@ class TestFormatDuration:
     """Tests for duration formatting."""
 
     def test_milliseconds(self):
-        from convey.maint_cli import _format_duration
+        from solstone.convey.maint_cli import _format_duration
 
         assert _format_duration(0) == "0ms"
         assert _format_duration(500) == "500ms"
         assert _format_duration(999) == "999ms"
 
     def test_seconds(self):
-        from convey.maint_cli import _format_duration
+        from solstone.convey.maint_cli import _format_duration
 
         assert _format_duration(1000) == "1s"
         assert _format_duration(2500) == "2s"
         assert _format_duration(59999) == "59s"
 
     def test_minutes(self):
-        from convey.maint_cli import _format_duration
+        from solstone.convey.maint_cli import _format_duration
 
         assert _format_duration(60000) == "1m 0s"
         assert _format_duration(143000) == "2m 23s"

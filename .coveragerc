@@ -1,8 +1,8 @@
 [run]
 source =
-    observe
-    think
-    convey
+    solstone/observe
+    solstone/think
+    solstone/convey
     muse
 omit =
     .venv/*

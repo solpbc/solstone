@@ -11,7 +11,10 @@ from pathlib import Path
 
 import pytest
 
-from think.pipeline_health import pipeline_status_message, summarize_pipeline_day
+from solstone.think.pipeline_health import (
+    pipeline_status_message,
+    summarize_pipeline_day,
+)
 
 
 def _write_jsonl(path: Path, events: list[dict]) -> None:
@@ -181,7 +184,7 @@ def test_past_day_without_daily_run_is_stale(pipeline_journal, monkeypatch):
         [{"event": "run.start", "mode": "segment"}],
     )
     monkeypatch.setattr(
-        "think.pipeline_health._now", lambda: datetime(2020, 1, 2, 12, 0, 0)
+        "solstone.think.pipeline_health._now", lambda: datetime(2020, 1, 2, 12, 0, 0)
     )
 
     summary = summarize_pipeline_day(day)
@@ -192,7 +195,7 @@ def test_past_day_without_daily_run_is_stale(pipeline_journal, monkeypatch):
 
 def test_today_before_23h_no_daily_run_is_healthy(pipeline_journal, monkeypatch):
     current = datetime(2026, 4, 16, 12, 0, 0)
-    monkeypatch.setattr("think.pipeline_health._now", lambda: current)
+    monkeypatch.setattr("solstone.think.pipeline_health._now", lambda: current)
     (pipeline_journal / "chronicle" / current.strftime("%Y%m%d") / "health").mkdir(
         parents=True
     )
@@ -205,7 +208,7 @@ def test_today_before_23h_no_daily_run_is_healthy(pipeline_journal, monkeypatch)
 
 def test_today_after_23h_no_daily_run_is_stale(pipeline_journal, monkeypatch):
     current = datetime(2026, 4, 16, 23, 30, 0)
-    monkeypatch.setattr("think.pipeline_health._now", lambda: current)
+    monkeypatch.setattr("solstone.think.pipeline_health._now", lambda: current)
     (pipeline_journal / "chronicle" / current.strftime("%Y%m%d") / "health").mkdir(
         parents=True
     )
@@ -220,7 +223,7 @@ def test_segment_runs_missing_is_soft(pipeline_journal, monkeypatch):
     day = "20990105"
     (pipeline_journal / "chronicle" / day / "health").mkdir(parents=True)
     monkeypatch.setattr(
-        "think.pipeline_health.iter_segments",
+        "solstone.think.pipeline_health.iter_segments",
         lambda value: [("default", "120000_300", Path("/tmp/fake"))],
     )
 

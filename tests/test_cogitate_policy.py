@@ -8,7 +8,7 @@ import stat
 
 import tomllib
 
-from think import cogitate_policy
+from solstone.think import cogitate_policy
 
 
 def test_resolve_read_scope_defaults_to_current_day_chronicle():

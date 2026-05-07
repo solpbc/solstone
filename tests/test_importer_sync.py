@@ -10,14 +10,14 @@ import pytest
 
 def test_load_sync_state_missing(tmp_path):
     """Returns None when no state file exists."""
-    from think.importers.sync import load_sync_state
+    from solstone.think.importers.sync import load_sync_state
 
     assert load_sync_state(tmp_path, "plaud") is None
 
 
 def test_save_and_load_sync_state(tmp_path):
     """Round-trip: save then load."""
-    from think.importers.sync import load_sync_state, save_sync_state
+    from solstone.think.importers.sync import load_sync_state, save_sync_state
 
     state = {
         "backend": "plaud",
@@ -36,7 +36,7 @@ def test_save_and_load_sync_state(tmp_path):
 
 def test_save_sync_state_creates_imports_dir(tmp_path):
     """imports/ dir is created if missing."""
-    from think.importers.sync import save_sync_state
+    from solstone.think.importers.sync import save_sync_state
 
     save_sync_state(tmp_path, "plaud", {"backend": "plaud"})
     assert (tmp_path / "imports" / "plaud.json").exists()
@@ -44,7 +44,7 @@ def test_save_sync_state_creates_imports_dir(tmp_path):
 
 def test_save_sync_state_no_temp_files(tmp_path):
     """No .tmp files left after save."""
-    from think.importers.sync import save_sync_state
+    from solstone.think.importers.sync import save_sync_state
 
     save_sync_state(tmp_path, "plaud", {"backend": "plaud"})
     imports = tmp_path / "imports"
@@ -54,7 +54,7 @@ def test_save_sync_state_no_temp_files(tmp_path):
 
 def test_load_sync_state_corrupt_json(tmp_path):
     """Returns None on corrupt JSON."""
-    from think.importers.sync import load_sync_state
+    from solstone.think.importers.sync import load_sync_state
 
     state_path = tmp_path / "imports" / "plaud.json"
     state_path.parent.mkdir(parents=True)
@@ -64,7 +64,7 @@ def test_load_sync_state_corrupt_json(tmp_path):
 
 def test_get_syncable_backends():
     """Discovers plaud backend."""
-    from think.importers.sync import get_syncable_backends
+    from solstone.think.importers.sync import get_syncable_backends
 
     backends = get_syncable_backends()
     names = [b.name for b in backends]
@@ -73,15 +73,15 @@ def test_get_syncable_backends():
 
 def test_plaud_protocol_conformance():
     """PlaudBackend satisfies SyncableBackend protocol."""
-    from think.importers.plaud import PlaudBackend
-    from think.importers.sync import SyncableBackend
+    from solstone.think.importers.plaud import PlaudBackend
+    from solstone.think.importers.sync import SyncableBackend
 
     assert isinstance(PlaudBackend(), SyncableBackend)
 
 
 def test_plaud_sync_requires_token(tmp_path, monkeypatch):
     """Without token configured, PlaudBackend.sync() raises ValueError."""
-    from think.importers.plaud import PlaudBackend
+    from solstone.think.importers.plaud import PlaudBackend
 
     monkeypatch.delenv("PLAUD_ACCESS_TOKEN", raising=False)
     with pytest.raises(ValueError, match="PLAUD_ACCESS_TOKEN"):
@@ -92,7 +92,7 @@ def test_backends_cli_flag(capsys, monkeypatch):
     """sol import --backends lists plaud."""
     import sys
 
-    from think.importers.cli import main
+    from solstone.think.importers.cli import main
 
     monkeypatch.setattr(sys, "argv", ["sol import", "--backends"])
     monkeypatch.setenv("SOLSTONE_JOURNAL", "/tmp/test-journal")
@@ -111,7 +111,7 @@ def test_timestamp_from_start_time_seconds():
     # 2026-01-15 10:30:00 local
     import datetime as dt
 
-    from think.importers.plaud import timestamp_from_start_time
+    from solstone.think.importers.plaud import timestamp_from_start_time
 
     epoch = dt.datetime(2026, 1, 15, 10, 30, 0).timestamp()
     ts = timestamp_from_start_time(epoch)
@@ -122,7 +122,7 @@ def test_timestamp_from_start_time_millis():
     """Handles epoch milliseconds (Plaud format)."""
     import datetime as dt
 
-    from think.importers.plaud import timestamp_from_start_time
+    from solstone.think.importers.plaud import timestamp_from_start_time
 
     epoch_ms = dt.datetime(2026, 1, 15, 10, 30, 0).timestamp() * 1000
     ts = timestamp_from_start_time(epoch_ms)
@@ -144,7 +144,7 @@ def _create_import(journal_root: Path, timestamp: str, original_filename: str) -
 
 def test_match_exact_filename(tmp_path):
     """Matches by exact filename."""
-    from think.importers.plaud import match_existing_imports
+    from solstone.think.importers.plaud import match_existing_imports
 
     _create_import(tmp_path, "20260115_103000", "Team Meeting.opus")
     plaud_files = [
@@ -156,7 +156,7 @@ def test_match_exact_filename(tmp_path):
 
 def test_match_sanitized_filename(tmp_path):
     """Matches sanitized filename with extension."""
-    from think.importers.plaud import match_existing_imports
+    from solstone.think.importers.plaud import match_existing_imports
 
     _create_import(tmp_path, "20260115_103000", "Team_Meeting.opus")
     plaud_files = [
@@ -168,7 +168,7 @@ def test_match_sanitized_filename(tmp_path):
 
 def test_match_no_match(tmp_path):
     """Returns empty dict when no match."""
-    from think.importers.plaud import match_existing_imports
+    from solstone.think.importers.plaud import match_existing_imports
 
     _create_import(tmp_path, "20260115_103000", "Something Else.m4a")
     plaud_files = [
@@ -180,7 +180,7 @@ def test_match_no_match(tmp_path):
 
 def test_match_no_imports_dir(tmp_path):
     """Returns empty dict when imports/ doesn't exist."""
-    from think.importers.plaud import match_existing_imports
+    from solstone.think.importers.plaud import match_existing_imports
 
     plaud_files = [
         {"id": "abc", "filename": "Team Meeting", "fullname": "hash1.opus"},
@@ -191,7 +191,7 @@ def test_match_no_imports_dir(tmp_path):
 
 def test_match_by_stem(tmp_path):
     """Matches by filename stem (without extension)."""
-    from think.importers.plaud import match_existing_imports
+    from solstone.think.importers.plaud import match_existing_imports
 
     _create_import(tmp_path, "20260115_103000", "Team Meeting.m4a")
     plaud_files = [
@@ -228,12 +228,14 @@ def _mock_list_files(_session, _token):
 
 def test_plaud_sync_dry_run(tmp_path, monkeypatch):
     """Dry-run sync fetches catalog and saves state."""
-    from think.importers.plaud import PlaudBackend
-    from think.importers.sync import load_sync_state
+    from solstone.think.importers.plaud import PlaudBackend
+    from solstone.think.importers.sync import load_sync_state
 
     monkeypatch.setenv("PLAUD_ACCESS_TOKEN", "test-token")
 
-    with patch("think.importers.plaud.list_files", side_effect=_mock_list_files):
+    with patch(
+        "solstone.think.importers.plaud.list_files", side_effect=_mock_list_files
+    ):
         result = PlaudBackend().sync(tmp_path, dry_run=True)
 
     assert result["total"] == 2
@@ -251,13 +253,15 @@ def test_plaud_sync_dry_run(tmp_path, monkeypatch):
 
 def test_plaud_sync_matches_existing(tmp_path, monkeypatch):
     """Sync matches existing imports and marks them imported."""
-    from think.importers.plaud import PlaudBackend
-    from think.importers.sync import load_sync_state
+    from solstone.think.importers.plaud import PlaudBackend
+    from solstone.think.importers.sync import load_sync_state
 
     monkeypatch.setenv("PLAUD_ACCESS_TOKEN", "test-token")
     _create_import(tmp_path, "20260116_051320", "Standup.opus")
 
-    with patch("think.importers.plaud.list_files", side_effect=_mock_list_files):
+    with patch(
+        "solstone.think.importers.plaud.list_files", side_effect=_mock_list_files
+    ):
         result = PlaudBackend().sync(tmp_path, dry_run=True)
 
     assert result["imported"] == 1
@@ -271,8 +275,8 @@ def test_plaud_sync_matches_existing(tmp_path, monkeypatch):
 
 def test_plaud_sync_incremental(tmp_path, monkeypatch):
     """Second sync preserves existing state and detects new files."""
-    from think.importers.plaud import PlaudBackend
-    from think.importers.sync import load_sync_state, save_sync_state
+    from solstone.think.importers.plaud import PlaudBackend
+    from solstone.think.importers.sync import load_sync_state, save_sync_state
 
     monkeypatch.setenv("PLAUD_ACCESS_TOKEN", "test-token")
 
@@ -295,7 +299,9 @@ def test_plaud_sync_incremental(tmp_path, monkeypatch):
         },
     )
 
-    with patch("think.importers.plaud.list_files", side_effect=_mock_list_files):
+    with patch(
+        "solstone.think.importers.plaud.list_files", side_effect=_mock_list_files
+    ):
         result = PlaudBackend().sync(tmp_path, dry_run=True)
 
     assert result["total"] == 2
@@ -311,8 +317,8 @@ def test_plaud_sync_incremental(tmp_path, monkeypatch):
 
 def test_plaud_sync_promotes_manually_imported(tmp_path, monkeypatch):
     """Available file gets promoted to imported if manually imported between syncs."""
-    from think.importers.plaud import PlaudBackend
-    from think.importers.sync import load_sync_state, save_sync_state
+    from solstone.think.importers.plaud import PlaudBackend
+    from solstone.think.importers.sync import load_sync_state, save_sync_state
 
     monkeypatch.setenv("PLAUD_ACCESS_TOKEN", "test-token")
 
@@ -343,7 +349,9 @@ def test_plaud_sync_promotes_manually_imported(tmp_path, monkeypatch):
     _create_import(tmp_path, "20260117_134640", "Retro.opus")
 
     # Second sync: file2 should be promoted to imported
-    with patch("think.importers.plaud.list_files", side_effect=_mock_list_files):
+    with patch(
+        "solstone.think.importers.plaud.list_files", side_effect=_mock_list_files
+    ):
         result = PlaudBackend().sync(tmp_path, dry_run=True)
 
     assert result["imported"] == 2
@@ -389,13 +397,14 @@ def _mock_list_files_with_junk(_session, _token):
 
 def test_plaud_sync_skips_trashed_and_short(tmp_path, monkeypatch):
     """Trashed and short recordings are auto-skipped."""
-    from think.importers.plaud import PlaudBackend
-    from think.importers.sync import load_sync_state
+    from solstone.think.importers.plaud import PlaudBackend
+    from solstone.think.importers.sync import load_sync_state
 
     monkeypatch.setenv("PLAUD_ACCESS_TOKEN", "test-token")
 
     with patch(
-        "think.importers.plaud.list_files", side_effect=_mock_list_files_with_junk
+        "solstone.think.importers.plaud.list_files",
+        side_effect=_mock_list_files_with_junk,
     ):
         result = PlaudBackend().sync(tmp_path, dry_run=True)
 
@@ -413,8 +422,8 @@ def test_plaud_sync_skips_trashed_and_short(tmp_path, monkeypatch):
 
 
 def test_plaud_sync_save_calls_import_one_in_process(tmp_path, monkeypatch):
-    from think.importers.plaud import PlaudBackend
-    from think.importers.sync import load_sync_state
+    from solstone.think.importers.plaud import PlaudBackend
+    from solstone.think.importers.sync import load_sync_state
 
     monkeypatch.setenv("PLAUD_ACCESS_TOKEN", "test-token")
 
@@ -425,10 +434,16 @@ def test_plaud_sync_save_calls_import_one_in_process(tmp_path, monkeypatch):
         return True
 
     with (
-        patch("think.importers.plaud.list_files", side_effect=_mock_list_files),
-        patch("think.importers.plaud.get_temp_url", return_value="https://temp"),
-        patch("think.importers.plaud.download_to_file", side_effect=fake_download),
-        patch("think.importers.plaud.import_one") as import_mock,
+        patch(
+            "solstone.think.importers.plaud.list_files", side_effect=_mock_list_files
+        ),
+        patch(
+            "solstone.think.importers.plaud.get_temp_url", return_value="https://temp"
+        ),
+        patch(
+            "solstone.think.importers.plaud.download_to_file", side_effect=fake_download
+        ),
+        patch("solstone.think.importers.plaud.import_one") as import_mock,
     ):
         result = PlaudBackend().sync(tmp_path, dry_run=False)
 
@@ -446,7 +461,7 @@ def test_plaud_sync_save_calls_import_one_in_process(tmp_path, monkeypatch):
 
 
 def test_plaud_sync_checkpoints_catalog_per_file(tmp_path, monkeypatch):
-    from think.importers.plaud import PlaudBackend
+    from solstone.think.importers.plaud import PlaudBackend
 
     monkeypatch.setenv("PLAUD_ACCESS_TOKEN", "test-token")
     saved_states = []
@@ -461,12 +476,21 @@ def test_plaud_sync_checkpoints_catalog_per_file(tmp_path, monkeypatch):
         saved_states.append(json.loads(json.dumps(state)))
 
     with (
-        patch("think.importers.plaud.list_files", side_effect=_mock_list_files),
-        patch("think.importers.plaud.get_temp_url", return_value="https://temp"),
-        patch("think.importers.plaud.download_to_file", side_effect=fake_download),
-        patch("think.importers.plaud.import_one", return_value={"segments": ["seg"]}),
         patch(
-            "think.importers.sync.save_sync_state",
+            "solstone.think.importers.plaud.list_files", side_effect=_mock_list_files
+        ),
+        patch(
+            "solstone.think.importers.plaud.get_temp_url", return_value="https://temp"
+        ),
+        patch(
+            "solstone.think.importers.plaud.download_to_file", side_effect=fake_download
+        ),
+        patch(
+            "solstone.think.importers.plaud.import_one",
+            return_value={"segments": ["seg"]},
+        ),
+        patch(
+            "solstone.think.importers.sync.save_sync_state",
             side_effect=fake_save_sync_state,
         ) as save_mock,
     ):
@@ -482,7 +506,7 @@ def test_plaud_sync_checkpoints_catalog_per_file(tmp_path, monkeypatch):
 
 
 def test_plaud_sync_save_records_import_one_errors(tmp_path, monkeypatch):
-    from think.importers.plaud import PlaudBackend
+    from solstone.think.importers.plaud import PlaudBackend
 
     monkeypatch.setenv("PLAUD_ACCESS_TOKEN", "test-token")
 
@@ -491,11 +515,17 @@ def test_plaud_sync_save_records_import_one_errors(tmp_path, monkeypatch):
         return True
 
     with (
-        patch("think.importers.plaud.list_files", side_effect=_mock_list_files),
-        patch("think.importers.plaud.get_temp_url", return_value="https://temp"),
-        patch("think.importers.plaud.download_to_file", side_effect=fake_download),
         patch(
-            "think.importers.plaud.import_one",
+            "solstone.think.importers.plaud.list_files", side_effect=_mock_list_files
+        ),
+        patch(
+            "solstone.think.importers.plaud.get_temp_url", return_value="https://temp"
+        ),
+        patch(
+            "solstone.think.importers.plaud.download_to_file", side_effect=fake_download
+        ),
+        patch(
+            "solstone.think.importers.plaud.import_one",
             side_effect=RuntimeError("import boom"),
         ),
     ):
@@ -510,13 +540,15 @@ def test_plaud_sync_cli_flag(capsys, monkeypatch, tmp_path):
     """sol import --sync plaud runs sync in dry-run mode."""
     import sys
 
-    from think.importers.cli import main
+    from solstone.think.importers.cli import main
 
     monkeypatch.setattr(sys, "argv", ["sol import", "--sync", "plaud"])
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     monkeypatch.setenv("PLAUD_ACCESS_TOKEN", "test-token")
 
-    with patch("think.importers.plaud.list_files", side_effect=_mock_list_files):
+    with patch(
+        "solstone.think.importers.plaud.list_files", side_effect=_mock_list_files
+    ):
         main()
 
     captured = capsys.readouterr()

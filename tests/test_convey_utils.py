@@ -3,8 +3,13 @@
 
 import math
 
-from convey.utils import format_date, format_date_short, relative_time, time_since
-from think.utils import day_path
+from solstone.convey.utils import (
+    format_date,
+    format_date_short,
+    relative_time,
+    time_since,
+)
+from solstone.think.utils import day_path
 
 
 def test_format_date():
@@ -21,7 +26,7 @@ def test_format_date_short(monkeypatch):
         def now(cls):
             return datetime(2025, 11, 29, 12, 0, 0)
 
-    monkeypatch.setattr("convey.utils.datetime", MockDatetime)
+    monkeypatch.setattr("solstone.convey.utils.datetime", MockDatetime)
 
     # Test relative dates
     assert format_date_short("20251129") == "Today"
@@ -83,7 +88,7 @@ def test_relative_time():
 
 def test_list_day_folders(tmp_path, monkeypatch):
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
-    from think.utils import day_dirs
+    from solstone.think.utils import day_dirs
 
     day_path("20240101")
     day_path("20240103")

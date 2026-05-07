@@ -7,8 +7,8 @@ import asyncio
 
 from flask import Flask
 
-from think.voice import brain
-from think.voice.runtime import start_voice_runtime, stop_voice_runtime
+from solstone.think.voice import brain
+from solstone.think.voice.runtime import start_voice_runtime, stop_voice_runtime
 
 
 def test_extract_instruction():

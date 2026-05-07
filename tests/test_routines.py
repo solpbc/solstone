@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Tests for think.routines — user-defined routines engine."""
+"""Tests for routines — user-defined routines engine."""
 
 import importlib
 import importlib.util
@@ -14,16 +14,18 @@ import frontmatter
 import pytest
 from typer.testing import CliRunner
 
-import think.routines
-from think.call import call_app
-from think.routines import cron_matches, get_config, save_config
+from solstone.think import routines
+from solstone.think.call import call_app
+from solstone.think.routines import cron_matches, get_config, save_config
 
 runner = CliRunner()
 
 
 def _load_chat_context_module():
     """Load talent.chat_context from this worktree explicitly for tests."""
-    path = Path(__file__).resolve().parents[1] / "talent" / "chat_context.py"
+    path = (
+        Path(__file__).resolve().parents[1] / "solstone" / "talent" / "chat_context.py"
+    )
     spec = importlib.util.spec_from_file_location("test_chat_context", path)
     assert spec is not None
     assert spec.loader is not None
@@ -34,13 +36,19 @@ def _load_chat_context_module():
 
 def _load_routine_context_module():
     """Load talent._routine_context from this worktree explicitly for tests."""
-    module = importlib.import_module("talent._routine_context")
+    module = importlib.import_module("solstone.talent._routine_context")
     return importlib.reload(module)
 
 
 def _load_routines_cli_module():
     """Load think.tools.routines from this worktree explicitly for tests."""
-    path = Path(__file__).resolve().parents[1] / "think" / "tools" / "routines.py"
+    path = (
+        Path(__file__).resolve().parents[1]
+        / "solstone"
+        / "think"
+        / "tools"
+        / "routines.py"
+    )
     spec = importlib.util.spec_from_file_location("test_routines_cli", path)
     assert spec is not None
     assert spec.loader is not None
@@ -51,7 +59,7 @@ def _load_routines_cli_module():
 
 @contextmanager
 def _fake_now(dt: datetime):
-    """Temporarily replace think.routines.datetime with a fake that returns dt."""
+    """Temporarily replace routines.datetime with a fake that returns dt."""
 
     class _FakeDatetime(datetime):
         @classmethod
@@ -62,17 +70,17 @@ def _fake_now(dt: datetime):
                 return dt.replace(tzinfo=tz)
             return dt.astimezone(tz)
 
-    think.routines.datetime = _FakeDatetime
+    routines.datetime = _FakeDatetime
     try:
         yield
     finally:
-        think.routines.datetime = datetime
+        routines.datetime = datetime
 
 
 @pytest.fixture(autouse=True)
 def reset_routines_state():
     """Reset routines module state between tests."""
-    import think.routines as mod
+    import solstone.think.routines as mod
 
     mod._config = {}
     mod._callosum = None
@@ -185,7 +193,7 @@ class TestConfigIO:
 
 class TestCheck:
     def test_fires_due_routine(self, journal_path):
-        import think.routines as mod
+        import solstone.think.routines as mod
 
         save_config(
             {
@@ -207,13 +215,13 @@ class TestCheck:
         dt = datetime(2026, 3, 27, 9, 0, tzinfo=timezone.utc)
         with (
             patch(
-                "think.routines.cortex_request", return_value="fake_agent_id"
+                "solstone.think.routines.cortex_request", return_value="fake_agent_id"
             ) as mock_req,
             patch(
-                "think.routines.wait_for_uses",
+                "solstone.think.routines.wait_for_uses",
                 return_value=({"fake_agent_id": "finish"}, []),
             ),
-            patch("think.routines.callosum_send", return_value=True),
+            patch("solstone.think.routines.callosum_send", return_value=True),
             _fake_now(dt),
         ):
             mod.check()
@@ -221,7 +229,7 @@ class TestCheck:
         mock_req.assert_called_once()
 
     def test_skips_disabled_routine(self, journal_path):
-        import think.routines as mod
+        import solstone.think.routines as mod
 
         save_config(
             {
@@ -243,13 +251,13 @@ class TestCheck:
         dt = datetime(2026, 3, 27, 9, 0, tzinfo=timezone.utc)
         with (
             patch(
-                "think.routines.cortex_request", return_value="fake_agent_id"
+                "solstone.think.routines.cortex_request", return_value="fake_agent_id"
             ) as mock_req,
             patch(
-                "think.routines.wait_for_uses",
+                "solstone.think.routines.wait_for_uses",
                 return_value=({"fake_agent_id": "finish"}, []),
             ),
-            patch("think.routines.callosum_send", return_value=True),
+            patch("solstone.think.routines.callosum_send", return_value=True),
             _fake_now(dt),
         ):
             mod.check()
@@ -257,7 +265,7 @@ class TestCheck:
         mock_req.assert_not_called()
 
     def test_idempotent_same_minute(self, journal_path):
-        import think.routines as mod
+        import solstone.think.routines as mod
 
         save_config(
             {
@@ -279,13 +287,13 @@ class TestCheck:
         dt = datetime(2026, 3, 27, 9, 0, tzinfo=timezone.utc)
         with (
             patch(
-                "think.routines.cortex_request", return_value="fake_agent_id"
+                "solstone.think.routines.cortex_request", return_value="fake_agent_id"
             ) as mock_req,
             patch(
-                "think.routines.wait_for_uses",
+                "solstone.think.routines.wait_for_uses",
                 return_value=({"fake_agent_id": "finish"}, []),
             ),
-            patch("think.routines.callosum_send", return_value=True),
+            patch("solstone.think.routines.callosum_send", return_value=True),
             _fake_now(dt),
         ):
             mod.check()
@@ -294,7 +302,7 @@ class TestCheck:
         assert mock_req.call_count == 1
 
     def test_fires_again_next_minute(self, journal_path):
-        import think.routines as mod
+        import solstone.think.routines as mod
 
         save_config(
             {
@@ -315,13 +323,13 @@ class TestCheck:
 
         with (
             patch(
-                "think.routines.cortex_request", return_value="fake_agent_id"
+                "solstone.think.routines.cortex_request", return_value="fake_agent_id"
             ) as mock_req,
             patch(
-                "think.routines.wait_for_uses",
+                "solstone.think.routines.wait_for_uses",
                 return_value=({"fake_agent_id": "finish"}, []),
             ),
-            patch("think.routines.callosum_send", return_value=True),
+            patch("solstone.think.routines.callosum_send", return_value=True),
         ):
             with _fake_now(datetime(2026, 3, 27, 9, 0, tzinfo=timezone.utc)):
                 mod.check()
@@ -481,7 +489,7 @@ class TestTemplateCreate:
         assert routine["cadence"] == "0 9 * * *"
 
     def test_create_invalid_template_cadence_type(self, journal_path, monkeypatch):
-        import think.tools.routines as routines_cli
+        import solstone.think.tools.routines as routines_cli
 
         def _fake_template(name: str):
             return (
@@ -508,7 +516,7 @@ class TestTemplateCreate:
         assert "unsupported cadence type" in result.stderr
 
     def test_create_template_dict_cadence_missing_type(self, journal_path, monkeypatch):
-        import think.tools.routines as routines_cli
+        import solstone.think.tools.routines as routines_cli
 
         def _fake_template(name: str):
             return (
@@ -534,7 +542,7 @@ class TestTemplateCreate:
     def test_create_template_dict_cadence_bad_offset_minutes(
         self, journal_path, monkeypatch
     ):
-        import think.tools.routines as routines_cli
+        import solstone.think.tools.routines as routines_cli
 
         def _fake_template(name: str):
             return (
@@ -727,7 +735,7 @@ class TestResumeDate:
         assert "resume_date" not in config["routine-1"]
 
     def test_auto_resume(self, journal_path):
-        import think.routines as mod
+        import solstone.think.routines as mod
 
         save_config(
             {
@@ -749,12 +757,14 @@ class TestResumeDate:
 
         dt = datetime(2026, 3, 27, 10, 0, tzinfo=timezone.utc)
         with (
-            patch("think.routines.cortex_request", return_value="fake_agent_id"),
             patch(
-                "think.routines.wait_for_uses",
+                "solstone.think.routines.cortex_request", return_value="fake_agent_id"
+            ),
+            patch(
+                "solstone.think.routines.wait_for_uses",
                 return_value=({"fake_agent_id": "finish"}, []),
             ),
-            patch("think.routines.callosum_send", return_value=True),
+            patch("solstone.think.routines.callosum_send", return_value=True),
             _fake_now(dt),
         ):
             mod.check()
@@ -766,7 +776,7 @@ class TestResumeDate:
         assert "auto-resumed" in health_log
 
     def test_auto_resume_future_date_not_resumed(self, journal_path):
-        import think.routines as mod
+        import solstone.think.routines as mod
 
         save_config(
             {
@@ -788,12 +798,14 @@ class TestResumeDate:
 
         dt = datetime(2026, 3, 27, 10, 0, tzinfo=timezone.utc)
         with (
-            patch("think.routines.cortex_request", return_value="fake_agent_id"),
             patch(
-                "think.routines.wait_for_uses",
+                "solstone.think.routines.cortex_request", return_value="fake_agent_id"
+            ),
+            patch(
+                "solstone.think.routines.wait_for_uses",
                 return_value=({"fake_agent_id": "finish"}, []),
             ),
-            patch("think.routines.callosum_send", return_value=True),
+            patch("solstone.think.routines.callosum_send", return_value=True),
             _fake_now(dt),
         ):
             mod.check()
@@ -1393,7 +1405,7 @@ class TestSuggestRespond:
 
 class TestGetRoutineState:
     def test_basic_structure(self, journal_path):
-        from think.routines import get_routine_state
+        from solstone.think.routines import get_routine_state
 
         save_config(
             {
@@ -1416,7 +1428,7 @@ class TestGetRoutineState:
         assert state[0]["output_summary"] is None
 
     def test_recent_output_summary(self, journal_path):
-        from think.routines import get_routine_state
+        from solstone.think.routines import get_routine_state
 
         last_run = datetime(2026, 3, 27, 9, 0, tzinfo=timezone.utc).isoformat()
         save_config(
@@ -1447,7 +1459,7 @@ class TestGetRoutineState:
         assert "morning briefing" in state[0]["output_summary"]
 
     def test_meta_excluded(self, journal_path):
-        from think.routines import get_routine_state
+        from solstone.think.routines import get_routine_state
 
         save_config(
             {
@@ -1468,7 +1480,7 @@ class TestGetRoutineState:
         assert state[0]["name"] == "Morning"
 
     def test_paused_until(self, journal_path):
-        from think.routines import get_routine_state
+        from solstone.think.routines import get_routine_state
 
         save_config(
             {
@@ -1515,7 +1527,7 @@ class TestMetaFiltering:
         assert "suggestions" not in result.stdout
 
     def test_check_skips_meta(self, journal_path):
-        import think.routines as mod
+        import solstone.think.routines as mod
 
         save_config(
             {
@@ -1538,13 +1550,13 @@ class TestMetaFiltering:
         dt = datetime(2026, 3, 27, 9, 0, tzinfo=timezone.utc)
         with (
             patch(
-                "think.routines.cortex_request", return_value="fake_agent_id"
+                "solstone.think.routines.cortex_request", return_value="fake_agent_id"
             ) as mock_req,
             patch(
-                "think.routines.wait_for_uses",
+                "solstone.think.routines.wait_for_uses",
                 return_value=({"fake_agent_id": "finish"}, []),
             ),
-            patch("think.routines.callosum_send", return_value=True),
+            patch("solstone.think.routines.callosum_send", return_value=True),
             _fake_now(dt),
         ):
             mod.check()
@@ -1700,8 +1712,8 @@ class TestActivityAnticipation:
 
     @staticmethod
     def _seed_activity_record(facet: str, day: str, record: dict) -> None:
-        from think.activities import append_activity_record
-        from think.facets import create_facet
+        from solstone.think.activities import append_activity_record
+        from solstone.think.facets import create_facet
 
         title = " ".join(part.capitalize() for part in facet.split("-"))
         slug = create_facet(title)
@@ -1710,7 +1722,7 @@ class TestActivityAnticipation:
         assert written is True
 
     def test_dispatch_fires_and_injects_prompt(self, journal_path):
-        import think.routines as mod
+        import solstone.think.routines as mod
 
         save_config({"routine-1": self._make_routine("routine-1", -30)})
         self._seed_activity_record(
@@ -1732,13 +1744,13 @@ class TestActivityAnticipation:
         dt = datetime(2026, 4, 18, 9, 30, tzinfo=timezone.utc)
         with (
             patch(
-                "think.routines.cortex_request", return_value="fake_agent_id"
+                "solstone.think.routines.cortex_request", return_value="fake_agent_id"
             ) as mock_req,
             patch(
-                "think.routines.wait_for_uses",
+                "solstone.think.routines.wait_for_uses",
                 return_value=({"fake_agent_id": "finish"}, []),
             ),
-            patch("think.routines.callosum_send", return_value=True),
+            patch("solstone.think.routines.callosum_send", return_value=True),
             _fake_now(dt),
         ):
             mod.check()
@@ -1756,7 +1768,7 @@ class TestActivityAnticipation:
         assert "Morgan Shaw" not in prompt
 
     def test_same_minute_fires_only_once(self, journal_path):
-        import think.routines as mod
+        import solstone.think.routines as mod
 
         save_config({"routine-1": self._make_routine("routine-1", -30)})
         self._seed_activity_record(
@@ -1771,13 +1783,13 @@ class TestActivityAnticipation:
         dt = datetime(2026, 4, 18, 9, 30, tzinfo=timezone.utc)
         with (
             patch(
-                "think.routines.cortex_request", return_value="fake_agent_id"
+                "solstone.think.routines.cortex_request", return_value="fake_agent_id"
             ) as mock_req,
             patch(
-                "think.routines.wait_for_uses",
+                "solstone.think.routines.wait_for_uses",
                 return_value=({"fake_agent_id": "finish"}, []),
             ),
-            patch("think.routines.callosum_send", return_value=True),
+            patch("solstone.think.routines.callosum_send", return_value=True),
             _fake_now(dt),
         ):
             mod.check()
@@ -1786,7 +1798,7 @@ class TestActivityAnticipation:
         assert mock_req.call_count == 1
 
     def test_hidden_records_are_skipped(self, journal_path):
-        import think.routines as mod
+        import solstone.think.routines as mod
 
         save_config({"routine-1": self._make_routine("routine-1", -30)})
         record = self._make_anticipated_record(
@@ -1799,13 +1811,13 @@ class TestActivityAnticipation:
         dt = datetime(2026, 4, 18, 9, 30, tzinfo=timezone.utc)
         with (
             patch(
-                "think.routines.cortex_request", return_value="fake_agent_id"
+                "solstone.think.routines.cortex_request", return_value="fake_agent_id"
             ) as mock_req,
             patch(
-                "think.routines.wait_for_uses",
+                "solstone.think.routines.wait_for_uses",
                 return_value=({"fake_agent_id": "finish"}, []),
             ),
-            patch("think.routines.callosum_send", return_value=True),
+            patch("solstone.think.routines.callosum_send", return_value=True),
             _fake_now(dt),
         ):
             mod.check()
@@ -1813,7 +1825,7 @@ class TestActivityAnticipation:
         mock_req.assert_not_called()
 
     def test_non_anticipated_records_are_skipped(self, journal_path):
-        import think.routines as mod
+        import solstone.think.routines as mod
 
         save_config({"routine-1": self._make_routine("routine-1", -30)})
         record = self._make_anticipated_record(
@@ -1826,13 +1838,13 @@ class TestActivityAnticipation:
         dt = datetime(2026, 4, 18, 9, 30, tzinfo=timezone.utc)
         with (
             patch(
-                "think.routines.cortex_request", return_value="fake_agent_id"
+                "solstone.think.routines.cortex_request", return_value="fake_agent_id"
             ) as mock_req,
             patch(
-                "think.routines.wait_for_uses",
+                "solstone.think.routines.wait_for_uses",
                 return_value=({"fake_agent_id": "finish"}, []),
             ),
-            patch("think.routines.callosum_send", return_value=True),
+            patch("solstone.think.routines.callosum_send", return_value=True),
             _fake_now(dt),
         ):
             mod.check()
@@ -1841,7 +1853,7 @@ class TestActivityAnticipation:
 
     def test_late_evening_fires_for_next_day_activity(self, journal_path):
         """Pre-alert for a 00:15 activity on D+1 must fire at 23:45 on D."""
-        import think.routines as mod
+        import solstone.think.routines as mod
 
         save_config({"routine-1": self._make_routine("routine-1", -30)})
         record = self._make_anticipated_record(
@@ -1854,13 +1866,13 @@ class TestActivityAnticipation:
         dt = datetime(2026, 4, 18, 23, 45, tzinfo=timezone.utc)
         with (
             patch(
-                "think.routines.cortex_request", return_value="fake_agent_id"
+                "solstone.think.routines.cortex_request", return_value="fake_agent_id"
             ) as mock_req,
             patch(
-                "think.routines.wait_for_uses",
+                "solstone.think.routines.wait_for_uses",
                 return_value=({"fake_agent_id": "finish"}, []),
             ),
-            patch("think.routines.callosum_send", return_value=True),
+            patch("solstone.think.routines.callosum_send", return_value=True),
             _fake_now(dt),
         ):
             mod.check()
@@ -1870,7 +1882,7 @@ class TestActivityAnticipation:
 
     def test_early_morning_fires_for_previous_day_activity(self, journal_path):
         """Post-start anticipation for a 23:45 activity on D-1 fires at 00:15 on D."""
-        import think.routines as mod
+        import solstone.think.routines as mod
 
         save_config({"routine-1": self._make_routine("routine-1", 30)})
         record = self._make_anticipated_record(
@@ -1883,13 +1895,13 @@ class TestActivityAnticipation:
         dt = datetime(2026, 4, 18, 0, 15, tzinfo=timezone.utc)
         with (
             patch(
-                "think.routines.cortex_request", return_value="fake_agent_id"
+                "solstone.think.routines.cortex_request", return_value="fake_agent_id"
             ) as mock_req,
             patch(
-                "think.routines.wait_for_uses",
+                "solstone.think.routines.wait_for_uses",
                 return_value=({"fake_agent_id": "finish"}, []),
             ),
-            patch("think.routines.callosum_send", return_value=True),
+            patch("solstone.think.routines.callosum_send", return_value=True),
             _fake_now(dt),
         ):
             mod.check()

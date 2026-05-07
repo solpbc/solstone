@@ -19,10 +19,10 @@ def observer_install_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("HOME", str(home))
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
 
-    import convey.state
-    from observe.observer_install import linux, tmux
+    import solstone.convey.state as convey_state
+    from solstone.observe.observer_install import linux, tmux
 
-    convey.state.journal_root = ""
+    convey_state.journal_root = ""
     monkeypatch.setattr(
         linux,
         "CONFIG_PATH",

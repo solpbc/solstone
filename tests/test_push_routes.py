@@ -5,8 +5,8 @@ from __future__ import annotations
 
 import pytest
 
-from convey import create_app
-from think.push.runtime import stop_all_push_runtime
+from solstone.convey import create_app
+from solstone.think.push.runtime import stop_all_push_runtime
 
 
 @pytest.fixture
@@ -23,7 +23,7 @@ def push_client(push_app):
 
 
 def test_register_push_device_happy_path(push_client, monkeypatch):
-    monkeypatch.setattr("convey.push.register_device", lambda **kwargs: 2)
+    monkeypatch.setattr("solstone.convey.push.register_device", lambda **kwargs: 2)
 
     response = push_client.post(
         "/api/push/register",
@@ -54,8 +54,8 @@ def test_register_push_device_validates_fields(push_client):
 
 
 def test_delete_push_device_happy_path(push_client, monkeypatch):
-    monkeypatch.setattr("convey.push.remove_device", lambda token: True)
-    monkeypatch.setattr("convey.push.load_devices", lambda: [{"token": "a"}])
+    monkeypatch.setattr("solstone.convey.push.remove_device", lambda token: True)
+    monkeypatch.setattr("solstone.convey.push.load_devices", lambda: [{"token": "a"}])
 
     response = push_client.delete("/api/push/register", json={"device_token": "a" * 64})
 
@@ -64,9 +64,9 @@ def test_delete_push_device_happy_path(push_client, monkeypatch):
 
 
 def test_status_masks_tokens(push_client, monkeypatch):
-    monkeypatch.setattr("convey.push.is_configured", lambda: True)
+    monkeypatch.setattr("solstone.convey.push.is_configured", lambda: True)
     monkeypatch.setattr(
-        "convey.push.load_devices",
+        "solstone.convey.push.load_devices",
         lambda: [
             {
                 "token": "a" * 64,
@@ -78,7 +78,7 @@ def test_status_masks_tokens(push_client, monkeypatch):
         ],
     )
     monkeypatch.setattr(
-        "convey.push.status_view",
+        "solstone.convey.push.status_view",
         lambda device: {
             "token_suffix": "...aaaa",
             "bundle_id": device["bundle_id"],
@@ -107,7 +107,7 @@ def test_status_masks_tokens(push_client, monkeypatch):
 
 
 def test_push_test_requires_configuration(push_client, monkeypatch):
-    monkeypatch.setattr("convey.push.is_configured", lambda: False)
+    monkeypatch.setattr("solstone.convey.push.is_configured", lambda: False)
 
     response = push_client.post("/api/push/test")
 
@@ -116,7 +116,7 @@ def test_push_test_requires_configuration(push_client, monkeypatch):
 
 
 def test_push_test_validates_category(push_client, monkeypatch):
-    monkeypatch.setattr("convey.push.is_configured", lambda: True)
+    monkeypatch.setattr("solstone.convey.push.is_configured", lambda: True)
 
     response = push_client.post("/api/push/test", json={"category": "BAD"})
 
@@ -125,9 +125,9 @@ def test_push_test_validates_category(push_client, monkeypatch):
 
 
 def test_push_test_happy_path(push_client, monkeypatch):
-    monkeypatch.setattr("convey.push.is_configured", lambda: True)
+    monkeypatch.setattr("solstone.convey.push.is_configured", lambda: True)
     monkeypatch.setattr(
-        "convey.push.triggers.send_agent_alert",
+        "solstone.convey.push.triggers.send_agent_alert",
         lambda *, title, body, context_id, route: (1, 0),
     )
 

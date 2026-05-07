@@ -8,8 +8,8 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from observe.utils import SAMPLE_RATE
-from observe.vad import (
+from solstone.observe.utils import SAMPLE_RATE
+from solstone.observe.vad import (
     GAP_BUFFER,
     AudioReduction,
     SpeechSegment,
@@ -297,7 +297,7 @@ class TestComputeNonspeechRms:
 class TestRunVad:
     """Test run_vad function."""
 
-    @patch("observe.vad.get_speech_timestamps")
+    @patch("solstone.observe.vad.get_speech_timestamps")
     def test_silent_audio_returns_no_speech(self, mock_get_timestamps):
         """Silent audio should return has_speech=False."""
         audio = np.zeros(5 * SAMPLE_RATE, dtype=np.float32)
@@ -309,7 +309,7 @@ class TestRunVad:
         assert result.speech_duration == 0.0
         assert result.has_speech is False
 
-    @patch("observe.vad.get_speech_timestamps")
+    @patch("solstone.observe.vad.get_speech_timestamps")
     def test_speech_audio_returns_has_speech(self, mock_get_timestamps):
         """Audio with speech should return has_speech=True."""
         audio = np.zeros(5 * SAMPLE_RATE, dtype=np.float32)
@@ -324,7 +324,7 @@ class TestRunVad:
         # Speech segments should be converted to seconds
         assert result.speech_segments == [(1.0, 3.0)]
 
-    @patch("observe.vad.get_speech_timestamps")
+    @patch("solstone.observe.vad.get_speech_timestamps")
     def test_speech_below_threshold(self, mock_get_timestamps):
         """Speech below threshold should return has_speech=False."""
         audio = np.zeros(5 * SAMPLE_RATE, dtype=np.float32)
@@ -337,7 +337,7 @@ class TestRunVad:
         assert result.speech_duration == 0.5
         assert result.has_speech is False
 
-    @patch("observe.vad.get_speech_timestamps")
+    @patch("solstone.observe.vad.get_speech_timestamps")
     def test_custom_min_speech_threshold(self, mock_get_timestamps):
         """Custom min_speech_seconds threshold should be respected."""
         audio = np.zeros(5 * SAMPLE_RATE, dtype=np.float32)
@@ -352,7 +352,7 @@ class TestRunVad:
         result = run_vad(audio, min_speech_seconds=1.0)
         assert result.has_speech is False
 
-    @patch("observe.vad.get_speech_timestamps")
+    @patch("solstone.observe.vad.get_speech_timestamps")
     def test_multiple_speech_chunks(self, mock_get_timestamps):
         """Multiple speech chunks should be summed correctly."""
         audio = np.zeros(5 * SAMPLE_RATE, dtype=np.float32)
@@ -368,7 +368,7 @@ class TestRunVad:
         assert result.speech_duration == 2.0
         assert result.has_speech is True
 
-    @patch("observe.vad.get_speech_timestamps")
+    @patch("solstone.observe.vad.get_speech_timestamps")
     def test_returns_rms_for_silent_background(self, mock_get_timestamps):
         """run_vad should return low RMS for silent non-speech regions."""
         # Silent audio (zeros)
@@ -382,7 +382,7 @@ class TestRunVad:
         assert result.noisy_rms < 0.001  # Effectively zero
         assert result.noisy_s == 3.0  # 1s leading + 2s trailing
 
-    @patch("observe.vad.get_speech_timestamps")
+    @patch("solstone.observe.vad.get_speech_timestamps")
     def test_returns_rms_for_noisy_background(self, mock_get_timestamps):
         """run_vad should return measurable RMS for noisy non-speech regions."""
         # Noisy audio
@@ -397,7 +397,7 @@ class TestRunVad:
         assert result.noisy_rms > 0.01  # Noisy threshold
         assert result.noisy_s == 3.0
 
-    @patch("observe.vad.get_speech_timestamps")
+    @patch("solstone.observe.vad.get_speech_timestamps")
     def test_returns_none_rms_when_no_qualifying_segments(self, mock_get_timestamps):
         """run_vad should return None RMS when no qualifying non-speech segments."""
         audio = np.zeros(2 * SAMPLE_RATE, dtype=np.float32)

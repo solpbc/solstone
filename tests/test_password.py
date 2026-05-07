@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 from werkzeug.security import check_password_hash
 
-from convey import create_app
+from solstone.convey import create_app
 from tests.conftest import copytree_tracked
 
 

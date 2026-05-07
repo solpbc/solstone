@@ -3,7 +3,7 @@
 
 """Tests for entity type validation."""
 
-from think.entities import ENTITY_TYPES, is_valid_entity_type
+from solstone.think.entities import ENTITY_TYPES, is_valid_entity_type
 
 
 def test_entity_types_constant():

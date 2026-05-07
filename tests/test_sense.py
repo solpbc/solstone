@@ -10,9 +10,9 @@ import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from observe.sense import FileSensor, HandlerProcess, HandlerQueue, QueuedItem
-from think.runner import DailyLogWriter as ProcessLogWriter
-from think.runner import _format_log_line
+from solstone.observe.sense import FileSensor, HandlerProcess, HandlerQueue, QueuedItem
+from solstone.think.runner import DailyLogWriter as ProcessLogWriter
+from solstone.think.runner import _format_log_line
 
 # --- QueuedItem Tests ---
 
@@ -37,7 +37,7 @@ def test_queued_item_with_observer():
 
 
 def test_sense_installs_sigterm_handler():
-    from observe import sense
+    from solstone.observe import sense
 
     previous = signal.getsignal(signal.SIGTERM)
     signal.signal(signal.SIGTERM, signal.SIG_DFL)
@@ -216,7 +216,7 @@ def test_handler_queue_concurrent_enqueue_completion():
 
 def test_resolve_concurrency_per_handler_uniform(tmp_path, monkeypatch, caplog):
     """Test handler concurrency config is applied uniformly."""
-    import observe.sense as sense_module
+    import solstone.observe.sense as sense_module
 
     monkeypatch.setattr(
         sense_module,
@@ -252,7 +252,7 @@ def test_resolve_concurrency_per_handler_uniform(tmp_path, monkeypatch, caplog):
 
 def test_process_next_queued_dispatches_on_slot_release(tmp_path, monkeypatch):
     """Test queued work dispatches one item per freed handler slot."""
-    import observe.sense as sense_module
+    import solstone.observe.sense as sense_module
 
     monkeypatch.setattr(sense_module, "HANDLER_NAMES", ("test",))
     monkeypatch.setattr(
@@ -335,7 +335,7 @@ def test_format_log_line():
 
 def test_process_log_writer(tmp_path, monkeypatch):
     """Test ProcessLogWriter creates and writes to log file."""
-    from think import runner
+    from solstone.think import runner
 
     # Mock journal path and current day to use tmp_path
     monkeypatch.setattr(runner, "_get_journal_path", lambda: tmp_path)
@@ -364,7 +364,7 @@ def test_process_log_writer(tmp_path, monkeypatch):
 
 def test_process_log_writer_thread_safe(tmp_path, monkeypatch):
     """Test ProcessLogWriter is thread-safe."""
-    from think import runner
+    from solstone.think import runner
 
     # Mock journal path and current day to use tmp_path
     monkeypatch.setattr(runner, "_get_journal_path", lambda: tmp_path)
@@ -397,7 +397,7 @@ def test_process_log_writer_thread_safe(tmp_path, monkeypatch):
 
 def test_process_log_writer_pins_journal_root_at_init(tmp_path, monkeypatch):
     """Env-var drift between construction and flush must not redirect writes."""
-    from think import runner
+    from solstone.think import runner
 
     journal_a = tmp_path / "a"
     journal_b = tmp_path / "b"
@@ -494,7 +494,7 @@ def test_file_sensor_match_pattern():
 
 def test_standalone_dry_run(tmp_path, monkeypatch):
     """Test scan_unprocessed finds only unprocessed media files."""
-    from observe.utils import AUDIO_EXTENSIONS, VIDEO_EXTENSIONS
+    from solstone.observe.utils import AUDIO_EXTENSIONS, VIDEO_EXTENSIONS
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
@@ -524,7 +524,7 @@ def test_standalone_dry_run(tmp_path, monkeypatch):
 
 def test_standalone_dry_run_with_segment_filter(tmp_path, monkeypatch):
     """Test scan_unprocessed honors segment filters."""
-    from observe.utils import AUDIO_EXTENSIONS, VIDEO_EXTENSIONS
+    from solstone.observe.utils import AUDIO_EXTENSIONS, VIDEO_EXTENSIONS
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
@@ -551,9 +551,9 @@ def test_standalone_dry_run_with_segment_filter(tmp_path, monkeypatch):
     assert file_names == {"audio.flac"}
 
 
-@patch("think.runner._get_journal_path")
-@patch("think.runner._current_day")
-@patch("think.runner.subprocess.Popen")
+@patch("solstone.think.runner._get_journal_path")
+@patch("solstone.think.runner._current_day")
+@patch("solstone.think.runner.subprocess.Popen")
 def test_file_sensor_spawn_handler(mock_popen, mock_day, mock_journal, tmp_path):
     """Test spawning handler process."""
     # Mock runner functions to use tmp_path
@@ -585,7 +585,7 @@ def test_file_sensor_spawn_handler(mock_popen, mock_day, mock_journal, tmp_path)
     assert len(log_files) == 1, f"Expected 1 echo log file, found {len(log_files)}"
 
 
-@patch("think.runner._current_day")
+@patch("solstone.think.runner._current_day")
 def test_file_sensor_spawn_handler_duplicate(
     mock_day, tmp_path, monkeypatch, mock_callosum
 ):
@@ -611,13 +611,13 @@ def test_file_sensor_spawn_handler_duplicate(
 
     # Try to spawn again - should be skipped (file still in running dict)
     # We can check this by verifying the lock prevents it
-    with patch("observe.sense.subprocess.Popen") as mock_popen:
+    with patch("solstone.observe.sense.subprocess.Popen") as mock_popen:
         sensor._spawn_handler(test_file, "test", ["echo", "hello"])
         # Should not have called Popen because file already in running
         mock_popen.assert_not_called()
 
 
-@patch("think.runner._current_day")
+@patch("solstone.think.runner._current_day")
 def test_file_sensor_spawn_handler_real_process(
     mock_day, tmp_path, monkeypatch, mock_callosum
 ):
@@ -650,7 +650,7 @@ def test_file_sensor_spawn_handler_real_process(
     assert "[echo:stdout]" in log_content
 
 
-@patch("think.runner._current_day")
+@patch("solstone.think.runner._current_day")
 def test_file_sensor_spawn_handler_failing_process(mock_day, tmp_path, monkeypatch):
     """Test handling of failing process."""
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
@@ -671,7 +671,7 @@ def test_file_sensor_spawn_handler_failing_process(mock_day, tmp_path, monkeypat
     assert test_file not in sensor.running
 
 
-@patch("think.runner._current_day")
+@patch("solstone.think.runner._current_day")
 def test_file_sensor_failing_process_notifies(mock_day, tmp_path, monkeypatch):
     """Test that a failing handler process emits a notification event."""
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
@@ -837,12 +837,12 @@ def test_file_sensor_handle_callosum_message_invalid_event(tmp_path):
         mock_handle.assert_not_called()
 
 
-@patch("think.runner._current_day")
+@patch("solstone.think.runner._current_day")
 def test_file_sensor_segment_observed_includes_day(
     mock_day, tmp_path, monkeypatch, mock_callosum
 ):
     """Test that observe.observed event includes day field."""
-    from think.callosum import CallosumConnection
+    from solstone.think.callosum import CallosumConnection
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     mock_day.return_value = "20250101"
@@ -898,7 +898,7 @@ def test_file_sensor_segment_observed_no_handlers(tmp_path, monkeypatch, mock_ca
     This covers the case of tmux-only segments where files like .jsonl don't match
     any registered patterns (*.flac, *.webm, etc.).
     """
-    from think.callosum import CallosumConnection
+    from solstone.think.callosum import CallosumConnection
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
@@ -949,7 +949,7 @@ def test_file_sensor_segment_observed_no_handlers(tmp_path, monkeypatch, mock_ca
 
 def test_delete_outputs_screen(tmp_path):
     """Test delete_outputs with screen type."""
-    from observe.sense import delete_outputs
+    from solstone.observe.sense import delete_outputs
 
     # Create journal/day/stream/segment structure
     day_dir = tmp_path / "chronicle" / "20250101"
@@ -973,7 +973,7 @@ def test_delete_outputs_screen(tmp_path):
 
 def test_delete_outputs_audio(tmp_path):
     """Test delete_outputs with audio type."""
-    from observe.sense import delete_outputs
+    from solstone.observe.sense import delete_outputs
 
     # Create journal/day/stream/segment structure
     day_dir = tmp_path / "chronicle" / "20250101"
@@ -997,7 +997,7 @@ def test_delete_outputs_audio(tmp_path):
 
 def test_delete_outputs_dry_run(tmp_path):
     """Test delete_outputs with dry_run=True."""
-    from observe.sense import delete_outputs
+    from solstone.observe.sense import delete_outputs
 
     # Create journal/day/stream/segment structure
     day_dir = tmp_path / "chronicle" / "20250101"
@@ -1017,7 +1017,7 @@ def test_delete_outputs_dry_run(tmp_path):
 
 def test_delete_outputs_segment_filter(tmp_path):
     """Test delete_outputs with segment filter."""
-    from observe.sense import delete_outputs
+    from solstone.observe.sense import delete_outputs
 
     # Create journal/day/stream/segments structure
     day_dir = tmp_path / "chronicle" / "20250101"

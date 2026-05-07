@@ -6,7 +6,7 @@
 import os
 from pathlib import Path
 
-from think.talent import get_output_name, get_output_path
+from solstone.think.talent import get_output_name, get_output_path
 
 os.environ.setdefault("SOLSTONE_JOURNAL", "tests/fixtures/journal")
 
@@ -87,7 +87,7 @@ class TestGetActivityOutputPath:
     """Tests for get_activity_output_path."""
 
     def test_markdown_output(self):
-        from think.activities import get_activity_output_path
+        from solstone.think.activities import get_activity_output_path
 
         path = get_activity_output_path(
             "work", "20260209", "coding_100000_300", "session_review"
@@ -100,7 +100,7 @@ class TestGetActivityOutputPath:
         assert path == expected
 
     def test_json_output(self):
-        from think.activities import get_activity_output_path
+        from solstone.think.activities import get_activity_output_path
 
         path = get_activity_output_path(
             "work",
@@ -113,7 +113,7 @@ class TestGetActivityOutputPath:
         assert "facets/work/activities/20260209/meeting_090000_300" in str(path)
 
     def test_app_key(self):
-        from think.activities import get_activity_output_path
+        from solstone.think.activities import get_activity_output_path
 
         path = get_activity_output_path(
             "personal", "20260210", "coding_100000_300", "chat:review"

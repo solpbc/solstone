@@ -3,8 +3,8 @@
 
 
 def test_append_chat_event_indexes_without_rescan(tmp_path, monkeypatch):
-    from convey.chat_stream import append_chat_event
-    from think.indexer.journal import search_journal
+    from solstone.convey.chat_stream import append_chat_event
+    from solstone.think.indexer.journal import search_journal
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 

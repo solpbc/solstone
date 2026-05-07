@@ -8,7 +8,7 @@ import shutil
 
 import pytest
 
-from think.models import OLLAMA_LITE, OLLAMA_PRO
+from solstone.think.models import OLLAMA_LITE, OLLAMA_PRO
 
 # Use the smallest available model for fast integration tests
 _TEST_MODEL = OLLAMA_LITE
@@ -17,7 +17,7 @@ _TEST_MODEL = OLLAMA_LITE
 def _ollama_reachable() -> bool:
     """Check if the local Ollama instance is reachable."""
     try:
-        from think.providers.ollama import validate_key
+        from solstone.think.providers.ollama import validate_key
 
         return validate_key("")["valid"]
     except Exception:
@@ -36,7 +36,7 @@ pytestmark = [
 
 class TestOllamaGenerate:
     def test_basic_generation(self):
-        from think.providers.ollama import run_generate
+        from solstone.think.providers.ollama import run_generate
 
         result = run_generate(
             "What is 2 + 2? Reply with just the number.",
@@ -55,7 +55,7 @@ class TestOllamaGenerate:
         assert result["thinking"] is None
 
     def test_system_instruction(self):
-        from think.providers.ollama import run_generate
+        from solstone.think.providers.ollama import run_generate
 
         result = run_generate(
             "What color is the sky?",
@@ -68,7 +68,7 @@ class TestOllamaGenerate:
         assert result["text"]
 
     def test_json_output(self):
-        from think.providers.ollama import run_generate
+        from solstone.think.providers.ollama import run_generate
 
         result = run_generate(
             'Return a JSON object with key "answer" and value 42.',
@@ -85,7 +85,7 @@ class TestOllamaGenerate:
         assert "answer" in result["text"]
 
     def test_thinking_enabled(self):
-        from think.providers.ollama import run_generate
+        from solstone.think.providers.ollama import run_generate
 
         result = run_generate(
             "What is 15 * 17?",
@@ -103,7 +103,7 @@ class TestOllamaGenerate:
 
     def test_thinking_disabled_no_reasoning(self):
         """Verify that think=False actually suppresses reasoning on the native API."""
-        from think.providers.ollama import run_generate
+        from solstone.think.providers.ollama import run_generate
 
         result = run_generate(
             "What is 2 + 2? Reply with just the number.",
@@ -118,7 +118,7 @@ class TestOllamaGenerate:
 
 class TestOllamaAgenerate:
     def test_async_generation(self):
-        from think.providers.ollama import run_agenerate
+        from solstone.think.providers.ollama import run_agenerate
 
         result = asyncio.run(
             run_agenerate(
@@ -136,7 +136,7 @@ class TestOllamaAgenerate:
 
 class TestOllamaListModels:
     def test_list_models(self):
-        from think.providers.ollama import list_models
+        from solstone.think.providers.ollama import list_models
 
         models = list_models()
         assert isinstance(models, list)
@@ -147,7 +147,7 @@ class TestOllamaListModels:
 
 class TestOllamaValidateKey:
     def test_reachable(self):
-        from think.providers.ollama import validate_key
+        from solstone.think.providers.ollama import validate_key
 
         result = validate_key("")
         assert result["valid"] is True
@@ -165,7 +165,7 @@ def _opencode_available() -> bool:
 class TestOllamaCogitate:
     def test_basic_cogitate(self):
         """Test cogitate with a simple prompt that doesn't require tool use."""
-        from think.providers.ollama import run_cogitate
+        from solstone.think.providers.ollama import run_cogitate
 
         events = []
         result = asyncio.run(
@@ -187,7 +187,7 @@ class TestOllamaCogitate:
 
     def test_cogitate_with_tool_use(self):
         """Test cogitate with a prompt that triggers bash tool use."""
-        from think.providers.ollama import run_cogitate
+        from solstone.think.providers.ollama import run_cogitate
 
         events = []
         result = asyncio.run(

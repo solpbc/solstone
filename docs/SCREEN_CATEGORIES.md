@@ -58,9 +58,9 @@ def format(content: Any, context: dict) -> str:
 
 ## How It Works
 
-1. `observe/describe.py` discovers all `.md` files and builds the categorization prompt dynamically
+1. `solstone/observe/describe.py` discovers all `.md` files and builds the categorization prompt dynamically
 2. **Phase 1 (Categorization)**: All frames get initial category analysis (primary/secondary)
 3. **Phase 2 (Selection)**: AI or fallback logic selects which frames get detailed extraction (configurable via `describe.max_extractions`)
 4. **Phase 3 (Extraction)**: Selected frames with extractable categories (those with extraction prompts in their `.md` files) get detailed content extraction
 5. Results are stored in JSONL with `enhanced: true/false` indicating extraction status
-6. `observe/screen.py` formats JSONL to markdown, using custom formatters when available
+6. `solstone/observe/screen.py` formats JSONL to markdown, using custom formatters when available

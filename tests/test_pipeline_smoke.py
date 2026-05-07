@@ -4,9 +4,9 @@
 import json
 from pathlib import Path
 
-from think import thinking as think
-from think.activities import load_activity_records, make_activity_id
-from think.activity_state_machine import ActivityStateMachine
+from solstone.think import thinking as think
+from solstone.think.activities import load_activity_records, make_activity_id
+from solstone.think.activity_state_machine import ActivityStateMachine
 
 DAY = "20260304"
 STREAM = "default"

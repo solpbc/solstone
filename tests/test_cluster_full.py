@@ -5,8 +5,8 @@ import importlib
 import os
 from pathlib import Path
 
+from solstone.think.utils import day_path
 from tests.conftest import copytree_tracked
-from think.utils import day_path
 
 FIXTURES = Path("tests/fixtures")
 
@@ -20,7 +20,7 @@ def copy_day(tmp_path: Path) -> Path:
 
 
 def test_cluster_full(tmp_path, monkeypatch):
-    mod = importlib.import_module("think.cluster")
+    mod = importlib.import_module("solstone.think.cluster")
     copy_day(tmp_path)
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     md, counts = mod.cluster(
@@ -36,7 +36,7 @@ def test_cluster_full(tmp_path, monkeypatch):
 
 
 def test_cluster_default_sources(tmp_path, monkeypatch):
-    mod = importlib.import_module("think.cluster")
+    mod = importlib.import_module("solstone.think.cluster")
     copy_day(tmp_path)
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     out, _counts = mod.cluster(
@@ -47,7 +47,7 @@ def test_cluster_default_sources(tmp_path, monkeypatch):
 
 
 def test_cluster_range_raw_screen(tmp_path, monkeypatch):
-    mod = importlib.import_module("think.cluster")
+    mod = importlib.import_module("solstone.think.cluster")
     copy_day(tmp_path)
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     out = mod.cluster_range(

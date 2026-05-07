@@ -6,10 +6,13 @@ from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
-from think.talent import get_talent
+from solstone.think.talent import get_talent
 
 DAILY_SCHEDULE_SCHEMA_PATH = (
-    Path(__file__).resolve().parents[1] / "talent" / "daily_schedule.schema.json"
+    Path(__file__).resolve().parents[1]
+    / "solstone"
+    / "talent"
+    / "daily_schedule.schema.json"
 )
 
 

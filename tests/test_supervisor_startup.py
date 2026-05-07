@@ -7,11 +7,11 @@ from unittest import mock
 
 import pytest
 
-import think.utils as utils
+import solstone.think.utils as utils
 
 
 def test_task_queue_defers_submit_when_not_ready(monkeypatch):
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.import_module("solstone.think.supervisor")
     queue = mod.TaskQueue(on_queue_change=None, ready=False)
 
     started = []
@@ -39,7 +39,7 @@ def test_task_queue_defers_submit_when_not_ready(monkeypatch):
 
 
 def test_task_queue_set_ready_drains_in_submission_order(monkeypatch):
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.import_module("solstone.think.supervisor")
     queue = mod.TaskQueue(on_queue_change=None, ready=False)
 
     started = []
@@ -65,7 +65,7 @@ def test_task_queue_set_ready_drains_in_submission_order(monkeypatch):
 
 
 def test_task_queue_set_ready_dedupes_same_cmd_in_pending(monkeypatch):
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.import_module("solstone.think.supervisor")
     queue = mod.TaskQueue(on_queue_change=None, ready=False)
 
     started = []
@@ -93,7 +93,7 @@ def test_task_queue_set_ready_dedupes_same_cmd_in_pending(monkeypatch):
 
 
 def test_task_queue_ready_true_default_dispatches_immediately(monkeypatch):
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.import_module("solstone.think.supervisor")
     queue = mod.TaskQueue(on_queue_change=None)
 
     started = []
@@ -112,12 +112,12 @@ def test_task_queue_ready_true_default_dispatches_immediately(monkeypatch):
 
 
 def test_wait_for_convey_ready_success(caplog):
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.import_module("solstone.think.supervisor")
     caplog.set_level("INFO")
     convey_mp = SimpleNamespace(process=SimpleNamespace(poll=lambda: None))
 
     with mock.patch(
-        "think.supervisor.is_solstone_up",
+        "solstone.think.supervisor.is_solstone_up",
         side_effect=[False, False, True],
     ) as probe:
         assert mod.wait_for_convey_ready(convey_mp, timeout=1.0, interval=0.001) is True
@@ -127,16 +127,18 @@ def test_wait_for_convey_ready_success(caplog):
 
 
 def test_wait_for_convey_ready_timeout(caplog):
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.import_module("solstone.think.supervisor")
     caplog.set_level("ERROR")
     convey_mp = SimpleNamespace(process=SimpleNamespace(poll=lambda: None))
     ticks = iter([0.0, 0.0, 0.1, 0.2, 0.3, 0.35])
 
-    with mock.patch("think.supervisor.is_solstone_up", return_value=False):
-        with mock.patch("think.supervisor.read_service_port", return_value=5015):
-            with mock.patch("think.supervisor.time.sleep", return_value=None):
+    with mock.patch("solstone.think.supervisor.is_solstone_up", return_value=False):
+        with mock.patch(
+            "solstone.think.supervisor.read_service_port", return_value=5015
+        ):
+            with mock.patch("solstone.think.supervisor.time.sleep", return_value=None):
                 with mock.patch(
-                    "think.supervisor.time.monotonic",
+                    "solstone.think.supervisor.time.monotonic",
                     side_effect=lambda: next(ticks),
                 ):
                     assert (
@@ -152,11 +154,11 @@ def test_wait_for_convey_ready_timeout(caplog):
 
 
 def test_wait_for_convey_ready_convey_died(caplog):
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.import_module("solstone.think.supervisor")
     caplog.set_level("ERROR")
     convey_mp = SimpleNamespace(process=SimpleNamespace(poll=lambda: -11))
 
-    with mock.patch("think.supervisor.is_solstone_up") as probe:
+    with mock.patch("solstone.think.supervisor.is_solstone_up") as probe:
         assert (
             mod.wait_for_convey_ready(convey_mp, timeout=1.0, interval=0.001) is False
         )
@@ -169,7 +171,7 @@ def test_require_solstone_tempfail_when_supervisor_spawned(monkeypatch, capsys):
     monkeypatch.delenv("SOL_SKIP_SUPERVISOR_CHECK", raising=False)
     monkeypatch.setenv("SOL_SUPERVISOR_SPAWNED", "1")
 
-    with mock.patch("think.utils.is_solstone_up", return_value=False):
+    with mock.patch("solstone.think.utils.is_solstone_up", return_value=False):
         with pytest.raises(SystemExit) as exc_info:
             utils.require_solstone()
 
@@ -181,7 +183,7 @@ def test_require_solstone_exit1_when_not_supervisor_spawned(monkeypatch, capsys)
     monkeypatch.delenv("SOL_SKIP_SUPERVISOR_CHECK", raising=False)
     monkeypatch.delenv("SOL_SUPERVISOR_SPAWNED", raising=False)
 
-    with mock.patch("think.utils.is_solstone_up", return_value=False):
+    with mock.patch("solstone.think.utils.is_solstone_up", return_value=False):
         with pytest.raises(SystemExit) as exc_info:
             utils.require_solstone()
 
@@ -197,14 +199,14 @@ def test_require_solstone_skip_env_still_honored(monkeypatch):
     monkeypatch.delenv("SOL_SUPERVISOR_SPAWNED", raising=False)
 
     with mock.patch(
-        "think.utils.is_solstone_up",
+        "solstone.think.utils.is_solstone_up",
         side_effect=AssertionError("should not run"),
     ):
         assert utils.require_solstone() is None
 
 
 def test_startup_submits_digest_once():
-    mod = importlib.reload(importlib.import_module("think.supervisor"))
+    mod = importlib.reload(importlib.import_module("solstone.think.supervisor"))
     submit = mock.Mock()
 
     mod._task_queue = SimpleNamespace(submit=submit)
@@ -219,7 +221,7 @@ def test_startup_submits_digest_once():
 
 
 def test_startup_skips_digest_when_no_cortex():
-    mod = importlib.reload(importlib.import_module("think.supervisor"))
+    mod = importlib.reload(importlib.import_module("solstone.think.supervisor"))
     submit = mock.Mock()
 
     mod._task_queue = SimpleNamespace(submit=submit)

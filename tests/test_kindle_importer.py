@@ -7,8 +7,8 @@ import os
 import tempfile
 from pathlib import Path
 
-from think.entities.observations import load_observations
-from think.importers.kindle import KindleImporter, _parse_block, _parse_date
+from solstone.think.entities.observations import load_observations
+from solstone.think.importers.kindle import KindleImporter, _parse_block, _parse_date
 
 importer = KindleImporter()
 
@@ -421,7 +421,10 @@ def test_observations_engagement_excludes_bookmarks(tmp_path, monkeypatch):
 
 
 def test_registered_in_registry():
-    from think.importers.file_importer import FILE_IMPORTER_REGISTRY, get_file_importer
+    from solstone.think.importers.file_importer import (
+        FILE_IMPORTER_REGISTRY,
+        get_file_importer,
+    )
 
     assert "kindle" in FILE_IMPORTER_REGISTRY
     imp = get_file_importer("kindle")

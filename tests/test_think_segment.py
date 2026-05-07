@@ -67,24 +67,24 @@ class TestLoadSegmentFacets:
     """Tests for load_segment_facets helper function."""
 
     def test_missing_file_returns_empty(self, segment_dir):
-        from think.facets import load_segment_facets
+        from solstone.think.facets import load_segment_facets
 
         assert load_segment_facets("20240115", "120000_300") == []
 
     def test_empty_file_returns_empty(self, segment_dir):
-        from think.facets import load_segment_facets
+        from solstone.think.facets import load_segment_facets
 
         (segment_dir / "talents" / "facets.json").write_text("")
         assert load_segment_facets("20240115", "120000_300") == []
 
     def test_empty_array_returns_empty(self, segment_dir):
-        from think.facets import load_segment_facets
+        from solstone.think.facets import load_segment_facets
 
         (segment_dir / "talents" / "facets.json").write_text("[]")
         assert load_segment_facets("20240115", "120000_300") == []
 
     def test_valid_facets_extracted(self, segment_dir):
-        from think.facets import load_segment_facets
+        from solstone.think.facets import load_segment_facets
 
         facets_data = [
             {"facet": "work", "activity": "Code review", "level": "high"},
@@ -95,21 +95,21 @@ class TestLoadSegmentFacets:
         assert load_segment_facets("20240115", "120000_300") == ["work", "personal"]
 
     def test_malformed_json_returns_empty(self, segment_dir, caplog):
-        from think.facets import load_segment_facets
+        from solstone.think.facets import load_segment_facets
 
         (segment_dir / "talents" / "facets.json").write_text("{ invalid json")
         assert load_segment_facets("20240115", "120000_300") == []
         assert "Failed to parse facets.json" in caplog.text
 
     def test_non_array_returns_empty(self, segment_dir, caplog):
-        from think.facets import load_segment_facets
+        from solstone.think.facets import load_segment_facets
 
         (segment_dir / "talents" / "facets.json").write_text('{"facet": "work"}')
         assert load_segment_facets("20240115", "120000_300") == []
         assert "not an array" in caplog.text
 
     def test_missing_facet_field_skipped(self, segment_dir):
-        from think.facets import load_segment_facets
+        from solstone.think.facets import load_segment_facets
 
         facets_data = [
             {"facet": "work", "activity": "Coding"},
@@ -123,7 +123,7 @@ class TestLoadSegmentFacets:
 
 class TestRunSegmentSense:
     def test_sense_runs_first(self, segment_dir, monkeypatch):
-        from think import thinking as think
+        from solstone.think import thinking as think
 
         spawned = []
         _write_sense_output(
@@ -162,7 +162,7 @@ class TestRunSegmentSense:
         assert failed_names == []
 
     def test_idle_segment_returns_early(self, segment_dir, monkeypatch):
-        from think import thinking as think
+        from solstone.think import thinking as think
 
         spawned = []
         updates = []
@@ -242,7 +242,7 @@ class TestRunSegmentSense:
         }
 
     def test_conditional_screen_dispatch(self, segment_dir, monkeypatch):
-        from think import thinking as think
+        from solstone.think import thinking as think
 
         spawned = []
         _write_sense_output(
@@ -293,7 +293,7 @@ class TestRunSegmentSense:
         has_embeddings,
         expected,
     ):
-        from think import thinking as think
+        from solstone.think import thinking as think
 
         spawned = []
         if has_embeddings:
@@ -340,7 +340,7 @@ class TestRunSegmentSense:
         assert spawned == expected
 
     def test_refresh_bypasses_idle(self, segment_dir, monkeypatch):
-        from think import thinking as think
+        from solstone.think import thinking as think
 
         spawned = []
         _write_sense_output(
@@ -379,7 +379,7 @@ class TestRunSegmentSense:
         assert failed_names == []
 
     def test_entities_always_runs(self, segment_dir, monkeypatch):
-        from think import thinking as think
+        from solstone.think import thinking as think
 
         spawned = []
         _write_sense_output(
@@ -418,7 +418,7 @@ class TestRunSegmentSense:
         assert "screen" not in spawned
 
     def test_pulse_dispatch(self, segment_dir, monkeypatch):
-        from think import thinking as think
+        from solstone.think import thinking as think
 
         spawned = []
         _write_sense_output(
@@ -456,7 +456,7 @@ class TestRunSegmentSense:
         assert spawned == ["sense", "entities", "pulse"]
 
     def test_sense_failure_stops_orchestrator(self, segment_dir, monkeypatch):
-        from think import thinking as think
+        from solstone.think import thinking as think
 
         spawned = []
         _write_sense_output(
@@ -495,7 +495,7 @@ class TestRunSegmentSense:
         assert failed_names == ["sense (error)"]
 
     def test_activity_state_machine_updated(self, segment_dir, monkeypatch):
-        from think import thinking as think
+        from solstone.think import thinking as think
 
         updates = []
         activity_calls = []
@@ -600,7 +600,7 @@ class TestRunSegmentSense:
         }
 
     def test_generator_triggers_incremental_indexing(self, segment_dir, monkeypatch):
-        from think import thinking as think
+        from solstone.think import thinking as think
 
         indexer_calls = []
         _write_sense_output(
@@ -654,7 +654,7 @@ class TestRunSegmentSense:
         assert "--rescan-file" in indexer_calls[0]
 
     def test_send_failure_counted(self, segment_dir, monkeypatch):
-        from think import thinking as think
+        from solstone.think import thinking as think
 
         calls = []
         _write_sense_output(
@@ -701,7 +701,7 @@ class TestCortexRequestRetry:
     """Tests for _cortex_request_with_retry."""
 
     def test_succeeds_on_first_try(self, monkeypatch):
-        from think import thinking as think
+        from solstone.think import thinking as think
 
         calls = []
 
@@ -717,7 +717,7 @@ class TestCortexRequestRetry:
         assert len(calls) == 1
 
     def test_succeeds_on_retry(self, monkeypatch):
-        from think import thinking as think
+        from solstone.think import thinking as think
 
         calls = []
 
@@ -734,7 +734,7 @@ class TestCortexRequestRetry:
         assert len(calls) == 2
 
     def test_returns_none_after_all_retries(self, monkeypatch):
-        from think import thinking as think
+        from solstone.think import thinking as think
 
         calls = []
 
@@ -755,7 +755,7 @@ class TestStreamAutoResolution:
     """Tests for stream resolution in segment mode."""
 
     def test_auto_resolves_stream_from_filesystem(self, segment_dir, monkeypatch):
-        mod = importlib.import_module("think.thinking")
+        mod = importlib.import_module("solstone.think.thinking")
         calls: list[dict] = []
 
         class MockCallosumConnection:
@@ -806,7 +806,7 @@ class TestStreamAutoResolution:
         assert calls[0]["stream"] == "mystream"
 
     def test_segment_not_found_exits(self, segment_dir, monkeypatch):
-        mod = importlib.import_module("think.thinking")
+        mod = importlib.import_module("solstone.think.thinking")
 
         class MockCallosumConnection:
             def __init__(self, *args, **kwargs):
@@ -839,7 +839,7 @@ class TestStreamAutoResolution:
         assert excinfo.value.code != 0
 
     def test_explicit_stream_skips_filesystem_lookup(self, segment_dir, monkeypatch):
-        mod = importlib.import_module("think.thinking")
+        mod = importlib.import_module("solstone.think.thinking")
         iter_calls = 0
         calls: list[dict] = []
 
@@ -897,7 +897,7 @@ class TestThinkJSONLWriter:
     """Tests for ThinkingJSONLWriter."""
 
     def test_noop_when_no_path(self):
-        from think.thinking import ThinkingJSONLWriter
+        from solstone.think.thinking import ThinkingJSONLWriter
 
         writer = ThinkingJSONLWriter(None)
         writer.log("test.event", foo="bar")
@@ -906,7 +906,7 @@ class TestThinkJSONLWriter:
         assert writer.skip_count == 0
 
     def test_writes_jsonl_to_file(self, tmp_path):
-        from think.thinking import ThinkingJSONLWriter
+        from solstone.think.thinking import ThinkingJSONLWriter
 
         path = tmp_path / "test.jsonl"
         writer = ThinkingJSONLWriter(str(path))
@@ -930,7 +930,7 @@ class TestThinkJSONLWriter:
         assert writer.skip_count == 1
 
     def test_creates_parent_dirs(self, tmp_path):
-        from think.thinking import ThinkingJSONLWriter
+        from solstone.think.thinking import ThinkingJSONLWriter
 
         path = tmp_path / "nested" / "dir" / "test.jsonl"
         writer = ThinkingJSONLWriter(str(path))
@@ -945,8 +945,8 @@ class TestThinkJSONLEvents:
 
     def test_density_idle_skip_event(self, segment_dir, monkeypatch):
         """JSONL emits talent.skip with reason=density_idle for idle segments."""
-        from think import thinking as think
-        from think.thinking import ThinkingJSONLWriter
+        from solstone.think import thinking as think
+        from solstone.think.thinking import ThinkingJSONLWriter
 
         jsonl_path = segment_dir.parent.parent / "health" / "test_idle.jsonl"
         writer = ThinkingJSONLWriter(str(jsonl_path))
@@ -992,8 +992,8 @@ class TestThinkJSONLEvents:
         assert any(skip["reason"] == "density_idle" for skip in skips)
 
     def test_sense_complete_and_skip_events(self, segment_dir, monkeypatch):
-        from think import thinking as think
-        from think.thinking import ThinkingJSONLWriter
+        from solstone.think import thinking as think
+        from solstone.think.thinking import ThinkingJSONLWriter
 
         jsonl_path = segment_dir.parent.parent / "health" / "test_think.jsonl"
         writer = ThinkingJSONLWriter(str(jsonl_path))

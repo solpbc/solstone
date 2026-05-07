@@ -5,7 +5,9 @@ from pathlib import Path
 
 import frontmatter
 
-PARTICIPATION_PATH = Path(__file__).resolve().parents[1] / "talent" / "participation.md"
+PARTICIPATION_PATH = (
+    Path(__file__).resolve().parents[1] / "solstone" / "talent" / "participation.md"
+)
 
 
 def test_participation_talent_frontmatter_and_placeholders():

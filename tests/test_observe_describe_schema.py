@@ -7,8 +7,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from jsonschema import Draft202012Validator
 
-from observe import describe as describe_mod
-from think.batch import Batch
+from solstone.observe import describe as describe_mod
+from solstone.think.batch import Batch
 
 _SCHEMA = describe_mod._SCHEMA
 
@@ -94,7 +94,7 @@ def test_describe_schema_accepts_and_rejects_expected_values():
 
 
 @pytest.mark.asyncio
-@patch("think.batch.agenerate", new_callable=AsyncMock)
+@patch("solstone.think.batch.agenerate", new_callable=AsyncMock)
 async def test_describe_batch_call_passes_schema(mock_agenerate):
     mock_agenerate.return_value = (
         '{"visual_description":"A code editor is visible.","primary":"code",'

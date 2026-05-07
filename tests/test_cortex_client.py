@@ -12,16 +12,16 @@ from pathlib import Path
 
 import pytest
 
-from think.callosum import CallosumConnection, CallosumServer
-from think.cortex_client import (
+from solstone.think.callosum import CallosumConnection, CallosumServer
+from solstone.think.cortex_client import (
     cortex_request,
     cortex_uses,
     get_use_end_state,
     get_use_log_status,
     wait_for_uses,
 )
-from think.models import GPT_5
-from think.utils import now_ms
+from solstone.think.models import GPT_5
+from solstone.think.utils import now_ms
 
 
 @pytest.fixture
@@ -150,7 +150,9 @@ def test_cortex_request_unique_agent_ids(callosum_server):
 
 def test_cortex_request_returns_none_on_send_failure(callosum_server, monkeypatch):
     """Test cortex_request returns None when callosum_send fails."""
-    monkeypatch.setattr("think.cortex_client.callosum_send", lambda *a, **kw: False)
+    monkeypatch.setattr(
+        "solstone.think.cortex_client.callosum_send", lambda *a, **kw: False
+    )
 
     use_id = cortex_request(prompt="Test", name="chat", provider="openai")
 
@@ -159,7 +161,9 @@ def test_cortex_request_returns_none_on_send_failure(callosum_server, monkeypatc
 
 def test_cortex_request_empty_journal(tmp_path, monkeypatch):
     """Test cortex_request works with an empty journal directory."""
-    monkeypatch.setattr("think.cortex_client.callosum_send", lambda *a, **kw: True)
+    monkeypatch.setattr(
+        "solstone.think.cortex_client.callosum_send", lambda *a, **kw: True
+    )
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     use_id = cortex_request("test", "chat", "openai")

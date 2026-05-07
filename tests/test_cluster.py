@@ -5,7 +5,7 @@ import importlib
 
 import pytest
 
-from think.utils import day_path
+from solstone.think.utils import day_path
 
 
 def test_cluster(tmp_path, monkeypatch):
@@ -13,7 +13,7 @@ def test_cluster(tmp_path, monkeypatch):
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     day_dir = day_path("20240101")
 
-    mod = importlib.import_module("think.cluster")
+    mod = importlib.import_module("solstone.think.cluster")
     # Write JSONL format: metadata first, then entry in segment directory
     (day_dir / "default" / "120000_300").mkdir(parents=True)
     (day_dir / "default" / "120000_300" / "audio.jsonl").write_text(
@@ -39,7 +39,7 @@ def test_cluster_range(tmp_path, monkeypatch):
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     day_dir = day_path("20240101")
 
-    mod = importlib.import_module("think.cluster")
+    mod = importlib.import_module("solstone.think.cluster")
     # Write JSONL format: metadata first, then entry with proper start time and source in segment directory
     (day_dir / "default" / "120000_300").mkdir(parents=True)
     (day_dir / "default" / "120000_300" / "audio.jsonl").write_text(
@@ -68,7 +68,7 @@ def test_cluster_scan(tmp_path, monkeypatch):
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     day_dir = day_path("20240101")
 
-    mod = importlib.import_module("think.cluster")
+    mod = importlib.import_module("solstone.think.cluster")
     # Audio transcripts at 09:01, 09:05, 09:20 and 11:00 (JSONL format with empty metadata)
     (day_dir / "default" / "090101_300").mkdir(parents=True)
     (day_dir / "default" / "090101_300" / "audio.jsonl").write_text("{}\n")
@@ -107,7 +107,7 @@ def test_cluster_segments(tmp_path, monkeypatch):
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     day_dir = day_path("20240101")
 
-    mod = importlib.import_module("think.cluster")
+    mod = importlib.import_module("solstone.think.cluster")
 
     # Create segment with duration: 090000_300 (09:00:00 for 5 minutes)
     (day_dir / "default" / "090000_300").mkdir(parents=True)
@@ -155,7 +155,7 @@ def test_cluster_period_uses_raw_screen(tmp_path, monkeypatch):
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     day_dir = day_path("20240101")
 
-    mod = importlib.import_module("think.cluster")
+    mod = importlib.import_module("solstone.think.cluster")
 
     # Create segment with both audio and raw screen data
     segment = day_dir / "default" / "100000_300"
@@ -198,7 +198,7 @@ def test_load_entries_from_toplevel_segment(tmp_path, monkeypatch):
     segment = day_dir / "100000_300"
     segment.mkdir()
 
-    mod = importlib.import_module("think.cluster")
+    mod = importlib.import_module("solstone.think.cluster")
 
     entries = mod._load_entries_from_segment(
         str(segment),
@@ -215,7 +215,7 @@ def test_cluster_range_with_agents(tmp_path, monkeypatch):
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     day_dir = day_path("20240101")
 
-    mod = importlib.import_module("think.cluster")
+    mod = importlib.import_module("solstone.think.cluster")
 
     # Create segment with multiple insight files
     segment = day_dir / "default" / "100000_300"
@@ -255,7 +255,7 @@ def test_cluster_range_with_screen(tmp_path, monkeypatch):
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     day_dir = day_path("20240101")
 
-    mod = importlib.import_module("think.cluster")
+    mod = importlib.import_module("solstone.think.cluster")
 
     # Create segment with raw screen data and insight file
     segment = day_dir / "default" / "100000_300"
@@ -287,7 +287,7 @@ def test_cluster_range_with_multiple_screen_files(tmp_path, monkeypatch):
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     day_dir = day_path("20240101")
 
-    mod = importlib.import_module("think.cluster")
+    mod = importlib.import_module("solstone.think.cluster")
 
     # Create segment with multiple screen files (like multi-monitor setup)
     segment = day_dir / "default" / "100000_300"
@@ -321,7 +321,7 @@ def test_cluster_scan_with_split_screen(tmp_path, monkeypatch):
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     day_dir = day_path("20240101")
 
-    mod = importlib.import_module("think.cluster")
+    mod = importlib.import_module("solstone.think.cluster")
 
     # Create segment with only *_screen.jsonl (no screen.jsonl)
     (day_dir / "default" / "100000_300").mkdir(parents=True)
@@ -340,7 +340,7 @@ def test_cluster_segments_with_split_screen(tmp_path, monkeypatch):
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     day_dir = day_path("20240101")
 
-    mod = importlib.import_module("think.cluster")
+    mod = importlib.import_module("solstone.think.cluster")
 
     # Create segment with only *_screen.jsonl (no screen.jsonl)
     (day_dir / "default" / "100000_300").mkdir(parents=True)
@@ -360,7 +360,7 @@ def test_cluster_span(tmp_path, monkeypatch):
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     day_dir = day_path("20240101")
 
-    mod = importlib.import_module("think.cluster")
+    mod = importlib.import_module("solstone.think.cluster")
 
     # Create three segments with different content
     (day_dir / "default" / "090000_300").mkdir(parents=True)
@@ -404,7 +404,7 @@ def test_cluster_span_missing_segment(tmp_path, monkeypatch):
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     day_dir = day_path("20240101")
 
-    mod = importlib.import_module("think.cluster")
+    mod = importlib.import_module("solstone.think.cluster")
 
     # Create only one segment
     (day_dir / "default" / "090000_300").mkdir(parents=True)
@@ -429,7 +429,7 @@ def test_cluster_with_agent_filter_dict(tmp_path, monkeypatch):
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     day_dir = day_path("20240101")
 
-    mod = importlib.import_module("think.cluster")
+    mod = importlib.import_module("solstone.think.cluster")
 
     # Create segment with multiple agent output files
     segment = day_dir / "default" / "120000_300"
@@ -458,7 +458,7 @@ def test_cluster_with_agent_filter_multiple(tmp_path, monkeypatch):
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     day_dir = day_path("20240101")
 
-    mod = importlib.import_module("think.cluster")
+    mod = importlib.import_module("solstone.think.cluster")
 
     # Create segment with multiple agent output files
     segment = day_dir / "default" / "120000_300"
@@ -491,7 +491,7 @@ def test_cluster_with_agent_filter_app_namespaced(tmp_path, monkeypatch):
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     day_dir = day_path("20240101")
 
-    mod = importlib.import_module("think.cluster")
+    mod = importlib.import_module("solstone.think.cluster")
 
     # Create segment with app-namespaced agent output files
     # App agent output naming: "app:agent" -> "_app_agent.md"
@@ -523,7 +523,7 @@ def test_cluster_with_empty_agent_filter(tmp_path, monkeypatch):
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     day_dir = day_path("20240101")
 
-    mod = importlib.import_module("think.cluster")
+    mod = importlib.import_module("solstone.think.cluster")
 
     segment = day_dir / "default" / "120000_300"
     segment.mkdir(parents=True)
@@ -544,7 +544,7 @@ def test_cluster_with_empty_agent_filter(tmp_path, monkeypatch):
 
 def test_filename_to_agent_key():
     """Test _filename_to_agent_key conversion."""
-    from think.cluster import _filename_to_agent_key
+    from solstone.think.cluster import _filename_to_agent_key
 
     # System agents
     assert _filename_to_agent_key("entities") == "entities"
@@ -560,7 +560,7 @@ def test_filename_to_agent_key():
 
 def test_agent_matches_filter():
     """Test _agent_matches_filter logic."""
-    from think.cluster import _agent_matches_filter
+    from solstone.think.cluster import _agent_matches_filter
 
     # None filter means all agents
     assert _agent_matches_filter("entities", None) is True
@@ -582,7 +582,7 @@ def test_scan_day_combined(tmp_path, monkeypatch):
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     day_dir = day_path("20240101")
 
-    mod = importlib.import_module("think.cluster")
+    mod = importlib.import_module("solstone.think.cluster")
 
     first = day_dir / "default" / "090000_300"
     first.mkdir(parents=True)
@@ -622,7 +622,7 @@ def test_scan_day_combined(tmp_path, monkeypatch):
 def test_scan_day_empty(tmp_path, monkeypatch):
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
-    mod = importlib.import_module("think.cluster")
+    mod = importlib.import_module("solstone.think.cluster")
 
     assert mod.scan_day("20250101") == ([], [], [])
 
@@ -642,7 +642,7 @@ def test_find_segment_dir_missing_streamed_segment_does_not_create_directory(
 ):
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
-    mod = importlib.import_module("think.cluster")
+    mod = importlib.import_module("solstone.think.cluster")
     result = mod._find_segment_dir("29990101", "090000_300", "default")
 
     assert result is None

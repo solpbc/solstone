@@ -7,7 +7,7 @@ import threading
 
 import pytest
 
-from think.streams import (
+from solstone.think.streams import (
     get_stream_state,
     list_streams,
     read_segment_stream,

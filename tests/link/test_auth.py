@@ -10,7 +10,7 @@ import json
 import time
 from pathlib import Path
 
-from think.link.auth import AuthorizedClients
+from solstone.think.link.auth import AuthorizedClients
 
 
 def test_empty_file_is_empty(tmp_path: Path) -> None:

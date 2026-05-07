@@ -11,7 +11,7 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from think.call import call_app
+from solstone.think.call import call_app
 
 runner = CliRunner()
 
@@ -59,7 +59,7 @@ def test_journal_export_default_path_and_quiet(tmp_path, monkeypatch):
 
 
 def test_journal_export_service_down_bypasses_require_up(journal_copy, monkeypatch):
-    import think.tools.call as call_module
+    import solstone.think.tools.call as call_module
 
     archive_path = journal_copy.parent / "journal-export.zip"
 
@@ -75,7 +75,7 @@ def test_journal_export_service_down_bypasses_require_up(journal_copy, monkeypat
 
 
 def test_journal_export_atomic_write_failure(journal_copy, monkeypatch):
-    import think.journal_export as export_module
+    import solstone.think.journal_export as export_module
 
     archive_path = journal_copy.parent / "journal-export.zip"
 
@@ -92,7 +92,7 @@ def test_journal_export_atomic_write_failure(journal_copy, monkeypatch):
 
 
 def test_journal_export_service_up_advisory(journal_copy, monkeypatch):
-    import think.tools.call as call_module
+    import solstone.think.tools.call as call_module
 
     archive_path = journal_copy.parent / "journal-export.zip"
     monkeypatch.setattr(call_module, "is_solstone_up", lambda: True)

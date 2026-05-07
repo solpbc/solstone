@@ -7,17 +7,21 @@ from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
-import think.models as models
+import solstone.think.models as models
 
-mod = importlib.import_module("think.detect_transcript")
+mod = importlib.import_module("solstone.think.detect_transcript")
 
 DETECT_TRANSCRIPT_SEGMENT_SCHEMA_PATH = (
     Path(__file__).resolve().parents[1]
+    / "solstone"
     / "think"
     / "detect_transcript_segment.schema.json"
 )
 DETECT_TRANSCRIPT_JSON_SCHEMA_PATH = (
-    Path(__file__).resolve().parents[1] / "think" / "detect_transcript_json.schema.json"
+    Path(__file__).resolve().parents[1]
+    / "solstone"
+    / "think"
+    / "detect_transcript_json.schema.json"
 )
 
 

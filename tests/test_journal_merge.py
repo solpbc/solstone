@@ -11,8 +11,8 @@ from types import SimpleNamespace
 import pytest
 from typer.testing import CliRunner
 
-from think.call import call_app
-from think.merge import DecisionLogWriteError, merge_journals
+from solstone.think.call import call_app
+from solstone.think.merge import DecisionLogWriteError, merge_journals
 
 runner = CliRunner()
 
@@ -54,7 +54,7 @@ def _find_merge_artifact_root(target: Path) -> Path:
 
 
 def _mock_indexer(monkeypatch):
-    import think.tools.call as call_module
+    import solstone.think.tools.call as call_module
 
     calls = []
 
@@ -130,11 +130,11 @@ def merge_journals_fixture(tmp_path, monkeypatch):
     )
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(target))
-    import think.utils
+    import solstone.think.utils as think_utils
 
-    think.utils._journal_path_cache = None
+    think_utils._journal_path_cache = None
     yield {"target": target, "source": source}
-    think.utils._journal_path_cache = None
+    think_utils._journal_path_cache = None
 
 
 def test_segment_copy(merge_journals_fixture, monkeypatch):
@@ -621,7 +621,7 @@ def test_error_resilience(merge_journals_fixture, monkeypatch):
         encoding="utf-8",
     )
 
-    import think.merge as journal_merge_module
+    import solstone.think.merge as journal_merge_module
 
     real_copytree = shutil.copytree
     bad_segment = paths["source"] / "20260101" / "150000_60"
@@ -745,7 +745,7 @@ def test_merge_json_partial_errors_still_succeed(merge_journals_fixture, monkeyp
         encoding="utf-8",
     )
 
-    import think.merge as journal_merge_module
+    import solstone.think.merge as journal_merge_module
 
     real_copytree = shutil.copytree
     bad_segment = paths["source"] / "20260101" / "150000_60"
@@ -771,7 +771,7 @@ def test_merge_json_decision_log_failure(merge_journals_fixture, monkeypatch):
     paths = merge_journals_fixture
     _mock_indexer(monkeypatch)
 
-    import think.merge as journal_merge_module
+    import solstone.think.merge as journal_merge_module
 
     def failing_log(*args, **kwargs):
         raise DecisionLogWriteError("boom")
@@ -792,7 +792,7 @@ def test_merge_json_merge_engine_error(merge_journals_fixture, monkeypatch):
     paths = merge_journals_fixture
     _mock_indexer(monkeypatch)
 
-    import think.merge as journal_merge_module
+    import solstone.think.merge as journal_merge_module
 
     def boom(*args, **kwargs):
         raise RuntimeError("merge boom")

@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, Mock, call
 
 import pytest
 
-import think.supervisor as mod
+import solstone.think.supervisor as mod
 
 
 @pytest.fixture

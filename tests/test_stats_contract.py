@@ -31,6 +31,7 @@ CONTRACT_FIELDS = [
 
 JS_PATH = (
     Path(__file__).resolve().parent.parent
+    / "solstone"
     / "apps"
     / "stats"
     / "static"
@@ -124,8 +125,8 @@ def _scan_output(journal, stats_mod):
 
 
 def test_generated_stats_pass_schema(tmp_path, monkeypatch):
-    stats_mod = importlib.import_module("think.journal_stats")
-    schema_mod = importlib.import_module("think.stats_schema")
+    stats_mod = importlib.import_module("solstone.think.journal_stats")
+    schema_mod = importlib.import_module("solstone.think.stats_schema")
     journal = _build_journal(tmp_path)
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
 
@@ -137,7 +138,7 @@ def test_generated_stats_pass_schema(tmp_path, monkeypatch):
 
 
 def test_contract_fields_exist_in_output(tmp_path, monkeypatch):
-    stats_mod = importlib.import_module("think.journal_stats")
+    stats_mod = importlib.import_module("solstone.think.journal_stats")
     journal = _build_journal(tmp_path)
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
 
@@ -159,8 +160,8 @@ def test_contract_fields_referenced_in_js():
 
 
 def test_all_day_fields_have_nonzero_values(tmp_path, monkeypatch):
-    stats_mod = importlib.import_module("think.journal_stats")
-    schema_mod = importlib.import_module("think.stats_schema")
+    stats_mod = importlib.import_module("solstone.think.journal_stats")
+    schema_mod = importlib.import_module("solstone.think.stats_schema")
     journal = _build_journal(tmp_path)
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
 
@@ -172,7 +173,7 @@ def test_all_day_fields_have_nonzero_values(tmp_path, monkeypatch):
 
 
 def test_schema_rejects_missing_required_key():
-    schema_mod = importlib.import_module("think.stats_schema")
+    schema_mod = importlib.import_module("solstone.think.stats_schema")
     output = {
         "schema_version": schema_mod.SCHEMA_VERSION,
         "generated_at": "2026-04-10T00:00:00+00:00",
@@ -193,7 +194,7 @@ def test_schema_rejects_missing_required_key():
 
 
 def test_schema_rejects_wrong_version():
-    schema_mod = importlib.import_module("think.stats_schema")
+    schema_mod = importlib.import_module("solstone.think.stats_schema")
 
     errors = schema_mod.validate(
         {

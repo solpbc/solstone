@@ -8,7 +8,7 @@ from pathlib import Path
 
 from slugify import slugify
 
-from think.prompts import _resolve_facets
+from solstone.think.prompts import _resolve_facets
 
 
 def setup_entities_new_structure(

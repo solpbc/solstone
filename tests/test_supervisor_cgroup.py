@@ -7,7 +7,7 @@ import sys
 
 import pytest
 
-from think import supervisor
+from solstone.think import supervisor
 
 LINUX_ONLY = pytest.mark.skipif(
     sys.platform != "linux", reason="cgroup sweep is Linux-only"

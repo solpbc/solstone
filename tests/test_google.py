@@ -8,12 +8,12 @@ import sys
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
-from tests.conftest import setup_google_genai_stub
-from think.models import GEMINI_FLASH
-from think.providers.google import (
+from solstone.think.models import GEMINI_FLASH
+from solstone.think.providers.google import (
     _extract_finish_reason,
     _format_completion_message,
 )
+from tests.conftest import setup_google_genai_stub
 
 
 async def run_main(mod, argv, stdin_data=None):
@@ -78,9 +78,9 @@ def _assert_structured_contents(contents):
 
 def test_google_main(monkeypatch, tmp_path, capsys):
     setup_google_genai_stub(monkeypatch, with_thinking=False)
-    sys.modules.pop("think.providers.google", None)
-    importlib.reload(importlib.import_module("think.providers.google"))
-    mod = importlib.reload(importlib.import_module("think.talents"))
+    sys.modules.pop("solstone.think.providers.google", None)
+    importlib.reload(importlib.import_module("solstone.think.providers.google"))
+    mod = importlib.reload(importlib.import_module("solstone.think.talents"))
 
     journal = tmp_path / "journal"
     journal.mkdir()
@@ -88,11 +88,11 @@ def test_google_main(monkeypatch, tmp_path, capsys):
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
     monkeypatch.setattr(
-        "think.utils.get_config",
+        "solstone.think.utils.get_config",
         lambda: {"providers": {"google_backend": "aistudio"}},
     )
     monkeypatch.setattr(
-        "think.providers.cli.shutil.which",
+        "solstone.think.providers.cli.shutil.which",
         lambda name: "/usr/bin/gemini" if name == "gemini" else None,
     )
 
@@ -128,7 +128,7 @@ def test_google_main(monkeypatch, tmp_path, capsys):
     ]
     process = make_mock_process(stdout_lines)
     monkeypatch.setattr(
-        "think.providers.cli.asyncio.create_subprocess_exec",
+        "solstone.think.providers.cli.asyncio.create_subprocess_exec",
         AsyncMock(return_value=process),
     )
 
@@ -161,9 +161,9 @@ def test_google_main(monkeypatch, tmp_path, capsys):
 def test_google_cli_not_found_error(monkeypatch, tmp_path, capsys):
     setup_google_genai_stub(monkeypatch, with_thinking=False)
 
-    sys.modules.pop("think.providers.google", None)
-    importlib.reload(importlib.import_module("think.providers.google"))
-    mod = importlib.reload(importlib.import_module("think.talents"))
+    sys.modules.pop("solstone.think.providers.google", None)
+    importlib.reload(importlib.import_module("solstone.think.providers.google"))
+    mod = importlib.reload(importlib.import_module("solstone.think.talents"))
 
     journal = tmp_path / "journal"
     journal.mkdir()
@@ -171,10 +171,10 @@ def test_google_cli_not_found_error(monkeypatch, tmp_path, capsys):
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
     monkeypatch.setattr(
-        "think.utils.get_config",
+        "solstone.think.utils.get_config",
         lambda: {"providers": {"google_backend": "aistudio"}},
     )
-    monkeypatch.setattr("think.providers.cli.shutil.which", lambda _name: None)
+    monkeypatch.setattr("solstone.think.providers.cli.shutil.which", lambda _name: None)
 
     ndjson_input = json.dumps(
         {
@@ -281,8 +281,10 @@ def test_format_completion_message_none():
 class TestRunGenerateJsonSchema:
     def test_structured_messages_sync_mapped_to_google_contents(self, monkeypatch):
         setup_google_genai_stub(monkeypatch, with_thinking=False)
-        sys.modules.pop("think.providers.google", None)
-        provider = importlib.reload(importlib.import_module("think.providers.google"))
+        sys.modules.pop("solstone.think.providers.google", None)
+        provider = importlib.reload(
+            importlib.import_module("solstone.think.providers.google")
+        )
 
         mock_client = MagicMock()
         mock_client.models.generate_content.return_value = SimpleNamespace(
@@ -306,8 +308,10 @@ class TestRunGenerateJsonSchema:
 
     def test_structured_messages_async_mapped_to_google_contents(self, monkeypatch):
         setup_google_genai_stub(monkeypatch, with_thinking=False)
-        sys.modules.pop("think.providers.google", None)
-        provider = importlib.reload(importlib.import_module("think.providers.google"))
+        sys.modules.pop("solstone.think.providers.google", None)
+        provider = importlib.reload(
+            importlib.import_module("solstone.think.providers.google")
+        )
 
         mock_client = MagicMock()
         mock_client.aio.models.generate_content = AsyncMock(
@@ -333,8 +337,10 @@ class TestRunGenerateJsonSchema:
 
     def test_no_schema_kwargs_unchanged(self, monkeypatch):
         setup_google_genai_stub(monkeypatch, with_thinking=False)
-        sys.modules.pop("think.providers.google", None)
-        provider = importlib.reload(importlib.import_module("think.providers.google"))
+        sys.modules.pop("solstone.think.providers.google", None)
+        provider = importlib.reload(
+            importlib.import_module("solstone.think.providers.google")
+        )
 
         mock_client = MagicMock()
         mock_client.models.generate_content.return_value = SimpleNamespace(
@@ -354,8 +360,10 @@ class TestRunGenerateJsonSchema:
 
     def test_with_schema_adds_json_schema(self, monkeypatch):
         setup_google_genai_stub(monkeypatch, with_thinking=False)
-        sys.modules.pop("think.providers.google", None)
-        provider = importlib.reload(importlib.import_module("think.providers.google"))
+        sys.modules.pop("solstone.think.providers.google", None)
+        provider = importlib.reload(
+            importlib.import_module("solstone.think.providers.google")
+        )
 
         schema = {"type": "object"}
         mock_client = MagicMock()
@@ -378,8 +386,10 @@ class TestRunGenerateJsonSchema:
 
     def test_async_no_schema_kwargs_unchanged(self, monkeypatch):
         setup_google_genai_stub(monkeypatch, with_thinking=False)
-        sys.modules.pop("think.providers.google", None)
-        provider = importlib.reload(importlib.import_module("think.providers.google"))
+        sys.modules.pop("solstone.think.providers.google", None)
+        provider = importlib.reload(
+            importlib.import_module("solstone.think.providers.google")
+        )
 
         mock_client = MagicMock()
         mock_client.aio.models.generate_content = AsyncMock(
@@ -403,8 +413,10 @@ class TestRunGenerateJsonSchema:
 
     def test_async_with_schema_adds_json_schema(self, monkeypatch):
         setup_google_genai_stub(monkeypatch, with_thinking=False)
-        sys.modules.pop("think.providers.google", None)
-        provider = importlib.reload(importlib.import_module("think.providers.google"))
+        sys.modules.pop("solstone.think.providers.google", None)
+        provider = importlib.reload(
+            importlib.import_module("solstone.think.providers.google")
+        )
 
         schema = {"type": "object"}
         mock_client = MagicMock()

@@ -10,7 +10,7 @@ import json
 import pytest
 from werkzeug.security import check_password_hash
 
-from think.password_cli import main
+from solstone.think.password_cli import main
 
 
 def _read_config(journal_dir):
@@ -21,7 +21,7 @@ def _mock_getpass(monkeypatch, *responses):
     """Mock getpass.getpass to return successive responses."""
     it = iter(responses)
     monkeypatch.setattr(
-        "think.password_cli.getpass.getpass", lambda prompt="": next(it)
+        "solstone.think.password_cli.getpass.getpass", lambda prompt="": next(it)
     )
 
 

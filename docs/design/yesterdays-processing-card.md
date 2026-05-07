@@ -1,6 +1,6 @@
 # Yesterday's Processing Card
 
-## 1. Helper layout in `apps/home/routes.py`
+## 1. Helper layout in `solstone/apps/home/routes.py`
 
 Use the proposed top-level decomposition. It is the smallest layout that keeps template logic dumb and testable.
 
@@ -8,7 +8,7 @@ Use the proposed top-level decomposition. It is the smallest layout that keeps t
   Returns yesterday in local time as `YYYYMMDD`.
 
 - `_count_journal_age_days(today: str) -> int`
-  Scans `Path(get_journal()) / "chronicle"` for `YYYYMMDD` children and returns `(today - earliest).days`. Returns `0` when `chronicle/` is missing or has no day dirs. This matches `think/utils.py:105-124`, `think/utils.py:154-208`.
+  Scans `Path(get_journal()) / "chronicle"` for `YYYYMMDD` children and returns `(today - earliest).days`. Returns `0` when `chronicle/` is missing or has no day dirs. This matches `solstone/think/utils.py:105-124`, `solstone/think/utils.py:154-208`.
 
 - `_summarize_yesterday_processing(yesterday: str, journal_age_days: int) -> dict | None`
   Returns the full rendered card contract or `None` to hide the card.
@@ -19,10 +19,10 @@ Internal helpers called only by `_summarize_yesterday_processing`:
   Reads `chronicle/{yesterday}/stats.json`. Returns `None` on missing/invalid file.
 
 - `_load_yesterday_pipeline_summary(yesterday: str) -> dict`
-  Thin wrapper over `summarize_pipeline_day(yesterday)` from `think/pipeline_health.py:23-110`.
+  Thin wrapper over `summarize_pipeline_day(yesterday)` from `solstone/think/pipeline_health.py:23-110`.
 
 - `_collect_entities_yesterday(yesterday: str) -> list[dict[str, Any]]`
-  Same DB access pattern as `_collect_entities_today` at `apps/home/routes.py:296+`: `try`/`finally`, `conn.close()`, graceful empty on error.
+  Same DB access pattern as `_collect_entities_today` at `solstone/apps/home/routes.py:296+`: `try`/`finally`, `conn.close()`, graceful empty on error.
   Query `entity_signals` grouped by `entity_name`, join/fallback through `entities` identity rows the same way the existing helper does.
 
 - `_collect_top_activities_yesterday(yesterday: str) -> list[dict[str, Any]]`
@@ -125,13 +125,13 @@ Recommended rendered content by mode:
 
 ### Ground truth
 
-- `talent.fail` records include `name`, `use_id`, `state`, and optional `facet`, but `summarize_pipeline_day()` counts every failure and drops `facet` from `failed_list`. See `think/pipeline_health.py:81-99`.
-- `stats.json.facet_data` is not a newsletter ledger. It is built from `events.jsonl` durations in `think/journal_stats.py:296-319` and surfaced in `apps/home/routes.py:616-621`.
-- The facet newsletter writer is `sol call journal news`, implemented by `think/tools/facets.py:61-106`.
+- `talent.fail` records include `name`, `use_id`, `state`, and optional `facet`, but `summarize_pipeline_day()` counts every failure and drops `facet` from `failed_list`. See `solstone/think/pipeline_health.py:81-99`.
+- `stats.json.facet_data` is not a newsletter ledger. It is built from `events.jsonl` durations in `solstone/think/journal_stats.py:296-319` and surfaced in `solstone/apps/home/routes.py:616-621`.
+- The facet newsletter writer is `sol call journal news`, implemented by `solstone/think/tools/facets.py:61-106`.
 - The newsletter prompt key is stable: `facet_newsletter`.
   Reason:
-  system talent config keys come from `talent/*.md` filename stems in `think/talent.py:228-235`, and the file is `talent/facet_newsletter.md:1-15`.
-  Think logs emit `name=prompt_name` unchanged for dispatch and fail/complete events in `think/thinking.py:1277-1292` and `think/thinking.py:365-389`.
+  system talent config keys come from `solstone/talent/*.md` filename stems in `solstone/think/talent.py:228-235`, and the file is `solstone/talent/facet_newsletter.md:1-15`.
+  Think logs emit `name=prompt_name` unchanged for dispatch and fail/complete events in `solstone/think/thinking.py:1277-1292` and `solstone/think/thinking.py:365-389`.
 
 ### Option A — re-parse think JSONL for newsletter-specific facet fails
 
@@ -237,7 +237,7 @@ Notes:
 
 Placement:
 
-- Insert immediately after the closing `pulse-vitals` block in `apps/home/workspace.html`, before the welcome/briefing blocks. In current file layout that is directly after the `pulse-vitals` div shown around `apps/home/workspace.html:924-953`.
+- Insert immediately after the closing `pulse-vitals` block in `solstone/apps/home/workspace.html`, before the welcome/briefing blocks. In current file layout that is directly after the `pulse-vitals` div shown around `solstone/apps/home/workspace.html:924-953`.
 
 Markup:
 
@@ -258,13 +258,13 @@ Markup:
 
 Interaction:
 
-- Mirror the briefing card pattern in `apps/home/workspace.html:966-1005` and `apps/home/workspace.html:1379-1392`.
+- Mirror the briefing card pattern in `solstone/apps/home/workspace.html:966-1005` and `solstone/apps/home/workspace.html:1379-1392`.
 - Add `toggleYesterdayCard` as a sibling to `toggleBriefingCard`, or generalize both onto a shared helper if that is a pure extraction with no behavior change.
 - Do not add `pulse-yesterday` to `SECTION_IDS`; collapse state is server-driven each render.
 
 CSS:
 
-- Inline in `apps/home/workspace.html` with the other `.pulse-*` blocks.
+- Inline in `solstone/apps/home/workspace.html` with the other `.pulse-*` blocks.
 - Reuse briefing-card visual structure:
   rounded card, bordered shell, hover/focus treatment on header, summary hidden when expanded, body hidden when collapsed.
 - New classes only:
@@ -367,9 +367,9 @@ Fixture minimization rule:
 
 ## Implementation sequence
 
-1. Add route helpers and card contract assembly in `apps/home/routes.py`.
+1. Add route helpers and card contract assembly in `solstone/apps/home/routes.py`.
 2. Wire the new dict into `_build_pulse_context()` and `/app/home/api/pulse`.
-3. Add template markup and scoped CSS in `apps/home/workspace.html`.
+3. Add template markup and scoped CSS in `solstone/apps/home/workspace.html`.
 4. Add the card toggle helper, but no new refresh wiring.
 5. Add focused tests and minimal fixtures.
 

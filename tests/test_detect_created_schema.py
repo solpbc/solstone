@@ -7,12 +7,15 @@ from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
-import think.models as models
+import solstone.think.models as models
 
-detect_created_mod = importlib.import_module("think.detect_created")
+detect_created_mod = importlib.import_module("solstone.think.detect_created")
 
 DETECT_CREATED_SCHEMA_PATH = (
-    Path(__file__).resolve().parents[1] / "think" / "detect_created.schema.json"
+    Path(__file__).resolve().parents[1]
+    / "solstone"
+    / "think"
+    / "detect_created.schema.json"
 )
 
 

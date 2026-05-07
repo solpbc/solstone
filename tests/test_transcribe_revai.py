@@ -7,7 +7,7 @@ import json
 
 import pytest
 
-from observe.transcribe.revai import convert_to_statements
+from solstone.observe.transcribe.revai import convert_to_statements
 
 
 class TestConvertToStatements:
@@ -279,13 +279,13 @@ class TestBackendRegistry:
 
     def test_revai_registered(self):
         """Rev.ai backend is registered."""
-        from observe.transcribe import BACKEND_REGISTRY
+        from solstone.observe.transcribe import BACKEND_REGISTRY
 
         assert "revai" in BACKEND_REGISTRY
 
     def test_get_backend(self):
         """Can get Rev.ai backend module."""
-        from observe.transcribe import get_backend
+        from solstone.observe.transcribe import get_backend
 
         backend = get_backend("revai")
         assert hasattr(backend, "transcribe")
@@ -298,7 +298,7 @@ class TestGetModelInfo:
 
     def test_default_config(self):
         """Default config produces expected metadata."""
-        from observe.transcribe.revai import get_model_info
+        from solstone.observe.transcribe.revai import get_model_info
 
         info = get_model_info({})
 
@@ -309,7 +309,7 @@ class TestGetModelInfo:
 
     def test_custom_config(self):
         """Custom config is reflected in metadata."""
-        from observe.transcribe.revai import get_model_info
+        from solstone.observe.transcribe.revai import get_model_info
 
         info = get_model_info({"model": "machine", "diarization_type": "standard"})
 

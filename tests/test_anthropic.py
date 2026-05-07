@@ -9,7 +9,7 @@ import types
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
-from think.models import CLAUDE_SONNET_4
+from solstone.think.models import CLAUDE_SONNET_4
 
 
 async def run_main(mod, argv, stdin_data=None):
@@ -218,12 +218,12 @@ def _setup_claude_cli_stub(
 
 def test_claude_main(monkeypatch, tmp_path, capsys):
     _setup_anthropic_stub(monkeypatch)
-    sys.modules.pop("think.providers.anthropic", None)
+    sys.modules.pop("solstone.think.providers.anthropic", None)
     provider_mod = importlib.reload(
-        importlib.import_module("think.providers.anthropic")
+        importlib.import_module("solstone.think.providers.anthropic")
     )
     _setup_claude_cli_stub(monkeypatch, provider_mod)
-    mod = importlib.reload(importlib.import_module("think.talents"))
+    mod = importlib.reload(importlib.import_module("solstone.think.talents"))
 
     journal = tmp_path / "journal"
     journal.mkdir()
@@ -242,7 +242,7 @@ def test_claude_main(monkeypatch, tmp_path, capsys):
             "tools": ["search_insights"],
         }
     )
-    asyncio.run(run_main(mod, ["sol think.talents"], stdin_data=ndjson_input))
+    asyncio.run(run_main(mod, ["sol solstone.think.talents"], stdin_data=ndjson_input))
 
     out_lines = capsys.readouterr().out.strip().splitlines()
     events = [json.loads(line) for line in out_lines]
@@ -262,12 +262,12 @@ def test_claude_main(monkeypatch, tmp_path, capsys):
 
 def test_claude_outfile(monkeypatch, tmp_path, capsys):
     _setup_anthropic_stub(monkeypatch)
-    sys.modules.pop("think.providers.anthropic", None)
+    sys.modules.pop("solstone.think.providers.anthropic", None)
     provider_mod = importlib.reload(
-        importlib.import_module("think.providers.anthropic")
+        importlib.import_module("solstone.think.providers.anthropic")
     )
     _setup_claude_cli_stub(monkeypatch, provider_mod)
-    mod = importlib.reload(importlib.import_module("think.talents"))
+    mod = importlib.reload(importlib.import_module("solstone.think.talents"))
 
     journal = tmp_path / "journal"
     journal.mkdir()
@@ -286,7 +286,7 @@ def test_claude_outfile(monkeypatch, tmp_path, capsys):
             "tools": ["search_insights"],
         }
     )
-    asyncio.run(run_main(mod, ["sol think.talents"], stdin_data=ndjson_input))
+    asyncio.run(run_main(mod, ["sol solstone.think.talents"], stdin_data=ndjson_input))
 
     # Output file functionality was removed in NDJSON-only mode
     # Check stdout instead
@@ -310,12 +310,12 @@ def test_claude_thinking_events(monkeypatch, tmp_path, capsys):
     """Test that thinking events are properly emitted for Claude models."""
     # Setup anthropic stub with thinking
     _setup_anthropic_stub(monkeypatch, with_thinking=True)
-    sys.modules.pop("think.providers.anthropic", None)
+    sys.modules.pop("solstone.think.providers.anthropic", None)
     provider_mod = importlib.reload(
-        importlib.import_module("think.providers.anthropic")
+        importlib.import_module("solstone.think.providers.anthropic")
     )
     _setup_claude_cli_stub(monkeypatch, provider_mod, with_thinking=True)
-    mod = importlib.reload(importlib.import_module("think.talents"))
+    mod = importlib.reload(importlib.import_module("solstone.think.talents"))
 
     journal = tmp_path / "journal"
     journal.mkdir()
@@ -334,7 +334,7 @@ def test_claude_thinking_events(monkeypatch, tmp_path, capsys):
             "tools": ["search_insights"],
         }
     )
-    asyncio.run(run_main(mod, ["sol think.talents"], stdin_data=ndjson_input))
+    asyncio.run(run_main(mod, ["sol solstone.think.talents"], stdin_data=ndjson_input))
 
     out_lines = capsys.readouterr().out.strip().splitlines()
     events = [json.loads(line) for line in out_lines]
@@ -353,12 +353,12 @@ def test_claude_thinking_events(monkeypatch, tmp_path, capsys):
 def test_claude_redacted_thinking_events(monkeypatch, tmp_path, capsys):
     """Test that redacted thinking events are properly handled."""
     _setup_anthropic_stub(monkeypatch, with_redacted_thinking=True)
-    sys.modules.pop("think.providers.anthropic", None)
+    sys.modules.pop("solstone.think.providers.anthropic", None)
     provider_mod = importlib.reload(
-        importlib.import_module("think.providers.anthropic")
+        importlib.import_module("solstone.think.providers.anthropic")
     )
     _setup_claude_cli_stub(monkeypatch, provider_mod, with_redacted_thinking=True)
-    mod = importlib.reload(importlib.import_module("think.talents"))
+    mod = importlib.reload(importlib.import_module("solstone.think.talents"))
 
     journal = tmp_path / "journal"
     journal.mkdir()
@@ -377,7 +377,7 @@ def test_claude_redacted_thinking_events(monkeypatch, tmp_path, capsys):
             "tools": ["search_insights"],
         }
     )
-    asyncio.run(run_main(mod, ["sol think.talents"], stdin_data=ndjson_input))
+    asyncio.run(run_main(mod, ["sol solstone.think.talents"], stdin_data=ndjson_input))
 
     out_lines = capsys.readouterr().out.strip().splitlines()
     events = [json.loads(line) for line in out_lines]
@@ -394,12 +394,12 @@ def test_claude_redacted_thinking_events(monkeypatch, tmp_path, capsys):
 
 def test_claude_outfile_error(monkeypatch, tmp_path, capsys):
     _setup_anthropic_stub(monkeypatch, error=True)
-    sys.modules.pop("think.providers.anthropic", None)
+    sys.modules.pop("solstone.think.providers.anthropic", None)
     provider_mod = importlib.reload(
-        importlib.import_module("think.providers.anthropic")
+        importlib.import_module("solstone.think.providers.anthropic")
     )
     _setup_claude_cli_stub(monkeypatch, provider_mod, error=True)
-    mod = importlib.reload(importlib.import_module("think.talents"))
+    mod = importlib.reload(importlib.import_module("solstone.think.talents"))
 
     journal = tmp_path / "journal"
     journal.mkdir()
@@ -418,7 +418,7 @@ def test_claude_outfile_error(monkeypatch, tmp_path, capsys):
             "tools": ["search_insights"],
         }
     )
-    asyncio.run(run_main(mod, ["sol think.talents"], stdin_data=ndjson_input))
+    asyncio.run(run_main(mod, ["sol solstone.think.talents"], stdin_data=ndjson_input))
 
     # Error events should be written to stdout
     out_lines = capsys.readouterr().out.strip().splitlines()
@@ -431,7 +431,7 @@ def test_claude_outfile_error(monkeypatch, tmp_path, capsys):
 class TestRunGenerateJsonSchema:
     def test_structured_messages_passthrough(self, monkeypatch):
         provider = importlib.reload(
-            importlib.import_module("think.providers.anthropic")
+            importlib.import_module("solstone.think.providers.anthropic")
         )
         mock_client = MagicMock()
         mock_response = MagicMock()
@@ -454,7 +454,7 @@ class TestRunGenerateJsonSchema:
 
     def test_no_schema_keeps_prompt_append(self, monkeypatch):
         provider = importlib.reload(
-            importlib.import_module("think.providers.anthropic")
+            importlib.import_module("solstone.think.providers.anthropic")
         )
         mock_client = MagicMock()
         mock_response = MagicMock()
@@ -477,7 +477,7 @@ class TestRunGenerateJsonSchema:
 
     def test_with_schema_uses_output_config(self, monkeypatch):
         provider = importlib.reload(
-            importlib.import_module("think.providers.anthropic")
+            importlib.import_module("solstone.think.providers.anthropic")
         )
         mock_client = MagicMock()
         mock_response = MagicMock()
@@ -502,7 +502,7 @@ class TestRunGenerateJsonSchema:
 
     def test_structured_messages_with_schema_uses_output_config(self, monkeypatch):
         provider = importlib.reload(
-            importlib.import_module("think.providers.anthropic")
+            importlib.import_module("solstone.think.providers.anthropic")
         )
         mock_client = MagicMock()
         mock_response = MagicMock()
@@ -533,7 +533,7 @@ class TestRunGenerateJsonSchema:
 
     def test_fallback_on_bad_request(self, monkeypatch):
         provider = importlib.reload(
-            importlib.import_module("think.providers.anthropic")
+            importlib.import_module("solstone.think.providers.anthropic")
         )
         mock_client = MagicMock()
 
@@ -574,7 +574,7 @@ class TestRunGenerateJsonSchema:
         # Anthropic rejects `tool_choice` forcing combined with `thinking`.
         # Verify the fallback strips thinking and restores temperature.
         provider = importlib.reload(
-            importlib.import_module("think.providers.anthropic")
+            importlib.import_module("solstone.think.providers.anthropic")
         )
         mock_client = MagicMock()
 
@@ -612,7 +612,7 @@ class TestRunGenerateJsonSchema:
 
     def test_async_with_schema_uses_output_config(self, monkeypatch):
         provider = importlib.reload(
-            importlib.import_module("think.providers.anthropic")
+            importlib.import_module("solstone.think.providers.anthropic")
         )
         mock_client = MagicMock()
         mock_client.messages.create = AsyncMock()
@@ -675,7 +675,7 @@ def _make_async_stream_cm(final_message):
 class TestBudgetAdjustment:
     def test_lifts_max_tokens_when_collides_with_thinking_budget(self, monkeypatch):
         provider = importlib.reload(
-            importlib.import_module("think.providers.anthropic")
+            importlib.import_module("solstone.think.providers.anthropic")
         )
         mock_client = MagicMock()
         mock_client.messages.create.return_value = _make_response()
@@ -693,7 +693,7 @@ class TestBudgetAdjustment:
 
     def test_leaves_max_tokens_when_buffer_satisfied(self, monkeypatch):
         provider = importlib.reload(
-            importlib.import_module("think.providers.anthropic")
+            importlib.import_module("solstone.think.providers.anthropic")
         )
         mock_client = MagicMock()
         mock_client.messages.create.return_value = _make_response()
@@ -710,7 +710,7 @@ class TestBudgetAdjustment:
 
     def test_no_adjustment_without_thinking(self, monkeypatch):
         provider = importlib.reload(
-            importlib.import_module("think.providers.anthropic")
+            importlib.import_module("solstone.think.providers.anthropic")
         )
         mock_client = MagicMock()
         mock_client.messages.create.return_value = _make_response()
@@ -728,7 +728,7 @@ class TestBudgetAdjustment:
 
     def test_async_lifts_max_tokens_when_collides(self, monkeypatch):
         provider = importlib.reload(
-            importlib.import_module("think.providers.anthropic")
+            importlib.import_module("solstone.think.providers.anthropic")
         )
         mock_client = MagicMock()
         mock_client.messages.create = AsyncMock(return_value=_make_response())
@@ -752,7 +752,7 @@ class TestBudgetAdjustment:
 class TestStreamingDispatch:
     def test_streams_when_max_tokens_exceeds_time_formula(self, monkeypatch):
         provider = importlib.reload(
-            importlib.import_module("think.providers.anthropic")
+            importlib.import_module("solstone.think.providers.anthropic")
         )
         mock_client = MagicMock()
         mock_client.messages.stream.return_value = _make_stream_cm(_make_response())
@@ -769,7 +769,7 @@ class TestStreamingDispatch:
 
     def test_uses_create_below_threshold(self, monkeypatch):
         provider = importlib.reload(
-            importlib.import_module("think.providers.anthropic")
+            importlib.import_module("solstone.think.providers.anthropic")
         )
         mock_client = MagicMock()
         mock_client.messages.create.return_value = _make_response()
@@ -786,7 +786,7 @@ class TestStreamingDispatch:
 
     def test_streams_when_per_model_cap_exceeded(self, monkeypatch):
         provider = importlib.reload(
-            importlib.import_module("think.providers.anthropic")
+            importlib.import_module("solstone.think.providers.anthropic")
         )
         mock_client = MagicMock()
         mock_client.messages.stream.return_value = _make_stream_cm(_make_response())
@@ -803,7 +803,7 @@ class TestStreamingDispatch:
 
     def test_async_streams_when_max_tokens_exceeds_time_formula(self, monkeypatch):
         provider = importlib.reload(
-            importlib.import_module("think.providers.anthropic")
+            importlib.import_module("solstone.think.providers.anthropic")
         )
         mock_client = MagicMock()
         mock_client.messages.stream.return_value = _make_async_stream_cm(
@@ -826,7 +826,7 @@ class TestStreamingDispatch:
 
     def test_async_uses_create_below_threshold(self, monkeypatch):
         provider = importlib.reload(
-            importlib.import_module("think.providers.anthropic")
+            importlib.import_module("solstone.think.providers.anthropic")
         )
         mock_client = MagicMock()
         mock_client.messages.create = AsyncMock(return_value=_make_response())
@@ -847,7 +847,7 @@ class TestStreamingDispatch:
 
     def test_streams_tool_use_fallback_extracts_json(self, monkeypatch):
         provider = importlib.reload(
-            importlib.import_module("think.providers.anthropic")
+            importlib.import_module("solstone.think.providers.anthropic")
         )
         mock_client = MagicMock()
 
@@ -883,7 +883,7 @@ class TestStreamingDispatch:
 
     def test_interaction_thinking_and_streaming(self, monkeypatch):
         provider = importlib.reload(
-            importlib.import_module("think.providers.anthropic")
+            importlib.import_module("solstone.think.providers.anthropic")
         )
         mock_client = MagicMock()
         mock_client.messages.stream.return_value = _make_stream_cm(_make_response())

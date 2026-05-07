@@ -5,7 +5,7 @@
 
 from pathlib import Path
 
-from observe.screen import (
+from solstone.observe.screen import (
     CATEGORIES,
     _load_category_formatter,
     format_screen,
@@ -285,7 +285,7 @@ def test_load_category_formatter_returns_none_for_missing():
 def test_load_category_formatter_caches_result():
     """Test that formatter loading is cached."""
     # Clear cache first
-    from observe.screen import _formatter_cache
+    from solstone.observe.screen import _formatter_cache
 
     _formatter_cache.clear()
 
@@ -300,7 +300,7 @@ def test_load_category_formatter_caches_result():
 
 def test_meeting_formatter_output():
     """Test that meeting formatter produces expected markdown."""
-    from observe.categories.meeting import format as meeting_format
+    from solstone.observe.categories.meeting import format as meeting_format
 
     content = {
         "platform": "zoom",
@@ -446,7 +446,7 @@ def test_categories_includes_all_expected():
 
 def test_tmux_formatter_output():
     """Test that tmux formatter produces expected markdown."""
-    from observe.categories.tmux import format as tmux_format
+    from solstone.observe.categories.tmux import format as tmux_format
 
     content = {
         "session": "main",
@@ -473,7 +473,7 @@ def test_tmux_formatter_output():
 
 def test_tmux_formatter_multiple_panes():
     """Test tmux formatter labels multiple panes."""
-    from observe.categories.tmux import format as tmux_format
+    from solstone.observe.categories.tmux import format as tmux_format
 
     content = {
         "session": "dev",

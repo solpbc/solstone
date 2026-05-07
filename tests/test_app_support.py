@@ -11,7 +11,7 @@ def support_client():
     """Create a Flask test client with support blueprint."""
     from flask import Flask
 
-    from apps.support.routes import support_bp
+    from solstone.apps.support.routes import support_bp
 
     app = Flask(__name__)
     app.register_blueprint(support_bp)
@@ -30,8 +30,10 @@ class _TicketsClient:
 
 
 def test_badge_count_enabled_empty(support_client, monkeypatch):
-    monkeypatch.setattr("apps.support.routes._enabled", lambda: True)
-    monkeypatch.setattr("apps.support.routes._get_client", lambda: _TicketsClient())
+    monkeypatch.setattr("solstone.apps.support.routes._enabled", lambda: True)
+    monkeypatch.setattr(
+        "solstone.apps.support.routes._get_client", lambda: _TicketsClient()
+    )
 
     resp = support_client.get("/app/support/api/badge-count")
 
@@ -40,7 +42,7 @@ def test_badge_count_enabled_empty(support_client, monkeypatch):
 
 
 def test_badge_count_disabled_returns_403(support_client, monkeypatch):
-    monkeypatch.setattr("apps.support.routes._enabled", lambda: False)
+    monkeypatch.setattr("solstone.apps.support.routes._enabled", lambda: False)
 
     resp = support_client.get("/app/support/api/badge-count")
 
@@ -49,9 +51,9 @@ def test_badge_count_disabled_returns_403(support_client, monkeypatch):
 
 
 def test_badge_count_error_returns_500(support_client, monkeypatch):
-    monkeypatch.setattr("apps.support.routes._enabled", lambda: True)
+    monkeypatch.setattr("solstone.apps.support.routes._enabled", lambda: True)
     monkeypatch.setattr(
-        "apps.support.routes._get_client",
+        "solstone.apps.support.routes._get_client",
         lambda: _TicketsClient(error=RuntimeError("simulated")),
     )
 
@@ -68,8 +70,8 @@ def test_feedback_anonymous_no_email_kwarg(support_client, monkeypatch):
         captured.append(kwargs)
         return {"ok": True, "ticket_id": "t1"}
 
-    monkeypatch.setattr("apps.support.routes._enabled", lambda: True)
-    monkeypatch.setattr("apps.support.tools.support_feedback", recorder)
+    monkeypatch.setattr("solstone.apps.support.routes._enabled", lambda: True)
+    monkeypatch.setattr("solstone.apps.support.tools.support_feedback", recorder)
 
     resp = support_client.post(
         "/app/support/api/feedback", json={"body": "hi", "anonymous": True}
@@ -87,8 +89,8 @@ def test_feedback_identified_forwards_email(support_client, monkeypatch):
         captured.append(kwargs)
         return {"ok": True, "ticket_id": "t1"}
 
-    monkeypatch.setattr("apps.support.routes._enabled", lambda: True)
-    monkeypatch.setattr("apps.support.tools.support_feedback", recorder)
+    monkeypatch.setattr("solstone.apps.support.routes._enabled", lambda: True)
+    monkeypatch.setattr("solstone.apps.support.tools.support_feedback", recorder)
 
     resp = support_client.post(
         "/app/support/api/feedback",
@@ -107,8 +109,8 @@ def test_feedback_anonymous_drops_smuggled_email(support_client, monkeypatch):
         captured.append(kwargs)
         return {"ok": True, "ticket_id": "t1"}
 
-    monkeypatch.setattr("apps.support.routes._enabled", lambda: True)
-    monkeypatch.setattr("apps.support.tools.support_feedback", recorder)
+    monkeypatch.setattr("solstone.apps.support.routes._enabled", lambda: True)
+    monkeypatch.setattr("solstone.apps.support.tools.support_feedback", recorder)
 
     resp = support_client.post(
         "/app/support/api/feedback",
@@ -127,8 +129,8 @@ def test_feedback_identified_empty_email_omits_kwarg(support_client, monkeypatch
         captured.append(kwargs)
         return {"ok": True, "ticket_id": "t1"}
 
-    monkeypatch.setattr("apps.support.routes._enabled", lambda: True)
-    monkeypatch.setattr("apps.support.tools.support_feedback", recorder)
+    monkeypatch.setattr("solstone.apps.support.routes._enabled", lambda: True)
+    monkeypatch.setattr("solstone.apps.support.tools.support_feedback", recorder)
 
     resp = support_client.post(
         "/app/support/api/feedback",

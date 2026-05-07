@@ -13,7 +13,7 @@ import pytest
 
 def test_get_default_activities():
     """Test that default activities are returned correctly."""
-    from think.activities import get_default_activities
+    from solstone.think.activities import get_default_activities
 
     defaults = get_default_activities()
 
@@ -42,7 +42,7 @@ def test_get_default_activities():
 
 def test_get_default_activities_returns_copy():
     """Test that get_default_activities returns a copy, not the original."""
-    from think.activities import get_default_activities
+    from solstone.think.activities import get_default_activities
 
     defaults1 = get_default_activities()
     defaults2 = get_default_activities()
@@ -58,7 +58,7 @@ def test_get_default_activities_returns_copy():
 
 def test_always_on_activities():
     """Test that always-on activities are auto-included for all facets."""
-    from think.activities import DEFAULT_ACTIVITIES, get_facet_activities
+    from solstone.think.activities import DEFAULT_ACTIVITIES, get_facet_activities
 
     always_on = [a for a in DEFAULT_ACTIVITIES if a.get("always_on")]
     assert len(always_on) >= 2  # messaging and email
@@ -81,7 +81,7 @@ def test_always_on_activities():
             assert always_on_ids <= activity_ids
 
             # Explicitly attaching one should not duplicate it
-            from think.activities import add_activity_to_facet
+            from solstone.think.activities import add_activity_to_facet
 
             add_activity_to_facet("test_facet", "messaging")
             activities = get_facet_activities("test_facet")
@@ -95,7 +95,7 @@ def test_always_on_activities():
 
 def test_generate_activity_id():
     """Test activity ID generation from names."""
-    from think.activities import generate_activity_id
+    from solstone.think.activities import generate_activity_id
 
     assert generate_activity_id("My Activity") == "my_activity"
     assert generate_activity_id("Research & Development") == "research_development"
@@ -109,7 +109,7 @@ def test_facet_activities_empty():
 
     With no activities.jsonl, all defaults are returned as the vocabulary.
     """
-    from think.activities import DEFAULT_ACTIVITIES, get_facet_activities
+    from solstone.think.activities import DEFAULT_ACTIVITIES, get_facet_activities
 
     activities = get_facet_activities("personal")
     assert isinstance(activities, list)
@@ -121,7 +121,7 @@ def test_facet_activities_empty():
 
 def test_meeting_is_always_on():
     """Test that meeting is marked always_on in DEFAULT_ACTIVITIES."""
-    from think.activities import DEFAULT_ACTIVITIES
+    from solstone.think.activities import DEFAULT_ACTIVITIES
 
     always_on_ids = {a["id"] for a in DEFAULT_ACTIVITIES if a.get("always_on")}
     assert "meeting" in always_on_ids
@@ -131,7 +131,7 @@ def test_meeting_is_always_on():
 
 def test_unconfigured_facet_returns_all_defaults():
     """Test that a facet with no activities.jsonl gets all 16 defaults."""
-    from think.activities import DEFAULT_ACTIVITIES, get_facet_activities
+    from solstone.think.activities import DEFAULT_ACTIVITIES, get_facet_activities
 
     with tempfile.TemporaryDirectory() as tmpdir:
         original_path = os.environ.get("SOLSTONE_JOURNAL")
@@ -159,7 +159,7 @@ def test_unconfigured_facet_returns_all_defaults():
 
 def test_configured_facet_includes_meeting_always_on():
     """Test that a facet with explicit activities auto-includes meeting."""
-    from think.activities import get_facet_activities, save_facet_activities
+    from solstone.think.activities import get_facet_activities, save_facet_activities
 
     with tempfile.TemporaryDirectory() as tmpdir:
         original_path = os.environ.get("SOLSTONE_JOURNAL")
@@ -187,7 +187,7 @@ def test_configured_facet_includes_meeting_always_on():
 
 def test_facet_activities_roundtrip():
     """Test saving and loading activities."""
-    from think.activities import (
+    from solstone.think.activities import (
         DEFAULT_ACTIVITIES,
         _get_activities_path,
         get_facet_activities,
@@ -269,7 +269,7 @@ def test_facet_activities_roundtrip():
 
 def test_add_activity_to_facet():
     """Test adding an activity to a facet."""
-    from think.activities import (
+    from solstone.think.activities import (
         add_activity_to_facet,
         get_facet_activities,
         remove_activity_from_facet,
@@ -342,7 +342,7 @@ def test_add_activity_to_facet():
 
 def test_update_activity_in_facet():
     """Test updating an activity in a facet."""
-    from think.activities import (
+    from solstone.think.activities import (
         add_activity_to_facet,
         get_activity_by_id,
         update_activity_in_facet,
@@ -390,7 +390,7 @@ def test_update_activity_in_facet():
             )
 
             # Reset instructions to default via empty string
-            from think.activities import DEFAULT_ACTIVITIES
+            from solstone.think.activities import DEFAULT_ACTIVITIES
 
             default_instructions = next(
                 a["instructions"] for a in DEFAULT_ACTIVITIES if a["id"] == "meeting"
@@ -427,7 +427,7 @@ def test_update_activity_in_facet():
 
 def test_format_activities_context_includes_instructions():
     """Test that format_activities_context renders instructions inline."""
-    from think.activities import save_facet_activities
+    from solstone.think.activities import save_facet_activities
 
     with tempfile.TemporaryDirectory() as tmpdir:
         original_path = os.environ.get("SOLSTONE_JOURNAL")
@@ -451,7 +451,7 @@ def test_format_activities_context_includes_instructions():
                 ],
             )
 
-            from talent.activity_state import format_activities_context
+            from solstone.talent.activity_state import format_activities_context
 
             output = format_activities_context("test_facet")
 
@@ -477,32 +477,32 @@ class TestLevelAvg:
     """Tests for level_avg computation."""
 
     def test_all_high(self):
-        from think.activities import level_avg
+        from solstone.think.activities import level_avg
 
         assert level_avg(["high", "high", "high"]) == 1.0
 
     def test_all_medium(self):
-        from think.activities import level_avg
+        from solstone.think.activities import level_avg
 
         assert level_avg(["medium", "medium"]) == 0.5
 
     def test_all_low(self):
-        from think.activities import level_avg
+        from solstone.think.activities import level_avg
 
         assert level_avg(["low", "low"]) == 0.25
 
     def test_mixed(self):
-        from think.activities import level_avg
+        from solstone.think.activities import level_avg
 
         assert level_avg(["high", "medium"]) == 0.75
 
     def test_empty_defaults_to_medium(self):
-        from think.activities import level_avg
+        from solstone.think.activities import level_avg
 
         assert level_avg([]) == 0.5
 
     def test_unknown_defaults_to_medium(self):
-        from think.activities import level_avg
+        from solstone.think.activities import level_avg
 
         assert level_avg(["unknown", "high"]) == 0.75
 
@@ -511,7 +511,10 @@ class TestActivityRecordIO:
     """Tests for append/load/update of activity records."""
 
     def test_append_and_load(self, monkeypatch):
-        from think.activities import append_activity_record, load_activity_records
+        from solstone.think.activities import (
+            append_activity_record,
+            load_activity_records,
+        )
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -537,7 +540,10 @@ class TestActivityRecordIO:
             assert records[0]["edits"] == []
 
     def test_append_idempotent(self, monkeypatch):
-        from think.activities import append_activity_record, load_activity_records
+        from solstone.think.activities import (
+            append_activity_record,
+            load_activity_records,
+        )
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -556,14 +562,14 @@ class TestActivityRecordIO:
             assert len(records) == 1
 
     def test_load_nonexistent_returns_empty(self, monkeypatch):
-        from think.activities import load_activity_records
+        from solstone.think.activities import load_activity_records
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
             assert load_activity_records("work", "20260209") == []
 
     def test_update_description(self, monkeypatch):
-        from think.activities import (
+        from solstone.think.activities import (
             append_activity_record,
             load_activity_records,
             update_record_description,
@@ -592,7 +598,7 @@ class TestActivityRecordIO:
             assert records[0]["details"] == ""
 
     def test_update_description_with_title_and_details(self, monkeypatch):
-        from think.activities import (
+        from solstone.think.activities import (
             append_activity_record,
             load_activity_records,
             update_record_description,
@@ -628,7 +634,7 @@ class TestActivityRecordIO:
     def test_update_description_none_title_and_details_only_updates_description(
         self, monkeypatch
     ):
-        from think.activities import (
+        from solstone.think.activities import (
             append_activity_record,
             load_activity_records,
             update_record_description,
@@ -669,7 +675,7 @@ class TestActivityRecordIO:
             assert records[0]["details"] == "Existing details"
 
     def test_update_nonexistent_returns_false(self, monkeypatch):
-        from think.activities import update_record_description
+        from solstone.think.activities import update_record_description
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -679,7 +685,7 @@ class TestActivityRecordIO:
             )
 
     def test_update_preserves_other_records(self, monkeypatch):
-        from think.activities import (
+        from solstone.think.activities import (
             append_activity_record,
             load_activity_records,
             update_record_description,
@@ -716,7 +722,7 @@ class TestActivityRecordIO:
             assert records[1]["description"] == "Second"
 
     def test_update_activity_record_appends_edit(self, monkeypatch):
-        from think.activities import (
+        from solstone.think.activities import (
             append_activity_record,
             load_activity_records,
             update_activity_record,
@@ -756,7 +762,7 @@ class TestActivityRecordIO:
             assert records[0]["edits"][-1]["note"] == "updated fields: details, title"
 
     def test_update_activity_record_validates_patch(self, monkeypatch):
-        from think.activities import update_activity_record
+        from solstone.think.activities import update_activity_record
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -782,7 +788,7 @@ class TestActivityRecordIO:
                 )
 
     def test_format_activities_renders_story(self):
-        from think.activities import format_activities
+        from solstone.think.activities import format_activities
 
         chunks, _meta = format_activities(
             [
@@ -820,7 +826,7 @@ class TestActivityRecordIO:
         )
 
     def test_hidden_records_filtered_by_default(self, monkeypatch):
-        from think.activities import (
+        from solstone.think.activities import (
             append_activity_record,
             load_activity_records,
             mute_activity_record,
@@ -901,12 +907,12 @@ def _setup_segment(tmpdir, day, segment, facet, state):
 
 class TestMakeActivityId:
     def test_basic(self):
-        from think.activities import make_activity_id
+        from solstone.think.activities import make_activity_id
 
         assert make_activity_id("coding", "095809_303") == "coding_095809_303"
 
     def test_with_custom_type(self):
-        from think.activities import make_activity_id
+        from solstone.think.activities import make_activity_id
 
         assert (
             make_activity_id("video_editing", "120000_300")
@@ -916,7 +922,7 @@ class TestMakeActivityId:
 
 class TestListFacetsWithActivityState:
     def test_finds_facets(self, monkeypatch):
-        from talent.activities import _list_facets_with_activity_state
+        from solstone.talent.activities import _list_facets_with_activity_state
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -930,7 +936,7 @@ class TestListFacetsWithActivityState:
             assert facets == ["personal", "work"]
 
     def test_returns_empty_for_nonexistent(self, monkeypatch):
-        from talent.activities import _list_facets_with_activity_state
+        from solstone.talent.activities import _list_facets_with_activity_state
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -944,7 +950,7 @@ class TestListFacetsWithActivityState:
 
 class TestDetectEndedActivities:
     def test_explicit_ended(self):
-        from talent.activities import _detect_ended_activities
+        from solstone.talent.activities import _detect_ended_activities
 
         prev = [
             {"activity": "coding", "state": "active", "since": "100000_300"},
@@ -957,7 +963,7 @@ class TestDetectEndedActivities:
         assert ended[0]["activity"] == "coding"
 
     def test_implicit_ended(self):
-        from talent.activities import _detect_ended_activities
+        from solstone.talent.activities import _detect_ended_activities
 
         prev = [
             {"activity": "coding", "state": "active", "since": "100000_300"},
@@ -971,7 +977,7 @@ class TestDetectEndedActivities:
         assert ended[0]["activity"] == "coding"
 
     def test_timeout_ends_all(self):
-        from talent.activities import _detect_ended_activities
+        from solstone.talent.activities import _detect_ended_activities
 
         prev = [
             {"activity": "coding", "state": "active", "since": "100000_300"},
@@ -981,7 +987,7 @@ class TestDetectEndedActivities:
         assert len(ended) == 2
 
     def test_continuing_not_ended(self):
-        from talent.activities import _detect_ended_activities
+        from solstone.talent.activities import _detect_ended_activities
 
         prev = [
             {"activity": "coding", "state": "active", "since": "100000_300"},
@@ -993,7 +999,7 @@ class TestDetectEndedActivities:
         assert len(ended) == 0
 
     def test_ignores_previously_ended(self):
-        from talent.activities import _detect_ended_activities
+        from solstone.talent.activities import _detect_ended_activities
 
         prev = [
             {"activity": "coding", "state": "ended", "since": "090000_300"},
@@ -1006,7 +1012,7 @@ class TestDetectEndedActivities:
 
     def test_new_activity_same_type(self):
         """A new activity of same type with different since is not the same."""
-        from talent.activities import _detect_ended_activities
+        from solstone.talent.activities import _detect_ended_activities
 
         prev = [
             {"activity": "coding", "state": "active", "since": "100000_300"},
@@ -1021,7 +1027,7 @@ class TestDetectEndedActivities:
 
 class TestWalkActivitySegments:
     def test_walks_segments(self, monkeypatch):
-        from talent.activities import _walk_activity_segments
+        from solstone.talent.activities import _walk_activity_segments
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -1069,7 +1075,7 @@ class TestWalkActivitySegments:
             assert result["active_entities"] == ["VS Code", "Claude Code"]
 
     def test_deduplicates_entities(self, monkeypatch):
-        from talent.activities import _walk_activity_segments
+        from solstone.talent.activities import _walk_activity_segments
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -1112,7 +1118,7 @@ class TestWalkActivitySegments:
             assert result["active_entities"] == ["VS Code", "Git", "Claude Code"]
 
     def test_empty_when_no_match(self, monkeypatch):
-        from talent.activities import _walk_activity_segments
+        from solstone.talent.activities import _walk_activity_segments
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -1128,7 +1134,7 @@ class TestPreProcess:
     """Tests for the activities pre_process hook."""
 
     def test_skips_when_no_previous_segment(self, monkeypatch):
-        from talent.activities import pre_process
+        from solstone.talent.activities import pre_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -1144,7 +1150,7 @@ class TestPreProcess:
             assert "skip_reason" in result
 
     def test_skips_when_no_ended_activities(self, monkeypatch):
-        from talent.activities import pre_process
+        from solstone.talent.activities import pre_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -1185,8 +1191,8 @@ class TestPreProcess:
             assert result.get("skip_reason") == "no_ended_activities"
 
     def test_detects_ended_and_writes_record(self, monkeypatch):
-        from talent.activities import pre_process
-        from think.activities import load_activity_records
+        from solstone.talent.activities import pre_process
+        from solstone.think.activities import load_activity_records
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -1223,8 +1229,8 @@ class TestPreProcess:
             assert records[0]["segments"] == ["100000_300"]
 
     def test_idempotent_on_rerun(self, monkeypatch):
-        from talent.activities import pre_process
-        from think.activities import load_activity_records
+        from solstone.talent.activities import pre_process
+        from solstone.think.activities import load_activity_records
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -1254,8 +1260,8 @@ class TestPreProcess:
             assert len(records) == 1
 
     def test_multi_facet_detection(self, monkeypatch):
-        from talent.activities import pre_process
-        from think.activities import load_activity_records
+        from solstone.talent.activities import pre_process
+        from solstone.think.activities import load_activity_records
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -1309,8 +1315,8 @@ class TestPreProcess:
 
     def test_multi_segment_span(self, monkeypatch):
         """Activity spanning multiple segments should collect all segments."""
-        from talent.activities import pre_process
-        from think.activities import load_activity_records
+        from solstone.talent.activities import pre_process
+        from solstone.think.activities import load_activity_records
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -1382,8 +1388,11 @@ class TestPostProcess:
     """Tests for the activities post_process hook."""
 
     def test_updates_descriptions(self, monkeypatch):
-        from talent.activities import post_process
-        from think.activities import append_activity_record, load_activity_records
+        from solstone.talent.activities import post_process
+        from solstone.think.activities import (
+            append_activity_record,
+            load_activity_records,
+        )
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -1421,8 +1430,11 @@ class TestPostProcess:
             assert records[0]["details"] == "Worked through test failures and cleanup."
 
     def test_updates_descriptions_without_optional_fields(self, monkeypatch):
-        from talent.activities import post_process
-        from think.activities import append_activity_record, load_activity_records
+        from solstone.talent.activities import post_process
+        from solstone.think.activities import (
+            append_activity_record,
+            load_activity_records,
+        )
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -1460,19 +1472,19 @@ class TestPostProcess:
             assert records[0]["details"] == "Existing details"
 
     def test_handles_invalid_json(self):
-        from talent.activities import post_process
+        from solstone.talent.activities import post_process
 
         result = post_process("not json", {"day": "20260209"})
         assert result is None
 
     def test_handles_non_object(self):
-        from talent.activities import post_process
+        from solstone.talent.activities import post_process
 
         result = post_process("[]", {"day": "20260209"})
         assert result is None
 
     def test_returns_none(self, monkeypatch):
-        from talent.activities import post_process
+        from solstone.talent.activities import post_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -1483,17 +1495,17 @@ class TestPostProcess:
 
 class TestEstimateDurationMinutes:
     def test_single_segment(self):
-        from think.activities import estimate_duration_minutes
+        from solstone.think.activities import estimate_duration_minutes
 
         assert estimate_duration_minutes(["100000_300"]) == 5
 
     def test_multiple_segments(self):
-        from think.activities import estimate_duration_minutes
+        from solstone.think.activities import estimate_duration_minutes
 
         assert estimate_duration_minutes(["100000_300", "100500_300"]) == 10
 
     def test_empty_returns_1(self):
-        from think.activities import estimate_duration_minutes
+        from solstone.think.activities import estimate_duration_minutes
 
         assert estimate_duration_minutes([]) == 1
 
@@ -1502,7 +1514,7 @@ class TestPreProcessMeta:
     """Tests for pre-hook stashing record data in meta."""
 
     def test_meta_contains_activity_records(self, monkeypatch):
-        from talent.activities import pre_process
+        from solstone.talent.activities import pre_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -1546,7 +1558,7 @@ class TestPreProcessMeta:
             assert rec["description"] == "Writing code"
 
     def test_meta_multiple_facets(self, monkeypatch):
-        from talent.activities import pre_process
+        from solstone.talent.activities import pre_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -1597,8 +1609,8 @@ class TestPostProcessEvents:
     def test_emits_events_with_llm_description(self, monkeypatch):
         from unittest.mock import patch
 
-        from talent.activities import post_process
-        from think.activities import append_activity_record
+        from solstone.talent.activities import post_process
+        from solstone.think.activities import append_activity_record
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -1637,7 +1649,7 @@ class TestPostProcessEvents:
                 }
             }
 
-            with patch("talent.activities.callosum_send") as mock_send:
+            with patch("solstone.talent.activities.callosum_send") as mock_send:
                 mock_send.return_value = True
                 post_process(
                     llm_result,
@@ -1661,7 +1673,7 @@ class TestPostProcessEvents:
     def test_falls_back_to_prehook_description_with_warning(self, monkeypatch, caplog):
         from unittest.mock import patch
 
-        from talent.activities import post_process
+        from solstone.talent.activities import post_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -1681,11 +1693,13 @@ class TestPostProcessEvents:
             }
 
             # LLM returns empty — no descriptions to update
-            with patch("talent.activities.callosum_send") as mock_send:
+            with patch("solstone.talent.activities.callosum_send") as mock_send:
                 mock_send.return_value = True
                 import logging
 
-                with caplog.at_level(logging.WARNING, logger="talent.activities"):
+                with caplog.at_level(
+                    logging.WARNING, logger="solstone.talent.activities"
+                ):
                     post_process(
                         "{}",
                         {"day": "20260209", "segment": "100500_300", "meta": meta},
@@ -1699,19 +1713,19 @@ class TestPostProcessEvents:
     def test_no_events_without_meta(self, monkeypatch):
         from unittest.mock import patch
 
-        from talent.activities import post_process
+        from solstone.talent.activities import post_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
 
-            with patch("talent.activities.callosum_send") as mock_send:
+            with patch("solstone.talent.activities.callosum_send") as mock_send:
                 post_process("{}", {"day": "20260209", "segment": "100500_300"})
                 mock_send.assert_not_called()
 
     def test_event_emission_failure_does_not_raise(self, monkeypatch):
         from unittest.mock import patch
 
-        from talent.activities import post_process
+        from solstone.talent.activities import post_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -1730,7 +1744,7 @@ class TestPostProcessEvents:
                 }
             }
 
-            with patch("talent.activities.callosum_send") as mock_send:
+            with patch("solstone.talent.activities.callosum_send") as mock_send:
                 mock_send.side_effect = OSError("socket error")
                 # Should not raise
                 result = post_process(
@@ -1746,10 +1760,10 @@ class TestHandleActivityRecorded:
     def test_queues_think_task(self):
         from unittest.mock import MagicMock, patch
 
-        from think.supervisor import _handle_activity_recorded
+        from solstone.think.supervisor import _handle_activity_recorded
 
         mock_queue = MagicMock()
-        with patch("think.supervisor._task_queue", mock_queue):
+        with patch("solstone.think.supervisor._task_queue", mock_queue):
             _handle_activity_recorded(
                 {
                     "tract": "activity",
@@ -1777,10 +1791,10 @@ class TestHandleActivityRecorded:
     def test_ignores_wrong_tract(self):
         from unittest.mock import MagicMock, patch
 
-        from think.supervisor import _handle_activity_recorded
+        from solstone.think.supervisor import _handle_activity_recorded
 
         mock_queue = MagicMock()
-        with patch("think.supervisor._task_queue", mock_queue):
+        with patch("solstone.think.supervisor._task_queue", mock_queue):
             _handle_activity_recorded(
                 {
                     "tract": "think",
@@ -1795,10 +1809,10 @@ class TestHandleActivityRecorded:
     def test_ignores_wrong_event(self):
         from unittest.mock import MagicMock, patch
 
-        from think.supervisor import _handle_activity_recorded
+        from solstone.think.supervisor import _handle_activity_recorded
 
         mock_queue = MagicMock()
-        with patch("think.supervisor._task_queue", mock_queue):
+        with patch("solstone.think.supervisor._task_queue", mock_queue):
             _handle_activity_recorded(
                 {
                     "tract": "activity",
@@ -1813,12 +1827,12 @@ class TestHandleActivityRecorded:
     def test_warns_on_missing_fields(self, caplog):
         from unittest.mock import MagicMock, patch
 
-        from think.supervisor import _handle_activity_recorded
+        from solstone.think.supervisor import _handle_activity_recorded
 
         mock_queue = MagicMock()
         import logging
 
-        with patch("think.supervisor._task_queue", mock_queue):
+        with patch("solstone.think.supervisor._task_queue", mock_queue):
             with caplog.at_level(logging.WARNING):
                 _handle_activity_recorded(
                     {"tract": "activity", "event": "recorded", "id": "x"}
@@ -1829,9 +1843,9 @@ class TestHandleActivityRecorded:
         import logging
         from unittest.mock import patch
 
-        from think.supervisor import _handle_activity_recorded
+        from solstone.think.supervisor import _handle_activity_recorded
 
-        with patch("think.supervisor._task_queue", None):
+        with patch("solstone.think.supervisor._task_queue", None):
             with caplog.at_level(logging.WARNING):
                 _handle_activity_recorded(
                     {
@@ -1854,8 +1868,8 @@ class TestPreProcessFlush:
     """Tests for the activities pre_process hook in flush mode."""
 
     def test_flush_ends_all_active_activities(self, monkeypatch):
-        from talent.activities import pre_process
-        from think.activities import load_activity_records
+        from solstone.talent.activities import pre_process
+        from solstone.think.activities import load_activity_records
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -1899,7 +1913,7 @@ class TestPreProcessFlush:
             assert records[0]["segments"] == ["100000_300"]
 
     def test_flush_skips_when_no_active_activities(self, monkeypatch):
-        from talent.activities import pre_process
+        from solstone.talent.activities import pre_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -1930,7 +1944,7 @@ class TestPreProcessFlush:
             assert result["skip_reason"] == "no_active_activities"
 
     def test_flush_skips_when_no_activity_state(self, monkeypatch):
-        from talent.activities import pre_process
+        from solstone.talent.activities import pre_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -1950,8 +1964,8 @@ class TestPreProcessFlush:
             assert result["skip_reason"] == "no_activity_state"
 
     def test_flush_handles_multiple_facets(self, monkeypatch):
-        from talent.activities import pre_process
-        from think.activities import load_activity_records
+        from solstone.talent.activities import pre_process
+        from solstone.think.activities import load_activity_records
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -2005,8 +2019,8 @@ class TestPreProcessFlush:
             assert len(personal_records) == 1
 
     def test_flush_is_idempotent(self, monkeypatch):
-        from talent.activities import pre_process
-        from think.activities import load_activity_records
+        from solstone.talent.activities import pre_process
+        from solstone.think.activities import load_activity_records
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -2040,7 +2054,7 @@ class TestPreProcessFlush:
             assert len(records) == 1
 
     def test_flush_stashes_meta_for_post_hook(self, monkeypatch):
-        from talent.activities import pre_process
+        from solstone.talent.activities import pre_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -2083,7 +2097,7 @@ class TestCheckSegmentFlush:
         import time as time_mod
         from unittest.mock import MagicMock, patch
 
-        from think.supervisor import _check_segment_flush, _flush_state
+        from solstone.think.supervisor import _check_segment_flush, _flush_state
 
         # Set up state as if a segment arrived over an hour ago
         _flush_state["last_segment_ts"] = time_mod.time() - 4000
@@ -2093,8 +2107,8 @@ class TestCheckSegmentFlush:
 
         mock_queue = MagicMock()
         with (
-            patch("think.supervisor._task_queue", mock_queue),
-            patch("think.supervisor._is_remote_mode", False),
+            patch("solstone.think.supervisor._task_queue", mock_queue),
+            patch("solstone.think.supervisor._is_remote_mode", False),
         ):
             _check_segment_flush()
 
@@ -2117,7 +2131,7 @@ class TestCheckSegmentFlush:
         import time as time_mod
         from unittest.mock import MagicMock, patch
 
-        from think.supervisor import _check_segment_flush, _flush_state
+        from solstone.think.supervisor import _check_segment_flush, _flush_state
 
         _flush_state["last_segment_ts"] = time_mod.time() - 100  # Only 100s ago
         _flush_state["day"] = "20260209"
@@ -2126,8 +2140,8 @@ class TestCheckSegmentFlush:
 
         mock_queue = MagicMock()
         with (
-            patch("think.supervisor._task_queue", mock_queue),
-            patch("think.supervisor._is_remote_mode", False),
+            patch("solstone.think.supervisor._task_queue", mock_queue),
+            patch("solstone.think.supervisor._is_remote_mode", False),
         ):
             _check_segment_flush()
 
@@ -2138,7 +2152,7 @@ class TestCheckSegmentFlush:
         import time as time_mod
         from unittest.mock import MagicMock, patch
 
-        from think.supervisor import _check_segment_flush, _flush_state
+        from solstone.think.supervisor import _check_segment_flush, _flush_state
 
         _flush_state["last_segment_ts"] = time_mod.time() - 4000
         _flush_state["day"] = "20260209"
@@ -2147,8 +2161,8 @@ class TestCheckSegmentFlush:
 
         mock_queue = MagicMock()
         with (
-            patch("think.supervisor._task_queue", mock_queue),
-            patch("think.supervisor._is_remote_mode", False),
+            patch("solstone.think.supervisor._task_queue", mock_queue),
+            patch("solstone.think.supervisor._is_remote_mode", False),
         ):
             _check_segment_flush()
 
@@ -2158,7 +2172,7 @@ class TestCheckSegmentFlush:
         import time as time_mod
         from unittest.mock import MagicMock, patch
 
-        from think.supervisor import _check_segment_flush, _flush_state
+        from solstone.think.supervisor import _check_segment_flush, _flush_state
 
         _flush_state["last_segment_ts"] = time_mod.time() - 4000
         _flush_state["day"] = "20260209"
@@ -2167,8 +2181,8 @@ class TestCheckSegmentFlush:
 
         mock_queue = MagicMock()
         with (
-            patch("think.supervisor._task_queue", mock_queue),
-            patch("think.supervisor._is_remote_mode", True),
+            patch("solstone.think.supervisor._task_queue", mock_queue),
+            patch("solstone.think.supervisor._is_remote_mode", True),
         ):
             _check_segment_flush()
 
@@ -2178,7 +2192,7 @@ class TestCheckSegmentFlush:
         import time as time_mod
         from unittest.mock import MagicMock, patch
 
-        from think.supervisor import _check_segment_flush, _flush_state
+        from solstone.think.supervisor import _check_segment_flush, _flush_state
 
         # Only 100s ago — would NOT flush normally
         _flush_state["last_segment_ts"] = time_mod.time() - 100
@@ -2188,8 +2202,8 @@ class TestCheckSegmentFlush:
 
         mock_queue = MagicMock()
         with (
-            patch("think.supervisor._task_queue", mock_queue),
-            patch("think.supervisor._is_remote_mode", False),
+            patch("solstone.think.supervisor._task_queue", mock_queue),
+            patch("solstone.think.supervisor._is_remote_mode", False),
         ):
             _check_segment_flush(force=True)
 
@@ -2197,7 +2211,7 @@ class TestCheckSegmentFlush:
         assert _flush_state["flushed"] is True
 
     def test_segment_observed_resets_flush_state(self):
-        from think.supervisor import _flush_state, _handle_segment_observed
+        from solstone.think.supervisor import _flush_state, _handle_segment_observed
 
         _flush_state["flushed"] = True
         _flush_state["last_segment_ts"] = 0
@@ -2205,7 +2219,7 @@ class TestCheckSegmentFlush:
         # We need to mock the thread start to avoid side effects
         from unittest.mock import patch
 
-        with patch("think.supervisor.threading"):
+        with patch("solstone.think.supervisor.threading"):
             _handle_segment_observed(
                 {
                     "tract": "observe",
@@ -2224,14 +2238,14 @@ class TestCheckSegmentFlush:
 def _seed_activity_records(
     tmpdir: str, facet: str, day: str, records: list[dict]
 ) -> None:
-    from think.activities import append_activity_record
+    from solstone.think.activities import append_activity_record
 
     for record in records:
         append_activity_record(facet, day, record)
 
 
 def test_make_anticipation_id_builds_stable_id():
-    from think.activities import make_anticipation_id
+    from solstone.think.activities import make_anticipation_id
 
     assert make_anticipation_id("meeting", "16:30:00", "2026-04-20") == (
         "anticipated_meeting_163000_0420"
@@ -2254,14 +2268,14 @@ def test_make_anticipation_id_rejects_malformed_inputs(
     start,
     target_date,
 ):
-    from think.activities import make_anticipation_id
+    from solstone.think.activities import make_anticipation_id
 
     with pytest.raises(ValueError):
         make_anticipation_id(activity_type, start, target_date)
 
 
 def test_dedup_anticipation_returns_empty_for_first_record(monkeypatch):
-    from think.activities import dedup_anticipation
+    from solstone.think.activities import dedup_anticipation
 
     with tempfile.TemporaryDirectory() as tmpdir:
         monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -2277,7 +2291,7 @@ def test_dedup_anticipation_returns_empty_for_first_record(monkeypatch):
 
 
 def test_dedup_anticipation_rejects_exact_id_collision(monkeypatch):
-    from think.activities import dedup_anticipation
+    from solstone.think.activities import dedup_anticipation
 
     with tempfile.TemporaryDirectory() as tmpdir:
         monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -2307,7 +2321,7 @@ def test_dedup_anticipation_rejects_exact_id_collision(monkeypatch):
 
 
 def test_dedup_anticipation_returns_fuzzy_supersede_matches(monkeypatch):
-    from think.activities import dedup_anticipation
+    from solstone.think.activities import dedup_anticipation
 
     with tempfile.TemporaryDirectory() as tmpdir:
         monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -2340,7 +2354,7 @@ def test_dedup_anticipation_returns_fuzzy_supersede_matches(monkeypatch):
 
 
 def test_dedup_anticipation_ignores_below_threshold_and_hidden_rows(monkeypatch):
-    from think.activities import dedup_anticipation
+    from solstone.think.activities import dedup_anticipation
 
     with tempfile.TemporaryDirectory() as tmpdir:
         monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -2381,7 +2395,7 @@ def test_dedup_anticipation_ignores_below_threshold_and_hidden_rows(monkeypatch)
 
 
 def test_dedup_anticipation_returns_all_matching_supersedes(monkeypatch):
-    from think.activities import dedup_anticipation
+    from solstone.think.activities import dedup_anticipation
 
     with tempfile.TemporaryDirectory() as tmpdir:
         monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)

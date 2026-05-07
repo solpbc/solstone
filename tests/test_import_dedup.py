@@ -9,7 +9,7 @@ import os
 import tempfile
 from pathlib import Path
 
-from think.importers.shared import (
+from solstone.think.importers.shared import (
     _build_import_manifest,
     _entry_content_key,
     _load_existing_entries,

@@ -130,7 +130,7 @@ See [CORTEX.md](CORTEX.md) for complete event schemas and agent configuration.
 tail -50 journal/health/observer.log | grep -i error
 
 # Check if observer is emitting status (supervisor.status will show stale_heartbeats)
-# Health is derived from observe.status Callosum events
+# Health is derived from solstone.observe.status Callosum events
 ```
 
 Causes: DBus issues, screencast permissions, audio device unavailable.

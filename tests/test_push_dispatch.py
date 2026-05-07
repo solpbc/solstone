@@ -10,7 +10,7 @@ from unittest.mock import patch
 import httpx
 import jwt
 
-from think.push import dispatch
+from solstone.think.push import dispatch
 
 TEST_KEY = """-----BEGIN PRIVATE KEY-----
 MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg+Zj7Bk6Dzp080/PU

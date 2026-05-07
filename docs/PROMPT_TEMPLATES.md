@@ -4,7 +4,7 @@ This document describes solstone's template variable system for personalizing pr
 
 ## Overview
 
-Prompts are stored as `.md` files with optional JSON frontmatter for metadata. The prompt content is loaded via `load_prompt()` from `think/prompts.py`, which uses Python's `string.Template` with `safe_substitute`. This means:
+Prompts are stored as `.md` files with optional JSON frontmatter for metadata. The prompt content is loaded via `load_prompt()` from `solstone/think/prompts.py`, which uses Python's `string.Template` with `safe_substitute`. This means:
 
 - Variables use `$name` or `${name}` syntax
 - Undefined variables are left as-is (no errors)
@@ -62,11 +62,11 @@ The flattening logic converts nested objects using underscore separators. For ex
 
 **References:**
 - Identity configuration: [config.md](../talent/journal/references/config.md) (identity section)
-- Flattening implementation: `think/prompts.py` → `_flatten_identity_to_template_vars()`
+- Flattening implementation: `solstone/think/prompts.py` → `_flatten_identity_to_template_vars()`
 
 ### Template Variables
 
-Template variables come from `.md` files in the `think/templates/` directory. Each file's stem becomes a variable name containing its contents.
+Template variables come from `.md` files in the `solstone/think/templates/` directory. Each file's stem becomes a variable name containing its contents.
 
 **Current templates:**
 - `$daily_preamble` - Preamble for full-day output analysis
@@ -75,9 +75,9 @@ Template variables come from `.md` files in the `think/templates/` directory. Ea
 
 Templates can themselves use identity and context variables, enabling composable prompt construction. For example, `daily_preamble.md` uses `$preferred` and `$day`.
 
-**Pattern:** To add a new template variable, create `think/templates/mytemplate.md` and it becomes available as `$mytemplate` in all prompts.
+**Pattern:** To add a new template variable, create `solstone/think/templates/mytemplate.md` and it becomes available as `$mytemplate` in all prompts.
 
-**Reference:** `think/templates/` directory
+**Reference:** `solstone/think/templates/` directory
 
 ### Context Variables
 
@@ -105,8 +105,8 @@ Context variables are passed at runtime by the code calling `load_prompt()`. The
 Context variables also get automatic uppercase-first versions (`$Day`, `$Day_yyyymmdd`, etc.).
 
 **References:**
-- Generator context building: `think/generate.py` (search for `prompt_context`)
-- Other callers: `observe/extract.py`, `observe/enrich.py`
+- Generator context building: `solstone/think/generate.py` (search for `prompt_context`)
+- Other callers: `solstone/observe/extract.py`, `solstone/observe/enrich.py`
 
 ## Usage Patterns
 
@@ -132,7 +132,7 @@ The `$segment_preamble` or `$daily_preamble` template provides standardized cont
 
 **Optional model configuration:** Add `max_output_tokens` (response length limit) and `thinking_budget` (model thinking token budget) to override provider defaults.
 
-**Reference:** `talent/*.md` for examples (files with `schedule` field but no `tools` field)
+**Reference:** `solstone/talent/*.md` for examples (files with `schedule` field but no `tools` field)
 
 ### For Agents
 
@@ -150,7 +150,7 @@ You are a helpful assistant...
 
 **Optional model configuration:** Add `max_output_tokens` (response length limit) and `thinking_budget` (model thinking token budget) to override provider defaults. Note: OpenAI uses fixed reasoning and ignores `thinking_budget`.
 
-**Reference:** `think/talent.py` → `get_talent()` for agent configuration loading
+**Reference:** `solstone/think/talent.py` → `get_talent()` for agent configuration loading
 
 ### The load_prompt() Function
 
@@ -164,7 +164,7 @@ load_prompt(
 
 Returns a `PromptContent` named tuple with `text` (substituted content), `path` (source file), and `metadata` (frontmatter dict).
 
-**Reference:** `think/prompts.py` → `load_prompt()`
+**Reference:** `solstone/think/prompts.py` → `load_prompt()`
 
 ## Adding New Variables
 
@@ -174,7 +174,7 @@ Edit `config/journal.json` to add or modify identity fields. Nested objects are 
 
 ### Template Variables
 
-Create a new `.md` file in `think/templates/`. The filename stem becomes the variable name.
+Create a new `.md` file in `solstone/think/templates/`. The filename stem becomes the variable name.
 
 ### Context Variables
 
@@ -189,10 +189,10 @@ load_prompt("myprompt", context={"custom_var": "value"})
 | Category | Authoritative Source |
 |----------|---------------------|
 | Identity config schema | [config.md](../talent/journal/references/config.md) (identity section) |
-| Identity flattening | `think/prompts.py` (`_flatten_identity_to_template_vars`) |
-| Template loading | `think/prompts.py` (`_load_templates`) |
-| Core load function | `think/prompts.py` (`load_prompt`) |
-| Template files | `think/templates/*.md` |
+| Identity flattening | `solstone/think/prompts.py` (`_flatten_identity_to_template_vars`) |
+| Template loading | `solstone/think/prompts.py` (`_load_templates`) |
+| Core load function | `solstone/think/prompts.py` (`load_prompt`) |
+| Template files | `solstone/think/templates/*.md` |
 | Test coverage | `tests/test_template_substitution.py` |
-| Generator prompts | `talent/*.md` (files with `schedule` field but no `tools`) |
-| Agent prompts | `talent/*.md` (files with `tools` field) |
+| Generator prompts | `solstone/talent/*.md` (files with `schedule` field but no `tools`) |
+| Agent prompts | `solstone/talent/*.md` (files with `tools` field) |

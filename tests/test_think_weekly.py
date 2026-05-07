@@ -8,12 +8,12 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from think.utils import get_owner_timezone, sunday_of_week
+from solstone.think.utils import get_owner_timezone, sunday_of_week
 
 
 def test_get_owner_timezone_uses_configured_zone(monkeypatch):
     monkeypatch.setattr(
-        "think.utils.get_config",
+        "solstone.think.utils.get_config",
         lambda: {"identity": {"timezone": "America/New_York"}},
     )
 
@@ -29,10 +29,10 @@ def test_get_owner_timezone_falls_back_to_host_zone(monkeypatch, caplog):
             return cls(2026, 4, 20, 12, 0, tzinfo=ZoneInfo("UTC"))
 
     monkeypatch.setattr(
-        "think.utils.get_config",
+        "solstone.think.utils.get_config",
         lambda: {"identity": {"timezone": "Mars/Olympus"}},
     )
-    monkeypatch.setattr("think.utils.datetime", FixedDateTime)
+    monkeypatch.setattr("solstone.think.utils.datetime", FixedDateTime)
 
     with caplog.at_level(logging.WARNING):
         tz = get_owner_timezone()
@@ -58,28 +58,42 @@ def _patch_weekly_runtime(
 ) -> list[tuple[str, str, dict]]:
     captured: list[tuple[str, str, dict]] = []
 
-    monkeypatch.setattr("think.thinking.get_owner_timezone", lambda: ZoneInfo("UTC"))
-    monkeypatch.setattr("think.thinking.get_journal", lambda: str(journal_path))
-    monkeypatch.setattr("think.thinking.get_talent_configs", lambda schedule: prompts)
-    monkeypatch.setattr("think.thinking.day_input_summary", lambda day: "summary")
     monkeypatch.setattr(
-        "think.thinking.get_enabled_facets", lambda: enabled_facets or {}
+        "solstone.think.thinking.get_owner_timezone", lambda: ZoneInfo("UTC")
     )
     monkeypatch.setattr(
-        "think.thinking.get_active_facets", lambda day: active_facets or set()
+        "solstone.think.thinking.get_journal", lambda: str(journal_path)
     )
-    monkeypatch.setattr("think.thinking._update_status", lambda **kwargs: None)
-    monkeypatch.setattr("think.thinking.emit", lambda *args, **kwargs: None)
-    monkeypatch.setattr("think.thinking._jsonl_log", lambda *args, **kwargs: None)
-    monkeypatch.setattr("think.thinking._log_skip", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        "solstone.think.thinking.get_talent_configs", lambda schedule: prompts
+    )
+    monkeypatch.setattr(
+        "solstone.think.thinking.day_input_summary", lambda day: "summary"
+    )
+    monkeypatch.setattr(
+        "solstone.think.thinking.get_enabled_facets", lambda: enabled_facets or {}
+    )
+    monkeypatch.setattr(
+        "solstone.think.thinking.get_active_facets", lambda day: active_facets or set()
+    )
+    monkeypatch.setattr("solstone.think.thinking._update_status", lambda **kwargs: None)
+    monkeypatch.setattr("solstone.think.thinking.emit", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        "solstone.think.thinking._jsonl_log", lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(
+        "solstone.think.thinking._log_skip", lambda *args, **kwargs: None
+    )
 
     def fake_request(prompt: str, name: str, config: dict) -> str:
         captured.append((prompt, name, config))
         return f"use-{len(captured)}"
 
-    monkeypatch.setattr("think.thinking._cortex_request_with_retry", fake_request)
     monkeypatch.setattr(
-        "think.thinking._drain_priority_batch",
+        "solstone.think.thinking._cortex_request_with_retry", fake_request
+    )
+    monkeypatch.setattr(
+        "solstone.think.thinking._drain_priority_batch",
         lambda spawned, *_args: (len(spawned), 0, []),
     )
     return captured
@@ -88,7 +102,7 @@ def _patch_weekly_runtime(
 def test_run_weekly_prompts_sets_weekly_reflection_output_override(
     tmp_path, monkeypatch
 ):
-    from think.thinking import run_weekly_prompts
+    from solstone.think.thinking import run_weekly_prompts
 
     captured = _patch_weekly_runtime(
         monkeypatch,
@@ -118,7 +132,7 @@ def test_run_weekly_prompts_sets_weekly_reflection_output_override(
 def test_run_weekly_prompts_sets_override_for_multifacet_weekly_reflection(
     tmp_path, monkeypatch
 ):
-    from think.thinking import run_weekly_prompts
+    from solstone.think.thinking import run_weekly_prompts
 
     captured = _patch_weekly_runtime(
         monkeypatch,

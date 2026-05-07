@@ -6,13 +6,13 @@
 import json
 from pathlib import Path
 
-from think.activities import (
+from solstone.think.activities import (
     append_activity_record,
     load_activity_records,
     make_activity_id,
 )
-from think.activity_state_machine import ActivityStateMachine
-from think.thinking import _write_json_atomic
+from solstone.think.activity_state_machine import ActivityStateMachine
+from solstone.think.thinking import _write_json_atomic
 
 
 def _sense(content_type: str = "coding", density: str = "active", facet: str = "test"):
@@ -193,7 +193,7 @@ def test_batch_construction_has_no_journal_root_and_skips_snapshot(
 
 
 def test_run_segment_sense_emits_activity_events(tmp_path: Path, monkeypatch):
-    from think import thinking as think
+    from solstone.think import thinking as think
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     day = "20260427"

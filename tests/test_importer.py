@@ -13,8 +13,8 @@ from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 
-from think.importers.file_importer import ImportPreview, ImportResult
-from think.utils import day_path
+from solstone.think.importers.file_importer import ImportPreview, ImportResult
+from solstone.think.utils import day_path
 
 
 def _make_mock_file_importer(name="ics", display_name="ICS Calendar"):
@@ -43,7 +43,7 @@ def _make_mock_file_importer(name="ics", display_name="ICS Calendar"):
 
 def _configure_text_import_runtime(monkeypatch, mod):
     """Patch text import processing and callosum helpers for CLI tests."""
-    text_mod = importlib.import_module("think.importers.text")
+    text_mod = importlib.import_module("solstone.think.importers.text")
 
     monkeypatch.setattr(
         text_mod,
@@ -84,7 +84,7 @@ def _read_action_entries(journal_root: Path) -> list[dict]:
 
 def test_slice_audio_segment(tmp_path):
     """Test slice_audio_segment extracts audio with stream copy."""
-    mod = importlib.import_module("think.importers.audio")
+    mod = importlib.import_module("solstone.think.importers.audio")
 
     source = tmp_path / "source.mp3"
     source.write_bytes(b"fake audio")
@@ -105,7 +105,7 @@ def test_slice_audio_segment(tmp_path):
 
 def test_slice_audio_segment_fallback(tmp_path):
     """Test slice_audio_segment falls back to re-encode on copy failure."""
-    mod = importlib.import_module("think.importers.audio")
+    mod = importlib.import_module("solstone.think.importers.audio")
 
     source = tmp_path / "source.mp3"
     source.write_bytes(b"fake audio")
@@ -131,8 +131,8 @@ def test_slice_audio_segment_fallback(tmp_path):
 
 def test_importer_text(tmp_path, monkeypatch):
     """Test importing a text transcript file."""
-    mod = importlib.import_module("think.importers.cli")
-    text_mod = importlib.import_module("think.importers.text")
+    mod = importlib.import_module("solstone.think.importers.cli")
+    text_mod = importlib.import_module("solstone.think.importers.text")
 
     transcript = "hello\nworld"
     txt = tmp_path / "sample.txt"
@@ -217,8 +217,8 @@ def test_importer_text(tmp_path, monkeypatch):
 
 def test_importer_pdf(tmp_path, monkeypatch):
     """Test importing a PDF transcript file."""
-    mod = importlib.import_module("think.importers.cli")
-    text_mod = importlib.import_module("think.importers.text")
+    mod = importlib.import_module("solstone.think.importers.cli")
+    text_mod = importlib.import_module("solstone.think.importers.text")
 
     # Create a fake PDF file (content doesn't matter — pypdf is mocked)
     pdf = tmp_path / "meeting.pdf"
@@ -322,7 +322,7 @@ def test_importer_pdf(tmp_path, monkeypatch):
 
 def test_write_segment(tmp_path):
     """Test write_segment creates a segment directory and JSONL file."""
-    mod = importlib.import_module("think.importers.shared")
+    mod = importlib.import_module("solstone.think.importers.shared")
 
     json_path = mod.write_segment(
         str(tmp_path / "chronicle" / "20240101"),
@@ -364,7 +364,7 @@ def test_write_segment(tmp_path):
 
 def test_write_markdown_segments(tmp_path, monkeypatch):
     """write_markdown_segments creates segment dirs with imported.md files."""
-    mod = importlib.import_module("think.importers.shared")
+    mod = importlib.import_module("solstone.think.importers.shared")
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     windows = [
@@ -395,7 +395,7 @@ def test_write_markdown_segments(tmp_path, monkeypatch):
 
 def test_chatgpt_importer_segments(tmp_path, monkeypatch):
     """ChatGPT importer should write message windows as import segments."""
-    mod = importlib.import_module("think.importers.chatgpt")
+    mod = importlib.import_module("solstone.think.importers.chatgpt")
 
     base = dt.datetime(2026, 1, 15, 12, 0, 0).timestamp()
     conversations = [
@@ -547,7 +547,7 @@ def test_chatgpt_importer_segments(tmp_path, monkeypatch):
 
 def test_claude_chat_importer_segments(tmp_path, monkeypatch):
     """Claude importer should write message windows as import segments."""
-    mod = importlib.import_module("think.importers.claude_chat")
+    mod = importlib.import_module("solstone.think.importers.claude_chat")
 
     base = dt.datetime(2026, 1, 15, 12, 0, 0)
     conversations = [
@@ -692,7 +692,7 @@ def test_claude_chat_importer_segments(tmp_path, monkeypatch):
 
 def test_format_audio_stream_path():
     """Test format_audio correctly parses timestamps from stream-based paths."""
-    from observe.hear import format_audio
+    from solstone.observe.hear import format_audio
 
     entries = [
         {"imported": {"id": "20240101_120000"}, "raw": "test.txt"},
@@ -718,7 +718,7 @@ def test_format_audio_stream_path():
 
 def test_format_audio_legacy_path():
     """Test format_audio still works with legacy day/segment/ paths."""
-    from observe.hear import format_audio
+    from solstone.observe.hear import format_audio
 
     entries = [
         {"raw": "raw.flac", "model": "whisper-1"},
@@ -735,7 +735,7 @@ def test_format_audio_legacy_path():
 
 def test_get_audio_duration(tmp_path):
     """Test _get_audio_duration calls ffprobe correctly."""
-    mod = importlib.import_module("think.importers.audio")
+    mod = importlib.import_module("solstone.think.importers.audio")
 
     audio_file = tmp_path / "test.mp3"
     audio_file.write_bytes(b"fake audio")
@@ -756,7 +756,7 @@ def test_get_audio_duration(tmp_path):
 
 def test_get_audio_duration_failure(tmp_path):
     """Test _get_audio_duration returns None on error."""
-    mod = importlib.import_module("think.importers.audio")
+    mod = importlib.import_module("solstone.think.importers.audio")
 
     audio_file = tmp_path / "test.mp3"
     audio_file.write_bytes(b"fake audio")
@@ -770,7 +770,7 @@ def test_get_audio_duration_failure(tmp_path):
 
 def test_prepare_audio_segments(tmp_path, monkeypatch):
     """Test prepare_audio_segments creates segment directories with audio slices."""
-    mod = importlib.import_module("think.importers.audio")
+    mod = importlib.import_module("solstone.think.importers.audio")
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
@@ -823,7 +823,7 @@ def test_prepare_audio_segments(tmp_path, monkeypatch):
 
 def test_prepare_audio_segments_with_collision(tmp_path, monkeypatch):
     """Test prepare_audio_segments handles segment key collisions."""
-    mod = importlib.import_module("think.importers.audio")
+    mod = importlib.import_module("solstone.think.importers.audio")
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
@@ -868,7 +868,7 @@ def test_prepare_audio_segments_with_collision(tmp_path, monkeypatch):
 
 def test_importer_dry_run_text(tmp_path, monkeypatch, capsys):
     """Test --dry-run for text import prints plan without writing files."""
-    mod = importlib.import_module("think.importers.cli")
+    mod = importlib.import_module("solstone.think.importers.cli")
 
     txt = tmp_path / "sample.txt"
     txt.write_text("hello\nworld\n")
@@ -902,7 +902,7 @@ def test_importer_dry_run_text(tmp_path, monkeypatch, capsys):
 
 def test_importer_dry_run_audio(tmp_path, monkeypatch, capsys):
     """Test --dry-run for audio import prints plan without writing files."""
-    mod = importlib.import_module("think.importers.cli")
+    mod = importlib.import_module("solstone.think.importers.cli")
 
     mp3 = tmp_path / "sample.mp3"
     mp3.write_bytes(b"fake audio")
@@ -942,7 +942,7 @@ def test_importer_dry_run_audio(tmp_path, monkeypatch, capsys):
 
 def test_importer_dry_run_auto(tmp_path, monkeypatch, capsys):
     """Test --dry-run with --auto detects timestamp and prints summary."""
-    mod = importlib.import_module("think.importers.cli")
+    mod = importlib.import_module("solstone.think.importers.cli")
 
     txt = tmp_path / "notes.txt"
     txt.write_text("meeting notes")
@@ -973,7 +973,7 @@ def test_importer_force_reimport_logs_manifest_and_replaces_directory(
     tmp_path, monkeypatch
 ):
     """--force logs a manifest, removes the old import dir, and writes the new file."""
-    mod = importlib.import_module("think.importers.cli")
+    mod = importlib.import_module("solstone.think.importers.cli")
 
     timestamp = "20240101_120000"
     old_import_dir = tmp_path / "imports" / timestamp
@@ -1029,7 +1029,7 @@ def test_importer_force_reimport_logs_manifest_and_replaces_directory(
 
 def test_importer_force_dry_run_logs_manifest_without_deleting(tmp_path, monkeypatch):
     """--force --dry-run logs the manifest but leaves the old import dir untouched."""
-    mod = importlib.import_module("think.importers.cli")
+    mod = importlib.import_module("solstone.think.importers.cli")
 
     timestamp = "20240101_120000"
     old_import_dir = tmp_path / "imports" / timestamp
@@ -1062,7 +1062,7 @@ def test_importer_force_dry_run_logs_manifest_without_deleting(tmp_path, monkeyp
 
 def test_importer_existing_import_without_force_still_errors(tmp_path, monkeypatch):
     """Existing imports still error without --force and do not log a reimport action."""
-    mod = importlib.import_module("think.importers.cli")
+    mod = importlib.import_module("solstone.think.importers.cli")
 
     timestamp = "20240101_120000"
     existing_import_dir = tmp_path / "imports" / timestamp
@@ -1086,7 +1086,7 @@ def test_importer_existing_import_without_force_still_errors(tmp_path, monkeypat
 
 def test_file_importer_without_timestamp(tmp_path, monkeypatch, capsys):
     """File importers auto-generate timestamp and skip import setup."""
-    mod = importlib.import_module("think.importers.cli")
+    mod = importlib.import_module("solstone.think.importers.cli")
 
     ics_file = tmp_path / "calendar.ics"
     ics_file.write_text("BEGIN:VCALENDAR\nEND:VCALENDAR")
@@ -1106,7 +1106,8 @@ def test_file_importer_without_timestamp(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     monkeypatch.setattr("sys.argv", ["sol import", str(ics_file), "--source", "ics"])
     monkeypatch.setattr(
-        "think.importers.file_importer.get_file_importer", lambda name: mock_imp
+        "solstone.think.importers.file_importer.get_file_importer",
+        lambda name: mock_imp,
     )
     monkeypatch.setattr(mod, "CallosumConnection", lambda **kwargs: callosum)
     monkeypatch.setattr(mod, "get_rev", lambda: "test-rev")
@@ -1131,7 +1132,7 @@ def test_file_importer_without_timestamp(tmp_path, monkeypatch, capsys):
 
 def test_file_importer_with_timestamp(tmp_path, monkeypatch):
     """File importer uses provided --timestamp and still skips import setup."""
-    mod = importlib.import_module("think.importers.cli")
+    mod = importlib.import_module("solstone.think.importers.cli")
 
     ics_file = tmp_path / "calendar.ics"
     ics_file.write_text("BEGIN:VCALENDAR\nEND:VCALENDAR")
@@ -1152,7 +1153,8 @@ def test_file_importer_with_timestamp(tmp_path, monkeypatch):
         ],
     )
     monkeypatch.setattr(
-        "think.importers.file_importer.get_file_importer", lambda name: mock_imp
+        "solstone.think.importers.file_importer.get_file_importer",
+        lambda name: mock_imp,
     )
     monkeypatch.setattr(mod, "CallosumConnection", lambda **kwargs: callosum)
     monkeypatch.setattr(mod, "get_rev", lambda: "test-rev")
@@ -1176,7 +1178,7 @@ def test_file_importer_with_timestamp(tmp_path, monkeypatch):
 
 
 def test_import_one_returns_metadata(tmp_path, monkeypatch):
-    mod = importlib.import_module("think.importers.cli")
+    mod = importlib.import_module("solstone.think.importers.cli")
 
     ics_file = tmp_path / "calendar.ics"
     ics_file.write_text("BEGIN:VCALENDAR\nEND:VCALENDAR")
@@ -1186,7 +1188,8 @@ def test_import_one_returns_metadata(tmp_path, monkeypatch):
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     monkeypatch.setattr(
-        "think.importers.file_importer.get_file_importer", lambda name: mock_imp
+        "solstone.think.importers.file_importer.get_file_importer",
+        lambda name: mock_imp,
     )
     monkeypatch.setattr(mod, "CallosumConnection", lambda **kwargs: callosum)
     monkeypatch.setattr(mod, "get_rev", lambda: "test-rev")
@@ -1210,7 +1213,7 @@ def test_import_one_returns_metadata(tmp_path, monkeypatch):
 
 
 def test_import_one_invalid_timestamp_raises_value_error(tmp_path):
-    mod = importlib.import_module("think.importers.cli")
+    mod = importlib.import_module("solstone.think.importers.cli")
     media = tmp_path / "note.txt"
     media.write_text("hello", encoding="utf-8")
 
@@ -1219,7 +1222,7 @@ def test_import_one_invalid_timestamp_raises_value_error(tmp_path):
 
 
 def test_import_one_skips_wait_when_disabled(tmp_path, monkeypatch):
-    mod = importlib.import_module("think.importers.cli")
+    mod = importlib.import_module("solstone.think.importers.cli")
 
     audio_file = tmp_path / "test.mp3"
     audio_file.write_bytes(b"fake audio")
@@ -1263,7 +1266,7 @@ def test_import_one_skips_wait_when_disabled(tmp_path, monkeypatch):
 
 
 def test_file_importer_indexes_created_files_in_process(tmp_path, monkeypatch):
-    mod = importlib.import_module("think.importers.cli")
+    mod = importlib.import_module("solstone.think.importers.cli")
 
     ics_file = tmp_path / "calendar.ics"
     ics_file.write_text("BEGIN:VCALENDAR\nEND:VCALENDAR")
@@ -1285,7 +1288,8 @@ def test_file_importer_indexes_created_files_in_process(tmp_path, monkeypatch):
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     monkeypatch.setattr(
-        "think.importers.file_importer.get_file_importer", lambda name: mock_imp
+        "solstone.think.importers.file_importer.get_file_importer",
+        lambda name: mock_imp,
     )
     monkeypatch.setattr(mod, "CallosumConnection", lambda **kwargs: callosum)
     monkeypatch.setattr(mod, "get_rev", lambda: "test-rev")
@@ -1305,7 +1309,7 @@ def test_file_importer_indexes_created_files_in_process(tmp_path, monkeypatch):
 
 
 def test_ics_creation_timestamp_last_modified():
-    mod = importlib.import_module("think.importers.ics")
+    mod = importlib.import_module("solstone.think.importers.ics")
     icalendar = importlib.import_module("icalendar")
 
     ics_bytes = b"""BEGIN:VCALENDAR
@@ -1325,7 +1329,7 @@ END:VCALENDAR"""
 
 
 def test_ics_creation_timestamp_created_only():
-    mod = importlib.import_module("think.importers.ics")
+    mod = importlib.import_module("solstone.think.importers.ics")
     icalendar = importlib.import_module("icalendar")
 
     ics_bytes = b"""BEGIN:VCALENDAR
@@ -1345,7 +1349,7 @@ END:VCALENDAR"""
 
 
 def test_ics_creation_timestamp_dtstart_fallback():
-    mod = importlib.import_module("think.importers.ics")
+    mod = importlib.import_module("solstone.think.importers.ics")
     icalendar = importlib.import_module("icalendar")
 
     ics_bytes = b"""BEGIN:VCALENDAR
@@ -1364,7 +1368,7 @@ END:VCALENDAR"""
 
 
 def test_ics_creation_timestamp_none():
-    mod = importlib.import_module("think.importers.ics")
+    mod = importlib.import_module("solstone.think.importers.ics")
 
     class EmptyComponent:
         def get(self, key, default=None):
@@ -1374,7 +1378,7 @@ def test_ics_creation_timestamp_none():
 
 
 def test_window_items_single_window():
-    mod = importlib.import_module("think.importers.shared")
+    mod = importlib.import_module("solstone.think.importers.shared")
 
     base = dt.datetime(2026, 3, 1, 12, 0, 0, tzinfo=dt.timezone.utc).timestamp()
     events = [
@@ -1389,7 +1393,7 @@ def test_window_items_single_window():
 
 
 def test_window_items_time_gap_split():
-    mod = importlib.import_module("think.importers.shared")
+    mod = importlib.import_module("solstone.think.importers.shared")
 
     base = dt.datetime(2026, 3, 1, 12, 0, 0, tzinfo=dt.timezone.utc).timestamp()
     events = [
@@ -1410,7 +1414,7 @@ def test_window_items_time_gap_split():
 
 
 def test_window_items_day_boundary():
-    mod = importlib.import_module("think.importers.shared")
+    mod = importlib.import_module("solstone.think.importers.shared")
 
     first_day = dt.datetime(2026, 3, 1, 12, 0, 0, tzinfo=dt.timezone.utc).timestamp()
     second_day = dt.datetime(2026, 3, 2, 12, 0, 0, tzinfo=dt.timezone.utc).timestamp()
@@ -1428,7 +1432,7 @@ def test_window_items_day_boundary():
 
 
 def test_ics_render_event_markdown_full():
-    mod = importlib.import_module("think.importers.ics")
+    mod = importlib.import_module("solstone.think.importers.ics")
 
     event = {
         "title": "Team Sync",
@@ -1453,7 +1457,7 @@ def test_ics_render_event_markdown_full():
 
 
 def test_ics_render_event_markdown_minimal():
-    mod = importlib.import_module("think.importers.ics")
+    mod = importlib.import_module("solstone.think.importers.ics")
 
     event = {
         "title": "Minimal Event",
@@ -1472,7 +1476,7 @@ def test_ics_render_event_markdown_minimal():
 
 
 def test_ics_render_event_markdown_without_scheduled_time():
-    mod = importlib.import_module("think.importers.ics")
+    mod = importlib.import_module("solstone.think.importers.ics")
 
     event = {
         "title": "Created Only Event",
@@ -1486,7 +1490,7 @@ def test_ics_render_event_markdown_without_scheduled_time():
 
 
 def test_ics_render_event_markdown_with_recurrence():
-    mod = importlib.import_module("think.importers.ics")
+    mod = importlib.import_module("solstone.think.importers.ics")
     event = {
         "title": "Weekly Standup",
         "ts": "2026-03-15T11:00:00+00:00",
@@ -1500,31 +1504,31 @@ def test_ics_render_event_markdown_with_recurrence():
 
 
 def test_ics_describe_rrule_weekly_byday():
-    mod = importlib.import_module("think.importers.ics")
+    mod = importlib.import_module("solstone.think.importers.ics")
     rrule = {"FREQ": ["WEEKLY"], "BYDAY": ["MO", "WE", "FR"]}
     assert mod._describe_rrule(rrule) == "Weekly on Mon, Wed, Fri"
 
 
 def test_ics_describe_rrule_daily_interval():
-    mod = importlib.import_module("think.importers.ics")
+    mod = importlib.import_module("solstone.think.importers.ics")
     rrule = {"FREQ": ["DAILY"], "INTERVAL": [2]}
     assert mod._describe_rrule(rrule) == "Every 2 days"
 
 
 def test_ics_describe_rrule_monthly_byday():
-    mod = importlib.import_module("think.importers.ics")
+    mod = importlib.import_module("solstone.think.importers.ics")
     rrule = {"FREQ": ["MONTHLY"], "BYDAY": ["TU"]}
     assert mod._describe_rrule(rrule) == "Monthly on Tue"
 
 
 def test_ics_describe_rrule_with_count():
-    mod = importlib.import_module("think.importers.ics")
+    mod = importlib.import_module("solstone.think.importers.ics")
     rrule = {"FREQ": ["WEEKLY"], "BYDAY": ["MO"], "COUNT": [10]}
     assert mod._describe_rrule(rrule) == "Weekly on Mon, 10 times"
 
 
 def test_ics_describe_rrule_with_until():
-    mod = importlib.import_module("think.importers.ics")
+    mod = importlib.import_module("solstone.think.importers.ics")
     until_dt = dt.datetime(2026, 12, 31, tzinfo=dt.timezone.utc)
     rrule = {
         "FREQ": ["WEEKLY"],
@@ -1535,18 +1539,18 @@ def test_ics_describe_rrule_with_until():
 
 
 def test_ics_describe_rrule_yearly():
-    mod = importlib.import_module("think.importers.ics")
+    mod = importlib.import_module("solstone.think.importers.ics")
     rrule = {"FREQ": ["YEARLY"], "BYMONTH": [3], "BYMONTHDAY": [15]}
     assert mod._describe_rrule(rrule) == "Yearly on day 15 in Mar"
 
 
 def test_ics_describe_rrule_empty():
-    mod = importlib.import_module("think.importers.ics")
+    mod = importlib.import_module("solstone.think.importers.ics")
     assert mod._describe_rrule({}) == ""
 
 
 def test_ics_process_segments(tmp_path, monkeypatch):
-    mod = importlib.import_module("think.importers.ics")
+    mod = importlib.import_module("solstone.think.importers.ics")
 
     ics_path = tmp_path / "calendar.ics"
     ics_path.write_bytes(
@@ -1613,7 +1617,7 @@ END:VCALENDAR"""
 
 
 def test_ics_preview_uses_creation_timestamps(tmp_path):
-    mod = importlib.import_module("think.importers.ics")
+    mod = importlib.import_module("solstone.think.importers.ics")
 
     ics_path = tmp_path / "calendar.ics"
     ics_path.write_bytes(
@@ -1646,12 +1650,13 @@ END:VCALENDAR"""
 
 def test_list_importers_json(capsys, monkeypatch):
     """--list-importers --json returns machine-readable output."""
-    mod = importlib.import_module("think.importers.cli")
+    mod = importlib.import_module("solstone.think.importers.cli")
 
     mock_imp = _make_mock_file_importer()
     monkeypatch.setattr("sys.argv", ["sol import", "--list-importers", "--json"])
     with patch(
-        "think.importers.file_importer.get_file_importers", return_value=[mock_imp]
+        "solstone.think.importers.file_importer.get_file_importers",
+        return_value=[mock_imp],
     ):
         mod.main()
 
@@ -1667,7 +1672,7 @@ def test_list_importers_json(capsys, monkeypatch):
 
 def test_dry_run_file_importer_json(tmp_path, monkeypatch, capsys):
     """--dry-run --json for file importer returns JSON metadata."""
-    mod = importlib.import_module("think.importers.cli")
+    mod = importlib.import_module("solstone.think.importers.cli")
 
     ics_file = tmp_path / "calendar.ics"
     ics_file.write_text("BEGIN:VCALENDAR\nEND:VCALENDAR")
@@ -1680,7 +1685,8 @@ def test_dry_run_file_importer_json(tmp_path, monkeypatch, capsys):
         ["sol import", str(ics_file), "--source", "ics", "--dry-run", "--json"],
     )
     monkeypatch.setattr(
-        "think.importers.file_importer.get_file_importer", lambda name: mock_imp
+        "solstone.think.importers.file_importer.get_file_importer",
+        lambda name: mock_imp,
     )
 
     mod.main()
@@ -1698,7 +1704,7 @@ def test_dry_run_file_importer_json(tmp_path, monkeypatch, capsys):
 
 def test_file_import_json(tmp_path, monkeypatch, capsys):
     """File importer prints machine-readable completion output."""
-    mod = importlib.import_module("think.importers.cli")
+    mod = importlib.import_module("solstone.think.importers.cli")
 
     ics_file = tmp_path / "calendar.ics"
     ics_file.write_text("BEGIN:VCALENDAR\nEND:VCALENDAR")
@@ -1720,7 +1726,8 @@ def test_file_import_json(tmp_path, monkeypatch, capsys):
         ["sol import", str(ics_file), "--source", "ics", "--json"],
     )
     monkeypatch.setattr(
-        "think.importers.file_importer.get_file_importer", lambda name: mock_imp
+        "solstone.think.importers.file_importer.get_file_importer",
+        lambda name: mock_imp,
     )
     monkeypatch.setattr(mod, "CallosumConnection", lambda **kwargs: callosum)
     monkeypatch.setattr(mod, "get_rev", lambda: "test-rev")
@@ -1742,7 +1749,7 @@ def test_file_import_json(tmp_path, monkeypatch, capsys):
 
 def test_file_importer_writes_manifest(tmp_path, monkeypatch):
     """File importers write a dedup manifest but don't copy source files to imports/."""
-    mod = importlib.import_module("think.importers.cli")
+    mod = importlib.import_module("solstone.think.importers.cli")
 
     ics_file = tmp_path / "calendar.ics"
     ics_file.write_text("BEGIN:VCALENDAR\nEND:VCALENDAR")
@@ -1755,7 +1762,8 @@ def test_file_importer_writes_manifest(tmp_path, monkeypatch):
         ["sol import", str(ics_file), "--source", "ics"],
     )
     monkeypatch.setattr(
-        "think.importers.file_importer.get_file_importer", lambda name: mock_imp
+        "solstone.think.importers.file_importer.get_file_importer",
+        lambda name: mock_imp,
     )
     monkeypatch.setattr(mod, "CallosumConnection", lambda **kwargs: MagicMock())
     monkeypatch.setattr(mod, "get_rev", lambda: "test-rev")
@@ -1774,7 +1782,7 @@ def test_file_importer_writes_manifest(tmp_path, monkeypatch):
 
 def test_obsidian_process_segments(tmp_path, monkeypatch):
     """Obsidian importer writes creation-moment segments with markdown output."""
-    mod = importlib.import_module("think.importers.obsidian")
+    mod = importlib.import_module("solstone.think.importers.obsidian")
 
     vault = tmp_path / "vault"
     vault.mkdir()
@@ -1846,7 +1854,7 @@ def test_obsidian_process_segments(tmp_path, monkeypatch):
 
 def test_obsidian_render_note_markdown():
     """Test markdown rendering for a single note."""
-    mod = importlib.import_module("think.importers.obsidian")
+    mod = importlib.import_module("solstone.think.importers.obsidian")
 
     note = {
         "title": "Test Note",

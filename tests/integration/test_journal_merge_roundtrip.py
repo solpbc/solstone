@@ -14,8 +14,8 @@ from pathlib import Path
 
 import pytest
 
+from solstone.think.importers.journal_archive import validate_journal_archive
 from tests._baseline_harness import copytree_tracked
-from think.importers.journal_archive import validate_journal_archive
 
 
 @pytest.mark.integration

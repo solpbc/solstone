@@ -13,14 +13,14 @@ from types import SimpleNamespace
 
 import pytest
 
-from think import install_guard
+from solstone.think import install_guard
 
 ROOT = Path(__file__).resolve().parent.parent
 
 
 @pytest.fixture
 def doctor():
-    from think import doctor as doctor_module
+    from solstone.think import doctor as doctor_module
 
     yield doctor_module
 
@@ -86,7 +86,7 @@ def test_install_guard_import_succeeds_when_frontmatter_is_shadowed(tmp_path):
         [
             sys.executable,
             "-c",
-            "from think.install_guard import parse_wrapper; print('ok')",
+            "from solstone.think.install_guard import parse_wrapper; print('ok')",
         ],
         cwd=ROOT,
         capture_output=True,
@@ -195,7 +195,8 @@ class TestSolImportable:
         result = doctor.sol_importable_check(args(doctor))
         assert result.status == "ok"
         assert (
-            result.detail == "from think.sol_cli import main succeeded outside repo cwd"
+            result.detail
+            == "from solstone.think.sol_cli import main succeeded outside repo cwd"
         )
 
     def test_fail_on_module_not_found(self, doctor, monkeypatch, tmp_path):
@@ -208,13 +209,13 @@ class TestSolImportable:
             "run_probe",
             lambda *_args, **_kwargs: doctor.ProbeOutput(
                 "",
-                "Traceback (most recent call last):\nModuleNotFoundError: No module named 'think'\n",
+                "Traceback (most recent call last):\nModuleNotFoundError: No module named 'solstone'\n",
                 1,
             ),
         )
         result = doctor.sol_importable_check(args(doctor))
         assert result.status == "fail"
-        assert result.detail == "ModuleNotFoundError: No module named 'think'"
+        assert result.detail == "ModuleNotFoundError: No module named 'solstone'"
 
     def test_fail_on_other_exception(self, doctor, monkeypatch, tmp_path):
         monkeypatch.setattr(doctor, "ROOT", tmp_path)
@@ -485,7 +486,7 @@ class TestStaleAliasSymlink:
         )
         result = doctor.stale_alias_symlink_check(args(doctor))
         assert result.status == "skip"
-        assert "could not import think.install_guard" in result.detail
+        assert "could not import solstone.think.install_guard" in result.detail
 
 
 class TestMacosFirewall:
@@ -667,7 +668,7 @@ def test_sol_doctor_subprocess_json_shape():
     """End-to-end: `sol doctor --json` via the venv entry point produces valid diagnostic JSON."""
     repo_root = Path(__file__).resolve().parent.parent
     result = subprocess.run(
-        [sys.executable, "-m", "think.sol_cli", "doctor", "--json"],
+        [sys.executable, "-m", "solstone.think.sol_cli", "doctor", "--json"],
         capture_output=True,
         text=True,
         cwd=repo_root,

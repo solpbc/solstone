@@ -11,8 +11,8 @@ import numpy as np
 import pytest
 import soundfile as sf
 
-import observe.transcribe._parakeet_coreml as parakeet
-from observe.transcribe import BACKEND_METADATA, BACKEND_REGISTRY
+import solstone.observe.transcribe._parakeet_coreml as parakeet
+from solstone.observe.transcribe import BACKEND_METADATA, BACKEND_REGISTRY
 
 
 def _skip_reason() -> str | None:

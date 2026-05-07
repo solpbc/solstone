@@ -25,13 +25,17 @@ def _run_in_tmp(args: list[str]) -> subprocess.CompletedProcess[str]:
 
 
 def test_import_think_sol_cli_from_tmp():
-    result = _run_in_tmp([str(VENV_PYTHON), "-c", "from think.sol_cli import main"])
+    result = _run_in_tmp(
+        [str(VENV_PYTHON), "-c", "from solstone.think.sol_cli import main"]
+    )
 
     assert result.returncode == 0, result.stderr
 
 
 def test_import_think_media_from_tmp():
-    result = _run_in_tmp([str(VENV_PYTHON), "-c", "from think.media import MIME_TYPES"])
+    result = _run_in_tmp(
+        [str(VENV_PYTHON), "-c", "from solstone.think.media import MIME_TYPES"]
+    )
 
     assert result.returncode == 0, result.stderr
 

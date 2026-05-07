@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pytest
 
-from think.link.framing import (
+from solstone.think.link.framing import (
     FLAG_CLOSE,
     FLAG_DATA,
     FLAG_OPEN,

@@ -53,7 +53,7 @@ Use `//` comments for JavaScript files.
 
 ## Layer Hygiene
 
-The L1–L9 layer-hygiene invariants (read/write separation, domain write ownership, naming contracts, CLI verb polarity, indexer/importer/hook/event-handler rules) are inlined in `AGENTS.md` §7. They're promoted to the coder guide because a codebase-wide audit in April 2026 found 14 violations across `think/` and `apps/`, and a one-click-away invariant is a routinely-skipped invariant.
+The L1–L9 layer-hygiene invariants (read/write separation, domain write ownership, naming contracts, CLI verb polarity, indexer/importer/hook/event-handler rules) are inlined in `AGENTS.md` §7. They're promoted to the coder guide because a codebase-wide audit in April 2026 found 14 violations across `solstone/think/` and `solstone/apps/`, and a one-click-away invariant is a routinely-skipped invariant.
 
 Enforcement: `scripts/check_layer_hygiene.py`, wired into `make ci`. Known audit-flagged files are allowlisted with audit-reference TODOs; the allowlist shrinks as remediation bundles ship.
 

@@ -9,9 +9,9 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from apps.skills.call import app as skills_app
-from think.call import call_app
-from think.skills import (
+from solstone.apps.skills.call import app as skills_app
+from solstone.think.call import call_app
+from solstone.think.skills import (
     load_edit_requests,
     load_patterns,
     locked_modify_patterns,

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from convey import create_app
+from solstone.convey import create_app
 
 
 def _make_client(journal_path: str):
@@ -72,7 +72,7 @@ def _minimal_pulse_context(latest_weekly_reflection):
 def test_home_shows_latest_weekly_reflection_link(monkeypatch, journal_copy):
     client = _make_client(str(journal_copy))
     monkeypatch.setattr(
-        "apps.home.routes._build_pulse_context",
+        "solstone.apps.home.routes._build_pulse_context",
         lambda: _minimal_pulse_context(
             {
                 "day": "20260308",
@@ -93,7 +93,7 @@ def test_home_shows_latest_weekly_reflection_link(monkeypatch, journal_copy):
 def test_home_omits_weekly_reflection_card_when_missing(monkeypatch, journal_copy):
     client = _make_client(str(journal_copy))
     monkeypatch.setattr(
-        "apps.home.routes._build_pulse_context",
+        "solstone.apps.home.routes._build_pulse_context",
         lambda: _minimal_pulse_context(None),
     )
 

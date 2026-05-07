@@ -3,11 +3,11 @@
 
 import importlib
 
-from think.utils import day_path
+from solstone.think.utils import day_path
 
 
 def test_get_raw_file(tmp_path, monkeypatch):
-    utils = importlib.import_module("think.utils")
+    utils = importlib.import_module("solstone.think.utils")
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     day_dir = day_path("20240101")
 

@@ -11,7 +11,7 @@ import pytest
 
 def test_get_talent_configs_generators():
     """Test that system generators are discovered with source field."""
-    talent = importlib.import_module("think.talent")
+    talent = importlib.import_module("solstone.think.talent")
     generators = talent.get_talent_configs(type="generate")
     assert "schedule" in generators
     info = generators["schedule"]
@@ -26,7 +26,7 @@ def test_get_talent_configs_generators():
 
 def test_get_output_name():
     """Test generator key to filename conversion."""
-    talent = importlib.import_module("think.talent")
+    talent = importlib.import_module("solstone.think.talent")
 
     # System generators: key unchanged
     assert talent.get_output_name("activity") == "activity"
@@ -39,7 +39,7 @@ def test_get_output_name():
 
 def test_get_talent_configs_app_discovery(tmp_path, monkeypatch):
     """Test that app generators are discovered from apps/*/talent/."""
-    talent = importlib.import_module("think.talent")
+    talent = importlib.import_module("solstone.think.talent")
 
     # Create a fake app with a generator
     app_dir = tmp_path / "apps" / "test_app" / "talent"
@@ -62,7 +62,7 @@ def test_get_talent_configs_app_discovery(tmp_path, monkeypatch):
 
 def test_get_talent_configs_by_schedule():
     """Test filtering generators by schedule."""
-    talent = importlib.import_module("think.talent")
+    talent = importlib.import_module("solstone.think.talent")
 
     # Get daily generators
     daily = talent.get_talent_configs(type="generate", schedule="daily")
@@ -88,7 +88,7 @@ def test_get_talent_configs_by_schedule():
 
 def test_get_talent_configs_include_disabled(monkeypatch):
     """Test include_disabled parameter."""
-    talent = importlib.import_module("think.talent")
+    talent = importlib.import_module("solstone.think.talent")
 
     # Get generators without disabled (default)
     without_disabled = talent.get_talent_configs(type="generate", schedule="daily")
@@ -109,7 +109,7 @@ def test_scheduled_generators_have_valid_schedule():
     ('segment', 'daily', or 'activity'). Some generators (like importer) have
     output but no schedule - they're used for ad-hoc processing, not scheduled runs.
     """
-    talent = importlib.import_module("think.talent")
+    talent = importlib.import_module("solstone.think.talent")
 
     generators = talent.get_talent_configs(type="generate")
     valid_schedules = ("segment", "daily", "activity", "weekly")
@@ -124,7 +124,7 @@ def test_scheduled_generators_have_valid_schedule():
 
 def test_sense_in_segment_schedule():
     """Test that sense generator exists in segment schedule at priority 5."""
-    talent = importlib.import_module("think.talent")
+    talent = importlib.import_module("solstone.think.talent")
 
     generators = talent.get_talent_configs(type="generate", schedule="segment")
     assert "sense" in generators
@@ -148,7 +148,7 @@ def _write_temp_talent_prompt(talent_dir: Path, stem: str, frontmatter: str) -> 
 
 
 def test_get_talent_configs_raises_on_missing_type_with_output(tmp_path, monkeypatch):
-    talent = importlib.import_module("think.talent")
+    talent = importlib.import_module("solstone.think.talent")
     monkeypatch.setattr(talent, "TALENT_DIR", tmp_path)
     stem = f"test_missing_type_output_{uuid.uuid4().hex}"
     prompt_path = _write_temp_talent_prompt(
@@ -166,7 +166,7 @@ def test_get_talent_configs_raises_on_missing_type_with_output(tmp_path, monkeyp
 
 
 def test_get_talent_configs_allows_missing_type_with_tools(tmp_path, monkeypatch):
-    talent = importlib.import_module("think.talent")
+    talent = importlib.import_module("solstone.think.talent")
     monkeypatch.setattr(talent, "TALENT_DIR", tmp_path)
     stem = f"test_missing_type_tools_{uuid.uuid4().hex}"
     prompt_path = _write_temp_talent_prompt(
@@ -183,7 +183,7 @@ def test_get_talent_configs_allows_missing_type_with_tools(tmp_path, monkeypatch
 
 
 def test_get_talent_configs_raises_when_generate_missing_output(tmp_path, monkeypatch):
-    talent = importlib.import_module("think.talent")
+    talent = importlib.import_module("solstone.think.talent")
     monkeypatch.setattr(talent, "TALENT_DIR", tmp_path)
     stem = f"test_generate_missing_output_{uuid.uuid4().hex}"
     prompt_path = _write_temp_talent_prompt(
@@ -202,7 +202,7 @@ def test_get_talent_configs_raises_when_generate_missing_output(tmp_path, monkey
 
 
 def test_get_talent_configs_allows_cogitate_without_tools(tmp_path, monkeypatch):
-    talent = importlib.import_module("think.talent")
+    talent = importlib.import_module("solstone.think.talent")
     monkeypatch.setattr(talent, "TALENT_DIR", tmp_path)
     stem = f"test_cogitate_missing_tools_{uuid.uuid4().hex}"
     prompt_path = _write_temp_talent_prompt(
@@ -219,14 +219,14 @@ def test_get_talent_configs_allows_cogitate_without_tools(tmp_path, monkeypatch)
 
 
 def test_get_talent_configs_type_generate_returns_only_generate():
-    talent = importlib.import_module("think.talent")
+    talent = importlib.import_module("solstone.think.talent")
     generators = talent.get_talent_configs(type="generate")
     assert generators, "Expected at least one generate prompt"
     assert all(meta.get("type") == "generate" for meta in generators.values())
 
 
 def test_get_talent_configs_type_cogitate_returns_only_cogitate():
-    talent = importlib.import_module("think.talent")
+    talent = importlib.import_module("solstone.think.talent")
     cogitate_prompts = talent.get_talent_configs(type="cogitate")
     assert cogitate_prompts, "Expected at least one cogitate prompt"
     assert all(meta.get("type") == "cogitate" for meta in cogitate_prompts.values())

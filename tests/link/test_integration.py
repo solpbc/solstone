@@ -13,7 +13,7 @@ from wsproto import WSConnection
 from wsproto.connection import ConnectionType
 from wsproto.events import AcceptConnection, CloseConnection, Request, TextMessage
 
-import convey.bridge as convey_bridge
+import solstone.convey.bridge as convey_bridge
 from tests.link.client import Client, StreamResetError
 from tests.link.live_helpers import (
     CONVEY_PASSWORD,

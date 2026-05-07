@@ -1,6 +1,6 @@
 # solstone App Development Guide
 
-**Complete guide for building apps in the `apps/` directory.**
+**Complete guide for building apps in the `solstone/apps/` directory.**
 
 Apps are the primary way to extend solstone's web interface (Convey). Each app is a self-contained module discovered automatically using **convention over configuration**—no base classes or manual registration required.
 
@@ -14,10 +14,10 @@ Create a minimal app in two steps:
 
 ```bash
 # 1. Create app directory (use underscores, not hyphens!)
-mkdir apps/my_app
+mkdir solstone/apps/my_app
 
 # 2. Create workspace template
-touch apps/my_app/workspace.html
+touch solstone/apps/my_app/workspace.html
 ```
 
 **Minimal `workspace.html`:**
@@ -61,7 +61,7 @@ apps/my_app/
 | `app.json` | No | Icon, label, facet support overrides |
 | `app_bar.html` | No | Bottom fixed bar for app controls |
 | `background.html` | No | Background service (WebSocket listeners) |
-| `talent/` | No | Custom agents, generators, and skills (`.md` files + skill subdirectories) |
+| `solstone/talent/` | No | Custom agents, generators, and skills (`.md` files + skill subdirectories) |
 | `maint/` | No | One-time maintenance tasks (run on Convey startup) |
 | `tests/` | No | App-specific tests with self-contained fixtures |
 
@@ -78,7 +78,7 @@ apps/my_app/
 
 **Index route**: All apps are automatically served at `/app/{app_name}` via a shared handler. You don't need to define an index route in `routes.py`.
 
-See `apps/__init__.py` for discovery logic and route injection.
+See `solstone/apps/__init__.py` for discovery logic and route injection.
 
 ---
 
@@ -104,9 +104,9 @@ The workspace template is included inside the app container (`app.html`).
 - See [VENDOR.md](VENDOR.md) for available libraries
 
 **Reference implementations:**
-- Minimal: `apps/home/workspace.html` (simple content)
-- Styled: `apps/support/workspace.html` (custom CSS, forms, interactive JS)
-- Data-driven: `apps/todos/workspace.html` (facet sections, dynamic rendering)
+- Minimal: `solstone/apps/home/workspace.html` (simple content)
+- Styled: `solstone/apps/support/workspace.html` (custom CSS, forms, interactive JS)
+- Data-driven: `solstone/apps/todos/workspace.html` (facet sections, dynamic rendering)
 
 ---
 
@@ -126,10 +126,10 @@ Define custom routes for your app (API endpoints, form handlers, navigation rout
 - Import utilities from `convey.utils` (see [Flask Utilities](#flask-utilities))
 
 **Reference implementations:**
-- API endpoints: `apps/search/routes.py` (search APIs, no index route)
-- Form handlers: `apps/todos/routes.py` (POST handlers, validation, flash messages)
-- Navigation: `apps/activities/routes.py` (date-based routes with custom context)
-- Redirects: `apps/todos/routes.py` index route (redirects `/` to today's date)
+- API endpoints: `solstone/apps/search/routes.py` (search APIs, no index route)
+- Form handlers: `solstone/apps/todos/routes.py` (POST handlers, validation, flash messages)
+- Navigation: `solstone/apps/activities/routes.py` (date-based routes with custom context)
+- Redirects: `solstone/apps/todos/routes.py` index route (redirects `/` to today's date)
 
 
 
@@ -137,7 +137,7 @@ Define custom routes for your app (API endpoints, form handlers, navigation rout
 
 Override default icon, label, and other app settings.
 
-**Authoritative source:** See the `App` dataclass in `apps/__init__.py` for all supported fields, types, and defaults.
+**Authoritative source:** See the `App` dataclass in `solstone/apps/__init__.py` for all supported fields, types, and defaults.
 
 **Common fields:**
 - `icon` - Emoji icon for menu bar (default: "📦")
@@ -148,7 +148,7 @@ Override default icon, label, and other app settings.
 
 **When to disable facets:** Set `"facets": false` for apps that don't use facet-based organization (e.g., system settings, dev tools).
 
-**Examples:** Browse `apps/*/app.json` for reference configurations.
+**Examples:** Browse `solstone/apps/*/app.json` for reference configurations.
 
 ### 4. `app_bar.html` - Bottom Bar Controls
 
@@ -221,9 +221,9 @@ Both badge types appear as red notification counts.
 - See [CALLOSUM.md](CALLOSUM.md) for event protocol details
 
 **Reference implementations:**
-- `apps/todos/background.html` - App icon badge with API fetch
+- `solstone/apps/todos/background.html` - App icon badge with API fetch
 
-**Implementation source:** `convey/static/app.js` - AppServices framework, `convey/static/websocket.js` - WebSocket API
+**Implementation source:** `solstone/convey/static/app.js` - AppServices framework, `solstone/convey/static/websocket.js` - WebSocket API
 
 ---
 
@@ -237,8 +237,8 @@ Define plain callable tool functions for your app in `tools.py`.
 - Put shared logic in your app/module layer and call it from these functions
 
 **Reference implementations:**
-- `apps/todos/tools.py`
-- `apps/entities/tools.py`
+- `solstone/apps/todos/tools.py`
+- `solstone/apps/entities/tools.py`
 
 ---
 
@@ -267,27 +267,27 @@ app = typer.Typer(help="Description of your app commands.")
 - Print formatted text instead of returning dicts
 - Use `typer.Exit(1)` for errors instead of returning error dicts
 
-**Discovery behavior:** The `sol call` dispatcher scans `apps/*/call.py` at startup, imports modules, and mounts any `app` variable that is a `typer.Typer` instance as a sub-command. Private apps (directories starting with `_`) are skipped.
+**Discovery behavior:** The `sol call` dispatcher scans `solstone/apps/*/call.py` at startup, imports modules, and mounts any `app` variable that is a `typer.Typer` instance as a sub-command. Private apps (directories starting with `_`) are skipped.
 
 **Reference implementations:**
-- Discovery logic: `think/call.py` - `_discover_app_calls()` function
-- App CLI example: `apps/todos/call.py` - Todo list command
+- Discovery logic: `solstone/think/call.py` - `_discover_app_calls()` function
+- App CLI example: `solstone/apps/todos/call.py` - Todo list command
 
-**Skills app reference:** `apps/skills/call.py` is the current owner-wide pattern for a data-backed app CLI. It exposes `sol call skills list|show|observe|seed|promote|refresh|mark-dormant|retire|edit-request|rename` and routes all writes through `think/skills.py`, which owns `journal/skills/patterns.jsonl`, `journal/skills/edit_requests.jsonl`, and `journal/skills/{slug}.md`. The shipped daily talents for this app live in `apps/skills/talent/skill_observer.md` (daily cogitate, priority 41) and `apps/skills/talent/skill_editor.md` + `skill_editor.py` (daily generate, priority 60). The observer marks patterns for creation/refresh, and the editor consumes those flags or pending `edit-request` rows to write/update exactly one owner-wide profile per run.
+**Skills app reference:** `solstone/apps/skills/call.py` is the current owner-wide pattern for a data-backed app CLI. It exposes `sol call skills list|show|observe|seed|promote|refresh|mark-dormant|retire|edit-request|rename` and routes all writes through `solstone/think/skills.py`, which owns `journal/skills/patterns.jsonl`, `journal/skills/edit_requests.jsonl`, and `journal/skills/{slug}.md`. The shipped daily talents for this app live in `solstone/apps/skills/talent/skill_observer.md` (daily cogitate, priority 41) and `solstone/apps/skills/talent/skill_editor.md` + `skill_editor.py` (daily generate, priority 60). The observer marks patterns for creation/refresh, and the editor consumes those flags or pending `edit-request` rows to write/update exactly one owner-wide profile per run.
 
 ---
 
-### 8. `talent/` - App Generators
+### 8. `solstone/talent/` - App Generators
 
 Define custom generator prompts that integrate with solstone's output generation system.
 
 **Key Points:**
-- Create `talent/` directory with `.md` files containing JSON frontmatter
+- Create `solstone/talent/` directory with `.md` files containing JSON frontmatter
 - App generators are automatically discovered alongside system generators
 - Keys are namespaced as `{app}:{agent}` (e.g., `my_app:weekly_summary`)
 - Outputs go to `JOURNAL/YYYYMMDD/talents/_<app>_<agent>.md` (or `.json` if `output: "json"`)
 
-**Metadata format:** Same schema as system generators in `talent/*.md` - JSON frontmatter includes `title`, `description`, `color`, `schedule` (required), `priority` (required for scheduled prompts), `hook`, `output`, `max_output_tokens`, and `thinking_budget` fields. The `schedule` field must be `"segment"` or `"daily"`. The `priority` field is required for all scheduled prompts - prompts without explicit priority will fail validation. Set `output: "json"` for structured JSON output instead of markdown. Optional `max_output_tokens` sets the maximum response length; `thinking_budget` sets the model's thinking token budget (provider-specific defaults apply if omitted). Generators reject a `cwd` field entirely; working-directory control is only available for `type: "cogitate"` prompts.
+**Metadata format:** Same schema as system generators in `solstone/talent/*.md` - JSON frontmatter includes `title`, `description`, `color`, `schedule` (required), `priority` (required for scheduled prompts), `hook`, `output`, `max_output_tokens`, and `thinking_budget` fields. The `schedule` field must be `"segment"` or `"daily"`. The `priority` field is required for all scheduled prompts - prompts without explicit priority will fail validation. Set `output: "json"` for structured JSON output instead of markdown. Optional `max_output_tokens` sets the maximum response length; `thinking_budget` sets the model's thinking token budget (provider-specific defaults apply if omitted). Generators reject a `cwd` field entirely; working-directory control is only available for `type: "cogitate"` prompts.
 
 **Priority bands:** Prompts run in priority order (lowest first). Recommended bands:
 - 10-30: Generators (content-producing prompts)
@@ -320,7 +320,7 @@ Example:
 - Use `"hook": {"post": "my_hook"}` for post-processing hooks
 - Use both together: `"hook": {"pre": "prep", "post": "process"}`
 - Use `"hook": {"flush": true}` to opt into segment flush (see below)
-- Resolution: `"name"` → `talent/{name}.py`, `"app:name"` → `apps/{app}/talent/{name}.py`, or explicit path
+- Resolution: `"name"` → `solstone/talent/{name}.py`, `"app:name"` → `solstone/apps/{app}/talent/{name}.py`, or explicit path
 
 **Pre-hooks** (`pre_process`): Modify inputs before the LLM call
 - `context` is the full config dict with: `name`, `use_id`, `provider`, `model`, `prompt`, `system_instruction` (if set), `user_instruction`, `output`, `meta`, and for generators: `day`, `segment`, `span`, `span_mode`, `transcript`, `output_path`
@@ -347,42 +347,42 @@ def post_process(result: str, context: dict) -> str | None:
     return result + "\n\n## Generated by hook"
 ```
 
-**Hook idempotency:** Post-hooks that write to shared journal state must be safe to run more than once on the same inputs. `sol think --refresh` bypasses the "output already exists" early-return in `think/talents.py` and re-executes the talent, which re-fires `post_process` against a fresh LLM result — so any side-effect the hook performs (writing events, appending to a log, updating an index file) will happen again. Pick one of these two patterns:
+**Hook idempotency:** Post-hooks that write to shared journal state must be safe to run more than once on the same inputs. `sol think --refresh` bypasses the "output already exists" early-return in `solstone/think/talents.py` and re-executes the talent, which re-fires `post_process` against a fresh LLM result — so any side-effect the hook performs (writing events, appending to a log, updating an index file) will happen again. Pick one of these two patterns:
 
 - **Natural-key dedup.** Read the existing output, compute a natural key per row (e.g., `(facet, event_day, title, start, end)` for facet events), skip rows already present, and append only the new ones. Use this when the output is append-only history and you want to preserve prior writes from other agents.
-- **Atomic replace.** Recompute the full output, write it to a temp file, and rename into place. `atomic_write()` in `think/entities/core.py` is the established helper for text outputs; for JSONL, write the full set of lines to a tempfile and `os.replace()`. Use this when the hook owns the file end-to-end.
+- **Atomic replace.** Recompute the full output, write it to a temp file, and rename into place. `atomic_write()` in `solstone/think/entities/core.py` is the established helper for text outputs; for JSONL, write the full set of lines to a tempfile and `os.replace()`. Use this when the hook owns the file end-to-end.
 
-(Retired 2026-04-18 Sprint 4.) An earlier `write_events_jsonl` hook in `think/hooks.py` opened facet-event logs in `"a"` mode with no dedup and doubled row counts on every `sol think --refresh` — see the 2026-04-17 layer-violations audit (V6) tracked in sol pbc's internal engineering notes for the full write-up.
+(Retired 2026-04-18 Sprint 4.) An earlier `write_events_jsonl` hook in `solstone/think/hooks.py` opened facet-event logs in `"a"` mode with no dedup and doubled row counts on every `sol think --refresh` — see the 2026-04-17 layer-violations audit (V6) tracked in sol pbc's internal engineering notes for the full write-up.
 
 See `docs/coding-standards.md` L8/L9 for the broader principles.
 
 **Reference implementations:**
-- System generator templates: `talent/*.md` (files with `schedule` field but no `tools` field)
-- Schedule hook: `talent/schedule.py`
-- Discovery logic: `think/talent.py` - `get_talent_configs(has_tools=False)`, `get_output_name()`
-- Hook loading: `think/talent.py` - `load_pre_hook()`, `load_post_hook()`
+- System generator templates: `solstone/talent/*.md` (files with `schedule` field but no `tools` field)
+- Schedule hook: `solstone/talent/schedule.py`
+- Discovery logic: `solstone/think/talent.py` - `get_talent_configs(has_tools=False)`, `get_output_name()`
+- Hook loading: `solstone/think/talent.py` - `load_pre_hook()`, `load_post_hook()`
 
 ---
 
-### 9. `talent/` - App Agents and Generators
+### 9. `solstone/talent/` - App Agents and Generators
 
 Define custom agents and generator templates that integrate with solstone's Cortex agent system.
 
 **Key Points:**
-- Create `talent/` directory with `.md` files containing JSON frontmatter
+- Create `solstone/talent/` directory with `.md` files containing JSON frontmatter
 - Both agents and generators live in the same directory - distinguished by frontmatter fields
 - Agents have a `tools` field, generators have `schedule` but no `tools`
 - App agents/generators are automatically discovered alongside system ones
 - Keys are namespaced as `{app}:{name}` (e.g., `my_app:helper`)
 - Agents inherit all system agent capabilities (tools, scheduling, multi-facet)
 
-**Metadata format:** Same schema as system agents in `talent/*.md` - JSON frontmatter includes `title`, `provider`, `model`, `tools`, `schedule`, `priority`, `multi_facet`, `max_output_tokens`, and `thinking_budget` fields. The `priority` field is **required** for all scheduled prompts - prompts without explicit priority will fail validation. See the priority bands documentation in [THINK.md](THINK.md#unified-priority-execution). Optional `max_output_tokens` sets the maximum response length; `thinking_budget` sets the model's thinking token budget (provider-specific defaults apply if omitted; OpenAI uses fixed reasoning and ignores this field). Cogitate agents may also declare `cwd: "journal"` or `cwd: "repo"`; when omitted they default to `journal`, and repo-oriented prompts like `coder` should opt into `repo`. See [CORTEX.md](CORTEX.md) for agent configuration details.
+**Metadata format:** Same schema as system agents in `solstone/talent/*.md` - JSON frontmatter includes `title`, `provider`, `model`, `tools`, `schedule`, `priority`, `multi_facet`, `max_output_tokens`, and `thinking_budget` fields. The `priority` field is **required** for all scheduled prompts - prompts without explicit priority will fail validation. See the priority bands documentation in [THINK.md](THINK.md#unified-priority-execution). Optional `max_output_tokens` sets the maximum response length; `thinking_budget` sets the model's thinking token budget (provider-specific defaults apply if omitted; OpenAI uses fixed reasoning and ignores this field). Cogitate agents may also declare `cwd: "journal"` or `cwd: "repo"`; when omitted they default to `journal`, and repo-oriented prompts like `coder` should opt into `repo`. See [CORTEX.md](CORTEX.md) for agent configuration details.
 
 **Template variables:** Agent prompts can use template variables like `$name`, `$preferred`, and pronoun variables. See [PROMPT_TEMPLATES.md](PROMPT_TEMPLATES.md) for the complete template system documentation.
 
 **Reference implementations:**
-- System agent examples: `talent/*.md` (files with `tools` field)
-- Discovery logic: `think/talent.py` - `get_talent_configs(has_tools=True)`, `get_talent()`
+- System agent examples: `solstone/talent/*.md` (files with `tools` field)
+- Discovery logic: `solstone/think/talent.py` - `get_talent_configs(has_tools=True)`, `get_talent()`
 
 #### Prompt Context Configuration
 
@@ -405,18 +405,18 @@ Context is provided inline in the `.md` body via template variables:
 - `$facets` - focused facet context or all available facets
 - `$activity_context` - activity metadata, segment state, and analysis focus sections
 
-**Authoritative source:** `think/talent.py` - `_DEFAULT_LOAD`, `source_is_enabled()`, `source_is_required()`, `get_talent_filter()`
+**Authoritative source:** `solstone/think/talent.py` - `_DEFAULT_LOAD`, `source_is_enabled()`, `source_is_required()`, `get_talent_filter()`
 
 ---
 
-### 10. `talent/` - Agent Skills
+### 10. `solstone/talent/` - Agent Skills
 
-Define [Agent Skills](https://agentskills.io/specification) as subdirectories within `talent/`. Skills package procedural knowledge, workflows, and resources that AI coding agents (Claude Code, GitHub Copilot, Gemini CLI, etc.) can discover and use on demand.
+Define [Agent Skills](https://agentskills.io/specification) as subdirectories within `solstone/talent/`. Skills package procedural knowledge, workflows, and resources that AI coding agents (Claude Code, GitHub Copilot, Gemini CLI, etc.) can discover and use on demand.
 
 **Key Points:**
-- Create a subdirectory in `talent/` with a `SKILL.md` file (YAML frontmatter + markdown body)
+- Create a subdirectory in `solstone/talent/` with a `SKILL.md` file (YAML frontmatter + markdown body)
 - The directory name must match the `name` field in the YAML frontmatter
-- Skill names must be unique across system `talent/` and all `apps/*/talent/` directories
+- Skill names must be unique across system `solstone/talent/` and all `solstone/apps/*/talent/` directories
 - `make skills` discovers all skills and symlinks them into `journal/.agents/skills/` and `journal/.claude/skills/`
 - Skills are standalone — they don't interact with the talent agent/generator system
 - The talent loader ignores subdirectories, so skills won't interfere with agent discovery
@@ -452,14 +452,14 @@ Step-by-step procedures, examples, and domain knowledge for the agent.
 - `metadata` — Arbitrary key-value string map
 - `allowed-tools` — Space-delimited list of pre-approved tools (experimental)
 
-**App skills** work the same way — place a skill directory inside `apps/my_app/talent/`:
+**App skills** work the same way — place a skill directory inside `solstone/apps/my_app/talent/`:
 ```
 apps/my_app/talent/my-skill/
 ├── SKILL.md
 └── references/
 ```
 
-**Running `make skills`:** Discovers all `SKILL.md` files under `talent/*/` and `apps/*/talent/*/`, then creates symlinks in `journal/.agents/skills/` and `journal/.claude/skills/` so that all supported coding agents see the same skills. Errors if two skills share the same directory name.
+**Running `make skills`:** Discovers all `SKILL.md` files under `solstone/talent/*/` and `solstone/apps/*/talent/*/`, then creates symlinks in `journal/.agents/skills/` and `journal/.claude/skills/` so that all supported coding agents see the same skills. Errors if two skills share the same directory name.
 
 ---
 
@@ -477,8 +477,8 @@ Define one-time maintenance scripts that run automatically when supervisor start
 **CLI:** `sol maint` (run pending), `sol maint --list` (show status), `sol maint --force` (re-run all)
 
 **Reference implementations:**
-- Example task: `apps/entities/maint/001_migrate_to_journal_entities.py` - real migration task demonstrating maint patterns
-- Discovery logic: `think/maint.py` - `discover_tasks()`, `run_task()`
+- Example task: `solstone/apps/entities/maint/001_migrate_to_journal_entities.py` - real migration task demonstrating maint patterns
+- Discovery logic: `solstone/think/maint.py` - `discover_tasks()`, `run_task()`
 
 ---
 
@@ -501,8 +501,8 @@ apps/my_app/tests/
 ```
 
 **Reference implementations:**
-- Fixture patterns: `apps/todos/tests/conftest.py`
-- Tool testing: `apps/todos/tests/test_tools.py`
+- Fixture patterns: `solstone/apps/todos/tests/conftest.py`
+- Tool testing: `solstone/apps/todos/tests/test_tools.py`
 
 ---
 
@@ -520,22 +520,22 @@ Define server-side handlers that react to Callosum events. Handlers run in Conve
 **Available imports** (same as route handlers):
 - `from convey import state` - Access `state.journal_root`
 - `from convey import emit` - Emit events back to Callosum
-- `from apps.utils import get_app_storage_path, log_app_action` - App storage
-- `from convey.utils import load_json, save_json, spawn_agent` - Utilities
+- `from solstone.apps.utils import get_app_storage_path, log_app_action` - App storage
+- `from solstone.convey.utils import load_json, save_json, spawn_agent` - Utilities
 
 **Not available** (no Flask request context):
 - `request`, `session`, `current_app`
 - `error_response()`, `success_response()`, `parse_pagination_params()`
 
 **Reference implementations:**
-- Framework: `apps/events.py` - `EventContext` dataclass, decorator, discovery
-- Example: `apps/entities/events.py` - Entity activity tracking via event handlers
+- Framework: `solstone/apps/events.py` - `EventContext` dataclass, decorator, discovery
+- Example: `solstone/apps/entities/events.py` - Entity activity tracking via event handlers
 
 ---
 
 ## Flask Utilities
 
-Available in `convey/utils.py`:
+Available in `solstone/convey/utils.py`:
 
 ### Route Helpers
 - `error_response(message, code=400)` - Standard JSON error response
@@ -552,28 +552,28 @@ Available in `convey/utils.py`:
 - `load_json(path)` - Load JSON file with error handling (returns None on error)
 - `save_json(path, data, indent, add_newline)` - Save JSON with formatting (returns bool)
 
-**See source:** `convey/utils.py` for full signatures and documentation
+**See source:** `solstone/convey/utils.py` for full signatures and documentation
 
 ### App Storage
 
 Apps can persist journal-specific configuration and data in `<journal>/apps/<app_name>/`:
 
 ```python
-from apps.utils import get_app_storage_path, load_app_config, save_app_config
+from solstone.apps.utils import get_app_storage_path, load_app_config, save_app_config
 ```
 
 - `get_app_storage_path(app_name, *sub_dirs, ensure_exists)` - Get Path to app storage directory
 - `load_app_config(app_name, default)` - Load app config from `config.json`
 - `save_app_config(app_name, config)` - Save app config to `config.json`
 
-**See source:** `apps/utils.py` for implementation details
+**See source:** `solstone/apps/utils.py` for implementation details
 
 ### Action Logging
 
 Apps that modify owner data should log actions for audit trail purposes:
 
 ```python
-from apps.utils import log_app_action
+from solstone.apps.utils import log_app_action
 ```
 
 - `log_app_action(app, facet, action, params, day=None)` - Log owner-initiated action
@@ -598,15 +598,15 @@ Log after successful mutations, not attempts.
 Available functions from the `think` module:
 
 ### Facets
-`think/facets.py`: `get_facets()` - Returns dict of facet configurations
+`solstone/think/facets.py`: `get_facets()` - Returns dict of facet configurations
 
 ### Todos
-`apps/todos/todo.py`:
+`solstone/apps/todos/todo.py`:
 - `get_todos(day, facet)` - Get todo list for day and facet
 - `TodoChecklist` class - Load and manipulate todo markdown files
 
 ### Entities
-`think/entities/`: `load_entities(facet)` - Load entities for a facet
+`solstone/think/entities/`: `load_entities(facet)` - Load entities for a facet
 
 See [talent/journal/SKILL.md](../talent/journal/SKILL.md), [CORTEX.md](CORTEX.md), [CALLOSUM.md](CALLOSUM.md) for subsystem details.
 
@@ -616,7 +616,7 @@ See [talent/journal/SKILL.md](../talent/journal/SKILL.md), [CORTEX.md](CORTEX.md
 
 ### Global Variables
 
-Defined in `convey/templates/app.html`:
+Defined in `solstone/convey/templates/app.html`:
 - `window.facetsData` - Array of facet objects `[{name, title, color, emoji}, ...]`
 - `window.selectedFacet` - Current facet name or null (see Facet Selection below)
 - `window.appFacetCounts` - Badge counts for current app `{"work": 5, "personal": 3}` (set via route's `facet_counts`)
@@ -636,13 +636,13 @@ Apps can access and control facet selection through a uniform API:
 
 **UX Tip:** Apps should provide visual indication when in all-facet mode vs showing a specific facet. For example, group items by facet, show facet badges/colors on items, or display a subtle "All facets" label. This helps owners understand the scope of what they're viewing.
 
-**See implementation:** `convey/static/app.js` - Facet switching logic and event dispatch
+**See implementation:** `solstone/convey/static/app.js` - Facet switching logic and event dispatch
 
 **Disabled mode:** On apps with `facets.disabled: true`, the facet bar is visible but inert — pills render without interactivity or tab stops. The container is marked `aria-hidden="true"` so screen readers skip it. The bar remains visually present as always-visible chrome.
 
 ### WebSocket Events (Client-Side)
 
-`window.appEvents` API defined in `convey/static/websocket.js`:
+`window.appEvents` API defined in `solstone/convey/static/websocket.js`:
 - `listen(tract, callback)` - Subscribe to specific tract or '*' for all events
 - Messages structure: `{tract: 'cortex', event: 'agent_complete', ...data}`
 
@@ -672,7 +672,7 @@ def handle_action():
 - If Callosum disconnected, message is dropped (with debug logging)
 - Returns `True` if queued, `False` if bridge not started or queue full
 
-**Reference implementations:** `apps/import/routes.py`, `apps/observer/routes.py`
+**Reference implementations:** `solstone/apps/import/routes.py`, `solstone/apps/observer/routes.py`
 
 ---
 
@@ -701,11 +701,11 @@ def handle_action():
 - `.workspace-content-wide` - Full viewport width, ideal for data tables and grids
 - Both include consistent padding and mobile responsiveness
 
-**See:** `convey/static/app.css` for implementation details
+**See:** `solstone/convey/static/app.css` for implementation details
 
 **Examples:**
-- Standard: `apps/home/workspace.html`, `apps/todos/workspace.html`, `apps/entities/workspace.html`
-- Wide: `apps/search/workspace.html`, `apps/activities/_day.html`, `apps/import/workspace.html`
+- Standard: `solstone/apps/home/workspace.html`, `solstone/apps/todos/workspace.html`, `solstone/apps/entities/workspace.html`
+- Wide: `solstone/apps/search/workspace.html`, `solstone/apps/activities/_day.html`, `solstone/apps/import/workspace.html`
 
 ### CSS Variables
 
@@ -725,27 +725,27 @@ Use these in your app-specific styles to respond to facet theme.
 
 **Best practice:** Scope styles with unique class prefix to avoid conflicts.
 
-**Example:** `apps/stats/workspace.html` shows scoped `.stats-*` classes for all custom styles in its `<style>` block.
+**Example:** `solstone/apps/stats/workspace.html` shows scoped `.stats-*` classes for all custom styles in its `<style>` block.
 
 ### Global Styles
 
-Main stylesheet `convey/static/app.css` provides base components. Review for available classes and patterns.
+Main stylesheet `solstone/convey/static/app.css` provides base components. Review for available classes and patterns.
 
 ---
 
 ## Common Patterns
 
 ### Date-Based Navigation
-See `apps/todos/routes.py:todos_day()` - Shows date validation and `format_date()` usage. Day navigation is handled automatically by the date_nav component.
+See `solstone/apps/todos/routes.py:todos_day()` - Shows date validation and `format_date()` usage. Day navigation is handled automatically by the date_nav component.
 
 ### AJAX Endpoints
-See `apps/todos/routes.py:move_todo()` - Shows JSON parsing, validation, `error_response()`, `success_response()`.
+See `solstone/apps/todos/routes.py:move_todo()` - Shows JSON parsing, validation, `error_response()`, `success_response()`.
 
 ### Form Handling with Flash Messages
-See `apps/todos/routes.py:todos_day()` POST handler - Shows form processing, validation, flash messages, redirects.
+See `solstone/apps/todos/routes.py:todos_day()` POST handler - Shows form processing, validation, flash messages, redirects.
 
 ### Facet-Aware Queries
-See `apps/todos/routes.py:todos_day()` - Loads data per-facet when selected, or all facets when null.
+See `solstone/apps/todos/routes.py:todos_day()` - Loads data per-facet when selected, or all facets when null.
 
 ### Facet Pill Badges
 Pass `facet_counts` dict to `render_template()` to show initial badge counts on facet pills:
@@ -755,7 +755,7 @@ return render_template("app.html", facet_counts=facet_counts)
 ```
 For client-side updates (e.g., after completing a todo), use `AppServices.badges.facet.set(facetName, count)`.
 
-See `apps/todos/routes.py:todos_day()` - Computes pending counts from already-loaded data.
+See `solstone/apps/todos/routes.py:todos_day()` - Computes pending counts from already-loaded data.
 
 ---
 
@@ -784,7 +784,7 @@ FLASK_DEBUG=1 convey
 
 ### Logging
 
-Use `current_app.logger` from Flask for debugging. See `apps/todos/routes.py` for examples.
+Use `current_app.logger` from Flask for debugging. See `solstone/apps/todos/routes.py` for examples.
 
 ---
 
@@ -806,21 +806,21 @@ Use `current_app.logger` from Flask for debugging. See `apps/todos/routes.py` fo
 
 ## Example Apps
 
-Browse `apps/*/` directories for reference implementations. Apps range in complexity:
+Browse `solstone/apps/*/` directories for reference implementations. Apps range in complexity:
 
-- **Minimal** - Just `workspace.html` (e.g., `apps/home/`, `apps/health/`)
-- **Styled** - Custom CSS, background services (e.g., `apps/support/`)
-- **Full-featured** - Routes, forms, AJAX, badges, tools (e.g., `apps/todos/`, `apps/entities/`)
+- **Minimal** - Just `workspace.html` (e.g., `solstone/apps/home/`, `solstone/apps/health/`)
+- **Styled** - Custom CSS, background services (e.g., `solstone/apps/support/`)
+- **Full-featured** - Routes, forms, AJAX, badges, tools (e.g., `solstone/apps/todos/`, `solstone/apps/entities/`)
 
 ---
 
 ## Additional Resources
 
-- **`apps/__init__.py`** - App discovery and registry implementation
-- **`convey/apps.py`** - Context processors and vendor library helper
-- **`convey/templates/app.html`** - Main app container template
-- **`convey/static/app.js`** - AppServices framework
-- **`convey/static/websocket.js`** - WebSocket event system
+- **`solstone/apps/__init__.py`** - App discovery and registry implementation
+- **`solstone/convey/apps.py`** - Context processors and vendor library helper
+- **`solstone/convey/templates/app.html`** - Main app container template
+- **`solstone/convey/static/app.js`** - AppServices framework
+- **`solstone/convey/static/websocket.js`** - WebSocket event system
 - [../AGENTS.md](../AGENTS.md) - Project development guidelines and standards
 - [storage.md](../talent/journal/references/storage.md) - Journal directory structure and data organization
 - [CORTEX.md](CORTEX.md) - Agent system architecture and spawning agents

@@ -5,7 +5,7 @@ import json
 
 from typer.testing import CliRunner
 
-from apps.activities.call import app
+from solstone.apps.activities.call import app
 
 runner = CliRunner()
 
@@ -23,11 +23,11 @@ def _configure_cli_env(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     monkeypatch.setenv("SOL_SKIP_SUPERVISOR_CHECK", "1")
 
-    import think.utils
+    import solstone.think.utils as think_utils
 
-    think.utils._journal_path_cache = None
+    think_utils._journal_path_cache = None
 
-    from think.entities.loading import clear_entity_loading_cache
+    from solstone.think.entities.loading import clear_entity_loading_cache
 
     clear_entity_loading_cache()
 
@@ -117,9 +117,9 @@ def test_create_resolves_participation_entity_ids(tmp_path, monkeypatch):
     assert record["participation"][0]["extra"] == "keep-me"
     assert "participation" in record["edits"][0]["fields"]
 
-    import think.utils
+    import solstone.think.utils as think_utils
 
-    think.utils._journal_path_cache = None
+    think_utils._journal_path_cache = None
 
 
 def test_create_omits_participation_when_not_provided(tmp_path, monkeypatch):
@@ -132,9 +132,9 @@ def test_create_omits_participation_when_not_provided(tmp_path, monkeypatch):
     assert "participation" not in record
     assert "participation" not in record["edits"][0]["fields"]
 
-    import think.utils
+    import solstone.think.utils as think_utils
 
-    think.utils._journal_path_cache = None
+    think_utils._journal_path_cache = None
 
 
 def test_create_persists_empty_participation_array(tmp_path, monkeypatch):
@@ -150,9 +150,9 @@ def test_create_persists_empty_participation_array(tmp_path, monkeypatch):
     assert record["participation"] == []
     assert "participation" in record["edits"][0]["fields"]
 
-    import think.utils
+    import solstone.think.utils as think_utils
 
-    think.utils._journal_path_cache = None
+    think_utils._journal_path_cache = None
 
 
 def test_create_rejects_non_list_participation(tmp_path, monkeypatch):
@@ -168,9 +168,9 @@ def test_create_rejects_non_list_participation(tmp_path, monkeypatch):
     assert "Error: participation must be an array" in result.output
     assert not activities_path.exists()
 
-    import think.utils
+    import solstone.think.utils as think_utils
 
-    think.utils._journal_path_cache = None
+    think_utils._journal_path_cache = None
 
 
 def test_create_rejects_non_object_participation_entry(tmp_path, monkeypatch):
@@ -186,9 +186,9 @@ def test_create_rejects_non_object_participation_entry(tmp_path, monkeypatch):
     assert "Error: participation[0] must be an object" in result.output
     assert not activities_path.exists()
 
-    import think.utils
+    import solstone.think.utils as think_utils
 
-    think.utils._journal_path_cache = None
+    think_utils._journal_path_cache = None
 
 
 def test_create_participation_resolver_is_read_only(tmp_path, monkeypatch):
@@ -230,9 +230,9 @@ def test_create_participation_resolver_is_read_only(tmp_path, monkeypatch):
     assert result.exit_code == 0
     assert snapshot_after == snapshot_before
 
-    import think.utils
+    import solstone.think.utils as think_utils
 
-    think.utils._journal_path_cache = None
+    think_utils._journal_path_cache = None
 
 
 def test_create_rejects_bad_participation_name(tmp_path, monkeypatch):
@@ -268,9 +268,9 @@ def test_create_rejects_bad_participation_name(tmp_path, monkeypatch):
         assert message in result.output
         assert not activities_path.exists()
 
-    import think.utils
+    import solstone.think.utils as think_utils
 
-    think.utils._journal_path_cache = None
+    think_utils._journal_path_cache = None
 
 
 def test_create_rejects_invalid_participation_fields(tmp_path, monkeypatch):
@@ -306,6 +306,6 @@ def test_create_rejects_invalid_participation_fields(tmp_path, monkeypatch):
         assert message in result.output
         assert not activities_path.exists()
 
-    import think.utils
+    import solstone.think.utils as think_utils
 
-    think.utils._journal_path_cache = None
+    think_utils._journal_path_cache = None

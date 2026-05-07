@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from think.prompts import load_prompt
+from solstone.think.prompts import load_prompt
 
 
 def _seed_config(tmp_path):
@@ -30,7 +30,7 @@ def test_skill_editor_prompt_substitutes_template_vars(monkeypatch, tmp_path):
 
     prompt = load_prompt(
         "skill_editor",
-        base_dir=repo_root / "apps" / "skills" / "talent",
+        base_dir=repo_root / "solstone" / "apps" / "skills" / "talent",
         context={
             "day": "Saturday, April 19, 2026",
             "skill_mode_instruction": "Create the profile for this skill.",

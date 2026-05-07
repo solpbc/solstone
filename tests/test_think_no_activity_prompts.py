@@ -83,7 +83,7 @@ def _patch_segment_dependencies(
     append_calls: list[tuple],
     activity_calls: list[dict],
 ) -> None:
-    from think import thinking as think
+    from solstone.think import thinking as think
 
     monkeypatch.setattr(
         think,
@@ -117,8 +117,8 @@ def test_flag_set_skips_prompts_but_writes_record(
     segment_dir: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from think import thinking as think
-    from think.thinking import ThinkingJSONLWriter
+    from solstone.think import thinking as think
+    from solstone.think.thinking import ThinkingJSONLWriter
 
     append_calls: list[tuple] = []
     activity_calls: list[dict] = []
@@ -163,7 +163,7 @@ def test_flag_unset_runs_prompts_unchanged(
     segment_dir: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from think import thinking as think
+    from solstone.think import thinking as think
 
     append_calls: list[tuple] = []
     activity_calls: list[dict] = []
@@ -201,7 +201,7 @@ def test_flag_with_activity_mode_errors(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    from think import thinking as think
+    from solstone.think import thinking as think
 
     journal = tmp_path / "journal"
     (journal / "chronicle" / DAY).mkdir(parents=True)

@@ -7,7 +7,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-from think.push import triggers
+from solstone.think.push import triggers
 
 
 def _log_path(tmp_path: Path) -> Path:

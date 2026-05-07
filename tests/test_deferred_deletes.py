@@ -8,7 +8,7 @@ import time
 
 import pytest
 
-import think.deferred_deletes as deferred_deletes
+import solstone.think.deferred_deletes as deferred_deletes
 
 
 @pytest.fixture(autouse=True)

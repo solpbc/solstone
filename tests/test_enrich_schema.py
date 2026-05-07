@@ -7,12 +7,15 @@ from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
-enrich_mod = importlib.import_module("observe.enrich")
+enrich_mod = importlib.import_module("solstone.observe.enrich")
 
 _SCHEMA = json.loads(
-    (Path(__file__).resolve().parents[1] / "observe" / "enrich.schema.json").read_text(
-        encoding="utf-8"
-    )
+    (
+        Path(__file__).resolve().parents[1]
+        / "solstone"
+        / "observe"
+        / "enrich.schema.json"
+    ).read_text(encoding="utf-8")
 )
 
 

@@ -9,7 +9,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from convey import create_app
+from solstone.convey import create_app
 
 
 class _FakeEvent:
@@ -125,14 +125,16 @@ def test_voice_flow_round_trip(integration_client, monkeypatch):
     )
     FakeAsyncOpenAI.state = state
 
-    monkeypatch.setattr("convey.voice.AsyncOpenAI", FakeAsyncOpenAI)
-    monkeypatch.setattr("think.voice.sideband.AsyncOpenAI", FakeAsyncOpenAI)
-    monkeypatch.setattr("convey.voice.get_openai_api_key", lambda: "sk-test")
-    monkeypatch.setattr("think.voice.sideband.get_openai_api_key", lambda: "sk-test")
+    monkeypatch.setattr("solstone.convey.voice.AsyncOpenAI", FakeAsyncOpenAI)
+    monkeypatch.setattr("solstone.think.voice.sideband.AsyncOpenAI", FakeAsyncOpenAI)
+    monkeypatch.setattr("solstone.convey.voice.get_openai_api_key", lambda: "sk-test")
     monkeypatch.setattr(
-        "convey.voice.brain.wait_until_ready", lambda app, timeout: True
+        "solstone.think.voice.sideband.get_openai_api_key", lambda: "sk-test"
     )
-    monkeypatch.setattr("convey.voice.brain.brain_is_stale", lambda app: False)
+    monkeypatch.setattr(
+        "solstone.convey.voice.brain.wait_until_ready", lambda app, timeout: True
+    )
+    monkeypatch.setattr("solstone.convey.voice.brain.brain_is_stale", lambda app: False)
 
     session_response = client.post("/api/voice/session")
     assert session_response.status_code == 200
@@ -179,14 +181,16 @@ def test_voice_observer_action_round_trip(integration_client, monkeypatch):
     )
     FakeAsyncOpenAI.state = state
 
-    monkeypatch.setattr("convey.voice.AsyncOpenAI", FakeAsyncOpenAI)
-    monkeypatch.setattr("think.voice.sideband.AsyncOpenAI", FakeAsyncOpenAI)
-    monkeypatch.setattr("convey.voice.get_openai_api_key", lambda: "sk-test")
-    monkeypatch.setattr("think.voice.sideband.get_openai_api_key", lambda: "sk-test")
+    monkeypatch.setattr("solstone.convey.voice.AsyncOpenAI", FakeAsyncOpenAI)
+    monkeypatch.setattr("solstone.think.voice.sideband.AsyncOpenAI", FakeAsyncOpenAI)
+    monkeypatch.setattr("solstone.convey.voice.get_openai_api_key", lambda: "sk-test")
     monkeypatch.setattr(
-        "convey.voice.brain.wait_until_ready", lambda app, timeout: True
+        "solstone.think.voice.sideband.get_openai_api_key", lambda: "sk-test"
     )
-    monkeypatch.setattr("convey.voice.brain.brain_is_stale", lambda app: False)
+    monkeypatch.setattr(
+        "solstone.convey.voice.brain.wait_until_ready", lambda app, timeout: True
+    )
+    monkeypatch.setattr("solstone.convey.voice.brain.brain_is_stale", lambda app: False)
 
     session_response = client.post("/api/voice/session")
     assert session_response.status_code == 200

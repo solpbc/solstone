@@ -9,7 +9,7 @@ import json
 
 
 def test_entities_post_process_writes_without_segment(tmp_path):
-    from talent.entities import post_process
+    from solstone.talent.entities import post_process
 
     output_path = (
         tmp_path
@@ -40,7 +40,7 @@ def test_entities_post_process_writes_without_segment(tmp_path):
 
 
 def test_entities_post_process_requires_output_path(caplog):
-    from talent.entities import post_process
+    from solstone.talent.entities import post_process
 
     post_process("* Person: Alice Smith - Mentioned in the meeting\n", {})
 
@@ -48,7 +48,7 @@ def test_entities_post_process_requires_output_path(caplog):
 
 
 def test_entities_talent_is_segment_scheduled():
-    from think.talent import get_talent_configs
+    from solstone.think.talent import get_talent_configs
 
     segment_prompts = get_talent_configs(schedule="segment")
 

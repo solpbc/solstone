@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from think.surfaces import health as health_surface
+from solstone.think.surfaces import health as health_surface
 
 _RUNNER = CliRunner()
 _SPEC_POINTER = "cpo/specs/in-flight/consumer-surface-health.md"
@@ -22,9 +22,9 @@ def _configure_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     monkeypatch.setenv("SOL_SKIP_SUPERVISOR_CHECK", "1")
 
-    from think.entities.journal import clear_journal_entity_cache
-    from think.entities.loading import clear_entity_loading_cache
-    from think.entities.relationships import clear_relationship_caches
+    from solstone.think.entities.journal import clear_journal_entity_cache
+    from solstone.think.entities.loading import clear_entity_loading_cache
+    from solstone.think.entities.relationships import clear_relationship_caches
 
     clear_journal_entity_cache()
     clear_entity_loading_cache()
@@ -607,7 +607,7 @@ def test_consumer_signal_counts_compose_ledger(tmp_path, monkeypatch):
         ),
     )
 
-    from think.surfaces import ledger as ledger_surface
+    from solstone.think.surfaces import ledger as ledger_surface
 
     original_list = ledger_surface.list
     calls: list[dict[str, object]] = []
@@ -837,7 +837,7 @@ def test_cli_health_summary_full_range_json(tmp_path, monkeypatch):
     _set_now(monkeypatch, _utc_dt("20260410"))
     _minimal_facet_tree(tmp_path)
 
-    from think.call import call_app
+    from solstone.think.call import call_app
 
     summary_result = _RUNNER.invoke(call_app, ["health", "summary", "--json"])
     full_result = _RUNNER.invoke(call_app, ["health", "full", "--json"])
@@ -872,7 +872,7 @@ def test_cli_help_disambiguates_and_lists_health_once(tmp_path, monkeypatch):
     _configure_env(tmp_path, monkeypatch)
     _minimal_facet_tree(tmp_path)
 
-    from think.call import call_app
+    from solstone.think.call import call_app
 
     health_help = _RUNNER.invoke(call_app, ["health", "--help"])
     root_help = _RUNNER.invoke(call_app, ["--help"])
@@ -910,7 +910,7 @@ def test_cli_pipeline_relocated_behavior(tmp_path, monkeypatch):
         {"event": "run.complete", "mode": "segment", "duration_ms": 42},
     )
 
-    from think.call import call_app
+    from solstone.think.call import call_app
 
     default_result = _RUNNER.invoke(call_app, ["health", "pipeline"])
     day_result = _RUNNER.invoke(call_app, ["health", "pipeline", "--day", day])

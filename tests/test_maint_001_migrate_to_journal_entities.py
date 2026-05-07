@@ -7,7 +7,9 @@ import importlib
 import json
 from pathlib import Path
 
-mod = importlib.import_module("apps.entities.maint.001_migrate_to_journal_entities")
+mod = importlib.import_module(
+    "solstone.apps.entities.maint.001_migrate_to_journal_entities"
+)
 
 
 def test_load_all_legacy_entities_no_facets_dir(tmp_path: Path) -> None:

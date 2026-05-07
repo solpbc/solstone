@@ -2,7 +2,9 @@ import importlib
 import json
 from pathlib import Path
 
-mod = importlib.import_module("apps.sol.maint.005_migrate_dream_to_think_schedules")
+mod = importlib.import_module(
+    "solstone.apps.sol.maint.005_migrate_dream_to_think_schedules"
+)
 DREAM = "dream"
 
 

@@ -6,7 +6,7 @@
 import pytest
 from PIL import Image
 
-from observe.see import (
+from solstone.observe.see import (
     decode_frames,
     draw_bounding_box,
     image_to_jpeg_bytes,

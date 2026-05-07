@@ -11,8 +11,8 @@ from pathlib import Path
 import pytest
 from dotenv import load_dotenv
 
+from solstone.think.models import GEMINI_FLASH, GEMINI_PRO
 from tests.integration.conftest import require_cli_tool
-from think.models import GEMINI_FLASH, GEMINI_PRO
 
 
 def get_fixtures_env():
@@ -62,7 +62,7 @@ def test_google_provider_basic():
         }
     )
 
-    # Run the sol think.talents command
+    # Run the sol solstone.think.talents command
     cmd = ["sol", "providers", "check"]
     result = subprocess.run(
         cmd,
@@ -154,7 +154,7 @@ def test_google_provider_with_thinking():
         }
     )
 
-    # Run the sol think.talents command
+    # Run the sol solstone.think.talents command
     cmd = ["sol", "providers", "check"]
     result = subprocess.run(
         cmd,
@@ -227,7 +227,7 @@ def test_google_json_truncation_detection():
         pytest.skip("GOOGLE_API_KEY not found in tests/fixtures/.env file")
 
     # Import provider directly for this test
-    from think.providers import google as google_provider
+    from solstone.think.providers import google as google_provider
 
     # Request JSON output with very small token limit to force truncation
     # Use run_generate which returns GenerateResult, then check finish_reason

@@ -17,7 +17,7 @@ The package exposes several commands:
 - `sol call transcripts read` groups audio and screen transcripts into report sections. Use `--start` and
   `--length` to limit the report to a specific time range. See `sol call transcripts --help` for additional commands.
 - `sol think` runs generators and agents for a single day via Cortex.
-- `python -m think.talents` is the unified execution module for tool talents and generators spawned by Cortex (NDJSON protocol).
+- `python -m solstone.think.talents` is the unified execution module for tool talents and generators spawned by Cortex (NDJSON protocol).
 - `sol supervisor` monitors journaling health and starts the local services that feed Convey, Cortex, and related background tasks. Use the `--no-*` flags to opt out of specific services when debugging.
 - `sol cortex` starts a Callosum-based service for managing AI agent instances and generators.
 - `sol talent` lists available agents and generators with their configuration. Use `sol talent show <name>` to see details, and `sol talent show <name> --prompt` to see the fully composed prompt that would be sent to the LLM.
@@ -37,7 +37,7 @@ Set `GOOGLE_API_KEY` before running any command that contacts Gemini.
 `GOOGLE_API_KEY` can also be provided in a `.env` file which
 is loaded automatically by most commands.
 
-Structured file importers are registered in `think/importers/file_importer.py` and
+Structured file importers are registered in `solstone/think/importers/file_importer.py` and
 run through `sol import`'s dispatcher. Their `process()` contract now accepts
 `dry_run: bool = False`, and journal-archive imports use the same dispatcher
 surface while serializing journal mutation with the merge lock contract.
@@ -101,16 +101,16 @@ After each generator completes and creates output, the indexer runs `--rescan-fi
 The Cortex service (`sol cortex`) is the central system for managing AI talent instances and generators. It monitors the journal's `talents/` directory for new requests and manages execution. All talent spawning should go through Cortex for proper event tracking and management.
 
 Cortex routes requests based on configuration:
-- Requests with `tools` field → tool-using talents (`python -m think.talents`)
-- Requests with `output` field (no `tools`) → generators (`python -m think.talents`)
+- Requests with `tools` field → tool-using talents (`python -m solstone.think.talents`)
+- Requests with `output` field (no `tools`) → generators (`python -m solstone.think.talents`)
 
-Both types are handled by the unified `python -m think.talents` execution module.
+Both types are handled by the unified `python -m solstone.think.talents` execution module.
 
 To spawn talents programmatically, use the cortex_client functions:
 
 ```python
-from think.cortex_client import cortex_request
-from think.callosum import CallosumConnection
+from solstone.think.cortex_client import cortex_request
+from solstone.think.callosum import CallosumConnection
 
 # Create a request
 use_id = cortex_request(
@@ -140,7 +140,7 @@ watcher.stop()
 Generators can also be spawned via `cortex_request` by including an `output` field:
 
 ```python
-from think.cortex_client import cortex_request, wait_for_uses
+from solstone.think.cortex_client import cortex_request, wait_for_uses
 
 # Spawn a generator
 use_id = cortex_request(
@@ -169,7 +169,7 @@ The provider can be ``openai`` (default), ``google``, ``anthropic``, or ``ollama
 
 ### Provider modules
 
-Each provider lives in `think/providers/` and exposes a common interface:
+Each provider lives in `solstone/think/providers/` and exposes a common interface:
 
 - `run_generate()` - Sync text generation, returns `GenerateResult`
 - `run_agenerate()` - Async text generation, returns `GenerateResult`
@@ -180,7 +180,7 @@ which automatically routes to the configured provider based on context.
 
 ## Generator map keys
 
-`think.talent.get_talent_configs(has_tools=False)` reads the `.md` prompt files under `talent/` and
+`think.talent.get_talent_configs(has_tools=False)` reads the `.md` prompt files under `solstone/talent/` and
 returns a dictionary keyed by generator name. Each entry contains:
 
 - `path` – the prompt file path
@@ -201,7 +201,7 @@ Cortex is the central agent management system that all agent spawning should go 
 The `think.cortex_client` module provides functions for interacting with Cortex:
 
 ```python
-from think.cortex_client import cortex_request, cortex_uses
+from solstone.think.cortex_client import cortex_request, cortex_uses
 
 # Create an agent request
 request_file = cortex_request(
@@ -240,10 +240,10 @@ Cortex (orchestrator)
 
 | Provider | Module | Features |
 |----------|--------|----------|
-| OpenAI | `think/providers/openai.py` | GPT models via Agents SDK |
-| Google | `think/providers/google.py` | Gemini models |
-| Anthropic | `think/providers/anthropic.py` | Claude via Anthropic SDK |
-| Ollama | `think/providers/ollama.py` | Local models via Ollama |
+| OpenAI | `solstone/think/providers/openai.py` | GPT models via Agents SDK |
+| Google | `solstone/think/providers/google.py` | Gemini models |
+| Anthropic | `solstone/think/providers/anthropic.py` | Claude via Anthropic SDK |
+| Ollama | `solstone/think/providers/ollama.py` | Local models via Ollama |
 
 Providers implement `run_generate()`, `run_agenerate()`, and `run_cogitate()` functions. See [PROVIDERS.md](PROVIDERS.md) for implementation details.
 
@@ -257,7 +257,7 @@ Providers implement `run_generate()`, `run_agenerate()`, and `run_cogitate()` fu
 
 ## Agent Personas
 
-System prompts in `talent/*.md` (markdown with JSON frontmatter). Apps can add custom agents in `apps/{app}/talent/`.
+System prompts in `solstone/talent/*.md` (markdown with JSON frontmatter). Apps can add custom agents in `solstone/apps/{app}/talent/`.
 
 JSON metadata supports `title`, `provider`, `model`, `tools`, `schedule`, `priority`, `multi_facet`, and `load` keys. Cogitate prompts may also set `cwd: "journal"` or `cwd: "repo"`; when omitted they default to `journal`, while repo-root agents such as `coder` should set `repo`. Generators reject `cwd`.
 

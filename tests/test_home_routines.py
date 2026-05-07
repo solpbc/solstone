@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from apps.home.routes import (
+from solstone.apps.home.routes import (
     _collect_routines,
     _load_routines_state,
     _save_routines_state,
@@ -190,22 +190,32 @@ def test_api_routines_seen(monkeypatch, tmp_path, home_client):
 def test_api_pulse_includes_routines(monkeypatch, home_client):
     """Pulse API includes the routines payload from the context builder."""
     monkeypatch.setattr(
-        "apps.home.routes.get_capture_health",
+        "solstone.apps.home.routes.get_capture_health",
         lambda: {"status": "active", "observers": []},
     )
-    monkeypatch.setattr("apps.home.routes.get_cached_state", lambda: {})
-    monkeypatch.setattr("apps.home.routes._resolve_attention", lambda awareness: None)
-    monkeypatch.setattr("apps.home.routes._load_stats", lambda today: {})
-    monkeypatch.setattr("apps.home.routes._load_flow_md", lambda today: (None, None))
-    monkeypatch.setattr("apps.home.routes._load_pulse_md", lambda: (None, None, []))
+    monkeypatch.setattr("solstone.apps.home.routes.get_cached_state", lambda: {})
     monkeypatch.setattr(
-        "apps.home.routes._collect_anticipated_activities", lambda today: []
+        "solstone.apps.home.routes._resolve_attention", lambda awareness: None
     )
-    monkeypatch.setattr("apps.home.routes._collect_activities", lambda today: [])
-    monkeypatch.setattr("apps.home.routes._collect_todos", lambda today: [])
-    monkeypatch.setattr("apps.home.routes._collect_entities_today", lambda today: [])
+    monkeypatch.setattr("solstone.apps.home.routes._load_stats", lambda today: {})
     monkeypatch.setattr(
-        "apps.home.routes._collect_routines",
+        "solstone.apps.home.routes._load_flow_md", lambda today: (None, None)
+    )
+    monkeypatch.setattr(
+        "solstone.apps.home.routes._load_pulse_md", lambda: (None, None, [])
+    )
+    monkeypatch.setattr(
+        "solstone.apps.home.routes._collect_anticipated_activities", lambda today: []
+    )
+    monkeypatch.setattr(
+        "solstone.apps.home.routes._collect_activities", lambda today: []
+    )
+    monkeypatch.setattr("solstone.apps.home.routes._collect_todos", lambda today: [])
+    monkeypatch.setattr(
+        "solstone.apps.home.routes._collect_entities_today", lambda today: []
+    )
+    monkeypatch.setattr(
+        "solstone.apps.home.routes._collect_routines",
         lambda: [
             {
                 "id": "morning-briefing",

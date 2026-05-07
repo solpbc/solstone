@@ -7,14 +7,17 @@ from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
-import think.models as models
+import solstone.think.models as models
 
-extract_mod = importlib.import_module("observe.extract")
+extract_mod = importlib.import_module("solstone.observe.extract")
 
 _SCHEMA = json.loads(
-    (Path(__file__).resolve().parents[1] / "observe" / "extract.schema.json").read_text(
-        encoding="utf-8"
-    )
+    (
+        Path(__file__).resolve().parents[1]
+        / "solstone"
+        / "observe"
+        / "extract.schema.json"
+    ).read_text(encoding="utf-8")
 )
 
 

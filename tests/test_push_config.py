@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from think.push import config
+from solstone.think.push import config
 
 
 def _write_config(tmp_path: Path, payload: dict) -> None:

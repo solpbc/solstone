@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Tests for think.scheduler — clock-aligned task scheduler."""
+"""Tests for scheduler — clock-aligned task scheduler."""
 
 import json
 import time
@@ -12,12 +12,12 @@ from unittest.mock import Mock
 
 import pytest
 
-import think.scheduler
+from solstone.think import scheduler
 
 
 @contextmanager
 def _fake_now(dt: datetime):
-    """Temporarily replace think.scheduler.datetime with a fake that returns dt."""
+    """Temporarily replace scheduler.datetime with a fake that returns dt."""
 
     class _FakeDatetime:
         min = datetime.min
@@ -34,17 +34,17 @@ def _fake_now(dt: datetime):
         def combine(*a, **k):
             return datetime.combine(*a, **k)
 
-    think.scheduler.datetime = _FakeDatetime
+    scheduler.datetime = _FakeDatetime
     try:
         yield
     finally:
-        think.scheduler.datetime = datetime
+        scheduler.datetime = datetime
 
 
 @pytest.fixture(autouse=True)
 def reset_scheduler_state():
     """Reset scheduler module state between tests."""
-    import think.scheduler as mod
+    import solstone.think.scheduler as mod
 
     mod._entries = {}
     mod._state = {}
@@ -107,7 +107,7 @@ class TestLoadConfig:
                 },
             },
         )
-        from think.scheduler import load_config
+        from solstone.think.scheduler import load_config
 
         entries = load_config()
         assert "sync:plaud" in entries
@@ -115,13 +115,13 @@ class TestLoadConfig:
         assert entries["sync:plaud"]["cmd"] == ["sol", "import", "--sync", "plaud"]
 
     def test_missing_file_returns_empty(self, journal_path):
-        from think.scheduler import load_config
+        from solstone.think.scheduler import load_config
 
         assert load_config() == {}
 
     def test_invalid_json_returns_empty(self, journal_path):
         (journal_path / "config" / "schedules.json").write_text("not json{")
-        from think.scheduler import load_config
+        from solstone.think.scheduler import load_config
 
         assert load_config() == {}
 
@@ -132,7 +132,7 @@ class TestLoadConfig:
                 "bad": {"cmd": ["sol", "noop"], "every": "biweekly"},
             },
         )
-        from think.scheduler import load_config
+        from solstone.think.scheduler import load_config
 
         assert load_config() == {}
 
@@ -143,7 +143,7 @@ class TestLoadConfig:
                 "bad": {"every": "hourly"},
             },
         )
-        from think.scheduler import load_config
+        from solstone.think.scheduler import load_config
 
         assert load_config() == {}
 
@@ -154,7 +154,7 @@ class TestLoadConfig:
                 "off": {"cmd": ["sol", "noop"], "every": "hourly", "enabled": False},
             },
         )
-        from think.scheduler import load_config
+        from solstone.think.scheduler import load_config
 
         assert load_config() == {}
 
@@ -171,7 +171,7 @@ class TestLoadConfig:
                 },
             },
         )
-        from think.scheduler import load_config
+        from solstone.think.scheduler import load_config
 
         entries = load_config()
         assert entries["sync:plaud"]["max_runtime"] == 1800
@@ -187,7 +187,7 @@ class TestLoadConfig:
                 },
             },
         )
-        from think.scheduler import load_config
+        from solstone.think.scheduler import load_config
 
         entries = load_config()
         assert entries["sync:plaud"]["max_runtime"] == 1800
@@ -205,7 +205,7 @@ class TestLoadConfig:
                 },
             },
         )
-        from think.scheduler import load_config
+        from solstone.think.scheduler import load_config
 
         entries = load_config()
         assert "max_runtime" not in entries["sync:plaud"]
@@ -222,7 +222,7 @@ class TestLoadConfig:
                 },
             },
         )
-        from think.scheduler import load_config
+        from solstone.think.scheduler import load_config
 
         entries = load_config()
         assert "max_runtime" not in entries["sync:plaud"]
@@ -239,7 +239,7 @@ class TestLoadConfig:
                 },
             },
         )
-        from think.scheduler import load_config
+        from solstone.think.scheduler import load_config
 
         entries = load_config()
         assert "max_runtime" not in entries["sync:plaud"]
@@ -260,7 +260,7 @@ class TestLoadConfig:
                 },
             },
         )
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         mod.init(Mock())
 
@@ -276,7 +276,7 @@ class TestLoadConfig:
 
 class TestState:
     def test_round_trip(self, journal_path):
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         mod._state = {"sync:plaud": {"last_run": 1700000000.0}}
         mod.save_state()
@@ -285,13 +285,13 @@ class TestState:
         assert loaded["sync:plaud"]["last_run"] == 1700000000.0
 
     def test_missing_file_returns_empty(self, journal_path):
-        from think.scheduler import load_state
+        from solstone.think.scheduler import load_state
 
         assert load_state() == {}
 
     def test_atomic_write_no_partial(self, journal_path):
         """State file shouldn't have leftover tmp files on success."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         mod._state = {"a": {"last_run": 1.0}}
         mod.save_state()
@@ -307,13 +307,13 @@ class TestState:
 
 class TestIsDue:
     def test_no_state_is_due(self):
-        from think.scheduler import _is_due
+        from solstone.think.scheduler import _is_due
 
         entry = {"cmd": ["sol", "x"], "every": "hourly"}
         assert _is_due(entry, None, datetime(2026, 2, 17, 14, 30)) is True
 
     def test_hourly_same_hour_not_due(self):
-        from think.scheduler import _is_due
+        from solstone.think.scheduler import _is_due
 
         entry = {"cmd": ["sol", "x"], "every": "hourly"}
         # Last run at 14:05, now is 14:30 — same hour
@@ -321,7 +321,7 @@ class TestIsDue:
         assert _is_due(entry, state, datetime(2026, 2, 17, 14, 30)) is False
 
     def test_hourly_new_hour_is_due(self):
-        from think.scheduler import _is_due
+        from solstone.think.scheduler import _is_due
 
         entry = {"cmd": ["sol", "x"], "every": "hourly"}
         # Last run at 13:45, now is 14:01 — new hour
@@ -329,7 +329,7 @@ class TestIsDue:
         assert _is_due(entry, state, datetime(2026, 2, 17, 14, 1)) is True
 
     def test_daily_same_day_not_due(self):
-        from think.scheduler import _is_due
+        from solstone.think.scheduler import _is_due
 
         entry = {"cmd": ["sol", "x"], "every": "daily"}
         # Last run today at 00:05, now is 14:00
@@ -337,7 +337,7 @@ class TestIsDue:
         assert _is_due(entry, state, datetime(2026, 2, 17, 14, 0)) is False
 
     def test_daily_new_day_is_due(self):
-        from think.scheduler import _is_due
+        from solstone.think.scheduler import _is_due
 
         entry = {"cmd": ["sol", "x"], "every": "daily"}
         # Last run yesterday at 23:50, now is 00:01
@@ -350,7 +350,7 @@ class TestDailyTime:
 
     def test_load_config_extracts_daily_time(self, journal_path):
         """load_config extracts daily_time from schedules.json."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         _write_config(
             journal_path,
@@ -366,7 +366,7 @@ class TestDailyTime:
 
     def test_load_config_no_daily_time(self, journal_path):
         """When daily_time is absent, _daily_time is None."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         _write_config(journal_path, {"a": {"cmd": ["sol", "x"], "every": "hourly"}})
         mod.load_config()
@@ -374,7 +374,7 @@ class TestDailyTime:
 
     def test_load_config_invalid_daily_time(self, journal_path):
         """Non-string daily_time is ignored."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         _write_config(
             journal_path,
@@ -388,7 +388,7 @@ class TestDailyTime:
 
     def test_is_due_with_daily_time(self):
         """Daily task is due when last_run is before the daily_time boundary."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         mod._daily_time = "03:00"
         entry = {"cmd": ["sol", "x"], "every": "daily"}
@@ -398,7 +398,7 @@ class TestDailyTime:
 
     def test_not_due_after_daily_time_boundary(self):
         """Daily task is not due when last_run is after the daily_time boundary."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         mod._daily_time = "03:00"
         entry = {"cmd": ["sol", "x"], "every": "daily"}
@@ -408,7 +408,7 @@ class TestDailyTime:
 
     def test_not_due_before_daily_time_boundary(self):
         """Before the daily_time, yesterday's boundary applies."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         mod._daily_time = "03:00"
         entry = {"cmd": ["sol", "x"], "every": "daily"}
@@ -419,7 +419,7 @@ class TestDailyTime:
 
     def test_check_fires_at_daily_time_not_midnight(self, journal_path):
         """check() fires daily tasks at the configured daily_time, not midnight."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         callosum = Mock()
         callosum.emit = Mock(return_value=True)
@@ -448,7 +448,7 @@ class TestDailyTime:
 
     def test_check_no_fire_at_midnight_with_daily_time(self, journal_path):
         """Midnight does not trigger daily tasks when daily_time is set."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         callosum = Mock()
         callosum.emit = Mock(return_value=True)
@@ -484,7 +484,7 @@ class TestDailyTime:
 
     def test_format_next_due_with_daily_time(self):
         """_format_next_due shows configured time instead of midnight."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         mod._daily_time = "03:00"
         entry = {"cmd": ["sol", "x"], "every": "daily"}
@@ -497,7 +497,7 @@ class TestDailyTime:
 
     def test_format_next_due_no_daily_time(self):
         """_format_next_due shows midnight when no daily_time configured."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         mod._daily_time = None
         entry = {"cmd": ["sol", "x"], "every": "daily"}
@@ -509,7 +509,7 @@ class TestDailyTime:
 
     def test_invalid_daily_time_falls_back_to_midnight(self, journal_path):
         """Invalid daily_time string falls back to midnight behavior."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         _write_config(
             journal_path,
@@ -529,7 +529,7 @@ class TestDailyTime:
 
     def test_collect_status_includes_daily_time(self, journal_path):
         """collect_status includes daily_time for daily entries."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         mod._daily_time = "03:00"
         mod._entries = {"d": {"cmd": ["sol", "x"], "every": "daily"}}
@@ -541,7 +541,7 @@ class TestDailyTime:
 
     def test_collect_status_no_daily_time_for_hourly(self, journal_path):
         """collect_status does not include daily_time for hourly entries."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         mod._daily_time = "03:00"
         mod._entries = {"h": {"cmd": ["sol", "x"], "every": "hourly"}}
@@ -556,7 +556,7 @@ class TestWeeklyTime:
 
     def test_load_config_extracts_weekly_day_and_time(self, journal_path):
         """load_config extracts weekly_day and weekly_time from schedules.json."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         _write_config(
             journal_path,
@@ -575,7 +575,7 @@ class TestWeeklyTime:
 
     def test_load_config_no_weekly_config(self, journal_path):
         """When weekly_day/weekly_time are absent, globals are None."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         _write_config(journal_path, {"a": {"cmd": ["sol", "x"], "every": "hourly"}})
         mod.load_config()
@@ -584,7 +584,7 @@ class TestWeeklyTime:
 
     def test_load_config_invalid_weekly_day(self, journal_path):
         """Invalid weekly_day string is ignored."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         _write_config(
             journal_path,
@@ -598,7 +598,7 @@ class TestWeeklyTime:
 
     def test_load_config_non_string_weekly_day(self, journal_path):
         """Non-string weekly_day is ignored."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         _write_config(
             journal_path,
@@ -612,7 +612,7 @@ class TestWeeklyTime:
 
     def test_weekly_day_case_insensitive(self, journal_path):
         """Day name parsing is case-insensitive and accepts abbreviations."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         for name in ["Sunday", "SUNDAY", "sun", "Sun"]:
             _write_config(
@@ -627,7 +627,7 @@ class TestWeeklyTime:
 
     def test_compute_weekly_mark_past_boundary(self):
         """When now is past this week's target, returns this week's boundary."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         now = datetime(2026, 3, 22, 4, 0)
         mark = mod._compute_weekly_mark(now, 6, "03:00")
@@ -635,7 +635,7 @@ class TestWeeklyTime:
 
     def test_compute_weekly_mark_before_boundary(self):
         """When now is before this week's target, returns last week's boundary."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         now = datetime(2026, 3, 22, 2, 0)
         mark = mod._compute_weekly_mark(now, 6, "03:00")
@@ -643,7 +643,7 @@ class TestWeeklyTime:
 
     def test_compute_weekly_mark_midweek(self):
         """Midweek, returns the most recent target day occurrence."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         now = datetime(2026, 3, 25, 10, 0)
         mark = mod._compute_weekly_mark(now, 6, "03:00")
@@ -651,7 +651,7 @@ class TestWeeklyTime:
 
     def test_compute_weekly_mark_no_time_defaults_to_0300(self):
         """When weekly_time is None, boundary defaults to 03:00."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         now = datetime(2026, 3, 22, 4, 0)
         mark = mod._compute_weekly_mark(now, 6, None)
@@ -659,7 +659,7 @@ class TestWeeklyTime:
 
     def test_is_due_weekly_due(self):
         """Weekly task is due when last_run is before the weekly boundary."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         mod._weekly_day = "sunday"
         mod._weekly_time = "03:00"
@@ -669,7 +669,7 @@ class TestWeeklyTime:
 
     def test_is_due_weekly_not_due(self):
         """Weekly task is not due when last_run is after the weekly boundary."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         mod._weekly_day = "sunday"
         mod._weekly_time = "03:00"
@@ -679,7 +679,7 @@ class TestWeeklyTime:
 
     def test_is_due_weekly_no_state(self):
         """Weekly task with no prior run is always due."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         mod._weekly_day = "sunday"
         entry = {"cmd": ["sol", "x"], "every": "weekly"}
@@ -687,7 +687,7 @@ class TestWeeklyTime:
 
     def test_check_fires_at_weekly_boundary(self, journal_path):
         """check() fires weekly tasks when the weekly boundary is crossed."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         callosum = Mock()
         callosum.emit = Mock(return_value=True)
@@ -715,7 +715,7 @@ class TestWeeklyTime:
 
     def test_check_no_fire_before_weekly_boundary(self, journal_path):
         """check() does not fire weekly tasks before the weekly boundary."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         callosum = Mock()
         callosum.emit = Mock(return_value=True)
@@ -747,7 +747,7 @@ class TestWeeklyTime:
 
     def test_missed_weeks_runs_once(self, journal_path):
         """If supervisor was down for 3 weeks, weekly agent runs once on restart."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         callosum = Mock()
         callosum.emit = Mock(return_value=True)
@@ -779,7 +779,7 @@ class TestWeeklyTime:
 
     def test_dedup_same_week_not_due(self):
         """After running this week, weekly agent is not due again."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         mod._weekly_day = "sunday"
         mod._weekly_time = "03:00"
@@ -789,7 +789,7 @@ class TestWeeklyTime:
 
     def test_format_next_due_weekly(self):
         """_format_next_due shows next weekday and time."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         mod._weekly_day = "sunday"
         mod._weekly_time = "03:00"
@@ -803,7 +803,7 @@ class TestWeeklyTime:
 
     def test_collect_status_includes_weekly_fields(self, journal_path):
         """collect_status includes weekly_day and weekly_time for weekly entries."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         mod._weekly_day = "sunday"
         mod._weekly_time = "04:00"
@@ -831,7 +831,7 @@ class TestInit:
         )
         _write_state(journal_path, {"a": {"last_run": 1700000000.0}})
 
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         callosum = Mock()
         mod.init(callosum)
@@ -843,7 +843,7 @@ class TestInit:
         assert mod._last_daily_mark is not None
 
     def test_no_config_file(self, journal_path):
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         mod.init(Mock())
         assert mod._entries == {}
@@ -857,7 +857,7 @@ class TestInit:
 class TestCheck:
     def test_pre_init_returns_immediately(self, journal_path):
         """check() does nothing when init() hasn't been called."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         callosum = Mock()
         callosum.emit = Mock(return_value=True)
@@ -868,7 +868,7 @@ class TestCheck:
 
     def test_no_boundary_no_io(self, journal_path):
         """When no boundary has crossed, check() does nothing."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         callosum = Mock()
         callosum.emit = Mock(return_value=True)
@@ -893,7 +893,7 @@ class TestCheck:
 
     def test_hourly_boundary_submits(self, journal_path):
         """Crossing an hour boundary submits due hourly tasks."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         callosum = Mock()
         callosum.emit = Mock(return_value=True)
@@ -928,7 +928,7 @@ class TestCheck:
 
     def test_daily_boundary_submits(self, journal_path):
         """Crossing a day boundary submits due daily tasks."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         callosum = Mock()
         callosum.emit = Mock(return_value=True)
@@ -954,7 +954,7 @@ class TestCheck:
 
     def test_submits_on_new_hour_after_previous_run(self, journal_path):
         """Task ran in hour 14; crossing to hour 15 triggers resubmission."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         callosum = Mock()
         callosum.emit = Mock(return_value=True)
@@ -986,7 +986,7 @@ class TestCheck:
 
     def test_config_reloaded_on_boundary(self, journal_path):
         """Config file changes are picked up when a boundary is crossed."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         callosum = Mock()
         callosum.emit = Mock(return_value=True)
@@ -1013,7 +1013,7 @@ class TestCheck:
 
     def test_check_reloads_state_before_due_checks(self, journal_path):
         """State written by supervisor is reloaded before due checks."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         callosum = Mock()
         callosum.emit = Mock(return_value=True)
@@ -1043,7 +1043,7 @@ class TestCheck:
 
     def test_emit_failure_no_state_update(self, journal_path):
         """If emit fails, last_run should not be updated."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         callosum = Mock()
         callosum.emit = Mock(return_value=False)
@@ -1072,7 +1072,7 @@ class TestCheck:
 
 class TestCollectStatus:
     def test_returns_entries(self, journal_path):
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         mod._entries = {
             "a": {"cmd": ["sol", "x"], "every": "hourly"},
@@ -1087,7 +1087,7 @@ class TestCollectStatus:
         assert "due" in status[0]
 
     def test_next_run_hourly(self, journal_path):
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         mod._entries = {"a": {"cmd": ["sol", "x"], "every": "hourly"}}
         mod._state = {"a": {"last_run": datetime(2026, 2, 17, 14, 5).timestamp()}}
@@ -1099,7 +1099,7 @@ class TestCollectStatus:
         assert status[0]["next_run"] == expected
 
     def test_next_run_daily(self, journal_path):
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         mod._daily_time = "03:00"
         mod._entries = {"a": {"cmd": ["sol", "x"], "every": "daily"}}
@@ -1112,7 +1112,7 @@ class TestCollectStatus:
         assert status[0]["next_run"] == expected
 
     def test_next_run_weekly(self, journal_path):
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         mod._weekly_day = "sunday"
         mod._weekly_time = "03:00"
@@ -1126,7 +1126,7 @@ class TestCollectStatus:
         assert status[0]["next_run"] == expected
 
     def test_next_run_when_due(self, journal_path):
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         mod._entries = {"a": {"cmd": ["sol", "x"], "every": "hourly"}}
         mod._state = {}
@@ -1143,7 +1143,7 @@ class TestHeartbeatSchedule:
 
     def test_register_defaults_creates_heartbeat(self, journal_path):
         """register_defaults() creates a heartbeat entry in the config file."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         mock_cal = Mock()
         mod.init(mock_cal)
@@ -1162,7 +1162,7 @@ class TestHeartbeatSchedule:
 
     def test_register_defaults_idempotent(self, journal_path):
         """register_defaults() does not overwrite existing heartbeat config."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         _write_config(
             journal_path,
@@ -1183,7 +1183,7 @@ class TestHeartbeatSchedule:
 
     def test_heartbeat_is_due_when_never_run(self, journal_path):
         """_is_due returns True for heartbeat entry with no prior run."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         entry = {"cmd": ["sol", "heartbeat"], "every": "daily", "enabled": True}
         now = datetime(2026, 3, 19, 10, 0, 0)
@@ -1191,7 +1191,7 @@ class TestHeartbeatSchedule:
 
     def test_heartbeat_not_due_when_recently_run(self, journal_path):
         """_is_due returns False for heartbeat entry that ran after the daily mark."""
-        import think.scheduler as mod
+        import solstone.think.scheduler as mod
 
         entry = {"cmd": ["sol", "heartbeat"], "every": "daily", "enabled": True}
         now = datetime(2026, 3, 19, 10, 0, 0)
@@ -1208,7 +1208,7 @@ class TestHeartbeatSchedule:
 class TestCLI:
     def test_no_config_prints_message(self, journal_path, capsys, monkeypatch):
         monkeypatch.setattr("sys.argv", ["sol schedule"])
-        from think.scheduler import main
+        from solstone.think.scheduler import main
 
         main()
         out = capsys.readouterr().out
@@ -1226,7 +1226,7 @@ class TestCLI:
             },
         )
 
-        from think.scheduler import main
+        from solstone.think.scheduler import main
 
         main()
         out = capsys.readouterr().out

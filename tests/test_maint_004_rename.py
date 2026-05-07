@@ -6,7 +6,7 @@ from __future__ import annotations
 import importlib
 from pathlib import Path
 
-mod = importlib.import_module("apps.sol.maint.004_rename_agents_to_talents")
+mod = importlib.import_module("solstone.apps.sol.maint.004_rename_agents_to_talents")
 
 
 def _patch_journal(monkeypatch, journal: Path, day: str = "20260417") -> None:

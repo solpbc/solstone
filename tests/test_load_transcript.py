@@ -7,7 +7,7 @@ import json
 import tempfile
 from pathlib import Path
 
-from observe.hear import load_transcript
+from solstone.observe.hear import load_transcript
 
 
 def test_load_transcript_native_with_metadata():

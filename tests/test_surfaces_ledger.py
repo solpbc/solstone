@@ -127,7 +127,7 @@ def _write_story_activity(
     decisions: list[dict] | None = None,
     hidden: bool = False,
 ) -> None:
-    from think.activities import append_activity_record, merge_story_fields
+    from solstone.think.activities import append_activity_record, merge_story_fields
 
     append_activity_record(
         facet,
@@ -152,7 +152,7 @@ def _write_story_activity(
 
 
 def test_append_edit_payload_validation():
-    from think.activities import append_edit
+    from solstone.think.activities import append_edit
 
     merged = append_edit(
         {"id": "coding_090000_300"},
@@ -185,7 +185,7 @@ def test_append_edit_payload_validation():
 
 
 def test_pairing_happy_path(tmp_path, monkeypatch):
-    from think.surfaces import ledger as ledger_surface
+    from solstone.think.surfaces import ledger as ledger_surface
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _minimal_facet_tree(tmp_path)
@@ -213,7 +213,7 @@ def test_pairing_happy_path(tmp_path, monkeypatch):
 
 
 def test_action_fuzzy_just_above_threshold(tmp_path, monkeypatch):
-    from think.surfaces import ledger as ledger_surface
+    from solstone.think.surfaces import ledger as ledger_surface
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _minimal_facet_tree(tmp_path)
@@ -240,7 +240,7 @@ def test_action_fuzzy_just_above_threshold(tmp_path, monkeypatch):
 
 
 def test_action_fuzzy_just_below_threshold(tmp_path, monkeypatch):
-    from think.surfaces import ledger as ledger_surface
+    from solstone.think.surfaces import ledger as ledger_surface
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _minimal_facet_tree(tmp_path)
@@ -268,7 +268,7 @@ def test_action_fuzzy_just_below_threshold(tmp_path, monkeypatch):
 
 
 def test_cross_facet_dedup(tmp_path, monkeypatch):
-    from think.surfaces import ledger as ledger_surface
+    from solstone.think.surfaces import ledger as ledger_surface
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _minimal_facet_tree(tmp_path, facets=("work", "personal"))
@@ -294,8 +294,8 @@ def test_cross_facet_dedup(tmp_path, monkeypatch):
 
 
 def test_manual_close_round_trip(tmp_path, monkeypatch):
-    from think.activities import load_activity_records
-    from think.surfaces import ledger as ledger_surface
+    from solstone.think.activities import load_activity_records
+    from solstone.think.surfaces import ledger as ledger_surface
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _minimal_facet_tree(tmp_path)
@@ -322,8 +322,8 @@ def test_manual_close_round_trip(tmp_path, monkeypatch):
 
 
 def test_idempotent_reclose(tmp_path, monkeypatch):
-    from think.activities import load_activity_records
-    from think.surfaces import ledger as ledger_surface
+    from solstone.think.activities import load_activity_records
+    from solstone.think.surfaces import ledger as ledger_surface
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _minimal_facet_tree(tmp_path)
@@ -347,7 +347,7 @@ def test_idempotent_reclose(tmp_path, monkeypatch):
 
 
 def test_close_as_dropped(tmp_path, monkeypatch):
-    from think.surfaces import ledger as ledger_surface
+    from solstone.think.surfaces import ledger as ledger_surface
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _minimal_facet_tree(tmp_path)
@@ -365,8 +365,8 @@ def test_close_as_dropped(tmp_path, monkeypatch):
 
 
 def test_close_with_new_as_state_appends_and_latest_manual_wins(tmp_path, monkeypatch):
-    from think.activities import load_activity_records
-    from think.surfaces import ledger as ledger_surface
+    from solstone.think.activities import load_activity_records
+    from solstone.think.surfaces import ledger as ledger_surface
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _minimal_facet_tree(tmp_path)
@@ -393,7 +393,7 @@ def test_close_with_new_as_state_appends_and_latest_manual_wins(tmp_path, monkey
 
 
 def test_decisions_dedup(tmp_path, monkeypatch):
-    from think.surfaces import ledger as ledger_surface
+    from solstone.think.surfaces import ledger as ledger_surface
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _minimal_facet_tree(tmp_path)
@@ -420,7 +420,7 @@ def test_decisions_dedup(tmp_path, monkeypatch):
 
 
 def test_missing_entity_id_pairing(tmp_path, monkeypatch):
-    from think.surfaces import ledger as ledger_surface
+    from solstone.think.surfaces import ledger as ledger_surface
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _minimal_facet_tree(tmp_path, facets=("work", "personal"))
@@ -467,7 +467,7 @@ def test_missing_entity_id_pairing(tmp_path, monkeypatch):
 
 
 def test_missing_counterparty_id_pairing_falls_back_to_text(tmp_path, monkeypatch):
-    from think.surfaces import ledger as ledger_surface
+    from solstone.think.surfaces import ledger as ledger_surface
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _minimal_facet_tree(tmp_path, facets=("work", "personal"))
@@ -504,7 +504,7 @@ def test_missing_counterparty_id_pairing_falls_back_to_text(tmp_path, monkeypatc
 
 
 def test_explicit_facets_include_muted_facet(tmp_path, monkeypatch):
-    from think.surfaces import ledger as ledger_surface
+    from solstone.think.surfaces import ledger as ledger_surface
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _minimal_facet_tree(tmp_path, facets=("work", "quiet"), muted_facets=("quiet",))
@@ -522,7 +522,7 @@ def test_explicit_facets_include_muted_facet(tmp_path, monkeypatch):
 
 
 def test_hidden_record_exclusion(tmp_path, monkeypatch):
-    from think.surfaces import ledger as ledger_surface
+    from solstone.think.surfaces import ledger as ledger_surface
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _minimal_facet_tree(tmp_path)
@@ -539,7 +539,7 @@ def test_hidden_record_exclusion(tmp_path, monkeypatch):
 
 
 def test_sort_default_varies_by_state(tmp_path, monkeypatch):
-    from think.surfaces import ledger as ledger_surface
+    from solstone.think.surfaces import ledger as ledger_surface
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _minimal_facet_tree(tmp_path)
@@ -597,8 +597,8 @@ def test_sort_default_varies_by_state(tmp_path, monkeypatch):
 
 
 def test_manual_dropped_overrides_earlier_story_closure(tmp_path, monkeypatch):
-    from think.activities import load_activity_records
-    from think.surfaces import ledger as ledger_surface
+    from solstone.think.activities import load_activity_records
+    from solstone.think.surfaces import ledger as ledger_surface
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     _minimal_facet_tree(tmp_path)
@@ -635,7 +635,7 @@ def test_manual_dropped_overrides_earlier_story_closure(tmp_path, monkeypatch):
 
 
 def test_cli_list_smoke(tmp_path, monkeypatch):
-    from think.tools.ledger import app
+    from solstone.think.tools.ledger import app
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     monkeypatch.setenv("SOL_SKIP_SUPERVISOR_CHECK", "1")
@@ -657,8 +657,8 @@ def test_cli_list_smoke(tmp_path, monkeypatch):
 
 
 def test_cli_get_smoke(tmp_path, monkeypatch):
-    from think.surfaces import ledger as ledger_surface
-    from think.tools.ledger import app
+    from solstone.think.surfaces import ledger as ledger_surface
+    from solstone.think.tools.ledger import app
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     monkeypatch.setenv("SOL_SKIP_SUPERVISOR_CHECK", "1")
@@ -681,8 +681,8 @@ def test_cli_get_smoke(tmp_path, monkeypatch):
 
 
 def test_cli_close_smoke(tmp_path, monkeypatch):
-    from think.surfaces import ledger as ledger_surface
-    from think.tools.ledger import app
+    from solstone.think.surfaces import ledger as ledger_surface
+    from solstone.think.tools.ledger import app
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     monkeypatch.setenv("SOL_SKIP_SUPERVISOR_CHECK", "1")
@@ -705,7 +705,7 @@ def test_cli_close_smoke(tmp_path, monkeypatch):
 
 
 def test_cli_decisions_smoke(tmp_path, monkeypatch):
-    from think.tools.ledger import app
+    from solstone.think.tools.ledger import app
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     monkeypatch.setenv("SOL_SKIP_SUPERVISOR_CHECK", "1")

@@ -60,7 +60,7 @@ Python 3.11+, Linux + macOS, AGPL-3.0-only, maintained by [sol pbc](https://solp
 ```
 
 - **observe** — receives audio and screen observations from standalone observers (solstone-linux, solstone-tmux, solstone-macos) via observer ingest. processes FLAC audio, WebM screen media, and timestamped metadata.
-- **think** — transcribes audio (faster-whisper), analyzes screen observations, extracts entities, detects meetings, and indexes everything into SQLite. runs 30 configurable agent/generator templates from `talent/`.
+- **think** — transcribes audio (faster-whisper), analyzes screen observations, extracts entities, detects meetings, and indexes everything into SQLite. runs 30 configurable agent/generator templates from `solstone/talent/`.
 - **cortex** — orchestrates agent execution. receives events, dispatches agents, writes results back to the journal.
 - **callosum** — async message bus connecting all services. enables event-driven coordination between observe, think, cortex, and convey.
 - **convey** — Flask-based web interface with 17 pluggable apps for navigating journal data.

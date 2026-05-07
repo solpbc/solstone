@@ -8,7 +8,7 @@ import os
 
 import pytest
 
-from think.utils import get_config, journal_is_active
+from solstone.think.utils import get_config, journal_is_active
 
 
 @pytest.fixture

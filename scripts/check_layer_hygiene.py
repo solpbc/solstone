@@ -6,9 +6,9 @@
 
 Low-bar static check for the invariants in ``docs/coding-standards.md`` §
 "Layer Hygiene" (L1, L2, L3, L6, L7). Warns when code inside infrastructure
-modules (``think/indexer/``, ``think/importers/``, ``think/search/``,
-``think/graph/``) or inside a read-verb CLI handler (a function in
-``apps/*/call.py`` whose name contains a read verb such as ``load``, ``show``,
+modules (``solstone/think/indexer/``, ``solstone/think/importers/``,
+``solstone/think/search/``, ``solstone/think/graph/``) or inside a read-verb
+CLI handler (a function in ``solstone/apps/*/call.py`` whose name contains a read verb such as ``load``, ``show``,
 ``check``, ``validate``, ``find``, ``list``, ``scan``, ``get``) performs a
 direct write (``atomic_write``, ``json.dump``, ``.write_text``,
 ``open(..., "w")``, ``unlink``, ``rmtree``) against a path under
@@ -36,10 +36,10 @@ ROOT = Path(__file__).resolve().parent.parent
 
 # Module families scrutinized as "infrastructure" per L1/L6/L7.
 INFRASTRUCTURE_SCOPES: tuple[str, ...] = (
-    "think/indexer",
-    "think/importers",
-    "think/search",
-    "think/graph",
+    "solstone/think/indexer",
+    "solstone/think/importers",
+    "solstone/think/search",
+    "solstone/think/graph",
 )
 
 # Direct-write operations. Indirect writes via helper methods (e.g.
@@ -127,7 +127,12 @@ def in_infrastructure_scope(rel: Path) -> bool:
 
 def is_call_py(rel: Path) -> bool:
     parts = rel.parts
-    return len(parts) >= 3 and parts[0] == "apps" and parts[-1] == "call.py"
+    return (
+        len(parts) >= 4
+        and parts[0] == "solstone"
+        and parts[1] == "apps"
+        and parts[-1] == "call.py"
+    )
 
 
 def has_target_path_nearby(lines: list[str], idx: int) -> bool:

@@ -14,9 +14,9 @@ import hashlib
 import sys
 from pathlib import Path
 
-from apps.observer.utils import list_observers, save_observer
-from convey import state
-from think.utils import get_journal, now_ms
+from solstone.apps.observer.utils import list_observers, save_observer
+from solstone.convey import state
+from solstone.think.utils import get_journal, now_ms
 
 SEEDS: list[tuple[str, int | None]] = [
     ("sandbox-active", 5 * 1000),
@@ -35,7 +35,7 @@ def seed_observers() -> int:
     if not journal.exists() or not journal.is_dir():
         raise RuntimeError(f"Sandbox journal does not exist: {journal}")
     # save_observer() -> get_observers_dir() -> get_app_storage_path() reads
-    # convey.state.journal_root (not get_journal()), so we must set it
+    # convey_state.journal_root (not get_journal()), so we must set it
     # explicitly when running outside a Flask request context.
     state.journal_root = str(journal)
 

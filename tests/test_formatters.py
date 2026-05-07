@@ -18,7 +18,7 @@ class TestRegistry:
 
     def test_get_formatter_screen(self):
         """Test pattern matching for screen.jsonl."""
-        from think.formatters import get_formatter
+        from solstone.think.formatters import get_formatter
 
         formatter = get_formatter("20240102/default/234567_300/screen.jsonl")
         assert formatter is not None
@@ -26,7 +26,7 @@ class TestRegistry:
 
     def test_get_formatter_audio(self):
         """Test pattern matching for audio.jsonl."""
-        from think.formatters import get_formatter
+        from solstone.think.formatters import get_formatter
 
         formatter = get_formatter("20240101/default/123456_300/audio.jsonl")
         assert formatter is not None
@@ -34,7 +34,7 @@ class TestRegistry:
 
     def test_get_formatter_split_audio(self):
         """Test pattern matching for *_audio.jsonl files (split, imported, etc.)."""
-        from think.formatters import get_formatter
+        from solstone.think.formatters import get_formatter
 
         # Split audio
         formatter = get_formatter("20240101/default/123456_300/123456_300_audio.jsonl")
@@ -48,7 +48,7 @@ class TestRegistry:
 
     def test_get_formatter_split_screen(self):
         """Test pattern matching for *_screen.jsonl files."""
-        from think.formatters import get_formatter
+        from solstone.think.formatters import get_formatter
 
         # Monitor-specific screen
         formatter = get_formatter("20240101/default/123456_300/monitor_1_screen.jsonl")
@@ -62,7 +62,7 @@ class TestRegistry:
 
     def test_get_formatter_activity_output(self):
         """Test pattern matching for activity output markdown."""
-        from think.formatters import get_formatter
+        from solstone.think.formatters import get_formatter
 
         formatter = get_formatter(
             "facets/work/activities/20260209/coding_100000_300/session_review.md"
@@ -72,7 +72,7 @@ class TestRegistry:
 
     def test_get_formatter_weekly_reflection(self):
         """Test pattern matching for weekly reflection markdown."""
-        from think.formatters import get_formatter
+        from solstone.think.formatters import get_formatter
 
         formatter = get_formatter("reflections/weekly/20260308.md")
         assert formatter is not None
@@ -80,14 +80,14 @@ class TestRegistry:
 
     def test_get_formatter_no_match(self):
         """Test that unmatched patterns return None."""
-        from think.formatters import get_formatter
+        from solstone.think.formatters import get_formatter
 
         formatter = get_formatter("random/path/unknown.jsonl")
         assert formatter is None
 
     def test_no_spans_formatter_registered(self):
         """Spans JSONL is no longer registered after the story refactor."""
-        from think.formatters import FORMATTERS, get_formatter
+        from solstone.think.formatters import FORMATTERS, get_formatter
 
         assert "facets/*/spans/*.jsonl" not in FORMATTERS
         assert get_formatter("facets/work/spans/20260418.jsonl") is None
@@ -105,7 +105,7 @@ class TestRegistry:
         ]
 
         hits: list[str] = []
-        for directory in ("think", "talent", "apps"):
+        for directory in ("solstone/think", "solstone/talent", "solstone/apps"):
             for path in (repo_root / directory).rglob("*"):
                 if not path.is_file() or path.suffix not in {".py", ".md"}:
                     continue
@@ -126,7 +126,7 @@ class TestLoadJsonl:
 
     def test_load_jsonl_basic(self):
         """Test loading a basic JSONL file."""
-        from think.formatters import load_jsonl
+        from solstone.think.formatters import load_jsonl
 
         path = (
             Path(os.environ["SOLSTONE_JOURNAL"])
@@ -140,7 +140,7 @@ class TestLoadJsonl:
 
     def test_load_jsonl_empty_lines(self):
         """Test that empty lines are skipped."""
-        from think.formatters import load_jsonl
+        from solstone.think.formatters import load_jsonl
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
             f.write('{"a": 1}\n')
@@ -161,7 +161,7 @@ class TestLoadJsonl:
 
     def test_load_jsonl_malformed_skipped(self):
         """Test that malformed lines are skipped."""
-        from think.formatters import load_jsonl
+        from solstone.think.formatters import load_jsonl
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
             f.write('{"valid": 1}\n')
@@ -181,7 +181,7 @@ class TestFormatFile:
 
     def test_format_file_screen(self):
         """Test format_file with screen.jsonl."""
-        from think.formatters import format_file
+        from solstone.think.formatters import format_file
 
         path = (
             Path(os.environ["SOLSTONE_JOURNAL"])
@@ -198,7 +198,7 @@ class TestFormatFile:
 
     def test_format_file_audio(self):
         """Test format_file with audio.jsonl."""
-        from think.formatters import format_file
+        from solstone.think.formatters import format_file
 
         path = (
             Path(os.environ["SOLSTONE_JOURNAL"])
@@ -212,14 +212,14 @@ class TestFormatFile:
 
     def test_format_file_not_found(self):
         """Test format_file raises on missing file."""
-        from think.formatters import format_file
+        from solstone.think.formatters import format_file
 
         with pytest.raises(FileNotFoundError):
             format_file("/nonexistent/path/screen.jsonl")
 
     def test_format_file_outside_journal(self):
         """Test format_file raises when file is outside journal."""
-        from think.formatters import format_file
+        from solstone.think.formatters import format_file
 
         # Create a temp file outside the journal directory
         with tempfile.NamedTemporaryFile(
@@ -236,7 +236,7 @@ class TestFormatFile:
 
     def test_format_file_no_formatter(self):
         """Test format_file raises when no formatter matches."""
-        from think.formatters import format_file
+        from solstone.think.formatters import format_file
 
         # Create a file under journal that won't match any pattern
         journal_path = Path(os.environ["SOLSTONE_JOURNAL"])
@@ -255,7 +255,7 @@ class TestFormatScreen:
 
     def test_format_screen_basic(self):
         """Test basic screen formatting."""
-        from observe.screen import format_screen
+        from solstone.observe.screen import format_screen
 
         entries = [
             {
@@ -281,7 +281,7 @@ class TestFormatScreen:
 
     def test_format_screen_with_entity_context(self):
         """Test screen formatting with entity context."""
-        from observe.screen import format_screen
+        from solstone.observe.screen import format_screen
 
         entries = [{"timestamp": 0, "analysis": {"primary": "browser"}}]
         context = {"entity_names": "Alice, Bob", "include_entity_context": True}
@@ -294,7 +294,7 @@ class TestFormatScreen:
 
     def test_format_screen_without_entity_context(self):
         """Test screen formatting without entity context."""
-        from observe.screen import format_screen
+        from solstone.observe.screen import format_screen
 
         entries = [{"timestamp": 0, "analysis": {"primary": "browser"}}]
         context = {"include_entity_context": False}
@@ -308,7 +308,7 @@ class TestFormatScreen:
         """Test screen formatting includes monitor info from filename."""
         from pathlib import Path
 
-        from observe.screen import format_screen
+        from solstone.observe.screen import format_screen
 
         entries = [
             {"timestamp": 0, "analysis": {}},
@@ -323,7 +323,7 @@ class TestFormatScreen:
 
     def test_format_screen_meeting(self):
         """Test screen formatting with meeting data."""
-        from observe.screen import format_screen
+        from solstone.observe.screen import format_screen
 
         entries = [
             {
@@ -349,7 +349,7 @@ class TestFormatScreen:
 
     def test_format_screen_extracts_metadata(self):
         """Test that metadata line is extracted and not treated as a frame."""
-        from observe.screen import format_screen
+        from solstone.observe.screen import format_screen
 
         entries = [
             {"raw": "screen.webm"},  # Metadata line
@@ -364,7 +364,7 @@ class TestFormatScreen:
 
     def test_format_screen_skipped_entries_error(self):
         """Test that skipped entries are reported in meta.error."""
-        from observe.screen import format_screen
+        from solstone.observe.screen import format_screen
 
         entries = [
             {"raw": "screen.webm"},  # Metadata
@@ -386,7 +386,7 @@ class TestFormatAudio:
 
     def test_format_audio_basic(self):
         """Test basic audio formatting."""
-        from observe.hear import format_audio
+        from solstone.observe.hear import format_audio
 
         entries = [
             {"start": "00:00:05", "source": "mic", "speaker": 1, "text": "Hello world"}
@@ -402,7 +402,7 @@ class TestFormatAudio:
 
     def test_format_audio_with_metadata(self):
         """Test audio formatting extracts metadata from entries."""
-        from observe.hear import format_audio
+        from solstone.observe.hear import format_audio
 
         # Metadata as first entry (like real JSONL)
         entries = [
@@ -422,7 +422,7 @@ class TestFormatAudio:
 
     def test_format_audio_imported_metadata(self):
         """Test audio formatting with imported metadata."""
-        from observe.hear import format_audio
+        from solstone.observe.hear import format_audio
 
         entries = [
             {"imported": {"facet": "work", "id": "20250115_103045"}},
@@ -437,7 +437,7 @@ class TestFormatAudio:
 
     def test_format_audio_empty_entries_skipped(self):
         """Test that entries missing 'start' field are skipped (after first line)."""
-        from observe.hear import format_audio
+        from solstone.observe.hear import format_audio
 
         entries = [
             {"raw": "audio.flac"},  # Metadata (first entry without start)
@@ -460,7 +460,7 @@ class TestFormatAudio:
 
     def test_format_audio_timestamp_ordering(self):
         """Test that timestamps are calculated correctly."""
-        from observe.hear import format_audio
+        from solstone.observe.hear import format_audio
 
         entries = [
             {"start": "00:00:30", "text": "First"},
@@ -474,7 +474,7 @@ class TestFormatAudio:
 
     def test_format_audio_extracts_metadata(self):
         """Test that metadata line is extracted and not treated as transcript."""
-        from observe.hear import format_audio
+        from solstone.observe.hear import format_audio
 
         entries = [
             {"raw": "audio.flac", "model": "whisper-1"},  # Metadata line
@@ -492,7 +492,7 @@ class TestFormatAudio:
 
     def test_format_audio_skipped_entries_error(self):
         """Test that skipped entries are reported in meta.error."""
-        from observe.hear import format_audio
+        from solstone.observe.hear import format_audio
 
         entries = [
             {"raw": "audio.flac"},  # Metadata
@@ -514,7 +514,7 @@ class TestLoadTranscriptBackwardCompat:
 
     def test_load_transcript_returns_tuple(self):
         """Test that load_transcript still returns (metadata, entries, text) tuple."""
-        from observe.hear import load_transcript
+        from solstone.observe.hear import load_transcript
 
         path = (
             Path(os.environ["SOLSTONE_JOURNAL"])
@@ -535,7 +535,7 @@ class TestFormatEntities:
 
     def test_get_formatter_detected_entities(self):
         """Test pattern matching for detected entities."""
-        from think.formatters import get_formatter
+        from solstone.think.formatters import get_formatter
 
         formatter = get_formatter("facets/personal/entities/20250101.jsonl")
         assert formatter is not None
@@ -543,7 +543,7 @@ class TestFormatEntities:
 
     def test_format_entities_detected_basic(self):
         """Test basic detected entities formatting with fixture file."""
-        from think.formatters import format_file
+        from solstone.think.formatters import format_file
 
         path = (
             Path(os.environ["SOLSTONE_JOURNAL"])
@@ -559,7 +559,7 @@ class TestFormatEntities:
 
     def test_format_entities_direct(self):
         """Test format_entities function directly."""
-        from think.entities import format_entities
+        from solstone.think.entities import format_entities
 
         entries = [
             {"type": "Person", "name": "Alice", "description": "Friend from work"},
@@ -575,7 +575,7 @@ class TestFormatEntities:
 
     def test_format_entities_no_description(self):
         """Test that missing description shows placeholder."""
-        from think.entities import format_entities
+        from solstone.think.entities import format_entities
 
         entries = [{"type": "Person", "name": "Bob", "description": ""}]
 
@@ -587,7 +587,7 @@ class TestFormatEntities:
 
     def test_format_entities_with_tags(self):
         """Test formatting with tags field."""
-        from think.entities import format_entities
+        from solstone.think.entities import format_entities
 
         entries = [
             {
@@ -604,7 +604,7 @@ class TestFormatEntities:
 
     def test_format_entities_with_aka(self):
         """Test formatting with aka field."""
-        from think.entities import format_entities
+        from solstone.think.entities import format_entities
 
         entries = [
             {
@@ -621,7 +621,7 @@ class TestFormatEntities:
 
     def test_format_entities_with_custom_fields(self):
         """Test formatting with custom fields."""
-        from think.entities import format_entities
+        from solstone.think.entities import format_entities
 
         entries = [
             {
@@ -640,7 +640,7 @@ class TestFormatEntities:
 
     def test_format_entities_timestamp_updated_at(self):
         """Test that updated_at is used for timestamp."""
-        from think.entities import format_entities
+        from solstone.think.entities import format_entities
 
         entries = [
             {
@@ -657,7 +657,7 @@ class TestFormatEntities:
 
     def test_format_entities_timestamp_attached_at_fallback(self):
         """Test that attached_at is used when updated_at is missing."""
-        from think.entities import format_entities
+        from solstone.think.entities import format_entities
 
         entries = [
             {
@@ -674,7 +674,7 @@ class TestFormatEntities:
 
     def test_format_entities_timestamp_priority(self):
         """Test that updated_at takes priority over attached_at."""
-        from think.entities import format_entities
+        from solstone.think.entities import format_entities
 
         entries = [
             {
@@ -695,7 +695,7 @@ class TestFormatEntities:
         """Test that last_seen takes priority over updated_at and attached_at."""
         from datetime import datetime
 
-        from think.entities import format_entities
+        from solstone.think.entities import format_entities
 
         entries = [
             {
@@ -716,7 +716,7 @@ class TestFormatEntities:
 
     def test_format_entities_header_facet_from_path(self):
         """Test that facet name is extracted from file path for detected entities."""
-        from think.entities import format_entities
+        from solstone.think.entities import format_entities
 
         entries = [{"type": "Person", "name": "Test", "description": ""}]
         # Use detected entities path pattern (facets/*/entities/YYYYMMDD.jsonl)
@@ -729,7 +729,7 @@ class TestFormatEntities:
 
     def test_format_entities_detected_header_from_path(self):
         """Test that detected entities include day in header."""
-        from think.entities import format_entities
+        from solstone.think.entities import format_entities
 
         entries = [{"type": "Person", "name": "Test", "description": ""}]
         context = {"file_path": "/journal/facets/personal/entities/20251201.jsonl"}
@@ -745,7 +745,7 @@ class TestFormatObservations:
 
     def test_get_formatter_observations(self):
         """Test pattern matching for observations.jsonl."""
-        from think.formatters import get_formatter
+        from solstone.think.formatters import get_formatter
 
         formatter = get_formatter(
             "facets/work/entities/alice_johnson/observations.jsonl"
@@ -755,7 +755,7 @@ class TestFormatObservations:
 
     def test_get_formatter_no_collision_with_entities(self):
         """Test that detected entity files still match format_entities."""
-        from think.formatters import get_formatter
+        from solstone.think.formatters import get_formatter
 
         formatter = get_formatter("facets/work/entities/20260115.jsonl")
         assert formatter is not None
@@ -763,7 +763,7 @@ class TestFormatObservations:
 
     def test_format_observations_basic(self):
         """Test basic observations formatting."""
-        from think.entities import format_observations
+        from solstone.think.entities import format_observations
 
         entries = [
             {
@@ -791,7 +791,7 @@ class TestFormatObservations:
 
     def test_format_observations_indexer_metadata(self):
         """Test that indexer metadata uses singular 'observation'."""
-        from think.entities import format_observations
+        from solstone.think.entities import format_observations
 
         entries = [{"content": "A fact", "observed_at": 1000}]
         chunks, meta = format_observations(entries)
@@ -799,7 +799,7 @@ class TestFormatObservations:
 
     def test_format_observations_header(self):
         """Test header includes entity name and count."""
-        from think.entities import format_observations
+        from solstone.think.entities import format_observations
 
         entries = [
             {"content": "Fact 1", "observed_at": 1000},
@@ -814,7 +814,7 @@ class TestFormatObservations:
 
     def test_format_observations_entity_name_from_path(self):
         """Test entity name extraction from various path formats."""
-        from think.entities import format_observations
+        from solstone.think.entities import format_observations
 
         entries = [{"content": "Test", "observed_at": 0}]
 
@@ -827,7 +827,7 @@ class TestFormatObservations:
 
     def test_format_observations_no_context(self):
         """Test formatting without context still works."""
-        from think.entities import format_observations
+        from solstone.think.entities import format_observations
 
         entries = [{"content": "A fact", "observed_at": 5000}]
         chunks, meta = format_observations(entries)
@@ -837,7 +837,7 @@ class TestFormatObservations:
 
     def test_format_observations_via_format_file(self):
         """Test integration via format_file with fixture data."""
-        from think.formatters import format_file
+        from solstone.think.formatters import format_file
 
         path = (
             Path(os.environ["SOLSTONE_JOURNAL"])
@@ -864,7 +864,7 @@ class TestFormatTodos:
 
     def test_get_formatter_todos(self):
         """Test pattern matching for todos/*.jsonl."""
-        from think.formatters import get_formatter
+        from solstone.think.formatters import get_formatter
 
         formatter = get_formatter("facets/personal/todos/20240101.jsonl")
         assert formatter is not None
@@ -872,7 +872,7 @@ class TestFormatTodos:
 
     def test_format_todos_basic(self):
         """Test basic todos formatting with fixture file."""
-        from think.formatters import format_file
+        from solstone.think.formatters import format_file
 
         path = (
             Path(os.environ["SOLSTONE_JOURNAL"])
@@ -888,7 +888,7 @@ class TestFormatTodos:
 
     def test_format_todos_direct(self):
         """Test format_todos function directly."""
-        from apps.todos.todo import format_todos
+        from solstone.apps.todos.todo import format_todos
 
         entries = [
             {"text": "Do something", "completed": False},
@@ -903,7 +903,7 @@ class TestFormatTodos:
 
     def test_format_todos_list_item_prefix(self):
         """Test that all items have * prefix for markdown list."""
-        from apps.todos.todo import format_todos
+        from solstone.apps.todos.todo import format_todos
 
         entries = [
             {"text": "Task one", "completed": False},
@@ -919,7 +919,7 @@ class TestFormatTodos:
 
     def test_format_todos_completed_cancelled_display(self):
         """Test checkbox and strikethrough rendering."""
-        from apps.todos.todo import format_todos
+        from solstone.apps.todos.todo import format_todos
 
         entries = [
             {"text": "Incomplete", "completed": False},
@@ -935,7 +935,7 @@ class TestFormatTodos:
 
     def test_format_todos_with_time(self):
         """Test formatting with legacy time annotation input."""
-        from apps.todos.todo import format_todos
+        from solstone.apps.todos.todo import format_todos
 
         entries = [{"text": "Meeting", "time": "14:00", "completed": False}]
         context = {"file_path": "/journal/facets/work/todos/20251215.jsonl"}
@@ -947,7 +947,7 @@ class TestFormatTodos:
 
     def test_format_todos_header_facet_from_path(self):
         """Test that facet name and day are extracted from file path."""
-        from apps.todos.todo import format_todos
+        from solstone.apps.todos.todo import format_todos
 
         entries = [{"text": "Test", "completed": False}]
         context = {"file_path": "/journal/facets/work/todos/20251215.jsonl"}
@@ -959,7 +959,7 @@ class TestFormatTodos:
 
     def test_format_todos_skipped_entries_error(self):
         """Test that entries without 'text' field are skipped and reported."""
-        from apps.todos.todo import format_todos
+        from solstone.apps.todos.todo import format_todos
 
         entries = [
             {"text": "Valid", "completed": False},
@@ -976,7 +976,7 @@ class TestFormatTodos:
 
     def test_format_todos_timestamp_fallback(self):
         """Test timestamp fallback: updated_at -> created_at -> file mtime."""
-        from apps.todos.todo import format_todos
+        from solstone.apps.todos.todo import format_todos
 
         # Entry with updated_at takes priority
         entries_updated = [
@@ -1001,7 +1001,7 @@ class TestFormatEvents:
 
     def test_get_formatter_events(self):
         """Test pattern matching for events/*.jsonl."""
-        from think.formatters import get_formatter
+        from solstone.think.formatters import get_formatter
 
         formatter = get_formatter("facets/work/events/20240101.jsonl")
         assert formatter is not None
@@ -1009,7 +1009,7 @@ class TestFormatEvents:
 
     def test_format_events_basic(self):
         """Test basic events formatting with fixture file."""
-        from think.formatters import format_file
+        from solstone.think.formatters import format_file
 
         path = (
             Path(os.environ["SOLSTONE_JOURNAL"]) / "facets/work/events/20240101.jsonl"
@@ -1022,7 +1022,7 @@ class TestFormatEvents:
 
     def test_format_events_direct(self):
         """Test format_events function directly."""
-        from think.event_formatter import format_events
+        from solstone.think.event_formatter import format_events
 
         entries = [
             {
@@ -1054,7 +1054,7 @@ class TestFormatEvents:
 
     def test_format_events_planned_labels(self):
         """Test that planned future events use 'Planned', 'Scheduled', 'Expected' labels."""
-        from think.event_formatter import format_events
+        from solstone.think.event_formatter import format_events
 
         entries = [
             {
@@ -1077,7 +1077,7 @@ class TestFormatEvents:
 
     def test_format_events_occurrence_no_created_on(self):
         """Test that occurrences do NOT show 'Created on' or 'Planned' prefix."""
-        from think.event_formatter import format_events
+        from solstone.think.event_formatter import format_events
 
         entries = [
             {
@@ -1101,7 +1101,7 @@ class TestFormatEvents:
 
     def test_format_events_header_facet_from_path(self):
         """Test that facet name and day are extracted from file path."""
-        from think.event_formatter import format_events
+        from solstone.think.event_formatter import format_events
 
         entries = [{"type": "task", "title": "Test", "occurred": True}]
         context = {"file_path": "/journal/facets/personal/events/20251215.jsonl"}
@@ -1112,7 +1112,7 @@ class TestFormatEvents:
 
     def test_format_events_timestamp_calculation(self):
         """Test that timestamp is calculated from day + start time."""
-        from think.event_formatter import format_events
+        from solstone.think.event_formatter import format_events
 
         entries = [
             {
@@ -1137,7 +1137,7 @@ class TestFormatEvents:
 
     def test_format_events_skipped_entries_error(self):
         """Test that entries without 'title' field are skipped and reported."""
-        from think.event_formatter import format_events
+        from solstone.think.event_formatter import format_events
 
         entries = [
             {"type": "meeting", "title": "Valid", "occurred": True},
@@ -1154,7 +1154,7 @@ class TestFormatEvents:
 
     def test_format_events_mixed_occurred_anticipated(self):
         """Test header counts for mixed occurred/anticipated events."""
-        from think.event_formatter import format_events
+        from solstone.think.event_formatter import format_events
 
         entries = [
             {"type": "meeting", "title": "Past event", "occurred": True},
@@ -1169,7 +1169,7 @@ class TestFormatEvents:
 
     def test_format_events_time_display_24h(self):
         """Test that times are displayed in 24-hour format without seconds."""
-        from think.event_formatter import format_events
+        from solstone.think.event_formatter import format_events
 
         entries = [
             {
@@ -1189,7 +1189,7 @@ class TestFormatEvents:
 
     def test_format_events_with_details(self):
         """Test that details field is included in output."""
-        from think.event_formatter import format_events
+        from solstone.think.event_formatter import format_events
 
         entries = [
             {
@@ -1212,7 +1212,7 @@ class TestFormatMarkdown:
 
     def test_get_formatter_markdown(self):
         """Test pattern matching for .md files."""
-        from think.formatters import get_formatter
+        from solstone.think.formatters import get_formatter
 
         formatter = get_formatter("20240101/talents/flow.md")
         assert formatter is not None
@@ -1220,7 +1220,7 @@ class TestFormatMarkdown:
 
     def test_get_formatter_segment_screen_md(self):
         """Test pattern matching for segment screen.md files."""
-        from think.formatters import get_formatter
+        from solstone.think.formatters import get_formatter
 
         formatter = get_formatter("20240101/default/123456_300/talents/screen.md")
         assert formatter is not None
@@ -1228,7 +1228,7 @@ class TestFormatMarkdown:
 
     def test_get_formatter_nested_md(self):
         """Test pattern matching for deeply nested .md files."""
-        from think.formatters import get_formatter
+        from solstone.think.formatters import get_formatter
 
         formatter = get_formatter("facets/work/news/20240101.md")
         assert formatter is not None
@@ -1236,7 +1236,7 @@ class TestFormatMarkdown:
 
     def test_format_markdown_basic(self):
         """Test basic markdown formatting."""
-        from think.markdown import format_markdown
+        from solstone.think.markdown import format_markdown
 
         text = "# Hello\n\nThis is a paragraph.\n"
         chunks, meta = format_markdown(text)
@@ -1248,7 +1248,7 @@ class TestFormatMarkdown:
 
     def test_format_markdown_multiple_chunks(self):
         """Test that lists are split into multiple chunks."""
-        from think.markdown import format_markdown
+        from solstone.think.markdown import format_markdown
 
         text = "# List\n\n- Item one\n- Item two\n- Item three\n"
         chunks, meta = format_markdown(text)
@@ -1259,7 +1259,7 @@ class TestFormatMarkdown:
 
     def test_format_markdown_no_timestamp(self):
         """Test that markdown chunks don't have timestamp key."""
-        from think.markdown import format_markdown
+        from solstone.think.markdown import format_markdown
 
         text = "# Test\n\nSome content.\n"
         chunks, meta = format_markdown(text)
@@ -1270,7 +1270,7 @@ class TestFormatMarkdown:
 
     def test_format_markdown_preserves_headers(self):
         """Test that each chunk includes its header context."""
-        from think.markdown import format_markdown
+        from solstone.think.markdown import format_markdown
 
         text = "# Top\n\n## Section\n\nParagraph content.\n"
         chunks, meta = format_markdown(text)
@@ -1282,7 +1282,7 @@ class TestFormatMarkdown:
 
     def test_format_markdown_definition_list(self):
         """Test that definition lists stay as single chunk."""
-        from think.markdown import format_markdown
+        from solstone.think.markdown import format_markdown
 
         text = "# Info\n\n- **Name:** Alice\n- **Role:** Engineer\n"
         chunks, meta = format_markdown(text)
@@ -1294,7 +1294,7 @@ class TestFormatMarkdown:
 
     def test_format_markdown_table_rows(self):
         """Test that table rows become separate chunks."""
-        from think.markdown import format_markdown
+        from solstone.think.markdown import format_markdown
 
         text = """# Data
 
@@ -1313,7 +1313,7 @@ class TestFormatMarkdown:
 
     def test_format_markdown_code_block(self):
         """Test that code blocks become chunks."""
-        from think.markdown import format_markdown
+        from solstone.think.markdown import format_markdown
 
         text = "# Code\n\n```python\nprint('hello')\n```\n"
         chunks, meta = format_markdown(text)
@@ -1324,7 +1324,7 @@ class TestFormatMarkdown:
 
     def test_format_file_markdown(self):
         """Test format_file with a markdown file."""
-        from think.formatters import format_file
+        from solstone.think.formatters import format_file
 
         path = (
             Path(os.environ["SOLSTONE_JOURNAL"]) / "chronicle/20240101/talents/flow.md"
@@ -1337,7 +1337,7 @@ class TestFormatMarkdown:
 
     def test_load_markdown(self):
         """Test load_markdown utility."""
-        from think.formatters import load_markdown
+        from solstone.think.formatters import load_markdown
 
         path = (
             Path(os.environ["SOLSTONE_JOURNAL"]) / "chronicle/20240101/talents/flow.md"
@@ -1352,7 +1352,7 @@ class TestSanitizeMarkdown:
     """Tests for markdown sanitization and chunk size capping."""
 
     def test_sanitize_drops_long_lines(self):
-        from think.markdown import sanitize_markdown
+        from solstone.think.markdown import sanitize_markdown
 
         normal = "Normal line."
         long_line = "x" * 3000
@@ -1363,14 +1363,14 @@ class TestSanitizeMarkdown:
         assert long_line not in result
 
     def test_sanitize_preserves_short_lines(self):
-        from think.markdown import sanitize_markdown
+        from solstone.think.markdown import sanitize_markdown
 
         text = "# Hello\n\nShort paragraph.\n"
         assert sanitize_markdown(text) == text
 
     def test_sanitize_drops_padded_table_row(self):
         """Simulates a Gemini degenerate table row with whitespace padding."""
-        from think.markdown import sanitize_markdown
+        from solstone.think.markdown import sanitize_markdown
 
         header = "| Name | Value |"
         sep = "|------|-------|"
@@ -1383,7 +1383,7 @@ class TestSanitizeMarkdown:
 
     def test_format_markdown_caps_large_chunk(self):
         """A chunk that renders >4K should be replaced with a header stub."""
-        from think.markdown import format_markdown
+        from solstone.think.markdown import format_markdown
 
         # Build a definition list that renders to >4K (kept as single chunk)
         items = [f"- **field{i}:** {'v' * 80}" for i in range(60)]
@@ -1400,7 +1400,7 @@ class TestSanitizeMarkdown:
 
     def test_format_markdown_normal_chunks_unchanged(self):
         """Normal-sized chunks should pass through without truncation."""
-        from think.markdown import format_markdown
+        from solstone.think.markdown import format_markdown
 
         text = "# Hello\n\nThis is normal content.\n"
         chunks, _ = format_markdown(text)
@@ -1415,7 +1415,7 @@ class TestExtractPathMetadata:
 
     def test_daily_output(self):
         """Test day extraction from daily agent output path."""
-        from think.formatters import extract_path_metadata
+        from solstone.think.formatters import extract_path_metadata
 
         meta = extract_path_metadata("20240101/talents/flow.md")
         assert meta["day"] == "20240101"
@@ -1424,7 +1424,7 @@ class TestExtractPathMetadata:
 
     def test_segment_markdown(self):
         """Test day and agent extraction from segment markdown."""
-        from think.formatters import extract_path_metadata
+        from solstone.think.formatters import extract_path_metadata
 
         meta = extract_path_metadata("20240101/100000/talents/screen.md")
         assert meta["day"] == "20240101"
@@ -1433,7 +1433,7 @@ class TestExtractPathMetadata:
 
     def test_segment_jsonl_no_agent(self):
         """Test that JSONL files get empty agent (formatter provides it)."""
-        from think.formatters import extract_path_metadata
+        from solstone.think.formatters import extract_path_metadata
 
         meta = extract_path_metadata("20240101/100000/audio.jsonl")
         assert meta["day"] == "20240101"
@@ -1442,7 +1442,7 @@ class TestExtractPathMetadata:
 
     def test_facet_event(self):
         """Test facet and day extraction from event path."""
-        from think.formatters import extract_path_metadata
+        from solstone.think.formatters import extract_path_metadata
 
         meta = extract_path_metadata("facets/work/events/20240101.jsonl")
         assert meta["day"] == "20240101"
@@ -1451,7 +1451,7 @@ class TestExtractPathMetadata:
 
     def test_facet_entities_detected_personal(self):
         """Test facet and day extraction from detected entities path."""
-        from think.formatters import extract_path_metadata
+        from solstone.think.formatters import extract_path_metadata
 
         meta = extract_path_metadata("facets/personal/entities/20260115.jsonl")
         assert meta["day"] == "20260115"
@@ -1460,7 +1460,7 @@ class TestExtractPathMetadata:
 
     def test_facet_entities_detected(self):
         """Test facet and day extraction from detected entities path."""
-        from think.formatters import extract_path_metadata
+        from solstone.think.formatters import extract_path_metadata
 
         meta = extract_path_metadata("facets/work/entities/20250101.jsonl")
         assert meta["day"] == "20250101"
@@ -1469,7 +1469,7 @@ class TestExtractPathMetadata:
 
     def test_facet_news(self):
         """Test facet news markdown gets agent from path."""
-        from think.formatters import extract_path_metadata
+        from solstone.think.formatters import extract_path_metadata
 
         meta = extract_path_metadata("facets/work/news/20240101.md")
         assert meta["day"] == "20240101"
@@ -1478,7 +1478,7 @@ class TestExtractPathMetadata:
 
     def test_import_summary(self):
         """Test import summary path extraction."""
-        from think.formatters import extract_path_metadata
+        from solstone.think.formatters import extract_path_metadata
 
         meta = extract_path_metadata("imports/20240101_093000/summary.md")
         assert meta["day"] == "20240101"
@@ -1487,7 +1487,7 @@ class TestExtractPathMetadata:
 
     def test_weekly_reflection(self):
         """Test weekly reflection path extraction."""
-        from think.formatters import extract_path_metadata
+        from solstone.think.formatters import extract_path_metadata
 
         meta = extract_path_metadata("reflections/weekly/20260308.md")
         assert meta["day"] == "20260308"
@@ -1496,7 +1496,7 @@ class TestExtractPathMetadata:
 
     def test_app_output(self):
         """Test app output path extraction."""
-        from think.formatters import extract_path_metadata
+        from solstone.think.formatters import extract_path_metadata
 
         meta = extract_path_metadata("apps/myapp/talents/custom.md")
         assert meta["day"] == ""
@@ -1505,7 +1505,7 @@ class TestExtractPathMetadata:
 
     def test_config_actions(self):
         """Test journal-level action log path extraction."""
-        from think.formatters import extract_path_metadata
+        from solstone.think.formatters import extract_path_metadata
 
         meta = extract_path_metadata("config/actions/20240101.jsonl")
         assert meta["day"] == "20240101"
@@ -1513,7 +1513,7 @@ class TestExtractPathMetadata:
         assert meta["agent"] == ""
 
     def test_activity_output_path(self):
-        from think.formatters import extract_path_metadata
+        from solstone.think.formatters import extract_path_metadata
 
         meta = extract_path_metadata(
             "facets/work/activities/20260209/coding_100000_300/session_review.md"
@@ -1523,7 +1523,7 @@ class TestExtractPathMetadata:
         assert meta["agent"] == "session_review"
 
     def test_activity_output_path_json(self):
-        from think.formatters import extract_path_metadata
+        from solstone.think.formatters import extract_path_metadata
 
         meta = extract_path_metadata(
             "facets/personal/activities/20260210/meeting_090000_300/analysis.json"
@@ -1533,7 +1533,7 @@ class TestExtractPathMetadata:
         assert meta["agent"] == ""  # JSONL/JSON agent set by formatter, not path
 
     def test_activity_output_app_key(self):
-        from think.formatters import extract_path_metadata
+        from solstone.think.formatters import extract_path_metadata
 
         meta = extract_path_metadata(
             "facets/work/activities/20260209/coding_100000_300/_chat_review.md"
@@ -1548,7 +1548,7 @@ class TestFormatterIndexerMetadata:
 
     def test_format_audio_returns_indexer(self):
         """Test format_audio returns indexer with agent."""
-        from observe.hear import format_audio
+        from solstone.observe.hear import format_audio
 
         entries = [{"start": "00:00:01", "text": "Hello"}]
         chunks, meta = format_audio(entries)
@@ -1558,7 +1558,7 @@ class TestFormatterIndexerMetadata:
 
     def test_format_screen_returns_indexer(self):
         """Test format_screen returns indexer with agent."""
-        from observe.screen import format_screen
+        from solstone.observe.screen import format_screen
 
         entries = [{"timestamp": 0, "analysis": {"primary": "code"}}]
         chunks, meta = format_screen(entries)
@@ -1568,7 +1568,7 @@ class TestFormatterIndexerMetadata:
 
     def test_format_events_returns_indexer(self):
         """Test format_events returns indexer with agent."""
-        from think.event_formatter import format_events
+        from solstone.think.event_formatter import format_events
 
         entries = [{"type": "meeting", "title": "Test", "occurred": True}]
         chunks, meta = format_events(entries)
@@ -1578,7 +1578,7 @@ class TestFormatterIndexerMetadata:
 
     def test_format_entities_attached_returns_indexer(self):
         """Test format_entities returns indexer with attached agent."""
-        from think.entities import format_entities
+        from solstone.think.entities import format_entities
 
         entries = [{"type": "Person", "name": "Alice", "description": "Test"}]
         # No file_path context means not detected
@@ -1589,7 +1589,7 @@ class TestFormatterIndexerMetadata:
 
     def test_format_entities_detected_returns_indexer(self):
         """Test format_entities returns indexer with detected agent."""
-        from think.entities import format_entities
+        from solstone.think.entities import format_entities
 
         entries = [{"type": "Person", "name": "Alice", "description": "Test"}]
         context = {"file_path": "/journal/facets/work/entities/20240101.jsonl"}
@@ -1600,7 +1600,7 @@ class TestFormatterIndexerMetadata:
 
     def test_format_todos_returns_indexer(self):
         """Test format_todos returns indexer with agent."""
-        from apps.todos.todo import format_todos
+        from solstone.apps.todos.todo import format_todos
 
         entries = [{"text": "Test task", "completed": False}]
         chunks, meta = format_todos(entries)
@@ -1614,7 +1614,7 @@ class TestFormatterSourceKey:
 
     def test_format_audio_returns_source(self):
         """Test format_audio returns source with original entry."""
-        from observe.hear import format_audio
+        from solstone.observe.hear import format_audio
 
         entry = {"start": "00:00:01", "source": "mic", "speaker": 1, "text": "Hello"}
         entries = [entry]
@@ -1627,7 +1627,7 @@ class TestFormatterSourceKey:
 
     def test_format_audio_string_speaker(self):
         """Test format_audio handles string speaker labels from diarization."""
-        from observe.hear import format_audio
+        from solstone.observe.hear import format_audio
 
         entries = [
             {"start": "00:00:01", "speaker": "Speaker 1", "text": "Hello"},
@@ -1642,7 +1642,7 @@ class TestFormatterSourceKey:
 
     def test_format_audio_int_speaker(self):
         """Test format_audio handles integer speaker labels (legacy format)."""
-        from observe.hear import format_audio
+        from solstone.observe.hear import format_audio
 
         entries = [
             {"start": "00:00:01", "speaker": 1, "text": "Hello"},
@@ -1657,7 +1657,7 @@ class TestFormatterSourceKey:
 
     def test_format_screen_returns_source(self):
         """Test format_screen returns source with original frame."""
-        from observe.screen import format_screen
+        from solstone.observe.screen import format_screen
 
         frame = {
             "timestamp": 5,
@@ -1674,7 +1674,7 @@ class TestFormatterSourceKey:
 
     def test_format_events_returns_source(self):
         """Test format_events returns source with original event."""
-        from think.event_formatter import format_events
+        from solstone.think.event_formatter import format_events
 
         event = {"type": "meeting", "title": "Test", "occurred": True, "custom": "data"}
         entries = [event]
@@ -1687,7 +1687,7 @@ class TestFormatterSourceKey:
 
     def test_format_entities_returns_source(self):
         """Test format_entities returns source with original entity."""
-        from think.entities import format_entities
+        from solstone.think.entities import format_entities
 
         entity = {
             "type": "Person",
@@ -1705,7 +1705,7 @@ class TestFormatterSourceKey:
 
     def test_format_todos_returns_source(self):
         """Test format_todos returns source with original entry."""
-        from apps.todos.todo import format_todos
+        from solstone.apps.todos.todo import format_todos
 
         entry = {"text": "Test task", "completed": False, "priority": "high"}
         entries = [entry]
@@ -1718,7 +1718,7 @@ class TestFormatterSourceKey:
 
     def test_format_audio_timestamp_in_milliseconds(self):
         """Test format_audio returns timestamp in milliseconds."""
-        from observe.hear import format_audio
+        from solstone.observe.hear import format_audio
 
         entries = [
             {"start": "00:00:00", "text": "First"},
@@ -1732,7 +1732,7 @@ class TestFormatterSourceKey:
 
     def test_format_screen_timestamp_in_milliseconds(self):
         """Test format_screen returns timestamp in milliseconds."""
-        from observe.screen import format_screen
+        from solstone.observe.screen import format_screen
 
         entries = [
             {"timestamp": 0, "analysis": {}},
@@ -1750,7 +1750,7 @@ class TestFormatLogs:
 
     def test_get_formatter_logs(self):
         """Test pattern matching for logs/*.jsonl."""
-        from think.formatters import get_formatter
+        from solstone.think.formatters import get_formatter
 
         formatter = get_formatter("facets/work/logs/20240101.jsonl")
         assert formatter is not None
@@ -1758,7 +1758,7 @@ class TestFormatLogs:
 
     def test_format_logs_basic(self):
         """Test basic action log formatting."""
-        from think.facets import format_logs
+        from solstone.think.facets import format_logs
 
         entries = [
             {
@@ -1781,7 +1781,7 @@ class TestFormatLogs:
 
     def test_format_logs_with_agent_id(self):
         """Test that use_id renders as a link."""
-        from think.facets import format_logs
+        from solstone.think.facets import format_logs
 
         entries = [
             {
@@ -1804,7 +1804,7 @@ class TestFormatLogs:
 
     def test_format_logs_missing_action(self):
         """Test that entries without action are skipped."""
-        from think.facets import format_logs
+        from solstone.think.facets import format_logs
 
         entries = [
             {
@@ -1832,7 +1832,7 @@ class TestFormatLogs:
 
     def test_format_logs_returns_indexer(self):
         """Test format_logs returns indexer with agent 'action'."""
-        from think.facets import format_logs
+        from solstone.think.facets import format_logs
 
         entries = [
             {
@@ -1851,7 +1851,7 @@ class TestFormatLogs:
 
     def test_format_logs_header_with_path(self):
         """Test that header includes facet name and day from path."""
-        from think.facets import format_logs
+        from solstone.think.facets import format_logs
 
         entries = [
             {
@@ -1872,7 +1872,7 @@ class TestFormatLogs:
 
     def test_format_logs_returns_source(self):
         """Test format_logs returns source with original entry."""
-        from think.facets import format_logs
+        from solstone.think.facets import format_logs
 
         entry = {
             "timestamp": "2025-12-16T07:33:05.135587+00:00",
@@ -1893,7 +1893,7 @@ class TestFormatLogs:
 
     def test_format_logs_timestamp_parsing(self):
         """Test that ISO timestamps are converted to unix ms."""
-        from think.facets import format_logs
+        from solstone.think.facets import format_logs
 
         entries = [
             {
@@ -1922,7 +1922,7 @@ class TestFormatLogs:
 
     def test_format_logs_truncates_long_params(self):
         """Test that long param values are truncated."""
-        from think.facets import format_logs
+        from solstone.think.facets import format_logs
 
         long_text = "x" * 200
 
@@ -1945,7 +1945,7 @@ class TestFormatLogs:
 
     def test_format_logs_action_display_formatting(self):
         """Test that action names are formatted nicely."""
-        from think.facets import format_logs
+        from solstone.think.facets import format_logs
 
         entries = [
             {
@@ -1965,7 +1965,7 @@ class TestFormatLogs:
 
     def test_get_formatter_journal_level_logs(self):
         """Test pattern matching for config/actions/*.jsonl."""
-        from think.formatters import get_formatter
+        from solstone.think.formatters import get_formatter
 
         formatter = get_formatter("config/actions/20240101.jsonl")
         assert formatter is not None
@@ -1973,7 +1973,7 @@ class TestFormatLogs:
 
     def test_format_logs_journal_level_header(self):
         """Test that journal-level logs have appropriate header."""
-        from think.facets import format_logs
+        from solstone.think.facets import format_logs
 
         entries = [
             {

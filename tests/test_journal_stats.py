@@ -6,7 +6,7 @@ import json
 
 
 def test_scan_day(tmp_path, monkeypatch):
-    stats_mod = importlib.import_module("think.journal_stats")
+    stats_mod = importlib.import_module("solstone.think.journal_stats")
     journal = tmp_path
     day = journal / "chronicle" / "20240101"
     day.mkdir(parents=True)
@@ -60,7 +60,7 @@ def test_scan_day(tmp_path, monkeypatch):
 
 
 def test_token_usage(tmp_path, monkeypatch):
-    stats_mod = importlib.import_module("think.journal_stats")
+    stats_mod = importlib.import_module("solstone.think.journal_stats")
     journal = tmp_path
     day1 = journal / "chronicle" / "20240101"
     day1.mkdir(parents=True)
@@ -177,7 +177,7 @@ def test_token_usage(tmp_path, monkeypatch):
 
 def test_caching(tmp_path, monkeypatch):
     """Test that per-day caching works correctly."""
-    stats_mod = importlib.import_module("think.journal_stats")
+    stats_mod = importlib.import_module("solstone.think.journal_stats")
     journal = tmp_path
     day = journal / "chronicle" / "20240101"
     day.mkdir(parents=True)
@@ -219,7 +219,7 @@ def test_caching(tmp_path, monkeypatch):
 
 def test_token_usage_new_format(tmp_path, monkeypatch):
     """Test that the new unified token format is properly handled."""
-    stats_mod = importlib.import_module("think.journal_stats")
+    stats_mod = importlib.import_module("solstone.think.journal_stats")
     journal = tmp_path
     day1 = journal / "chronicle" / "20240101"
     day1.mkdir(parents=True)
@@ -268,7 +268,7 @@ def test_token_usage_new_format(tmp_path, monkeypatch):
 
 def test_process_token_entry_counts_all_int_usage_fields(tmp_path, monkeypatch):
     """Int-valued fields in usage are all counted; top-level metadata is ignored."""
-    stats_mod = importlib.import_module("think.journal_stats")
+    stats_mod = importlib.import_module("solstone.think.journal_stats")
     journal = tmp_path
     day1 = journal / "chronicle" / "20240101"
     day1.mkdir(parents=True)

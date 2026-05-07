@@ -8,7 +8,7 @@ import platform
 import numpy as np
 import pytest
 
-from observe.transcribe.main import (
+from solstone.observe.transcribe.main import (
     EMBEDDER_NAME,
     _compute_wespeaker_features,
     _embed_statements,

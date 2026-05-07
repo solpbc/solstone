@@ -7,7 +7,7 @@ import json
 import tempfile
 from pathlib import Path
 
-from think.importers.shared import _write_import_jsonl
+from solstone.think.importers.shared import _write_import_jsonl
 
 
 def test_write_import_jsonl_with_entries():

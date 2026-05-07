@@ -7,7 +7,7 @@ import json
 
 import pytest
 
-from think.facets import rename_facet
+from solstone.think.facets import rename_facet
 
 
 @pytest.fixture

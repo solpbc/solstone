@@ -6,7 +6,7 @@
 import numpy as np
 import pytest
 
-from observe.transcribe.gemini import (
+from solstone.observe.transcribe.gemini import (
     _build_chunk_contents,
     _extract_segments,
     _find_segment_for_timestamp,
@@ -327,13 +327,13 @@ class TestBackendRegistry:
 
     def test_gemini_registered(self):
         """Gemini backend is registered."""
-        from observe.transcribe import BACKEND_REGISTRY
+        from solstone.observe.transcribe import BACKEND_REGISTRY
 
         assert "gemini" in BACKEND_REGISTRY
 
     def test_get_backend(self):
         """Can get Gemini backend module."""
-        from observe.transcribe import get_backend
+        from solstone.observe.transcribe import get_backend
 
         backend = get_backend("gemini")
         assert hasattr(backend, "transcribe")

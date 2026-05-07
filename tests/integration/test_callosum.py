@@ -12,7 +12,7 @@ import time
 
 import pytest
 
-from think.callosum import CallosumConnection, CallosumServer
+from solstone.think.callosum import CallosumConnection, CallosumServer
 
 
 @pytest.fixture
@@ -183,7 +183,7 @@ def test_multiple_clients_broadcast(callosum_server):
 
 def test_callosum_send_integration(callosum_server):
     """Test that callosum_send() works with real server."""
-    from think.callosum import callosum_send
+    from solstone.think.callosum import callosum_send
 
     received_messages = []
 

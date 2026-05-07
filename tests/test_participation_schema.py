@@ -6,9 +6,9 @@ from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
-from think.talent import get_talent
+from solstone.think.talent import get_talent
 
-TALENT_DIR = Path(__file__).resolve().parents[1] / "talent"
+TALENT_DIR = Path(__file__).resolve().parents[1] / "solstone" / "talent"
 PARTICIPATION_ENTRY_SCHEMA_PATH = TALENT_DIR / "participation_entry.schema.json"
 PARTICIPATION_SCHEMA_PATH = TALENT_DIR / "participation.schema.json"
 

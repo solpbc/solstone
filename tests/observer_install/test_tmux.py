@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 import subprocess
 
-from observe.observer_install import common, tmux
+from solstone.observe.observer_install import common, tmux
 
 
 def test_tmux_happy_path_writes_config_and_marker(monkeypatch, args_factory):

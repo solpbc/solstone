@@ -9,8 +9,8 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
-from think.call import call_app
-from think.utils import resolve_sol_day, resolve_sol_facet, resolve_sol_segment
+from solstone.think.call import call_app
+from solstone.think.utils import resolve_sol_day, resolve_sol_facet, resolve_sol_segment
 
 runner = CliRunner()
 
@@ -41,11 +41,11 @@ def facet_journal(tmp_path, monkeypatch):
         encoding="utf-8",
     )
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
-    import think.utils
+    import solstone.think.utils as think_utils
 
-    think.utils._journal_path_cache = None
+    think_utils._journal_path_cache = None
     yield journal
-    think.utils._journal_path_cache = None
+    think_utils._journal_path_cache = None
 
 
 @pytest.fixture
@@ -118,11 +118,11 @@ def merge_journal(tmp_path, monkeypatch):
     )
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
-    import think.utils
+    import solstone.think.utils as think_utils
 
-    think.utils._journal_path_cache = None
+    think_utils._journal_path_cache = None
     yield journal
-    think.utils._journal_path_cache = None
+    think_utils._journal_path_cache = None
 
 
 class TestDiscovery:
@@ -236,9 +236,9 @@ class TestJournal:
         (journal / "facets" / "work").mkdir(parents=True)
         monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
         # Clear cached journal path
-        import think.utils
+        import solstone.think.utils as think_utils
 
-        think.utils._journal_path_cache = None
+        think_utils._journal_path_cache = None
 
         content = "# Test News\nSome content here."
         result = runner.invoke(
@@ -255,7 +255,7 @@ class TestJournal:
         assert news_file.read_text() == content
 
         # Reset cache
-        think.utils._journal_path_cache = None
+        think_utils._journal_path_cache = None
 
     def test_journal_news_write_requires_day(self):
         """News --write fails without --day."""
@@ -564,7 +564,7 @@ class TestFacetMerge:
 
     @staticmethod
     def _mock_indexer(monkeypatch):
-        import think.tools.call as call_module
+        import solstone.think.tools.call as call_module
 
         calls = []
 
@@ -677,7 +677,7 @@ class TestFacetMerge:
     def test_merge_moves_open_todos(self, merge_journal, monkeypatch):
         """Merge appends open todos to destination and cancels them in source."""
         self._mock_indexer(monkeypatch)
-        import think.tools.call as call_module
+        import solstone.think.tools.call as call_module
 
         monkeypatch.setattr(call_module, "delete_facet", lambda *args, **kwargs: None)
 

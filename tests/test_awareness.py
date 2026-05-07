@@ -44,12 +44,12 @@ def _assert_identity_history(record, *, file_name, actor, op, section, reason):
 
 class TestCurrentState:
     def test_empty_state_returns_empty_dict(self):
-        from think.awareness import get_current
+        from solstone.think.awareness import get_current
 
         assert get_current() == {}
 
     def test_update_state_creates_section(self):
-        from think.awareness import get_current, update_state
+        from solstone.think.awareness import get_current, update_state
 
         update_state("onboarding", {"path": "a", "status": "observing"})
 
@@ -58,7 +58,7 @@ class TestCurrentState:
         assert state["onboarding"]["status"] == "observing"
 
     def test_update_state_merges_into_existing(self):
-        from think.awareness import get_current, update_state
+        from solstone.think.awareness import get_current, update_state
 
         update_state("onboarding", {"path": "a", "status": "observing"})
         update_state("onboarding", {"observation_count": 5})
@@ -68,7 +68,7 @@ class TestCurrentState:
         assert state["onboarding"]["observation_count"] == 5
 
     def test_update_state_multiple_sections(self):
-        from think.awareness import get_current, update_state
+        from solstone.think.awareness import get_current, update_state
 
         update_state("onboarding", {"status": "complete"})
         update_state("preferences", {"nudge_frequency": "low"})
@@ -78,7 +78,7 @@ class TestCurrentState:
         assert state["preferences"]["nudge_frequency"] == "low"
 
     def test_current_json_written_atomically(self, tmp_path):
-        from think.awareness import _awareness_dir, update_state
+        from solstone.think.awareness import _awareness_dir, update_state
 
         update_state("test", {"key": "value"})
 
@@ -90,7 +90,7 @@ class TestCurrentState:
 
 class TestDailyLog:
     def test_append_log_creates_file(self, tmp_path):
-        from think.awareness import _awareness_dir, _today, append_log
+        from solstone.think.awareness import _awareness_dir, _today, append_log
 
         entry = append_log("state", key="test.started", message="hello")
 
@@ -102,7 +102,7 @@ class TestDailyLog:
         assert "ts" in entry
 
     def test_append_log_appends_multiple(self):
-        from think.awareness import _today, append_log, read_log
+        from solstone.think.awareness import _today, append_log, read_log
 
         append_log("state", key="a")
         append_log("observation", message="saw something")
@@ -115,12 +115,12 @@ class TestDailyLog:
         assert entries[2]["kind"] == "nudge"
 
     def test_read_log_empty_returns_empty_list(self):
-        from think.awareness import read_log
+        from solstone.think.awareness import read_log
 
         assert read_log("20990101") == []
 
     def test_append_log_with_data(self):
-        from think.awareness import _today, append_log, read_log
+        from solstone.think.awareness import _today, append_log, read_log
 
         append_log("observation", data={"meetings": 2, "entities": ["Alice"]})
 
@@ -128,7 +128,7 @@ class TestDailyLog:
         assert entries[0]["data"]["meetings"] == 2
 
     def test_append_log_with_extra_fields(self):
-        from think.awareness import _today, append_log, read_log
+        from solstone.think.awareness import _today, append_log, read_log
 
         append_log("observation", segment="123456_300", detail="meeting detected")
 
@@ -141,7 +141,7 @@ class TestAwarenessCLI:
     def test_status_empty(self):
         from typer.testing import CliRunner
 
-        from apps.awareness.call import app
+        from solstone.apps.awareness.call import app
 
         result = CliRunner().invoke(app, ["status"])
         assert result.exit_code == 0
@@ -150,8 +150,8 @@ class TestAwarenessCLI:
     def test_status_with_data(self):
         from typer.testing import CliRunner
 
-        from apps.awareness.call import app
-        from think.awareness import update_state
+        from solstone.apps.awareness.call import app
+        from solstone.think.awareness import update_state
 
         update_state("onboarding", {"status": "observing"})
 
@@ -162,8 +162,8 @@ class TestAwarenessCLI:
     def test_status_section(self):
         from typer.testing import CliRunner
 
-        from apps.awareness.call import app
-        from think.awareness import update_state
+        from solstone.apps.awareness.call import app
+        from solstone.think.awareness import update_state
 
         update_state("onboarding", {"status": "observing"})
 
@@ -174,7 +174,7 @@ class TestAwarenessCLI:
     def test_log_cmd(self):
         from typer.testing import CliRunner
 
-        from apps.awareness.call import app
+        from solstone.apps.awareness.call import app
 
         result = CliRunner().invoke(
             app, ["log", "observation", "saw a meeting", "--key", "test"]
@@ -188,7 +188,7 @@ class TestAwarenessCLI:
     def test_log_cmd_with_data(self):
         from typer.testing import CliRunner
 
-        from apps.awareness.call import app
+        from solstone.apps.awareness.call import app
 
         result = CliRunner().invoke(
             app,
@@ -201,7 +201,7 @@ class TestAwarenessCLI:
 
 class TestJournalState:
     def test_first_daily_ready_via_update_state(self):
-        from think.awareness import get_current, update_state
+        from solstone.think.awareness import get_current, update_state
 
         update_state(
             "journal",
@@ -218,18 +218,20 @@ class TestComputeThickness:
 
     def test_all_zeros_when_empty(self):
         """Empty journal returns all zero signals and ready=False."""
-        from think.awareness import compute_thickness
+        from solstone.think.awareness import compute_thickness
 
         with unittest.mock.patch(
-            "think.indexer.journal.get_entity_strength", return_value=[]
+            "solstone.think.indexer.journal.get_entity_strength", return_value=[]
         ):
             with unittest.mock.patch(
-                "think.awareness._recent_chat_exchanges", return_value=[]
+                "solstone.think.awareness._recent_chat_exchanges", return_value=[]
             ):
                 with unittest.mock.patch(
-                    "think.facets.get_enabled_facets", return_value={}
+                    "solstone.think.facets.get_enabled_facets", return_value={}
                 ):
-                    with unittest.mock.patch("think.utils.day_dirs", return_value={}):
+                    with unittest.mock.patch(
+                        "solstone.think.utils.day_dirs", return_value={}
+                    ):
                         result = compute_thickness()
 
         assert result["entity_depth"] == 0
@@ -241,7 +243,7 @@ class TestComputeThickness:
 
     def test_ready_when_thresholds_met(self):
         """ready=True when all primary thresholds met and facet_count >= 2."""
-        from think.awareness import compute_thickness
+        from solstone.think.awareness import compute_thickness
 
         entities = [
             {"entity_name": f"entity_{i}", "observation_depth": 3} for i in range(12)
@@ -257,15 +259,18 @@ class TestComputeThickness:
         facets = {"work": {}, "personal": {}}
 
         with unittest.mock.patch(
-            "think.indexer.journal.get_entity_strength", return_value=entities
+            "solstone.think.indexer.journal.get_entity_strength", return_value=entities
         ):
             with unittest.mock.patch(
-                "think.awareness._recent_chat_exchanges", return_value=exchanges
+                "solstone.think.awareness._recent_chat_exchanges",
+                return_value=exchanges,
             ):
                 with unittest.mock.patch(
-                    "think.facets.get_enabled_facets", return_value=facets
+                    "solstone.think.facets.get_enabled_facets", return_value=facets
                 ):
-                    with unittest.mock.patch("think.utils.day_dirs", return_value={}):
+                    with unittest.mock.patch(
+                        "solstone.think.utils.day_dirs", return_value={}
+                    ):
                         result = compute_thickness()
 
         assert result["entity_depth"] == 12
@@ -276,7 +281,7 @@ class TestComputeThickness:
 
     def test_ready_via_journal_days(self):
         """ready=True when facet_count < 2 but journal_days >= 3."""
-        from think.awareness import compute_thickness
+        from solstone.think.awareness import compute_thickness
 
         entities = [
             {"entity_name": f"entity_{i}", "observation_depth": 2} for i in range(10)
@@ -297,17 +302,20 @@ class TestComputeThickness:
         }
 
         with unittest.mock.patch(
-            "think.indexer.journal.get_entity_strength", return_value=entities
+            "solstone.think.indexer.journal.get_entity_strength", return_value=entities
         ):
             with unittest.mock.patch(
-                "think.awareness._recent_chat_exchanges", return_value=exchanges
+                "solstone.think.awareness._recent_chat_exchanges",
+                return_value=exchanges,
             ):
                 with unittest.mock.patch(
-                    "think.facets.get_enabled_facets", return_value=facets
+                    "solstone.think.facets.get_enabled_facets", return_value=facets
                 ):
-                    with unittest.mock.patch("think.utils.day_dirs", return_value=days):
+                    with unittest.mock.patch(
+                        "solstone.think.utils.day_dirs", return_value=days
+                    ):
                         with unittest.mock.patch(
-                            "think.utils.iter_segments",
+                            "solstone.think.utils.iter_segments",
                             return_value=[("default", "090000_300", "/seg")],
                         ):
                             result = compute_thickness()
@@ -318,7 +326,7 @@ class TestComputeThickness:
 
     def test_not_ready_missing_recall(self):
         """Not ready when recall_success is 0 even if other thresholds met."""
-        from think.awareness import compute_thickness
+        from solstone.think.awareness import compute_thickness
 
         entities = [
             {"entity_name": f"entity_{i}", "observation_depth": 3} for i in range(15)
@@ -330,15 +338,18 @@ class TestComputeThickness:
         facets = {"work": {}, "personal": {}, "hobby": {}}
 
         with unittest.mock.patch(
-            "think.indexer.journal.get_entity_strength", return_value=entities
+            "solstone.think.indexer.journal.get_entity_strength", return_value=entities
         ):
             with unittest.mock.patch(
-                "think.awareness._recent_chat_exchanges", return_value=exchanges
+                "solstone.think.awareness._recent_chat_exchanges",
+                return_value=exchanges,
             ):
                 with unittest.mock.patch(
-                    "think.facets.get_enabled_facets", return_value=facets
+                    "solstone.think.facets.get_enabled_facets", return_value=facets
                 ):
-                    with unittest.mock.patch("think.utils.day_dirs", return_value={}):
+                    with unittest.mock.patch(
+                        "solstone.think.utils.day_dirs", return_value={}
+                    ):
                         result = compute_thickness()
 
         assert result["entity_depth"] == 15
@@ -348,7 +359,7 @@ class TestComputeThickness:
 
     def test_onboarding_exchanges_excluded(self):
         """Exchanges with talent='onboarding' are excluded from conversation_count."""
-        from think.awareness import compute_thickness
+        from solstone.think.awareness import compute_thickness
 
         entities = [{"entity_name": "foo", "observation_depth": 3}] * 10
         exchanges = [
@@ -370,16 +381,19 @@ class TestComputeThickness:
         ]
 
         with unittest.mock.patch(
-            "think.indexer.journal.get_entity_strength", return_value=entities
+            "solstone.think.indexer.journal.get_entity_strength", return_value=entities
         ):
             with unittest.mock.patch(
-                "think.awareness._recent_chat_exchanges", return_value=exchanges
+                "solstone.think.awareness._recent_chat_exchanges",
+                return_value=exchanges,
             ):
                 with unittest.mock.patch(
-                    "think.facets.get_enabled_facets",
+                    "solstone.think.facets.get_enabled_facets",
                     return_value={"a": {}, "b": {}},
                 ):
-                    with unittest.mock.patch("think.utils.day_dirs", return_value={}):
+                    with unittest.mock.patch(
+                        "solstone.think.utils.day_dirs", return_value={}
+                    ):
                         result = compute_thickness()
 
         assert result["conversation_count"] == 1
@@ -387,22 +401,23 @@ class TestComputeThickness:
 
     def test_handles_exceptions_gracefully(self):
         """Exceptions in dependency calls result in zero values, not crashes."""
-        from think.awareness import compute_thickness
+        from solstone.think.awareness import compute_thickness
 
         with unittest.mock.patch(
-            "think.indexer.journal.get_entity_strength",
+            "solstone.think.indexer.journal.get_entity_strength",
             side_effect=Exception("db error"),
         ):
             with unittest.mock.patch(
-                "think.awareness._recent_chat_exchanges",
+                "solstone.think.awareness._recent_chat_exchanges",
                 side_effect=Exception("no file"),
             ):
                 with unittest.mock.patch(
-                    "think.facets.get_enabled_facets",
+                    "solstone.think.facets.get_enabled_facets",
                     side_effect=Exception("no facets"),
                 ):
                     with unittest.mock.patch(
-                        "think.utils.day_dirs", side_effect=Exception("no journal")
+                        "solstone.think.utils.day_dirs",
+                        side_effect=Exception("no journal"),
                     ):
                         result = compute_thickness()
 
@@ -415,18 +430,20 @@ class TestComputeThickness:
 
     def test_returns_exactly_six_keys(self):
         """Return dict has exactly the six specified keys."""
-        from think.awareness import compute_thickness
+        from solstone.think.awareness import compute_thickness
 
         with unittest.mock.patch(
-            "think.indexer.journal.get_entity_strength", return_value=[]
+            "solstone.think.indexer.journal.get_entity_strength", return_value=[]
         ):
             with unittest.mock.patch(
-                "think.awareness._recent_chat_exchanges", return_value=[]
+                "solstone.think.awareness._recent_chat_exchanges", return_value=[]
             ):
                 with unittest.mock.patch(
-                    "think.facets.get_enabled_facets", return_value={}
+                    "solstone.think.facets.get_enabled_facets", return_value={}
                 ):
-                    with unittest.mock.patch("think.utils.day_dirs", return_value={}):
+                    with unittest.mock.patch(
+                        "solstone.think.utils.day_dirs", return_value={}
+                    ):
                         result = compute_thickness()
 
         assert set(result.keys()) == {
@@ -444,10 +461,10 @@ class TestOwnerDetectionReady:
 
     def test_not_ready_when_centroid_exists(self):
         """Returns not ready when owner centroid already exists."""
-        from think.awareness import owner_detection_ready
+        from solstone.think.awareness import owner_detection_ready
 
         with unittest.mock.patch(
-            "apps.speakers.owner.load_owner_centroid",
+            "solstone.apps.speakers.owner.load_owner_centroid",
             return_value=("centroid", 0.82),
         ):
             result = owner_detection_ready()
@@ -459,12 +476,12 @@ class TestOwnerDetectionReady:
         """Returns not ready when rejection was within 14 days."""
         from datetime import datetime
 
-        from think.awareness import owner_detection_ready, update_state
+        from solstone.think.awareness import owner_detection_ready, update_state
 
         update_state("voiceprint", {"rejected_at": datetime.now().isoformat()})
 
         with unittest.mock.patch(
-            "apps.speakers.owner.load_owner_centroid", return_value=None
+            "solstone.apps.speakers.owner.load_owner_centroid", return_value=None
         ):
             result = owner_detection_ready()
 
@@ -474,7 +491,7 @@ class TestOwnerDetectionReady:
 
     def test_ready_when_candidate_found(self):
         """Returns ready when detect_owner_candidate returns positive."""
-        from think.awareness import owner_detection_ready
+        from solstone.think.awareness import owner_detection_ready
 
         mock_detection = {
             "status": "candidate",
@@ -485,10 +502,10 @@ class TestOwnerDetectionReady:
         }
 
         with unittest.mock.patch(
-            "apps.speakers.owner.load_owner_centroid", return_value=None
+            "solstone.apps.speakers.owner.load_owner_centroid", return_value=None
         ):
             with unittest.mock.patch(
-                "apps.speakers.owner.detect_owner_candidate",
+                "solstone.apps.speakers.owner.detect_owner_candidate",
                 return_value=mock_detection,
             ):
                 result = owner_detection_ready()
@@ -500,7 +517,7 @@ class TestOwnerDetectionReady:
 
     def test_not_ready_low_data(self):
         """Returns not ready when detection has insufficient data."""
-        from think.awareness import owner_detection_ready
+        from solstone.think.awareness import owner_detection_ready
 
         mock_detection = {
             "status": "low_data",
@@ -508,10 +525,10 @@ class TestOwnerDetectionReady:
         }
 
         with unittest.mock.patch(
-            "apps.speakers.owner.load_owner_centroid", return_value=None
+            "solstone.apps.speakers.owner.load_owner_centroid", return_value=None
         ):
             with unittest.mock.patch(
-                "apps.speakers.owner.detect_owner_candidate",
+                "solstone.apps.speakers.owner.detect_owner_candidate",
                 return_value=mock_detection,
             ):
                 result = owner_detection_ready()
@@ -521,7 +538,7 @@ class TestOwnerDetectionReady:
 
     def test_not_ready_single_stream(self):
         """Returns not ready when candidate is single_stream (not 'ready')."""
-        from think.awareness import owner_detection_ready
+        from solstone.think.awareness import owner_detection_ready
 
         mock_detection = {
             "status": "candidate",
@@ -530,10 +547,10 @@ class TestOwnerDetectionReady:
         }
 
         with unittest.mock.patch(
-            "apps.speakers.owner.load_owner_centroid", return_value=None
+            "solstone.apps.speakers.owner.load_owner_centroid", return_value=None
         ):
             with unittest.mock.patch(
-                "apps.speakers.owner.detect_owner_candidate",
+                "solstone.apps.speakers.owner.detect_owner_candidate",
                 return_value=mock_detection,
             ):
                 result = owner_detection_ready()
@@ -545,7 +562,7 @@ class TestOwnerDetectionReady:
         """Cooldown no longer blocks after 14 days."""
         from datetime import datetime, timedelta
 
-        from think.awareness import owner_detection_ready, update_state
+        from solstone.think.awareness import owner_detection_ready, update_state
 
         old_rejection = (datetime.now() - timedelta(days=15)).isoformat()
         update_state("voiceprint", {"rejected_at": old_rejection})
@@ -559,10 +576,10 @@ class TestOwnerDetectionReady:
         }
 
         with unittest.mock.patch(
-            "apps.speakers.owner.load_owner_centroid", return_value=None
+            "solstone.apps.speakers.owner.load_owner_centroid", return_value=None
         ):
             with unittest.mock.patch(
-                "apps.speakers.owner.detect_owner_candidate",
+                "solstone.apps.speakers.owner.detect_owner_candidate",
                 return_value=mock_detection,
             ):
                 result = owner_detection_ready()
@@ -576,7 +593,7 @@ class TestThicknessCLI:
     def test_thickness_command_returns_json(self):
         from typer.testing import CliRunner
 
-        from apps.sol.call import app
+        from solstone.apps.sol.call import app
 
         mock_result = {
             "entity_depth": 5,
@@ -587,7 +604,7 @@ class TestThicknessCLI:
             "ready": False,
         }
         with unittest.mock.patch(
-            "think.awareness.compute_thickness", return_value=mock_result
+            "solstone.think.awareness.compute_thickness", return_value=mock_result
         ):
             result = CliRunner().invoke(app, ["thickness"])
         assert result.exit_code == 0
@@ -601,7 +618,7 @@ class TestOwnerReadyCLI:
     def test_owner_ready_command_returns_json(self):
         from typer.testing import CliRunner
 
-        from apps.speakers.call import app
+        from solstone.apps.speakers.call import app
 
         mock_result = {
             "ready": True,
@@ -611,7 +628,7 @@ class TestOwnerReadyCLI:
             "samples": [],
         }
         with unittest.mock.patch(
-            "think.awareness.owner_detection_ready", return_value=mock_result
+            "solstone.think.awareness.owner_detection_ready", return_value=mock_result
         ):
             result = CliRunner().invoke(app, ["owner-ready"])
         assert result.exit_code == 0
@@ -624,7 +641,7 @@ class TestEnsureIdentityDirectory:
     """Tests for ensure_identity_directory()."""
 
     def test_creates_default_templates(self, tmp_path):
-        from think.identity import ensure_identity_directory
+        from solstone.think.identity import ensure_identity_directory
 
         identity_dir = ensure_identity_directory()
         assert identity_dir == tmp_path / "identity"
@@ -650,7 +667,7 @@ class TestEnsureIdentityDirectory:
         assert digest_content.strip() == "not yet generated"
 
     def test_idempotent_does_not_overwrite(self, tmp_path):
-        from think.identity import ensure_identity_directory
+        from solstone.think.identity import ensure_identity_directory
 
         identity_dir = ensure_identity_directory()
         # Modify self.md
@@ -662,7 +679,7 @@ class TestEnsureIdentityDirectory:
         assert self_path.read_text() == "custom content"
 
     def test_creates_partner_md(self, tmp_path):
-        from think.identity import ensure_identity_directory
+        from solstone.think.identity import ensure_identity_directory
 
         identity_dir = ensure_identity_directory()
         partner_path = identity_dir / "partner.md"
@@ -676,7 +693,7 @@ class TestEnsureIdentityDirectory:
         assert "## expertise domains" in content
 
     def test_does_not_overwrite_existing_partner_md(self, tmp_path):
-        from think.identity import ensure_identity_directory
+        from solstone.think.identity import ensure_identity_directory
 
         identity_dir = tmp_path / "identity"
         identity_dir.mkdir()
@@ -702,7 +719,7 @@ class TestEnsureIdentityDirectory:
         }
         (config_dir / "journal.json").write_text(json.dumps(config), encoding="utf-8")
 
-        from think.identity import ensure_identity_directory
+        from solstone.think.identity import ensure_identity_directory
 
         identity_dir = ensure_identity_directory()
         content = (identity_dir / "self.md").read_text()
@@ -726,7 +743,7 @@ class TestEnsureIdentityDirectory:
         }
         (config_dir / "journal.json").write_text(json.dumps(config), encoding="utf-8")
 
-        from think.identity import ensure_identity_directory
+        from solstone.think.identity import ensure_identity_directory
 
         identity_dir = ensure_identity_directory()
         content = (identity_dir / "self.md").read_text()
@@ -752,7 +769,7 @@ class TestEnsureIdentityDirectory:
         }
         (config_dir / "journal.json").write_text(json.dumps(config), encoding="utf-8")
 
-        from think.identity import ensure_identity_directory
+        from solstone.think.identity import ensure_identity_directory
 
         identity_dir = ensure_identity_directory()
         content = (identity_dir / "self.md").read_text()
@@ -796,7 +813,7 @@ class TestUpdateSelfMd:
 
     def test_update_section_name(self, tmp_path):
         self_md = self._setup_self_md(tmp_path)
-        from think.identity import update_self_md_section
+        from solstone.think.identity import update_self_md_section
 
         result = update_self_md_section(
             "my name",
@@ -815,7 +832,7 @@ class TestUpdateSelfMd:
 
     def test_update_section_owner(self, tmp_path):
         self_md = self._setup_self_md(tmp_path)
-        from think.identity import update_self_md_section
+        from solstone.think.identity import update_self_md_section
 
         result = update_self_md_section(
             "who I'm here for",
@@ -833,7 +850,7 @@ class TestUpdateSelfMd:
 
     def test_update_section_logs_history(self, tmp_path):
         self._setup_self_md(tmp_path)
-        from think.identity import update_self_md_section
+        from solstone.think.identity import update_self_md_section
 
         update_self_md_section(
             "my name",
@@ -854,7 +871,7 @@ class TestUpdateSelfMd:
 
     def test_update_section_last_section(self, tmp_path):
         self_md = self._setup_self_md(tmp_path)
-        from think.identity import update_self_md_section
+        from solstone.think.identity import update_self_md_section
 
         result = update_self_md_section(
             "what I find interesting",
@@ -869,7 +886,7 @@ class TestUpdateSelfMd:
 
     def test_update_section_missing_heading(self, tmp_path):
         self._setup_self_md(tmp_path)
-        from think.identity import update_self_md_section
+        from solstone.think.identity import update_self_md_section
 
         result = update_self_md_section(
             "nonexistent",
@@ -880,7 +897,7 @@ class TestUpdateSelfMd:
         assert result is False
 
     def test_update_section_no_file(self):
-        from think.identity import update_self_md_section
+        from solstone.think.identity import update_self_md_section
 
         result = update_self_md_section(
             "my name",
@@ -892,7 +909,7 @@ class TestUpdateSelfMd:
 
     def test_update_opening(self, tmp_path):
         self_md = self._setup_self_md(tmp_path)
-        from think.identity import update_self_md_opening
+        from solstone.think.identity import update_self_md_opening
 
         result = update_self_md_opening(
             "I am aria. this is a new journal — we're just getting started.",
@@ -909,7 +926,7 @@ class TestUpdateSelfMd:
 
     def test_update_opening_logs_history(self, tmp_path):
         self._setup_self_md(tmp_path)
-        from think.identity import update_self_md_opening
+        from solstone.think.identity import update_self_md_opening
 
         update_self_md_opening(
             "I am aria.",
@@ -928,7 +945,7 @@ class TestUpdateSelfMd:
         )
 
     def test_update_opening_no_file(self):
-        from think.identity import update_self_md_opening
+        from solstone.think.identity import update_self_md_opening
 
         result = update_self_md_opening(
             "content",
@@ -942,7 +959,7 @@ class TestUpdateIdentitySection:
     """Tests for update_identity_section generic helper."""
 
     def test_update_partner_section(self, tmp_path):
-        from think.identity import update_identity_section
+        from solstone.think.identity import update_identity_section
 
         partner_md = "# partner\n\n## work patterns\n[observing]\n\n## communication style\n[observing]\n"
         (tmp_path / "identity").mkdir(exist_ok=True)
@@ -963,7 +980,7 @@ class TestUpdateIdentitySection:
         assert "[observing]" in content  # other section preserved
 
     def test_update_nonexistent_file_returns_false(self, tmp_path):
-        from think.identity import update_identity_section
+        from solstone.think.identity import update_identity_section
 
         (tmp_path / "identity").mkdir(exist_ok=True)
         result = update_identity_section(
@@ -976,7 +993,7 @@ class TestUpdateIdentitySection:
         assert result is False
 
     def test_self_md_wrapper_still_works(self, tmp_path):
-        from think.identity import update_self_md_section
+        from solstone.think.identity import update_self_md_section
 
         self_md = (
             "# self\n\n## my name\nsol (default)\n\n## who I'm here for\nTest User\n"
@@ -996,7 +1013,7 @@ class TestUpdateIdentitySection:
         assert "## who I'm here for" in content
 
     def test_partner_update_prunes_getting_started(self, tmp_path):
-        from think.identity import update_identity_section
+        from solstone.think.identity import update_identity_section
 
         partner_md = (
             "# partner\n\n"
@@ -1029,7 +1046,7 @@ class TestSolInitCLI:
     def test_sol_init_command(self, tmp_path):
         from typer.testing import CliRunner
 
-        from apps.sol.call import app
+        from solstone.apps.sol.call import app
 
         result = CliRunner().invoke(app, ["sol-init"])
         assert result.exit_code == 0
@@ -1059,7 +1076,7 @@ class TestSetOwnerCLI:
 
         from typer.testing import CliRunner
 
-        from apps.sol.call import app as agent_app
+        from solstone.apps.sol.call import app as agent_app
 
         runner = CliRunner()
         with unittest.mock.patch("subprocess.run"):
@@ -1091,7 +1108,7 @@ class TestSetOwnerCLI:
 
         from typer.testing import CliRunner
 
-        from apps.sol.call import app as agent_app
+        from solstone.apps.sol.call import app as agent_app
 
         runner = CliRunner()
         with unittest.mock.patch("subprocess.run"):
@@ -1126,7 +1143,7 @@ class TestSetNameUpdatesSelfMd:
 
         from typer.testing import CliRunner
 
-        from apps.sol.call import app as agent_app
+        from solstone.apps.sol.call import app as agent_app
 
         runner = CliRunner()
         # Mock subprocess.run to avoid `make skills`

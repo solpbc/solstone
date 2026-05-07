@@ -11,14 +11,14 @@ from pathlib import Path
 
 import pytest
 
-from convey.chat_stream import append_chat_event
-from tests.conftest import copytree_tracked
-from think.indexer import sanitize_fts_query
-from think.indexer.journal import (
+from solstone.convey.chat_stream import append_chat_event
+from solstone.think.indexer import sanitize_fts_query
+from solstone.think.indexer.journal import (
     extract_temporal_references,
     get_journal_index,
     search_journal,
 )
+from tests.conftest import copytree_tracked
 
 
 class TestSanitizeFtsQuery:
@@ -297,7 +297,7 @@ def journal_fixture(tmp_path):
         "# Screen Summary\n\nViewed documentation.\n"
     )
     # Add stream.json for segment stream metadata
-    from think.streams import write_segment_stream
+    from solstone.think.streams import write_segment_stream
 
     write_segment_stream(str(segment), "default", None, None, 1)
     # Add second agent file for cross-file segment testing
@@ -351,7 +351,7 @@ def journal_fixture(tmp_path):
 
 def test_scan_journal(journal_fixture):
     """Test scanning journal creates index."""
-    from think.indexer.journal import scan_journal
+    from solstone.think.indexer.journal import scan_journal
 
     changed = scan_journal(str(journal_fixture), verbose=True)
     assert changed is True
@@ -363,7 +363,7 @@ def test_scan_journal(journal_fixture):
 
 def test_search_journal_outputs(journal_fixture):
     """Test searching returns agent output chunks."""
-    from think.indexer.journal import scan_journal, search_journal
+    from solstone.think.indexer.journal import scan_journal, search_journal
 
     scan_journal(str(journal_fixture))
 
@@ -376,7 +376,7 @@ def test_search_journal_outputs(journal_fixture):
 
 def test_search_journal_events(journal_fixture):
     """Test searching returns event chunks."""
-    from think.indexer.journal import scan_journal, search_journal
+    from solstone.think.indexer.journal import scan_journal, search_journal
 
     scan_journal(str(journal_fixture))
 
@@ -387,7 +387,7 @@ def test_search_journal_events(journal_fixture):
 
 def test_search_journal_filter_by_day(journal_fixture):
     """Test filtering search by day."""
-    from think.indexer.journal import scan_journal, search_journal
+    from solstone.think.indexer.journal import scan_journal, search_journal
 
     scan_journal(str(journal_fixture))
 
@@ -400,7 +400,7 @@ def test_search_journal_filter_by_day(journal_fixture):
 
 def test_search_journal_filter_by_facet(journal_fixture):
     """Test filtering search by facet."""
-    from think.indexer.journal import scan_journal, search_journal
+    from solstone.think.indexer.journal import scan_journal, search_journal
 
     scan_journal(str(journal_fixture))
 
@@ -413,7 +413,7 @@ def test_search_journal_filter_by_facet(journal_fixture):
 
 def test_search_journal_filter_by_agent(journal_fixture):
     """Test filtering search by agent."""
-    from think.indexer.journal import scan_journal, search_journal
+    from solstone.think.indexer.journal import scan_journal, search_journal
 
     scan_journal(str(journal_fixture))
 
@@ -426,7 +426,7 @@ def test_search_journal_filter_by_agent(journal_fixture):
 
 def test_search_journal_facet_case_insensitive(journal_fixture):
     """Test facet filtering is case-insensitive."""
-    from think.indexer.journal import scan_journal, search_journal
+    from solstone.think.indexer.journal import scan_journal, search_journal
 
     scan_journal(str(journal_fixture))
 
@@ -444,7 +444,7 @@ def test_search_journal_facet_case_insensitive(journal_fixture):
 
 def test_search_journal_agent_case_insensitive(journal_fixture):
     """Test agent filtering is case-insensitive."""
-    from think.indexer.journal import scan_journal, search_journal
+    from solstone.think.indexer.journal import scan_journal, search_journal
 
     scan_journal(str(journal_fixture))
 
@@ -462,7 +462,7 @@ def test_search_journal_agent_case_insensitive(journal_fixture):
 
 def test_time_bucket_population(journal_fixture):
     """Test that indexed chunks have correct time_bucket values."""
-    from think.indexer.journal import get_journal_index, scan_journal
+    from solstone.think.indexer.journal import get_journal_index, scan_journal
 
     scan_journal(str(journal_fixture), verbose=True, full=True)
     conn, _ = get_journal_index(str(journal_fixture))
@@ -489,7 +489,7 @@ def test_time_bucket_population(journal_fixture):
 
 def test_search_filter_by_time_bucket(journal_fixture):
     """Test filtering search by time_bucket."""
-    from think.indexer.journal import scan_journal, search_journal
+    from solstone.think.indexer.journal import scan_journal, search_journal
 
     scan_journal(str(journal_fixture), verbose=True, full=True)
 
@@ -516,7 +516,7 @@ def test_search_filter_by_time_bucket(journal_fixture):
 
 def test_time_bucket_non_segment_empty(journal_fixture):
     """Test that non-segment content (day-level agents, facet files) has empty time_bucket."""
-    from think.indexer.journal import get_journal_index, scan_journal
+    from solstone.think.indexer.journal import get_journal_index, scan_journal
 
     scan_journal(str(journal_fixture), verbose=True, full=True)
     conn, _ = get_journal_index(str(journal_fixture))
@@ -538,7 +538,7 @@ def test_time_bucket_non_segment_empty(journal_fixture):
 
 def test_reset_journal_index(journal_fixture):
     """Test resetting the journal index."""
-    from think.indexer.journal import reset_journal_index, scan_journal
+    from solstone.think.indexer.journal import reset_journal_index, scan_journal
 
     scan_journal(str(journal_fixture))
     index_path = journal_fixture / "indexer" / "journal.sqlite"
@@ -550,7 +550,7 @@ def test_reset_journal_index(journal_fixture):
 
 def test_index_caching(journal_fixture):
     """Test that unchanged files are not re-indexed."""
-    from think.indexer.journal import scan_journal
+    from solstone.think.indexer.journal import scan_journal
 
     # First scan indexes files
     changed = scan_journal(str(journal_fixture))
@@ -563,7 +563,7 @@ def test_index_caching(journal_fixture):
 
 def test_is_historical_day():
     """Test _is_historical_day helper function."""
-    from think.indexer.journal import _is_historical_day
+    from solstone.think.indexer.journal import _is_historical_day
 
     # Non-day paths are never historical
     assert _is_historical_day("facets/work/events/20240101.jsonl") is False
@@ -583,7 +583,7 @@ def test_is_historical_day():
 
 def test_scan_journal_full_mode(journal_fixture):
     """Test full mode includes all files including historical days."""
-    from think.indexer.journal import scan_journal, search_journal
+    from solstone.think.indexer.journal import scan_journal, search_journal
 
     # Full scan should include everything
     changed = scan_journal(str(journal_fixture), full=True)
@@ -596,7 +596,7 @@ def test_scan_journal_full_mode(journal_fixture):
 
 def test_find_formattable_files(journal_fixture):
     """Test file discovery function finds only indexed content."""
-    from think.formatters import find_formattable_files
+    from solstone.think.formatters import find_formattable_files
 
     files = find_formattable_files(str(journal_fixture))
 
@@ -617,7 +617,7 @@ def test_find_formattable_files(journal_fixture):
 
 def test_find_formattable_files_includes_weekly_reflection(journal_copy):
     """Test tracked fixture reflections are included in indexed file discovery."""
-    from think.formatters import find_formattable_files
+    from solstone.think.formatters import find_formattable_files
 
     fixture_path = Path("tests/fixtures/journal/reflections/weekly/20260308.md")
     target_path = journal_copy / "reflections" / "weekly" / "20260308.md"
@@ -631,7 +631,7 @@ def test_find_formattable_files_includes_weekly_reflection(journal_copy):
 
 def test_search_journal_empty_query(journal_fixture):
     """Test search with empty query returns all results."""
-    from think.indexer.journal import scan_journal, search_journal
+    from solstone.think.indexer.journal import scan_journal, search_journal
 
     scan_journal(str(journal_fixture))
 
@@ -642,7 +642,7 @@ def test_search_journal_empty_query(journal_fixture):
 
 def test_search_journal_pagination(journal_fixture):
     """Test search pagination."""
-    from think.indexer.journal import scan_journal, search_journal
+    from solstone.think.indexer.journal import scan_journal, search_journal
 
     scan_journal(str(journal_fixture))
 
@@ -661,7 +661,7 @@ def test_search_journal_pagination(journal_fixture):
 
 def test_search_journal_date_range(journal_fixture):
     """Test filtering search by date range."""
-    from think.indexer.journal import scan_journal, search_journal
+    from solstone.think.indexer.journal import scan_journal, search_journal
 
     scan_journal(str(journal_fixture))
 
@@ -678,7 +678,7 @@ def test_search_journal_date_range(journal_fixture):
 
 def test_search_counts_date_range(journal_fixture):
     """Test search_counts with date range filtering."""
-    from think.indexer.journal import scan_journal, search_counts
+    from solstone.think.indexer.journal import scan_journal, search_counts
 
     scan_journal(str(journal_fixture))
 
@@ -694,7 +694,7 @@ def test_search_counts_date_range(journal_fixture):
 
 def test_search_journal_returns_counts():
     """Test search tool returns counts aggregation."""
-    from think.tools.search import search_journal
+    from solstone.think.tools.search import search_journal
 
     # Use fixtures journal
     os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
@@ -716,7 +716,7 @@ def test_search_journal_returns_counts():
 
 def test_search_journal_returns_query_echo():
     """Test search tool returns query echo."""
-    from think.tools.search import search_journal
+    from solstone.think.tools.search import search_journal
 
     os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
 
@@ -730,7 +730,7 @@ def test_search_journal_returns_query_echo():
 
 def test_search_journal_results_include_path():
     """Test search tool results include path and idx."""
-    from think.tools.search import search_journal
+    from solstone.think.tools.search import search_journal
 
     os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
 
@@ -746,7 +746,7 @@ def test_search_journal_truncates_large_results():
     """Test search tool truncates oversized result text."""
     from unittest.mock import patch
 
-    from think.tools.search import _MAX_RESULT_TEXT, search_journal
+    from solstone.think.tools.search import _MAX_RESULT_TEXT, search_journal
 
     os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
 
@@ -767,8 +767,13 @@ def test_search_journal_truncates_large_results():
     fake_counts = {"facets": [], "agents": [], "days": []}
 
     with (
-        patch("think.tools.search.search_journal_impl", return_value=(1, fake_results)),
-        patch("think.tools.search.search_counts_impl", return_value=fake_counts),
+        patch(
+            "solstone.think.tools.search.search_journal_impl",
+            return_value=(1, fake_results),
+        ),
+        patch(
+            "solstone.think.tools.search.search_counts_impl", return_value=fake_counts
+        ),
     ):
         result = search_journal("test")
 
@@ -781,7 +786,7 @@ def test_bucket_day_counts():
     """Test day bucketing logic."""
     from datetime import datetime, timedelta
 
-    from think.tools.search import _bucket_day_counts
+    from solstone.think.tools.search import _bucket_day_counts
 
     today = datetime.now()
 
@@ -820,7 +825,7 @@ def test_bucket_day_counts():
 
 def test_light_scan_removes_deleted_facet_content(journal_fixture):
     """Test that light scan detects and removes deleted facet files."""
-    from think.indexer.journal import scan_journal, search_journal
+    from solstone.think.indexer.journal import scan_journal, search_journal
 
     # Initial scan
     scan_journal(str(journal_fixture), full=True)
@@ -846,7 +851,7 @@ def test_light_scan_removes_deleted_today_segment(tmp_path):
     """Test that light scan detects and removes deleted content from today."""
     from datetime import datetime
 
-    from think.indexer.journal import scan_journal, search_journal
+    from solstone.think.indexer.journal import scan_journal, search_journal
 
     journal = tmp_path
     os.environ["SOLSTONE_JOURNAL"] = str(journal)
@@ -881,7 +886,7 @@ def test_light_scan_removes_deleted_today_segment(tmp_path):
 
 def test_light_scan_preserves_historical_content(tmp_path):
     """Test that light scan does NOT remove historical day content from index."""
-    from think.indexer.journal import scan_journal, search_journal
+    from solstone.think.indexer.journal import scan_journal, search_journal
 
     journal = tmp_path
     os.environ["SOLSTONE_JOURNAL"] = str(journal)
@@ -916,7 +921,7 @@ def test_light_scan_preserves_historical_content(tmp_path):
 
 def test_full_scan_removes_historical_content(tmp_path):
     """Test that full scan removes deleted historical day content."""
-    from think.indexer.journal import scan_journal, search_journal
+    from solstone.think.indexer.journal import scan_journal, search_journal
 
     journal = tmp_path
     os.environ["SOLSTONE_JOURNAL"] = str(journal)
@@ -950,7 +955,7 @@ def test_full_scan_removes_historical_content(tmp_path):
 
 def test_index_file_valid(journal_fixture):
     """Test indexing a single valid file."""
-    from think.indexer.journal import index_file, search_journal
+    from solstone.think.indexer.journal import index_file, search_journal
 
     # Index a specific file
     result = index_file(str(journal_fixture), "20240101/talents/flow.md", verbose=True)
@@ -963,7 +968,7 @@ def test_index_file_valid(journal_fixture):
 
 def test_index_file_absolute_path(journal_fixture):
     """Test indexing with absolute path."""
-    from think.indexer.journal import index_file, search_journal
+    from solstone.think.indexer.journal import index_file, search_journal
 
     abs_path = str(journal_fixture / "chronicle" / "20240101" / "talents" / "flow.md")
     result = index_file(str(journal_fixture), abs_path, verbose=True)
@@ -976,7 +981,7 @@ def test_index_file_absolute_path(journal_fixture):
 
 def test_scan_journal_never_stores_chronicle_prefix(journal_fixture):
     """Chronicle is an on-disk prefix only, never a stored relative path."""
-    from think.indexer.journal import scan_journal
+    from solstone.think.indexer.journal import scan_journal
 
     scan_journal(str(journal_fixture), full=True)
 
@@ -1000,7 +1005,7 @@ def test_scan_journal_never_stores_chronicle_prefix(journal_fixture):
 
 def test_index_file_updates_existing(journal_fixture):
     """Test that re-indexing a file replaces existing chunks."""
-    from think.indexer.journal import index_file, search_journal
+    from solstone.think.indexer.journal import index_file, search_journal
 
     # Index the file
     index_file(str(journal_fixture), "20240101/talents/flow.md")
@@ -1018,7 +1023,7 @@ def test_index_file_updates_existing(journal_fixture):
 
 def test_index_file_not_found(journal_fixture):
     """Test indexing non-existent file raises error."""
-    from think.indexer.journal import index_file
+    from solstone.think.indexer.journal import index_file
 
     with pytest.raises(FileNotFoundError, match="File not found"):
         index_file(str(journal_fixture), "nonexistent/file.md")
@@ -1026,7 +1031,7 @@ def test_index_file_not_found(journal_fixture):
 
 def test_index_file_outside_journal(journal_fixture, tmp_path_factory):
     """Test indexing file outside journal raises error."""
-    from think.indexer.journal import index_file
+    from solstone.think.indexer.journal import index_file
 
     # Create a file in a separate temp directory (outside the journal)
     outside_dir = tmp_path_factory.mktemp("outside")
@@ -1039,7 +1044,7 @@ def test_index_file_outside_journal(journal_fixture, tmp_path_factory):
 
 def test_index_file_no_formatter(journal_fixture):
     """Test indexing file without formatter raises error."""
-    from think.indexer.journal import index_file
+    from solstone.think.indexer.journal import index_file
 
     # Create a file with no formatter (e.g., .txt)
     txt_file = journal_fixture / "chronicle" / "20240101" / "notes.txt"
@@ -1054,8 +1059,8 @@ def test_index_file_no_formatter(journal_fixture):
 
 def test_extract_stream_segment_path(tmp_path):
     """_extract_stream reads stream.json from segment directories."""
-    from think.indexer.journal import _extract_stream
-    from think.streams import write_segment_stream
+    from solstone.think.indexer.journal import _extract_stream
+    from solstone.think.streams import write_segment_stream
 
     # Create a segment with stream marker
     seg_dir = tmp_path / "chronicle" / "20240101" / "default" / "123456_300"
@@ -1070,7 +1075,7 @@ def test_extract_stream_segment_path(tmp_path):
 
 def test_extract_stream_non_segment_path(tmp_path):
     """_extract_stream returns None for non-segment paths."""
-    from think.indexer.journal import _extract_stream
+    from solstone.think.indexer.journal import _extract_stream
 
     result = _extract_stream(str(tmp_path), "20240101/talents/flow.md")
     assert result is None
@@ -1081,7 +1086,7 @@ def test_extract_stream_non_segment_path(tmp_path):
 
 def test_extract_stream_missing_marker(tmp_path):
     """_extract_stream returns None when stream.json doesn't exist."""
-    from think.indexer.journal import _extract_stream
+    from solstone.think.indexer.journal import _extract_stream
 
     seg_dir = tmp_path / "chronicle" / "20240101" / "default" / "123456_300"
     seg_dir.mkdir(parents=True)
@@ -1094,7 +1099,7 @@ def test_extract_stream_missing_marker(tmp_path):
 
 def test_search_journal_stream_filter():
     """search_journal filters by stream name."""
-    from think.indexer.journal import scan_journal, search_journal
+    from solstone.think.indexer.journal import scan_journal, search_journal
 
     os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     scan_journal(os.environ["SOLSTONE_JOURNAL"], full=True)
@@ -1112,7 +1117,7 @@ def test_search_journal_stream_filter():
 
 def test_search_journal_results_include_stream():
     """search_journal results include stream in metadata."""
-    from think.indexer.journal import scan_journal, search_journal
+    from solstone.think.indexer.journal import scan_journal, search_journal
 
     os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     scan_journal(os.environ["SOLSTONE_JOURNAL"], full=True)
@@ -1128,7 +1133,7 @@ def test_search_journal_results_include_stream():
 
 def test_search_counts_stream_filter():
     """search_counts filters by stream and includes streams aggregation."""
-    from think.indexer.journal import scan_journal, search_counts
+    from solstone.think.indexer.journal import scan_journal, search_counts
 
     os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     scan_journal(os.environ["SOLSTONE_JOURNAL"], full=True)
@@ -1148,8 +1153,8 @@ def test_search_counts_stream_filter():
 
 def test_search_tool_stream_filter():
     """Agent search tool accepts and passes stream filter."""
-    from think.indexer.journal import scan_journal
-    from think.tools.search import search_journal
+    from solstone.think.indexer.journal import scan_journal
+    from solstone.think.tools.search import search_journal
 
     os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     scan_journal(os.environ["SOLSTONE_JOURNAL"], full=True)
@@ -1174,7 +1179,7 @@ def test_entity_schema_creation():
 
 def test_scan_entities_identity():
     """Verify journal entity identity rows are indexed."""
-    from think.indexer.journal import scan_journal
+    from solstone.think.indexer.journal import scan_journal
 
     os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     scan_journal("tests/fixtures/journal", full=True)
@@ -1187,7 +1192,7 @@ def test_scan_entities_identity():
 
 def test_scan_entities_relationship():
     """Verify facet relationship rows are indexed."""
-    from think.indexer.journal import scan_journal
+    from solstone.think.indexer.journal import scan_journal
 
     os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     scan_journal("tests/fixtures/journal", full=True)
@@ -1200,7 +1205,7 @@ def test_scan_entities_relationship():
 
 def test_scan_entities_detected():
     """Verify detected entity rows are indexed."""
-    from think.indexer.journal import scan_journal
+    from solstone.think.indexer.journal import scan_journal
 
     os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     scan_journal("tests/fixtures/journal", full=True)
@@ -1213,7 +1218,7 @@ def test_scan_entities_detected():
 
 def test_scan_entities_observations():
     """Verify observation summary rows are indexed."""
-    from think.indexer.journal import scan_journal
+    from solstone.think.indexer.journal import scan_journal
 
     os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     scan_journal("tests/fixtures/journal", full=True)
@@ -1232,7 +1237,7 @@ def test_scan_entities_observations():
 
 def test_scan_entities_incremental_noop():
     """Verify second scan is a no-op."""
-    from think.indexer.journal import scan_journal
+    from solstone.think.indexer.journal import scan_journal
 
     os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     scan_journal("tests/fixtures/journal", full=True)
@@ -1256,7 +1261,7 @@ def test_scan_entities_deletion(tmp_path, monkeypatch):
     j = str(dst)
     monkeypatch.setenv("SOLSTONE_JOURNAL", j)
 
-    from think.indexer.journal import scan_journal
+    from solstone.think.indexer.journal import scan_journal
 
     scan_journal(j, full=True)
 
@@ -1281,7 +1286,7 @@ def test_scan_entities_deletion(tmp_path, monkeypatch):
 
 def test_scan_entities_preserves_fts():
     """Verify FTS5 chunks still work after entity scan."""
-    from think.indexer.journal import scan_journal
+    from solstone.think.indexer.journal import scan_journal
 
     os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     scan_journal("tests/fixtures/journal", full=True)
@@ -1303,7 +1308,7 @@ def test_signal_schema_creation():
 
 def test_scan_signals_kg_appearances():
     """Verify KG appearance signals are extracted."""
-    from think.indexer.journal import scan_journal
+    from solstone.think.indexer.journal import scan_journal
 
     os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     scan_journal("tests/fixtures/journal", full=True)
@@ -1333,7 +1338,7 @@ def test_scan_signals_kg_appearances():
 
 def test_scan_signals_kg_edges():
     """Verify KG edge signals are extracted."""
-    from think.indexer.journal import scan_journal
+    from solstone.think.indexer.journal import scan_journal
 
     os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     scan_journal("tests/fixtures/journal", full=True)
@@ -1356,7 +1361,7 @@ def test_scan_signals_kg_edges():
 
 def test_scan_signals_event_participants():
     """Verify event participant signals are extracted."""
-    from think.indexer.journal import scan_journal
+    from solstone.think.indexer.journal import scan_journal
 
     os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     scan_journal("tests/fixtures/journal", full=True)
@@ -1380,7 +1385,7 @@ def test_scan_signals_event_participants():
 
 def test_scan_signals_incremental_noop():
     """Verify second scan is a no-op."""
-    from think.indexer.journal import scan_journal
+    from solstone.think.indexer.journal import scan_journal
 
     os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     scan_journal("tests/fixtures/journal", full=True)
@@ -1403,7 +1408,7 @@ def test_scan_signals_deletion(tmp_path):
     copytree_tracked(src, dst)
     j = str(dst)
 
-    from think.indexer.journal import scan_journal
+    from solstone.think.indexer.journal import scan_journal
 
     scan_journal(j, full=True)
 
@@ -1428,7 +1433,7 @@ def test_scan_signals_deletion(tmp_path):
 
 def test_scan_signals_kg_facet_assignment():
     """Verify KG signals get facet assigned from detection data."""
-    from think.indexer.journal import scan_journal
+    from solstone.think.indexer.journal import scan_journal
 
     os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     scan_journal("tests/fixtures/journal", full=True)
@@ -1489,7 +1494,7 @@ def test_scan_signals_kg_facet_assignment():
 
 def test_entity_search_chunks_indexed():
     """Entity search chunks are generated from identity + relationship data."""
-    from think.indexer.journal import scan_journal
+    from solstone.think.indexer.journal import scan_journal
 
     os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     scan_journal("tests/fixtures/journal", full=True)
@@ -1504,7 +1509,7 @@ def test_entity_search_chunks_indexed():
 
 def test_entity_search_chunks_use_entity_search_path():
     """Entity search chunks use entity_search: path prefix."""
-    from think.indexer.journal import scan_journal
+    from solstone.think.indexer.journal import scan_journal
 
     os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     scan_journal("tests/fixtures/journal", full=True)
@@ -1518,7 +1523,7 @@ def test_entity_search_chunks_use_entity_search_path():
 
 def test_entity_search_by_name():
     """Entity name is searchable via FTS."""
-    from think.indexer.journal import scan_journal
+    from solstone.think.indexer.journal import scan_journal
 
     os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     scan_journal("tests/fixtures/journal", full=True)
@@ -1529,7 +1534,7 @@ def test_entity_search_by_name():
 
 def test_entity_search_by_type():
     """Entity type is searchable via FTS."""
-    from think.indexer.journal import scan_journal
+    from solstone.think.indexer.journal import scan_journal
 
     os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     scan_journal("tests/fixtures/journal", full=True)
@@ -1539,7 +1544,7 @@ def test_entity_search_by_type():
 
 def test_entity_search_includes_description():
     """Entity search chunks include relationship descriptions."""
-    from think.indexer.journal import scan_journal
+    from solstone.think.indexer.journal import scan_journal
 
     os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     scan_journal("tests/fixtures/journal", full=True)
@@ -1552,7 +1557,7 @@ def test_entity_search_includes_description():
 
 def test_entity_search_includes_facet():
     """Entity search chunks have facet metadata from relationships."""
-    from think.indexer.journal import scan_journal
+    from solstone.think.indexer.journal import scan_journal
 
     os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     scan_journal("tests/fixtures/journal", full=True)
@@ -1563,7 +1568,7 @@ def test_entity_search_includes_facet():
 
 def test_entity_search_idempotent():
     """Two full scans produce identical entity chunk count (no duplicates)."""
-    from think.indexer.journal import scan_journal
+    from solstone.think.indexer.journal import scan_journal
 
     os.environ["SOLSTONE_JOURNAL"] = "tests/fixtures/journal"
     scan_journal("tests/fixtures/journal", full=True)
@@ -1586,7 +1591,7 @@ class TestSegmentChunks:
 
     def test_segment_chunks_created(self, journal_fixture):
         """scan_journal creates segment chunks with agent='segment'."""
-        from think.indexer.journal import get_journal_index, scan_journal
+        from solstone.think.indexer.journal import get_journal_index, scan_journal
 
         scan_journal(str(journal_fixture), verbose=True, full=True)
         conn, _ = get_journal_index(str(journal_fixture))
@@ -1605,7 +1610,7 @@ class TestSegmentChunks:
 
     def test_segment_chunk_contains_all_agent_content(self, journal_fixture):
         """Segment chunk content includes text from all agent files."""
-        from think.indexer.journal import get_journal_index, scan_journal
+        from solstone.think.indexer.journal import get_journal_index, scan_journal
 
         scan_journal(str(journal_fixture), verbose=True, full=True)
         conn, _ = get_journal_index(str(journal_fixture))
@@ -1619,7 +1624,7 @@ class TestSegmentChunks:
 
     def test_segment_chunk_searchable(self, journal_fixture):
         """Segment chunks are searchable via search_journal."""
-        from think.indexer.journal import scan_journal, search_journal
+        from solstone.think.indexer.journal import scan_journal, search_journal
 
         scan_journal(str(journal_fixture), verbose=True, full=True)
         total, results = search_journal("Scott Ward")
@@ -1629,7 +1634,7 @@ class TestSegmentChunks:
 
     def test_segment_chunk_cross_file_search(self, journal_fixture):
         """Search spanning multiple agent files matches segment chunk."""
-        from think.indexer.journal import scan_journal, search_journal
+        from solstone.think.indexer.journal import scan_journal, search_journal
 
         scan_journal(str(journal_fixture), verbose=True, full=True)
         total1, results1 = search_journal("documentation")
@@ -1643,7 +1648,7 @@ class TestSegmentChunks:
 
     def test_agent_filter_returns_only_segments(self, journal_fixture):
         """agent='segment' filter returns only segment chunks."""
-        from think.indexer.journal import scan_journal, search_journal
+        from solstone.think.indexer.journal import scan_journal, search_journal
 
         scan_journal(str(journal_fixture), verbose=True, full=True)
         total, results = search_journal("", agent="segment")
@@ -1653,7 +1658,7 @@ class TestSegmentChunks:
 
     def test_existing_agent_chunks_unchanged(self, journal_fixture):
         """Segment chunks are additive — agent-level chunks still exist."""
-        from think.indexer.journal import get_journal_index, scan_journal
+        from solstone.think.indexer.journal import get_journal_index, scan_journal
 
         scan_journal(str(journal_fixture), verbose=True, full=True)
         conn, _ = get_journal_index(str(journal_fixture))
@@ -1673,7 +1678,7 @@ class TestSegmentChunks:
 
     def test_idempotent_scan(self, journal_fixture):
         """Running scan_journal twice produces same segment chunk count."""
-        from think.indexer.journal import get_journal_index, scan_journal
+        from solstone.think.indexer.journal import get_journal_index, scan_journal
 
         scan_journal(str(journal_fixture), verbose=True, full=True)
         conn, _ = get_journal_index(str(journal_fixture))
@@ -1691,7 +1696,7 @@ class TestSegmentChunks:
 
 
 def test_chat_turn_is_searchable_after_rescan(journal_fixture):
-    from think.indexer.journal import scan_journal, search_journal
+    from solstone.think.indexer.journal import scan_journal, search_journal
 
     append_chat_event(
         "owner_message",
@@ -1717,7 +1722,7 @@ def test_chat_turn_is_searchable_after_rescan(journal_fixture):
 
 
 def test_weekly_reflection_is_searchable_after_rescan(journal_copy):
-    from think.indexer.journal import scan_journal, search_journal
+    from solstone.think.indexer.journal import scan_journal, search_journal
 
     fixture_path = Path("tests/fixtures/journal/reflections/weekly/20260308.md")
     target_path = journal_copy / "reflections" / "weekly" / "20260308.md"
@@ -1735,7 +1740,7 @@ def test_weekly_reflection_is_searchable_after_rescan(journal_copy):
 
 def test_scan_journal_is_pure_wrt_entity_state(journal_copy):
     """scan_journal must not mutate journal/entities/ state."""
-    from think.indexer.journal import scan_journal
+    from solstone.think.indexer.journal import scan_journal
 
     journal_path = Path(journal_copy)
     today = datetime.now().strftime("%Y%m%d")

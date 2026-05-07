@@ -12,7 +12,7 @@ import numpy as np
 import pytest
 import soundfile as sf
 
-from observe.transcribe import (
+from solstone.observe.transcribe import (
     DEFAULT_COMPUTE,
     DEFAULT_DEVICE,
     DEFAULT_MIN_SPEECH_SECONDS,
@@ -22,8 +22,8 @@ from observe.transcribe import (
     build_statement,
     build_statements_from_acoustic,
 )
-from observe.transcribe.main import EMBEDDER_NAME
-from observe.utils import load_audio
+from solstone.observe.transcribe.main import EMBEDDER_NAME
+from solstone.observe.utils import load_audio
 
 
 class TestBuildStatementsFromAcoustic:

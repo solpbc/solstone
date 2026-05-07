@@ -25,7 +25,7 @@ class TestRunActivityPrompts:
             f.write(json.dumps(record) + "\n")
 
     def test_not_found_returns_false(self, monkeypatch):
-        from think.thinking import run_activity_prompts
+        from solstone.think.thinking import run_activity_prompts
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -38,7 +38,7 @@ class TestRunActivityPrompts:
             assert result is False
 
     def test_no_matching_agents_returns_true(self, monkeypatch):
-        from think.thinking import run_activity_prompts
+        from solstone.think.thinking import run_activity_prompts
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -59,7 +59,7 @@ class TestRunActivityPrompts:
 
             # No activity-scheduled agents
             monkeypatch.setattr(
-                "think.thinking.get_talent_configs", lambda schedule: {}
+                "solstone.think.thinking.get_talent_configs", lambda schedule: {}
             )
 
             result = run_activity_prompts(
@@ -70,7 +70,7 @@ class TestRunActivityPrompts:
             assert result is True
 
     def test_filters_by_activity_type(self, monkeypatch):
-        from think.thinking import run_activity_prompts
+        from solstone.think.thinking import run_activity_prompts
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -105,7 +105,7 @@ class TestRunActivityPrompts:
             }
 
             monkeypatch.setattr(
-                "think.thinking.get_talent_configs", lambda schedule: configs
+                "solstone.think.thinking.get_talent_configs", lambda schedule: configs
             )
 
             spawned_requests = []
@@ -114,9 +114,11 @@ class TestRunActivityPrompts:
                 spawned_requests.append((name, config))
                 return f"agent-{name}"
 
-            monkeypatch.setattr("think.thinking.cortex_request", mock_cortex_request)
             monkeypatch.setattr(
-                "think.thinking.wait_for_uses",
+                "solstone.think.thinking.cortex_request", mock_cortex_request
+            )
+            monkeypatch.setattr(
+                "solstone.think.thinking.wait_for_uses",
                 lambda ids, timeout: ({aid: "finish" for aid in ids}, []),
             )
 
@@ -132,7 +134,7 @@ class TestRunActivityPrompts:
             assert spawned_requests[0][0] == "code_review"
 
     def test_wildcard_matches_all_types(self, monkeypatch):
-        from think.thinking import run_activity_prompts
+        from solstone.think.thinking import run_activity_prompts
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -161,7 +163,7 @@ class TestRunActivityPrompts:
             }
 
             monkeypatch.setattr(
-                "think.thinking.get_talent_configs", lambda schedule: configs
+                "solstone.think.thinking.get_talent_configs", lambda schedule: configs
             )
 
             spawned = []
@@ -170,9 +172,11 @@ class TestRunActivityPrompts:
                 spawned.append(name)
                 return f"agent-{name}"
 
-            monkeypatch.setattr("think.thinking.cortex_request", mock_cortex_request)
             monkeypatch.setattr(
-                "think.thinking.wait_for_uses",
+                "solstone.think.thinking.cortex_request", mock_cortex_request
+            )
+            monkeypatch.setattr(
+                "solstone.think.thinking.wait_for_uses",
                 lambda ids, timeout: ({aid: "finish" for aid in ids}, []),
             )
 
@@ -186,7 +190,7 @@ class TestRunActivityPrompts:
             assert spawned == ["activity_summary"]
 
     def test_passes_span_and_activity_in_request(self, monkeypatch):
-        from think.thinking import run_activity_prompts
+        from solstone.think.thinking import run_activity_prompts
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -211,7 +215,7 @@ class TestRunActivityPrompts:
             }
 
             monkeypatch.setattr(
-                "think.thinking.get_talent_configs", lambda schedule: configs
+                "solstone.think.thinking.get_talent_configs", lambda schedule: configs
             )
 
             captured_config = {}
@@ -220,9 +224,11 @@ class TestRunActivityPrompts:
                 captured_config.update(config)
                 return "agent-1"
 
-            monkeypatch.setattr("think.thinking.cortex_request", mock_cortex_request)
             monkeypatch.setattr(
-                "think.thinking.wait_for_uses",
+                "solstone.think.thinking.cortex_request", mock_cortex_request
+            )
+            monkeypatch.setattr(
+                "solstone.think.thinking.wait_for_uses",
                 lambda ids, timeout: ({aid: "finish" for aid in ids}, []),
             )
 
@@ -249,7 +255,7 @@ class TestRunActivityPrompts:
             assert output_path.endswith("code_review.md")
 
     def test_failed_agent_returns_false(self, monkeypatch):
-        from think.thinking import run_activity_prompts
+        from solstone.think.thinking import run_activity_prompts
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -277,14 +283,14 @@ class TestRunActivityPrompts:
             }
 
             monkeypatch.setattr(
-                "think.thinking.get_talent_configs", lambda schedule: configs
+                "solstone.think.thinking.get_talent_configs", lambda schedule: configs
             )
             monkeypatch.setattr(
-                "think.thinking.cortex_request",
+                "solstone.think.thinking.cortex_request",
                 lambda prompt, name, config: "agent-1",
             )
             monkeypatch.setattr(
-                "think.thinking.wait_for_uses",
+                "solstone.think.thinking.wait_for_uses",
                 lambda ids, timeout: ({aid: "error" for aid in ids}, []),
             )
 
@@ -297,7 +303,7 @@ class TestRunActivityPrompts:
             assert result is False
 
     def test_empty_segments_returns_true_for_synthetic_record(self, monkeypatch):
-        from think.thinking import run_activity_prompts
+        from solstone.think.thinking import run_activity_prompts
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -325,7 +331,7 @@ class TestRunActivityPrompts:
             assert result is True
 
     def test_cogitate_source_returns_true_without_running_agents(self, monkeypatch):
-        from think.thinking import run_activity_prompts
+        from solstone.think.thinking import run_activity_prompts
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -346,7 +352,7 @@ class TestRunActivityPrompts:
             )
 
             monkeypatch.setattr(
-                "think.thinking.get_talent_configs",
+                "solstone.think.thinking.get_talent_configs",
                 lambda schedule: {"session_review": {"activities": ["*"]}},
             )
 
@@ -359,7 +365,7 @@ class TestRunActivityPrompts:
             assert result is True
 
     def test_emits_think_events(self, monkeypatch):
-        from think.thinking import run_activity_prompts
+        from solstone.think.thinking import run_activity_prompts
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -387,20 +393,21 @@ class TestRunActivityPrompts:
             }
 
             monkeypatch.setattr(
-                "think.thinking.get_talent_configs", lambda schedule: configs
+                "solstone.think.thinking.get_talent_configs", lambda schedule: configs
             )
             monkeypatch.setattr(
-                "think.thinking.cortex_request",
+                "solstone.think.thinking.cortex_request",
                 lambda prompt, name, config: "agent-1",
             )
             monkeypatch.setattr(
-                "think.thinking.wait_for_uses",
+                "solstone.think.thinking.wait_for_uses",
                 lambda ids, timeout: ({aid: "finish" for aid in ids}, []),
             )
 
             emitted = []
             monkeypatch.setattr(
-                "think.thinking.emit", lambda event, **kw: emitted.append((event, kw))
+                "solstone.think.thinking.emit",
+                lambda event, **kw: emitted.append((event, kw)),
             )
 
             run_activity_prompts(
@@ -443,7 +450,7 @@ class TestRunActivityPrompts:
     def test_dispatches_storytelling_talents_by_activity_type(
         self, monkeypatch, activity_type, expected_name
     ):
-        from think.thinking import run_activity_prompts
+        from solstone.think.thinking import run_activity_prompts
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -492,7 +499,7 @@ class TestRunActivityPrompts:
             }
 
             monkeypatch.setattr(
-                "think.thinking.get_talent_configs", lambda schedule: configs
+                "solstone.think.thinking.get_talent_configs", lambda schedule: configs
             )
 
             spawned: list[str] = []
@@ -501,9 +508,11 @@ class TestRunActivityPrompts:
                 spawned.append(name)
                 return f"agent-{name}"
 
-            monkeypatch.setattr("think.thinking.cortex_request", mock_cortex_request)
             monkeypatch.setattr(
-                "think.thinking.wait_for_uses",
+                "solstone.think.thinking.cortex_request", mock_cortex_request
+            )
+            monkeypatch.setattr(
+                "solstone.think.thinking.wait_for_uses",
                 lambda ids, timeout: ({aid: "finish" for aid in ids}, []),
             )
 
@@ -517,7 +526,7 @@ class TestRunActivityPrompts:
             assert spawned == [expected_name]
 
     def test_dispatches_work_talent_with_level_gate(self, monkeypatch):
-        from think.thinking import run_activity_prompts
+        from solstone.think.thinking import run_activity_prompts
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -531,10 +540,10 @@ class TestRunActivityPrompts:
                 }
             }
             monkeypatch.setattr(
-                "think.thinking.get_talent_configs", lambda schedule: configs
+                "solstone.think.thinking.get_talent_configs", lambda schedule: configs
             )
             monkeypatch.setattr(
-                "think.thinking.wait_for_uses",
+                "solstone.think.thinking.wait_for_uses",
                 lambda ids, timeout: ({aid: "finish" for aid in ids}, []),
             )
 
@@ -567,7 +576,9 @@ class TestRunActivityPrompts:
                 spawned.append(config["activity"]["id"])
                 return f"agent-{config['activity']['id']}"
 
-            monkeypatch.setattr("think.thinking.cortex_request", mock_cortex_request)
+            monkeypatch.setattr(
+                "solstone.think.thinking.cortex_request", mock_cortex_request
+            )
 
             for activity_id, _activity_type, _level_avg, _should_spawn in cases:
                 result = run_activity_prompts(
@@ -608,7 +619,7 @@ class TestRunActivityPrompts:
     def test_storytelling_talents_skip_synthetic_or_empty_records(
         self, monkeypatch, record
     ):
-        from think.thinking import run_activity_prompts
+        from solstone.think.thinking import run_activity_prompts
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -621,7 +632,7 @@ class TestRunActivityPrompts:
             self._write_record(tmpdir, "work", "20260209", full_record)
 
             monkeypatch.setattr(
-                "think.thinking.get_talent_configs",
+                "solstone.think.thinking.get_talent_configs",
                 lambda schedule: {
                     "conversation": {
                         "type": "generate",
@@ -652,7 +663,7 @@ class TestRunActivityPrompts:
                 },
             )
             monkeypatch.setattr(
-                "think.thinking.cortex_request",
+                "solstone.think.thinking.cortex_request",
                 lambda prompt, name, config: pytest.fail("should not dispatch"),
             )
 
@@ -671,8 +682,11 @@ class TestActivityPersistence:
     def test_completed_record_persisted_and_found(self, monkeypatch):
         import tempfile
 
-        from think.activities import append_activity_record, load_activity_records
-        from think.activity_state_machine import ActivityStateMachine
+        from solstone.think.activities import (
+            append_activity_record,
+            load_activity_records,
+        )
+        from solstone.think.activity_state_machine import ActivityStateMachine
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -773,8 +787,11 @@ class TestActivityPersistenceRoundTrip:
 
     def test_multi_segment_round_trip(self, monkeypatch):
         """Multi-segment activity persists and loads with all segments intact."""
-        from think.activities import append_activity_record, load_activity_records
-        from think.activity_state_machine import ActivityStateMachine
+        from solstone.think.activities import (
+            append_activity_record,
+            load_activity_records,
+        )
+        from solstone.think.activity_state_machine import ActivityStateMachine
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -816,8 +833,11 @@ class TestActivityPersistenceRoundTrip:
 
     def test_idle_ending_round_trip(self, monkeypatch):
         """Idle transition persists records correctly."""
-        from think.activities import append_activity_record, load_activity_records
-        from think.activity_state_machine import ActivityStateMachine
+        from solstone.think.activities import (
+            append_activity_record,
+            load_activity_records,
+        )
+        from solstone.think.activity_state_machine import ActivityStateMachine
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -840,8 +860,11 @@ class TestActivityPersistenceRoundTrip:
 
     def test_deduplication_prevents_double_write(self, monkeypatch):
         """Same record written twice only appears once in the file."""
-        from think.activities import append_activity_record, load_activity_records
-        from think.activity_state_machine import ActivityStateMachine
+        from solstone.think.activities import (
+            append_activity_record,
+            load_activity_records,
+        )
+        from solstone.think.activity_state_machine import ActivityStateMachine
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -865,8 +888,11 @@ class TestActivityPersistenceRoundTrip:
 
     def test_facet_by_id_only_persists_current_update(self, monkeypatch):
         """Only records from the current update() are persisted, not cumulative."""
-        from think.activities import append_activity_record, load_activity_records
-        from think.activity_state_machine import ActivityStateMachine
+        from solstone.think.activities import (
+            append_activity_record,
+            load_activity_records,
+        )
+        from solstone.think.activity_state_machine import ActivityStateMachine
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -904,8 +930,11 @@ class TestActivityPersistenceRoundTrip:
 
     def test_jsonl_field_fidelity(self, monkeypatch):
         """All fields survive JSON serialization round-trip exactly."""
-        from think.activities import append_activity_record, load_activity_records
-        from think.activity_state_machine import ActivityStateMachine
+        from solstone.think.activities import (
+            append_activity_record,
+            load_activity_records,
+        )
+        from solstone.think.activity_state_machine import ActivityStateMachine
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -947,8 +976,11 @@ class TestActivityPersistenceRoundTrip:
         duplicate IDs, dropping all but one facet. The list-based approach preserves
         all (id, facet) pairs.
         """
-        from think.activities import append_activity_record, load_activity_records
-        from think.activity_state_machine import ActivityStateMachine
+        from solstone.think.activities import (
+            append_activity_record,
+            load_activity_records,
+        )
+        from solstone.think.activity_state_machine import ActivityStateMachine
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -994,8 +1026,11 @@ class TestCreatedAtRoutesCompat:
         """Simulate routes.py filtering — recent records pass, old records don't."""
         from datetime import datetime, timedelta
 
-        from think.activities import append_activity_record, load_activity_records
-        from think.activity_state_machine import ActivityStateMachine
+        from solstone.think.activities import (
+            append_activity_record,
+            load_activity_records,
+        )
+        from solstone.think.activity_state_machine import ActivityStateMachine
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -1073,8 +1108,11 @@ class TestCreatedAtRoutesCompat:
         """Multiple records can be sorted by created_at (routes.py line 290)."""
         import time
 
-        from think.activities import append_activity_record, load_activity_records
-        from think.activity_state_machine import ActivityStateMachine
+        from solstone.think.activities import (
+            append_activity_record,
+            load_activity_records,
+        )
+        from solstone.think.activity_state_machine import ActivityStateMachine
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("SOLSTONE_JOURNAL", tmpdir)
@@ -1196,7 +1234,7 @@ class TestActivityTemplateVars:
     """Tests for activity template variables in _build_prompt_context."""
 
     def test_activity_vars_populated(self):
-        from think.talents import _build_prompt_context
+        from solstone.think.talents import _build_prompt_context
 
         activity = {
             "id": "coding_100000_300",
@@ -1223,7 +1261,7 @@ class TestActivityTemplateVars:
         assert int(ctx["activity_duration"]) == 10  # 2 * 300s = 10 min
 
     def test_no_activity_no_vars(self):
-        from think.talents import _build_prompt_context
+        from solstone.think.talents import _build_prompt_context
 
         ctx = _build_prompt_context("20260209", None, None)
 
@@ -1231,7 +1269,7 @@ class TestActivityTemplateVars:
         assert "activity_type" not in ctx
 
     def test_empty_entities(self):
-        from think.talents import _build_prompt_context
+        from solstone.think.talents import _build_prompt_context
 
         activity = {
             "id": "browsing_100000_300",
@@ -1247,7 +1285,7 @@ class TestActivityTemplateVars:
         assert ctx["activity_entities"] == ""
 
     def test_duration_minimum_one(self):
-        from think.talents import _build_prompt_context
+        from solstone.think.talents import _build_prompt_context
 
         activity = {
             "id": "test_bad_seg",
@@ -1264,7 +1302,7 @@ class TestActivityTemplateVars:
         assert ctx["activity_duration"] == "1"
 
     def test_facet_and_activity_md_dir_populated(self, monkeypatch, tmp_path):
-        from think.talents import _build_prompt_context
+        from solstone.think.talents import _build_prompt_context
 
         monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
@@ -1279,7 +1317,7 @@ class TestActivityTemplateVars:
         assert ctx["activity_md_dir"] == f"{tmp_path}/facets/work/activities/20260418/"
 
     def test_activity_md_dir_omitted_without_facet(self):
-        from think.talents import _build_prompt_context
+        from solstone.think.talents import _build_prompt_context
 
         ctx = _build_prompt_context(day="20260418", segment=None, span=None)
 
@@ -1292,16 +1330,16 @@ def test_prepare_config_substitutes_facet_and_activity_md_dir_for_daily_cogitate
 ):
     import importlib
 
-    import think.talent
-    from think.utils import day_path
+    import solstone.think.talent as talent
+    from solstone.think.utils import day_path
 
-    mod = importlib.import_module("think.talents")
+    mod = importlib.import_module("solstone.think.talents")
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     day_dir = day_path("20260418")
     day_dir.mkdir(parents=True, exist_ok=True)
 
-    monkeypatch.setattr(think.talent, "TALENT_DIR", tmp_path)
+    monkeypatch.setattr(talent, "TALENT_DIR", tmp_path)
 
     test_agent = tmp_path / "test_activities_cogitate.md"
     test_agent.write_text(
@@ -1343,14 +1381,14 @@ class TestTalentActivityValidation:
         """Point talent discovery at tmp_path only (no real talent/ or apps/)."""
         talent_dir = tmp_path / "talent"
         talent_dir.mkdir(exist_ok=True)
-        monkeypatch.setattr("think.talent.TALENT_DIR", talent_dir)
-        monkeypatch.setattr("think.talent.APPS_DIR", tmp_path / "no_apps")
+        monkeypatch.setattr("solstone.think.talent.TALENT_DIR", talent_dir)
+        monkeypatch.setattr("solstone.think.talent.APPS_DIR", tmp_path / "no_apps")
         return talent_dir
 
     def test_missing_activities_field_raises(self, monkeypatch, tmp_path):
         import frontmatter
 
-        from think.talent import get_talent_configs
+        from solstone.think.talent import get_talent_configs
 
         talent_dir = self._isolate_talent(monkeypatch, tmp_path)
 
@@ -1370,7 +1408,7 @@ class TestTalentActivityValidation:
     def test_valid_activities_field_passes(self, monkeypatch, tmp_path):
         import frontmatter
 
-        from think.talent import get_talent_configs
+        from solstone.think.talent import get_talent_configs
 
         talent_dir = self._isolate_talent(monkeypatch, tmp_path)
 
@@ -1391,7 +1429,7 @@ class TestTalentActivityValidation:
     def test_wildcard_activities_passes(self, monkeypatch, tmp_path):
         import frontmatter
 
-        from think.talent import get_talent_configs
+        from solstone.think.talent import get_talent_configs
 
         talent_dir = self._isolate_talent(monkeypatch, tmp_path)
 
@@ -1419,7 +1457,7 @@ class TestActivityCLIArgs:
     """Tests for think CLI argument validation."""
 
     def test_activity_requires_facet(self, monkeypatch):
-        from think.thinking import parse_args
+        from solstone.think.thinking import parse_args
 
         parser = parse_args()
 
@@ -1437,7 +1475,7 @@ class TestActivityCLIArgs:
         assert args.facet is None  # Validation happens in main()
 
     def test_activity_args_parsed(self):
-        from think.thinking import parse_args
+        from solstone.think.thinking import parse_args
 
         parser = parse_args()
         args = parser.parse_args(

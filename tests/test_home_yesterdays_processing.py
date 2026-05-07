@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from apps.home.routes import (
+from solstone.apps.home.routes import (
     _briefing_freshness,
     _build_pulse_context,
     _collect_activities,
@@ -27,7 +27,7 @@ from apps.home.routes import (
     _newsletter_attempts_from_think_logs,
     _summarize_yesterday_processing,
 )
-from think.indexer.journal import get_journal_index
+from solstone.think.indexer.journal import get_journal_index
 
 FIXTURES = Path(__file__).parent / "fixtures" / "journal"
 
@@ -233,7 +233,7 @@ def test_yesterdays_card_hidden_when_stats_missing(tmp_path, monkeypatch):
     journal = _seed_journal(tmp_path, monkeypatch)
     _write_briefing(journal, "2026-04-17T06:45:00")
 
-    monkeypatch.setattr("apps.home.routes._today", lambda: "20260417")
+    monkeypatch.setattr("solstone.apps.home.routes._today", lambda: "20260417")
 
     assert _summarize_yesterday_processing("20260416", 9) is None
 
@@ -255,7 +255,7 @@ def test_yesterdays_card_hidden_when_all_zero(tmp_path, monkeypatch):
         encoding="utf-8",
     )
 
-    monkeypatch.setattr("apps.home.routes._today", lambda: "20260417")
+    monkeypatch.setattr("solstone.apps.home.routes._today", lambda: "20260417")
 
     assert _summarize_yesterday_processing("20260416", 9) is None
 
@@ -326,9 +326,9 @@ def test_yesterdays_card_sparse_mode_copy(tmp_path, monkeypatch):
     journal = _seed_journal(tmp_path, monkeypatch)
     _write_briefing(journal, "2026-04-15T06:45:00")
 
-    monkeypatch.setattr("apps.home.routes._today", lambda: "20260415")
+    monkeypatch.setattr("solstone.apps.home.routes._today", lambda: "20260415")
     monkeypatch.setattr(
-        "apps.home.routes._knowledge_graph_freshness",
+        "solstone.apps.home.routes._knowledge_graph_freshness",
         lambda _day: {"fresh": True},
     )
 
@@ -349,7 +349,7 @@ def test_yesterdays_card_healthy_collapsed_on_day_8_plus(tmp_path, monkeypatch):
     _write_briefing(journal, "2026-04-16T06:45:00")
     _seed_entities(journal)
 
-    monkeypatch.setattr("apps.home.routes._today", lambda: "20260416")
+    monkeypatch.setattr("solstone.apps.home.routes._today", lambda: "20260416")
 
     summary = _summarize_yesterday_processing("20260415", 8)
 
@@ -370,7 +370,7 @@ def test_yesterdays_card_healthy_expanded_with_framing_on_days_1_to_7(
     _write_briefing(journal, "2026-04-16T06:45:00")
     _seed_entities(journal)
 
-    monkeypatch.setattr("apps.home.routes._today", lambda: "20260416")
+    monkeypatch.setattr("solstone.apps.home.routes._today", lambda: "20260416")
 
     summary = _summarize_yesterday_processing("20260415", 5)
 
@@ -391,7 +391,7 @@ def test_yesterdays_card_degraded_shows_warning_and_partial_count(
     _seed_entities(journal)
     _append_think_log(journal, "20260415", "facet_newsletter", facet="personal")
 
-    monkeypatch.setattr("apps.home.routes._today", lambda: "20260416")
+    monkeypatch.setattr("solstone.apps.home.routes._today", lambda: "20260416")
 
     summary = _summarize_yesterday_processing("20260415", 8)
 
@@ -413,7 +413,7 @@ def test_yesterdays_card_degraded_zero_newsletters_keeps_failure_caveat(
     for path in journal.glob("facets/*/news/20260415.md"):
         path.unlink()
 
-    monkeypatch.setattr("apps.home.routes._today", lambda: "20260416")
+    monkeypatch.setattr("solstone.apps.home.routes._today", lambda: "20260416")
 
     summary = _summarize_yesterday_processing("20260415", 8)
 
@@ -462,7 +462,7 @@ def test_heatmap_peaks_top_3():
 
 def test_activity_bullet_title_duration_facet(tmp_path, monkeypatch):
     _seed_journal(tmp_path, monkeypatch)
-    monkeypatch.setattr("apps.home.routes._today", lambda: "20260416")
+    monkeypatch.setattr("solstone.apps.home.routes._today", lambda: "20260416")
     activity = _summarize_yesterday_processing("20260415", 8)
 
     first_activity = next(
@@ -502,7 +502,7 @@ def test_briefing_frontmatter_missing_counts_as_gap(tmp_path, monkeypatch):
     journal = _seed_journal(tmp_path, monkeypatch)
     _seed_entities(journal)
 
-    monkeypatch.setattr("apps.home.routes._today", lambda: "20260416")
+    monkeypatch.setattr("solstone.apps.home.routes._today", lambda: "20260416")
 
     summary = _summarize_yesterday_processing("20260415", 8)
 
@@ -548,39 +548,51 @@ def test_newsletter_attempts_option_a_matches_facet_newsletter_failures_only(
 
 def test_build_pulse_context_includes_yesterday_processing(monkeypatch):
     monkeypatch.setattr(
-        "apps.home.routes.get_capture_health",
+        "solstone.apps.home.routes.get_capture_health",
         lambda: {"status": "active", "observers": []},
     )
-    monkeypatch.setattr("apps.home.routes.get_cached_state", lambda: {})
-    monkeypatch.setattr("apps.home.routes.get_current", lambda: None)
-    monkeypatch.setattr("apps.home.routes._resolve_attention", lambda awareness: None)
-    monkeypatch.setattr("apps.home.routes._today", lambda: "20260416")
-    monkeypatch.setattr("apps.home.routes._yesterday", lambda: "20260415")
-    monkeypatch.setattr("apps.home.routes._count_journal_age_days", lambda today: 8)
-    monkeypatch.setattr("apps.home.routes._load_stats", lambda today: {})
-    monkeypatch.setattr("apps.home.routes._load_flow_md", lambda today: (None, None))
-    monkeypatch.setattr("apps.home.routes._load_pulse_md", lambda: (None, None, []))
+    monkeypatch.setattr("solstone.apps.home.routes.get_cached_state", lambda: {})
+    monkeypatch.setattr("solstone.apps.home.routes.get_current", lambda: None)
     monkeypatch.setattr(
-        "apps.home.routes._load_briefing_md", lambda today: ({}, None, [])
+        "solstone.apps.home.routes._resolve_attention", lambda awareness: None
+    )
+    monkeypatch.setattr("solstone.apps.home.routes._today", lambda: "20260416")
+    monkeypatch.setattr("solstone.apps.home.routes._yesterday", lambda: "20260415")
+    monkeypatch.setattr(
+        "solstone.apps.home.routes._count_journal_age_days", lambda today: 8
+    )
+    monkeypatch.setattr("solstone.apps.home.routes._load_stats", lambda today: {})
+    monkeypatch.setattr(
+        "solstone.apps.home.routes._load_flow_md", lambda today: (None, None)
     )
     monkeypatch.setattr(
-        "apps.home.routes._collect_anticipated_activities", lambda today: []
+        "solstone.apps.home.routes._load_pulse_md", lambda: (None, None, [])
     )
-    monkeypatch.setattr("apps.home.routes._collect_activities", lambda today: [])
-    monkeypatch.setattr("apps.home.routes._collect_todos", lambda today: [])
-    monkeypatch.setattr("apps.home.routes._collect_entities_today", lambda today: [])
-    monkeypatch.setattr("apps.home.routes._collect_routines", lambda: [])
-    monkeypatch.setattr("apps.home.routes._collect_skills", lambda: [])
     monkeypatch.setattr(
-        "apps.home.routes.summarize_pipeline_day",
+        "solstone.apps.home.routes._load_briefing_md", lambda today: ({}, None, [])
+    )
+    monkeypatch.setattr(
+        "solstone.apps.home.routes._collect_anticipated_activities", lambda today: []
+    )
+    monkeypatch.setattr(
+        "solstone.apps.home.routes._collect_activities", lambda today: []
+    )
+    monkeypatch.setattr("solstone.apps.home.routes._collect_todos", lambda today: [])
+    monkeypatch.setattr(
+        "solstone.apps.home.routes._collect_entities_today", lambda today: []
+    )
+    monkeypatch.setattr("solstone.apps.home.routes._collect_routines", lambda: [])
+    monkeypatch.setattr("solstone.apps.home.routes._collect_skills", lambda: [])
+    monkeypatch.setattr(
+        "solstone.apps.home.routes.summarize_pipeline_day",
         lambda day: {"status": "healthy", "anomalies": []},
     )
     monkeypatch.setattr(
-        "apps.home.routes.pipeline_status_message",
+        "solstone.apps.home.routes.pipeline_status_message",
         lambda summary: None,
     )
     monkeypatch.setattr(
-        "apps.home.routes._summarize_yesterday_processing",
+        "solstone.apps.home.routes._summarize_yesterday_processing",
         lambda yesterday, journal_age_days: {
             "title": "Yesterday's processing",
             "mode": "healthy",

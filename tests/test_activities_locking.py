@@ -6,7 +6,7 @@ import threading
 
 
 def test_locked_modify_serializes_concurrent_edits(tmp_path, monkeypatch):
-    from think.activities import (
+    from solstone.think.activities import (
         append_activity_record,
         append_edit,
         load_activity_records,

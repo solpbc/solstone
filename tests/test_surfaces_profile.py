@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 
 from typer.testing import CliRunner
 
-from think.surfaces.types import Cadence
+from solstone.think.surfaces.types import Cadence
 
 _RUNNER = CliRunner()
 
@@ -16,12 +16,12 @@ def _configure_env(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     monkeypatch.setenv("SOL_SKIP_SUPERVISOR_CHECK", "1")
 
-    import think.utils
-    from think.entities.journal import clear_journal_entity_cache
-    from think.entities.loading import clear_entity_loading_cache
-    from think.entities.relationships import clear_relationship_caches
+    import solstone.think.utils as think_utils
+    from solstone.think.entities.journal import clear_journal_entity_cache
+    from solstone.think.entities.loading import clear_entity_loading_cache
+    from solstone.think.entities.relationships import clear_relationship_caches
 
-    think.utils._journal_path_cache = None
+    think_utils._journal_path_cache = None
     clear_journal_entity_cache()
     clear_entity_loading_cache()
     clear_relationship_caches()
@@ -146,7 +146,7 @@ def _activity_record(
 
 
 def _append_activity(facet: str, day: str, record: dict) -> None:
-    from think.activities import append_activity_record
+    from solstone.think.activities import append_activity_record
 
     append_activity_record(facet, day, record)
 
@@ -197,7 +197,7 @@ def _write_story_activity(
     closures: list[dict[str, object]] | None = None,
     decisions: list[dict[str, object]] | None = None,
 ) -> None:
-    from think.activities import append_activity_record, merge_story_fields
+    from solstone.think.activities import append_activity_record, merge_story_fields
 
     append_activity_record(
         facet,
@@ -228,7 +228,7 @@ def _write_story_activity(
 
 
 def test_cadence_zero_interactions(tmp_path, monkeypatch):
-    from think.surfaces import profile as profile_surface
+    from solstone.think.surfaces import profile as profile_surface
 
     _configure_env(tmp_path, monkeypatch)
     _minimal_facet_tree(
@@ -241,7 +241,7 @@ def test_cadence_zero_interactions(tmp_path, monkeypatch):
 
 
 def test_cadence_single_day(tmp_path, monkeypatch):
-    from think.surfaces import profile as profile_surface
+    from solstone.think.surfaces import profile as profile_surface
 
     _configure_env(tmp_path, monkeypatch)
     _minimal_facet_tree(
@@ -266,7 +266,7 @@ def test_cadence_single_day(tmp_path, monkeypatch):
 
 
 def test_cadence_multi_day(tmp_path, monkeypatch):
-    from think.surfaces import profile as profile_surface
+    from solstone.think.surfaces import profile as profile_surface
 
     _configure_env(tmp_path, monkeypatch)
     _minimal_facet_tree(
@@ -296,7 +296,7 @@ def test_cadence_multi_day(tmp_path, monkeypatch):
 
 
 def test_cadence_gone_quiet_threshold(tmp_path, monkeypatch):
-    from think.surfaces import profile as profile_surface
+    from solstone.think.surfaces import profile as profile_surface
 
     _configure_env(tmp_path, monkeypatch)
     _minimal_facet_tree(
@@ -343,7 +343,7 @@ def test_cadence_gone_quiet_threshold(tmp_path, monkeypatch):
 
 
 def test_cadence_gone_quiet_returns_int_days(tmp_path, monkeypatch):
-    from think.surfaces import profile as profile_surface
+    from solstone.think.surfaces import profile as profile_surface
 
     _configure_env(tmp_path, monkeypatch)
     _minimal_facet_tree(
@@ -391,7 +391,7 @@ def test_cadence_gone_quiet_returns_int_days(tmp_path, monkeypatch):
 
 
 def test_cadence_distinct_days_vs_record_count(tmp_path, monkeypatch):
-    from think.surfaces import profile as profile_surface
+    from solstone.think.surfaces import profile as profile_surface
 
     _configure_env(tmp_path, monkeypatch)
     _minimal_facet_tree(
@@ -417,7 +417,7 @@ def test_cadence_distinct_days_vs_record_count(tmp_path, monkeypatch):
 
 
 def test_resolve_exact_and_slug_and_aka_and_fuzzy(tmp_path, monkeypatch):
-    from think.surfaces import profile as profile_surface
+    from solstone.think.surfaces import profile as profile_surface
 
     _configure_env(tmp_path, monkeypatch)
     _minimal_facet_tree(
@@ -445,7 +445,7 @@ def test_resolve_exact_and_slug_and_aka_and_fuzzy(tmp_path, monkeypatch):
 
 
 def test_facets_filter_narrows_display_not_cadence(tmp_path, monkeypatch):
-    from think.surfaces import profile as profile_surface
+    from solstone.think.surfaces import profile as profile_surface
 
     _configure_env(tmp_path, monkeypatch)
     _minimal_facet_tree(
@@ -474,7 +474,7 @@ def test_facets_filter_narrows_display_not_cadence(tmp_path, monkeypatch):
 
 
 def test_include_mentions_toggle(tmp_path, monkeypatch):
-    from think.surfaces import profile as profile_surface
+    from solstone.think.surfaces import profile as profile_surface
 
     _configure_env(tmp_path, monkeypatch)
     _minimal_facet_tree(
@@ -500,7 +500,7 @@ def test_include_mentions_toggle(tmp_path, monkeypatch):
 
 
 def test_self_view_returns_is_self_true(tmp_path, monkeypatch):
-    from think.surfaces import profile as profile_surface
+    from solstone.think.surfaces import profile as profile_surface
 
     _configure_env(tmp_path, monkeypatch)
     _minimal_facet_tree(
@@ -524,8 +524,8 @@ def test_self_view_returns_is_self_true(tmp_path, monkeypatch):
 
 
 def test_full_composes_ledger_open_loops(tmp_path, monkeypatch):
-    from think.surfaces import ledger as ledger_surface
-    from think.surfaces import profile as profile_surface
+    from solstone.think.surfaces import ledger as ledger_surface
+    from solstone.think.surfaces import profile as profile_surface
 
     _configure_env(tmp_path, monkeypatch)
     _minimal_facet_tree(
@@ -549,8 +549,8 @@ def test_full_composes_ledger_open_loops(tmp_path, monkeypatch):
 
 
 def test_full_composes_ledger_closed_30d(tmp_path, monkeypatch):
-    from think.surfaces import ledger as ledger_surface
-    from think.surfaces import profile as profile_surface
+    from solstone.think.surfaces import ledger as ledger_surface
+    from solstone.think.surfaces import profile as profile_surface
 
     _configure_env(tmp_path, monkeypatch)
     _minimal_facet_tree(
@@ -632,8 +632,8 @@ def test_full_composes_ledger_closed_30d(tmp_path, monkeypatch):
 
 
 def test_full_composes_ledger_decisions(tmp_path, monkeypatch):
-    from think.surfaces import ledger as ledger_surface
-    from think.surfaces import profile as profile_surface
+    from solstone.think.surfaces import ledger as ledger_surface
+    from solstone.think.surfaces import profile as profile_surface
 
     _configure_env(tmp_path, monkeypatch)
     _minimal_facet_tree(
@@ -659,7 +659,7 @@ def test_full_composes_ledger_decisions(tmp_path, monkeypatch):
 
 
 def test_full_decisions_involving_them_includes_old(tmp_path, monkeypatch):
-    from think.surfaces import profile as profile_surface
+    from solstone.think.surfaces import profile as profile_surface
 
     _configure_env(tmp_path, monkeypatch)
     _minimal_facet_tree(
@@ -685,8 +685,8 @@ def test_full_decisions_involving_them_includes_old(tmp_path, monkeypatch):
 
 
 def test_not_found_returns_none(tmp_path, monkeypatch):
-    from think.surfaces import profile as profile_surface
-    from think.tools.profile import app
+    from solstone.think.surfaces import profile as profile_surface
+    from solstone.think.tools.profile import app
 
     _configure_env(tmp_path, monkeypatch)
     _minimal_facet_tree(tmp_path)
@@ -700,8 +700,8 @@ def test_not_found_returns_none(tmp_path, monkeypatch):
 
 
 def test_brief_shape_and_counts(tmp_path, monkeypatch):
-    from think.surfaces import ledger as ledger_surface
-    from think.surfaces import profile as profile_surface
+    from solstone.think.surfaces import ledger as ledger_surface
+    from solstone.think.surfaces import profile as profile_surface
 
     _configure_env(tmp_path, monkeypatch)
     _minimal_facet_tree(
@@ -753,7 +753,7 @@ def test_brief_shape_and_counts(tmp_path, monkeypatch):
 
 
 def test_list_active_sort_dedup_window(tmp_path, monkeypatch):
-    from think.surfaces import profile as profile_surface
+    from solstone.think.surfaces import profile as profile_surface
 
     _configure_env(tmp_path, monkeypatch)
     _minimal_facet_tree(tmp_path, facets=("personal", "work"))
@@ -795,7 +795,7 @@ def test_list_active_sort_dedup_window(tmp_path, monkeypatch):
 
 
 def test_list_active_excludes_mentioned(tmp_path, monkeypatch):
-    from think.surfaces import profile as profile_surface
+    from solstone.think.surfaces import profile as profile_surface
 
     _configure_env(tmp_path, monkeypatch)
     _minimal_facet_tree(tmp_path)
@@ -814,7 +814,7 @@ def test_list_active_excludes_mentioned(tmp_path, monkeypatch):
 
 
 def test_muted_facet_included_in_cadence(tmp_path, monkeypatch):
-    from think.surfaces import profile as profile_surface
+    from solstone.think.surfaces import profile as profile_surface
 
     _configure_env(tmp_path, monkeypatch)
     _minimal_facet_tree(
@@ -840,7 +840,7 @@ def test_muted_facet_included_in_cadence(tmp_path, monkeypatch):
 
 
 def test_utc_day_math(tmp_path, monkeypatch):
-    from think.surfaces import profile as profile_surface
+    from solstone.think.surfaces import profile as profile_surface
 
     _configure_env(tmp_path, monkeypatch)
 
@@ -850,7 +850,7 @@ def test_utc_day_math(tmp_path, monkeypatch):
 
 
 def test_cli_full_json_and_plain(tmp_path, monkeypatch):
-    from think.tools.profile import app
+    from solstone.think.tools.profile import app
 
     _configure_env(tmp_path, monkeypatch)
     _minimal_facet_tree(

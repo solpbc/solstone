@@ -6,11 +6,11 @@ import sys
 
 import pytest
 
-import observe.transcribe.parakeet as parakeet
+import solstone.observe.transcribe.parakeet as parakeet
 
 
 def test_onnx_module_imports_without_onnx_installed():
-    import observe.transcribe._parakeet_onnx  # noqa: F401
+    import solstone.observe.transcribe._parakeet_onnx  # noqa: F401
 
 
 def test_dispatch_transcribe_routes_darwin_arm64(monkeypatch: pytest.MonkeyPatch):

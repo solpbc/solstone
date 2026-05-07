@@ -7,7 +7,7 @@ import threading
 
 import pytest
 
-from apps.events import (
+from solstone.apps.events import (
     EventContext,
     _get_handlers,
     _handlers,

@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from think import talent as talent_module
-from think.talent import (
+import solstone.think.talent as talent_module
+from solstone.think.talent import (
     _validate_cwd,
     get_talent,
     get_talent_filter,

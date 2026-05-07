@@ -7,7 +7,7 @@ import os
 
 import pytest
 
-from think.entities import (
+from solstone.think.entities import (
     DEFAULT_ACTIVITY_TS,
     add_observation,
     block_journal_entity,
@@ -278,7 +278,7 @@ def test_save_entities_sorting(fixture_journal, tmp_path):
     assert "Beta Corp" in names
 
     # Verify journal-level entities were created
-    from think.entities import scan_journal_entities
+    from solstone.think.entities import scan_journal_entities
 
     journal_ids = scan_journal_entities()
     assert "zebra_project" in journal_ids
@@ -411,7 +411,7 @@ def test_save_detected_entity_retry_on_error(fixture_journal, tmp_path):
 
     call_count = 0
     original_atomic_write = __import__(
-        "think.entities.core", fromlist=["atomic_write"]
+        "solstone.think.entities.core", fromlist=["atomic_write"]
     ).atomic_write
 
     def flaky_atomic_write(path, content, prefix=".tmp_"):
@@ -421,7 +421,9 @@ def test_save_detected_entity_retry_on_error(fixture_journal, tmp_path):
             raise PermissionError("Simulated transient error")
         return original_atomic_write(path, content, prefix)
 
-    with patch("think.entities.saving.atomic_write", side_effect=flaky_atomic_write):
+    with patch(
+        "solstone.think.entities.saving.atomic_write", side_effect=flaky_atomic_write
+    ):
         save_detected_entity("test_facet", "20250101", "Person", "Alice", "Friend")
 
     assert call_count == 2  # First attempt failed, second succeeded
@@ -2438,7 +2440,7 @@ def test_block_journal_entity_success(tmp_path):
     assert loaded["blocked"] is True
 
     # Verify facet relationship is detached
-    from think.entities import load_facet_relationship
+    from solstone.think.entities import load_facet_relationship
 
     rel = load_facet_relationship("work", "alice")
     assert rel["detached"] is True

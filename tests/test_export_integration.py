@@ -13,9 +13,9 @@ from urllib.parse import urlparse
 import pytest
 from flask import Flask
 
-import convey.state
-import think.utils
-from observe.export import (
+import solstone.convey.state as convey_state
+import solstone.think.utils as think_utils
+from solstone.observe.export import (
     ExportResult,
     export_config,
     export_entities,
@@ -24,10 +24,13 @@ from observe.export import (
     export_segments,
     main,
 )
-from think.entities.journal import clear_journal_entity_cache, save_journal_entity
+from solstone.think.entities.journal import (
+    clear_journal_entity_cache,
+    save_journal_entity,
+)
 
-journal_sources = import_module("apps.import.journal_sources")
-import_routes = import_module("apps.import.routes")
+journal_sources = import_module("solstone.apps.import.journal_sources")
+import_routes = import_module("solstone.apps.import.routes")
 
 create_state_directory = journal_sources.create_state_directory
 generate_key = journal_sources.generate_key
@@ -38,7 +41,7 @@ import_bp = import_routes.import_bp
 
 def _set_active_journal(journal: Path) -> None:
     os.environ["SOLSTONE_JOURNAL"] = str(journal)
-    think.utils._journal_path_cache = None
+    think_utils._journal_path_cache = None
     clear_journal_entity_cache()
 
 
@@ -129,7 +132,7 @@ def export_integration_env(tmp_path, monkeypatch):
     target_journal = tmp_path / "target"
     target_journal.mkdir()
     monkeypatch.setattr(
-        convey.state, "journal_root", str(target_journal), raising=False
+        convey_state, "journal_root", str(target_journal), raising=False
     )
     (target_journal / "apps" / "import" / "journal_sources").mkdir(parents=True)
 
@@ -177,7 +180,7 @@ def export_integration_env(tmp_path, monkeypatch):
         os.environ.pop("SOLSTONE_JOURNAL", None)
     else:
         os.environ["SOLSTONE_JOURNAL"] = previous_override
-    think.utils._journal_path_cache = None
+    think_utils._journal_path_cache = None
     clear_journal_entity_cache()
 
 
@@ -545,7 +548,7 @@ def test_error_resilience(monkeypatch, capsys):
     calls: list[str] = []
 
     monkeypatch.setattr(
-        "observe.export.setup_cli",
+        "solstone.observe.export.setup_cli",
         lambda parser: Namespace(
             to="localhost:5000",
             key="test-key-123456",
@@ -555,20 +558,20 @@ def test_error_resilience(monkeypatch, capsys):
         ),
     )
     monkeypatch.setattr(
-        "observe.export._parse_day_spec", lambda day, root: ["20260413"]
+        "solstone.observe.export._parse_day_spec", lambda day, root: ["20260413"]
     )
     monkeypatch.setattr(
-        "observe.export._query_manifest", lambda session, base_url, key: {}
+        "solstone.observe.export._query_manifest", lambda session, base_url, key: {}
     )
-    monkeypatch.setattr("observe.export.requests.Session", _DummySession)
+    monkeypatch.setattr("solstone.observe.export.requests.Session", _DummySession)
     monkeypatch.setattr(
-        "observe.export.export_segments",
+        "solstone.observe.export.export_segments",
         lambda base_url, key, days, dry_run, session=None: (
             calls.append("segments") or ExportResult(area="segments", sent=1)
         ),
     )
     monkeypatch.setattr(
-        "observe.export.export_imports",
+        "solstone.observe.export.export_imports",
         lambda base_url, key, dry_run, session=None: (
             calls.append("imports") or ExportResult(area="imports", sent=1)
         ),
@@ -578,15 +581,15 @@ def test_error_resilience(monkeypatch, capsys):
         calls.append("entities")
         raise RuntimeError("boom")
 
-    monkeypatch.setattr("observe.export.export_entities", _explode)
+    monkeypatch.setattr("solstone.observe.export.export_entities", _explode)
     monkeypatch.setattr(
-        "observe.export.export_facets",
+        "solstone.observe.export.export_facets",
         lambda base_url, key, dry_run, session=None: (
             calls.append("facets") or ExportResult(area="facets", sent=1)
         ),
     )
     monkeypatch.setattr(
-        "observe.export.export_config",
+        "solstone.observe.export.export_config",
         lambda base_url, key, dry_run, session=None: (
             calls.append("config") or ExportResult(area="config", staged=1)
         ),

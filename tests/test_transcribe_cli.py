@@ -30,14 +30,17 @@ def test_main_accepts_journal_relative_path(tmp_path, monkeypatch):
     mock_vad = MagicMock(return_value=mock_vad_result)
 
     with (
-        patch("observe.transcribe.main.load_audio", mock_load),
-        patch("observe.transcribe.main.run_vad", mock_vad),
-        patch("observe.transcribe.main.callosum_send"),
-        patch("observe.transcribe.main.get_segment_key", return_value="090000_300"),
-        patch("observe.transcribe.main._build_base_event", return_value={}),
-        patch("think.entities.load_recent_entity_names", return_value=[]),
+        patch("solstone.observe.transcribe.main.load_audio", mock_load),
+        patch("solstone.observe.transcribe.main.run_vad", mock_vad),
+        patch("solstone.observe.transcribe.main.callosum_send"),
+        patch(
+            "solstone.observe.transcribe.main.get_segment_key",
+            return_value="090000_300",
+        ),
+        patch("solstone.observe.transcribe.main._build_base_event", return_value={}),
+        patch("solstone.think.entities.load_recent_entity_names", return_value=[]),
     ):
-        from observe.transcribe.main import main
+        from solstone.observe.transcribe.main import main
 
         main()
 
@@ -49,7 +52,7 @@ def test_main_errors_on_nonexistent_absolute_path(tmp_path, monkeypatch, capsys)
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     monkeypatch.setattr("sys.argv", ["sol transcribe", "/nonexistent/path/audio.wav"])
 
-    from observe.transcribe.main import main
+    from solstone.observe.transcribe.main import main
 
     with pytest.raises(SystemExit):
         main()
@@ -63,10 +66,10 @@ def test_setup_cli_no_message_on_project_journal(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     with (
-        patch("think.utils.get_journal", return_value=str(tmp_path)),
-        patch("think.utils.get_config", return_value={}),
+        patch("solstone.think.utils.get_journal", return_value=str(tmp_path)),
+        patch("solstone.think.utils.get_config", return_value={}),
     ):
-        from think.utils import setup_cli
+        from solstone.think.utils import setup_cli
 
         parser = argparse.ArgumentParser()
         monkeypatch.setattr("sys.argv", ["test"])
@@ -105,10 +108,10 @@ def test_all_batch_processes_unprocessed_skips_transcribed(
     mock_process_one = MagicMock()
 
     with (
-        patch("observe.transcribe.main._process_one", mock_process_one),
-        patch("think.entities.load_recent_entity_names", return_value=[]),
+        patch("solstone.observe.transcribe.main._process_one", mock_process_one),
+        patch("solstone.think.entities.load_recent_entity_names", return_value=[]),
     ):
-        from observe.transcribe.main import main
+        from solstone.observe.transcribe.main import main
 
         main()
 
@@ -131,10 +134,10 @@ def test_all_redo_reprocesses_transcribed(tmp_path, monkeypatch):
     mock_process_one = MagicMock()
 
     with (
-        patch("observe.transcribe.main._process_one", mock_process_one),
-        patch("think.entities.load_recent_entity_names", return_value=[]),
+        patch("solstone.observe.transcribe.main._process_one", mock_process_one),
+        patch("solstone.think.entities.load_recent_entity_names", return_value=[]),
     ):
-        from observe.transcribe.main import main
+        from solstone.observe.transcribe.main import main
 
         main()
 
@@ -146,8 +149,8 @@ def test_all_and_audio_path_mutually_exclusive(tmp_path, monkeypatch):
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     monkeypatch.setattr("sys.argv", ["sol transcribe", "--all", "some/audio.wav"])
 
-    with patch("think.entities.load_recent_entity_names", return_value=[]):
-        from observe.transcribe.main import main
+    with patch("solstone.think.entities.load_recent_entity_names", return_value=[]):
+        from solstone.observe.transcribe.main import main
 
         with pytest.raises(SystemExit):
             main()
@@ -158,8 +161,8 @@ def test_neither_all_nor_audio_path_errors(tmp_path, monkeypatch):
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     monkeypatch.setattr("sys.argv", ["sol transcribe"])
 
-    with patch("think.entities.load_recent_entity_names", return_value=[]):
-        from observe.transcribe.main import main
+    with patch("solstone.think.entities.load_recent_entity_names", return_value=[]):
+        from solstone.observe.transcribe.main import main
 
         with pytest.raises(SystemExit):
             main()

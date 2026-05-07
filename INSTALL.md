@@ -72,7 +72,7 @@ brew install git uv
 - **macOS (Apple Silicon):** Xcode command line tools are required because the helper is a Swift package; if the `xcodebuild -version` check above fails, fix that first. `sol install-models` downloads roughly 461 MB of model data into `~/Library/Application Support/solstone/parakeet/models`.
 - **Linux (x86_64):** `make install` auto-detects `PARAKEET_ONNX_VARIANT` (`cuda` when `nvidia-smi -L` succeeds, otherwise `cpu`), runs `uv sync --extra parakeet-onnx-<variant>`, then runs `sol install-models`. Override direct model installation with `sol install-models --variant cuda` or `sol install-models --variant cpu`; `PARAKEET_ONNX_VARIANT` is honored for one release cycle as a fallback when `--variant auto` is used. The CPU extra installs `parakeet-onnx-cpu`; the CUDA extra installs `parakeet-onnx-cuda`. The ONNX model footprint is roughly 2.55 GB, and the CUDA wheels add roughly 700 MB more when using the CUDA variant.
 - To use Whisper instead, set `transcribe.backend = "whisper"` in `journal/config/journal.json` or switch the backend in the settings UI. The Whisper code and dependencies remain available for rollback.
-- helper contract details live in `observe/transcribe/parakeet_helper/README.md`.
+- helper contract details live in `solstone/observe/transcribe/parakeet_helper/README.md`.
 
 ## install
 

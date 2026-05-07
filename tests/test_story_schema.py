@@ -6,11 +6,13 @@ from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
-from talent.story import ALLOWED_RESOLUTIONS
+from solstone.talent.story import ALLOWED_RESOLUTIONS
+from solstone.think.talent import get_talent
 from tests.test_story_hook import _valid_result
-from think.talent import get_talent
 
-STORY_SCHEMA_PATH = Path(__file__).resolve().parents[1] / "talent" / "story.schema.json"
+STORY_SCHEMA_PATH = (
+    Path(__file__).resolve().parents[1] / "solstone" / "talent" / "story.schema.json"
+)
 
 
 def _load_story_schema() -> dict:

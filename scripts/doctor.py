@@ -16,7 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from think.doctor import main  # noqa: E402
+from solstone.think.doctor import main  # noqa: E402
 
 if __name__ == "__main__":
     raise SystemExit(main(sys.argv[1:]))

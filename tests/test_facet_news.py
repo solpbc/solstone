@@ -63,7 +63,7 @@ def test_get_facet_news_orders_and_paginates(tmp_path):
     )
 
     with patch.dict("os.environ", {"SOLSTONE_JOURNAL": str(journal_path)}):
-        from think.facets import get_facet_news
+        from solstone.think.facets import get_facet_news
 
         first_page = get_facet_news("test-facet")
 

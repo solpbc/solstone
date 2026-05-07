@@ -8,8 +8,8 @@ import pytest
 
 def test_validate_passes_on_valid_output(tmp_path, monkeypatch):
     """Build a JournalStats from fixture data, call to_dict(), validate."""
-    stats_mod = importlib.import_module("think.journal_stats")
-    schema_mod = importlib.import_module("think.stats_schema")
+    stats_mod = importlib.import_module("solstone.think.journal_stats")
+    schema_mod = importlib.import_module("solstone.think.stats_schema")
     journal = tmp_path
     day = journal / "chronicle" / "20240101"
     day.mkdir(parents=True)
@@ -32,7 +32,7 @@ def test_validate_passes_on_valid_output(tmp_path, monkeypatch):
 
 def test_validate_rejects_missing_fields():
     """Incomplete dicts should produce non-empty error lists."""
-    schema_mod = importlib.import_module("think.stats_schema")
+    schema_mod = importlib.import_module("solstone.think.stats_schema")
 
     # Empty dict
     errors = schema_mod.validate({})
@@ -64,7 +64,7 @@ def test_validate_rejects_missing_fields():
 
 def test_save_json_raises_on_invalid(tmp_path, monkeypatch):
     """save_json() must raise ValueError when validation fails."""
-    stats_mod = importlib.import_module("think.journal_stats")
+    stats_mod = importlib.import_module("solstone.think.journal_stats")
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     js = stats_mod.JournalStats()
     # Corrupt the schema version so validation fails
@@ -76,8 +76,8 @@ def test_save_json_raises_on_invalid(tmp_path, monkeypatch):
 
 def test_day_fields_present_in_scan_day(tmp_path, monkeypatch):
     """Verify every key in DAY_FIELDS appears in scan_day output."""
-    stats_mod = importlib.import_module("think.journal_stats")
-    schema_mod = importlib.import_module("think.stats_schema")
+    stats_mod = importlib.import_module("solstone.think.journal_stats")
+    schema_mod = importlib.import_module("solstone.think.stats_schema")
     journal = tmp_path
     day = journal / "chronicle" / "20240101"
     day.mkdir(parents=True)

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import pytest
 
-from convey import create_app
+from solstone.convey import create_app
 
 
 @pytest.fixture

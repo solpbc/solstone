@@ -28,8 +28,8 @@ def _activity_record():
 def test_participation_post_hook_merges_fields_and_preserves_active_entities(
     tmp_path, monkeypatch
 ):
-    from talent.participation import post_process
-    from think.activities import append_activity_record, load_activity_records
+    from solstone.talent.participation import post_process
+    from solstone.think.activities import append_activity_record, load_activity_records
 
     facet = "work"
     day = "20260418"
@@ -90,8 +90,8 @@ def test_participation_post_hook_merges_fields_and_preserves_active_entities(
 def test_participation_post_hook_leaves_file_unchanged_on_malformed_json(
     tmp_path, monkeypatch, caplog
 ):
-    from talent.participation import post_process
-    from think.activities import append_activity_record
+    from solstone.talent.participation import post_process
+    from solstone.think.activities import append_activity_record
 
     facet = "work"
     day = "20260418"
@@ -113,8 +113,8 @@ def test_participation_post_hook_leaves_file_unchanged_on_malformed_json(
 def test_participation_post_hook_requires_activity_context(
     tmp_path, monkeypatch, caplog
 ):
-    from talent.participation import post_process
-    from think.activities import append_activity_record
+    from solstone.talent.participation import post_process
+    from solstone.think.activities import append_activity_record
 
     facet = "work"
     day = "20260418"

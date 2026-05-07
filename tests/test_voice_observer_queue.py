@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 
-from think.voice.observer_queue import ObserverActionQueue
+from solstone.think.voice.observer_queue import ObserverActionQueue
 
 
 def test_observer_queue_returns_empty_for_unknown_call_id():

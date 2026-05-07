@@ -14,8 +14,8 @@ from pathlib import Path
 
 import pytest
 
-from think.entities import load_entity_names
-from think.utils import (
+from solstone.think.entities import load_entity_names
+from solstone.think.utils import (
     DEFAULT_STREAM,
     SolstoneNotConfigured,
     day_from_path,
@@ -538,7 +538,7 @@ class TestTruncatedEcho:
 
     def test_under_limit_passes_through(self, capsys):
         """Text under the limit is printed without truncation."""
-        from think.utils import truncated_echo
+        from solstone.think.utils import truncated_echo
 
         truncated_echo("hello world", max_bytes=1024)
         captured = capsys.readouterr()
@@ -547,7 +547,7 @@ class TestTruncatedEcho:
 
     def test_over_limit_truncates_and_warns(self, capsys):
         """Text over the limit is truncated with stderr warning."""
-        from think.utils import truncated_echo
+        from solstone.think.utils import truncated_echo
 
         text = "a" * 200
         truncated_echo(text, max_bytes=50)
@@ -560,7 +560,7 @@ class TestTruncatedEcho:
 
     def test_zero_means_unlimited(self, capsys):
         """max_bytes=0 disables truncation."""
-        from think.utils import truncated_echo
+        from solstone.think.utils import truncated_echo
 
         text = "b" * 100_000
         truncated_echo(text, max_bytes=0)
@@ -570,7 +570,7 @@ class TestTruncatedEcho:
 
     def test_utf8_boundary_safe(self, capsys):
         """Truncation at a multibyte UTF-8 boundary drops partial chars."""
-        from think.utils import truncated_echo
+        from solstone.think.utils import truncated_echo
 
         # Each emoji is 4 bytes in UTF-8
         text = "\U0001f600" * 10  # 40 bytes total
@@ -583,7 +583,7 @@ class TestTruncatedEcho:
 
     def test_exact_limit_no_truncation(self, capsys):
         """Text exactly at the byte limit is not truncated."""
-        from think.utils import truncated_echo
+        from solstone.think.utils import truncated_echo
 
         text = "x" * 100
         truncated_echo(text, max_bytes=100)
@@ -757,7 +757,7 @@ class TestPortDiscovery:
 
     def test_find_available_port_returns_valid_port(self):
         """Test that find_available_port returns a valid port number."""
-        from think.utils import find_available_port
+        from solstone.think.utils import find_available_port
 
         port = find_available_port()
         assert isinstance(port, int)
@@ -765,7 +765,7 @@ class TestPortDiscovery:
 
     def test_find_available_port_different_each_call(self):
         """Test that multiple calls can return different ports."""
-        from think.utils import find_available_port
+        from solstone.think.utils import find_available_port
 
         # Get multiple ports - they may or may not be unique, but should all be valid
         ports = [find_available_port() for _ in range(3)]
@@ -775,7 +775,7 @@ class TestPortDiscovery:
 
     def test_write_and_read_service_port(self, monkeypatch, tmp_path):
         """Test writing and reading a service port file."""
-        from think.utils import read_service_port, write_service_port
+        from solstone.think.utils import read_service_port, write_service_port
 
         monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
@@ -793,7 +793,7 @@ class TestPortDiscovery:
 
     def test_read_service_port_missing_file(self, monkeypatch, tmp_path):
         """Test that reading missing port file returns None."""
-        from think.utils import read_service_port
+        from solstone.think.utils import read_service_port
 
         monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
@@ -802,7 +802,7 @@ class TestPortDiscovery:
 
     def test_read_service_port_invalid_content(self, monkeypatch, tmp_path):
         """Test that reading invalid port file content returns None."""
-        from think.utils import read_service_port
+        from solstone.think.utils import read_service_port
 
         monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
@@ -817,7 +817,7 @@ class TestPortDiscovery:
 
     def test_write_service_port_creates_health_dir(self, monkeypatch, tmp_path):
         """Test that write_service_port creates health directory if needed."""
-        from think.utils import write_service_port
+        from solstone.think.utils import write_service_port
 
         monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
@@ -837,7 +837,7 @@ class TestSolstoneGuard:
 
     def test_is_solstone_up_false_without_port_file(self, monkeypatch, tmp_path):
         """Missing convey port file reports stack down."""
-        from think.utils import is_solstone_up
+        from solstone.think.utils import is_solstone_up
 
         monkeypatch.delenv("SOL_SKIP_SUPERVISOR_CHECK", raising=False)
         monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
@@ -846,7 +846,7 @@ class TestSolstoneGuard:
 
     def test_is_solstone_up_false_with_closed_port(self, monkeypatch, tmp_path):
         """Stale convey port file reports stack down."""
-        from think.utils import is_solstone_up, write_service_port
+        from solstone.think.utils import is_solstone_up, write_service_port
 
         monkeypatch.delenv("SOL_SKIP_SUPERVISOR_CHECK", raising=False)
         monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
@@ -860,7 +860,7 @@ class TestSolstoneGuard:
 
     def test_is_solstone_up_true_with_listening_server(self, monkeypatch, tmp_path):
         """Listening convey port reports stack up."""
-        from think.utils import is_solstone_up, write_service_port
+        from solstone.think.utils import is_solstone_up, write_service_port
 
         monkeypatch.delenv("SOL_SKIP_SUPERVISOR_CHECK", raising=False)
         monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
@@ -875,7 +875,7 @@ class TestSolstoneGuard:
         self, monkeypatch, tmp_path, capsys
     ):
         """Guard exits with the expected message when convey is unavailable."""
-        from think.utils import require_solstone
+        from solstone.think.utils import require_solstone
 
         monkeypatch.delenv("SOL_SKIP_SUPERVISOR_CHECK", raising=False)
         monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
@@ -895,7 +895,7 @@ class TestSolstoneGuard:
         self, monkeypatch, tmp_path, capsys
     ):
         """Guard returns None without output when convey is reachable."""
-        from think.utils import require_solstone, write_service_port
+        from solstone.think.utils import require_solstone, write_service_port
 
         monkeypatch.delenv("SOL_SKIP_SUPERVISOR_CHECK", raising=False)
         monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
@@ -914,7 +914,7 @@ class TestSolstoneGuard:
         self, monkeypatch, tmp_path
     ):
         """SOL_SKIP_SUPERVISOR_CHECK bypasses availability probing."""
-        import think.utils as utils
+        import solstone.think.utils as utils
 
         monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
         monkeypatch.setenv("SOL_SKIP_SUPERVISOR_CHECK", "1")
@@ -1004,7 +1004,7 @@ class TestJournalResolution:
     def test_get_journal_info_returns_default_when_nothing_else_resolves(
         self, monkeypatch, tmp_path
     ):
-        import think.utils as utils
+        import solstone.think.utils as utils
 
         monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
         monkeypatch.setattr(utils, "get_project_root", lambda: str(tmp_path))
@@ -1018,7 +1018,7 @@ class TestJournalResolution:
     def test_get_journal_mkdir_failure_raises_solstone_not_configured(
         self, monkeypatch, tmp_path
     ):
-        import think.utils as utils
+        import solstone.think.utils as utils
 
         target = tmp_path / "journal"
         monkeypatch.setenv("SOLSTONE_JOURNAL", str(target))

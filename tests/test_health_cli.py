@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 import pytest
 
-from think.health_cli import health_check, main, print_status
+from solstone.think.health_cli import health_check, main, print_status
 
 
 def test_health_check_no_socket(tmp_path, monkeypatch, capsys):
@@ -55,9 +55,9 @@ def test_health_check_timeout(tmp_path, monkeypatch, capsys):
     sock = tmp_path / "health" / "callosum.sock"
     sock.parent.mkdir(parents=True)
     sock.touch()
-    monkeypatch.setattr("think.health_cli.STATUS_TIMEOUT", 0.1)
+    monkeypatch.setattr("solstone.think.health_cli.STATUS_TIMEOUT", 0.1)
 
-    with patch("think.health_cli.CallosumConnection") as mock_conn_cls:
+    with patch("solstone.think.health_cli.CallosumConnection") as mock_conn_cls:
         mock_conn = mock_conn_cls.return_value
         mock_conn.start.return_value = None
         mock_conn.stop.return_value = None
@@ -76,7 +76,7 @@ def test_health_check_receives_status(tmp_path, monkeypatch, capsys):
     sock.parent.mkdir(parents=True)
     sock.touch()
 
-    with patch("think.health_cli.CallosumConnection") as mock_conn_cls:
+    with patch("solstone.think.health_cli.CallosumConnection") as mock_conn_cls:
         mock_conn = mock_conn_cls.return_value
 
         def _start(*, callback):
@@ -107,7 +107,9 @@ def test_health_check_receives_status(tmp_path, monkeypatch, capsys):
 def test_main_routes_to_logs(monkeypatch):
     monkeypatch.setattr(sys, "argv", ["sol health", "logs", "--help"])
 
-    with patch("think.logs_cli.main", side_effect=SystemExit(0)) as mock_logs_main:
+    with patch(
+        "solstone.think.logs_cli.main", side_effect=SystemExit(0)
+    ) as mock_logs_main:
         with pytest.raises(SystemExit):
             main()
 

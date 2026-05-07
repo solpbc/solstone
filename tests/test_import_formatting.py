@@ -8,7 +8,7 @@ import os
 import tempfile
 from pathlib import Path
 
-from think.importers.formatting import format_ai_chat, format_imported
+from solstone.think.importers.formatting import format_ai_chat, format_imported
 
 
 def _make_entries(source: str, content_entries: list[dict]) -> list[dict]:
@@ -183,7 +183,7 @@ def test_multiple_entries():
 
 def test_formatter_registration():
     """Verify the formatter is registered and discoverable."""
-    from think.formatters import get_formatter
+    from solstone.think.formatters import get_formatter
 
     formatter = get_formatter("20260115/import.ics/imported.jsonl")
     assert formatter is not None
@@ -191,14 +191,14 @@ def test_formatter_registration():
 
 
 def test_formatter_registration_obsidian():
-    from think.formatters import get_formatter
+    from solstone.think.formatters import get_formatter
 
     formatter = get_formatter("20260115/import.obsidian/imported.jsonl")
     assert formatter is not None
 
 
 def test_formatter_registration_ics_segment_markdown():
-    from think.formatters import get_formatter
+    from solstone.think.formatters import get_formatter
 
     formatter = get_formatter("20260115/import.ics/120000_300/imported.md")
     assert formatter is not None
@@ -206,7 +206,7 @@ def test_formatter_registration_ics_segment_markdown():
 
 
 def test_formatter_registration_kindle():
-    from think.formatters import get_formatter
+    from solstone.think.formatters import get_formatter
 
     formatter = get_formatter("20260115/import.kindle/103000_300/imported.md")
     assert formatter is not None
@@ -214,7 +214,7 @@ def test_formatter_registration_kindle():
 
 
 def test_formatter_registration_gemini_segment():
-    from think.formatters import get_formatter
+    from solstone.think.formatters import get_formatter
 
     formatter = get_formatter("20260115/import.gemini/100000_300/imported_audio.jsonl")
     assert formatter is not None
@@ -222,7 +222,7 @@ def test_formatter_registration_gemini_segment():
 
 
 def test_formatter_registration_chatgpt_segment():
-    from think.formatters import get_formatter
+    from solstone.think.formatters import get_formatter
 
     formatter = get_formatter("20260115/import.chatgpt/100000_300/imported_audio.jsonl")
     assert formatter is not None
@@ -230,7 +230,7 @@ def test_formatter_registration_chatgpt_segment():
 
 
 def test_formatter_registration_claude_segment():
-    from think.formatters import get_formatter
+    from solstone.think.formatters import get_formatter
 
     formatter = get_formatter("20260115/import.claude/100000_300/imported_audio.jsonl")
     assert formatter is not None
@@ -239,7 +239,7 @@ def test_formatter_registration_claude_segment():
 
 def test_path_metadata_extraction():
     """Verify day is correctly extracted from import paths."""
-    from think.formatters import extract_path_metadata
+    from solstone.think.formatters import extract_path_metadata
 
     meta = extract_path_metadata("20260115/import.ics/imported.jsonl")
     assert meta["day"] == "20260115"
@@ -255,7 +255,7 @@ def test_path_metadata_extraction():
 
 def test_find_formattable_includes_imports():
     """Verify find_formattable_files picks up import JSONL."""
-    from think.formatters import find_formattable_files
+    from solstone.think.formatters import find_formattable_files
 
     with tempfile.TemporaryDirectory() as tmpdir:
         # Create a fake import JSONL file
@@ -272,7 +272,7 @@ def test_find_formattable_includes_imports():
 
 
 def test_find_formattable_includes_segment_markdown():
-    from think.formatters import find_formattable_files
+    from solstone.think.formatters import find_formattable_files
 
     with tempfile.TemporaryDirectory() as tmpdir:
         seg_dir = Path(tmpdir) / "20260115" / "import.ics" / "120000_300"
@@ -321,7 +321,7 @@ def test_format_ai_chat_basic():
 
 def test_format_file_integration():
     """End-to-end: write import JSONL, format it, get chunks."""
-    from think.formatters import format_file
+    from solstone.think.formatters import format_file
 
     with tempfile.TemporaryDirectory() as tmpdir:
         # Set SOLSTONE_JOURNAL for format_file

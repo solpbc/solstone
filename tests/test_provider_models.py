@@ -5,11 +5,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-import think.providers
-import think.providers.anthropic
-import think.providers.google
-import think.providers.openai
-from think.providers import get_provider_models
+from solstone.think import providers
+from solstone.think.providers import anthropic, get_provider_models, google, openai
 
 
 def test_get_provider_models_anthropic():
@@ -19,7 +16,9 @@ def test_get_provider_models_anthropic():
     client = Mock()
     client.models.list.return_value = [model]
 
-    with patch("think.providers.anthropic._get_anthropic_client", return_value=client):
+    with patch(
+        "solstone.think.providers.anthropic._get_anthropic_client", return_value=client
+    ):
         result = get_provider_models("anthropic")
 
     assert result == [{"id": "claude-sonnet-4-20250514", "type": "model"}]
@@ -32,7 +31,9 @@ def test_get_provider_models_openai():
     client = Mock()
     client.models.list.return_value = [model]
 
-    with patch("think.providers.openai._get_openai_client", return_value=client):
+    with patch(
+        "solstone.think.providers.openai._get_openai_client", return_value=client
+    ):
         result = get_provider_models("openai")
 
     assert result == [{"id": "gpt-4o", "object": "model"}]
@@ -48,7 +49,9 @@ def test_get_provider_models_google():
     client = Mock()
     client.models.list.return_value = [model]
 
-    with patch("think.providers.google.get_or_create_client", return_value=client):
+    with patch(
+        "solstone.think.providers.google.get_or_create_client", return_value=client
+    ):
         result = get_provider_models("google")
 
     assert result == [
@@ -62,7 +65,7 @@ def test_get_provider_models_unknown():
 
 
 def test_list_models_in_provider_all():
-    assert "list_models" in think.providers.anthropic.__all__
-    assert "list_models" in think.providers.openai.__all__
-    assert "list_models" in think.providers.google.__all__
-    assert "get_provider_models" in think.providers.__all__
+    assert "list_models" in anthropic.__all__
+    assert "list_models" in openai.__all__
+    assert "list_models" in google.__all__
+    assert "get_provider_models" in providers.__all__

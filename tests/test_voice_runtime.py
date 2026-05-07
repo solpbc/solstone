@@ -7,8 +7,8 @@ from concurrent.futures import Future
 
 from flask import Flask
 
-from think.voice import brain
-from think.voice.runtime import (
+from solstone.think.voice import brain
+from solstone.think.voice.runtime import (
     get_runtime_state,
     start_voice_runtime,
     stop_all_voice_runtime,
@@ -19,7 +19,7 @@ from think.voice.runtime import (
 def test_start_voice_runtime_attaches_state(monkeypatch, tmp_path):
     app = Flask(__name__)
     monkeypatch.setattr(
-        "think.voice.runtime.get_journal",
+        "solstone.think.voice.runtime.get_journal",
         lambda: str((tmp_path / "journal").resolve()),
     )
 
@@ -39,7 +39,7 @@ def test_start_voice_runtime_attaches_state(monkeypatch, tmp_path):
 def test_start_voice_runtime_is_idempotent(monkeypatch, tmp_path):
     app = Flask(__name__)
     monkeypatch.setattr(
-        "think.voice.runtime.get_journal",
+        "solstone.think.voice.runtime.get_journal",
         lambda: str((tmp_path / "journal").resolve()),
     )
 
@@ -59,7 +59,7 @@ def test_start_voice_runtime_is_idempotent(monkeypatch, tmp_path):
 def test_stop_voice_runtime_cancels_registered_futures(monkeypatch, tmp_path):
     app = Flask(__name__)
     monkeypatch.setattr(
-        "think.voice.runtime.get_journal",
+        "solstone.think.voice.runtime.get_journal",
         lambda: str((tmp_path / "journal").resolve()),
     )
     start_voice_runtime(app)
@@ -75,7 +75,7 @@ def test_stop_voice_runtime_cancels_registered_futures(monkeypatch, tmp_path):
 def test_stop_voice_runtime_cancels_pending_brain_futures(monkeypatch, tmp_path):
     app = Flask(__name__)
     monkeypatch.setattr(
-        "think.voice.runtime.get_journal",
+        "solstone.think.voice.runtime.get_journal",
         lambda: str((tmp_path / "journal").resolve()),
     )
     start_voice_runtime(app)
@@ -91,7 +91,7 @@ def test_stop_voice_runtime_cancels_pending_brain_futures(monkeypatch, tmp_path)
 def test_stop_all_voice_runtime_cleans_registered_apps(monkeypatch, tmp_path):
     app = Flask(__name__)
     monkeypatch.setattr(
-        "think.voice.runtime.get_journal",
+        "solstone.think.voice.runtime.get_journal",
         lambda: str((tmp_path / "journal").resolve()),
     )
     start_voice_runtime(app)

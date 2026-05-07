@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from think import sol_cli as sol
+from solstone.think import sol_cli as sol
 
 
 class TestResolveCommand:
@@ -19,19 +19,21 @@ class TestResolveCommand:
     def test_resolve_known_command(self):
         """Test resolving a known command from registry."""
         module_path, preset_args = sol.resolve_command("import")
-        assert module_path == "think.importers.cli"
+        assert module_path == "solstone.think.importers.cli"
         assert preset_args == []
 
     def test_resolve_direct_module_path(self):
         """Test resolving a direct module path with dot."""
-        module_path, preset_args = sol.resolve_command("think.importers.cli")
-        assert module_path == "think.importers.cli"
+        module_path, preset_args = sol.resolve_command("solstone.think.importers.cli")
+        assert module_path == "solstone.think.importers.cli"
         assert preset_args == []
 
     def test_resolve_nested_module_path(self):
         """Test resolving a deeply nested module path."""
-        module_path, preset_args = sol.resolve_command("observe.linux.observer")
-        assert module_path == "observe.linux.observer"
+        module_path, preset_args = sol.resolve_command(
+            "solstone.observe.linux.observer"
+        )
+        assert module_path == "solstone.observe.linux.observer"
         assert preset_args == []
 
     def test_resolve_unknown_command_raises(self):
@@ -43,10 +45,10 @@ class TestResolveCommand:
     def test_resolve_alias_with_preset_args(self):
         """Test resolving an alias that includes preset arguments."""
         # Add a test alias
-        sol.ALIASES["test-alias"] = ("think.indexer", ["--rescan"])
+        sol.ALIASES["test-alias"] = ("solstone.think.indexer", ["--rescan"])
         try:
             module_path, preset_args = sol.resolve_command("test-alias")
-            assert module_path == "think.indexer"
+            assert module_path == "solstone.think.indexer"
             assert preset_args == ["--rescan"]
         finally:
             del sol.ALIASES["test-alias"]
@@ -54,10 +56,10 @@ class TestResolveCommand:
     def test_alias_takes_precedence_over_command(self):
         """Test that aliases override commands with same name."""
         # Add an alias that shadows a command
-        sol.ALIASES["import"] = ("think.cluster", ["--force"])
+        sol.ALIASES["import"] = ("solstone.think.cluster", ["--force"])
         try:
             module_path, preset_args = sol.resolve_command("import")
-            assert module_path == "think.cluster"
+            assert module_path == "solstone.think.cluster"
             assert preset_args == ["--force"]
         finally:
             del sol.ALIASES["import"]
@@ -129,7 +131,7 @@ class TestRunCommand:
             [
                 sys.executable,
                 "-m",
-                "think.sol_cli",
+                "solstone.think.sol_cli",
                 "config",
                 "journal",
                 "/tmp/with$dollar",

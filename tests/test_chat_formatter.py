@@ -2,8 +2,8 @@
 # Copyright (c) 2026 sol pbc
 
 
-from think.chat_formatter import format_chat
-from think.formatters import get_formatter
+from solstone.think.chat_formatter import format_chat
+from solstone.think.formatters import get_formatter
 
 
 def test_format_chat_produces_markdown_for_each_kind():
@@ -61,7 +61,7 @@ def test_format_chat_produces_markdown_for_each_kind():
 
 def test_format_chat_uses_identity_owner_and_agent_names(monkeypatch):
     monkeypatch.setattr(
-        "think.chat_formatter.get_config",
+        "solstone.think.chat_formatter.get_config",
         lambda: {
             "identity": {"name": "Alice Smith", "preferred": "Alice"},
             "agent": {"name": "Sol-agent"},
@@ -82,7 +82,7 @@ def test_format_chat_uses_identity_owner_and_agent_names(monkeypatch):
 
 
 def test_format_chat_fallback_labels_when_identity_missing(monkeypatch):
-    monkeypatch.setattr("think.chat_formatter.get_config", lambda: {})
+    monkeypatch.setattr("solstone.think.chat_formatter.get_config", lambda: {})
 
     chunks, _meta = format_chat(
         [
@@ -101,5 +101,5 @@ def test_get_formatter_chat_jsonl_wins_over_talents_fallback():
     formatter = get_formatter("20260420/chat/120000_300/chat.jsonl")
 
     assert formatter is not None
-    assert formatter.__module__ == "think.chat_formatter"
+    assert formatter.__module__ == "solstone.think.chat_formatter"
     assert formatter.__name__ == "format_chat"

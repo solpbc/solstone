@@ -3,7 +3,7 @@
 
 import pytest
 
-from think.utils import parse_duration_seconds
+from solstone.think.utils import parse_duration_seconds
 
 
 @pytest.mark.parametrize(

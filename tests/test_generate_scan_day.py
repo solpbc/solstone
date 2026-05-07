@@ -5,8 +5,8 @@ import importlib
 import os
 from pathlib import Path
 
+from solstone.think.utils import day_path
 from tests.conftest import copytree_tracked
-from think.utils import day_path
 
 FIXTURES = Path("tests/fixtures")
 
@@ -23,7 +23,7 @@ def copy_day(tmp_path: Path) -> Path:
 
 
 def test_scan_day(tmp_path, monkeypatch):
-    mod = importlib.import_module("think.talents")
+    mod = importlib.import_module("solstone.think.talents")
     day_dir = copy_day(tmp_path)
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 

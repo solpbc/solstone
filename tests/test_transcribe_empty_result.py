@@ -8,8 +8,8 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-from observe.utils import SAMPLE_RATE
-from observe.vad import VadResult
+from solstone.observe.utils import SAMPLE_RATE
+from solstone.observe.vad import VadResult
 
 
 @pytest.fixture
@@ -36,7 +36,7 @@ def vad_result():
 
 
 def test_empty_statements_filter_path(raw_path, audio_buffer, vad_result):
-    from observe.transcribe.main import process_audio
+    from solstone.observe.transcribe.main import process_audio
 
     backend_module = MagicMock()
     backend_module.get_model_info.return_value = {
@@ -47,15 +47,18 @@ def test_empty_statements_filter_path(raw_path, audio_buffer, vad_result):
 
     with (
         patch(
-            "observe.transcribe.main.get_config",
+            "solstone.observe.transcribe.main.get_config",
             return_value={"transcribe": {"preserve_all": False}},
         ),
         patch(
-            "observe.transcribe.main.get_journal", return_value=str(raw_path.parents[4])
+            "solstone.observe.transcribe.main.get_journal",
+            return_value=str(raw_path.parents[4]),
         ),
-        patch("observe.transcribe.main.stt_transcribe", return_value=[]),
-        patch("observe.transcribe.main.get_backend", return_value=backend_module),
-        patch("observe.transcribe.main.callosum_send") as mock_send,
+        patch("solstone.observe.transcribe.main.stt_transcribe", return_value=[]),
+        patch(
+            "solstone.observe.transcribe.main.get_backend", return_value=backend_module
+        ),
+        patch("solstone.observe.transcribe.main.callosum_send") as mock_send,
     ):
         process_audio(raw_path, audio_buffer, vad_result, {}, backend="whisper")
 
@@ -65,7 +68,7 @@ def test_empty_statements_filter_path(raw_path, audio_buffer, vad_result):
 
 
 def test_empty_statements_preserve_path(raw_path, audio_buffer, vad_result):
-    from observe.transcribe.main import process_audio
+    from solstone.observe.transcribe.main import process_audio
 
     backend_module = MagicMock()
     backend_module.get_model_info.return_value = {
@@ -76,15 +79,18 @@ def test_empty_statements_preserve_path(raw_path, audio_buffer, vad_result):
 
     with (
         patch(
-            "observe.transcribe.main.get_config",
+            "solstone.observe.transcribe.main.get_config",
             return_value={"transcribe": {"preserve_all": True}},
         ),
         patch(
-            "observe.transcribe.main.get_journal", return_value=str(raw_path.parents[4])
+            "solstone.observe.transcribe.main.get_journal",
+            return_value=str(raw_path.parents[4]),
         ),
-        patch("observe.transcribe.main.stt_transcribe", return_value=[]),
-        patch("observe.transcribe.main.get_backend", return_value=backend_module),
-        patch("observe.transcribe.main.callosum_send") as mock_send,
+        patch("solstone.observe.transcribe.main.stt_transcribe", return_value=[]),
+        patch(
+            "solstone.observe.transcribe.main.get_backend", return_value=backend_module
+        ),
+        patch("solstone.observe.transcribe.main.callosum_send") as mock_send,
     ):
         process_audio(raw_path, audio_buffer, vad_result, {}, backend="whisper")
 
@@ -94,10 +100,11 @@ def test_empty_statements_preserve_path(raw_path, audio_buffer, vad_result):
 
 
 def test_backend_raise_propagates(raw_path, audio_buffer, vad_result):
-    from observe.transcribe.main import process_audio
+    from solstone.observe.transcribe.main import process_audio
 
     with patch(
-        "observe.transcribe.main.stt_transcribe", side_effect=RuntimeError("rev.ai 502")
+        "solstone.observe.transcribe.main.stt_transcribe",
+        side_effect=RuntimeError("rev.ai 502"),
     ):
         with pytest.raises(SystemExit) as exc_info:
             process_audio(raw_path, audio_buffer, vad_result, {}, backend="whisper")

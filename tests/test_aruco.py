@@ -7,7 +7,7 @@ import cv2
 import numpy as np
 from PIL import Image
 
-from observe.aruco import (
+from solstone.observe.aruco import (
     CORNER_TAG_IDS,
     detect_markers,
     mask_convey_region,

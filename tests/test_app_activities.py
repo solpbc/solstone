@@ -8,7 +8,7 @@ import os
 
 import pytest
 
-from apps.activities.routes import (
+from solstone.apps.activities.routes import (
     _GENERIC_ACTIVITY_ICON,
     _enrich_activity_record,
     activities_bp,
@@ -32,7 +32,7 @@ def activities_client(fixture_journal):
     """Create a Flask test client with the activities blueprint."""
     from flask import Flask
 
-    from convey import state
+    from solstone.convey import state
 
     app = Flask(__name__)
     app.register_blueprint(activities_bp)
@@ -120,7 +120,7 @@ class TestActivitiesDayRoutes:
         assert "duration_minutes" not in unknown
 
     def test_schedule_activity_defaults_are_lowercase(self):
-        from think.activities import get_default_activity_by_id
+        from solstone.think.activities import get_default_activity_by_id
 
         expected_names = {
             "call": "call",
@@ -259,7 +259,7 @@ class TestActivitiesStatsRoutes:
     def test_returns_month_activity_counts(self, tmp_path, monkeypatch):
         from flask import Flask
 
-        from convey import state
+        from solstone.convey import state
 
         journal = tmp_path / "journal"
         monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))

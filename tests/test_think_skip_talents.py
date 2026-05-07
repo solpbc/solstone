@@ -124,7 +124,7 @@ def _patch_segment_dependencies(
     append_calls: list[tuple] | None = None,
     activity_calls: list[dict] | None = None,
 ) -> None:
-    from think import thinking as think
+    from solstone.think import thinking as think
 
     monkeypatch.setattr(
         think,
@@ -210,7 +210,7 @@ def _patch_main_dependencies(
     segment_dir: Path,
     calls: list[dict],
 ) -> None:
-    from think import thinking as think
+    from solstone.think import thinking as think
 
     def mock_run_segment_sense(day, segment, refresh, verbose, **kwargs):
         calls.append(
@@ -238,7 +238,7 @@ def test_parser_forwards_skip_talents(
     segment_dir: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from think import thinking as think
+    from solstone.think import thinking as think
 
     calls: list[dict] = []
     _patch_main_dependencies(monkeypatch, segment_dir, calls)
@@ -265,7 +265,7 @@ def test_empty_flag_forwards_empty_set(
     segment_dir: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from think import thinking as think
+    from solstone.think import thinking as think
 
     calls: list[dict] = []
     _patch_main_dependencies(monkeypatch, segment_dir, calls)
@@ -292,8 +292,8 @@ def test_segment_batch_skip_does_not_dispatch_or_fail(
     segment_dir: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from think import thinking as think
-    from think.thinking import ThinkingJSONLWriter
+    from solstone.think import thinking as think
+    from solstone.think.thinking import ThinkingJSONLWriter
 
     spawned: list[str] = []
     jsonl_path = segment_dir.parent.parent / "health" / "test_skip_entities.jsonl"
@@ -335,8 +335,8 @@ def test_tail_talent_skip_does_not_dispatch_or_fail(
     segment_dir: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from think import thinking as think
-    from think.thinking import ThinkingJSONLWriter
+    from solstone.think import thinking as think
+    from solstone.think.thinking import ThinkingJSONLWriter
 
     spawned: list[str] = []
     jsonl_path = segment_dir.parent.parent / "health" / "test_skip_pulse.jsonl"
@@ -379,8 +379,8 @@ def test_sense_skip_uses_cached_output_for_downstream(
     segment_dir: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from think import thinking as think
-    from think.thinking import ThinkingJSONLWriter
+    from solstone.think import thinking as think
+    from solstone.think.thinking import ThinkingJSONLWriter
 
     spawned: list[str] = []
     jsonl_path = segment_dir.parent.parent / "health" / "test_skip_sense.jsonl"
@@ -423,8 +423,8 @@ def test_skip_talents_composes_with_no_activity_prompts(
     segment_dir: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from think import thinking as think
-    from think.thinking import ThinkingJSONLWriter
+    from solstone.think import thinking as think
+    from solstone.think.thinking import ThinkingJSONLWriter
 
     spawned: list[str] = []
     append_calls: list[tuple] = []
@@ -470,8 +470,8 @@ def test_unknown_name_is_silent_noop(
     segment_dir: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from think import thinking as think
-    from think.thinking import ThinkingJSONLWriter
+    from solstone.think import thinking as think
+    from solstone.think.thinking import ThinkingJSONLWriter
 
     spawned: list[str] = []
     jsonl_path = segment_dir.parent.parent / "health" / "test_unknown_noop.jsonl"

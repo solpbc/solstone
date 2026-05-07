@@ -7,7 +7,7 @@ import os
 
 import pytest
 
-from think.talent import get_talent
+from solstone.think.talent import get_talent
 
 
 @pytest.fixture

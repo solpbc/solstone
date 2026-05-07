@@ -8,8 +8,8 @@ from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
 
-from convey.chat_stream import append_chat_event
-from think.identity import ensure_identity_directory
+from solstone.convey.chat_stream import append_chat_event
+from solstone.think.identity import ensure_identity_directory
 
 TEMPLATE_VAR_KEYS = {
     "digest_contents",
@@ -24,7 +24,9 @@ TEMPLATE_VAR_KEYS = {
 
 
 def _load_chat_context_module():
-    path = Path(__file__).resolve().parents[1] / "talent" / "chat_context.py"
+    path = (
+        Path(__file__).resolve().parents[1] / "solstone" / "talent" / "chat_context.py"
+    )
     spec = importlib.util.spec_from_file_location("test_chat_context_local", path)
     assert spec is not None
     assert spec.loader is not None
@@ -115,7 +117,7 @@ def test_chat_context_injects_digest_tail_trigger_location_and_routine_state(
         }
     }
     monkeypatch.setattr(
-        "think.routines.get_routine_state",
+        "solstone.think.routines.get_routine_state",
         lambda: [
             {
                 "name": "Morning Briefing",
@@ -127,8 +129,10 @@ def test_chat_context_injects_digest_tail_trigger_location_and_routine_state(
             }
         ],
     )
-    monkeypatch.setattr("think.routines.get_config", lambda: deepcopy(routines_config))
-    monkeypatch.setattr("think.routines.save_config", lambda config: None)
+    monkeypatch.setattr(
+        "solstone.think.routines.get_config", lambda: deepcopy(routines_config)
+    )
+    monkeypatch.setattr("solstone.think.routines.save_config", lambda config: None)
 
     result = _load_chat_context_module().pre_process(
         {
@@ -174,10 +178,10 @@ def test_chat_context_routine_suggestion_only_counts_owner_messages(
 
     routines_config = {"_meta": {"suggestions_enabled": True, "suggestions": {}}}
     save_calls: list[dict] = []
-    monkeypatch.setattr("think.routines.get_routine_state", lambda: [])
-    monkeypatch.setattr("think.routines.get_config", lambda: routines_config)
+    monkeypatch.setattr("solstone.think.routines.get_routine_state", lambda: [])
+    monkeypatch.setattr("solstone.think.routines.get_config", lambda: routines_config)
     monkeypatch.setattr(
-        "think.routines.save_config",
+        "solstone.think.routines.save_config",
         lambda config: save_calls.append(deepcopy(config)),
     )
 
@@ -242,12 +246,12 @@ def test_chat_context_talent_finished_marks_stop_and_report(monkeypatch, tmp_pat
         summary="Found the latest notes.",
     )
 
-    monkeypatch.setattr("think.routines.get_routine_state", lambda: [])
+    monkeypatch.setattr("solstone.think.routines.get_routine_state", lambda: [])
     monkeypatch.setattr(
-        "think.routines.get_config",
+        "solstone.think.routines.get_config",
         lambda: {"_meta": {"suggestions_enabled": False, "suggestions": {}}},
     )
-    monkeypatch.setattr("think.routines.save_config", lambda config: None)
+    monkeypatch.setattr("solstone.think.routines.save_config", lambda config: None)
 
     result = _load_chat_context_module().pre_process(
         {
@@ -311,12 +315,12 @@ def test_chat_context_talent_errored_marks_stop_and_report(monkeypatch, tmp_path
         reason="The lookup failed.",
     )
 
-    monkeypatch.setattr("think.routines.get_routine_state", lambda: [])
+    monkeypatch.setattr("solstone.think.routines.get_routine_state", lambda: [])
     monkeypatch.setattr(
-        "think.routines.get_config",
+        "solstone.think.routines.get_config",
         lambda: {"_meta": {"suggestions_enabled": False, "suggestions": {}}},
     )
-    monkeypatch.setattr("think.routines.save_config", lambda config: None)
+    monkeypatch.setattr("solstone.think.routines.save_config", lambda config: None)
 
     result = _load_chat_context_module().pre_process(
         {
@@ -373,12 +377,12 @@ def test_chat_context_talent_followups_are_observably_distinct(monkeypatch, tmp_
         requested_task=None,
     )
 
-    monkeypatch.setattr("think.routines.get_routine_state", lambda: [])
+    monkeypatch.setattr("solstone.think.routines.get_routine_state", lambda: [])
     monkeypatch.setattr(
-        "think.routines.get_config",
+        "solstone.think.routines.get_config",
         lambda: {"_meta": {"suggestions_enabled": False, "suggestions": {}}},
     )
-    monkeypatch.setattr("think.routines.save_config", lambda config: None)
+    monkeypatch.setattr("solstone.think.routines.save_config", lambda config: None)
 
     module = _load_chat_context_module()
     finished = module.pre_process(
@@ -459,12 +463,12 @@ def test_chat_context_includes_identity_grounding(monkeypatch, tmp_path):
     digest_seed = (journal / "identity" / "digest.md").read_text(encoding="utf-8")
     assert digest_seed == "not yet generated\n"
 
-    monkeypatch.setattr("think.routines.get_routine_state", lambda: [])
+    monkeypatch.setattr("solstone.think.routines.get_routine_state", lambda: [])
     monkeypatch.setattr(
-        "think.routines.get_config",
+        "solstone.think.routines.get_config",
         lambda: {"_meta": {"suggestions_enabled": False, "suggestions": {}}},
     )
-    monkeypatch.setattr("think.routines.save_config", lambda config: None)
+    monkeypatch.setattr("solstone.think.routines.save_config", lambda config: None)
 
     result = _load_chat_context_module().pre_process({"day": "20260420"})
 
@@ -481,10 +485,10 @@ def test_chat_context_preserves_save_routines_config_side_effect(monkeypatch, tm
 
     routines_config = {"_meta": {"suggestions_enabled": True, "suggestions": {}}}
     save_calls: list[dict] = []
-    monkeypatch.setattr("think.routines.get_routine_state", lambda: [])
-    monkeypatch.setattr("think.routines.get_config", lambda: routines_config)
+    monkeypatch.setattr("solstone.think.routines.get_routine_state", lambda: [])
+    monkeypatch.setattr("solstone.think.routines.get_config", lambda: routines_config)
     monkeypatch.setattr(
-        "think.routines.save_config",
+        "solstone.think.routines.save_config",
         lambda config: save_calls.append(deepcopy(config)),
     )
 
@@ -508,12 +512,12 @@ def test_chat_context_preserves_save_routines_config_side_effect(monkeypatch, tm
 def test_chat_context_routines_omitted_when_empty(monkeypatch, tmp_path):
     journal = tmp_path / "journal"
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
-    monkeypatch.setattr("think.routines.get_routine_state", lambda: [])
+    monkeypatch.setattr("solstone.think.routines.get_routine_state", lambda: [])
     monkeypatch.setattr(
-        "think.routines.get_config",
+        "solstone.think.routines.get_config",
         lambda: {"_meta": {"suggestions_enabled": False, "suggestions": {}}},
     )
-    monkeypatch.setattr("think.routines.save_config", lambda config: None)
+    monkeypatch.setattr("solstone.think.routines.save_config", lambda config: None)
 
     result = _load_chat_context_module().pre_process({"day": "20260420"})
 
@@ -535,9 +539,9 @@ def test_chat_context_enrichment_errors_are_graceful(monkeypatch, tmp_path):
     monkeypatch.setattr(module, "_load_digest_contents", _boom)
     monkeypatch.setattr(module, "read_chat_tail", _boom)
     monkeypatch.setattr(module, "reduce_chat_state", _boom)
-    monkeypatch.setattr("think.routines.get_routine_state", _boom)
-    monkeypatch.setattr("think.routines.get_config", _boom)
-    monkeypatch.setattr("think.routines.save_config", lambda config: None)
+    monkeypatch.setattr("solstone.think.routines.get_routine_state", _boom)
+    monkeypatch.setattr("solstone.think.routines.get_config", _boom)
+    monkeypatch.setattr("solstone.think.routines.save_config", lambda config: None)
 
     result = module.pre_process(
         {
@@ -563,17 +567,17 @@ def test_chat_context_enrichment_errors_are_graceful(monkeypatch, tmp_path):
 
 
 def test_chat_context_drops_legacy_memory_imports(monkeypatch):
-    monkeypatch.setattr("think.routines.get_routine_state", lambda: [])
+    monkeypatch.setattr("solstone.think.routines.get_routine_state", lambda: [])
     monkeypatch.setattr(
-        "think.routines.get_config",
+        "solstone.think.routines.get_config",
         lambda: {"_meta": {"suggestions_enabled": False, "suggestions": {}}},
     )
-    monkeypatch.setattr("think.routines.save_config", lambda config: None)
+    monkeypatch.setattr("solstone.think.routines.save_config", lambda config: None)
 
     legacy_module = "think" + ".con" + "versation"
     legacy_memory = "conversation_" + "memory"
     source = (
-        Path(__file__).resolve().parents[1] / "talent" / "chat_context.py"
+        Path(__file__).resolve().parents[1] / "solstone" / "talent" / "chat_context.py"
     ).read_text(encoding="utf-8")
     assert legacy_module not in source
     assert legacy_memory not in source
@@ -585,7 +589,9 @@ def test_chat_context_drops_legacy_memory_imports(monkeypatch):
 
 
 def test_chat_prompt_includes_meta_question_inline_rule():
-    prompt_path = Path(__file__).resolve().parents[1] / "talent" / "chat.md"
+    prompt_path = (
+        Path(__file__).resolve().parents[1] / "solstone" / "talent" / "chat.md"
+    )
     prompt_text = prompt_path.read_text(encoding="utf-8")
 
     assert (

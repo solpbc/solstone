@@ -10,17 +10,17 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-import convey.state
-import think.utils
-from think.call import call_app
-from think.entities.journal import (
+import solstone.convey.state as convey_state
+import solstone.think.utils as think_utils
+from solstone.think.call import call_app
+from solstone.think.entities.journal import (
     clear_journal_entity_cache,
     load_journal_entity,
     save_journal_entity,
 )
-from think.entities.relationships import load_facet_relationship
+from solstone.think.entities.relationships import load_facet_relationship
 
-journal_sources = import_module("apps.import.journal_sources")
+journal_sources = import_module("solstone.apps.import.journal_sources")
 
 create_state_directory = journal_sources.create_state_directory
 generate_key = journal_sources.generate_key
@@ -56,9 +56,9 @@ def _source(name="test-source", key=None, **overrides):
 def import_env(tmp_path, monkeypatch):
     """Set up a temp journal with an import source and state directory."""
 
-    monkeypatch.setattr(convey.state, "journal_root", str(tmp_path), raising=False)
+    monkeypatch.setattr(convey_state, "journal_root", str(tmp_path), raising=False)
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
-    think.utils._journal_path_cache = None
+    think_utils._journal_path_cache = None
     clear_journal_entity_cache()
     (tmp_path / "apps" / "import" / "journal_sources").mkdir(
         parents=True, exist_ok=True

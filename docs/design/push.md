@@ -2,32 +2,32 @@
 
 ## 1. Summary
 
-Wave 3 ships a root-level push API on the existing Convey server, backed by a dedicated push runtime and APNs dispatch layer. The server surface is a new `convey/push.py` blueprint mounted at `/api/push/*`, following the same root-blueprint pattern as the Wave 2 voice server rather than adding an `apps/push/` package (`convey/voice.py:26-184`, `convey/__init__.py:150-166`, `docs/design/voice-server.md:1-37`, `0a693381 voice: ship Wave 2 voice server (root /api/voice/*, 9-tool sideband)`). The runtime starts from `convey.create_app()`, owns both a `CallosumConnection` listener and an asyncio loop, dispatches Daily Briefing when `cortex.finish` reports `name=="morning_briefing"`, and runs a 60-second periodic check for Pre-Meeting Prep across enabled facets only (`think/callosum.py:245-346`, `think/cortex.py:433-441`, `think/activities.py:877-890`, `think/facets.py:255-261`). The shipped notification categories are `SOLSTONE_DAILY_BRIEFING`, `SOLSTONE_PRE_MEETING_PREP`, and `SOLSTONE_AGENT_ALERT`; the server also defines `SOLSTONE_COMMITMENT_NUDGE` for client forward-compatibility, but no Wave 3 trigger emits it.
+Wave 3 ships a root-level push API on the existing Convey server, backed by a dedicated push runtime and APNs dispatch layer. The server surface is a new `solstone/convey/push.py` blueprint mounted at `/api/push/*`, following the same root-blueprint pattern as the Wave 2 voice server rather than adding an `solstone/apps/push/` package (`solstone/convey/voice.py:26-184`, `solstone/convey/__init__.py:150-166`, `docs/design/voice-server.md:1-37`, `0a693381 voice: ship Wave 2 voice server (root /api/voice/*, 9-tool sideband)`). The runtime starts from `convey.create_app()`, owns both a `CallosumConnection` listener and an asyncio loop, dispatches Daily Briefing when `cortex.finish` reports `name=="morning_briefing"`, and runs a 60-second periodic check for Pre-Meeting Prep across enabled facets only (`solstone/think/callosum.py:245-346`, `solstone/think/cortex.py:433-441`, `solstone/think/activities.py:877-890`, `solstone/think/facets.py:255-261`). The shipped notification categories are `SOLSTONE_DAILY_BRIEFING`, `SOLSTONE_PRE_MEETING_PREP`, and `SOLSTONE_AGENT_ALERT`; the server also defines `SOLSTONE_COMMITMENT_NUDGE` for client forward-compatibility, but no Wave 3 trigger emits it.
 
-Wave 3 explicitly defers commitment nudges to Wave 3.1 because the current ledger surface does not provide a machine-readable due date. `LedgerItem` has `when: str | None`, no `due` field, and `age_days` is derived from `opened_at`, so any age-threshold proxy would blur “old” and “overdue” in misleading ways (`think/surfaces/types.py:16-31`, `think/surfaces/ledger.py:395-410`). Wave 3 also defers live APNs validation pending Apple Developer enrollment, and it does not cover the native iOS client implementation, which ships in the companion lode.
+Wave 3 explicitly defers commitment nudges to Wave 3.1 because the current ledger surface does not provide a machine-readable due date. `LedgerItem` has `when: str | None`, no `due` field, and `age_days` is derived from `opened_at`, so any age-threshold proxy would blur “old” and “overdue” in misleading ways (`solstone/think/surfaces/types.py:16-31`, `solstone/think/surfaces/ledger.py:395-410`). Wave 3 also defers live APNs validation pending Apple Developer enrollment, and it does not cover the native iOS client implementation, which ships in the companion lode.
 
 Wave 3 is accepted when the mocked round-trip tests pass, the new push paths remain inside their declared write ownership, and the live-validation handoff is explicit enough that enrollment unblocks the final production exercise without design work. The gate stays the same as other repo work: keep layer hygiene clean, keep behavior testable from the Flask surface downward, and make runtime startup and shutdown deterministic (`scripts/check_layer_hygiene.py:38-72`, `scripts/check_layer_hygiene.py:183-240`, `tests/test_voice_runtime.py:19-103`, `tests/test_voice_integration.py:102-149`).
 
 ## 2. Module layout
 
-Wave 3 adds a small `think/push/` package plus one new root blueprint. The layout deliberately mirrors the voice-server split where that split is sound, and deliberately does not reuse the voice runtime name because voice shutdown still hardcodes `brain.clear_brain_state()` and voice-specific app attachment (`think/voice/runtime.py:44-50`, `think/voice/runtime.py:88-105`).
+Wave 3 adds a small `solstone/think/push/` package plus one new root blueprint. The layout deliberately mirrors the voice-server split where that split is sound, and deliberately does not reuse the voice runtime name because voice shutdown still hardcodes `brain.clear_brain_state()` and voice-specific app attachment (`solstone/think/voice/runtime.py:44-50`, `solstone/think/voice/runtime.py:88-105`).
 
 | Path | Role |
 |---|---|
-| `convey/push.py` | Root Flask blueprint at `/api/push/*`. Defines local request validators mirroring `convey/voice.py` (`_error`, `_required_json_object`, `_optional_json_object`) and exposes `POST /register`, `DELETE /register`, `GET /status`, and `POST /test` (`convey/voice.py:26-55`, `convey/voice.py:58-184`). |
-| `convey/__init__.py` | Registers `push_bp` beside the other root blueprints and calls `start_push_runtime(app)` during `create_app()`, mirroring the existing voice wire-in. The implementation must keep using `get_journal()` at call time because `state.journal_root` is assigned only after runtime startup (`convey/__init__.py:138-166`). |
-| `think/push/__init__.py` | Package marker plus narrow re-export surface for runtime helpers and the public trigger entry point. This keeps callers out of module-private helpers and matches the small public surfaces used elsewhere in `think/voice/` (`think/voice/runtime.py:121-127`). |
-| `think/push/config.py` | Journal-scoped config readers for `push.apns_key_path`, `push.apns_key_id`, `push.apns_team_id`, `push.bundle_id`, and `push.environment`. It mirrors the small-reader style of `think/voice/config.py`, but intentionally does not add env-var fallback because push credentials are journal-scoped operational config, not process-scoped ambient state (`think/voice/config.py:17-42`, `think/journal_default.json:35-39`). |
-| `think/push/devices.py` | Device store owner. Exposes `load_devices()`, `register_device(token, bundle_id, environment, platform)`, and `remove_device(token)`. It is the sole writer for `journal/config/push_devices.json`, normalizes token input, recovers from malformed stores by treating them as empty with a warning, and rewrites the store atomically on each mutation. |
-| `think/push/dispatch.py` | APNs transport owner. Defines the four category constants, the APNs HTTP/2 client using `httpx`, the ES256 JWT signer using `PyJWT`, the 55-minute bearer-token cache, payload builders, and `send(device, payload)` / `send_many(devices, payload)` helpers. `httpx` is already in the repo dependency set, so only `PyJWT` is added (`pyproject.toml:53`). |
-| `think/push/triggers.py` | Trigger owner. Defines `handle_briefing_finish(message)`, `check_pre_meeting_prep(now)`, and `send_agent_alert(title, body, context_id)`. This module is the sole writer for `journal/push/nudge_log.jsonl`; there is no separate `log.py`, so dedupe stays adjacent to trigger decisions. Trigger logic reads only enabled facets, reuses `_load_briefing_md(today)` for Daily Briefing, and reuses `load_activity_records(facet, day)` plus `record["source"] == "anticipated"` filtering for Pre-Meeting Prep (`apps/home/routes.py:149-198`, `apps/home/routes.py:305-337`, `think/activities.py:877-890`, `think/activities.py:937-939`, `think/facets.py:255-261`). |
-| `think/push/runtime.py` | Dedicated runtime singleton. Exposes `start_push_runtime(app)`, `stop_push_runtime(app)`, and `stop_all_push_runtime()`. It mirrors the voice runtime’s daemon-thread + asyncio-loop + `atexit` pattern, but keeps push lifecycle independent and owns both the callosum listener and the 60-second periodic task (`think/voice/runtime.py:21-109`, `think/callosum.py:254-346`). |
+| `solstone/convey/push.py` | Root Flask blueprint at `/api/push/*`. Defines local request validators mirroring `solstone/convey/voice.py` (`_error`, `_required_json_object`, `_optional_json_object`) and exposes `POST /register`, `DELETE /register`, `GET /status`, and `POST /test` (`solstone/convey/voice.py:26-55`, `solstone/convey/voice.py:58-184`). |
+| `solstone/convey/__init__.py` | Registers `push_bp` beside the other root blueprints and calls `start_push_runtime(app)` during `create_app()`, mirroring the existing voice wire-in. The implementation must keep using `get_journal()` at call time because `state.journal_root` is assigned only after runtime startup (`solstone/convey/__init__.py:138-166`). |
+| `solstone/think/push/__init__.py` | Package marker plus narrow re-export surface for runtime helpers and the public trigger entry point. This keeps callers out of module-private helpers and matches the small public surfaces used elsewhere in `solstone/think/voice/` (`solstone/think/voice/runtime.py:121-127`). |
+| `solstone/think/push/config.py` | Journal-scoped config readers for `push.apns_key_path`, `push.apns_key_id`, `push.apns_team_id`, `push.bundle_id`, and `push.environment`. It mirrors the small-reader style of `solstone/think/voice/config.py`, but intentionally does not add env-var fallback because push credentials are journal-scoped operational config, not process-scoped ambient state (`solstone/think/voice/config.py:17-42`, `solstone/think/journal_default.json:35-39`). |
+| `solstone/think/push/devices.py` | Device store owner. Exposes `load_devices()`, `register_device(token, bundle_id, environment, platform)`, and `remove_device(token)`. It is the sole writer for `journal/config/push_devices.json`, normalizes token input, recovers from malformed stores by treating them as empty with a warning, and rewrites the store atomically on each mutation. |
+| `solstone/think/push/dispatch.py` | APNs transport owner. Defines the four category constants, the APNs HTTP/2 client using `httpx`, the ES256 JWT signer using `PyJWT`, the 55-minute bearer-token cache, payload builders, and `send(device, payload)` / `send_many(devices, payload)` helpers. `httpx` is already in the repo dependency set, so only `PyJWT` is added (`pyproject.toml:53`). |
+| `solstone/think/push/triggers.py` | Trigger owner. Defines `handle_briefing_finish(message)`, `check_pre_meeting_prep(now)`, and `send_agent_alert(title, body, context_id)`. This module is the sole writer for `journal/push/nudge_log.jsonl`; there is no separate `log.py`, so dedupe stays adjacent to trigger decisions. Trigger logic reads only enabled facets, reuses `_load_briefing_md(today)` for Daily Briefing, and reuses `load_activity_records(facet, day)` plus `record["source"] == "anticipated"` filtering for Pre-Meeting Prep (`solstone/apps/home/routes.py:149-198`, `solstone/apps/home/routes.py:305-337`, `solstone/think/activities.py:877-890`, `solstone/think/activities.py:937-939`, `solstone/think/facets.py:255-261`). |
+| `solstone/think/push/runtime.py` | Dedicated runtime singleton. Exposes `start_push_runtime(app)`, `stop_push_runtime(app)`, and `stop_all_push_runtime()`. It mirrors the voice runtime’s daemon-thread + asyncio-loop + `atexit` pattern, but keeps push lifecycle independent and owns both the callosum listener and the 60-second periodic task (`solstone/think/voice/runtime.py:21-109`, `solstone/think/callosum.py:254-346`). |
 
 Deliberate non-changes:
 
 - No `sol push` top-level CLI. Wave 3 is a root API plus in-process runtime, matching the Wave 2 voice-server precedent rather than adding a separate command surface (`docs/design/voice-server.md:7-37`, `0a693381 voice: ship Wave 2 voice server (root /api/voice/*, 9-tool sideband)`).
-- No `schedules.json` entry. The scheduler only understands `hourly`, `daily`, and `weekly`, which is too coarse for a 15-minute pre-meeting reminder (`think/scheduler.py:29-30`, `think/scheduler.py:375-438`).
-- No supervisor hook. `think/supervisor.py::supervise()` is the one-second orchestration loop, but Wave 3 keeps push-domain logic out of supervisor and self-contains it in the push runtime (`think/supervisor.py:1311-1371`).
+- No `schedules.json` entry. The scheduler only understands `hourly`, `daily`, and `weekly`, which is too coarse for a 15-minute pre-meeting reminder (`solstone/think/scheduler.py:29-30`, `solstone/think/scheduler.py:375-438`).
+- No supervisor hook. `solstone/think/supervisor.py::supervise()` is the one-second orchestration loop, but Wave 3 keeps push-domain logic out of supervisor and self-contains it in the push runtime (`solstone/think/supervisor.py:1311-1371`).
 
 `push_devices.json` uses this storage model:
 
@@ -56,7 +56,7 @@ iOS client
   -> 200 {"registered": true, "device_count": N}
 ```
 
-This mirrors the voice blueprint’s “validate locally, then hand off to the feature module” pattern, but the handoff is synchronous because device registration is just a journal write and does not need the runtime loop (`convey/voice.py:29-55`, `convey/voice.py:58-123`).
+This mirrors the voice blueprint’s “validate locally, then hand off to the feature module” pattern, but the handoff is synchronous because device registration is just a journal write and does not need the runtime loop (`solstone/convey/voice.py:29-55`, `solstone/convey/voice.py:58-123`).
 
 ### 3.2 Daily Briefing dispatch
 
@@ -71,7 +71,7 @@ cortex subprocess
   -> append journal/push/nudge_log.jsonl
 ```
 
-The polling step is mandatory because `cortex.finish` is broadcast before `_write_output(...)` runs and before the `_active.jsonl` file is renamed to its completed name. `_load_briefing_md(today)` already enforces the `type=="morning_briefing"` and `metadata.date==today` gates, so the trigger reuses it instead of inventing a second briefing reader (`think/cortex.py:433-441`, `think/cortex.py:461-510`, `think/cortex.py:621-626`, `apps/home/routes.py:149-198`).
+The polling step is mandatory because `cortex.finish` is broadcast before `_write_output(...)` runs and before the `_active.jsonl` file is renamed to its completed name. `_load_briefing_md(today)` already enforces the `type=="morning_briefing"` and `metadata.date==today` gates, so the trigger reuses it instead of inventing a second briefing reader (`solstone/think/cortex.py:433-441`, `solstone/think/cortex.py:461-510`, `solstone/think/cortex.py:621-626`, `solstone/apps/home/routes.py:149-198`).
 
 ### 3.3 Pre-Meeting Prep dispatch
 
@@ -87,7 +87,7 @@ push runtime periodic task (every 60s)
   -> append journal/push/nudge_log.jsonl
 ```
 
-The trigger must use `get_enabled_facets().keys()` so muted facets never produce push. The activity scan follows the existing repo convention: load all rows for `(facet, day)`, then filter `record["source"] == "anticipated"` in-process (`think/facets.py:255-261`, `think/activities.py:877-890`, `think/activities.py:937-939`, `apps/home/routes.py:305-337`).
+The trigger must use `get_enabled_facets().keys()` so muted facets never produce push. The activity scan follows the existing repo convention: load all rows for `(facet, day)`, then filter `record["source"] == "anticipated"` in-process (`solstone/think/facets.py:255-261`, `solstone/think/activities.py:877-890`, `solstone/think/activities.py:937-939`, `solstone/apps/home/routes.py:305-337`).
 
 ### 3.4 Agent Alert dispatch
 
@@ -112,17 +112,17 @@ process exit or test cleanup
   -> clear module-level runtime state
 ```
 
-The shutdown contract matches the voice runtime: cancel tracked work, stop the loop from the owning thread, join with a bounded timeout, and leave the singleton reusable for the next app instance (`think/voice/runtime.py:53-109`, `tests/test_voice_runtime.py:19-103`).
+The shutdown contract matches the voice runtime: cancel tracked work, stop the loop from the owning thread, join with a bounded timeout, and leave the singleton reusable for the next app instance (`solstone/think/voice/runtime.py:53-109`, `tests/test_voice_runtime.py:19-103`).
 
 ## 4. Endpoint specs
 
-All four endpoints inherit the default Convey auth gate because `convey/root.py` wraps every request unless the endpoint is on the explicit bypass allowlist, and new `/api/push/*` routes are not on that list (`convey/root.py:81-139`). Request validation mirrors the voice helpers in `convey/voice.py`, so malformed JSON and non-object bodies fail before feature code runs (`convey/voice.py:29-55`).
+All four endpoints inherit the default Convey auth gate because `solstone/convey/root.py` wraps every request unless the endpoint is on the explicit bypass allowlist, and new `/api/push/*` routes are not on that list (`solstone/convey/root.py:81-139`). Request validation mirrors the voice helpers in `solstone/convey/voice.py`, so malformed JSON and non-object bodies fail before feature code runs (`solstone/convey/voice.py:29-55`).
 
 ### 4.1 `POST /api/push/register`
 
 - URL: `/api/push/register`
 - Method: `POST`
-- Auth: default gate only. Accepts a logged-in session, Basic Auth, or the existing `trust_localhost` bypass when setup is complete and proxy headers are absent (`convey/root.py:111-139`).
+- Auth: default gate only. Accepts a logged-in session, Basic Auth, or the existing `trust_localhost` bypass when setup is complete and proxy headers are absent (`solstone/convey/root.py:111-139`).
 - Request schema:
   - Required JSON object.
   - `device_token: string` — trimmed, non-empty. The server strips embedded spaces and lowercases before storage.
@@ -149,7 +149,7 @@ All four endpoints inherit the default Convey auth gate because `convey/root.py`
 
 - URL: `/api/push/register`
 - Method: `DELETE`
-- Auth: default gate only (`convey/root.py:111-139`).
+- Auth: default gate only (`solstone/convey/root.py:111-139`).
 - Request schema:
   - Required JSON object.
   - `device_token: string` — trimmed, non-empty; normalized with the same rules as register.
@@ -171,7 +171,7 @@ All four endpoints inherit the default Convey auth gate because `convey/root.py`
 
 - URL: `/api/push/status`
 - Method: `GET`
-- Auth: default gate only (`convey/root.py:111-139`).
+- Auth: default gate only (`solstone/convey/root.py:111-139`).
 - Request schema:
   - No request body.
 - Success response:
@@ -189,7 +189,7 @@ All four endpoints inherit the default Convey auth gate because `convey/root.py`
   - The list is sorted newest-first by `registered_at`.
 - Error cases:
   - No endpoint-specific 4xx errors.
-  - Malformed `push_devices.json` is treated as an empty store with a warning from `think/push/devices.py`; the route still returns HTTP 200.
+  - Malformed `push_devices.json` is treated as an empty store with a warning from `solstone/think/push/devices.py`; the route still returns HTTP 200.
 - Notes:
   - This route never returns full device tokens.
   - This route reports all stored devices, not just devices matching the active bundle/environment filter.
@@ -198,7 +198,7 @@ All four endpoints inherit the default Convey auth gate because `convey/root.py`
 
 - URL: `/api/push/test`
 - Method: `POST`
-- Auth: default gate only. There is no extra debug header or test-only bypass (`convey/root.py:111-139`).
+- Auth: default gate only. There is no extra debug header or test-only bypass (`solstone/convey/root.py:111-139`).
 - Request schema:
   - Empty body allowed.
   - If a body is present, it must decode to a JSON object.
@@ -224,7 +224,7 @@ All four endpoints inherit the default Convey auth gate because `convey/root.py`
 
 ## 5. Config keys
 
-Push configuration lives only in `journal/config/journal.json`. Unlike voice, it does not fall back to environment variables, because these values describe the current journal’s push environment rather than a process-global secret cache (`think/voice/config.py:30-42`). Every read uses `get_config()` and every path lookup uses `get_journal()` at call time; the runtime does not cache the journal root during startup because `create_app()` does not assign `state.journal_root` until after `start_voice_runtime(app)` today, and Wave 3 preserves that ordering when it adds `start_push_runtime(app)` (`convey/__init__.py:163-166`, `think/voice/runtime.py:44-46`).
+Push configuration lives only in `journal/config/journal.json`. Unlike voice, it does not fall back to environment variables, because these values describe the current journal’s push environment rather than a process-global secret cache (`solstone/think/voice/config.py:30-42`). Every read uses `get_config()` and every path lookup uses `get_journal()` at call time; the runtime does not cache the journal root during startup because `create_app()` does not assign `state.journal_root` until after `start_voice_runtime(app)` today, and Wave 3 preserves that ordering when it adds `start_push_runtime(app)` (`solstone/convey/__init__.py:163-166`, `solstone/think/voice/runtime.py:44-46`).
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
@@ -234,7 +234,7 @@ Push configuration lives only in `journal/config/journal.json`. Unlike voice, it
 | `push.bundle_id` | `string \| null` | `null` | App bundle identifier, for example `org.solpbc.solstone-swift`. |
 | `push.environment` | `"development" \| "production" \| null` | `"development"` | APNs environment. `null` resolves to `"development"`. |
 
-Literal `think/journal_default.json` block:
+Literal `solstone/think/journal_default.json` block:
 
 ```json
   "voice": {
@@ -318,8 +318,8 @@ Payload:
 Builder rules:
 
 - `day` is the local journal day in `YYYYMMDD` format.
-- `generated` comes from briefing frontmatter when present, because `_load_briefing_md(today)` already loads that metadata (`apps/home/routes.py:149-198`, `tests/fixtures/journal/identity/briefing.md:1-14`).
-- `needs_attention_count` is the length of the bullets list returned by `_load_briefing_md(today)` (`apps/home/routes.py:191-198`).
+- `generated` comes from briefing frontmatter when present, because `_load_briefing_md(today)` already loads that metadata (`solstone/apps/home/routes.py:149-198`, `tests/fixtures/journal/identity/briefing.md:1-14`).
+- `needs_attention_count` is the length of the bullets list returned by `_load_briefing_md(today)` (`solstone/apps/home/routes.py:191-198`).
 
 ### 6.2 Pre-Meeting Prep
 
@@ -362,9 +362,9 @@ Payload:
 
 Builder rules:
 
-- `activity_id` comes from the activity record’s `id`, which already exists on anticipated rows and is the right natural key for collapse and dedupe (`tests/test_voice_tools.py:197-211`, `think/activities.py:893-915`).
+- `activity_id` comes from the activity record’s `id`, which already exists on anticipated rows and is the right natural key for collapse and dedupe (`tests/test_voice_tools.py:197-211`, `solstone/think/activities.py:893-915`).
 - `start` accepts stored `HH:MM` or `HH:MM:SS`; the trigger parser is tolerant, but the payload preserves the stored string as-is.
-- `participants` pulls attendee names from `participation` entries where `role=="attendee"`, following the existing Home surface pattern (`apps/home/routes.py:312-337`, `tests/test_voice_tools.py:197-214`).
+- `participants` pulls attendee names from `participation` entries where `role=="attendee"`, following the existing Home surface pattern (`solstone/apps/home/routes.py:312-337`, `tests/test_voice_tools.py:197-214`).
 - `interruption-level` is present only on this category.
 
 ### 6.3 Agent Alert
@@ -445,22 +445,22 @@ Wave 3 hardcodes the lock-screen-safe fallback into the payload builders. It is 
 
 ## 7. Domain write-ownership (L1–L9 declarations)
 
-Push owns its own journal domain. It is not an indexer, importer, scheduler, or search subsystem, so its writes belong in `think/push/*` and do not need to be routed through another domain owner (`scripts/check_layer_hygiene.py:38-57`, `scripts/check_layer_hygiene.py:199-209`).
+Push owns its own journal domain. It is not an indexer, importer, scheduler, or search subsystem, so its writes belong in `solstone/think/push/*` and do not need to be routed through another domain owner (`scripts/check_layer_hygiene.py:38-57`, `scripts/check_layer_hygiene.py:199-209`).
 
 | Path | Owner module | Write API | Read API |
 |---|---|---|---|
-| `journal/config/push_devices.json` | `think/push/devices.py` | `register_device`, `remove_device` | `load_devices` |
-| `journal/push/nudge_log.jsonl` | `think/push/triggers.py` | `_append_nudge_log` | `_has_nudged` |
+| `journal/config/push_devices.json` | `solstone/think/push/devices.py` | `register_device`, `remove_device` | `load_devices` |
+| `journal/push/nudge_log.jsonl` | `solstone/think/push/triggers.py` | `_append_nudge_log` | `_has_nudged` |
 
 L1 declaration:
 
-- `think/push/*` is a feature-owned runtime and transport layer, not infrastructure. Its journal writes are feature state, not accidental cross-domain mutation.
+- `solstone/think/push/*` is a feature-owned runtime and transport layer, not infrastructure. Its journal writes are feature state, not accidental cross-domain mutation.
 
 L2 declaration:
 
-- No module outside `think/push/` writes `journal/config/push_devices.json`.
-- No module outside `think/push/` writes `journal/push/nudge_log.jsonl`.
-- `convey/push.py` calls feature APIs but never writes these paths directly.
+- No module outside `solstone/think/push/` writes `journal/config/push_devices.json`.
+- No module outside `solstone/think/push/` writes `journal/push/nudge_log.jsonl`.
+- `solstone/convey/push.py` calls feature APIs but never writes these paths directly.
 
 L3 declaration:
 
@@ -471,12 +471,12 @@ L3 declaration:
 L6/L7 declaration:
 
 - Indexers and importers do not touch push paths.
-- The current hygiene script only scans infrastructure scopes `think/indexer`, `think/importers`, `think/search`, and `think/graph`, plus read-verb `apps/*/call.py` handlers; `think/push/*` is outside those scopes (`scripts/check_layer_hygiene.py:38-44`, `scripts/check_layer_hygiene.py:124-145`, `scripts/check_layer_hygiene.py:156-180`).
+- The current hygiene script only scans infrastructure scopes `solstone/think/indexer`, `solstone/think/importers`, `solstone/think/search`, and `solstone/think/graph`, plus read-verb `solstone/apps/*/call.py` handlers; `solstone/think/push/*` is outside those scopes (`scripts/check_layer_hygiene.py:38-44`, `scripts/check_layer_hygiene.py:124-145`, `scripts/check_layer_hygiene.py:156-180`).
 - The current hygiene script also only looks for writes near `journal/entities`, `journal/facets`, and `journal/observations`, not `journal/config/push_devices.json` or `journal/push/nudge_log.jsonl`, so no allowlist entry is required (`scripts/check_layer_hygiene.py:59-72`, `scripts/check_layer_hygiene.py:105-108`).
 
 L8 declaration:
 
-- Hooks do not apply. Push has no talent hook and does not write through `think/hooks.py` or `talent/*.py`.
+- Hooks do not apply. Push has no talent hook and does not write through `solstone/think/hooks.py` or `solstone/talent/*.py`.
 
 L9 declaration:
 
@@ -588,9 +588,9 @@ Purpose: prove the whole runtime path from Flask startup through callosum listen
 - APNs JWT secrecy: bearer JWT values are never logged. Refresh decisions may log age or cache-hit state, but not the token string itself.
 - `.p8` key secrecy: `push.apns_key_path` may appear in operator config, but the file contents themselves are never logged or echoed back through routes.
 - PII fallback: Daily Briefing, Pre-Meeting Prep, and deferred Commitment Nudge use generic lock-screen bodies, with detail moved into `data` for device-side handling. Agent Alert is caller-provided and inherits caller responsibility for lock-screen safety.
-- Auth: all `/api/push/*` endpoints use the default root auth gate. There is no debug header and no push-specific bypass. Default auth is session cookie, then Basic Auth, then opt-in `trust_localhost` after setup when proxy headers are absent (`convey/root.py:49-57`, `convey/root.py:81-139`).
-- `trust_localhost` stays narrow by design: it only applies after setup completion and only when `request.remote_addr` is local and proxy headers are absent (`convey/root.py:119-139`).
-- Facet eligibility: all push triggers operate on `get_enabled_facets().keys()`, so muted facets are excluded from both dispatch and device-visible summaries (`think/facets.py:255-261`, `think/surfaces/ledger.py:454-456`).
+- Auth: all `/api/push/*` endpoints use the default root auth gate. There is no debug header and no push-specific bypass. Default auth is session cookie, then Basic Auth, then opt-in `trust_localhost` after setup when proxy headers are absent (`solstone/convey/root.py:49-57`, `solstone/convey/root.py:81-139`).
+- `trust_localhost` stays narrow by design: it only applies after setup completion and only when `request.remote_addr` is local and proxy headers are absent (`solstone/convey/root.py:119-139`).
+- Facet eligibility: all push triggers operate on `get_enabled_facets().keys()`, so muted facets are excluded from both dispatch and device-visible summaries (`solstone/think/facets.py:255-261`, `solstone/think/surfaces/ledger.py:454-456`).
 - Terminology covenant: operator-visible strings and payload labels use the repo’s “observer/listen” vocabulary and avoid “capture”, “record”, “keeper”, or “assistant”.
 - Hosted-MVP privacy stance: payloads are cleartext to APNs and the device; Wave 3 is explicitly non-E2E.
 - No analytics: Wave 3 adds no tracking, analytics beacons, crash reporting, or delivery pixel equivalents.
@@ -643,7 +643,7 @@ curl -u "$AUTH" \
   }'
 ```
 
-Basic Auth uses only the password component, so `-u ":$SOL_PASSWORD"` is the portable curl form for these routes (`convey/root.py:49-57`).
+Basic Auth uses only the password component, so `-u ":$SOL_PASSWORD"` is the portable curl form for these routes (`solstone/convey/root.py:49-57`).
 
 ## 11. Open questions
 
@@ -655,23 +655,23 @@ Basic Auth uses only the password component, so `-u ":$SOL_PASSWORD"` is the por
 
 Voice-server analog:
 
-- `docs/design/voice-server.md:1-465`, `convey/voice.py:26-184`, `convey/__init__.py:112-166`, `think/voice/runtime.py:21-109`, `think/voice/config.py:17-42`, `think/voice/sideband.py:20-61`, `tests/test_voice_config.py:9-43`, `tests/test_voice_runtime.py:19-103`, `tests/test_voice_routes.py:26-118`, `tests/test_voice_integration.py:102-149`
+- `docs/design/voice-server.md:1-465`, `solstone/convey/voice.py:26-184`, `solstone/convey/__init__.py:112-166`, `solstone/think/voice/runtime.py:21-109`, `solstone/think/voice/config.py:17-42`, `solstone/think/voice/sideband.py:20-61`, `tests/test_voice_config.py:9-43`, `tests/test_voice_runtime.py:19-103`, `tests/test_voice_routes.py:26-118`, `tests/test_voice_integration.py:102-149`
 
 Callosum / cortex finish timing:
 
-- `think/callosum.py:245-346`, `think/cortex.py:433-441`, `think/cortex.py:461-510`, `think/cortex.py:621-626`, `apps/home/routes.py:149-198`, `apps/home/workspace.html:1468-1470`, `apps/home/workspace.html:1732-1788`, `convey/bridge.py:45-86`, `apps/home/events.py:21-55`
+- `solstone/think/callosum.py:245-346`, `solstone/think/cortex.py:433-441`, `solstone/think/cortex.py:461-510`, `solstone/think/cortex.py:621-626`, `solstone/apps/home/routes.py:149-198`, `solstone/apps/home/workspace.html:1468-1470`, `solstone/apps/home/workspace.html:1732-1788`, `solstone/convey/bridge.py:45-86`, `solstone/apps/home/events.py:21-55`
 
 Ledger / activities APIs:
 
-- `think/surfaces/types.py:16-31`, `think/surfaces/ledger.py:395-487`, `think/activities.py:877-945`, `apps/home/routes.py:305-337`, `think/facets.py:255-261`, `tests/test_voice_tools.py:197-214`, `tests/fixtures/journal/identity/briefing.md:1-14`
+- `solstone/think/surfaces/types.py:16-31`, `solstone/think/surfaces/ledger.py:395-487`, `solstone/think/activities.py:877-945`, `solstone/apps/home/routes.py:305-337`, `solstone/think/facets.py:255-261`, `tests/test_voice_tools.py:197-214`, `tests/fixtures/journal/identity/briefing.md:1-14`
 
 Auth model:
 
-- `convey/root.py:49-57`, `convey/root.py:81-139`
+- `solstone/convey/root.py:49-57`, `solstone/convey/root.py:81-139`
 
 Scheduler / runtime choice:
 
-- `think/scheduler.py:29-30`, `think/scheduler.py:375-438`, `think/supervisor.py:1311-1371`, `think/heartbeat.py:45-138`
+- `solstone/think/scheduler.py:29-30`, `solstone/think/scheduler.py:375-438`, `solstone/think/supervisor.py:1311-1371`, `solstone/think/heartbeat.py:45-138`
 
 Layer-hygiene script:
 
@@ -679,7 +679,7 @@ Layer-hygiene script:
 
 Config and dependencies:
 
-- `think/journal_default.json:35-39`, `pyproject.toml:53`
+- `solstone/think/journal_default.json:35-39`, `pyproject.toml:53`
 
 Wave 2 commit:
 

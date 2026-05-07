@@ -8,13 +8,13 @@ def test_importing_categories_does_not_load_av_or_cv2(monkeypatch):
     for mod in (
         "av",
         "cv2",
-        "observe.aruco",
-        "observe.describe",
-        "observe.screen",
+        "solstone.observe.aruco",
+        "solstone.observe.describe",
+        "solstone.observe.screen",
     ):
         monkeypatch.delitem(sys.modules, mod, raising=False)
 
-    from observe.describe import CATEGORIES
+    from solstone.observe.describe import CATEGORIES
 
     assert isinstance(CATEGORIES, dict)
     assert len(CATEGORIES) > 0

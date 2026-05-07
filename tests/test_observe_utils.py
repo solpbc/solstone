@@ -3,7 +3,7 @@
 
 """Tests for observe/utils.py functions."""
 
-from observe.utils import (
+from solstone.observe.utils import (
     assign_monitor_positions,
     parse_screen_filename,
 )

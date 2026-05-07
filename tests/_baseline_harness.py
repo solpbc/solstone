@@ -74,7 +74,7 @@ def isolated_app_env(journal: Path) -> Iterator[Path]:
 
 def make_logged_in_test_client(journal: Path):
     """Create a Flask test client with an authenticated session."""
-    from convey import create_app
+    from solstone.convey import create_app
 
     app = create_app(journal=str(Path(journal).resolve()))
     app.config["TESTING"] = True

@@ -13,14 +13,14 @@ from unittest.mock import MagicMock
 
 import pytest
 
-import think.importers.journal_archive as journal_archive
-from think.importers.file_importer import ImportResult
+import solstone.think.importers.journal_archive as journal_archive
+from solstone.think.importers.file_importer import ImportResult
 
 
 def _reset_journal(monkeypatch, journal_root: Path) -> None:
     journal_root.mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal_root))
-    think_utils = importlib.import_module("think.utils")
+    think_utils = importlib.import_module("solstone.think.utils")
     think_utils._journal_path_cache = None
 
 
@@ -134,7 +134,7 @@ def test_journal_archive_importer_process_merges_wrapped_archive(tmp_path, monke
 
 
 def test_dispatcher_blocks_file_import_when_merge_lock_held(tmp_path, monkeypatch):
-    mod = importlib.import_module("think.importers.cli")
+    mod = importlib.import_module("solstone.think.importers.cli")
     ics_file = tmp_path / "calendar.ics"
     ics_file.write_text("BEGIN:VCALENDAR\nEND:VCALENDAR", encoding="utf-8")
 
@@ -166,7 +166,8 @@ def test_dispatcher_blocks_file_import_when_merge_lock_held(tmp_path, monkeypatc
         ],
     )
     monkeypatch.setattr(
-        "think.importers.file_importer.get_file_importer", lambda name: mock_imp
+        "solstone.think.importers.file_importer.get_file_importer",
+        lambda name: mock_imp,
     )
     monkeypatch.setattr(mod, "CallosumConnection", lambda **kwargs: callosum)
     monkeypatch.setattr(mod, "get_rev", lambda: "test-rev")
@@ -183,7 +184,7 @@ def test_dispatcher_blocks_file_import_when_merge_lock_held(tmp_path, monkeypatc
 
 
 def test_dispatcher_treats_archive_lock_contention_as_failure(tmp_path, monkeypatch):
-    mod = importlib.import_module("think.importers.cli")
+    mod = importlib.import_module("solstone.think.importers.cli")
     archive_path = tmp_path / "journal-export.zip"
     _write_archive(archive_path, _build_archive_members())
     extract_root = tmp_path / "extracts"
@@ -361,7 +362,7 @@ def test_journal_archive_importer_logs_segment_errors(tmp_path, monkeypatch):
     _reset_journal(monkeypatch, target)
     monkeypatch.setattr(journal_archive, "callosum_send", MagicMock(return_value=True))
 
-    merge_mod = importlib.import_module("think.merge")
+    merge_mod = importlib.import_module("solstone.think.merge")
     original_copytree = merge_mod.shutil.copytree
 
     def failing_copytree(src, dst, *args, **kwargs):
@@ -645,7 +646,7 @@ def test_sweep_stale_extract_dirs_removes_old_directories(tmp_path, monkeypatch)
 def test_importer_cli_emits_merge_summary_and_principal_collision(
     tmp_path, monkeypatch, capsys
 ):
-    mod = importlib.import_module("think.importers.cli")
+    mod = importlib.import_module("solstone.think.importers.cli")
     archive_path = tmp_path / "journal-export.zip"
     archive_path.write_bytes(b"fake zip")
 
@@ -679,7 +680,8 @@ def test_importer_cli_emits_merge_summary_and_principal_collision(
         ],
     )
     monkeypatch.setattr(
-        "think.importers.file_importer.get_file_importer", lambda name: mock_imp
+        "solstone.think.importers.file_importer.get_file_importer",
+        lambda name: mock_imp,
     )
     monkeypatch.setattr(mod, "CallosumConnection", lambda **kwargs: callosum)
     monkeypatch.setattr(mod, "get_rev", lambda: "test-rev")

@@ -5,7 +5,7 @@ import json
 
 import pytest
 
-from think.models import record_provider_failure
+from solstone.think.models import record_provider_failure
 
 
 def _read_health(tmp_path):
@@ -95,7 +95,7 @@ def test_record_provider_failure_atomic_replace_failure_preserves_file(
     def fail_replace(_src, _dst):
         raise OSError("replace failed")
 
-    monkeypatch.setattr("think.models.os.replace", fail_replace)
+    monkeypatch.setattr("solstone.think.models.os.replace", fail_replace)
 
     with pytest.raises(OSError, match="replace failed"):
         record_provider_failure("google", "flash", "gemini", "cogitate", 400)

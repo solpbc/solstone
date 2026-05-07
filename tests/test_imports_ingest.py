@@ -10,10 +10,10 @@ from importlib import import_module
 import pytest
 from flask import Blueprint, Flask
 
-import convey.state
+import solstone.convey.state as convey_state
 
-journal_sources = import_module("apps.import.journal_sources")
-ingest = import_module("apps.import.ingest")
+journal_sources = import_module("solstone.apps.import.journal_sources")
+ingest = import_module("solstone.apps.import.ingest")
 
 create_state_directory = journal_sources.create_state_directory
 generate_key = journal_sources.generate_key
@@ -25,7 +25,7 @@ register_ingest_routes = ingest.register_ingest_routes
 
 @pytest.fixture
 def journal_env(tmp_path, monkeypatch):
-    monkeypatch.setattr(convey.state, "journal_root", str(tmp_path), raising=False)
+    monkeypatch.setattr(convey_state, "journal_root", str(tmp_path), raising=False)
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
     (tmp_path / "apps" / "import" / "journal_sources").mkdir(
         parents=True, exist_ok=True

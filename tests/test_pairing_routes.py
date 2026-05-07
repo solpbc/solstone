@@ -9,9 +9,9 @@ import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
-from convey import create_app
-from think.pairing.devices import find_device_by_id, load_devices
-from think.pairing.tokens import create_token as mint_pairing_token
+from solstone.convey import create_app
+from solstone.think.pairing.devices import find_device_by_id, load_devices
+from solstone.think.pairing.tokens import create_token as mint_pairing_token
 
 
 def _write_config(journal_copy, payload: dict) -> None:
@@ -136,7 +136,7 @@ def test_confirm_pairing_distinguishes_expired_and_consumed_tokens(
     pairing_client, monkeypatch
 ):
     expired = mint_pairing_token(ttl_seconds=60, now=1000)
-    monkeypatch.setattr("convey.pairing.time.time", lambda: 1060)
+    monkeypatch.setattr("solstone.convey.pairing.time.time", lambda: 1060)
 
     expired_response = pairing_client.post(
         "/api/pairing/confirm",

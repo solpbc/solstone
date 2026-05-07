@@ -9,8 +9,8 @@ from datetime import datetime
 import pytest
 from flask import Flask
 
-from convey.chat import chat_bp
-from convey.chat_stream import append_chat_event
+from solstone.convey.chat import chat_bp
+from solstone.convey.chat_stream import append_chat_event
 
 
 def _setup_journal(tmp_path, monkeypatch):
@@ -48,7 +48,7 @@ def _write_talent_log(
 
 @pytest.fixture
 def chat_client(tmp_path, monkeypatch):
-    import convey.chat as chat
+    import solstone.convey.chat as chat
 
     _setup_journal(tmp_path, monkeypatch)
     _reset_chat_state(chat)
@@ -63,9 +63,12 @@ def test_post_chat_appends_owner_message_and_returns_reserved_use_id(
     chat_client, monkeypatch
 ):
     starts: list[dict] = []
-    monkeypatch.setattr("think.identity.ensure_identity_directory", lambda: None)
     monkeypatch.setattr(
-        "convey.chat._spawn_chat_generate", lambda action: starts.append(action) or True
+        "solstone.think.identity.ensure_identity_directory", lambda: None
+    )
+    monkeypatch.setattr(
+        "solstone.convey.chat._spawn_chat_generate",
+        lambda action: starts.append(action) or True,
     )
 
     response = chat_client.post(
@@ -87,7 +90,7 @@ def test_post_chat_appends_owner_message_and_returns_reserved_use_id(
 
 def test_session_endpoint_reduces_from_chat_stream(chat_client, monkeypatch):
     day = "20260420"
-    monkeypatch.setattr("convey.chat._today_day", lambda: day)
+    monkeypatch.setattr("solstone.convey.chat._today_day", lambda: day)
     started_at = _ms(2026, 4, 20, 12, 1, 0)
     finished_at = _ms(2026, 4, 20, 12, 2, 0)
     append_chat_event(
@@ -133,7 +136,7 @@ def test_session_endpoint_reduces_from_chat_stream(chat_client, monkeypatch):
 
 def test_chat_session_retries_unresolved_trigger_when_idle(chat_client, monkeypatch):
     day = "20260420"
-    monkeypatch.setattr("convey.chat._today_day", lambda: day)
+    monkeypatch.setattr("solstone.convey.chat._today_day", lambda: day)
     append_chat_event(
         "owner_message",
         ts=_ms(2026, 4, 20, 12, 0, 0),
@@ -145,7 +148,8 @@ def test_chat_session_retries_unresolved_trigger_when_idle(chat_client, monkeypa
 
     starts: list[dict] = []
     monkeypatch.setattr(
-        "convey.chat._spawn_chat_generate", lambda action: starts.append(action) or True
+        "solstone.convey.chat._spawn_chat_generate",
+        lambda action: starts.append(action) or True,
     )
 
     response = chat_client.get("/api/chat/session")
@@ -159,7 +163,7 @@ def test_chat_session_retries_again_when_spawn_fails_and_trigger_remains_unresol
     chat_client, monkeypatch
 ):
     day = "20260420"
-    monkeypatch.setattr("convey.chat._today_day", lambda: day)
+    monkeypatch.setattr("solstone.convey.chat._today_day", lambda: day)
     append_chat_event(
         "owner_message",
         ts=_ms(2026, 4, 20, 12, 0, 0),
@@ -175,8 +179,10 @@ def test_chat_session_retries_again_when_spawn_fails_and_trigger_remains_unresol
         starts.append(action)
         return len(starts) > 1
 
-    monkeypatch.setattr("convey.chat._spawn_chat_generate", fake_spawn)
-    monkeypatch.setattr("convey.chat._emit_error", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr("solstone.convey.chat._spawn_chat_generate", fake_spawn)
+    monkeypatch.setattr(
+        "solstone.convey.chat._emit_error", lambda *_args, **_kwargs: None
+    )
 
     first = chat_client.get("/api/chat/session")
     second = chat_client.get("/api/chat/session")

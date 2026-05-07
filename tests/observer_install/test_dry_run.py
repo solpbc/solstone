@@ -6,7 +6,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from observe.observer_install import linux, tmux
+from solstone.observe.observer_install import linux, tmux
 
 
 def test_linux_dry_run_snapshot(monkeypatch, args_factory, capsys):

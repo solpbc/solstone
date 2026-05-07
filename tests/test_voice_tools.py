@@ -8,15 +8,15 @@ import json
 from datetime import date
 from pathlib import Path
 
+from solstone.think.indexer.journal import scan_journal
+from solstone.think.voice import tools
+from solstone.think.voice.observer_queue import get_observer_queue
 from tests.test_surfaces_ledger import (
     _commitment,
     _minimal_facet_tree,
     _utc_ms,
     _write_story_activity,
 )
-from think.indexer.journal import scan_journal
-from think.voice import tools
-from think.voice.observer_queue import get_observer_queue
 
 
 def _set_today(monkeypatch, day_value: date) -> None:
