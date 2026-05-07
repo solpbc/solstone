@@ -2693,7 +2693,7 @@ wheels = [
 
 [[package]]
 name = "solstone"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
@@ -2703,7 +2703,6 @@ dependencies = [
     { name = "faster-whisper" },
     { name = "flask", extra = ["async"] },
     { name = "flask-sock" },
-    { name = "freezegun" },
     { name = "genai-prices" },
     { name = "google-genai" },
     { name = "h2" },
@@ -2713,7 +2712,6 @@ dependencies = [
     { name = "kaldi-native-fbank" },
     { name = "markdown" },
     { name = "mistune" },
-    { name = "mypy" },
     { name = "numpy" },
     { name = "onnxruntime", marker = "sys_platform == 'darwin'" },
     { name = "openai" },
@@ -2724,16 +2722,11 @@ dependencies = [
     { name = "pyjwt" },
     { name = "pyopenssl" },
     { name = "pypdf" },
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "pytest-cov" },
-    { name = "pytest-timeout" },
     { name = "python-dotenv" },
     { name = "python-frontmatter" },
     { name = "python-slugify" },
     { name = "rapidfuzz" },
     { name = "requests" },
-    { name = "ruff" },
     { name = "scikit-learn" },
     { name = "setproctitle" },
     { name = "soundfile" },
@@ -2764,6 +2757,17 @@ parakeet-onnx-cuda = [
     { name = "onnxruntime-gpu" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "freezegun" },
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-cov" },
+    { name = "pytest-timeout" },
+    { name = "ruff" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "anthropic" },
@@ -2773,7 +2777,6 @@ requires-dist = [
     { name = "faster-whisper", specifier = ">=1.0.0" },
     { name = "flask", extras = ["async"] },
     { name = "flask-sock" },
-    { name = "freezegun" },
     { name = "genai-prices" },
     { name = "google-genai" },
     { name = "h2" },
@@ -2785,7 +2788,6 @@ requires-dist = [
     { name = "kaldi-native-fbank", specifier = ">=1.22" },
     { name = "markdown" },
     { name = "mistune" },
-    { name = "mypy" },
     { name = "numpy" },
     { name = "nvidia-cublas-cu12", marker = "extra == 'parakeet-onnx-cuda'" },
     { name = "nvidia-cuda-nvrtc-cu12", marker = "extra == 'parakeet-onnx-cuda'" },
@@ -2807,16 +2809,11 @@ requires-dist = [
     { name = "pyjwt", specifier = ">=2.8" },
     { name = "pyopenssl", specifier = ">=24.0" },
     { name = "pypdf" },
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "pytest-cov" },
-    { name = "pytest-timeout" },
     { name = "python-dotenv" },
     { name = "python-frontmatter" },
     { name = "python-slugify" },
     { name = "rapidfuzz" },
     { name = "requests" },
-    { name = "ruff" },
     { name = "scikit-learn", specifier = ">=1.3" },
     { name = "setproctitle" },
     { name = "soundfile" },
@@ -2828,6 +2825,17 @@ requires-dist = [
     { name = "websockets", specifier = ">=13.0" },
 ]
 provides-extras = ["parakeet-onnx-cpu", "parakeet-onnx-cuda"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "freezegun" },
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-cov" },
+    { name = "pytest-timeout" },
+    { name = "ruff" },
+]
 
 [[package]]
 name = "soundfile"

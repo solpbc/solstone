@@ -303,7 +303,7 @@ def main() -> None:
 
     # Version flag
     if cmd in ("--version", "-V"):
-        print("sol (solstone) 0.1.0")
+        print("sol (solstone) 0.1.1")
         return
 
     # Path flag

@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "solstone"
-version = "0.1.0"
+version = "0.1.1"
 description = "Navigate Life Intelligently"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "AGPL-3.0-only"}
 authors = [
-    {name = "Jer+AI", email = "jeremie.miller@gmail.com"}
+    {name = "Jer Miller", email = "jer@solpbc.org"}
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -82,14 +82,6 @@ dependencies = [
     # Media processing
     "opencv-python-headless",
 
-    # Development tools
-    "ruff",
-    "mypy",
-    "pytest",
-    "pytest-asyncio",
-    "pytest-cov",
-    "pytest-timeout",
-    "freezegun",
     "requests",
 ]
 
@@ -164,4 +156,15 @@ filterwarnings = [
     "ignore:codecs.open.* is deprecated:DeprecationWarning",
     "ignore:.*_UnionGenericAlias.* is deprecated:DeprecationWarning",
     "ignore:.*DefaultEventLoopPolicy.* is deprecated:DeprecationWarning",
+]
+
+[dependency-groups]
+dev = [
+    "freezegun",
+    "mypy",
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+    "pytest-timeout",
+    "ruff",
 ]

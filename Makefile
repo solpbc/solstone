@@ -14,7 +14,7 @@ export TMPDIR := /var/tmp
 PYTEST_BASETEMP_INIT := BASETEMP=$$(mktemp -d /var/tmp/solstone-pytest-XXXXXX); trap 'rm -rf "$$BASETEMP"' EXIT INT TERM;
 PYTEST_BASETEMP_FLAG := --basetemp "$$BASETEMP"
 
-.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format format-check install-checks ci clean clean-install coverage watch versions update update-prices pre-commit skills dev all sandbox sandbox-stop install-pinchtab install-models parakeet-helper parakeet-helper-clean verify-browser update-browser-baselines review verify verify-api update-api-baselines service-logs check-layer-hygiene FORCE
+.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format format-check install-checks ci clean clean-install coverage watch versions update update-prices pre-commit skills dev all sandbox sandbox-stop install-pinchtab install-models parakeet-helper parakeet-helper-clean verify-browser update-browser-baselines review verify verify-api update-api-baselines service-logs check-layer-hygiene release release-test FORCE
 
 # Default target - install package in editable mode
 all: install
@@ -49,7 +49,7 @@ USER_BIN := $(HOME)/.local/bin
 # Marker file to track installation
 .installed: pyproject.toml uv.lock .python-version-hash
 	@echo "Installing package with uv..."
-	$(UV) sync
+	$(UV) sync --group dev
 	@# Python 3.14+ needs onnxruntime from nightly (not yet on PyPI)
 	@OS_NAME=$$(uname -s); \
 	PY_MINOR=$$($(PYTHON) -c "import sys; print(sys.version_info.minor)"); \
@@ -494,3 +494,9 @@ pre-commit: .installed
 # Low-bar layer-hygiene check (see docs/coding-standards.md § Layer Hygiene)
 check-layer-hygiene: .installed
 	$(VENV_BIN)/python scripts/check_layer_hygiene.py
+
+release: ## Publish solstone to PyPI (production)
+	@bash scripts/release.sh
+
+release-test: ## Publish solstone to TestPyPI
+	@bash scripts/release.sh --test
