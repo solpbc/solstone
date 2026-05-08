@@ -8,7 +8,7 @@ usage() {
 Usage: scripts/cleanroom-install.sh [--source wheel|testpypi|pypi] [--image python:3.12-slim|python:3.12] [--version X.Y.Z]
   --source    wheel, testpypi, or pypi. Default: wheel.
   --image     One image only. Default: python:3.12-slim then python:3.12.
-  --version   Default: dist wheel version for wheel, else 0.1.1.
+  --version   Default: dist wheel version for wheel, else pyproject.toml version.
   -h, --help  Show help.
 EOF
 }
@@ -50,7 +50,7 @@ if [[ -z "$VERSION" && "$SOURCE" == "wheel" ]]; then
         exit 1
     fi
 elif [[ -z "$VERSION" ]]; then
-    VERSION="0.1.1"
+    VERSION="$(grep -E '^version[[:space:]]*=' "$REPO_ROOT/pyproject.toml" | head -1 | sed -E 's/.*"(.+)".*/\1/')"
 fi
 
 case "$SOURCE" in

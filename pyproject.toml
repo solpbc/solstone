@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "solstone"
-version = "0.1.1"
+version = "0.1.2"
 description = "Navigate Life Intelligently"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -58,9 +58,6 @@ dependencies = [
     # verify callback that stdlib ssl can't express.
     "pyOpenSSL>=24.0",
     "websockets>=13.0",
-    "pypdf",
-    "pdf2image",
-    "weasyprint",
     "icalendar",
     "blessed>=1.20.0",
     "psutil",
@@ -72,8 +69,7 @@ dependencies = [
 
     # Audio processing
     "soundfile",
-    "faster-whisper>=1.0.0",
-    "onnxruntime>=1.20.0,!=1.24.1; sys_platform == 'darwin'",
+    "onnxruntime>=1.20.0,!=1.24.1",
     "kaldi-native-fbank>=1.22",
     # solstone/apps/speakers/{owner,discovery}.py use sklearn.cluster.HDBSCAN. Previously
     # pulled transitively via resemblyzer; now a direct dep.
@@ -86,6 +82,25 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+pdf = [
+    "weasyprint>=60.0",
+    "pypdf>=4.0.0",
+    "pdf2image>=1.16.0",
+]
+
+whisper = [
+    "faster-whisper>=1.0.0",
+]
+
+# Bundle of all stdlib extras (excludes parakeet variants — those are
+# mutually-exclusive hardware backends, opt-in).
+all = [
+    "weasyprint>=60.0",
+    "pypdf>=4.0.0",
+    "pdf2image>=1.16.0",
+    "faster-whisper>=1.0.0",
+]
+
 parakeet-onnx-cpu = [
     "onnx-asr>=0.11.0",
     "onnxruntime>=1.25.0",

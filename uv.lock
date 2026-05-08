@@ -2693,14 +2693,13 @@ wheels = [
 
 [[package]]
 name = "solstone"
-version = "0.1.1"
+version = "0.1.2"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
     { name = "av" },
     { name = "blessed" },
     { name = "cryptography" },
-    { name = "faster-whisper" },
     { name = "flask", extra = ["async"] },
     { name = "flask-sock" },
     { name = "genai-prices" },
@@ -2713,15 +2712,13 @@ dependencies = [
     { name = "markdown" },
     { name = "mistune" },
     { name = "numpy" },
-    { name = "onnxruntime", marker = "sys_platform == 'darwin'" },
+    { name = "onnxruntime" },
     { name = "openai" },
     { name = "opencv-python-headless" },
-    { name = "pdf2image" },
     { name = "pillow" },
     { name = "psutil" },
     { name = "pyjwt" },
     { name = "pyopenssl" },
-    { name = "pypdf" },
     { name = "python-dotenv" },
     { name = "python-frontmatter" },
     { name = "python-slugify" },
@@ -2734,11 +2731,16 @@ dependencies = [
     { name = "typer" },
     { name = "tzlocal" },
     { name = "userpath" },
-    { name = "weasyprint" },
     { name = "websockets" },
 ]
 
 [package.optional-dependencies]
+all = [
+    { name = "faster-whisper" },
+    { name = "pdf2image" },
+    { name = "pypdf" },
+    { name = "weasyprint" },
+]
 parakeet-onnx-cpu = [
     { name = "huggingface-hub" },
     { name = "onnx-asr" },
@@ -2755,6 +2757,14 @@ parakeet-onnx-cuda = [
     { name = "nvidia-nvjitlink-cu12" },
     { name = "onnx-asr" },
     { name = "onnxruntime-gpu" },
+]
+pdf = [
+    { name = "pdf2image" },
+    { name = "pypdf" },
+    { name = "weasyprint" },
+]
+whisper = [
+    { name = "faster-whisper" },
 ]
 
 [package.dev-dependencies]
@@ -2774,7 +2784,8 @@ requires-dist = [
     { name = "av" },
     { name = "blessed", specifier = ">=1.20.0" },
     { name = "cryptography", specifier = ">=42" },
-    { name = "faster-whisper", specifier = ">=1.0.0" },
+    { name = "faster-whisper", marker = "extra == 'all'", specifier = ">=1.0.0" },
+    { name = "faster-whisper", marker = "extra == 'whisper'", specifier = ">=1.0.0" },
     { name = "flask", extras = ["async"] },
     { name = "flask-sock" },
     { name = "genai-prices" },
@@ -2798,17 +2809,19 @@ requires-dist = [
     { name = "nvidia-nvjitlink-cu12", marker = "extra == 'parakeet-onnx-cuda'" },
     { name = "onnx-asr", marker = "extra == 'parakeet-onnx-cpu'", specifier = ">=0.11.0" },
     { name = "onnx-asr", marker = "extra == 'parakeet-onnx-cuda'", specifier = ">=0.11.0" },
-    { name = "onnxruntime", marker = "sys_platform == 'darwin'", specifier = ">=1.20.0,!=1.24.1" },
+    { name = "onnxruntime", specifier = ">=1.20.0,!=1.24.1" },
     { name = "onnxruntime", marker = "extra == 'parakeet-onnx-cpu'", specifier = ">=1.25.0" },
     { name = "onnxruntime-gpu", marker = "extra == 'parakeet-onnx-cuda'", specifier = ">=1.25.0" },
     { name = "openai", specifier = ">=1.2.0" },
     { name = "opencv-python-headless" },
-    { name = "pdf2image" },
+    { name = "pdf2image", marker = "extra == 'all'", specifier = ">=1.16.0" },
+    { name = "pdf2image", marker = "extra == 'pdf'", specifier = ">=1.16.0" },
     { name = "pillow" },
     { name = "psutil" },
     { name = "pyjwt", specifier = ">=2.8" },
     { name = "pyopenssl", specifier = ">=24.0" },
-    { name = "pypdf" },
+    { name = "pypdf", marker = "extra == 'all'", specifier = ">=4.0.0" },
+    { name = "pypdf", marker = "extra == 'pdf'", specifier = ">=4.0.0" },
     { name = "python-dotenv" },
     { name = "python-frontmatter" },
     { name = "python-slugify" },
@@ -2821,10 +2834,11 @@ requires-dist = [
     { name = "typer" },
     { name = "tzlocal" },
     { name = "userpath", specifier = ">=1.9.2,<2" },
-    { name = "weasyprint" },
+    { name = "weasyprint", marker = "extra == 'all'", specifier = ">=60.0" },
+    { name = "weasyprint", marker = "extra == 'pdf'", specifier = ">=60.0" },
     { name = "websockets", specifier = ">=13.0" },
 ]
-provides-extras = ["parakeet-onnx-cpu", "parakeet-onnx-cuda"]
+provides-extras = ["pdf", "whisper", "all", "parakeet-onnx-cpu", "parakeet-onnx-cuda"]
 
 [package.metadata.requires-dev]
 dev = [

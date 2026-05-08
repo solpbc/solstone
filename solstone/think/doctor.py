@@ -17,6 +17,9 @@ Decision log:
   doctor-only matrix on GNU make.
 - Ramon triage docs are absent in this worktree; the battery follows the task
   spec directly.
+- Feature-extras checks (pdf, whisper) are dynamically registered from
+  `solstone.think.features.FEATURES`, severity advisory, never affect
+  exit code. Filter via `--feature <name>`.
 """
 
 from __future__ import annotations
@@ -34,6 +37,8 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Callable, Literal, Sequence
 
+from solstone.think import features as _features
+
 ROOT = Path(__file__).resolve().parents[2]
 MIN_UV = (0, 7, 12)
 MIN_FREE_GIB = 10.0
@@ -48,6 +53,7 @@ class Args:
     verbose: bool
     json: bool
     port: int
+    feature: str | None = None
 
 
 @dataclass(frozen=True)
@@ -782,6 +788,26 @@ def microphone_permission_check(args: Args) -> CheckResult:
     )
 
 
+def _make_feature_check(
+    feat_name: str,
+) -> tuple[Check, Callable[[Args], CheckResult]]:
+    feat = _features.FEATURES[feat_name]
+    check = Check(f"feature:{feat_name}", "advisory", ("linux", "darwin"))
+
+    def _run(args: Args) -> CheckResult:
+        del args
+        if _features.is_available(feat_name):
+            return make_result(check, "ok", f"{feat.summary} available")
+        return make_result(
+            check,
+            "warn",
+            f"{feat.summary} not installed",
+            _features.install_hint(feat_name, platform_tag()),
+        )
+
+    return check, _run
+
+
 CHECKS: list[tuple[Check, Callable[[Args], CheckResult]]] = [
     (Check("python_version", "blocker", ("linux", "darwin")), python_version_check),
     (Check("uv_installed", "blocker", ("linux", "darwin")), uv_installed_check),
@@ -820,6 +846,9 @@ CHECKS: list[tuple[Check, Callable[[Args], CheckResult]]] = [
     ),
 ]
 
+for _feat_name in _features.FEATURES:
+    CHECKS.append(_make_feature_check(_feat_name))
+
 CHECK_MAP = {check.name: check for check, _func in CHECKS}
 
 
@@ -838,16 +867,42 @@ def parse_args(argv: Sequence[str] | None = None) -> Args:
     parser.add_argument(
         "--port", type=int, default=5015, help="port to probe (default: 5015)"
     )
+    parser.add_argument(
+        "--feature",
+        default=None,
+        help=f"Run only the named feature check ({', '.join(sorted(_features.FEATURES))})",
+    )
     namespace = parser.parse_args(argv)
+    if namespace.feature is not None and namespace.feature not in _features.FEATURES:
+        known = ", ".join(sorted(_features.FEATURES))
+        parser.error(f"unknown feature {namespace.feature!r}; known features: {known}")
     return Args(
         verbose=namespace.verbose,
         json=namespace.json,
         port=namespace.port,
+        feature=namespace.feature,
     )
 
 
 def run_checks(args: Args) -> list[CheckResult]:
     current_platform = platform_tag()
+    if args.feature is not None:
+        check_name = f"feature:{args.feature}"
+        check = CHECK_MAP[check_name]
+        if current_platform not in check.platforms:
+            return [
+                make_result(
+                    check,
+                    "skip",
+                    f"not supported on {current_platform}",
+                    platform=current_platform,
+                )
+            ]
+        for candidate, func in CHECKS:
+            if candidate.name == check_name:
+                return [func(args)]
+        raise RuntimeError(f"missing check runner for {check_name}")
+
     results: list[CheckResult] = []
     for check, func in CHECKS:
         if current_platform not in check.platforms:

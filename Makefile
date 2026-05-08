@@ -61,7 +61,7 @@ USER_BIN := $(HOME)/.local/bin
 	ARCH=$$(uname -m); \
 	if [ "$$OS_NAME" = "Linux" ] && [ "$$ARCH" = "x86_64" ]; then \
 		echo "parakeet install: PARAKEET_ONNX_VARIANT=$(PARAKEET_ONNX_VARIANT)"; \
-		$(UV) sync --extra parakeet-onnx-$(PARAKEET_ONNX_VARIANT) || { echo "parakeet install: uv sync --extra parakeet-onnx-$(PARAKEET_ONNX_VARIANT) failed" >&2; exit 1; }; \
+		$(UV) sync --extra all --extra parakeet-onnx-$(PARAKEET_ONNX_VARIANT) || { echo "parakeet install: uv sync --extra all --extra parakeet-onnx-$(PARAKEET_ONNX_VARIANT) failed" >&2; exit 1; }; \
 	fi
 	@$(MAKE) --no-print-directory skills
 	@touch .installed
@@ -89,7 +89,7 @@ install: .installed
 	elif [ "$$OS_NAME" = "Linux" ]; then \
 		if [ "$$ARCH" = "x86_64" ]; then \
 			echo "parakeet install: PARAKEET_ONNX_VARIANT=$(PARAKEET_ONNX_VARIANT)"; \
-			$(UV) sync --extra parakeet-onnx-$(PARAKEET_ONNX_VARIANT) || { echo "parakeet install: uv sync --extra parakeet-onnx-$(PARAKEET_ONNX_VARIANT) failed" >&2; exit 1; }; \
+			$(UV) sync --extra all --extra parakeet-onnx-$(PARAKEET_ONNX_VARIANT) || { echo "parakeet install: uv sync --extra all --extra parakeet-onnx-$(PARAKEET_ONNX_VARIANT) failed" >&2; exit 1; }; \
 			if [ "$(PARAKEET_ONNX_VARIANT)" = "cuda" ]; then \
 				$(UV) pip install --reinstall onnxruntime-gpu || { echo "parakeet install: failed to force-reinstall onnxruntime-gpu" >&2; exit 1; }; \
 				$(VENV_PY) -c "import onnxruntime as ort; ort.preload_dlls(cuda=True, cudnn=True); assert 'CUDAExecutionProvider' in ort.get_available_providers(), 'CUDAExecutionProvider missing after install'; print('parakeet install: CUDA runtime ready')" || { echo "parakeet install: CUDA runtime validation failed" >&2; exit 1; }; \
@@ -434,6 +434,9 @@ install-checks: .installed
 	@echo ""
 	@echo "=== Running layer-hygiene check ==="
 	@$(MAKE) check-layer-hygiene
+	@echo ""
+	@echo "=== Checking extras consistency ==="
+	@$(VENV_BIN)/python scripts/check_extras_consistency.py
 	@echo ""
 	@echo "=== Running mypy ==="
 	@$(MYPY) . || true

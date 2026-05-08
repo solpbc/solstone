@@ -19,6 +19,8 @@ from __future__ import annotations
 import importlib
 import os
 import sys
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as _pkg_version
 from typing import Any
 
 import setproctitle
@@ -303,7 +305,11 @@ def main() -> None:
 
     # Version flag
     if cmd in ("--version", "-V"):
-        print("sol (solstone) 0.1.1")
+        try:
+            _v = _pkg_version("solstone")
+        except PackageNotFoundError:
+            _v = "0.0.0+source"
+        print(f"sol (solstone) {_v}")
         return
 
     # Path flag
