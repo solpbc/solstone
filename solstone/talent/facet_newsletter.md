@@ -7,6 +7,7 @@
   "schedule": "daily",
   "priority": 40,
   "multi_facet": true,
+  "timeout_seconds": 1200,
   "load": {
     "talents": true,
     "journal": true

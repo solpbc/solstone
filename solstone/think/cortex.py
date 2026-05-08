@@ -311,14 +311,15 @@ class CortexService:
             self.logger.info(f"Spawning {process_type} {use_id}: {cmd}")
             self.logger.debug(f"NDJSON input: {ndjson_input}")
             subprocess_cwd = None
+            talent_meta: dict[str, Any] | None = None
             if process_type == "talent":
                 from solstone.think.talent import get_talent
 
                 talent_key = str(config["name"])
-                talent_config = get_talent(talent_key)
-                if talent_config.get("type") == "cogitate":
+                talent_meta = get_talent(talent_key)
+                if talent_meta.get("type") == "cogitate":
                     # Resolve here because prepare_config() runs inside solstone.think.talents.
-                    cwd_value = talent_config.get("cwd")
+                    cwd_value = talent_meta.get("cwd")
                     if cwd_value == "journal":
                         try:
                             subprocess_cwd = str(Path(get_journal()))
@@ -355,7 +356,11 @@ class CortexService:
                 self.running_uses[use_id] = agent
 
             # Set up timeout (default to 10 minutes if not specified)
-            timeout_seconds = config.get("timeout_seconds", 600)
+            timeout_seconds = config.get("timeout_seconds")
+            if timeout_seconds is None and process_type == "talent" and talent_meta:
+                timeout_seconds = talent_meta.get("timeout_seconds")
+            if timeout_seconds is None:
+                timeout_seconds = 600
             agent.timeout_timer = threading.Timer(
                 timeout_seconds,
                 lambda: self._timeout_talent(use_id, agent, timeout_seconds),
