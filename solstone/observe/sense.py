@@ -19,6 +19,7 @@ import signal
 import subprocess
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -42,7 +43,7 @@ from solstone.think.utils import (
 
 logger = logging.getLogger(__name__)
 
-# Handlers with serialized HandlerQueues. Add a new entry here when registering one in main().
+# Handlers with serialized worker pools. Add a new entry here when registering one in main().
 HANDLER_NAMES = ("describe", "transcribe")
 
 
@@ -54,67 +55,14 @@ class QueuedItem:
     def __init__(
         self,
         file_path: Path,
+        queued_at: Optional[float] = None,
         observer: Optional[str] = None,
         meta: Optional[Dict[str, Any]] = None,
     ):
         self.file_path = file_path
-        self.queued_at = time.time()
+        self.queued_at = queued_at if queued_at is not None else time.time()
         self.observer = observer
         self.meta = meta
-
-
-class HandlerQueue:
-    """Queue for serializing handler execution.
-
-    Up to `max_concurrent` handler processes can run simultaneously per handler
-    type. Default is 1 (serial); operators raise via {handler}.max_concurrent in
-    journal.json where API quota / hardware allows it.
-    """
-
-    def __init__(self, name: str, max_concurrent: int = 1):
-        self.name = name
-        self.max_concurrent = max_concurrent
-        self.queue: List[QueuedItem] = []
-        self.running: List["HandlerProcess"] = []
-
-    def can_start(self) -> bool:
-        """Returns True if a handler slot is available."""
-        return len(self.running) < self.max_concurrent
-
-    def available_slots(self) -> int:
-        """Return number of available handler slots."""
-        return self.max_concurrent - len(self.running)
-
-    def add_running(self, proc: "HandlerProcess") -> None:
-        """Track a running handler process."""
-        self.running.append(proc)
-
-    def remove_running(self, proc: "HandlerProcess") -> None:
-        """Stop tracking a running handler process."""
-        self.running.remove(proc)
-
-    def enqueue(
-        self,
-        file_path: Path,
-        observer: Optional[str] = None,
-        meta: Optional[Dict[str, Any]] = None,
-    ) -> bool:
-        """Add file to queue if not already present. Returns True if queued."""
-        queued_paths = [item.file_path for item in self.queue]
-        if file_path not in queued_paths:
-            self.queue.append(QueuedItem(file_path, observer, meta))
-            return True
-        return False
-
-    def pop_next(self) -> Optional[QueuedItem]:
-        """Pop and return next queued item, or None if empty."""
-        if self.queue:
-            return self.queue.pop(0)
-        return None
-
-    def queue_size(self) -> int:
-        """Return number of items in queue."""
-        return len(self.queue)
 
 
 class HandlerProcess:
@@ -125,15 +73,11 @@ class HandlerProcess:
         file_path: Path,
         managed: RunnerManagedProcess,
         handler_name: str,
-        cpu_fallback: bool = False,
     ):
         self.file_path = file_path
         self.managed = managed
         self.process = managed.process
         self.handler_name = handler_name
-        self.cpu_fallback = (
-            cpu_fallback  # True if this is a CPU retry after GPU failure
-        )
         self.started_at = time.time()
 
     def cleanup(self):
@@ -151,14 +95,21 @@ class FileSensor:
         # Registry: {glob_pattern: (handler_name, command_template)}
         self.handlers: Dict[str, tuple[str, List[str]]] = {}
 
-        # Track running processes: {file_path: HandlerProcess}
-        self.running: Dict[Path, HandlerProcess] = {}
-        self.lock = threading.RLock()
+        self._stopping = threading.Event()
+        self.lock = threading.Lock()
 
-        # Serialized handler queues (bounded concurrent processes per handler type)
-        self.handler_queues: Dict[str, HandlerQueue] = {
-            name: HandlerQueue(name, max_concurrent=self._resolve_concurrency(name))
+        self.handler_pools: dict[str, ThreadPoolExecutor] = {
+            name: ThreadPoolExecutor(
+                max_workers=self._resolve_concurrency(name),
+                thread_name_prefix=f"{name}-worker",
+            )
             for name in HANDLER_NAMES
+        }
+        self.running_handlers: dict[str, list[HandlerProcess]] = {
+            name: [] for name in HANDLER_NAMES
+        }
+        self.queued_handlers: dict[str, list[QueuedItem]] = {
+            name: [] for name in HANDLER_NAMES
         }
 
         self.running_flag = True
@@ -237,84 +188,26 @@ class FileSensor:
                 return handler_info
         return None
 
-    def _spawn_handler(
+    def _spawn_managed_process(
         self,
+        cmd: list[str],
         file_path: Path,
-        handler_name: str,
-        command: List[str],
+        ref: str,
+        segment: Optional[str],
+        observer: Optional[str],
+        meta: Optional[Dict[str, Any]],
         day: Optional[str] = None,
-        batch: bool = False,
-        segment: Optional[str] = None,
-        observer: Optional[str] = None,
-        meta: Optional[Dict[str, Any]] = None,
-        cpu_fallback: bool = False,
-    ):
-        """Spawn a handler process for the file.
-
-        Files are expected to be in segment directories:
-        YYYYMMDD/stream/HHMMSS_LEN/file.ext relative to journal_dir[/chronicle]
-
-        Args:
-            file_path: Path to the file to process (in segment directory)
-            handler_name: Name of the handler (e.g., "describe", "transcribe")
-            command: Command template with {file} placeholder
-            day: Day string (YYYYMMDD), extracted from path if not provided
-            batch: Whether this is from batch processing mode
-            segment: Segment key, extracted from path if not provided
-            observer: Observer name for OBSERVER_NAME env var
-            meta: Optional metadata dict (facet, setting, host, platform, etc.)
-                  to pass to handlers via SEGMENT_META env var
-            cpu_fallback: If True, this is a retry after GPU failure (adds --cpu,
-                          skips tracking/events since already done on first attempt)
-        """
-        # Extract day and segment from path relative to journal_dir[/chronicle].
-        rel_path = self._segment_relative_path(file_path)
-        if rel_path is not None:
-            if day is None:
-                day = rel_path.parts[0]
-            if segment is None:
-                segment = rel_path.parts[2]
-
-        # Skip tracking/queueing for CPU fallback (already done on first attempt)
-        if not cpu_fallback:
-            with self.lock:
-                # Skip if already processing this file
-                if file_path in self.running:
-                    logger.debug(f"File {file_path.name} already being processed")
-                    return
-
-                # Register file for segment tracking (segment already extracted above)
-                if segment:
-                    if segment not in self.segment_files:
-                        self.segment_files[segment] = set()
-                        self.segment_start_time[segment] = time.time()
-                        if day:
-                            self.segment_day[segment] = day
-                        # Track batch origin for observed event
-                        if batch:
-                            self.segment_batch[segment] = True
-                    self.segment_files[segment].add(file_path)
-
-                # Check if this handler uses serialized execution
-                handler_queue = self.handler_queues.get(handler_name)
-                if handler_queue and not handler_queue.can_start():
-                    if handler_queue.enqueue(file_path, observer=observer, meta=meta):
-                        logger.info(
-                            f"Queueing {file_path.name} for {handler_name} "
-                            f"(queue size: {handler_queue.queue_size()})"
-                        )
-                    return
-
-        # Generate correlation ID for this handler run
-        ref = str(now_ms())
-
-        # Emit detected event with file and ref (skip for CPU fallback)
-        if self.callosum and not cpu_fallback:
+    ) -> RunnerManagedProcess | None:
+        """Spawn the managed process for a handler invocation."""
+        if self.callosum and "--cpu" not in cmd:
             try:
                 rel_file = file_path.relative_to(self.journal_dir)
             except ValueError:
                 rel_file = file_path
 
+            handler_name = (
+                cmd[1] if cmd[0] == "sol" and len(cmd) > 1 else Path(cmd[0]).name
+            )
             event_fields = {
                 "file": str(rel_file),
                 "handler": handler_name,
@@ -330,26 +223,6 @@ class FileSensor:
                 event_fields["stream"] = self.segment_stream[segment]
             self.callosum.emit("observe", "detected", **event_fields)
 
-        # Replace {file} placeholder with actual file path
-        cmd = [str(file_path) if arg == "{file}" else arg for arg in command]
-
-        # Add --cpu flag for CPU fallback retry
-        if cpu_fallback:
-            cmd.append("--cpu")
-
-        # Add verbose/debug flags if set
-        if self.debug:
-            cmd.append("-d")
-        elif self.verbose:
-            cmd.append("-v")
-
-        # Use unified runner to spawn process with automatic logging
-        fallback_note = " (CPU fallback)" if cpu_fallback else ""
-        logger.info(
-            f"Spawning {handler_name}{fallback_note} for {file_path.name}: {' '.join(cmd)}"
-        )
-
-        # Build environment with segment and observer context for handlers
         env = os.environ.copy()
         if segment:
             env["SOL_SEGMENT"] = segment
@@ -364,65 +237,137 @@ class FileSensor:
             )
         except RuntimeError as exc:
             logger.error(str(exc))
-            return
+            return None
+        return managed
 
-        handler_proc = HandlerProcess(
-            file_path, managed, handler_name, cpu_fallback=cpu_fallback
-        )
-
+    def _remove_running_handler(
+        self, handler_name: str, handler_proc: HandlerProcess
+    ) -> None:
         with self.lock:
-            self.running[file_path] = handler_proc
-            # Track running processes if using serialized execution
-            handler_queue = self.handler_queues.get(handler_name)
-            if handler_queue:
-                handler_queue.add_running(handler_proc)
+            handlers = self.running_handlers.get(handler_name)
+            if handlers and handler_proc in handlers:
+                handlers.remove(handler_proc)
 
-        # Monitor process completion in background
-        threading.Thread(
-            target=self._monitor_completion,
-            args=(handler_proc,),
-            daemon=True,
-        ).start()
-
-    def _monitor_completion(self, handler_proc: HandlerProcess):
-        """Monitor handler process and cleanup when done."""
+    def _terminate_handler_process(
+        self, handler_proc: HandlerProcess, deadline: Optional[float] = None
+    ) -> None:
         try:
-            exit_code = handler_proc.process.wait()
-            elapsed = time.time() - handler_proc.started_at
+            handler_proc.process.terminate()
+            logger.debug(
+                f"Sent SIGTERM to {handler_proc.handler_name} for {handler_proc.file_path.name}"
+            )
+        except Exception as exc:
+            logger.warning(
+                f"Failed to terminate {handler_proc.handler_name} for {handler_proc.file_path.name}: {exc}"
+            )
 
-            if exit_code == 0:
+        try:
+            timeout = 5 if deadline is None else max(0.1, deadline - time.time())
+            handler_proc.process.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            logger.warning(
+                f"Force killing {handler_proc.handler_name} for {handler_proc.file_path.name}"
+            )
+            handler_proc.process.kill()
+            handler_proc.process.wait()
+
+        handler_proc.cleanup()
+
+    def _run_handler(
+        self,
+        queued_item: QueuedItem,
+        handler_name: str,
+        command: list[str],
+        segment: str,
+        day: Optional[str] = None,
+        batch: bool = False,
+    ) -> None:
+        """Run one handler invocation from spawn through cleanup."""
+        try:
+            with self.lock:
+                queued = self.queued_handlers.get(handler_name)
+                if queued and queued_item in queued:
+                    queued.remove(queued_item)
+
+            if self._stopping.is_set():
+                return
+
+            file_path = queued_item.file_path
+            cpu_fallback = False
+
+            while True:
+                ref = str(now_ms())
+                cmd = [str(file_path) if arg == "{file}" else arg for arg in command]
+                if cpu_fallback and handler_name == "transcribe":
+                    cmd.append("--cpu")
+                if self.debug:
+                    cmd.append("-d")
+                elif self.verbose:
+                    cmd.append("-v")
+
+                fallback_note = " with CPU fallback" if cpu_fallback else ""
                 logger.info(
-                    f"Handler completed successfully for {handler_proc.file_path.name} "
-                    f"({elapsed:.1f}s)"
+                    f"Spawning {handler_name}{fallback_note} for {file_path.name}: {' '.join(cmd)}"
                 )
 
-                # Check if segment is fully observed
-                self._check_segment_observed(handler_proc.file_path)
-            elif (
-                exit_code == 134
-                and handler_proc.handler_name == "transcribe"
-                and not handler_proc.cpu_fallback
-            ):
-                # Exit 134 = SIGABRT, often from cuDNN/CUDA failure
-                # Retry transcribe with --cpu flag
-                logger.warning(
-                    f"Transcribe crashed (exit 134, likely GPU/cuDNN issue) for "
-                    f"{handler_proc.file_path.name}, retrying with --cpu"
+                managed = self._spawn_managed_process(
+                    cmd,
+                    file_path,
+                    ref,
+                    segment,
+                    queued_item.observer,
+                    queued_item.meta,
+                    day,
                 )
-                handler_proc.cleanup()
+                if managed is None:
+                    self._check_segment_observed(
+                        file_path, error=f"{handler_name} spawn failed"
+                    )
+                    return
+
+                handler_proc = HandlerProcess(file_path, managed, handler_name)
                 with self.lock:
-                    if handler_proc.file_path in self.running:
-                        del self.running[handler_proc.file_path]
-                # Respawn with CPU fallback
-                self._spawn_handler(
-                    handler_proc.file_path,
-                    "transcribe",
-                    ["sol", "transcribe", "{file}"],
-                    cpu_fallback=True,
-                )
-                return  # Skip normal cleanup, we're retrying
-            else:
-                # Show journal-relative log path for easier debugging
+                    self.running_handlers[handler_name].append(handler_proc)
+                    terminate_due_to_stop = self._stopping.is_set()
+
+                if terminate_due_to_stop:
+                    self._terminate_handler_process(handler_proc)
+                    self._remove_running_handler(handler_name, handler_proc)
+                    return
+
+                try:
+                    exit_code = managed.process.wait()
+                except Exception:
+                    handler_proc.cleanup()
+                    self._remove_running_handler(handler_name, handler_proc)
+                    raise
+
+                elapsed = time.time() - handler_proc.started_at
+
+                if (
+                    exit_code == 134
+                    and handler_name == "transcribe"
+                    and not cpu_fallback
+                ):
+                    logger.warning(
+                        f"Transcribe crashed (exit 134, likely GPU/cuDNN issue) for "
+                        f"{file_path.name}, retrying with --cpu"
+                    )
+                    handler_proc.cleanup()
+                    self._remove_running_handler(handler_name, handler_proc)
+                    cpu_fallback = True
+                    continue
+
+                if exit_code == 0:
+                    logger.info(
+                        f"Handler completed successfully for {file_path.name} "
+                        f"({elapsed:.1f}s)"
+                    )
+                    self._check_segment_observed(file_path)
+                    handler_proc.cleanup()
+                    self._remove_running_handler(handler_name, handler_proc)
+                    return
+
                 try:
                     log_rel = handler_proc.managed.log_writer.path.relative_to(
                         self.journal_dir
@@ -430,76 +375,38 @@ class FileSensor:
                 except ValueError:
                     log_rel = handler_proc.managed.log_writer.path
 
-                error_msg = f"{handler_proc.handler_name} failed with exit {exit_code}"
+                error_msg = f"{handler_name} failed with exit {exit_code}"
                 logger.error(
-                    f"{error_msg} for {handler_proc.file_path.name} "
-                    f"({elapsed:.1f}s) - see log {log_rel}"
+                    f"{error_msg} for {file_path.name} ({elapsed:.1f}s) - see log {log_rel}"
                 )
 
-                # Notify user via Callosum
                 if self.callosum:
                     icon = "🤖"
-                    if handler_proc.handler_name == "transcribe":
+                    if handler_name == "transcribe":
                         icon = "🎙️"
-                    elif handler_proc.handler_name == "describe":
+                    elif handler_name == "describe":
                         icon = "👁️"
-
                     self.callosum.emit(
                         "notification",
                         "show",
-                        message=f"{handler_proc.handler_name.capitalize()} failed for {handler_proc.file_path.name}",
-                        title=f"{handler_proc.handler_name.capitalize()} Error",
+                        message=f"{handler_name.capitalize()} failed for {file_path.name}",
+                        title=f"{handler_name.capitalize()} Error",
                         icon=icon,
                         app="sense",
                         action=f"/app/health?log={log_rel}",
                     )
 
-                # Mark file as done so segment can still complete
                 self._check_segment_observed(
-                    handler_proc.file_path,
-                    error=f"{handler_proc.handler_name} exit {exit_code}",
+                    file_path,
+                    error=f"{handler_name} exit {exit_code}",
                 )
-
-            handler_proc.cleanup()
-
-            with self.lock:
-                if handler_proc.file_path in self.running:
-                    del self.running[handler_proc.file_path]
-
-        except Exception as exc:
-            logger.error(
-                f"Unexpected error in monitor thread for {handler_proc.file_path.name}: {exc}",
-                exc_info=True,
+                handler_proc.cleanup()
+                self._remove_running_handler(handler_name, handler_proc)
+                return
+        except Exception:
+            logger.exception(
+                f"Unhandled exception in handler worker for {queued_item.file_path}"
             )
-        finally:
-            # Process queued items if this handler uses serialized execution
-            handler_queue = self.handler_queues.get(handler_proc.handler_name)
-            if handler_queue is not None:
-                self._process_next_queued(handler_queue, handler_proc)
-
-    def _process_next_queued(
-        self, handler_queue: HandlerQueue, completed_proc: HandlerProcess
-    ):
-        """Free a slot and dispatch as many queued items as capacity allows."""
-        with self.lock:
-            handler_queue.remove_running(completed_proc)
-            while handler_queue.queue and handler_queue.can_start():
-                item = handler_queue.pop_next()
-                if item is None:
-                    break
-                logger.info(
-                    "Starting queued %s for %s", handler_queue.name, item.file_path
-                )
-                handler_info = self._match_pattern(item.file_path)
-                if handler_info:
-                    handler_name, command = handler_info
-                    self._spawn_handler(
-                        item.file_path,
-                        handler_name,
-                        command,
-                        observer=item.observer,
-                        meta=item.meta,
-                    )
 
     def _emit_segment_observed(self, segment: str, note: str = ""):
         """Emit observe.observed event and cleanup segment tracking.
@@ -612,16 +519,55 @@ class FileSensor:
             logger.warning(f"File not found, skipping: {file_path}")
             return
 
-        handler_info = self._match_pattern(file_path)
-        if handler_info:
+        queue_size = 0
+        with self.lock:
+            if self._stopping.is_set():
+                return
+
+            handler_info = self._match_pattern(file_path)
+            if not handler_info:
+                return
+
             handler_name, command = handler_info
-            self._spawn_handler(
-                file_path,
+            running = self.running_handlers[handler_name]
+            queued = self.queued_handlers[handler_name]
+            if any(proc.file_path == file_path for proc in running) or any(
+                item.file_path == file_path for item in queued
+            ):
+                logger.debug(f"File {file_path.name} already being processed")
+                return
+
+            rel_path = self._segment_relative_path(file_path)
+            day = rel_path.parts[0] if rel_path is not None else None
+            if segment is None and rel_path is not None:
+                segment = rel_path.parts[2]
+            if segment is None:
+                return
+
+            if segment not in self.segment_files:
+                self.segment_files[segment] = set()
+                self.segment_start_time[segment] = time.time()
+                if day:
+                    self.segment_day[segment] = day
+            self.segment_files[segment].add(file_path)
+
+            queued_item = QueuedItem(file_path, time.time(), observer, meta)
+            queued.append(queued_item)
+            queue_size = len(queued) + len(running)
+            self.handler_pools[handler_name].submit(
+                self._run_handler,
+                queued_item,
                 handler_name,
                 command,
-                segment=segment,
-                observer=observer,
-                meta=meta,
+                segment,
+                day,
+                False,
+            )
+
+        if queue_size > 1:
+            logger.info(
+                f"Queueing {file_path.name} for {handler_name} "
+                f"(queue size: {queue_size})"
             )
 
     def _handle_callosum_message(self, message: Dict[str, Any]):
@@ -692,72 +638,77 @@ class FileSensor:
             return
 
         with self.lock:
-            # Check if there's any activity to report
-            has_queued = any(q.queue_size() > 0 for q in self.handler_queues.values())
-            if not self.running and not has_queued:
-                return  # Nothing active, don't emit
+            running_snapshot = {
+                name: list(handlers) for name, handlers in self.running_handlers.items()
+            }
+            queued_snapshot = {
+                name: list(items) for name, items in self.queued_handlers.items()
+            }
 
-            # Build status object
-            status = {}
+        has_running = any(running_snapshot.values())
+        has_queued = any(queued_snapshot.values())
+        if not has_running and not has_queued:
+            return
 
-            # Get journal path for relative paths
-            journal_path = Path(get_journal())
-            now = time.time()
+        # Build status object
+        status = {}
 
-            # Build status for each serialized handler queue
-            for handler_name, handler_queue in self.handler_queues.items():
-                handler_status = {}
+        # Get journal path for relative paths
+        journal_path = Path(get_journal())
+        now = time.time()
 
-                # Current running processes
-                if handler_queue.running:
-                    running_list = []
-                    for handler_proc in handler_queue.running:
-                        try:
-                            rel_file = journal_relative_path(
-                                journal_path, handler_proc.file_path
-                            )
-                        except ValueError:
-                            rel_file = str(handler_proc.file_path)
+        # Build status for each serialized handler queue
+        for handler_name in running_snapshot:
+            handler_status = {}
 
-                        running_list.append(
-                            {
-                                "file": rel_file,
-                                "ref": handler_proc.managed.ref,
-                                "duration_seconds": int(now - handler_proc.started_at),
-                            }
+            # Current running processes
+            if running_snapshot[handler_name]:
+                running_list = []
+                for handler_proc in running_snapshot[handler_name]:
+                    try:
+                        rel_file = journal_relative_path(
+                            journal_path, handler_proc.file_path
                         )
-                    handler_status["running"] = running_list
+                    except ValueError:
+                        rel_file = str(handler_proc.file_path)
 
-                # Queued items with age
-                if handler_queue.queue_size() > 0:
-                    queued_list = []
-                    for item in handler_queue.queue:
-                        try:
-                            rel_file = journal_relative_path(
-                                journal_path, item.file_path
-                            )
-                        except ValueError:
-                            rel_file = str(item.file_path)
-
-                        queued_list.append(
-                            {"file": rel_file, "age_seconds": int(now - item.queued_at)}
-                        )
-                    handler_status["queued"] = queued_list
-
-                if handler_queue.queue_size() > 0:
-                    handler_status["max_age_seconds"] = int(
-                        now - min(item.queued_at for item in handler_queue.queue)
+                    running_list.append(
+                        {
+                            "file": rel_file,
+                            "ref": handler_proc.managed.ref,
+                            "duration_seconds": int(now - handler_proc.started_at),
+                        }
                     )
-                elif handler_status:
-                    handler_status["max_age_seconds"] = 0
+                handler_status["running"] = running_list
 
-                # Add section if any activity for this handler
-                if handler_status:
-                    status[handler_name] = handler_status
+            # Queued items with age
+            if queued_snapshot[handler_name]:
+                queued_list = []
+                for item in queued_snapshot[handler_name]:
+                    try:
+                        rel_file = journal_relative_path(journal_path, item.file_path)
+                    except ValueError:
+                        rel_file = str(item.file_path)
 
-            # Only emit if we have something to report
-            if status:
-                self.callosum.emit("observe", "status", **status)
+                    queued_list.append(
+                        {"file": rel_file, "age_seconds": int(now - item.queued_at)}
+                    )
+                handler_status["queued"] = queued_list
+
+            if queued_snapshot[handler_name]:
+                handler_status["max_age_seconds"] = int(
+                    now - min(item.queued_at for item in queued_snapshot[handler_name])
+                )
+            elif handler_status:
+                handler_status["max_age_seconds"] = 0
+
+            # Add section if any activity for this handler
+            if handler_status:
+                status[handler_name] = handler_status
+
+        # Only emit if we have something to report
+        if status:
+            self.callosum.emit("observe", "status", **status)
 
     def start(self):
         """Start listening for observe.observing Callosum events."""
@@ -778,51 +729,38 @@ class FileSensor:
 
     def stop(self):
         """Stop listening and cleanup running processes."""
+        self._stopping.set()
         self.running_flag = False
 
         # Stop Callosum connection
         if self.callosum:
             self.callosum.stop()
 
-        # Gracefully terminate any running handler processes
-        with self.lock:
-            running_handlers = list(self.running.values())
+        for pool in self.handler_pools.values():
+            pool.shutdown(wait=False, cancel_futures=True)
 
+        with self.lock:
+            running_handlers = [
+                handler_proc
+                for handlers in self.running_handlers.values()
+                for handler_proc in handlers
+            ]
         if running_handlers:
             logger.info(f"Terminating {len(running_handlers)} running handler(s)...")
 
-        for handler_proc in running_handlers:
-            try:
-                # Send SIGTERM for graceful shutdown
-                handler_proc.process.terminate()
-                logger.debug(
-                    f"Sent SIGTERM to {handler_proc.handler_name} for {handler_proc.file_path.name}"
-                )
-            except Exception as exc:
-                logger.warning(
-                    f"Failed to terminate {handler_proc.handler_name} for {handler_proc.file_path.name}: {exc}"
-                )
-
-        # Wait up to 5 seconds for processes to terminate gracefully
         deadline = time.time() + 5
         for handler_proc in running_handlers:
-            try:
-                timeout = max(0.1, deadline - time.time())
-                handler_proc.process.wait(timeout=timeout)
-            except subprocess.TimeoutExpired:
-                # Force kill if still running
-                logger.warning(
-                    f"Force killing {handler_proc.handler_name} for {handler_proc.file_path.name}"
-                )
-                handler_proc.process.kill()
-                handler_proc.process.wait()
+            self._terminate_handler_process(handler_proc, deadline=deadline)
+            self._remove_running_handler(handler_proc.handler_name, handler_proc)
 
-            # Cleanup threads and log files
-            handler_proc.cleanup()
+        for pool in self.handler_pools.values():
+            pool.shutdown(wait=True)
 
-        # Clear running dict
         with self.lock:
-            self.running.clear()
+            for handlers in self.running_handlers.values():
+                handlers.clear()
+            for queued in self.queued_handlers.values():
+                queued.clear()
 
     def scan_unprocessed(
         self, day: str, segment_filter: Optional[str] = None
@@ -904,41 +842,51 @@ class FileSensor:
             f"Found {len(to_process)} unprocessed files to process ({breakdown})"
         )
 
-        # Process with concurrency limit using semaphore
-        semaphore = threading.Semaphore(max_jobs)
-        completion_events = {}
+        temp_pools = {}
+        futures = {}
+        try:
+            for file_path, handler_name, command in to_process:
+                seg_name = file_path.parent.name
+                meta = segment_meta_cache.get(seg_name)
+                if max_jobs > self._resolve_concurrency(handler_name):
+                    if handler_name not in temp_pools:
+                        temp_pools[handler_name] = ThreadPoolExecutor(
+                            max_workers=max_jobs,
+                            thread_name_prefix=f"{handler_name}-batch",
+                        )
+                    executor = temp_pools[handler_name]
+                else:
+                    executor = self.handler_pools[handler_name]
 
-        def process_with_limit(file_path, handler_name, command, day, meta):
-            """Process a single file with semaphore-controlled concurrency."""
-            with semaphore:
-                self._spawn_handler(
-                    file_path, handler_name, command, day=day, batch=True, meta=meta
+                with self.lock:
+                    if seg_name not in self.segment_files:
+                        self.segment_files[seg_name] = set()
+                        self.segment_start_time[seg_name] = time.time()
+                        self.segment_day[seg_name] = day
+                        self.segment_batch[seg_name] = True
+                    self.segment_files[seg_name].add(file_path)
+
+                queued_item = QueuedItem(file_path, time.time(), meta=meta)
+                future = executor.submit(
+                    self._run_handler,
+                    queued_item,
+                    handler_name,
+                    command,
+                    seg_name,
+                    day,
+                    True,
                 )
-                # Wait for this specific file to complete
-                while file_path in self.running:
-                    time.sleep(0.5)
-                # Signal completion
-                completion_events[file_path].set()
+                futures[future] = file_path
 
-        # Spawn all handlers (semaphore controls concurrency)
-        threads = []
-        for file_path, handler_name, command in to_process:
-            # Look up stream meta for this segment
-            seg_name = file_path.parent.name
-            meta = segment_meta_cache.get(seg_name)
-
-            completion_events[file_path] = threading.Event()
-            thread = threading.Thread(
-                target=process_with_limit,
-                args=(file_path, handler_name, command, day, meta),
-                daemon=False,
-            )
-            thread.start()
-            threads.append(thread)
-
-        # Wait for all to complete
-        for thread in threads:
-            thread.join()
+            for future in as_completed(futures):
+                file_path = futures[future]
+                try:
+                    future.result()
+                except Exception:
+                    logger.exception(f"Batch worker failed for {file_path}")
+        finally:
+            for executor in temp_pools.values():
+                executor.shutdown(wait=True)
 
         logger.info("Batch processing complete")
 

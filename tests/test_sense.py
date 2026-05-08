@@ -4,15 +4,69 @@
 """Tests for observe.sense module."""
 
 import signal
+import sys
 import tempfile
 import threading
 import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from solstone.observe.sense import FileSensor, HandlerProcess, HandlerQueue, QueuedItem
+import pytest
+
+from solstone.observe.sense import FileSensor, HandlerProcess, QueuedItem
 from solstone.think.runner import DailyLogWriter as ProcessLogWriter
-from solstone.think.runner import _format_log_line
+from solstone.think.runner import ManagedProcess, _format_log_line
+
+
+class FakeProcess:
+    def __init__(self, exit_code=0, delay=0.0):
+        self.exit_code = exit_code
+        self.delay = delay
+        self.returncode = None
+        self.pid = id(self) % 100000
+        self.stdout = None
+        self.stderr = None
+        self.terminated = False
+        self.killed = False
+
+    def wait(self, timeout=None):
+        if self.delay:
+            time.sleep(self.delay)
+        if self.returncode is None:
+            self.returncode = self.exit_code
+        return self.returncode
+
+    def terminate(self):
+        self.terminated = True
+        self.returncode = -signal.SIGTERM
+
+    def kill(self):
+        self.killed = True
+        self.returncode = -signal.SIGKILL
+
+
+class FakeManaged:
+    def __init__(self, process=None, ref="testref", log_path=None):
+        self.process = process or FakeProcess()
+        self.ref = ref
+        self.log_writer = MagicMock()
+        self.log_writer.path = log_path or Path("/tmp/fake.log")
+        self.cleanup = MagicMock()
+
+
+def make_segment_file(
+    tmp_path,
+    filename="screen.webm",
+    day="20250101",
+    stream="default",
+    segment="143022_300",
+):
+    segment_dir = tmp_path / "chronicle" / day / stream / segment
+    segment_dir.mkdir(parents=True, exist_ok=True)
+    file_path = segment_dir / filename
+    file_path.write_text("content")
+    return file_path
+
 
 # --- QueuedItem Tests ---
 
@@ -48,174 +102,8 @@ def test_sense_installs_sigterm_handler():
         signal.signal(signal.SIGTERM, previous)
 
 
-# --- HandlerQueue Tests ---
-
-
-def test_handler_queue_can_start_empty():
-    """Test can_start returns True when no process running."""
-    queue = HandlerQueue("test")
-    assert queue.running == []
-    assert queue.can_start() is True
-
-
-def test_handler_queue_can_start_when_full():
-    """Test can_start returns False when process is running."""
-    queue = HandlerQueue("test")
-    queue.add_running(MagicMock())
-    assert queue.can_start() is False
-
-
-def test_handler_queue_enqueue():
-    """Test enqueue adds items to queue."""
-    queue = HandlerQueue("test")
-    path1 = Path("/tmp/test1.flac")
-    path2 = Path("/tmp/test2.flac")
-
-    assert queue.enqueue(path1) is True
-    assert queue.enqueue(path2) is True
-    assert queue.queue_size() == 2
-
-
-def test_handler_queue_enqueue_duplicate():
-    """Test enqueue rejects duplicate paths."""
-    queue = HandlerQueue("test")
-    path = Path("/tmp/test.flac")
-
-    assert queue.enqueue(path) is True
-    assert queue.enqueue(path) is False  # Duplicate
-    assert queue.queue_size() == 1
-
-
-def test_handler_queue_enqueue_with_observer():
-    """Test enqueue preserves observer context."""
-    queue = HandlerQueue("test")
-    path = Path("/tmp/test.flac")
-
-    queue.enqueue(path, observer="my-observer")
-
-    assert queue.queue_size() == 1
-    item = queue.pop_next()
-    assert item.observer == "my-observer"
-
-
-def test_handler_queue_pop_next():
-    """Test pop_next returns items in FIFO order."""
-    queue = HandlerQueue("test")
-    path1 = Path("/tmp/test1.flac")
-    path2 = Path("/tmp/test2.flac")
-
-    queue.enqueue(path1)
-    queue.enqueue(path2)
-
-    item1 = queue.pop_next()
-    assert item1.file_path == path1
-
-    item2 = queue.pop_next()
-    assert item2.file_path == path2
-
-    assert queue.pop_next() is None  # Empty
-
-
-def test_handler_queue_pop_next_empty():
-    """Test pop_next returns None on empty queue."""
-    queue = HandlerQueue("test")
-    assert queue.pop_next() is None
-
-
-def test_handler_queue_add_remove_running():
-    """Test add_running and remove_running."""
-    queue = HandlerQueue("test")
-    mock_proc = MagicMock()
-
-    queue.add_running(mock_proc)
-    assert queue.running == [mock_proc]
-    assert queue.can_start() is False
-
-    queue.remove_running(mock_proc)
-    assert queue.running == []
-    assert queue.can_start() is True
-
-
-def test_handler_queue_backwards_compat_n1():
-    """Test default single-slot queue behavior stays FIFO and capacity-limited."""
-    queue = HandlerQueue("test")
-    running = MagicMock()
-    path1 = Path("/tmp/test1.flac")
-    path2 = Path("/tmp/test2.flac")
-
-    assert queue.can_start() is True
-    queue.add_running(running)
-    assert queue.can_start() is False
-
-    assert queue.enqueue(path1) is True
-    assert queue.enqueue(path2) is True
-    assert queue.pop_next().file_path == path1
-    assert queue.pop_next().file_path == path2
-    assert queue.pop_next() is None
-
-
-def test_handler_queue_multi_slot_dispatch():
-    """Test max_concurrent allows multiple running handler processes."""
-    queue = HandlerQueue("test", max_concurrent=3)
-    procs = [MagicMock(), MagicMock(), MagicMock()]
-
-    for proc in procs:
-        assert queue.can_start() is True
-        queue.add_running(proc)
-
-    assert queue.can_start() is False
-    assert queue.running == procs
-    assert queue.available_slots() == 0
-
-
-def test_handler_queue_slot_release_on_completion():
-    """Test removing a running process frees one slot."""
-    queue = HandlerQueue("test", max_concurrent=2)
-    proc1 = MagicMock()
-    proc2 = MagicMock()
-
-    queue.add_running(proc1)
-    queue.add_running(proc2)
-    assert queue.can_start() is False
-
-    queue.remove_running(proc1)
-    assert queue.running == [proc2]
-    assert queue.available_slots() == 1
-    assert queue.can_start() is True
-
-
-def test_handler_queue_concurrent_enqueue_completion():
-    """Test serialized concurrent queue mutations stay consistent."""
-    queue = HandlerQueue("test", max_concurrent=5)
-    lock = threading.Lock()
-
-    def enqueue_items():
-        for idx in range(10):
-            with lock:
-                queue.enqueue(Path(f"/tmp/test{idx}.flac"))
-
-    def complete_items():
-        for _ in range(5):
-            proc = MagicMock()
-            with lock:
-                queue.add_running(proc)
-                queue.remove_running(proc)
-
-    enqueue_thread = threading.Thread(target=enqueue_items)
-    completion_thread = threading.Thread(target=complete_items)
-    enqueue_thread.start()
-    completion_thread.start()
-    enqueue_thread.join()
-    completion_thread.join()
-
-    queued_paths = [item.file_path for item in queue.queue]
-    assert len(queue.running) == 0
-    assert len(queued_paths) == 10
-    assert len(set(queued_paths)) == 10
-
-
-def test_resolve_concurrency_per_handler_uniform(tmp_path, monkeypatch, caplog):
-    """Test handler concurrency config is applied uniformly."""
+def test_resolve_concurrency_applies_to_handler_pools(tmp_path, monkeypatch, caplog):
+    """Test handler concurrency config is applied uniformly to pools."""
     import solstone.observe.sense as sense_module
 
     monkeypatch.setattr(
@@ -229,8 +117,8 @@ def test_resolve_concurrency_per_handler_uniform(tmp_path, monkeypatch, caplog):
 
     sensor = FileSensor(tmp_path)
 
-    assert sensor.handler_queues["describe"].max_concurrent == 4
-    assert sensor.handler_queues["transcribe"].max_concurrent == 2
+    assert sensor.handler_pools["describe"]._max_workers == 4
+    assert sensor.handler_pools["transcribe"]._max_workers == 2
 
     monkeypatch.setattr(
         sense_module,
@@ -244,82 +132,10 @@ def test_resolve_concurrency_per_handler_uniform(tmp_path, monkeypatch, caplog):
     caplog.clear()
     invalid_sensor = FileSensor(tmp_path)
 
-    assert invalid_sensor.handler_queues["describe"].max_concurrent == 1
-    assert invalid_sensor.handler_queues["transcribe"].max_concurrent == 1
+    assert invalid_sensor.handler_pools["describe"]._max_workers == 1
+    assert invalid_sensor.handler_pools["transcribe"]._max_workers == 1
     assert "Invalid describe.max_concurrent" in caplog.text
     assert "Invalid transcribe.max_concurrent" in caplog.text
-
-
-def test_process_next_queued_dispatches_on_slot_release(tmp_path, monkeypatch):
-    """Test queued work dispatches one item per freed handler slot."""
-    import solstone.observe.sense as sense_module
-
-    monkeypatch.setattr(sense_module, "HANDLER_NAMES", ("test",))
-    monkeypatch.setattr(
-        sense_module, "get_config", lambda: {"test": {"max_concurrent": 2}}
-    )
-
-    segment_dir = tmp_path / "chronicle" / "20250101" / "default" / "143022_300"
-    segment_dir.mkdir(parents=True)
-    path1 = segment_dir / "first.fake"
-    path2 = segment_dir / "second.fake"
-    path3 = segment_dir / "third.fake"
-    for path in (path1, path2, path3):
-        path.write_text("content")
-
-    sensor = FileSensor(tmp_path)
-    sensor.register("*.fake", "test", ["echo", "{file}"])
-    handler_queue = sensor.handler_queues["test"]
-    mock_proc_a = MagicMock()
-    mock_proc_b = MagicMock()
-    dispatched = []
-
-    def mock_spawn(file_path, handler_name, command, **_kwargs):
-        dispatched_proc = MagicMock()
-        dispatched_proc.file_path = file_path
-        dispatched.append((file_path, handler_name, command, dispatched_proc))
-        handler_queue.add_running(dispatched_proc)
-        sensor.running[file_path] = dispatched_proc
-
-    monkeypatch.setattr(sensor, "_spawn_handler", mock_spawn)
-
-    handler_queue.add_running(mock_proc_a)
-    handler_queue.add_running(mock_proc_b)
-    handler_queue.enqueue(path1)
-    handler_queue.enqueue(path2)
-    handler_queue.enqueue(path3)
-
-    sensor._process_next_queued(handler_queue, mock_proc_a)
-
-    assert mock_proc_a not in handler_queue.running
-    assert len(dispatched) == 1
-    assert len(handler_queue.running) == 2
-    assert handler_queue.running[0] is mock_proc_b
-    assert dispatched[0][0] == path1
-    assert [item.file_path for item in handler_queue.queue] == [path2, path3]
-
-    sensor._process_next_queued(handler_queue, mock_proc_b)
-
-    assert mock_proc_b not in handler_queue.running
-    assert len(dispatched) == 2
-    assert len(handler_queue.running) == 2
-    assert dispatched[1][0] == path2
-    assert [item.file_path for item in handler_queue.queue] == [path3]
-
-
-def test_handler_queue_queue_size():
-    """Test queue_size reports correct count."""
-    queue = HandlerQueue("test")
-    assert queue.queue_size() == 0
-
-    queue.enqueue(Path("/tmp/test1.flac"))
-    assert queue.queue_size() == 1
-
-    queue.enqueue(Path("/tmp/test2.flac"))
-    assert queue.queue_size() == 2
-
-    queue.pop_next()
-    assert queue.queue_size() == 1
 
 
 # --- Existing Tests ---
@@ -551,70 +367,59 @@ def test_standalone_dry_run_with_segment_filter(tmp_path, monkeypatch):
     assert file_names == {"audio.flac"}
 
 
-@patch("solstone.think.runner._get_journal_path")
-@patch("solstone.think.runner._current_day")
-@patch("solstone.think.runner.subprocess.Popen")
-def test_file_sensor_spawn_handler(mock_popen, mock_day, mock_journal, tmp_path):
+def test_file_sensor_spawn_handler(tmp_path, monkeypatch):
     """Test spawning handler process."""
-    # Mock runner functions to use tmp_path
-    mock_journal.return_value = tmp_path
-    mock_day.return_value = "20241101"
-
-    # Setup mock process
-    mock_proc = MagicMock()
-    mock_proc.stdout = None
-    mock_proc.stderr = None
-    mock_popen.return_value = mock_proc
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
 
     sensor = FileSensor(tmp_path)
-    sensor.register("*.txt", "test", ["echo", "{file}"])
+    sensor.register("*.webm", "describe", ["echo", "{file}"])
+    test_file = make_segment_file(tmp_path, "screen.webm")
+    log_path = tmp_path / "chronicle" / "20250101" / "health" / "test_echo.log"
 
-    test_file = tmp_path / "test.txt"
-    test_file.write_text("content")
+    def fake_spawn(cmd, *_args):
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        log_path.write_text("")
+        return FakeManaged(FakeProcess(0), log_path=log_path)
 
-    sensor._spawn_handler(test_file, "test", ["echo", "{file}"])
+    with patch.object(sensor, "_spawn_managed_process", side_effect=fake_spawn) as mock:
+        sensor._handle_file(test_file)
+        sensor.handler_pools["describe"].shutdown(wait=True)
 
-    # Verify subprocess was spawned with correct command
-    mock_popen.assert_called_once()
-    args = mock_popen.call_args[0][0]
-    assert args == ["echo", str(test_file)]
+    mock.assert_called_once()
+    assert mock.call_args[0][0] == ["echo", str(test_file)]
 
-    # Verify log file was created with {ref}_echo.log format
-    health_dir = tmp_path / "chronicle" / "20241101" / "health"
+    health_dir = tmp_path / "chronicle" / "20250101" / "health"
     log_files = list(health_dir.glob("*_echo.log"))
     assert len(log_files) == 1, f"Expected 1 echo log file, found {len(log_files)}"
 
 
-@patch("solstone.think.runner._current_day")
-def test_file_sensor_spawn_handler_duplicate(
-    mock_day, tmp_path, monkeypatch, mock_callosum
-):
+def test_file_sensor_spawn_handler_duplicate(tmp_path):
     """Test that duplicate file processing is prevented."""
-    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
-    mock_day.return_value = "20250101"
-
-    # Create journal/day structure
-    day_dir = tmp_path / "chronicle" / "20250101"
-    day_dir.mkdir(parents=True)
-
     sensor = FileSensor(tmp_path)
-    sensor.register("*.txt", "test", ["echo", "hello"])
+    sensor.register("*.webm", "describe", ["echo", "hello"])
+    test_file = make_segment_file(tmp_path, "screen.webm")
 
-    test_file = day_dir / "test.txt"
-    test_file.write_text("content")
+    class StubPool:
+        def __init__(self):
+            self.submitted = []
 
-    # Spawn first time (real process)
-    sensor._spawn_handler(test_file, "test", ["echo", "hello"])
+        def submit(self, *args):
+            self.submitted.append(args)
+            return MagicMock()
 
-    # File should now be in running dict
-    assert test_file in sensor.running
+        def shutdown(self, **_kwargs):
+            pass
 
-    # Try to spawn again - should be skipped (file still in running dict)
-    # We can check this by verifying the lock prevents it
-    with patch("solstone.observe.sense.subprocess.Popen") as mock_popen:
-        sensor._spawn_handler(test_file, "test", ["echo", "hello"])
-        # Should not have called Popen because file already in running
-        mock_popen.assert_not_called()
+    stub_pool = StubPool()
+    sensor.handler_pools["describe"] = stub_pool
+
+    sensor._handle_file(test_file)
+    sensor._handle_file(test_file)
+
+    assert len(sensor.queued_handlers["describe"]) == 1
+    assert sensor.queued_handlers["describe"][0].file_path == test_file
+    assert sensor.running_handlers["describe"] == []
+    assert len(stub_pool.submitted) == 1
 
 
 @patch("solstone.think.runner._current_day")
@@ -626,21 +431,17 @@ def test_file_sensor_spawn_handler_real_process(
     mock_day.return_value = "20241101"
 
     sensor = FileSensor(tmp_path)
+    sensor.register("*.webm", "describe", ["echo", "hello"])
 
-    test_file = tmp_path / "test.txt"
-    test_file.write_text("test content")
+    test_file = make_segment_file(tmp_path, "screen.webm")
 
-    # Spawn a simple echo command
-    sensor._spawn_handler(test_file, "echo", ["echo", "hello"])
+    sensor._handle_file(test_file)
+    sensor.handler_pools["describe"].shutdown(wait=True)
 
-    # Wait for process to complete
-    time.sleep(0.5)
-
-    # Process should have completed and been removed from running dict
-    assert test_file not in sensor.running
+    assert sensor.running_handlers["describe"] == []
 
     # Check log file contains output with {ref}_echo.log format
-    health_dir = tmp_path / "chronicle" / "20241101" / "health"
+    health_dir = tmp_path / "chronicle" / "20250101" / "health"
     log_files = list(health_dir.glob("*_echo.log"))
     assert len(log_files) == 1, f"Expected 1 echo log file, found {len(log_files)}"
 
@@ -657,38 +458,34 @@ def test_file_sensor_spawn_handler_failing_process(mock_day, tmp_path, monkeypat
     mock_day.return_value = "20241101"
 
     sensor = FileSensor(tmp_path)
+    sensor.register("*.webm", "describe", ["false"])
 
-    test_file = tmp_path / "test.txt"
-    test_file.write_text("content")
+    test_file = make_segment_file(tmp_path, "screen.webm")
 
-    # Spawn a command that will fail
-    sensor._spawn_handler(test_file, "fail", ["false"])
+    sensor._handle_file(test_file)
+    sensor.handler_pools["describe"].shutdown(wait=True)
 
-    # Wait for process to complete
-    time.sleep(0.5)
-
-    # Process should have completed and been removed
-    assert test_file not in sensor.running
+    assert sensor.running_handlers["describe"] == []
 
 
-@patch("solstone.think.runner._current_day")
-def test_file_sensor_failing_process_notifies(mock_day, tmp_path, monkeypatch):
+def test_file_sensor_failing_process_notifies(tmp_path, monkeypatch):
     """Test that a failing handler process emits a notification event."""
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
-    mock_day.return_value = "20241101"
 
     sensor = FileSensor(tmp_path)
+    sensor.register("*.webm", "describe", ["false"])
     # Mock callosum on sensor to capture emitted events
     sensor.callosum = MagicMock()
+    test_file = make_segment_file(tmp_path, "screen.webm")
+    log_path = tmp_path / "chronicle" / "20250101" / "health" / "test_false.log"
 
-    test_file = tmp_path / "test.txt"
-    test_file.write_text("content")
-
-    # Spawn a command that will fail
-    sensor._spawn_handler(test_file, "fail", ["false"])
-
-    # Wait for process to complete and monitor thread to run
-    time.sleep(0.5)
+    with patch.object(
+        sensor,
+        "_spawn_managed_process",
+        return_value=FakeManaged(FakeProcess(1), log_path=log_path),
+    ):
+        sensor._handle_file(test_file)
+        sensor.handler_pools["describe"].shutdown(wait=True)
 
     # Check that a notification event was emitted
     # sensor.callosum.emit is called with ('notification', 'show', ...)
@@ -702,13 +499,13 @@ def test_file_sensor_failing_process_notifies(mock_day, tmp_path, monkeypatch):
 
     assert notif_call is not None
     _, kwargs = notif_call
-    assert "fail failed" in kwargs.get("message").lower()
-    assert kwargs.get("title") == "Fail Error"
+    assert "describe failed" in kwargs.get("message").lower()
+    assert kwargs.get("title") == "Describe Error"
 
 
 def test_file_sensor_handle_file(tmp_path):
     """Test file handling dispatches to correct handler."""
-    with patch.object(FileSensor, "_spawn_handler") as mock_spawn:
+    with patch.object(FileSensor, "_run_handler") as mock_run:
         # Create journal/day/stream/segment structure
         day_dir = tmp_path / "chronicle" / "20250101"
         segment_dir = day_dir / "default" / "143022_300"
@@ -721,25 +518,25 @@ def test_file_sensor_handle_file(tmp_path):
         test_file.write_text("content")
 
         sensor._handle_file(test_file)
+        sensor.handler_pools["describe"].shutdown(wait=True)
 
-        # Should have called spawn with correct handler
-        mock_spawn.assert_called_once()
-        call_args = mock_spawn.call_args[0]
-        assert call_args[0] == test_file
+        mock_run.assert_called_once()
+        call_args = mock_run.call_args[0]
+        assert call_args[0].file_path == test_file
         assert call_args[1] == "describe"
 
 
 def test_file_sensor_handle_nonexistent_file(tmp_path):
     """Test handling of nonexistent file is graceful."""
-    with patch.object(FileSensor, "_spawn_handler") as mock_spawn:
+    with patch.object(FileSensor, "_run_handler") as mock_run:
         sensor = FileSensor(tmp_path)
-        sensor.register("*.txt", "test", ["echo", "{file}"])
+        sensor.register("*.webm", "describe", ["echo", "{file}"])
 
-        nonexistent = tmp_path / "nonexistent.txt"
+        nonexistent = tmp_path / "nonexistent.webm"
         sensor._handle_file(nonexistent)
 
         # Should not spawn handler for nonexistent file
-        mock_spawn.assert_not_called()
+        mock_run.assert_not_called()
 
 
 def test_file_sensor_stop():
@@ -749,11 +546,19 @@ def test_file_sensor_stop():
 
         # Mock callosum
         sensor.callosum = MagicMock()
+        process = FakeProcess()
+        managed = FakeManaged(process)
+        handler_proc = HandlerProcess(Path(tmpdir) / "test.webm", managed, "describe")
+        sensor.running_handlers["describe"].append(handler_proc)
 
         sensor.stop()
 
         assert sensor.running_flag is False
+        assert sensor._stopping.is_set()
         sensor.callosum.stop.assert_called_once()
+        assert process.terminated is True
+        managed.cleanup.assert_called_once()
+        assert all(pool._shutdown for pool in sensor.handler_pools.values())
 
 
 def test_file_sensor_handle_callosum_message(tmp_path):
@@ -874,9 +679,7 @@ def test_file_sensor_segment_observed_includes_day(
         "files": ["audio.flac"],
     }
     sensor._handle_callosum_message(message)
-
-    # Wait for handler to complete
-    time.sleep(0.5)
+    sensor.handler_pools["transcribe"].shutdown(wait=True)
 
     # Check that segment_day was cleaned up (handler completed)
     assert "143022_300" not in sensor.segment_day
@@ -945,6 +748,257 @@ def test_file_sensor_segment_observed_no_handlers(tmp_path, monkeypatch, mock_ca
     assert len(observed_events) == 1
     assert observed_events[0].get("day") == "20250101"
     assert observed_events[0].get("segment") == "143022_300"
+
+
+def test_file_sensor_pdeathsig_regression_uses_long_lived_worker(
+    tmp_path, monkeypatch, mock_callosum
+):
+    """Two queued describe files complete without worker-spawn SIGTERM."""
+    import solstone.observe.sense as sense_module
+    from solstone.think.callosum import CallosumConnection
+
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
+    monkeypatch.setattr(
+        sense_module,
+        "get_config",
+        lambda: {
+            "describe": {"max_concurrent": 1},
+            "transcribe": {"max_concurrent": 1},
+        },
+    )
+
+    segment_dir = tmp_path / "chronicle" / "20250101" / "default" / "143022_300"
+    segment_dir.mkdir(parents=True)
+    first = segment_dir / "first.webm"
+    second = segment_dir / "second.webm"
+    first.write_text("video")
+    second.write_text("video")
+
+    sensor = FileSensor(tmp_path)
+    sensor.register("*.webm", "describe", ["sol", "describe", "{file}"])
+    emitted_events = []
+    sensor.callosum = CallosumConnection()
+    sensor.callosum.start(callback=lambda msg: emitted_events.append(msg))
+    terminated = []
+
+    def fake_spawn(cmd, file_path, ref, segment, observer, meta, day):
+        process = FakeProcess(0, delay=0.02)
+
+        def terminate():
+            terminated.append(file_path)
+            FakeProcess.terminate(process)
+
+        process.terminate = terminate
+        file_path.with_suffix(".jsonl").write_text("{}\n")
+        return FakeManaged(process, ref=ref, log_path=tmp_path / "describe.log")
+
+    original_check = sensor._check_segment_observed
+    checked = []
+
+    def record_check(file_path, error=None):
+        checked.append((file_path, error))
+        return original_check(file_path, error=error)
+
+    monkeypatch.setattr(sensor, "_spawn_managed_process", fake_spawn)
+    monkeypatch.setattr(sensor, "_check_segment_observed", record_check)
+
+    sensor._handle_callosum_message(
+        {
+            "tract": "observe",
+            "event": "observing",
+            "day": "20250101",
+            "stream": "default",
+            "segment": "143022_300",
+            "files": ["first.webm", "second.webm"],
+        }
+    )
+    sensor.handler_pools["describe"].shutdown(wait=True)
+
+    assert terminated == []
+    assert checked == [(first, None), (second, None)]
+    observed_events = [
+        event
+        for event in emitted_events
+        if event.get("tract") == "observe" and event.get("event") == "observed"
+    ]
+    assert len(observed_events) == 1
+    assert "errors" not in observed_events[0]
+    assert first.with_suffix(".jsonl").exists()
+    assert second.with_suffix(".jsonl").exists()
+
+
+def test_managed_process_spawn_from_short_lived_daemon_thread_gets_pdeathsig(
+    tmp_path, monkeypatch
+):
+    """PDEATHSIG remains keyed to the short-lived spawning thread."""
+    if sys.platform != "linux":
+        pytest.skip("PR_SET_PDEATHSIG is Linux-only")
+
+    from solstone.think import runner
+
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
+    monkeypatch.setattr(runner, "_current_day", lambda: "20250101")
+    holder = {}
+
+    def spawn_and_return():
+        holder["managed"] = ManagedProcess.spawn(
+            [sys.executable, "-c", "import time; time.sleep(30)"]
+        )
+
+    thread = threading.Thread(target=spawn_and_return, daemon=True)
+    thread.start()
+    thread.join(timeout=5)
+    managed = holder["managed"]
+    deadline = time.time() + 5
+    while managed.process.poll() is None and time.time() < deadline:
+        time.sleep(0.05)
+
+    try:
+        assert managed.process.returncode == -signal.SIGTERM
+    finally:
+        if managed.process.poll() is None:
+            managed.process.terminate()
+            managed.process.wait(timeout=5)
+        managed.cleanup()
+
+
+def test_run_handler_uses_handler_thread_name_prefix(tmp_path, monkeypatch):
+    """Handler spawn happens in the long-lived handler worker thread."""
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
+    sensor = FileSensor(tmp_path)
+    sensor.register("*.webm", "describe", ["sol", "describe", "{file}"])
+    test_file = make_segment_file(tmp_path, "screen.webm")
+    thread_names = []
+
+    def fake_spawn(*_args):
+        thread_names.append(threading.current_thread().name)
+        return FakeManaged(FakeProcess(0))
+
+    monkeypatch.setattr(sensor, "_spawn_managed_process", fake_spawn)
+
+    sensor._handle_file(test_file)
+    sensor.handler_pools["describe"].shutdown(wait=True)
+
+    assert thread_names
+    assert thread_names[0].startswith("describe-worker")
+
+
+def test_file_sensor_stop_during_spawn_gap_drains_worker(tmp_path, monkeypatch):
+    """stop() handles a worker between spawn return and running append."""
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
+    sensor = FileSensor(tmp_path)
+    sensor.register("*.webm", "describe", ["sol", "describe", "{file}"])
+    test_file = make_segment_file(tmp_path, "screen.webm")
+    spawn_started = threading.Event()
+    release_spawn = threading.Event()
+    process = FakeProcess(0)
+
+    def fake_spawn(*_args):
+        spawn_started.set()
+        assert release_spawn.wait(timeout=5)
+        return FakeManaged(process)
+
+    monkeypatch.setattr(sensor, "_spawn_managed_process", fake_spawn)
+
+    sensor._handle_file(test_file)
+    assert spawn_started.wait(timeout=5)
+    stop_thread = threading.Thread(target=sensor.stop)
+    stop_thread.start()
+    time.sleep(0.05)
+    release_spawn.set()
+    stop_thread.join(timeout=10)
+
+    assert not stop_thread.is_alive()
+    assert process.terminated is True
+    assert all(pool._shutdown for pool in sensor.handler_pools.values())
+
+
+def test_process_day_survives_one_batch_worker_failure(tmp_path, monkeypatch, caplog):
+    """One failing batch future does not abort the day."""
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
+    day_dir = tmp_path / "chronicle" / "20250101"
+    segment_dir = day_dir / "default" / "143022_300"
+    segment_dir.mkdir(parents=True)
+    for name in ("good1.webm", "bad.webm", "good2.webm"):
+        (segment_dir / name).write_text("video")
+
+    sensor = FileSensor(tmp_path)
+    sensor.register("*.webm", "describe", ["sol", "describe", "{file}"])
+    processed = []
+
+    def fake_run(queued_item, *_args):
+        if queued_item.file_path.name == "bad.webm":
+            raise RuntimeError("boom")
+        processed.append(queued_item.file_path.name)
+
+    monkeypatch.setattr(sensor, "_run_handler", fake_run)
+    caplog.set_level("INFO")
+
+    sensor.process_day("20250101", max_jobs=2)
+
+    assert set(processed) == {"good1.webm", "good2.webm"}
+    assert "Batch worker failed for" in caplog.text
+    assert "Batch processing complete" in caplog.text
+
+
+def test_transcribe_cpu_fallback_stays_in_same_worker_thread(tmp_path, monkeypatch):
+    """The exit-134 retry is spawned by the same worker thread."""
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
+    sensor = FileSensor(tmp_path)
+    sensor.register("*.flac", "transcribe", ["sol", "transcribe", "{file}"])
+    test_file = make_segment_file(tmp_path, "audio.flac")
+    first_started = threading.Event()
+    first_release = threading.Event()
+    second_started = threading.Event()
+    second_release = threading.Event()
+    idents = []
+    cmds = []
+
+    class ControlledProcess(FakeProcess):
+        def __init__(self, exit_code, started, release):
+            super().__init__(exit_code)
+            self.started = started
+            self.release = release
+
+        def wait(self, timeout=None):
+            self.started.set()
+            assert self.release.wait(timeout=5)
+            self.returncode = self.exit_code
+            return self.exit_code
+
+    processes = [
+        ControlledProcess(134, first_started, first_release),
+        ControlledProcess(0, second_started, second_release),
+    ]
+
+    def fake_spawn(cmd, *_args):
+        cmds.append(cmd)
+        idents.append(threading.current_thread().ident)
+        return FakeManaged(processes.pop(0))
+
+    original_check = sensor._check_segment_observed
+    checks = []
+
+    def record_check(file_path, error=None):
+        checks.append((file_path, error))
+        return original_check(file_path, error=error)
+
+    monkeypatch.setattr(sensor, "_spawn_managed_process", fake_spawn)
+    monkeypatch.setattr(sensor, "_check_segment_observed", record_check)
+
+    sensor._handle_file(test_file)
+    assert first_started.wait(timeout=5)
+    assert len(sensor.running_handlers["transcribe"]) == 1
+    first_release.set()
+    assert second_started.wait(timeout=5)
+    assert len(sensor.running_handlers["transcribe"]) == 1
+    second_release.set()
+    sensor.handler_pools["transcribe"].shutdown(wait=True)
+
+    assert idents[0] == idents[1]
+    assert "--cpu" not in cmds[0]
+    assert "--cpu" in cmds[1]
+    assert checks == [(test_file, None)]
 
 
 def test_delete_outputs_screen(tmp_path):

@@ -269,6 +269,17 @@ class ManagedProcess:
                 ref="1730476800000",
             )
             # Logs to: {JOURNAL}/{YYYYMMDD}/health/1730476800000_indexer.log
+
+        Caller contract:
+            This method installs _set_pdeathsig_on_linux as subprocess.Popen's
+            preexec_fn. That hook calls prctl(PR_SET_PDEATHSIG, SIGTERM), and
+            man 2 prctl defines PR_SET_PDEATHSIG relative to the calling task's
+            TID: the thread that called Popen, not just the thread-group leader.
+            If that thread exits before the child does, the kernel delivers
+            SIGTERM to the child when the calling task terminates. Never call
+            spawn() from a daemon monitor thread that returns immediately after
+            this call. Use a long-lived worker thread that blocks in
+            process.wait() for the lifetime of the child.
         """
         # Derive name from command - use subcommand if invoked via sol
         if cmd[0] == "sol" and len(cmd) > 1:
