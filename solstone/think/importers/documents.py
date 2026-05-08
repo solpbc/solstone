@@ -10,12 +10,13 @@ import logging
 import re
 import shutil
 from pathlib import Path
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
 
-from pdf2image import convert_from_path
-from pypdf import PdfReader
+if TYPE_CHECKING:
+    from pypdf import PdfReader
 
 from solstone.think.entities.seeding import seed_entities
+from solstone.think.features import require_extra
 from solstone.think.importers.file_importer import ImportPreview, ImportResult
 from solstone.think.importers.shared import write_content_manifest
 from solstone.think.models import generate
@@ -80,6 +81,8 @@ def _extract_text_pypdf(reader: PdfReader) -> tuple[str, int, bool]:
 
 def _extract_text_vision(pdf_path: Path, page_count: int) -> str:
     """Extract text from scanned PDFs using vision models."""
+    from pdf2image import convert_from_path
+
     prompt = (
         "Extract all text content from this document. Preserve the document "
         "structure including headings, paragraphs, lists, and tables. Return "
@@ -152,6 +155,9 @@ class DocumentImporter:
         return bool(_find_pdfs(path))
 
     def preview(self, path: Path) -> ImportPreview:
+        require_extra("pdf")
+        from pypdf import PdfReader
+
         pdfs = _find_pdfs(path)
         if not pdfs:
             return ImportPreview(
@@ -188,6 +194,9 @@ class DocumentImporter:
         progress_callback: Callable | None = None,
         dry_run: bool = False,
     ) -> ImportResult:
+        require_extra("pdf")
+        from pypdf import PdfReader
+
         pdfs = _find_pdfs(path)
         import_id = import_id or dt.datetime.now().strftime("%Y%m%d_%H%M%S")
         if not pdfs:

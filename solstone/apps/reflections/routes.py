@@ -5,15 +5,15 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import urlsplit
 
 import frontmatter
 from flask import Blueprint, Response, jsonify, redirect, render_template, url_for
 from markdown import Markdown
-from weasyprint import HTML, default_url_fetcher
 
 from solstone.convey.utils import DATE_RE, format_date
+from solstone.think.features import require_extra
 from solstone.think.utils import get_journal, get_owner_timezone, sunday_of_week
 
 reflections_bp = Blueprint(
@@ -73,7 +73,15 @@ def _load_reflection(day: str) -> tuple[Path, str, frontmatter.Post]:
     return path, raw_markdown, frontmatter.loads(raw_markdown)
 
 
+def _weasyprint() -> tuple[type, Callable[..., Any]]:
+    require_extra("pdf")
+    from weasyprint import HTML, default_url_fetcher
+
+    return HTML, default_url_fetcher
+
+
 def _safe_pdf_url_fetcher(url: str, *args: Any, **kwargs: Any) -> dict[str, Any]:
+    _, default_url_fetcher = _weasyprint()
     scheme = urlsplit(url).scheme.lower()
     if scheme in {"http", "https"}:
         raise ValueError("Remote assets are disabled for reflection PDFs")
@@ -81,6 +89,7 @@ def _safe_pdf_url_fetcher(url: str, *args: Any, **kwargs: Any) -> dict[str, Any]
 
 
 def _render_reflection_pdf(path: Path, post: frontmatter.Post) -> bytes:
+    HTML, _ = _weasyprint()
     markdown = Markdown(extensions=["extra", "sane_lists"])
     body_html = markdown.convert(post.content)
     html = render_template(

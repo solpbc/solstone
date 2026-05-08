@@ -133,7 +133,7 @@ gaps: []
             "urllib.request.urlopen",
             side_effect=AssertionError("network disabled during reflection pdf render"),
         ),
-        patch("solstone.apps.reflections.routes.default_url_fetcher") as mock_fetcher,
+        patch("weasyprint.default_url_fetcher") as mock_fetcher,
     ):
         response = client.get("/app/reflections/20260308/pdf")
 

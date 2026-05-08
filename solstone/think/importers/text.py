@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
+from __future__ import annotations
+
 import datetime as dt
 import logging
 import os
@@ -9,12 +11,8 @@ from solstone.think.detect_transcript import (
     detect_transcript_json,
     detect_transcript_segment,
 )
+from solstone.think.features import require_extra
 from solstone.think.importers.shared import write_segment
-
-try:
-    from pypdf import PdfReader
-except ImportError:  # pragma: no cover - optional dependency
-    PdfReader = None
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +24,9 @@ def _read_transcript(path: str) -> str:
         with open(path, "r", encoding="utf-8") as f:
             return f.read()
     if ext == ".pdf":
-        if PdfReader is None:
-            raise RuntimeError("pypdf required for PDF support")
+        require_extra("pdf")
+        from pypdf import PdfReader
+
         reader = PdfReader(path)
         parts = []
         for page in reader.pages:
