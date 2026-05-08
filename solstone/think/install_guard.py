@@ -24,10 +24,19 @@ except ImportError:  # system python without the venv: doctor.stale_alias_symlin
 WRAPPER_TEMPLATE = """\
 #!/bin/bash
 # sol — managed by 'sol config'. Edits will be overwritten.
-# managed-version: 4
+# managed-version: 5
 : "${{SOLSTONE_JOURNAL:={journal}}}"
 export SOLSTONE_JOURNAL
 SOL_BIN='{sol_bin}'
+# Warn when pyproject.toml or uv.lock is newer than .installed.
+# Skipped silently if .installed is absent.
+REPO_ROOT="${{SOL_BIN%/.venv/bin/sol}}"
+if [ -f "$REPO_ROOT/.installed" ]; then
+  if [ "$REPO_ROOT/pyproject.toml" -nt "$REPO_ROOT/.installed" ] \\
+     || [ "$REPO_ROOT/uv.lock" -nt "$REPO_ROOT/.installed" ]; then
+    echo "sol: WARNING — venv is stale (pyproject.toml or uv.lock changed since last install). Run: cd $REPO_ROOT && make install" >&2
+  fi
+fi
 if [ ! -x "$SOL_BIN" ]; then
     printf 'sol: venv binary missing or not executable: %s\\n' "$SOL_BIN" >&2
     exit 127
@@ -40,10 +49,10 @@ fi
 exec "$SOL_BIN" "$@"
 """
 
-WRAPPER_MARKER = "# managed-version: 4"
-WRAPPER_VERSION = 4
+WRAPPER_MARKER = "# managed-version: 5"
+WRAPPER_VERSION = 5
 
-_RE_MARKER = re.compile(r"(?m)^# managed-version: (?P<version>[1234])$")
+_RE_MARKER = re.compile(r"(?m)^# managed-version: (?P<version>[12345])$")
 _RE_JOURNAL = re.compile(r'(?m)^: "\$\{SOLSTONE_JOURNAL:=(?P<journal>[^\n]*)\}"$')
 _RE_SOL_BIN = re.compile(r"(?m)^SOL_BIN='(?P<sol_bin>(?:[^']|'\\'')*)'$")
 
