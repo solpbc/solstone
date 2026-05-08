@@ -26,8 +26,8 @@ import time
 from dataclasses import dataclass, field
 
 import numpy as np
-from faster_whisper.vad import VadOptions, get_speech_timestamps
 
+from solstone.observe._silero_vad import VadOptions, get_speech_timestamps
 from solstone.observe.utils import SAMPLE_RATE
 
 # Minimum silence gap to reduce (seconds)
