@@ -1369,7 +1369,10 @@ async def main_async() -> None:
 
 def main() -> None:
     """Entry point wrapper."""
-    asyncio.run(main_async())
+    try:
+        asyncio.run(main_async())
+    except asyncio.CancelledError:
+        sys.exit(0)
 
 
 __all__ = [
