@@ -1169,6 +1169,7 @@ def test_supervisor_singleton_lock_blocked(tmp_path, monkeypatch, capsys):
     mod = importlib.reload(importlib.import_module("solstone.think.supervisor"))
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
+    monkeypatch.delenv("INVOCATION_ID", raising=False)
     health_dir = tmp_path / "health"
     health_dir.mkdir(parents=True, exist_ok=True)
     lock_file = open(health_dir / "supervisor.lock", "w")
@@ -1192,12 +1193,47 @@ def test_supervisor_singleton_lock_blocked(tmp_path, monkeypatch, capsys):
     start_mock.assert_not_called()
 
 
+def test_supervisor_singleton_lock_blocked_under_systemd_exits_cleanly(
+    tmp_path, monkeypatch, capsys
+):
+    import fcntl
+
+    mod = importlib.reload(importlib.import_module("solstone.think.supervisor"))
+
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
+    monkeypatch.setenv("INVOCATION_ID", "test-invocation-uuid")
+    health_dir = tmp_path / "health"
+    health_dir.mkdir(parents=True, exist_ok=True)
+    lock_file = open(health_dir / "supervisor.lock", "w")
+    fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    (health_dir / "supervisor.pid").write_text("12345")
+    monkeypatch.setattr(sys, "argv", ["supervisor"])
+
+    start_mock = MagicMock()
+    monkeypatch.setattr(mod, "start_callosum_in_process", start_mock)
+
+    try:
+        with pytest.raises(SystemExit) as exc:
+            mod.main()
+    finally:
+        lock_file.close()
+
+    assert exc.value.code == 0
+    output = capsys.readouterr().out
+    assert (
+        "Supervisor already running (PID 12345) - exiting cleanly under "
+        "systemd activation"
+    ) in output
+    start_mock.assert_not_called()
+
+
 def test_supervisor_singleton_lock_blocked_with_health(tmp_path, monkeypatch, capsys):
     import fcntl
 
     mod = importlib.reload(importlib.import_module("solstone.think.supervisor"))
 
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
+    monkeypatch.delenv("INVOCATION_ID", raising=False)
     health_dir = tmp_path / "health"
     health_dir.mkdir(parents=True, exist_ok=True)
     lock_file = open(health_dir / "supervisor.lock", "w")
@@ -1222,6 +1258,44 @@ def test_supervisor_singleton_lock_blocked_with_health(tmp_path, monkeypatch, ca
     assert "Supervisor already running" in output
     assert "PID 12345" in output
     health_mock.assert_called_once_with()
+    start_mock.assert_not_called()
+
+
+def test_supervisor_singleton_lock_blocked_with_health_under_systemd_skips_health_check(
+    tmp_path, monkeypatch, capsys
+):
+    import fcntl
+
+    mod = importlib.reload(importlib.import_module("solstone.think.supervisor"))
+
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
+    monkeypatch.setenv("INVOCATION_ID", "test-invocation-uuid")
+    health_dir = tmp_path / "health"
+    health_dir.mkdir(parents=True, exist_ok=True)
+    lock_file = open(health_dir / "supervisor.lock", "w")
+    fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    (health_dir / "supervisor.pid").write_text("12345")
+    (health_dir / "callosum.sock").touch()
+    monkeypatch.setattr(sys, "argv", ["supervisor"])
+
+    start_mock = MagicMock()
+    health_mock = MagicMock(return_value=0)
+    monkeypatch.setattr(mod, "start_callosum_in_process", start_mock)
+    monkeypatch.setattr("solstone.think.health_cli.health_check", health_mock)
+
+    try:
+        with pytest.raises(SystemExit) as exc:
+            mod.main()
+    finally:
+        lock_file.close()
+
+    assert exc.value.code == 0
+    output = capsys.readouterr().out
+    assert (
+        "Supervisor already running (PID 12345) - exiting cleanly under "
+        "systemd activation"
+    ) in output
+    health_mock.assert_not_called()
     start_mock.assert_not_called()
 
 

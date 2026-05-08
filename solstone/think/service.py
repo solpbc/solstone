@@ -28,6 +28,7 @@ import sys
 from pathlib import Path
 from xml.parsers.expat import ExpatError
 
+from solstone.think.install_guard import validate_journal_path_for_wrapper
 from solstone.think.utils import get_journal, get_journal_info
 
 SERVICE_LABEL = "org.solpbc.solstone"
@@ -91,6 +92,7 @@ def _collect_env() -> dict[str, str]:
     Captures HOME and PATH (with venv bin prepended). Real PATH is read
     from os.environ so installed services inherit the shell's tool
     visibility. Falls back to /usr/local/bin:/usr/bin:/bin if PATH is unset.
+    Sets PYTHONUNBUFFERED so service logs are flushed promptly.
     API keys are NOT written into service files — the supervisor reads them
     from journal.json at process startup via setup_cli().
 
@@ -106,17 +108,27 @@ def _collect_env() -> dict[str, str]:
     return {
         "HOME": str(Path.home()),
         "PATH": path,
+        "PYTHONUNBUFFERED": "1",
     }
 
 
-def _generate_plist(env: dict[str, str], port: int = DEFAULT_SERVICE_PORT) -> bytes:
+def _generate_plist(
+    env: dict[str, str],
+    *,
+    port: int = DEFAULT_SERVICE_PORT,
+    journal_path: str,
+) -> bytes:
     """Generate a launchd plist for the solstone supervisor."""
+    validate_journal_path_for_wrapper(journal_path)
     sol = _sol_bin()
+    service_log = str(Path(journal_path) / "health" / "service.log")
 
     plist = {
         "Label": SERVICE_LABEL,
         "ProgramArguments": [sol, "supervisor", str(port)],
         "EnvironmentVariables": env,
+        "StandardOutPath": service_log,
+        "StandardErrorPath": service_log,
         "RunAtLoad": True,
         "KeepAlive": {"SuccessfulExit": False},
     }
@@ -208,16 +220,23 @@ def remove_stale_plists() -> tuple[int, int]:
 
 
 def _generate_systemd_unit(
-    env: dict[str, str], port: int = DEFAULT_SERVICE_PORT
+    env: dict[str, str],
+    *,
+    port: int = DEFAULT_SERVICE_PORT,
+    journal_path: str,
 ) -> str:
     """Generate a systemd user unit for the solstone supervisor."""
+    validate_journal_path_for_wrapper(journal_path)
     sol = _sol_bin()
     env_lines = "\n".join(f"Environment={k}={v}" for k, v in sorted(env.items()))
+    service_log = str(Path(journal_path) / "health" / "service.log")
 
     return (
         f"[Unit]\n"
         f"Description=Solstone Supervisor\n"
         f"After=default.target\n"
+        f"StartLimitIntervalSec=120\n"
+        f"StartLimitBurst=10\n"
         f"\n"
         f"[Service]\n"
         f"Type=simple\n"
@@ -226,6 +245,8 @@ def _generate_systemd_unit(
         f"RestartSec=5\n"
         f"KillMode=control-group\n"
         f"TimeoutStopSec=30\n"
+        f"StandardOutput=append:{service_log}\n"
+        f"StandardError=inherit\n"
         f"{env_lines}\n"
         f"\n"
         f"[Install]\n"
@@ -261,7 +282,7 @@ def _install(port: int = DEFAULT_SERVICE_PORT) -> int:
 
     if platform == "darwin":
         remove_stale_plists()
-        plist_data = _generate_plist(env, port=port)
+        plist_data = _generate_plist(env, port=port, journal_path=journal_path)
         path = _plist_path()
         path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -285,7 +306,7 @@ def _install(port: int = DEFAULT_SERVICE_PORT) -> int:
         print("Service loaded into launchd")
 
     else:
-        unit_content = _generate_systemd_unit(env, port=port)
+        unit_content = _generate_systemd_unit(env, port=port, journal_path=journal_path)
         path = _unit_path()
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(unit_content)

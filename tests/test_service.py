@@ -34,12 +34,15 @@ class TestPlatform:
 
 
 class TestPlistGeneration:
-    def test_round_trip(self):
+    def test_round_trip(self, tmp_path):
+        journal_path = str(tmp_path / "journal")
+        service_log = str(Path(journal_path) / "health" / "service.log")
         env = {
             "HOME": "/Users/test",
             "PATH": "/usr/bin",
+            "PYTHONUNBUFFERED": "1",
         }
-        data = service._generate_plist(env)
+        data = service._generate_plist(env, journal_path=journal_path)
         plist = plistlib.loads(data)
         assert plist["Label"] == "org.solpbc.solstone"
         assert plist["ProgramArguments"][0] == str(
@@ -47,31 +50,39 @@ class TestPlistGeneration:
         )
         assert plist["ProgramArguments"][1] == "supervisor"
         assert plist["EnvironmentVariables"] == env
+        assert plist["EnvironmentVariables"]["PYTHONUNBUFFERED"] == "1"
         assert plist["KeepAlive"] == {"SuccessfulExit": False}
         assert plist["RunAtLoad"] is True
-        assert "StandardOutPath" not in plist
-        assert "StandardErrorPath" not in plist
+        assert plist["StandardOutPath"] == service_log
+        assert plist["StandardErrorPath"] == service_log
 
-    def test_keep_alive_is_sticky_stop(self):
+    def test_keep_alive_is_sticky_stop(self, tmp_path):
         env = {
             "HOME": "/Users/test",
             "PATH": "/usr/bin",
         }
-        data = service._generate_plist(env)
+        data = service._generate_plist(env, journal_path=str(tmp_path / "journal"))
         plist = plistlib.loads(data)
 
         # Clean exits stay stopped; non-zero exits respawn.
         assert isinstance(plist["KeepAlive"], dict)
         assert plist["KeepAlive"]["SuccessfulExit"] is False
 
+    def test_invalid_journal_path_rejected(self):
+        with pytest.raises(ValueError, match="shell-active character"):
+            service._generate_plist({}, journal_path="/tmp/bad\npath")
+
 
 class TestSystemdUnit:
-    def test_unit_content(self):
+    def test_unit_content(self, tmp_path):
+        journal_path = str(tmp_path / "journal")
+        service_log = str(Path(journal_path) / "health" / "service.log")
         env = {
             "HOME": "/home/test",
             "PATH": "/usr/bin",
+            "PYTHONUNBUFFERED": "1",
         }
-        unit = service._generate_systemd_unit(env)
+        unit = service._generate_systemd_unit(env, journal_path=journal_path)
         lines = unit.splitlines()
 
         # Section headers must start at column 0 (no leading whitespace)
@@ -81,8 +92,12 @@ class TestSystemdUnit:
 
         assert "Type=simple" in unit
         assert "Restart=on-failure" in unit
+        assert "StartLimitIntervalSec=120" in unit
+        assert "StartLimitBurst=10" in unit
         assert "KillMode=control-group" in unit
         assert "TimeoutStopSec=30" in unit
+        assert f"StandardOutput=append:{service_log}" in unit
+        assert "StandardError=inherit" in unit
         assert (
             f"ExecStart={Path.home() / '.local' / 'bin' / 'sol'} supervisor 5015"
             in unit
@@ -90,19 +105,26 @@ class TestSystemdUnit:
         assert "supervisor" in unit
         assert "Environment=HOME=/home/test" in unit
         assert "Environment=PATH=/usr/bin" in unit
+        assert "Environment=PYTHONUNBUFFERED=1" in unit
         assert "SOLSTONE_JOURNAL" not in unit
         assert "WantedBy=default.target" in unit
 
-    def test_no_stdio_redirection(self):
+    def test_native_stdio_redirection(self, tmp_path):
+        journal_path = str(tmp_path / "journal")
+        service_log = str(Path(journal_path) / "health" / "service.log")
         env = {
             "HOME": "/home/test",
             "PATH": "/usr/bin",
         }
 
-        unit = service._generate_systemd_unit(env)
+        unit = service._generate_systemd_unit(env, journal_path=journal_path)
 
-        assert "StandardOutput" not in unit
-        assert "StandardError" not in unit
+        assert f"StandardOutput=append:{service_log}" in unit
+        assert "StandardError=inherit" in unit
+
+    def test_invalid_journal_path_rejected(self):
+        with pytest.raises(ValueError, match="shell-active character"):
+            service._generate_systemd_unit({}, journal_path="/tmp/bad$path")
 
 
 class TestLogs:
@@ -145,6 +167,7 @@ class TestEnvCollection:
         assert "ANTHROPIC_API_KEY" not in env
         assert "OPENAI_API_KEY" not in env
         assert "GOOGLE_API_KEY" not in env
+        assert env["PYTHONUNBUFFERED"] == "1"
 
     def test_includes_venv_in_path(self, monkeypatch, tmp_path):
         monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))

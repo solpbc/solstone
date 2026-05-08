@@ -1765,6 +1765,13 @@ def main() -> None:
         except OSError:
             pass
         pid_msg = f" (PID {pid_str})" if pid_str else ""
+        if os.environ.get("INVOCATION_ID"):
+            holder_pid = pid_str or "unknown"
+            print(
+                "Supervisor already running "
+                f"(PID {holder_pid}) - exiting cleanly under systemd activation"
+            )
+            sys.exit(0)
         sock_path = health_dir / "callosum.sock"
         if sock_path.exists():
             try:
