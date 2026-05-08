@@ -11,8 +11,10 @@ from __future__ import annotations
 
 import json
 import logging
+import queue
 import threading
 import time
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from flask_sock import Sock
@@ -25,10 +27,25 @@ logger = logging.getLogger(__name__)
 _WATCH_LOCK = threading.Lock()
 _CALLOSUM_CONNECTION: Optional[CallosumConnection] = None
 _WEBSOCKET_CLIENTS: List[object] = []
+_SSE_QUEUE_MAXSIZE = 256
+_SSE_LOCK = threading.Lock()
 _STATE_CACHE: Dict[str, Any] = {
     "supervisor_status": None,
     "last_observe_ts": None,
 }
+
+
+@dataclass(eq=False)
+class _SseSubscriber:
+    key_prefix: str
+    queue: queue.Queue[str] = field(
+        default_factory=lambda: queue.Queue(maxsize=_SSE_QUEUE_MAXSIZE)
+    )
+    dropped: threading.Event = field(default_factory=threading.Event)
+    drop_reason: str | None = None
+
+
+_SSE_SUBSCRIBERS_BY_KEY: dict[str, set[_SseSubscriber]] = {}
 
 
 def _broadcast_to_websockets(event: dict) -> None:
@@ -40,6 +57,58 @@ def _broadcast_to_websockets(event: dict) -> None:
         except ConnectionClosed:
             if ws in _WEBSOCKET_CLIENTS:
                 _WEBSOCKET_CLIENTS.remove(ws)
+
+
+def register_sse_subscriber(key_prefix: str) -> _SseSubscriber:
+    """Register an SSE subscriber for a registered observer key prefix."""
+    subscriber = _SseSubscriber(key_prefix=key_prefix)
+    with _SSE_LOCK:
+        _SSE_SUBSCRIBERS_BY_KEY.setdefault(key_prefix, set()).add(subscriber)
+    return subscriber
+
+
+def unregister_sse_subscriber(handle: _SseSubscriber) -> None:
+    """Unregister an SSE subscriber handle. Safe to call more than once."""
+    with _SSE_LOCK:
+        subscribers = _SSE_SUBSCRIBERS_BY_KEY.get(handle.key_prefix)
+        if not subscribers:
+            return
+        subscribers.discard(handle)
+        if not subscribers:
+            _SSE_SUBSCRIBERS_BY_KEY.pop(handle.key_prefix, None)
+
+
+def subscription_count(key_prefix: str) -> int:
+    """Return the active SSE subscription count for an observer key prefix."""
+    with _SSE_LOCK:
+        return len(_SSE_SUBSCRIBERS_BY_KEY.get(key_prefix, set()))
+
+
+def _broadcast_to_sse_clients(message: dict) -> None:
+    """Broadcast a serialized Callosum event to all SSE subscribers."""
+    with _SSE_LOCK:
+        subscribers = [
+            subscriber
+            for subscribers_for_key in _SSE_SUBSCRIBERS_BY_KEY.values()
+            for subscriber in subscribers_for_key
+        ]
+    if not subscribers:
+        return
+
+    serialized = json.dumps(message)
+    for subscriber in subscribers:
+        if subscriber.dropped.is_set():
+            continue
+        try:
+            subscriber.queue.put_nowait(serialized)
+        except queue.Full:
+            subscriber.drop_reason = "overflow"
+            subscriber.dropped.set()
+            unregister_sse_subscriber(subscriber)
+            logger.info(
+                "Dropping slow observer callosum SSE subscriber key_prefix=%s",
+                subscriber.key_prefix,
+            )
 
 
 def _broadcast_callosum_event(message: Dict[str, Any]) -> None:
@@ -57,6 +126,14 @@ def _broadcast_callosum_event(message: Dict[str, Any]) -> None:
         _broadcast_to_websockets(message)
     except Exception:  # pragma: no cover - defensive against socket errors
         logger.exception("Failed to broadcast %s event", message.get("tract"))
+
+    # Broadcast to observer SSE clients
+    try:
+        _broadcast_to_sse_clients(message)
+    except Exception:  # pragma: no cover - defensive against SSE errors
+        logger.exception(
+            "Failed to broadcast %s event to SSE clients", message.get("tract")
+        )
 
     # Dispatch to server-side app event handlers
     try:

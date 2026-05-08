@@ -22,6 +22,7 @@ SETTINGS_NETWORK_BUTTON_DISABLE = "restrict to localhost only"
 SETTINGS_NETWORK_NEEDS_PASSWORD = "set a password below first."
 SETTINGS_NETWORK_RESTARTING = "restarting convey…"
 SETTINGS_PASSWORD_HINT = "protects the web interface when network access is on. not required for localhost-only mode."
+OBSERVER_CALLOSUM_LIVE_LABEL = "live"
 PAIRING_LOCALHOST_BANNER_TITLE = "convey is in localhost-only mode"
 PAIRING_LOCALHOST_BANNER_BODY_1 = (
     "paired devices won't be able to connect until network access is enabled."
@@ -34,6 +35,7 @@ PAIRING_NO_LAN_BANNER_BODY = "the QR code below uses localhost, which paired dev
 
 __all__ = [
     "INIT_PASSWORD_HINT",
+    "OBSERVER_CALLOSUM_LIVE_LABEL",
     "PAIRING_LOCALHOST_BANNER_ACTION",
     "PAIRING_LOCALHOST_BANNER_BODY_1",
     "PAIRING_LOCALHOST_BANNER_BODY_2",

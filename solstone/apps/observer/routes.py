@@ -18,16 +18,19 @@ import base64
 import json
 import logging
 import platform
+import queue
 import re
 import secrets
 from pathlib import Path
 from typing import Any
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, Response, jsonify, request, stream_with_context
 from werkzeug.utils import secure_filename
 
+import solstone.convey.bridge as convey_bridge
 from solstone.apps.utils import log_app_action
 from solstone.convey import emit
+from solstone.convey.copy import OBSERVER_CALLOSUM_LIVE_LABEL
 from solstone.observe.utils import (
     MAX_SEGMENT_ATTEMPTS,
     compute_bytes_sha256,
@@ -55,12 +58,17 @@ observer_bp = Blueprint(
     __name__,
     url_prefix="/app/observer",
 )
+OBSERVER_CALLOSUM_SSE_ROUTE = "/app/observer/<key>/callosum"
+_OBSERVER_CALLOSUM_SSE_RULE = OBSERVER_CALLOSUM_SSE_ROUTE.removeprefix(
+    observer_bp.url_prefix or ""
+)
 
 # Key length in bytes (256 bits = 32 bytes)
 KEY_BYTES = 32
 ACTIVE_THRESHOLD_MS = 30_000
 STALE_THRESHOLD_MS = 120_000
 FUTURE_CLOCK_DRIFT_TOLERANCE_MS = 5 * 60 * 1000
+_SSE_HEARTBEAT_SECONDS = 20
 
 OBSERVER_STATE_LABELS = {
     "connected": "Connected",
@@ -152,8 +160,9 @@ def _serialize_observer(observer: dict[str, Any], current_now: int) -> dict[str,
         observer.get("revoked", False),
         current_now,
     )
+    key_prefix = observer.get("key", "")[:8]
     return {
-        "key_prefix": observer.get("key", "")[:8],
+        "key_prefix": key_prefix,
         "name": observer.get("name", ""),
         "created_at": observer.get("created_at", 0),
         "last_seen": observer.get("last_seen"),
@@ -162,6 +171,7 @@ def _serialize_observer(observer: dict[str, Any], current_now: int) -> dict[str,
         "revoked": observer.get("revoked", False),
         "revoked_at": observer.get("revoked_at"),
         "stats": observer.get("stats", {}),
+        "live": convey_bridge.subscription_count(key_prefix) > 0,
         **freshness,
         "label": OBSERVER_STATE_LABELS[str(freshness["state"])],
     }
@@ -204,9 +214,84 @@ def api_list() -> Any:
                 "active_ms": ACTIVE_THRESHOLD_MS,
                 "stale_ms": STALE_THRESHOLD_MS,
             },
+            "labels": {
+                "live": OBSERVER_CALLOSUM_LIVE_LABEL,
+            },
             "observers": result,
         }
     )
+
+
+# LOCKED — wire format observer clients depend on. Field names and presence are the
+# downstream contract. Adding a new field to a callosum event is permitted; renaming
+# or removing existing fields requires a spec revision.
+#
+# Each SSE message body is a JSON object with at minimum:
+#   {
+#     "tract": str,        # e.g. "chat", "observe", "cortex", "supervisor", ...
+#     "event": str,        # the event name within the tract
+#     "ts":    int,        # millisecond timestamp
+#     ... event-specific fields, passed through as emitted by the bus
+#   }
+#
+# The feed does NOT add or remove fields relative to the bus payload.
+# The feed does NOT filter events.
+# The feed does NOT redact fields (v1 trust call; same trust boundary as the existing
+# WebSocket bridge — observers are inside it).
+@observer_bp.route(_OBSERVER_CALLOSUM_SSE_RULE, methods=["GET"])
+def callosum_sse(key: str) -> Any:
+    """Stream Callosum events to an authenticated observer process."""
+    auth_key = _get_key(key)
+    if not auth_key:
+        return jsonify({"error": "Authorization required"}), 401
+
+    observer = load_observer(auth_key)
+    if not observer:
+        return jsonify({"error": "Invalid key"}), 401
+
+    if observer.get("revoked", False):
+        return jsonify({"error": "Observer revoked"}), 403
+
+    if not observer.get("enabled", True):
+        return jsonify({"error": "Observer disabled"}), 403
+
+    key_prefix = auth_key[:8]
+    handle = convey_bridge.register_sse_subscriber(key_prefix)
+
+    def generate():
+        try:
+            yield ": heartbeat\n\n"
+            while True:
+                if handle.dropped.is_set():
+                    return
+                try:
+                    serialized_message = handle.queue.get(
+                        timeout=_SSE_HEARTBEAT_SECONDS
+                    )
+                except queue.Empty:
+                    current_observer = load_observer(auth_key)
+                    if not current_observer:
+                        return
+                    if current_observer.get("revoked", False):
+                        return
+                    if not current_observer.get("enabled", True):
+                        return
+                    yield ": heartbeat\n\n"
+                    continue
+
+                if handle.dropped.is_set():
+                    return
+                yield f"data: {serialized_message}\n\n"
+        finally:
+            convey_bridge.unregister_sse_subscriber(handle)
+
+    response = Response(
+        stream_with_context(generate()),
+        mimetype="text/event-stream",
+    )
+    response.headers["Cache-Control"] = "no-cache"
+    response.headers["X-Accel-Buffering"] = "no"
+    return response
 
 
 @observer_bp.route("/api/create", methods=["POST"])

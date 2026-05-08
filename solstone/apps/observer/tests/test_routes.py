@@ -165,6 +165,9 @@ def test_api_list_empty(observer_env):
             "active_ms": 30000,
             "stale_ms": 120000,
         },
+        "labels": {
+            "live": "live",
+        },
         "observers": [],
     }
 
