@@ -43,6 +43,7 @@ def test_start_sense(tmp_path, mock_callosum, monkeypatch):
         text=False,
         bufsize=-1,
         process_group=None,
+        preexec_fn=None,
         env=None,
     ):
         proc = DummyProc()
@@ -181,6 +182,77 @@ def test_shutdown_stops_in_reverse_order(monkeypatch):
         ("terminate", "convey", 15),
         ("cleanup", "convey"),
     ]
+
+
+def test_graceful_shutdown_calls_stop_process_for_each_managed_proc(
+    tmp_path, monkeypatch
+):
+    """The main shutdown path stops managed services in reverse startup order."""
+    mod = importlib.reload(importlib.import_module("solstone.think.supervisor"))
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
+    monkeypatch.delenv("SOL_SUPERVISOR_SPAWNED", raising=False)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["supervisor", "0", "--no-daily", "--no-schedule"],
+    )
+    monkeypatch.setattr(mod, "run_pending_tasks", lambda *a, **k: (0, 0))
+    monkeypatch.setattr(mod, "_sweep_cgroup_at_startup", lambda: 0)
+    monkeypatch.setattr(mod, "_sweep_orphaned_sol_processes", lambda: 0)
+    monkeypatch.setattr(mod, "start_callosum_in_process", lambda: None)
+    monkeypatch.setattr(mod, "stop_callosum_in_process", lambda: None)
+    monkeypatch.setattr(mod, "wait_for_convey_ready", lambda _proc: True)
+    monkeypatch.setattr(mod, "_maybe_submit_startup_digest", lambda *, no_cortex: None)
+
+    class FakeCallosumConnection:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def start(self, *args, **kwargs):
+            pass
+
+        def emit(self, *args, **kwargs):
+            pass
+
+        def stop(self):
+            pass
+
+    monkeypatch.setattr(mod, "CallosumConnection", FakeCallosumConnection)
+
+    procs = []
+    for name in ["convey", "sense", "cortex", "link"]:
+        managed = _TaskManagedStub(cmd=["sol", name])
+        managed.name = name
+        procs.append(managed)
+
+    monkeypatch.setattr(
+        mod,
+        "start_convey_server",
+        lambda verbose, debug=False, port=0: (procs[0], 5015),
+    )
+    monkeypatch.setattr(mod, "start_sense", lambda: procs[1])
+    monkeypatch.setattr(mod, "start_cortex_server", lambda: procs[2])
+    monkeypatch.setattr(mod, "start_link_server", lambda: procs[3])
+
+    stop_order = []
+    monkeypatch.setattr(
+        mod,
+        "_stop_process",
+        lambda managed: stop_order.append(managed.name),
+    )
+
+    def interrupt_supervise(coro):
+        coro.close()
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(mod.asyncio, "run", interrupt_supervise)
+
+    try:
+        mod.main()
+    finally:
+        os.environ.pop("SOL_SUPERVISOR_SPAWNED", None)
+
+    assert stop_order == ["link", "cortex", "sense", "convey"]
 
 
 def test_get_command_name():
@@ -1075,6 +1147,8 @@ def test_supervisor_singleton_lock_acquired(tmp_path, monkeypatch):
     # Skip maint discovery/subprocess runs — unrelated to lock acquisition and
     # slow enough on a fresh tmp_path to blow the 5s pytest-timeout under load.
     monkeypatch.setattr(mod, "run_pending_tasks", lambda *a, **k: (0, 0))
+    monkeypatch.setattr(mod, "_sweep_cgroup_at_startup", lambda: 0)
+    monkeypatch.setattr(mod, "_sweep_orphaned_sol_processes", lambda: 0)
     monkeypatch.setattr(mod, "start_callosum_in_process", stop_after_lock)
 
     with pytest.raises(SystemExit) as exc:

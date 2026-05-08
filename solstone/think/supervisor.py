@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import concurrent.futures
+import getpass
 import json
 import logging
 import os
@@ -119,6 +120,54 @@ def _sweep_cgroup_at_startup(grace: float = 5.0) -> int:
 
     survivors = [pid for pid in targets if psutil.pid_exists(pid)]
     for pid in survivors:
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+    return len(targets)
+
+
+def _sweep_orphaned_sol_processes(grace: float = 5.0) -> int:
+    if sys.platform != "linux":
+        return 0
+
+    current_user = getpass.getuser()
+    own_pid = os.getpid()
+    targets: list[int] = []
+    for proc in psutil.process_iter(["name", "ppid", "username", "pid"]):
+        try:
+            if not proc.name().startswith("sol:"):
+                continue
+            if proc.ppid() != 1:
+                continue
+            if proc.username() != current_user:
+                continue
+            if proc.pid == own_pid:
+                continue
+            targets.append(proc.pid)
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+
+    if not targets:
+        return 0
+
+    logger.info("orphan sweep: terminating %d sol process(es)", len(targets))
+    for pid in targets:
+        logger.debug("orphan sweep: SIGTERM pid=%d", pid)
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+
+    deadline = time.time() + grace
+    while time.time() < deadline:
+        if not any(psutil.pid_exists(pid) for pid in targets):
+            break
+        time.sleep(0.1)
+
+    survivors = [pid for pid in targets if psutil.pid_exists(pid)]
+    for pid in survivors:
+        logger.debug("orphan sweep: SIGKILL pid=%d", pid)
         try:
             os.kill(pid, signal.SIGKILL)
         except ProcessLookupError:
@@ -1797,6 +1846,7 @@ def main() -> None:
     start_time_path.write_text(str(time.time()))
     logging.info("Singleton lock acquired (PID %d)", os.getpid())
     _sweep_cgroup_at_startup()
+    _sweep_orphaned_sol_processes()
 
     # Set up signal handlers
     signal.signal(signal.SIGINT, handle_shutdown)

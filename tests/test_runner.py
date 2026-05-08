@@ -6,10 +6,14 @@
 import os
 import signal
 import subprocess
+import sys
+import textwrap
 import time
 from io import StringIO
+from pathlib import Path
 from unittest.mock import Mock, call
 
+import psutil
 import pytest
 
 from solstone.think.runner import ManagedProcess, run_task
@@ -77,6 +81,92 @@ def test_terminate_uses_process_group(monkeypatch):
         call(456, signal.SIGTERM),
         call(456, signal.SIGKILL),
     ]
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="PDEATHSIG is Linux-only")
+def test_pdeathsig_cascade_on_linux(journal_path, tmp_path):
+    """A child spawned through ManagedProcess exits when its parent is SIGKILLed."""
+    report_path = tmp_path / "pdeathsig.txt"
+    child_code = textwrap.dedent(
+        """
+        import ctypes
+        import signal
+        import sys
+        import time
+        from pathlib import Path
+
+        PR_GET_PDEATHSIG = 2
+        sig = ctypes.c_int()
+        libc = ctypes.CDLL("libc.so.6", use_errno=True)
+        libc.prctl(PR_GET_PDEATHSIG, ctypes.byref(sig), 0, 0, 0)
+        Path(sys.argv[1]).write_text(str(sig.value), encoding="utf-8")
+        time.sleep(60)
+        """
+    )
+    parent_code = textwrap.dedent(
+        """
+        import os
+        import sys
+        import time
+
+        from solstone.think.runner import ManagedProcess
+
+        os.environ["SOLSTONE_JOURNAL"] = sys.argv[1]
+        managed = ManagedProcess.spawn(
+            [sys.executable, "-c", sys.argv[3], sys.argv[2]],
+            ref="pdeathsig-child",
+        )
+        print(managed.pid, flush=True)
+        while True:
+            time.sleep(1)
+        """
+    )
+
+    parent = subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            parent_code,
+            str(journal_path),
+            str(report_path),
+            child_code,
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    child_pid = 0
+    try:
+        assert parent.stdout is not None
+        child_pid = int(parent.stdout.readline().strip())
+
+        deadline = time.time() + 3.0
+        while time.time() < deadline and not report_path.exists():
+            time.sleep(0.05)
+        assert report_path.read_text(encoding="utf-8") == str(signal.SIGTERM)
+
+        status = (Path(f"/proc/{child_pid}") / "status").read_text(encoding="utf-8")
+        for line in status.splitlines():
+            if line.startswith("PDeathSig:"):
+                assert line == f"PDeathSig:\t{signal.SIGTERM}"
+                break
+
+        os.kill(parent.pid, signal.SIGKILL)
+        parent.wait(timeout=3)
+
+        deadline = time.time() + 3.0
+        while time.time() < deadline and psutil.pid_exists(child_pid):
+            time.sleep(0.05)
+        assert not psutil.pid_exists(child_pid)
+    finally:
+        if parent.poll() is None:
+            parent.kill()
+            parent.wait(timeout=3)
+        if child_pid and psutil.pid_exists(child_pid):
+            try:
+                os.kill(child_pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
 
 
 def test_managed_process_has_ref_and_pid(journal_path, mock_callosum):

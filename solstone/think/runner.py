@@ -22,6 +22,7 @@ import logging
 import os
 import signal
 import subprocess
+import sys
 import threading
 import time
 from dataclasses import dataclass
@@ -32,6 +33,25 @@ from solstone.think.callosum import CallosumConnection
 from solstone.think.utils import CHRONICLE_DIR, get_journal, now_ms
 
 logger = logging.getLogger(__name__)
+
+
+def _set_pdeathsig_on_linux() -> None:
+    """Best-effort: ask the kernel to SIGTERM this child if its parent dies.
+
+    Linux-only. Uses prctl(PR_SET_PDEATHSIG, SIGTERM). Silent on failure —
+    a missing PDEATHSIG must not block process spawn.
+    """
+    if sys.platform != "linux":
+        return
+    try:
+        import ctypes
+
+        PR_SET_PDEATHSIG = 1
+        libc = ctypes.CDLL("libc.so.6", use_errno=True)
+        libc.prctl(PR_SET_PDEATHSIG, signal.SIGTERM, 0, 0, 0)
+    except Exception:
+        # Best effort. Failure to set PDEATHSIG must not block spawn.
+        pass
 
 
 def _get_journal_path() -> Path:
@@ -293,6 +313,7 @@ class ManagedProcess:
                 bufsize=1,
                 env=env,
                 process_group=0,
+                preexec_fn=_set_pdeathsig_on_linux,
             )
         except Exception as exc:
             log_writer.close()
