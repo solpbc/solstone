@@ -197,7 +197,6 @@ def test_graceful_shutdown_calls_stop_process_for_each_managed_proc(
         ["supervisor", "0", "--no-daily", "--no-schedule"],
     )
     monkeypatch.setattr(mod, "run_pending_tasks", lambda *a, **k: (0, 0))
-    monkeypatch.setattr(mod, "_sweep_cgroup_at_startup", lambda: 0)
     monkeypatch.setattr(mod, "_sweep_orphaned_sol_processes", lambda: 0)
     monkeypatch.setattr(mod, "start_callosum_in_process", lambda: None)
     monkeypatch.setattr(mod, "stop_callosum_in_process", lambda: None)
@@ -1147,7 +1146,6 @@ def test_supervisor_singleton_lock_acquired(tmp_path, monkeypatch):
     # Skip maint discovery/subprocess runs — unrelated to lock acquisition and
     # slow enough on a fresh tmp_path to blow the 5s pytest-timeout under load.
     monkeypatch.setattr(mod, "run_pending_tasks", lambda *a, **k: (0, 0))
-    monkeypatch.setattr(mod, "_sweep_cgroup_at_startup", lambda: 0)
     monkeypatch.setattr(mod, "_sweep_orphaned_sol_processes", lambda: 0)
     monkeypatch.setattr(mod, "start_callosum_in_process", stop_after_lock)
 

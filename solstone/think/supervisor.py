@@ -64,69 +64,6 @@ _supervisor_ref: str | None = None
 _supervisor_start: float | None = None
 
 
-def _parse_self_cgroup_path(text: str) -> str | None:
-    """Parse cgroup v2 line `0::/path` from /proc/self/cgroup contents."""
-    for line in text.splitlines():
-        if line.startswith("0::"):
-            return line[3:].strip() or None
-    return None
-
-
-def _read_self_cgroup_path() -> str | None:
-    try:
-        return _parse_self_cgroup_path(Path("/proc/self/cgroup").read_text())
-    except OSError:
-        return None
-
-
-def _is_systemd_service_cgroup(cgroup_path: str | None) -> bool:
-    # Only sweep when this supervisor owns the cgroup; dev shells share scopes.
-    if not cgroup_path:
-        return False
-    from solstone.think.service import SYSTEMD_UNIT
-
-    return f"{SYSTEMD_UNIT}.service" in cgroup_path
-
-
-def _sweep_cgroup_at_startup(grace: float = 5.0) -> int:
-    if sys.platform != "linux":
-        return 0
-    cgroup_path = _read_self_cgroup_path()
-    if not _is_systemd_service_cgroup(cgroup_path):
-        return 0
-    procs_file = Path("/sys/fs/cgroup") / cgroup_path.lstrip("/") / "cgroup.procs"
-    try:
-        pids = [int(pid) for pid in procs_file.read_text().split() if pid.strip()]
-    except OSError:
-        return 0
-
-    own_pid = os.getpid()
-    targets = [pid for pid in pids if pid != own_pid]
-    if not targets:
-        return 0
-
-    logger.info("cgroup sweep: terminating %d residual process(es)", len(targets))
-    for pid in targets:
-        try:
-            os.kill(pid, signal.SIGTERM)
-        except ProcessLookupError:
-            pass
-
-    deadline = time.time() + grace
-    while time.time() < deadline:
-        if not any(psutil.pid_exists(pid) for pid in targets):
-            break
-        time.sleep(0.2)
-
-    survivors = [pid for pid in targets if psutil.pid_exists(pid)]
-    for pid in survivors:
-        try:
-            os.kill(pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
-    return len(targets)
-
-
 def _sweep_orphaned_sol_processes(grace: float = 5.0) -> int:
     if sys.platform != "linux":
         return 0
@@ -1845,7 +1782,6 @@ def main() -> None:
     # Written here, not at _supervisor_start, to minimize drift from psutil create_time().
     start_time_path.write_text(str(time.time()))
     logging.info("Singleton lock acquired (PID %d)", os.getpid())
-    _sweep_cgroup_at_startup()
     _sweep_orphaned_sol_processes()
 
     # Set up signal handlers
