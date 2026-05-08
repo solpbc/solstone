@@ -36,6 +36,7 @@ chat_bp = Blueprint("chat", __name__, url_prefix="/api/chat")
 MAX_ACTIVE_TALENTS = 2
 MAX_LOOP_RETRIES = 3
 _CHAT_WATCHDOG_SECONDS = 180
+_RESERVED_USE_ID_CAP = 256
 MAX_ACTIVE_REASON = "max active — waiting for one to finish"
 CHAT_TROUBLE_REASON = "chat had trouble — try again"
 CHAT_WATCHDOG_REASON = "chat took too long — try again"
@@ -46,6 +47,7 @@ _current_chat_use_id: str | None = None
 _current_chat_state: dict[str, Any] | None = None
 _queued_trigger: dict[str, Any] | None = None
 _active_talents: dict[str, dict[str, Any]] = {}
+_reserved_use_ids: dict[str, None] = {}
 _watchdog_timers: dict[str, threading.Timer] = {}
 _last_use_id = 0
 _runtime: "ChatRuntimeState | None" = None
@@ -168,6 +170,7 @@ def stop_all_chat_runtime() -> None:
         for timer in _watchdog_timers.values():
             timer.cancel()
         _watchdog_timers.clear()
+        _reserved_use_ids.clear()
 
     with _runtime_lock:
         runtime = _runtime
@@ -373,12 +376,13 @@ def _on_cortex_finish(message: dict[str, Any]) -> None:
                 "raw rotated",
             )
         else:
-            logger.warning(
-                "unrouteable cortex event use_id=%s event=%s reason=%s",
-                use_id,
-                "finish",
-                "no matching active chat-generate or talent",
-            )
+            if use_id in _reserved_use_ids:
+                logger.warning(
+                    "unrouteable cortex event use_id=%s event=%s reason=%s",
+                    use_id,
+                    "finish",
+                    "no matching active chat-generate or talent",
+                )
 
     _run_next_action(next_info)
     if finish_payload is not None:
@@ -424,12 +428,13 @@ def _on_cortex_error(message: dict[str, Any]) -> None:
                 "raw rotated",
             )
         else:
-            logger.warning(
-                "unrouteable cortex event use_id=%s event=%s reason=%s",
-                use_id,
-                "error",
-                "no matching active chat-generate or talent",
-            )
+            if use_id in _reserved_use_ids:
+                logger.warning(
+                    "unrouteable cortex event use_id=%s event=%s reason=%s",
+                    use_id,
+                    "error",
+                    "no matching active chat-generate or talent",
+                )
 
     _run_next_action(next_info)
     if error_payload is not None:
@@ -634,6 +639,9 @@ def _recover_active_talents_locked(day: str) -> None:
             spawned.pop(str(event.get("use_id") or ""), None)
 
     for use_id, state in spawned.items():
+        # recovery blind spot: pre-crash reservations are not seen here
+        _reserved_use_ids[use_id] = None
+        _reserved_use_ids[state["chat_use_id"]] = None
         if use_id in _active_talents:
             continue
         _active_talents[use_id] = state
@@ -1123,7 +1131,11 @@ def _reserve_use_id_locked() -> str:
     if ts <= _last_use_id:
         ts = _last_use_id + 1
     _last_use_id = ts
-    return str(ts)
+    use_id = str(ts)
+    _reserved_use_ids[use_id] = None
+    while len(_reserved_use_ids) > _RESERVED_USE_ID_CAP:
+        _reserved_use_ids.pop(next(iter(_reserved_use_ids)))
+    return use_id
 
 
 def _today_day() -> str:

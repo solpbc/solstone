@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime
 
 import pytest
@@ -19,6 +20,7 @@ def _reset_chat_state(chat_module) -> None:
         chat_module._current_chat_state = None
         chat_module._queued_trigger = None
         chat_module._active_talents.clear()
+        chat_module._reserved_use_ids.clear()
         for timer in chat_module._watchdog_timers.values():
             timer.cancel()
         chat_module._watchdog_timers.clear()
@@ -917,12 +919,13 @@ def test_superseded_raw_error_after_followup_rotation_is_dropped_without_warning
     assert sol_messages[-1]["text"] == "wrapped up"
 
 
-def test_unknown_raw_use_id_still_warns(tmp_path, monkeypatch, caplog):
+def test_reserved_unknown_raw_use_id_still_warns(tmp_path, monkeypatch, caplog):
     import solstone.convey.chat as chat
 
     _setup_journal(tmp_path, monkeypatch)
     _reset_chat_state(chat)
 
+    use_id = "1713625300009"
     with chat._state_lock:
         chat._current_chat_use_id = "1713625300000"
         chat._current_chat_state = {
@@ -932,14 +935,21 @@ def test_unknown_raw_use_id_still_warns(tmp_path, monkeypatch, caplog):
             "location": {"app": "sol", "path": "/app/sol", "facet": "work"},
             "retry_count": 0,
         }
+        chat._reserved_use_ids[use_id] = None
 
-    with caplog.at_level("WARNING"):
-        chat._on_cortex_finish({"use_id": "1713625300009", "result": "done"})
+    caplog.set_level(logging.WARNING, logger="solstone.convey.chat")
+    chat._on_cortex_finish({"use_id": use_id, "result": "done"})
 
+    chat_records = [
+        record
+        for record in caplog.records
+        if record.name == "solstone.convey.chat" and record.levelno == logging.WARNING
+    ]
+    assert len(chat_records) == 1
     assert (
         "unrouteable cortex event use_id=1713625300009 event=finish "
         "reason=no matching active chat-generate or talent"
-    ) in caplog.text
+    ) == chat_records[0].getMessage()
 
 
 def test_exec_dispatch_appends_sol_message_and_spawns_talent_real_path(
@@ -1377,13 +1387,22 @@ def test_cortex_finish_logs_warning_for_unrouteable_use_id(
     _setup_journal(tmp_path, monkeypatch)
     _reset_chat_state(chat)
 
-    with caplog.at_level("WARNING"):
-        chat._on_cortex_finish({"use_id": "1713630000000", "result": "done"})
+    with chat._state_lock:
+        use_id = chat._reserve_use_id_locked()
 
+    caplog.set_level(logging.WARNING, logger="solstone.convey.chat")
+    chat._on_cortex_finish({"use_id": use_id, "result": "done"})
+
+    chat_records = [
+        record
+        for record in caplog.records
+        if record.name == "solstone.convey.chat" and record.levelno == logging.WARNING
+    ]
+    assert len(chat_records) == 1
     assert (
-        "unrouteable cortex event use_id=1713630000000 event=finish "
+        f"unrouteable cortex event use_id={use_id} event=finish "
         "reason=no matching active chat-generate or talent"
-    ) in caplog.text
+    ) == chat_records[0].getMessage()
 
 
 def test_cortex_error_logs_warning_for_unrouteable_use_id(
@@ -1394,13 +1413,66 @@ def test_cortex_error_logs_warning_for_unrouteable_use_id(
     _setup_journal(tmp_path, monkeypatch)
     _reset_chat_state(chat)
 
-    with caplog.at_level("WARNING"):
-        chat._on_cortex_error({"use_id": "1713631000000", "error": "boom"})
+    with chat._state_lock:
+        use_id = chat._reserve_use_id_locked()
 
+    caplog.set_level(logging.WARNING, logger="solstone.convey.chat")
+    chat._on_cortex_error({"use_id": use_id, "error": "boom"})
+
+    chat_records = [
+        record
+        for record in caplog.records
+        if record.name == "solstone.convey.chat" and record.levelno == logging.WARNING
+    ]
+    assert len(chat_records) == 1
     assert (
-        "unrouteable cortex event use_id=1713631000000 event=error "
+        f"unrouteable cortex event use_id={use_id} event=error "
         "reason=no matching active chat-generate or talent"
-    ) in caplog.text
+    ) == chat_records[0].getMessage()
+
+
+def test_on_cortex_finish_unreserved_silent(tmp_path, monkeypatch, caplog):
+    import solstone.convey.chat as chat
+
+    _setup_journal(tmp_path, monkeypatch)
+    _reset_chat_state(chat)
+
+    caplog.set_level(logging.WARNING, logger="solstone.convey.chat")
+    chat._on_cortex_finish({"use_id": "1713632000000", "result": "done"})
+
+    chat_records = [
+        record
+        for record in caplog.records
+        if record.name == "solstone.convey.chat" and record.levelno == logging.WARNING
+    ]
+    assert chat_records == []
+    with chat._state_lock:
+        assert chat._current_chat_use_id is None
+        assert chat._current_chat_state is None
+        assert chat._active_talents == {}
+        assert chat._reserved_use_ids == {}
+
+
+def test_on_cortex_error_unreserved_silent(tmp_path, monkeypatch, caplog):
+    import solstone.convey.chat as chat
+
+    _setup_journal(tmp_path, monkeypatch)
+    _reset_chat_state(chat)
+
+    caplog.set_level(logging.WARNING, logger="solstone.convey.chat")
+    chat._on_cortex_error({"use_id": "1713633000000", "error": "boom"})
+
+    chat_records = [
+        record
+        for record in caplog.records
+        if record.name == "solstone.convey.chat" and record.levelno == logging.WARNING
+    ]
+    assert chat_records == []
+    with chat._state_lock:
+        assert chat._current_chat_use_id is None
+        assert chat._current_chat_state is None
+        assert chat._active_talents == {}
+        assert chat._reserved_use_ids == {}
 
 
 def test_parse_chat_result_accepts_reflection_target():
