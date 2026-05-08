@@ -8,12 +8,15 @@ import logging
 import os
 import platform
 import socket
+import threading
 import time
 from pathlib import Path
-from typing import Any, NamedTuple
+from typing import Any, Callable, NamedTuple
+from urllib.parse import quote
 
 import requests
 
+from solstone.apps.observer.routes import OBSERVER_CALLOSUM_SSE_ROUTE
 from solstone.think.utils import get_config, get_journal, read_service_port
 
 logger = logging.getLogger(__name__)
@@ -23,6 +26,7 @@ RETRY_BACKOFF = [1, 5, 15]
 MAX_RETRIES = 3
 UPLOAD_TIMEOUT = 300
 EVENT_TIMEOUT = 30
+CALLOSUM_RECONNECT_BACKOFF = [1, 2, 4, 8, 16, 30]
 
 
 class UploadResult(NamedTuple):
@@ -94,6 +98,10 @@ class ObserverClient:
         self._platform = platform_name
         self._revoked = False
         self._session = requests.Session()
+        self._callosum_thread: threading.Thread | None = None
+        self._callosum_stop = threading.Event()
+        self._callosum_response: requests.Response | None = None
+        self._callosum_error: Exception | None = None
 
     def _persist_key(self, key: str) -> None:
         journal = get_journal()
@@ -274,5 +282,159 @@ class ObserverClient:
             logger.debug(f"Event relay failed: {e}")
             return False
 
+    def subscribe_callosum(self, callback: Callable[[dict], None]) -> None:
+        if self._callosum_thread is not None and self._callosum_thread.is_alive():
+            raise RuntimeError("subscribe_callosum already active")
+
+        self._callosum_stop.clear()
+        self._callosum_error = None
+        self._callosum_thread = threading.Thread(
+            target=self._callosum_loop,
+            args=(callback,),
+            daemon=True,
+        )
+        self._callosum_thread.start()
+
+    def _callosum_loop(self, callback: Callable[[dict], None]) -> None:
+        if self._revoked:
+            return
+
+        self._ensure_registered()
+        if not self._key or not self._url:
+            return
+
+        path = OBSERVER_CALLOSUM_SSE_ROUTE.replace("<key>", quote(self._key, safe=""))
+        url = f"{self._url}{path}"
+        headers = {"Authorization": f"Bearer {self._key}"}
+        backoff_index = 0
+
+        while not self._callosum_stop.is_set():
+            response: requests.Response | None = None
+            try:
+                response = self._session.get(
+                    url,
+                    headers=headers,
+                    stream=True,
+                    timeout=(EVENT_TIMEOUT, None),
+                )
+                self._callosum_response = response
+
+                if response.status_code == 200:
+                    backoff_index = 0
+                    self._consume_callosum_response(response, callback)
+                elif response.status_code in {401, 403}:
+                    self._revoked = True
+                    self._callosum_error = RuntimeError(
+                        f"Callosum subscription rejected ({response.status_code})"
+                    )
+                    logger.warning(
+                        "Callosum subscription rejected (%s)", response.status_code
+                    )
+                    return
+                else:
+                    self._callosum_error = RuntimeError(
+                        f"Callosum subscription failed ({response.status_code})"
+                    )
+                    logger.debug(
+                        "Callosum subscription failed: %s %s",
+                        response.status_code,
+                        response.text,
+                    )
+            except requests.RequestException as e:
+                self._callosum_error = e
+                logger.debug(f"Callosum subscription transport failed: {e}")
+            except Exception as e:
+                self._callosum_error = e
+                if self._callosum_stop.is_set():
+                    logger.debug(f"Callosum subscription stopped: {e}")
+                else:
+                    logger.debug(f"Callosum subscription failed: {e}", exc_info=True)
+            finally:
+                if self._callosum_response is response:
+                    self._callosum_response = None
+                if response is not None:
+                    self._close_callosum_response(response)
+
+            if self._callosum_stop.is_set():
+                return
+
+            delay = CALLOSUM_RECONNECT_BACKOFF[
+                min(backoff_index, len(CALLOSUM_RECONNECT_BACKOFF) - 1)
+            ]
+            if self._callosum_stop.wait(delay):
+                return
+            if backoff_index < len(CALLOSUM_RECONNECT_BACKOFF) - 1:
+                backoff_index += 1
+
+    def _consume_callosum_response(
+        self,
+        response: requests.Response,
+        callback: Callable[[dict], None],
+    ) -> None:
+        data_lines: list[str] = []
+        for raw_line in response.iter_lines(decode_unicode=True):
+            if self._callosum_stop.is_set():
+                return
+            line = raw_line.decode("utf-8") if isinstance(raw_line, bytes) else raw_line
+            if line == "":
+                self._dispatch_callosum_frame(data_lines, callback)
+                data_lines = []
+            elif line.startswith(":"):
+                continue
+            elif line.startswith("data:"):
+                data = line[5:]
+                if data.startswith(" "):
+                    data = data[1:]
+                data_lines.append(data)
+
+        self._dispatch_callosum_frame(data_lines, callback)
+
+    def _dispatch_callosum_frame(
+        self,
+        data_lines: list[str],
+        callback: Callable[[dict], None],
+    ) -> None:
+        if not data_lines:
+            return
+
+        try:
+            payload = json.loads("\n".join(data_lines))
+        except json.JSONDecodeError as e:
+            logger.warning(f"Invalid callosum SSE payload: {e}")
+            return
+
+        try:
+            callback(payload)
+        except Exception:
+            logger.exception("Callosum subscription callback failed")
+
+    def _close_callosum_response(self, response: requests.Response) -> None:
+        self._shutdown_callosum_response_socket(response)
+        try:
+            response.close()
+        except Exception as e:
+            logger.debug(f"Callosum response close failed: {e}")
+
+    def _shutdown_callosum_response_socket(self, response: requests.Response) -> None:
+        try:
+            raw = getattr(response, "raw", None)
+            fp = getattr(raw, "_fp", None)
+            socket_fp = getattr(fp, "fp", None)
+            socket_raw = getattr(socket_fp, "raw", None)
+            sock = getattr(socket_raw, "_sock", None)
+            if sock is not None:
+                sock.shutdown(socket.SHUT_RDWR)
+        except Exception:
+            pass
+
     def stop(self) -> None:
+        self._callosum_stop.set()
+        if self._callosum_response is not None:
+            self._close_callosum_response(self._callosum_response)
+        if (
+            self._callosum_thread is not None
+            and self._callosum_thread.is_alive()
+            and self._callosum_thread is not threading.current_thread()
+        ):
+            self._callosum_thread.join(timeout=5.0)
         self._session.close()
