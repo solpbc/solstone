@@ -26,6 +26,16 @@ VENV_PY := $(VENV_BIN)/python
 PYTHON := $(VENV_PY)
 PARAKEET_ONNX_VARIANT ?= $(shell if nvidia-smi -L >/dev/null 2>&1; then echo cuda; else echo cpu; fi)
 
+# Dev install extras: Darwin lacks arm64 wheels for parakeet-onnx-cuda's
+# nvidia-* deps, so on Darwin we sync only the platform-agnostic extras and
+# skip the full extras sync (which would otherwise force resolution of
+# parakeet variants and fail). All other hosts (Linux primary) keep it.
+ifeq ($(shell uname -s),Darwin)
+EXTRAS_ARGS := --extra pdf --extra whisper
+else
+EXTRAS_ARGS := --all-extras
+endif
+
 # Require uv
 UV := $(shell command -v uv 2>/dev/null)
 ifndef UV
@@ -49,7 +59,7 @@ USER_BIN := $(HOME)/.local/bin
 # Marker file to track installation
 .installed: pyproject.toml uv.lock .python-version-hash
 	@echo "Installing package with uv..."
-	$(UV) sync --group dev --all-extras
+	$(UV) sync --group dev $(EXTRAS_ARGS)
 	@# Python 3.14+ needs onnxruntime from nightly (not yet on PyPI)
 	@OS_NAME=$$(uname -s); \
 	PY_MINOR=$$($(PYTHON) -c "import sys; print(sys.version_info.minor)"); \
@@ -247,8 +257,8 @@ parakeet-helper-clean:
 # (Darwin/arm64 only; requires Xcode CLT, Developer ID cert, and the
 # `sol-pbc-notary` notarytool keychain profile in sol-signing.keychain-db).
 # `uv build` runs in its own PEP 517 isolated env, so this target intentionally
-# does not depend on `.installed` — `make install` pulls --all-extras which on
-# macOS tries to resolve parakeet-onnx-cuda's nvidia-* deps and fails.
+# does not depend on `.installed` — the wheel build is fully decoupled from
+# the dev venv install state.
 ifeq ($(shell uname -s)/$(shell uname -m),Darwin/arm64)
 wheel-macos: parakeet-helper
 	@echo "==> signing and notarizing parakeet-helper"
