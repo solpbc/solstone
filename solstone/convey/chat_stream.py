@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 _CHAT_LOCK = threading.Lock()
 _CHAT_STREAM = "chat"
 _SEGMENT_WINDOW_MS = 300_000
+_APPENDED_CHAT_PATHS: dict[int, Path] = {}
 _VALID_KINDS = {
     "owner_message": ("text", "app", "path", "facet"),
     "sol_message": (
@@ -43,32 +44,89 @@ _VALID_KINDS = {
     "talent_errored": ("use_id", "name", "reason"),
     "reflection_ready": ("day", "url"),
     "chat_error": ("reason", "use_id"),
+    "sol_chat_request": (
+        "request_id",
+        "summary",
+        "message",
+        "category",
+        "dedupe",
+        "dedupe_window",
+        "since_ts",
+        "trigger_talent",
+    ),
+    "sol_chat_request_superseded": ("request_id", "replaced_by"),
+    "owner_chat_open": ("request_id", "surface"),
+    "owner_chat_dismissed": ("request_id", "surface", "reason"),
 }
-_TRIGGER_KINDS = {"owner_message", "talent_finished", "talent_errored"}
+_TRIGGER_KINDS = {
+    "owner_message",
+    "talent_finished",
+    "talent_errored",
+    "sol_chat_request",
+}
 
 
 def append_chat_event(kind: str, **fields: Any) -> dict[str, Any]:
     """Append a chat event to the current 5-minute segment."""
-    if kind not in _VALID_KINDS:
-        raise ValueError(f"Unknown chat event kind: {kind}")
+    return append_chat_events_locked([(kind, fields)])[0]
 
-    event = dict(fields)
-    event.setdefault("ts", int(time.time() * 1000))
-    _validate_event(kind, event)
 
-    day = _day_for_ts(event["ts"])
+def append_chat_events_locked(
+    events: list[tuple[str, dict[str, Any]]],
+    *,
+    _lock_already_held: bool = False,
+) -> list[dict[str, Any]]:
+    """Append one or more chat events.
+
+    Normal callers let this helper acquire ``_CHAT_LOCK``. Callers that must keep
+    policy checks and append in a single critical section may pass
+    ``_lock_already_held=True`` while holding ``_CHAT_LOCK``; in that mode this
+    function only writes the stream and the caller must invoke
+    ``_finalize_chat_event_appends`` after releasing the lock.
+    """
+    prepared = _prepare_chat_events(events)
     _require_journal_root()
 
+    if _lock_already_held:
+        return _append_prepared_chat_events_locked_already_held(prepared)
+
     with _CHAT_LOCK:
+        stored_events = _append_prepared_chat_events_locked_already_held(prepared)
+
+    _finalize_chat_event_appends(stored_events)
+    return stored_events
+
+
+def _prepare_chat_events(
+    events: list[tuple[str, dict[str, Any]]],
+) -> list[tuple[str, dict[str, Any]]]:
+    prepared: list[tuple[str, dict[str, Any]]] = []
+    for kind, fields in events:
+        if kind not in _VALID_KINDS:
+            raise ValueError(f"Unknown chat event kind: {kind}")
+        event = dict(fields)
+        event.setdefault("ts", int(time.time() * 1000))
+        _validate_event(kind, event)
+        prepared.append((kind, event))
+    return prepared
+
+
+def _append_prepared_chat_events_locked_already_held(
+    events: list[tuple[str, dict[str, Any]]],
+) -> list[dict[str, Any]]:
+    stored_events: list[dict[str, Any]] = []
+
+    for kind, event in events:
+        day = _day_for_ts(event["ts"])
         segment = _current_segment_key(day, event["ts"])
         segment_dir = segment_path(day, segment, _CHAT_STREAM)
         chat_path = segment_dir / "chat.jsonl"
         had_segment_file = chat_path.exists()
 
-        events = _read_events_file(chat_path)
+        file_events = _read_events_file(chat_path)
         stored_event = {"kind": kind, **event}
-        events.append(stored_event)
-        _write_events_file(chat_path, events)
+        file_events.append(stored_event)
+        _write_events_file(chat_path, file_events)
 
         if not had_segment_file:
             stream_info = update_stream(_CHAT_STREAM, day, segment, type=_CHAT_STREAM)
@@ -80,20 +138,36 @@ def append_chat_event(kind: str, **fields: Any) -> dict[str, Any]:
                 stream_info["seq"],
             )
 
-    try:
-        index_file(get_journal(), str(chat_path))
-    except Exception:
-        logger.warning(
-            "chat-event-index-failed",
-            extra={
-                "kind": kind,
-                "use_id": str(stored_event.get("use_id") or ""),
-                "chat_path": str(chat_path),
-            },
-            exc_info=True,
-        )
-    _broadcast_chat_event(stored_event)
-    return stored_event
+        _APPENDED_CHAT_PATHS[id(stored_event)] = chat_path
+        stored_events.append(stored_event)
+
+    return stored_events
+
+
+def _finalize_chat_event_appends(stored_events: list[dict[str, Any]]) -> None:
+    indexed_paths: set[Path] = set()
+    for stored_event in stored_events:
+        chat_path = _APPENDED_CHAT_PATHS.pop(id(stored_event), None)
+        if chat_path is None:
+            chat_path = _chat_path_for_stored_event(stored_event)
+        if chat_path in indexed_paths:
+            continue
+        indexed_paths.add(chat_path)
+        try:
+            index_file(get_journal(), str(chat_path))
+        except Exception:
+            logger.warning(
+                "chat-event-index-failed",
+                extra={
+                    "kind": str(stored_event.get("kind") or ""),
+                    "use_id": str(stored_event.get("use_id") or ""),
+                    "chat_path": str(chat_path),
+                },
+                exc_info=True,
+            )
+
+    for stored_event in stored_events:
+        _broadcast_chat_event(stored_event)
 
 
 def read_chat_events(day: str, limit: int | None = None) -> list[dict[str, Any]]:
@@ -266,6 +340,13 @@ def _current_segment_key(day: str, ts_ms: int) -> str:
     if ts_ms - current_start_ms >= _SEGMENT_WINDOW_MS:
         return _segment_key_for_start(event_dt)
     return current
+
+
+def _chat_path_for_stored_event(stored_event: dict[str, Any]) -> Path:
+    ts = int(stored_event["ts"])
+    day = _day_for_ts(ts)
+    segment = _current_segment_key(day, ts)
+    return segment_path(day, segment, _CHAT_STREAM) / "chat.jsonl"
 
 
 def _chat_segments(day: str) -> list[str]:
