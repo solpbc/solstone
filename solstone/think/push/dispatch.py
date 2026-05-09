@@ -16,6 +16,10 @@ from typing import Any
 import httpx
 import jwt
 
+from solstone.convey.sol_initiated.copy import (
+    APNS_CATEGORY_SOL_CHAT_REQUEST,
+    KIND_SOL_CHAT_REQUEST,
+)
 from solstone.think.push import devices
 from solstone.think.push.config import (
     get_apns_key_id,
@@ -36,6 +40,7 @@ CATEGORIES = (
     CATEGORY_PRE_MEETING_PREP,
     CATEGORY_AGENT_ALERT,
     CATEGORY_COMMITMENT_NUDGE,
+    APNS_CATEGORY_SOL_CHAT_REQUEST,
 )
 _JWT_MAX_AGE_SECONDS = 55 * 60
 _APNS_JWT_CACHE: dict[tuple[str, str], tuple[str, int]] = {}
@@ -109,6 +114,14 @@ def build_agent_alert_collapse_id(context_id: str) -> str:
 
 def build_commitment_collapse_id(ledger_id: str) -> str:
     return f"commitment.{ledger_id}"
+
+
+def build_sol_chat_request_collapse_id(*, request_id: str) -> str:
+    return f"{KIND_SOL_CHAT_REQUEST}:{request_id}"
+
+
+def build_silent_chat_lifecycle_collapse_id(*, request_id: str, action: str) -> str:
+    return f"sol_chat_lifecycle:{request_id}:{action}"
 
 
 def build_daily_briefing_payload(
@@ -204,6 +217,34 @@ def build_commitment_payload(*, ledger_id: str) -> dict[str, Any]:
     }
 
 
+def build_sol_chat_request_payload(
+    *, request_id: str, summary: str, category: str
+) -> dict[str, Any]:
+    return {
+        "aps": {
+            "alert": {"title": "sol", "body": summary},
+            "category": APNS_CATEGORY_SOL_CHAT_REQUEST,
+            "sound": "default",
+            "mutable-content": 1,
+            "content-available": 1,
+        },
+        "data": {
+            "action": "open_chat_request",
+            "request_id": request_id,
+            "category": category,
+        },
+    }
+
+
+def build_silent_chat_lifecycle_payload(
+    *, request_id: str, action: str
+) -> dict[str, Any]:
+    return {
+        "aps": {"mutable-content": 1, "content-available": 1},
+        "data": {"action": action, "request_id": request_id},
+    }
+
+
 def _apns_host() -> str:
     environment = get_environment()
     if environment == "production":
@@ -211,12 +252,14 @@ def _apns_host() -> str:
     return "https://api.sandbox.push.apple.com"
 
 
-def _headers(*, collapse_id: str, priority: int) -> dict[str, str]:
+def _headers(
+    *, collapse_id: str, priority: int, push_type: str = "alert"
+) -> dict[str, str]:
     return {
         "apns-topic": _require_bundle_id(),
         "apns-collapse-id": collapse_id,
         "apns-priority": str(priority),
-        "apns-push-type": "alert",
+        "apns-push-type": "background" if push_type == "background" else "alert",
         "authorization": f"bearer {_mint_apns_jwt()}",
     }
 
@@ -261,13 +304,18 @@ async def _send_with_client(
     *,
     collapse_id: str,
     priority: int,
+    push_type: str = "alert",
 ) -> tuple[bool, str | None]:
     token = str(device.get("token") or "")
     masked_token = devices.mask_token(token)
     try:
         response = await client.post(
             f"{_apns_host()}/3/device/{token}",
-            headers=_headers(collapse_id=collapse_id, priority=priority),
+            headers=_headers(
+                collapse_id=collapse_id,
+                priority=priority,
+                push_type=push_type,
+            ),
             json=payload,
         )
     except Exception as exc:
@@ -308,10 +356,16 @@ async def _send_async(
     *,
     collapse_id: str,
     priority: int = 10,
+    push_type: str = "alert",
 ) -> tuple[bool, str | None]:
     async with httpx.AsyncClient(http2=True, timeout=10.0) as client:
         return await _send_with_client(
-            client, device, payload, collapse_id=collapse_id, priority=priority
+            client,
+            device,
+            payload,
+            collapse_id=collapse_id,
+            priority=priority,
+            push_type=push_type,
         )
 
 
@@ -321,9 +375,16 @@ def send(
     *,
     collapse_id: str,
     priority: int = 10,
+    push_type: str = "alert",
 ) -> tuple[bool, str | None]:
     return _run_async(
-        _send_async(device, payload, collapse_id=collapse_id, priority=priority)
+        _send_async(
+            device,
+            payload,
+            collapse_id=collapse_id,
+            priority=priority,
+            push_type=push_type,
+        )
     )
 
 
@@ -333,13 +394,19 @@ async def _send_many_async(
     *,
     collapse_id: str,
     priority: int = 10,
+    push_type: str = "alert",
 ) -> tuple[int, int]:
     sent = 0
     failed = 0
     async with httpx.AsyncClient(http2=True, timeout=10.0) as client:
         for device in push_devices:
             ok, _ = await _send_with_client(
-                client, device, payload, collapse_id=collapse_id, priority=priority
+                client,
+                device,
+                payload,
+                collapse_id=collapse_id,
+                priority=priority,
+                push_type=push_type,
             )
             if ok:
                 sent += 1
@@ -354,16 +421,22 @@ def send_many(
     *,
     collapse_id: str,
     priority: int = 10,
+    push_type: str = "alert",
 ) -> tuple[int, int]:
     return _run_async(
         _send_many_async(
-            push_devices, payload, collapse_id=collapse_id, priority=priority
+            push_devices,
+            payload,
+            collapse_id=collapse_id,
+            priority=priority,
+            push_type=push_type,
         )
     )
 
 
 __all__ = [
     "CATEGORIES",
+    "APNS_CATEGORY_SOL_CHAT_REQUEST",
     "CATEGORY_AGENT_ALERT",
     "CATEGORY_COMMITMENT_NUDGE",
     "CATEGORY_DAILY_BRIEFING",
@@ -376,6 +449,10 @@ __all__ = [
     "build_daily_briefing_payload",
     "build_pre_meeting_collapse_id",
     "build_pre_meeting_payload",
+    "build_silent_chat_lifecycle_collapse_id",
+    "build_silent_chat_lifecycle_payload",
+    "build_sol_chat_" + "request_collapse_id",
+    "build_sol_chat_" + "request_payload",
     "send",
     "send_many",
 ]

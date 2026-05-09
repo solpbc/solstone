@@ -10,6 +10,11 @@ from unittest.mock import patch
 import httpx
 import jwt
 
+from solstone.convey.sol_initiated.copy import (
+    KIND_OWNER_CHAT_DISMISSED,
+    KIND_OWNER_CHAT_OPEN,
+    KIND_SOL_CHAT_REQUEST,
+)
 from solstone.think.push import dispatch
 
 TEST_KEY = """-----BEGIN PRIVATE KEY-----
@@ -144,6 +149,45 @@ def test_commitment_payload_shape():
     assert payload["data"] == {"action": "open_commitment", "ledger_id": "lg_123"}
 
 
+def test_build_sol_chat_request_payload_shape():
+    payload = dispatch.build_sol_chat_request_payload(
+        request_id="req-1",
+        summary="Needs a reply",
+        category="notice",
+    )
+
+    assert set(payload) == {"aps", "data"}
+    assert payload["aps"] == {
+        "alert": {"title": "sol", "body": "Needs a reply"},
+        "category": dispatch.APNS_CATEGORY_SOL_CHAT_REQUEST,
+        "sound": "default",
+        "mutable-content": 1,
+        "content-available": 1,
+    }
+    assert payload["data"] == {
+        "action": "open_chat_request",
+        "request_id": "req-1",
+        "category": "notice",
+    }
+
+
+def test_build_silent_chat_lifecycle_payload_shape():
+    payload = dispatch.build_silent_chat_lifecycle_payload(
+        request_id="req-1",
+        action=KIND_OWNER_CHAT_OPEN,
+    )
+
+    assert set(payload) == {"aps", "data"}
+    assert payload["aps"] == {"mutable-content": 1, "content-available": 1}
+    assert "alert" not in payload["aps"]
+    assert "sound" not in payload["aps"]
+    assert "category" not in payload["aps"]
+    assert payload["data"] == {
+        "action": KIND_OWNER_CHAT_OPEN,
+        "request_id": "req-1",
+    }
+
+
 def test_collapse_ids():
     assert dispatch.build_daily_briefing_collapse_id("20260419") == "briefing.20260419"
     assert (
@@ -152,6 +196,27 @@ def test_collapse_ids():
     )
     assert dispatch.build_agent_alert_collapse_id("ctx-1") == "alert.ctx-1"
     assert dispatch.build_commitment_collapse_id("lg_123") == "commitment.lg_123"
+
+
+def test_collapse_ids_are_request_scoped():
+    assert (
+        dispatch.build_sol_chat_request_collapse_id(request_id="req-1")
+        == f"{KIND_SOL_CHAT_REQUEST}:req-1"
+    )
+    assert (
+        dispatch.build_silent_chat_lifecycle_collapse_id(
+            request_id="req-1",
+            action=KIND_OWNER_CHAT_OPEN,
+        )
+        == f"sol_chat_lifecycle:req-1:{KIND_OWNER_CHAT_OPEN}"
+    )
+    assert dispatch.build_silent_chat_lifecycle_collapse_id(
+        request_id="req-1",
+        action=KIND_OWNER_CHAT_DISMISSED,
+    ) != dispatch.build_silent_chat_lifecycle_collapse_id(
+        request_id="req-1",
+        action=KIND_OWNER_CHAT_OPEN,
+    )
 
 
 def test_send_removes_bad_device_token(monkeypatch, tmp_path):
@@ -235,3 +300,32 @@ def test_send_many_reuses_client_and_redacts_tokens(monkeypatch, tmp_path, caplo
     assert "push rejected token=...cccc" in caplog.text
     assert all(record.levelname == "WARNING" for record in caplog.records)
     assert re.search(r"[0-9a-f]{64}", caplog.text) is None
+
+
+def test_send_many_propagates_push_type_to_headers(monkeypatch, tmp_path):
+    _configure_push(monkeypatch, tmp_path)
+    calls: list[dict[str, object]] = []
+
+    async def fake_post(self, url, *, headers, json):
+        calls.append({"url": url, "headers": headers, "json": json})
+        return httpx.Response(200)
+
+    with patch.object(httpx.AsyncClient, "post", new=fake_post):
+        sent, failed = dispatch.send_many(
+            [{"token": "e" * 64}],
+            dispatch.build_silent_chat_lifecycle_payload(
+                request_id="req-1",
+                action=KIND_OWNER_CHAT_OPEN,
+            ),
+            collapse_id=dispatch.build_silent_chat_lifecycle_collapse_id(
+                request_id="req-1",
+                action=KIND_OWNER_CHAT_OPEN,
+            ),
+            priority=5,
+            push_type="background",
+        )
+
+    assert sent == 1
+    assert failed == 0
+    assert calls[0]["headers"]["apns-priority"] == "5"
+    assert calls[0]["headers"]["apns-push-type"] == "background"
