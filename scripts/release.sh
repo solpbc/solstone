@@ -100,12 +100,16 @@ if ! ssh -o ConnectTimeout=5 "$PRO5E_HOST" true 2>/dev/null; then
     exit 1
 fi
 
-ssh "$PRO5E_HOST" "set -e; \
-    cd ~/projects/solstone && \
+# tmux-run is required: codesign + notarytool need the sol-signing keychain
+# unlocked, and that unlock state lives in the hopper tmux session's launchd
+# session — fresh raw SSH connections don't inherit it. ensure-build-windows
+# is idempotent and re-applies the unlock.
+ssh "$PRO5E_HOST" "ensure-build-windows >/dev/null"
+ssh "$PRO5E_HOST" "tmux-run hopper ~/projects/solstone 'set -e; \
     git fetch origin && \
     git checkout $GIT_REF && \
     rm -rf dist/ solstone/observe/transcribe/parakeet_helper/_bin && \
-    NOTARY_KEYCHAIN_PROFILE=$NOTARY_PROFILE make wheel-macos"
+    NOTARY_KEYCHAIN_PROFILE=$NOTARY_PROFILE make wheel-macos'"
 
 # 3. Pull the macOS wheel back into local dist/
 echo "==> [3/4] rsyncing macOS wheel back"
