@@ -11,6 +11,7 @@ import json
 import logging
 import os
 import signal
+import socket
 import subprocess
 import sys
 import tempfile
@@ -62,6 +63,19 @@ shutdown_requested = False
 # Supervisor identity (set in main() once ref is assigned)
 _supervisor_ref: str | None = None
 _supervisor_start: float | None = None
+
+
+def _sd_notify(state: str) -> None:
+    addr = os.environ.get("NOTIFY_SOCKET")
+    if not addr:
+        return
+    if addr.startswith("@"):
+        addr = "\0" + addr[1:]
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM) as s:
+            s.sendto(state.encode(), addr)
+    except OSError as exc:
+        logging.warning("sd_notify failed: %s", exc)
 
 
 def _sweep_orphaned_sol_processes(grace: float = 5.0) -> int:
@@ -1966,6 +1980,7 @@ def main() -> None:
 
     try:
         print("  Supervisor ready", flush=True)
+        _sd_notify("READY=1")
         asyncio.run(
             supervise(
                 daily=daily_enabled,

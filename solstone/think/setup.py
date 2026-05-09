@@ -12,7 +12,6 @@ import os
 import subprocess
 import sys
 import tempfile
-import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from enum import Enum
@@ -30,8 +29,6 @@ from solstone.think.utils import is_source_checkout as source_checkout
 
 TOTAL_STEPS = 6
 MANIFEST_SCHEMA_VERSION = 1
-HEALTH_ATTEMPTS = 20
-HEALTH_SLEEP_SECONDS = 1.0
 DOCTOR_TIMEOUT_SECONDS = 30
 
 StepStatus = Literal["ok", "skipped", "failed"]
@@ -880,23 +877,20 @@ def step_service(ctx: SetupContext, step_index: int) -> StepResult:
             "failed",
             paths,
             started_at,
-            {"message": "service up failed", "exit_code": up_rc},
+            {"message": "service readiness check failed", "exit_code": 1},
         )
 
     from solstone.think.health_cli import health_check
 
     print(f"[step {step_index}/{TOTAL_STEPS}] waiting for health...")
-    for attempt in range(1, HEALTH_ATTEMPTS + 1):
-        if health_check() == 0:
-            return step_result("service", "ok", paths, started_at)
-        if attempt < HEALTH_ATTEMPTS:
-            time.sleep(HEALTH_SLEEP_SECONDS)
+    if health_check() == 0:
+        return step_result("service", "ok", paths, started_at)
     return step_result(
         "service",
         "failed",
         paths,
         started_at,
-        {"message": "service readiness timeout after 20s", "exit_code": 1},
+        {"message": "service readiness check failed", "exit_code": 1},
     )
 
 
@@ -990,9 +984,7 @@ def print_plan(ctx: SetupContext, *, dry_run: bool) -> None:
     else:
         print(f"  would run: {format_command(service_install_command(ctx))}")
         print(f"  would call: solstone.think.service._up(port={ctx.port})")
-        print(
-            f"  would call: think.health_cli.health_check() up to {HEALTH_ATTEMPTS} times"
-        )
+        print("  would call: think.health_cli.health_check() once after service up")
 
 
 def print_failure(result: StepResult) -> None:
@@ -1101,17 +1093,14 @@ def _resume_service(
     run_inherited(
         [sys.executable, "-m", "solstone.think.sol_cli", "service", "restart"]
     )
-    for attempt in range(1, HEALTH_ATTEMPTS + 1):
-        if health_check() == 0:
-            return step_result(
-                "service",
-                "ok",
-                paths,
-                started_at,
-                reason="resumed_after_restart",
-            )
-        if attempt < HEALTH_ATTEMPTS:
-            time.sleep(HEALTH_SLEEP_SECONDS)
+    if health_check() == 0:
+        return step_result(
+            "service",
+            "ok",
+            paths,
+            started_at,
+            reason="resumed_after_restart",
+        )
     return None
 
 

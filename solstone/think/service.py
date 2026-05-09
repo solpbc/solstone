@@ -25,6 +25,7 @@ import os
 import plistlib
 import subprocess
 import sys
+import time
 from pathlib import Path
 from xml.parsers.expat import ExpatError
 
@@ -34,6 +35,8 @@ from solstone.think.utils import get_journal, get_journal_info
 SERVICE_LABEL = "org.solpbc.solstone"
 SYSTEMD_UNIT = "solstone"
 DEFAULT_SERVICE_PORT = 5015
+HEALTH_ATTEMPTS = 20
+HEALTH_SLEEP_SECONDS = 1.0
 
 
 def _platform() -> str:
@@ -239,7 +242,7 @@ def _generate_systemd_unit(
         f"StartLimitBurst=10\n"
         f"\n"
         f"[Service]\n"
-        f"Type=simple\n"
+        f"Type=notify\n"
         f"ExecStart={sol} supervisor {port}\n"
         f"Restart=on-failure\n"
         f"RestartSec=5\n"
@@ -537,6 +540,15 @@ def _up(port: int = DEFAULT_SERVICE_PORT) -> int:
         rc = _start()
         if rc != 0:
             return rc
+
+    if _platform() == "darwin":
+        from solstone.think.health_cli import health_check
+
+        for attempt in range(1, HEALTH_ATTEMPTS + 1):
+            if health_check() == 0:
+                break
+            if attempt < HEALTH_ATTEMPTS:
+                time.sleep(HEALTH_SLEEP_SECONDS)
 
     return _status()
 

@@ -90,7 +90,7 @@ class TestSystemdUnit:
         assert any(line == "[Service]" for line in lines)
         assert any(line == "[Install]" for line in lines)
 
-        assert "Type=simple" in unit
+        assert "Type=notify" in unit
         assert "Restart=on-failure" in unit
         assert "StartLimitIntervalSec=120" in unit
         assert "StartLimitBurst=10" in unit
@@ -442,6 +442,34 @@ class TestRestart:
         out = capsys.readouterr().out
         assert "Stopping old supervisor" in out
         assert "New supervisor process started" in out
+
+
+class TestUp:
+    def test_up_darwin_polls_health_until_ready(self, monkeypatch):
+        monkeypatch.setattr(service, "_platform", lambda: "darwin")
+        monkeypatch.setattr(service, "service_is_installed", lambda: True)
+        monkeypatch.setattr(service, "service_is_running", lambda: True)
+        health_check = MagicMock(side_effect=[1, 1, 0, 0])
+        sleep = MagicMock()
+        monkeypatch.setattr("solstone.think.health_cli.health_check", health_check)
+        monkeypatch.setattr(service.time, "sleep", sleep)
+
+        assert service._up(port=5015) == 0
+        assert health_check.call_count == 4
+        assert sleep.call_count == 2
+
+    def test_up_linux_does_not_poll_health(self, monkeypatch):
+        monkeypatch.setattr(service, "_platform", lambda: "linux")
+        monkeypatch.setattr(service, "service_is_installed", lambda: True)
+        monkeypatch.setattr(service, "service_is_running", lambda: True)
+        health_check = MagicMock(return_value=0)
+        sleep = MagicMock()
+        monkeypatch.setattr("solstone.think.health_cli.health_check", health_check)
+        monkeypatch.setattr(service.time, "sleep", sleep)
+
+        assert service._up(port=5015) == 0
+        health_check.assert_called_once_with()
+        sleep.assert_not_called()
 
 
 class TestInstall:

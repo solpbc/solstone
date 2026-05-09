@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import signal
+import socket
 import subprocess
 import sys
 import threading
@@ -15,6 +16,27 @@ from unittest.mock import MagicMock
 
 import psutil
 import pytest
+
+
+def test_sd_notify_no_socket_is_noop(monkeypatch):
+    from solstone.think.supervisor import _sd_notify
+
+    monkeypatch.delenv("NOTIFY_SOCKET", raising=False)
+    _sd_notify("READY=1")
+
+
+def test_sd_notify_sends_payload(tmp_path, monkeypatch):
+    from solstone.think.supervisor import _sd_notify
+
+    sock_path = tmp_path / "notify.sock"
+    with socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM) as listener:
+        listener.bind(str(sock_path))
+        listener.settimeout(1)
+        monkeypatch.setenv("NOTIFY_SOCKET", str(sock_path))
+
+        _sd_notify("READY=1")
+
+        assert listener.recv(1024) == b"READY=1"
 
 
 def test_start_sense(tmp_path, mock_callosum, monkeypatch):

@@ -8,6 +8,7 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Any
+from unittest.mock import Mock
 
 import pytest
 
@@ -1029,12 +1030,13 @@ def test_resumption_wedged_service_restarts(
     journal = tmp_path / "journal"
     write_clean_prior_manifest(journal)
     calls = patch_subprocess(monkeypatch)
-    health_results = iter([1, 0])
-    monkeypatch.setattr(health_cli, "health_check", lambda: next(health_results, 0))
+    health_check = Mock(side_effect=[1, 0])
+    monkeypatch.setattr(health_cli, "health_check", health_check)
 
     rc = setup.main(["--yes", "--journal", str(journal)])
 
     assert rc == 0
+    assert health_check.call_count == 2
     assert_command(calls, 0, expected_service_restart_command())
     assert len(calls) == 1
     service_step = read_manifest(journal)["steps"][-1]
@@ -1049,8 +1051,6 @@ def test_resumption_wedged_service_falls_through_when_restart_fails(
     patch_home(monkeypatch, tmp_path)
     patch_source_checkout(monkeypatch, tmp_path)
     monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
-    monkeypatch.setattr(setup, "HEALTH_ATTEMPTS", 1)
-    monkeypatch.setattr(setup, "HEALTH_SLEEP_SECONDS", 0)
     monkeypatch.setattr(service, "_up", lambda port=5015: 0)
     journal = tmp_path / "journal"
     write_clean_prior_manifest(journal)
