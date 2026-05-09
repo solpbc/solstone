@@ -15,7 +15,8 @@ fi
 
 BINARY="$1"
 IDENTITY="${CODESIGN_IDENTITY:-Developer ID Application: sol pbc}"
-PROFILE="${NOTARY_KEYCHAIN_PROFILE:-sol-signing}"
+PROFILE="${NOTARY_KEYCHAIN_PROFILE:-sol-pbc-notary}"
+NOTARY_KEYCHAIN="${NOTARY_KEYCHAIN:-$HOME/Library/Keychains/sol-signing.keychain-db}"
 
 if [ ! -f "$BINARY" ]; then
     echo "error: not a regular file: $BINARY" >&2
@@ -37,9 +38,10 @@ ZIPPATH="$ZIPDIR/$(basename "$BINARY").zip"
 echo "==> packaging $BINARY for notarytool"
 ditto -c -k --keepParent "$BINARY" "$ZIPPATH"
 
-echo "==> submitting to notarytool (keychain profile: $PROFILE)"
+echo "==> submitting to notarytool (keychain profile: $PROFILE in $NOTARY_KEYCHAIN)"
 xcrun notarytool submit "$ZIPPATH" \
     --keychain-profile "$PROFILE" \
+    --keychain "$NOTARY_KEYCHAIN" \
     --wait
 
 echo "==> sign-and-notarize complete: $BINARY"
