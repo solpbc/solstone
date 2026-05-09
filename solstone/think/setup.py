@@ -218,7 +218,7 @@ def resolve_context(args: argparse.Namespace, raw_argv: list[str]) -> SetupConte
     is_source_checkout = source_checkout()
     journal_path, journal_source = resolve_journal_path(args)
     cfg_path = config_path()
-    manifest_path = journal_path / ".setup-state.json"
+    manifest_path = journal_path / "health" / "setup-state.json"
     port_supplied = arg_supplied(raw_argv, "--port")
     step_timeout_supplied = arg_supplied(raw_argv, "--step-timeout-seconds")
     variant_supplied = arg_supplied(raw_argv, "--variant")

@@ -211,7 +211,9 @@ def assert_step_names_and_statuses(
 
 
 def read_manifest(journal: Path) -> dict[str, Any]:
-    return json.loads((journal / ".setup-state.json").read_text(encoding="utf-8"))
+    return json.loads(
+        (journal / "health" / "setup-state.json").read_text(encoding="utf-8")
+    )
 
 
 def touch_file(path: Path) -> None:
@@ -253,7 +255,8 @@ def write_clean_prior_manifest(journal: Path) -> dict[str, list[Path]]:
         }
         for name in STEP_NAMES
     ]
-    (journal / ".setup-state.json").write_text(
+    (journal / "health").mkdir(parents=True, exist_ok=True)
+    (journal / "health" / "setup-state.json").write_text(
         json.dumps(
             {
                 "schema_version": 1,
@@ -392,7 +395,7 @@ def test_dry_run_side_effect_free(
     assert rc == 0
     assert calls == []
     assert not (home / ".config" / "solstone" / "config.toml").exists()
-    assert not (journal / ".setup-state.json").exists()
+    assert not (journal / "health" / "setup-state.json").exists()
     assert "setup dry-run:" in capsys.readouterr().out
 
 
@@ -535,7 +538,8 @@ def test_clean_rerun_preface_when_manifest_complete(
             "service",
         )
     ]
-    (journal / ".setup-state.json").write_text(
+    (journal / "health").mkdir(parents=True, exist_ok=True)
+    (journal / "health" / "setup-state.json").write_text(
         json.dumps(
             {
                 "schema_version": 1,
@@ -572,7 +576,8 @@ def test_partial_rerun_preface_when_steps_failed(
     journal = tmp_path / "journal"
     journal.mkdir()
     started_at = "2026-05-02T21:29:42Z"
-    (journal / ".setup-state.json").write_text(
+    (journal / "health").mkdir(parents=True, exist_ok=True)
+    (journal / "health" / "setup-state.json").write_text(
         json.dumps(
             {
                 "schema_version": 1,
@@ -656,7 +661,8 @@ def test_force_flag_changes_preface_text(
             "service",
         )
     ]
-    (journal / ".setup-state.json").write_text(
+    (journal / "health").mkdir(parents=True, exist_ok=True)
+    (journal / "health" / "setup-state.json").write_text(
         json.dumps(
             {
                 "schema_version": 1,
@@ -690,7 +696,8 @@ def test_partial_completion_runs_remaining_steps(
     (home / ".claude").mkdir()
     journal = tmp_path / "journal"
     journal.mkdir()
-    (journal / ".setup-state.json").write_text(
+    (journal / "health").mkdir(parents=True, exist_ok=True)
+    (journal / "health" / "setup-state.json").write_text(
         json.dumps(
             {
                 "schema_version": 1,
@@ -1132,7 +1139,7 @@ def test_base_exceptions_propagate(
 
     if isinstance(exc, SystemExit):
         assert raised.value.code == 7
-    assert not (journal / ".setup-state.json").exists()
+    assert not (journal / "health" / "setup-state.json").exists()
 
 
 def test_env_journal_overrides_config(
@@ -1178,7 +1185,7 @@ def test_journal_is_regular_file_dead_ends(
     assert rc == 2
     assert calls == []
     assert "directory" in capsys.readouterr().err
-    assert not (journal_file / ".setup-state.json").exists()
+    assert not (journal_file / "health" / "setup-state.json").exists()
 
 
 def test_doctor_parse_failure_records_failed(
@@ -1213,7 +1220,8 @@ def test_invalid_manifest_treated_as_no_prior(
     (home / ".claude").mkdir()
     journal = tmp_path / "journal"
     journal.mkdir()
-    (journal / ".setup-state.json").write_text("{", encoding="utf-8")
+    (journal / "health").mkdir(parents=True, exist_ok=True)
+    (journal / "health" / "setup-state.json").write_text("{", encoding="utf-8")
     calls = patch_subprocess(monkeypatch)
     patch_service_health(monkeypatch)
 
