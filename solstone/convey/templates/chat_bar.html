@@ -1,6 +1,14 @@
 <div id="appBar" class="app-bar" role="region" aria-label="chat">
   <div id="chatBarStatus" class="chat-bar-status" aria-live="polite">
+    <span id="chatBarSolPingDot" class="chat-bar-sol-ping-dot" aria-hidden="true" hidden></span>
     <span id="chatBarStatusText"></span>
+    <button
+      id="chatBarSolPingDismiss"
+      type="button"
+      class="chat-bar-sol-ping-dismiss"
+      aria-label="dismiss sol-ping"
+      hidden
+    >&times;</button>
   </div>
   <div id="chatBarTalents" class="chat-bar-talents" aria-label="active talents"></div>
   <form id="chatBarForm" class="chat-bar-form">
@@ -14,3 +22,7 @@
     <button id="chatBarSend" type="submit" class="chat-bar-send" aria-label="send">send</button>
   </form>
 </div>
+<script>
+  window.solChatBarSeed = {{ chat_bar_sol_request | tojson | safe }};
+  window.solChatBarAttention = {{ chat_bar_attention | tojson | safe }};
+</script>

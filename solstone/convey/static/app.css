@@ -1484,17 +1484,65 @@ body.menu-all .menu-bar {
   min-width: 0;
   max-width: 40%;
   overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.chat-bar-status #chatBarStatusText,
-.chat-bar-status > span {
+.chat-bar-status--sol-ping {
+  cursor: pointer;
+}
+
+.chat-bar-status #chatBarStatusText {
   display: block;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: #888;
   font-size: 13px;
   line-height: 1.4;
+}
+
+.chat-bar-sol-ping-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--facet-color, #b06a1a);
+  flex: 0 0 auto;
+}
+
+.chat-bar-sol-ping-dot[hidden] {
+  display: none;
+}
+
+.chat-bar-sol-ping-dot.pulsing {
+  animation: sol-ping-pulse 3s ease-in-out infinite;
+}
+
+.chat-bar-sol-ping-dot.offline {
+  opacity: 0.4;
+  filter: grayscale(1);
+}
+
+.chat-bar-sol-ping-dismiss {
+  border: 0;
+  background: transparent;
+  color: #777;
+  cursor: pointer;
+  flex: 0 0 auto;
+  font: inherit;
+  font-size: 15px;
+  line-height: 1;
+  padding: 2px 4px;
+}
+
+.chat-bar-sol-ping-dismiss[hidden] {
+  display: none;
+}
+
+.chat-bar-sol-ping-dismiss:hover {
+  color: #222;
 }
 
 .chat-bar-talents {
@@ -1602,6 +1650,11 @@ body.menu-all .menu-bar {
 @keyframes chat-bar-talent-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.3; }
+}
+
+@keyframes sol-ping-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
 }
 
 .talent-view-modal[hidden] {

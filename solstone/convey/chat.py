@@ -25,7 +25,11 @@ from solstone.convey.chat_stream import (
     read_chat_events,
     reduce_chat_state,
 )
-from solstone.convey.sol_initiated.copy import KIND_SOL_CHAT_REQUEST
+from solstone.convey.sol_initiated import (
+    record_owner_chat_dismissed,
+    record_owner_chat_open,
+)
+from solstone.convey.sol_initiated.copy import KIND_SOL_CHAT_REQUEST, SURFACE_CONVEY
 from solstone.convey.utils import error_response
 from solstone.think.callosum import CallosumConnection, callosum_send
 from solstone.think.utils import get_journal, now_ms
@@ -106,6 +110,34 @@ def post_chat() -> Any:
         return error_response("Failed to connect to agent service", 503)
 
     return jsonify(use_id=response_use_id, queued=queued)
+
+
+@chat_bp.route(f"/{KIND_SOL_CHAT_REQUEST}/open", methods=["POST"])
+def sol_chat_request_open() -> Any:
+    """Record that the owner opened a sol-initiated chat request."""
+    payload = request.get_json(force=True, silent=True) or {}
+    request_id = str(payload.get("request_id") or "").strip()
+    if not request_id:
+        return error_response("request_id required", 400)
+    record_owner_chat_open(request_id, surface=SURFACE_CONVEY)
+    return jsonify({"ok": True})
+
+
+@chat_bp.route(f"/{KIND_SOL_CHAT_REQUEST}/dismissed", methods=["POST"])
+def sol_chat_request_dismissed() -> Any:
+    """Record that the owner dismissed a sol-initiated chat request."""
+    payload = request.get_json(force=True, silent=True) or {}
+    request_id = str(payload.get("request_id") or "").strip()
+    if not request_id:
+        return error_response("request_id required", 400)
+    reason = payload.get("reason")
+    reason_str = str(reason).strip() if reason is not None else None
+    record_owner_chat_dismissed(
+        request_id,
+        surface=SURFACE_CONVEY,
+        reason=reason_str or None,
+    )
+    return jsonify({"ok": True})
 
 
 @chat_bp.route("/session", methods=["GET"])

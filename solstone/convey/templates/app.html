@@ -9,6 +9,7 @@
   <!-- Error handling FIRST - catches all subsequent errors -->
   <script src="{{ url_for('root.static', filename='error-handler.js') }}"></script>
   <script src="{{ url_for('root.static', filename='relative-time.js') }}"></script>
+  <script src="{{ url_for('root.static', filename='sol_initiated_constants.js') }}"></script>
 
   <!-- Embed facets data for immediate client-side access -->
   <script>
@@ -139,7 +140,9 @@
   const APP_NAME = {{ app|tojson|safe }};
   const appBar = document.getElementById('appBar');
   const statusWrap = document.getElementById('chatBarStatus');
+  const solPingDot = document.getElementById('chatBarSolPingDot');
   const statusText = document.getElementById('chatBarStatusText');
+  const solPingDismiss = document.getElementById('chatBarSolPingDismiss');
   const talentsTray = document.getElementById('chatBarTalents');
   const form = document.getElementById('chatBarForm');
   const input = document.getElementById('chatBarInput');
@@ -151,12 +154,19 @@
   const modalTimeline = document.getElementById('talentViewTimeline');
   const talentState = new Map();
   const LEGACY_KEYS = ['solstone:' + 'conversationState', 'solstone:' + 'chatBarState'];
+  const SOL_INITIATED = window.SOL_INITIATED || {};
+  const SOL_PING_OFFLINE_DELAY_MS = 30000;
   let trayPage = 0;
   let pendingSend = false;
   let modalUseId = null;
   let modalPollTimer = null;
   let modalChatCleanup = null;
   let modalTrigger = null;
+  let solRequestState = null;
+  let solPingPulseTimer = null;
+  let solPingDisconnectedAt = null;
+  let solPingOfflineTimer = null;
+  let solPingConnectionUnsub = null;
 
   function escapeHtml(value) {
     return String(value || '')
@@ -531,9 +541,184 @@
     refreshTalentView(modalUseId);
   };
 
+  function getClockNow() {
+    // test-only clock override; do not use in production code paths.
+    if (typeof window.__solChatTestClock === 'function') return window.__solChatTestClock();
+    return Date.now();
+  }
+
+  function getAttentionPlaceholder() {
+    var attention = window.solChatBarAttention || null;
+    if (!attention || typeof attention.placeholder_text !== 'string') return '';
+    return attention.placeholder_text;
+  }
+
+  function formatChatDay(ts) {
+    var date = new Date(typeof ts === 'number' ? ts : Date.now());
+    var year = date.getFullYear();
+    var month = String(date.getMonth() + 1).padStart(2, '0');
+    var day = String(date.getDate()).padStart(2, '0');
+    return String(year) + month + day;
+  }
+
   function restoreDefaultPlaceholder() {
     if (!input) return;
-    input.placeholder = input.dataset.defaultPlaceholder || '';
+    input.placeholder = getAttentionPlaceholder() || input.dataset.defaultPlaceholder || '';
+  }
+
+  function clearSolPingTimers() {
+    if (solPingPulseTimer) {
+      window.clearTimeout(solPingPulseTimer);
+      solPingPulseTimer = null;
+    }
+    if (solPingOfflineTimer) {
+      window.clearTimeout(solPingOfflineTimer);
+      solPingOfflineTimer = null;
+    }
+  }
+
+  function applySolPingOfflineClass() {
+    if (!solRequestState || !solPingDot || solPingDisconnectedAt === null) return;
+    if (getClockNow() - solPingDisconnectedAt < SOL_PING_OFFLINE_DELAY_MS) return;
+    solPingDot.classList.add('offline');
+    solPingDot.title = SOL_INITIATED.SOL_PINGED_OFFLINE_TOOLTIP || '';
+  }
+
+  function scheduleSolPingOfflineTimer() {
+    if (!solRequestState || solPingDisconnectedAt === null) return;
+    if (solPingOfflineTimer) window.clearTimeout(solPingOfflineTimer);
+    var elapsed = Math.max(0, getClockNow() - solPingDisconnectedAt);
+    var delay = Math.max(0, SOL_PING_OFFLINE_DELAY_MS - elapsed);
+    solPingOfflineTimer = window.setTimeout(function() {
+      solPingOfflineTimer = null;
+      applySolPingOfflineClass();
+    }, delay);
+  }
+
+  function clearSolPingOfflineState() {
+    solPingDisconnectedAt = null;
+    if (solPingOfflineTimer) {
+      window.clearTimeout(solPingOfflineTimer);
+      solPingOfflineTimer = null;
+    }
+    if (solPingDot) {
+      solPingDot.classList.remove('offline');
+      solPingDot.removeAttribute('title');
+    }
+  }
+
+  function handleSolPingConnectionState(state) {
+    if (!solRequestState) return;
+    if (state && state.connected === false) {
+      if (solPingDisconnectedAt === null) solPingDisconnectedAt = getClockNow();
+      scheduleSolPingOfflineTimer();
+      return;
+    }
+    if (state && state.connected === true) {
+      clearSolPingOfflineState();
+    }
+  }
+
+  function attachSolPingConnectionListener() {
+    if (solPingConnectionUnsub || !window.appEvents || typeof window.appEvents.onConnectionState !== 'function') return;
+    solPingConnectionUnsub = window.appEvents.onConnectionState(handleSolPingConnectionState);
+  }
+
+  function detachSolPingConnectionListener() {
+    if (!solPingConnectionUnsub) return;
+    solPingConnectionUnsub();
+    solPingConnectionUnsub = null;
+  }
+
+  function renderSolPing(state) {
+    if (!state || !state.request_id || !statusText || !statusWrap) return;
+    solRequestState = {
+      request_id: String(state.request_id || ''),
+      summary: String(state.summary || ''),
+      ts: state.ts,
+      event_index: state.event_index,
+      day: String(state.day || formatChatDay(state.ts))
+    };
+    clearSolPingTimers();
+    clearSolPingOfflineState();
+    statusWrap.classList.add('chat-bar-status--sol-ping');
+    statusWrap.setAttribute('role', 'button');
+    statusWrap.tabIndex = 0;
+    statusText.textContent = solRequestState.summary;
+    statusText.title = solRequestState.summary;
+    statusWrap.title = solRequestState.summary;
+    if (input && solRequestState.summary) input.placeholder = solRequestState.summary;
+    if (solPingDot) {
+      solPingDot.hidden = false;
+      solPingDot.classList.remove('offline');
+      solPingDot.classList.add('pulsing');
+      solPingDot.removeAttribute('title');
+    }
+    if (solPingDismiss) solPingDismiss.hidden = false;
+    solPingPulseTimer = window.setTimeout(function() {
+      solPingPulseTimer = null;
+      if (solPingDot) solPingDot.classList.remove('pulsing');
+    }, SOL_PING_OFFLINE_DELAY_MS);
+    attachSolPingConnectionListener();
+  }
+
+  function clearSolPing() {
+    solRequestState = null;
+    clearSolPingTimers();
+    clearSolPingOfflineState();
+    detachSolPingConnectionListener();
+    if (solPingDot) {
+      solPingDot.hidden = true;
+      solPingDot.classList.remove('pulsing');
+    }
+    if (solPingDismiss) solPingDismiss.hidden = true;
+    if (statusWrap) {
+      statusWrap.classList.remove('chat-bar-status--sol-ping');
+      statusWrap.removeAttribute('role');
+      statusWrap.removeAttribute('tabindex');
+    }
+    if (statusText) {
+      statusText.textContent = '';
+      statusText.removeAttribute('title');
+    }
+    if (statusWrap) statusWrap.removeAttribute('title');
+    restoreDefaultPlaceholder();
+  }
+
+  function solPingApiJson(path, requestId) {
+    if (!window.apiJson || !requestId) return Promise.resolve(null);
+    return window.apiJson(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ request_id: requestId })
+    }).catch(function(err) {
+      if (window.logError) window.logError(err, { context: 'sol-chat-request' });
+      return null;
+    });
+  }
+
+  function solPingEndpoint(action) {
+    return '/api/chat/' + SOL_INITIATED.KIND_SOL_CHAT_REQUEST + '/' + action;
+  }
+
+  function openSolConversation() {
+    if (!solRequestState) return;
+    var target = '/app/chat/' + encodeURIComponent(solRequestState.day || '');
+    var hasIndex = solRequestState.event_index !== null && solRequestState.event_index !== undefined;
+    var anchor = hasIndex ? '#event-' + solRequestState.event_index : '';
+    if (window.location.pathname === target) {
+      if (hasIndex) {
+        var targetNode = document.getElementById('event-' + solRequestState.event_index);
+        if (targetNode && typeof targetNode.scrollIntoView === 'function') {
+          targetNode.scrollIntoView({ behavior: 'smooth' });
+        }
+      }
+      if (input) input.focus();
+      solPingApiJson(solPingEndpoint('open'), solRequestState.request_id);
+      return;
+    }
+    window.location.href = target + anchor;
+    solPingApiJson(solPingEndpoint('open'), solRequestState.request_id);
   }
 
   function clearConversationSuggestion() {
@@ -588,13 +773,40 @@
     input.focus();
   };
 
+  window.openConversation = function(options) {
+    var opts = options || {};
+    if (opts.openOn !== 'chat-request') return;
+    openSolConversation();
+  };
+
   function handleChatEvent(msg) {
     var eventName = String(msg.event || msg.kind || '');
+    if (eventName === SOL_INITIATED.KIND_SOL_CHAT_REQUEST) {
+      renderSolPing({
+        request_id: msg.request_id,
+        summary: msg.summary,
+        ts: msg.ts,
+        event_index: msg.event_index,
+        day: msg.day
+      });
+      return;
+    }
+    if (
+      eventName === SOL_INITIATED.KIND_SOL_CHAT_REQUEST_SUPERSEDED
+      || eventName === SOL_INITIATED.KIND_OWNER_CHAT_OPEN
+      || eventName === SOL_INITIATED.KIND_OWNER_CHAT_DISMISSED
+    ) {
+      if (solRequestState && solRequestState.request_id === String(msg.request_id || '')) {
+        clearSolPing();
+      }
+      return;
+    }
     if (eventName === 'owner_message') {
       setPendingState(false);
       return;
     }
     if (eventName === 'sol_message') {
+      if (solRequestState) return;
       setStatus(msg.text || '', msg.notes || msg.text || '');
       return;
     }
@@ -633,15 +845,21 @@
       return;
     }
     if (eventName === 'chat_error') {
+      if (solRequestState) return;
       setStatus('chat had trouble — try again', 'chat had trouble — try again');
     }
   }
 
   async function hydrateChatBar() {
     if (!appBar) return;
+    if (window.solChatBarSeed) {
+      renderSolPing(window.solChatBarSeed);
+    } else {
+      restoreDefaultPlaceholder();
+    }
     try {
       var data = await window.apiJson('/api/chat/session');
-      if (data.latest_sol_message) {
+      if (data.latest_sol_message && !solRequestState) {
         setStatus(
           data.latest_sol_message.text || '',
           data.latest_sol_message.notes || data.latest_sol_message.text || ''
@@ -720,6 +938,8 @@
     }
 
     if (input) {
+      if (!input.dataset.defaultPlaceholder) input.dataset.defaultPlaceholder = input.placeholder || '';
+      restoreDefaultPlaceholder();
       resizeComposer();
       input.addEventListener('input', resizeComposer);
       input.addEventListener('input', handleSuggestionInput);
@@ -730,9 +950,35 @@
       form.addEventListener('submit', handleSubmit);
     }
 
+    if (statusWrap) {
+      statusWrap.addEventListener('click', function(event) {
+        if (!solRequestState || event.target.closest('button')) return;
+        window.openConversation({ prompt: null, openOn: 'chat-request' });
+      });
+      statusWrap.addEventListener('keydown', function(event) {
+        if (!solRequestState) return;
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        window.openConversation({ prompt: null, openOn: 'chat-request' });
+      });
+    }
+
+    if (solPingDismiss) {
+      solPingDismiss.addEventListener('click', function(event) {
+        event.stopPropagation();
+        if (!solRequestState) return;
+        solPingApiJson(solPingEndpoint('dismissed'), solRequestState.request_id);
+      });
+    }
+
     if (window.appEvents) {
       window.appEvents.listen('chat', handleChatEvent);
     }
+
+    window.addEventListener('beforeunload', function() {
+      clearSolPingTimers();
+      detachSolPingConnectionListener();
+    });
 
     hydrateChatBar();
   }

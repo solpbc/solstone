@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 
 from flask import Flask, g, request, url_for
 
@@ -210,10 +211,7 @@ def _resolve_attention(awareness_current: dict) -> AttentionItem | None:
 
 
 def _resolve_placeholder(awareness_current: dict, day_count: int) -> str:
-    """Resolve chat bar placeholder text based on journal state."""
-    attention = _resolve_attention(awareness_current)
-    if attention:
-        return attention.placeholder_text
+    """Resolve fallback chat bar placeholder text based on journal state."""
     imports = awareness_current.get("imports", {})
     if not imports.get("has_imported") and day_count < 3:
         return "Bring in past conversations, calendar, or notes to give me context..."
@@ -295,15 +293,30 @@ def register_app_context(app: Flask, registry: AppRegistry) -> None:
 
         # Chat bar placeholder based on journal state
         chat_bar_placeholder = "Send a message..."
+        chat_bar_attention = None
         try:
             from solstone.think.awareness import get_current
             from solstone.think.utils import day_dirs
 
             awareness_current = get_current()
             day_count = len(day_dirs())
+            attention = _resolve_attention(awareness_current)
+            if attention:
+                chat_bar_attention = {"placeholder_text": attention.placeholder_text}
             chat_bar_placeholder = _resolve_placeholder(awareness_current, day_count)
         except Exception:
             pass  # Default placeholder on any error
+
+        today = date.today().strftime("%Y%m%d")
+        from solstone.convey.chat_stream import read_chat_events
+        from solstone.convey.sol_initiated.state import (
+            latest_unresolved_sol_chat_request,
+        )
+
+        unresolved_request = latest_unresolved_sol_chat_request(read_chat_events(today))
+        chat_bar_sol_request = (
+            {**unresolved_request, "day": today} if unresolved_request else None
+        )
 
         return {
             "app_registry": registry,
@@ -314,6 +327,8 @@ def register_app_context(app: Flask, registry: AppRegistry) -> None:
             "starred_apps": starred_apps,
             "day": day,
             "chat_bar_placeholder": chat_bar_placeholder,
+            "chat_bar_attention": chat_bar_attention,
+            "chat_bar_sol_request": chat_bar_sol_request,
         }
 
     @app.context_processor

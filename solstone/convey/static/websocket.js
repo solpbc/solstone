@@ -10,6 +10,7 @@
 (function(){
   const listeners = {};
   const parseErrorHandlers = new Set();
+  const connectionStateHandlers = new Set();
   let ws;
   let retry = 1000;
   let statusIcon = null;
@@ -42,6 +43,19 @@
     if (typeof window.logError === 'function') {
       window.logError(error, { context: 'websocket-parse' });
     }
+  }
+
+  function notifyConnectionState() {
+    const payload = { connected: connectionState === 'connected', state: connectionState };
+    connectionStateHandlers.forEach(handler => {
+      try {
+        handler(payload);
+      } catch (handlerError) {
+        if (typeof window.logError === 'function') {
+          window.logError(handlerError, { context: 'websocket-connection-handler' });
+        }
+      }
+    });
   }
 
   function createPendingController(options) {
@@ -190,7 +204,11 @@
       statusIcon.setAttribute('title', labels[state] || state);
     }
 
+    const previousState = connectionState;
     connectionState = state;
+    if (previousState !== state) {
+      notifyConnectionState();
+    }
     window.updateStatusLabel?.();
   }
 
@@ -340,6 +358,17 @@
       parseErrorHandlers.add(fn);
       return () => {
         parseErrorHandlers.delete(fn);
+      };
+    },
+
+    onConnectionState(fn) {
+      if (typeof fn !== 'function') {
+        throw new Error('appEvents.onConnectionState requires a callback');
+      }
+      connectionStateHandlers.add(fn);
+      fn({ connected: connectionState === 'connected', state: connectionState });
+      return () => {
+        connectionStateHandlers.delete(fn);
       };
     },
 
