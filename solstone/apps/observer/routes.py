@@ -172,6 +172,7 @@ def _serialize_observer(observer: dict[str, Any], current_now: int) -> dict[str,
         "revoked_at": observer.get("revoked_at"),
         "stats": observer.get("stats", {}),
         "live": convey_bridge.subscription_count(key_prefix) > 0,
+        "last_chat_request_at": convey_bridge.last_chat_request_at(key_prefix),
         **freshness,
         "label": OBSERVER_STATE_LABELS[str(freshness["state"])],
     }

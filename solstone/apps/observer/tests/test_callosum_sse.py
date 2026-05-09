@@ -15,15 +15,18 @@ import solstone.apps.observer.routes as routes_module
 import solstone.convey.bridge as convey_bridge
 from solstone.apps.observer.routes import OBSERVER_CALLOSUM_SSE_ROUTE
 from solstone.apps.observer.utils import load_observer, save_observer
+from solstone.convey.sol_initiated.copy import KIND_SOL_CHAT_REQUEST
 
 
 @pytest.fixture(autouse=True)
 def clear_sse_subscribers() -> Iterator[None]:
     with convey_bridge._SSE_LOCK:
         convey_bridge._SSE_SUBSCRIBERS_BY_KEY.clear()
+        convey_bridge._SSE_LAST_CHAT_REQUEST_AT_BY_KEY.clear()
     yield
     with convey_bridge._SSE_LOCK:
         convey_bridge._SSE_SUBSCRIBERS_BY_KEY.clear()
+        convey_bridge._SSE_LAST_CHAT_REQUEST_AT_BY_KEY.clear()
 
 
 def _create_observer(env, name: str = "sse-test") -> tuple[str, str]:
@@ -202,3 +205,35 @@ def test_slow_sse_subscriber_is_dropped_without_blocking_healthy_subscriber():
     assert elapsed < 0.5
 
     convey_bridge.unregister_sse_subscriber(healthy)
+
+
+def test_sol_chat_request_delivery_updates_last_request_at() -> None:
+    handle = convey_bridge.register_sse_subscriber("aaaaaaaa")
+    message = {"tract": "chat", "event": KIND_SOL_CHAT_REQUEST, "ts": 1234}
+
+    convey_bridge._broadcast_to_sse_clients(message)
+
+    assert json.loads(handle.queue.get_nowait()) == message
+    assert convey_bridge.last_chat_request_at("aaaaaaaa") == 1234
+
+
+def test_non_chat_sse_delivery_does_not_update_last_request_at() -> None:
+    handle = convey_bridge.register_sse_subscriber("aaaaaaaa")
+
+    convey_bridge._broadcast_to_sse_clients(
+        {"tract": "supervisor", "event": KIND_SOL_CHAT_REQUEST, "ts": 1234}
+    )
+
+    assert json.loads(handle.queue.get_nowait())["tract"] == "supervisor"
+    assert convey_bridge.last_chat_request_at("aaaaaaaa") is None
+
+
+def test_other_chat_event_does_not_update_last_request_at() -> None:
+    handle = convey_bridge.register_sse_subscriber("aaaaaaaa")
+
+    convey_bridge._broadcast_to_sse_clients(
+        {"tract": "chat", "event": "owner_message", "ts": 1234}
+    )
+
+    assert json.loads(handle.queue.get_nowait())["event"] == "owner_message"
+    assert convey_bridge.last_chat_request_at("aaaaaaaa") is None

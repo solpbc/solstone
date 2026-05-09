@@ -9,6 +9,7 @@ import io
 import json
 
 import solstone.apps.observer.routes as routes_module
+import solstone.convey.bridge as convey_bridge
 from solstone.apps.observer.routes import (
     ACTIVE_THRESHOLD_MS,
     FUTURE_CLOCK_DRIFT_TOLERANCE_MS,
@@ -18,6 +19,7 @@ from solstone.apps.observer.routes import (
 )
 from solstone.apps.observer.utils import save_observer
 from solstone.convey.copy import OBSERVER_CALLOSUM_LIVE_LABEL
+from solstone.convey.sol_initiated.copy import KIND_SOL_CHAT_REQUEST
 
 
 def _api_list_payload(env):
@@ -241,6 +243,31 @@ def test_api_list_shows_created_observer(observer_env):
     assert observers[0]["label"] == OBSERVER_STATE_LABELS["disconnected"]
     assert observers[0]["elapsed_ms"] is None
     assert observers[0]["clock_skew"] is False
+    assert observers[0]["last_chat_request_at"] is None
+
+
+def test_api_list_includes_last_chat_request_at(observer_env):
+    env = observer_env()
+    resp = env.client.post(
+        "/app/observer/api/create",
+        json={"name": "my-observer"},
+        content_type="application/json",
+    )
+    assert resp.status_code == 200
+    key_prefix = resp.get_json()["key_prefix"]
+    handle = convey_bridge.register_sse_subscriber(key_prefix)
+    try:
+        convey_bridge._broadcast_to_sse_clients(
+            {"tract": "chat", "event": KIND_SOL_CHAT_REQUEST, "ts": 9876}
+        )
+        observers = _api_list_observers(env)
+    finally:
+        convey_bridge.unregister_sse_subscriber(handle)
+        with convey_bridge._SSE_LOCK:
+            convey_bridge._SSE_LAST_CHAT_REQUEST_AT_BY_KEY.pop(key_prefix, None)
+
+    assert observers[0]["key_prefix"] == key_prefix
+    assert observers[0]["last_chat_request_at"] == 9876
 
 
 def test_api_delete_observer(observer_env):

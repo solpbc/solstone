@@ -603,6 +603,7 @@ function emptyStateHTML() {
 
 function statsHTML(observer, statusClass) {
   const lastSeenBase = observer.last_seen ? `${relativeTime(Date.now() - observer.last_seen)} ago` : 'never';
+  const lastSolPing = observer.last_chat_request_at ? `${relativeTime(Date.now() - observer.last_chat_request_at)} ago` : '—';
   const lastSeen = statusClass === 'stale'
     ? `${lastSeenBase} — stale`
     : statusClass === 'disconnected'
@@ -610,6 +611,7 @@ function statsHTML(observer, statusClass) {
       : lastSeenBase;
   return `<dl>
     <div><dt>Last seen</dt><dd data-last-seen="${observer.last_seen || ''}" data-state="${statusClass}">${lastSeen}</dd></div>
+    <div><dt>Last sol-ping</dt><dd>${lastSolPing}</dd></div>
     <div><dt>Segments (5-min chunks)</dt><dd>${observer.stats?.segments_received ?? 0}</dd></div>
     <div><dt>Data</dt><dd>${formatBytes(observer.stats?.bytes_received || 0)}</dd></div>
   </dl>`;

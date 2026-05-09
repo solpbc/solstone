@@ -46,6 +46,7 @@ class _SseSubscriber:
 
 
 _SSE_SUBSCRIBERS_BY_KEY: dict[str, set[_SseSubscriber]] = {}
+_SSE_LAST_CHAT_REQUEST_AT_BY_KEY: dict[str, int] = {}
 
 
 def _broadcast_to_websockets(event: dict) -> None:
@@ -84,8 +85,23 @@ def subscription_count(key_prefix: str) -> int:
         return len(_SSE_SUBSCRIBERS_BY_KEY.get(key_prefix, set()))
 
 
+def last_chat_request_at(key_prefix: str) -> int | None:
+    """Return the last delivered sol-initiated chat request timestamp."""
+    with _SSE_LOCK:
+        return _SSE_LAST_CHAT_REQUEST_AT_BY_KEY.get(key_prefix)
+
+
+def _message_ts_ms(message: dict) -> int:
+    try:
+        return int(message.get("ts") or int(time.time() * 1000))
+    except (TypeError, ValueError):
+        return int(time.time() * 1000)
+
+
 def _broadcast_to_sse_clients(message: dict) -> None:
     """Broadcast a serialized Callosum event to all SSE subscribers."""
+    from solstone.convey.sol_initiated.copy import KIND_SOL_CHAT_REQUEST
+
     with _SSE_LOCK:
         subscribers = [
             subscriber
@@ -96,11 +112,19 @@ def _broadcast_to_sse_clients(message: dict) -> None:
         return
 
     serialized = json.dumps(message)
+    is_chat_request = (
+        message.get("tract") == "chat" and message.get("event") == KIND_SOL_CHAT_REQUEST
+    )
     for subscriber in subscribers:
         if subscriber.dropped.is_set():
             continue
         try:
             subscriber.queue.put_nowait(serialized)
+            if is_chat_request:
+                with _SSE_LOCK:
+                    _SSE_LAST_CHAT_REQUEST_AT_BY_KEY[subscriber.key_prefix] = (
+                        _message_ts_ms(message)
+                    )
         except queue.Full:
             subscriber.drop_reason = "overflow"
             subscriber.dropped.set()
