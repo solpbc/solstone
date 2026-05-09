@@ -25,6 +25,7 @@ from solstone.convey.chat_stream import (
     read_chat_events,
     reduce_chat_state,
 )
+from solstone.convey.sol_initiated.copy import KIND_SOL_CHAT_REQUEST
 from solstone.convey.utils import error_response
 from solstone.think.callosum import CallosumConnection, callosum_send
 from solstone.think.utils import get_journal, now_ms
@@ -1002,6 +1003,16 @@ def _trigger_from_stream_event(event: dict[str, Any]) -> dict[str, Any]:
     kind = event.get("kind")
     if kind == "owner_message":
         return {"type": "owner_message", "message": event.get("text", "")}
+    if kind == KIND_SOL_CHAT_REQUEST:
+        return {
+            "type": KIND_SOL_CHAT_REQUEST,
+            "summary": event.get("summary", ""),
+            "message": event.get("message"),
+            "category": event.get("category", ""),
+            "since_ts": event.get("since_ts"),
+            "trigger_talent": event.get("trigger_talent", ""),
+            "request_id": event.get("request_id", ""),
+        }
     if kind == "talent_finished":
         return _talent_terminal_trigger(
             "talent_finished",

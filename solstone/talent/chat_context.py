@@ -11,6 +11,11 @@ from pathlib import Path
 from typing import Any
 
 from solstone.convey.chat_stream import read_chat_tail, reduce_chat_state
+from solstone.convey.sol_initiated.copy import (
+    KIND_SOL_CHAT_REQUEST,
+    SYNTHETIC_TRIGGER_LABEL,
+    TRIGGER_LABEL_SOL_INITIATED,
+)
 from solstone.talent._routine_context import (
     _TEMPLATE_TRIGGERS as TEMPLATE_TRIGGERS,
 )
@@ -95,7 +100,13 @@ def pre_process(context: dict) -> dict:
         "identity_self": "",
         "identity_agency": "",
         "active_talents": "",
+        "trigger_kind": "",
         "trigger_context": "",
+        "summary": "",
+        "message": None,
+        "category": "",
+        "since_ts": "",
+        "trigger_talent": "",
         "location": "",
         "active_routines": "",
         "routine_suggestion": "",
@@ -139,6 +150,7 @@ def pre_process(context: dict) -> dict:
     except Exception:
         logger.debug("Active talent enrichment failed", exc_info=True)
 
+    _apply_trigger_template_vars(template_vars, trigger_kind, trigger_payload)
     template_vars["trigger_context"] = _render_trigger_context(
         trigger_kind, trigger_payload, context
     )
@@ -212,6 +224,8 @@ def _normalize_trigger(context: dict) -> tuple[str | None, dict[str, Any]]:
             payload["text"] = payload["message"]
         elif context.get("prompt"):
             payload["text"] = context["prompt"]
+    if kind == KIND_SOL_CHAT_REQUEST:
+        return kind, payload
 
     return kind, payload
 
@@ -284,11 +298,13 @@ def _render_trigger_context(
     if not trigger_kind:
         return ""
 
-    lines = ["## Trigger Context\n", f"- Type: {trigger_kind}"]
+    lines = ["## Trigger Context\n", f"- Type: {_prompt_trigger_kind(trigger_kind)}"]
     if trigger_kind == "owner_message":
         text = str(payload.get("text") or context.get("prompt") or "").strip()
         if text:
             lines.append(f"- Message: {text}")
+    elif trigger_kind == KIND_SOL_CHAT_REQUEST:
+        _append_sol_request_trigger_context(lines, payload)
     elif trigger_kind == "talent_finished":
         _append_terminal_trigger_context(lines, trigger_kind, payload)
     elif trigger_kind == "talent_errored":
@@ -302,6 +318,49 @@ def _render_trigger_context(
                 lines.append(f"- {key}: {value}")
 
     return "\n".join(lines)
+
+
+def _prompt_trigger_kind(trigger_kind: str | None) -> str:
+    if trigger_kind == KIND_SOL_CHAT_REQUEST:
+        return TRIGGER_LABEL_SOL_INITIATED
+    if trigger_kind == "synthetic-max-active":
+        return SYNTHETIC_TRIGGER_LABEL
+    return str(trigger_kind or "")
+
+
+def _apply_trigger_template_vars(
+    template_vars: dict[str, Any],
+    trigger_kind: str | None,
+    payload: dict[str, Any],
+) -> None:
+    template_vars["trigger_kind"] = _prompt_trigger_kind(trigger_kind)
+    if trigger_kind != KIND_SOL_CHAT_REQUEST:
+        return
+    template_vars["summary"] = str(payload.get("summary") or "")
+    message = payload.get("message")
+    template_vars["message"] = str(message) if message is not None else None
+    template_vars["category"] = str(payload.get("category") or "")
+    since_ts = payload.get("since_ts")
+    template_vars["since_ts"] = since_ts if isinstance(since_ts, int) else ""
+    template_vars["trigger_talent"] = str(payload.get("trigger_talent") or "")
+
+
+def _append_sol_request_trigger_context(
+    lines: list[str],
+    payload: dict[str, Any],
+) -> None:
+    summary = str(payload.get("summary") or "").strip()
+    if summary:
+        lines.append(f"- Summary: {summary}")
+    message = payload.get("message")
+    if message:
+        lines.append(f"- Message: {message}")
+    if payload.get("category"):
+        lines.append(f"- Category: {payload['category']}")
+    if isinstance(payload.get("since_ts"), int):
+        lines.append(f"- Since ts: {payload['since_ts']}")
+    if payload.get("trigger_talent"):
+        lines.append(f"- Trigger talent: {payload['trigger_talent']}")
 
 
 def _append_terminal_trigger_context(

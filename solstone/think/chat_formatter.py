@@ -5,6 +5,12 @@ from __future__ import annotations
 
 from typing import Any
 
+from solstone.convey.sol_initiated.copy import (
+    KIND_OWNER_CHAT_DISMISSED,
+    KIND_OWNER_CHAT_OPEN,
+    KIND_SOL_CHAT_REQUEST,
+    KIND_SOL_CHAT_REQUEST_SUPERSEDED,
+)
 from solstone.think.utils import get_config
 
 
@@ -19,6 +25,8 @@ def format_chat(
     for entry in entries:
         kind = str(entry.get("kind") or "").strip()
         markdown = _format_entry(kind, entry, owner_name, agent_name)
+        if not markdown:
+            continue
 
         chunks.append(
             {
@@ -65,7 +73,23 @@ def _format_entry(
         return f"*[{entry['name']} errored: {entry['reason']}]*"
     if kind == "chat_error":
         return f"*[chat trouble: {entry['reason']}]*"
+    if kind == KIND_SOL_CHAT_REQUEST:
+        return _format_sol_request(entry)
+    if kind in {
+        KIND_SOL_CHAT_REQUEST_SUPERSEDED,
+        KIND_OWNER_CHAT_OPEN,
+        KIND_OWNER_CHAT_DISMISSED,
+    }:
+        return None
     raise ValueError(f"Unknown chat event kind for formatter: {kind}")
+
+
+def _format_sol_request(entry: dict[str, Any]) -> str:
+    text = f"[sol] {entry.get('summary') or ''}".strip()
+    message = str(entry.get("message") or "").strip()
+    if message:
+        text = f"{text}\n{message}"
+    return text
 
 
 def _speaker_line(label: str, body: Any) -> str:
