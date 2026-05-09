@@ -105,6 +105,26 @@
 .observer-status.revoked::after {
   content: '—';
 }
+.observer-live-pip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 4px 9px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--status-active) 10%, transparent);
+  color: var(--status-active);
+  font-size: 0.75em;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.observer-live-pip::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--status-active);
+}
 .observer-stats {
   font-size: 0.9em;
   color: #666;
@@ -673,16 +693,23 @@ function groupHeaderHTML(group) {
   return `<h3 class="observer-group-header" data-group="${group}">${GROUP_LABELS[group]}</h3>`;
 }
 
-function observerCardHTML(observer) {
+function observerCardHTML(observer, labels = {}) {
   const { statusClass, statusText, cardClass } = statusMeta(observer.state);
   const label = observer.label || statusText;
   const safeLabel = escapeHtml(label);
+  const liveLabel = observer.live === true ? (labels.live || '') : '';
+  const safeLiveLabel = escapeHtml(liveLabel);
+  const livePip = liveLabel
+    ? `<span class="observer-live-pip">${safeLiveLabel}</span>`
+    : '';
+  const ariaLabel = [observer.name, label, liveLabel].filter(Boolean).join(', ');
 
   return `
-    <div class="observer-card ${cardClass}" data-key="${observer.key_prefix}" role="listitem" aria-label="${escapeHtml(observer.name)}, ${safeLabel}">
+    <div class="observer-card ${cardClass}" data-key="${observer.key_prefix}" role="listitem" aria-label="${escapeHtml(ariaLabel)}">
       <div class="observer-header">
         <span class="observer-name">${escapeHtml(observer.name)}</span>
         <span class="observer-status ${statusClass}">${safeLabel}</span>
+        ${livePip}
       </div>
       <div class="observer-stats">${statsHTML(observer, statusClass)}</div>
       <div class="observer-actions">
@@ -693,7 +720,7 @@ function observerCardHTML(observer) {
   `;
 }
 
-function renderObservers(observers) {
+function renderObservers(observers, labels = {}) {
   if (!observers || observers.length === 0) {
     return emptyStateHTML();
   }
@@ -713,7 +740,7 @@ function renderObservers(observers) {
   for (const group of GROUP_ORDER) {
     if (!groups[group].length) continue;
     html += groupHeaderHTML(group);
-    html += groups[group].map(observerCardHTML).join('');
+    html += groups[group].map((observer) => observerCardHTML(observer, labels)).join('');
   }
 
   return html || emptyStateHTML();
@@ -751,6 +778,7 @@ async function loadObservers() {
       });
     }
     const observers = payload.observers;
+    const labels = payload.labels || {};
 
     // Rebuild on every poll so grouped headers stay aligned with server ordering.
     const activeEl = document.activeElement;
@@ -768,7 +796,7 @@ async function loadObservers() {
     }
     const scrollTop = observersList.scrollTop;
 
-    observersList.innerHTML = renderObservers(observers);
+    observersList.innerHTML = renderObservers(observers, labels);
     clearError();
     observersList.scrollTop = scrollTop;
 
