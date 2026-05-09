@@ -48,6 +48,26 @@
     "bundle_id": null,
     "environment": "development"
   },
+  "sol_voice": {
+    "daily_cap": 5,
+    "category_caps": {
+      "briefing": 3,
+      "pattern": 2,
+      "commitment": 2,
+      "error": 2,
+      "arrival": 3,
+      "notice": 2
+    },
+    "rate_floor_minutes": 20,
+    "mute_window": {
+      "enabled": false,
+      "start_hour_local": 22,
+      "end_hour_local": 7
+    },
+    "category_self_mute_hours": 24,
+    "category_self_mute_clear_marker_ts": 0,
+    "default_dedupe_window": "24h"
+  },
   "convey": {
     "allow_network_access": false,
     "trust_localhost": true
