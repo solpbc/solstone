@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import TypedDict
 
 from solstone.convey.sol_initiated.copy import (
     KIND_OWNER_CHAT_DISMISSED,
@@ -18,6 +19,11 @@ from solstone.convey.sol_initiated.copy import (
 )
 from solstone.convey.sol_initiated.dedup import _is_live_for_dedup
 from solstone.convey.sol_initiated.settings import SolVoiceSettings
+
+
+class CategoryMuteState(TypedDict):
+    muted: bool
+    expires_ts: int | None
 
 
 def check_mute_window(
@@ -70,11 +76,25 @@ def check_category_self_mute(
     now_ms: int,
 ) -> str | None:
     """Throttle a category after a recent owner dismissal."""
+    state = compute_category_mute_state(settings, events_today, category, now_ms)
+    if state["muted"]:
+        return THROTTLE_CATEGORY_SELF_MUTE
+    return None
+
+
+def compute_category_mute_state(
+    settings: SolVoiceSettings,
+    events_today: list[dict],
+    category: str,
+    now_ms: int,
+) -> CategoryMuteState:
+    """Return the current self-mute state for a category."""
     mute_ms = settings.category_self_mute_hours * 3_600_000
     if mute_ms <= 0:
-        return None
+        return {"muted": False, "expires_ts": None}
 
     request_categories: dict[str, str] = {}
+    latest_dismissed_ts: int | None = None
     for event in events_today:
         kind = event.get("kind")
         if kind == KIND_SOL_CHAT_REQUEST:
@@ -85,14 +105,18 @@ def check_category_self_mute(
         if kind != KIND_OWNER_CHAT_DISMISSED:
             continue
         dismissed_ts = int(event.get("ts", 0) or 0)
-        if dismissed_ts <= settings.category_self_mute_clear_marker_ts:
+        clear_marker_ts = settings.category_self_mute_clear_markers.get(category, 0)
+        if dismissed_ts <= clear_marker_ts:
             continue
         if now_ms - dismissed_ts > mute_ms:
             continue
         request_category = request_categories.get(str(event.get("request_id") or ""))
         if request_category == category:
-            return THROTTLE_CATEGORY_SELF_MUTE
-    return None
+            latest_dismissed_ts = max(latest_dismissed_ts or 0, dismissed_ts)
+
+    if latest_dismissed_ts is None:
+        return {"muted": False, "expires_ts": None}
+    return {"muted": True, "expires_ts": latest_dismissed_ts + mute_ms}
 
 
 def check_category_cap(

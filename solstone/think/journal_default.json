@@ -65,8 +65,13 @@
       "end_hour_local": 7
     },
     "category_self_mute_hours": 24,
-    "category_self_mute_clear_marker_ts": 0,
-    "default_dedupe_window": "24h"
+    "category_self_mute_clear_markers": {},
+    "default_dedupe_window": "24h",
+    "system_notifications": {
+      "macos": false,
+      "linux": false
+    },
+    "debug_show_throttled": false
   },
   "convey": {
     "allow_network_access": false,

@@ -40,7 +40,7 @@ def _settings(**overrides) -> SolVoiceSettings:
         "rate_floor_minutes": 20,
         "mute_window": MuteWindowSettings(False, 22, 7),
         "category_self_mute_hours": 24,
-        "category_self_mute_clear_marker_ts": 0,
+        "category_self_mute_clear_markers": {},
         "default_dedupe_window": "24h",
     }
     values.update(overrides)
@@ -98,6 +98,35 @@ def test_category_self_mute_uses_dismissal_category() -> None:
     assert check_category_self_mute(settings, events, CATEGORIES[0], 3_000) is None
 
 
+def test_category_clear_marker_isolated_per_category() -> None:
+    first_category = CATEGORIES[0]
+    second_category = CATEGORIES[1]
+    settings = _settings(
+        category_self_mute_hours=2,
+        category_self_mute_clear_markers={first_category: 2_500},
+    )
+    events = [
+        _request(first_category, ts=1_000),
+        _request(second_category, ts=1_100),
+        {
+            "kind": KIND_OWNER_CHAT_DISMISSED,
+            "ts": 2_000,
+            "request_id": "r-1000",
+        },
+        {
+            "kind": KIND_OWNER_CHAT_DISMISSED,
+            "ts": 2_100,
+            "request_id": "r-1100",
+        },
+    ]
+
+    assert check_category_self_mute(settings, events, first_category, 3_000) is None
+    assert (
+        check_category_self_mute(settings, events, second_category, 3_000)
+        == THROTTLE_CATEGORY_SELF_MUTE
+    )
+
+
 def test_category_and_daily_caps_count_requests() -> None:
     settings = _settings(
         daily_cap=2, category_caps={**CATEGORY_CAP_DEFAULTS, CATEGORIES[0]: 1}
@@ -126,7 +155,7 @@ def test_start_chat_daily_cap_counts_current_utc_day_across_stream_days(
                     "end_hour_local": 7,
                 },
                 "category_self_mute_hours": 0,
-                "category_self_mute_clear_marker_ts": 0,
+                "category_self_mute_clear_markers": {},
                 "default_dedupe_window": "24h",
             }
         },

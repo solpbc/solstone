@@ -59,7 +59,7 @@ def _write_config(
                         "end_hour_local": 7,
                     },
                     "category_self_mute_hours": category_self_mute_hours,
-                    "category_self_mute_clear_marker_ts": 0,
+                    "category_self_mute_clear_markers": {},
                     "default_dedupe_window": "24h",
                 }
             }
