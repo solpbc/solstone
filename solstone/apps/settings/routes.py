@@ -22,8 +22,20 @@ from solstone.apps.settings.copy import (
     CONVEY_REFUSE_NO_PASSWORD_TRUST,
 )
 from solstone.apps.utils import log_app_action
+from solstone.convey import chat_stream, state
 from solstone.convey import copy as convey_copy
-from solstone.convey import state
+from solstone.convey.sol_initiated import copy as sol_voice_copy
+from solstone.convey.sol_initiated.copy import KIND_SOL_CHAT_REQUEST
+from solstone.convey.sol_initiated.policy import compute_category_mute_state
+from solstone.convey.sol_initiated.settings import (
+    SolVoiceSettings,
+)
+from solstone.convey.sol_initiated.settings import (
+    load_settings as load_sol_voice_settings,
+)
+from solstone.convey.sol_initiated.settings import (
+    save_settings as save_sol_voice_settings,
+)
 from solstone.think.pairing.config import get_host_url
 from solstone.think.providers.google import validate_vertex_credentials
 from solstone.think.retention import (
@@ -35,7 +47,7 @@ from solstone.think.retention import (
 )
 from solstone.think.streams import list_streams
 from solstone.think.utils import get_config as get_journal_config
-from solstone.think.utils import get_journal, get_project_root
+from solstone.think.utils import get_journal, get_project_root, now_ms
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +113,7 @@ def _inject_settings_copy() -> dict[str, Any]:
     return {
         "convey_copy": convey_copy,
         "settings_copy": settings_copy,
+        "sol_voice_copy": sol_voice_copy,
     }
 
 
@@ -433,6 +446,102 @@ def get_transcribe() -> Any:
                 "error": "something went wrong — try again, and if it persists, check the health dashboard"
             }
         ), 500
+
+
+# ---------------------------------------------------------------------------
+# Sol Voice API
+# ---------------------------------------------------------------------------
+
+
+@settings_bp.route("/api/sol_voice")
+def get_sol_voice() -> Any:
+    """Return sol-initiated chat settings."""
+    try:
+        return jsonify(_sol_voice_response(load_sol_voice_settings()))
+    except Exception:
+        logger.exception("error loading sol voice settings")
+        return jsonify({"error": "unable to load sol voice settings"}), 500
+
+
+@settings_bp.route("/api/sol_voice", methods=["PUT"])
+def update_sol_voice() -> Any:
+    """Persist partial sol-initiated chat settings."""
+    try:
+        updates = request.get_json()
+        if not isinstance(updates, dict):
+            return jsonify({"error": "sol_voice update must be an object"}), 400
+        settings = save_sol_voice_settings(updates)
+        return jsonify(_sol_voice_response(settings))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception:
+        logger.exception("error saving sol voice settings")
+        return jsonify({"error": "unable to save sol voice settings"}), 500
+
+
+@settings_bp.route("/api/sol_voice/throttled")
+def get_sol_voice_throttled() -> Any:
+    """Return recent sol-initiated chat throttle rows."""
+    raw_limit = request.args.get("limit", "50")
+    try:
+        limit = int(raw_limit)
+    except (TypeError, ValueError):
+        limit = 50
+    limit = max(1, min(limit, 200))
+
+    log_path = Path(get_journal()) / "push" / "nudge_log.jsonl"
+    if not log_path.exists():
+        return jsonify([])
+
+    try:
+        rows = _read_sol_voice_throttled_rows(log_path, limit)
+        return jsonify(rows)
+    except Exception:
+        logger.exception("error loading sol voice throttled log")
+        return jsonify({"error": "unable to load throttled log"}), 500
+
+
+def _read_sol_voice_throttled_rows(log_path: Path, limit: int) -> list[dict[str, Any]]:
+    lines = log_path.read_text(encoding="utf-8").splitlines()
+    rows: list[dict[str, Any]] = []
+    for line in reversed(lines[-limit * 4 :]):
+        if len(rows) >= limit:
+            break
+        if not line.strip():
+            continue
+        try:
+            payload = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if payload.get("kind") != KIND_SOL_CHAT_REQUEST:
+            continue
+        if payload.get("outcome") == "written":
+            continue
+        rows.append(
+            {
+                "ts": payload.get("ts"),
+                "category": payload.get("category"),
+                "dedupe_key": payload.get("dedupe_key"),
+                "outcome": payload.get("outcome"),
+            }
+        )
+    return rows
+
+
+def _sol_voice_response(settings: SolVoiceSettings) -> dict[str, Any]:
+    payload = settings.to_dict()
+    current_ms = now_ms()
+    events_today = chat_stream.read_chat_events(chat_stream._day_for_ts(current_ms))
+    payload["category_mute_state"] = {
+        category: compute_category_mute_state(
+            settings,
+            events_today,
+            category,
+            current_ms,
+        )
+        for category in sol_voice_copy.CATEGORIES
+    }
+    return payload
 
 
 # ---------------------------------------------------------------------------
