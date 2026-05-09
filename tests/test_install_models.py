@@ -204,3 +204,42 @@ def test_run_mac_helper_soft_fails_on_packaged_install(
     assert "Swift binary built from source" in stderr
 
     assert install_models._install_models("darwin", "arm64", "coreml") == 0
+
+
+def test_fetch_linux_model_soft_fails_on_packaged_install(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+):
+    cache_dir = tmp_path / "cache"
+    sentinel_path = tmp_path / "sentinel.json"
+
+    monkeypatch.setitem(sys.modules, "onnx_asr", None)
+    monkeypatch.setattr(install_models, "is_packaged_install", lambda: True)
+    monkeypatch.setattr(install_models, "_sentinel_path", lambda variant: sentinel_path)
+    monkeypatch.setattr(install_models, "_cache_dir", lambda variant: cache_dir)
+
+    assert install_models._fetch_linux_model(cache_dir) is False
+    stderr = capsys.readouterr().err
+    assert "packaged installs on Linux don't include the parakeet-onnx" in stderr
+    assert "Whisper, Gemini, OpenAI" in stderr
+
+    assert install_models._install_models("linux", "x86_64", "cpu") == 0
+    assert not sentinel_path.exists()
+
+
+def test_fetch_linux_model_raises_on_source_checkout(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+):
+    cache_dir = tmp_path / "cache"
+    sentinel_path = tmp_path / "sentinel.json"
+
+    monkeypatch.setitem(sys.modules, "onnx_asr", None)
+    monkeypatch.setattr(install_models, "is_packaged_install", lambda: False)
+    monkeypatch.setattr(install_models, "_sentinel_path", lambda variant: sentinel_path)
+    monkeypatch.setattr(install_models, "_cache_dir", lambda variant: cache_dir)
+
+    assert install_models._install_models("linux", "x86_64", "cpu") == 1
+    assert "parakeet install failed" in capsys.readouterr().err

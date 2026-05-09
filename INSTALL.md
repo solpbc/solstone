@@ -45,7 +45,7 @@ this runs doctor diagnostics, confirms the journal directory at `~/Documents/jou
 
 let your human know: **open http://localhost:5015 in a browser**. the first-run wizard walks them through choosing a password, setting their identity, and connecting a gemini API key. once they've completed it, solstone is ready.
 
-if a step has missing system libraries or python extras, `sol doctor` will tell you the exact install command to run for your platform. extras (`pdf`, `whisper`) can be added at any time with `uv tool upgrade solstone --extra pdf` or `pip install 'solstone[pdf]'`.
+if a step has missing system libraries or python extras, `sol doctor` will tell you the exact install command to run for your platform. extras (`pdf`, `whisper`) can be added at any time with `uv tool upgrade solstone --extra pdf` or `pip install 'solstone[pdf]'`. on linux, local parakeet transcription needs `solstone[parakeet-onnx-cpu]` (or `[parakeet-onnx-cuda]` for NVIDIA GPUs); install or upgrade the same way as other extras.
 
 if the service fails to start, check `sol service logs`.
 

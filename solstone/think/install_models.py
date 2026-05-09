@@ -15,6 +15,7 @@ import sys
 import tempfile
 from importlib import resources
 from pathlib import Path
+from types import ModuleType
 from typing import Any
 
 from solstone.observe.transcribe.main import (
@@ -23,7 +24,10 @@ from solstone.observe.transcribe.main import (
     WESPEAKER_MODEL_PATH,
     WESPEAKER_MODEL_SHA256,
 )
-from solstone.observe.transcribe.parakeet_hints import PACKAGED_COREML_HINT
+from solstone.observe.transcribe.parakeet_hints import (
+    PACKAGED_COREML_HINT,
+    PACKAGED_LINUX_PARAKEET_HINT,
+)
 from solstone.observe.utils import compute_file_sha256
 from solstone.think.utils import is_packaged_install
 
@@ -379,7 +383,18 @@ def _build_payload(
     return payload
 
 
-def _fetch_linux_model(cache_dir: Path) -> None:
+def _import_onnx_asr() -> ModuleType | None:
+    try:
+        import onnx_asr
+    except ImportError:
+        if is_packaged_install():
+            print(PACKAGED_LINUX_PARAKEET_HINT, file=sys.stderr)
+            return None
+        raise
+    return onnx_asr
+
+
+def _fetch_linux_model(cache_dir: Path) -> bool:
     if LEGACY_NEMO_MODEL_DIR.exists():
         print(
             "WARNING: legacy NeMo cache detected at "
@@ -392,13 +407,16 @@ def _fetch_linux_model(cache_dir: Path) -> None:
         except Exception:  # pragma: no cover - older/newer hub versions vary
             HfHubHTTPError = None
 
-        import onnx_asr
+        onnx_asr = _import_onnx_asr()
+        if onnx_asr is None:
+            return False
 
         model = onnx_asr.load_model(LINUX_LOAD_MODEL_ID, quantization=None)
         if model is None:
             raise RuntimeError(
                 "parakeet install failed: onnx-asr.load_model returned no model"
             )
+        return True
     except OSError as exc:
         if exc.errno == errno.ENOSPC:
             raise RuntimeError(_disk_full_message(cache_dir)) from exc
@@ -478,7 +496,7 @@ def _install_models(os_name: str, arch: str, variant: str) -> int:
 
     if variant in {"cpu", "cuda"}:
         try:
-            _fetch_linux_model(cache_dir)
+            fetched = _fetch_linux_model(cache_dir)
         except RuntimeError as exc:
             return _fail_with_quarantine(str(exc), cache_dir, sentinel_path)
         except Exception as exc:
@@ -487,6 +505,8 @@ def _install_models(os_name: str, arch: str, variant: str) -> int:
                 cache_dir,
                 sentinel_path,
             )
+        if not fetched:
+            return 0
         if not _verify_linux_cache(cache_dir):
             return _fail_with_quarantine(
                 "parakeet install failed: Linux cache verification failed",
