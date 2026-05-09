@@ -152,11 +152,12 @@ the critical section where possible.
 Keep these as distinct named functions in `dedup.py`.
 
 `_is_live_for_dedup(dedupe_key, dedupe_window)` walks today's stream looking for
-a `sol_chat_request` with matching `dedupe` whose `dedupe_window` has not expired
-and whose `request_id` has not been released by `owner_chat_dismissed`.
+a `sol_chat_request` whose `dedupe` matches `dedupe_key`, whose window has not
+expired, and whose `request_id` is still pending owner engagement.
 
-Dismissal releases dedupe because the owner saw the request and chose to defer.
-The reader must map dismissals back to the original request category/request id.
+Engagement releases dedupe: `owner_chat_open` releases the matching
+`request_id`, and `owner_message` releases pending requests older than the owner
+message timestamp (strict `<`). Dismissal is not a dedupe release event.
 
 `_is_unresolved_for_supersede() -> request_id | None` walks today's stream and
 returns the most recent `sol_chat_request` not yet followed by `sol_message` and

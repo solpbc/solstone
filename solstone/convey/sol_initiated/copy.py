@@ -3,10 +3,11 @@
 
 """Locked literals for sol-initiated chat."""
 
+KIND_OWNER_CHAT_DISMISSED = "owner_chat_dismissed"
+KIND_OWNER_CHAT_OPEN = "owner_chat_open"
+KIND_OWNER_MESSAGE = "owner_message"
 KIND_SOL_CHAT_REQUEST = "sol_chat_request"
 KIND_SOL_CHAT_REQUEST_SUPERSEDED = "sol_chat_request_superseded"
-KIND_OWNER_CHAT_OPEN = "owner_chat_open"
-KIND_OWNER_CHAT_DISMISSED = "owner_chat_dismissed"
 SURFACE_CONVEY = "convey"
 SOL_PINGED_OFFLINE_TOOLTIP = "sol-pinged but offline — refresh"
 

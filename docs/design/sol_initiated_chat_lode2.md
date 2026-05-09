@@ -139,11 +139,11 @@ HTML. `solstone/apps/chat/workspace.html:207-215` drops all four sol-initiated
 kinds in its live allowlist today, and the server partial
 `solstone/apps/chat/_chat_event.html:1-45` has no branch for them.
 
-Idempotency trade-off: lode-1 dedupe ignores `owner_chat_open` and releases only
-on dismiss at `solstone/convey/sol_initiated/dedup.py:56-60`. Repeated reloads
-therefore append repeated `owner_chat_open` events. That is acceptable for this
-lode because each page load is an engagement signal. Do not add suppression
-logic in Lode 2.
+Idempotency trade-off: lode-1 dedupe releases on `owner_chat_open` by request id,
+and repeated opens are idempotent because dropping an already-absent pending
+request is a no-op. Repeated reloads therefore append repeated
+`owner_chat_open` events, which is acceptable — each page load is an engagement
+signal. No suppression logic in Lode 2.
 
 ### D4. Backend context surfaced to chat-bar
 
@@ -502,7 +502,8 @@ Add or extend:
 - The lode scope wording says `_TRIGGER_KINDS` lists all four kinds. Prep verified
   `solstone/convey/chat_stream.py:61-66` includes only `sol_chat_request` among
   the new kinds. This design does not modify `_TRIGGER_KINDS`.
-- `owner_chat_open` does not release dedupe. That remains lode-1 behavior.
+- `owner_chat_open` releases dedupe by request id; repeated opens remain
+  idempotent no-ops after the first release.
 - Repeated `/app/chat/<today>` reloads append repeated `owner_chat_open` events.
   This is accepted as an engagement signal.
 - The server-side initial transcript creates anchors for all events, but

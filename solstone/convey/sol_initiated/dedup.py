@@ -8,7 +8,8 @@ from __future__ import annotations
 import re
 
 from solstone.convey.sol_initiated.copy import (
-    KIND_OWNER_CHAT_DISMISSED,
+    KIND_OWNER_CHAT_OPEN,
+    KIND_OWNER_MESSAGE,
     KIND_SOL_CHAT_REQUEST,
     KIND_SOL_CHAT_REQUEST_SUPERSEDED,
 )
@@ -39,33 +40,41 @@ def _is_live_for_dedup(
     window_ms: int,
     now_ms: int,
 ) -> bool:
-    """Return whether a matching request is still live for deduplication."""
-    requests: dict[str, tuple[str, int]] = {}
-    released: set[str] = set()
+    """Live if a still-pending request with matching dedupe is within window.
+
+    Engagement releases pending requests: chat open by request_id, owner message
+    by timestamp (strict <). Dismissal is not a release event.
+    """
+    pending: list[tuple[str, str, int]] = []
 
     for event in events:
         kind = event.get("kind")
         if kind == KIND_SOL_CHAT_REQUEST:
             request_id = str(event.get("request_id") or "")
-            if request_id:
-                requests[request_id] = (
+            if not request_id:
+                continue
+            pending.append(
+                (
+                    request_id,
                     str(event.get("dedupe") or ""),
                     int(event.get("ts", 0) or 0),
                 )
+            )
             continue
-        if kind == KIND_OWNER_CHAT_DISMISSED:
+        if kind == KIND_OWNER_CHAT_OPEN:
             request_id = str(event.get("request_id") or "")
-            if request_id in requests:
-                released.add(request_id)
+            if not request_id:
+                continue
+            pending = [item for item in pending if item[0] != request_id]
+            continue
+        if kind == KIND_OWNER_MESSAGE:
+            event_ts = int(event.get("ts", 0) or 0)
+            pending = [item for item in pending if item[2] >= event_ts]
 
-    for request_id, (request_dedupe, request_ts) in requests.items():
-        if request_id in released:
-            continue
-        if request_dedupe != dedupe_key:
-            continue
-        if request_ts + window_ms > now_ms:
-            return True
-    return False
+    return any(
+        request_dedupe == dedupe_key and request_ts + window_ms > now_ms
+        for _, request_dedupe, request_ts in pending
+    )
 
 
 def _is_unresolved_for_supersede(events: list[dict]) -> str | None:

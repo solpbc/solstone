@@ -5,6 +5,8 @@ import pytest
 
 from solstone.convey.sol_initiated.copy import (
     KIND_OWNER_CHAT_DISMISSED,
+    KIND_OWNER_CHAT_OPEN,
+    KIND_OWNER_MESSAGE,
     KIND_SOL_CHAT_REQUEST,
     KIND_SOL_CHAT_REQUEST_SUPERSEDED,
 )
@@ -45,17 +47,65 @@ def test_live_for_dedup_expires_and_matches_key() -> None:
     assert _is_live_for_dedup(events, "b", 1_000, 1_500) is False
 
 
-def test_dismissal_releases_dedup() -> None:
+def test_dismissal_does_not_release_dedup() -> None:
     events = [
         _request("r1", ts=1_000, dedupe="a"),
         {
             "kind": KIND_OWNER_CHAT_DISMISSED,
             "ts": 1_500,
             "request_id": "r1",
+            "surface": "convey",
+            "reason": "later",
         },
     ]
 
-    assert _is_live_for_dedup(events, "a", 10_000, 2_000) is False
+    assert _is_live_for_dedup(events, "a", 10_000, 2_000) is True
+
+
+def test_open_releases_dedup() -> None:
+    events = [
+        _request("r1", ts=1_000),
+        {
+            "kind": KIND_OWNER_CHAT_OPEN,
+            "ts": 1_500,
+            "request_id": "r1",
+            "surface": "convey",
+        },
+    ]
+
+    assert _is_live_for_dedup(events, "k", 2_000, 2_000) is False
+
+
+def test_owner_message_releases_earlier_pending() -> None:
+    events = [
+        _request("r1", ts=1_000),
+        {
+            "kind": KIND_OWNER_MESSAGE,
+            "ts": 1_500,
+            "text": "hi",
+            "app": "convey",
+            "path": "/",
+            "facet": "personal",
+        },
+    ]
+
+    assert _is_live_for_dedup(events, "k", 2_000, 2_000) is False
+
+
+def test_owner_message_does_not_release_later_request() -> None:
+    events = [
+        {
+            "kind": KIND_OWNER_MESSAGE,
+            "ts": 1_000,
+            "text": "hi",
+            "app": "convey",
+            "path": "/",
+            "facet": "personal",
+        },
+        _request("r1", ts=1_500),
+    ]
+
+    assert _is_live_for_dedup(events, "k", 2_000, 2_000) is True
 
 
 def test_unresolved_for_supersede_walks_back() -> None:
@@ -72,3 +122,19 @@ def test_unresolved_for_supersede_walks_back() -> None:
 
     assert _is_unresolved_for_supersede(events) == "new"
     assert _is_unresolved_for_supersede([*events, {"kind": "sol_message"}]) is None
+
+
+def test_supersede_walk_unchanged_by_dismissal_and_dedup_remains_live() -> None:
+    events = [
+        _request("r1", ts=1_000),
+        {
+            "kind": KIND_OWNER_CHAT_DISMISSED,
+            "ts": 1_500,
+            "request_id": "r1",
+            "surface": "convey",
+            "reason": "later",
+        },
+    ]
+
+    assert _is_unresolved_for_supersede(events) == "r1"
+    assert _is_live_for_dedup(events, "k", 2_000, 2_000) is True
