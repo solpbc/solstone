@@ -1,6 +1,217 @@
 # Contributing to solstone
 
-Thank you for your interest in contributing to solstone.
+Thank you for your interest in contributing to solstone. This guide covers developing on solstone from a source checkout. If you just want to run the software, see [INSTALL.md](INSTALL.md).
+
+## Prerequisites
+
+solstone development uses a source checkout, a repo-local Python environment, and the `uv` package manager.
+
+Required everywhere:
+
+- Python 3.11 or later
+- [uv](https://docs.astral.sh/uv/)
+- Git
+- ffmpeg for audio processing
+
+Linux is the primary development platform. macOS is supported, with Apple Silicon requiring Xcode command line tools for the CoreML parakeet helper.
+
+Fedora/RHEL:
+
+```bash
+sudo dnf install python3 git ffmpeg pipewire gstreamer1-plugins-base gstreamer1-plugin-pipewire pulseaudio-utils
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+Ubuntu/Debian:
+
+```bash
+sudo apt install python3 git ffmpeg pipewire gstreamer1.0-tools gstreamer1.0-pipewire pulseaudio-utils
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+Arch:
+
+```bash
+sudo pacman -S python git ffmpeg pipewire gstreamer gst-plugin-pipewire libpulse
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+macOS:
+
+```bash
+xcode-select --install
+brew install python git ffmpeg uv
+```
+
+## Source-checkout install
+
+```bash
+git clone https://github.com/solpbc/solstone.git
+cd solstone
+make install
+.venv/bin/sol setup
+```
+
+`make install` creates `.venv/`, syncs dependencies from `pyproject.toml` and `uv.lock`, installs the package in editable mode, and refreshes the project skill symlinks into the journal.
+
+`.venv/bin/sol setup` runs doctor diagnostics, confirms the journal path, installs local transcription models, installs the `solstone` skill for Claude Code when Claude is configured, creates or refreshes the source-checkout wrapper at `~/.local/bin/sol`, and starts the background service. The default web interface listens on http://localhost:5015. Use `.venv/bin/sol setup --port 8000` to choose another port on the first run.
+
+After the first setup run, the wrapper lets you use `sol` from anywhere:
+
+```bash
+sol service status
+sol setup
+```
+
+The source-checkout journal lives at `journal/` inside the repo unless you pass `--journal` or have already configured another path.
+
+Configure API keys and the web password in `journal/config/journal.json`. This file is the only key configuration method for source-checkout development:
+
+```bash
+mkdir -p journal/config
+cat > journal/config/journal.json << 'EOF'
+{
+  "convey": {},
+  "env": {
+    "GOOGLE_API_KEY": "your-key-here"
+  }
+}
+EOF
+chmod 600 journal/config/journal.json
+```
+
+Run `sol password set` to configure web authentication. Replace `your-key-here` with your Google AI API key. Optional provider keys can be added to the same `env` object:
+
+```json
+{
+  "convey": {},
+  "env": {
+    "GOOGLE_API_KEY": "your-gemini-key",
+    "OPENAI_API_KEY": "your-openai-key",
+    "ANTHROPIC_API_KEY": "your-anthropic-key"
+  }
+}
+```
+
+`journal.json` contains API keys and credentials. Keep it private and restricted (`chmod 600`).
+
+## Repo layout
+
+Start with [AGENTS.md](AGENTS.md) or [CLAUDE.md](CLAUDE.md) for the developer-facing repo map, layer hygiene rules, make targets, and coding invariants. Most implementation work lives in `solstone/think/`, `solstone/observe/`, `solstone/convey/`, `solstone/apps/`, `solstone/talent/`, and `tests/`.
+
+For app work, read [docs/APPS.md](docs/APPS.md) before changing `solstone/apps/`. For provider work, read [docs/PROVIDERS.md](docs/PROVIDERS.md). For journal layout, use `solstone/talent/journal/SKILL.md`.
+
+## Running the test suite
+
+Use the Makefile targets. The high-signal commands are:
+
+```bash
+make test
+make test-only TEST=tests/test_utils.py::test_foo
+make test-apps
+make test-app APP=settings
+make ci
+```
+
+`make test` runs unit tests after a format check. `make ci` is the pre-commit gate: format-check, ruff, layer hygiene, and tests. Run it before committing.
+
+Integration tests hit real provider APIs and require `.env` keys:
+
+```bash
+make test-integration
+make test-integration-only TEST=tests/integration/test_foo.py
+```
+
+For user-visible web changes, use the sandbox/browser verification targets when relevant:
+
+```bash
+make verify-api
+make verify-browser
+make review
+```
+
+See [AGENTS.md](AGENTS.md) for the full Makefile command table and [docs/testing.md](docs/testing.md) for test isolation details.
+
+## Tool-using agents (Cogitate CLI binaries)
+
+solstone runs two distinct AI workloads, and they have different prerequisites:
+
+- **Generate** — direct text generation (transcription, vision analysis, insights, descriptions). Uses each provider's SDK and works as soon as the API key is set. No extra binaries.
+- **Cogitate** — tool-using agents (entity detection, entity assist, entity describe, and any talent under `solstone/apps/entities/talent/*.md` with `"type": "cogitate"`). solstone shells out to the provider's official CLI binary as a subprocess. The binary must be installed and on `PATH`.
+
+Because cogitate-type talents only run when an entity-related dream completes, missing CLI binaries are invisible during initial install — generate-only paths produce transcripts and summaries, but **entities never appear**. `sol top` Agents Health flags this with messages like `"Google generate passes but Google cogitate fails: gemini CLI not installed"`. Install the binary for **each provider whose API key you configured above**. If you only set `GOOGLE_API_KEY`, you only need `gemini`.
+
+| provider  | binary     | install                                                         |
+|-----------|------------|-----------------------------------------------------------------|
+| google    | `gemini`   | `npm install -g @google/gemini-cli` (Node 20+)                  |
+| anthropic | `claude`   | `npm install -g @anthropic-ai/claude-code` (Node 18+)           |
+| openai    | `codex`    | `npm install -g @openai/codex` (Node 16+)                       |
+| ollama    | `opencode` | `curl -fsSL https://opencode.ai/install \| bash`                |
+
+If you don't have Node.js: `brew install node` on macOS, your distro's package manager on Linux (e.g. `sudo dnf install nodejs`, `sudo apt install nodejs npm`). Verify each binary is on `PATH` after install:
+
+```bash
+gemini --version
+claude --version
+codex --version
+opencode --version
+```
+
+After installing a CLI binary while solstone is running, restart the service so cortex picks up the new `PATH`:
+
+```bash
+sol service restart
+```
+
+`sol providers check` reports per-provider readiness, including whether the cogitate CLI is on PATH.
+
+## Developing on AI features
+
+### macOS Apple Silicon: CoreML-accelerated parakeet
+
+Packaged installs on macOS do not include the CoreML transcription helper because it is a Swift binary built from source. Whisper, the Gemini cloud backend, and the macOS observer app continue to work without this helper.
+
+Source-checkout installs on macOS Apple Silicon can build the Swift CoreML helper for faster parakeet transcription:
+
+```bash
+make parakeet-helper
+```
+
+The built binary lives at:
+
+```text
+solstone/observe/transcribe/parakeet_helper/.build/release/parakeet-helper
+```
+
+If you change the helper source, rebuild it before testing the CoreML parakeet path.
+
+### Skills and talents
+
+Talent prompts live under `solstone/talent/<name>.md`; apps may add app-specific talent files under `solstone/apps/<app>/talent/`. Talent frontmatter declares type, schedule, provider/model behavior, hooks, priority, and output expectations.
+
+Skills are `SKILL.md` files under `solstone/talent/` or `solstone/apps/*/talent/`. After adding or renaming a skill, run:
+
+```bash
+make skills
+```
+
+That refreshes the `.claude/` and `.agents/` skill symlinks inside the journal. `make install` also runs this target.
+
+## Migrating from a source install to a packaged install
+
+The packaged install (`uv tool install solstone`) installs `sol` to `~/.local/bin/sol` directly. It does not use the source-checkout managed wrapper, and it does not use `.venv/bin/sol`.
+
+`make uninstall` is disabled by design. To migrate cleanly from a source checkout to a packaged install, remove user-runtime artifacts explicitly:
+
+```bash
+sol service uninstall
+sol skills uninstall
+python -m solstone.think.install_guard uninstall
+uv tool install solstone
+sol setup
+```
+
+Your journal is preserved at `~/Documents/journal`; solstone does not remove it during install or uninstall. Do not add backwards-compatibility shims for the old source-checkout layout. This migration is a clean break.
 
 ## License of Contributions
 

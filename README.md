@@ -60,7 +60,7 @@ Python 3.11+, Linux + macOS, AGPL-3.0-only, maintained by [sol pbc](https://solp
 ```
 
 - **observe** — receives audio and screen observations from standalone observers (solstone-linux, solstone-tmux, solstone-macos) via observer ingest. processes FLAC audio, WebM screen media, and timestamped metadata.
-- **think** — transcribes audio (faster-whisper), analyzes screen observations, extracts entities, detects meetings, and indexes everything into SQLite. runs 30 configurable agent/generator templates from `solstone/talent/`.
+- **think** — transcribes audio (faster-whisper), analyzes screen observations, surfaces entities, detects meetings, and indexes everything into SQLite. runs 30 configurable agent/generator templates from `solstone/talent/`.
 - **cortex** — orchestrates agent execution. receives events, dispatches agents, writes results back to the journal.
 - **callosum** — async message bus connecting all services. enables event-driven coordination between observe, think, cortex, and convey.
 - **convey** — Flask-based web interface with 17 pluggable apps for navigating journal data.
@@ -69,21 +69,15 @@ Python 3.11+, Linux + macOS, AGPL-3.0-only, maintained by [sol pbc](https://solp
 ## quick start
 
 ```bash
-git clone https://github.com/solpbc/solstone.git
-cd solstone
-make install
-
-# Configure API keys and password in journal.json
-# See docs/INSTALL.md for setup instructions
-
-# Install the CLI on PATH and start the background service (port 5015)
-.venv/bin/sol setup
-
-# Or start manually for development
-sol supervisor
+uv tool install solstone
+sol setup
 ```
 
-See [docs/INSTALL.md](docs/INSTALL.md) for platform-specific dependencies, detailed configuration, and first-run guidance.
+(or `pipx install solstone && sol setup`.)
+
+then open http://localhost:5015 in a browser; the first-run wizard handles the password, identity, and gemini API key.
+
+see [INSTALL.md](INSTALL.md) for prerequisites, observer install, and troubleshooting; see [CONTRIBUTING.md](CONTRIBUTING.md) if you want to develop on solstone from a source checkout.
 
 ## CLI
 
@@ -103,8 +97,9 @@ Run `sol help` for the full command reference.
 
 | Topic | Document |
 |-------|----------|
-| Installation and setup | [docs/INSTALL.md](docs/INSTALL.md) |
-| Journal structure and data model | [talent/journal/SKILL.md](talent/journal/SKILL.md) |
+| Installation and setup | [INSTALL.md](INSTALL.md) |
+| Developing from source | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| Journal structure and data model | [solstone/talent/journal/SKILL.md](solstone/talent/journal/SKILL.md) |
 | Capture pipeline | [docs/OBSERVE.md](docs/OBSERVE.md) |
 | Processing and agents | [docs/THINK.md](docs/THINK.md) |
 | Web interface | [docs/CONVEY.md](docs/CONVEY.md) |

@@ -54,7 +54,7 @@ Top-level dirs intentionally not in the table: `.venv/`, `scratch/`, `logs/`, `t
 
 **Key concepts, priority-ordered:**
 
-- **Journal** — the on-disk record rooted at `journal/` in the repo. Every day is a `journal/chronicle/YYYYMMDD/` directory. Segments (timestamped capture windows) are anchored to creation/modification time, not content "about" time. `get_journal()` from `solstone.think.utils` is the single source of truth for journal path resolution; trust it unconditionally. Installed runs inherit `SOLSTONE_JOURNAL` from the managed wrapper at `~/.local/bin/sol`; tests use the autouse fixture; sandboxes set it explicitly. Application code must not set it itself (see §8).
+- **Journal** — the on-disk record rooted at `journal/` in the repo. Every day is a `journal/chronicle/YYYYMMDD/` directory. Segments (timestamped capture windows) are anchored to creation/modification time, not content "about" time. `get_journal()` from `solstone.think.utils` is the single source of truth for journal path resolution; trust it unconditionally. Source-checkout installs inherit `SOLSTONE_JOURNAL` from the managed bash wrapper at `~/.local/bin/sol`; packaged installs (`uv tool install solstone` or `pipx install solstone`) install `sol` directly at `~/.local/bin/sol` and rely on `get_journal()` to resolve the default journal location; tests use the autouse fixture; sandboxes set it explicitly. Application code must not set it itself (see §8).
 - **Talents** — AI processors (markdown prompt + optional Python post-hook). Each has a config in `solstone/talent/<name>.md` with frontmatter that declares hooks, priority, model, and output. Cortex spawns them as subprocesses.
 - **Callosum** — Unix-socket JSON message bus at `journal/health/callosum.sock`. Real-time event distribution across services (`tract` + `event` + payload). If components need to talk asynchronously, they talk through callosum.
 - **Cortex** — process manager for talent runs. Listens on callosum (`tract="cortex"`, `event="request"`), spawns `python -m solstone.think.talents` subprocesses, writes `<talent>/<ts>_active.jsonl` then renames to `<talent>/<ts>.jsonl` on completion, broadcasts all events back through callosum. Read `docs/CORTEX.md` before modifying talent execution.
@@ -242,7 +242,7 @@ Any function that handles a callosum event, a scheduled tick, or a supervisor-st
 The rules above govern *where* code lives. The rules below govern *how* code behaves. They exist because we got burned.
 
 - **No backwards-compatibility shims.** All code that depends on this project lives in this repository — never add fallback aliases, re-exports for moved symbols, deprecated-parameter handling, or legacy support code. When renaming or removing something, update every usage directly. For journal data-format changes, write a migration script (see `docs/APPS.md` for `maint` commands); do not add a compatibility layer. Cogitate agents default to adding shims; resist this.
-- **Trust `get_journal()` unconditionally.** `get_journal()` from `solstone.think.utils` is the single source of truth for journal path resolution. The managed wrapper at `~/.local/bin/sol` sets `SOLSTONE_JOURNAL` for installed runs; tests use the autouse fixture; Makefile sandboxes set it explicitly. Application code, agent prompts, subprocess environments, and service files must not set `SOLSTONE_JOURNAL` themselves. To rewrite the wrapper's embedded path use `sol config journal <path>`. See `docs/environment.md`.
+- **Trust `get_journal()` unconditionally.** `get_journal()` from `solstone.think.utils` is the single source of truth for journal path resolution. For source-checkout installs, the managed bash wrapper at `~/.local/bin/sol` sets `SOLSTONE_JOURNAL` before invoking the venv `sol`; packaged installs use `uv tool install` / `pipx install` and rely on `get_journal()` for default-journal resolution; tests use the autouse fixture; Makefile sandboxes set it explicitly. Application code, agent prompts, subprocess environments, and service files must not set `SOLSTONE_JOURNAL` themselves. To rewrite the wrapper's embedded path use `sol config journal <path>`. See `docs/environment.md`.
 - **SPDX header on every source file.** All Python (and other source) files begin with:
 
   ```python
@@ -308,7 +308,7 @@ The live journal also carries `journal/AGENTS.md` as its runtime-facing breadcru
 
 - **Not a runtime guide for cogitate talents.** Runtime CLI restrictions on talents live in `solstone/talent/journal/references/cli.md` § Talent CLI Boundaries. If you're tuning what a talent can or cannot call, look there, not here.
 - **Not the journal-layout reference.** `solstone/talent/journal/SKILL.md` + its `references/` is the cogitate-audience entry point. This file describes *how those commands are implemented*, not *which ones talents can't call*.
-- **Not an operations manual.** For debugging a live system see `docs/DOCTOR.md`; for setup and service lifecycle, see `docs/INSTALL.md`, `sol setup`, and `sol service`.
+- **Not an operations manual.** For debugging a live system see `docs/DOCTOR.md`; for setup and service lifecycle, see [INSTALL.md](INSTALL.md) (owner install), [CONTRIBUTING.md](CONTRIBUTING.md) (developer install), `sol setup`, and `sol service`.
 
 ## 13. Owner-facing copy: the system-anatomy canon
 
