@@ -17,6 +17,7 @@ from solstone.apps.observer.routes import (
     _classify_observer_freshness,
 )
 from solstone.apps.observer.utils import save_observer
+from solstone.convey.copy import OBSERVER_CALLOSUM_LIVE_LABEL
 
 
 def _api_list_payload(env):
@@ -165,9 +166,7 @@ def test_api_list_empty(observer_env):
             "active_ms": 30000,
             "stale_ms": 120000,
         },
-        "labels": {
-            "live": "live",
-        },
+        "labels": dict(live=OBSERVER_CALLOSUM_LIVE_LABEL),
         "observers": [],
     }
 
