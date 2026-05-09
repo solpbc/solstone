@@ -245,9 +245,12 @@ parakeet-helper-clean:
 
 # Build a signed/notarized macOS Apple Silicon platform wheel
 # (Darwin/arm64 only; requires Xcode CLT, Developer ID cert, and the
-# `sol-signing` notarytool keychain profile)
+# `sol-pbc-notary` notarytool keychain profile in sol-signing.keychain-db).
+# `uv build` runs in its own PEP 517 isolated env, so this target intentionally
+# does not depend on `.installed` — `make install` pulls --all-extras which on
+# macOS tries to resolve parakeet-onnx-cuda's nvidia-* deps and fails.
 ifeq ($(shell uname -s)/$(shell uname -m),Darwin/arm64)
-wheel-macos: .installed parakeet-helper
+wheel-macos: parakeet-helper
 	@echo "==> signing and notarizing parakeet-helper"
 	./scripts/sign-and-notarize-helper.sh solstone/observe/transcribe/parakeet_helper/.build/release/parakeet-helper
 	@echo "==> staging helper into _bin/"
