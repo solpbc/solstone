@@ -7,11 +7,23 @@ import json
 from datetime import datetime
 from pathlib import Path
 
+from solstone.convey.sol_initiated.copy import (
+    KIND_OWNER_CHAT_DISMISSED,
+    KIND_OWNER_CHAT_OPEN,
+    KIND_SOL_CHAT_REQUEST,
+)
 from solstone.think.push import triggers
 
 
 def _log_path(tmp_path: Path) -> Path:
     return tmp_path / "push" / "nudge_log.jsonl"
+
+
+def _read_log(tmp_path: Path) -> list[dict[str, object]]:
+    return [
+        json.loads(line)
+        for line in _log_path(tmp_path).read_text(encoding="utf-8").splitlines()
+    ]
 
 
 def test_handle_briefing_finish_polls_until_briefing_exists(monkeypatch, tmp_path):
@@ -427,4 +439,238 @@ def test_handle_weekly_reflection_finish_dedupes_chat_event_without_devices(
             "url": "/app/reflections/20260308",
         }
     ]
+    assert not _log_path(tmp_path).exists()
+
+
+def test_handle_sol_chat_request_filters_wrong_tract(monkeypatch, tmp_path):
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
+    send_calls: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        triggers,
+        "send_many",
+        lambda *args, **kwargs: send_calls.append(kwargs) or (1, 0),
+    )
+
+    triggers.handle_sol_chat_request(
+        {"tract": "cortex", "event": KIND_SOL_CHAT_REQUEST, "request_id": "req-1"}
+    )
+
+    assert send_calls == []
+    assert not _log_path(tmp_path).exists()
+
+
+def test_handle_sol_chat_request_filters_wrong_event(monkeypatch, tmp_path):
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
+    send_calls: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        triggers,
+        "send_many",
+        lambda *args, **kwargs: send_calls.append(kwargs) or (1, 0),
+    )
+
+    triggers.handle_sol_chat_request(
+        {"tract": "chat", "event": KIND_OWNER_CHAT_OPEN, "request_id": "req-1"}
+    )
+
+    assert send_calls == []
+    assert not _log_path(tmp_path).exists()
+
+
+def test_handle_sol_chat_request_skips_when_unconfigured(monkeypatch, tmp_path):
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
+    monkeypatch.setattr(triggers, "is_configured", lambda: False)
+    monkeypatch.setattr(
+        triggers,
+        "_eligible_devices",
+        lambda: (_ for _ in ()).throw(AssertionError("devices should not load")),
+    )
+
+    triggers.handle_sol_chat_request(
+        {"tract": "chat", "event": KIND_SOL_CHAT_REQUEST, "request_id": "req-1"}
+    )
+
+    assert not _log_path(tmp_path).exists()
+
+
+def test_handle_sol_chat_request_skips_when_no_devices(monkeypatch, tmp_path):
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
+    monkeypatch.setattr(triggers, "is_configured", lambda: True)
+    monkeypatch.setattr(triggers, "_eligible_devices", lambda: [])
+
+    triggers.handle_sol_chat_request(
+        {"tract": "chat", "event": KIND_SOL_CHAT_REQUEST, "request_id": "req-1"}
+    )
+
+    assert not _log_path(tmp_path).exists()
+
+
+def test_handle_sol_chat_request_dispatches_and_logs(monkeypatch, tmp_path):
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
+    monkeypatch.setattr(triggers, "is_configured", lambda: True)
+    devices = [{"token": "a" * 64}]
+    monkeypatch.setattr(triggers, "_eligible_devices", lambda: devices)
+    monkeypatch.setattr(triggers.time, "time", lambda: 123.0)
+    sent_calls: list[dict[str, object]] = []
+
+    def fake_send_many(push_devices, payload, *, collapse_id, priority, **kwargs):
+        sent_calls.append(
+            {
+                "devices": push_devices,
+                "payload": payload,
+                "collapse_id": collapse_id,
+                "priority": priority,
+                "kwargs": kwargs,
+            }
+        )
+        return 1, 0
+
+    monkeypatch.setattr(triggers, "send_many", fake_send_many)
+
+    triggers.handle_sol_chat_request(
+        {
+            "tract": "chat",
+            "event": KIND_SOL_CHAT_REQUEST,
+            "request_id": "req-1",
+            "summary": "Needs a reply",
+            "category": "notice",
+        }
+    )
+
+    assert sent_calls[0]["devices"] == devices
+    assert sent_calls[0]["payload"]["data"] == {
+        "action": "open_chat_request",
+        "request_id": "req-1",
+        "category": "notice",
+    }
+    assert sent_calls[0]["collapse_id"] == f"{KIND_SOL_CHAT_REQUEST}:req-1"
+    assert sent_calls[0]["priority"] == 10
+    assert sent_calls[0]["kwargs"] == {}
+    assert _read_log(tmp_path) == [
+        {
+            "ts": 123,
+            "kind": f"{KIND_SOL_CHAT_REQUEST}_push",
+            "dedupe_key": "req-1",
+            "category": "notice",
+            "outcome": "dispatched",
+        }
+    ]
+
+
+def test_handle_sol_chat_request_logs_error_on_apns_failure(monkeypatch, tmp_path):
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
+    monkeypatch.setattr(triggers, "is_configured", lambda: True)
+    monkeypatch.setattr(triggers, "_eligible_devices", lambda: [{"token": "a" * 64}])
+    monkeypatch.setattr(triggers.time, "time", lambda: 123.0)
+
+    def fail_send_many(*args, **kwargs):
+        raise RuntimeError("apns failed")
+
+    monkeypatch.setattr(triggers, "send_many", fail_send_many)
+
+    triggers.handle_sol_chat_request(
+        {
+            "tract": "chat",
+            "event": KIND_SOL_CHAT_REQUEST,
+            "request_id": "req-1",
+            "summary": "Needs a reply",
+            "category": "notice",
+        }
+    )
+
+    assert _read_log(tmp_path)[0]["outcome"] == "error"
+
+
+def test_handle_chat_lifecycle_dispatches_silent_for_open(monkeypatch, tmp_path):
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
+    monkeypatch.setattr(triggers, "is_configured", lambda: True)
+    devices = [{"token": "a" * 64}]
+    monkeypatch.setattr(triggers, "_eligible_devices", lambda: devices)
+    monkeypatch.setattr(triggers.time, "time", lambda: 123.0)
+    sent_calls: list[dict[str, object]] = []
+
+    def fake_send_many(push_devices, payload, *, collapse_id, priority, push_type):
+        sent_calls.append(
+            {
+                "devices": push_devices,
+                "payload": payload,
+                "collapse_id": collapse_id,
+                "priority": priority,
+                "push_type": push_type,
+            }
+        )
+        return 1, 0
+
+    monkeypatch.setattr(triggers, "send_many", fake_send_many)
+
+    triggers.handle_chat_lifecycle(
+        {"tract": "chat", "event": KIND_OWNER_CHAT_OPEN, "request_id": "req-1"}
+    )
+
+    assert sent_calls == [
+        {
+            "devices": devices,
+            "payload": {
+                "aps": {"mutable-content": 1, "content-available": 1},
+                "data": {"action": KIND_OWNER_CHAT_OPEN, "request_id": "req-1"},
+            },
+            "collapse_id": f"sol_chat_lifecycle:req-1:{KIND_OWNER_CHAT_OPEN}",
+            "priority": 5,
+            "push_type": "background",
+        }
+    ]
+    assert _read_log(tmp_path) == [
+        {
+            "ts": 123,
+            "kind": "sol_chat_lifecycle_push",
+            "dedupe_key": "req-1",
+            "category": KIND_OWNER_CHAT_OPEN,
+            "outcome": "dispatched",
+        }
+    ]
+
+
+def test_handle_chat_lifecycle_dispatches_silent_for_dismissed(monkeypatch, tmp_path):
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
+    monkeypatch.setattr(triggers, "is_configured", lambda: True)
+    monkeypatch.setattr(triggers, "_eligible_devices", lambda: [{"token": "a" * 64}])
+    sent_calls: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        triggers,
+        "send_many",
+        lambda devices, payload, *, collapse_id, priority, push_type: (
+            sent_calls.append(
+                {
+                    "payload": payload,
+                    "collapse_id": collapse_id,
+                    "priority": priority,
+                    "push_type": push_type,
+                }
+            )
+            or (1, 0)
+        ),
+    )
+
+    triggers.handle_chat_lifecycle(
+        {"tract": "chat", "event": KIND_OWNER_CHAT_DISMISSED, "request_id": "req-1"}
+    )
+
+    assert sent_calls[0]["payload"]["data"]["action"] == KIND_OWNER_CHAT_DISMISSED
+    assert sent_calls[0]["push_type"] == "background"
+    assert _read_log(tmp_path)[0]["category"] == KIND_OWNER_CHAT_DISMISSED
+
+
+def test_handle_chat_lifecycle_filters_other_events(monkeypatch, tmp_path):
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
+    send_calls: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        triggers,
+        "send_many",
+        lambda *args, **kwargs: send_calls.append(kwargs) or (1, 0),
+    )
+
+    triggers.handle_chat_lifecycle(
+        {"tract": "chat", "event": KIND_SOL_CHAT_REQUEST, "request_id": "req-1"}
+    )
+
+    assert send_calls == []
     assert not _log_path(tmp_path).exists()

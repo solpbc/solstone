@@ -10,8 +10,8 @@ from typing import Any
 from flask import Blueprint, abort, jsonify, redirect, render_template, url_for
 
 from solstone.convey.chat_stream import read_chat_events
-from solstone.convey.sol_initiated import record_owner_chat_open
 from solstone.convey.sol_initiated import copy as sol_voice_copy
+from solstone.convey.sol_initiated import record_owner_chat_open
 from solstone.convey.sol_initiated.copy import (
     KIND_OWNER_CHAT_OPEN,
     KIND_SOL_CHAT_REQUEST,

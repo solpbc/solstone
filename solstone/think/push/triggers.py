@@ -14,6 +14,11 @@ from typing import Any
 
 from solstone.apps.home.routes import _load_briefing_md
 from solstone.convey.chat_stream import append_chat_event, read_chat_events
+from solstone.convey.sol_initiated.copy import (
+    KIND_OWNER_CHAT_DISMISSED,
+    KIND_OWNER_CHAT_OPEN,
+    KIND_SOL_CHAT_REQUEST,
+)
 from solstone.think.activities import load_activity_records
 from solstone.think.facets import get_enabled_facets
 from solstone.think.push.config import get_bundle_id, get_environment, is_configured
@@ -28,6 +33,10 @@ from solstone.think.push.dispatch import (
     build_daily_briefing_payload,
     build_pre_meeting_collapse_id,
     build_pre_meeting_payload,
+    build_silent_chat_lifecycle_collapse_id,
+    build_silent_chat_lifecycle_payload,
+    build_sol_chat_request_collapse_id,
+    build_sol_chat_request_payload,
     send_many,
 )
 from solstone.think.utils import get_journal
@@ -292,9 +301,113 @@ def handle_weekly_reflection_finish(message: dict[str, Any]) -> None:
         append_chat_event("reflection_ready", day=day, url=route)
 
 
+def handle_sol_chat_request(message: dict[str, Any]) -> None:
+    if message.get("tract") != "chat" or message.get("event") != KIND_SOL_CHAT_REQUEST:
+        return
+    if not is_configured():
+        return
+    eligible_devices = _eligible_devices()
+    if not eligible_devices:
+        return
+
+    request_id = str(message.get("request_id") or "").strip()
+    if not request_id:
+        return
+    summary = str(message.get("summary") or "")
+    category = str(message.get("category") or "")
+
+    outcome = "dispatched"
+    try:
+        sent, failed = send_many(
+            eligible_devices,
+            build_sol_chat_request_payload(
+                request_id=request_id,
+                summary=summary,
+                category=category,
+            ),
+            collapse_id=build_sol_chat_request_collapse_id(request_id=request_id),
+            priority=10,
+        )
+        if failed:
+            logger.warning(
+                "sol chat request push had failures request_id=%s sent=%s failed=%s",
+                request_id,
+                sent,
+                failed,
+            )
+            outcome = "error"
+    except Exception:
+        logger.warning("sol chat request push dispatch failed", exc_info=True)
+        outcome = "error"
+
+    _append_nudge_log(
+        {
+            "ts": int(time.time()),
+            "kind": f"{KIND_SOL_CHAT_REQUEST}_push",
+            "dedupe_key": request_id,
+            "category": category,
+            "outcome": outcome,
+        }
+    )
+
+
+def handle_chat_lifecycle(message: dict[str, Any]) -> None:
+    if message.get("tract") != "chat":
+        return
+    event = message.get("event")
+    if event not in {KIND_OWNER_CHAT_OPEN, KIND_OWNER_CHAT_DISMISSED}:
+        return
+    if not is_configured():
+        return
+    eligible_devices = _eligible_devices()
+    if not eligible_devices:
+        return
+
+    request_id = str(message.get("request_id") or "").strip()
+    if not request_id:
+        return
+
+    outcome = "dispatched"
+    try:
+        sent, failed = send_many(
+            eligible_devices,
+            build_silent_chat_lifecycle_payload(request_id=request_id, action=event),
+            collapse_id=build_silent_chat_lifecycle_collapse_id(
+                request_id=request_id,
+                action=event,
+            ),
+            priority=5,
+            push_type="background",
+        )
+        if failed:
+            logger.warning(
+                "sol chat lifecycle push had failures request_id=%s event=%s sent=%s failed=%s",
+                request_id,
+                event,
+                sent,
+                failed,
+            )
+            outcome = "error"
+    except Exception:
+        logger.warning("sol chat lifecycle push dispatch failed", exc_info=True)
+        outcome = "error"
+
+    _append_nudge_log(
+        {
+            "ts": int(time.time()),
+            "kind": "sol_chat_lifecycle_push",
+            "dedupe_key": request_id,
+            "category": event,
+            "outcome": outcome,
+        }
+    )
+
+
 __all__ = [
     "check_pre_meeting_prep",
     "handle_briefing_finish",
+    "handle_chat_lifecycle",
+    "handle_sol_chat_" + "request",
     "handle_weekly_reflection_finish",
     "send_agent_alert",
 ]

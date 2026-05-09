@@ -42,6 +42,8 @@ def _on_callosum_message(message: dict[str, Any]) -> None:
     try:
         triggers.handle_briefing_finish(message)
         triggers.handle_weekly_reflection_finish(message)
+        triggers.handle_sol_chat_request(message)
+        triggers.handle_chat_lifecycle(message)
     except Exception:
         logger.exception("push callosum handler failed")
 
