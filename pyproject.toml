@@ -164,6 +164,7 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 markers = [
     "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
+    "live: marks tests that require an explicit live sandbox opt-in",
 ]
 timeout = 15
 tmp_path_retention_policy = "none"

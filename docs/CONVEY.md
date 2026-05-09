@@ -84,6 +84,32 @@ The `solstone/convey/views/home.py` module provides essential routes:
 
 All functional views are accessed at `/app/{name}/` URLs.
 
+### Observer Callosum SSE Feed
+
+Observer clients can open a server-sent events feed at
+`/app/observer/<key>/callosum`. The feed is a passive view of the Callosum bus:
+each `data:` frame is the same event-shaped payload the bridge saw
+(`tract`, `event`, `ts`, plus event fields). Chat events appear only after the
+chat append path has written its JSONL record, so subscribers see post-disk
+state rather than speculative messages.
+
+This endpoint is inside the observer trust boundary. It performs no redaction
+or per-field filtering because observers are treated as part of the local
+owner-controlled system. If convey moves off-device or into a hosted deployment,
+that assumption must be revisited before exposing this feed.
+
+Keep Callosum events event-shaped. The SSE route should not translate payloads
+into app-specific DTOs or add compatibility aliases; it forwards the bus shape
+and relies on producers to keep `tract`/`event`/`ts` discipline. In a hosted or
+multi-tenant mode, the feed will also need scoping by the observer's authorized
+facet or scope set before forwarding any event.
+
+Manual live check: run
+`SOLSTONE_LIVE_SANDBOX=1 .venv/bin/pytest tests/live/test_observer_sse_live.py -m live`.
+The test starts a sandbox convey server, registers an observer, opens the SSE
+feed through `ObserverClient`, emits a Callosum ping through the bridge, and
+checks that `/app/observer/api/list` flips `live` on and back off.
+
 ### Adding a New App
 
 See [APPS.md](APPS.md) for detailed instructions on creating new apps.
