@@ -14,7 +14,7 @@ export TMPDIR := /var/tmp
 PYTEST_BASETEMP_INIT := BASETEMP=$$(mktemp -d /var/tmp/solstone-pytest-XXXXXX); trap 'rm -rf "$$BASETEMP"' EXIT INT TERM;
 PYTEST_BASETEMP_FLAG := --basetemp "$$BASETEMP"
 
-.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format format-check install-checks ci clean clean-install coverage watch versions update update-prices pre-commit skills dev all sandbox sandbox-stop install-pinchtab install-models parakeet-helper parakeet-helper-clean verify-browser update-browser-baselines review verify verify-api update-api-baselines service-logs check-layer-hygiene release release-test FORCE
+.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format format-check install-checks ci clean clean-install coverage watch versions update update-prices pre-commit skills dev all sandbox sandbox-stop install-pinchtab install-models parakeet-helper parakeet-helper-clean wheel-macos wheel-macos-clean verify-browser update-browser-baselines review verify verify-api update-api-baselines service-logs check-layer-hygiene release release-test FORCE
 
 # Default target - install package in editable mode
 all: install
@@ -242,6 +242,28 @@ parakeet-helper:
 # Remove parakeet helper build artifacts
 parakeet-helper-clean:
 	rm -rf solstone/observe/transcribe/parakeet_helper/.build solstone/observe/transcribe/parakeet_helper/.swiftpm solstone/observe/transcribe/parakeet_helper/Package.resolved
+
+# Build a signed/notarized macOS Apple Silicon platform wheel
+# (Darwin/arm64 only; requires Xcode CLT, Developer ID cert, and the
+# `sol-signing` notarytool keychain profile)
+ifeq ($(shell uname -s)/$(shell uname -m),Darwin/arm64)
+wheel-macos: .installed parakeet-helper
+	@echo "==> signing and notarizing parakeet-helper"
+	./scripts/sign-and-notarize-helper.sh solstone/observe/transcribe/parakeet_helper/.build/release/parakeet-helper
+	@echo "==> staging helper into _bin/"
+	mkdir -p solstone/observe/transcribe/parakeet_helper/_bin
+	cp solstone/observe/transcribe/parakeet_helper/.build/release/parakeet-helper solstone/observe/transcribe/parakeet_helper/_bin/parakeet-helper
+	@echo "==> building macosx_14_0_arm64 platform wheel"
+	$(UV) build --wheel -C--build-option=--plat-name=macosx_14_0_arm64
+else
+wheel-macos:
+	@echo "wheel-macos: only supported on Darwin/arm64 (got $(shell uname -s)/$(shell uname -m))" >&2
+	@exit 1
+endif
+
+# Remove the staged helper copy that wheel-macos installs into _bin/
+wheel-macos-clean:
+	rm -rf solstone/observe/transcribe/parakeet_helper/_bin
 
 # Run browser scenarios against sandbox
 verify-browser: .installed

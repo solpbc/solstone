@@ -47,13 +47,13 @@ def test_sol_version_from_tmp():
     result = _run_in_tmp([str(SOL_BIN), "--version"])
 
     assert result.returncode == 0, result.stderr
-    assert result.stdout.strip() == "sol (solstone) 0.1.3"
+    assert result.stdout.strip() == "sol (solstone) 0.2.0"
 
 
 def test_editable_finder_mapping_has_no_root_aliases():
     finder_paths = list(
         (REPO_ROOT / ".venv" / "lib").glob(
-            "python*/site-packages/__editable___solstone_0_1_3_finder.py"
+            "python*/site-packages/__editable___solstone_0_2_0_finder.py"
         )
     )
     if not finder_paths:

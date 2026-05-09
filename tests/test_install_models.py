@@ -139,6 +139,53 @@ def test_verify_returns_false_when_files_at_literal_path(tmp_path: Path):
     assert install_models._verify_mac_cache(cache_dir) is False
 
 
+def test_helper_path_env_override_wins(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+):
+    fake = tmp_path / "custom" / "parakeet-helper"
+    monkeypatch.setenv(install_models.HELPER_ENV_KEY, str(fake))
+    monkeypatch.setattr(install_models, "_package_root", lambda: tmp_path)
+    assert install_models._helper_path() == fake.expanduser().resolve()
+
+
+def test_helper_path_prefers_bundled_bin(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+):
+    monkeypatch.delenv(install_models.HELPER_ENV_KEY, raising=False)
+    monkeypatch.setattr(install_models, "_package_root", lambda: tmp_path)
+    bundled = (
+        tmp_path
+        / "observe"
+        / "transcribe"
+        / "parakeet_helper"
+        / "_bin"
+        / "parakeet-helper"
+    )
+    bundled.parent.mkdir(parents=True)
+    bundled.write_text("")
+    assert install_models._helper_path() == bundled
+
+
+def test_helper_path_falls_back_to_swift_build(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+):
+    monkeypatch.delenv(install_models.HELPER_ENV_KEY, raising=False)
+    monkeypatch.setattr(install_models, "_package_root", lambda: tmp_path)
+    expected = (
+        tmp_path
+        / "observe"
+        / "transcribe"
+        / "parakeet_helper"
+        / ".build"
+        / "release"
+        / "parakeet-helper"
+    )
+    assert install_models._helper_path() == expected
+
+
 def _prepare_check_main(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -200,8 +247,9 @@ def test_run_mac_helper_soft_fails_on_packaged_install(
 
     assert install_models._run_mac_helper(cache_dir) is None
     stderr = capsys.readouterr().err
-    assert "packaged installs on macOS don't include the CoreML transcription" in stderr
-    assert "Swift binary built from source" in stderr
+    assert "Apple Silicon Macs running macOS 14" in stderr
+    assert "Intel Mac" in stderr
+    assert "source checkout" in stderr
 
     assert install_models._install_models("darwin", "arm64", "coreml") == 0
 

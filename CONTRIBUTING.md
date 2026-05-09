@@ -13,7 +13,7 @@ Required everywhere:
 - Git
 - ffmpeg for audio processing
 
-Linux is the primary development platform. macOS is supported, with Apple Silicon requiring Xcode command line tools for the CoreML parakeet helper.
+Linux is the primary development platform. macOS is supported. Source-checkout installs on Apple Silicon need Xcode command line tools to build the CoreML parakeet helper; packaged installs (`uv tool install solstone`) on macOS 14 or newer ship the helper as a pre-built binary.
 
 Fedora/RHEL:
 
@@ -169,9 +169,9 @@ sol service restart
 
 ### macOS Apple Silicon: CoreML-accelerated parakeet
 
-Packaged installs on macOS do not include the CoreML transcription helper because it is a Swift binary built from source. Whisper, the Gemini cloud backend, and the macOS observer app continue to work without this helper.
+Packaged installs of solstone on Apple Silicon Macs running macOS 14 or newer ship the CoreML transcription helper as a pre-built, signed, and notarized binary. No build step is required for owners using a packaged install.
 
-Source-checkout installs on macOS Apple Silicon can build the Swift CoreML helper for faster parakeet transcription:
+Source-checkout installs build the helper locally so you can iterate on the Swift source:
 
 ```bash
 make parakeet-helper
@@ -183,7 +183,7 @@ The built binary lives at:
 solstone/observe/transcribe/parakeet_helper/.build/release/parakeet-helper
 ```
 
-If you change the helper source, rebuild it before testing the CoreML parakeet path.
+If you change the helper source, rebuild it before testing the CoreML parakeet path. Note that the runtime resolver prefers `solstone/observe/transcribe/parakeet_helper/_bin/parakeet-helper` (the location populated by `make wheel-macos` for platform-wheel packaging) over the `.build/release/` path; if you previously ran `make wheel-macos`, run `make wheel-macos-clean` to clear the `_bin/` copy so your local rebuild takes effect.
 
 ### Skills and talents
 

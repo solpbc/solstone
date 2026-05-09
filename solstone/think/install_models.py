@@ -153,15 +153,11 @@ def _helper_path() -> Path:
     env_path = os.getenv(HELPER_ENV_KEY)
     if env_path:
         return Path(env_path).expanduser().resolve()
-    return (
-        _package_root()
-        / "observe"
-        / "transcribe"
-        / "parakeet_helper"
-        / ".build"
-        / "release"
-        / "parakeet-helper"
-    ).resolve()
+    base = _package_root() / "observe" / "transcribe" / "parakeet_helper"
+    bundled = base / "_bin" / "parakeet-helper"
+    if bundled.exists():
+        return bundled
+    return base / ".build" / "release" / "parakeet-helper"
 
 
 def _load_sentinel(path: Path) -> dict[str, Any] | None:

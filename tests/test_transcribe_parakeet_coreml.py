@@ -244,10 +244,42 @@ def test_resolve_helper_path_packaged_missing_default(
         parakeet._resolve_helper_path()
 
     message = str(exc_info.value)
-    assert (
-        "packaged installs on macOS don't include the CoreML transcription" in message
-    )
-    assert "Swift binary built from source" in message
+    assert "Apple Silicon Macs running macOS 14" in message
+    assert "Intel Mac" in message
+    assert "source checkout" in message
+
+
+def test_resolve_helper_path_env_override_wins(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+):
+    fake = tmp_path / "custom" / "parakeet-helper"
+    monkeypatch.setenv("SOLSTONE_PARAKEET_HELPER", str(fake))
+    monkeypatch.setattr(parakeet, "__file__", str(tmp_path / "_parakeet_coreml.py"))
+    assert parakeet._resolve_helper_path() == fake.expanduser().resolve()
+
+
+def test_resolve_helper_path_prefers_bundled_bin(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+):
+    monkeypatch.delenv("SOLSTONE_PARAKEET_HELPER", raising=False)
+    monkeypatch.setattr(parakeet, "__file__", str(tmp_path / "_parakeet_coreml.py"))
+    bundled = tmp_path / "parakeet_helper" / "_bin" / "parakeet-helper"
+    bundled.parent.mkdir(parents=True)
+    bundled.write_text("")
+    assert parakeet._resolve_helper_path() == bundled
+
+
+def test_resolve_helper_path_falls_back_to_swift_build(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+):
+    monkeypatch.delenv("SOLSTONE_PARAKEET_HELPER", raising=False)
+    monkeypatch.setattr(parakeet, "__file__", str(tmp_path / "_parakeet_coreml.py"))
+    monkeypatch.setattr(parakeet, "is_packaged_install", lambda: False)
+    expected = tmp_path / "parakeet_helper" / ".build" / "release" / "parakeet-helper"
+    assert parakeet._resolve_helper_path() == expected
 
 
 def test_transcribe_rejects_transcript_without_token_timings(

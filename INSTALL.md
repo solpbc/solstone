@@ -23,8 +23,6 @@ linux: `uv` is the only requirement. install with `curl -LsSf https://astral.sh/
 
 macOS: install xcode command line tools (`xcode-select --install`) and homebrew (https://brew.sh), then `brew install uv`.
 
-(note for macOS Apple Silicon users: the CoreML-accelerated transcription path requires a source-checkout install — see [CONTRIBUTING.md](CONTRIBUTING.md). the packaged install runs the on-disk ONNX path instead, which is also fast.)
-
 ## install
 
 ```bash

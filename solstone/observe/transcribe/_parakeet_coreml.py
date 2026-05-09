@@ -186,26 +186,14 @@ def _resolve_helper_path() -> Path:
     """Resolve the Parakeet helper path from env override or default build path."""
     env_path = os.getenv(_HELPER_ENV_KEY)
     if env_path:
-        candidate = Path(env_path).expanduser().resolve()
-        if not candidate.exists():
-            raise RuntimeError(
-                f"Parakeet helper not found at ${_HELPER_ENV_KEY}={candidate}. "
-                f"Run 'make parakeet-helper' or point ${_HELPER_ENV_KEY} at a valid executable."
-            )
-        if not candidate.is_file() or not os.access(candidate, os.X_OK):
-            raise RuntimeError(
-                f"Parakeet helper at ${_HELPER_ENV_KEY}={candidate} is not executable. "
-                f"Run 'make parakeet-helper', chmod +x the file, or point "
-                f"${_HELPER_ENV_KEY} at a valid executable."
-            )
-        return candidate
+        return Path(env_path).expanduser().resolve()
 
-    candidate = (
-        Path(__file__).with_name("parakeet_helper")
-        / ".build"
-        / "release"
-        / "parakeet-helper"
-    ).resolve()
+    base = Path(__file__).with_name("parakeet_helper")
+    bundled = base / "_bin" / "parakeet-helper"
+    if bundled.exists():
+        return bundled
+
+    candidate = (base / ".build" / "release" / "parakeet-helper").resolve()
     if (
         not candidate.exists()
         or not candidate.is_file()
@@ -213,10 +201,6 @@ def _resolve_helper_path() -> Path:
     ):
         if is_packaged_install():
             raise RuntimeError(PACKAGED_COREML_HINT)
-        raise RuntimeError(
-            f"Parakeet helper not found at {candidate}. Run 'make parakeet-helper' "
-            f"or set ${_HELPER_ENV_KEY} to a valid executable."
-        )
     return candidate
 
 
