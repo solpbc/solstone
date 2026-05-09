@@ -4,6 +4,26 @@
     <span class="chat-bubble-text">{{ ev.text }}</span>
   </article>
 {% elif ev.kind == "sol_message" %}
+  {% set origin = sol_message_origins.get(loop.index0) if sol_message_origins is defined else none %}
+  {% if origin %}
+    {% if origin.trigger_talent %}
+      {% set origin_label = sol_voice_copy.CHAT_ORIGIN_TAG_WITH_TALENT.format(trigger_talent=origin.trigger_talent, time=origin.time) %}
+    {% else %}
+      {% set origin_label = sol_voice_copy.CHAT_ORIGIN_TAG_WITHOUT_TALENT.format(time=origin.time) %}
+    {% endif %}
+    {% if origin.superseded_by_id %}
+      {% set origin_label = origin_label ~ sol_voice_copy.CHAT_ORIGIN_SUPERSEDED_SUFFIX.format(time=origin.superseded_time) %}
+    {% endif %}
+    <div class="chat-origin-tag" data-origin-toggle-host>
+      <span class="chat-origin-tag__label">{{ origin_label }}</span>
+      <button type="button" class="chat-origin-tag__toggle" data-origin-toggle>{{ sol_voice_copy.CHAT_ORIGIN_PROVENANCE_SHOW }}</button>
+      <div class="chat-origin-provenance" hidden>
+        <span><strong>{{ sol_voice_copy.CHAT_ORIGIN_PROVENANCE_LABEL_TRIGGER_TALENT }}</strong> {{ origin.trigger_talent or "" }}</span>
+        <span><strong>{{ sol_voice_copy.CHAT_ORIGIN_PROVENANCE_LABEL_DEDUPE }}</strong> {{ origin.dedupe or "" }}</span>
+        <span><strong>{{ sol_voice_copy.CHAT_ORIGIN_PROVENANCE_LABEL_SINCE_TS }}</strong> {{ origin.since_ts or "" }}</span>
+      </div>
+    </div>
+  {% endif %}
   <article class="chat-bubble chat-bubble--sol"
            {% if ev.notes %}title="{{ ev.notes }}"{% endif %}
            aria-label="{{ agent_name }}: {{ ev.text }}">

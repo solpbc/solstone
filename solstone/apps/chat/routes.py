@@ -4,14 +4,20 @@
 from __future__ import annotations
 
 import calendar
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 
 from flask import Blueprint, abort, jsonify, redirect, render_template, url_for
 
 from solstone.convey.chat_stream import read_chat_events
 from solstone.convey.sol_initiated import record_owner_chat_open
-from solstone.convey.sol_initiated.copy import KIND_OWNER_CHAT_OPEN, SURFACE_CONVEY
+from solstone.convey.sol_initiated import copy as sol_voice_copy
+from solstone.convey.sol_initiated.copy import (
+    KIND_OWNER_CHAT_OPEN,
+    KIND_SOL_CHAT_REQUEST,
+    KIND_SOL_CHAT_REQUEST_SUPERSEDED,
+    SURFACE_CONVEY,
+)
 from solstone.convey.sol_initiated.state import latest_unresolved_sol_chat_request
 from solstone.convey.utils import DATE_RE
 from solstone.think.utils import get_config
@@ -49,6 +55,7 @@ def day(day: str) -> str:
                 unresolved_request["request_id"],
                 surface=SURFACE_CONVEY,
             )
+    sol_message_origins = _build_sol_message_origins(events)
 
     return render_template(
         "app.html",
@@ -58,6 +65,8 @@ def day(day: str) -> str:
         today_day=today_day,
         owner_name=owner_name,
         agent_name=agent_name,
+        sol_message_origins=sol_message_origins,
+        sol_voice_copy=sol_voice_copy,
     )
 
 
@@ -93,3 +102,60 @@ def _resolve_identity() -> tuple[str, str]:
     owner_name = str(identity.get("preferred") or identity.get("name") or "").strip()
     agent_name = str(config.get("agent", {}).get("name") or "").strip()
     return owner_name or "Owner", agent_name or "Sol"
+
+
+def _build_sol_message_origins(
+    events: list[dict[str, Any]],
+) -> dict[int, dict[str, Any]]:
+    origins: dict[int, dict[str, Any]] = {}
+    origins_by_request_id: dict[str, dict[str, Any]] = {}
+    pending_request: dict[str, Any] | None = None
+
+    for index, event in enumerate(events):
+        kind = event.get("kind")
+        if kind == KIND_SOL_CHAT_REQUEST:
+            pending_request = {
+                "request_id": event.get("request_id"),
+                "summary": event.get("summary"),
+                "trigger_talent": event.get("trigger_talent"),
+                "dedupe": event.get("dedupe"),
+                "since_ts": event.get("since_ts"),
+                "ts": event.get("ts"),
+                "time": _format_origin_time(event.get("ts")),
+                "category": event.get("category"),
+            }
+            continue
+
+        if kind == "sol_message" and pending_request is not None:
+            origin = dict(pending_request)
+            origins[index] = origin
+            request_id = str(origin.get("request_id") or "")
+            if request_id:
+                origins_by_request_id[request_id] = origin
+            pending_request = None
+            continue
+
+        if kind == KIND_SOL_CHAT_REQUEST_SUPERSEDED:
+            request_id = str(event.get("request_id") or "")
+            if (
+                pending_request is not None
+                and str(pending_request.get("request_id") or "") == request_id
+            ):
+                pending_request = None
+            origin = origins_by_request_id.get(request_id)
+            if origin is not None:
+                origin["superseded_by_id"] = event.get("replaced_by")
+                origin["superseded_at"] = event.get("ts")
+                origin["superseded_time"] = _format_origin_time(event.get("ts"))
+
+    return origins
+
+
+def _format_origin_time(raw_ts: object) -> str:
+    try:
+        ts = int(raw_ts or 0)
+    except (TypeError, ValueError):
+        return ""
+    if ts <= 0:
+        return ""
+    return datetime.fromtimestamp(ts / 1000).strftime("%I:%M %p").lstrip("0")

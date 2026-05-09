@@ -2522,6 +2522,8 @@ body.has-date-nav .chat-app {
 }
 
 .chat-event--sol {
+  align-items: flex-start;
+  flex-direction: column;
   justify-content: flex-start;
 }
 
@@ -2550,6 +2552,52 @@ body.has-date-nav .chat-app {
   background: #f6efe7;
   color: #1f2937;
   border-bottom-left-radius: 6px;
+}
+
+.chat-origin-tag {
+  max-width: 70%;
+  color: #6b7280;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  align-items: baseline;
+  font-size: 12px;
+  line-height: 1.4;
+  margin-bottom: 4px;
+}
+
+.chat-origin-tag__label {
+  font-weight: 500;
+}
+
+.chat-origin-tag__toggle {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: #6b7280;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.chat-origin-tag__toggle:hover {
+  color: #374151;
+}
+
+.chat-origin-provenance {
+  color: #6b7280;
+  display: flex;
+  flex-basis: 100%;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-size: 11px;
+}
+
+.chat-origin-provenance strong {
+  color: #4b5563;
+  font-weight: 600;
 }
 
 .chat-bubble-author {
@@ -2820,6 +2868,7 @@ body.has-date-nav .chat-app {
   }
 
   .chat-bubble,
+  .chat-origin-tag,
   .chat-talent-card,
   .chat-reflection-card,
   .chat-error-block {
