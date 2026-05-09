@@ -21,12 +21,13 @@ LOCKED_LITERALS = (
 )
 
 ALLOWED_PATHS = {
-    Path("solstone/convey/sol_initiated/copy.py"),
-    Path("solstone/convey/chat_stream.py"),
-    Path("solstone/convey/static/sol_initiated_constants.js"),
-    Path("tests/test_sol_initiated_constants_locked.py"),
     Path("docs/design/sol_initiated_chat_lode1.md"),
     Path("docs/design/sol_initiated_chat_lode2.md"),
+    Path("docs/design/sol_initiated_chat_lode3.md"),
+    Path("solstone/convey/chat_stream.py"),
+    Path("solstone/convey/sol_initiated/copy.py"),
+    Path("solstone/convey/static/sol_initiated_constants.js"),
+    Path("tests/test_sol_initiated_constants_locked.py"),
 }
 
 SEARCH_ROOTS = (
