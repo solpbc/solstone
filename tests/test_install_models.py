@@ -181,3 +181,26 @@ def test_main_check_ready_cache_returns_zero(
 
     assert install_models.main() == 0
     assert f"model ready: {cache_dir}" in capsys.readouterr().out
+
+
+def test_run_mac_helper_soft_fails_on_packaged_install(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+):
+    cache_dir = tmp_path / "cache"
+    sentinel_path = tmp_path / "sentinel.json"
+    missing_helper = tmp_path / "missing" / "parakeet-helper"
+
+    monkeypatch.delenv(install_models.HELPER_ENV_KEY, raising=False)
+    monkeypatch.setattr(install_models, "_helper_path", lambda: missing_helper)
+    monkeypatch.setattr(install_models, "is_packaged_install", lambda: True)
+    monkeypatch.setattr(install_models, "_sentinel_path", lambda variant: sentinel_path)
+    monkeypatch.setattr(install_models, "_cache_dir", lambda variant: cache_dir)
+
+    assert install_models._run_mac_helper(cache_dir) is None
+    stderr = capsys.readouterr().err
+    assert "packaged installs on macOS don't include the CoreML transcription" in stderr
+    assert "Swift binary built from source" in stderr
+
+    assert install_models._install_models("darwin", "arm64", "coreml") == 0

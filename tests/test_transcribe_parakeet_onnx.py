@@ -16,6 +16,7 @@ if platform.system() != "Linux":
     pytest.skip("Linux-only ONNX test", allow_module_level=True)
 
 import solstone.observe.transcribe._parakeet_onnx as parakeet_onnx
+from solstone.think.install_models import _fixture_audio_path
 
 
 def _require_onnx() -> None:
@@ -357,8 +358,7 @@ def test_transcribe_sample_end_to_end_when_model_available():
     if not cache_dir.exists():
         pytest.skip("ONNX model cache not present")
 
-    fixture_path = Path("tests/fixtures/parakeet_sample.wav")
-    audio, sample_rate = sf.read(fixture_path, dtype="float32")
+    audio, sample_rate = sf.read(_fixture_audio_path(), dtype="float32")
 
     statements = parakeet_onnx.transcribe(audio, sample_rate, {})
 

@@ -26,6 +26,7 @@ from solstone.think.user_config import (
     write_user_config,
 )
 from solstone.think.utils import get_project_root
+from solstone.think.utils import is_source_checkout as source_checkout
 
 TOTAL_STEPS = 6
 MANIFEST_SCHEMA_VERSION = 1
@@ -68,7 +69,6 @@ class SetupContext:
     stdout_is_tty: bool
     args_resolved: dict[str, object]
     doctor_advisories: list[dict[str, Any]]
-    service_skipped_packaged: bool = False
 
 
 @dataclass(frozen=True)
@@ -215,9 +215,7 @@ def resolve_mode(args: argparse.Namespace) -> SetupMode:
 def resolve_context(args: argparse.Namespace, raw_argv: list[str]) -> SetupContext:
     mode = resolve_mode(args)
     project_root = Path(get_project_root())
-    is_source_checkout = (project_root / "pyproject.toml").exists() and (
-        project_root / ".git"
-    ).exists()
+    is_source_checkout = source_checkout()
     journal_path, journal_source = resolve_journal_path(args)
     cfg_path = config_path()
     manifest_path = journal_path / ".setup-state.json"
@@ -860,22 +858,6 @@ def step_service(ctx: SetupContext, step_index: int) -> StepResult:
         return step_result(
             "service", "skipped", [], started_at, reason="--skip-service"
         )
-    if not ctx.is_source_checkout:
-        ctx.service_skipped_packaged = True
-        reason = (
-            "packaged-install service support is not implemented in v1. "
-            "Setup completed the journal, model, and skill steps; run sol setup "
-            "again from a source checkout to install the background service."
-        )
-        print_step_skipped(step_index, "service", reason)
-        return step_result(
-            "service",
-            "skipped",
-            [],
-            started_at,
-            reason="packaged_service_unsupported",
-        )
-
     command = service_install_command(ctx)
     print_step_header(step_index, "service install", command)
     rc = run_inherited(command)
@@ -1005,8 +987,6 @@ def print_plan(ctx: SetupContext, *, dry_run: bool) -> None:
     print(f"[step 6/6] {_STEP_NAME[step_service]}")
     if ctx.skip_service:
         print("  skipped: --skip-service")
-    elif not ctx.is_source_checkout:
-        print("  skipped: packaged-install service support is not implemented in v1")
     else:
         print(f"  would run: {format_command(service_install_command(ctx))}")
         print(f"  would call: solstone.think.service._up(port={ctx.port})")
@@ -1042,10 +1022,6 @@ def print_success_summary(ctx: SetupContext, manifest: dict[str, Any]) -> None:
             print(f"  {path}")
     else:
         print("  none")
-    if ctx.service_skipped_packaged:
-        print(
-            "  service: skipped (packaged-install service support is not implemented in v1)"
-        )
     print()
     if ctx.doctor_advisories:
         print("advisories from doctor:")
@@ -1056,7 +1032,7 @@ def print_success_summary(ctx: SetupContext, manifest: dict[str, Any]) -> None:
     else:
         print("advisories from doctor: none")
     print()
-    if not ctx.skip_service and ctx.is_source_checkout:
+    if not ctx.skip_service:
         print(f"solstone is running at http://localhost:{ctx.port}")
         print()
     print("next: run 'sol observer install' to start observing.")

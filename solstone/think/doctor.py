@@ -34,14 +34,23 @@ import shutil
 import subprocess
 import sys
 from dataclasses import dataclass, replace
+from importlib.metadata import PackageNotFoundError, distribution
 from pathlib import Path
 from typing import Callable, Literal, Sequence
 
 from solstone.think import features as _features
+from solstone.think.utils import is_packaged_install
 
 ROOT = Path(__file__).resolve().parents[2]
 MIN_UV = (0, 7, 12)
 MIN_FREE_GIB = 10.0
+DEFAULT_REQUIRES_PYTHON = ">=3.11"
+PYTHON_VERSION_FIX = "install Python >=3.11, then retry"
+LOCAL_BIN_SOL_FIX = (
+    "Install via `uv tool install solstone` or `pipx install solstone` for the "
+    "canonical layout, or run `ln -s $(command -v sol) ~/.local/bin/sol` to keep "
+    "your custom layout."
+)
 
 Severity = Literal["blocker", "advisory"]
 Status = Literal["ok", "fail", "warn", "skip"]
@@ -218,32 +227,45 @@ def python_version_check(args: Args) -> CheckResult:
     del args
     check = CHECK_MAP["python_version"]
     pyproject = ROOT / "pyproject.toml"
+    spec_from_metadata = False
     try:
         text = pyproject.read_text(encoding="utf-8")
+        match = re.search(r'^requires-python\s*=\s*"([^"]+)"', text, re.MULTILINE)
+        if not match:
+            return make_result(
+                check,
+                "fail",
+                "could not parse requires-python from pyproject.toml",
+                PYTHON_VERSION_FIX,
+            )
+        spec = match.group(1)
+    except FileNotFoundError:
+        spec_from_metadata = True
+        try:
+            spec = distribution("solstone").metadata.get("Requires-Python")
+        except PackageNotFoundError:
+            spec = None
+        if not spec:
+            spec = DEFAULT_REQUIRES_PYTHON
     except OSError as exc:
         return make_result(
             check,
             "fail",
             f"could not read {pyproject.name}: {type(exc).__name__}: {exc}",
-            "install Python >=3.10, then retry",
+            PYTHON_VERSION_FIX,
         )
-    match = re.search(r'^requires-python\s*=\s*"([^"]+)"', text, re.MULTILINE)
-    if not match:
-        return make_result(
-            check,
-            "fail",
-            "could not parse requires-python from pyproject.toml",
-            "install Python >=3.10, then retry",
-        )
-    spec = match.group(1)
     min_match = re.search(r">=\s*(\d+)\.(\d+)(?:\.(\d+))?", spec)
     if not min_match:
-        return make_result(
-            check,
-            "fail",
-            f"unsupported requires-python specifier: {spec}",
-            "install Python >=3.10, then retry",
-        )
+        if spec_from_metadata:
+            spec = DEFAULT_REQUIRES_PYTHON
+            min_match = re.search(r">=\s*(\d+)\.(\d+)(?:\.(\d+))?", spec)
+        if not min_match:
+            return make_result(
+                check,
+                "fail",
+                f"unsupported requires-python specifier: {spec}",
+                PYTHON_VERSION_FIX,
+            )
     minimum = (
         int(min_match.group(1)),
         int(min_match.group(2)),
@@ -255,7 +277,7 @@ def python_version_check(args: Args) -> CheckResult:
             check,
             "fail",
             f"python {version_text(current)} does not satisfy {spec}",
-            "install Python >=3.10, then `rm -rf .venv .installed && make install`",
+            "install Python >=3.11, then `rm -rf .venv .installed && make install`",
         )
     return make_result(
         check,
@@ -267,6 +289,12 @@ def python_version_check(args: Args) -> CheckResult:
 def uv_installed_check(args: Args) -> CheckResult:
     del args
     check = CHECK_MAP["uv_installed"]
+    if is_packaged_install():
+        return make_result(
+            check,
+            "skip",
+            "uv is only required for source-checkout development",
+        )
     fix = "curl -LsSf https://astral.sh/uv/install.sh | sh"
     probe = run_probe(check, ["uv", "--version"], timeout=0.5, fix=fix)
     if isinstance(probe, CheckResult):
@@ -291,6 +319,12 @@ def uv_installed_check(args: Args) -> CheckResult:
 def venv_consistent_check(args: Args) -> CheckResult:
     del args
     check = CHECK_MAP["venv_consistent"]
+    if is_packaged_install():
+        return make_result(
+            check,
+            "skip",
+            "packaged install: env managed by uv tool / pipx",
+        )
     python_bin = ROOT / ".venv" / "bin" / "python"
     expected = (ROOT / ".venv").resolve()
     if not python_bin.exists():
@@ -328,6 +362,16 @@ def venv_consistent_check(args: Args) -> CheckResult:
 def sol_importable_check(args: Args) -> CheckResult:
     del args
     check = CHECK_MAP["sol_importable"]
+    if is_packaged_install():
+        try:
+            import solstone  # noqa: F401
+        except Exception as exc:
+            return make_result(
+                check,
+                "fail",
+                f"import solstone failed: {type(exc).__name__}: {exc}",
+            )
+        return make_result(check, "ok", "import solstone succeeded in packaged install")
     python_bin = ROOT / ".venv" / "bin" / "python"
     fix = "rm -rf .venv .installed && make install"
     if not python_bin.exists():
@@ -364,6 +408,49 @@ def sol_importable_check(args: Args) -> CheckResult:
         120,
     )
     return make_result(check, "fail", detail, fix)
+
+
+def local_bin_sol_reachable_check(args: Args) -> CheckResult:
+    del args
+    check = CHECK_MAP["local_bin_sol_reachable"]
+    local = Path.home() / ".local" / "bin" / "sol"
+    which = shutil.which("sol")
+    if local.exists() and local.is_file() and which is not None:
+        which_path = Path(which)
+        local_resolved = local.resolve()
+        which_resolved = which_path.resolve()
+        if (
+            which_path != local
+            and local.is_symlink()
+            and local_resolved == which_resolved
+        ):
+            return make_result(
+                check,
+                "ok",
+                f"~/.local/bin/sol symlinks to PATH sol at {which}",
+            )
+        if which_resolved == local_resolved:
+            return make_result(
+                check,
+                "ok",
+                f"~/.local/bin/sol is on PATH at {local}",
+            )
+
+    failures: list[str] = []
+    if not local.exists():
+        failures.append(f"{local} is missing")
+    elif not local.is_file():
+        failures.append(f"{local} is not a file")
+    if which is None:
+        failures.append("sol is not on PATH")
+    else:
+        try:
+            failures.append(
+                f"PATH sol resolves to {Path(which).resolve()}, expected {local.resolve()}"
+            )
+        except OSError:
+            failures.append(f"PATH sol is {which}, but it could not be resolved")
+    return make_result(check, "warn", "; ".join(failures), LOCAL_BIN_SOL_FIX)
 
 
 def npx_on_path_check(args: Args) -> CheckResult:
@@ -813,6 +900,10 @@ CHECKS: list[tuple[Check, Callable[[Args], CheckResult]]] = [
     (Check("uv_installed", "blocker", ("linux", "darwin")), uv_installed_check),
     (Check("venv_consistent", "blocker", ("linux", "darwin")), venv_consistent_check),
     (Check("sol_importable", "blocker", ("linux", "darwin")), sol_importable_check),
+    (
+        Check("local_bin_sol_reachable", "advisory", ("linux", "darwin")),
+        local_bin_sol_reachable_check,
+    ),
     (Check("npx_on_path", "blocker", ("linux", "darwin")), npx_on_path_check),
     (
         Check("npx_non_interactive", "advisory", ("linux", "darwin")),

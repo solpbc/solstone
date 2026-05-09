@@ -26,6 +26,7 @@ from solstone.think.utils import (
     SolstoneNotConfigured,
     get_journal_info,
     get_project_root,
+    is_source_checkout,
     journal_is_active,
 )
 
@@ -582,11 +583,8 @@ def cmd_journal(
         return 1
 
     project_root = Path(get_project_root())
-    is_source_checkout = (project_root / "pyproject.toml").exists() and (
-        project_root / ".git"
-    ).exists()
     source_tree_journal = (project_root / "journal").resolve()
-    if target == source_tree_journal and not is_source_checkout:
+    if target == source_tree_journal and not is_source_checkout():
         print(
             "sol config: refused: "
             f"{target_str} is the source-tree fallback path but this is not a "

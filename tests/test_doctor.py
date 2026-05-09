@@ -234,6 +234,91 @@ class TestSolImportable:
         assert result.detail == "SyntaxError: broken import"
 
 
+class TestPackagedInstall:
+    def setup_packaged(self, doctor, monkeypatch, tmp_path):
+        monkeypatch.setattr(doctor, "ROOT", tmp_path)
+        monkeypatch.setattr(doctor, "is_packaged_install", lambda: True)
+
+    def test_python_version_uses_metadata_when_pyproject_absent(
+        self, doctor, monkeypatch, tmp_path
+    ):
+        self.setup_packaged(doctor, monkeypatch, tmp_path)
+        monkeypatch.setattr(
+            doctor,
+            "distribution",
+            lambda name: SimpleNamespace(metadata={"Requires-Python": ">=3.11"}),
+        )
+
+        result = doctor.python_version_check(args(doctor))
+
+        assert result.status == "ok"
+        assert ">=3.11" in result.detail
+
+    def test_uv_installed_skips(self, doctor, monkeypatch, tmp_path):
+        self.setup_packaged(doctor, monkeypatch, tmp_path)
+
+        result = doctor.uv_installed_check(args(doctor))
+
+        assert result.status == "skip"
+        assert result.detail == "uv is only required for source-checkout development"
+
+    def test_venv_consistent_skips(self, doctor, monkeypatch, tmp_path):
+        self.setup_packaged(doctor, monkeypatch, tmp_path)
+
+        result = doctor.venv_consistent_check(args(doctor))
+
+        assert result.status == "skip"
+        assert result.detail == "packaged install: env managed by uv tool / pipx"
+
+    def test_sol_importable_uses_in_process_import(self, doctor, monkeypatch, tmp_path):
+        self.setup_packaged(doctor, monkeypatch, tmp_path)
+
+        result = doctor.sol_importable_check(args(doctor))
+
+        assert result.status == "ok"
+        assert result.detail == "import solstone succeeded in packaged install"
+
+    def test_local_bin_sol_reachable_canonical_pass(
+        self, doctor, monkeypatch, home_root
+    ):
+        local = home_root / ".local" / "bin" / "sol"
+        local.parent.mkdir(parents=True)
+        local.write_text("#!/bin/sh\n", encoding="utf-8")
+        monkeypatch.setattr(doctor.shutil, "which", lambda name: str(local))
+
+        result = doctor.local_bin_sol_reachable_check(args(doctor))
+
+        assert result.status == "ok"
+        assert "~/.local/bin/sol is on PATH" in result.detail
+
+    def test_local_bin_sol_reachable_symlink_pass(
+        self, doctor, monkeypatch, home_root, tmp_path
+    ):
+        target = tmp_path / "usr" / "local" / "bin" / "sol"
+        target.parent.mkdir(parents=True)
+        target.write_text("#!/bin/sh\n", encoding="utf-8")
+        local = home_root / ".local" / "bin" / "sol"
+        local.parent.mkdir(parents=True)
+        local.symlink_to(target)
+        monkeypatch.setattr(doctor.shutil, "which", lambda name: str(target))
+
+        result = doctor.local_bin_sol_reachable_check(args(doctor))
+
+        assert result.status == "ok"
+        assert "symlinks to PATH sol" in result.detail
+
+    def test_local_bin_sol_reachable_warns_when_missing(
+        self, doctor, monkeypatch, home_root
+    ):
+        monkeypatch.setattr(doctor.shutil, "which", lambda name: None)
+
+        result = doctor.local_bin_sol_reachable_check(args(doctor))
+
+        assert result.status == "warn"
+        assert ".local/bin/sol" in result.detail
+        assert "uv tool install solstone" in (result.fix or "")
+
+
 class TestNpxChecks:
     def test_npx_on_path_ok(self, doctor, monkeypatch):
         monkeypatch.setattr(doctor.shutil, "which", lambda _name: "/usr/bin/npx")

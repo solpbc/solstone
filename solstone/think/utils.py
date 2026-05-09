@@ -101,6 +101,19 @@ def get_project_root() -> str:
     return str(Path(__file__).resolve().parent.parent.parent)
 
 
+def is_source_checkout() -> bool:
+    """Return True when solstone is running from a source checkout."""
+    project_root = Path(get_project_root())
+    return (project_root / "pyproject.toml").exists() and (
+        project_root / ".git"
+    ).exists()
+
+
+def is_packaged_install() -> bool:
+    """Return True when solstone is running from an installed package."""
+    return not is_source_checkout()
+
+
 def get_journal_info() -> tuple[str, str]:
     """Resolve the journal path and its source.
 
@@ -128,9 +141,8 @@ def get_journal_info() -> tuple[str, str]:
     if user_cfg_path:
         return user_cfg_path, "config"
 
-    project_root = Path(get_project_root())
-    if (project_root / "pyproject.toml").exists() and (project_root / ".git").exists():
-        return str(project_root / "journal"), "source"
+    if is_source_checkout():
+        return str(Path(get_project_root()) / "journal"), "source"
 
     from solstone.think.user_config import default_journal
 

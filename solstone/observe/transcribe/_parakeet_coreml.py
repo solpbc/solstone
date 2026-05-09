@@ -22,7 +22,9 @@ from pathlib import Path
 import numpy as np
 import soundfile as sf
 
+from solstone.observe.transcribe.parakeet_hints import PACKAGED_COREML_HINT
 from solstone.observe.transcribe.utils import build_statements_from_acoustic
+from solstone.think.utils import is_packaged_install
 
 _VERSION_CACHE: dict[str, dict] = {}
 _DEFAULT_MODEL_VERSION = "v3"
@@ -209,6 +211,8 @@ def _resolve_helper_path() -> Path:
         or not candidate.is_file()
         or not os.access(candidate, os.X_OK)
     ):
+        if is_packaged_install():
+            raise RuntimeError(PACKAGED_COREML_HINT)
         raise RuntimeError(
             f"Parakeet helper not found at {candidate}. Run 'make parakeet-helper' "
             f"or set ${_HELPER_ENV_KEY} to a valid executable."

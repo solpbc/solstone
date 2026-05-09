@@ -13,6 +13,7 @@ import soundfile as sf
 
 import solstone.observe.transcribe._parakeet_coreml as parakeet
 from solstone.observe.transcribe import BACKEND_METADATA, BACKEND_REGISTRY
+from solstone.think.install_models import _fixture_audio_path
 
 
 def _skip_reason() -> str | None:
@@ -231,6 +232,24 @@ def test_metadata_settings_list_of_str():
     assert all(isinstance(key, str) for key in BACKEND_METADATA["parakeet"]["settings"])
 
 
+def test_resolve_helper_path_packaged_missing_default(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+):
+    monkeypatch.delenv("SOLSTONE_PARAKEET_HELPER", raising=False)
+    monkeypatch.setattr(parakeet, "__file__", str(tmp_path / "_parakeet_coreml.py"))
+    monkeypatch.setattr(parakeet, "is_packaged_install", lambda: True)
+
+    with pytest.raises(RuntimeError) as exc_info:
+        parakeet._resolve_helper_path()
+
+    message = str(exc_info.value)
+    assert (
+        "packaged installs on macOS don't include the CoreML transcription" in message
+    )
+    assert "Swift binary built from source" in message
+
+
 def test_transcribe_rejects_transcript_without_token_timings(
     monkeypatch: pytest.MonkeyPatch,
 ):
@@ -292,8 +311,7 @@ def test_helper_version_envelope():
 @pytest.mark.skipif(_skip_reason() is not None, reason=_skip_reason() or "")
 @pytest.mark.timeout(120)
 def test_transcribe_pangram_end_to_end():
-    fixture_path = Path("tests/fixtures/parakeet_sample.wav")
-    audio, sample_rate = sf.read(fixture_path, dtype="float32")
+    audio, sample_rate = sf.read(_fixture_audio_path(), dtype="float32")
     statements = parakeet.transcribe(audio, sample_rate, {})
     assert statements
 

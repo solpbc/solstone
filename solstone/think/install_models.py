@@ -13,6 +13,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from importlib import resources
 from pathlib import Path
 from typing import Any
 
@@ -22,8 +23,9 @@ from solstone.observe.transcribe.main import (
     WESPEAKER_MODEL_PATH,
     WESPEAKER_MODEL_SHA256,
 )
+from solstone.observe.transcribe.parakeet_hints import PACKAGED_COREML_HINT
 from solstone.observe.utils import compute_file_sha256
-from solstone.think.utils import get_project_root
+from solstone.think.utils import is_packaged_install
 
 BACKEND = "parakeet"
 MODEL_VERSION = "v3"
@@ -130,16 +132,17 @@ def _cache_dir(variant: str) -> Path:
     return MAC_CACHE_DIR if variant == "coreml" else LINUX_MODEL_DIR
 
 
-def _repo_root() -> Path:
-    return Path(get_project_root())
-
-
 def _package_root() -> Path:
     return Path(__file__).resolve().parents[1]
 
 
 def _fixture_audio_path() -> Path:
-    return _repo_root() / "tests" / "fixtures" / "parakeet_sample.wav"
+    return Path(
+        str(
+            resources.files("solstone.observe.transcribe._fixtures")
+            / "parakeet_sample.wav"
+        )
+    )
 
 
 def _helper_path() -> Path:
@@ -410,9 +413,13 @@ def _fetch_linux_model(cache_dir: Path) -> None:
         raise
 
 
-def _run_mac_helper(cache_dir: Path) -> dict[str, Any]:
+def _run_mac_helper(cache_dir: Path) -> dict[str, Any] | None:
+    helper_env = os.getenv(HELPER_ENV_KEY)
     helper_path = _helper_path()
     if not helper_path.is_file() or not os.access(helper_path, os.X_OK):
+        if not helper_env and is_packaged_install():
+            print(PACKAGED_COREML_HINT, file=sys.stderr)
+            return None
         raise RuntimeError(
             "parakeet install failed: helper not found or not executable at "
             f"{helper_path} run `make parakeet-helper` from the solstone repo to build it"
@@ -503,6 +510,8 @@ def _install_models(os_name: str, arch: str, variant: str) -> int:
             cache_dir,
             sentinel_path,
         )
+    if payload is None:
+        return 0
     if not _verify_mac_cache(cache_dir):
         return _fail_with_quarantine(
             "parakeet install failed: macOS cache verification failed",

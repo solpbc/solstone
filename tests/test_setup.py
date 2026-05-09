@@ -28,6 +28,7 @@ def patch_source_checkout(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Pa
     (repo / "pyproject.toml").write_text("[project]\nname = 'solstone'\n")
     (repo / ".git").mkdir()
     monkeypatch.setattr(setup, "get_project_root", lambda: str(repo))
+    monkeypatch.setattr(setup, "source_checkout", lambda: True)
     return repo
 
 
@@ -35,6 +36,7 @@ def patch_packaged_install(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> P
     root = tmp_path / "site-packages"
     root.mkdir()
     monkeypatch.setattr(setup, "get_project_root", lambda: str(root))
+    monkeypatch.setattr(setup, "source_checkout", lambda: False)
     return root
 
 
@@ -894,7 +896,7 @@ def test_port_out_of_range_rejected_at_parse_time(
     assert "--port must be in 1024-65535" in capsys.readouterr().err
 
 
-def test_packaged_install_skips_service(
+def test_packaged_install_runs_service_step(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -912,13 +914,31 @@ def test_packaged_install_skips_service(
 
     assert rc == 0
     out = capsys.readouterr().out
-    assert "packaged-install service support is not implemented in v1" in out
+    unsupported_message = " ".join(
+        ["packaged-install service support", "is not implemented"]
+    )
+    assert unsupported_message not in out
+    assert "solstone is running at http://localhost:5015" in out
     assert_command(calls, 0, expected_doctor_command())
-    assert len(calls) == 1
-    assert [step["status"] for step in read_manifest(journal)["steps"]][-2:] == [
-        "skipped",
-        "skipped",
-    ]
+    assert_command(
+        calls,
+        1,
+        [
+            sys.executable,
+            "-m",
+            "solstone.think.sol_cli",
+            "service",
+            "install",
+            "--port",
+            "5015",
+        ],
+    )
+    assert len(calls) == 2
+    steps = read_manifest(journal)["steps"]
+    assert steps[-2]["status"] == "skipped"
+    assert steps[-2]["reason"] == "packaged_install"
+    assert steps[-1]["name"] == "service"
+    assert steps[-1]["status"] == "ok"
 
 
 def test_no_claude_config_skips_skills(

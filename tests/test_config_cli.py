@@ -269,6 +269,7 @@ def test_journal_refuses_source_tree_path_outside_source_checkout(
     home_root, monkeypatch, tmp_path, capsys
 ):
     monkeypatch.setattr(config_cli, "get_project_root", lambda: str(tmp_path))
+    monkeypatch.setattr(config_cli, "is_source_checkout", lambda: False)
 
     rc = config_cli.cmd_journal(str((tmp_path / "journal").resolve()))
     captured = capsys.readouterr()

@@ -5,7 +5,6 @@
 
 import subprocess
 import sys
-from pathlib import Path
 
 PROBE = """
 import sys
@@ -37,8 +36,9 @@ def test_vendored_get_speech_timestamps_matches_upstream():
 
     from solstone.observe import _silero_vad as vendored_vad
     from solstone.observe.utils import SAMPLE_RATE, load_audio
+    from solstone.think.install_models import _fixture_audio_path
 
-    audio = load_audio(Path("tests/fixtures/parakeet_sample.wav"))
+    audio = load_audio(_fixture_audio_path())
     vendored_segments = vendored_vad.get_speech_timestamps(
         audio,
         vendored_vad.VadOptions(),

@@ -5,9 +5,9 @@
 
 Two install modes:
 
-- User mode (default): copies <repo>/skills/<name>/ into per-agent user
-  config directories (~/.claude/skills/, ~/.codex/skills/, optionally
-  ~/.gemini/skills/).
+- User mode (default): copies bundled solstone/_user_bundles/<name>/ into
+  per-agent user config directories (~/.claude/skills/, ~/.codex/skills/,
+  optionally ~/.gemini/skills/).
 - Project mode (--project [DIR]): symlinks talent/ and apps/*/talent/
   SKILL.md sources into <DIR>/.claude/skills/ and <DIR>/.agents/skills/.
 
@@ -25,6 +25,7 @@ import shutil
 import sys
 import tempfile
 from dataclasses import dataclass
+from importlib import resources
 from pathlib import Path
 from typing import Callable
 
@@ -37,7 +38,7 @@ PROJECT_AGENTS_SKILLS_REL = ".agents/skills"
 GLOBAL_SKIP_MESSAGE = (
     "no AI coding agent config directories found — skipping skill registration"
 )
-SUBCOMMAND_DESCRIPTION = """User mode: copies/removes <repo>/skills/* in per-agent user config dirs.
+SUBCOMMAND_DESCRIPTION = """User mode: copies/removes bundled solstone/_user_bundles/* in per-agent user config dirs.
 Project mode: symlinks/removes talent and apps/*/talent skills under DIR.
 User-mode install refuses symlink bundle targets; regular files inside bundle
 dirs are replaced atomically.
@@ -116,14 +117,13 @@ AGENTS: dict[str, AgentSpec] = {
 }
 
 
-def discover_user_bundles(repo_root: Path) -> list[Path]:
+def discover_user_bundles(bundle_dir: Path) -> list[Path]:
     """Return public user skill bundle directories."""
-    root = repo_root / "skills"
-    if not root.is_dir():
+    if not bundle_dir.is_dir():
         return []
     return sorted(
         path
-        for path in root.iterdir()
+        for path in bundle_dir.iterdir()
         if path.is_dir()
         and not path.name.startswith(".")
         and (path / "SKILL.md").is_file()
@@ -219,8 +219,8 @@ def _append_write_error(
     rows.append(ActionRow(agent, skill, "error", path, reason=str(exc)))
 
 
-def install_user(repo_root: Path, home: Path, agents: list[str]) -> InstallReport:
-    bundles = discover_user_bundles(repo_root)
+def install_user(bundle_dir: Path, home: Path, agents: list[str]) -> InstallReport:
+    bundles = discover_user_bundles(bundle_dir)
     selected, default_all = _expand_user_agents(agents)
     rows: list[ActionRow] = []
 
@@ -273,8 +273,8 @@ def install_user(repo_root: Path, home: Path, agents: list[str]) -> InstallRepor
     return InstallReport(rows)
 
 
-def uninstall_user(repo_root: Path, home: Path, agents: list[str]) -> InstallReport:
-    bundles = discover_user_bundles(repo_root)
+def uninstall_user(bundle_dir: Path, home: Path, agents: list[str]) -> InstallReport:
+    bundles = discover_user_bundles(bundle_dir)
     selected, default_all = _expand_user_agents(agents)
     rows: list[ActionRow] = []
 
@@ -441,8 +441,10 @@ def uninstall_project(
     return InstallReport(rows)
 
 
-def list_user_status(repo_root: Path, home: Path, agents: list[str]) -> list[StatusRow]:
-    bundles = discover_user_bundles(repo_root)
+def list_user_status(
+    bundle_dir: Path, home: Path, agents: list[str]
+) -> list[StatusRow]:
+    bundles = discover_user_bundles(bundle_dir)
     selected, _default_all = _expand_user_agents(agents)
     rows: list[StatusRow] = []
 
@@ -576,13 +578,14 @@ def main() -> int:
     parser = _build_parser()
     args = parser.parse_args()
     repo_root = Path(get_project_root())
+    bundle_dir = Path(str(resources.files("solstone") / "_user_bundles"))
     target = _resolve_project_target(args.project)
 
     try:
         if args.cmd == "install":
             if target is None:
                 return _run_report(
-                    "install", install_user, repo_root, Path.home(), [args.agent]
+                    "install", install_user, bundle_dir, Path.home(), [args.agent]
                 )
             return _run_report(
                 "install", install_project, repo_root, target, [args.agent]
@@ -591,7 +594,7 @@ def main() -> int:
         if args.cmd == "uninstall":
             if target is None:
                 return _run_report(
-                    "uninstall", uninstall_user, repo_root, Path.home(), [args.agent]
+                    "uninstall", uninstall_user, bundle_dir, Path.home(), [args.agent]
                 )
             return _run_report(
                 "uninstall", uninstall_project, repo_root, target, [args.agent]
@@ -599,7 +602,7 @@ def main() -> int:
 
         if args.cmd == "list":
             if target is None:
-                _print_status(list_user_status(repo_root, Path.home(), [ALL_AGENTS]))
+                _print_status(list_user_status(bundle_dir, Path.home(), [ALL_AGENTS]))
             else:
                 _print_status(list_project_status(repo_root, target, [ALL_AGENTS]))
             return 0

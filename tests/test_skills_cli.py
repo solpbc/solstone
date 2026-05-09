@@ -6,6 +6,7 @@ from __future__ import annotations
 import os
 import shutil
 import sys
+from importlib import resources
 from pathlib import Path
 
 import pytest
@@ -14,7 +15,6 @@ from solstone.think import skills_cli
 from solstone.think.skills_cli import (
     GLOBAL_SKIP_MESSAGE,
     discover_user_bundles,
-    get_project_root,
     install_project,
     install_user,
     list_project_status,
@@ -29,9 +29,9 @@ def _write_skill(path: Path, content: bytes | None = None) -> None:
 
 
 def _mini_user_repo(tmp_path: Path, content: bytes | None = None) -> Path:
-    repo = tmp_path / "repo"
-    _write_skill(repo / "skills" / "solstone", content)
-    return repo
+    bundle_dir = tmp_path / "bundles"
+    _write_skill(bundle_dir / "solstone", content)
+    return bundle_dir
 
 
 def _mini_project_repo(tmp_path: Path) -> Path:
@@ -57,7 +57,7 @@ def test_install_user_creates_targets_for_present_agents(tmp_path):
     report = install_user(repo, home, ["all"])
 
     assert report.error_count == 0
-    source = repo / "skills" / "solstone" / "SKILL.md"
+    source = repo / "solstone" / "SKILL.md"
     assert (
         home / ".claude" / "skills" / "solstone" / "SKILL.md"
     ).read_bytes() == source.read_bytes()
@@ -114,7 +114,7 @@ def test_install_user_replaces_modified_source(tmp_path):
     repo = _mini_user_repo(tmp_path, b"first")
     home = _home(tmp_path, ".claude")
     install_user(repo, home, ["claude"])
-    (repo / "skills" / "solstone" / "SKILL.md").write_bytes(b"second")
+    (repo / "solstone" / "SKILL.md").write_bytes(b"second")
 
     report = install_user(repo, home, ["claude"])
 
@@ -381,7 +381,8 @@ def test_main_install_project_no_dir_uses_cwd(monkeypatch, tmp_path):
 
 def test_repo_root_resolution_works_from_arbitrary_cwd(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
+    bundle_dir = Path(str(resources.files("solstone") / "_user_bundles"))
 
-    bundles = discover_user_bundles(Path(get_project_root()))
+    bundles = discover_user_bundles(bundle_dir)
 
     assert [bundle.name for bundle in bundles] == ["solstone"]
