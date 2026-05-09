@@ -14,7 +14,13 @@ from typing import Any
 import pytest
 
 from solstone.convey import create_app
-from solstone.convey.chat_stream import append_chat_event
+from solstone.convey.chat_stream import append_chat_event, read_chat_events
+from solstone.convey.sol_initiated.copy import (
+    CATEGORIES,
+    KIND_OWNER_CHAT_OPEN,
+    KIND_SOL_CHAT_REQUEST,
+    SURFACE_CONVEY,
+)
 
 
 def _ms(year: int, month: int, day: int, hour: int, minute: int) -> int:
@@ -58,6 +64,15 @@ def _set_today(monkeypatch, day: str) -> None:
     monkeypatch.setattr(chat_routes, "date", FixedDate)
 
 
+def _set_chat_stream_now(
+    monkeypatch, day: str, hour: int = 10, minute: int = 1
+) -> None:
+    monkeypatch.setattr(
+        "solstone.convey.chat_stream.time.time",
+        lambda: _ms(int(day[:4]), int(day[4:6]), int(day[6:8]), hour, minute) / 1000,
+    )
+
+
 def copytree_tracked(src: Path, dst: Path) -> None:
     result = subprocess.run(
         ["git", "ls-files", "."],
@@ -76,6 +91,21 @@ def copytree_tracked(src: Path, dst: Path) -> None:
             os.symlink(os.readlink(src_file), dst_file)
         else:
             shutil.copy2(src_file, dst_file)
+
+
+def _append_sol_request(day: str, request_id: str = "req") -> None:
+    append_chat_event(
+        KIND_SOL_CHAT_REQUEST,
+        ts=_ms(int(day[:4]), int(day[4:6]), int(day[6:8]), 10, 0),
+        request_id=request_id,
+        summary="Notice this",
+        message=None,
+        category=CATEGORIES[0],
+        dedupe=request_id,
+        dedupe_window="24h",
+        since_ts=1,
+        trigger_talent="reflection",
+    )
 
 
 def test_chat_index_redirects_to_today(journal_copy, monkeypatch):
@@ -297,3 +327,105 @@ def test_universal_chat_bar_renders_on_today_and_past_day(journal_copy, monkeypa
         assert 'id="chatBarForm"' in html
         assert "past-day view" not in html
         assert html.count('id="chatBarForm"') == 1
+
+
+def test_chat_today_page_records_owner_chat_open_for_unresolved_request(
+    journal_copy,
+    monkeypatch,
+):
+    today = "20990102"
+    _set_today(monkeypatch, today)
+    _set_chat_stream_now(monkeypatch, today)
+    env = _make_env(journal_copy, monkeypatch)
+    _append_sol_request(today, "req")
+
+    response = env.client.get(f"/app/chat/{today}")
+
+    assert response.status_code == 200
+    events = read_chat_events(today)
+    assert events[-1]["kind"] == KIND_OWNER_CHAT_OPEN
+    assert events[-1]["request_id"] == "req"
+    assert events[-1]["surface"] == SURFACE_CONVEY
+
+
+def test_chat_today_page_without_unresolved_request_writes_no_open(
+    journal_copy,
+    monkeypatch,
+):
+    today = "20990102"
+    _set_today(monkeypatch, today)
+    _set_chat_stream_now(monkeypatch, today)
+    env = _make_env(journal_copy, monkeypatch)
+
+    response = env.client.get(f"/app/chat/{today}")
+
+    assert response.status_code == 200
+    assert [
+        event
+        for event in read_chat_events(today)
+        if event.get("kind") == KIND_OWNER_CHAT_OPEN
+    ] == []
+
+
+def test_chat_past_day_request_does_not_record_owner_chat_open(
+    journal_copy,
+    monkeypatch,
+):
+    today = "20990103"
+    past_day = "20990102"
+    _set_today(monkeypatch, today)
+    _set_chat_stream_now(monkeypatch, today)
+    env = _make_env(journal_copy, monkeypatch)
+    _append_sol_request(past_day, "req")
+
+    response = env.client.get(f"/app/chat/{past_day}")
+
+    assert response.status_code == 200
+    assert [
+        event
+        for event in read_chat_events(past_day)
+        if event.get("kind") == KIND_OWNER_CHAT_OPEN
+    ] == []
+
+
+def test_chat_today_page_records_repeated_owner_chat_open(
+    journal_copy,
+    monkeypatch,
+):
+    today = "20990102"
+    _set_today(monkeypatch, today)
+    _set_chat_stream_now(monkeypatch, today)
+    env = _make_env(journal_copy, monkeypatch)
+    _append_sol_request(today, "req")
+
+    first = env.client.get(f"/app/chat/{today}")
+    second = env.client.get(f"/app/chat/{today}")
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    opens = [
+        event
+        for event in read_chat_events(today)
+        if event.get("kind") == KIND_OWNER_CHAT_OPEN
+    ]
+    assert len(opens) == 2
+    assert {event["request_id"] for event in opens} == {"req"}
+
+
+def test_chat_today_initial_render_excludes_newly_written_open(
+    journal_copy,
+    monkeypatch,
+):
+    today = "20990102"
+    _set_today(monkeypatch, today)
+    _set_chat_stream_now(monkeypatch, today)
+    env = _make_env(journal_copy, monkeypatch)
+    _append_sol_request(today, "req")
+
+    response = env.client.get(f"/app/chat/{today}")
+    html = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert 'id="event-0"' in html
+    assert 'id="event-1"' not in html
+    assert len(read_chat_events(today)) == 2

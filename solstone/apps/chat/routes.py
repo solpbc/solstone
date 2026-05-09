@@ -10,6 +10,9 @@ from typing import Any
 from flask import Blueprint, abort, jsonify, redirect, render_template, url_for
 
 from solstone.convey.chat_stream import read_chat_events
+from solstone.convey.sol_initiated import record_owner_chat_open
+from solstone.convey.sol_initiated.copy import KIND_OWNER_CHAT_OPEN, SURFACE_CONVEY
+from solstone.convey.sol_initiated.state import latest_unresolved_sol_chat_request
 from solstone.convey.utils import DATE_RE
 from solstone.think.utils import get_config
 
@@ -33,11 +36,24 @@ def day(day: str) -> str:
 
     today_day = date.today().strftime("%Y%m%d")
     owner_name, agent_name = _resolve_identity()
+    events = read_chat_events(day)
+    if day == today_day:
+        # Page loads are engagement signals in Lode 2, so prior open facts do not
+        # suppress another page-load open. Dismiss and supersede facts still do.
+        openable_events = [
+            event for event in events if event.get("kind") != KIND_OWNER_CHAT_OPEN
+        ]
+        unresolved_request = latest_unresolved_sol_chat_request(openable_events)
+        if unresolved_request is not None:
+            record_owner_chat_open(
+                unresolved_request["request_id"],
+                surface=SURFACE_CONVEY,
+            )
 
     return render_template(
         "app.html",
         app="chat",
-        events=read_chat_events(day),
+        events=events,
         day=day,
         today_day=today_day,
         owner_name=owner_name,
