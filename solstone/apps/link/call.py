@@ -14,6 +14,13 @@ import time
 
 import typer
 
+from solstone.apps.link.copy import MANUAL_CODE_LABEL
+from solstone.apps.link.manual_code import (
+    generate as generate_manual_code,
+)
+from solstone.apps.link.manual_code import (
+    normalize as normalize_manual_code,
+)
 from solstone.convey.utils import relative_time
 from solstone.think.link.auth import AuthorizedClients
 from solstone.think.link.ca import generate_nonce, load_or_generate_ca
@@ -95,7 +102,12 @@ def pair(
     from solstone.think.utils import read_service_port
 
     value = generate_nonce()
-    _nonces().add(value, device_label)
+    manual_code = generate_manual_code()
+    _nonces().add(
+        value,
+        device_label,
+        manual_code=normalize_manual_code(manual_code),
+    )
     ca_fp = load_or_generate_ca(ca_dir()).fingerprint_sha256()
 
     host = convey_host or _detect_lan_ip() or "localhost"
@@ -104,6 +116,7 @@ def pair(
     url = f"{base}/app/link/pair?token={value}"
 
     typer.echo(f"Pair code: {value} (expires in 5 minutes)")
+    typer.echo(f"{MANUAL_CODE_LABEL}: {manual_code}")
     typer.echo(f"Pair URL: {url}")
     typer.echo(f"CA fingerprint: sha256:{ca_fp}")
     typer.echo(f"Device: {device_label}")

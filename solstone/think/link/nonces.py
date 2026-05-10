@@ -32,6 +32,7 @@ class Nonce:
     issued_at: int
     expires_at: int
     used: bool
+    manual_code: str | None
 
 
 class NonceStore:
@@ -47,6 +48,7 @@ class NonceStore:
         nonce: str,
         device_label: str,
         *,
+        manual_code: str | None = None,
         now: int | None = None,
     ) -> Nonce:
         ts = now if now is not None else int(time.time())
@@ -56,6 +58,7 @@ class NonceStore:
             issued_at=ts,
             expires_at=ts + NONCE_TTL_SECONDS,
             used=False,
+            manual_code=manual_code,
         )
         with self._locked_read_write() as entries:
             self._gc_locked(entries, ts)
@@ -79,10 +82,32 @@ class NonceStore:
                 issued_at=entry.issued_at,
                 expires_at=entry.expires_at,
                 used=True,
+                manual_code=entry.manual_code,
             )
             entries[value] = entry
             self._write_locked(entries)
             return entry
+
+    def consume_by_code(self, code: str, *, now: int | None = None) -> Nonce | None:
+        """Mark the nonce matching a manual code used if valid."""
+        ts = now if now is not None else int(time.time())
+        with self._locked_read_write() as entries:
+            self._gc_locked(entries, ts)
+            for value, entry in entries.items():
+                if entry.manual_code != code:
+                    continue
+                used_entry = Nonce(
+                    value=entry.value,
+                    device_label=entry.device_label,
+                    issued_at=entry.issued_at,
+                    expires_at=entry.expires_at,
+                    used=True,
+                    manual_code=entry.manual_code,
+                )
+                entries[value] = used_entry
+                self._write_locked(entries)
+                return used_entry
+        return None
 
     def peek(self, value: str) -> Nonce | None:
         entries = self._read()
@@ -122,6 +147,11 @@ class NonceStore:
                     issued_at=int(item.get("issued_at", 0)),
                     expires_at=int(item.get("expires_at", 0)),
                     used=bool(item.get("used", False)),
+                    manual_code=(
+                        item.get("manual_code")
+                        if isinstance(item.get("manual_code"), str)
+                        else None
+                    ),
                 )
         return out
 
@@ -134,6 +164,7 @@ class NonceStore:
                 "issued_at": e.issued_at,
                 "expires_at": e.expires_at,
                 "used": e.used,
+                "manual_code": e.manual_code,
             }
             for e in entries.values()
         ]
