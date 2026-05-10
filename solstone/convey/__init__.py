@@ -109,6 +109,7 @@ def _migrate_setup_completed() -> None:
 
 def create_app(journal: str = "") -> Flask:
     """Create and configure the Convey Flask application."""
+    from solstone.think.link.runtime import start_link_runtime
     from solstone.think.push.runtime import start_push_runtime
     from solstone.think.voice.runtime import start_voice_runtime
 
@@ -173,6 +174,7 @@ def create_app(journal: str = "") -> Flask:
     start_voice_runtime(app)
     start_push_runtime(app)
     start_chat_runtime(app)
+    start_link_runtime(app)
 
     if journal:
         state.journal_root = journal
