@@ -44,6 +44,8 @@ from .paths import (
     save_account_token,
 )
 from .relay_client import RelayClient
+from .tcp_listener import TcpListener
+from .tls_adapter import build_server_context, issue_server_cert
 
 log = logging.getLogger("link.service")
 
@@ -64,6 +66,23 @@ async def run_service() -> None:
         except Exception:
             log.debug("callosum emit failed", exc_info=True)
 
+    server_cert, server_key_pem = issue_server_cert(
+        ca,
+        common_name=f"solstone link ({state.home_label})",
+    )
+    tls_ctx = build_server_context(
+        ca=ca,
+        server_cert=server_cert,
+        server_key=server_key_pem,
+        authorized=authorized,
+    )
+    listener = TcpListener(
+        tls_ctx=tls_ctx,
+        authorized=authorized,
+        callosum_emit=emit,
+    )
+    await listener.start()
+
     client = RelayClient(
         instance_id=state.instance_id,
         home_label=state.home_label,
@@ -72,6 +91,7 @@ async def run_service() -> None:
         on_account_token=save_account_token,
         ca=ca,
         authorized=authorized,
+        tls_ctx=tls_ctx,
         callosum_emit=emit,
     )
 
@@ -86,6 +106,7 @@ async def run_service() -> None:
         await stop_event.wait()
     finally:
         log.info("link service stopping")
+        await listener.stop()
         await client.stop()
         run_task.cancel()
         try:

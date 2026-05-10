@@ -34,6 +34,7 @@ import urllib.parse
 from typing import Any, Callable
 
 import websockets
+from OpenSSL import SSL
 from websockets.asyncio.client import ClientConnection as _WsConnection
 from websockets.exceptions import ConnectionClosed
 
@@ -43,9 +44,7 @@ from .mux import Multiplexer, StreamWriter
 from .tcp_pipe import ConveyUnreachable, PipeMetadata, pump_stream
 from .tls_adapter import (
     TlsError,
-    build_server_context,
     drive_tls,
-    issue_server_cert,
     new_server,
 )
 
@@ -70,6 +69,7 @@ class RelayClient:
         on_account_token: Callable[[str], None],
         ca: LoadedCa,
         authorized: AuthorizedClients,
+        tls_ctx: SSL.Context,
         callosum_emit: CallosumEmit | None = None,
     ) -> None:
         self._instance_id = instance_id
@@ -79,21 +79,11 @@ class RelayClient:
         self._on_account_token = on_account_token
         self._ca = ca
         self._authorized = authorized
+        self._tls_ctx = tls_ctx
         self._emit = callosum_emit or (lambda _event, _fields: None)
         self._running = False
         self._listen_state = "offline"
         self._tunnels: dict[str, asyncio.Task[None]] = {}
-
-        server_cert, server_key_pem = issue_server_cert(
-            ca,
-            common_name=f"solstone link ({home_label})",
-        )
-        self._tls_ctx = build_server_context(
-            ca=ca,
-            server_cert=server_cert,
-            server_key=server_key_pem,
-            authorized=authorized,
-        )
 
     @property
     def listen_state(self) -> str:
