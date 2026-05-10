@@ -346,7 +346,7 @@ review: .installed
 
 # Test environment - use fixtures journal for all tests
 TEST_ENV = SOLSTONE_JOURNAL=tests/fixtures/journal
-LINK_LIVE_TESTS = --ignore=tests/link/test_integration.py --ignore=tests/link/test_privacy_scan.py
+LINK_LIVE_TESTS = --ignore=tests/link/test_integration.py --ignore=tests/link/test_privacy_scan.py --ignore=tests/link/test_lan_direct.py
 
 # Venv tool shortcuts
 PYTEST := $(VENV_BIN)/pytest
@@ -390,7 +390,7 @@ test-only: .installed
 test-integration: .installed
 	@echo "Running integration tests..."
 	@$(PYTEST_BASETEMP_INIT) STATUS=0; \
-	$(TEST_ENV) $(PYTEST) $(PYTEST_BASETEMP_FLAG) tests/integration/ tests/link/test_integration.py tests/link/test_privacy_scan.py -v --tb=short --timeout=20 || STATUS=$$?; \
+	$(TEST_ENV) $(PYTEST) $(PYTEST_BASETEMP_FLAG) tests/integration/ tests/link/test_integration.py tests/link/test_privacy_scan.py tests/link/test_lan_direct.py -v --tb=short --timeout=20 || STATUS=$$?; \
 	if [ "$$STATUS" -ne 0 ] && [ "$$STATUS" -ne 5 ]; then exit $$STATUS; fi
 
 # Run specific integration test

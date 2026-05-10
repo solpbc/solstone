@@ -7,6 +7,7 @@ import base64
 from pathlib import Path
 
 import pytest
+import requests
 
 from tests.link.client import Client
 from tests.link.live_helpers import (
@@ -62,14 +63,26 @@ async def test_privacy_scan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
             )
         assert status == 200
         assert headers["content-type"] == "application/json"
+        local_endpoints_response = requests.get(
+            f"{base_url}/app/link/local-endpoints",
+            timeout=10,
+        )
+        local_endpoints_response.raise_for_status()
+        local_endpoints = local_endpoints_response.json().get("endpoints", [])
 
     assert capture is not None
     texts = runtime_texts(tmp_journal, capture)
+    endpoint_ips = [
+        str(endpoint["ip"])
+        for endpoint in [*local_endpoints, *identity.local_endpoints]
+        if isinstance(endpoint, dict) and endpoint.get("ip")
+    ]
     dynamic_tokens = [
         identity.home_attestation,
         enrolled.device_token,
         identity.client_cert_pem[:100],
         identity.home_attestation.split(".")[1],
+        *endpoint_ips,
     ]
 
     for token in FORBIDDEN_TOKENS:

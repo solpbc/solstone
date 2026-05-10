@@ -4,11 +4,13 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import dataclasses
 import hashlib
 import logging
 import urllib.parse
 from collections.abc import AsyncIterator, Awaitable, Callable
+from typing import Protocol
 
 import requests
 import websockets
@@ -59,6 +61,14 @@ class StreamResetError(ConnectionError):
     """Raised when the peer sends a RESET frame for an active stream."""
 
 
+class EncryptedTransport(Protocol):
+    async def send(self, data: bytes) -> None: ...
+
+    async def recv(self) -> bytes | None: ...
+
+    async def close(self) -> None: ...
+
+
 @dataclasses.dataclass(frozen=True)
 class ClientIdentity:
     private_key_pem: str
@@ -68,6 +78,7 @@ class ClientIdentity:
     home_instance_id: str
     home_label: str
     home_attestation: str
+    local_endpoints: tuple[dict[str, object], ...] = ()
 
 
 @dataclasses.dataclass(frozen=True)
@@ -320,22 +331,63 @@ class _DialerMultiplexer:
         self._streams.pop(stream_id, None)
 
 
+class _WsEncryptedTransport:
+    def __init__(self, ws: ClientConnection) -> None:
+        self._ws = ws
+
+    async def send(self, data: bytes) -> None:
+        await self._ws.send(data)
+
+    async def recv(self) -> bytes | None:
+        try:
+            message = await self._ws.recv()
+        except ConnectionClosed:
+            return None
+        return message if isinstance(message, bytes) else message.encode("utf-8")
+
+    async def close(self) -> None:
+        await self._ws.close()
+
+
+class _TcpEncryptedTransport:
+    def __init__(
+        self,
+        reader: asyncio.StreamReader,
+        writer: asyncio.StreamWriter,
+    ) -> None:
+        self._reader = reader
+        self._writer = writer
+
+    async def send(self, data: bytes) -> None:
+        self._writer.write(data)
+        await self._writer.drain()
+
+    async def recv(self) -> bytes | None:
+        chunk = await self._reader.read(65536)
+        return chunk if chunk else None
+
+    async def close(self) -> None:
+        self._writer.close()
+        with contextlib.suppress(Exception):
+            await self._writer.wait_closed()
+
+
 class TunnelSession:
     def __init__(
         self,
         *,
-        ws: ClientConnection,
+        transport: EncryptedTransport,
         tls: _TlsClientState,
         identity: ClientIdentity,
     ) -> None:
-        self._ws = ws
+        self._transport = transport
         self._tls = tls
         self._identity = identity
         self._tls_lock = asyncio.Lock()
         self._mux = _DialerMultiplexer(self._send_plaintext)
         self._closed = asyncio.Event()
         self._reader_task = asyncio.create_task(
-            self._read_ws(),
+            self._read_transport(),
             name=f"link-client-{identity.home_instance_id}",
         )
 
@@ -363,24 +415,22 @@ class TunnelSession:
         if self._closed.is_set():
             return
         self._mux.close()
-        await self._ws.close()
+        await self._transport.close()
         await self._reader_task
         self._closed.set()
 
-    async def _read_ws(self) -> None:
+    async def _read_transport(self) -> None:
         try:
-            async for message in self._ws:
-                inbound = (
-                    message if isinstance(message, bytes) else message.encode("utf-8")
-                )
+            while True:
+                inbound = await self._transport.recv()
+                if inbound is None:
+                    return
                 async with self._tls_lock:
                     outbound, plaintext = _drive_tls_client(self._tls, inbound=inbound)
                 if outbound:
-                    await self._ws.send(outbound)
+                    await self._transport.send(outbound)
                 if plaintext:
                     await self._mux.feed(plaintext)
-        except ConnectionClosed:
-            pass
         finally:
             self._mux.close()
             self._closed.set()
@@ -389,7 +439,7 @@ class TunnelSession:
         async with self._tls_lock:
             outbound, _ = _drive_tls_client(self._tls, plaintext_out=plaintext)
         if outbound:
-            await self._ws.send(outbound)
+            await self._transport.send(outbound)
 
 
 class Client:
@@ -445,6 +495,7 @@ class Client:
             home_instance_id=_required_str(paired, "instance_id"),
             home_label=_required_str(paired, "home_label"),
             home_attestation=_required_str(paired, "home_attestation"),
+            local_endpoints=_optional_endpoint_dicts(paired.get("local_endpoints")),
         )
         LOG.info(
             "client %s: paired to %s",
@@ -484,37 +535,58 @@ class Client:
         )
         LOG.info("client %s: dialing %s", identity.fingerprint, _redact_url(url))
         ws = await websockets.connect(url, max_size=None)
-        try:
-            tls = _new_tls_client(_build_tls_client_ctx(identity))
-            pending_plaintext = bytearray()
-            outbound, plaintext = _drive_tls_client(tls)
-            if outbound:
-                await ws.send(outbound)
-            pending_plaintext.extend(plaintext)
-            while not tls.handshake_done:
-                inbound = await asyncio.wait_for(
-                    ws.recv(),
-                    timeout=_CONNECT_TIMEOUT_SECONDS,
-                )
-                inbound_bytes = (
-                    inbound if isinstance(inbound, bytes) else inbound.encode("utf-8")
-                )
-                outbound, plaintext = _drive_tls_client(tls, inbound=inbound_bytes)
-                if outbound:
-                    await ws.send(outbound)
-                pending_plaintext.extend(plaintext)
-        except Exception:
-            await ws.close()
-            raise
+        return await _open_tunnel_session(_WsEncryptedTransport(ws), identity)
 
-        session = TunnelSession(
-            ws=ws,
-            tls=tls,
-            identity=identity,
+    @staticmethod
+    async def dial_direct(
+        host: str,
+        enrolled: EnrolledDevice,
+        *,
+        port: int = 7657,
+    ) -> TunnelSession:
+        identity = enrolled.identity
+        LOG.info("client %s: dialing direct %s:%d", identity.fingerprint, host, port)
+        reader, writer = await asyncio.open_connection(host, port)
+        return await _open_tunnel_session(
+            _TcpEncryptedTransport(reader, writer),
+            identity,
         )
-        if pending_plaintext:
-            await session._mux.feed(bytes(pending_plaintext))
-        return session
+
+
+async def _open_tunnel_session(
+    transport: EncryptedTransport,
+    identity: ClientIdentity,
+) -> TunnelSession:
+    try:
+        tls = _new_tls_client(_build_tls_client_ctx(identity))
+        pending_plaintext = bytearray()
+        outbound, plaintext = _drive_tls_client(tls)
+        if outbound:
+            await transport.send(outbound)
+        pending_plaintext.extend(plaintext)
+        while not tls.handshake_done:
+            inbound = await asyncio.wait_for(
+                transport.recv(),
+                timeout=_CONNECT_TIMEOUT_SECONDS,
+            )
+            if inbound is None:
+                raise TlsError("transport closed during TLS handshake")
+            outbound, plaintext = _drive_tls_client(tls, inbound=inbound)
+            if outbound:
+                await transport.send(outbound)
+            pending_plaintext.extend(plaintext)
+    except Exception:
+        await transport.close()
+        raise
+
+    session = TunnelSession(
+        transport=transport,
+        tls=tls,
+        identity=identity,
+    )
+    if pending_plaintext:
+        await session._mux.feed(bytes(pending_plaintext))
+    return session
 
 
 def _build_csr(device_label: str) -> tuple[str, str]:
@@ -711,6 +783,12 @@ def _required_str(payload: dict[str, object], key: str) -> str:
     if not isinstance(value, str) or not value:
         raise RuntimeError(f"missing string field: {key}")
     return value
+
+
+def _optional_endpoint_dicts(value: object) -> tuple[dict[str, object], ...]:
+    if not isinstance(value, list):
+        return ()
+    return tuple(item for item in value if isinstance(item, dict))
 
 
 def _split_pem_chain(pem_bundle: str) -> list[bytes]:
