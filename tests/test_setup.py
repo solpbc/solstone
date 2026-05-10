@@ -304,65 +304,13 @@ def test_interactive_happy_path_default_journal(
     assert len(calls) == 5
 
 
-@pytest.mark.parametrize(
-    "marker",
-    [
-        "config/journal.json",
-        "health/setup-state.json",
-        "chronicle/20260101",
-    ],
-)
-def test_resolve_journal_path_returns_legacy_default_when_marker_present(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    marker: str,
-) -> None:
-    home = patch_home(monkeypatch, tmp_path)
-    patch_source_checkout(monkeypatch, tmp_path)
-    monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
-    legacy = home / "Documents" / "journal"
-    marker_path = legacy / marker
-    if marker_path.suffix:
-        marker_path.parent.mkdir(parents=True)
-        marker_path.write_text("{}", encoding="utf-8")
-    else:
-        marker_path.mkdir(parents=True)
-    args = setup.build_parser().parse_args([])
-
-    path, source = setup.resolve_journal_path(args)
-
-    assert path == legacy
-    assert source == "legacy_default"
-
-
-def test_resolve_journal_path_ignores_unmarked_legacy_directory(
+def test_resolve_journal_path_precedence_chain(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     home = patch_home(monkeypatch, tmp_path)
     patch_source_checkout(monkeypatch, tmp_path)
     monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
-    legacy = home / "Documents" / "journal"
-    legacy.mkdir(parents=True)
-    (legacy / ".DS_Store").write_text("", encoding="utf-8")
-    args = setup.build_parser().parse_args([])
-
-    path, source = setup.resolve_journal_path(args)
-
-    assert path == home / "journal"
-    assert source == "default"
-
-
-def test_resolve_journal_path_prefers_cli_env_config_over_legacy(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    home = patch_home(monkeypatch, tmp_path)
-    patch_source_checkout(monkeypatch, tmp_path)
-    monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
-    legacy = home / "Documents" / "journal"
-    (legacy / "config").mkdir(parents=True)
-    (legacy / "config" / "journal.json").write_text("{}", encoding="utf-8")
     parser = setup.build_parser()
 
     cli_journal = tmp_path / "cli-journal"
@@ -385,29 +333,11 @@ def test_resolve_journal_path_prefers_cli_env_config_over_legacy(
     assert path == config_journal
     assert source == "config"
 
-
-def test_non_interactive_setup_handles_legacy_default_without_accept_flag(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    home = patch_home(monkeypatch, tmp_path)
-    patch_source_checkout(monkeypatch, tmp_path)
+    write_user_config(journal="")
     monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
-    legacy = home / "Documents" / "journal"
-    (legacy / "config").mkdir(parents=True)
-    (legacy / "config" / "journal.json").write_text("{}", encoding="utf-8")
-    (legacy / "chronicle" / "20260101").mkdir(parents=True)
-    patch_subprocess(monkeypatch)
-    patch_service_health(monkeypatch)
-
-    rc = setup.main(["--yes"])
-
-    assert rc == 0
-    assert (home / ".config" / "solstone" / "config.toml").read_text(
-        encoding="utf-8"
-    ) == f'journal = "{legacy}"\n'
-    manifest = read_manifest(legacy)
-    assert manifest["args_resolved"]["journal"]["source"] == "legacy_default"
+    path, source = setup.resolve_journal_path(parser.parse_args([]))
+    assert path == home / "journal"
+    assert source == "default"
 
 
 def test_interactive_happy_path_journal_override(
@@ -1167,6 +1097,38 @@ def test_resumption_wedged_service_falls_through_when_restart_fails(
     assert_command(calls, 0, expected_service_restart_command())
     assert_command(calls, 1, expected_service_install_command())
     assert len(calls) == 2
+
+
+def test_step_service_distinct_failure_messages(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    patch_home(monkeypatch, tmp_path)
+    patch_source_checkout(monkeypatch, tmp_path)
+    monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
+    argv = ["--yes", "--journal", str(tmp_path / "journal")]
+    ctx = setup.resolve_context(setup.build_parser().parse_args(argv), argv)
+    monkeypatch.setattr(setup, "run_inherited", lambda command: 0)
+    artifact = setup.service_artifact_path()
+    expected_paths = [setup.absolute_string(artifact)] if artifact is not None else []
+
+    monkeypatch.setattr(service, "_up", lambda port=5015: 7)
+    up_result = setup.step_service(ctx, 6)
+
+    monkeypatch.setattr(service, "_up", lambda port=5015: 0)
+    monkeypatch.setattr(health_cli, "health_check", lambda: 1)
+    health_result = setup.step_service(ctx, 6)
+
+    assert up_result.status == "failed"
+    assert health_result.status == "failed"
+    assert up_result.paths == expected_paths
+    assert health_result.paths == expected_paths
+    assert up_result.error == {"message": "service up failed (exit 7)", "exit_code": 1}
+    assert health_result.error == {
+        "message": "service started but failed health check",
+        "exit_code": 1,
+    }
+    assert up_result.error["message"] != health_result.error["message"]
 
 
 def test_force_skips_resumption(

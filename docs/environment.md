@@ -13,8 +13,6 @@ Resolver order (with the source label `get_journal_info()` returns):
 
 `get_journal_info()` no longer raises — there is always a resolved path. `get_journal()` raises `SolstoneNotConfigured` only when `os.makedirs` on the resolved path fails.
 
-Runtime resolution does not consult the legacy `~/Documents/journal` path. Users upgrading from that location should run `sol setup` once so setup can persist the detected legacy journal path when appropriate.
-
 Who sets `SOLSTONE_JOURNAL`:
 
 - Installed runs: the managed wrapper at `~/.local/bin/sol`

@@ -459,6 +459,18 @@ def _restart(if_installed: bool = False) -> int:
         if result.returncode != 0:
             print(f"Error restarting service: {result.stderr.strip()}", file=sys.stderr)
             return 1
+        from solstone.think.health_cli import health_check
+
+        ready = False
+        for attempt in range(1, HEALTH_ATTEMPTS + 1):
+            if health_check() == 0:
+                ready = True
+                break
+            if attempt < HEALTH_ATTEMPTS:
+                time.sleep(HEALTH_SLEEP_SECONDS)
+        if not ready:
+            print("Service restarted but failed health check", file=sys.stderr)
+            return 1
     else:
         result = subprocess.run(
             ["systemctl", "--user", "restart", SYSTEMD_UNIT],
@@ -469,7 +481,7 @@ def _restart(if_installed: bool = False) -> int:
             print(f"Error restarting service: {result.stderr.strip()}", file=sys.stderr)
             return 1
 
-    print("New supervisor process started (warming up)")
+    print("Service restarted.")
     return 0
 
 

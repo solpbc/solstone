@@ -428,7 +428,7 @@ class TestRestart:
         assert "not installed" in capsys.readouterr().err
 
     def test_linux_happy_path_narrates(self, capsys, monkeypatch):
-        """_restart prints stopping-old + new-process-started narration on the Linux happy path."""
+        """_restart prints stopping-old + restarted narration on the Linux happy path."""
         monkeypatch.setattr(service, "_platform", lambda: "linux")
         monkeypatch.setattr(service, "service_is_installed", lambda: True)
         monkeypatch.setattr(
@@ -441,7 +441,43 @@ class TestRestart:
         assert result == 0
         out = capsys.readouterr().out
         assert "Stopping old supervisor" in out
-        assert "New supervisor process started" in out
+        assert "Service restarted." in out
+
+    def test_restart_darwin_polls_health_until_ready(self, monkeypatch):
+        monkeypatch.setattr(service, "_platform", lambda: "darwin")
+        monkeypatch.setattr(service, "service_is_installed", lambda: True)
+        monkeypatch.setattr(
+            "subprocess.run",
+            lambda *a, **kw: subprocess.CompletedProcess(
+                args=a, returncode=0, stdout="", stderr=""
+            ),
+        )
+        health_check = MagicMock(side_effect=[1, 1, 0])
+        sleep = MagicMock()
+        monkeypatch.setattr("solstone.think.health_cli.health_check", health_check)
+        monkeypatch.setattr(service.time, "sleep", sleep)
+
+        assert service._restart() == 0
+        assert health_check.call_count == 3
+        assert sleep.call_count == 2
+
+    def test_restart_linux_does_not_poll_health(self, monkeypatch):
+        monkeypatch.setattr(service, "_platform", lambda: "linux")
+        monkeypatch.setattr(service, "service_is_installed", lambda: True)
+        monkeypatch.setattr(
+            "subprocess.run",
+            lambda *a, **kw: subprocess.CompletedProcess(
+                args=a, returncode=0, stdout="", stderr=""
+            ),
+        )
+        health_check = MagicMock(return_value=0)
+        sleep = MagicMock()
+        monkeypatch.setattr("solstone.think.health_cli.health_check", health_check)
+        monkeypatch.setattr(service.time, "sleep", sleep)
+
+        assert service._restart() == 0
+        health_check.assert_not_called()
+        sleep.assert_not_called()
 
 
 class TestUp:

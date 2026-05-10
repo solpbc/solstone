@@ -491,6 +491,21 @@ class TestCheckAlias:
         assert state is install_guard.AliasState.OWNED
         assert other == target.resolve()
 
+    def test_packaged_install_symlink_is_owned(self, home_root, tmp_path, monkeypatch):
+        curdir = tmp_path / "site-packages" / "solstone"
+        curdir.mkdir(parents=True)
+        bin_dir = tmp_path / "tools" / "solstone" / "bin"
+        bin_dir.mkdir(parents=True)
+        packaged_sol = write_executable_script(bin_dir / "sol", "#!/bin/sh\n")
+        fake_python = write_executable_script(bin_dir / "python", "#!/bin/sh\n")
+        monkeypatch.setattr(sys, "executable", str(fake_python))
+        make_alias(home_root, packaged_sol)
+
+        state, other = install_guard.check_alias(curdir)
+
+        assert state is install_guard.AliasState.OWNED
+        assert other == packaged_sol.resolve()
+
     def test_cross_repo(self, home_root, tmp_path):
         repo = make_repo(tmp_path)
         target = other_target(tmp_path)

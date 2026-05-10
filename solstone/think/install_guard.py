@@ -147,6 +147,9 @@ def check_alias(curdir: Path) -> tuple[AliasState, Path | None]:
             return AliasState.DANGLING, target
         if target == expected_target(curdir).resolve():
             return AliasState.OWNED, target
+        packaged_target = (Path(sys.executable).parent / "sol").resolve()
+        if target == packaged_target:
+            return AliasState.OWNED, target
         return AliasState.CROSS_REPO, target
 
     try:
