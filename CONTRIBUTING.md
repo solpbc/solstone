@@ -211,7 +211,7 @@ uv tool install solstone
 sol setup
 ```
 
-Your journal is preserved at `~/Documents/journal`; solstone does not remove it during install or uninstall. Do not add backwards-compatibility shims for the old source-checkout layout. This migration is a clean break.
+Your journal is preserved at `~/journal`; solstone does not remove it during install or uninstall. Do not add backwards-compatibility shims for the old source-checkout layout. This migration is a clean break.
 
 ## License of Contributions
 

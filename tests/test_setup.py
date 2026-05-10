@@ -289,7 +289,7 @@ def test_interactive_happy_path_default_journal(
     rc = setup.main([])
 
     assert rc == 0
-    journal = home / "Documents" / "journal"
+    journal = home / "journal"
     assert (home / ".config" / "solstone" / "config.toml").read_text(
         encoding="utf-8"
     ) == f'journal = "{journal}"\n'
@@ -302,6 +302,112 @@ def test_interactive_happy_path_default_journal(
     assert_command(calls, 3, expected_wrapper_command())
     assert_command(calls, 4, expected_service_install_command())
     assert len(calls) == 5
+
+
+@pytest.mark.parametrize(
+    "marker",
+    [
+        "config/journal.json",
+        "health/setup-state.json",
+        "chronicle/20260101",
+    ],
+)
+def test_resolve_journal_path_returns_legacy_default_when_marker_present(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    marker: str,
+) -> None:
+    home = patch_home(monkeypatch, tmp_path)
+    patch_source_checkout(monkeypatch, tmp_path)
+    monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
+    legacy = home / "Documents" / "journal"
+    marker_path = legacy / marker
+    if marker_path.suffix:
+        marker_path.parent.mkdir(parents=True)
+        marker_path.write_text("{}", encoding="utf-8")
+    else:
+        marker_path.mkdir(parents=True)
+    args = setup.build_parser().parse_args([])
+
+    path, source = setup.resolve_journal_path(args)
+
+    assert path == legacy
+    assert source == "legacy_default"
+
+
+def test_resolve_journal_path_ignores_unmarked_legacy_directory(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    home = patch_home(monkeypatch, tmp_path)
+    patch_source_checkout(monkeypatch, tmp_path)
+    monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
+    legacy = home / "Documents" / "journal"
+    legacy.mkdir(parents=True)
+    (legacy / ".DS_Store").write_text("", encoding="utf-8")
+    args = setup.build_parser().parse_args([])
+
+    path, source = setup.resolve_journal_path(args)
+
+    assert path == home / "journal"
+    assert source == "default"
+
+
+def test_resolve_journal_path_prefers_cli_env_config_over_legacy(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    home = patch_home(monkeypatch, tmp_path)
+    patch_source_checkout(monkeypatch, tmp_path)
+    monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
+    legacy = home / "Documents" / "journal"
+    (legacy / "config").mkdir(parents=True)
+    (legacy / "config" / "journal.json").write_text("{}", encoding="utf-8")
+    parser = setup.build_parser()
+
+    cli_journal = tmp_path / "cli-journal"
+    path, source = setup.resolve_journal_path(
+        parser.parse_args(["--journal", str(cli_journal)])
+    )
+    assert path == cli_journal
+    assert source == "cli"
+
+    env_journal = tmp_path / "env-journal"
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(env_journal))
+    path, source = setup.resolve_journal_path(parser.parse_args([]))
+    assert path == env_journal
+    assert source == "env"
+
+    monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
+    config_journal = tmp_path / "config-journal"
+    write_user_config(journal=str(config_journal))
+    path, source = setup.resolve_journal_path(parser.parse_args([]))
+    assert path == config_journal
+    assert source == "config"
+
+
+def test_non_interactive_setup_handles_legacy_default_without_accept_flag(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    home = patch_home(monkeypatch, tmp_path)
+    patch_source_checkout(monkeypatch, tmp_path)
+    monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
+    legacy = home / "Documents" / "journal"
+    (legacy / "config").mkdir(parents=True)
+    (legacy / "config" / "journal.json").write_text("{}", encoding="utf-8")
+    (legacy / "chronicle" / "20260101").mkdir(parents=True)
+    patch_subprocess(monkeypatch)
+    patch_service_health(monkeypatch)
+
+    rc = setup.main(["--yes"])
+
+    assert rc == 0
+    assert (home / ".config" / "solstone" / "config.toml").read_text(
+        encoding="utf-8"
+    ) == f'journal = "{legacy}"\n'
+    manifest = read_manifest(legacy)
+    assert manifest["args_resolved"]["journal"]["source"] == "legacy_default"
 
 
 def test_interactive_happy_path_journal_override(
@@ -362,9 +468,7 @@ def test_non_interactive_dead_end_on_existing_journal(
     monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
     calls = patch_subprocess(monkeypatch)
     patch_service_health(monkeypatch)
-    journal = (
-        tmp_path / "journal" if use_journal_flag else home / "Documents" / "journal"
-    )
+    journal = tmp_path / "journal" if use_journal_flag else home / "journal"
     (journal / "config").mkdir(parents=True)
     argv = ["--yes"]
     if use_journal_flag:
@@ -765,7 +869,7 @@ def test_interactive_port_in_use_prompts_for_choice(
     rc = setup.main([])
 
     assert rc == 0
-    journal = home / "Documents" / "journal"
+    journal = home / "journal"
     assert read_manifest(journal)["args_resolved"]["port"] == {
         "value": 8080,
         "source": "prompt",

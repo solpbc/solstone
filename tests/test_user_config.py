@@ -21,8 +21,8 @@ def fake_home(tmp_path, monkeypatch):
     return tmp_path
 
 
-def test_default_journal_returns_documents_journal(fake_home):
-    assert default_journal() == str(fake_home / "Documents" / "journal")
+def test_default_journal_returns_home_journal(fake_home):
+    assert default_journal() == str(fake_home / "journal")
 
 
 def test_config_path_returns_user_dot_config(fake_home):

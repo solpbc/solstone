@@ -318,6 +318,10 @@ def resolve_journal_path(args: argparse.Namespace) -> tuple[Path, str]:
     if configured:
         return expand_path(configured), "config"
 
+    legacy = Path.home() / "Documents" / "journal"
+    if looks_like_solstone_journal(legacy):
+        return legacy, "legacy_default"
+
     return expand_path(default_journal()), "default"
 
 
@@ -349,6 +353,22 @@ def non_empty_journal(path: Path) -> bool:
         or any(
             p.is_dir() and p.name.isdigit() and len(p.name) == 8 for p in path.iterdir()
         )
+    )
+
+
+def looks_like_solstone_journal(path: Path) -> bool:
+    if not path.is_dir():
+        return False
+    if (path / "config" / "journal.json").is_file():
+        return True
+    if (path / "health" / "setup-state.json").is_file():
+        return True
+    chronicle = path / "chronicle"
+    if not chronicle.is_dir():
+        return False
+    return any(
+        day.is_dir() and day.name.isdigit() and len(day.name) == 8
+        for day in chronicle.iterdir()
     )
 
 
@@ -680,6 +700,7 @@ def step_journal(ctx: SetupContext, step_index: int) -> StepResult:
         non_empty_journal(ctx.journal_path)
         and not ctx.accept_existing_journal
         and not persisted_matches
+        and ctx.journal_source != "legacy_default"
     ):
         if ctx.mode is SetupMode.NON_INTERACTIVE:
             dead_end_existing_journal(ctx)

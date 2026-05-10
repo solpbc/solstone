@@ -556,7 +556,7 @@ def cmd_show() -> int:
     elif info_source == "config":
         user_source = "user config (~/.config/solstone/config.toml)"
     elif info_source == "default":
-        user_source = "built-in default (~/Documents/journal)"
+        user_source = "built-in default (~/journal)"
     else:  # "source"
         user_source = "source-tree fallback"
 

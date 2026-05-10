@@ -125,7 +125,7 @@ def get_journal_info() -> tuple[str, str]:
       ``journal`` key
     - ``"source"`` — running from a source checkout; journal is
       ``<project_root>/journal``
-    - ``"default"`` — built-in default at ``~/Documents/journal``
+    - ``"default"`` — built-in default at ``~/journal``
 
     The wrapper at ``~/.local/bin/sol`` is responsible for setting
     ``SOLSTONE_JOURNAL`` on installed runs; tests set it via the autouse
@@ -154,7 +154,7 @@ def get_journal() -> str:
 
     Resolves the journal from ``SOLSTONE_JOURNAL``, user config, the
     source-tree journal at ``<project_root>/journal``, or the built-in
-    ``~/Documents/journal`` default. Raises ``SolstoneNotConfigured`` only if
+    ``~/journal`` default. Raises ``SolstoneNotConfigured`` only if
     mkdir fails for the resolved path.
 
     Trust this function — never bypass it, cache its result, or set

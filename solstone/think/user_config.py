@@ -17,7 +17,7 @@ import tomllib
 
 
 def default_journal() -> str:
-    return str(Path.home() / "Documents" / "journal")
+    return str(Path.home() / "journal")
 
 
 def config_path() -> Path:

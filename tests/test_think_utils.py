@@ -1013,7 +1013,7 @@ class TestJournalResolution:
         path, source = get_journal_info()
 
         assert source == "default"
-        assert path == str(tmp_path / "Documents" / "journal")
+        assert path == str(tmp_path / "journal")
 
     def test_get_journal_mkdir_failure_raises_solstone_not_configured(
         self, monkeypatch, tmp_path

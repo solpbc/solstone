@@ -306,7 +306,7 @@ def write_executable_script(path: Path, content: str) -> Path:
 
 
 class TestWrapperHelpers:
-    def test_current_journal_for_alias_falls_back_to_documents_journal(
+    def test_current_journal_for_alias_falls_back_to_home_journal(
         self, home_root, monkeypatch
     ):
         from solstone.think import utils as think_utils
@@ -316,9 +316,7 @@ class TestWrapperHelpers:
 
         monkeypatch.setattr(think_utils, "get_journal_info", raise_not_configured)
 
-        assert install_guard._current_journal_for_alias() == str(
-            home_root / "Documents" / "journal"
-        )
+        assert install_guard._current_journal_for_alias() == str(home_root / "journal")
 
     def test_render_wrapper_round_trip_simple(self):
         journal = "/tmp/solstone"
