@@ -31,7 +31,7 @@ import socket
 from typing import Any
 
 from cryptography.hazmat.primitives import serialization
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, abort, jsonify, request
 
 from solstone.think.link.auth import AuthorizedClients, ClientEntry
 from solstone.think.link.ca import (
@@ -39,6 +39,13 @@ from solstone.think.link.ca import (
     load_or_generate_ca,
     mint_attestation,
     sign_csr,
+)
+from solstone.think.link.interface_watcher import get_interface_watcher
+from solstone.think.link.local_endpoints import (
+    LocalEndpoint,
+    LocalEndpointsResponse,
+    endpoint_to_dict,
+    response_to_dict,
 )
 from solstone.think.link.nonces import NonceStore
 from solstone.think.link.paths import (
@@ -69,6 +76,15 @@ def _nonces() -> NonceStore:
 
 def _utc_now_iso() -> str:
     return dt.datetime.now(dt.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _is_loopback_request() -> bool:
+    return request.remote_addr in {"127.0.0.1", "::1"}
+
+
+def _current_local_endpoints() -> list[LocalEndpoint]:
+    watcher = get_interface_watcher()
+    return watcher.snapshot() if watcher else []
 
 
 def _lan_pair_base_url() -> str:
@@ -151,6 +167,19 @@ def api_status() -> Any:
             "lan_accessible": _is_lan_accessible(),
         }
     )
+
+
+@link_bp.get("/local-endpoints")
+def local_endpoints() -> Any:
+    if not _is_loopback_request():
+        abort(404)
+    response = LocalEndpointsResponse(
+        v=1,
+        endpoints=tuple(_current_local_endpoints()),
+        ttl_s=3600,
+        generated_at=_utc_now_iso(),
+    )
+    return jsonify(response_to_dict(response))
 
 
 # ---------------------------------------------------------------------------
@@ -244,16 +273,18 @@ def pair() -> Any:
     )
     attestation = mint_attestation(ca, state.instance_id, fingerprint)
     ca_chain_pem = ca.cert.public_bytes(serialization.Encoding.PEM).decode("ascii")
-    return jsonify(
-        {
-            "client_cert": client_cert_pem,
-            "ca_chain": [ca_chain_pem],
-            "instance_id": state.instance_id,
-            "home_label": state.home_label,
-            "home_attestation": attestation,
-            "fingerprint": fingerprint,
-        }
-    )
+    response: dict[str, Any] = {
+        "client_cert": client_cert_pem,
+        "ca_chain": [ca_chain_pem],
+        "instance_id": state.instance_id,
+        "home_label": state.home_label,
+        "home_attestation": attestation,
+        "fingerprint": fingerprint,
+    }
+    endpoints = _current_local_endpoints()
+    if endpoints:
+        response["local_endpoints"] = [endpoint_to_dict(ep) for ep in endpoints]
+    return jsonify(response)
 
 
 @link_bp.route("/unpair", methods=["POST"])
