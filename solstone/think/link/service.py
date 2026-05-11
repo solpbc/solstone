@@ -1,15 +1,16 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""link service runtime.
+"""link relay service runtime.
 
 Registered with solstone's supervisor via `think/sol_cli.py` COMMANDS (see `sol link`);
 the supervisor launches this as a subprocess alongside callosum, cortex,
 convey, etc. Service lifecycle:
 
   start → load state + CA → ensure account_token (enroll once) →
-    open listen WS to spl-relay → accept tunnel pairs → pump bytes through
-    TLS → convey (TCP pipe). On disconnect, reconnect with exponential backoff.
+    open listen WS to spl-relay → accept tunnel pairs → pipe raw bytes to
+    Convey's secure listener on 127.0.0.1:7657. On disconnect, reconnect
+    with exponential backoff.
 
 Exits on SIGINT/SIGTERM with a clean close of the listen WS and all
 in-flight tunnel WSes.
@@ -21,7 +22,6 @@ Callosum events are emitted on the `link` tract:
   disconnect   listen WS closed (about to reconnect)
   tunnel_pair  incoming tunnel (paired device dialed in)
   tunnel_close tunnel closed
-  last_seen    paired fingerprint completed TLS handshake
 """
 
 from __future__ import annotations
@@ -33,28 +33,23 @@ from typing import Any
 
 from solstone.think.callosum import CallosumConnection
 
-from .auth import AuthorizedClients
 from .ca import load_or_generate_ca
 from .paths import (
     LinkState,
-    authorized_clients_path,
     ca_dir,
     load_account_token,
     relay_url,
     save_account_token,
 )
 from .relay_client import RelayClient
-from .tcp_listener import TcpListener
-from .tls_adapter import build_server_context, issue_server_cert
 
 log = logging.getLogger("link.service")
 
 
 async def run_service() -> None:
-    """Build the RelayClient and run it until signaled."""
+    """Build the relay client and run it until signaled."""
     state = LinkState.load_or_create()
     ca = load_or_generate_ca(ca_dir())
-    authorized = AuthorizedClients(authorized_clients_path())
     token = load_account_token()
 
     callosum = CallosumConnection()
@@ -66,32 +61,13 @@ async def run_service() -> None:
         except Exception:
             log.debug("callosum emit failed", exc_info=True)
 
-    server_cert, server_key_pem = issue_server_cert(
-        ca,
-        common_name=f"solstone link ({state.home_label})",
-    )
-    tls_ctx = build_server_context(
-        ca=ca,
-        server_cert=server_cert,
-        server_key=server_key_pem,
-        authorized=authorized,
-    )
-    listener = TcpListener(
-        tls_ctx=tls_ctx,
-        authorized=authorized,
-        callosum_emit=emit,
-    )
-    await listener.start()
-
     client = RelayClient(
         instance_id=state.instance_id,
         home_label=state.home_label,
         relay_endpoint=relay_url(),
         account_token=token,
         on_account_token=save_account_token,
-        ca=ca,
-        authorized=authorized,
-        tls_ctx=tls_ctx,
+        ca_pubkey_spki_pem=ca.pubkey_spki_pem,
         callosum_emit=emit,
     )
 
@@ -106,7 +82,6 @@ async def run_service() -> None:
         await stop_event.wait()
     finally:
         log.info("link service stopping")
-        await listener.stop()
         await client.stop()
         run_task.cancel()
         try:

@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import os
 import queue
+import time
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,7 @@ from typing import Any
 from flask import (
     Blueprint,
     Response,
+    g,
     jsonify,
     redirect,
     render_template,
@@ -30,6 +32,7 @@ from solstone.think.cluster import cluster_segments
 from solstone.think.utils import day_dirs, get_config, get_journal, get_project_root
 
 from . import bridge as convey_bridge
+from .secure_listener import get_authorized_clients
 
 
 def _get_password_hash() -> str:
@@ -118,6 +121,14 @@ def require_login() -> Any:
     }:
         return None
 
+    identity = getattr(g, "identity", None)
+    if identity is not None and identity.mode in {"pl-direct", "pl-via-spl"}:
+        if identity.fingerprint and get_authorized_clients().is_authorized(
+            identity.fingerprint
+        ):
+            return None
+        return jsonify({"error": "paired device revoked", "reason": "pl_revoked"}), 403
+
     # Session cookie
     if session.get("logged_in"):
         return None
@@ -153,21 +164,41 @@ def require_login() -> Any:
 def callosum_sse() -> Response:
     def generate():
         handle = convey_bridge.register_sse_subscriber("convey-ui")
+        disconnect_event = request.environ.get("pl.disconnect_event")
+
+        def disconnected() -> bool:
+            is_set = getattr(disconnect_event, "is_set", None)
+            return bool(is_set is not None and is_set())
+
         try:
             yield ": heartbeat\n\n"
+            next_heartbeat_at = time.monotonic() + convey_bridge._SSE_HEARTBEAT_SECONDS
             while True:
+                if disconnected():
+                    break
+                timeout = max(0.0, next_heartbeat_at - time.monotonic())
+                if disconnect_event is not None:
+                    timeout = min(timeout, 0.1)
                 try:
-                    message = handle.queue.get(
-                        timeout=convey_bridge._SSE_HEARTBEAT_SECONDS
-                    )
+                    message = handle.queue.get(timeout=timeout)
                 except queue.Empty:
+                    if disconnected():
+                        break
+                    if time.monotonic() < next_heartbeat_at:
+                        continue
                     if handle.dropped.is_set():
                         break
                     yield ": heartbeat\n\n"
+                    next_heartbeat_at = (
+                        time.monotonic() + convey_bridge._SSE_HEARTBEAT_SECONDS
+                    )
                     continue
-                if handle.dropped.is_set():
+                if handle.dropped.is_set() or disconnected():
                     break
                 yield f"data: {message}\n\n"
+                next_heartbeat_at = (
+                    time.monotonic() + convey_bridge._SSE_HEARTBEAT_SECONDS
+                )
         finally:
             convey_bridge.unregister_sse_subscriber(handle)
 

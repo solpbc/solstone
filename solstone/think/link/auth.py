@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""authorized_clients.json — the link service's authoritative revocation ledger.
+"""authorized_clients.json — the PL revocation ledger.
 
 Entry shape is fixed by the spl protocol (see github.com/solpbc/spl
 proto/pairing.md §6), plus a solstone-specific `last_seen_at` field for
@@ -15,10 +15,10 @@ UX:
       "last_seen_at": "2026-04-19T18:03:12Z"   // optional; null/absent = never
     }
 
-The TLS 1.3 server reloads the file on mtime change so an unpair action
-takes effect within ~500 ms of the file write. The pair route and the
-relay client both own the writer surface; reads (convey dashboard, TLS
-verify callback) go through this module.
+Readers reload the file on mtime change so an unpair action takes effect
+within ~500 ms of the file write. Convey's pair and unpair routes own the
+pairing writer surface; the secure listener updates `last_seen_at` and uses
+this ledger for TLS verification and per-request authorization.
 
 `last_seen_at` is local-only — never transmitted externally.
 """
@@ -130,6 +130,11 @@ class AuthorizedClients:
         self.reload_if_stale()
         with self._lock:
             return list(self._entries.values())
+
+    def get(self, fingerprint: str) -> ClientEntry | None:
+        self.reload_if_stale()
+        with self._lock:
+            return self._entries.get(fingerprint)
 
     def find_by_label(self, label: str) -> ClientEntry | None:
         self.reload_if_stale()

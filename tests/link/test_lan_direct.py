@@ -5,28 +5,23 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import os
 import platform
 import subprocess
+import urllib.parse
 from pathlib import Path
 
 import pytest
 
-from tests.link.client import Client, TlsError
+from tests.link.client import Client, EnrolledDevice, TlsError
 from tests.link.live_helpers import (
     CONVEY_PASSWORD,
-    RELAY_URL,
-    LinkProcessCapture,
     list_devices,
     running_convey_server,
-    running_link_service,
-    skip_unless_live_relay,
     unpair_device,
 )
 
 pytestmark = pytest.mark.integration
-skip_unless_live_relay()
-
-_TCP_READY_LINE = "tcp listener bound on 0.0.0.0:7657"
 
 
 @pytest.mark.asyncio
@@ -39,13 +34,9 @@ async def test_pair_enroll_direct_dial_roundtrip(
     tmp_journal.mkdir()
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_journal))
 
-    with (
-        running_convey_server(tmp_journal) as base_url,
-        running_link_service(tmp_journal) as link_capture,
-    ):
-        link_capture.wait_for_line(_TCP_READY_LINE, timeout=15)
+    with running_convey_server(tmp_journal) as base_url:
         identity = Client.pair(base_url, device_label="pytest-direct-device")
-        enrolled = Client.enroll_device(RELAY_URL, identity)
+        enrolled = EnrolledDevice(device_token="", identity=identity)
 
         before = next(
             device
@@ -74,17 +65,30 @@ async def test_pair_enroll_direct_dial_roundtrip(
         )
         assert after["last_seen_at"] is not None
 
-        _assert_single_tcp_listener(link_capture)
+        _assert_convey_owns_both_ports(os.getpid(), _port_from_base_url(base_url))
 
         unpaired = unpair_device(base_url, identity.fingerprint)
         assert unpaired["unpaired"] == identity.fingerprint
 
         await asyncio.sleep(1)
         with pytest.raises((TlsError, ConnectionError, OSError, asyncio.TimeoutError)):
-            await Client.dial_direct("127.0.0.1", enrolled)
+            rejected = await Client.dial_direct("127.0.0.1", enrolled)
+            async with rejected:
+                await rejected.request("GET", "/")
 
 
-def _assert_single_tcp_listener(capture: LinkProcessCapture) -> None:
+def _port_from_base_url(base_url: str) -> int:
+    parsed = urllib.parse.urlparse(base_url)
+    assert parsed.port is not None
+    return parsed.port
+
+
+def _assert_convey_owns_both_ports(
+    convey_pid: int,
+    dl_port: int,
+    pl_port: int = 7657,
+    link_pid: int | None = None,
+) -> None:
     if platform.system() != "Linux":
         pytest.skip("ss listener assertion is Linux-only")
     try:
@@ -98,10 +102,17 @@ def _assert_single_tcp_listener(capture: LinkProcessCapture) -> None:
     except FileNotFoundError:
         pytest.skip("ss is not available")
     assert result.returncode == 0, result.stderr
-    pid_token = f"pid={capture.proc.pid},"
-    lines = [
-        line
-        for line in result.stdout.splitlines()
-        if pid_token in line and ":7657 " in line
+    convey_token = f"pid={convey_pid},"
+    lines = result.stdout.splitlines()
+    dl_lines = [
+        line for line in lines if convey_token in line and f":{dl_port} " in line
     ]
-    assert len(lines) == 1, result.stdout
+    pl_lines = [
+        line for line in lines if convey_token in line and f":{pl_port} " in line
+    ]
+    assert len(dl_lines) == 1, result.stdout
+    assert len(pl_lines) == 1, result.stdout
+    if link_pid is not None:
+        link_token = f"pid={link_pid},"
+        link_lines = [line for line in lines if link_token in line]
+        assert not link_lines, result.stdout

@@ -1,19 +1,17 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""pyOpenSSL memory-BIO adapter: TLS 1.3 over non-socket byte streams.
+"""pyOpenSSL memory-BIO adapter for Convey's secure PL listener.
 
-The link service runs TLS inside the spl-relay tunnel, which is an opaque
-WebSocket — not a real socket. pyOpenSSL's `SSL.Connection` supports
-memory-BIO mode: the caller pushes ciphertext in with `bio_write`, pulls
-ciphertext out with `bio_read`, and reads/writes plaintext with
-`recv`/`send`.
+The secure listener terminates TLS 1.3 inside the Convey process before
+feeding plaintext into the mux and inline WSGI dispatcher. pyOpenSSL's
+`SSL.Connection` supports memory-BIO mode: the caller pushes ciphertext in
+with `bio_write`, pulls ciphertext out with `bio_read`, and reads/writes
+plaintext with `recv`/`send`.
 
-This module wraps that state machine with a byte-oriented API the
-relay-client and mux loops drive. It installs the pinned verify callback —
-the load-bearing reason we use pyOpenSSL and not stdlib `ssl` (stdlib
-doesn't expose a handshake-time callback that can reject a cert with a
-clean TLS alert).
+This module also installs the pinned verify callback — the load-bearing
+reason we use pyOpenSSL and not stdlib `ssl` (stdlib doesn't expose a
+handshake-time callback that can reject a cert with a clean TLS alert).
 """
 
 from __future__ import annotations
@@ -24,8 +22,8 @@ from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 from OpenSSL import SSL, crypto
 
-from .auth import AuthorizedClients
-from .ca import LoadedCa
+from solstone.think.link.auth import AuthorizedClients
+from solstone.think.link.ca import LoadedCa
 
 
 class TlsError(RuntimeError):

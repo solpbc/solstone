@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import base64
+import logging
 from pathlib import Path
 
 import pytest
@@ -37,7 +38,12 @@ FORBIDDEN_TOKENS = [
 
 @pytest.mark.asyncio
 @pytest.mark.timeout(60)
-async def test_privacy_scan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_privacy_scan(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.DEBUG, logger="convey.secure_listener")
     tmp_journal = tmp_path / "journal"
     tmp_journal.mkdir()
     monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_journal))
@@ -72,6 +78,11 @@ async def test_privacy_scan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
 
     assert capture is not None
     texts = runtime_texts(tmp_journal, capture)
+    texts["convey.secure_listener"] = "\n".join(
+        record.getMessage()
+        for record in caplog.records
+        if record.name.startswith("convey.secure_listener")
+    )
     endpoint_ips = [
         str(endpoint["ip"])
         for endpoint in [*local_endpoints, *identity.local_endpoints]

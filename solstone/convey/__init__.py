@@ -18,6 +18,7 @@ from solstone.apps import AppRegistry
 
 from . import state, system
 from .apps import register_app_context
+from .auth import install_identity_stamper
 from .bridge import emit
 from .chat import chat_bp, start_chat_runtime
 from .config import bp as config_bp
@@ -137,6 +138,8 @@ def create_app(journal: str = "") -> Flask:
     _migrate_password_hash()
     _migrate_setup_completed()
     app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
+    app.config.setdefault("SECURE_LISTENER_ENABLED", False)
+    install_identity_stamper(app)
 
     # Register root blueprint (login, logout, /, favicon)
     app.register_blueprint(root_bp)

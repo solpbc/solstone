@@ -22,8 +22,7 @@ from OpenSSL import SSL, crypto
 from websockets.asyncio.client import ClientConnection
 from websockets.exceptions import ConnectionClosed
 
-from solstone.think.link.ca import cert_fingerprint
-from solstone.think.link.framing import (
+from solstone.convey.secure_listener.framing import (
     FLAG_CLOSE,
     FLAG_DATA,
     FLAG_OPEN,
@@ -47,6 +46,7 @@ from solstone.think.link.framing import (
     parse_reset_reason,
     parse_window_credit,
 )
+from solstone.think.link.ca import cert_fingerprint
 
 LOG = logging.getLogger(__name__)
 _CONNECT_TIMEOUT_SECONDS = 15

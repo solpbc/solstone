@@ -12,6 +12,7 @@ import os
 from flask import Flask
 
 from solstone.apps.events import discover_handlers, start_dispatcher, stop_dispatcher
+from solstone.convey.secure_listener import start_secure_listener, stop_secure_listener
 
 from .bridge import start_bridge, stop_bridge
 
@@ -70,6 +71,7 @@ def run_service(
     try:
         app.run(host=host, port=port, debug=debug)
     finally:
+        stop_secure_listener(app)
         stop_bridge()
         stop_dispatcher()
 
@@ -110,6 +112,8 @@ def main() -> None:
 
     # Write port to health directory for discovery by other tools
     write_service_port("convey", args.port)
+    app.config["SECURE_LISTENER_ENABLED"] = True
+    start_secure_listener(app)
     bind_host = _resolve_bind_host()
     logger.info("Convey starting on %s:%s", bind_host, args.port)
 

@@ -7,7 +7,7 @@ import asyncio
 
 import pytest
 
-from solstone.think.link.framing import (
+from solstone.convey.secure_listener.framing import (
     FLAG_CLOSE,
     FLAG_DATA,
     FLAG_RESET,
@@ -17,7 +17,7 @@ from solstone.think.link.framing import (
     build_data,
     build_open,
 )
-from solstone.think.link.mux import Multiplexer
+from solstone.convey.secure_listener.mux import Multiplexer
 
 
 def _decode_frames(chunks: list[bytes]) -> list[Frame]:

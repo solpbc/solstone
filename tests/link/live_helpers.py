@@ -7,11 +7,12 @@ import contextlib
 import json
 import os
 import queue
+import socket
 import subprocess
 import sys
 import threading
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -124,18 +125,33 @@ class LinkProcessCapture:
 
 
 @contextlib.contextmanager
-def running_convey_server(journal_path: Path) -> Iterator[str]:
+def running_convey_server(
+    journal_path: Path,
+    *,
+    configure_app: Callable[[Any], None] | None = None,
+) -> Iterator[str]:
     from solstone.convey import create_app
+    from solstone.convey.secure_listener import (
+        start_secure_listener,
+        stop_secure_listener,
+    )
 
     _prepare_journal(journal_path)
     app = create_app(str(journal_path))
+    if configure_app is not None:
+        configure_app(app)
+    app.config["SECURE_LISTENER_ENABLED"] = True
+    start_secure_listener(app)
     server = make_server("127.0.0.1", 0, app, threaded=True)
     write_service_port("convey", server.server_port)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
+    _wait_for_tcp_port("127.0.0.1", server.server_port)
+    _wait_for_tcp_port("127.0.0.1", 7657)
     try:
         yield f"http://127.0.0.1:{server.server_port}"
     finally:
+        stop_secure_listener(app)
         server.shutdown()
         thread.join(timeout=5)
 
@@ -227,3 +243,16 @@ def _prepare_journal(journal_path: Path) -> None:
         + "\n",
         encoding="utf-8",
     )
+
+
+def _wait_for_tcp_port(host: str, port: int) -> None:
+    deadline = time.monotonic() + 2.0
+    last_error: OSError | None = None
+    while time.monotonic() < deadline:
+        try:
+            with socket.create_connection((host, port), timeout=0.1):
+                return
+        except OSError as exc:
+            last_error = exc
+            time.sleep(0.1)
+    raise RuntimeError(f"port {host}:{port} did not become ready: {last_error}")

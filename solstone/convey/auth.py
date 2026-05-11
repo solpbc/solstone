@@ -9,9 +9,10 @@ import logging
 from functools import wraps
 from typing import Any, Callable, TypeVar, cast
 
-from flask import g, jsonify, request, session
+from flask import Flask, g, jsonify, request, session
 from werkzeug.security import check_password_hash
 
+from solstone.convey.secure_listener import ConveyIdentity
 from solstone.think.pairing.devices import Device, find_device_by_session_key_hash
 from solstone.think.pairing.keys import hash_session_key, mask_session_key
 from solstone.think.utils import get_config
@@ -80,6 +81,22 @@ def is_owner_authed() -> bool:
     return bool(is_localhost and not proxy_headers)
 
 
+def install_identity_stamper(app: Flask) -> None:
+    @app.before_request
+    def _stamp_identity() -> None:
+        stamped = request.environ.get("pl.identity")
+        if stamped is not None:
+            g.identity = stamped
+            return
+        g.identity = ConveyIdentity(
+            mode="dl",
+            fingerprint=None,
+            device_label=None,
+            paired_at=None,
+            session_id=None,
+        )
+
+
 def require_paired_device(func: F) -> F:
     @wraps(func)
     def wrapped(*args: Any, **kwargs: Any) -> Any:
@@ -102,6 +119,7 @@ def require_paired_device(func: F) -> F:
 
 __all__ = [
     "extract_bearer_token",
+    "install_identity_stamper",
     "is_owner_authed",
     "require_paired_device",
     "resolve_paired_device",
