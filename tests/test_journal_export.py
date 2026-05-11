@@ -30,7 +30,7 @@ def test_journal_export_writes_zip_and_manifest(journal_copy):
     assert result.stdout.strip() == str(archive_path.resolve())
     assert archive_path.exists()
     manifest = _read_manifest(archive_path)
-    assert manifest["solstone_version"] == "0.2.0"
+    assert manifest["solstone_version"] == "0.2.1"
     assert manifest["source_journal"] == str(journal_copy.resolve())
     assert manifest["day_count"] > 0
     assert manifest["entity_count"] > 0
