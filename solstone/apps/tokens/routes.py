@@ -13,7 +13,8 @@ from typing import Any, Dict
 from flask import Blueprint, jsonify, render_template, request
 
 from solstone.convey import state
-from solstone.convey.utils import DATE_RE
+from solstone.convey.reasons import INVALID_DAY, INVALID_MONTH
+from solstone.convey.utils import DATE_RE, error_response
 from solstone.think.models import calc_token_cost, get_model_provider, iter_token_log
 
 tokens_bp = Blueprint(
@@ -335,7 +336,7 @@ def api_usage():
     day = request.args.get("day", date.today().strftime("%Y%m%d"))
 
     if not DATE_RE.fullmatch(day):
-        return jsonify({"error": "Invalid day format"}), 400
+        return error_response(INVALID_DAY, detail="Invalid day format")
 
     data = _aggregate_token_data(day)
     return jsonify(data)
@@ -355,7 +356,10 @@ def api_stats(month: str):
     import re
 
     if not re.fullmatch(r"\d{6}", month):
-        return jsonify({"error": "Invalid month format, expected YYYYMM"}), 400
+        return error_response(
+            INVALID_MONTH,
+            detail="Invalid month format, expected YYYYMM",
+        )
 
     tokens_dir = Path(state.journal_root) / "tokens"
     if not tokens_dir.exists():
