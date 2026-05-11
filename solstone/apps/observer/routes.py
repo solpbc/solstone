@@ -32,6 +32,22 @@ from solstone.apps.utils import log_app_action
 from solstone.convey import emit
 from solstone.convey.bridge import _SSE_HEARTBEAT_SECONDS
 from solstone.convey.copy import OBSERVER_CALLOSUM_LIVE_LABEL
+from solstone.convey.reasons import (
+    AUTH_KEY_INVALID,
+    AUTH_REQUIRED,
+    FEATURE_UNAVAILABLE,
+    FILE_READ_FAILED,
+    INGEST_NO_FILES,
+    INGEST_STORAGE_FAILED,
+    INVALID_DAY,
+    INVALID_SEGMENT_OR_STREAM,
+    MISSING_REQUIRED_FIELD,
+    PAIRED_DEVICE_NOT_FOUND,
+    PAIRED_DEVICE_REVOKED,
+    SETTINGS_OPERATION_FAILED,
+    Reason,
+)
+from solstone.convey.utils import error_response
 from solstone.observe.utils import (
     MAX_SEGMENT_ATTEMPTS,
     compute_bytes_sha256,
@@ -76,6 +92,14 @@ OBSERVER_STATE_LABELS = {
     "disconnected": "Disconnected",
     "revoked": "Revoked",
 }
+
+
+def _error_body(reason: Reason, *, detail: str | None = None) -> dict[str, str]:
+    return {
+        "error": reason.message,
+        "reason_code": reason.code,
+        "detail": detail or "",
+    }
 
 
 def _get_key(url_key: str | None = None) -> str | None:
@@ -244,17 +268,17 @@ def callosum_sse(key: str) -> Any:
     """Stream Callosum events to an authenticated observer process."""
     auth_key = _get_key(key)
     if not auth_key:
-        return jsonify({"error": "Authorization required"}), 401
+        return error_response(AUTH_REQUIRED, detail="Authorization required")
 
     observer = load_observer(auth_key)
     if not observer:
-        return jsonify({"error": "Invalid key"}), 401
+        return error_response(AUTH_KEY_INVALID, detail="Invalid key")
 
     if observer.get("revoked", False):
-        return jsonify({"error": "Observer revoked"}), 403
+        return error_response(PAIRED_DEVICE_REVOKED, detail="Observer revoked")
 
     if not observer.get("enabled", True):
-        return jsonify({"error": "Observer disabled"}), 403
+        return error_response(FEATURE_UNAVAILABLE, detail="Observer disabled")
 
     key_prefix = auth_key[:8]
     handle = convey_bridge.register_sse_subscriber(key_prefix)
@@ -301,7 +325,7 @@ def api_create() -> Any:
     data = request.get_json(force=True) if request.is_json else {}
     name = data.get("name", "").strip()
     if not name:
-        return jsonify({"error": "Name is required"}), 400
+        return error_response(MISSING_REQUIRED_FIELD, detail="Name is required")
 
     # Generate key
     key = _generate_key()
@@ -321,7 +345,10 @@ def api_create() -> Any:
     }
 
     if not save_observer(observer_data):
-        return jsonify({"error": "Failed to save observer"}), 500
+        return error_response(
+            SETTINGS_OPERATION_FAILED,
+            detail="Failed to save observer",
+        )
 
     # Log observer creation (journal-level, no facet)
     log_app_action(
@@ -351,7 +378,7 @@ def api_delete(key_prefix: str) -> Any:
     observers_dir = get_observers_dir()
     observer_path = observers_dir / f"{key_prefix}.json"
     if not observer_path.exists():
-        return jsonify({"error": "Observer not found"}), 404
+        return error_response(PAIRED_DEVICE_NOT_FOUND, detail="Observer not found")
 
     try:
         with open(observer_path) as f:
@@ -359,10 +386,13 @@ def api_delete(key_prefix: str) -> Any:
         key = data.get("key", "")
         name = data.get("name", "")
     except (json.JSONDecodeError, OSError):
-        return jsonify({"error": "Failed to read observer"}), 500
+        return error_response(FILE_READ_FAILED, detail="Failed to read observer")
 
     if not _revoke_observer(key):
-        return jsonify({"error": "Failed to revoke observer"}), 500
+        return error_response(
+            SETTINGS_OPERATION_FAILED,
+            detail="Failed to revoke observer",
+        )
 
     # Log observer revocation (journal-level, no facet)
     log_app_action(
@@ -382,16 +412,19 @@ def api_get_key(key_prefix: str) -> Any:
     observers_dir = get_observers_dir()
     observer_path = observers_dir / f"{key_prefix}.json"
     if not observer_path.exists():
-        return jsonify({"error": "Observer not found"}), 404
+        return error_response(PAIRED_DEVICE_NOT_FOUND, detail="Observer not found")
 
     try:
         with open(observer_path) as f:
             data = json.load(f)
     except (json.JSONDecodeError, OSError):
-        return jsonify({"error": "Failed to read observer"}), 500
+        return error_response(FILE_READ_FAILED, detail="Failed to read observer")
 
     if data.get("revoked", False):
-        return jsonify({"error": "key unavailable — observer revoked"}), 403
+        return error_response(
+            PAIRED_DEVICE_REVOKED,
+            detail="key unavailable — observer revoked",
+        )
 
     log_app_action(
         app="observer",
@@ -548,7 +581,7 @@ def _process_ingest_files(
         file_data.append((submitted_filename, simple_filename, content, sha256))
 
     if not file_data:
-        return {"error": "No valid files uploaded"}, 400
+        return _error_body(INGEST_NO_FILES, detail="No valid files uploaded"), 400
 
     # Check for duplicate submission by SHA256
     incoming_sha256s = {fd[3] for fd in file_data}
@@ -599,7 +632,13 @@ def _process_ingest_files(
         return (
             {
                 "status": "failed",
-                "error": f"No available segment slot after {MAX_SEGMENT_ATTEMPTS} attempts",
+                **_error_body(
+                    INGEST_STORAGE_FAILED,
+                    detail=(
+                        "No available segment slot after "
+                        f"{MAX_SEGMENT_ATTEMPTS} attempts"
+                    ),
+                ),
                 "failed_path": str(failed_dir.relative_to(day_dir.parent)),
             },
             507,
@@ -646,10 +685,16 @@ def _process_ingest_files(
             logger.info(f"Saved {simple_filename} to {segment_dir}")
         except OSError as e:
             logger.error(f"Failed to save {simple_filename}: {e}")
-            return {"error": f"Failed to save {simple_filename}"}, 500
+            return (
+                _error_body(
+                    INGEST_STORAGE_FAILED,
+                    detail=f"Failed to save {simple_filename}",
+                ),
+                500,
+            )
 
     if not saved_files:
-        return {"error": "No valid files saved"}, 400
+        return _error_body(INGEST_NO_FILES, detail="No valid files saved"), 400
 
     sync_record = {
         "ts": now_ms(),
@@ -708,18 +753,18 @@ def ingest_upload(key: str | None = None) -> Any:
     # Extract key from Bearer header (primary) or URL path (legacy)
     auth_key = _get_key(key)
     if not auth_key:
-        return jsonify({"error": "Authorization required"}), 401
+        return error_response(AUTH_REQUIRED, detail="Authorization required")
 
     # Validate key
     observer = load_observer(auth_key)
     if not observer:
-        return jsonify({"error": "Invalid key"}), 401
+        return error_response(AUTH_KEY_INVALID, detail="Invalid key")
 
     if observer.get("revoked", False):
-        return jsonify({"error": "Observer revoked"}), 403
+        return error_response(PAIRED_DEVICE_REVOKED, detail="Observer revoked")
 
     if not observer.get("enabled", True):
-        return jsonify({"error": "Observer disabled"}), 403
+        return error_response(FEATURE_UNAVAILABLE, detail="Observer disabled")
 
     # Get segment, day, and host info from form
     segment = request.form.get("segment", "").strip()
@@ -751,22 +796,25 @@ def ingest_upload(key: str | None = None) -> Any:
         )
 
     if not segment:
-        return jsonify({"error": "Missing segment"}), 400
+        return error_response(MISSING_REQUIRED_FIELD, detail="Missing segment")
     if not day:
-        return jsonify({"error": "Missing day"}), 400
+        return error_response(MISSING_REQUIRED_FIELD, detail="Missing day")
 
     # Validate segment format (HHMMSS_LEN)
     if not re.match(r"^\d{6}_\d+$", segment):
-        return jsonify({"error": "Invalid segment format"}), 400
+        return error_response(
+            INVALID_SEGMENT_OR_STREAM,
+            detail="Invalid segment format",
+        )
 
     # Validate day format (YYYYMMDD)
     if not re.match(r"^\d{8}$", day):
-        return jsonify({"error": "Invalid day format"}), 400
+        return error_response(INVALID_DAY, detail="Invalid day format")
 
     # Get uploaded files
     files = request.files.getlist("files")
     if not files:
-        return jsonify({"error": "No files uploaded"}), 400
+        return error_response(INGEST_NO_FILES, detail="No files uploaded")
 
     key_prefix = auth_key[:8]
 
@@ -832,17 +880,17 @@ def ingest_transfer(key: str) -> Any:
     """Receive transferred file uploads from another solstone instance."""
     auth_key = _get_key(key)
     if not auth_key:
-        return jsonify({"error": "Authorization required"}), 401
+        return error_response(AUTH_REQUIRED, detail="Authorization required")
 
     observer = load_observer(auth_key)
     if not observer:
-        return jsonify({"error": "Invalid key"}), 401
+        return error_response(AUTH_KEY_INVALID, detail="Invalid key")
 
     if observer.get("revoked", False):
-        return jsonify({"error": "Observer revoked"}), 403
+        return error_response(PAIRED_DEVICE_REVOKED, detail="Observer revoked")
 
     if not observer.get("enabled", True):
-        return jsonify({"error": "Observer disabled"}), 403
+        return error_response(FEATURE_UNAVAILABLE, detail="Observer disabled")
 
     segment = request.form.get("segment", "").strip()
     day = request.form.get("day", "").strip()
@@ -863,21 +911,27 @@ def ingest_transfer(key: str) -> Any:
         meta["platform"] = platform_name
 
     if not segment:
-        return jsonify({"error": "Missing segment"}), 400
+        return error_response(MISSING_REQUIRED_FIELD, detail="Missing segment")
     if not day:
-        return jsonify({"error": "Missing day"}), 400
+        return error_response(MISSING_REQUIRED_FIELD, detail="Missing day")
     if not stream:
-        return jsonify({"error": "Missing stream"}), 400
+        return error_response(MISSING_REQUIRED_FIELD, detail="Missing stream")
     if not re.match(r"^\d{6}_\d+$", segment):
-        return jsonify({"error": "Invalid segment format"}), 400
+        return error_response(
+            INVALID_SEGMENT_OR_STREAM,
+            detail="Invalid segment format",
+        )
     if not re.match(r"^\d{8}$", day):
-        return jsonify({"error": "Invalid day format"}), 400
+        return error_response(INVALID_DAY, detail="Invalid day format")
     if not re.match(r"^[a-z0-9][a-z0-9._-]*$", stream):
-        return jsonify({"error": "Invalid stream format"}), 400
+        return error_response(
+            INVALID_SEGMENT_OR_STREAM,
+            detail="Invalid stream format",
+        )
 
     files = request.files.getlist("files")
     if not files:
-        return jsonify({"error": "No files uploaded"}), 400
+        return error_response(INGEST_NO_FILES, detail="No files uploaded")
 
     key_prefix = auth_key[:8]
     body, status = _process_ingest_files(
@@ -912,17 +966,17 @@ def ingest_manifest(key: str) -> Any:
     """List available manifest days for an observer."""
     auth_key = _get_key(key)
     if not auth_key:
-        return jsonify({"error": "Authorization required"}), 401
+        return error_response(AUTH_REQUIRED, detail="Authorization required")
 
     observer = load_observer(auth_key)
     if not observer:
-        return jsonify({"error": "Invalid key"}), 401
+        return error_response(AUTH_KEY_INVALID, detail="Invalid key")
 
     if observer.get("revoked", False):
-        return jsonify({"error": "Observer revoked"}), 403
+        return error_response(PAIRED_DEVICE_REVOKED, detail="Observer revoked")
 
     if not observer.get("enabled", True):
-        return jsonify({"error": "Observer disabled"}), 403
+        return error_response(FEATURE_UNAVAILABLE, detail="Observer disabled")
 
     key_prefix = auth_key[:8]
     hist_dir = get_hist_dir(key_prefix, ensure_exists=False)
@@ -947,20 +1001,20 @@ def ingest_manifest_day(key: str, day: str) -> Any:
     """Return a transfer manifest for all segments on a given day."""
     auth_key = _get_key(key)
     if not auth_key:
-        return jsonify({"error": "Authorization required"}), 401
+        return error_response(AUTH_REQUIRED, detail="Authorization required")
 
     observer = load_observer(auth_key)
     if not observer:
-        return jsonify({"error": "Invalid key"}), 401
+        return error_response(AUTH_KEY_INVALID, detail="Invalid key")
 
     if observer.get("revoked", False):
-        return jsonify({"error": "Observer revoked"}), 403
+        return error_response(PAIRED_DEVICE_REVOKED, detail="Observer revoked")
 
     if not observer.get("enabled", True):
-        return jsonify({"error": "Observer disabled"}), 403
+        return error_response(FEATURE_UNAVAILABLE, detail="Observer disabled")
 
     if not re.match(r"^\d{8}$", day):
-        return jsonify({"error": "Invalid day format"}), 400
+        return error_response(INVALID_DAY, detail="Invalid day format")
 
     manifest = {
         "version": 1,
@@ -1000,18 +1054,18 @@ def ingest_event(key: str | None = None) -> Any:
     # Extract key from Bearer header (primary) or URL path (legacy)
     auth_key = _get_key(key)
     if not auth_key:
-        return jsonify({"error": "Authorization required"}), 401
+        return error_response(AUTH_REQUIRED, detail="Authorization required")
 
     # Validate key
     observer = load_observer(auth_key)
     if not observer:
-        return jsonify({"error": "Invalid key"}), 401
+        return error_response(AUTH_KEY_INVALID, detail="Invalid key")
 
     if observer.get("revoked", False):
-        return jsonify({"error": "Observer revoked"}), 403
+        return error_response(PAIRED_DEVICE_REVOKED, detail="Observer revoked")
 
     if not observer.get("enabled", True):
-        return jsonify({"error": "Observer disabled"}), 403
+        return error_response(FEATURE_UNAVAILABLE, detail="Observer disabled")
 
     # Parse event
     data = request.get_json(force=True) if request.is_json else {}
@@ -1020,7 +1074,10 @@ def ingest_event(key: str | None = None) -> Any:
     event = data.get("event")
 
     if not tract or not event:
-        return jsonify({"error": "Missing tract or event"}), 400
+        return error_response(
+            MISSING_REQUIRED_FIELD,
+            detail="Missing tract or event",
+        )
 
     # Add observer identifier
     data["observer"] = observer.get("name", "unknown")
@@ -1053,22 +1110,22 @@ def ingest_segments(day: str, key: str | None = None) -> Any:
     # Extract key from Bearer header (primary) or URL path (legacy)
     auth_key = _get_key(key)
     if not auth_key:
-        return jsonify({"error": "Authorization required"}), 401
+        return error_response(AUTH_REQUIRED, detail="Authorization required")
 
     # Validate key
     observer = load_observer(auth_key)
     if not observer:
-        return jsonify({"error": "Invalid key"}), 401
+        return error_response(AUTH_KEY_INVALID, detail="Invalid key")
 
     if observer.get("revoked", False):
-        return jsonify({"error": "Observer revoked"}), 403
+        return error_response(PAIRED_DEVICE_REVOKED, detail="Observer revoked")
 
     if not observer.get("enabled", True):
-        return jsonify({"error": "Observer disabled"}), 403
+        return error_response(FEATURE_UNAVAILABLE, detail="Observer disabled")
 
     # Validate day format (YYYYMMDD)
     if not re.match(r"^\d{8}$", day):
-        return jsonify({"error": "Invalid day format"}), 400
+        return error_response(INVALID_DAY, detail="Invalid day format")
 
     # Load sync history for this observer/day
     key_prefix = auth_key[:8]

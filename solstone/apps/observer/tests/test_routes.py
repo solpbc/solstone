@@ -204,7 +204,7 @@ def test_api_create_requires_name(observer_env):
         content_type="application/json",
     )
     assert resp.status_code == 400
-    assert "Name is required" in resp.get_json()["error"]
+    assert "Name is required" in resp.get_json()["detail"]
 
     # Empty name
     resp = env.client.post(
@@ -477,7 +477,7 @@ def test_ingest_invalid_key(observer_env):
         data={"day": "20250103", "segment": "120000_300"},
     )
     assert resp.status_code == 401
-    assert "Invalid key" in resp.get_json()["error"]
+    assert "Invalid key" in resp.get_json()["detail"]
 
 
 def test_ingest_missing_segment(observer_env):
@@ -499,7 +499,7 @@ def test_ingest_missing_segment(observer_env):
         data={"day": "20250103"},
     )
     assert resp.status_code == 400
-    assert "Missing segment" in resp.get_json()["error"]
+    assert "Missing segment" in resp.get_json()["detail"]
 
 
 def test_ingest_missing_day(observer_env):
@@ -521,7 +521,7 @@ def test_ingest_missing_day(observer_env):
         data={"segment": "120000_300"},
     )
     assert resp.status_code == 400
-    assert "Missing day" in resp.get_json()["error"]
+    assert "Missing day" in resp.get_json()["detail"]
 
 
 def test_ingest_invalid_segment_format(observer_env):
@@ -543,7 +543,7 @@ def test_ingest_invalid_segment_format(observer_env):
         data={"day": "20250103", "segment": "invalid"},
     )
     assert resp.status_code == 400
-    assert "Invalid segment format" in resp.get_json()["error"]
+    assert "Invalid segment format" in resp.get_json()["detail"]
 
 
 def test_ingest_invalid_day_format(observer_env):
@@ -565,7 +565,7 @@ def test_ingest_invalid_day_format(observer_env):
         data={"day": "2025-01-03", "segment": "120000_300"},
     )
     assert resp.status_code == 400
-    assert "Invalid day format" in resp.get_json()["error"]
+    assert "Invalid day format" in resp.get_json()["detail"]
 
 
 def test_ingest_no_files(observer_env):
@@ -587,7 +587,7 @@ def test_ingest_no_files(observer_env):
         data={"day": "20250103", "segment": "120000_300"},
     )
     assert resp.status_code == 400
-    assert "No files uploaded" in resp.get_json()["error"]
+    assert "No files uploaded" in resp.get_json()["detail"]
 
 
 def test_ingest_success(observer_env):
@@ -704,7 +704,7 @@ def test_ingest_event_missing_tract(observer_env):
         content_type="application/json",
     )
     assert resp.status_code == 400
-    assert "Missing tract or event" in resp.get_json()["error"]
+    assert "Missing tract or event" in resp.get_json()["detail"]
 
 
 def test_ingest_revoked_key(observer_env):
@@ -736,7 +736,7 @@ def test_ingest_revoked_key(observer_env):
         },
     )
     assert resp.status_code == 403
-    assert "Observer revoked" in resp.get_json()["error"]
+    assert "Observer revoked" in resp.get_json()["detail"]
 
 
 def test_ingest_event_revoked_key(observer_env):
@@ -764,7 +764,7 @@ def test_ingest_event_revoked_key(observer_env):
         content_type="application/json",
     )
     assert resp.status_code == 403
-    assert "Observer revoked" in resp.get_json()["error"]
+    assert "Observer revoked" in resp.get_json()["detail"]
 
 
 def test_api_get_key(observer_env):
@@ -817,7 +817,7 @@ def test_api_get_key_revoked(observer_env):
     # Try to get the key
     resp = env.client.get(f"/app/observer/api/{key_prefix}/key")
     assert resp.status_code == 403
-    assert "revoked" in resp.get_json()["error"]
+    assert "revoked" in resp.get_json()["detail"]
 
 
 def test_api_get_key_audit_log(observer_env):
@@ -1221,7 +1221,7 @@ def test_segments_endpoint_invalid_day(observer_env):
         headers={"Authorization": f"Bearer {key}"},
     )
     assert resp.status_code == 400
-    assert "Invalid day format" in resp.get_json()["error"]
+    assert "Invalid day format" in resp.get_json()["detail"]
 
 
 def test_segments_endpoint_lists_uploads(observer_env):
@@ -1467,7 +1467,7 @@ def test_segments_endpoint_revoked_key(observer_env):
         headers={"Authorization": f"Bearer {key}"},
     )
     assert resp.status_code == 403
-    assert "Observer revoked" in resp.get_json()["error"]
+    assert "Observer revoked" in resp.get_json()["detail"]
 
 
 def test_segments_endpoint_deduplicates_by_sha256(observer_env):
@@ -1950,7 +1950,7 @@ def test_ingest_zero_byte_file_rejected(observer_env):
         },
     )
     assert resp.status_code == 400
-    assert "No valid files" in resp.get_json()["error"]
+    assert "No valid files" in resp.get_json()["detail"]
 
 
 def test_ingest_mixed_zero_byte_files(observer_env):
@@ -2091,7 +2091,7 @@ def test_transfer_requires_stream(observer_env):
         },
     )
     assert resp.status_code == 400
-    assert resp.get_json()["error"] == "Missing stream"
+    assert resp.get_json()["detail"] == "Missing stream"
 
 
 def test_transfer_invalid_stream(observer_env):
@@ -2115,7 +2115,7 @@ def test_transfer_invalid_stream(observer_env):
         },
     )
     assert resp.status_code == 400
-    assert resp.get_json()["error"] == "Invalid stream format"
+    assert resp.get_json()["detail"] == "Invalid stream format"
 
 
 def test_transfer_duplicate_detection(observer_env):

@@ -66,19 +66,29 @@ def _next_data(response) -> dict:
     raise AssertionError("SSE stream ended before a data frame was received")
 
 
+def _assert_reason(response, *, reason_code: str, detail: str) -> None:
+    data = response.get_json()
+    assert data["reason_code"] == reason_code
+    assert data["detail"] == detail
+
+
 def test_callosum_sse_missing_key_returns_401(observer_env):
     env = observer_env()
     with env.app.test_request_context(_route_for("unused")):
         response, status = routes_module.callosum_sse("")
     assert status == 401
-    assert response.get_json()["error"] == "Authorization required"
+    _assert_reason(
+        response,
+        reason_code="auth_required",
+        detail="Authorization required",
+    )
 
 
 def test_callosum_sse_unknown_key_returns_401(observer_env):
     env = observer_env()
     resp = env.client.get(_route_for("unknown-key"), buffered=False)
     assert resp.status_code == 401
-    assert resp.get_json()["error"] == "Invalid key"
+    _assert_reason(resp, reason_code="auth_key_invalid", detail="Invalid key")
 
 
 def test_callosum_sse_revoked_key_returns_403(observer_env):
@@ -89,7 +99,11 @@ def test_callosum_sse_revoked_key_returns_403(observer_env):
 
     resp = env.client.get(_route_for(key), buffered=False)
     assert resp.status_code == 403
-    assert resp.get_json()["error"] == "Observer revoked"
+    _assert_reason(
+        resp,
+        reason_code="paired_device_revoked",
+        detail="Observer revoked",
+    )
 
 
 def test_callosum_sse_disabled_key_returns_403(observer_env):
@@ -102,7 +116,11 @@ def test_callosum_sse_disabled_key_returns_403(observer_env):
 
     resp = env.client.get(_route_for(key), buffered=False)
     assert resp.status_code == 403
-    assert resp.get_json()["error"] == "Observer disabled"
+    _assert_reason(
+        resp,
+        reason_code="feature_unavailable",
+        detail="Observer disabled",
+    )
 
 
 def test_callosum_sse_bearer_header_overrides_path_key(observer_env):
@@ -127,7 +145,7 @@ def test_callosum_sse_bearer_header_overrides_path_key(observer_env):
         buffered=False,
     )
     assert resp.status_code == 401
-    assert resp.get_json()["error"] == "Invalid key"
+    _assert_reason(resp, reason_code="auth_key_invalid", detail="Invalid key")
 
 
 def test_callosum_sse_success_content_type(observer_env):
