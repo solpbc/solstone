@@ -14,6 +14,13 @@ from flask import Blueprint, current_app, jsonify, request
 from openai import AsyncOpenAI
 from werkzeug.exceptions import BadRequest
 
+from solstone.convey.reasons import (
+    INVALID_JSON_REQUEST,
+    INVALID_REQUEST_VALUE,
+    PROVIDER_KEY_MISSING,
+    VOICE_UNAVAILABLE,
+)
+from solstone.convey.utils import error_response
 from solstone.think.voice import brain
 from solstone.think.voice.config import get_openai_api_key, get_voice_model
 from solstone.think.voice.nav_queue import get_nav_queue
@@ -27,19 +34,21 @@ logger = logging.getLogger(__name__)
 voice_bp = Blueprint("voice", __name__, url_prefix="/api/voice")
 
 
-def _error(message: str, status: int):
-    return jsonify({"error": message}), status
-
-
 def _optional_json_object() -> tuple[dict[str, Any], Any | None]:
     if not request.get_data(cache=True):
         return {}, None
     try:
         data = request.get_json(silent=False)
     except BadRequest:
-        return {}, _error("request body must be valid JSON", 400)
+        return {}, error_response(
+            INVALID_JSON_REQUEST,
+            detail="request body must be valid JSON",
+        )
     if not isinstance(data, dict):
-        return {}, _error("request body must be a JSON object", 400)
+        return {}, error_response(
+            INVALID_JSON_REQUEST,
+            detail="request body must be a JSON object",
+        )
     return data, None
 
 
@@ -47,18 +56,32 @@ def _required_json_object() -> tuple[dict[str, Any], Any | None]:
     try:
         data = request.get_json(silent=False)
     except BadRequest:
-        return {}, _error("request body must be valid JSON", 400)
+        return {}, error_response(
+            INVALID_JSON_REQUEST,
+            detail="request body must be valid JSON",
+        )
     if not isinstance(data, dict):
-        return {}, _error("request body must be a JSON object", 400)
+        return {}, error_response(
+            INVALID_JSON_REQUEST,
+            detail="request body must be a JSON object",
+        )
     return data, None
 
 
 def _require_runtime(app: Any):
     if not getattr(app, "voice_runtime_started", False):
-        return None, _error("voice runtime unavailable", 500)
+        return None, error_response(
+            VOICE_UNAVAILABLE,
+            status=500,
+            detail="voice runtime unavailable",
+        )
     runtime = get_runtime_state()
     if runtime.loop is None:
-        return None, _error("voice runtime unavailable", 500)
+        return None, error_response(
+            VOICE_UNAVAILABLE,
+            status=500,
+            detail="voice runtime unavailable",
+        )
     return runtime, None
 
 
@@ -75,11 +98,17 @@ async def create_voice_session():
 
     openai_key = get_openai_api_key()
     if openai_key is None:
-        return _error("voice unavailable — openai key not configured", 503)
+        return error_response(
+            PROVIDER_KEY_MISSING,
+            detail="voice unavailable — openai key not configured",
+        )
 
     ready = await asyncio.to_thread(brain.wait_until_ready, app, 10.0)
     if not ready:
-        return _error("voice unavailable — brain not ready", 503)
+        return error_response(
+            VOICE_UNAVAILABLE,
+            detail="voice unavailable — brain not ready",
+        )
 
     if brain.brain_is_stale(app):
         brain.schedule_refresh(app)
@@ -98,7 +127,11 @@ async def create_voice_session():
         )
     except Exception:
         logger.exception("voice session mint failed")
-        return _error("voice session unavailable", 500)
+        return error_response(
+            VOICE_UNAVAILABLE,
+            status=500,
+            detail="voice session unavailable",
+        )
 
     return jsonify({"ephemeral_key": response.value})
 
@@ -115,11 +148,14 @@ def connect_voice_sideband():
         return runtime_error
 
     if get_openai_api_key() is None:
-        return _error("voice unavailable — openai key not configured", 503)
+        return error_response(
+            PROVIDER_KEY_MISSING,
+            detail="voice unavailable — openai key not configured",
+        )
 
     call_id = body.get("call_id")
     if not isinstance(call_id, str) or not call_id.strip():
-        return _error("call_id is required", 400)
+        return error_response(INVALID_REQUEST_VALUE, detail="call_id is required")
 
     future = asyncio.run_coroutine_threadsafe(
         _run_sideband(call_id.strip(), app), runtime.loop
@@ -146,7 +182,11 @@ def refresh_voice_brain():
         return jsonify({"status": "refreshing"}), 202
     except Exception:
         logger.exception("voice brain refresh failed")
-        return _error("brain refresh failed", 500)
+        return error_response(
+            VOICE_UNAVAILABLE,
+            status=500,
+            detail="brain refresh failed",
+        )
 
     return jsonify(
         {
@@ -162,7 +202,7 @@ def refresh_voice_brain():
 def nav_hints():
     call_id = request.args.get("call_id", "").strip()
     if not call_id:
-        return _error("call_id is required", 400)
+        return error_response(INVALID_REQUEST_VALUE, detail="call_id is required")
     hints = get_nav_queue().drain(call_id)
     return jsonify({"hints": hints, "consumed": True})
 
