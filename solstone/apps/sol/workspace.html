@@ -1235,10 +1235,11 @@
       })
       .catch((err) => {
         window.logError(err, { context: 'sol: loadIdentity failed' });
-        document.getElementById('sol-identity').innerHTML = window.SurfaceState.errorCard({
+        document.getElementById('sol-identity').innerHTML = window.SurfaceState.error({
           heading: "Couldn't load identity",
           desc: window.CONVEY_COPY.RELOAD_HINT,
           serverMessage: err.serverMessage,
+          detail: err,
         });
       });
   }

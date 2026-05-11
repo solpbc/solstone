@@ -281,10 +281,11 @@
       lanNudge.hidden = !!data.lan_accessible;
     } catch (err) {
       window.logError(err, { context: 'link: refreshStatus failed' });
-      window.SurfaceState.replaceLoading('link-status-panel', window.SurfaceState.errorCard({
+      window.SurfaceState.replaceLoading('link-status-panel', window.SurfaceState.error({
         heading: "Can't reach pairing service",
         desc: window.CONVEY_COPY.RELOAD_HINT,
         serverMessage: err.serverMessage,
+        detail: err,
       }));
     }
   }
@@ -307,17 +308,19 @@
     } catch (err) {
       window.logError(err, { context: 'link: refreshDevices failed' });
       if (!devicesEverLoaded) {
-        devicesList.innerHTML = window.SurfaceState.errorCard({
+        devicesList.innerHTML = window.SurfaceState.error({
           heading: "Couldn't load paired devices",
           desc: window.CONVEY_COPY.RELOAD_HINT,
           serverMessage: err.serverMessage,
+          detail: err,
         });
         return;
       }
-      window.SurfaceState.replaceLoading('link-devices-list', window.SurfaceState.errorCard({
+      window.SurfaceState.replaceLoading('link-devices-list', window.SurfaceState.error({
         heading: "Couldn't refresh paired devices — showing last known state.",
         desc: window.CONVEY_COPY.RELOAD_HINT,
         serverMessage: err.serverMessage,
+        detail: err,
       }));
     }
   }

@@ -1114,10 +1114,11 @@ async function loadImports() {
 
     filterImportsByFacet(window.selectedFacet);
   } catch (err) {
-    window.SurfaceState.replaceLoading('importListContent', window.SurfaceState.errorCard({
+    window.SurfaceState.replaceLoading('importListContent', window.SurfaceState.error({
       heading: 'Couldn\'t load your import history',
       desc: window.CONVEY_COPY.RELOAD_HINT,
       serverMessage: err?.serverMessage || err?.message || '',
+      detail: err,
     }));
   }
 }

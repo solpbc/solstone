@@ -41,38 +41,105 @@
     return wrap.firstElementChild;
   }
 
-  const basic = parse(window.SurfaceState.errorCard({ heading: 'Oops', desc: 'Reload later.' }));
-  assert('errorCard wrapper uses alert role', basic.getAttribute('role') === 'alert');
-  assert('errorCard omits server message when absent', !basic.querySelector('.surface-state-server-message'));
+  async function runTests() {
+    const basic = parse(window.SurfaceState.error({ heading: 'Oops', desc: 'Reload later.' }));
+    assert('error wrapper uses alert role', basic.getAttribute('role') === 'alert');
+    assert('error omits server message when absent', !basic.querySelector('.surface-state-server-message'));
 
-  const withServer = window.SurfaceState.errorCard({ serverMessage: 'Bad <payload>' });
-  assert('errorCard escapes server message', withServer.includes('&lt;payload&gt;'));
+    const defaults = parse(window.SurfaceState.error());
+    assert('error uses default heading', defaults.querySelector('.surface-state-heading').textContent === "Couldn't load this section");
+    assert('error uses default desc', defaults.querySelector('.surface-state-desc').textContent === 'reload to try again.');
 
-  window.SurfaceState.replaceLoading('first-paint', window.SurfaceState.errorCard({ serverMessage: 'first paint' }));
-  const firstPaint = document.getElementById('first-paint');
-  assert('replaceLoading swaps first-paint loading scaffold', !!firstPaint.querySelector('.surface-state--error'));
-  assert('replaceLoading does not add sibling on first paint', !firstPaint.nextElementSibling || !firstPaint.nextElementSibling.classList.contains('surface-state-refresh-error'));
+    const withServer = window.SurfaceState.error({ serverMessage: 'Bad <payload>' });
+    assert('error escapes server message', withServer.includes('&lt;payload&gt;'));
 
-  window.SurfaceState.replaceLoading('refresh-target', window.SurfaceState.errorCard({ serverMessage: 'refresh one' }));
-  assert('replaceLoading appends refresh sibling', document.getElementById('refresh-target').nextElementSibling.classList.contains('surface-state-refresh-error'));
+    const retry = parse(window.SurfaceState.error({ retry: true, retryLabel: 'try again' }));
+    let retryCount = 0;
+    retry.querySelector('.surface-state-retry').onclick = () => { retryCount += 1; };
+    retry.querySelector('.surface-state-retry').click();
+    assert('error renders retry class hook', retry.querySelector('.surface-state-retry').textContent === 'try again');
+    assert('retry class hook can be wired after insertion', retryCount === 1);
 
-  window.SurfaceState.replaceLoading('refresh-target', window.SurfaceState.errorCard({ serverMessage: 'refresh two' }));
-  const refreshErrors = document.querySelectorAll('.surface-state-refresh-error');
-  assert('replaceLoading keeps refresh error singleton', refreshErrors.length === 1);
-  assert('replaceLoading refresh error updates content', refreshErrors[0].textContent.includes('refresh two'));
+    const secondaryLink = parse(window.SurfaceState.error({ secondary: { label: 'Open help', href: '/help?x=1&y=2' } }));
+    const secondaryAnchor = secondaryLink.querySelector('.surface-state-secondary');
+    assert('secondary with href renders anchor', secondaryAnchor.tagName === 'A');
+    assert('secondary href is preserved', secondaryAnchor.getAttribute('href') === '/help?x=1&y=2');
 
-  window.SurfaceState.replaceLoading('first-paint-last-known', window.SurfaceState.errorCard({
-    heading: "Couldn't refresh foo — showing last known state.",
-    desc: 'reload to try again.'
-  }));
-  assert('first-paint strips "showing last known state" tail', !document.getElementById('first-paint-last-known').textContent.includes('showing last known state'));
+    const secondaryButton = parse(window.SurfaceState.error({ secondary: { label: 'Open modal' } }));
+    const secondaryButtonEl = secondaryButton.querySelector('.surface-state-secondary');
+    assert('secondary without href renders button', secondaryButtonEl.tagName === 'BUTTON');
 
-  window.SurfaceState.replaceLoading('refresh-last-known', window.SurfaceState.errorCard({
-    heading: "Couldn't refresh foo — showing last known state.",
-    desc: 'reload to try again.'
-  }));
-  assert('refresh preserves "showing last known state" tail', document.getElementById('refresh-last-known').nextElementSibling.textContent.includes('showing last known state'));
+    const detailTimestamp = 1700000000000;
+    const detailHtml = window.SurfaceState.error({
+      detail: {
+        status: 500,
+        statusText: 'Server Error',
+        url: '/api/test',
+        rawDetail: 'Raw <detail>',
+        timestamp: detailTimestamp,
+        correlationId: '01HABCDEFGJK',
+        reasonCode: 'parse'
+      }
+    });
+    const detail = parse(detailHtml);
+    assert('detail summary text', detail.querySelector('.surface-state-detail summary').textContent === 'Show details');
+    assert('detail renders HTTP line', detail.textContent.includes('HTTP 500 Server Error · /api/test'));
+    assert('detail escapes server reason', detailHtml.includes('Raw &lt;detail&gt;'));
+    assert('detail renders locale timestamp', detail.textContent.includes(new Date(detailTimestamp).toLocaleString()));
+    assert('detail renders reference button', !!detail.querySelector('.surface-state-copy-reference'));
+    assert('detail renders reason code', detail.textContent.includes('Reason code: parse'));
 
-  assert('summary', failures === 0, failures ? `${failures} failure(s)` : 'all checks passed');
+    let copied = '';
+    const clipboardSpy = { writeText: async value => { copied = value; } };
+    try {
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: clipboardSpy
+      });
+    } catch (error) {
+      navigator.clipboard = clipboardSpy;
+    }
+    document.body.appendChild(detail);
+    detail.querySelector('.surface-state-copy-reference').click();
+    await Promise.resolve();
+    await Promise.resolve();
+    assert('detail reference click copies id', copied === '01HABCDEFGJK');
+    assert('detail reference click acknowledges copy', detail.querySelector('.surface-state-copy-affordance').textContent === '(copied)');
+    detail.remove();
+
+    const reportable = parse(window.SurfaceState.error({ reportable: true }));
+    assert('reportable button renders pending no-op marker', reportable.querySelector('.surface-state-report').dataset.noOp === 'reportable-pending');
+
+    window.SurfaceState.replaceLoading('first-paint', window.SurfaceState.error({ serverMessage: 'first paint' }));
+    const firstPaint = document.getElementById('first-paint');
+    assert('replaceLoading swaps first-paint loading scaffold', !!firstPaint.querySelector('.surface-state--error'));
+    assert('replaceLoading does not add sibling on first paint', !firstPaint.nextElementSibling || !firstPaint.nextElementSibling.classList.contains('surface-state-refresh-error'));
+
+    window.SurfaceState.replaceLoading('refresh-target', window.SurfaceState.error({ serverMessage: 'refresh one' }));
+    assert('replaceLoading appends refresh sibling', document.getElementById('refresh-target').nextElementSibling.classList.contains('surface-state-refresh-error'));
+
+    window.SurfaceState.replaceLoading('refresh-target', window.SurfaceState.error({ serverMessage: 'refresh two' }));
+    const refreshErrors = document.querySelectorAll('.surface-state-refresh-error');
+    assert('replaceLoading keeps refresh error singleton', refreshErrors.length === 1);
+    assert('replaceLoading refresh error updates content', refreshErrors[0].textContent.includes('refresh two'));
+
+    window.SurfaceState.replaceLoading('first-paint-last-known', window.SurfaceState.error({
+      heading: "Couldn't refresh foo — showing last known state.",
+      desc: 'reload to try again.'
+    }));
+    assert('first-paint strips "showing last known state" tail', !document.getElementById('first-paint-last-known').textContent.includes('showing last known state'));
+
+    window.SurfaceState.replaceLoading('refresh-last-known', window.SurfaceState.error({
+      heading: "Couldn't refresh foo — showing last known state.",
+      desc: 'reload to try again.'
+    }));
+    assert('refresh preserves "showing last known state" tail', document.getElementById('refresh-last-known').nextElementSibling.textContent.includes('showing last known state'));
+
+    assert('summary', failures === 0, failures ? `${failures} failure(s)` : 'all checks passed');
+  }
+
+  runTests().catch(error => {
+    assert('summary', false, error && error.message ? error.message : String(error));
+  });
 </script>
 </html>

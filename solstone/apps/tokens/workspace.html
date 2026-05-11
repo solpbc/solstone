@@ -624,10 +624,11 @@ async function loadTokenData(day) {
     document.getElementById('dashboard').style.display = 'block';
   } catch (err) {
     console.error('Failed to load token data:', err);
-    window.SurfaceState.replaceLoading('tokens-loading', window.SurfaceState.errorCard({
+    window.SurfaceState.replaceLoading('tokens-loading', window.SurfaceState.error({
       heading: 'Couldn\'t load token usage',
       desc: window.CONVEY_COPY.RELOAD_HINT,
       serverMessage: err?.serverMessage ?? err?.message,
+      detail: err,
     }));
   }
 }

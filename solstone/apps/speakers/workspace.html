@@ -1928,10 +1928,11 @@
         window.logError(err, { context: 'speakers: loadReview failed' });
         if (container) {
           if (isFirstPaint) {
-            container.innerHTML = window.SurfaceState.errorCard({
+            container.innerHTML = window.SurfaceState.error({
               heading: "Couldn't load review",
               desc: window.CONVEY_COPY.RELOAD_HINT,
               serverMessage: err.serverMessage,
+              detail: err,
             });
           } else {
             setReviewStatus("Couldn't reload review — showing last known state.", err.serverMessage);

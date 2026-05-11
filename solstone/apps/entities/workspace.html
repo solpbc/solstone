@@ -1779,10 +1779,11 @@ function showFacetDetailView(entityId) {
       document.getElementById('detail-allfacets-name').textContent = '';
       const container = document.getElementById('detail-description-container');
       if (container) {
-        container.innerHTML = window.SurfaceState.errorCard({
+        container.innerHTML = window.SurfaceState.error({
           heading: "I couldn't load this entity",
           desc: window.CONVEY_COPY.RELOAD_HINT,
           serverMessage: error?.message,
+          detail: error,
         });
       }
     });
@@ -1811,10 +1812,11 @@ function showJournalDetailView(entityId) {
       document.getElementById('journal-detail-name').textContent = '';
       const container = document.getElementById('journal-detail-facets');
       if (container) {
-        container.innerHTML = window.SurfaceState.errorCard({
+        container.innerHTML = window.SurfaceState.error({
           heading: "I couldn't load this entity",
           desc: window.CONVEY_COPY.RELOAD_HINT,
           serverMessage: error?.message,
+          detail: error,
         });
       }
     });
@@ -2764,10 +2766,11 @@ function loadEntities() {
     })
     .catch(err => {
       window.logError(err, { context: 'entities: loadEntities failed' });
-      window.SurfaceState.replaceLoading('entities-loading', window.SurfaceState.errorCard({
+      window.SurfaceState.replaceLoading('entities-loading', window.SurfaceState.error({
         heading: "Couldn't load entities",
         desc: window.CONVEY_COPY.RELOAD_HINT,
-        serverMessage: err?.serverMessage
+        serverMessage: err?.serverMessage,
+        detail: err,
       }));
     });
 }
@@ -2790,10 +2793,11 @@ function loadJournalEntities() {
     })
     .catch(err => {
       window.logError(err, { context: 'entities: loadJournalEntities failed' });
-      window.SurfaceState.replaceLoading('entities-loading', window.SurfaceState.errorCard({
+      window.SurfaceState.replaceLoading('entities-loading', window.SurfaceState.error({
         heading: "Couldn't load entities",
         desc: window.CONVEY_COPY.RELOAD_HINT,
-        serverMessage: err?.serverMessage
+        serverMessage: err?.serverMessage,
+        detail: err,
       }));
     });
 }

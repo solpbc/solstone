@@ -659,12 +659,13 @@ button.day-header {
         if (err.name === 'AbortError') return;
         console.error('Search error:', err);
         resultsContainer.innerHTML = window.SurfaceState.error({
-          icon: '⚠️',
           heading: 'something went wrong with that search',
           desc: 'could be a network issue or the server might be busy — give it a moment',
-          action: '<button class="search-error-retry">try again</button>'
+          retry: true,
+          retryLabel: 'try again',
+          detail: err
         });
-        resultsContainer.querySelector('.search-error-retry').onclick = () => doSearch(true);
+        resultsContainer.querySelector('.surface-state-retry').onclick = () => doSearch(true);
         announce('search failed, use the try again button to retry');
       });
   }

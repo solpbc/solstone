@@ -807,10 +807,11 @@ async function loadObservers() {
       if (target) target.focus();
     }
   } catch (err) {
-    window.SurfaceState.replaceLoading('observersList', window.SurfaceState.errorCard({
+    window.SurfaceState.replaceLoading('observersList', window.SurfaceState.error({
       heading: 'Couldn\'t load observers',
       desc: window.CONVEY_COPY.RELOAD_HINT,
       serverMessage: err?.serverMessage || err?.message || '',
+      detail: err,
     }));
   }
 }

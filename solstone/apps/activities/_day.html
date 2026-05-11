@@ -961,10 +961,11 @@ button.activity-detail-back {
       };
     } catch (err) {
       window.logError(err, { context: 'activities-day-load' });
-      window.SurfaceState.replaceLoading('timelineView', window.SurfaceState.errorCard({
+      window.SurfaceState.replaceLoading('timelineView', window.SurfaceState.error({
         heading: 'Couldn\'t load activities',
         desc: window.CONVEY_COPY.RELOAD_HINT,
         serverMessage: err?.serverMessage || err?.message || '',
+        detail: err,
       }));
       document.getElementById('activitiesView').innerHTML = '';
       document.getElementById('daySummary').textContent = '';

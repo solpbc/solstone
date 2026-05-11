@@ -1522,8 +1522,7 @@
 
 /**
  * Shared loading / empty / error surface-state renderer.
- * Contract: text fields are escaped; icon and action slots accept raw HTML.
- * Examples: SurfaceState.loading({ text: 'Loading…' }), SurfaceState.empty({ icon: '🔍', heading: 'No results' }), SurfaceState.error({ heading: 'Request failed', action: '<button>Retry</button>' }).
+ * Examples: SurfaceState.loading({ text: 'Loading…' }), SurfaceState.empty({ icon: '🔍', heading: 'No results' }), SurfaceState.error({ heading: 'Request failed', retry: true }).
  * Load order: call only after DOMContentLoaded or from later event/callback code.
  */
 window.SurfaceState = (() => {
@@ -1544,6 +1543,117 @@ window.SurfaceState = (() => {
     return HEADING_LEVELS.has(level) ? level : 'h2';
   }
 
+  function hasValue(value) {
+    return value !== undefined && value !== null && value !== '';
+  }
+
+  function copyToClipboard(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text);
+    }
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    return Promise.resolve();
+  }
+
+  function formatDetailTimestamp(timestamp) {
+    if (!hasValue(timestamp)) {
+      return '';
+    }
+    const date = new Date(timestamp);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+    return date.toLocaleString();
+  }
+
+  function renderErrorActions({ retry, retryLabel, secondary, reportable }) {
+    const parts = [];
+    if (retry) {
+      parts.push(`<button type="button" class="surface-state-retry">${escapeHtml(retryLabel)}</button>`);
+    }
+    if (secondary && hasValue(secondary.label)) {
+      if (hasValue(secondary.href)) {
+        parts.push(`<a class="surface-state-secondary" href="${escapeHtml(secondary.href)}">${escapeHtml(secondary.label)}</a>`);
+      } else {
+        parts.push(`<button type="button" class="surface-state-secondary">${escapeHtml(secondary.label)}</button>`);
+      }
+    }
+    if (reportable) {
+      parts.push('<button type="button" class="surface-state-report" data-no-op="reportable-pending">Report this</button>');
+    }
+    return parts.length ? `<div class="surface-state-action-row">${parts.join('')}</div>` : '';
+  }
+
+  function renderErrorDetail(detail, serverMessage) {
+    if (!detail) {
+      return '';
+    }
+
+    const lines = [];
+    if (hasValue(detail.status) && hasValue(detail.statusText) && hasValue(detail.url)) {
+      lines.push(`<div>HTTP ${escapeHtml(detail.status)} ${escapeHtml(detail.statusText)} · ${escapeHtml(detail.url)}</div>`);
+    }
+
+    const reason = hasValue(detail.rawDetail)
+      ? detail.rawDetail
+      : (hasValue(detail.serverMessage) ? detail.serverMessage : serverMessage);
+    if (hasValue(reason)) {
+      lines.push(`<div>Server reason: ${escapeHtml(reason)}</div>`);
+    }
+
+    const timestamp = formatDetailTimestamp(detail.timestamp);
+    if (timestamp) {
+      lines.push(`<div>Time: ${escapeHtml(timestamp)}</div>`);
+    }
+
+    if (hasValue(detail.correlationId)) {
+      const correlationId = String(detail.correlationId);
+      lines.push(
+        `<div>Reference: <button type="button" class="surface-state-copy-reference" data-copy-value="${escapeHtml(correlationId)}">`
+        + `${escapeHtml(correlationId)} <span class="surface-state-copy-affordance">(click to copy)</span>`
+        + `</button></div>`
+      );
+    }
+
+    if (hasValue(detail.reasonCode)) {
+      lines.push(`<div>Reason code: ${escapeHtml(detail.reasonCode)}</div>`);
+    }
+
+    if (!lines.length) {
+      return '';
+    }
+    return `<details class="surface-state-detail"><summary>Show details</summary>${lines.join('')}</details>`;
+  }
+
+  document.addEventListener('click', event => {
+    const target = event.target instanceof Element ? event.target : null;
+    const trigger = target ? target.closest('.surface-state-copy-reference') : null;
+    if (!trigger) {
+      return;
+    }
+    const value = trigger.getAttribute('data-copy-value') || '';
+    if (!value) {
+      return;
+    }
+    copyToClipboard(value).then(() => {
+      const affordance = trigger.querySelector('.surface-state-copy-affordance');
+      if (affordance) {
+        affordance.textContent = '(copied)';
+      }
+    }).catch(error => {
+      if (window.logError) {
+        window.logError(error, { context: 'surface-state copy reference failed' });
+      }
+    });
+  });
+
   function render(kind, {
     icon = '',
     heading = '',
@@ -1563,9 +1673,9 @@ window.SurfaceState = (() => {
       + `</div>`;
   }
 
-  function stripLastKnownFromHeading(errorCardHtml) {
+  function stripLastKnownFromHeading(errorHtml) {
     const template = document.createElement('template');
-    template.innerHTML = errorCardHtml;
+    template.innerHTML = errorHtml;
     const headingEl = template.content.querySelector('.surface-state-heading');
     if (headingEl) {
       headingEl.textContent = headingEl.textContent.replace(STRIP_LAST_KNOWN, '');
@@ -1585,30 +1695,25 @@ window.SurfaceState = (() => {
       return render('empty', options);
     },
 
-    error(options = {}) {
-      return render('error', { ...options, role: 'alert' });
-    },
-
-    /**
-     * Render a standard error card HTML string for first-paint or refresh failures.
-     * All user-visible text is escaped, and no action slot is provided by design.
-     *
-     * @param {object} options
-     * @param {string} [options.heading="Couldn't load this section"]
-     * @param {string} [options.desc="reload to try again."]
-     * @param {string} [options.serverMessage]
-     * @returns {string}
-     */
-    errorCard({
+    error({
       heading = 'Couldn\'t load this section',
-      desc = (window.CONVEY_COPY && window.CONVEY_COPY.RELOAD_HINT) || 'reload to try again.',
-      serverMessage = ''
+      desc = window.CONVEY_COPY?.RELOAD_HINT || 'reload to try again.',
+      serverMessage = '',
+      retry = false,
+      retryLabel = 'Try again',
+      secondary = null,
+      detail = null,
+      reportable = false,
+      headingLevel = 'h2'
     } = {}) {
+      const tag = normalizeHeadingLevel(headingLevel);
       return `<div class="surface-state surface-state--error" role="alert">`
         + `<div class="surface-state-icon" aria-hidden="true">${ERROR_ICON}</div>`
-        + `<h2 class="surface-state-heading">${escapeHtml(heading)}</h2>`
+        + `<${tag} class="surface-state-heading">${escapeHtml(heading)}</${tag}>`
         + `<p class="surface-state-desc">${escapeHtml(desc)}</p>`
         + `${serverMessage ? `<p class="surface-state-server-message">${escapeHtml(serverMessage)}</p>` : ''}`
+        + renderErrorActions({ retry, retryLabel, secondary, reportable })
+        + renderErrorDetail(detail, serverMessage)
         + `</div>`;
     },
 
@@ -1621,10 +1726,10 @@ window.SurfaceState = (() => {
      * paths without leaking refresh-only language to first-paint owners.
      *
      * @param {string} containerId
-     * @param {string} errorCardHtml
+     * @param {string} errorHtml
      * @returns {HTMLElement|null}
      */
-    replaceLoading(containerId, errorCardHtml) {
+    replaceLoading(containerId, errorHtml) {
       const container = document.getElementById(containerId);
       if (!container) {
         return null;
@@ -1632,7 +1737,7 @@ window.SurfaceState = (() => {
 
       const isFirstPaint = container.querySelector('.surface-state--loading');
       if (isFirstPaint) {
-        container.innerHTML = stripLastKnownFromHeading(errorCardHtml);
+        container.innerHTML = stripLastKnownFromHeading(errorHtml);
         return container;
       }
 
@@ -1651,7 +1756,7 @@ window.SurfaceState = (() => {
 
       const wrapper = document.createElement('div');
       wrapper.className = 'surface-state-refresh-error';
-      wrapper.innerHTML = errorCardHtml;
+      wrapper.innerHTML = errorHtml;
       container.insertAdjacentElement('afterend', wrapper);
       return container;
     }

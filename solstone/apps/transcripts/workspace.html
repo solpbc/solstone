@@ -2312,7 +2312,6 @@ body.presentation-mode .tr-screen-text { font-size: 16px; padding: 12px 16px; bo
         tabsContainer.classList.remove('visible');
         tabsContainer.innerHTML = '';
         panel.innerHTML = window.SurfaceState.error({
-          icon: emptyIcons.transcript,
           heading: 'couldn\'t load this segment',
           desc: 'something went wrong loading the transcript. try selecting the segment again, or refresh the page.'
         });
@@ -2505,7 +2504,6 @@ body.presentation-mode .tr-screen-text { font-size: 16px; padding: 12px 16px; bo
               return;
             }
             pane.innerHTML = window.SurfaceState.error({
-              icon: emptyIcons.screen,
               heading: 'couldn\'t load screen entries',
               desc: 'something went wrong decoding the screen data. try selecting the segment again.'
             });
@@ -3189,7 +3187,6 @@ body.presentation-mode .tr-screen-text { font-size: 16px; padding: 12px 16px; bo
       console.error('Failed to load transcript data:', err);
       zoomSegments.innerHTML = '';
       panel.innerHTML = window.SurfaceState.error({
-        icon: emptyIcons.transcript,
         heading: 'couldn\'t load transcripts',
         desc: 'the data service may be offline. try refreshing the page.'
       });
