@@ -968,7 +968,7 @@ document.addEventListener('DOMContentLoaded', function() {
         updateBadgesFromResponse(data, facet);
       }, 200);
     } catch (error) {
-      showMessage('Network error - please try again', 'error');
+      showMessage('Network error - ' + window.CONVEY_COPY.RELOAD_HINT, 'error');
       button.disabled = false;
       button.innerHTML = originalText;
     }
@@ -1061,12 +1061,12 @@ document.addEventListener('DOMContentLoaded', function() {
               updateBadgesFromResponse(data, facet);
             }, 200);
           } else {
-            showMessage('Failed to cancel todo - please refresh and try again', 'error');
+            showMessage('Failed to cancel todo - ' + window.CONVEY_COPY.RELOAD_HINT, 'error');
             cancelBtn.disabled = false;
             cancelBtn.innerHTML = originalText;
           }
         } catch (error) {
-          showMessage('Network error - please try again', 'error');
+          showMessage('Network error - ' + window.CONVEY_COPY.RELOAD_HINT, 'error');
           cancelBtn.disabled = false;
           cancelBtn.innerHTML = originalText;
         }
@@ -1147,11 +1147,11 @@ document.addEventListener('DOMContentLoaded', function() {
         updateBadgesFromResponse(data, facet);
       } else {
         checkbox.checked = !wasChecked;
-        showMessage('Failed to update todo - please refresh and try again', 'error');
+        showMessage('Failed to update todo - ' + window.CONVEY_COPY.RELOAD_HINT, 'error');
       }
     } catch (error) {
       checkbox.checked = !wasChecked;
-      showMessage('Network error - please try again', 'error');
+      showMessage('Network error - ' + window.CONVEY_COPY.RELOAD_HINT, 'error');
     } finally {
       checkbox.disabled = false;
     }
@@ -1246,13 +1246,13 @@ document.addEventListener('DOMContentLoaded', function() {
             content.replaceChild(span, input);
           }
         } else {
-          showMessage('Failed to update todo - please refresh and try again', 'error');
+          showMessage('Failed to update todo - ' + window.CONVEY_COPY.RELOAD_HINT, 'error');
           if (input.parentElement === content) {
             content.replaceChild(span, input);
           }
         }
       } catch (error) {
-        showMessage('Network error - please try again', 'error');
+        showMessage('Network error - ' + window.CONVEY_COPY.RELOAD_HINT, 'error');
         if (input.parentElement === content) {
           content.replaceChild(span, input);
         }

@@ -12,6 +12,8 @@
 <div id="notification-center"></div>
 <div id="first-paint"><div class="surface-state surface-state--loading"></div></div>
 <div id="refresh-parent"><div id="refresh-target"><div>Loaded content</div></div></div>
+<div id="first-paint-last-known"><div class="surface-state surface-state--loading"></div></div>
+<div id="refresh-last-known"><div>Loaded content</div></div>
 <div id="results"></div>
 <script>
   window.facetsData = [];
@@ -58,6 +60,18 @@
   const refreshErrors = document.querySelectorAll('.surface-state-refresh-error');
   assert('replaceLoading keeps refresh error singleton', refreshErrors.length === 1);
   assert('replaceLoading refresh error updates content', refreshErrors[0].textContent.includes('refresh two'));
+
+  window.SurfaceState.replaceLoading('first-paint-last-known', window.SurfaceState.errorCard({
+    heading: "Couldn't refresh foo — showing last known state.",
+    desc: 'reload to try again.'
+  }));
+  assert('first-paint strips "showing last known state" tail', !document.getElementById('first-paint-last-known').textContent.includes('showing last known state'));
+
+  window.SurfaceState.replaceLoading('refresh-last-known', window.SurfaceState.errorCard({
+    heading: "Couldn't refresh foo — showing last known state.",
+    desc: 'reload to try again.'
+  }));
+  assert('refresh preserves "showing last known state" tail', document.getElementById('refresh-last-known').nextElementSibling.textContent.includes('showing last known state'));
 
   assert('summary', failures === 0, failures ? `${failures} failure(s)` : 'all checks passed');
 </script>

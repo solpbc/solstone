@@ -616,6 +616,22 @@ def _briefing_freshness(today: str) -> dict[str, Any]:
 
 
 def _newsletter_attempts_from_think_logs(yesterday: str) -> tuple[int, int]:
+    """Count facet-newsletter attempts for ``yesterday`` from journal artifacts.
+
+    Reads two paths whose shapes must stay in sync:
+    - ``facets/*/news/{yesterday}.md``: one file per facet that successfully
+      ran the newsletter talent; presence counts as a success.
+    - ``chronicle/{yesterday}/health/*_daily.jsonl``: ``talent.fail`` records
+      whose ``name == "facet_newsletter"`` count as failed attempts.
+
+    If either path's filename pattern or event shape changes, this function
+    will silently undercount; the daily-processing summary that consumes it
+    will be wrong without raising. Update both readers in lockstep when
+    moving either side.
+
+    Returns ``(successful, total_attempted)`` where
+    ``total_attempted == successful + failed``.
+    """
     journal = Path(get_journal())
     successful = len(list(journal.glob(f"facets/*/news/{yesterday}.md")))
 

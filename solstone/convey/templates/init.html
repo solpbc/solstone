@@ -85,6 +85,7 @@
     .retention-days-row.is-disabled { opacity: 0.5; cursor: not-allowed; }
   </style>
   <script src="{{ url_for('root.static', filename='error-handler.js') }}"></script>
+  <script src="{{ url_for('root.static', filename='convey_copy.js') }}"></script>
   <script src="{{ url_for('root.static', filename='api.js') }}"></script>
 </head>
 <body>
@@ -317,7 +318,7 @@
       } catch (err) {
         if (emptyEl) emptyEl.style.display = 'none';
         if (errorEl) {
-          errorEl.textContent = err?.serverMessage || "Couldn't check for observers - reload to try again.";
+          errorEl.textContent = err?.serverMessage || `Couldn't check for observers - ${window.CONVEY_COPY.RELOAD_HINT}`;
           errorEl.hidden = false;
         }
         window.logError(err, { context: 'init-observers' });

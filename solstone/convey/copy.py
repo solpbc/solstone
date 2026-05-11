@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 INIT_PASSWORD_HINT = "protects your solstone web interface when you allow network access. minimum 8 characters. you can reset it anytime by using a terminal and running the command: <code>sol password set</code>. password is not required when accessing solstone from the same system."
+CONVEY_RELOAD_HINT = "reload to try again."
 SETTINGS_SECURITY_DESC = (
     "network access and password protection for the convey web interface."
 )
@@ -34,6 +35,7 @@ PAIRING_NO_LAN_BANNER_BODY = "the QR code below uses localhost, which paired dev
 
 
 __all__ = [
+    "CONVEY_RELOAD_HINT",
     "INIT_PASSWORD_HINT",
     "OBSERVER_CALLOSUM_LIVE_LABEL",
     "PAIRING_LOCALHOST_BANNER_ACTION",

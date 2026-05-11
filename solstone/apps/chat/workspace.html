@@ -474,7 +474,7 @@
         note.className = 'chat-talent-card-stalled-note';
         card.appendChild(note);
       }
-      note.textContent = 'talent stopped responding — reload to retry';
+      note.textContent = `talent stopped responding — ${window.CONVEY_COPY.RELOAD_HINT}`;
     });
   }
 

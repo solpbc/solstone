@@ -26,6 +26,7 @@ from solstone.apps.todos.todo import (
 from solstone.apps.utils import log_app_action
 from solstone.convey import state
 from solstone.convey.config import get_selected_facet
+from solstone.convey.copy import CONVEY_RELOAD_HINT
 from solstone.convey.utils import DATE_RE, format_date
 from solstone.think.facets import get_facets
 
@@ -304,7 +305,7 @@ def todos_day(day: str):  # type: ignore[override]
             current_app.logger.debug(
                 "Failed to load checklist for %s/%s: %s", facet, day, exc
             )
-            flash("Todo list changed, please refresh and try again", "error")
+            flash(f"Todo list changed, {CONVEY_RELOAD_HINT}", "error")
             return redirect(url_for("app:todos.todos_day", day=day))
 
         try:
@@ -419,7 +420,7 @@ def todos_day(day: str):  # type: ignore[override]
         except TodoEmptyTextError:
             flash("Cannot update todo to empty text", "error")
         except IndexError:
-            flash("Todo list changed, please refresh and try again", "error")
+            flash(f"Todo list changed, {CONVEY_RELOAD_HINT}", "error")
 
         # If AJAX request, return JSON with updated counts
         if (
@@ -528,7 +529,7 @@ def move_todo(day: str):  # type: ignore[override]
             "Failed to load source todo list for %s/%s: %s", facet, day, exc
         )
         return (
-            jsonify({"error": "Todo list changed, please refresh and try again."}),
+            jsonify({"error": f"Todo list changed, {CONVEY_RELOAD_HINT}"}),
             409,
         )
 
@@ -545,7 +546,7 @@ def move_todo(day: str):  # type: ignore[override]
     except IndexError as exc:
         current_app.logger.debug("Failed to locate todo %s on %s: %s", index, day, exc)
         return (
-            jsonify({"error": "Todo list changed, please refresh and try again."}),
+            jsonify({"error": f"Todo list changed, {CONVEY_RELOAD_HINT}"}),
             409,
         )
 

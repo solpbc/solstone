@@ -626,7 +626,7 @@ async function loadTokenData(day) {
     console.error('Failed to load token data:', err);
     window.SurfaceState.replaceLoading('tokens-loading', window.SurfaceState.errorCard({
       heading: 'Couldn\'t load token usage',
-      desc: 'Reload the page to try again.',
+      desc: window.CONVEY_COPY.RELOAD_HINT,
       serverMessage: err?.serverMessage ?? err?.message,
     }));
   }

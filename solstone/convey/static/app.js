@@ -1529,6 +1529,7 @@
 window.SurfaceState = (() => {
   const HEADING_LEVELS = new Set(['h1', 'h2', 'h3', 'h4', 'h5', 'h6']);
   const ERROR_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 21 19H3z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>';
+  const STRIP_LAST_KNOWN = /\s*[—-]\s*showing last known state\.?\s*$/i;
 
   function escapeHtml(value) {
     return String(value ?? '')
@@ -1562,6 +1563,16 @@ window.SurfaceState = (() => {
       + `</div>`;
   }
 
+  function stripLastKnownFromHeading(errorCardHtml) {
+    const template = document.createElement('template');
+    template.innerHTML = errorCardHtml;
+    const headingEl = template.content.querySelector('.surface-state-heading');
+    if (headingEl) {
+      headingEl.textContent = headingEl.textContent.replace(STRIP_LAST_KNOWN, '');
+    }
+    return template.innerHTML;
+  }
+
   return {
     loading({ text = '' } = {}) {
       return `<div class="surface-state surface-state--loading" role="status" aria-busy="true">`
@@ -1584,13 +1595,13 @@ window.SurfaceState = (() => {
      *
      * @param {object} options
      * @param {string} [options.heading="Couldn't load this section"]
-     * @param {string} [options.desc="Reload the page to try again."]
+     * @param {string} [options.desc="reload to try again."]
      * @param {string} [options.serverMessage]
      * @returns {string}
      */
     errorCard({
       heading = 'Couldn\'t load this section',
-      desc = 'Reload the page to try again.',
+      desc = (window.CONVEY_COPY && window.CONVEY_COPY.RELOAD_HINT) || 'reload to try again.',
       serverMessage = ''
     } = {}) {
       return `<div class="surface-state surface-state--error" role="alert">`
@@ -1605,6 +1616,9 @@ window.SurfaceState = (() => {
      * Replace an initial loading scaffold or append a singleton refresh error beside it.
      * Prevents the apps/entities anti-pattern where an `.error-message` is stuffed inside
      * the loading scaffold (`apps/entities/workspace.html:2671-2674`).
+     * On first-paint, strips a trailing `— showing last known state` tail from the
+     * rendered heading so callers can pass the same heading on first-paint and refresh
+     * paths without leaking refresh-only language to first-paint owners.
      *
      * @param {string} containerId
      * @param {string} errorCardHtml
@@ -1616,8 +1630,9 @@ window.SurfaceState = (() => {
         return null;
       }
 
-      if (container.querySelector('.surface-state--loading')) {
-        container.innerHTML = errorCardHtml;
+      const isFirstPaint = container.querySelector('.surface-state--loading');
+      if (isFirstPaint) {
+        container.innerHTML = stripLastKnownFromHeading(errorCardHtml);
         return container;
       }
 

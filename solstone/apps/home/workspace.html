@@ -1625,7 +1625,7 @@
         window.logError(err, { context: 'home: refreshVitals failed' });
         window.SurfaceState.replaceLoading('pulse-vitals', window.SurfaceState.errorCard({
           heading: "Couldn't refresh vitals — showing last known state.",
-          desc: 'Reload to try again.',
+          desc: window.CONVEY_COPY.RELOAD_HINT,
           serverMessage: err.serverMessage,
         }));
       });
@@ -1657,7 +1657,7 @@
         window.logError(err, { context: 'home: refreshNarrative failed' });
         window.SurfaceState.replaceLoading('pulse-narrative', window.SurfaceState.errorCard({
           heading: "Couldn't refresh narrative — showing last known state.",
-          desc: 'Reload to try again.',
+          desc: window.CONVEY_COPY.RELOAD_HINT,
           serverMessage: err.serverMessage,
         }));
       });
@@ -1745,7 +1745,7 @@
       if (routinesContainer) {
         routinesContainer.innerHTML = window.SurfaceState.errorCard({
           heading: 'Couldn\'t refresh routines',
-          desc: 'Reload the page to try again.',
+          desc: window.CONVEY_COPY.RELOAD_HINT,
           serverMessage: err?.serverMessage || err?.message || '',
         });
       }
@@ -1824,7 +1824,7 @@
       if (skillsContainer) {
         skillsContainer.innerHTML = window.SurfaceState.errorCard({
           heading: 'Couldn\'t refresh skills',
-          desc: 'Reload the page to try again.',
+          desc: window.CONVEY_COPY.RELOAD_HINT,
           serverMessage: err?.serverMessage || err?.message || '',
         });
       }
@@ -1919,7 +1919,7 @@
     } catch (err) {
       window.SurfaceState.replaceLoading('pulse-briefing', window.SurfaceState.errorCard({
         heading: 'Couldn\'t refresh briefing',
-        desc: 'Reload the page to try again.',
+        desc: window.CONVEY_COPY.RELOAD_HINT,
         serverMessage: err?.serverMessage || err?.message || '',
       }));
     }

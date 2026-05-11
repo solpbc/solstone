@@ -1069,7 +1069,7 @@
         throw new Error('Failed');
       }
     } catch (e) {
-      status.textContent = "couldn't send your feedback — try again in a moment";
+      status.textContent = "couldn't send your feedback — " + window.CONVEY_COPY.RELOAD_HINT;
       status.className = 'support-status-msg error';
     }
     document.getElementById('feedback-submit').disabled = false;
@@ -1114,7 +1114,7 @@
       if (!announcementsFirstPaintDone) {
         banner.style.display = '';
         banner.innerHTML = '<p class="support-announcements-error">' +
-          esc(err.serverMessage || "Couldn't load announcements. Reload to try again.") +
+          esc(err.serverMessage || `Couldn't load announcements. ${window.CONVEY_COPY.RELOAD_HINT}`) +
           '</p>';
       } else {
         clearAnnouncementsStale();

@@ -809,7 +809,7 @@ async function loadObservers() {
   } catch (err) {
     window.SurfaceState.replaceLoading('observersList', window.SurfaceState.errorCard({
       heading: 'Couldn\'t load observers',
-      desc: 'Reload the page to try again.',
+      desc: window.CONVEY_COPY.RELOAD_HINT,
       serverMessage: err?.serverMessage || err?.message || '',
     }));
   }
@@ -847,7 +847,7 @@ async function revokeObserver(keyPrefix, name) {
 
     loadObservers();
   } catch (err) {
-    const msg = 'couldn\'t revoke observer — the server may be unavailable. try again in a moment.';
+    const msg = 'couldn\'t revoke observer — the server may be unavailable. ' + window.CONVEY_COPY.RELOAD_HINT;
     if (window.showError) { showError(msg); } else { showLocalError(msg); }
   }
 }
@@ -865,7 +865,7 @@ async function viewObserverKey(keyPrefix, name) {
 
     showKeyModal(name, data.key, trigger);
   } catch (err) {
-    const msg = 'couldn\'t retrieve observer key — the server may be unavailable. try again in a moment.';
+    const msg = 'couldn\'t retrieve observer key — the server may be unavailable. ' + window.CONVEY_COPY.RELOAD_HINT;
     if (window.showError) { showError(msg); } else { showLocalError(msg); }
   }
 }

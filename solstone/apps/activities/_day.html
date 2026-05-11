@@ -963,7 +963,7 @@ button.activity-detail-back {
       window.logError(err, { context: 'activities-day-load' });
       window.SurfaceState.replaceLoading('timelineView', window.SurfaceState.errorCard({
         heading: 'Couldn\'t load activities',
-        desc: 'Reload the page to try again.',
+        desc: window.CONVEY_COPY.RELOAD_HINT,
         serverMessage: err?.serverMessage || err?.message || '',
       }));
       document.getElementById('activitiesView').innerHTML = '';

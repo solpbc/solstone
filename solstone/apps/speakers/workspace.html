@@ -1930,7 +1930,7 @@
           if (isFirstPaint) {
             container.innerHTML = window.SurfaceState.errorCard({
               heading: "Couldn't load review",
-              desc: 'Reload to try again.',
+              desc: window.CONVEY_COPY.RELOAD_HINT,
               serverMessage: err.serverMessage,
             });
           } else {

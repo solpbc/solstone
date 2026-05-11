@@ -1116,7 +1116,7 @@ async function loadImports() {
   } catch (err) {
     window.SurfaceState.replaceLoading('importListContent', window.SurfaceState.errorCard({
       heading: 'Couldn\'t load your import history',
-      desc: 'Reload the page to try again.',
+      desc: window.CONVEY_COPY.RELOAD_HINT,
       serverMessage: err?.serverMessage || err?.message || '',
     }));
   }
@@ -1136,7 +1136,7 @@ function renderLoadMoreError(err) {
   }
 
   const serverMessage = err?.serverMessage || err?.message || '';
-  errorEl.innerHTML = `<strong>Couldn&#39;t load more imports.</strong> Reload the page to try again.${serverMessage ? ` ${escapeHtml(serverMessage)}` : ''}`;
+  errorEl.innerHTML = `<strong>Couldn&#39;t load more imports.</strong> ${window.CONVEY_COPY.RELOAD_HINT}${serverMessage ? ` ${escapeHtml(serverMessage)}` : ''}`;
 
   const loadMoreContainer = document.getElementById('importLoadMore');
   if (loadMoreContainer) {
@@ -1245,7 +1245,7 @@ function markRowStalled(importId) {
     row.classList.add('import-row--stalled');
     const statusCell = row.querySelector('.status-cell');
     if (statusCell) {
-      statusCell.innerHTML = `<span class="import-status stalled">stalled</span><div class="progress-detail import-stalled-meta">stalled — no updates in 10 minutes. import ID: ${escapeHtml(importId)}. reload to retry.</div>`;
+      statusCell.innerHTML = `<span class="import-status stalled">stalled</span><div class="progress-detail import-stalled-meta">stalled — no updates in 10 minutes. import ID: ${escapeHtml(importId)}. ${window.CONVEY_COPY.RELOAD_HINT}</div>`;
     }
   }
 
@@ -1831,7 +1831,7 @@ function showProgressView(importId, eventData = null) {
     completionHtml = `
       <div class="import-completion-summary stalled">
         <div><strong>Import ID:</strong> ${escapeHtml(importId)}</div>
-        <div>Stalled — no updates in 10 minutes. Reload to retry.</div>
+        <div>Stalled — no updates in 10 minutes. ${window.CONVEY_COPY.RELOAD_HINT}</div>
         <div class="import-action-row">
           <a href="#" class="import-secondary-btn" onclick="showGrid(); return false;">import another source</a>
         </div>

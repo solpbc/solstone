@@ -1774,10 +1774,17 @@ function showFacetDetailView(entityId) {
       renderDetailView(data.entity, data.observations);
     })
     .catch(error => {
-      console.error('Error loading entity:', error);
-      document.getElementById('detail-name').textContent = 'error';
-      document.getElementById('detail-description-container').innerHTML =
-        `<div class="error-message">${window.AppServices.escapeHtml(error.message)}</div>`;
+      console.error('Error loading entity details:', error);
+      document.getElementById('detail-name').textContent = '';
+      document.getElementById('detail-allfacets-name').textContent = '';
+      const container = document.getElementById('detail-description-container');
+      if (container) {
+        container.innerHTML = window.SurfaceState.errorCard({
+          heading: "I couldn't load this entity",
+          desc: window.CONVEY_COPY.RELOAD_HINT,
+          serverMessage: error?.message,
+        });
+      }
     });
 }
 
@@ -1800,10 +1807,16 @@ function showJournalDetailView(entityId) {
       renderJournalDetailView(data.entity);
     })
     .catch(error => {
-      console.error('Error loading journal entity:', error);
-      document.getElementById('journal-detail-name').textContent = 'error';
-      document.getElementById('journal-detail-facets').innerHTML =
-        `<div class="error-message">${window.AppServices.escapeHtml(error.message)}</div>`;
+      console.error('Error loading journal entity details:', error);
+      document.getElementById('journal-detail-name').textContent = '';
+      const container = document.getElementById('journal-detail-facets');
+      if (container) {
+        container.innerHTML = window.SurfaceState.errorCard({
+          heading: "I couldn't load this entity",
+          desc: window.CONVEY_COPY.RELOAD_HINT,
+          serverMessage: error?.message,
+        });
+      }
     });
 }
 
@@ -2753,7 +2766,7 @@ function loadEntities() {
       window.logError(err, { context: 'entities: loadEntities failed' });
       window.SurfaceState.replaceLoading('entities-loading', window.SurfaceState.errorCard({
         heading: "Couldn't load entities",
-        desc: 'Reload to try again.',
+        desc: window.CONVEY_COPY.RELOAD_HINT,
         serverMessage: err?.serverMessage
       }));
     });
@@ -2779,7 +2792,7 @@ function loadJournalEntities() {
       window.logError(err, { context: 'entities: loadJournalEntities failed' });
       window.SurfaceState.replaceLoading('entities-loading', window.SurfaceState.errorCard({
         heading: "Couldn't load entities",
-        desc: 'Reload to try again.',
+        desc: window.CONVEY_COPY.RELOAD_HINT,
         serverMessage: err?.serverMessage
       }));
     });
@@ -3404,13 +3417,13 @@ function listenForAgentCompletion(agentId, callback) {
 
 function handleEntitiesTimeout(useId) {
   if (pendingEntities.has(useId)) {
-    failPendingEntity(useId, 'Entity assist timed out — reload to retry');
+    failPendingEntity(useId, `Entity assist timed out — ${window.CONVEY_COPY.RELOAD_HINT}`);
   }
 
   if (pendingAgentCallbacks.has(useId)) {
     const callback = pendingAgentCallbacks.get(useId);
     pendingAgentCallbacks.delete(useId);
-    callback({ success: false, error: 'Generation timed out — reload to retry' });
+    callback({ success: false, error: `Generation timed out — ${window.CONVEY_COPY.RELOAD_HINT}` });
   }
 }
 

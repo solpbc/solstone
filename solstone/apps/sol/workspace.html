@@ -1237,7 +1237,7 @@
         window.logError(err, { context: 'sol: loadIdentity failed' });
         document.getElementById('sol-identity').innerHTML = window.SurfaceState.errorCard({
           heading: "Couldn't load identity",
-          desc: 'Reload to try again.',
+          desc: window.CONVEY_COPY.RELOAD_HINT,
           serverMessage: err.serverMessage,
         });
       });
@@ -1410,7 +1410,7 @@
           if (!banner.querySelector('.updated-banner-stale')) {
             const stale = document.createElement('div');
             stale.className = 'updated-banner-stale';
-            stale.textContent = 'status check failed — reload to refresh.';
+            stale.textContent = 'status check failed — ' + window.CONVEY_COPY.RELOAD_HINT;
             banner.appendChild(stale);
           }
           return;
@@ -2117,7 +2117,7 @@
       const data = await response.json();
 
       if (data.error) {
-        pane.innerHTML = `<div class="run-loading" aria-live="polite">Unable to load output — ${escapeHtml(data.error)}. Try switching tabs or reloading the page.</div>`;
+        pane.innerHTML = `<div class="run-loading" aria-live="polite">Unable to load output — ${escapeHtml(data.error)}. ${window.CONVEY_COPY.RELOAD_HINT}</div>`;
         return;
       }
 

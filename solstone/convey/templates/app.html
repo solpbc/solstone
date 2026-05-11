@@ -10,6 +10,7 @@
   <script src="{{ url_for('root.static', filename='error-handler.js') }}"></script>
   <script src="{{ url_for('root.static', filename='relative-time.js') }}"></script>
   <script src="{{ url_for('root.static', filename='sol_initiated_constants.js') }}"></script>
+  <script src="{{ url_for('root.static', filename='convey_copy.js') }}"></script>
 
   <!-- Embed facets data for immediate client-side access -->
   <script>
@@ -885,9 +886,10 @@
       });
     } catch (err) {
       setPendingState(true);
+      var hydrateError = `Couldn't load recent chat session. ${window.CONVEY_COPY.RELOAD_HINT}`;
       setStatus(
-        "Couldn't load recent chat session. Reload to try again.",
-        "Couldn't load recent chat session. Reload to try again."
+        hydrateError,
+        hydrateError
       );
       window.logError(err, { context: 'chat-hydrate' });
     }
