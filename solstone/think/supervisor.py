@@ -27,6 +27,7 @@ import psutil
 from solstone.think import routines, scheduler
 from solstone.think.callosum import CallosumConnection, CallosumServer
 from solstone.think.maint import run_pending_tasks
+from solstone.think.readiness import clear_ready, signal_ready
 from solstone.think.runner import ManagedProcess as RunnerManagedProcess
 from solstone.think.utils import (
     EXIT_TEMPFAIL,
@@ -1981,6 +1982,7 @@ def main() -> None:
     try:
         print("  Supervisor ready", flush=True)
         _sd_notify("READY=1")
+        signal_ready()
         asyncio.run(
             supervise(
                 daily=daily_enabled,
@@ -1991,6 +1993,11 @@ def main() -> None:
     except KeyboardInterrupt:
         logging.info("Caught KeyboardInterrupt, shutting down...")
     finally:
+        try:
+            clear_ready()
+        except Exception as exc:
+            logging.warning("Failed to clear readiness marker during shutdown: %s", exc)
+
         logging.info("Stopping all processes...")
         print("\nShutting down gracefully (this may take a moment)...", flush=True)
 
