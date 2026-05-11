@@ -33,12 +33,15 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 from dataclasses import dataclass, replace
 from importlib.metadata import PackageNotFoundError, distribution
+from importlib.metadata import version as _pkg_version
 from pathlib import Path
-from typing import Callable, Literal, Sequence
+from typing import IO, Callable, Literal, Sequence
 
 from solstone.think import features as _features
+from solstone.think.setup_events import STATUS_TRANSLATION, JsonlEmitter, utc_now_iso
 from solstone.think.utils import is_packaged_install
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -61,6 +64,7 @@ Platform = Literal["linux", "darwin"]
 class Args:
     verbose: bool
     json: bool
+    jsonl: bool
     port: int
     feature: str | None = None
 
@@ -956,6 +960,11 @@ def parse_args(argv: Sequence[str] | None = None) -> Args:
     )
     parser.add_argument("--json", action="store_true", help="emit JSON instead of text")
     parser.add_argument(
+        "--jsonl",
+        action="store_true",
+        help="emit one-JSON-per-line events instead of text",
+    )
+    parser.add_argument(
         "--port", type=int, default=5015, help="port to probe (default: 5015)"
     )
     parser.add_argument(
@@ -964,12 +973,15 @@ def parse_args(argv: Sequence[str] | None = None) -> Args:
         help=f"Run only the named feature check ({', '.join(sorted(_features.FEATURES))})",
     )
     namespace = parser.parse_args(argv)
+    if namespace.json and namespace.jsonl:
+        parser.error("--json and --jsonl are mutually exclusive")
     if namespace.feature is not None and namespace.feature not in _features.FEATURES:
         known = ", ".join(sorted(_features.FEATURES))
         parser.error(f"unknown feature {namespace.feature!r}; known features: {known}")
     return Args(
         verbose=namespace.verbose,
         json=namespace.json,
+        jsonl=namespace.jsonl,
         port=namespace.port,
         feature=namespace.feature,
     )
@@ -1061,11 +1073,78 @@ def emit_json(results: Sequence[CheckResult]) -> None:
     print(json.dumps(payload))
 
 
+def solstone_version() -> str:
+    try:
+        return _pkg_version("solstone")
+    except PackageNotFoundError:
+        return "0.0.0+source"
+
+
+def jsonl_summary_status(results: Sequence[CheckResult]) -> str:
+    if any(
+        result.severity == "blocker" and result.status == "fail" for result in results
+    ):
+        return "failed"
+    if any(
+        result.status == "warn"
+        or (result.severity == "advisory" and result.status == "fail")
+        for result in results
+    ):
+        return "warning"
+    return "ok"
+
+
+def emit_jsonl(
+    results: Sequence[CheckResult],
+    *,
+    started_at_iso: str,
+    duration_ms: int,
+    summary_status: str,
+    writer: IO[str] | None = None,
+) -> None:
+    emitter = JsonlEmitter(writer if writer is not None else sys.stdout)
+    for result in results:
+        emitter.emit(
+            "check.completed",
+            name=result.name,
+            severity=result.severity,
+            status=STATUS_TRANSLATION[result.status],
+            detail=result.detail or "",
+            fix=result.fix or "",
+        )
+    emitter.emit(
+        "doctor.completed",
+        started_at=started_at_iso,
+        status=summary_status,
+        duration_ms=duration_ms,
+        summary=summary_counts(results),
+    )
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
+    started_at_iso = utc_now_iso()
+    t0 = time.monotonic()
+    if args.jsonl:
+        emitter = JsonlEmitter(sys.stdout)
+        emitter.emit(
+            "doctor.started",
+            started_at=started_at_iso,
+            version=solstone_version(),
+            port=args.port,
+            feature=args.feature or "",
+        )
     results = run_checks(args)
     if args.json:
         emit_json(results)
+    elif args.jsonl:
+        emit_jsonl(
+            results,
+            started_at_iso=started_at_iso,
+            duration_ms=round((time.monotonic() - t0) * 1000),
+            summary_status=jsonl_summary_status(results),
+            writer=sys.stdout,
+        )
     else:
         emit_text(results, verbose=args.verbose)
     blocker_failed = any(

@@ -80,8 +80,13 @@ def patch_subprocess(
     doctor_stdout: str | None = None,
     doctor_returncode: int = 0,
     command_returncode: int = 0,
+    command_stdout: str = "",
+    command_stderr: str = "",
     doctor_timeout: bool = False,
     popen_timeout_command: list[str] | None = None,
+    doctor_jsonl_lines: list[str | dict[str, Any]] | None = None,
+    doctor_jsonl_returncode: int = 0,
+    doctor_jsonl_stderr: str = "",
 ) -> list[list[str]]:
     calls: list[list[str]] = []
 
@@ -98,25 +103,54 @@ def patch_subprocess(
                 stdout=doctor_stdout if doctor_stdout is not None else doctor_payload(),
                 stderr="doctor failed\n" if doctor_returncode else "",
             )
-        return subprocess.CompletedProcess(command, command_returncode)
+        return subprocess.CompletedProcess(
+            command,
+            command_returncode,
+            stdout=command_stdout,
+            stderr=command_stderr,
+        )
 
     class FakePopen:
         def __init__(self, command: list[str], **kwargs: object) -> None:
             del kwargs
             self.command = command
             self.terminated = False
+            self.returncode: int | None = None
+            self._returncode = command_returncode
+            self.stdout = None
+            self.stderr = None
+            if (
+                doctor_jsonl_lines is not None
+                and "doctor" in command
+                and "--jsonl" in command
+            ):
+                serialized = [
+                    item if isinstance(item, str) else json.dumps(item)
+                    for item in doctor_jsonl_lines
+                ]
+                self.stdout = iter(
+                    line if line.endswith("\n") else f"{line}\n" for line in serialized
+                )
+                self.stderr = iter(
+                    line if line.endswith("\n") else f"{line}\n"
+                    for line in doctor_jsonl_stderr.splitlines()
+                )
+                self._returncode = doctor_jsonl_returncode
             calls.append(command)
 
         def wait(self, timeout: float | None = None) -> int:
             if self.command == popen_timeout_command and not self.terminated:
                 raise subprocess.TimeoutExpired(self.command, timeout)
-            return command_returncode
+            self.returncode = self._returncode
+            return self._returncode
 
         def terminate(self) -> None:
             self.terminated = True
+            self.returncode = -15
 
         def kill(self) -> None:
             self.terminated = True
+            self.returncode = -9
 
     monkeypatch.setattr(setup.subprocess, "run", fake_run)
     monkeypatch.setattr(setup.subprocess, "Popen", FakePopen)
@@ -1117,7 +1151,12 @@ def test_step_service_failure_message(
 
     assert result.status == "failed"
     assert result.paths == expected_paths
-    assert result.error == {"message": "service up failed (exit 7)", "exit_code": 1}
+    assert result.error == {
+        "code": "service_up_failed",
+        "message": "service up failed (exit 7)",
+        "details": "",
+        "exit_code": 1,
+    }
 
 
 def test_force_skips_resumption(

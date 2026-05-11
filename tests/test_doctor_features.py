@@ -18,7 +18,9 @@ def doctor():
 
 
 def args(doctor, *, port: int = 5015, feature: str | None = None):
-    return doctor.Args(verbose=False, json=False, port=port, feature=feature)
+    return doctor.Args(
+        verbose=False, json=False, jsonl=False, port=port, feature=feature
+    )
 
 
 def run_check(doctor, name: str):

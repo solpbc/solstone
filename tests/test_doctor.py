@@ -34,7 +34,7 @@ def home_root(monkeypatch, tmp_path):
 
 
 def args(doctor, *, port: int = 5015):
-    return doctor.Args(verbose=False, json=False, port=port)
+    return doctor.Args(verbose=False, json=False, jsonl=False, port=port)
 
 
 def make_repo(tmp_path: Path, *, worktree: bool = False) -> Path:
@@ -747,6 +747,113 @@ class TestJsonAndExitCodes:
         doctor.main([])
         output = capsys.readouterr().out.strip().splitlines()
         assert output[-1] == "doctor: 3 checks, 1 failed, 1 warnings, 1 skipped"
+
+    def test_doctor_jsonl_emits_started_and_completed(
+        self, doctor, monkeypatch, capsys
+    ):
+        monkeypatch.setattr(
+            doctor,
+            "run_checks",
+            lambda _args: [doctor.CheckResult("a", "blocker", "ok", "fine", None)],
+        )
+
+        rc = doctor.main(["--jsonl"])
+        events = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+
+        assert rc == 0
+        assert events[0]["event"] == "doctor.started"
+        assert events[-1]["event"] == "doctor.completed"
+        assert events[-1]["status"] == "ok"
+
+    def test_doctor_jsonl_emits_check_completed_per_check(
+        self, doctor, monkeypatch, capsys
+    ):
+        monkeypatch.setattr(
+            doctor,
+            "run_checks",
+            lambda _args: [
+                doctor.CheckResult(check.name, check.severity, "ok", "fine", None)
+                for check, _func in doctor.CHECKS
+            ],
+        )
+
+        doctor.main(["--jsonl"])
+        events = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+
+        checks = [event for event in events if event["event"] == "check.completed"]
+        assert len(checks) == len(doctor.CHECKS)
+
+    def test_doctor_jsonl_status_translates_short_to_long(
+        self, doctor, monkeypatch, capsys
+    ):
+        monkeypatch.setattr(
+            doctor,
+            "run_checks",
+            lambda _args: [
+                doctor.CheckResult("ok", "blocker", "ok", "ok", None),
+                doctor.CheckResult("warn", "advisory", "warn", "warn", None),
+                doctor.CheckResult("fail", "advisory", "fail", "fail", None),
+                doctor.CheckResult("skip", "blocker", "skip", "skip", None),
+            ],
+        )
+
+        rc = doctor.main(["--jsonl"])
+        events = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+
+        assert rc == 0
+        statuses = {
+            event["name"]: event["status"]
+            for event in events
+            if event["event"] == "check.completed"
+        }
+        assert statuses == {
+            "ok": "ok",
+            "warn": "warning",
+            "fail": "failed",
+            "skip": "skipped",
+        }
+        assert events[-1]["status"] == "warning"
+
+    def test_doctor_jsonl_json_and_jsonl_mutually_exclusive(self, doctor):
+        with pytest.raises(SystemExit) as raised:
+            doctor.main(["--json", "--jsonl"])
+
+        assert raised.value.code == 2
+
+    def test_doctor_jsonl_preserves_json_payload_unchanged(
+        self, doctor, monkeypatch, capsys
+    ):
+        monkeypatch.setattr(
+            doctor,
+            "run_checks",
+            lambda _args: [
+                doctor.CheckResult("a", "advisory", "warn", "careful", None)
+            ],
+        )
+
+        rc = doctor.main(["--json"])
+        payload = json.loads(capsys.readouterr().out)
+
+        assert rc == 0
+        assert payload["checks"][0]["status"] == "warn"
+
+    def test_doctor_jsonl_subprocess_e2e(self):
+        result = subprocess.run(
+            [sys.executable, "-m", "solstone.think.sol_cli", "doctor", "--jsonl"],
+            capture_output=True,
+            text=True,
+            cwd=ROOT,
+            timeout=60,
+        )
+
+        assert result.returncode in (
+            0,
+            1,
+        ), f"unexpected exit code {result.returncode}: {result.stderr}"
+        lines = [line for line in result.stdout.splitlines() if line.strip()]
+        assert lines
+        for line in lines:
+            json.loads(line)
 
 
 def test_sol_doctor_subprocess_json_shape():

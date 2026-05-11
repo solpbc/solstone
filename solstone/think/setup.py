@@ -12,12 +12,17 @@ import os
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from enum import Enum
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as _pkg_version
 from pathlib import Path
 from typing import Any, Callable, Literal
 
+from solstone.think.setup_events import EVENT_TYPES, JsonlEmitter, utc_now_iso
 from solstone.think.user_config import (
     config_path,
     default_journal,
@@ -30,8 +35,18 @@ from solstone.think.utils import is_source_checkout as source_checkout
 TOTAL_STEPS = 6
 MANIFEST_SCHEMA_VERSION = 1
 DOCTOR_TIMEOUT_SECONDS = 30
+DOCTOR_JSONL_EVENTS = frozenset(
+    {"doctor.started", "check.completed", "doctor.completed"}
+)
 
 StepStatus = Literal["ok", "skipped", "failed"]
+
+
+def narrate(ctx: "SetupContext | None", *args: Any, **kwargs: Any) -> None:
+    """Print to stdout/stderr unless JSONL mode is active."""
+    if ctx is not None and ctx.jsonl:
+        return
+    print(*args, **kwargs)
 
 
 class SetupMode(Enum):
@@ -66,6 +81,8 @@ class SetupContext:
     stdout_is_tty: bool
     args_resolved: dict[str, object]
     doctor_advisories: list[dict[str, Any]]
+    jsonl: bool = False
+    emitter: JsonlEmitter | None = None
 
 
 @dataclass(frozen=True)
@@ -80,10 +97,19 @@ class StepResult:
 
 
 class SetupDeadEnd(Exception):
-    def __init__(self, message: str, exit_code: int = 2) -> None:
+    def __init__(
+        self,
+        message: str,
+        exit_code: int = 2,
+        *,
+        step_name: str | None = None,
+        error_code: str | None = None,
+    ) -> None:
         super().__init__(message)
         self.message = message
         self.exit_code = exit_code
+        self.step_name = step_name
+        self.error_code = error_code
 
 
 def _journal_arg(value: str) -> Path:
@@ -162,6 +188,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="print the resolved plan and commands without changing files or services",
     )
     parser.add_argument(
+        "--jsonl",
+        action="store_true",
+        help="Emit one-JSON-per-line events on stdout instead of human output.",
+    )
+    parser.add_argument(
         "--explain",
         action="store_true",
         help="print the setup steps and resolved defaults without running them",
@@ -198,6 +229,8 @@ def resolve_mode(args: argparse.Namespace) -> SetupMode:
     stdin_is_tty = sys.stdin.isatty()
     stdout_is_tty = sys.stdout.isatty()
 
+    if args.jsonl:
+        return SetupMode.NON_INTERACTIVE
     if args.explain:
         return SetupMode.EXPLAIN
     if args.dry_run:
@@ -209,7 +242,12 @@ def resolve_mode(args: argparse.Namespace) -> SetupMode:
     return SetupMode.NON_INTERACTIVE
 
 
-def resolve_context(args: argparse.Namespace, raw_argv: list[str]) -> SetupContext:
+def resolve_context(
+    args: argparse.Namespace,
+    raw_argv: list[str],
+    *,
+    emitter: JsonlEmitter | None = None,
+) -> SetupContext:
     mode = resolve_mode(args)
     project_root = Path(get_project_root())
     is_source_checkout = source_checkout()
@@ -245,6 +283,10 @@ def resolve_context(args: argparse.Namespace, raw_argv: list[str]) -> SetupConte
         "dry_run": {
             "value": bool(args.dry_run),
             "source": "cli" if args.dry_run else "default",
+        },
+        "jsonl": {
+            "value": bool(args.jsonl),
+            "source": "cli" if args.jsonl else "default",
         },
         "explain": {
             "value": bool(args.explain),
@@ -300,9 +342,9 @@ def resolve_context(args: argparse.Namespace, raw_argv: list[str]) -> SetupConte
         stdout_is_tty=sys.stdout.isatty(),
         args_resolved=args_resolved,
         doctor_advisories=[],
+        jsonl=bool(args.jsonl),
+        emitter=emitter,
     )
-    if ctx.journal_path.exists() and not ctx.journal_path.is_dir():
-        dead_end_journal_is_file(ctx)
     return ctx
 
 
@@ -455,18 +497,21 @@ def step_result(
 
 
 def print_step_header(
-    step_index: int, label: str, command: list[str] | None = None
+    ctx: SetupContext, step_index: int, label: str, command: list[str] | None = None
 ) -> None:
     if command:
-        print(
-            f"[step {step_index}/{TOTAL_STEPS}] running {label}: {format_command(command)}"
+        narrate(
+            ctx,
+            f"[step {step_index}/{TOTAL_STEPS}] running {label}: {format_command(command)}",
         )
     else:
-        print(f"[step {step_index}/{TOTAL_STEPS}] running {label}...")
+        narrate(ctx, f"[step {step_index}/{TOTAL_STEPS}] running {label}...")
 
 
-def print_step_skipped(step_index: int, name: str, reason: str) -> None:
-    print(f"[step {step_index}/{TOTAL_STEPS}] skipped {name}: {reason}")
+def print_step_skipped(
+    ctx: SetupContext, step_index: int, name: str, reason: str
+) -> None:
+    narrate(ctx, f"[step {step_index}/{TOTAL_STEPS}] skipped {name}: {reason}")
 
 
 def format_command(command: list[str]) -> str:
@@ -490,13 +535,180 @@ def run_inherited(command: list[str], *, timeout: float | None = None) -> int:
         raise
 
 
-def doctor_command(ctx: SetupContext) -> list[str]:
+@dataclass(frozen=True)
+class StepProcessResult:
+    returncode: int
+    stdout: str
+    stderr: str
+    timed_out: bool
+
+
+def _timeout_output_text(value: str | bytes | None) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return value
+
+
+def run_step_subprocess(
+    ctx: SetupContext, command: list[str], *, timeout: float | None = None
+) -> StepProcessResult:
+    if not ctx.jsonl:
+        try:
+            rc = (
+                run_inherited(command)
+                if timeout is None
+                else run_inherited(command, timeout=timeout)
+            )
+        except subprocess.TimeoutExpired:
+            return StepProcessResult(1, "", "", True)
+        return StepProcessResult(rc, "", "", False)
+    try:
+        proc = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+        return StepProcessResult(
+            int(proc.returncode), proc.stdout or "", proc.stderr or "", False
+        )
+    except subprocess.TimeoutExpired as exc:
+        return StepProcessResult(
+            1,
+            _timeout_output_text(exc.stdout),
+            _timeout_output_text(exc.stderr),
+            True,
+        )
+
+
+def tail_text(text: str, max_bytes: int = 8192) -> str:
+    encoded = text.encode("utf-8", errors="replace")
+    if len(encoded) <= max_bytes:
+        return text
+    return encoded[-max_bytes:].decode("utf-8", errors="replace")
+
+
+def first_non_empty_line(text: str) -> str:
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped:
+            return " ".join(stripped.split())
+    return ""
+
+
+def subprocess_error(
+    step: str, result: StepProcessResult, *, timeout: float | None = None
+) -> dict[str, object]:
+    details_source = result.stderr or result.stdout
+    if result.timed_out:
+        message = (
+            f"{step} step timed out after {timeout:g}s"
+            if timeout is not None
+            else f"{step} step timed out"
+        )
+        return {
+            "code": "step_subprocess_timeout",
+            "message": message,
+            "details": tail_text(details_source),
+            "exit_code": 1,
+        }
+    message = first_non_empty_line(result.stderr) or (
+        f"{step} step exited with code {result.returncode}"
+    )
+    return {
+        "code": "step_subprocess_failed",
+        "message": message,
+        "details": tail_text(details_source),
+        "exit_code": int(result.returncode),
+    }
+
+
+@dataclass
+class CappedTextBuffer:
+    text: str = ""
+    max_bytes: int = 8192
+
+    def append(self, chunk: str) -> None:
+        self.text = tail_text(self.text + chunk, self.max_bytes)
+
+
+def setup_version() -> str:
+    try:
+        return _pkg_version("solstone")
+    except PackageNotFoundError:
+        return "0.0.0+source"
+
+
+def elapsed_ms(started: float) -> int:
+    return round((time.monotonic() - started) * 1000)
+
+
+def require_emitter(ctx: SetupContext) -> JsonlEmitter:
+    if ctx.emitter is None:
+        raise RuntimeError("JSONL emitter is not configured")
+    return ctx.emitter
+
+
+def emit_step_started(
+    ctx: SetupContext,
+    step_name: str,
+    step_index: int,
+    *,
+    command: list[str] | None = None,
+) -> None:
+    if not ctx.jsonl:
+        return
+    fields: dict[str, object] = {
+        "step": step_name,
+        "index": step_index,
+        "total": TOTAL_STEPS,
+    }
+    if command is not None:
+        fields["command"] = command
+    require_emitter(ctx).emit("step.started", **fields)
+
+
+def emit_step_result(
+    ctx: SetupContext, result: StepResult, step_started: float
+) -> None:
+    if not ctx.jsonl:
+        return
+    emitter = require_emitter(ctx)
+    duration_ms = elapsed_ms(step_started)
+    if result.status in ("ok", "skipped"):
+        fields: dict[str, object] = {
+            "step": result.name,
+            "outcome": "skipped" if result.status == "skipped" else "ok",
+            "duration_ms": duration_ms,
+        }
+        if result.reason:
+            fields["reason"] = result.reason
+        emitter.emit("step.completed", **fields)
+        return
+    error = result.error or {}
+    emitter.emit(
+        "step.failed",
+        step=result.name,
+        duration_ms=duration_ms,
+        error={
+            "code": error.get("code", "setup_unhandled_exception"),
+            "message": error.get("message", "step failed"),
+            "details": error.get("details", ""),
+            "exit_code": int(error.get("exit_code", 1)),
+        },
+    )
+
+
+def doctor_command(ctx: SetupContext, *, jsonl: bool = False) -> list[str]:
     return [
         sys.executable,
         "-m",
         "solstone.think.sol_cli",
         "doctor",
-        "--json",
+        "--jsonl" if jsonl else "--json",
         "--port",
         str(ctx.port),
     ]
@@ -541,10 +753,185 @@ def service_install_command(ctx: SetupContext) -> list[str]:
     ]
 
 
+def _drain_stream_to_buffer(stream: Any, buffer: CappedTextBuffer) -> None:
+    if stream is None:
+        return
+    for chunk in stream:
+        buffer.append(str(chunk))
+
+
+def _emit_dropped_doctor_line(ctx: SetupContext, line: str) -> None:
+    require_emitter(ctx).emit(
+        "step.warning",
+        step="doctor",
+        text=line[:512],
+        fix_hint="",
+    )
+
+
+def _jsonl_advisory_to_doctor_payload(check: dict[str, Any]) -> dict[str, Any]:
+    status = check.get("status")
+    return {
+        "name": check.get("name"),
+        "severity": check.get("severity"),
+        "status": "warn" if status == "warning" else status,
+        "detail": check.get("detail", ""),
+        "fix": check.get("fix", ""),
+    }
+
+
+def _process_doctor_stdout_line(
+    ctx: SetupContext,
+    line: str,
+    advisories: list[dict[str, Any]],
+    state: dict[str, Any],
+) -> None:
+    stripped = line.strip()
+    if not stripped:
+        return
+    try:
+        obj = json.loads(stripped)
+    except json.JSONDecodeError:
+        _emit_dropped_doctor_line(ctx, stripped)
+        return
+    event = obj.get("event")
+    if event not in EVENT_TYPES or event not in DOCTOR_JSONL_EVENTS:
+        _emit_dropped_doctor_line(ctx, stripped)
+        return
+    require_emitter(ctx).forward_line(line)
+    if event == "doctor.completed":
+        state["doctor_completed"] = obj
+    elif (
+        event == "check.completed"
+        and obj.get("severity") == "advisory"
+        and obj.get("status") in ("warning", "failed")
+    ):
+        advisories.append(obj)
+
+
+def _drain_doctor_stdout(
+    ctx: SetupContext,
+    stream: Any,
+    advisories: list[dict[str, Any]],
+    state: dict[str, Any],
+) -> None:
+    if stream is None:
+        return
+    for line in stream:
+        _process_doctor_stdout_line(ctx, str(line), advisories, state)
+
+
+def step_doctor_jsonl(ctx: SetupContext, started_at: str) -> StepResult:
+    command = doctor_command(ctx, jsonl=True)
+    stderr_buffer = CappedTextBuffer()
+    advisories: list[dict[str, Any]] = []
+    state: dict[str, Any] = {"doctor_completed": None}
+    try:
+        proc = subprocess.Popen(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1,
+        )
+    except OSError as exc:
+        return step_result(
+            "doctor",
+            "failed",
+            [],
+            started_at,
+            {
+                "code": "doctor_failed",
+                "message": f"doctor failed to start: {exc}",
+                "details": "",
+                "exit_code": 1,
+            },
+        )
+
+    stderr_thread = threading.Thread(
+        target=_drain_stream_to_buffer,
+        args=(proc.stderr, stderr_buffer),
+        daemon=True,
+    )
+    stderr_thread.start()
+    stdout_thread = threading.Thread(
+        target=_drain_doctor_stdout,
+        args=(ctx, proc.stdout, advisories, state),
+        daemon=True,
+    )
+    stdout_thread.start()
+
+    try:
+        proc.wait(timeout=DOCTOR_TIMEOUT_SECONDS)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait()
+        stdout_thread.join(timeout=1)
+        stderr_thread.join(timeout=1)
+        return step_result(
+            "doctor",
+            "failed",
+            [],
+            started_at,
+            {
+                "code": "doctor_timeout",
+                "message": f"doctor timed out after {DOCTOR_TIMEOUT_SECONDS}s",
+                "details": stderr_buffer.text,
+                "exit_code": 1,
+            },
+        )
+    stdout_thread.join(timeout=1)
+    stderr_thread.join(timeout=1)
+
+    doctor_completed = state["doctor_completed"]
+    if doctor_completed is None:
+        return step_result(
+            "doctor",
+            "failed",
+            [],
+            started_at,
+            {
+                "code": "doctor_jsonl_incomplete",
+                "message": "doctor JSONL stream ended without doctor.completed",
+                "details": stderr_buffer.text,
+                "exit_code": int(proc.returncode or 1),
+            },
+        )
+
+    if doctor_completed.get("status") == "failed":
+        return step_result(
+            "doctor",
+            "failed",
+            [],
+            started_at,
+            {
+                "code": "doctor_failed",
+                "message": "doctor completed with status failed",
+                "details": stderr_buffer.text,
+                "exit_code": int(proc.returncode or 1),
+            },
+        )
+
+    ctx.doctor_advisories[:] = [
+        _jsonl_advisory_to_doctor_payload(item) for item in advisories
+    ]
+    for advisory in advisories:
+        require_emitter(ctx).emit(
+            "step.warning",
+            step="doctor",
+            text=advisory.get("detail") or advisory.get("name") or "",
+            fix_hint=advisory.get("fix") or "",
+        )
+    maybe_handle_port_in_use(ctx)
+    return step_result("doctor", "ok", [], started_at)
+
+
 def step_doctor(ctx: SetupContext, step_index: int) -> StepResult:
     started_at = utc_now()
+    if ctx.jsonl:
+        return step_doctor_jsonl(ctx, started_at)
     command = doctor_command(ctx)
-    print_step_header(step_index, "doctor", command)
+    print_step_header(ctx, step_index, "doctor", command)
     try:
         result = subprocess.run(
             command,
@@ -560,15 +947,20 @@ def step_doctor(ctx: SetupContext, step_index: int) -> StepResult:
             [],
             started_at,
             {
+                "code": "doctor_timeout",
                 "message": f"doctor timed out after {DOCTOR_TIMEOUT_SECONDS}s",
+                "details": "",
                 "exit_code": 1,
             },
         )
     if result.returncode != 0:
         if result.stdout:
-            print(result.stdout, end="" if result.stdout.endswith("\n") else "\n")
+            narrate(
+                ctx, result.stdout, end="" if result.stdout.endswith("\n") else "\n"
+            )
         if result.stderr:
-            print(
+            narrate(
+                ctx,
                 result.stderr,
                 end="" if result.stderr.endswith("\n") else "\n",
                 file=sys.stderr,
@@ -578,7 +970,12 @@ def step_doctor(ctx: SetupContext, step_index: int) -> StepResult:
             "failed",
             [],
             started_at,
-            {"message": "doctor blocker failed", "exit_code": int(result.returncode)},
+            {
+                "code": "doctor_failed",
+                "message": "doctor blocker failed",
+                "details": tail_text(result.stderr or result.stdout),
+                "exit_code": int(result.returncode),
+            },
         )
 
     try:
@@ -590,7 +987,9 @@ def step_doctor(ctx: SetupContext, step_index: int) -> StepResult:
             [],
             started_at,
             {
+                "code": "doctor_jsonl_incomplete",
                 "message": f"doctor JSON parse failed: {exc}",
+                "details": tail_text(result.stdout),
                 "exit_code": 1,
             },
         )
@@ -605,7 +1004,7 @@ def step_doctor(ctx: SetupContext, step_index: int) -> StepResult:
             and check.get("status") in ("warn", "fail")
         ]
     maybe_handle_port_in_use(ctx)
-    print(f"[step {step_index}/{TOTAL_STEPS}] doctor passed")
+    narrate(ctx, f"[step {step_index}/{TOTAL_STEPS}] doctor passed")
     return step_result("doctor", "ok", [], started_at)
 
 
@@ -642,14 +1041,14 @@ def prompt_port_choice(ctx: SetupContext) -> None:
     if advisory:
         detail = advisory.get("detail")
         if detail:
-            print(f"  {detail}")
+            narrate(ctx, f"  {detail}")
         fix = advisory.get("fix")
         if fix:
-            print(f"  suggested fix: {fix}")
-    print()
-    print("  1) enter a different port")
-    print("  2) proceed anyway on this port")
-    print("  3) abort setup")
+            narrate(ctx, f"  suggested fix: {fix}")
+    narrate(ctx)
+    narrate(ctx, "  1) enter a different port")
+    narrate(ctx, "  2) proceed anyway on this port")
+    narrate(ctx, "  3) abort setup")
     while True:
         choice = input("choice [1/2/3]: ").strip()
         if choice == "1":
@@ -658,7 +1057,7 @@ def prompt_port_choice(ctx: SetupContext) -> None:
                 try:
                     new_port = _port_arg(raw)
                 except argparse.ArgumentTypeError as exc:
-                    print(f"  {exc}")
+                    narrate(ctx, f"  {exc}")
                     continue
                 ctx.port = new_port
                 ctx.port_source = "prompt"
@@ -668,12 +1067,14 @@ def prompt_port_choice(ctx: SetupContext) -> None:
             return
         if choice == "3":
             raise SetupDeadEnd("setup aborted by user", 2)
-        print("  invalid choice; enter 1, 2, or 3")
+        narrate(ctx, "  invalid choice; enter 1, 2, or 3")
 
 
 def step_journal(ctx: SetupContext, step_index: int) -> StepResult:
     started_at = utc_now()
-    print_step_header(step_index, "journal config")
+    if ctx.journal_path.exists() and not ctx.journal_path.is_dir():
+        dead_end_journal_is_file(ctx)
+    print_step_header(ctx, step_index, "journal config")
     persisted = read_user_config().get("journal", "").strip()
     persisted_matches = bool(persisted) and expand_path(persisted) == ctx.journal_path
     if (
@@ -689,9 +1090,11 @@ def step_journal(ctx: SetupContext, step_index: int) -> StepResult:
     if not persisted_matches:
         ctx.journal_path.mkdir(parents=True, exist_ok=True)
         write_user_config(journal=str(ctx.journal_path))
-        print(f"[step {step_index}/{TOTAL_STEPS}] wrote {ctx.config_path}")
+        narrate(ctx, f"[step {step_index}/{TOTAL_STEPS}] wrote {ctx.config_path}")
     else:
-        print(f"[step {step_index}/{TOTAL_STEPS}] journal config already current")
+        narrate(
+            ctx, f"[step {step_index}/{TOTAL_STEPS}] journal config already current"
+        )
         ctx.journal_path.mkdir(parents=True, exist_ok=True)
     return step_result(
         "journal",
@@ -733,34 +1136,30 @@ def model_paths() -> list[Path]:
 def step_install_models(ctx: SetupContext, step_index: int) -> StepResult:
     started_at = utc_now()
     if ctx.skip_models:
-        print_step_skipped(step_index, "install_models", "--skip-models")
+        print_step_skipped(ctx, step_index, "install_models", "--skip-models")
         return step_result(
             "install_models", "skipped", [], started_at, reason="--skip-models"
         )
     command = install_models_command(ctx)
-    print_step_header(step_index, "install-models", command)
-    try:
-        rc = run_inherited(command, timeout=ctx.step_timeout_seconds)
-    except subprocess.TimeoutExpired:
+    print_step_header(ctx, step_index, "install-models", command)
+    result = run_step_subprocess(ctx, command, timeout=ctx.step_timeout_seconds)
+    if result.timed_out:
         return step_result(
             "install_models",
             "failed",
             model_paths(),
             started_at,
-            {
-                "message": (
-                    f"install_models timed out after {ctx.step_timeout_seconds}s"
-                ),
-                "exit_code": 1,
-            },
+            subprocess_error(
+                "install_models", result, timeout=ctx.step_timeout_seconds
+            ),
         )
-    if rc != 0:
+    if result.returncode != 0:
         return step_result(
             "install_models",
             "failed",
             model_paths(),
             started_at,
-            {"message": "install-models failed", "exit_code": rc},
+            subprocess_error("install_models", result),
         )
     return step_result("install_models", "ok", model_paths(), started_at)
 
@@ -770,36 +1169,32 @@ def step_skills(ctx: SetupContext, step_index: int) -> StepResult:
     claude_dir = Path.home() / ".claude"
     skill_path = claude_dir / "skills" / "solstone" / "SKILL.md"
     if ctx.skip_skills:
-        print_step_skipped(step_index, "skills", "--skip-skills")
+        print_step_skipped(ctx, step_index, "skills", "--skip-skills")
         return step_result("skills", "skipped", [], started_at, reason="--skip-skills")
     if not claude_dir.exists():
         reason = f"Claude Code config not found at {claude_dir}"
-        print_step_skipped(step_index, "skills", reason)
+        print_step_skipped(ctx, step_index, "skills", reason)
         return step_result(
             "skills", "skipped", [], started_at, reason="claude_config_missing"
         )
     command = skills_command()
-    print_step_header(step_index, "skills", command)
-    try:
-        rc = run_inherited(command, timeout=ctx.step_timeout_seconds)
-    except subprocess.TimeoutExpired:
+    print_step_header(ctx, step_index, "skills", command)
+    result = run_step_subprocess(ctx, command, timeout=ctx.step_timeout_seconds)
+    if result.timed_out:
         return step_result(
             "skills",
             "failed",
             [skill_path],
             started_at,
-            {
-                "message": f"skills timed out after {ctx.step_timeout_seconds}s",
-                "exit_code": 1,
-            },
+            subprocess_error("skills", result, timeout=ctx.step_timeout_seconds),
         )
-    if rc != 0:
+    if result.returncode != 0:
         return step_result(
             "skills",
             "failed",
             [skill_path],
             started_at,
-            {"message": "skills install failed", "exit_code": rc},
+            subprocess_error("skills", result),
         )
     return step_result("skills", "ok", [skill_path], started_at)
 
@@ -808,32 +1203,28 @@ def step_wrapper(ctx: SetupContext, step_index: int) -> StepResult:
     started_at = utc_now()
     wrapper_path = Path.home() / ".local" / "bin" / "sol"
     if not ctx.is_source_checkout:
-        print_step_skipped(step_index, "wrapper", "packaged install")
+        print_step_skipped(ctx, step_index, "wrapper", "packaged install")
         return step_result(
             "wrapper", "skipped", [], started_at, reason="packaged_install"
         )
     command = wrapper_command()
-    print_step_header(step_index, "wrapper", command)
-    try:
-        rc = run_inherited(command, timeout=ctx.step_timeout_seconds)
-    except subprocess.TimeoutExpired:
+    print_step_header(ctx, step_index, "wrapper", command)
+    result = run_step_subprocess(ctx, command, timeout=ctx.step_timeout_seconds)
+    if result.timed_out:
         return step_result(
             "wrapper",
             "failed",
             [wrapper_path],
             started_at,
-            {
-                "message": f"wrapper timed out after {ctx.step_timeout_seconds}s",
-                "exit_code": 1,
-            },
+            subprocess_error("wrapper", result, timeout=ctx.step_timeout_seconds),
         )
-    if rc != 0:
+    if result.returncode != 0:
         return step_result(
             "wrapper",
             "failed",
             [wrapper_path],
             started_at,
-            {"message": "wrapper install failed", "exit_code": rc},
+            subprocess_error("wrapper", result),
         )
     return step_result("wrapper", "ok", [wrapper_path], started_at)
 
@@ -851,25 +1242,25 @@ def step_service(ctx: SetupContext, step_index: int) -> StepResult:
     artifact = service_artifact_path()
     paths = [artifact] if artifact is not None else []
     if ctx.skip_service:
-        print_step_skipped(step_index, "service", "--skip-service")
+        print_step_skipped(ctx, step_index, "service", "--skip-service")
         return step_result(
             "service", "skipped", [], started_at, reason="--skip-service"
         )
     command = service_install_command(ctx)
-    print_step_header(step_index, "service install", command)
-    rc = run_inherited(command)
-    if rc != 0:
+    print_step_header(ctx, step_index, "service install", command)
+    result = run_step_subprocess(ctx, command, timeout=None)
+    if result.returncode != 0:
         return step_result(
             "service",
             "failed",
             paths,
             started_at,
-            {"message": "service install failed", "exit_code": rc},
+            subprocess_error("service", result),
         )
 
     from solstone.think.service import _up
 
-    print(f"[step {step_index}/{TOTAL_STEPS}] running service up...")
+    narrate(ctx, f"[step {step_index}/{TOTAL_STEPS}] running service up...")
     up_rc = int(_up(port=ctx.port))
     if up_rc != 0:
         return step_result(
@@ -877,7 +1268,12 @@ def step_service(ctx: SetupContext, step_index: int) -> StepResult:
             "failed",
             paths,
             started_at,
-            {"message": f"service up failed (exit {up_rc})", "exit_code": 1},
+            {
+                "code": "service_up_failed",
+                "message": f"service up failed (exit {up_rc})",
+                "details": "",
+                "exit_code": 1,
+            },
         )
 
     return step_result("service", "ok", paths, started_at)
@@ -902,7 +1298,12 @@ def dead_end_existing_journal(ctx: SetupContext) -> None:
             "Run 'sol setup --explain' for full step list.",
         ]
     )
-    raise SetupDeadEnd(message, 2)
+    raise SetupDeadEnd(
+        message,
+        2,
+        step_name="journal",
+        error_code="journal_existing_blocked",
+    )
 
 
 def dead_end_journal_is_file(ctx: SetupContext) -> None:
@@ -910,7 +1311,12 @@ def dead_end_journal_is_file(ctx: SetupContext) -> None:
         f"expected a directory at {ctx.journal_path}; got a regular file. "
         "Re-run with --journal <other-path>."
     )
-    raise SetupDeadEnd(message, 2)
+    raise SetupDeadEnd(
+        message,
+        2,
+        step_name="journal",
+        error_code="journal_dir_invalid",
+    )
 
 
 def dead_end_port_in_use(ctx: SetupContext) -> None:
@@ -932,59 +1338,66 @@ def dead_end_port_in_use(ctx: SetupContext) -> None:
             "Run 'sol setup --explain' for full step list.",
         ]
     )
-    raise SetupDeadEnd(message, 2)
+    raise SetupDeadEnd(
+        message,
+        2,
+        step_name="doctor",
+        error_code="port_in_use_non_interactive",
+    )
 
 
 def print_plan(ctx: SetupContext, *, dry_run: bool) -> None:
     heading = "setup dry-run" if dry_run else "setup plan"
-    print(f"{heading}:")
-    print(f"  mode: {ctx.mode.value}")
-    print(f"  journal: {ctx.journal_path} ({ctx.journal_source})")
-    print(f"  port: {ctx.port} ({ctx.port_source})")
-    print(f"  variant: {ctx.variant} ({ctx.variant_source})")
+    narrate(ctx, f"{heading}:")
+    narrate(ctx, f"  mode: {ctx.mode.value}")
+    narrate(ctx, f"  journal: {ctx.journal_path} ({ctx.journal_source})")
+    narrate(ctx, f"  port: {ctx.port} ({ctx.port_source})")
+    narrate(ctx, f"  variant: {ctx.variant} ({ctx.variant_source})")
     timeout_resolved = ctx.args_resolved["step_timeout_seconds"]
     timeout_source = timeout_resolved["source"]
-    print(f"  step_timeout_seconds: {ctx.step_timeout_seconds} ({timeout_source})")
-    print(f"  source checkout: {ctx.is_source_checkout}")
-    print()
-    print(f"[step 1/6] {_STEP_NAME[step_doctor]}")
-    print(f"  would run: {format_command(doctor_command(ctx))}")
-    print(f"[step 2/6] {_STEP_NAME[step_journal]}")
-    print(f"  would write: {ctx.config_path}")
-    print(f"  would use journal: {ctx.journal_path}")
-    print(f"[step 3/6] {_STEP_NAME[step_install_models]}")
+    narrate(
+        ctx, f"  step_timeout_seconds: {ctx.step_timeout_seconds} ({timeout_source})"
+    )
+    narrate(ctx, f"  source checkout: {ctx.is_source_checkout}")
+    narrate(ctx)
+    narrate(ctx, f"[step 1/6] {_STEP_NAME[step_doctor]}")
+    narrate(ctx, f"  would run: {format_command(doctor_command(ctx))}")
+    narrate(ctx, f"[step 2/6] {_STEP_NAME[step_journal]}")
+    narrate(ctx, f"  would write: {ctx.config_path}")
+    narrate(ctx, f"  would use journal: {ctx.journal_path}")
+    narrate(ctx, f"[step 3/6] {_STEP_NAME[step_install_models]}")
     if ctx.skip_models:
-        print("  skipped: --skip-models")
+        narrate(ctx, "  skipped: --skip-models")
     else:
-        print(f"  would run: {format_command(install_models_command(ctx))}")
-    print(f"[step 4/6] {_STEP_NAME[step_skills]}")
+        narrate(ctx, f"  would run: {format_command(install_models_command(ctx))}")
+    narrate(ctx, f"[step 4/6] {_STEP_NAME[step_skills]}")
     if ctx.skip_skills:
-        print("  skipped: --skip-skills")
+        narrate(ctx, "  skipped: --skip-skills")
     else:
-        print(f"  would run: {format_command(skills_command())}")
-    print(f"[step 5/6] {_STEP_NAME[step_wrapper]}")
+        narrate(ctx, f"  would run: {format_command(skills_command())}")
+    narrate(ctx, f"[step 5/6] {_STEP_NAME[step_wrapper]}")
     if not ctx.is_source_checkout:
-        print("  skipped: packaged install")
+        narrate(ctx, "  skipped: packaged install")
     else:
-        print(f"  would run: {format_command(wrapper_command())}")
-    print(f"[step 6/6] {_STEP_NAME[step_service]}")
+        narrate(ctx, f"  would run: {format_command(wrapper_command())}")
+    narrate(ctx, f"[step 6/6] {_STEP_NAME[step_service]}")
     if ctx.skip_service:
-        print("  skipped: --skip-service")
+        narrate(ctx, "  skipped: --skip-service")
     else:
-        print(f"  would run: {format_command(service_install_command(ctx))}")
-        print(f"  would call: solstone.think.service._up(port={ctx.port})")
+        narrate(ctx, f"  would run: {format_command(service_install_command(ctx))}")
+        narrate(ctx, f"  would call: solstone.think.service._up(port={ctx.port})")
 
 
-def print_failure(result: StepResult) -> None:
+def print_failure(ctx: SetupContext, result: StepResult) -> None:
     error = result.error or {}
     message = error.get("message", "step failed")
-    print(f"sol setup: {result.name} failed: {message}", file=sys.stderr)
+    narrate(ctx, f"sol setup: {result.name} failed: {message}", file=sys.stderr)
 
 
 def print_success_summary(ctx: SetupContext, manifest: dict[str, Any]) -> None:
-    print()
-    print("solstone is set up.")
-    print()
+    narrate(ctx)
+    narrate(ctx, "solstone is set up.")
+    narrate(ctx)
     steps = manifest.get("steps", [])
     n_skipped_prior = sum(1 for step in steps if step.get("reason") == "prior_run_ok")
     n_skipped_other = sum(
@@ -993,29 +1406,29 @@ def print_success_summary(ctx: SetupContext, manifest: dict[str, Any]) -> None:
         if step.get("status") == "skipped" and step.get("reason") != "prior_run_ok"
     )
     n_ran = TOTAL_STEPS - n_skipped_prior - n_skipped_other
-    print(f"{n_skipped_prior} of {TOTAL_STEPS} steps already done; ran {n_ran}")
-    print()
-    print("artifacts:")
+    narrate(ctx, f"{n_skipped_prior} of {TOTAL_STEPS} steps already done; ran {n_ran}")
+    narrate(ctx)
+    narrate(ctx, "artifacts:")
     paths = artifact_paths(ctx, manifest)
     if paths:
         for path in paths:
-            print(f"  {path}")
+            narrate(ctx, f"  {path}")
     else:
-        print("  none")
-    print()
+        narrate(ctx, "  none")
+    narrate(ctx)
     if ctx.doctor_advisories:
-        print("advisories from doctor:")
+        narrate(ctx, "advisories from doctor:")
         for advisory in ctx.doctor_advisories:
             detail = advisory.get("detail")
             if detail:
-                print(f"  - {detail}")
+                narrate(ctx, f"  - {detail}")
     else:
-        print("advisories from doctor: none")
-    print()
+        narrate(ctx, "advisories from doctor: none")
+    narrate(ctx)
     if not ctx.skip_service:
-        print(f"solstone is running at http://localhost:{ctx.port}")
-        print()
-    print("next: run 'sol observer install' to start observing.")
+        narrate(ctx, f"solstone is running at http://localhost:{ctx.port}")
+        narrate(ctx)
+    narrate(ctx, "next: run 'sol observer install' to start observing.")
 
 
 def artifact_paths(ctx: SetupContext, manifest: dict[str, Any]) -> list[str]:
@@ -1048,14 +1461,16 @@ def print_prior_run_preface(ctx: SetupContext) -> None:
             if ctx.force
             else "verifying current state."
         )
-        print(f"sol setup last ran cleanly on {status.timestamp}; {suffix}")
+        narrate(ctx, f"sol setup last ran cleanly on {status.timestamp}; {suffix}")
         if not ctx.force:
-            print("Use --force to re-run all steps unconditionally.")
+            narrate(ctx, "Use --force to re-run all steps unconditionally.")
         return
-    print(f"sol setup last run on {status.timestamp} left these steps incomplete:")
+    narrate(
+        ctx, f"sol setup last run on {status.timestamp} left these steps incomplete:"
+    )
     for name in status.failed_steps:
-        print(f"  - {name} (failed)")
-    print("Re-running will verify state and re-run incomplete steps.")
+        narrate(ctx, f"  - {name} (failed)")
+    narrate(ctx, "Re-running will verify state and re-run incomplete steps.")
 
 
 def _resume_service(
@@ -1075,11 +1490,14 @@ def _resume_service(
             "service", "skipped", paths, started_at, reason="prior_run_ok"
         )
 
-    print(
-        f"[step {step_index}/{TOTAL_STEPS}] service installed but unhealthy; restarting..."
+    narrate(
+        ctx,
+        f"[step {step_index}/{TOTAL_STEPS}] service installed but unhealthy; restarting...",
     )
-    run_inherited(
-        [sys.executable, "-m", "solstone.think.sol_cli", "service", "restart"]
+    run_step_subprocess(
+        ctx,
+        [sys.executable, "-m", "solstone.think.sol_cli", "service", "restart"],
+        timeout=None,
     )
     if health_check() == 0:
         return step_result(
@@ -1111,13 +1529,70 @@ _STEPS: tuple[Callable[[SetupContext, int], StepResult], ...] = (
 )
 
 
-def run_setup(ctx: SetupContext) -> int:
-    if ctx.mode is SetupMode.EXPLAIN:
+def command_for_step(
+    ctx: SetupContext, step: Callable[[SetupContext, int], StepResult]
+) -> list[str] | None:
+    if step is step_doctor:
+        return doctor_command(ctx, jsonl=ctx.jsonl)
+    if step is step_install_models:
+        return install_models_command(ctx)
+    if step is step_skills:
+        return skills_command()
+    if step is step_wrapper:
+        return wrapper_command()
+    if step is step_service:
+        return service_install_command(ctx)
+    return None
+
+
+def emit_setup_completed(
+    ctx: SetupContext,
+    *,
+    status: str,
+    started_monotonic: float,
+    failed_step: str | None = None,
+) -> None:
+    if not ctx.jsonl:
+        return
+    fields: dict[str, object] = {
+        "status": status,
+        "duration_ms": elapsed_ms(started_monotonic),
+    }
+    if failed_step is not None:
+        fields["failed_step"] = failed_step
+    require_emitter(ctx).emit("setup.completed", **fields)
+
+
+def run_setup(ctx: SetupContext, *, started_monotonic: float | None = None) -> int:
+    setup_started = (
+        started_monotonic if started_monotonic is not None else time.monotonic()
+    )
+    if ctx.jsonl:
+        require_emitter(ctx).emit(
+            "setup.started",
+            started_at=utc_now_iso(),
+            version=setup_version(),
+            mode=ctx.mode.value,
+            args_resolved=ctx.args_resolved,
+        )
+    explain = bool(ctx.args_resolved["explain"]["value"])
+    dry_run = bool(ctx.args_resolved["dry_run"]["value"])
+    if explain:
+        if ctx.jsonl:
+            emit_setup_completed(ctx, status="ok", started_monotonic=setup_started)
+            return 0
         print_plan(ctx, dry_run=False)
         return 0
-    if ctx.mode is SetupMode.DRY_RUN:
+    if dry_run:
+        if ctx.jsonl:
+            emit_setup_completed(ctx, status="ok", started_monotonic=setup_started)
+            return 0
         print_plan(ctx, dry_run=True)
         return 0
+
+    if ctx.journal_path.exists() and not ctx.journal_path.is_dir():
+        emit_step_started(ctx, "journal", 2)
+        dead_end_journal_is_file(ctx)
 
     print_prior_run_preface(ctx)
     prior_manifest = read_manifest(ctx) or {}
@@ -1127,6 +1602,8 @@ def run_setup(ctx: SetupContext) -> int:
         step_name = _STEP_NAME[step]
         prior_step = prior.get(step_name)
         started_at = utc_now()
+        step_started = time.monotonic()
+        emit_step_started(ctx, step_name, index, command=command_for_step(ctx, step))
         try:
             if can_skip(prior_step):
                 if step is step_service:
@@ -1152,24 +1629,41 @@ def run_setup(ctx: SetupContext) -> int:
                 [],
                 started_at,
                 {
-                    "message": str(exc) or exc.__class__.__name__,
+                    "code": "setup_unhandled_exception",
+                    "message": first_non_empty_line(str(exc)) or exc.__class__.__name__,
+                    "details": str(exc),
                     "exit_code": 1,
                 },
             )
             append_step(manifest, result)
             write_manifest(ctx, manifest)
-            print_failure(result)
+            emit_step_result(ctx, result, step_started)
+            print_failure(ctx, result)
+            emit_setup_completed(
+                ctx,
+                status="failed",
+                started_monotonic=setup_started,
+                failed_step=result.name,
+            )
             return 1
         append_step(manifest, result)
         write_manifest(ctx, manifest)
+        emit_step_result(ctx, result, step_started)
         if result.status == "failed":
-            print_failure(result)
+            print_failure(ctx, result)
             error = result.error or {}
+            emit_setup_completed(
+                ctx,
+                status="failed",
+                started_monotonic=setup_started,
+                failed_step=result.name,
+            )
             return int(error.get("exit_code", 1))
 
     manifest["completed_at"] = utc_now()
     write_manifest(ctx, manifest)
     print_success_summary(ctx, manifest)
+    emit_setup_completed(ctx, status="ok", started_monotonic=setup_started)
     return 0
 
 
@@ -1177,11 +1671,33 @@ def main(argv: list[str] | None = None) -> int:
     raw_argv = list(argv) if argv is not None else sys.argv[1:]
     parser = build_parser()
     args = parser.parse_args(raw_argv)
+    ctx: SetupContext | None = None
+    started_monotonic = time.monotonic()
     try:
-        ctx = resolve_context(args, raw_argv)
-        return run_setup(ctx)
+        emitter = JsonlEmitter(sys.stdout) if args.jsonl else None
+        ctx = resolve_context(args, raw_argv, emitter=emitter)
+        return run_setup(ctx, started_monotonic=started_monotonic)
     except SetupDeadEnd as exc:
-        print(exc.message, file=sys.stderr)
+        if ctx is not None and ctx.jsonl and exc.step_name and exc.error_code:
+            require_emitter(ctx).emit(
+                "step.failed",
+                step=exc.step_name,
+                duration_ms=0,
+                error={
+                    "code": exc.error_code,
+                    "message": exc.message,
+                    "details": "",
+                    "exit_code": exc.exit_code,
+                },
+            )
+            emit_setup_completed(
+                ctx,
+                status="failed",
+                started_monotonic=started_monotonic,
+                failed_step=exc.step_name,
+            )
+        else:
+            print(exc.message, file=sys.stderr)
         return exc.exit_code
 
 

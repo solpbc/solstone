@@ -248,6 +248,74 @@ This is for audit trail — it records that the agent confirmed user consent bef
 
 Use lowercase, single-word names. Hyphenated names for multi-word (`list-nudges-due`, `set-name`).
 
+## Structured output: `sol setup --jsonl` and `sol doctor --jsonl`
+
+Use `--jsonl` when another process needs progress events as they happen. The contract is one JSON object per stdout line, flushed immediately; `sol doctor --jsonl` is mutually exclusive with `sol doctor --json`, and the existing `sol doctor --json` payload keeps its short statuses (`ok`, `warn`, `fail`, `skip`).
+
+| Event | Emitted by | When |
+|-------|------------|------|
+| `setup.started` | `sol setup --jsonl` | Setup arguments are resolved and the run starts. |
+| `setup.completed` | `sol setup --jsonl` | Setup reaches a terminal `ok` or `failed` state. |
+| `step.started` | `sol setup --jsonl` | A setup step starts. |
+| `step.completed` | `sol setup --jsonl` | A setup step finishes with `outcome: "ok"` or `outcome: "skipped"`. |
+| `step.failed` | `sol setup --jsonl` | A setup step fails or reaches a dead end. |
+| `step.warning` | `sol setup --jsonl` | Setup translates advisory diagnostics or dropped doctor lines. |
+| `doctor.started` | `sol doctor --jsonl` | Doctor diagnostics begin. |
+| `check.completed` | `sol doctor --jsonl` | One diagnostic check finishes. Status is long form: `ok`, `warning`, `failed`, or `skipped`. |
+| `doctor.completed` | `sol doctor --jsonl` | Doctor diagnostics finish with `status: "ok"`, `"warning"`, or `"failed"`. |
+
+| Code | When |
+|------|------|
+| `doctor_failed` | Doctor reports a blocking failure or cannot start. |
+| `doctor_jsonl_incomplete` | Doctor exits without a `doctor.completed` event. |
+| `doctor_timeout` | Doctor exceeds its timeout. |
+| `journal_dir_invalid` | The requested journal path is a regular file. |
+| `journal_existing_blocked` | Non-interactive setup refuses to auto-claim an existing journal. |
+| `port_in_use_non_interactive` | Non-interactive setup finds the service port already in use. |
+| `service_up_failed` | Service installation succeeded but service startup failed. |
+| `setup_unhandled_exception` | A setup step raised an unexpected exception. |
+| `step_subprocess_failed` | A setup subprocess exited non-zero. |
+| `step_subprocess_timeout` | A setup subprocess exceeded its timeout. |
+
+Step names are fixed and ordered: `doctor`, `journal`, `install_models`, `skills`, `wrapper`, `service`.
+
+Skipped or resumed reasons are fixed: `--skip-models`, `--skip-skills`, `--skip-service`, `packaged_install`, `claude_config_missing`, `prior_run_ok`, `resumed_after_restart`.
+
+### Doctor pass-through
+
+`sol setup --jsonl` runs `sol doctor --jsonl` for the doctor step and forwards `doctor.started`, `check.completed`, and `doctor.completed` lines verbatim. Advisory doctor checks are also translated into setup-level `step.warning` events so consumers can handle setup warnings uniformly.
+
+Example stream excerpt:
+
+```jsonl
+{"event":"setup.started","ts":"2026-05-11T20:00:00Z","version":"0.0.0+source","mode":"non_interactive"}
+{"event":"step.started","ts":"2026-05-11T20:00:00Z","step":"doctor","index":1,"total":6}
+{"event":"doctor.started","ts":"2026-05-11T20:00:00Z","version":"0.0.0+source"}
+{"event":"check.completed","ts":"2026-05-11T20:00:01Z","name":"python_version","severity":"blocker","status":"ok","detail":"Python version ok","fix":""}
+{"event":"doctor.completed","ts":"2026-05-11T20:00:01Z","status":"ok","duration_ms":120,"summary":{"total":17,"failed":0,"warnings":0,"skipped":0}}
+{"event":"step.completed","ts":"2026-05-11T20:00:01Z","step":"doctor","outcome":"ok","duration_ms":121}
+{"event":"step.completed","ts":"2026-05-11T20:00:04Z","step":"service","outcome":"ok","duration_ms":900}
+{"event":"setup.completed","ts":"2026-05-11T20:00:04Z","status":"ok","duration_ms":4000}
+```
+
+### Consumer snippet
+
+```python
+import json
+import subprocess
+
+proc = subprocess.Popen(
+    ["sol", "setup", "--jsonl", "--yes"],
+    stdout=subprocess.PIPE,
+    text=True,
+    bufsize=1,
+)
+for line in proc.stdout:
+    event = json.loads(line)
+    print(event["event"], event)
+proc.wait()
+```
+
 ## Directory Structure
 
 ```
