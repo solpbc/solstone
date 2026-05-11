@@ -33,6 +33,13 @@ def _create_journal_entity(entity_id, *, is_principal=False):
     )
 
 
+def _assert_reason(response, *, error, reason_code, detail):
+    data = response.get_json()
+    assert data["error"] == error
+    assert data["reason_code"] == reason_code
+    assert data["detail"] == detail
+
+
 def test_delete_journal_entity_route_rejects_principal(
     client, journal_copy, monkeypatch
 ):
@@ -43,7 +50,12 @@ def test_delete_journal_entity_route_rejects_principal(
     response = client.delete(f"/app/entities/api/journal/entity/{entity_id}")
 
     assert response.status_code == 400
-    assert response.get_json() == {"error": "Cannot delete the principal (self) entity"}
+    _assert_reason(
+        response,
+        error="I can't delete the principal entity.",
+        reason_code="principal_entity_protected",
+        detail="Cannot delete the principal (self) entity",
+    )
     assert (journal_copy / "entities" / entity_id).exists()
     rows = _action_log_rows(journal_copy, today)
     assert not any(
@@ -57,7 +69,12 @@ def test_delete_journal_entity_route_rejects_missing_entity(client):
     response = client.delete("/app/entities/api/journal/entity/missing-entity")
 
     assert response.status_code == 400
-    assert response.get_json() == {"error": "Entity 'missing-entity' not found"}
+    _assert_reason(
+        response,
+        error="I couldn't find that entity.",
+        reason_code="entity_not_found",
+        detail="Entity 'missing-entity' not found",
+    )
 
 
 def test_delete_journal_entity_route_returns_pending_response_shape(
@@ -121,7 +138,12 @@ def test_cancel_delete_journal_entity_too_late_after_commit(
     cancel_response = client.post(f"/app/entities/api/cancel-delete/{pending_id}")
 
     assert cancel_response.status_code == 410
-    assert cancel_response.get_json() == {"error": "already committed or unknown"}
+    _assert_reason(
+        cancel_response,
+        error="I couldn't finish because that action is no longer available.",
+        reason_code="operation_no_longer_available",
+        detail="already committed or unknown",
+    )
     assert not (journal_copy / "entities" / entity_id).exists()
     rows = _action_log_rows(journal_copy, today)
     assert any(
@@ -136,4 +158,9 @@ def test_cancel_delete_journal_entity_unknown_pending_id_returns_410(client):
     response = client.post(f"/app/entities/api/cancel-delete/{'b' * 32}")
 
     assert response.status_code == 410
-    assert response.get_json() == {"error": "already committed or unknown"}
+    _assert_reason(
+        response,
+        error="I couldn't finish because that action is no longer available.",
+        reason_code="operation_no_longer_available",
+        detail="already committed or unknown",
+    )
