@@ -84,6 +84,15 @@ The `solstone/convey/views/home.py` module provides essential routes:
 
 All functional views are accessed at `/app/{name}/` URLs.
 
+### Owner-facing errors
+
+Reasons live in `solstone/convey/reasons.py`.
+Add a new owner-facing error by defining an `UPPER_SNAKE_CASE` Reason constant.
+Route call sites should use `error_response(REASON_NAME, detail=...)`.
+`Reason.message` is sol speaking: first-person, lowercase first letter except
+the I pronoun, no exception class names or paths. Put those specifics in
+`detail`.
+
 ### Observer Callosum SSE Feed
 
 Observer clients can open a server-sent events feed at
