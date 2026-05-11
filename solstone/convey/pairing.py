@@ -18,6 +18,16 @@ from solstone.convey.auth import (
     require_paired_device,
     resolve_paired_device,
 )
+from solstone.convey.reasons import (
+    AUTH_REQUIRED,
+    INVALID_JSON_REQUEST,
+    PAIRED_DEVICE_NOT_FOUND,
+    PAIRING_KEY_INVALID,
+    PAIRING_REQUEST_INVALID,
+    PAIRING_TOKEN_INVALID,
+    PAIRING_TOKEN_UNAVAILABLE,
+)
+from solstone.convey.utils import error_response_with_reason
 from solstone.think.pairing.config import (
     _detect_lan_ipv4,
     get_host_url,
@@ -49,19 +59,21 @@ pairing_bp = Blueprint("pairing", __name__, url_prefix="/api/pairing")
 pairing_ui_bp = Blueprint("pairing_ui", __name__, url_prefix="/app/pairing")
 
 
-def _error(message: str, status: int, reason: str):
-    return jsonify({"error": message, "reason": reason}), status
-
-
 def _optional_json_object() -> tuple[dict[str, Any], Any | None]:
     if not request.get_data(cache=True):
         return {}, None
     try:
         data = request.get_json(silent=False)
     except BadRequest:
-        return {}, _error("request body must be valid JSON", 400, "invalid_json")
+        return {}, error_response_with_reason(
+            INVALID_JSON_REQUEST,
+            detail="request body must be valid JSON",
+        )
     if not isinstance(data, dict):
-        return {}, _error("request body must be a JSON object", 400, "invalid_request")
+        return {}, error_response_with_reason(
+            PAIRING_REQUEST_INVALID,
+            detail="request body must be a JSON object",
+        )
     return data, None
 
 
@@ -69,9 +81,15 @@ def _required_json_object() -> tuple[dict[str, Any], Any | None]:
     try:
         data = request.get_json(silent=False)
     except BadRequest:
-        return {}, _error("request body must be valid JSON", 400, "invalid_json")
+        return {}, error_response_with_reason(
+            INVALID_JSON_REQUEST,
+            detail="request body must be valid JSON",
+        )
     if not isinstance(data, dict):
-        return {}, _error("request body must be a JSON object", 400, "invalid_request")
+        return {}, error_response_with_reason(
+            PAIRING_REQUEST_INVALID,
+            detail="request body must be a JSON object",
+        )
     return data, None
 
 
@@ -89,7 +107,10 @@ def _resolve_owner_or_paired_device() -> tuple[Device | None, Any | None]:
         return device, None
     if is_owner_authed():
         return None, None
-    return None, _error("owner or paired device required", 401, "auth_required")
+    return None, error_response_with_reason(
+        AUTH_REQUIRED,
+        detail="owner or paired device required",
+    )
 
 
 def _server_version() -> str:
@@ -134,46 +155,84 @@ def confirm_pairing():
     app_version = _require_field(body, "app_version")
 
     if token is None:
-        return _error("token is required", 400, "invalid_request")
+        return error_response_with_reason(
+            PAIRING_REQUEST_INVALID,
+            detail="token is required",
+        )
     if public_key is None:
-        return _error("public_key is required", 400, "invalid_request")
+        return error_response_with_reason(
+            PAIRING_REQUEST_INVALID,
+            detail="public_key is required",
+        )
     if device_name is None:
-        return _error("device_name is required", 400, "invalid_request")
+        return error_response_with_reason(
+            PAIRING_REQUEST_INVALID,
+            detail="device_name is required",
+        )
     if len(device_name) > MAX_DEVICE_NAME_LENGTH:
-        return _error("device_name is too long", 400, "invalid_request")
+        return error_response_with_reason(
+            PAIRING_REQUEST_INVALID,
+            detail="device_name is too long",
+        )
     if platform != "ios":
-        return _error("platform must be ios", 400, "invalid_platform")
+        return error_response_with_reason(
+            PAIRING_REQUEST_INVALID,
+            detail="platform must be ios",
+        )
     if bundle_id is None:
-        return _error("bundle_id is required", 400, "invalid_request")
+        return error_response_with_reason(
+            PAIRING_REQUEST_INVALID,
+            detail="bundle_id is required",
+        )
     if app_version is None:
-        return _error("app_version is required", 400, "invalid_request")
+        return error_response_with_reason(
+            PAIRING_REQUEST_INVALID,
+            detail="app_version is required",
+        )
 
     try:
         normalized_public_key = validate_public_key(public_key)
     except ValueError:
-        return _error(
-            "public_key must be a valid ssh-ed25519 key",
-            400,
-            "invalid_public_key",
+        return error_response_with_reason(
+            PAIRING_KEY_INVALID,
+            detail="public_key must be a valid ssh-ed25519 key",
         )
 
     now = int(time.time())
     entry = peek_token(token, now=now)
     if entry is None:
-        return _error("pairing token is invalid", 400, "invalid_token")
+        return error_response_with_reason(
+            PAIRING_TOKEN_INVALID,
+            detail="pairing token is invalid",
+        )
     if entry.expires_at <= now:
-        return _error("pairing token expired", 410, "token_expired")
+        return error_response_with_reason(
+            PAIRING_TOKEN_UNAVAILABLE,
+            detail="pairing token expired",
+        )
     if entry.consumed_at is not None:
-        return _error("pairing token already used", 410, "token_consumed")
+        return error_response_with_reason(
+            PAIRING_TOKEN_UNAVAILABLE,
+            detail="pairing token already used",
+        )
 
     consumed = consume_token(token, now=now)
     if consumed is None:
         entry = peek_token(token, now=now)
         if entry is not None and entry.expires_at <= now:
-            return _error("pairing token expired", 410, "token_expired")
+            return error_response_with_reason(
+                PAIRING_TOKEN_UNAVAILABLE,
+                detail="pairing token expired",
+            )
         if entry is not None and entry.consumed_at is not None:
-            return _error("pairing token already used", 410, "token_consumed")
-        return _error("pairing token is invalid", 400, "invalid_token")
+            return error_response_with_reason(
+                PAIRING_TOKEN_UNAVAILABLE,
+                detail="pairing token already used",
+            )
+        return error_response_with_reason(
+            PAIRING_TOKEN_INVALID,
+            detail="pairing token is invalid",
+        )
 
     session_key = generate_session_key()
     device = register_device(
@@ -208,7 +267,10 @@ def heartbeat():
     if error is not None:
         return error
     if not touch_last_seen(g.paired_device["id"]):
-        return _error("paired device not found", 404, "device_not_found")
+        return error_response_with_reason(
+            PAIRED_DEVICE_NOT_FOUND,
+            detail="paired device not found",
+        )
     return jsonify({"ok": True})
 
 
@@ -226,7 +288,10 @@ def unpair_device(device_id: str):
     if error is not None:
         return error
     if not remove_device(device_id):
-        return _error("paired device not found", 404, "device_not_found")
+        return error_response_with_reason(
+            PAIRED_DEVICE_NOT_FOUND,
+            detail="paired device not found",
+        )
     return jsonify({"unpaired": True})
 
 
