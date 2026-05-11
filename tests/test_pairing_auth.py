@@ -150,8 +150,10 @@ def test_require_paired_device_returns_401_json_without_bearer(journal_copy):
 
     assert response.status_code == 401
     assert response.get_json() == {
-        "error": "paired device required",
+        "detail": "paired device required",
+        "error": "I couldn't verify this request.",
         "reason": "auth_required",
+        "reason_code": "auth_required",
     }
 
 

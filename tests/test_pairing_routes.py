@@ -183,8 +183,10 @@ def test_heartbeat_requires_valid_bearer(pairing_client):
 
     assert response.status_code == 401
     assert response.get_json() == {
-        "error": "paired device required",
+        "detail": "paired device required",
+        "error": "I couldn't verify this request.",
         "reason": "auth_required",
+        "reason_code": "auth_required",
     }
 
 

@@ -9,10 +9,12 @@ import logging
 from functools import wraps
 from typing import Any, Callable, TypeVar, cast
 
-from flask import Flask, g, jsonify, request, session
+from flask import Flask, g, request, session
 from werkzeug.security import check_password_hash
 
+from solstone.convey.reasons import AUTH_REQUIRED
 from solstone.convey.secure_listener import ConveyIdentity
+from solstone.convey.utils import error_response_with_reason
 from solstone.think.pairing.devices import Device, find_device_by_session_key_hash
 from solstone.think.pairing.keys import hash_session_key, mask_session_key
 from solstone.think.utils import get_config
@@ -102,14 +104,9 @@ def require_paired_device(func: F) -> F:
     def wrapped(*args: Any, **kwargs: Any) -> Any:
         device = resolve_paired_device()
         if device is None:
-            return (
-                jsonify(
-                    {
-                        "error": "paired device required",
-                        "reason": "auth_required",
-                    }
-                ),
-                401,
+            return error_response_with_reason(
+                AUTH_REQUIRED,
+                detail="paired device required",
             )
         g.paired_device = device
         return func(*args, **kwargs)
