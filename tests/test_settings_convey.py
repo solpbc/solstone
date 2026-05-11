@@ -256,7 +256,12 @@ def test_api_put_network_access_refuses_without_password(journal_copy):
     )
 
     assert response.status_code == 400
-    assert response.get_json() == {"error": CONVEY_REFUSE_NO_PASSWORD_NETWORK}
+    payload = response.get_json()
+    assert (
+        payload["error"] == "I couldn't change network access until a password is set."
+    )
+    assert payload["reason_code"] == "network_security_requires_password"
+    assert payload["detail"] == CONVEY_REFUSE_NO_PASSWORD_NETWORK
 
 
 def test_api_put_trust_localhost_refuses_without_password(journal_copy):
@@ -270,7 +275,12 @@ def test_api_put_trust_localhost_refuses_without_password(journal_copy):
     )
 
     assert response.status_code == 400
-    assert response.get_json() == {"error": CONVEY_REFUSE_NO_PASSWORD_TRUST}
+    payload = response.get_json()
+    assert (
+        payload["error"] == "I couldn't change network access until a password is set."
+    )
+    assert payload["reason_code"] == "network_security_requires_password"
+    assert payload["detail"] == CONVEY_REFUSE_NO_PASSWORD_TRUST
 
 
 def test_api_put_network_access_returns_restart_payload(journal_copy):

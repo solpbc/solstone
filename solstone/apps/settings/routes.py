@@ -24,6 +24,21 @@ from solstone.apps.settings.copy import (
 from solstone.apps.utils import log_app_action
 from solstone.convey import chat_stream, state
 from solstone.convey import copy as convey_copy
+from solstone.convey.reasons import (
+    ACTIVITY_INVALID,
+    ACTIVITY_NOT_FOUND,
+    ACTIVITY_PROTECTED,
+    FACET_ALREADY_EXISTS,
+    FACET_NOT_FOUND,
+    FILE_READ_FAILED,
+    INVALID_CONFIG_VALUE,
+    INVALID_JSON_REQUEST,
+    INVALID_REQUEST_VALUE,
+    MISSING_REQUEST_BODY,
+    MISSING_REQUIRED_FIELD,
+    NETWORK_SECURITY_REQUIRES_PASSWORD,
+    SETTINGS_OPERATION_FAILED,
+)
 from solstone.convey.sol_initiated import copy as sol_voice_copy
 from solstone.convey.sol_initiated.copy import KIND_SOL_CHAT_REQUEST
 from solstone.convey.sol_initiated.policy import compute_category_mute_state
@@ -36,6 +51,7 @@ from solstone.convey.sol_initiated.settings import (
 from solstone.convey.sol_initiated.settings import (
     save_settings as save_sol_voice_settings,
 )
+from solstone.convey.utils import error_response
 from solstone.think.pairing.config import get_host_url
 from solstone.think.providers.google import validate_vertex_credentials
 from solstone.think.retention import (
@@ -56,6 +72,15 @@ settings_bp = Blueprint(
     __name__,
     url_prefix="/app/settings",
 )
+
+
+GENERIC_SETTINGS_ERROR = (
+    "something went wrong — try again, and if it persists, check the health dashboard"
+)
+
+
+def _settings_operation_failed(detail: str = GENERIC_SETTINGS_ERROR) -> Any:
+    return error_response(SETTINGS_OPERATION_FAILED, detail=detail)
 
 
 # API keys that can be configured in the env section
@@ -131,11 +156,7 @@ def get_config() -> Any:
         return jsonify(_project_public_config(get_journal_config()))
     except Exception:
         logger.exception("error loading config")
-        return jsonify(
-            {
-                "error": "something went wrong — try again, and if it persists, check the health dashboard"
-            }
-        ), 500
+        return _settings_operation_failed()
 
 
 @settings_bp.route("/api/config", methods=["PUT"])
@@ -150,7 +171,7 @@ def update_config() -> Any:
     try:
         request_data = request.get_json()
         if not request_data:
-            return jsonify({"error": "No data provided"}), 400
+            return error_response(MISSING_REQUEST_BODY, detail="No data provided")
 
         section = request_data.get("section")
         data = request_data.get("data", {})
@@ -164,7 +185,10 @@ def update_config() -> Any:
             data = request_data["identity"]
 
         if not section:
-            return jsonify({"error": "No section specified"}), 400
+            return error_response(
+                MISSING_REQUIRED_FIELD,
+                detail="No section specified",
+            )
 
         # Define allowed fields per section
         # For transcribe, we have flat fields plus nested backend configs
@@ -196,7 +220,10 @@ def update_config() -> Any:
         }
 
         if section not in allowed_sections:
-            return jsonify({"error": f"Unknown section: {section}"}), 400
+            return error_response(
+                INVALID_CONFIG_VALUE,
+                detail=f"Unknown section: {section}",
+            )
 
         config_dir = Path(state.journal_root) / "config"
         config_dir.mkdir(parents=True, exist_ok=True)
@@ -219,14 +246,20 @@ def update_config() -> Any:
         if section == "convey" and "allow_network_access" in data:
             requested_network_access = bool(data["allow_network_access"])
             if requested_network_access and not has_password:
-                return jsonify({"error": CONVEY_REFUSE_NO_PASSWORD_NETWORK}), 400
+                return error_response(
+                    NETWORK_SECURITY_REQUIRES_PASSWORD,
+                    detail=CONVEY_REFUSE_NO_PASSWORD_NETWORK,
+                )
         if (
             section == "convey"
             and "trust_localhost" in data
             and not bool(data["trust_localhost"])
             and not has_password
         ):
-            return jsonify({"error": CONVEY_REFUSE_NO_PASSWORD_TRUST}), 400
+            return error_response(
+                NETWORK_SECURITY_REQUIRES_PASSWORD,
+                detail=CONVEY_REFUSE_NO_PASSWORD_TRUST,
+            )
 
         # Update only allowed fields
         for key in allowed_sections[section]:
@@ -391,11 +424,7 @@ def update_config() -> Any:
         )
     except Exception:
         logger.exception("error updating config")
-        return jsonify(
-            {
-                "error": "something went wrong — try again, and if it persists, check the health dashboard"
-            }
-        ), 500
+        return _settings_operation_failed()
 
 
 # ---------------------------------------------------------------------------
@@ -441,11 +470,7 @@ def get_transcribe() -> Any:
         )
     except Exception:
         logger.exception("error loading transcribe config")
-        return jsonify(
-            {
-                "error": "something went wrong — try again, and if it persists, check the health dashboard"
-            }
-        ), 500
+        return _settings_operation_failed()
 
 
 # ---------------------------------------------------------------------------
@@ -460,7 +485,10 @@ def get_sol_voice() -> Any:
         return jsonify(_sol_voice_response(load_sol_voice_settings()))
     except Exception:
         logger.exception("error loading sol voice settings")
-        return jsonify({"error": "unable to load sol voice settings"}), 500
+        return error_response(
+            SETTINGS_OPERATION_FAILED,
+            detail="unable to load sol voice settings",
+        )
 
 
 @settings_bp.route("/api/sol_voice", methods=["PUT"])
@@ -469,14 +497,20 @@ def update_sol_voice() -> Any:
     try:
         updates = request.get_json()
         if not isinstance(updates, dict):
-            return jsonify({"error": "sol_voice update must be an object"}), 400
+            return error_response(
+                INVALID_CONFIG_VALUE,
+                detail="sol_voice update must be an object",
+            )
         settings = save_sol_voice_settings(updates)
         return jsonify(_sol_voice_response(settings))
     except ValueError as exc:
-        return jsonify({"error": str(exc)}), 400
+        return error_response(INVALID_CONFIG_VALUE, detail=str(exc))
     except Exception:
         logger.exception("error saving sol voice settings")
-        return jsonify({"error": "unable to save sol voice settings"}), 500
+        return error_response(
+            SETTINGS_OPERATION_FAILED,
+            detail="unable to save sol voice settings",
+        )
 
 
 @settings_bp.route("/api/sol_voice/throttled")
@@ -498,7 +532,7 @@ def get_sol_voice_throttled() -> Any:
         return jsonify(rows)
     except Exception:
         logger.exception("error loading sol voice throttled log")
-        return jsonify({"error": "unable to load throttled log"}), 500
+        return error_response(FILE_READ_FAILED, detail="unable to load throttled log")
 
 
 def _read_sol_voice_throttled_rows(log_path: Path, limit: int) -> list[dict[str, Any]]:
@@ -666,11 +700,7 @@ def get_providers() -> Any:
         )
     except Exception:
         logger.exception("error loading providers")
-        return jsonify(
-            {
-                "error": "something went wrong — try again, and if it persists, check the health dashboard"
-            }
-        ), 500
+        return _settings_operation_failed()
 
 
 @settings_bp.route("/api/validate-keys", methods=["POST"])
@@ -746,11 +776,7 @@ def validate_all_keys() -> Any:
         return jsonify({"success": True, "key_validation": key_validation})
     except Exception:
         logger.exception("error validating keys")
-        return jsonify(
-            {
-                "error": "something went wrong — try again, and if it persists, check the health dashboard"
-            }
-        ), 500
+        return _settings_operation_failed()
 
 
 @settings_bp.route("/api/providers", methods=["PUT"])
@@ -772,7 +798,7 @@ def update_providers() -> Any:
 
         request_data = request.get_json()
         if not request_data:
-            return jsonify({"error": "No data provided"}), 400
+            return error_response(MISSING_REQUEST_BODY, detail="No data provided")
 
         config_dir = Path(state.journal_root) / "config"
         config_dir.mkdir(parents=True, exist_ok=True)
@@ -803,14 +829,12 @@ def update_providers() -> Any:
             if "provider" in type_data:
                 provider = type_data["provider"]
                 if provider not in PROVIDER_REGISTRY:
-                    return (
-                        jsonify(
-                            {
-                                "error": f"Invalid provider: {provider}. "
-                                f"Must be one of: {', '.join(sorted(PROVIDER_REGISTRY.keys()))}"
-                            }
+                    return error_response(
+                        INVALID_CONFIG_VALUE,
+                        detail=(
+                            f"Invalid provider: {provider}. "
+                            f"Must be one of: {', '.join(sorted(PROVIDER_REGISTRY.keys()))}"
                         ),
-                        400,
                     )
                 if old_type.get("provider") != provider:
                     changed_fields[f"{agent_type}.provider"] = {
@@ -823,11 +847,9 @@ def update_providers() -> Any:
             if "tier" in type_data:
                 tier = type_data["tier"]
                 if tier not in VALID_TIERS:
-                    return (
-                        jsonify(
-                            {"error": f"Invalid tier: {tier}. Must be 1, 2, or 3."}
-                        ),
-                        400,
+                    return error_response(
+                        INVALID_CONFIG_VALUE,
+                        detail=f"Invalid tier: {tier}. Must be 1, 2, or 3.",
                     )
                 if old_type.get("tier") != tier:
                     changed_fields[f"{agent_type}.tier"] = {
@@ -840,14 +862,12 @@ def update_providers() -> Any:
             if "backup" in type_data:
                 backup = type_data["backup"]
                 if backup not in PROVIDER_REGISTRY:
-                    return (
-                        jsonify(
-                            {
-                                "error": f"Invalid backup provider: {backup}. "
-                                f"Must be one of: {', '.join(sorted(PROVIDER_REGISTRY.keys()))}"
-                            }
+                    return error_response(
+                        INVALID_CONFIG_VALUE,
+                        detail=(
+                            f"Invalid backup provider: {backup}. "
+                            f"Must be one of: {', '.join(sorted(PROVIDER_REGISTRY.keys()))}"
                         ),
-                        400,
                     )
                 if old_type.get("backup") != backup:
                     changed_fields[f"{agent_type}.backup"] = {
@@ -860,7 +880,10 @@ def update_providers() -> Any:
         if "auth" in request_data:
             auth_data = request_data["auth"]
             if not isinstance(auth_data, dict):
-                return jsonify({"error": "auth must be an object"}), 400
+                return error_response(
+                    INVALID_CONFIG_VALUE,
+                    detail="auth must be an object",
+                )
 
             if "auth" not in config["providers"]:
                 config["providers"]["auth"] = {}
@@ -869,19 +892,17 @@ def update_providers() -> Any:
 
             for provider, mode in auth_data.items():
                 if provider not in PROVIDER_REGISTRY:
-                    return (
-                        jsonify({"error": f"Invalid provider in auth: {provider}"}),
-                        400,
+                    return error_response(
+                        INVALID_CONFIG_VALUE,
+                        detail=f"Invalid provider in auth: {provider}",
                     )
                 if mode not in ("platform", "api_key"):
-                    return (
-                        jsonify(
-                            {
-                                "error": f"Invalid auth mode: {mode}. "
-                                "Must be 'platform' or 'api_key'."
-                            }
+                    return error_response(
+                        INVALID_CONFIG_VALUE,
+                        detail=(
+                            f"Invalid auth mode: {mode}. "
+                            "Must be 'platform' or 'api_key'."
                         ),
-                        400,
                     )
                 if old_auth.get(provider) != mode:
                     changed_fields[f"auth.{provider}"] = {
@@ -915,40 +936,34 @@ def update_providers() -> Any:
                 if "provider" in ctx_config:
                     provider = ctx_config["provider"]
                     if provider not in PROVIDER_REGISTRY:
-                        return (
-                            jsonify(
-                                {"error": f"Invalid provider for {pattern}: {provider}"}
-                            ),
-                            400,
+                        return error_response(
+                            INVALID_CONFIG_VALUE,
+                            detail=f"Invalid provider for {pattern}: {provider}",
                         )
 
                 # Validate tier if specified
                 if "tier" in ctx_config:
                     tier = ctx_config["tier"]
                     if tier not in VALID_TIERS:
-                        return (
-                            jsonify({"error": f"Invalid tier for {pattern}: {tier}"}),
-                            400,
+                        return error_response(
+                            INVALID_CONFIG_VALUE,
+                            detail=f"Invalid tier for {pattern}: {tier}",
                         )
 
                 # Validate disabled if specified (must be boolean)
                 if "disabled" in ctx_config:
                     if not isinstance(ctx_config["disabled"], bool):
-                        return (
-                            jsonify(
-                                {"error": f"disabled for {pattern} must be a boolean"}
-                            ),
-                            400,
+                        return error_response(
+                            INVALID_CONFIG_VALUE,
+                            detail=f"disabled for {pattern} must be a boolean",
                         )
 
                 # Validate extract if specified (must be boolean)
                 if "extract" in ctx_config:
                     if not isinstance(ctx_config["extract"], bool):
-                        return (
-                            jsonify(
-                                {"error": f"extract for {pattern} must be a boolean"}
-                            ),
-                            400,
+                        return error_response(
+                            INVALID_CONFIG_VALUE,
+                            detail=f"extract for {pattern} must be a boolean",
                         )
 
                 # Only store if there's something to override
@@ -964,14 +979,12 @@ def update_providers() -> Any:
         if "google_backend" in request_data:
             backend = request_data["google_backend"]
             if backend not in ("auto", "aistudio", "vertex"):
-                return (
-                    jsonify(
-                        {
-                            "error": f"Invalid google_backend: {backend}. "
-                            "Must be 'auto', 'aistudio', or 'vertex'."
-                        }
+                return error_response(
+                    INVALID_CONFIG_VALUE,
+                    detail=(
+                        f"Invalid google_backend: {backend}. "
+                        "Must be 'auto', 'aistudio', or 'vertex'."
                     ),
-                    400,
                 )
             old_val = old_providers.get("google_backend", "auto")
             if old_val != backend:
@@ -991,7 +1004,10 @@ def update_providers() -> Any:
                         else vertex_creds_value
                     )
                 except json.JSONDecodeError:
-                    return jsonify({"error": "Invalid JSON in vertex_credentials"}), 400
+                    return error_response(
+                        INVALID_JSON_REQUEST,
+                        detail="Invalid JSON in vertex_credentials",
+                    )
 
                 required_fields = (
                     "type",
@@ -1001,11 +1017,9 @@ def update_providers() -> Any:
                 )
                 missing = [f for f in required_fields if f not in creds_data]
                 if missing:
-                    return (
-                        jsonify(
-                            {"error": f"Missing required fields: {', '.join(missing)}"}
-                        ),
-                        400,
+                    return error_response(
+                        MISSING_REQUIRED_FIELD,
+                        detail=f"Missing required fields: {', '.join(missing)}",
                     )
 
                 # Save credentials file
@@ -1085,11 +1099,7 @@ def update_providers() -> Any:
 
     except Exception:
         logger.exception("error saving providers")
-        return jsonify(
-            {
-                "error": "something went wrong — try again, and if it persists, check the health dashboard"
-            }
-        ), 500
+        return _settings_operation_failed()
 
 
 # ---------------------------------------------------------------------------
@@ -1147,11 +1157,7 @@ def get_generators() -> Any:
 
     except Exception:
         logger.exception("error loading generators")
-        return jsonify(
-            {
-                "error": "something went wrong — try again, and if it persists, check the health dashboard"
-            }
-        ), 500
+        return _settings_operation_failed()
 
 
 @settings_bp.route("/api/generators", methods=["PUT"])
@@ -1166,7 +1172,7 @@ def update_generators() -> Any:
     try:
         request_data = request.get_json()
         if not request_data:
-            return jsonify({"error": "No data provided"}), 400
+            return error_response(MISSING_REQUEST_BODY, detail="No data provided")
 
         config_dir = Path(state.journal_root) / "config"
         config_dir.mkdir(parents=True, exist_ok=True)
@@ -1199,15 +1205,18 @@ def update_generators() -> Any:
             # Apply updates
             if "disabled" in updates:
                 if not isinstance(updates["disabled"], bool):
-                    return (
-                        jsonify({"error": f"disabled must be boolean for {key}"}),
-                        400,
+                    return error_response(
+                        INVALID_CONFIG_VALUE,
+                        detail=f"disabled must be boolean for {key}",
                     )
                 ctx_config["disabled"] = updates["disabled"]
 
             if "extract" in updates:
                 if not isinstance(updates["extract"], bool):
-                    return jsonify({"error": f"extract must be boolean for {key}"}), 400
+                    return error_response(
+                        INVALID_CONFIG_VALUE,
+                        detail=f"extract must be boolean for {key}",
+                    )
                 ctx_config["extract"] = updates["extract"]
 
             # Only store if there's something to override
@@ -1239,11 +1248,7 @@ def update_generators() -> Any:
 
     except Exception:
         logger.exception("error saving generators")
-        return jsonify(
-            {
-                "error": "something went wrong — try again, and if it persists, check the health dashboard"
-            }
-        ), 500
+        return _settings_operation_failed()
 
 
 # ---------------------------------------------------------------------------
@@ -1292,11 +1297,7 @@ def get_vision() -> Any:
         )
     except Exception:
         logger.exception("error loading vision config")
-        return jsonify(
-            {
-                "error": "something went wrong — try again, and if it persists, check the health dashboard"
-            }
-        ), 500
+        return _settings_operation_failed()
 
 
 @settings_bp.route("/api/vision", methods=["PUT"])
@@ -1315,7 +1316,7 @@ def update_vision() -> Any:
 
         request_data = request.get_json()
         if not request_data:
-            return jsonify({"error": "No data provided"}), 400
+            return error_response(MISSING_REQUEST_BODY, detail="No data provided")
 
         config_dir = Path(state.journal_root) / "config"
         config_dir.mkdir(parents=True, exist_ok=True)
@@ -1335,13 +1336,9 @@ def update_vision() -> Any:
         if "max_extractions" in request_data:
             max_ext = request_data["max_extractions"]
             if not isinstance(max_ext, int) or max_ext < 5 or max_ext > 100:
-                return (
-                    jsonify(
-                        {
-                            "error": "max_extractions must be an integer between 5 and 100"
-                        }
-                    ),
-                    400,
+                return error_response(
+                    INVALID_CONFIG_VALUE,
+                    detail="max_extractions must be an integer between 5 and 100",
                 )
             old_val = old_describe.get("max_extractions")
             if old_val != max_ext:
@@ -1354,21 +1351,19 @@ def update_vision() -> Any:
             if not isinstance(redact, list) or not all(
                 isinstance(r, str) for r in redact
             ):
-                return (
-                    jsonify({"error": "redact must be a list of strings"}),
-                    400,
+                return error_response(
+                    INVALID_CONFIG_VALUE,
+                    detail="redact must be a list of strings",
                 )
             if len(redact) > 50:
-                return (
-                    jsonify({"error": "redact may contain at most 50 rules"}),
-                    400,
+                return error_response(
+                    INVALID_CONFIG_VALUE,
+                    detail="redact may contain at most 50 rules",
                 )
             if any(len(r) > 200 for r in redact):
-                return (
-                    jsonify(
-                        {"error": "each redact rule must be 200 characters or fewer"}
-                    ),
-                    400,
+                return error_response(
+                    INVALID_CONFIG_VALUE,
+                    detail="each redact rule must be 200 characters or fewer",
                 )
             # Filter out empty strings
             redact = [r for r in redact if r.strip()]
@@ -1388,9 +1383,9 @@ def update_vision() -> Any:
             for name, cat_config in categories_data.items():
                 # Validate category exists
                 if name not in CATEGORIES:
-                    return (
-                        jsonify({"error": f"Unknown category: {name}"}),
-                        400,
+                    return error_response(
+                        INVALID_CONFIG_VALUE,
+                        detail=f"Unknown category: {name}",
                     )
 
                 old_cat = old_categories.get(name)
@@ -1409,25 +1404,21 @@ def update_vision() -> Any:
                 if "importance" in cat_config:
                     importance = cat_config["importance"]
                     if importance not in VALID_IMPORTANCE:
-                        return (
-                            jsonify(
-                                {
-                                    "error": f"Invalid importance for {name}: {importance}. "
-                                    f"Must be one of: {', '.join(sorted(VALID_IMPORTANCE))}"
-                                }
+                        return error_response(
+                            INVALID_CONFIG_VALUE,
+                            detail=(
+                                f"Invalid importance for {name}: {importance}. "
+                                f"Must be one of: {', '.join(sorted(VALID_IMPORTANCE))}"
                             ),
-                            400,
                         )
 
                 # Validate extraction if specified (must be string)
                 if "extraction" in cat_config:
                     extraction = cat_config["extraction"]
                     if not isinstance(extraction, str):
-                        return (
-                            jsonify(
-                                {"error": f"extraction for {name} must be a string"}
-                            ),
-                            400,
+                        return error_response(
+                            INVALID_CONFIG_VALUE,
+                            detail=f"extraction for {name} must be a string",
                         )
 
                 # Only store if there's something to override
@@ -1459,11 +1450,7 @@ def update_vision() -> Any:
 
     except Exception:
         logger.exception("error saving vision config")
-        return jsonify(
-            {
-                "error": "something went wrong — try again, and if it persists, check the health dashboard"
-            }
-        ), 500
+        return _settings_operation_failed()
 
 
 # ---------------------------------------------------------------------------
@@ -1511,11 +1498,7 @@ def get_observe() -> Any:
 
     except Exception:
         logger.exception("error loading observe config")
-        return jsonify(
-            {
-                "error": "something went wrong — try again, and if it persists, check the health dashboard"
-            }
-        ), 500
+        return _settings_operation_failed()
 
 
 @settings_bp.route("/api/observe", methods=["PUT"])
@@ -1530,7 +1513,7 @@ def update_observe() -> Any:
     try:
         request_data = request.get_json()
         if not request_data:
-            return jsonify({"error": "No data provided"}), 400
+            return error_response(MISSING_REQUEST_BODY, detail="No data provided")
 
         config_dir = Path(state.journal_root) / "config"
         config_dir.mkdir(parents=True, exist_ok=True)
@@ -1550,7 +1533,10 @@ def update_observe() -> Any:
         if "tmux" in request_data:
             tmux_data = request_data["tmux"]
             if not isinstance(tmux_data, dict):
-                return jsonify({"error": "tmux must be an object"}), 400
+                return error_response(
+                    INVALID_CONFIG_VALUE,
+                    detail="tmux must be an object",
+                )
 
             if "tmux" not in config["observe"]:
                 config["observe"]["tmux"] = {}
@@ -1562,7 +1548,10 @@ def update_observe() -> Any:
             if "enabled" in tmux_data:
                 enabled = tmux_data["enabled"]
                 if not isinstance(enabled, bool):
-                    return jsonify({"error": "tmux.enabled must be a boolean"}), 400
+                    return error_response(
+                        INVALID_CONFIG_VALUE,
+                        detail="tmux.enabled must be a boolean",
+                    )
                 if enabled != old_tmux.get("enabled", defaults["enabled"]):
                     config["observe"]["tmux"]["enabled"] = enabled
                     changed_fields["tmux.enabled"] = enabled
@@ -1577,13 +1566,12 @@ def update_observe() -> Any:
                     or capture_interval < min_val
                     or capture_interval > max_val
                 ):
-                    return (
-                        jsonify(
-                            {
-                                "error": f"tmux.capture_interval must be an integer between {min_val} and {max_val}"
-                            }
+                    return error_response(
+                        INVALID_CONFIG_VALUE,
+                        detail=(
+                            "tmux.capture_interval must be an integer between "
+                            f"{min_val} and {max_val}"
                         ),
-                        400,
                     )
                 if capture_interval != old_tmux.get(
                     "capture_interval", defaults["capture_interval"]
@@ -1609,11 +1597,7 @@ def update_observe() -> Any:
 
     except Exception:
         logger.exception("error saving observe config")
-        return jsonify(
-            {
-                "error": "something went wrong — try again, and if it persists, check the health dashboard"
-            }
-        ), 500
+        return _settings_operation_failed()
 
 
 @settings_bp.route("/api/facets/muted")
@@ -1636,11 +1620,7 @@ def get_muted_facets() -> Any:
         return jsonify({"facets": muted})
     except Exception:
         logger.exception("error loading muted facets")
-        return jsonify(
-            {
-                "error": "something went wrong — try again, and if it persists, check the health dashboard"
-            }
-        ), 500
+        return _settings_operation_failed()
 
 
 @settings_bp.route("/api/facet", methods=["POST"])
@@ -1657,11 +1637,11 @@ def create_facet() -> Any:
     try:
         data = request.get_json()
         if not data:
-            return jsonify({"error": "No data provided"}), 400
+            return error_response(MISSING_REQUEST_BODY, detail="No data provided")
 
         title = data.get("title", "").strip()
         if not title:
-            return jsonify({"error": "Title is required"}), 400
+            return error_response(MISSING_REQUIRED_FIELD, detail="Title is required")
 
         # Optional fields with defaults
         emoji = data.get("emoji", "📦")
@@ -1672,9 +1652,9 @@ def create_facet() -> Any:
         slug = slug.strip("-")  # Remove leading/trailing hyphens
 
         if not slug:
-            return (
-                jsonify({"error": "Title must contain at least one letter or number"}),
-                400,
+            return error_response(
+                INVALID_REQUEST_VALUE,
+                detail="Title must contain at least one letter or number",
             )
 
         # Check for conflicts with existing facets
@@ -1682,7 +1662,10 @@ def create_facet() -> Any:
 
         existing = get_facets()
         if slug in existing:
-            return jsonify({"error": f"Facet '{slug}' already exists"}), 409
+            return error_response(
+                FACET_ALREADY_EXISTS,
+                detail=f"Facet '{slug}' already exists",
+            )
 
         # Create facet directory and config
         facet_path = Path(state.journal_root) / "facets" / slug
@@ -1712,11 +1695,7 @@ def create_facet() -> Any:
 
     except Exception:
         logger.exception("error creating facet")
-        return jsonify(
-            {
-                "error": "something went wrong — try again, and if it persists, check the health dashboard"
-            }
-        ), 500
+        return _settings_operation_failed()
 
 
 @settings_bp.route("/api/facet/<facet_name>")
@@ -1727,16 +1706,12 @@ def get_facet_config(facet_name: str) -> Any:
 
         facets = get_facets()
         if facet_name not in facets:
-            return jsonify({"error": "Facet not found"}), 404
+            return error_response(FACET_NOT_FOUND, detail="Facet not found")
 
         return jsonify({"facet": facet_name, "config": facets[facet_name]})
     except Exception:
         logger.exception("error loading facet config")
-        return jsonify(
-            {
-                "error": "something went wrong — try again, and if it persists, check the health dashboard"
-            }
-        ), 500
+        return _settings_operation_failed()
 
 
 @settings_bp.route("/api/facet/<facet_name>", methods=["PUT"])
@@ -1745,14 +1720,14 @@ def update_facet_config(facet_name: str) -> Any:
     try:
         data = request.get_json()
         if not data:
-            return jsonify({"error": "No data provided"}), 400
+            return error_response(MISSING_REQUEST_BODY, detail="No data provided")
 
         # Build path to facet config file
         facet_path = Path(state.journal_root) / "facets" / facet_name
         config_file = facet_path / "facet.json"
 
         if not facet_path.exists():
-            return jsonify({"error": "Facet not found"}), 404
+            return error_response(FACET_NOT_FOUND, detail="Facet not found")
 
         # Read existing config or create new one
         if config_file.exists():
@@ -1789,11 +1764,7 @@ def update_facet_config(facet_name: str) -> Any:
         return jsonify({"success": True, "facet": facet_name, "config": config})
     except Exception:
         logger.exception("error saving facet config")
-        return jsonify(
-            {
-                "error": "something went wrong — try again, and if it persists, check the health dashboard"
-            }
-        ), 500
+        return _settings_operation_failed()
 
 
 def _get_logs_from_dir(logs_dir: Path, cursor: str | None) -> dict:
@@ -1899,11 +1870,7 @@ def get_default_activities() -> Any:
         return jsonify({"activities": _get_defaults()})
     except Exception:
         logger.exception("error loading default activities")
-        return jsonify(
-            {
-                "error": "something went wrong — try again, and if it persists, check the health dashboard"
-            }
-        ), 500
+        return _settings_operation_failed()
 
 
 @settings_bp.route("/api/facet/<facet_name>/activities")
@@ -1924,7 +1891,7 @@ def get_facet_activities(facet_name: str) -> Any:
         # Verify facet exists
         facets = get_facets()
         if facet_name not in facets:
-            return jsonify({"error": "Facet not found"}), 404
+            return error_response(FACET_NOT_FOUND, detail="Facet not found")
 
         attached = _get_facet_activities(facet_name)
         defaults = _get_defaults()
@@ -1933,11 +1900,7 @@ def get_facet_activities(facet_name: str) -> Any:
 
     except Exception:
         logger.exception("error loading facet activities")
-        return jsonify(
-            {
-                "error": "something went wrong — try again, and if it persists, check the health dashboard"
-            }
-        ), 500
+        return _settings_operation_failed()
 
 
 @settings_bp.route("/api/facet/<facet_name>/activities", methods=["POST"])
@@ -1965,11 +1928,11 @@ def add_facet_activity(facet_name: str) -> Any:
         # Verify facet exists
         facets = get_facets()
         if facet_name not in facets:
-            return jsonify({"error": "Facet not found"}), 404
+            return error_response(FACET_NOT_FOUND, detail="Facet not found")
 
         data = request.get_json()
         if not data:
-            return jsonify({"error": "No data provided"}), 400
+            return error_response(MISSING_REQUEST_BODY, detail="No data provided")
 
         # Determine activity ID
         activity_id = data.get("id")
@@ -1977,16 +1940,19 @@ def add_facet_activity(facet_name: str) -> Any:
 
         if not activity_id:
             if not name:
-                return jsonify({"error": "Either 'id' or 'name' is required"}), 400
+                return error_response(
+                    MISSING_REQUIRED_FIELD,
+                    detail="Either 'id' or 'name' is required",
+                )
             # Generate ID from name for custom activity
             activity_id = generate_activity_id(name)
 
         # Validate priority if provided
         priority = data.get("priority", "normal")
         if priority not in ("high", "normal", "low"):
-            return (
-                jsonify({"error": "priority must be 'high', 'normal', or 'low'"}),
-                400,
+            return error_response(
+                ACTIVITY_INVALID,
+                detail="priority must be 'high', 'normal', or 'low'",
             )
 
         # Check if it's a predefined activity
@@ -1995,7 +1961,10 @@ def add_facet_activity(facet_name: str) -> Any:
 
         # For custom activities, name is required
         if not is_predefined and not name:
-            return jsonify({"error": "'name' is required for custom activities"}), 400
+            return error_response(
+                MISSING_REQUIRED_FIELD,
+                detail="'name' is required for custom activities",
+            )
 
         activity = add_activity_to_facet(
             facet_name,
@@ -2018,11 +1987,7 @@ def add_facet_activity(facet_name: str) -> Any:
 
     except Exception:
         logger.exception("error adding activity")
-        return jsonify(
-            {
-                "error": "something went wrong — try again, and if it persists, check the health dashboard"
-            }
-        ), 500
+        return _settings_operation_failed()
 
 
 @settings_bp.route("/api/facet/<facet_name>/activities/<activity_id>", methods=["PUT"])
@@ -2043,18 +2008,18 @@ def update_facet_activity(facet_name: str, activity_id: str) -> Any:
         # Verify facet exists
         facets = get_facets()
         if facet_name not in facets:
-            return jsonify({"error": "Facet not found"}), 404
+            return error_response(FACET_NOT_FOUND, detail="Facet not found")
 
         data = request.get_json()
         if not data:
-            return jsonify({"error": "No data provided"}), 400
+            return error_response(MISSING_REQUEST_BODY, detail="No data provided")
 
         # Validate priority if provided
         priority = data.get("priority")
         if priority is not None and priority not in ("high", "normal", "low"):
-            return (
-                jsonify({"error": "priority must be 'high', 'normal', or 'low'"}),
-                400,
+            return error_response(
+                ACTIVITY_INVALID,
+                detail="priority must be 'high', 'normal', or 'low'",
             )
 
         activity = update_activity_in_facet(
@@ -2068,7 +2033,10 @@ def update_facet_activity(facet_name: str, activity_id: str) -> Any:
         )
 
         if activity is None:
-            return jsonify({"error": "Activity not found in facet"}), 404
+            return error_response(
+                ACTIVITY_NOT_FOUND,
+                detail="Activity not found in facet",
+            )
 
         log_app_action(
             app="settings",
@@ -2081,11 +2049,7 @@ def update_facet_activity(facet_name: str, activity_id: str) -> Any:
 
     except Exception:
         logger.exception("error updating activity")
-        return jsonify(
-            {
-                "error": "something went wrong — try again, and if it persists, check the health dashboard"
-            }
-        ), 500
+        return _settings_operation_failed()
 
 
 @settings_bp.route(
@@ -2107,17 +2071,23 @@ def remove_facet_activity(facet_name: str, activity_id: str) -> Any:
         # Verify facet exists
         facets = get_facets()
         if facet_name not in facets:
-            return jsonify({"error": "Facet not found"}), 404
+            return error_response(FACET_NOT_FOUND, detail="Facet not found")
 
         # Prevent removing always-on activities
         always_on_ids = {a["id"] for a in DEFAULT_ACTIVITIES if a.get("always_on")}
         if activity_id in always_on_ids:
-            return jsonify({"error": "Cannot remove always-on activity"}), 400
+            return error_response(
+                ACTIVITY_PROTECTED,
+                detail="Cannot remove always-on activity",
+            )
 
         removed = remove_activity_from_facet(facet_name, activity_id)
 
         if not removed:
-            return jsonify({"error": "Activity not found in facet"}), 404
+            return error_response(
+                ACTIVITY_NOT_FOUND,
+                detail="Activity not found in facet",
+            )
 
         log_app_action(
             app="settings",
@@ -2130,11 +2100,7 @@ def remove_facet_activity(facet_name: str, activity_id: str) -> Any:
 
     except Exception:
         logger.exception("error removing activity")
-        return jsonify(
-            {
-                "error": "something went wrong — try again, and if it persists, check the health dashboard"
-            }
-        ), 500
+        return _settings_operation_failed()
 
 
 @settings_bp.route("/api/sync")
@@ -2188,11 +2154,7 @@ def get_sync() -> Any:
 
     except Exception:
         logger.exception("error loading sync config")
-        return jsonify(
-            {
-                "error": "something went wrong — try again, and if it persists, check the health dashboard"
-            }
-        ), 500
+        return _settings_operation_failed()
 
 
 @settings_bp.route("/api/sync", methods=["PUT"])
@@ -2201,7 +2163,7 @@ def update_sync() -> Any:
     try:
         request_data = request.get_json()
         if not request_data:
-            return jsonify({"error": "No data provided"}), 400
+            return error_response(MISSING_REQUEST_BODY, detail="No data provided")
 
         config_dir = Path(state.journal_root) / "config"
         config_dir.mkdir(parents=True, exist_ok=True)
@@ -2219,12 +2181,18 @@ def update_sync() -> Any:
         if "plaud" in request_data:
             plaud_data = request_data["plaud"]
             if not isinstance(plaud_data, dict):
-                return jsonify({"error": "plaud must be an object"}), 400
+                return error_response(
+                    INVALID_CONFIG_VALUE,
+                    detail="plaud must be an object",
+                )
 
             if "enabled" in plaud_data:
                 enabled = plaud_data["enabled"]
                 if not isinstance(enabled, bool):
-                    return jsonify({"error": "plaud.enabled must be a boolean"}), 400
+                    return error_response(
+                        INVALID_CONFIG_VALUE,
+                        detail="plaud.enabled must be a boolean",
+                    )
 
                 old_entry = schedules.get("sync:plaud", {})
                 old_enabled = old_entry.get("enabled", True) if old_entry else False
@@ -2243,12 +2211,18 @@ def update_sync() -> Any:
         if "granola" in request_data:
             granola_data = request_data["granola"]
             if not isinstance(granola_data, dict):
-                return jsonify({"error": "granola must be an object"}), 400
+                return error_response(
+                    INVALID_CONFIG_VALUE,
+                    detail="granola must be an object",
+                )
 
             if "enabled" in granola_data:
                 enabled = granola_data["enabled"]
                 if not isinstance(enabled, bool):
-                    return jsonify({"error": "granola.enabled must be a boolean"}), 400
+                    return error_response(
+                        INVALID_CONFIG_VALUE,
+                        detail="granola.enabled must be a boolean",
+                    )
 
                 old_entry = schedules.get("sync:granola", {})
                 old_enabled = old_entry.get("enabled", True) if old_entry else False
@@ -2272,12 +2246,18 @@ def update_sync() -> Any:
         if "obsidian" in request_data:
             obsidian_data = request_data["obsidian"]
             if not isinstance(obsidian_data, dict):
-                return jsonify({"error": "obsidian must be an object"}), 400
+                return error_response(
+                    INVALID_CONFIG_VALUE,
+                    detail="obsidian must be an object",
+                )
 
             if "enabled" in obsidian_data:
                 enabled = obsidian_data["enabled"]
                 if not isinstance(enabled, bool):
-                    return jsonify({"error": "obsidian.enabled must be a boolean"}), 400
+                    return error_response(
+                        INVALID_CONFIG_VALUE,
+                        detail="obsidian.enabled must be a boolean",
+                    )
 
                 old_entry = schedules.get("sync:obsidian", {})
                 old_enabled = old_entry.get("enabled", True) if old_entry else False
@@ -2313,11 +2293,7 @@ def update_sync() -> Any:
 
     except Exception:
         logger.exception("error saving sync config")
-        return jsonify(
-            {
-                "error": "something went wrong — try again, and if it persists, check the health dashboard"
-            }
-        ), 500
+        return _settings_operation_failed()
 
 
 @settings_bp.route("/api/storage")
@@ -2358,11 +2334,7 @@ def get_storage() -> Any:
         )
     except Exception:
         logger.exception("error loading storage")
-        return jsonify(
-            {
-                "error": "something went wrong — try again, and if it persists, check the health dashboard"
-            }
-        ), 500
+        return _settings_operation_failed()
 
 
 @settings_bp.route("/api/storage", methods=["PUT"])
@@ -2371,7 +2343,7 @@ def update_storage() -> Any:
     try:
         request_data = request.get_json()
         if not request_data:
-            return jsonify({"error": "No data provided"}), 400
+            return error_response(MISSING_REQUEST_BODY, detail="No data provided")
 
         config = get_journal_config()
         old_retention = config.get("retention", {})
@@ -2384,7 +2356,10 @@ def update_storage() -> Any:
         if "raw_media" in request_data:
             mode = request_data["raw_media"]
             if mode not in ("keep", "days", "processed"):
-                return jsonify({"error": f"Invalid mode: {mode}"}), 400
+                return error_response(
+                    INVALID_CONFIG_VALUE,
+                    detail=f"Invalid mode: {mode}",
+                )
             if retention.get("raw_media") != mode:
                 changed["raw_media"] = {"old": retention.get("raw_media"), "new": mode}
             retention["raw_media"] = mode
@@ -2394,7 +2369,10 @@ def update_storage() -> Any:
             days = request_data["raw_media_days"]
             if days is not None:
                 if not isinstance(days, int) or days < 1:
-                    return jsonify({"error": "days must be a positive integer"}), 400
+                    return error_response(
+                        INVALID_CONFIG_VALUE,
+                        detail="days must be a positive integer",
+                    )
             if retention.get("raw_media_days") != days:
                 changed["raw_media_days"] = {
                     "old": retention.get("raw_media_days"),
@@ -2406,19 +2384,26 @@ def update_storage() -> Any:
         if "per_stream" in request_data:
             ps = request_data["per_stream"]
             if not isinstance(ps, dict):
-                return jsonify({"error": "per_stream must be an object"}), 400
+                return error_response(
+                    INVALID_CONFIG_VALUE,
+                    detail="per_stream must be an object",
+                )
             new_per_stream = {}
             for stream_name, stream_cfg in ps.items():
                 if not isinstance(stream_cfg, dict):
                     continue
                 mode = stream_cfg.get("raw_media")
                 if mode is not None and mode not in ("keep", "days", "processed"):
-                    return jsonify(
-                        {"error": f"Invalid mode for {stream_name}: {mode}"}
-                    ), 400
+                    return error_response(
+                        INVALID_CONFIG_VALUE,
+                        detail=f"Invalid mode for {stream_name}: {mode}",
+                    )
                 days = stream_cfg.get("raw_media_days")
                 if days is not None and (not isinstance(days, int) or days < 1):
-                    return jsonify({"error": f"Invalid days for {stream_name}"}), 400
+                    return error_response(
+                        INVALID_CONFIG_VALUE,
+                        detail=f"Invalid days for {stream_name}",
+                    )
                 new_per_stream[stream_name] = stream_cfg
             if old_retention.get("per_stream") != new_per_stream:
                 changed["per_stream"] = {
@@ -2447,11 +2432,7 @@ def update_storage() -> Any:
         return jsonify({"success": True, "retention": retention})
     except Exception:
         logger.exception("error saving retention config")
-        return jsonify(
-            {
-                "error": "something went wrong — try again, and if it persists, check the health dashboard"
-            }
-        ), 500
+        return _settings_operation_failed()
 
 
 @settings_bp.route("/api/storage/purge", methods=["POST"])
@@ -2460,13 +2441,19 @@ def run_purge() -> Any:
     try:
         request_data = request.get_json()
         if not request_data:
-            return jsonify({"error": "No data provided"}), 400
+            return error_response(MISSING_REQUEST_BODY, detail="No data provided")
 
         older_than_days = request_data.get("older_than_days")
         if older_than_days is None:
-            return jsonify({"error": "older_than_days is required"}), 400
+            return error_response(
+                MISSING_REQUIRED_FIELD,
+                detail="older_than_days is required",
+            )
         if not isinstance(older_than_days, int) or older_than_days < 1:
-            return jsonify({"error": "older_than_days must be a positive integer"}), 400
+            return error_response(
+                INVALID_CONFIG_VALUE,
+                detail="older_than_days must be a positive integer",
+            )
 
         stream_filter = request_data.get("stream_filter") or None
         dry_run = request_data.get("dry_run", True)
@@ -2515,8 +2502,4 @@ def run_purge() -> Any:
         return jsonify(response)
     except Exception:
         logger.exception("error running purge")
-        return jsonify(
-            {
-                "error": "something went wrong — try again, and if it persists, check the health dashboard"
-            }
-        ), 500
+        return _settings_operation_failed()
