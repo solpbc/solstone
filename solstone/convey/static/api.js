@@ -5,13 +5,23 @@
   const savedControlValues = new WeakMap();
 
   class ApiError extends Error {
-    constructor({ status, statusText, serverMessage, url, cause }) {
+    constructor({
+      status,
+      statusText,
+      serverMessage,
+      url,
+      cause,
+      correlationId = '',
+      timestamp = null
+    }) {
       super(serverMessage);
       this.name = 'ApiError';
       this.status = status;
       this.statusText = statusText;
       this.serverMessage = serverMessage;
       this.url = url;
+      this.correlationId = correlationId || '';
+      this.timestamp = timestamp ?? null;
       if (cause) {
         this.cause = cause;
       }
@@ -149,12 +159,16 @@
     const response = await fetch(url, fetchOptions);
 
     if ((response.status === 401 || response.status === 403) && !noAuthRedirect) {
+      const correlationId = response?.headers?.get('X-Solstone-Request-Id') || '';
+      const timestamp = Date.now();
       window.location.href = '/';
       throw new ApiError({
         status: response.status,
         statusText: response.statusText,
         serverMessage: 'Authentication required',
-        url: url
+        url: url,
+        correlationId,
+        timestamp
       });
     }
 
@@ -169,11 +183,15 @@
       const serverMessage = payload?.error
         ?? payload?.message
         ?? `Request failed (HTTP ${response.status})`;
+      const correlationId = response.headers.get('X-Solstone-Request-Id') || '';
+      const timestamp = Date.now();
       throw new ApiError({
         status: response.status,
         statusText: response.statusText,
         serverMessage,
-        url: url
+        url: url,
+        correlationId,
+        timestamp
       });
     }
 
@@ -182,12 +200,16 @@
       return parsed.payload;
     }
 
+    const correlationId = response.headers.get('X-Solstone-Request-Id') || '';
+    const timestamp = Date.now();
     throw new ApiError({
       status: response.status,
       statusText: response.statusText,
       serverMessage: 'Malformed server response',
       url: url,
-      cause: 'parse'
+      cause: 'parse',
+      correlationId,
+      timestamp
     });
   }
 

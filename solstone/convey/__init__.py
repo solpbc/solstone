@@ -22,6 +22,7 @@ from .auth import install_identity_stamper
 from .bridge import emit
 from .chat import chat_bp, start_chat_runtime
 from .config import bp as config_bp
+from .request_id import install_request_id_stamper
 from .root import bp as root_bp
 
 __all__ = [
@@ -140,6 +141,7 @@ def create_app(journal: str = "") -> Flask:
     app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
     app.config.setdefault("SECURE_LISTENER_ENABLED", False)
     install_identity_stamper(app)
+    install_request_id_stamper(app)
 
     # Register root blueprint (login, logout, /, favicon)
     app.register_blueprint(root_bp)

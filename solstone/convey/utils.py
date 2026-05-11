@@ -4,12 +4,26 @@
 import json
 import math
 import re
+import secrets
 import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
 DATE_RE = re.compile(r"\d{8}")
+_REQUEST_ID_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
+
+
+def generate_request_id() -> str:
+    """Return 12-char Crockford base32 ULID-style request ID."""
+    timestamp_ms = (time.time_ns() // 1_000_000) & ((1 << 48) - 1)
+    random_bits = int.from_bytes(secrets.token_bytes(2), "big") & 0x0FFF
+    value = (timestamp_ms << 12) | random_bits
+
+    chars = []
+    for shift in range(55, -1, -5):
+        chars.append(_REQUEST_ID_ALPHABET[(value >> shift) & 0x1F])
+    return "".join(chars)
 
 
 def format_date(date_str: str) -> str:
