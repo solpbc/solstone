@@ -12,7 +12,8 @@ import frontmatter
 from flask import Blueprint, Response, jsonify, redirect, render_template, url_for
 from markdown import Markdown
 
-from solstone.convey.utils import DATE_RE, format_date
+from solstone.convey.reasons import INVALID_MONTH
+from solstone.convey.utils import DATE_RE, error_response, format_date
 from solstone.think.features import require_extra
 from solstone.think.utils import get_journal, get_owner_timezone, sunday_of_week
 
@@ -213,7 +214,10 @@ def week_pdf(day: str) -> Any:
 @reflections_bp.route("/api/stats/<month>")
 def api_stats(month: str) -> Any:
     if len(month) != 6 or not month.isdigit():
-        return jsonify({"error": "Invalid month format, expected YYYYMM"}), 400
+        return error_response(
+            INVALID_MONTH,
+            detail="Invalid month format, expected YYYYMM",
+        )
 
     stats = {day: 1 for day in _list_reflection_days() if day.startswith(month)}
     return jsonify(stats)
