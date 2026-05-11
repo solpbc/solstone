@@ -372,7 +372,10 @@ def test_talent_log_endpoint_returns_missing(chat_client):
     response = chat_client.get(f"/api/chat/talent-log/{use_id}")
 
     assert response.status_code == 404
-    assert response.get_json() == {"error": f"Talent log not found for use_id {use_id}"}
+    payload = response.get_json()
+    assert payload["error"] == "I couldn't find that talent run."
+    assert payload["reason_code"] == "talent_not_found"
+    assert payload["detail"] == f"Talent log not found for use_id {use_id}"
 
 
 def test_talent_log_endpoint_task_falls_back_to_prompt(chat_client, tmp_path):

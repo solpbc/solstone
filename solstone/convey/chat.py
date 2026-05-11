@@ -25,6 +25,11 @@ from solstone.convey.chat_stream import (
     read_chat_events,
     reduce_chat_state,
 )
+from solstone.convey.reasons import (
+    AGENT_UNAVAILABLE,
+    MISSING_REQUIRED_FIELD,
+    TALENT_NOT_FOUND,
+)
 from solstone.convey.sol_initiated import (
     record_owner_chat_dismissed,
     record_owner_chat_open,
@@ -71,7 +76,7 @@ def post_chat() -> Any:
     payload = request.get_json(force=True) or {}
     message = str(payload.get("message") or "").strip()
     if not message:
-        return error_response("message is required", 400)
+        return error_response(MISSING_REQUIRED_FIELD, detail="message is required")
 
     from solstone.think.identity import ensure_identity_directory
 
@@ -107,7 +112,10 @@ def post_chat() -> Any:
 
     if start_info is not None and not _spawn_chat_generate(start_info):
         _handle_chat_failure(response_use_id, CHAT_TROUBLE_REASON)
-        return error_response("Failed to connect to agent service", 503)
+        return error_response(
+            AGENT_UNAVAILABLE,
+            detail="Failed to connect to agent service",
+        )
 
     return jsonify(use_id=response_use_id, queued=queued)
 
@@ -118,7 +126,7 @@ def sol_chat_request_open() -> Any:
     payload = request.get_json(force=True, silent=True) or {}
     request_id = str(payload.get("request_id") or "").strip()
     if not request_id:
-        return error_response("request_id required", 400)
+        return error_response(MISSING_REQUIRED_FIELD, detail="request_id required")
     record_owner_chat_open(request_id, surface=SURFACE_CONVEY)
     return jsonify({"ok": True})
 
@@ -129,7 +137,7 @@ def sol_chat_request_dismissed() -> Any:
     payload = request.get_json(force=True, silent=True) or {}
     request_id = str(payload.get("request_id") or "").strip()
     if not request_id:
-        return error_response("request_id required", 400)
+        return error_response(MISSING_REQUIRED_FIELD, detail="request_id required")
     reason = payload.get("reason")
     reason_str = str(reason).strip() if reason is not None else None
     record_owner_chat_dismissed(
@@ -152,7 +160,10 @@ def get_talent_log(use_id: str) -> Any:
     """Return a talent-use timeline from the JSONL log."""
     result = _read_talent_log(use_id)
     if result is None:
-        return jsonify(error=f"Talent log not found for use_id {use_id}"), 404
+        return error_response(
+            TALENT_NOT_FOUND,
+            detail=f"Talent log not found for use_id {use_id}",
+        )
     return jsonify(result)
 
 
