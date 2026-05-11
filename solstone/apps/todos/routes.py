@@ -27,7 +27,16 @@ from solstone.apps.utils import log_app_action
 from solstone.convey import state
 from solstone.convey.config import get_selected_facet
 from solstone.convey.copy import CONVEY_RELOAD_HINT
-from solstone.convey.utils import DATE_RE, format_date
+from solstone.convey.reasons import (
+    AGENT_UNAVAILABLE,
+    INVALID_DAY,
+    INVALID_MONTH,
+    INVALID_REQUEST_VALUE,
+    MISSING_REQUIRED_FIELD,
+    OPERATION_NO_LONGER_AVAILABLE,
+    TODO_OPERATION_FAILED,
+)
+from solstone.convey.utils import DATE_RE, error_response, format_date
 from solstone.think.facets import get_facets
 
 todos_bp = Blueprint("app:todos", __name__, url_prefix="/app/todos")
@@ -148,7 +157,10 @@ def api_stats(month: str):
     import re
 
     if not re.fullmatch(r"\d{6}", month):
-        return jsonify({"error": "Invalid month format, expected YYYYMM"}), 400
+        return error_response(
+            INVALID_MONTH,
+            detail="Invalid month format, expected YYYYMM",
+        )
 
     try:
         facet_map = get_facets()
@@ -503,15 +515,17 @@ def move_todo(day: str):  # type: ignore[override]
     index_value = payload.get("index")
 
     if not DATE_RE.fullmatch(target_day):
-        return jsonify({"error": "Please pick a valid target day."}), 400
+        return error_response(INVALID_DAY, detail="Please pick a valid target day.")
 
     try:
         index = int(index_value)
     except (TypeError, ValueError):
-        return jsonify({"error": "Missing todo index."}), 400
+        return error_response(MISSING_REQUIRED_FIELD, detail="Missing todo index.")
 
     if index <= 0:
-        return jsonify({"error": "Todo index must be positive."}), 400
+        return error_response(
+            INVALID_REQUEST_VALUE, detail="Todo index must be positive."
+        )
 
     if target_day == day:
         return jsonify(
@@ -528,9 +542,10 @@ def move_todo(day: str):  # type: ignore[override]
         current_app.logger.debug(
             "Failed to load source todo list for %s/%s: %s", facet, day, exc
         )
-        return (
-            jsonify({"error": f"Todo list changed, {CONVEY_RELOAD_HINT}"}),
-            409,
+        return error_response(
+            OPERATION_NO_LONGER_AVAILABLE,
+            status=409,
+            detail=f"Todo list changed, {CONVEY_RELOAD_HINT}",
         )
 
     try:
@@ -539,15 +554,19 @@ def move_todo(day: str):  # type: ignore[override]
         current_app.logger.debug(
             "Failed to load target todo list for %s/%s: %s", facet, target_day, exc
         )
-        return jsonify({"error": "Unable to access target day."}), 500
+        return error_response(
+            TODO_OPERATION_FAILED,
+            detail="Unable to access target day.",
+        )
 
     try:
         source_item = source_checklist.get_item(index)
     except IndexError as exc:
         current_app.logger.debug("Failed to locate todo %s on %s: %s", index, day, exc)
-        return (
-            jsonify({"error": f"Todo list changed, {CONVEY_RELOAD_HINT}"}),
-            409,
+        return error_response(
+            OPERATION_NO_LONGER_AVAILABLE,
+            status=409,
+            detail=f"Todo list changed, {CONVEY_RELOAD_HINT}",
         )
 
     # Add to target day
@@ -557,7 +576,11 @@ def move_todo(day: str):  # type: ignore[override]
         )
     except TodoEmptyTextError as exc:
         current_app.logger.debug("Failed to append todo to %s: %s", target_day, exc)
-        return jsonify({"error": "Unable to move todo to the selected day."}), 400
+        return error_response(
+            TODO_OPERATION_FAILED,
+            status=400,
+            detail="Unable to move todo to the selected day.",
+        )
 
     # Preserve completed status
     if source_item.completed:
@@ -633,10 +656,17 @@ Write the generated checklist to facets/{facet}/todos/{day}.jsonl"""
             config={},
         )
     except Exception as exc:  # pragma: no cover - network/agent failure
-        return jsonify({"error": f"Failed to spawn agent: {exc}"}), 500
+        return error_response(
+            AGENT_UNAVAILABLE,
+            status=500,
+            detail=f"Failed to spawn agent: {exc}",
+        )
 
     if use_id is None:
-        return jsonify({"error": "Failed to connect to agent service"}), 503
+        return error_response(
+            AGENT_UNAVAILABLE,
+            detail="Failed to connect to agent service",
+        )
 
     if not hasattr(state, "todo_generation_agents"):
         state.todo_generation_agents = {}
@@ -718,9 +748,16 @@ Focus on surfacing the most important unfinished work from the past 7 days."""
             config={},
         )
     except Exception as exc:  # pragma: no cover - network/agent failure
-        return jsonify({"error": f"Failed to spawn agent: {exc}"}), 500
+        return error_response(
+            AGENT_UNAVAILABLE,
+            status=500,
+            detail=f"Failed to spawn agent: {exc}",
+        )
 
     if use_id is None:
-        return jsonify({"error": "Failed to connect to agent service"}), 503
+        return error_response(
+            AGENT_UNAVAILABLE,
+            detail="Failed to connect to agent service",
+        )
 
     return jsonify({"use_id": use_id, "status": "started"})
