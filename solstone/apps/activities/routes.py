@@ -12,7 +12,14 @@ from typing import Any
 from flask import Blueprint, jsonify, redirect, render_template, request, url_for
 
 from solstone.convey import state
-from solstone.convey.utils import DATE_RE, format_date
+from solstone.convey.reasons import (
+    FILE_NOT_FOUND,
+    FILE_READ_FAILED,
+    INVALID_DAY,
+    INVALID_MONTH,
+    INVALID_PATH,
+)
+from solstone.convey.utils import DATE_RE, error_response, format_date
 from solstone.observe.utils import VIDEO_EXTENSIONS
 from solstone.think.activities import (
     estimate_duration_minutes,
@@ -79,12 +86,18 @@ def _month_activity_counts(month: str) -> dict[str, dict[str, int]]:
 def activities_stats(month: str) -> Any:
     """Return activity counts per facet for a specific month."""
     if len(month) != 6 or not month.isdigit():
-        return jsonify({"error": "Invalid month format, expected YYYYMM"}), 400
+        return error_response(
+            INVALID_MONTH,
+            detail="Invalid month format, expected YYYYMM",
+        )
 
     try:
         return jsonify(_month_activity_counts(month))
     except ValueError:
-        return jsonify({"error": "Invalid month format, expected YYYYMM"}), 400
+        return error_response(
+            INVALID_MONTH,
+            detail="Invalid month format, expected YYYYMM",
+        )
 
 
 def _enrich_activity_record(
@@ -181,7 +194,7 @@ def activities_day_activities(day: str) -> Any:
     Returns JSON array of activity objects.
     """
     if not DATE_RE.fullmatch(day):
-        return jsonify({"error": "Invalid day format"}), 400
+        return error_response(INVALID_DAY, detail="Invalid day format")
 
     facet_filter = request.args.get("facet")
 
@@ -211,7 +224,7 @@ def activities_activity_output(filename: str) -> Any:
     Returns JSON with content, format, and filename.
     """
     if not filename.startswith("facets/"):
-        return jsonify(error="Invalid path"), 400
+        return error_response(INVALID_PATH, detail="Invalid path")
 
     journal_root = Path(state.journal_root).resolve()
     file_path = (journal_root / filename).resolve()
@@ -219,10 +232,10 @@ def activities_activity_output(filename: str) -> Any:
     try:
         file_path.relative_to(journal_root)
     except ValueError:
-        return jsonify(error="Invalid path"), 403
+        return error_response(INVALID_PATH, status=403, detail="Invalid path")
 
     if not file_path.is_file():
-        return jsonify(error="File not found"), 404
+        return error_response(FILE_NOT_FOUND, detail="File not found")
 
     ext = file_path.suffix.lower()
     fmt = "json" if ext == ".json" else "md"
@@ -230,7 +243,7 @@ def activities_activity_output(filename: str) -> Any:
     try:
         content = file_path.read_text(encoding="utf-8")
     except IOError:
-        return jsonify(error="Could not read file"), 500
+        return error_response(FILE_READ_FAILED, detail="Could not read file")
 
     return jsonify(content=content, format=fmt, filename=file_path.name)
 
@@ -458,6 +471,7 @@ def _dev_screen_frames(
         return jsonify({"frames": frames, "raw_video_path": raw_video_path})
 
     except Exception as e:
+        # PROTOCOL-ONLY: developer debug endpoint, not owner-facing product API.
         return jsonify({"error": str(e)}), 500
 
 
@@ -488,8 +502,9 @@ def _dev_screen_frame_image(
             buffer.seek(0)
             return send_file(buffer, mimetype="image/jpeg")
 
-        # Frame not in cache
+        # PROTOCOL-ONLY: developer debug endpoint, not owner-facing product API.
         return jsonify({"error": "Frame not cached. Load the frames list first."}), 404
 
     except Exception as e:
+        # PROTOCOL-ONLY: developer debug endpoint, not owner-facing product API.
         return jsonify({"error": str(e)}), 500
