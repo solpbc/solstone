@@ -1117,37 +1117,6 @@
     audio: '<svg viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>'
   };
 
-  const ERROR_MAP = [
-    { match: 'Embedding too similar to owner voice', message: "this voice sounds like yours — it can't be saved as a different speaker" },
-    { match: 'Cannot confirm unattributed sentence', message: 'this sentence needs to be assigned to a speaker first' },
-    { match: 'Can only confirm medium-confidence', message: 'this attribution is already confirmed' },
-    { match: 'Sentence embedding not found', message: 'something went wrong — try again' },
-    { match: 'No speaker labels found', message: 'something went wrong — try again' },
-    { match: 'not found in labels', message: "this sentence wasn't found — try refreshing the page" },
-    { match: 'Sentence already has a speaker', message: 'this sentence already has a speaker — use correct to change it' },
-    { match: 'is blocked', message: "that speaker is blocked and can't be used" },
-    { match: 'not found', message: "that speaker wasn't found — they may have been removed. Try refreshing the page" },
-  ];
-
-  function friendlyError(backendMessage) {
-    if (!backendMessage) return 'something went wrong — try again';
-    for (const entry of ERROR_MAP) {
-      if (backendMessage.includes(entry.match)) return entry.message;
-    }
-    return 'something went wrong — try again';
-  }
-
-  function resolveSpeakerError(err) {
-    const raw = err?.serverMessage || err?.message || '';
-    const friendly = friendlyError(raw);
-    const generic = 'something went wrong — try again';
-    const suppressRawPassthrough = raw.includes('Sentence embedding not found') || raw.includes('No speaker labels found');
-    if (friendly === generic && raw && !suppressRawPassthrough) {
-      return raw;
-    }
-    return friendly;
-  }
-
   function attachAudioErrorListeners(container) {
     container.querySelectorAll('audio').forEach(audio => {
       audio.addEventListener('error', () => {
@@ -1341,7 +1310,7 @@
               })
               .catch((err) => {
                 ownerDetectionInFlight = false;
-                renderOwnerBanner(`Couldn't analyze voice patterns — ${resolveSpeakerError(err)}`);
+                renderOwnerBanner(`Couldn't analyze voice patterns — ${err.serverMessage}`);
                 window.logError(err, { context: 'speakers: owner detect failed' });
               });
           }
@@ -1366,7 +1335,7 @@
       .catch((err) => {
         ownerDetectionInFlight = false;
         hideDiscovery();
-        renderOwnerBanner(`Couldn't load owner status — ${resolveSpeakerError(err)}`);
+        renderOwnerBanner(`Couldn't load owner status — ${err.serverMessage}`);
         window.logError(err, { context: 'speakers: checkOwnerStatus failed' });
       });
   }
@@ -1512,7 +1481,7 @@
         })
         .catch((err) => {
           btn.disabled = false;
-          showOwnerGuideToast(`Couldn't build from manual tags — ${resolveSpeakerError(err)}`, 'error');
+          showOwnerGuideToast(`Couldn't build from manual tags — ${err.serverMessage}`, 'error');
           window.logError(err, { context: 'speakers: owner build from tags failed' });
         });
     });
@@ -1527,7 +1496,7 @@
       })
       .catch((err) => {
         ownerBanner.querySelectorAll('button').forEach(btn => { btn.disabled = false; });
-        renderOwnerBanner(resolveSpeakerError(err));
+        renderOwnerBanner(err.serverMessage);
         window.logError(err, { context: 'speakers: submitOwnerChoice failed' });
       });
   }
@@ -2186,7 +2155,7 @@
     try {
       const sentence = currentSentences.find(s => s.id === sentenceId);
       const isPrincipalAttestation = Boolean(sentence?.is_owner);
-      const data = await window.apiJson('/app/speakers/api/confirm-attribution', {
+      await window.apiJson('/app/speakers/api/confirm-attribution', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2197,15 +2166,6 @@
           sentence_id: sentenceId,
         }),
       });
-      if (data.error) {
-        showStatusBySentence(
-          sentenceId,
-          resolveSpeakerError({ serverMessage: data.error, message: data.error }),
-          'error'
-        );
-        return;
-      }
-
       if (sentence) {
         sentence.confidence = 'high';
         sentence.method = 'user_confirmed';
@@ -2219,13 +2179,17 @@
         checkOwnerStatus();
       }
     } catch (err) {
-      showStatusBySentence(sentenceId, resolveSpeakerError(err), 'error');
+      showStatusBySentence(
+        sentenceId,
+        err.serverMessage || 'something went wrong — try again',
+        'error'
+      );
     }
   }
 
   async function correctAttribution(sentenceId, newSpeaker) {
     try {
-      const data = await window.apiJson('/app/speakers/api/correct-attribution', {
+      await window.apiJson('/app/speakers/api/correct-attribution', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2237,25 +2201,21 @@
           new_speaker: newSpeaker,
         }),
       });
-      if (data.error) {
-        showStatusBySentence(
-          sentenceId,
-          resolveSpeakerError({ serverMessage: data.error, message: data.error }),
-          'error'
-        );
-        return;
-      }
       loadReview(selectedSegment, selectedSource);
       loadSegments();
       triggerOwnerStatusIfPrincipal(newSpeaker);
     } catch (err) {
-      showStatusBySentence(sentenceId, resolveSpeakerError(err), 'error');
+      showStatusBySentence(
+        sentenceId,
+        err.serverMessage || 'something went wrong — try again',
+        'error'
+      );
     }
   }
 
   async function assignAttribution(sentenceId, speaker) {
     try {
-      const data = await window.apiJson('/app/speakers/api/assign-attribution', {
+      await window.apiJson('/app/speakers/api/assign-attribution', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2267,19 +2227,15 @@
           speaker,
         }),
       });
-      if (data.error) {
-        showStatusBySentence(
-          sentenceId,
-          resolveSpeakerError({ serverMessage: data.error, message: data.error }),
-          'error'
-        );
-        return;
-      }
       loadReview(selectedSegment, selectedSource);
       loadSegments();
       triggerOwnerStatusIfPrincipal(speaker);
     } catch (err) {
-      showStatusBySentence(sentenceId, resolveSpeakerError(err), 'error');
+      showStatusBySentence(
+        sentenceId,
+        err.serverMessage || 'something went wrong — try again',
+        'error'
+      );
     }
   }
 
