@@ -18,7 +18,7 @@ import tempfile
 import threading
 import time
 from collections import deque
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +29,15 @@ from solstone.think.callosum import CallosumConnection, CallosumServer
 from solstone.think.maint import run_pending_tasks
 from solstone.think.readiness import clear_ready, signal_ready
 from solstone.think.runner import ManagedProcess as RunnerManagedProcess
+from solstone.think.sync_check import (
+    DEFAULT_INTERVAL_SECONDS,
+    STARTUP_PROBE_SECONDS,
+    SyncCheckSnapshot,
+    check_journal_sync,
+    clear_self_heartbeat,
+    format_conflict_message,
+    write_self_heartbeat,
+)
 from solstone.think.utils import (
     EXIT_TEMPFAIL,
     day_path,
@@ -61,6 +70,9 @@ _SERVICE_LIFECYCLE_VERBS = {
 
 # Global shutdown flag
 shutdown_requested = False
+_last_sync_tick: float = 0.0
+_last_sync_snapshot: "SyncCheckSnapshot | None" = None
+_sync_conflict_shutdown: bool = False
 # Supervisor identity (set in main() once ref is assigned)
 _supervisor_ref: str | None = None
 _supervisor_start: float | None = None
@@ -1605,6 +1617,59 @@ def _handle_callosum_message(message: dict) -> None:
     _handle_segment_event_log(message)
 
 
+def _run_sync_tick(now: float) -> bool:
+    """Write this supervisor's heartbeat and stop on live foreign writers."""
+    global _last_sync_tick, _last_sync_snapshot, _sync_conflict_shutdown
+    global shutdown_requested
+
+    if now - _last_sync_tick < DEFAULT_INTERVAL_SECONDS:
+        return True
+
+    try:
+        write_self_heartbeat()
+        result = check_journal_sync(previous=_last_sync_snapshot)
+        _last_sync_snapshot = result.snapshot
+        _last_sync_tick = now
+        if not result.is_conflict:
+            return True
+
+        primary = result.primary_conflict
+        if primary is None:
+            return True
+
+        machine_prefix = primary.machine_id[:8] if primary.machine_id else "(unknown)"
+        logging.error(
+            "Another solstone instance is writing to this journal "
+            "(host=%s pid=%s machine=%s) - shutting down.",
+            primary.display_hostname,
+            primary.pid,
+            machine_prefix,
+        )
+        if _supervisor_callosum:
+            try:
+                _supervisor_callosum.emit(
+                    "supervisor",
+                    "sync_conflict",
+                    hostname=primary.display_hostname,
+                    journal_path=primary.journal_path,
+                    pid=primary.pid,
+                    machine_id_prefix=primary.machine_id[:8]
+                    if primary.machine_id
+                    else "",
+                    wall_time=datetime.now(timezone.utc)
+                    .isoformat(timespec="seconds")
+                    .replace("+00:00", "Z"),
+                )
+            except Exception:
+                logging.exception("Failed to emit sync_conflict event")
+        shutdown_requested = True
+        _sync_conflict_shutdown = True
+        return False
+    except Exception:
+        logging.exception("Sync conflict check failed (continuing)")
+        return True
+
+
 async def supervise(
     *,
     daily: bool = True,
@@ -1616,7 +1681,12 @@ async def supervise(
     Monitors runner health, emits status, triggers daily processing,
     and checks scheduled agents.
     """
+    global _last_sync_tick, _last_sync_snapshot, _sync_conflict_shutdown
+
     last_status_emit = 0.0
+    _last_sync_tick = 0.0
+    _last_sync_snapshot = None
+    _sync_conflict_shutdown = False
 
     try:
         while (
@@ -1642,6 +1712,10 @@ async def supervise(
 
             # Check for segment flush (non-blocking, submits via task queue)
             _check_segment_flush()
+
+            # Check for journal sync conflicts (usually just heartbeat IO)
+            if not _run_sync_tick(now):
+                return
 
             # Check for daily processing (non-blocking, submits via task queue)
             if daily:
@@ -1799,6 +1873,26 @@ def main() -> None:
         else:
             print(f"Supervisor already running{pid_msg}")
         sys.exit(1)
+
+    print(
+        "Checking for other active solstone instances on this journal (~20s)...",
+        flush=True,
+    )
+    initial_sync = check_journal_sync(previous=None, journal=journal_path)
+    write_self_heartbeat(journal=journal_path)
+    time.sleep(STARTUP_PROBE_SECONDS)
+    final_sync = check_journal_sync(
+        previous=initial_sync.snapshot, journal=journal_path
+    )
+    if final_sync.is_conflict:
+        print(format_conflict_message(final_sync), file=sys.stderr)
+        clear_self_heartbeat(journal=journal_path)
+        try:
+            lock_fd.close()
+        except Exception:
+            pass
+        sys.exit(1)
+
     pid_path.write_text(str(os.getpid()))
     start_time_path = health_dir / "supervisor.start_time"
     # Written here, not at _supervisor_start, to minimize drift from psutil create_time().
@@ -1997,6 +2091,11 @@ def main() -> None:
             clear_ready()
         except Exception as exc:
             logging.warning("Failed to clear readiness marker during shutdown: %s", exc)
+        try:
+            if not _sync_conflict_shutdown:
+                clear_self_heartbeat()
+        except Exception as exc:
+            logging.warning("Failed to clear sync heartbeat during shutdown: %s", exc)
 
         logging.info("Stopping all processes...")
         print("\nShutting down gracefully (this may take a moment)...", flush=True)

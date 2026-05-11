@@ -42,6 +42,7 @@ from typing import IO, Callable, Literal, Sequence
 
 from solstone.think import features as _features
 from solstone.think.setup_events import STATUS_TRANSLATION, JsonlEmitter, utc_now_iso
+from solstone.think.sync_check import check_journal_sync, format_doctor_report
 from solstone.think.utils import is_packaged_install
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -879,6 +880,18 @@ def microphone_permission_check(args: Args) -> CheckResult:
     )
 
 
+def journal_sync_check(args: Args) -> CheckResult:
+    del args
+    check = CHECK_MAP["journal_sync"]
+    try:
+        result = check_journal_sync()
+    except Exception as exc:
+        return make_result(check, "fail", f"sync check failed: {exc}")
+
+    status: Status = "fail" if result.is_conflict else "ok"
+    return make_result(check, status, format_doctor_report(result))
+
+
 def _make_feature_check(
     feat_name: str,
 ) -> tuple[Check, Callable[[Args], CheckResult]]:
@@ -939,6 +952,7 @@ CHECKS: list[tuple[Check, Callable[[Args], CheckResult]]] = [
         Check("microphone_permission", "advisory", ("darwin",)),
         microphone_permission_check,
     ),
+    (Check("journal_sync", "blocker", ("linux", "darwin")), journal_sync_check),
 ]
 
 for _feat_name in _features.FEATURES:

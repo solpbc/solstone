@@ -220,6 +220,7 @@ def test_graceful_shutdown_calls_stop_process_for_each_managed_proc(
     )
     monkeypatch.setattr(mod, "run_pending_tasks", lambda *a, **k: (0, 0))
     monkeypatch.setattr(mod, "_sweep_orphaned_sol_processes", lambda: 0)
+    monkeypatch.setattr(mod.time, "sleep", lambda _seconds: None)
     monkeypatch.setattr(mod, "start_callosum_in_process", lambda: None)
     monkeypatch.setattr(mod, "stop_callosum_in_process", lambda: None)
     monkeypatch.setattr(mod, "wait_for_convey_ready", lambda _proc: True)
@@ -1169,6 +1170,7 @@ def test_supervisor_singleton_lock_acquired(tmp_path, monkeypatch):
     # slow enough on a fresh tmp_path to blow the 5s pytest-timeout under load.
     monkeypatch.setattr(mod, "run_pending_tasks", lambda *a, **k: (0, 0))
     monkeypatch.setattr(mod, "_sweep_orphaned_sol_processes", lambda: 0)
+    monkeypatch.setattr(mod.time, "sleep", lambda _seconds: None)
     monkeypatch.setattr(mod, "start_callosum_in_process", stop_after_lock)
 
     with pytest.raises(SystemExit) as exc:
