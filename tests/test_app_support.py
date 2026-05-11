@@ -47,7 +47,10 @@ def test_badge_count_disabled_returns_403(support_client, monkeypatch):
     resp = support_client.get("/app/support/api/badge-count")
 
     assert resp.status_code == 403
-    assert resp.get_json() == {"error": "Support is not enabled"}
+    payload = resp.get_json()
+    assert payload["error"] == "I couldn't use that feature because it isn't enabled."
+    assert payload["reason_code"] == "feature_unavailable"
+    assert payload["detail"] == "Support is not enabled"
 
 
 def test_badge_count_error_returns_500(support_client, monkeypatch):

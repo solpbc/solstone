@@ -13,6 +13,12 @@ from typing import Any
 
 from flask import Blueprint, jsonify, request
 
+from solstone.convey.reasons import (
+    FEATURE_UNAVAILABLE,
+    INVALID_REQUEST_VALUE,
+    MISSING_REQUIRED_FIELD,
+    SUPPORT_PORTAL_FAILED,
+)
 from solstone.convey.utils import error_response
 
 logger = logging.getLogger(__name__)
@@ -44,7 +50,7 @@ def _enabled() -> bool:
 def list_tickets() -> Any:
     """List user's tickets."""
     if not _enabled():
-        return error_response("Support is disabled", 403)
+        return error_response(FEATURE_UNAVAILABLE, detail="Support is disabled")
 
     try:
         status = request.args.get("status")
@@ -53,14 +59,14 @@ def list_tickets() -> Any:
         return jsonify(tickets)
     except Exception as exc:
         logger.exception("Failed to list tickets")
-        return error_response(str(exc))
+        return error_response(SUPPORT_PORTAL_FAILED, detail=str(exc))
 
 
 @support_bp.route("/api/tickets/<int:ticket_id>", methods=["GET"])
 def get_ticket(ticket_id: int) -> Any:
     """Get a single ticket with thread."""
     if not _enabled():
-        return error_response("Support is disabled", 403)
+        return error_response(FEATURE_UNAVAILABLE, detail="Support is disabled")
 
     try:
         client = _get_client()
@@ -68,21 +74,24 @@ def get_ticket(ticket_id: int) -> Any:
         return jsonify(ticket)
     except Exception as exc:
         logger.exception("Failed to get ticket %d", ticket_id)
-        return error_response(str(exc))
+        return error_response(SUPPORT_PORTAL_FAILED, detail=str(exc))
 
 
 @support_bp.route("/api/tickets", methods=["POST"])
 def create_ticket() -> Any:
     """Create a support ticket."""
     if not _enabled():
-        return error_response("Support is disabled", 403)
+        return error_response(FEATURE_UNAVAILABLE, detail="Support is disabled")
 
     payload = request.get_json(force=True)
     subject = payload.get("subject")
     description = payload.get("description")
 
     if not subject or not description:
-        return error_response("subject and description are required")
+        return error_response(
+            MISSING_REQUIRED_FIELD,
+            detail="subject and description are required",
+        )
 
     try:
         from solstone.apps.support.tools import support_create
@@ -100,19 +109,19 @@ def create_ticket() -> Any:
         return jsonify(result), 201
     except Exception as exc:
         logger.exception("Failed to create ticket")
-        return error_response(str(exc))
+        return error_response(SUPPORT_PORTAL_FAILED, detail=str(exc))
 
 
 @support_bp.route("/api/tickets/<int:ticket_id>/reply", methods=["POST"])
 def reply_to_ticket(ticket_id: int) -> Any:
     """Reply to a ticket."""
     if not _enabled():
-        return error_response("Support is disabled", 403)
+        return error_response(FEATURE_UNAVAILABLE, detail="Support is disabled")
 
     payload = request.get_json(force=True)
     content = payload.get("content", "")
     if not content:
-        return error_response("content is required")
+        return error_response(MISSING_REQUIRED_FIELD, detail="content is required")
 
     try:
         client = _get_client()
@@ -120,7 +129,7 @@ def reply_to_ticket(ticket_id: int) -> Any:
         return jsonify(result), 201
     except Exception as exc:
         logger.exception("Failed to reply to ticket %d", ticket_id)
-        return error_response(str(exc))
+        return error_response(SUPPORT_PORTAL_FAILED, detail=str(exc))
 
 
 # -- Attachments -------------------------------------------------------------
@@ -130,14 +139,14 @@ def reply_to_ticket(ticket_id: int) -> Any:
 def upload_attachment(ticket_id: int) -> Any:
     """Upload a file attachment to a ticket."""
     if not _enabled():
-        return error_response("Support is disabled", 403)
+        return error_response(FEATURE_UNAVAILABLE, detail="Support is disabled")
 
     if "file" not in request.files:
-        return error_response("No file provided")
+        return error_response(MISSING_REQUIRED_FIELD, detail="No file provided")
 
     uploaded = request.files["file"]
     if not uploaded.filename:
-        return error_response("No filename")
+        return error_response(MISSING_REQUIRED_FIELD, detail="No filename")
 
     try:
         import tempfile
@@ -149,8 +158,11 @@ def upload_attachment(ticket_id: int) -> Any:
         suffix = Path(uploaded.filename).suffix.lower()
         if suffix not in PortalClient.ALLOWED_CONTENT_TYPES:
             return error_response(
-                f"Unsupported file type: {suffix}. "
-                f"Allowed: {', '.join(sorted(PortalClient.ALLOWED_CONTENT_TYPES))}"
+                INVALID_REQUEST_VALUE,
+                detail=(
+                    f"Unsupported file type: {suffix}. "
+                    f"Allowed: {', '.join(sorted(PortalClient.ALLOWED_CONTENT_TYPES))}"
+                ),
             )
 
         # Save to temp file, then upload via portal client
@@ -171,10 +183,10 @@ def upload_attachment(ticket_id: int) -> Any:
             tmp_path.unlink(missing_ok=True)
 
     except ValueError as exc:
-        return error_response(str(exc))
+        return error_response(INVALID_REQUEST_VALUE, detail=str(exc))
     except Exception as exc:
         logger.exception("Failed to upload attachment to ticket %d", ticket_id)
-        return error_response(str(exc))
+        return error_response(SUPPORT_PORTAL_FAILED, detail=str(exc))
 
 
 # -- Feedback ----------------------------------------------------------------
@@ -184,12 +196,12 @@ def upload_attachment(ticket_id: int) -> Any:
 def submit_feedback() -> Any:
     """Submit feedback."""
     if not _enabled():
-        return error_response("Support is disabled", 403)
+        return error_response(FEATURE_UNAVAILABLE, detail="Support is disabled")
 
     payload = request.get_json(force=True)
     body = payload.get("body", "")
     if not body:
-        return error_response("body is required")
+        return error_response(MISSING_REQUIRED_FIELD, detail="body is required")
 
     try:
         from solstone.apps.support.tools import support_feedback
@@ -210,7 +222,7 @@ def submit_feedback() -> Any:
         return jsonify(result), 201
     except Exception as exc:
         logger.exception("Failed to submit feedback")
-        return error_response(str(exc))
+        return error_response(SUPPORT_PORTAL_FAILED, detail=str(exc))
 
 
 # -- KB & Announcements ------------------------------------------------------
@@ -220,7 +232,7 @@ def submit_feedback() -> Any:
 def search_articles() -> Any:
     """Search KB articles."""
     if not _enabled():
-        return error_response("Support is disabled", 403)
+        return error_response(FEATURE_UNAVAILABLE, detail="Support is disabled")
 
     try:
         query = request.args.get("q")
@@ -229,14 +241,14 @@ def search_articles() -> Any:
         return jsonify(articles)
     except Exception as exc:
         logger.exception("Failed to search articles")
-        return error_response(str(exc))
+        return error_response(SUPPORT_PORTAL_FAILED, detail=str(exc))
 
 
 @support_bp.route("/api/announcements", methods=["GET"])
 def list_announcements() -> Any:
     """List active announcements."""
     if not _enabled():
-        return error_response("Support is disabled", 403)
+        return error_response(FEATURE_UNAVAILABLE, detail="Support is disabled")
 
     try:
         client = _get_client()
@@ -244,7 +256,7 @@ def list_announcements() -> Any:
         return jsonify(items)
     except Exception as exc:
         logger.exception("Failed to list announcements")
-        return error_response(str(exc))
+        return error_response(SUPPORT_PORTAL_FAILED, detail=str(exc))
 
 
 # -- Diagnostics -------------------------------------------------------------
@@ -265,7 +277,7 @@ def diagnostics() -> Any:
 def badge_count() -> Any:
     """Return count of tickets with new responses (for app badge)."""
     if not _enabled():
-        return error_response("Support is not enabled", 403)
+        return error_response(FEATURE_UNAVAILABLE, detail="Support is not enabled")
 
     try:
         client = _get_client()
@@ -276,4 +288,4 @@ def badge_count() -> Any:
         return jsonify({"count": count})
     except Exception as exc:
         logger.exception("Failed to fetch badge count")
-        return error_response(str(exc), 500)
+        return error_response(SUPPORT_PORTAL_FAILED, detail=str(exc))
