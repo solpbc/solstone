@@ -61,7 +61,10 @@ def test_pairing_round_trip(journal_copy):
 
     second_confirm = owner_client.post("/api/pairing/confirm", json=confirm_payload)
     assert second_confirm.status_code == 410
-    assert second_confirm.get_json()["reason"] == "token_consumed"
+    data = second_confirm.get_json()
+    assert data["reason"] == "pairing_token_unavailable"
+    assert data["reason_code"] == "pairing_token_unavailable"
+    assert data["detail"] == "pairing token already used"
 
     wrong_bearer = bearer_client.get(
         "/api/pairing/devices",

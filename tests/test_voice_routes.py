@@ -27,16 +27,20 @@ def voice_client(voice_app):
 def test_session_rejects_non_object_json(voice_client):
     response = voice_client.post("/api/voice/session", json=["bad"])
     assert response.status_code == 400
-    assert response.get_json() == {"error": "request body must be a JSON object"}
+    data = response.get_json()
+    assert data["error"] == "I couldn't read that JSON request."
+    assert data["reason_code"] == "invalid_json_request"
+    assert data["detail"] == "request body must be a JSON object"
 
 
 def test_session_requires_openai_key(voice_client, monkeypatch):
     monkeypatch.setattr("solstone.convey.voice.get_openai_api_key", lambda: None)
     response = voice_client.post("/api/voice/session")
     assert response.status_code == 503
-    assert response.get_json() == {
-        "error": "voice unavailable — openai key not configured"
-    }
+    data = response.get_json()
+    assert data["error"] == "I couldn't start because that provider key is missing."
+    assert data["reason_code"] == "provider_key_missing"
+    assert data["detail"] == "voice unavailable — openai key not configured"
 
 
 def test_session_returns_brain_not_ready(voice_client, monkeypatch):
@@ -46,14 +50,20 @@ def test_session_returns_brain_not_ready(voice_client, monkeypatch):
     )
     response = voice_client.post("/api/voice/session")
     assert response.status_code == 503
-    assert response.get_json() == {"error": "voice unavailable — brain not ready"}
+    data = response.get_json()
+    assert data["error"] == "I couldn't start voice right now."
+    assert data["reason_code"] == "voice_unavailable"
+    assert data["detail"] == "voice unavailable — brain not ready"
 
 
 def test_connect_requires_call_id(voice_client, monkeypatch):
     monkeypatch.setattr("solstone.convey.voice.get_openai_api_key", lambda: "sk-test")
     response = voice_client.post("/api/voice/connect", json={})
     assert response.status_code == 400
-    assert response.get_json() == {"error": "call_id is required"}
+    data = response.get_json()
+    assert data["error"] == "I couldn't use one of those values."
+    assert data["reason_code"] == "invalid_request_value"
+    assert data["detail"] == "call_id is required"
 
 
 def test_nav_hints_unknown_call_id_returns_empty(voice_client):

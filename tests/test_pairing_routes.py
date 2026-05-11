@@ -71,10 +71,11 @@ def test_create_token_rejects_non_object(pairing_client):
     response = pairing_client.post("/api/pairing/create", json=["bad"])
 
     assert response.status_code == 400
-    assert response.get_json() == {
-        "error": "request body must be a JSON object",
-        "reason": "invalid_request",
-    }
+    data = response.get_json()
+    assert data["error"] == "I couldn't use that pairing request."
+    assert data["reason"] == "pairing_request_invalid"
+    assert data["reason_code"] == "pairing_request_invalid"
+    assert data["detail"] == "request body must be a JSON object"
 
 
 def test_confirm_pairing_happy_path(pairing_client, journal_copy):
@@ -126,10 +127,11 @@ def test_confirm_pairing_rejects_bad_public_key(pairing_client):
     )
 
     assert response.status_code == 400
-    assert response.get_json() == {
-        "error": "public_key must be a valid ssh-ed25519 key",
-        "reason": "invalid_public_key",
-    }
+    data = response.get_json()
+    assert data["error"] == "I couldn't use that pairing key."
+    assert data["reason"] == "pairing_key_invalid"
+    assert data["reason_code"] == "pairing_key_invalid"
+    assert data["detail"] == "public_key must be a valid ssh-ed25519 key"
 
 
 def test_confirm_pairing_distinguishes_expired_and_consumed_tokens(
@@ -151,7 +153,10 @@ def test_confirm_pairing_distinguishes_expired_and_consumed_tokens(
     )
 
     assert expired_response.status_code == 410
-    assert expired_response.get_json()["reason"] == "token_expired"
+    data = expired_response.get_json()
+    assert data["reason"] == "pairing_token_unavailable"
+    assert data["reason_code"] == "pairing_token_unavailable"
+    assert data["detail"] == "pairing token expired"
 
     token = pairing_client.post("/api/pairing/create", json={}).get_json()["token"]
     body = {
@@ -167,7 +172,10 @@ def test_confirm_pairing_distinguishes_expired_and_consumed_tokens(
     consumed_response = pairing_client.post("/api/pairing/confirm", json=body)
 
     assert consumed_response.status_code == 410
-    assert consumed_response.get_json()["reason"] == "token_consumed"
+    data = consumed_response.get_json()
+    assert data["reason"] == "pairing_token_unavailable"
+    assert data["reason_code"] == "pairing_token_unavailable"
+    assert data["detail"] == "pairing token already used"
 
 
 def test_heartbeat_requires_valid_bearer(pairing_client):
@@ -225,7 +233,8 @@ def test_unpair_device_returns_404_for_unknown_device(pairing_client):
     response = pairing_client.delete("/api/pairing/devices/dev_missing")
 
     assert response.status_code == 404
-    assert response.get_json() == {
-        "error": "paired device not found",
-        "reason": "device_not_found",
-    }
+    data = response.get_json()
+    assert data["error"] == "I couldn't find that paired device."
+    assert data["reason"] == "paired_device_not_found"
+    assert data["reason_code"] == "paired_device_not_found"
+    assert data["detail"] == "paired device not found"

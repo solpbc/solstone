@@ -77,7 +77,10 @@ def test_content_endpoint_404_for_missing_import(content_client):
     response = content_client.get("/app/import/api/20990101_000000/content")
 
     assert response.status_code == 404
-    assert response.get_json()["error"] == "Import not found"
+    data = response.get_json()
+    assert data["error"] == "I couldn't find that import."
+    assert data["reason_code"] == "import_not_found"
+    assert data["detail"] == "Import not found"
 
 
 def test_content_detail_404_for_missing_item(content_client):
@@ -86,7 +89,10 @@ def test_content_detail_404_for_missing_item(content_client):
     )
 
     assert response.status_code == 404
-    assert response.get_json()["error"] == "Item not found"
+    data = response.get_json()
+    assert data["error"] == "I couldn't find that import."
+    assert data["reason_code"] == "import_not_found"
+    assert data["detail"] == "Item not found"
 
 
 def test_content_lazy_backfill(tmp_path):

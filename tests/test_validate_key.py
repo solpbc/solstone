@@ -477,7 +477,9 @@ def test_providers_vertex_credentials_invalid_json(settings_client):
         json={"vertex_credentials": "not json"},
     )
     assert response.status_code == 400
-    assert "Invalid JSON" in response.get_json()["error"]
+    data = response.get_json()
+    assert data["reason_code"] == "invalid_json_request"
+    assert "Invalid JSON" in data["detail"]
 
 
 def test_providers_vertex_credentials_missing_fields(settings_client):
@@ -489,7 +491,9 @@ def test_providers_vertex_credentials_missing_fields(settings_client):
         json={"vertex_credentials": json.dumps({"type": "service_account"})},
     )
     assert response.status_code == 400
-    assert "Missing required fields" in response.get_json()["error"]
+    data = response.get_json()
+    assert data["reason_code"] == "missing_required_field"
+    assert "Missing required fields" in data["detail"]
 
 
 def test_providers_google_backend_invalid(settings_client):
@@ -501,7 +505,9 @@ def test_providers_google_backend_invalid(settings_client):
         json={"google_backend": "invalid"},
     )
     assert response.status_code == 400
-    assert "Invalid google_backend" in response.get_json()["error"]
+    data = response.get_json()
+    assert data["reason_code"] == "invalid_config_value"
+    assert "Invalid google_backend" in data["detail"]
 
 
 def test_validate_all_keys_with_vertex_credentials(settings_client):

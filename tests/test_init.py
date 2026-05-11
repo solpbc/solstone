@@ -298,7 +298,9 @@ class TestInitFinalize:
             content_type="application/json",
         )
         assert resp.status_code == 400
-        assert "8 characters" in resp.get_json()["error"]
+        data = resp.get_json()
+        assert data["reason_code"] == "invalid_config_value"
+        assert "8 characters" in data["detail"]
 
     def test_finalize_password_too_short(self, fresh_client):
         resp = fresh_client.post(

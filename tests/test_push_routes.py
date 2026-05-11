@@ -43,14 +43,20 @@ def test_register_push_device_rejects_non_object(push_client):
     response = push_client.post("/api/push/register", json=["bad"])
 
     assert response.status_code == 400
-    assert response.get_json() == {"error": "request body must be a JSON object"}
+    data = response.get_json()
+    assert data["error"] == "I couldn't read that JSON request."
+    assert data["reason_code"] == "invalid_json_request"
+    assert data["detail"] == "request body must be a JSON object"
 
 
 def test_register_push_device_validates_fields(push_client):
     response = push_client.post("/api/push/register", json={"device_token": "x"})
 
     assert response.status_code == 400
-    assert response.get_json() == {"error": "bundle_id is required"}
+    data = response.get_json()
+    assert data["error"] == "I couldn't use that push request."
+    assert data["reason_code"] == "push_request_invalid"
+    assert data["detail"] == "bundle_id is required"
 
 
 def test_delete_push_device_happy_path(push_client, monkeypatch):
@@ -112,7 +118,10 @@ def test_push_test_requires_configuration(push_client, monkeypatch):
     response = push_client.post("/api/push/test")
 
     assert response.status_code == 503
-    assert response.get_json() == {"error": "push not configured"}
+    data = response.get_json()
+    assert data["error"] == "I couldn't use that feature because it isn't enabled."
+    assert data["reason_code"] == "feature_unavailable"
+    assert data["detail"] == "push not configured"
 
 
 def test_push_test_validates_category(push_client, monkeypatch):
@@ -121,7 +130,10 @@ def test_push_test_validates_category(push_client, monkeypatch):
     response = push_client.post("/api/push/test", json={"category": "BAD"})
 
     assert response.status_code == 400
-    assert response.get_json() == {"error": "category must be a known push category"}
+    data = response.get_json()
+    assert data["error"] == "I couldn't use that push request."
+    assert data["reason_code"] == "push_request_invalid"
+    assert data["detail"] == "category must be a known push category"
 
 
 def test_push_test_happy_path(push_client, monkeypatch):
