@@ -2,16 +2,24 @@
 # Copyright (c) 2026 sol pbc
 
 import json
+import logging
 import math
 import re
 import secrets
+import sys
 import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
+from flask import Response, jsonify
+
+from solstone.convey.reasons import Reason
+
 DATE_RE = re.compile(r"\d{8}")
 _REQUEST_ID_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
+_LEGACY_ERROR_RESPONSE_SEEN: set[str] = set()
+_LOGGER = logging.getLogger("solstone.convey.utils")
 
 
 def generate_request_id() -> str:
@@ -241,25 +249,73 @@ def save_json(
         return False
 
 
-def error_response(message: str, code: int = 400) -> tuple[Any, int]:
+def _log_legacy_error_response_string_form() -> None:
+    frame = sys._getframe(2)
+    key = f"{frame.f_code.co_filename}:{frame.f_lineno}"
+    if key in _LEGACY_ERROR_RESPONSE_SEEN:
+        return
+    _LEGACY_ERROR_RESPONSE_SEEN.add(key)
+    _LOGGER.warning(
+        "legacy error_response string form at %s — migrate to Reason",
+        key,
+    )
+
+
+def error_response(
+    reason: Reason | str,
+    status: int | None = None,
+    *,
+    detail: str | None = None,
+) -> tuple[Response, int]:
     """Create a standard JSON error response.
 
     Provides consistent error response format across all API endpoints.
 
     Args:
-        message: Error message to return to client
-        code: HTTP status code (default: 400 Bad Request)
+        reason: Reason constant, or legacy string message during migration
+        status: Optional HTTP status override
+        detail: Optional implementation-specific context
 
     Returns:
         Tuple of (jsonify response, status_code) ready for Flask return
-
-    Example:
-        return error_response("Invalid input", 400)
-        return error_response("Not found", 404)
     """
-    from flask import jsonify
+    if isinstance(reason, Reason):
+        response_status = status if status is not None else reason.status
+        return (
+            jsonify(
+                {
+                    "error": reason.message,
+                    "reason_code": reason.code,
+                    "detail": detail or "",
+                }
+            ),
+            response_status,
+        )
 
-    return jsonify({"error": message}), code
+    _log_legacy_error_response_string_form()
+    response_status = status if status is not None else 400
+    return jsonify({"error": reason}), response_status
+
+
+def error_response_with_reason(
+    reason: Reason,
+    *,
+    detail: str | None = None,
+    status: int | None = None,
+) -> tuple[Response, int]:
+    """Pairing/root variant: emits legacy reason key plus standard fields."""
+    response_status = status if status is not None else reason.status
+    return (
+        jsonify(
+            {
+                "error": reason.message,
+                "reason": reason.code,
+                "reason_code": reason.code,
+                "detail": detail or "",
+            }
+        ),
+        response_status,
+    )
 
 
 def success_response(
@@ -280,8 +336,6 @@ def success_response(
         return success_response()  # Returns {"success": True}
         return success_response({"use_id": "123"})  # Returns {"success": True, "use_id": "123"}
     """
-    from flask import jsonify
-
     response_data = {"success": True}
     if data:
         response_data.update(data)
