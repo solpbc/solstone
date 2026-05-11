@@ -10,6 +10,7 @@ from typing import Any
 from flask import Blueprint, abort, jsonify, redirect, render_template, url_for
 
 from solstone.convey.chat_stream import read_chat_events
+from solstone.convey.reasons import INVALID_MONTH
 from solstone.convey.sol_initiated import copy as sol_voice_copy
 from solstone.convey.sol_initiated import record_owner_chat_open
 from solstone.convey.sol_initiated.copy import (
@@ -19,7 +20,7 @@ from solstone.convey.sol_initiated.copy import (
     SURFACE_CONVEY,
 )
 from solstone.convey.sol_initiated.state import latest_unresolved_sol_chat_request
-from solstone.convey.utils import DATE_RE
+from solstone.convey.utils import DATE_RE, error_response
 from solstone.think.utils import get_config
 
 chat_bp = Blueprint(
@@ -73,12 +74,18 @@ def day(day: str) -> str:
 @chat_bp.route("/api/stats/<month>")
 def stats(month: str) -> Any:
     if len(month) != 6 or not month.isdigit():
-        return jsonify({"error": "Invalid month format, expected YYYYMM"}), 400
+        return error_response(
+            INVALID_MONTH,
+            detail="Invalid month format, expected YYYYMM",
+        )
 
     try:
         return jsonify(_month_chat_counts(month))
     except ValueError:
-        return jsonify({"error": "Invalid month format, expected YYYYMM"}), 400
+        return error_response(
+            INVALID_MONTH,
+            detail="Invalid month format, expected YYYYMM",
+        )
 
 
 def _month_chat_counts(month: str) -> dict[str, int]:
