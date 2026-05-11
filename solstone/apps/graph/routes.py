@@ -11,6 +11,8 @@ from typing import Any
 
 from flask import Blueprint, jsonify, render_template, request
 
+from solstone.convey.reasons import ENTITY_NOT_FOUND
+from solstone.convey.utils import error_response
 from solstone.think.entities.core import is_noise_entity
 from solstone.think.indexer.journal import (
     get_entity_intelligence,
@@ -160,7 +162,7 @@ def api_entity(name: str):
     facet = request.args.get("facet") or None
     result = get_entity_intelligence(name, facet=facet)
     if result is None:
-        return jsonify({"error": "Entity not found"}), 404
+        return error_response(ENTITY_NOT_FOUND, detail="Entity not found")
     return jsonify(result)
 
 
