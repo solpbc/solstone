@@ -12,7 +12,9 @@
       url,
       cause,
       correlationId = '',
-      timestamp = null
+      timestamp = null,
+      reasonCode = null,
+      rawDetail = null
     }) {
       super(serverMessage);
       this.name = 'ApiError';
@@ -25,6 +27,8 @@
       if (cause) {
         this.cause = cause;
       }
+      this.reasonCode = reasonCode;
+      this.rawDetail = rawDetail;
     }
   }
 
@@ -185,13 +189,17 @@
         ?? `Request failed (HTTP ${response.status})`;
       const correlationId = response.headers.get('X-Solstone-Request-Id') || '';
       const timestamp = Date.now();
+      const reasonCode = payload?.reason_code ?? null;
+      const rawDetail = payload?.detail ?? null;
       throw new ApiError({
         status: response.status,
         statusText: response.statusText,
         serverMessage,
         url: url,
         correlationId,
-        timestamp
+        timestamp,
+        reasonCode,
+        rawDetail
       });
     }
 
