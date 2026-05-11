@@ -30,6 +30,15 @@ from flask import (
 import solstone.think.deferred_deletes as deferred_deletes
 from solstone.apps.utils import log_app_action
 from solstone.convey import emit, state
+from solstone.convey.reasons import (
+    FILE_NOT_FOUND,
+    FILE_READ_FAILED,
+    INVALID_DAY,
+    INVALID_MONTH,
+    INVALID_PATH,
+    INVALID_SEGMENT_OR_STREAM,
+    OPERATION_NO_LONGER_AVAILABLE,
+)
 from solstone.convey.utils import DATE_RE, error_response, format_date, success_response
 from solstone.observe.hear import format_audio
 from solstone.observe.screen import format_screen
@@ -138,7 +147,7 @@ def index() -> Any:
 def transcripts_day(day: str) -> str:
     """Render transcript viewer for a specific day."""
     if not DATE_RE.fullmatch(day):
-        return error_response("Day not found", 404)
+        return error_response(INVALID_DAY, status=404, detail="Day not found")
 
     title = format_date(day)
 
@@ -149,7 +158,7 @@ def transcripts_day(day: str) -> str:
 def transcript_ranges(day: str) -> Any:
     """Return available transcript ranges for a day."""
     if not DATE_RE.fullmatch(day):
-        return error_response("Day not found", 404)
+        return error_response(INVALID_DAY, status=404, detail="Day not found")
 
     audio_ranges, screen_ranges, segments = scan_day(day)
     return jsonify(
@@ -167,7 +176,7 @@ def transcript_segments(day: str) -> Any:
     Returns list of segments with their content types for the segment selector UI.
     """
     if not DATE_RE.fullmatch(day):
-        return error_response("Day not found", 404)
+        return error_response(INVALID_DAY, status=404, detail="Day not found")
 
     segments = cluster_segments(day)
     return jsonify({"segments": segments})
@@ -177,7 +186,7 @@ def transcript_segments(day: str) -> Any:
 def transcript_day_data(day: str) -> Any:
     """Return combined ranges and segments for a day in a single response."""
     if not DATE_RE.fullmatch(day):
-        return error_response("Day not found", 404)
+        return error_response(INVALID_DAY, status=404, detail="Day not found")
 
     audio_ranges, screen_ranges, segments = scan_day(day)
     return jsonify(
@@ -193,15 +202,15 @@ def transcript_day_data(day: str) -> Any:
 def serve_file(day: str, rel_path: str) -> Any:
     """Serve actual media files for embedding."""
     if not DATE_RE.fullmatch(day):
-        return error_response("Day not found", 404)
+        return error_response(INVALID_DAY, status=404, detail="Day not found")
 
     try:
         full_path = os.path.join(state.journal_root, day, rel_path)
         day_dir = str(day_path(day, create=False))
         if not os.path.commonpath([full_path, day_dir]) == day_dir:
-            return error_response("Invalid file path", 403)
+            return error_response(INVALID_PATH, status=403, detail="Invalid file path")
         if not os.path.isfile(full_path):
-            return error_response("File not found", 404)
+            return error_response(FILE_NOT_FOUND, detail="File not found")
     except (OSError, ValueError):
         logger.warning(
             "serve_file path validation failed for %s/%s",
@@ -209,7 +218,9 @@ def serve_file(day: str, rel_path: str) -> Any:
             rel_path,
             exc_info=True,
         )
-        return error_response("Failed to serve file", 404)
+        return error_response(
+            FILE_READ_FAILED, status=404, detail="Failed to serve file"
+        )
 
     return send_file(full_path, conditional=True)
 
@@ -226,7 +237,7 @@ def api_stats(month: str):
         Transcripts app is not facet-aware, so returns simple {day: count} mapping.
     """
     if not MONTH_RE.fullmatch(month):
-        return error_response("Invalid month format", 400)
+        return error_response(INVALID_MONTH, detail="Invalid month format")
 
     matching = [
         (day_name, path)
@@ -291,17 +302,29 @@ def segment_content(day: str, stream: str, segment_key: str) -> Any:
         - media_sizes: dict with audio/screen byte counts for raw media files
     """
     if not DATE_RE.fullmatch(day):
-        return error_response("Invalid day format", 404)
+        return error_response(INVALID_DAY, status=404, detail="Invalid day format")
 
     if not STREAM_RE.fullmatch(stream):
-        return error_response("Invalid stream format", 404)
+        return error_response(
+            INVALID_SEGMENT_OR_STREAM,
+            status=404,
+            detail="Invalid stream format",
+        )
 
     if not validate_segment_key(segment_key):
-        return error_response("Invalid segment key format", 404)
+        return error_response(
+            INVALID_SEGMENT_OR_STREAM,
+            status=404,
+            detail="Invalid segment key format",
+        )
 
     segment_dir = str(segment_path(day, segment_key, stream, create=False))
     if not os.path.isdir(segment_dir):
-        return error_response("Segment directory not found", 404)
+        return error_response(
+            INVALID_SEGMENT_OR_STREAM,
+            status=404,
+            detail="Segment directory not found",
+        )
 
     chunks: list[dict] = []
     audio_file_url = None
@@ -556,24 +579,35 @@ def delete_segment(day: str, stream: str, segment_key: str) -> Any:
         JSON success response or error response
     """
     if not DATE_RE.fullmatch(day):
-        return error_response("Invalid day format", 400)
+        return error_response(INVALID_DAY, detail="Invalid day format")
 
     if not validate_segment_key(segment_key):
-        return error_response("Invalid segment key format", 400)
+        return error_response(
+            INVALID_SEGMENT_OR_STREAM,
+            detail="Invalid segment key format",
+        )
 
     if not STREAM_RE.fullmatch(stream):
-        return error_response("Invalid stream format", 400)
+        return error_response(INVALID_SEGMENT_OR_STREAM, detail="Invalid stream format")
 
     day_dir = str(day_path(day, create=False))
     segment_dir = str(segment_path(day, segment_key, stream, create=False))
 
     # Verify segment exists
     if not os.path.isdir(segment_dir):
-        return error_response("Segment not found", 404)
+        return error_response(
+            INVALID_SEGMENT_OR_STREAM,
+            status=404,
+            detail="Segment not found",
+        )
 
     # Security check: ensure segment_dir is within day_dir
     if not os.path.commonpath([segment_dir, day_dir]) == day_dir:
-        return error_response("Invalid segment path", 403)
+        return error_response(
+            INVALID_SEGMENT_OR_STREAM,
+            status=403,
+            detail="Invalid segment path",
+        )
 
     try:
         ttl = SEGMENT_DELETE_TTL
@@ -628,17 +662,26 @@ def delete_segment(day: str, stream: str, segment_key: str) -> Any:
         return success_response(payload)
 
     except Exception as e:
-        return error_response(f"Failed to delete segment: {e}", 500)
+        return error_response(
+            FILE_READ_FAILED,
+            detail=f"Failed to delete segment: {e}",
+        )
 
 
 @transcripts_bp.route("/api/cancel-delete/<pending_id>", methods=["POST"])
 def cancel_delete_segment(pending_id: str) -> Any:
     """Cancel a pending deferred segment deletion."""
     if not re.fullmatch(r"[0-9a-f]{32}", pending_id):
-        return error_response("already committed or unknown", 410)
+        return error_response(
+            OPERATION_NO_LONGER_AVAILABLE,
+            detail="already committed or unknown",
+        )
 
     if not deferred_deletes.cancel(pending_id):
-        return error_response("already committed or unknown", 410)
+        return error_response(
+            OPERATION_NO_LONGER_AVAILABLE,
+            detail="already committed or unknown",
+        )
 
     log_app_action(
         app="transcripts",

@@ -15,6 +15,13 @@ FIXTURE_STREAM = "default"
 FIXTURE_SEGMENT = "090000_300"
 
 
+def _assert_reason(response, *, error: str, reason_code: str, detail: str) -> None:
+    payload = response.get_json()
+    assert payload["error"] == error
+    assert payload["reason_code"] == reason_code
+    assert payload["detail"] == detail
+
+
 def _write_segment(
     journal_root,
     day: str,
@@ -138,7 +145,12 @@ def test_segment_content_rejects_invalid_stream(client, stream):
     )
 
     assert response.status_code == 404
-    assert response.get_json() == {"error": "Invalid stream format"}
+    _assert_reason(
+        response,
+        error="I couldn't use that segment or stream.",
+        reason_code="invalid_segment_or_stream",
+        detail="Invalid stream format",
+    )
 
 
 @pytest.mark.parametrize("stream", ["-bad", "Upper", "..bad"])
@@ -148,7 +160,12 @@ def test_delete_segment_rejects_invalid_stream(client, stream):
     )
 
     assert response.status_code == 400
-    assert response.get_json() == {"error": "Invalid stream format"}
+    _assert_reason(
+        response,
+        error="I couldn't use that segment or stream.",
+        reason_code="invalid_segment_or_stream",
+        detail="Invalid stream format",
+    )
 
 
 def test_segment_content_missing_segment_does_not_create_phantom_directory(
@@ -157,7 +174,12 @@ def test_segment_content_missing_segment_does_not_create_phantom_directory(
     response = client.get("/app/transcripts/api/segment/29990101/default/090000_300")
 
     assert response.status_code == 404
-    assert response.get_json() == {"error": "Segment directory not found"}
+    _assert_reason(
+        response,
+        error="I couldn't use that segment or stream.",
+        reason_code="invalid_segment_or_stream",
+        detail="Segment directory not found",
+    )
     assert not (journal_copy / "chronicle" / "29990101").exists()
     assert not (
         journal_copy / "chronicle" / "29990101" / "default" / "090000_300"
@@ -168,7 +190,12 @@ def test_delete_missing_segment_does_not_create_phantom_directory(client, journa
     response = client.delete("/app/transcripts/api/segment/29990101/default/090000_300")
 
     assert response.status_code == 404
-    assert response.get_json() == {"error": "Segment not found"}
+    _assert_reason(
+        response,
+        error="I couldn't use that segment or stream.",
+        reason_code="invalid_segment_or_stream",
+        detail="Segment not found",
+    )
     assert not (journal_copy / "chronicle" / "29990101").exists()
     assert not (
         journal_copy / "chronicle" / "29990101" / "default" / "090000_300"
@@ -310,7 +337,12 @@ def test_cancel_delete_segment_too_late_after_commit(client, journal_copy, monke
     cancel_response = client.post(f"/app/transcripts/api/cancel-delete/{pending_id}")
 
     assert cancel_response.status_code == 410
-    assert cancel_response.get_json() == {"error": "already committed or unknown"}
+    _assert_reason(
+        cancel_response,
+        error="I couldn't finish because that action is no longer available.",
+        reason_code="operation_no_longer_available",
+        detail="already committed or unknown",
+    )
     assert not segment_dir.exists()
 
 
@@ -318,14 +350,24 @@ def test_cancel_delete_segment_unknown_pending_id_returns_410(client):
     response = client.post(f"/app/transcripts/api/cancel-delete/{'a' * 32}")
 
     assert response.status_code == 410
-    assert response.get_json() == {"error": "already committed or unknown"}
+    _assert_reason(
+        response,
+        error="I couldn't finish because that action is no longer available.",
+        reason_code="operation_no_longer_available",
+        detail="already committed or unknown",
+    )
 
 
 def test_cancel_delete_segment_malformed_pending_id_returns_410(client):
     response = client.post("/app/transcripts/api/cancel-delete/not-hex")
 
     assert response.status_code == 410
-    assert response.get_json() == {"error": "already committed or unknown"}
+    _assert_reason(
+        response,
+        error="I couldn't finish because that action is no longer available.",
+        reason_code="operation_no_longer_available",
+        detail="already committed or unknown",
+    )
 
 
 def test_delete_segment_writes_pending_and_committed_audit_rows(
