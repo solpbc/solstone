@@ -504,10 +504,9 @@ def generate_description(facet_name: str) -> Any:
     if not entity_type or not entity_name:
         return jsonify({"error": "Type and name are required"}), 400
 
-    # Check for Google API key
-    api_key = os.getenv("GOOGLE_API_KEY")
+    api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
-        return jsonify({"error": "GOOGLE_API_KEY not set"}), 500
+        return jsonify({"error": "ANTHROPIC_API_KEY not set"}), 500
 
     try:
         from convey.utils import spawn_agent
@@ -524,7 +523,7 @@ def generate_description(facet_name: str) -> Any:
         agent_id = spawn_agent(
             prompt=prompt,
             name="entities:entity_describe",
-            provider="google",
+            provider="anthropic",
         )
         if agent_id is None:
             return jsonify({"error": "Failed to connect to agent service"}), 503

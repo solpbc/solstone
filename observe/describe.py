@@ -466,7 +466,7 @@ class VideoProcessor:
                     json_output=True,
                     temperature=0.7,
                     max_output_tokens=1024,
-                    thinking_budget=1024,
+                    thinking_budget=0,
                 )
 
                 # Attach metadata for tracking (store bytes, not PIL images)

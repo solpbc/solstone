@@ -474,6 +474,8 @@ def run_generate(
     # Note: Anthropic doesn't support temperature with thinking enabled
     # Configure thinking if budget is provided
     if thinking_budget and thinking_budget > 0:
+        if thinking_budget >= request_kwargs["max_tokens"]:
+            request_kwargs["max_tokens"] = thinking_budget + 1024
         request_kwargs["thinking"] = {
             "type": "enabled",
             "budget_tokens": thinking_budget,
@@ -533,6 +535,8 @@ async def run_agenerate(
     # Note: Anthropic doesn't support temperature with thinking enabled
     # Configure thinking if budget is provided
     if thinking_budget and thinking_budget > 0:
+        if thinking_budget >= request_kwargs["max_tokens"]:
+            request_kwargs["max_tokens"] = thinking_budget + 1024
         request_kwargs["thinking"] = {
             "type": "enabled",
             "budget_tokens": thinking_budget,
