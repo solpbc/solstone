@@ -41,6 +41,24 @@ from solstone.apps.speakers.owner import (
 )
 from solstone.apps.utils import log_app_action
 from solstone.convey import state
+from solstone.convey.reasons import (
+    ENTITY_BLOCKED,
+    ENTITY_NOT_FOUND,
+    FILE_NOT_FOUND,
+    FILE_READ_FAILED,
+    INVALID_DAY,
+    INVALID_MONTH,
+    INVALID_PATH,
+    INVALID_REQUEST_VALUE,
+    INVALID_SEGMENT_OR_STREAM,
+    MISSING_REQUEST_BODY,
+    MISSING_REQUIRED_FIELD,
+    SPEAKER_ATTRIBUTION_STATE_INVALID,
+    SPEAKER_NOT_FOUND,
+    SPEAKER_OWNER_VOICE_TOO_CLOSE,
+    SPEAKER_REVIEW_UNAVAILABLE,
+    SPEAKER_SENTENCE_MISSING,
+)
 from solstone.convey.utils import DATE_RE, error_response, format_date, success_response
 from solstone.think.awareness import get_current
 from solstone.think.entities import find_matching_entity
@@ -583,7 +601,10 @@ def api_stats(month: str) -> Any:
     Used by calendar heatmap to show days with embedding segments.
     """
     if not re.fullmatch(r"\d{6}", month):
-        return error_response("Invalid month format, expected YYYYMM", 400)
+        return error_response(
+            INVALID_MONTH,
+            detail="Invalid month format, expected YYYYMM",
+        )
 
     stats: dict[str, int] = {}
 
@@ -602,13 +623,16 @@ def api_stats(month: str) -> Any:
 def api_segments(day: str) -> Any:
     """Return segments with audio embeddings for a day."""
     if not DATE_RE.fullmatch(day):
-        return error_response("Invalid day format", 400)
+        return error_response(INVALID_DAY, detail="Invalid day format")
 
     try:
         limit = max(0, int(request.args.get("limit", 20)))
         offset = max(0, int(request.args.get("offset", 0)))
     except (ValueError, TypeError):
-        return error_response("Invalid limit/offset parameter", 400)
+        return error_response(
+            INVALID_REQUEST_VALUE,
+            detail="Invalid limit/offset parameter",
+        )
 
     segments = _scan_segment_embeddings(day)
     segments.sort(key=lambda s: s["key"])
@@ -653,10 +677,13 @@ def api_segment_speakers(day: str, stream: str, segment_key: str) -> Any:
     Matches detected speaker names against all journal entities.
     """
     if not DATE_RE.fullmatch(day):
-        return error_response("Invalid day format", 400)
+        return error_response(INVALID_DAY, detail="Invalid day format")
 
     if not validate_segment_key(segment_key):
-        return error_response("Invalid segment key", 400)
+        return error_response(
+            INVALID_SEGMENT_OR_STREAM,
+            detail="Invalid segment key",
+        )
 
     # Load speakers from speakers.json
     segment_dir = get_segment_path(day, segment_key, stream, create=False)
@@ -697,13 +724,19 @@ def api_segment_speakers(day: str, stream: str, segment_key: str) -> Any:
 def api_review(day: str, stream: str, segment_key: str, source: str) -> Any:
     """Return sentences with pre-computed speaker labels for review."""
     if not DATE_RE.fullmatch(day):
-        return error_response("Invalid day format", 400)
+        return error_response(INVALID_DAY, detail="Invalid day format")
     if not validate_segment_key(segment_key):
-        return error_response("Invalid segment key", 400)
+        return error_response(
+            INVALID_SEGMENT_OR_STREAM,
+            detail="Invalid segment key",
+        )
 
     sentences, _ = _load_sentences(day, segment_key, source, stream=stream)
     if not sentences:
-        return error_response("No transcript found", 404)
+        return error_response(
+            SPEAKER_REVIEW_UNAVAILABLE,
+            detail="No transcript found",
+        )
 
     segment_dir = get_segment_path(day, segment_key, stream, create=False)
     labels_data = _load_speaker_labels(segment_dir)
@@ -838,7 +871,7 @@ def api_confirm_attribution() -> Any:
     """Confirm a medium-confidence speaker attribution."""
     data = request.get_json()
     if not data:
-        return error_response("No data provided", 400)
+        return error_response(MISSING_REQUEST_BODY, detail="No data provided")
 
     day = data.get("day")
     stream = data.get("stream")
@@ -847,16 +880,25 @@ def api_confirm_attribution() -> Any:
     sentence_id = data.get("sentence_id")
 
     if not all([day, stream, segment_key, source, sentence_id is not None]):
-        return error_response("Missing required fields", 400)
+        return error_response(
+            MISSING_REQUIRED_FIELD,
+            detail="Missing required fields",
+        )
     if not DATE_RE.fullmatch(day):
-        return error_response("Invalid day format", 400)
+        return error_response(INVALID_DAY, detail="Invalid day format")
     if not validate_segment_key(segment_key):
-        return error_response("Invalid segment key", 400)
+        return error_response(
+            INVALID_SEGMENT_OR_STREAM,
+            detail="Invalid segment key",
+        )
 
     segment_dir = get_segment_path(day, segment_key, stream)
     labels_data = _load_speaker_labels(segment_dir)
     if not labels_data:
-        return error_response("No speaker labels found", 404)
+        return error_response(
+            SPEAKER_REVIEW_UNAVAILABLE,
+            detail="No speaker labels found",
+        )
 
     label = None
     label_idx = None
@@ -867,28 +909,40 @@ def api_confirm_attribution() -> Any:
             break
 
     if label is None or label_idx is None:
-        return error_response("Sentence not found in labels", 404)
+        return error_response(
+            SPEAKER_SENTENCE_MISSING,
+            detail="Sentence not found in labels",
+        )
 
     speaker = label.get("speaker")
     if not speaker:
         return error_response(
-            "Cannot confirm unattributed sentence — use assign instead",
-            400,
+            SPEAKER_ATTRIBUTION_STATE_INVALID,
+            detail="sentence has no speaker assignment yet",
         )
 
     confidence = label.get("confidence")
     if confidence == "high" and label.get("method") == "user_confirmed":
         return success_response({"status": "already_confirmed"})
     if confidence != "medium":
-        return error_response("Can only confirm medium-confidence attributions", 400)
+        return error_response(
+            SPEAKER_ATTRIBUTION_STATE_INVALID,
+            detail="attribution is not medium confidence",
+        )
 
     emb = _get_sentence_embedding(day, segment_key, source, sentence_id, stream=stream)
     if emb is None:
-        return error_response("Sentence embedding not found", 404)
+        return error_response(
+            SPEAKER_SENTENCE_MISSING,
+            detail="Sentence embedding not found",
+        )
 
     principal_id = _principal_id_or_none()
     if speaker != principal_id and _check_owner_contamination(emb):
-        return error_response("Embedding too similar to owner voice — cannot save", 400)
+        return error_response(
+            SPEAKER_OWNER_VOICE_TOO_CLOSE,
+            detail="Embedding too similar to owner voice — cannot save",
+        )
 
     _save_voiceprint(speaker, emb, day, segment_key, source, sentence_id, stream=stream)
 
@@ -931,7 +985,7 @@ def api_correct_attribution() -> Any:
     """Correct a speaker attribution to a different entity."""
     data = request.get_json()
     if not data:
-        return error_response("No data provided", 400)
+        return error_response(MISSING_REQUEST_BODY, detail="No data provided")
 
     day = data.get("day")
     stream = data.get("stream")
@@ -943,22 +997,37 @@ def api_correct_attribution() -> Any:
     if not all(
         [day, stream, segment_key, source, sentence_id is not None, new_speaker]
     ):
-        return error_response("Missing required fields", 400)
+        return error_response(
+            MISSING_REQUIRED_FIELD,
+            detail="Missing required fields",
+        )
     if not DATE_RE.fullmatch(day):
-        return error_response("Invalid day format", 400)
+        return error_response(INVALID_DAY, detail="Invalid day format")
     if not validate_segment_key(segment_key):
-        return error_response("Invalid segment key", 400)
+        return error_response(
+            INVALID_SEGMENT_OR_STREAM,
+            detail="Invalid segment key",
+        )
 
     target_entity = load_journal_entity(new_speaker)
     if not target_entity:
-        return error_response(f"Entity '{new_speaker}' not found", 404)
+        return error_response(
+            SPEAKER_NOT_FOUND,
+            detail=f"Entity '{new_speaker}' not found",
+        )
     if target_entity.get("blocked"):
-        return error_response(f"Entity '{new_speaker}' is blocked", 400)
+        return error_response(
+            ENTITY_BLOCKED,
+            detail=f"Entity '{new_speaker}' is blocked",
+        )
 
     segment_dir = get_segment_path(day, segment_key, stream)
     labels_data = _load_speaker_labels(segment_dir)
     if not labels_data:
-        return error_response("No speaker labels found", 404)
+        return error_response(
+            SPEAKER_REVIEW_UNAVAILABLE,
+            detail="No speaker labels found",
+        )
 
     label = None
     label_idx = None
@@ -969,7 +1038,10 @@ def api_correct_attribution() -> Any:
             break
 
     if label is None or label_idx is None:
-        return error_response("Sentence not found in labels", 404)
+        return error_response(
+            SPEAKER_SENTENCE_MISSING,
+            detail="Sentence not found in labels",
+        )
 
     old_speaker = label.get("speaker")
     old_method = label.get("method")
@@ -978,11 +1050,17 @@ def api_correct_attribution() -> Any:
 
     emb = _get_sentence_embedding(day, segment_key, source, sentence_id, stream=stream)
     if emb is None:
-        return error_response("Sentence embedding not found", 404)
+        return error_response(
+            SPEAKER_SENTENCE_MISSING,
+            detail="Sentence embedding not found",
+        )
 
     principal_id = _principal_id_or_none()
     if new_speaker != principal_id and _check_owner_contamination(emb):
-        return error_response("Embedding too similar to owner voice — cannot save", 400)
+        return error_response(
+            SPEAKER_OWNER_VOICE_TOO_CLOSE,
+            detail="Embedding too similar to owner voice — cannot save",
+        )
 
     auto_accumulated_methods = {"acoustic", "context", "contextual"}
     removed_voiceprint_path = None
@@ -1053,7 +1131,7 @@ def api_assign_attribution() -> Any:
     """Assign a speaker to an unattributed sentence."""
     data = request.get_json()
     if not data:
-        return error_response("No data provided", 400)
+        return error_response(MISSING_REQUEST_BODY, detail="No data provided")
 
     day = data.get("day")
     stream = data.get("stream")
@@ -1063,22 +1141,37 @@ def api_assign_attribution() -> Any:
     speaker = data.get("speaker")
 
     if not all([day, stream, segment_key, source, sentence_id is not None, speaker]):
-        return error_response("Missing required fields", 400)
+        return error_response(
+            MISSING_REQUIRED_FIELD,
+            detail="Missing required fields",
+        )
     if not DATE_RE.fullmatch(day):
-        return error_response("Invalid day format", 400)
+        return error_response(INVALID_DAY, detail="Invalid day format")
     if not validate_segment_key(segment_key):
-        return error_response("Invalid segment key", 400)
+        return error_response(
+            INVALID_SEGMENT_OR_STREAM,
+            detail="Invalid segment key",
+        )
 
     target_entity = load_journal_entity(speaker)
     if not target_entity:
-        return error_response(f"Entity '{speaker}' not found", 404)
+        return error_response(
+            SPEAKER_NOT_FOUND,
+            detail=f"Entity '{speaker}' not found",
+        )
     if target_entity.get("blocked"):
-        return error_response(f"Entity '{speaker}' is blocked", 400)
+        return error_response(
+            ENTITY_BLOCKED,
+            detail=f"Entity '{speaker}' is blocked",
+        )
 
     segment_dir = get_segment_path(day, segment_key, stream)
     labels_data = _load_speaker_labels(segment_dir)
     if not labels_data:
-        return error_response("No speaker labels found", 404)
+        return error_response(
+            SPEAKER_REVIEW_UNAVAILABLE,
+            detail="No speaker labels found",
+        )
 
     label = None
     label_idx = None
@@ -1089,23 +1182,33 @@ def api_assign_attribution() -> Any:
             break
 
     if label is None or label_idx is None:
-        return error_response("Sentence not found in labels", 404)
+        return error_response(
+            SPEAKER_SENTENCE_MISSING,
+            detail="Sentence not found in labels",
+        )
 
     existing_speaker = label.get("speaker")
     if existing_speaker == speaker and label.get("method") == "user_assigned":
         return success_response({"status": "already_assigned"})
     if existing_speaker:
         return error_response(
-            "Sentence already has a speaker — use correct instead", 400
+            SPEAKER_ATTRIBUTION_STATE_INVALID,
+            detail="sentence already has a speaker",
         )
 
     emb = _get_sentence_embedding(day, segment_key, source, sentence_id, stream=stream)
     if emb is None:
-        return error_response("Sentence embedding not found", 404)
+        return error_response(
+            SPEAKER_SENTENCE_MISSING,
+            detail="Sentence embedding not found",
+        )
 
     principal_id = _principal_id_or_none()
     if speaker != principal_id and _check_owner_contamination(emb):
-        return error_response("Embedding too similar to owner voice — cannot save", 400)
+        return error_response(
+            SPEAKER_OWNER_VOICE_TOO_CLOSE,
+            detail="Embedding too similar to owner voice — cannot save",
+        )
 
     _save_voiceprint(speaker, emb, day, segment_key, source, sentence_id, stream=stream)
 
@@ -1207,7 +1310,7 @@ def api_owner_build_from_tags() -> Any:
     """Build a confirmed owner centroid directly from validated manual tags."""
     result = bootstrap_owner_from_manual_tags()
     if "error" in result:
-        return error_response(result["error"], 400)
+        return error_response(ENTITY_NOT_FOUND, detail=result["error"], status=400)
     if result.get("status") == "confirmed":
         log_app_action(
             app="speakers",
@@ -1227,7 +1330,8 @@ def api_owner_confirm() -> Any:
     result = confirm_owner_candidate()
     if "error" in result:
         code = 404 if "No candidate" in result["error"] else 400
-        return error_response(result["error"], code)
+        reason = SPEAKER_REVIEW_UNAVAILABLE if code == 404 else ENTITY_NOT_FOUND
+        return error_response(reason, detail=result["error"], status=code)
 
     log_app_action(
         app="speakers",
@@ -1254,7 +1358,7 @@ def api_owner_classify() -> Any:
     """Classify segment sentences against the confirmed owner centroid."""
     data = request.get_json()
     if not data:
-        return error_response("No data provided", 400)
+        return error_response(MISSING_REQUEST_BODY, detail="No data provided")
 
     day = data.get("day")
     stream = data.get("stream")
@@ -1262,11 +1366,17 @@ def api_owner_classify() -> Any:
     source = data.get("source")
 
     if not all([day, stream, segment_key, source]):
-        return error_response("Missing required fields", 400)
+        return error_response(
+            MISSING_REQUIRED_FIELD,
+            detail="Missing required fields",
+        )
     if not DATE_RE.fullmatch(day):
-        return error_response("Invalid day format", 400)
+        return error_response(INVALID_DAY, detail="Invalid day format")
     if not validate_segment_key(segment_key):
-        return error_response("Invalid segment key", 400)
+        return error_response(
+            INVALID_SEGMENT_OR_STREAM,
+            detail="Invalid segment key",
+        )
 
     return jsonify(
         {
@@ -1290,18 +1400,27 @@ def api_discovery_identify() -> Any:
     name = data.get("name", "").strip()
 
     if cluster_id is None:
-        return error_response("cluster_id is required", 400)
+        return error_response(
+            MISSING_REQUIRED_FIELD,
+            detail="cluster_id is required",
+        )
     if not name:
-        return error_response("name is required", 400)
+        return error_response(MISSING_REQUIRED_FIELD, detail="name is required")
 
     try:
         cluster_id = int(cluster_id)
     except (TypeError, ValueError):
-        return error_response("cluster_id must be an integer", 400)
+        return error_response(
+            INVALID_REQUEST_VALUE,
+            detail="cluster_id must be an integer",
+        )
 
     result = identify_cluster(cluster_id, name)
     if "error" in result:
-        return error_response(result["error"], 400)
+        reason = (
+            SPEAKER_NOT_FOUND if "Entity" in result["error"] else INVALID_REQUEST_VALUE
+        )
+        return error_response(reason, detail=result["error"], status=400)
 
     log_app_action(
         app="speakers",
@@ -1323,15 +1442,15 @@ def api_discovery_identify() -> Any:
 def serve_audio(day: str, rel_path: str) -> Any:
     """Serve audio files for playback."""
     if not DATE_RE.fullmatch(day):
-        return error_response("Day not found", 404)
+        return error_response(INVALID_DAY, detail="Day not found", status=404)
 
     try:
         full_path = os.path.join(state.journal_root, day, rel_path)
         day_dir = str(day_path(day))
         if not os.path.commonpath([full_path, day_dir]) == day_dir:
-            return error_response("Invalid file path", 403)
+            return error_response(INVALID_PATH, detail="Invalid file path", status=403)
         if not os.path.isfile(full_path):
-            return error_response("File not found", 404)
+            return error_response(FILE_NOT_FOUND, detail="File not found")
     except (OSError, ValueError):
         logger.warning(
             "serve_audio path validation failed for %s/%s",
@@ -1339,6 +1458,8 @@ def serve_audio(day: str, rel_path: str) -> Any:
             rel_path,
             exc_info=True,
         )
-        return error_response("Failed to serve file", 404)
+        return error_response(
+            FILE_READ_FAILED, detail="Failed to serve file", status=404
+        )
 
     return send_file(full_path, mimetype="audio/flac")
