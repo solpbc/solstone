@@ -37,6 +37,7 @@ from urllib.parse import quote
 from cryptography.hazmat.primitives import serialization
 from flask import Blueprint, Response, abort, jsonify, request
 
+from solstone.apps.link import copy as link_copy
 from solstone.apps.link.copy import (
     MANUAL_CODE_GROUP,
     MANUAL_CODE_LEN,
@@ -97,6 +98,14 @@ def _nonces() -> NonceStore:
 
 def _utc_now_iso() -> str:
     return dt.datetime.now(dt.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _default_device_label() -> str:
+    now = dt.datetime.now()
+    return link_copy.DEVICE_LABEL_DEFAULT_FORMAT.format(
+        month=now.strftime("%b"),
+        day=now.strftime("%d"),
+    )
 
 
 def _is_loopback_request() -> bool:
@@ -238,7 +247,9 @@ def local_endpoints() -> Any:
 def pair_start() -> Any:
     """Generate a single-use 5-minute nonce and return link-ready payload."""
     payload = request.get_json(silent=True) or {}
-    device_label = str(payload.get("device_label") or "").strip() or "unnamed device"
+    device_label = (
+        str(payload.get("device_label") or "").strip() or _default_device_label()
+    )
 
     nonce = generate_nonce()
     manual_code_hyphenated = generate_manual_code()
@@ -343,7 +354,7 @@ def pair() -> Any:
     if consumed is None:
         return jsonify({"error": "nonce expired or used"}), 410
 
-    effective_label = device_label or (consumed.device_label or "unnamed device")
+    effective_label = device_label or (consumed.device_label or _default_device_label())
 
     try:
         response, fingerprint, paired_at = _complete_pairing(
@@ -377,7 +388,7 @@ def by_code() -> Any:
     if consumed is None:
         return jsonify({"error": "nonce expired or used"}), 410
 
-    effective_label = device_label or consumed.device_label or "unnamed device"
+    effective_label = device_label or consumed.device_label or _default_device_label()
     try:
         response, fingerprint, paired_at = _complete_pairing(
             consumed,
@@ -433,4 +444,4 @@ def _entry_to_json(entry: ClientEntry) -> dict[str, Any]:
 @link_bp.app_context_processor
 def _inject_link_helpers() -> dict[str, Any]:
     """Make `url_for` to link endpoints easy from templates."""
-    return {}
+    return {"link_copy": link_copy}

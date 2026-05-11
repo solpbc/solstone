@@ -1,3 +1,5 @@
+<script src="{{ url_for('root.static', filename='pairing-qr.js') }}"></script>
+
 <main class="link-dashboard">
   <header class="link-header">
     <h1 class="link-h1">reach your solstone from anywhere</h1>
@@ -26,30 +28,76 @@
 
   <div id="link-pair-modal" class="link-modal" hidden role="dialog" aria-modal="true" aria-labelledby="link-pair-modal-title">
     <div class="link-modal-box">
-      <h3 id="link-pair-modal-title">pair a phone</h3>
-      <label class="link-modal-label">
-        Device label
-        <input type="text" id="link-device-label" placeholder="e.g. my iPhone" maxlength="80" />
-      </label>
-      <div class="link-modal-actions">
-        <button type="button" id="link-pair-generate">generate pair code</button>
-        <button type="button" id="link-pair-cancel" class="link-modal-cancel">cancel</button>
+      <h3 id="link-pair-modal-title">{{ link_copy.MODAL_TITLE }}</h3>
+
+      <div id="link-pair-code" class="link-pair-grid">
+        <div class="link-pair-qr-cell">
+          <div id="link-qr-container" class="link-qr-container" aria-label="pair QR code"></div>
+          <div id="link-qr-expired" class="link-qr-expired" hidden>
+            <button type="button" id="link-pair-regenerate" class="link-pair-expired-btn">
+              {{ link_copy.EXPIRED_BUTTON }}
+            </button>
+          </div>
+        </div>
+
+        <ol class="link-pair-steps">
+          <li>{{ link_copy.STEP_1 }}</li>
+          <li>{{ link_copy.STEP_2 }}</li>
+          <li>{{ link_copy.STEP_3 }}</li>
+        </ol>
+
+        <p class="link-pair-manual">
+          {{ link_copy.MANUAL_CODE_LABEL }}
+          <code id="link-pair-manual-code"></code>
+        </p>
+
+        <p class="link-pair-trust">{{ link_copy.TRUST_COPY }}</p>
+
+        <p class="link-pair-lan">
+          {{ link_copy.LAN_URL_LABEL }}
+          <code id="link-pair-lan-url"></code>
+        </p>
+
+        <details class="link-pair-details">
+          <summary>{{ link_copy.DETAILS_DISCLOSURE }}</summary>
+          <p class="link-pair-details-body">
+            <span class="link-pair-fp-label">{{ link_copy.CA_FP_LABEL }}</span>
+            <code id="link-pair-ca-fp"></code>
+          </p>
+          <p class="link-pair-fp-note">{{ link_copy.CA_FP_NOTE }}</p>
+        </details>
+
+        <label class="link-modal-label link-pair-label-edit">
+          Device label
+          <input type="text" id="link-device-label" placeholder="{{ link_copy.DEVICE_LABEL_PLACEHOLDER }}" data-default-label-format="{{ link_copy.DEVICE_LABEL_DEFAULT_FORMAT }}" maxlength="80" />
+        </label>
+
+        <p class="link-pair-refresh-hint">{{ link_copy.AUTO_REFRESH_HINT }}</p>
+
+        <div class="link-modal-actions">
+          <button type="button" id="link-pair-cancel" class="link-modal-cancel">cancel</button>
+        </div>
       </div>
 
-      <div id="link-pair-code" class="link-pair-code" hidden>
-        <p class="link-qr-instruction">Scan this code with solstone mobile on the same wifi.</p>
-        <p class="link-qr-subtext">This code expires in 5 minutes and only works once.</p>
-        <div class="link-qr-container" id="link-qr-container" aria-label="pair QR code"></div>
-        <dl class="link-qr-details">
-          <dt>Pair URL</dt>
-          <dd><code id="link-pair-url"></code></dd>
-          <dt>CA fingerprint</dt>
-          <dd><code id="link-pair-ca-fp"></code></dd>
-        </dl>
-        <p class="link-waiting" id="link-pair-waiting">Waiting for phone…</p>
+      <div id="link-pair-success" class="link-pair-success" hidden>
+        <p class="link-pair-success-check">✓</p>
+        <h4 id="link-pair-success-heading"></h4>
+        <p id="link-pair-success-subhead"></p>
+        <div class="link-modal-actions">
+          <button type="button" id="link-pair-done">
+            {{ link_copy.SUCCESS_DONE }}
+          </button>
+        </div>
       </div>
     </div>
   </div>
+
+  <script>
+    window.LinkCopy = {
+      SUCCESS_HEADING: {{ link_copy.SUCCESS_HEADING|tojson }},
+      SUCCESS_SUBHEAD: {{ link_copy.SUCCESS_SUBHEAD|tojson }}
+    };
+  </script>
 
   <div id="link-unpair-modal" class="link-modal" hidden role="dialog" aria-modal="true" aria-labelledby="link-unpair-title">
     <div class="link-modal-box">
@@ -107,14 +155,40 @@
   .link-modal-danger { background: #c44; color: #fff; }
 
   .link-pair-code { margin-top: 1.25em; padding-top: 1.25em; border-top: 1px solid #eee; }
-  .link-qr-instruction { font-weight: 500; margin-bottom: 0.25em; }
-  .link-qr-subtext { color: #777; font-size: 0.85em; margin-bottom: 1em; }
   .link-qr-container { background: #fff; padding: 1em; border: 1px solid #eee; border-radius: 6px; display: flex; justify-content: center; margin-bottom: 1em; }
   .link-qr-container svg, .link-qr-container img { max-width: 260px; height: auto; }
-  .link-qr-details { font-size: 0.8em; color: #555; }
-  .link-qr-details dt { font-weight: 500; margin-top: 0.5em; }
-  .link-qr-details dd { font-family: ui-monospace, monospace; overflow-wrap: anywhere; margin-left: 0; }
-  .link-waiting { color: #777; font-style: italic; margin-top: 1em; text-align: center; }
+
+  .link-modal-box { max-width: 620px; }
+  .link-pair-grid { display: grid; grid-template-columns: auto 1fr; gap: 1em 1.25em; align-items: start; }
+  .link-pair-grid[hidden] { display: none; }
+  .link-pair-qr-cell { position: relative; grid-row: span 4; }
+  .link-qr-container { position: relative; align-items: center; margin-bottom: 0; }
+  .link-qr-container.is-expired { opacity: 0.3; }
+  .link-qr-expired { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 1em; text-align: center; }
+  .link-qr-expired[hidden] { display: none; }
+  .link-pair-expired-btn { border: none; border-radius: 5px; background: #1e6bd0; color: #fff; cursor: pointer; font-weight: 500; padding: 0.6em 1em; }
+  .link-pair-steps { margin: 0; padding-left: 1.4em; line-height: 1.55; color: #333; }
+  .link-pair-manual, .link-pair-trust, .link-pair-lan, .link-pair-refresh-hint { grid-column: 1 / -1; margin: 0; }
+  .link-pair-manual code { display: inline-block; margin-left: 0.35em; font-family: ui-monospace, monospace; font-size: 1.2em; letter-spacing: 0.05em; }
+  .link-pair-trust, .link-pair-refresh-hint { color: #777; font-size: 0.85em; }
+  .link-pair-lan code { font-family: ui-monospace, monospace; color: #666; font-size: 1em; word-break: break-all; }
+  .link-pair-details { grid-column: 1 / -1; color: #777; font-size: 0.82em; }
+  .link-pair-details summary { color: #777; cursor: pointer; }
+  .link-pair-details code { word-break: break-all; }
+  .link-pair-details-body { margin-bottom: 0.35em; }
+  .link-pair-fp-label { display: block; margin-bottom: 0.25em; }
+  .link-pair-fp-note { color: #888; margin-bottom: 0; }
+  .link-pair-label-edit { grid-column: 1 / -1; }
+  .link-pair-success { padding: 24px; text-align: center; }
+  .link-pair-success[hidden] { display: none; }
+  .link-pair-success-check { color: #1e7b42; font-size: 3em; line-height: 1; margin: 0 0 0.25em; }
+  .link-pair-success h4 { margin: 0 0 0.35em; font-size: 1.15em; }
+  .link-pair-success p { color: #666; }
+
+  @media (max-width: 540px) {
+    .link-pair-grid { grid-template-columns: 1fr; }
+    .link-pair-qr-cell { grid-row: auto; }
+  }
 
   .link-toast { position: fixed; bottom: 2em; left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 0.75em 1.5em; border-radius: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 1100; }
 </style>
@@ -140,13 +214,21 @@
   const pairBtn = document.getElementById('link-pair-btn');
   const pairModal = document.getElementById('link-pair-modal');
   const pairCancel = document.getElementById('link-pair-cancel');
-  const pairGenerate = document.getElementById('link-pair-generate');
   const deviceLabelInput = document.getElementById('link-device-label');
   const pairCodeBox = document.getElementById('link-pair-code');
   const qrContainer = document.getElementById('link-qr-container');
-  const pairUrlEl = document.getElementById('link-pair-url');
+  const qrExpired = document.getElementById('link-qr-expired');
+  const pairRegenerate = document.getElementById('link-pair-regenerate');
+  const manualCodeEl = document.getElementById('link-pair-manual-code');
+  const lanUrlEl = document.getElementById('link-pair-lan-url');
   const caFpEl = document.getElementById('link-pair-ca-fp');
-  const pairWaiting = document.getElementById('link-pair-waiting');
+  const pairSuccess = document.getElementById('link-pair-success');
+  const pairSuccessHeading = document.getElementById('link-pair-success-heading');
+  const pairSuccessSubhead = document.getElementById('link-pair-success-subhead');
+  const pairDone = document.getElementById('link-pair-done');
+  let pairEventsCleanup = null;
+  let expiryTimer = null;
+  let autoRefreshFired = false;
 
   const unpairModal = document.getElementById('link-unpair-modal');
   const unpairConfirm = document.getElementById('link-unpair-confirm');
@@ -277,60 +359,134 @@
     }
   }
 
-  function renderQrAscii(data) {
-    // Minimal fallback — render the URL as selectable text + a data-uri
-    // QR is not bundled. A real deploy would load a QR JS lib; kept
-    // dependency-free for the first lode.
-    qrContainer.innerHTML = '';
-    const note = document.createElement('p');
-    note.style.fontSize = '0.85em';
-    note.style.color = '#555';
-    note.textContent = 'paste this URL into solstone mobile (QR rendering lib not bundled yet):';
-    qrContainer.appendChild(note);
-    const code = document.createElement('code');
-    code.textContent = data.pair_url;
-    code.style.wordBreak = 'break-all';
-    qrContainer.appendChild(code);
+  function clearExpiryTimer() {
+    if (expiryTimer !== null) {
+      clearTimeout(expiryTimer);
+      expiryTimer = null;
+    }
   }
 
-  pairBtn.addEventListener('click', () => {
-    deviceLabelInput.value = '';
-    pairCodeBox.hidden = true;
-    pairModal.hidden = false;
-  });
-
-  pairCancel.addEventListener('click', () => {
-    pairModal.hidden = true;
-  });
-
-  pairGenerate.addEventListener('click', async () => {
-    const label = deviceLabelInput.value.trim() || 'unnamed device';
-    try {
-      const r = await fetch('/app/link/pair-start', {
-        method: 'POST',
-        headers: {'content-type': 'application/json'},
-        body: JSON.stringify({device_label: label}),
-      });
-      if (!r.ok) throw new Error(`pair-start failed: ${r.status}`);
-      const data = await r.json();
-      pairUrlEl.textContent = data.pair_url;
-      caFpEl.textContent = 'sha256:' + data.ca_fingerprint;
-      renderQrAscii(data);
-      pairCodeBox.hidden = false;
-      // Poll for new device appearing.
-      const started = Date.now();
-      const interval = setInterval(async () => {
-        await refreshDevices();
-        if (Date.now() - started > 310000) {
-          clearInterval(interval);
-          pairWaiting.textContent = 'timed out. pair code expired.';
-        }
-      }, 2000);
-    } catch (e) {
-      showToast('Failed to generate pair code');
-      console.error(e);
+  function cleanupPairEvents() {
+    if (pairEventsCleanup) {
+      pairEventsCleanup();
+      pairEventsCleanup = null;
     }
+  }
+
+  function resetPairCodeState() {
+    pairCodeBox.hidden = false;
+    pairSuccess.hidden = true;
+    qrExpired.hidden = true;
+    qrContainer.classList.remove('is-expired');
+  }
+
+  function renderQr(pairLink) {
+    if (typeof window.qrcode !== 'function') {
+      throw new Error('QR renderer unavailable');
+    }
+    const qr = window.qrcode(0, 'M');
+    qr.addData(pairLink);
+    qr.make();
+    qrContainer.innerHTML = qr.createSvgTag({
+      cellSize: 8,
+      margin: 2,
+      scalable: true,
+      title: 'pair QR',
+      alt: 'pair QR',
+    });
+  }
+
+  async function requestPairCode() {
+    clearExpiryTimer();
+    qrExpired.hidden = true;
+    qrContainer.classList.remove('is-expired');
+
+    const r = await fetch('/app/link/pair-start', {
+      method: 'POST',
+      headers: {'content-type': 'application/json'},
+      body: '{}',
+    });
+    if (!r.ok) throw new Error(`pair-start failed: ${r.status}`);
+
+    const data = await r.json();
+    renderQr(data.pair_link);
+    manualCodeEl.textContent = data.manual_code;
+    lanUrlEl.textContent = data.lan_url;
+    caFpEl.textContent = data.ca_fingerprint;
+    deviceLabelInput.value = data.device_label;
+
+    const expiresIn = Number(data.expires_in) || 300;
+    expiryTimer = setTimeout(handleExpiry, expiresIn * 1000);
+  }
+
+  function handleExpiry() {
+    expiryTimer = null;
+    qrContainer.classList.add('is-expired');
+    if (document.hasFocus() && !autoRefreshFired) {
+      autoRefreshFired = true;
+      requestPairCode().catch((err) => {
+        window.logError(err, { context: 'link: auto-refresh pair code failed' });
+        qrExpired.hidden = false;
+      });
+      return;
+    }
+    qrExpired.hidden = false;
+  }
+
+  function handlePairComplete(payload) {
+    pairCodeBox.hidden = true;
+    pairSuccess.hidden = false;
+    clearExpiryTimer();
+    pairSuccessHeading.textContent = window.LinkCopy.SUCCESS_HEADING.replace(
+      '{label}',
+      payload.device_label || ''
+    );
+    pairSuccessSubhead.textContent = window.LinkCopy.SUCCESS_SUBHEAD.replace(
+      '{short_fp}',
+      payload.fingerprint_short || ''
+    );
+    refreshDevices();
+  }
+
+  function openPairModal() {
+    pairModal.hidden = false;
+    autoRefreshFired = false;
+    cleanupPairEvents();
+    resetPairCodeState();
+    if (window.appEvents) {
+      pairEventsCleanup = window.appEvents.listen('link', (payload) => {
+        if (payload.event === 'pair_complete') {
+          handlePairComplete(payload);
+        }
+      });
+    }
+    requestPairCode().catch((err) => {
+      showToast('Failed to generate pair code');
+      window.logError(err, { context: 'link: requestPairCode failed' });
+    });
+  }
+
+  function closePairModal() {
+    pairModal.hidden = true;
+    cleanupPairEvents();
+    clearExpiryTimer();
+    autoRefreshFired = false;
+    resetPairCodeState();
+  }
+
+  pairBtn.addEventListener('click', openPairModal);
+  pairCancel.addEventListener('click', closePairModal);
+  pairDone.addEventListener('click', closePairModal);
+  pairRegenerate.addEventListener('click', () => {
+    autoRefreshFired = false;
+    qrExpired.hidden = true;
+    qrContainer.classList.remove('is-expired');
+    requestPairCode().catch((err) => {
+      showToast('Failed to generate pair code');
+      window.logError(err, { context: 'link: regenerate pair code failed' });
+    });
   });
+  window.addEventListener('beforeunload', cleanupPairEvents, { once: true });
 
   function openUnpair(device) {
     unpairTarget = device;

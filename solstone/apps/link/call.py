@@ -14,7 +14,7 @@ import time
 
 import typer
 
-from solstone.apps.link.copy import MANUAL_CODE_LABEL
+from solstone.apps.link.copy import CLI_MANUAL_CODE_LABEL
 from solstone.apps.link.manual_code import (
     generate as generate_manual_code,
 )
@@ -116,7 +116,7 @@ def pair(
     url = f"{base}/app/link/pair?token={value}"
 
     typer.echo(f"Pair code: {value} (expires in 5 minutes)")
-    typer.echo(f"{MANUAL_CODE_LABEL}: {manual_code}")
+    typer.echo(f"{CLI_MANUAL_CODE_LABEL}: {manual_code}")
     typer.echo(f"Pair URL: {url}")
     typer.echo(f"CA fingerprint: sha256:{ca_fp}")
     typer.echo(f"Device: {device_label}")
