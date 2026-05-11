@@ -494,9 +494,15 @@ def test_request_body_validation(ingest_env):
     )
 
     assert missing.status_code == 400
-    assert missing.get_json() == {"error": "Invalid JSON body"}
+    missing_payload = missing.get_json()
+    assert missing_payload["error"] == "I couldn't read that JSON request."
+    assert missing_payload["reason_code"] == "invalid_json_request"
+    assert missing_payload["detail"] == "Invalid JSON body"
     assert invalid.status_code == 400
-    assert invalid.get_json() == {"error": "Missing entities array"}
+    invalid_payload = invalid.get_json()
+    assert invalid_payload["error"] == "I couldn't find a required field."
+    assert invalid_payload["reason_code"] == "missing_required_field"
+    assert invalid_payload["detail"] == "Missing entities array"
 
 
 def test_empty_entities_list(ingest_env):

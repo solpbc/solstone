@@ -156,7 +156,10 @@ def test_invalid_json(ingest_env):
         content_type="application/json",
     )
     assert response.status_code == 400
-    assert response.get_json() == {"error": "Invalid JSON body"}
+    payload = response.get_json()
+    assert payload["error"] == "I couldn't read that JSON request."
+    assert payload["reason_code"] == "invalid_json_request"
+    assert payload["detail"] == "Invalid JSON body"
 
 
 def test_missing_config(ingest_env):
@@ -167,7 +170,10 @@ def test_missing_config(ingest_env):
         json={},
     )
     assert response.status_code == 400
-    assert response.get_json() == {"error": "Missing config object"}
+    payload = response.get_json()
+    assert payload["error"] == "I couldn't find a required field."
+    assert payload["reason_code"] == "missing_required_field"
+    assert payload["detail"] == "Missing config object"
 
 
 def test_config_staged(ingest_env):

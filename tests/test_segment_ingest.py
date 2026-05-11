@@ -311,7 +311,10 @@ def test_ingest_missing_metadata(ingest_env):
     )
 
     assert response.status_code == 400
-    assert response.get_json() == {"error": "Missing metadata"}
+    payload = response.get_json()
+    assert payload["error"] == "I couldn't find a required field."
+    assert payload["reason_code"] == "missing_required_field"
+    assert payload["detail"] == "Missing metadata"
 
 
 def test_ingest_malformed_metadata(ingest_env):
@@ -324,7 +327,10 @@ def test_ingest_malformed_metadata(ingest_env):
     )
 
     assert response.status_code == 400
-    assert response.get_json() == {"error": "Invalid metadata JSON"}
+    payload = response.get_json()
+    assert payload["error"] == "I couldn't read that JSON request."
+    assert payload["reason_code"] == "invalid_json_request"
+    assert payload["detail"] == "Invalid metadata JSON"
 
 
 def test_ingest_auth_missing(ingest_env):

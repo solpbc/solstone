@@ -15,6 +15,17 @@ from werkzeug.utils import secure_filename
 
 from solstone.apps.utils import log_app_action
 from solstone.convey import emit, state
+from solstone.convey.reasons import (
+    FILE_NOT_FOUND,
+    IMPORT_CONFLICT,
+    IMPORT_METADATA_FAILED,
+    IMPORT_NOT_FOUND,
+    INGEST_NO_FILES,
+    INVALID_REQUEST_VALUE,
+    JOURNAL_SOURCE_PROBLEM,
+    MISSING_REQUIRED_FIELD,
+)
+from solstone.convey.utils import error_response
 from solstone.think.detect_created import detect_created
 from solstone.think.importers.utils import (
     build_import_info,
@@ -191,7 +202,7 @@ def import_save() -> Any:
     elif text:
         filename = "paste.txt"
     else:
-        return jsonify({"error": "No input"}), 400
+        return error_response(INGEST_NO_FILES, detail="No input")
 
     # Detect timestamp from content first (need temporary save for detection)
     ts = None
@@ -328,11 +339,11 @@ def import_save_path() -> Any:
     setting = data.get("setting", "").strip() or None
 
     if not local_path:
-        return jsonify({"error": "Missing path"}), 400
+        return error_response(MISSING_REQUIRED_FIELD, detail="Missing path")
 
     local = Path(local_path)
     if not local.exists():
-        return jsonify({"error": f"Path not found: {local_path}"}), 404
+        return error_response(FILE_NOT_FOUND, detail=f"Path not found: {local_path}")
 
     timestamp_ms = now_ms()
     folder_timestamp = (
@@ -377,7 +388,7 @@ def import_update_metadata() -> Any:
     data = request.get_json(force=True)
     raw_path = data.get("path", "").strip()
     if not raw_path:
-        return jsonify({"error": "Missing import path"}), 400
+        return error_response(MISSING_REQUIRED_FIELD, detail="Missing import path")
 
     facet = data.get("facet", "").strip() or None
     setting = data.get("setting", "").strip() or None
@@ -395,9 +406,12 @@ def import_update_metadata() -> Any:
             updates={"facet": facet, "setting": setting},
         )
     except FileNotFoundError:
-        return jsonify({"error": "Import metadata not found"}), 404
+        return error_response(IMPORT_NOT_FOUND, detail="Import metadata not found")
     except Exception as exc:
-        return jsonify({"error": f"Failed to update metadata: {exc}"}), 500
+        return error_response(
+            IMPORT_METADATA_FAILED,
+            detail=f"Failed to update metadata: {exc}",
+        )
 
     return jsonify(
         {
@@ -527,10 +541,12 @@ def import_check_path(source: str) -> Any:
 def import_guide(source: str) -> Any:
     """Return export guide markdown for a given source."""
     if not re.fullmatch(r"[a-z_]+", source):
-        return jsonify({"error": "Invalid source name"}), 400
+        return error_response(INVALID_REQUEST_VALUE, detail="Invalid source name")
     guide_path = Path(__file__).parent / "guides" / f"{source}.md"
     if not guide_path.is_file():
-        return jsonify({"error": f"No guide available for '{source}'"}), 404
+        return error_response(
+            FILE_NOT_FOUND, detail=f"No guide available for '{source}'"
+        )
     return (
         guide_path.read_text(encoding="utf-8"),
         200,
@@ -563,7 +579,7 @@ def import_detail_api(timestamp: str) -> Any:
         )
         return jsonify(result)
     except FileNotFoundError:
-        return jsonify({"error": "Import not found"}), 404
+        return error_response(IMPORT_NOT_FOUND, detail="Import not found")
 
 
 @import_bp.route("/api/<timestamp>/content")
@@ -572,14 +588,14 @@ def import_content_list(timestamp: str) -> Any:
     journal_root = Path(state.journal_root)
     import_dir = journal_root / "imports" / timestamp
     if not import_dir.exists():
-        return jsonify({"error": "Import not found"}), 404
+        return error_response(IMPORT_NOT_FOUND, detail="Import not found")
 
     manifest_path = import_dir / "content_manifest.jsonl"
     if (
         not manifest_path.exists()
         and generate_content_manifest(journal_root, timestamp) is None
     ):
-        return jsonify({"error": "No content available"}), 404
+        return error_response(IMPORT_NOT_FOUND, detail="No content available")
 
     items: list[dict] = []
     try:
@@ -593,7 +609,7 @@ def import_content_list(timestamp: str) -> Any:
                 except json.JSONDecodeError:
                     continue
     except OSError:
-        return jsonify({"error": "Failed to read manifest"}), 500
+        return error_response(IMPORT_METADATA_FAILED, detail="Failed to read manifest")
 
     source_type = ""
     imported_path = import_dir / "imported.json"
@@ -662,13 +678,13 @@ def import_content_detail(timestamp: str, item_id: str) -> Any:
     journal_root = Path(state.journal_root)
     import_dir = journal_root / "imports" / timestamp
     if not import_dir.exists():
-        return jsonify({"error": "Import not found"}), 404
+        return error_response(IMPORT_NOT_FOUND, detail="Import not found")
 
     manifest_path = import_dir / "content_manifest.jsonl"
     if not manifest_path.exists():
         generate_content_manifest(journal_root, timestamp)
     if not manifest_path.exists():
-        return jsonify({"error": "No content available"}), 404
+        return error_response(IMPORT_NOT_FOUND, detail="No content available")
 
     item = None
     try:
@@ -685,10 +701,10 @@ def import_content_detail(timestamp: str, item_id: str) -> Any:
                     item = entry
                     break
     except OSError:
-        return jsonify({"error": "Failed to read manifest"}), 500
+        return error_response(IMPORT_METADATA_FAILED, detail="Failed to read manifest")
 
     if item is None:
-        return jsonify({"error": "Item not found"}), 404
+        return error_response(IMPORT_NOT_FOUND, detail="Item not found")
 
     source_type = ""
     imported_path = import_dir / "imported.json"
@@ -757,7 +773,7 @@ def import_start() -> Any:
     source = data.get("source")
     force = data.get("force", False)
     if not path or not ts:
-        return jsonify({"error": "missing params"}), 400
+        return error_response(MISSING_REQUIRED_FIELD, detail="missing params")
 
     # Generate task ID
     task_id = str(now_ms())
@@ -776,24 +792,25 @@ def import_start() -> Any:
 
         # Check if old directory exists
         if not old_import_dir.exists():
-            return (
-                jsonify(
-                    {"error": f"Import directory not found for {original_timestamp}"}
-                ),
-                404,
+            return error_response(
+                IMPORT_NOT_FOUND,
+                detail=f"Import directory not found for {original_timestamp}",
             )
 
         # Check if target directory already exists
         if new_import_dir.exists():
-            return jsonify({"error": f"Import already exists for timestamp {ts}"}), 409
+            return error_response(
+                IMPORT_CONFLICT,
+                detail=f"Import already exists for timestamp {ts}",
+            )
 
         # Rename the directory
         try:
             old_import_dir.rename(new_import_dir)
         except Exception as e:
-            return (
-                jsonify({"error": f"Failed to rename import directory: {str(e)}"}),
-                500,
+            return error_response(
+                IMPORT_METADATA_FAILED,
+                detail=f"Failed to rename import directory: {str(e)}",
             )
 
         # Update path to point to new location
@@ -806,9 +823,15 @@ def import_start() -> Any:
     try:
         metadata = read_import_metadata(journal_root=journal_root, timestamp=ts)
     except FileNotFoundError:
-        return jsonify({"error": f"Import metadata not found for {ts}"}), 404
+        return error_response(
+            IMPORT_NOT_FOUND,
+            detail=f"Import metadata not found for {ts}",
+        )
     except Exception as e:
-        return jsonify({"error": f"Failed to read metadata: {str(e)}"}), 500
+        return error_response(
+            IMPORT_METADATA_FAILED,
+            detail=f"Failed to read metadata: {str(e)}",
+        )
 
     # Update file_path in metadata if timestamp changed
     if not is_local_path and original_timestamp != ts:
@@ -819,9 +842,9 @@ def import_start() -> Any:
                 updates={"file_path": path},
             )
         except Exception as e:
-            return (
-                jsonify({"error": f"Failed to update file path in metadata: {str(e)}"}),
-                500,
+            return error_response(
+                IMPORT_METADATA_FAILED,
+                detail=f"Failed to update file path in metadata: {str(e)}",
             )
 
     facet = metadata.get("facet")
@@ -846,7 +869,10 @@ def import_start() -> Any:
             updates={"task_id": task_id, "source": source},
         )
     except Exception as e:
-        return jsonify({"error": f"Failed to update metadata: {str(e)}"}), 500
+        return error_response(
+            IMPORT_METADATA_FAILED,
+            detail=f"Failed to update metadata: {str(e)}",
+        )
 
     # Emit task request to Callosum (non-blocking, drops if disconnected)
     emit("supervisor", "request", ref=task_id, cmd=cmd)
@@ -859,11 +885,18 @@ def api_journal_source_create() -> Any:
     data = request.get_json(force=True) if request.is_json else {}
     name = data.get("name", "").strip()
     if not name:
-        return jsonify({"error": "Name is required"}), 400
+        return error_response(MISSING_REQUIRED_FIELD, detail="Name is required")
     if not is_valid_journal_source_name(name):
-        return jsonify({"error": "Invalid journal source name"}), 400
+        return error_response(
+            JOURNAL_SOURCE_PROBLEM,
+            detail="Invalid journal source name",
+        )
     if find_journal_source_by_name(name):
-        return jsonify({"error": f"Journal source '{name}' already exists"}), 409
+        return error_response(
+            JOURNAL_SOURCE_PROBLEM,
+            status=409,
+            detail=f"Journal source '{name}' already exists",
+        )
     key = generate_key()
     source_data = {
         "key": key,
@@ -881,7 +914,11 @@ def api_journal_source_create() -> Any:
         },
     }
     if not save_journal_source(source_data):
-        return jsonify({"error": "Failed to save journal source"}), 500
+        return error_response(
+            JOURNAL_SOURCE_PROBLEM,
+            status=500,
+            detail="Failed to save journal source",
+        )
     create_state_directory(Path(state.journal_root), key[:8])
     log_app_action(
         app="import",
@@ -912,13 +949,25 @@ def api_journal_source_list() -> Any:
 def api_journal_source_revoke(name: str) -> Any:
     source = find_journal_source_by_name(name)
     if not source:
-        return jsonify({"error": f"Journal source '{name}' not found"}), 404
+        return error_response(
+            JOURNAL_SOURCE_PROBLEM,
+            status=404,
+            detail=f"Journal source '{name}' not found",
+        )
     if source.get("revoked"):
-        return jsonify({"error": f"Journal source '{name}' is already revoked"}), 409
+        return error_response(
+            JOURNAL_SOURCE_PROBLEM,
+            status=409,
+            detail=f"Journal source '{name}' is already revoked",
+        )
     source["revoked"] = True
     source["revoked_at"] = now_ms()
     if not save_journal_source(source):
-        return jsonify({"error": "Failed to save journal source"}), 500
+        return error_response(
+            JOURNAL_SOURCE_PROBLEM,
+            status=500,
+            detail="Failed to save journal source",
+        )
     log_app_action(
         app="import",
         facet=None,
@@ -932,7 +981,11 @@ def api_journal_source_revoke(name: str) -> Any:
 def api_journal_source_status(name: str) -> Any:
     source = find_journal_source_by_name(name)
     if not source:
-        return jsonify({"error": f"Journal source '{name}' not found"}), 404
+        return error_response(
+            JOURNAL_SOURCE_PROBLEM,
+            status=404,
+            detail=f"Journal source '{name}' not found",
+        )
     key = source.get("key", "")
     return jsonify(
         {
@@ -951,8 +1004,10 @@ def api_journal_source_status(name: str) -> Any:
 @require_journal_source
 def journal_source_manifest(key_prefix: str, area: str) -> Any:
     if g.journal_source["key"][:8] != key_prefix:
+        # PROTOCOL-ONLY: journal-source key mismatch from non-owner clients.
         abort(403, description="Key prefix mismatch")
     if area not in STATE_AREAS:
+        # PROTOCOL-ONLY: journal-source manifest area from non-owner clients.
         abort(404, description="Unknown manifest area")
     state_path = get_state_directory(key_prefix) / area / "state.json"
     try:

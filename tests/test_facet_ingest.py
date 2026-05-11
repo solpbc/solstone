@@ -247,7 +247,10 @@ def test_missing_metadata(ingest_env):
         content_type="multipart/form-data",
     )
     assert response.status_code == 400
-    assert response.get_json() == {"error": "Missing metadata"}
+    payload = response.get_json()
+    assert payload["error"] == "I couldn't find a required field."
+    assert payload["reason_code"] == "missing_required_field"
+    assert payload["detail"] == "Missing metadata"
 
 
 def test_invalid_metadata_json(ingest_env):
@@ -259,7 +262,10 @@ def test_invalid_metadata_json(ingest_env):
         content_type="multipart/form-data",
     )
     assert response.status_code == 400
-    assert response.get_json() == {"error": "Invalid metadata JSON"}
+    payload = response.get_json()
+    assert payload["error"] == "I couldn't read that JSON request."
+    assert payload["reason_code"] == "invalid_json_request"
+    assert payload["detail"] == "Invalid metadata JSON"
 
 
 def test_unsafe_facet_name(ingest_env):
@@ -282,7 +288,10 @@ def test_unsafe_facet_name(ingest_env):
             env["client"], env["key"], env["key_prefix"], metadata, file_map
         )
         assert response.status_code == 400, f"Expected 400 for facet name: {bad_name}"
-        assert response.get_json() == {"error": "Invalid facet name"}
+        payload = response.get_json()
+        assert payload["error"] == "I couldn't use one of those values."
+        assert payload["reason_code"] == "invalid_request_value"
+        assert payload["detail"] == "Invalid facet name"
 
 
 def test_new_facet_all_types(ingest_env):

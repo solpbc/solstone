@@ -19,6 +19,13 @@ from flask import abort, g, jsonify, request
 from werkzeug.utils import secure_filename
 
 from solstone.convey import emit, state
+from solstone.convey.reasons import (
+    INGEST_NO_FILES,
+    INVALID_JSON_REQUEST,
+    INVALID_REQUEST_VALUE,
+    MISSING_REQUIRED_FIELD,
+)
+from solstone.convey.utils import error_response
 from solstone.observe.utils import (
     compute_bytes_sha256,
     compute_file_sha256,
@@ -113,19 +120,27 @@ def register_ingest_routes(bp) -> None:
 
         metadata_raw = request.form.get("metadata")
         if not metadata_raw:
-            return jsonify({"error": "Missing metadata"}), 400
+            return error_response(MISSING_REQUIRED_FIELD, detail="Missing metadata")
 
         try:
             metadata = json.loads(metadata_raw)
         except json.JSONDecodeError:
-            return jsonify({"error": "Invalid metadata JSON"}), 400
+            return error_response(
+                INVALID_JSON_REQUEST,
+                detail="Invalid metadata JSON",
+            )
 
         if not isinstance(metadata, dict):
-            return jsonify({"error": "Invalid metadata JSON"}), 400
+            return error_response(
+                INVALID_JSON_REQUEST,
+                detail="Invalid metadata JSON",
+            )
 
         segments = metadata.get("segments")
         if not isinstance(segments, list):
-            return jsonify({"error": "Missing segments array"}), 400
+            return error_response(
+                MISSING_REQUIRED_FIELD, detail="Missing segments array"
+            )
 
         log_path = get_state_directory(key_prefix) / "segments" / "log.jsonl"
 
@@ -323,11 +338,13 @@ def register_ingest_routes(bp) -> None:
 
         payload = request.get_json(silent=True)
         if not isinstance(payload, dict):
-            return jsonify({"error": "Invalid JSON body"}), 400
+            return error_response(INVALID_JSON_REQUEST, detail="Invalid JSON body")
 
         entities = payload.get("entities")
         if not isinstance(entities, list):
-            return jsonify({"error": "Missing entities array"}), 400
+            return error_response(
+                MISSING_REQUIRED_FIELD, detail="Missing entities array"
+            )
 
         state_dir = get_state_directory(key_prefix)
         log_path = state_dir / "entities" / "log.jsonl"
@@ -628,19 +645,25 @@ def register_ingest_routes(bp) -> None:
 
         metadata_raw = request.form.get("metadata")
         if not metadata_raw:
-            return jsonify({"error": "Missing metadata"}), 400
+            return error_response(MISSING_REQUIRED_FIELD, detail="Missing metadata")
 
         try:
             metadata = json.loads(metadata_raw)
         except json.JSONDecodeError:
-            return jsonify({"error": "Invalid metadata JSON"}), 400
+            return error_response(
+                INVALID_JSON_REQUEST,
+                detail="Invalid metadata JSON",
+            )
 
         if not isinstance(metadata, dict):
-            return jsonify({"error": "Invalid metadata JSON"}), 400
+            return error_response(
+                INVALID_JSON_REQUEST,
+                detail="Invalid metadata JSON",
+            )
 
         facets = metadata.get("facets")
         if not isinstance(facets, list):
-            return jsonify({"error": "Missing facets array"}), 400
+            return error_response(MISSING_REQUIRED_FIELD, detail="Missing facets array")
 
         state_dir = get_state_directory(key_prefix)
         entities_state_path = state_dir / "entities" / "state.json"
@@ -678,46 +701,53 @@ def register_ingest_routes(bp) -> None:
 
         for facet_idx, facet in enumerate(facets):
             if not isinstance(facet, dict):
-                return jsonify({"error": "Facet metadata must be an object"}), 400
+                return error_response(
+                    INVALID_REQUEST_VALUE,
+                    detail="Facet metadata must be an object",
+                )
 
             facet_name = str(facet.get("name", "")).strip()
             files = facet.get("files")
             if not facet_name:
-                return jsonify({"error": "Facet name is required"}), 400
+                return error_response(
+                    MISSING_REQUIRED_FIELD,
+                    detail="Facet name is required",
+                )
             if not _FACET_NAME_RE.match(facet_name):
-                return jsonify({"error": "Invalid facet name"}), 400
+                return error_response(
+                    INVALID_REQUEST_VALUE,
+                    detail="Invalid facet name",
+                )
             if not isinstance(files, list):
-                return jsonify({"error": "Facet files must be an array"}), 400
+                return error_response(
+                    MISSING_REQUIRED_FIELD,
+                    detail="Facet files must be an array",
+                )
 
             file_bytes: list[bytes] = []
             normalized_files: list[dict[str, str]] = []
             for file_idx, file_meta in enumerate(files):
                 if not isinstance(file_meta, dict):
-                    return jsonify(
-                        {"error": "Facet file metadata must be an object"}
-                    ), 400
+                    return error_response(
+                        INVALID_REQUEST_VALUE,
+                        detail="Facet file metadata must be an object",
+                    )
 
                 path_value = file_meta.get("path")
                 type_value = file_meta.get("type")
                 if not isinstance(path_value, str) or not isinstance(type_value, str):
-                    return (
-                        jsonify(
-                            {"error": "Facet file metadata must include path and type"}
-                        ),
-                        400,
+                    return error_response(
+                        MISSING_REQUIRED_FIELD,
+                        detail="Facet file metadata must include path and type",
                     )
 
                 upload = request.files.get(f"files_{facet_idx}_{file_idx}")
                 if upload is None:
-                    return (
-                        jsonify(
-                            {
-                                "error": (
-                                    f"Missing uploaded file for facet {facet_idx} file {file_idx}"
-                                )
-                            }
+                    return error_response(
+                        INGEST_NO_FILES,
+                        detail=(
+                            f"Missing uploaded file for facet {facet_idx} file {file_idx}"
                         ),
-                        400,
                     )
 
                 file_bytes.append(upload.read())
@@ -769,11 +799,13 @@ def register_ingest_routes(bp) -> None:
 
         payload = request.get_json(silent=True)
         if not isinstance(payload, dict):
-            return jsonify({"error": "Invalid JSON body"}), 400
+            return error_response(INVALID_JSON_REQUEST, detail="Invalid JSON body")
 
         imports = payload.get("imports")
         if not isinstance(imports, list):
-            return jsonify({"error": "Missing imports array"}), 400
+            return error_response(
+                MISSING_REQUIRED_FIELD, detail="Missing imports array"
+            )
 
         state_dir = get_state_directory(key_prefix)
         log_path = state_dir / "imports" / "log.jsonl"
@@ -931,11 +963,13 @@ def register_ingest_routes(bp) -> None:
 
         payload = request.get_json(silent=True)
         if not isinstance(payload, dict):
-            return jsonify({"error": "Invalid JSON body"}), 400
+            return error_response(INVALID_JSON_REQUEST, detail="Invalid JSON body")
 
         source_config = payload.get("config")
         if not isinstance(source_config, dict):
-            return jsonify({"error": "Missing config object"}), 400
+            return error_response(
+                MISSING_REQUIRED_FIELD, detail="Missing config object"
+            )
 
         state_dir = get_state_directory(key_prefix)
         log_path = state_dir / "config" / "log.jsonl"
