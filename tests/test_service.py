@@ -520,6 +520,34 @@ class TestUp:
 
 
 class TestInstall:
+    def test_darwin_clears_readiness_before_bootstrap(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(service, "_platform", lambda: "darwin")
+        monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))
+        monkeypatch.setattr(
+            service,
+            "_plist_path",
+            lambda: tmp_path / "LaunchAgents" / "org.solpbc.solstone.plist",
+        )
+        monkeypatch.setattr(service, "remove_stale_plists", MagicMock())
+        calls = []
+
+        def clear_ready():
+            calls.append("clear_ready")
+
+        def run(command, **kwargs):
+            del kwargs
+            if command[:2] == ["launchctl", "bootstrap"]:
+                calls.append("bootstrap")
+            return subprocess.CompletedProcess(
+                args=command, returncode=0, stdout="", stderr=""
+            )
+
+        monkeypatch.setattr(service, "clear_ready", clear_ready)
+        monkeypatch.setattr("subprocess.run", run)
+
+        assert service._install() == 0
+        assert calls.index("clear_ready") < calls.index("bootstrap")
+
     def test_linux_idempotent(self, monkeypatch, tmp_path, capsys):
         monkeypatch.setattr(sys, "platform", "linux")
         monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path))

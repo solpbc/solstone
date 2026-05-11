@@ -288,6 +288,7 @@ def _install(port: int = DEFAULT_SERVICE_PORT) -> int:
 
     journal_path, _source = get_journal_info()
     Path(journal_path, "health").mkdir(parents=True, exist_ok=True)
+    clear_ready()
 
     if platform == "darwin":
         remove_stale_plists()
@@ -329,7 +330,6 @@ def _install(port: int = DEFAULT_SERVICE_PORT) -> int:
 
         _check_linger()
 
-    clear_ready()
     return 0
 
 
