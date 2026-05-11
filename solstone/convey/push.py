@@ -11,6 +11,12 @@ from typing import Any
 from flask import Blueprint, jsonify, request
 from werkzeug.exceptions import BadRequest
 
+from solstone.convey.reasons import (
+    FEATURE_UNAVAILABLE,
+    INVALID_JSON_REQUEST,
+    PUSH_REQUEST_INVALID,
+)
+from solstone.convey.utils import error_response
 from solstone.think.push import triggers
 from solstone.think.push.config import is_configured
 from solstone.think.push.devices import (
@@ -24,19 +30,21 @@ from solstone.think.push.dispatch import CATEGORIES, CATEGORY_AGENT_ALERT
 push_bp = Blueprint("push", __name__, url_prefix="/api/push")
 
 
-def _error(message: str, status: int):
-    return jsonify({"error": message}), status
-
-
 def _optional_json_object() -> tuple[dict[str, Any], Any | None]:
     if not request.get_data(cache=True):
         return {}, None
     try:
         data = request.get_json(silent=False)
     except BadRequest:
-        return {}, _error("request body must be valid JSON", 400)
+        return {}, error_response(
+            INVALID_JSON_REQUEST,
+            detail="request body must be valid JSON",
+        )
     if not isinstance(data, dict):
-        return {}, _error("request body must be a JSON object", 400)
+        return {}, error_response(
+            INVALID_JSON_REQUEST,
+            detail="request body must be a JSON object",
+        )
     return data, None
 
 
@@ -44,9 +52,15 @@ def _required_json_object() -> tuple[dict[str, Any], Any | None]:
     try:
         data = request.get_json(silent=False)
     except BadRequest:
-        return {}, _error("request body must be valid JSON", 400)
+        return {}, error_response(
+            INVALID_JSON_REQUEST,
+            detail="request body must be valid JSON",
+        )
     if not isinstance(data, dict):
-        return {}, _error("request body must be a JSON object", 400)
+        return {}, error_response(
+            INVALID_JSON_REQUEST,
+            detail="request body must be a JSON object",
+        )
     return data, None
 
 
@@ -60,13 +74,16 @@ def register_push_device():
     environment = str(body.get("environment") or "").strip()
     platform = str(body.get("platform") or "").strip()
     if not token:
-        return _error("device_token is required", 400)
+        return error_response(PUSH_REQUEST_INVALID, detail="device_token is required")
     if not bundle_id:
-        return _error("bundle_id is required", 400)
+        return error_response(PUSH_REQUEST_INVALID, detail="bundle_id is required")
     if environment not in {"development", "production"}:
-        return _error("environment must be development or production", 400)
+        return error_response(
+            PUSH_REQUEST_INVALID,
+            detail="environment must be development or production",
+        )
     if platform != "ios":
-        return _error("platform must be ios", 400)
+        return error_response(PUSH_REQUEST_INVALID, detail="platform must be ios")
     count = register_device(
         token="".join(token.split()).lower(),
         bundle_id=bundle_id,
@@ -83,7 +100,7 @@ def unregister_push_device():
         return error
     token = str(body.get("device_token") or "").strip()
     if not token:
-        return _error("device_token is required", 400)
+        return error_response(PUSH_REQUEST_INVALID, detail="device_token is required")
     removed = remove_device("".join(token.split()).lower())
     return jsonify({"removed": removed, "device_count": len(load_devices())})
 
@@ -110,10 +127,17 @@ def send_push_test():
     if error is not None:
         return error
     if not is_configured():
-        return _error("push not configured", 503)
+        return error_response(
+            FEATURE_UNAVAILABLE,
+            status=503,
+            detail="push not configured",
+        )
     category = body.get("category", CATEGORY_AGENT_ALERT)
     if category not in CATEGORIES:
-        return _error("category must be a known push category", 400)
+        return error_response(
+            PUSH_REQUEST_INVALID,
+            detail="category must be a known push category",
+        )
     title = str(body.get("title") or "Push test")
     message = str(body.get("body") or "This is a test notification.")
     sent, failed = triggers.send_agent_alert(
