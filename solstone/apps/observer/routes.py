@@ -30,6 +30,7 @@ from werkzeug.utils import secure_filename
 import solstone.convey.bridge as convey_bridge
 from solstone.apps.utils import log_app_action
 from solstone.convey import emit
+from solstone.convey.bridge import _SSE_HEARTBEAT_SECONDS
 from solstone.convey.copy import OBSERVER_CALLOSUM_LIVE_LABEL
 from solstone.observe.utils import (
     MAX_SEGMENT_ATTEMPTS,
@@ -68,7 +69,6 @@ KEY_BYTES = 32
 ACTIVE_THRESHOLD_MS = 30_000
 STALE_THRESHOLD_MS = 120_000
 FUTURE_CLOCK_DRIFT_TOLERANCE_MS = 5 * 60 * 1000
-_SSE_HEARTBEAT_SECONDS = 20
 
 OBSERVER_STATE_LABELS = {
     "connected": "Connected",
@@ -238,7 +238,7 @@ def api_list() -> Any:
 # The feed does NOT add or remove fields relative to the bus payload.
 # The feed does NOT filter events.
 # The feed does NOT redact fields (v1 trust call; same trust boundary as the existing
-# WebSocket bridge — observers are inside it).
+# Convey SSE bridge — observers are inside it).
 @observer_bp.route(_OBSERVER_CALLOSUM_SSE_RULE, methods=["GET"])
 def callosum_sse(key: str) -> Any:
     """Stream Callosum events to an authenticated observer process."""

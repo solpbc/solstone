@@ -12,14 +12,13 @@ from datetime import timedelta
 from pathlib import Path
 
 from flask import Flask
-from flask_sock import Sock
 from jinja2 import ChoiceLoader, FileSystemLoader
 
 from solstone.apps import AppRegistry
 
 from . import state, system
 from .apps import register_app_context
-from .bridge import emit, register_websocket
+from .bridge import emit
 from .chat import chat_bp, start_chat_runtime
 from .config import bp as config_bp
 from .root import bp as root_bp
@@ -169,8 +168,6 @@ def create_app(journal: str = "") -> Flask:
     # Register app system context processors
     register_app_context(app, registry)
 
-    sock = Sock(app)
-    register_websocket(sock)
     start_voice_runtime(app)
     start_push_runtime(app)
     start_chat_runtime(app)

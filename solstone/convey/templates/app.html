@@ -18,7 +18,7 @@
     window.appFacetCounts = {{ facet_counts|default({})|tojson|safe }};
   </script>
 
-  <!-- WebSocket connection for Callosum events -->
+  <!-- SSE connection for Callosum events -->
   <script src="{{ url_for('root.static', filename='websocket.js') }}"></script>
   <script src="{{ url_for('root.static', filename='api.js') }}"></script>
   <!-- App JavaScript (includes AppServices framework) -->

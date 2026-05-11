@@ -2,17 +2,16 @@
 // Copyright (c) 2026 sol pbc
 
 /**
- * Callosum WebSocket Bridge
+ * Callosum SSE Bridge
  *
- * Connects to /ws/events and broadcasts Callosum events to registered listeners.
+ * Connects to /sse/events and broadcasts Callosum events to registered listeners.
  * Provides window.appEvents API for subscribing to events by tract.
  */
 (function(){
   const listeners = {};
   const parseErrorHandlers = new Set();
   const connectionStateHandlers = new Set();
-  let ws;
-  let retry = 1000;
+  let eventSource;
   let statusIcon = null;
 
   // Connection metrics
@@ -35,13 +34,13 @@
         handler(error, rawPayload);
       } catch (handlerError) {
         if (typeof window.logError === 'function') {
-          window.logError(handlerError, { context: 'websocket-parse-handler' });
+          window.logError(handlerError, { context: 'sse-parse-handler' });
         }
       }
     });
 
     if (typeof window.logError === 'function') {
-      window.logError(error, { context: 'websocket-parse' });
+      window.logError(error, { context: 'sse-parse' });
     }
   }
 
@@ -52,7 +51,7 @@
         handler(payload);
       } catch (handlerError) {
         if (typeof window.logError === 'function') {
-          window.logError(handlerError, { context: 'websocket-connection-handler' });
+          window.logError(handlerError, { context: 'sse-connection-handler' });
         }
       }
     });
@@ -112,14 +111,14 @@
     if (Array.isArray(schema)) {
       const missing = schema.filter(key => msg == null || msg[key] === undefined);
       if (missing.length > 0) {
-        throw new Error(`Missing required websocket field(s): ${missing.join(', ')}`);
+        throw new Error(`Missing required SSE field(s): ${missing.join(', ')}`);
       }
       return;
     }
     if (typeof schema === 'function') {
       const result = schema(msg);
       if (result === false) {
-        throw new Error('WebSocket schema validation failed');
+        throw new Error('SSE schema validation failed');
       }
     }
   }
@@ -166,7 +165,7 @@
               record.options.onDrop(msg, err);
             } catch (dropError) {
               if (typeof window.logError === 'function') {
-                window.logError(dropError, { context: 'websocket-drop' });
+                window.logError(dropError, { context: 'sse-drop' });
               }
             }
           }
@@ -174,7 +173,7 @@
           return;
         }
 
-        console.error(`[WebSocket] Error in ${tract} listener:`, err);
+        console.error(`[SSE] Error in ${tract} listener:`, err);
       }
     });
   }
@@ -214,13 +213,11 @@
 
   function connect() {
     updateStatusIcon('connecting');
-    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    ws = new WebSocket(`${proto}//${location.host}/ws/events`);
+    eventSource = new EventSource('/sse/events');
 
-    ws.onopen = () => {
+    eventSource.onopen = () => {
       connectedAt = Date.now();
       updateStatusIcon('connected');
-      retry = 1000;
 
       if (disconnectTimerId) {
         clearTimeout(disconnectTimerId);
@@ -242,10 +239,10 @@
         disconnectCardId = null;
       }
 
-      console.debug('[WebSocket] Connected to /ws/events');
+      console.debug('[SSE] Connected to /sse/events');
     };
 
-    ws.onclose = () => {
+    eventSource.onerror = err => {
       connectedAt = null;
       updateStatusIcon('disconnected');
 
@@ -265,19 +262,17 @@
         }, 5000);
       }
 
-      retry = Math.min(retry * 1.5, 15000);
-      console.debug(`[WebSocket] Disconnected, reconnecting in ${retry}ms`);
-      setTimeout(connect, retry);
+      console.error('[SSE] Error:', err);
     };
 
-    ws.onmessage = event => {
+    eventSource.onmessage = event => {
       lastMessageAt = Date.now();
 
       let msg;
       try {
         msg = JSON.parse(event.data);
       } catch (err) {
-        console.warn('[WebSocket] Failed to parse message:', err);
+        console.warn('[SSE] Failed to parse message:', err);
         notifyParseError(err, event.data);
         return;
       }
@@ -287,10 +282,6 @@
         dispatchToRecords(tract, msg);
       }
       dispatchToRecords('*', msg);
-    };
-
-    ws.onerror = err => {
-      console.error('[WebSocket] Error:', err);
     };
   }
 

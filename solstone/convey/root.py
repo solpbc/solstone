@@ -7,24 +7,29 @@ from __future__ import annotations
 
 import json
 import os
+import queue
 from datetime import date
 from pathlib import Path
 from typing import Any
 
 from flask import (
     Blueprint,
+    Response,
     jsonify,
     redirect,
     render_template,
     request,
     send_from_directory,
     session,
+    stream_with_context,
     url_for,
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from solstone.think.cluster import cluster_segments
 from solstone.think.utils import day_dirs, get_config, get_journal, get_project_root
+
+from . import bridge as convey_bridge
 
 
 def _get_password_hash() -> str:
@@ -142,6 +147,35 @@ def require_login() -> Any:
     if not setup_complete:
         return redirect(url_for("root.init"))
     return redirect(url_for("root.login"))
+
+
+@bp.route("/sse/events", methods=["GET"], endpoint="callosum_sse")
+def callosum_sse() -> Response:
+    def generate():
+        handle = convey_bridge.register_sse_subscriber("convey-ui")
+        try:
+            yield ": heartbeat\n\n"
+            while True:
+                try:
+                    message = handle.queue.get(
+                        timeout=convey_bridge._SSE_HEARTBEAT_SECONDS
+                    )
+                except queue.Empty:
+                    if handle.dropped.is_set():
+                        break
+                    yield ": heartbeat\n\n"
+                    continue
+                if handle.dropped.is_set():
+                    break
+                yield f"data: {message}\n\n"
+        finally:
+            convey_bridge.unregister_sse_subscriber(handle)
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @bp.route("/login", methods=["GET", "POST"])

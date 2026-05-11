@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Bidirectional bridge between Callosum message bus and WebSocket clients.
+"""Bridge between the Callosum message bus and SSE subscribers.
 
-Receives Callosum events and broadcasts them to connected WebSocket clients.
+Receives Callosum events and broadcasts them to connected SSE clients.
 Also provides emit() for route handlers to send events via the shared connection.
 """
 
@@ -15,10 +15,7 @@ import queue
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
-
-from flask_sock import Sock
-from simple_websocket import ConnectionClosed
+from typing import Any, Dict, Optional
 
 from solstone.think.callosum import CallosumConnection
 
@@ -26,8 +23,8 @@ logger = logging.getLogger(__name__)
 
 _WATCH_LOCK = threading.Lock()
 _CALLOSUM_CONNECTION: Optional[CallosumConnection] = None
-_WEBSOCKET_CLIENTS: List[object] = []
 _SSE_QUEUE_MAXSIZE = 256
+_SSE_HEARTBEAT_SECONDS = 20
 _SSE_LOCK = threading.Lock()
 _STATE_CACHE: Dict[str, Any] = {
     "supervisor_status": None,
@@ -49,19 +46,8 @@ _SSE_SUBSCRIBERS_BY_KEY: dict[str, set[_SseSubscriber]] = {}
 _SSE_LAST_CHAT_REQUEST_AT_BY_KEY: dict[str, int] = {}
 
 
-def _broadcast_to_websockets(event: dict) -> None:
-    """Broadcast event to all connected WebSocket clients."""
-    msg = json.dumps(event)
-    for ws in list(_WEBSOCKET_CLIENTS):
-        try:
-            ws.send(msg)
-        except ConnectionClosed:
-            if ws in _WEBSOCKET_CLIENTS:
-                _WEBSOCKET_CLIENTS.remove(ws)
-
-
 def register_sse_subscriber(key_prefix: str) -> _SseSubscriber:
-    """Register an SSE subscriber for a registered observer key prefix."""
+    """Register an SSE subscriber for a key prefix."""
     subscriber = _SseSubscriber(key_prefix=key_prefix)
     with _SSE_LOCK:
         _SSE_SUBSCRIBERS_BY_KEY.setdefault(key_prefix, set()).add(subscriber)
@@ -80,7 +66,7 @@ def unregister_sse_subscriber(handle: _SseSubscriber) -> None:
 
 
 def subscription_count(key_prefix: str) -> int:
-    """Return the active SSE subscription count for an observer key prefix."""
+    """Return the active SSE subscription count for a key prefix."""
     with _SSE_LOCK:
         return len(_SSE_SUBSCRIBERS_BY_KEY.get(key_prefix, set()))
 
@@ -130,13 +116,13 @@ def _broadcast_to_sse_clients(message: dict) -> None:
             subscriber.dropped.set()
             unregister_sse_subscriber(subscriber)
             logger.info(
-                "Dropping slow observer callosum SSE subscriber key_prefix=%s",
+                "Dropping slow Callosum SSE subscriber key_prefix=%s",
                 subscriber.key_prefix,
             )
 
 
 def _broadcast_callosum_event(message: Dict[str, Any]) -> None:
-    """Broadcast Callosum event to WebSocket clients and server-side handlers."""
+    """Broadcast Callosum event to SSE clients and server-side handlers."""
     # Update state cache
     tract = message.get("tract")
     event = message.get("event")
@@ -145,13 +131,7 @@ def _broadcast_callosum_event(message: Dict[str, Any]) -> None:
     if tract == "observe" and event in ("observed", "status"):
         _STATE_CACHE["last_observe_ts"] = time.time()
 
-    # Broadcast to WebSocket clients
-    try:
-        _broadcast_to_websockets(message)
-    except Exception:  # pragma: no cover - defensive against socket errors
-        logger.exception("Failed to broadcast %s event", message.get("tract"))
-
-    # Broadcast to observer SSE clients
+    # Broadcast to SSE clients
     try:
         _broadcast_to_sse_clients(message)
     except Exception:  # pragma: no cover - defensive against SSE errors
@@ -171,7 +151,7 @@ def _broadcast_callosum_event(message: Dict[str, Any]) -> None:
 
 
 def start_bridge() -> None:
-    """Start listening for Callosum events and forwarding to WebSocket clients."""
+    """Start listening for Callosum events and forwarding to SSE clients."""
     global _CALLOSUM_CONNECTION
     with _WATCH_LOCK:
         if _CALLOSUM_CONNECTION:
@@ -181,7 +161,7 @@ def start_bridge() -> None:
         try:
             _CALLOSUM_CONNECTION = CallosumConnection()
             _CALLOSUM_CONNECTION.start(callback=_broadcast_callosum_event)
-            logger.info("Callosum bridge connected, forwarding all events to WebSocket")
+            logger.info("Callosum bridge connected, forwarding all events to SSE")
         except Exception as e:
             logger.warning(f"Failed to start Callosum bridge: {e}")
             _CALLOSUM_CONNECTION = None
@@ -214,28 +194,6 @@ def emit(tract: str, event: str, **fields) -> bool:
     if _CALLOSUM_CONNECTION:
         return _CALLOSUM_CONNECTION.emit(tract, event, **fields)
     return False
-
-
-def register_websocket(sock: Sock, path: str = "/ws/events") -> None:
-    """Register WebSocket endpoint for event broadcasting.
-
-    Args:
-        sock: Flask-Sock instance
-        path: WebSocket path (default: /ws/events)
-    """
-
-    @sock.route(path, endpoint="events_ws")
-    def _handler(ws) -> None:
-        _WEBSOCKET_CLIENTS.append(ws)
-        try:
-            while ws.connected:
-                # Just keep connection alive, no need for subscriptions
-                ws.receive(timeout=1)
-        except ConnectionClosed:
-            pass
-        finally:
-            if ws in _WEBSOCKET_CLIENTS:
-                _WEBSOCKET_CLIENTS.remove(ws)
 
 
 def get_cached_state() -> Dict[str, Any]:
