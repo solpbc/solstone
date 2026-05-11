@@ -25,18 +25,24 @@ import os
 import plistlib
 import subprocess
 import sys
-import time
 from pathlib import Path
 from xml.parsers.expat import ExpatError
 
 from solstone.think.install_guard import validate_journal_path_for_wrapper
+from solstone.think.readiness import clear_ready, wait_ready
 from solstone.think.utils import get_journal, get_journal_info
 
 SERVICE_LABEL = "org.solpbc.solstone"
 SYSTEMD_UNIT = "solstone"
 DEFAULT_SERVICE_PORT = 5015
-HEALTH_ATTEMPTS = 20
-HEALTH_SLEEP_SECONDS = 1.0
+READY_TIMEOUT_SECONDS = 60.0
+
+
+def _ready_timeout_message() -> str:
+    return (
+        f"Service did not become ready within {READY_TIMEOUT_SECONDS:g}s — "
+        "run 'sol service status' or 'sol doctor' for diagnostics"
+    )
 
 
 def _platform() -> str:
@@ -323,6 +329,7 @@ def _install(port: int = DEFAULT_SERVICE_PORT) -> int:
 
         _check_linger()
 
+    clear_ready()
     return 0
 
 
@@ -451,6 +458,7 @@ def _restart(if_installed: bool = False) -> int:
             ["launchctl", "kill", "SIGTERM", f"gui/{uid}/{SERVICE_LABEL}"],
             capture_output=True,
         )
+        clear_ready()
         result = subprocess.run(
             ["launchctl", "kickstart", f"gui/{uid}/{SERVICE_LABEL}"],
             capture_output=True,
@@ -459,19 +467,8 @@ def _restart(if_installed: bool = False) -> int:
         if result.returncode != 0:
             print(f"Error restarting service: {result.stderr.strip()}", file=sys.stderr)
             return 1
-        from solstone.think.health_cli import health_check
-
-        ready = False
-        for attempt in range(1, HEALTH_ATTEMPTS + 1):
-            if health_check() == 0:
-                ready = True
-                break
-            if attempt < HEALTH_ATTEMPTS:
-                time.sleep(HEALTH_SLEEP_SECONDS)
-        if not ready:
-            print("Service restarted but failed health check", file=sys.stderr)
-            return 1
     else:
+        clear_ready()
         result = subprocess.run(
             ["systemctl", "--user", "restart", SYSTEMD_UNIT],
             capture_output=True,
@@ -480,6 +477,10 @@ def _restart(if_installed: bool = False) -> int:
         if result.returncode != 0:
             print(f"Error restarting service: {result.stderr.strip()}", file=sys.stderr)
             return 1
+
+    if wait_ready(timeout=READY_TIMEOUT_SECONDS) is None:
+        print(_ready_timeout_message(), file=sys.stderr)
+        return 1
 
     print("Service restarted.")
     return 0
@@ -549,18 +550,14 @@ def _up(port: int = DEFAULT_SERVICE_PORT) -> int:
 
     if not service_is_running():
         print("Starting service...")
+        clear_ready()
         rc = _start()
         if rc != 0:
             return rc
 
-    if _platform() == "darwin":
-        from solstone.think.health_cli import health_check
-
-        for attempt in range(1, HEALTH_ATTEMPTS + 1):
-            if health_check() == 0:
-                break
-            if attempt < HEALTH_ATTEMPTS:
-                time.sleep(HEALTH_SLEEP_SECONDS)
+    if wait_ready(timeout=READY_TIMEOUT_SECONDS) is None:
+        print(_ready_timeout_message(), file=sys.stderr)
+        return 1
 
     return _status()
 

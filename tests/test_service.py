@@ -431,6 +431,8 @@ class TestRestart:
         """_restart prints stopping-old + restarted narration on the Linux happy path."""
         monkeypatch.setattr(service, "_platform", lambda: "linux")
         monkeypatch.setattr(service, "service_is_installed", lambda: True)
+        monkeypatch.setattr(service, "clear_ready", MagicMock())
+        monkeypatch.setattr(service, "wait_ready", MagicMock(return_value={}))
         monkeypatch.setattr(
             "subprocess.run",
             lambda *a, **kw: subprocess.CompletedProcess(
@@ -443,7 +445,7 @@ class TestRestart:
         assert "Stopping old supervisor" in out
         assert "Service restarted." in out
 
-    def test_restart_darwin_polls_health_until_ready(self, monkeypatch):
+    def test_restart_darwin_waits_for_readiness(self, monkeypatch):
         monkeypatch.setattr(service, "_platform", lambda: "darwin")
         monkeypatch.setattr(service, "service_is_installed", lambda: True)
         monkeypatch.setattr(
@@ -452,16 +454,16 @@ class TestRestart:
                 args=a, returncode=0, stdout="", stderr=""
             ),
         )
-        health_check = MagicMock(side_effect=[1, 1, 0])
-        sleep = MagicMock()
-        monkeypatch.setattr("solstone.think.health_cli.health_check", health_check)
-        monkeypatch.setattr(service.time, "sleep", sleep)
+        clear_ready = MagicMock()
+        wait_ready = MagicMock(return_value={"pid": 123})
+        monkeypatch.setattr(service, "clear_ready", clear_ready)
+        monkeypatch.setattr(service, "wait_ready", wait_ready)
 
         assert service._restart() == 0
-        assert health_check.call_count == 3
-        assert sleep.call_count == 2
+        clear_ready.assert_called_once_with()
+        wait_ready.assert_called_once_with(timeout=service.READY_TIMEOUT_SECONDS)
 
-    def test_restart_linux_does_not_poll_health(self, monkeypatch):
+    def test_restart_linux_waits_for_readiness(self, monkeypatch):
         monkeypatch.setattr(service, "_platform", lambda: "linux")
         monkeypatch.setattr(service, "service_is_installed", lambda: True)
         monkeypatch.setattr(
@@ -470,42 +472,51 @@ class TestRestart:
                 args=a, returncode=0, stdout="", stderr=""
             ),
         )
-        health_check = MagicMock(return_value=0)
-        sleep = MagicMock()
-        monkeypatch.setattr("solstone.think.health_cli.health_check", health_check)
-        monkeypatch.setattr(service.time, "sleep", sleep)
+        clear_ready = MagicMock()
+        wait_ready = MagicMock(return_value={"pid": 123})
+        monkeypatch.setattr(service, "clear_ready", clear_ready)
+        monkeypatch.setattr(service, "wait_ready", wait_ready)
 
         assert service._restart() == 0
-        health_check.assert_not_called()
-        sleep.assert_not_called()
+        clear_ready.assert_called_once_with()
+        wait_ready.assert_called_once_with(timeout=service.READY_TIMEOUT_SECONDS)
 
 
 class TestUp:
-    def test_up_darwin_polls_health_until_ready(self, monkeypatch):
+    def test_up_waits_for_readiness_after_start(self, monkeypatch):
         monkeypatch.setattr(service, "_platform", lambda: "darwin")
         monkeypatch.setattr(service, "service_is_installed", lambda: True)
-        monkeypatch.setattr(service, "service_is_running", lambda: True)
-        health_check = MagicMock(side_effect=[1, 1, 0, 0])
-        sleep = MagicMock()
-        monkeypatch.setattr("solstone.think.health_cli.health_check", health_check)
-        monkeypatch.setattr(service.time, "sleep", sleep)
+        monkeypatch.setattr(service, "service_is_running", lambda: False)
+        start = MagicMock(return_value=0)
+        clear_ready = MagicMock()
+        wait_ready = MagicMock(return_value={"pid": 123})
+        status = MagicMock(return_value=0)
+        monkeypatch.setattr(service, "_start", start)
+        monkeypatch.setattr(service, "clear_ready", clear_ready)
+        monkeypatch.setattr(service, "wait_ready", wait_ready)
+        monkeypatch.setattr(service, "_status", status)
 
         assert service._up(port=5015) == 0
-        assert health_check.call_count == 4
-        assert sleep.call_count == 2
+        start.assert_called_once_with()
+        clear_ready.assert_called_once_with()
+        wait_ready.assert_called_once_with(timeout=service.READY_TIMEOUT_SECONDS)
+        status.assert_called_once_with()
 
-    def test_up_linux_does_not_poll_health(self, monkeypatch):
+    def test_up_already_running_waits_for_readiness(self, monkeypatch):
         monkeypatch.setattr(service, "_platform", lambda: "linux")
         monkeypatch.setattr(service, "service_is_installed", lambda: True)
         monkeypatch.setattr(service, "service_is_running", lambda: True)
-        health_check = MagicMock(return_value=0)
-        sleep = MagicMock()
-        monkeypatch.setattr("solstone.think.health_cli.health_check", health_check)
-        monkeypatch.setattr(service.time, "sleep", sleep)
+        clear_ready = MagicMock()
+        wait_ready = MagicMock(return_value={"pid": 123})
+        status = MagicMock(return_value=0)
+        monkeypatch.setattr(service, "clear_ready", clear_ready)
+        monkeypatch.setattr(service, "wait_ready", wait_ready)
+        monkeypatch.setattr(service, "_status", status)
 
         assert service._up(port=5015) == 0
-        health_check.assert_called_once_with()
-        sleep.assert_not_called()
+        clear_ready.assert_not_called()
+        wait_ready.assert_called_once_with(timeout=service.READY_TIMEOUT_SECONDS)
+        status.assert_called_once_with()
 
 
 class TestInstall:

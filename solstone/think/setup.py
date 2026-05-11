@@ -880,18 +880,7 @@ def step_service(ctx: SetupContext, step_index: int) -> StepResult:
             {"message": f"service up failed (exit {up_rc})", "exit_code": 1},
         )
 
-    from solstone.think.health_cli import health_check
-
-    print(f"[step {step_index}/{TOTAL_STEPS}] checking service health...")
-    if health_check() == 0:
-        return step_result("service", "ok", paths, started_at)
-    return step_result(
-        "service",
-        "failed",
-        paths,
-        started_at,
-        {"message": "service started but failed health check", "exit_code": 1},
-    )
+    return step_result("service", "ok", paths, started_at)
 
 
 def dead_end_existing_journal(ctx: SetupContext) -> None:
@@ -984,7 +973,6 @@ def print_plan(ctx: SetupContext, *, dry_run: bool) -> None:
     else:
         print(f"  would run: {format_command(service_install_command(ctx))}")
         print(f"  would call: solstone.think.service._up(port={ctx.port})")
-        print("  would call: think.health_cli.health_check() once after service up")
 
 
 def print_failure(result: StepResult) -> None:

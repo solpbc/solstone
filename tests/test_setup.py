@@ -1078,14 +1078,14 @@ def test_resumption_wedged_service_restarts(
     assert service_step["reason"] == "resumed_after_restart"
 
 
-def test_resumption_wedged_service_falls_through_when_restart_fails(
+def test_resumption_wedged_service_falls_through_when_service_up_fails(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     patch_home(monkeypatch, tmp_path)
     patch_source_checkout(monkeypatch, tmp_path)
     monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
-    monkeypatch.setattr(service, "_up", lambda port=5015: 0)
+    monkeypatch.setattr(service, "_up", lambda port=5015: 7)
     journal = tmp_path / "journal"
     write_clean_prior_manifest(journal)
     calls = patch_subprocess(monkeypatch)
@@ -1099,7 +1099,7 @@ def test_resumption_wedged_service_falls_through_when_restart_fails(
     assert len(calls) == 2
 
 
-def test_step_service_distinct_failure_messages(
+def test_step_service_failure_message(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1113,22 +1113,11 @@ def test_step_service_distinct_failure_messages(
     expected_paths = [setup.absolute_string(artifact)] if artifact is not None else []
 
     monkeypatch.setattr(service, "_up", lambda port=5015: 7)
-    up_result = setup.step_service(ctx, 6)
+    result = setup.step_service(ctx, 6)
 
-    monkeypatch.setattr(service, "_up", lambda port=5015: 0)
-    monkeypatch.setattr(health_cli, "health_check", lambda: 1)
-    health_result = setup.step_service(ctx, 6)
-
-    assert up_result.status == "failed"
-    assert health_result.status == "failed"
-    assert up_result.paths == expected_paths
-    assert health_result.paths == expected_paths
-    assert up_result.error == {"message": "service up failed (exit 7)", "exit_code": 1}
-    assert health_result.error == {
-        "message": "service started but failed health check",
-        "exit_code": 1,
-    }
-    assert up_result.error["message"] != health_result.error["message"]
+    assert result.status == "failed"
+    assert result.paths == expected_paths
+    assert result.error == {"message": "service up failed (exit 7)", "exit_code": 1}
 
 
 def test_force_skips_resumption(
