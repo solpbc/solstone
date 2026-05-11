@@ -16,7 +16,18 @@ from typing import Any
 from flask import Blueprint, jsonify, redirect, render_template, request, url_for
 
 from solstone.convey import state
-from solstone.convey.utils import DATE_RE, format_date
+from solstone.convey.reasons import (
+    FILE_NOT_FOUND,
+    FILE_READ_FAILED,
+    INVALID_DAY,
+    INVALID_MONTH,
+    INVALID_PATH,
+    TALENT_NOT_FOUND,
+    TALENT_OPERATION_FAILED,
+    TALENT_RUN_MALFORMED,
+    TALENT_RUN_PENDING,
+)
+from solstone.convey.utils import DATE_RE, error_response, format_date
 from solstone.think.facets import get_facets
 from solstone.think.models import calc_agent_cost
 from solstone.think.talent import get_output_path, get_talent_configs
@@ -396,7 +407,7 @@ def api_talents_day(day: str) -> Any:
         }
     """
     if not DATE_RE.fullmatch(day):
-        return jsonify({"error": "Invalid day format"}), 400
+        return error_response(INVALID_DAY, detail="Invalid day format")
 
     facet_filter = _get_facet_filter()
 
@@ -430,8 +441,11 @@ def api_agent_run(use_id: str) -> Any:
 
     if not use_file:
         for match in talents_dir.glob(f"*/{use_id}_active.jsonl"):
-            return jsonify({"error": "talent run is still in progress"}), 202
-        return jsonify({"error": f"talent run {use_id} not found"}), 404
+            return error_response(TALENT_RUN_PENDING)
+        return error_response(
+            TALENT_NOT_FOUND,
+            detail=f"talent run {use_id} not found",
+        )
 
     try:
         from solstone.think.cortex_client import get_use_end_state
@@ -440,15 +454,24 @@ def api_agent_run(use_id: str) -> Any:
             lines = f.readlines()
 
         if not lines:
-            return jsonify({"error": f"talent run {use_id} is malformed"}), 500
+            return error_response(
+                TALENT_RUN_MALFORMED,
+                detail=f"talent run {use_id} is malformed",
+            )
 
         first_line = lines[0].strip()
         if not first_line:
-            return jsonify({"error": f"talent run {use_id} is malformed"}), 500
+            return error_response(
+                TALENT_RUN_MALFORMED,
+                detail=f"talent run {use_id} is malformed",
+            )
 
         request_event = json.loads(first_line)
         if request_event.get("event") != "request":
-            return jsonify({"error": f"talent run {use_id} is malformed"}), 500
+            return error_response(
+                TALENT_RUN_MALFORMED,
+                detail=f"talent run {use_id} is malformed",
+            )
 
         event_data = _parse_use_events(lines[1:], collect_events=True)
 
@@ -493,7 +516,7 @@ def api_agent_run(use_id: str) -> Any:
         run["day"] = request_event.get("day") or _use_id_to_day(use_id)
         return jsonify(run)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return error_response(TALENT_OPERATION_FAILED, detail=str(e))
 
 
 @sol_bp.route("/api/output/<day>/<path:filename>")
@@ -508,7 +531,7 @@ def api_output_file(day: str, filename: str) -> Any:
     - Journal-relative: ``facets/work/activities/...`` → resolved under journal root
     """
     if not DATE_RE.fullmatch(day):
-        return jsonify(error="Invalid day format"), 400
+        return error_response(INVALID_DAY, detail="Invalid day format")
 
     journal_root = Path(state.journal_root).resolve()
 
@@ -521,16 +544,16 @@ def api_output_file(day: str, filename: str) -> Any:
                 journal_root, f"{day}/{filename}"
             ).resolve()
         except ValueError:
-            return jsonify(error="Invalid path"), 403
+            return error_response(INVALID_PATH, status=403, detail="Invalid path")
 
     # Security: ensure path is within the journal directory
     try:
         file_path.relative_to(journal_root)
     except ValueError:
-        return jsonify(error="Invalid path"), 403
+        return error_response(INVALID_PATH, status=403, detail="Invalid path")
 
     if not file_path.is_file():
-        return jsonify(error="File not found"), 404
+        return error_response(FILE_NOT_FOUND, detail="File not found")
 
     ext = file_path.suffix.lower()
     fmt = "json" if ext == ".json" else "md"
@@ -538,7 +561,7 @@ def api_output_file(day: str, filename: str) -> Any:
     try:
         content = file_path.read_text(encoding="utf-8")
     except IOError:
-        return jsonify(error="Could not read file"), 500
+        return error_response(FILE_READ_FAILED, detail="Could not read file")
 
     return jsonify(content=content, format=fmt, filename=file_path.name)
 
@@ -582,9 +605,9 @@ def api_preview_prompt(name: str) -> Any:
             }
         )
     except FileNotFoundError:
-        return jsonify({"error": f"Talent '{name}' not found"}), 404
+        return error_response(TALENT_NOT_FOUND, detail=f"Talent '{name}' not found")
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return error_response(TALENT_OPERATION_FAILED, detail=str(e))
 
 
 @sol_bp.route("/api/stats/<month>")
@@ -599,7 +622,10 @@ def api_stats(month: str) -> Any:
         For unfaceted runs, uses "_none" as the key.
     """
     if not re.fullmatch(r"\d{6}", month):
-        return jsonify({"error": "Invalid month format, expected YYYYMM"}), 400
+        return error_response(
+            INVALID_MONTH,
+            detail="Invalid month format, expected YYYYMM",
+        )
 
     talents_dir = Path(state.journal_root) / "talents"
     if not talents_dir.exists():
@@ -651,7 +677,10 @@ def api_updated_days() -> Any:
         return jsonify(updated_days(exclude={today}))
     except Exception:
         logging.exception("api_updated_days failed")
-        return jsonify({"error": "Unable to load updated days"}), 500
+        return error_response(
+            TALENT_OPERATION_FAILED,
+            detail="Unable to load updated days",
+        )
 
 
 @sol_bp.route("/api/identity")
@@ -674,4 +703,7 @@ def api_identity() -> Any:
             }
         )
     except Exception:
-        return jsonify({"error": "Unable to load identity data"}), 500
+        return error_response(
+            TALENT_OPERATION_FAILED,
+            detail="Unable to load identity data",
+        )
