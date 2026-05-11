@@ -1,3 +1,5 @@
 {
-  "error": "Invalid key"
+  "detail": "Invalid key",
+  "error": "I couldn't verify that key.",
+  "reason_code": "auth_key_invalid"
 }

@@ -1,3 +1,5 @@
 {
-  "error": "Observer not found"
+  "detail": "Observer not found",
+  "error": "I couldn't find that paired device.",
+  "reason_code": "paired_device_not_found"
 }

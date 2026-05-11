@@ -1,3 +1,5 @@
 {
-  "error": "Import not found"
+  "detail": "Import not found",
+  "error": "I couldn't find that import.",
+  "reason_code": "import_not_found"
 }
