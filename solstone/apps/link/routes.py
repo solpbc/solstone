@@ -51,6 +51,14 @@ from solstone.apps.link.manual_code import (
     normalize as normalize_manual_code,
 )
 from solstone.convey import emit
+from solstone.convey.reasons import (
+    MISSING_REQUIRED_FIELD,
+    OPERATION_NO_LONGER_AVAILABLE,
+    PAIRED_DEVICE_NOT_FOUND,
+    PAIRING_KEY_INVALID,
+    PAIRING_REQUEST_INVALID,
+)
+from solstone.convey.utils import error_response
 from solstone.think.link.auth import AuthorizedClients, ClientEntry
 from solstone.think.link.ca import (
     generate_nonce,
@@ -348,11 +356,17 @@ def pair() -> Any:
     device_label = str(body.get("device_label") or "").strip()
 
     if not isinstance(nonce_value, str) or not isinstance(csr_pem, str):
-        return jsonify({"error": "missing fields (nonce + csr required)"}), 400
+        return error_response(
+            MISSING_REQUIRED_FIELD,
+            detail="missing fields (nonce + csr required)",
+        )
 
     consumed = _nonces().consume(nonce_value)
     if consumed is None:
-        return jsonify({"error": "nonce expired or used"}), 410
+        return error_response(
+            OPERATION_NO_LONGER_AVAILABLE,
+            detail="nonce expired or used",
+        )
 
     effective_label = device_label or (consumed.device_label or _default_device_label())
 
@@ -364,7 +378,7 @@ def pair() -> Any:
         )
     except ValueError as exc:
         logger.info("pair: bad csr: %s", exc)
-        return jsonify({"error": f"bad csr: {exc}"}), 400
+        return error_response(PAIRING_KEY_INVALID, detail=f"bad csr: {exc}")
     _emit_pair_complete(effective_label, fingerprint, paired_at)
     return jsonify(response)
 
@@ -378,15 +392,21 @@ def by_code() -> Any:
     device_label = str(body.get("device_label") or "").strip()
 
     if not isinstance(code, str) or not isinstance(csr_pem, str):
-        return jsonify({"error": "missing fields (code + csr required)"}), 400
+        return error_response(
+            MISSING_REQUIRED_FIELD,
+            detail="missing fields (code + csr required)",
+        )
 
     canonical_code = normalize_manual_code(code)
     if not MANUAL_CODE_RE.fullmatch(canonical_code):
-        return jsonify({"error": "bad code"}), 400
+        return error_response(PAIRING_REQUEST_INVALID, detail="bad code")
 
     consumed = _nonces().consume_by_code(canonical_code)
     if consumed is None:
-        return jsonify({"error": "nonce expired or used"}), 410
+        return error_response(
+            OPERATION_NO_LONGER_AVAILABLE,
+            detail="nonce expired or used",
+        )
 
     effective_label = device_label or consumed.device_label or _default_device_label()
     try:
@@ -397,7 +417,7 @@ def by_code() -> Any:
         )
     except ValueError as exc:
         logger.info("by-code: bad csr: %s", exc)
-        return jsonify({"error": f"bad csr: {exc}"}), 400
+        return error_response(PAIRING_KEY_INVALID, detail=f"bad csr: {exc}")
     _emit_pair_complete(effective_label, fingerprint, paired_at)
     return jsonify(response)
 
@@ -413,15 +433,21 @@ def unpair() -> Any:
     device_label = body.get("device_label")
     if not isinstance(fingerprint, str):
         if not isinstance(device_label, str):
-            return jsonify({"error": "fingerprint or device_label required"}), 400
+            return error_response(
+                MISSING_REQUIRED_FIELD,
+                detail="fingerprint or device_label required",
+            )
         entry = _authorized().find_by_label(device_label)
         if entry is None:
-            return jsonify({"error": "no paired device with that label"}), 404
+            return error_response(
+                PAIRED_DEVICE_NOT_FOUND,
+                detail="no paired device with that label",
+            )
         fingerprint = entry.fingerprint
 
     removed = _authorized().remove(fingerprint)
     if not removed:
-        return jsonify({"error": "fingerprint not paired"}), 404
+        return error_response(PAIRED_DEVICE_NOT_FOUND, detail="fingerprint not paired")
     return jsonify({"unpaired": fingerprint})
 
 

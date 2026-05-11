@@ -100,7 +100,13 @@ def test_by_code_consumption_blocks_pair_token(link_env) -> None:
     )
 
     assert by_token.status_code == 410
-    assert by_token.get_json() == {"error": "nonce expired or used"}
+    payload = by_token.get_json()
+    assert (
+        payload["error"]
+        == "I couldn't finish because that action is no longer available."
+    )
+    assert payload["reason_code"] == "operation_no_longer_available"
+    assert payload["detail"] == "nonce expired or used"
 
 
 def test_pair_token_consumption_blocks_by_code(link_env) -> None:
@@ -119,7 +125,13 @@ def test_pair_token_consumption_blocks_by_code(link_env) -> None:
     )
 
     assert by_code.status_code == 410
-    assert by_code.get_json() == {"error": "nonce expired or used"}
+    payload = by_code.get_json()
+    assert (
+        payload["error"]
+        == "I couldn't finish because that action is no longer available."
+    )
+    assert payload["reason_code"] == "operation_no_longer_available"
+    assert payload["detail"] == "nonce expired or used"
 
 
 def test_by_code_bad_manual_code_format_returns_400(link_env) -> None:
