@@ -32,7 +32,9 @@ from solstone.think.cluster import cluster_segments
 from solstone.think.utils import day_dirs, get_config, get_journal, get_project_root
 
 from . import bridge as convey_bridge
+from .reasons import INVALID_CONFIG_VALUE, PAIRED_DEVICE_REVOKED
 from .secure_listener import get_authorized_clients
+from .utils import error_response, error_response_with_reason
 
 
 def _get_password_hash() -> str:
@@ -127,7 +129,10 @@ def require_login() -> Any:
             identity.fingerprint
         ):
             return None
-        return jsonify({"error": "paired device revoked", "reason": "pl_revoked"}), 403
+        return error_response_with_reason(
+            PAIRED_DEVICE_REVOKED,
+            detail="paired device revoked",
+        )
 
     # Session cookie
     if session.get("logged_in"):
@@ -293,7 +298,10 @@ def init_finalize() -> Any:
 
     password = data.get("password", "")
     if len(password) < 8:
-        return jsonify({"error": "Password must be at least 8 characters"}), 400
+        return error_response(
+            INVALID_CONFIG_VALUE,
+            detail="Password must be at least 8 characters",
+        )
 
     from solstone.think.utils import now_ms
 
@@ -327,7 +335,10 @@ def init_finalize() -> Any:
     if retention_mode == "days" and (
         not isinstance(retention_days, int) or retention_days < 1
     ):
-        return jsonify({"error": "retention_days must be a positive integer"}), 400
+        return error_response(
+            INVALID_CONFIG_VALUE,
+            detail="retention_days must be a positive integer",
+        )
     config.setdefault("retention", {}).update(
         {
             "raw_media": retention_mode,
