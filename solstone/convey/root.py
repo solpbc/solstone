@@ -32,7 +32,7 @@ from solstone.think.cluster import cluster_segments
 from solstone.think.utils import day_dirs, get_config, get_journal, get_project_root
 
 from . import bridge as convey_bridge
-from .reasons import INVALID_CONFIG_VALUE, PAIRED_DEVICE_REVOKED
+from .reasons import INVALID_CONFIG_VALUE, PL_REVOKED
 from .secure_listener import get_authorized_clients
 from .utils import error_response, error_response_with_reason
 
@@ -130,7 +130,7 @@ def require_login() -> Any:
         ):
             return None
         return error_response_with_reason(
-            PAIRED_DEVICE_REVOKED,
+            PL_REVOKED,
             detail="paired device revoked",
         )
 

@@ -101,7 +101,7 @@ def test_callosum_sse_revoked_key_returns_403(observer_env):
     assert resp.status_code == 403
     _assert_reason(
         resp,
-        reason_code="paired_device_revoked",
+        reason_code="pl_revoked",
         detail="Observer revoked",
     )
 

@@ -43,7 +43,7 @@ from solstone.convey.reasons import (
     INVALID_SEGMENT_OR_STREAM,
     MISSING_REQUIRED_FIELD,
     PAIRED_DEVICE_NOT_FOUND,
-    PAIRED_DEVICE_REVOKED,
+    PL_REVOKED,
     SETTINGS_OPERATION_FAILED,
     Reason,
 )
@@ -275,7 +275,7 @@ def callosum_sse(key: str) -> Any:
         return error_response(AUTH_KEY_INVALID, detail="Invalid key")
 
     if observer.get("revoked", False):
-        return error_response(PAIRED_DEVICE_REVOKED, detail="Observer revoked")
+        return error_response(PL_REVOKED, detail="Observer revoked")
 
     if not observer.get("enabled", True):
         return error_response(FEATURE_UNAVAILABLE, detail="Observer disabled")
@@ -422,7 +422,7 @@ def api_get_key(key_prefix: str) -> Any:
 
     if data.get("revoked", False):
         return error_response(
-            PAIRED_DEVICE_REVOKED,
+            PL_REVOKED,
             detail="key unavailable — observer revoked",
         )
 
@@ -761,7 +761,7 @@ def ingest_upload(key: str | None = None) -> Any:
         return error_response(AUTH_KEY_INVALID, detail="Invalid key")
 
     if observer.get("revoked", False):
-        return error_response(PAIRED_DEVICE_REVOKED, detail="Observer revoked")
+        return error_response(PL_REVOKED, detail="Observer revoked")
 
     if not observer.get("enabled", True):
         return error_response(FEATURE_UNAVAILABLE, detail="Observer disabled")
@@ -887,7 +887,7 @@ def ingest_transfer(key: str) -> Any:
         return error_response(AUTH_KEY_INVALID, detail="Invalid key")
 
     if observer.get("revoked", False):
-        return error_response(PAIRED_DEVICE_REVOKED, detail="Observer revoked")
+        return error_response(PL_REVOKED, detail="Observer revoked")
 
     if not observer.get("enabled", True):
         return error_response(FEATURE_UNAVAILABLE, detail="Observer disabled")
@@ -973,7 +973,7 @@ def ingest_manifest(key: str) -> Any:
         return error_response(AUTH_KEY_INVALID, detail="Invalid key")
 
     if observer.get("revoked", False):
-        return error_response(PAIRED_DEVICE_REVOKED, detail="Observer revoked")
+        return error_response(PL_REVOKED, detail="Observer revoked")
 
     if not observer.get("enabled", True):
         return error_response(FEATURE_UNAVAILABLE, detail="Observer disabled")
@@ -1008,7 +1008,7 @@ def ingest_manifest_day(key: str, day: str) -> Any:
         return error_response(AUTH_KEY_INVALID, detail="Invalid key")
 
     if observer.get("revoked", False):
-        return error_response(PAIRED_DEVICE_REVOKED, detail="Observer revoked")
+        return error_response(PL_REVOKED, detail="Observer revoked")
 
     if not observer.get("enabled", True):
         return error_response(FEATURE_UNAVAILABLE, detail="Observer disabled")
@@ -1062,7 +1062,7 @@ def ingest_event(key: str | None = None) -> Any:
         return error_response(AUTH_KEY_INVALID, detail="Invalid key")
 
     if observer.get("revoked", False):
-        return error_response(PAIRED_DEVICE_REVOKED, detail="Observer revoked")
+        return error_response(PL_REVOKED, detail="Observer revoked")
 
     if not observer.get("enabled", True):
         return error_response(FEATURE_UNAVAILABLE, detail="Observer disabled")
@@ -1118,7 +1118,7 @@ def ingest_segments(day: str, key: str | None = None) -> Any:
         return error_response(AUTH_KEY_INVALID, detail="Invalid key")
 
     if observer.get("revoked", False):
-        return error_response(PAIRED_DEVICE_REVOKED, detail="Observer revoked")
+        return error_response(PL_REVOKED, detail="Observer revoked")
 
     if not observer.get("enabled", True):
         return error_response(FEATURE_UNAVAILABLE, detail="Observer disabled")
