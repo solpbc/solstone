@@ -7,6 +7,10 @@ from __future__ import annotations
 
 INIT_PASSWORD_HINT = "protects your solstone web interface when you allow network access. minimum 8 characters. you can reset it anytime by using a terminal and running the command: <code>sol password set</code>. password is not required when accessing solstone from the same system."
 CONVEY_RELOAD_HINT = "reload to try again."
+CONVEY_ACTION_TRY_AGAIN = "Try again"  # generic load-failure retry button
+CONVEY_ACTION_RELOAD = "Reload"  # full-surface reload affordance
+CONVEY_ACTION_RECONNECT = "Reconnect"  # transport/socket reconnection affordance
+CONVEY_ACTION_RESTART = "Restart"  # service/observer restart affordance
 SETTINGS_SECURITY_DESC = (
     "network access and password protection for the convey web interface."
 )
@@ -35,6 +39,10 @@ PAIRING_NO_LAN_BANNER_BODY = "the QR code below uses localhost, which paired dev
 
 
 __all__ = [
+    "CONVEY_ACTION_TRY_AGAIN",
+    "CONVEY_ACTION_RELOAD",
+    "CONVEY_ACTION_RECONNECT",
+    "CONVEY_ACTION_RESTART",
     "CONVEY_RELOAD_HINT",
     "INIT_PASSWORD_HINT",
     "OBSERVER_CALLOSUM_LIVE_LABEL",
