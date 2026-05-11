@@ -12,6 +12,12 @@ from typing import Any
 from flask import Blueprint, request
 
 from . import state
+from .reasons import (
+    CONVEY_OPERATION_FAILED,
+    INVALID_CONFIG_VALUE,
+    INVALID_JSON_REQUEST,
+    MISSING_REQUIRED_FIELD,
+)
 from .utils import error_response, load_json, save_json, success_response
 
 logger = logging.getLogger(__name__)
@@ -243,7 +249,10 @@ def get_config() -> tuple[Any, int]:
         return success_response({"config": config})
     except Exception as e:
         logger.error(f"Failed to load config: {e}", exc_info=True)
-        return error_response("Failed to load configuration", 500)
+        return error_response(
+            CONVEY_OPERATION_FAILED,
+            detail="Failed to load configuration",
+        )
 
 
 @bp.route("/convey", methods=["POST"])
@@ -268,12 +277,18 @@ def update_config() -> tuple[Any, int]:
         # Parse request
         new_config = request.get_json()
         if not new_config:
-            return error_response("Request body must be JSON", 400)
+            return error_response(
+                INVALID_JSON_REQUEST,
+                detail="Request body must be JSON",
+            )
 
         # Validate structure
         valid, error_msg = validate_config(new_config)
         if not valid:
-            return error_response(f"Invalid config: {error_msg}", 400)
+            return error_response(
+                INVALID_CONFIG_VALUE,
+                detail=f"Invalid config: {error_msg}",
+            )
 
         # Merge with existing config (partial updates supported)
         current_config = load_convey_config()
@@ -293,13 +308,19 @@ def update_config() -> tuple[Any, int]:
         # Save updated config
         success = save_convey_config(current_config)
         if not success:
-            return error_response("Failed to save configuration", 500)
+            return error_response(
+                CONVEY_OPERATION_FAILED,
+                detail="Failed to save configuration",
+            )
 
         return success_response({"config": current_config})
 
     except Exception as e:
         logger.error(f"Failed to update config: {e}", exc_info=True)
-        return error_response("Failed to update configuration", 500)
+        return error_response(
+            CONVEY_OPERATION_FAILED,
+            detail="Failed to update configuration",
+        )
 
 
 @bp.route("/facets/order", methods=["POST"])
@@ -314,14 +335,22 @@ def update_facet_order() -> tuple[Any, int]:
     try:
         data = request.get_json()
         if not data or "order" not in data:
-            return error_response("Request must include 'order' array", 400)
+            return error_response(
+                MISSING_REQUIRED_FIELD,
+                detail="Request must include 'order' array",
+            )
 
         order = data["order"]
         if not isinstance(order, list):
-            return error_response("'order' must be an array", 400)
+            return error_response(
+                INVALID_CONFIG_VALUE, detail="'order' must be an array"
+            )
 
         if not all(isinstance(name, str) for name in order):
-            return error_response("'order' must contain only strings", 400)
+            return error_response(
+                INVALID_CONFIG_VALUE,
+                detail="'order' must contain only strings",
+            )
 
         # Load config and update facets.order
         config = load_convey_config()
@@ -332,13 +361,19 @@ def update_facet_order() -> tuple[Any, int]:
         # Save
         success = save_convey_config(config)
         if not success:
-            return error_response("Failed to save facet order", 500)
+            return error_response(
+                CONVEY_OPERATION_FAILED,
+                detail="Failed to save facet order",
+            )
 
         return success_response({"order": order})
 
     except Exception as e:
         logger.error(f"Failed to update facet order: {e}", exc_info=True)
-        return error_response("Failed to update facet order", 500)
+        return error_response(
+            CONVEY_OPERATION_FAILED,
+            detail="Failed to update facet order",
+        )
 
 
 @bp.route("/apps/order", methods=["POST"])
@@ -353,14 +388,22 @@ def update_app_order() -> tuple[Any, int]:
     try:
         data = request.get_json()
         if not data or "order" not in data:
-            return error_response("Request must include 'order' array", 400)
+            return error_response(
+                MISSING_REQUIRED_FIELD,
+                detail="Request must include 'order' array",
+            )
 
         order = data["order"]
         if not isinstance(order, list):
-            return error_response("'order' must be an array", 400)
+            return error_response(
+                INVALID_CONFIG_VALUE, detail="'order' must be an array"
+            )
 
         if not all(isinstance(name, str) for name in order):
-            return error_response("'order' must contain only strings", 400)
+            return error_response(
+                INVALID_CONFIG_VALUE,
+                detail="'order' must contain only strings",
+            )
 
         # Load config and update apps.order
         config = load_convey_config()
@@ -371,13 +414,19 @@ def update_app_order() -> tuple[Any, int]:
         # Save
         success = save_convey_config(config)
         if not success:
-            return error_response("Failed to save app order", 500)
+            return error_response(
+                CONVEY_OPERATION_FAILED,
+                detail="Failed to save app order",
+            )
 
         return success_response({"order": order})
 
     except Exception as e:
         logger.error(f"Failed to update app order: {e}", exc_info=True)
-        return error_response("Failed to update app order", 500)
+        return error_response(
+            CONVEY_OPERATION_FAILED,
+            detail="Failed to update app order",
+        )
 
 
 @bp.route("/apps/star", methods=["POST"])
@@ -393,17 +442,21 @@ def toggle_app_star() -> tuple[Any, int]:
         data = request.get_json()
         if not data or "app" not in data or "starred" not in data:
             return error_response(
-                "Request must include 'app' and 'starred' fields", 400
+                MISSING_REQUIRED_FIELD,
+                detail="Request must include 'app' and 'starred' fields",
             )
 
         app_name = data["app"]
         starred = data["starred"]
 
         if not isinstance(app_name, str):
-            return error_response("'app' must be a string", 400)
+            return error_response(INVALID_CONFIG_VALUE, detail="'app' must be a string")
 
         if not isinstance(starred, bool):
-            return error_response("'starred' must be a boolean", 400)
+            return error_response(
+                INVALID_CONFIG_VALUE,
+                detail="'starred' must be a boolean",
+            )
 
         # Load config and update apps.starred
         config = load_convey_config()
@@ -422,13 +475,19 @@ def toggle_app_star() -> tuple[Any, int]:
         # Save
         success = save_convey_config(config)
         if not success:
-            return error_response("Failed to save app starred status", 500)
+            return error_response(
+                CONVEY_OPERATION_FAILED,
+                detail="Failed to save app starred status",
+            )
 
         return success_response({"app": app_name, "starred": starred})
 
     except Exception as e:
         logger.error(f"Failed to toggle app star: {e}", exc_info=True)
-        return error_response("Failed to toggle app starred status", 500)
+        return error_response(
+            CONVEY_OPERATION_FAILED,
+            detail="Failed to toggle app starred status",
+        )
 
 
 @bp.route("/facets/select", methods=["POST"])
@@ -443,14 +502,23 @@ def select_facet() -> tuple[Any, int]:
     try:
         data = request.get_json()
         if data is None:
-            return error_response("Request body must be JSON", 400)
+            return error_response(
+                INVALID_JSON_REQUEST,
+                detail="Request body must be JSON",
+            )
 
         if "facet" not in data:
-            return error_response("Request must include 'facet' field", 400)
+            return error_response(
+                MISSING_REQUIRED_FIELD,
+                detail="Request must include 'facet' field",
+            )
 
         facet = data["facet"]
         if facet is not None and not isinstance(facet, str):
-            return error_response("'facet' must be a string or null", 400)
+            return error_response(
+                INVALID_CONFIG_VALUE,
+                detail="'facet' must be a string or null",
+            )
 
         # Update config
         set_selected_facet(facet)
@@ -459,4 +527,7 @@ def select_facet() -> tuple[Any, int]:
 
     except Exception as e:
         logger.error(f"Failed to update selected facet: {e}", exc_info=True)
-        return error_response("Failed to update selected facet", 500)
+        return error_response(
+            CONVEY_OPERATION_FAILED,
+            detail="Failed to update selected facet",
+        )
