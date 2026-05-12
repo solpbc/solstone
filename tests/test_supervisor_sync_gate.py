@@ -18,7 +18,6 @@ def _set_identity(monkeypatch):
     monkeypatch.setattr(sync_check, "_MACHINE_ID", None)
     monkeypatch.setattr(sync_check, "get_machine_id", lambda: "self-machine-1234")
     monkeypatch.setattr(sync_check, "get_self_hostname_sanitized", lambda: "self-host")
-    monkeypatch.setattr(sync_check, "_get_boot_id", lambda: "boot-1")
     monkeypatch.setattr(sync_check, "_solstone_version", lambda: "test-version")
 
 
@@ -33,7 +32,6 @@ def _write_foreign(journal, *, host="other-host", mtime=None):
                 "machine_id": f"{host}-machine",
                 "hostname": host,
                 "pid": 456,
-                "boot_id": "boot-2",
                 "wall_time": "2026-05-11T00:00:00Z",
                 "solstone_version": "test-version",
                 "journal_path": "/foreign/journal",
@@ -58,7 +56,7 @@ def _load_supervisor(tmp_path, monkeypatch, argv=None):
     return mod
 
 
-def test_startup_probe_clean_journal_proceeds_past_flock(tmp_path, monkeypatch):
+def test_startup_check_clean_journal_proceeds_past_flock(tmp_path, monkeypatch):
     _set_identity(monkeypatch)
     mod = _load_supervisor(tmp_path, monkeypatch)
 
@@ -76,7 +74,7 @@ def test_startup_probe_clean_journal_proceeds_past_flock(tmp_path, monkeypatch):
     )
 
 
-def test_startup_probe_live_foreign_exits_1_prints_message_no_pid(
+def test_startup_check_live_foreign_exits_1_prints_message_no_pid(
     tmp_path, monkeypatch, capsys
 ):
     _set_identity(monkeypatch)
@@ -89,7 +87,7 @@ def test_startup_probe_live_foreign_exits_1_prints_message_no_pid(
     assert exc.value.code == 1
     captured = capsys.readouterr()
     assert "Refusing to start" in captured.err
-    assert "docs/MULTI_DEVICE.md" in captured.err
+    assert "one service per journal" in captured.err
     assert not (tmp_path / "health" / "supervisor.pid").exists()
 
 

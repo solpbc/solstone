@@ -3,7 +3,6 @@
 
 import json
 import os
-import stat
 import time
 from pathlib import Path
 from types import SimpleNamespace
@@ -25,7 +24,6 @@ def _reset_machine_id(monkeypatch):
 def _set_identity(monkeypatch, *, machine_id="self-machine-1234", hostname="self-host"):
     monkeypatch.setattr(sync_check, "get_machine_id", lambda: machine_id)
     monkeypatch.setattr(sync_check, "get_self_hostname_sanitized", lambda: hostname)
-    monkeypatch.setattr(sync_check, "_get_boot_id", lambda: "boot-1")
     monkeypatch.setattr(sync_check, "_solstone_version", lambda: "test-version")
 
 
@@ -48,7 +46,6 @@ def _write_foreign(
             "machine_id": f"{name}-machine",
             "hostname": name,
             "pid": 123,
-            "boot_id": "foreign-boot",
             "wall_time": "2026-05-11T00:00:00Z",
             "solstone_version": "1.2.3",
             "journal_path": "/foreign/journal",
@@ -87,27 +84,32 @@ def test_get_machine_id_darwin_reads_ioplatform_uuid(monkeypatch):
     assert sync_check.get_machine_id() == "ABC-123"
 
 
-def test_get_machine_id_fallback_creates_private_file_and_parent(tmp_path, monkeypatch):
+def test_get_machine_id_raises_when_unavailable(monkeypatch):
     _reset_machine_id(monkeypatch)
     monkeypatch.setattr(sync_check.sys, "platform", "linux")
-    monkeypatch.setattr(sync_check.Path, "home", classmethod(lambda cls: tmp_path))
-    original_read_text = Path.read_text
 
     def fake_read_text(self, encoding="utf-8"):
-        if str(self) != "/etc/machine-id":
-            return original_read_text(self, encoding=encoding)
         raise OSError
 
     monkeypatch.setattr(Path, "read_text", fake_read_text)
 
-    machine_id = sync_check.get_machine_id()
-    path = tmp_path / ".config" / "solstone" / "machine-id"
+    with pytest.raises(RuntimeError) as linux_error:
+        sync_check.get_machine_id()
 
-    assert len(machine_id) == 32
-    int(machine_id, 16)
-    assert path.read_text(encoding="utf-8").strip() == machine_id
-    assert stat.S_IMODE(path.stat().st_mode) == 0o600
-    assert stat.S_IMODE(path.parent.stat().st_mode) == 0o700
+    assert "systemd-machine-id-setup" in str(linux_error.value)
+
+    _reset_machine_id(monkeypatch)
+    monkeypatch.setattr(sync_check.sys, "platform", "darwin")
+
+    def fake_run(*args, **kwargs):
+        return SimpleNamespace(stdout="")
+
+    monkeypatch.setattr(sync_check.subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError) as darwin_error:
+        sync_check.get_machine_id()
+
+    assert "systemd-machine-id-setup" in str(darwin_error.value)
 
 
 def test_get_self_hostname_sanitized_normal_weird_empty(monkeypatch):
@@ -136,7 +138,8 @@ def test_write_self_heartbeat_writes_expected_json_and_overwrites(
     assert data["machine_id"] == "self-machine-1234"
     assert data["hostname"] == "self-host"
     assert data["pid"] == os.getpid()
-    assert data["boot_id"] == "boot-1"
+    assert "boot" + "_id" not in data
+    assert "monotonic" + "_ms" not in data
     assert data["solstone_version"] == "test-version"
     assert data["interval_seconds"] == sync_check.DEFAULT_INTERVAL_SECONDS
     assert data["journal_path"] == str(journal.resolve())
@@ -280,7 +283,7 @@ def test_check_journal_sync_missing_fields_tolerated_unknown_hostname(
     assert result.foreign_writers[0].display_hostname == "(unknown)"
 
 
-def test_format_conflict_message_includes_doc_link(tmp_path, monkeypatch):
+def test_format_conflict_message_includes_resolution_guidance(tmp_path, monkeypatch):
     journal = tmp_path / "journal"
     _set_identity(monkeypatch)
     now = time.time()
@@ -289,7 +292,9 @@ def test_format_conflict_message_includes_doc_link(tmp_path, monkeypatch):
 
     message = sync_check.format_conflict_message(result)
 
-    assert "docs/MULTI_DEVICE.md" in message
+    assert "one service per journal" in message
+    assert "Multiple observers" in message
+    assert "stop solstone on" in message
     assert "other-host" in message
 
 

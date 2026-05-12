@@ -31,7 +31,6 @@ from solstone.think.readiness import clear_ready, signal_ready
 from solstone.think.runner import ManagedProcess as RunnerManagedProcess
 from solstone.think.sync_check import (
     DEFAULT_INTERVAL_SECONDS,
-    STARTUP_PROBE_SECONDS,
     SyncCheckSnapshot,
     check_journal_sync,
     clear_self_heartbeat,
@@ -1875,23 +1874,18 @@ def main() -> None:
         sys.exit(1)
 
     print(
-        "Checking for other active solstone instances on this journal (~20s)...",
+        "Checking for other active solstone instances on this journal...",
         flush=True,
     )
-    initial_sync = check_journal_sync(previous=None, journal=journal_path)
-    write_self_heartbeat(journal=journal_path)
-    time.sleep(STARTUP_PROBE_SECONDS)
-    final_sync = check_journal_sync(
-        previous=initial_sync.snapshot, journal=journal_path
-    )
-    if final_sync.is_conflict:
-        print(format_conflict_message(final_sync), file=sys.stderr)
-        clear_self_heartbeat(journal=journal_path)
+    snapshot = check_journal_sync(journal=journal_path)
+    if snapshot.is_conflict:
+        print(format_conflict_message(snapshot), file=sys.stderr)
         try:
             lock_fd.close()
         except Exception:
             pass
         sys.exit(1)
+    write_self_heartbeat(journal=journal_path)
 
     pid_path.write_text(str(os.getpid()))
     start_time_path = health_dir / "supervisor.start_time"

@@ -15,7 +15,6 @@ import hashlib
 import json
 import os
 import re
-import secrets
 import socket
 import subprocess
 import sys
@@ -31,7 +30,6 @@ from solstone.think.utils import get_journal
 
 DEFAULT_INTERVAL_SECONDS: float = 15.0
 FRESH_WINDOW_MULTIPLIER: int = 4
-STARTUP_PROBE_SECONDS: float = 20.0
 SCHEMA_VERSION: int = 1
 
 _MACHINE_ID: str | None = None
@@ -47,7 +45,6 @@ class ForeignWriter:
     pid: int | None
     machine_id: str
     machine_id_prefix: str
-    boot_id: str
     solstone_version: str
     wall_time: str
     mtime: float
@@ -99,8 +96,7 @@ def get_machine_id() -> str:
                 return machine_id
         except OSError:
             pass
-
-    if sys.platform == "darwin":
+    elif sys.platform == "darwin":
         try:
             completed = subprocess.run(
                 ["ioreg", "-rd1", "-c", "IOPlatformExpertDevice"],
@@ -116,38 +112,17 @@ def get_machine_id() -> str:
         except (OSError, subprocess.SubprocessError):
             pass
 
-    fallback_path = _fallback_machine_id_path()
-    try:
-        machine_id = fallback_path.read_text(encoding="utf-8").strip()
-        if machine_id:
-            _MACHINE_ID = machine_id
-            return machine_id
-    except OSError:
-        pass
-
-    machine_id = secrets.token_hex(16)
-    fallback_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    os.chmod(fallback_path.parent, 0o700)
-    _atomic_write_text(fallback_path, machine_id + "\n", mode=0o600)
-    _MACHINE_ID = machine_id
-    return machine_id
+    raise RuntimeError(
+        "Unable to determine machine id. On Linux, ensure /etc/machine-id "
+        "is populated (run `systemd-machine-id-setup`). On macOS, ensure "
+        "`ioreg -rd1 -c IOPlatformExpertDevice` reports an IOPlatformUUID."
+    )
 
 
 def get_self_hostname_sanitized() -> str:
     hostname = socket.gethostname().lower()
     hostname = _HOSTNAME_RE.sub("-", hostname).strip("-")
     return hostname or "unknown-host"
-
-
-def _get_boot_id() -> str:
-    if not sys.platform.startswith("linux"):
-        return ""
-    try:
-        return (
-            Path("/proc/sys/kernel/random/boot_id").read_text(encoding="utf-8").strip()
-        )
-    except OSError:
-        return ""
 
 
 def _self_heartbeat_filename() -> str:
@@ -170,9 +145,7 @@ def write_self_heartbeat(journal: Path | None = None) -> Path:
         "machine_id": get_machine_id(),
         "hostname": get_self_hostname_sanitized(),
         "pid": os.getpid(),
-        "boot_id": _get_boot_id(),
         "wall_time": now,
-        "monotonic_ms": int(time.monotonic() * 1000),
         "solstone_version": _solstone_version(),
         "interval_seconds": DEFAULT_INTERVAL_SECONDS,
         "journal_path": str(journal_path),
@@ -260,7 +233,6 @@ def check_journal_sync(
             journal_value = ""
             pid = None
             machine_id = ""
-            boot_id = ""
             solstone_version = ""
             wall_time = ""
             is_live = is_fresh
@@ -269,7 +241,6 @@ def check_journal_sync(
             journal_value = str(payload.get("journal_path") or "")
             pid = _coerce_pid(payload.get("pid"))
             machine_id = str(payload.get("machine_id") or "")
-            boot_id = str(payload.get("boot_id") or "")
             solstone_version = str(payload.get("solstone_version") or "")
             wall_time = str(payload.get("wall_time") or "")
             is_live = is_fresh or changed_since_snapshot or appeared_since_snapshot
@@ -282,7 +253,6 @@ def check_journal_sync(
                 pid=pid,
                 machine_id=machine_id,
                 machine_id_prefix=machine_id[:8],
-                boot_id=boot_id,
                 solstone_version=solstone_version,
                 wall_time=wall_time,
                 mtime=mtime,
@@ -322,12 +292,12 @@ def format_conflict_message(result: SyncCheckResult) -> str:
     primary_prefix = _display_machine_prefix(primary)
     primary_age = _format_age(time.time() - primary.mtime)
     lines = [
-        "Refusing to start - another solstone instance is writing to this journal.",
+        "Refusing to start - another solstone service is active on this journal.",
         "",
         f"Journal: {result.journal_path}",
         f"This device: {result.self_hostname} (machine {self_prefix}...)",
         (
-            "Other instance: "
+            "Active service: "
             f"{primary.display_hostname} (machine {primary_prefix}..., "
             f"last seen {primary_age})"
         ),
@@ -349,10 +319,9 @@ def format_conflict_message(result: SyncCheckResult) -> str:
     lines.extend(
         [
             "",
-            "Two solstone instances writing to the same journal will corrupt it.",
-            "Stop one, then start the other.",
-            "",
-            "See docs/MULTI_DEVICE.md for guidance.",
+            "Use one service per journal.",
+            "Multiple observers attached to a single service are fine.",
+            f"To continue here, stop solstone on {primary.display_hostname} first.",
         ]
     )
     return "\n".join(lines)
@@ -386,17 +355,12 @@ def _journal_path(journal: Path | None) -> Path:
     return Path(journal).resolve()
 
 
-def _fallback_machine_id_path() -> Path:
-    return Path.home() / ".config" / "solstone" / "machine-id"
-
-
 def _atomic_write_text(path: Path, content: str, *, mode: int | None = None) -> None:
     fd, tmp_path = tempfile.mkstemp(dir=path.parent, prefix=".tmp_", suffix=path.suffix)
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as handle:
             handle.write(content)
             handle.flush()
-            os.fsync(handle.fileno())
         os.replace(tmp_path, path)
         if mode is not None:
             os.chmod(path, mode)
