@@ -26,14 +26,17 @@ from dataclasses import dataclass, field
 from typing import Final
 
 # Flag bits — each frame must carry exactly one of OPEN / DATA / CLOSE /
-# RESET / WINDOW, except OPEN|DATA (open with initial bytes) and DATA|CLOSE
-# (last data + half-close).
+# RESET / WINDOW / PING / PONG, except OPEN|DATA (open with initial bytes)
+# and DATA|CLOSE (last data + half-close). PING and PONG ride on stream_id
+# 0 only (control channel) and carry an 8-byte nonce.
 FLAG_OPEN: Final[int] = 0x01
 FLAG_DATA: Final[int] = 0x02
 FLAG_CLOSE: Final[int] = 0x04
 FLAG_RESET: Final[int] = 0x08
 FLAG_WINDOW: Final[int] = 0x10
-FLAG_RESERVED_MASK: Final[int] = 0xE0  # bits 5-7 must be zero on send
+FLAG_PING: Final[int] = 0x20
+FLAG_PONG: Final[int] = 0x40
+FLAG_RESERVED_MASK: Final[int] = 0x80  # bit 7 must be zero on send
 
 # Reset reason codes — 1-byte payload of RESET frames.
 RESET_PROTOCOL_ERROR: Final[int] = 0x01
@@ -49,6 +52,7 @@ MAX_PAYLOAD: Final[int] = (1 << 24) - 1  # 16 MiB - 1
 INITIAL_WINDOW: Final[int] = 1 << 20  # 1 MiB
 MAX_CONCURRENT_STREAMS: Final[int] = 256
 RECOMMENDED_CHUNK: Final[int] = 64 * 1024
+CONTROL_NONCE_LEN: Final[int] = 8
 
 
 class ProtocolError(ValueError):
@@ -150,18 +154,40 @@ def build_window(stream_id: int, credit: int) -> Frame:
     )
 
 
+def build_ping(nonce: bytes) -> Frame:
+    if len(nonce) != CONTROL_NONCE_LEN:
+        raise ProtocolError(
+            f"PING nonce must be {CONTROL_NONCE_LEN} bytes, got {len(nonce)}"
+        )
+    return Frame(stream_id=0, flags=FLAG_PING, payload=bytes(nonce))
+
+
+def build_pong(nonce: bytes) -> Frame:
+    if len(nonce) != CONTROL_NONCE_LEN:
+        raise ProtocolError(
+            f"PONG nonce must be {CONTROL_NONCE_LEN} bytes, got {len(nonce)}"
+        )
+    return Frame(stream_id=0, flags=FLAG_PONG, payload=bytes(nonce))
+
+
 def validate_flags(flags: int) -> None:
     if flags & FLAG_RESERVED_MASK:
         raise ProtocolError(f"reserved flag bits set: {flags:#x}")
-    exclusive = flags & (FLAG_OPEN | FLAG_DATA | FLAG_CLOSE | FLAG_RESET | FLAG_WINDOW)
+    exclusive = flags & (
+        FLAG_OPEN | FLAG_DATA | FLAG_CLOSE | FLAG_RESET | FLAG_WINDOW | FLAG_PING | FLAG_PONG
+    )
     if not exclusive:
-        raise ProtocolError("frame has no OPEN/DATA/CLOSE/RESET/WINDOW bit set")
+        raise ProtocolError(
+            "frame has no OPEN/DATA/CLOSE/RESET/WINDOW/PING/PONG bit set"
+        )
     allowed = {
         FLAG_OPEN,
         FLAG_DATA,
         FLAG_CLOSE,
         FLAG_RESET,
         FLAG_WINDOW,
+        FLAG_PING,
+        FLAG_PONG,
         FLAG_OPEN | FLAG_DATA,
         FLAG_DATA | FLAG_CLOSE,
     }
@@ -185,3 +211,13 @@ def parse_reset_reason(frame: Frame) -> int:
     if len(frame.payload) != 1:
         raise ProtocolError(f"RESET payload must be 1 byte, got {len(frame.payload)}")
     return frame.payload[0]
+
+
+def parse_control_nonce(frame: Frame) -> bytes:
+    if not (frame.flags & (FLAG_PING | FLAG_PONG)):
+        raise ProtocolError("not a PING/PONG frame")
+    if len(frame.payload) != CONTROL_NONCE_LEN:
+        raise ProtocolError(
+            f"control nonce must be {CONTROL_NONCE_LEN} bytes, got {len(frame.payload)}"
+        )
+    return frame.payload

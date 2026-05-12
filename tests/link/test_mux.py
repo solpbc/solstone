@@ -10,12 +10,16 @@ import pytest
 from solstone.convey.secure_listener.framing import (
     FLAG_CLOSE,
     FLAG_DATA,
+    FLAG_PING,
+    FLAG_PONG,
     FLAG_RESET,
     Frame,
     FrameDecoder,
     build_close,
     build_data,
     build_open,
+    build_ping,
+    build_pong,
 )
 from solstone.convey.secure_listener.mux import Multiplexer
 
@@ -164,4 +168,129 @@ async def test_validates_open_reopen_is_protocol_error() -> None:
     assert any(frame.stream_id == 1 and frame.flags & FLAG_RESET for frame in frames)
 
     gate.set()
+    await mux.close()
+
+
+# ---- streamID==0 PING/PONG keepalive responder ------------------------------
+
+
+@pytest.mark.asyncio
+async def test_ping_emits_matching_pong() -> None:
+    sent: list[bytes] = []
+
+    async def send(data: bytes) -> None:
+        sent.append(data)
+
+    async def handler(*_: object) -> None:
+        pytest.fail("handler should not be invoked for control frames")
+
+    nonce = bytes(range(1, 9))
+    mux = Multiplexer(send, handler, is_listener=True)
+    await mux.feed(build_ping(nonce).encode())
+
+    frames = _decode_frames(sent)
+    pongs = [f for f in frames if f.stream_id == 0 and f.flags & FLAG_PONG]
+    assert len(pongs) == 1
+    assert pongs[0].payload == nonce
+    await mux.close()
+
+
+@pytest.mark.asyncio
+async def test_repeated_pings_each_get_matching_pong() -> None:
+    sent: list[bytes] = []
+
+    async def send(data: bytes) -> None:
+        sent.append(data)
+
+    async def handler(*_: object) -> None:
+        pytest.fail("handler should not be invoked for control frames")
+
+    nonces = [bytes([i]) * 8 for i in range(1, 6)]
+    mux = Multiplexer(send, handler, is_listener=True)
+    for nonce in nonces:
+        await mux.feed(build_ping(nonce).encode())
+
+    pongs = [f for f in _decode_frames(sent) if f.flags & FLAG_PONG]
+    assert [p.payload for p in pongs] == nonces
+    await mux.close()
+
+
+@pytest.mark.asyncio
+async def test_unsolicited_pong_is_silently_dropped() -> None:
+    sent: list[bytes] = []
+
+    async def send(data: bytes) -> None:
+        sent.append(data)
+
+    async def handler(*_: object) -> None:
+        pytest.fail("handler should not be invoked for control frames")
+
+    mux = Multiplexer(send, handler, is_listener=True)
+    await mux.feed(build_pong(b"\x00" * 8).encode())
+
+    # No emit on stray PONG — neither RESET nor PONG nor any other frame.
+    assert sent == []
+    await mux.close()
+
+
+@pytest.mark.asyncio
+async def test_ping_on_nonzero_stream_is_protocol_error() -> None:
+    sent: list[bytes] = []
+
+    async def send(data: bytes) -> None:
+        sent.append(data)
+
+    async def handler(*_: object) -> None:
+        return
+
+    mux = Multiplexer(send, handler, is_listener=True)
+    # PING on stream 5 (illegal — control frames are streamID==0 only).
+    illegal = Frame(stream_id=5, flags=FLAG_PING, payload=b"\x00" * 8).encode()
+    await mux.feed(illegal)
+
+    # Behavior parity with other top-level protocol errors: a RESET stamps the
+    # tunnel as broken; we don't have streams to reset here, so the side effect
+    # is internal teardown. The wire effect is no PONG emission.
+    frames = _decode_frames(sent)
+    assert not any(f.flags & FLAG_PONG for f in frames)
+    await mux.close()
+
+
+@pytest.mark.asyncio
+async def test_pings_interleave_with_open_streams() -> None:
+    # Keepalive cadence is 500ms, which is faster than most app traffic; the
+    # responder must not block on or be blocked by concurrent data streams.
+    handler_seen: dict[int, bytes] = {}
+
+    async def handler(
+        reader: asyncio.StreamReader, writer: object
+    ) -> None:  # pragma: no cover - typed by mux
+        payload = await reader.readuntil(b"\n")
+        handler_seen[1] = payload
+        await writer.write(b"ok\n")  # type: ignore[attr-defined]
+        await writer.close()  # type: ignore[attr-defined]
+
+    sent: list[bytes] = []
+
+    async def send(data: bytes) -> None:
+        sent.append(data)
+
+    mux = Multiplexer(send, handler, is_listener=True)
+    nonce = b"\xab" * 8
+    # PING arrives mid-stream between OPEN and CLOSE.
+    await mux.feed(build_open(1, b"hello\n").encode())
+    await mux.feed(build_ping(nonce).encode())
+    await mux.feed(build_close(1).encode())
+
+    for _ in range(20):
+        await asyncio.sleep(0.005)
+        if handler_seen.get(1):
+            break
+
+    assert handler_seen.get(1) == b"hello\n"
+    frames = _decode_frames(sent)
+    pongs = [f for f in frames if f.flags & FLAG_PONG]
+    assert len(pongs) == 1 and pongs[0].payload == nonce
+    data_payload = b"".join(f.payload for f in frames if f.flags & FLAG_DATA)
+    assert data_payload == b"ok\n"
     await mux.close()

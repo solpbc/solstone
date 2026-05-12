@@ -8,9 +8,12 @@ from __future__ import annotations
 import pytest
 
 from solstone.convey.secure_listener.framing import (
+    CONTROL_NONCE_LEN,
     FLAG_CLOSE,
     FLAG_DATA,
     FLAG_OPEN,
+    FLAG_PING,
+    FLAG_PONG,
     FLAG_RESERVED_MASK,
     FLAG_RESET,
     FLAG_WINDOW,
@@ -22,8 +25,11 @@ from solstone.convey.secure_listener.framing import (
     build_close,
     build_data,
     build_open,
+    build_ping,
+    build_pong,
     build_reset,
     build_window,
+    parse_control_nonce,
     parse_reset_reason,
     parse_window_credit,
     validate_flags,
@@ -141,3 +147,84 @@ def test_reset_frame_requires_1_byte_payload() -> None:
     f = Frame(stream_id=1, flags=FLAG_RESET, payload=b"")
     with pytest.raises(ProtocolError):
         parse_reset_reason(f)
+
+
+# ---- streamID==0 PING/PONG control frames -----------------------------------
+
+
+def test_ping_round_trip_wire_format() -> None:
+    nonce = bytes(range(1, 9))
+    f = build_ping(nonce)
+    encoded = f.encode()
+    # 4-byte big-endian stream_id (0) + 1 flag byte + 3-byte big-endian length (8) + 8-byte nonce.
+    assert encoded == bytes([0, 0, 0, 0, FLAG_PING, 0, 0, 8]) + nonce
+    decoder = FrameDecoder()
+    decoder.feed(encoded)
+    got = decoder.next()
+    assert got == f
+    assert got.stream_id == 0
+    assert got.flags == FLAG_PING
+
+
+def test_pong_round_trip_wire_format() -> None:
+    nonce = bytes(range(1, 9))
+    f = build_pong(nonce)
+    assert f.encode() == bytes([0, 0, 0, 0, FLAG_PONG, 0, 0, 8]) + nonce
+
+
+def test_ping_requires_8_byte_nonce() -> None:
+    with pytest.raises(ProtocolError):
+        build_ping(b"short")
+    with pytest.raises(ProtocolError):
+        build_ping(b"")
+    with pytest.raises(ProtocolError):
+        build_ping(b"x" * 9)
+
+
+def test_pong_requires_8_byte_nonce() -> None:
+    with pytest.raises(ProtocolError):
+        build_pong(b"short")
+
+
+def test_parse_control_nonce_round_trip() -> None:
+    nonce = b"\xde\xad\xbe\xef\xfe\xed\xfa\xce"
+    assert parse_control_nonce(build_ping(nonce)) == nonce
+    assert parse_control_nonce(build_pong(nonce)) == nonce
+
+
+def test_parse_control_nonce_rejects_non_control_frame() -> None:
+    f = build_data(1, b"x" * 8)
+    with pytest.raises(ProtocolError):
+        parse_control_nonce(f)
+
+
+def test_parse_control_nonce_rejects_wrong_payload_length() -> None:
+    f = Frame(stream_id=0, flags=FLAG_PING, payload=b"short")
+    with pytest.raises(ProtocolError):
+        parse_control_nonce(f)
+
+
+def test_validate_flags_allows_solo_ping_and_pong() -> None:
+    validate_flags(FLAG_PING)
+    validate_flags(FLAG_PONG)
+
+
+def test_validate_flags_rejects_ping_combined_with_other_flags() -> None:
+    for other in (FLAG_OPEN, FLAG_DATA, FLAG_CLOSE, FLAG_RESET, FLAG_WINDOW, FLAG_PONG):
+        with pytest.raises(ProtocolError):
+            validate_flags(FLAG_PING | other)
+
+
+def test_validate_flags_rejects_pong_combined_with_other_flags() -> None:
+    for other in (FLAG_OPEN, FLAG_DATA, FLAG_CLOSE, FLAG_RESET, FLAG_WINDOW):
+        with pytest.raises(ProtocolError):
+            validate_flags(FLAG_PONG | other)
+
+
+def test_control_nonce_len_is_eight() -> None:
+    assert CONTROL_NONCE_LEN == 8
+
+
+def test_reserved_mask_collapsed_to_bit_seven() -> None:
+    # bits 5 and 6 are PING/PONG; only bit 7 (0x80) remains reserved.
+    assert FLAG_RESERVED_MASK == 0x80

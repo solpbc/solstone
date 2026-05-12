@@ -27,6 +27,8 @@ from .framing import (
     FLAG_CLOSE,
     FLAG_DATA,
     FLAG_OPEN,
+    FLAG_PING,
+    FLAG_PONG,
     FLAG_RESET,
     FLAG_WINDOW,
     INITIAL_WINDOW,
@@ -42,8 +44,10 @@ from .framing import (
     build_close,
     build_data,
     build_open,
+    build_pong,
     build_reset,
     build_window,
+    parse_control_nonce,
     parse_reset_reason,
     parse_window_credit,
 )
@@ -150,6 +154,13 @@ class Multiplexer:
         self._streams.clear()
 
     async def _dispatch(self, frame: Frame) -> None:
+        if frame.stream_id == 0:
+            await self._dispatch_control(frame)
+            return
+        if frame.flags & (FLAG_PING | FLAG_PONG):
+            await self._reset_all(RESET_PROTOCOL_ERROR)
+            return
+
         if frame.flags & FLAG_OPEN:
             if not self._valid_peer_stream_id(frame.stream_id):
                 await self._emit(build_reset(frame.stream_id, RESET_PROTOCOL_ERROR))
@@ -211,6 +222,26 @@ class Multiplexer:
                 pass
             state.reader.feed_eof()
             self._terminate(state)
+
+    async def _dispatch_control(self, frame: Frame) -> None:
+        is_ping = bool(frame.flags & FLAG_PING)
+        is_pong = bool(frame.flags & FLAG_PONG)
+        if is_ping == is_pong:
+            await self._reset_all(RESET_PROTOCOL_ERROR)
+            return
+        if frame.flags & ~(FLAG_PING | FLAG_PONG):
+            await self._reset_all(RESET_PROTOCOL_ERROR)
+            return
+        try:
+            nonce = parse_control_nonce(frame)
+        except ProtocolError:
+            await self._reset_all(RESET_PROTOCOL_ERROR)
+            return
+        if is_ping:
+            await self._emit(build_pong(nonce))
+        # Stray PONG: the listener does not initiate pings (the dialer drives
+        # keepalive), so an unsolicited PONG is silently dropped per
+        # proto/framing.md § responder behavior.
 
     def _open_stream(self, stream_id: int) -> _StreamState:
         reader = asyncio.StreamReader()
