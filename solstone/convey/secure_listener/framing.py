@@ -174,7 +174,13 @@ def validate_flags(flags: int) -> None:
     if flags & FLAG_RESERVED_MASK:
         raise ProtocolError(f"reserved flag bits set: {flags:#x}")
     exclusive = flags & (
-        FLAG_OPEN | FLAG_DATA | FLAG_CLOSE | FLAG_RESET | FLAG_WINDOW | FLAG_PING | FLAG_PONG
+        FLAG_OPEN
+        | FLAG_DATA
+        | FLAG_CLOSE
+        | FLAG_RESET
+        | FLAG_WINDOW
+        | FLAG_PING
+        | FLAG_PONG
     )
     if not exclusive:
         raise ProtocolError(

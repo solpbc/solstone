@@ -212,6 +212,11 @@ VOICE_UNAVAILABLE = Reason(
     "I couldn't start voice right now.",
     503,
 )
+OBSERVER_RESTART_FAILED = Reason(
+    "observer_restart_failed",
+    "I couldn't restart observer processing.",
+    503,
+)
 PUSH_REQUEST_INVALID = Reason(
     "push_request_invalid",
     "I couldn't use that push request.",

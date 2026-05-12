@@ -4,5 +4,7 @@
 (function () {
   window.CONVEY_COPY = Object.freeze({
     RELOAD_HINT: "reload to try again.",
+    ACTION_RECONNECT: "Reconnect",
+    ACTION_RESTART: "Restart",
   });
 })();
