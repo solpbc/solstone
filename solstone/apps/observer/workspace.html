@@ -605,12 +605,12 @@ function statsHTML(observer, statusClass) {
   const lastSeenBase = observer.last_seen ? `${relativeTime(Date.now() - observer.last_seen)} ago` : 'never';
   const lastSolPing = observer.last_chat_request_at ? `${relativeTime(Date.now() - observer.last_chat_request_at)} ago` : '—';
   const lastSeen = statusClass === 'stale'
-    ? `${lastSeenBase} — stale`
+    ? `observer last reported ${lastSeenBase}`
     : statusClass === 'disconnected'
       ? `${lastSeenBase} — offline`
       : lastSeenBase;
   return `<dl>
-    <div><dt>Last seen</dt><dd data-last-seen="${observer.last_seen || ''}" data-state="${statusClass}">${lastSeen}</dd></div>
+    <div><dt>Last reported</dt><dd data-last-seen="${observer.last_seen || ''}" data-state="${statusClass}">${lastSeen}</dd></div>
     <div><dt>Last sol-ping</dt><dd>${lastSolPing}</dd></div>
     <div><dt>Segments (5-min chunks)</dt><dd>${observer.stats?.segments_received ?? 0}</dd></div>
     <div><dt>Data</dt><dd>${formatBytes(observer.stats?.bytes_received || 0)}</dd></div>
@@ -715,6 +715,7 @@ function observerCardHTML(observer, labels = {}) {
       </div>
       <div class="observer-stats">${statsHTML(observer, statusClass)}</div>
       <div class="observer-actions">
+        ${statusClass === 'stale' && !observer.revoked ? `<button onclick="restartObserver('${observer.key_prefix}', this)">${window.CONVEY_COPY?.ACTION_RECONNECT || 'Reconnect'}</button><span class="observer-reconnect-result" data-reconnect-result="${observer.key_prefix}"></span>` : ''}
         ${observer.revoked ? '' : `<button onclick="viewObserverKey('${observer.key_prefix}', '${escapeHtml(observer.name)}')">view key</button>`}
         ${observer.revoked ? '' : `<button class="danger" onclick="revokeObserver('${observer.key_prefix}', '${escapeHtml(observer.name)}')">revoke</button>`}
       </div>
@@ -821,17 +822,45 @@ function refreshTimestamps() {
   for (const span of spans) {
     const lastSeen = parseInt(span.getAttribute('data-last-seen'), 10);
     if (!lastSeen) continue;
-    const text = `${relativeTime(Date.now() - lastSeen)} ago`;
-    const state = span.getAttribute('data-state');
-    span.textContent = state === 'stale'
-      ? `${text} — stale`
-      : state === 'disconnected'
-        ? `${text} — offline`
-        : text;
-  }
-}
+	    const text = `${relativeTime(Date.now() - lastSeen)} ago`;
+	    const state = span.getAttribute('data-state');
+	    span.textContent = state === 'stale'
+	      ? `observer last reported ${text}`
+	      : state === 'disconnected'
+	        ? `${text} — offline`
+	        : text;
+	  }
+	}
 
-async function revokeObserver(keyPrefix, name) {
+	async function restartObserver(keyPrefix, button) {
+	  const result = observersList.querySelector(`[data-reconnect-result="${CSS.escape(keyPrefix)}"]`);
+	  button.disabled = true;
+	  button.textContent = 'reconnecting...';
+	  if (result) {
+	    result.textContent = '';
+	    result.style.color = '';
+	  }
+	  // Observer cards are per registration key; supervisor restarts the shared sense worker.
+	  try {
+	    await window.apiJson('/app/health/api/restart-observer', {
+	      method: 'POST',
+	      headers: { 'Content-Type': 'application/json' },
+	      body: JSON.stringify({ service: 'sense' })
+	    });
+	    button.textContent = window.CONVEY_COPY?.ACTION_RECONNECT || 'Reconnect';
+	    if (result) result.textContent = 'reconnect requested';
+	  } catch (err) {
+	    window.logError(err, { context: 'observer: restart-observer failed' });
+	    button.disabled = false;
+	    button.textContent = window.CONVEY_COPY?.ACTION_RECONNECT || 'Reconnect';
+	    if (result) {
+	      result.style.color = '#dc2626';
+	      result.textContent = err.serverMessage || "I couldn't reconnect.";
+	    }
+	  }
+	}
+
+	async function revokeObserver(keyPrefix, name) {
   if (!confirm(`Revoke observer "${name}"? The observer will no longer be able to upload.`)) {
     return;
   }
