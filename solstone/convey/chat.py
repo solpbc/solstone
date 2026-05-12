@@ -62,6 +62,23 @@ _runtime: "ChatRuntimeState | None" = None
 _atexit_registered = False
 
 
+def _normalize_chat_error_detail(raw: str | None) -> str:
+    """Normalize a raw provider error message for chat_error.detail.
+
+    None/missing -> "".
+    Otherwise: strip; collapse whitespace runs (including \n\r\t) to single spaces;
+    truncate to 240 chars total using a single trailing ellipsis (… included in budget).
+    """
+    if not raw:
+        return ""
+    collapsed = " ".join(str(raw).split())
+    if not collapsed:
+        return ""
+    if len(collapsed) <= 240:
+        return collapsed
+    return collapsed[:239] + "…"
+
+
 @dataclass
 class ChatRuntimeState:
     callosum: CallosumConnection
@@ -313,6 +330,7 @@ def _on_cortex_finish(message: dict[str, Any]) -> None:
                         reason="provider_response_invalid",
                         use_id=logical_use_id,
                         provider=provider,
+                        detail="",
                     )
                     error_payload = {
                         "use_id": logical_use_id,
@@ -358,6 +376,7 @@ def _on_cortex_finish(message: dict[str, Any]) -> None:
                             reason="provider_response_invalid",
                             use_id=logical_use_id,
                             provider=provider,
+                            detail="",
                         )
                         error_payload = {
                             "use_id": logical_use_id,
@@ -396,6 +415,7 @@ def _on_cortex_finish(message: dict[str, Any]) -> None:
                             reason="provider_response_invalid",
                             use_id=logical_use_id,
                             provider=provider,
+                            detail="",
                         )
                         error_payload = {
                             "use_id": logical_use_id,
@@ -460,6 +480,7 @@ def _on_cortex_error(message: dict[str, Any]) -> None:
                 reason=reason_code,
                 use_id=logical_use_id,
                 provider=provider,
+                detail=_normalize_chat_error_detail(message.get("error")),
             )
             error_payload = {"use_id": logical_use_id, "reason": reason_code}
             next_info = _clear_current_locked()
@@ -634,7 +655,11 @@ def _handle_chat_failure(logical_use_id: str, reason: str) -> None:
     next_info: dict[str, Any] | None = None
     with _state_lock:
         append_chat_event(
-            "chat_error", reason=reason, use_id=logical_use_id, provider=""
+            "chat_error",
+            reason=reason,
+            use_id=logical_use_id,
+            provider="",
+            detail="",
         )
         if _current_chat_use_id == logical_use_id:
             if _current_chat_state is not None:
@@ -849,6 +874,7 @@ def _on_watchdog_timeout(use_id: str, kind: str, logical_use_id: str) -> None:
                 reason="chat_timeout",
                 use_id=logical_use_id,
                 provider="",
+                detail="",
             )
             next_info = _clear_current_locked()
             should_emit = True
@@ -877,6 +903,7 @@ def _on_watchdog_timeout(use_id: str, kind: str, logical_use_id: str) -> None:
                 reason="chat_timeout",
                 use_id=logical_use_id,
                 provider="",
+                detail="",
             )
             if (
                 _current_chat_use_id == logical_use_id

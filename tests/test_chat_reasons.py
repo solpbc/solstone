@@ -56,6 +56,33 @@ def _extract_frozen_object(text: str, name: str) -> dict:
     raise AssertionError(f"Could not extract {name}")
 
 
+def _render_js_chat_reason(
+    reasons: dict, display_names: dict, code: str, provider: str
+) -> dict:
+    reason = reasons.get(code)
+    if reason is None:
+        return {"code": code, "message": code, "action": None}
+
+    provider_slug = str(provider or "")
+    if code == "unknown":
+        display_name = display_names.get(provider_slug)
+        message = (
+            f"something went wrong with {display_name}"
+            if display_name
+            else reason["template"]
+        )
+        return {"code": code, "message": message, "action": None}
+
+    display_name = display_names.get(provider_slug, provider_slug)
+    message = reason["template"].replace("{provider}", display_name)
+    action = (
+        {"label": reason["action"]["label"], "href": reason["action"]["href"]}
+        if reason["action"]
+        else None
+    )
+    return {"code": code, "message": message, "action": action}
+
+
 def test_registry_shape():
     assert set(CHAT_REASONS) == EXPECTED_CODES
     assert len(CHAT_REASONS) == 7
@@ -71,7 +98,9 @@ def test_render_known_codes():
         rendered = render_chat_reason(code, "google")
         assert rendered["code"] == code
         assert rendered["message"]
-        if "{provider}" in reason.template:
+        if code == "unknown":
+            assert rendered["message"] == "something went wrong with Gemini"
+        elif "{provider}" in reason.template:
             assert "Gemini" in rendered["message"]
         if code == "provider_key_invalid":
             assert rendered["action"] == {
@@ -94,6 +123,24 @@ def test_render_unknown_code():
         "message": "not_a_real_code",
         "action": None,
     }
+
+
+def test_render_unknown_with_known_provider():
+    for slug, display_name in DISPLAY_NAMES.items():
+        assert render_chat_reason("unknown", slug) == {
+            "code": "unknown",
+            "message": f"something went wrong with {display_name}",
+            "action": None,
+        }
+
+
+def test_render_unknown_with_empty_or_unknown_provider():
+    for provider in ("", "weirdslug"):
+        assert render_chat_reason("unknown", provider) == {
+            "code": "unknown",
+            "message": "chat had trouble — try again",
+            "action": None,
+        }
 
 
 def test_render_empty_provider():
@@ -127,8 +174,15 @@ def test_js_parity():
 
     for code, reason in CHAT_REASONS.items():
         for provider, display in DISPLAY_NAMES.items():
+            js_rendered = _render_js_chat_reason(
+                js_reasons, js_display_names, code, provider
+            )
+            py_rendered = render_chat_reason(code, provider)
+            assert js_rendered == py_rendered
+            if code == "unknown":
+                continue
             expected = reason.template.replace("{provider}", display)
-            assert render_chat_reason(code, provider)["message"] == expected
+            assert py_rendered["message"] == expected
 
     removed_constants = ("CHAT_" + "TROUBLE_REASON", "CHAT_" + "WATCHDOG_REASON")
     assert all(name not in text for name in removed_constants)

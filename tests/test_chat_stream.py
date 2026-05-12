@@ -171,6 +171,25 @@ def test_chat_error_preserves_optional_provider(tmp_path, monkeypatch):
     assert events[0]["provider"] == "google"
 
 
+def test_chat_error_preserves_optional_detail_verbatim(tmp_path, monkeypatch):
+    _setup_journal(tmp_path, monkeypatch)
+    ts = _ms(2026, 4, 20, 12, 0, 0)
+    detail = "provider raw detail: " + ("x" * 400)
+
+    event = append_chat_event(
+        "chat_error",
+        ts=ts,
+        reason="unknown",
+        use_id="1713626000000",
+        provider="google",
+        detail=detail,
+    )
+
+    events = read_chat_events("20260420")
+    assert events == [event]
+    assert events[0]["detail"] == detail
+
+
 def test_append_rolls_at_300_seconds(tmp_path, monkeypatch):
     journal = _setup_journal(tmp_path, monkeypatch)
     start = _ms(2026, 4, 20, 12, 0, 0)

@@ -71,6 +71,15 @@ def render_chat_reason(code: str, provider: str) -> dict[str, Any]:
     if reason is None:
         return {"code": code, "message": code, "action": None}
 
+    if code == "unknown":
+        display_name = DISPLAY_NAMES.get(provider)
+        message = (
+            f"something went wrong with {display_name}"
+            if display_name
+            else reason.template
+        )
+        return {"code": code, "message": message, "action": None}
+
     display_name = DISPLAY_NAMES.get(provider, provider)
     # Avoid str.format so future owner copy with braces cannot crash rendering.
     message = reason.template.replace("{provider}", display_name)

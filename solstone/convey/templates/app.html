@@ -870,7 +870,10 @@
     if (eventName === 'chat_error') {
       if (solRequestState) return;
       var renderedReason = window.renderChatReason(msg.reason, msg.provider || '');
-      setStatus(renderedReason.message, renderedReason.message, renderedReason.action);
+      var detail = (msg.reason === 'unknown' && typeof msg.detail === 'string' && msg.detail.length > 0)
+        ? msg.detail
+        : renderedReason.message;
+      setStatus(renderedReason.message, detail, renderedReason.action);
     }
   }
 

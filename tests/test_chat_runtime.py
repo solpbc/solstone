@@ -1405,6 +1405,66 @@ def test_cortex_finish_logs_warning_for_unrouteable_use_id(
     ) == chat_records[0].getMessage()
 
 
+@pytest.mark.parametrize(
+    ("error_text", "expected_detail"),
+    [
+        ("short msg", "short msg"),
+        (
+            "something went very long with newlines\n\nand whitespace   collapsed "
+            + ("0123456789 " * 30),
+            None,
+        ),
+    ],
+)
+def test_on_cortex_error_stores_normalized_detail(
+    tmp_path, monkeypatch, error_text, expected_detail
+):
+    import solstone.convey.chat as chat
+
+    _setup_journal(tmp_path, monkeypatch)
+    _reset_chat_state(chat)
+    monkeypatch.setattr("solstone.convey.chat._run_next_action", lambda action: None)
+    monkeypatch.setattr("solstone.convey.chat._emit_error", lambda *args: None)
+
+    logical_use_id = "1713632500000"
+    raw_use_id = "1713632500001"
+    with chat._state_lock:
+        chat._current_chat_use_id = logical_use_id
+        chat._current_chat_state = {
+            "raw_use_id": raw_use_id,
+            "raw_use_ids_seen": {raw_use_id},
+            "trigger": {"type": "owner_message", "message": "help"},
+            "location": {"app": "sol", "path": "/app/sol", "facet": "work"},
+            "retry_count": 0,
+        }
+
+    chat._on_cortex_error(
+        {
+            "use_id": raw_use_id,
+            "reason_code": "unknown",
+            "provider": "google",
+            "error": error_text,
+        }
+    )
+
+    errors = [
+        event
+        for event in read_chat_events(chat._today_day())
+        if event["kind"] == "chat_error"
+    ]
+    assert len(errors) == 1
+    assert errors[0]["reason"] == "unknown"
+    assert errors[0]["provider"] == "google"
+    detail = errors[0]["detail"]
+    if expected_detail is not None:
+        assert detail == expected_detail
+    else:
+        assert "\n" not in detail
+        assert "  " not in detail
+        assert len(detail) <= 240
+        assert detail[-1] == "…"
+
+
 def test_cortex_error_logs_warning_for_unrouteable_use_id(
     tmp_path, monkeypatch, caplog
 ):

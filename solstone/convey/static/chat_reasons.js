@@ -48,6 +48,13 @@
       return {code: code, message: code, action: null};
     }
     const providerSlug = String(provider || "");
+    if (code === "unknown") {
+      const displayName = CHAT_REASON_DISPLAY_NAMES[providerSlug];
+      const message = displayName
+        ? `something went wrong with ${displayName}`
+        : reason.template;
+      return {code: code, message: message, action: null};
+    }
     const displayName = CHAT_REASON_DISPLAY_NAMES[providerSlug] || providerSlug;
     const message = reason.template.replace(/\{provider\}/g, displayName);
     const action = reason.action
