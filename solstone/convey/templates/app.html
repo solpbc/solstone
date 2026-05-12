@@ -18,12 +18,16 @@
     window.selectedFacet = {% if app_registry.apps[app].facets_enabled() %}{{ selected_facet|tojson|safe }}{% else %}null{% endif %};
     window.appFacetCounts = {{ facet_counts|default({})|tojson|safe }};
   </script>
+  <script>
+    window.CONVEY_SETTINGS = {reportingEnabled: {{ convey_settings.reporting_enabled|tojson }}};
+  </script>
 
   <!-- SSE connection for Callosum events -->
   <script src="{{ url_for('root.static', filename='websocket.js') }}"></script>
   <script src="{{ url_for('root.static', filename='api.js') }}"></script>
   <!-- App JavaScript (includes AppServices framework) -->
   <script src="{{ url_for('root.static', filename='app.js') }}"></script>
+  <script src="{{ url_for('root.static', filename='report-error.js') }}"></script>
   <!-- Markdown rendering deps (marked + DOMPurify). Must load before workspace include. -->
   <script src="{{ vendor_lib('marked') }}"></script>
   <script src="{{ vendor_lib('dompurify') }}"></script>

@@ -234,7 +234,7 @@ def register_app_context(app: Flask, registry: AppRegistry) -> None:
     @app.context_processor
     def inject_app_context() -> dict:
         """Inject app registry and facets context for new app system."""
-        from .config import apply_app_order, load_convey_config
+        from .config import apply_app_order, load_convey_config, reporting_enabled
 
         # Parse URL path: /app/{app_name}/{day}/...
         path_parts = request.path.split("/")
@@ -329,6 +329,7 @@ def register_app_context(app: Flask, registry: AppRegistry) -> None:
             "chat_bar_placeholder": chat_bar_placeholder,
             "chat_bar_attention": chat_bar_attention,
             "chat_bar_sol_request": chat_bar_sol_request,
+            "convey_settings": {"reporting_enabled": reporting_enabled()},
         }
 
     @app.context_processor

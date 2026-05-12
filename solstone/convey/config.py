@@ -45,6 +45,12 @@ def load_convey_config() -> dict[str, Any]:
     return data if isinstance(data, dict) else {}
 
 
+def reporting_enabled() -> bool:
+    """Return whether owner-facing error reporting is enabled."""
+    config = load_convey_config()
+    return config.get("reporting", {}).get("enabled", True)
+
+
 def save_convey_config(config: dict[str, Any]) -> bool:
     """Save config/convey.json atomically.
 
@@ -231,6 +237,23 @@ def validate_config(config: dict[str, Any]) -> tuple[bool, str | None]:
             if not all(isinstance(name, str) for name in starred):
                 return False, "apps.starred must contain only strings"
 
+    # Validate reporting section if present
+    if "reporting" in config:
+        reporting_config = config["reporting"]
+        if not isinstance(reporting_config, dict):
+            return False, "reporting must be an object"
+
+        allowed_reporting_keys = {"enabled"}
+        unknown_keys = set(reporting_config) - allowed_reporting_keys
+        if unknown_keys:
+            key_list = ", ".join(sorted(unknown_keys))
+            return False, f"reporting contains unknown key(s): {key_list}"
+
+        if "enabled" in reporting_config and not isinstance(
+            reporting_config["enabled"], bool
+        ):
+            return False, "reporting.enabled must be a boolean"
+
     return True, None
 
 
@@ -304,6 +327,12 @@ def update_config() -> tuple[Any, int]:
             if "apps" not in current_config:
                 current_config["apps"] = {}
             current_config["apps"].update(new_config["apps"])
+
+        # Deep merge reporting section
+        if "reporting" in new_config:
+            if "reporting" not in current_config:
+                current_config["reporting"] = {}
+            current_config["reporting"].update(new_config["reporting"])
 
         # Save updated config
         success = save_convey_config(current_config)
