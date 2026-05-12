@@ -6,7 +6,6 @@ import logging
 import math
 import re
 import secrets
-import sys
 import time
 from datetime import datetime
 from pathlib import Path
@@ -18,7 +17,6 @@ from solstone.convey.reasons import Reason
 
 DATE_RE = re.compile(r"\d{8}")
 _REQUEST_ID_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
-_LEGACY_ERROR_RESPONSE_SEEN: set[str] = set()
 _LOGGER = logging.getLogger("solstone.convey.utils")
 
 
@@ -249,20 +247,8 @@ def save_json(
         return False
 
 
-def _log_legacy_error_response_string_form() -> None:
-    frame = sys._getframe(2)
-    key = f"{frame.f_code.co_filename}:{frame.f_lineno}"
-    if key in _LEGACY_ERROR_RESPONSE_SEEN:
-        return
-    _LEGACY_ERROR_RESPONSE_SEEN.add(key)
-    _LOGGER.warning(
-        "legacy error_response string form at %s — migrate to Reason",
-        key,
-    )
-
-
 def error_response(
-    reason: Reason | str,
+    reason: Reason,
     status: int | None = None,
     *,
     detail: str | None = None,
@@ -272,29 +258,24 @@ def error_response(
     Provides consistent error response format across all API endpoints.
 
     Args:
-        reason: Reason constant, or legacy string message during migration
+        reason: Reason constant
         status: Optional HTTP status override
         detail: Optional implementation-specific context
 
     Returns:
         Tuple of (jsonify response, status_code) ready for Flask return
     """
-    if isinstance(reason, Reason):
-        response_status = status if status is not None else reason.status
-        return (
-            jsonify(
-                {
-                    "error": reason.message,
-                    "reason_code": reason.code,
-                    "detail": detail or "",
-                }
-            ),
-            response_status,
-        )
-
-    _log_legacy_error_response_string_form()
-    response_status = status if status is not None else 400
-    return jsonify({"error": reason}), response_status
+    response_status = status if status is not None else reason.status
+    return (
+        jsonify(
+            {
+                "error": reason.message,
+                "reason_code": reason.code,
+                "detail": detail or "",
+            }
+        ),
+        response_status,
+    )
 
 
 def error_response_with_reason(
