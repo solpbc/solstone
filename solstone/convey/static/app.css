@@ -1504,6 +1504,20 @@ body.menu-all .menu-bar {
   line-height: 1.4;
 }
 
+.chat-bar-status-action {
+  flex: 0 0 auto;
+  margin-left: 8px;
+  color: #666;
+  font-size: 13px;
+  line-height: 1.4;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.chat-bar-status-action:hover {
+  text-decoration: underline;
+}
+
 .chat-bar-sol-ping-dot {
   width: 8px;
   height: 8px;

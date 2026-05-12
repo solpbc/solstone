@@ -23,6 +23,15 @@ logger = logging.getLogger(__name__)
 
 
 SCENARIOS: list[dict[str, Any]] = [
+    {
+        "app": "chat",
+        "name": "bar-reasons",
+        "steps": [
+            {"do": "navigate", "path": "/static/tests/chat-bar-reasons.html"},
+            {"do": "wait", "ms": 500},
+            {"do": "assert_text", "text": "PASS chat bar reasons: 0 failure(s)"},
+        ],
+    },
     # smoke scenarios
     {
         "app": "sol",

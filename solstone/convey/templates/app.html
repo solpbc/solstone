@@ -11,6 +11,7 @@
   <script src="{{ url_for('root.static', filename='relative-time.js') }}"></script>
   <script src="{{ url_for('root.static', filename='sol_initiated_constants.js') }}"></script>
   <script src="{{ url_for('root.static', filename='convey_copy.js') }}"></script>
+  <script src="{{ url_for('root.static', filename='chat_reasons.js') }}"></script>
 
   <!-- Embed facets data for immediate client-side access -->
   <script>
@@ -213,13 +214,28 @@
     input.style.height = Math.min(120, input.scrollHeight) + 'px';
   }
 
-  function setStatus(text, title) {
+  function setStatus(text, title, action) {
     if (!statusText || !statusWrap) return;
     var label = String(text || '').trim();
     var tooltip = String(title || label).trim();
     statusText.textContent = label;
     statusText.title = tooltip;
     statusWrap.title = tooltip;
+    var actionEl = statusWrap.querySelector('.chat-bar-status-action');
+    if (action && action.label && action.href) {
+      if (!actionEl) {
+        actionEl = document.createElement('a');
+        actionEl.className = 'chat-bar-status-action';
+        actionEl.addEventListener('click', function(event) {
+          event.stopPropagation();
+        });
+        statusText.insertAdjacentElement('afterend', actionEl);
+      }
+      actionEl.textContent = action.label;
+      actionEl.href = action.href;
+    } else if (actionEl) {
+      actionEl.remove();
+    }
   }
 
   function setPendingState(active) {
@@ -851,7 +867,8 @@
     }
     if (eventName === 'chat_error') {
       if (solRequestState) return;
-      setStatus('chat had trouble — try again', 'chat had trouble — try again');
+      var renderedReason = window.renderChatReason(msg.reason, msg.provider || '');
+      setStatus(renderedReason.message, renderedReason.message, renderedReason.action);
     }
   }
 
