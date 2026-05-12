@@ -1876,15 +1876,32 @@ window.AppServices = {
 
         if (health.consecutiveFailures >= failuresBeforeFailing && !health.failing) {
           health.failing = true;
-          getMenuItem()?.classList.add('menu-item-bg-failing');
-          this.notifications.show({
-            app: 'system',
-            title: `${appName} background task failing`,
-            message,
-            dismissible: true,
-            autoDismiss: false
-          });
-        }
+	          getMenuItem()?.classList.add('menu-item-bg-failing');
+	          this.notifications.show({
+	            app: 'system',
+	            title: `${String(appName).toLowerCase()} background task`,
+	            message,
+	            dismissible: true,
+	            autoDismiss: false,
+	            buttons: [
+	              {
+	                label: 'Try now',
+	                onClick: () => runNow(),
+	                dismiss: false
+	              },
+	              {
+	                label: 'Disable',
+	                onClick: () => {
+	                  health.disabled = true;
+	                  if (health.intervalId) {
+	                    window.clearInterval(health.intervalId);
+	                    health.intervalId = null;
+	                  }
+	                }
+	              }
+	            ]
+	          });
+	        }
 
         throw error;
       }

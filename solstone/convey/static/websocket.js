@@ -8,6 +8,8 @@
  * Provides window.appEvents API for subscribing to events by tract.
  */
 (function(){
+  const DISCONNECT_FIRST_PHASE_MS = 5000;
+  const DISCONNECT_SECOND_PHASE_MS = 30000;
   const listeners = {};
   const parseErrorHandlers = new Set();
   const connectionStateHandlers = new Set();
@@ -20,6 +22,10 @@
   let connectionState = 'disconnected';
   let disconnectTimerId = null;
   let disconnectCardId = null;
+  let disconnectSecondPhaseTimerId = null;
+  let firstDisconnectAt = null;
+  let disconnectSecondPhase = false;
+  let reconnectAttempts = [];
 
   function getTractListeners(tract) {
     if (!listeners[tract]) {
@@ -178,7 +184,7 @@
     });
   }
 
-  function updateStatusIcon(state) {
+	  function updateStatusIcon(state) {
     if (!statusIcon) {
       statusIcon = document.querySelector('.facet-bar .status-icon');
     }
@@ -208,21 +214,70 @@
     if (previousState !== state) {
       notifyConnectionState();
     }
-    window.updateStatusLabel?.();
-  }
+	    window.updateStatusLabel?.();
+	  }
 
-  function connect() {
-    updateStatusIcon('connecting');
-    eventSource = new EventSource('/sse/events');
+	  function reconnectAttemptDetails() {
+	    if (!reconnectAttempts.length) return 'no reconnect attempts recorded yet.';
+	    return 'recent attempts: ' + reconnectAttempts
+	      .map(ts => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
+	      .join(', ');
+	  }
+
+	  function enterDisconnectSecondPhase() {
+	    if (
+	      disconnectSecondPhase
+	      || disconnectCardId === null
+	      || firstDisconnectAt === null
+	      || Date.now() - firstDisconnectAt < DISCONNECT_SECOND_PHASE_MS
+	    ) {
+	      return;
+	    }
+	    disconnectSecondPhase = true;
+	    window.AppServices?.notifications?.update(disconnectCardId, {
+	      title: 'connection lost',
+	      message: 'last reconnect attempt failed.',
+	      buttons: [
+	        {
+	          label: 'Reconnect now',
+	          onClick: () => connect(),
+	          dismiss: false
+	        },
+	        {
+	          label: 'Show details',
+	          onClick: (notification) => {
+	            window.AppServices?.notifications?.update(notification.id, {
+	              message: 'last reconnect attempt failed. ' + reconnectAttemptDetails()
+	            });
+	          },
+	          dismiss: false
+	        }
+	      ]
+	    });
+	  }
+
+	  function connect() {
+	    if (eventSource) {
+	      eventSource.close();
+	    }
+	    updateStatusIcon('connecting');
+	    eventSource = new EventSource('/sse/events');
 
     eventSource.onopen = () => {
       connectedAt = Date.now();
       updateStatusIcon('connected');
 
-      if (disconnectTimerId) {
-        clearTimeout(disconnectTimerId);
-        disconnectTimerId = null;
-      }
+	      if (disconnectTimerId) {
+	        clearTimeout(disconnectTimerId);
+	        disconnectTimerId = null;
+	      }
+	      if (disconnectSecondPhaseTimerId) {
+	        clearTimeout(disconnectSecondPhaseTimerId);
+	        disconnectSecondPhaseTimerId = null;
+	      }
+	      firstDisconnectAt = null;
+	      disconnectSecondPhase = false;
+	      reconnectAttempts = [];
 
       if (disconnectCardId !== null) {
         window.AppServices?.notifications?.dismiss(disconnectCardId);
@@ -242,28 +297,42 @@
       console.debug('[SSE] Connected to /sse/events');
     };
 
-    eventSource.onerror = err => {
-      connectedAt = null;
-      updateStatusIcon('disconnected');
+	    eventSource.onerror = err => {
+	      connectedAt = null;
+	      updateStatusIcon('disconnected');
+	      if (firstDisconnectAt === null) {
+	        firstDisconnectAt = Date.now();
+	        disconnectSecondPhase = false;
+	      }
+	      reconnectAttempts.push(Date.now());
+	      reconnectAttempts = reconnectAttempts.slice(-5);
 
-      if (!disconnectTimerId && disconnectCardId === null) {
-        disconnectTimerId = setTimeout(() => {
-          disconnectTimerId = null;
-          const id = window.AppServices?.notifications?.show({
+	      if (!disconnectTimerId && disconnectCardId === null) {
+	        disconnectTimerId = setTimeout(() => {
+	          disconnectTimerId = null;
+	          const id = window.AppServices?.notifications?.show({
             app: 'system',
             icon: '⚠️',
             title: 'connection lost',
             message: 'reconnecting — some features may be delayed',
             dismissible: false
           });
-          if (id != null) {
-            disconnectCardId = id;
-          }
-        }, 5000);
-      }
+	          if (id != null) {
+	            disconnectCardId = id;
+	          }
+	        }, DISCONNECT_FIRST_PHASE_MS);
+	      }
 
-      console.error('[SSE] Error:', err);
-    };
+	      if (!disconnectSecondPhaseTimerId) {
+	        disconnectSecondPhaseTimerId = setTimeout(() => {
+	          disconnectSecondPhaseTimerId = null;
+	          enterDisconnectSecondPhase();
+	        }, DISCONNECT_SECOND_PHASE_MS);
+	      }
+	      enterDisconnectSecondPhase();
+
+	      console.error('[SSE] Error:', err);
+	    };
 
     eventSource.onmessage = event => {
       lastMessageAt = Date.now();

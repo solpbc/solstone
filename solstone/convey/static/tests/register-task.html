@@ -78,7 +78,7 @@
     await settle(task.runNow());
     const menuItem = document.querySelector('.menu-item[data-app-name="support"]');
     assert('three failures add failing pip', menuItem.classList.contains('menu-item-bg-failing'));
-    assert('failing transition shows one notification', notifications.length === 1 && notifications[0].title === 'support background task failing');
+    assert('failing transition shows one notification', notifications.length === 1 && notifications[0].title === 'support background task');
 
     await task.runNow();
     const successHealth = task.getHealth();

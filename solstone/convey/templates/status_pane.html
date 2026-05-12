@@ -179,7 +179,7 @@
     updateBellState();
   }
 
-  function fetchSystemStatus() {
+	  function fetchSystemStatus() {
     fetch('/api/system/status')
       .then(r => r.ok ? r.json() : null)
       .catch(() => null)
@@ -189,25 +189,67 @@
         renderCaptureSection(data.capture);
         renderVersionSection(data.version);
         updateCompositeIcon();
-      });
-  }
+	      });
+	  }
 
-  function renderCaptureSection(capture) {
-    const section = document.getElementById('capture-status-section');
-    const text = document.getElementById('capture-status-text');
+	  function formatObserverLastReported(observers) {
+	    const seen = observers.filter(o => typeof o.last_seen === 'number');
+	    if (!seen.length) return '';
+	    const lastSeen = Math.max(...seen.map(o => o.last_seen));
+	    return relativeTime(Date.now() - lastSeen) + ' ago';
+	  }
+
+	  function restartObserverFromStatusPane(button, resultEl) {
+	    button.disabled = true;
+	    button.textContent = 'reconnecting...';
+	    resultEl.textContent = '';
+	    // Observer rows are per registration key; supervisor restarts the shared sense worker.
+	    window.apiJson('/app/health/api/restart-observer', {
+	      method: 'POST',
+	      headers: { 'Content-Type': 'application/json' },
+	      body: JSON.stringify({ service: 'sense' })
+	    })
+	      .then(() => {
+	        button.textContent = window.CONVEY_COPY?.ACTION_RECONNECT || 'Reconnect';
+	        resultEl.style.color = '#6b7280';
+	        resultEl.textContent = 'reconnect requested';
+	      })
+	      .catch(err => {
+	        button.disabled = false;
+	        button.textContent = window.CONVEY_COPY?.ACTION_RECONNECT || 'Reconnect';
+	        resultEl.style.color = '#ef4444';
+	        resultEl.textContent = err?.serverMessage || err?.reasonCode || "I couldn't reconnect.";
+	      });
+	  }
+
+	  function renderCaptureSection(capture) {
+	    const section = document.getElementById('capture-status-section');
+	    const text = document.getElementById('capture-status-text');
     if (!section || !text) return;
 
     section.style.display = '';
     const status = capture?.status;
     const displayStatus = status === 'no_observers' ? 'no observers' : (status || 'unknown');
-    if (status === 'active') {
-      text.style.color = '#10b981';
-    } else if (status === 'stale') {
-      const names = (capture.observers || []).filter(o => o.status === 'stale').map(o => o.name).join(', ');
-      text.textContent = 'observer ' + displayStatus + (names ? ' — ' + names : '');
-      text.style.color = '#f59e0b';
-      return;
-    } else if (status === 'offline') {
+	    if (status === 'active') {
+	      text.style.color = '#10b981';
+	    } else if (status === 'stale') {
+	      const stale = (capture.observers || []).filter(o => o.status === 'stale');
+	      const names = stale.map(o => o.name).filter(Boolean).join(', ');
+	      const label = stale.length === 1 ? 'observer' : 'observers';
+	      const lastReported = formatObserverLastReported(stale);
+	      text.textContent = `${label} ${names || 'observer'} last reported ${lastReported || 'recently'}`;
+	      text.style.color = '#f59e0b';
+	      const button = document.createElement('button');
+	      button.type = 'button';
+	      button.textContent = window.CONVEY_COPY?.ACTION_RECONNECT || 'Reconnect';
+	      button.style.cssText = 'margin-left: 0.5rem; font-size: 12px; padding: 0.15rem 0.45rem; border: 1px solid #d1d5db; border-radius: 4px; background: #fff; cursor: pointer;';
+	      const result = document.createElement('span');
+	      result.style.cssText = 'margin-left: 0.4rem; font-size: 12px;';
+	      button.addEventListener('click', () => restartObserverFromStatusPane(button, result));
+	      text.appendChild(button);
+	      text.appendChild(result);
+	      return;
+	    } else if (status === 'offline') {
       text.style.color = '#ef4444';
     } else {
       text.style.color = '#9ca3af';
