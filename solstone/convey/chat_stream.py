@@ -43,6 +43,7 @@ _VALID_KINDS = {
     "talent_finished": ("use_id", "name", "summary"),
     "talent_errored": ("use_id", "name", "reason"),
     "reflection_ready": ("day", "url"),
+    # chat_error also accepts optional `provider` (provider slug or ""); not required by design.
     "chat_error": ("reason", "use_id"),
     "sol_chat_request": (
         "request_id",

@@ -62,6 +62,7 @@ from .cli import (
 from .shared import (
     GenerateResult,
     JSONEventCallback,
+    classify_provider_error,
     safe_raw,
 )
 
@@ -300,6 +301,7 @@ async def run_cogitate(
             cwd=Path(cwd_value) if cwd_value else None,
             env=build_cogitate_env("anthropic"),
         )
+        runner.provider = "anthropic"
 
         result = await runner.run()
 
@@ -324,6 +326,8 @@ async def run_cogitate(
             {
                 "event": "error",
                 "error": str(exc),
+                "reason_code": classify_provider_error(exc, "anthropic"),
+                "provider": "anthropic",
                 "trace": traceback.format_exc(),
                 "ts": now_ms(),
             }

@@ -29,7 +29,7 @@ from typing import Any, Callable, Optional
 
 from solstone.think.cluster import cluster, cluster_period, cluster_span
 from solstone.think.providers.cli import QuotaExhaustedError
-from solstone.think.providers.shared import Event
+from solstone.think.providers.shared import Event, classify_provider_error
 from solstone.think.talent import (
     get_output_path,
     get_talent_configs,
@@ -890,6 +890,9 @@ async def _execute_with_tools(
                 {
                     "event": "error",
                     "reason": "quota_exhausted",
+                    # reason_code is the chat-side carrier; reason is the cortex/talent fallback signal.
+                    "reason_code": "provider_quota_exceeded",
+                    "provider": provider,
                     "error": str(exc),
                     "reset_at_ms": reset_at_ms,
                     "terminal": False,
@@ -1308,12 +1311,14 @@ async def main_async() -> None:
 
     try:
         app_logger.info("Processing NDJSON input from stdin")
+        config: dict[str, Any] | None = None
         for line in sys.stdin:
             line = line.strip()
             if not line:
                 continue
 
             try:
+                config = None
                 request = json.loads(line)
                 config = prepare_config(request)
 
@@ -1337,9 +1342,12 @@ async def main_async() -> None:
                     continue
                 from solstone.think.models import IncompleteJSONError
 
+                provider = str(config.get("provider") or "") if config else ""
                 event = {
                     "event": "error",
                     "error": str(e),
+                    "reason_code": classify_provider_error(e, provider),
+                    "provider": provider,
                     "trace": traceback.format_exc(),
                     "ts": now_ms(),
                 }

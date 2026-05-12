@@ -55,6 +55,7 @@ from .shared import (
     GenerateResult,
     JSONEventCallback,
     ThinkingEvent,
+    classify_provider_error,
     safe_raw,
 )
 
@@ -812,6 +813,7 @@ async def run_cogitate(
             env=build_cogitate_env("google"),
             read_call_budget=int(config.get("read_call_budget", 200)),
         )
+        runner.provider = "google"
 
         try:
             result = await runner.run()
@@ -838,6 +840,8 @@ async def run_cogitate(
             {
                 "event": "error",
                 "error": str(exc),
+                "reason_code": classify_provider_error(exc, "google"),
+                "provider": "google",
                 "trace": traceback.format_exc(),
             }
         )

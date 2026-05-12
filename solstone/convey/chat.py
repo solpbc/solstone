@@ -48,8 +48,6 @@ MAX_LOOP_RETRIES = 3
 _CHAT_WATCHDOG_SECONDS = 180
 _RESERVED_USE_ID_CAP = 256
 MAX_ACTIVE_REASON = "max active — waiting for one to finish"
-CHAT_TROUBLE_REASON = "chat had trouble — try again"
-CHAT_WATCHDOG_REASON = "chat took too long — try again"
 
 _state_lock = threading.Lock()
 _runtime_lock = threading.Lock()
@@ -111,7 +109,7 @@ def post_chat() -> Any:
             queued = True
 
     if start_info is not None and not _spawn_chat_generate(start_info):
-        _handle_chat_failure(response_use_id, CHAT_TROUBLE_REASON)
+        _handle_chat_failure(response_use_id, "unknown")
         return error_response(
             AGENT_UNAVAILABLE,
             detail="Failed to connect to agent service",
@@ -301,6 +299,7 @@ def _on_cortex_finish(message: dict[str, Any]) -> None:
             try:
                 parsed = _parse_chat_result(message.get("result"))
             except ValueError:
+                provider = str(message.get("provider") or "")
                 if int(_current_chat_state.get("retry_count", 0) or 0) < 1:
                     retry_use_id = _reserve_use_id_locked()
                     _set_current_raw_use_locked(logical_use_id, retry_use_id)
@@ -311,12 +310,13 @@ def _on_cortex_finish(message: dict[str, Any]) -> None:
                 else:
                     append_chat_event(
                         "chat_error",
-                        reason=CHAT_TROUBLE_REASON,
+                        reason="provider_response_invalid",
                         use_id=logical_use_id,
+                        provider=provider,
                     )
                     error_payload = {
                         "use_id": logical_use_id,
-                        "reason": CHAT_TROUBLE_REASON,
+                        "reason": "provider_response_invalid",
                     }
                     next_info = _clear_current_locked()
             else:
@@ -352,14 +352,16 @@ def _on_cortex_finish(message: dict[str, Any]) -> None:
                         _set_current_raw_use_locked(logical_use_id, synthetic_use_id)
                         next_info = _build_spawn_info_locked(logical_use_id)
                     elif _talent_loop_count_locked() >= MAX_LOOP_RETRIES:
+                        provider = str(message.get("provider") or "")
                         append_chat_event(
                             "chat_error",
-                            reason=CHAT_TROUBLE_REASON,
+                            reason="provider_response_invalid",
                             use_id=logical_use_id,
+                            provider=provider,
                         )
                         error_payload = {
                             "use_id": logical_use_id,
-                            "reason": CHAT_TROUBLE_REASON,
+                            "reason": "provider_response_invalid",
                         }
                         next_info = _clear_current_locked()
                     else:
@@ -388,14 +390,16 @@ def _on_cortex_finish(message: dict[str, Any]) -> None:
                         }
                 else:
                     if not message_text:
+                        provider = str(message.get("provider") or "")
                         append_chat_event(
                             "chat_error",
-                            reason=CHAT_TROUBLE_REASON,
+                            reason="provider_response_invalid",
                             use_id=logical_use_id,
+                            provider=provider,
                         )
                         error_payload = {
                             "use_id": logical_use_id,
-                            "reason": CHAT_TROUBLE_REASON,
+                            "reason": "provider_response_invalid",
                         }
                     else:
                         finish_payload = {
@@ -448,16 +452,19 @@ def _on_cortex_error(message: dict[str, Any]) -> None:
             "raw_use_id"
         ):
             logical_use_id = str(_current_chat_use_id)
+            reason_code = str(message.get("reason_code") or "unknown")
+            provider = str(message.get("provider") or "")
             _cancel_watchdog_locked(use_id)
             append_chat_event(
                 "chat_error",
-                reason=CHAT_TROUBLE_REASON,
+                reason=reason_code,
                 use_id=logical_use_id,
+                provider=provider,
             )
-            error_payload = {"use_id": logical_use_id, "reason": CHAT_TROUBLE_REASON}
+            error_payload = {"use_id": logical_use_id, "reason": reason_code}
             next_info = _clear_current_locked()
         elif use_id in _active_talents:
-            reason = str(message.get("error") or CHAT_TROUBLE_REASON)
+            reason = str(message.get("error") or "unknown")
             next_info = _handle_talent_terminal_locked(
                 use_id,
                 "talent_errored",
@@ -525,7 +532,7 @@ def _run_next_action(action: dict[str, Any] | None) -> None:
         return
     if action.get("kind") == "chat":
         if not _spawn_chat_generate(action):
-            _handle_chat_failure(action["logical_use_id"], CHAT_TROUBLE_REASON)
+            _handle_chat_failure(action["logical_use_id"], "unknown")
         return
     if action.get("kind") == "talent":
         if not _spawn_talent(action):
@@ -605,14 +612,14 @@ def _handle_talent_spawn_failure(action: dict[str, Any]) -> None:
             "talent_errored",
             use_id=action["use_id"],
             name=action["target"],
-            reason=CHAT_TROUBLE_REASON,
+            reason="unknown",
         )
         if _current_chat_use_id == action["logical_use_id"] and _current_chat_state:
             _current_chat_state["trigger"] = {
                 "type": "talent_errored",
                 "use_id": action["use_id"],
                 "name": action["target"],
-                "reason": CHAT_TROUBLE_REASON,
+                "reason": "unknown",
             }
             _set_current_raw_use_locked(
                 str(action["logical_use_id"]),
@@ -626,7 +633,9 @@ def _handle_talent_spawn_failure(action: dict[str, Any]) -> None:
 def _handle_chat_failure(logical_use_id: str, reason: str) -> None:
     next_info: dict[str, Any] | None = None
     with _state_lock:
-        append_chat_event("chat_error", reason=reason, use_id=logical_use_id)
+        append_chat_event(
+            "chat_error", reason=reason, use_id=logical_use_id, provider=""
+        )
         if _current_chat_use_id == logical_use_id:
             if _current_chat_state is not None:
                 _cancel_watchdog_locked(
@@ -710,7 +719,7 @@ def _recover_chat_if_needed() -> None:
         start_info = _activate_current_locked(logical_use_id, trigger, location)
 
     if start_info is not None and not _spawn_chat_generate(start_info):
-        _handle_chat_failure(start_info["logical_use_id"], CHAT_TROUBLE_REASON)
+        _handle_chat_failure(start_info["logical_use_id"], "unknown")
 
 
 def _activate_current_locked(
@@ -837,8 +846,9 @@ def _on_watchdog_timeout(use_id: str, kind: str, logical_use_id: str) -> None:
             )
             append_chat_event(
                 "chat_error",
-                reason=CHAT_WATCHDOG_REASON,
+                reason="chat_timeout",
                 use_id=logical_use_id,
+                provider="",
             )
             next_info = _clear_current_locked()
             should_emit = True
@@ -859,13 +869,14 @@ def _on_watchdog_timeout(use_id: str, kind: str, logical_use_id: str) -> None:
                 "talent_errored",
                 use_id=use_id,
                 name=str(talent_state["target"]),
-                reason=CHAT_WATCHDOG_REASON,
+                reason="talent took too long",
             )
             _active_talents.pop(use_id, None)
             append_chat_event(
                 "chat_error",
-                reason=CHAT_WATCHDOG_REASON,
+                reason="chat_timeout",
                 use_id=logical_use_id,
+                provider="",
             )
             if (
                 _current_chat_use_id == logical_use_id
@@ -878,7 +889,7 @@ def _on_watchdog_timeout(use_id: str, kind: str, logical_use_id: str) -> None:
             return
 
     if should_emit:
-        _emit_error(logical_use_id, CHAT_WATCHDOG_REASON)
+        _emit_error(logical_use_id, "chat_timeout")
         _run_next_action(next_info)
 
 

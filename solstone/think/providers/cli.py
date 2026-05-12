@@ -239,6 +239,7 @@ class CLIRunner:
         aggregator: ThinkingAggregator,
         cwd: Path | None = None,
         env: dict[str, str] | None = None,
+        provider: str = "",
         timeout: int = 600,
         first_event_timeout: int = 90,
         read_call_budget: int | None = None,
@@ -250,6 +251,7 @@ class CLIRunner:
         self.aggregator = aggregator
         self.cwd = cwd or _PROJECT_ROOT
         self.env = env
+        self.provider = provider
         self.timeout = timeout
         self.first_event_timeout = first_event_timeout
         self._timed_out_waiting_for_first_event = False
@@ -373,6 +375,8 @@ class CLIRunner:
                     {
                         "event": "error",
                         "error": error_message,
+                        "reason_code": "chat_timeout",
+                        "provider": self.provider,
                         "ts": now_ms(),
                     }
                 )

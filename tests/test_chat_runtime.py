@@ -238,12 +238,12 @@ def test_exec_retrigger_loop_stops_after_three_without_owner_reset(
         }
     )
 
-    assert emitted_errors == [("1713621999999", "chat had trouble — try again")]
+    assert emitted_errors == [("1713621999999", "provider_response_invalid")]
     assert actions == [None]
     errors = [
         e for e in read_chat_events(chat._today_day()) if e["kind"] == "chat_error"
     ]
-    assert errors[-1]["reason"] == "chat had trouble — try again"
+    assert errors[-1]["reason"] == "provider_response_invalid"
 
 
 def test_talent_loop_count_skips_chat_error_between_retry_hops(tmp_path, monkeypatch):
@@ -783,7 +783,7 @@ def test_chat_generate_schema_violation_retries_once_then_chat_errors(
 
     chat._on_cortex_finish({"use_id": retry_use_id, "result": "still not json"})
 
-    assert emitted_errors == [("1713625000000", "chat had trouble — try again")]
+    assert emitted_errors == [("1713625000000", "provider_response_invalid")]
     errors = [
         e for e in read_chat_events(chat._today_day()) if e["kind"] == "chat_error"
     ]
@@ -1182,10 +1182,10 @@ def test_stalled_run_still_times_out_after_inactivity(tmp_path, monkeypatch):
         for event in read_chat_events(chat._today_day())
         if event["kind"] == "chat_error"
     ]
-    assert emitted_errors == [("1713627950000", "chat took too long — try again")]
+    assert emitted_errors == [("1713627950000", "chat_timeout")]
     assert run_actions == [None]
     assert errors[-1]["use_id"] == "1713627950000"
-    assert errors[-1]["reason"] == "chat took too long — try again"
+    assert errors[-1]["reason"] == "chat_timeout"
     with chat._state_lock:
         assert chat._current_chat_use_id is None
         assert chat._current_chat_state is None
@@ -1227,10 +1227,10 @@ def test_chat_watchdog_times_out_current_chat_generate(tmp_path, monkeypatch):
         for event in read_chat_events(chat._today_day())
         if event["kind"] == "chat_error"
     ]
-    assert emitted_errors == [("1713628000000", "chat took too long — try again")]
+    assert emitted_errors == [("1713628000000", "chat_timeout")]
     assert run_actions == [None]
     assert errors[-1]["use_id"] == "1713628000000"
-    assert errors[-1]["reason"] == "chat took too long — try again"
+    assert errors[-1]["reason"] == "chat_timeout"
     with chat._state_lock:
         assert chat._current_chat_use_id is None
         assert chat._current_chat_state is None
@@ -1294,9 +1294,9 @@ def test_chat_watchdog_times_out_active_talent_and_clears_blocked_chat(
         for event in read_chat_events(chat._today_day())
         if event["kind"] == "chat_error"
     ]
-    assert emitted_errors == [("1713629000000", "chat took too long — try again")]
+    assert emitted_errors == [("1713629000000", "chat_timeout")]
     assert errors[-1]["use_id"] == "1713629000000"
-    assert errors[-1]["reason"] == "chat took too long — try again"
+    assert errors[-1]["reason"] == "chat_timeout"
     with chat._state_lock:
         assert "1713629000001" not in chat._active_talents
         assert chat._current_chat_use_id is None
@@ -1374,9 +1374,9 @@ def test_chat_watchdog_marks_timed_out_talent_result_as_errored(tmp_path, monkey
         if event["kind"] == "talent_errored"
     ]
     assert parent_errors[-1]["use_id"] == logical_use_id
-    assert parent_errors[-1]["reason"] == "chat took too long — try again"
+    assert parent_errors[-1]["reason"] == "chat_timeout"
     assert talent_errors[-1]["use_id"] == talent_use_id
-    assert talent_errors[-1]["reason"] == "chat took too long — try again"
+    assert talent_errors[-1]["reason"] == "talent took too long"
 
 
 def test_cortex_finish_logs_warning_for_unrouteable_use_id(

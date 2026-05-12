@@ -12,6 +12,7 @@ This module contains:
 
 from __future__ import annotations
 
+import importlib
 import json
 from typing import Any, Callable, Literal, Optional, Union
 
@@ -133,6 +134,199 @@ Event = Union[
 
 
 # ---------------------------------------------------------------------------
+# Provider Error Classification
+# ---------------------------------------------------------------------------
+
+_CLI_UNAVAILABLE_PATTERNS = ("not installed", "command not found", "missing")
+_CLI_TIMEOUT_PATTERNS = ("timed out", "timeout")
+_CLI_AUTH_PATTERNS = (
+    "authentication",
+    "unauthorized",
+    " 401",
+    " 403",
+    "401 ",
+    "403 ",
+    "401:",
+    "403:",
+    "permission denied",
+    "forbidden",
+    "invalid api key",
+)
+
+
+def _import_exception_type(module_name: str, name: str) -> type[BaseException] | None:
+    try:
+        module = importlib.import_module(module_name)
+    except ImportError:
+        return None
+    value = getattr(module, name, None)
+    if isinstance(value, type) and issubclass(value, BaseException):
+        return value
+    return None
+
+
+_ANTHROPIC_API_STATUS_ERROR = _import_exception_type("anthropic", "APIStatusError")
+_ANTHROPIC_API_CONNECTION_ERROR = _import_exception_type(
+    "anthropic", "APIConnectionError"
+)
+_ANTHROPIC_API_TIMEOUT_ERROR = _import_exception_type("anthropic", "APITimeoutError")
+_ANTHROPIC_AUTHENTICATION_ERROR = _import_exception_type(
+    "anthropic", "AuthenticationError"
+)
+_ANTHROPIC_PERMISSION_DENIED_ERROR = _import_exception_type(
+    "anthropic", "PermissionDeniedError"
+)
+_ANTHROPIC_RATE_LIMIT_ERROR = _import_exception_type("anthropic", "RateLimitError")
+
+_OPENAI_API_STATUS_ERROR = _import_exception_type("openai", "APIStatusError")
+_OPENAI_API_CONNECTION_ERROR = _import_exception_type("openai", "APIConnectionError")
+_OPENAI_API_TIMEOUT_ERROR = _import_exception_type("openai", "APITimeoutError")
+_OPENAI_AUTHENTICATION_ERROR = _import_exception_type("openai", "AuthenticationError")
+_OPENAI_PERMISSION_DENIED_ERROR = _import_exception_type(
+    "openai", "PermissionDeniedError"
+)
+_OPENAI_RATE_LIMIT_ERROR = _import_exception_type("openai", "RateLimitError")
+_OPENAI_INTERNAL_SERVER_ERROR = _import_exception_type("openai", "InternalServerError")
+
+_GOOGLE_CLIENT_ERROR = _import_exception_type("google.genai.errors", "ClientError")
+_GOOGLE_SERVER_ERROR = _import_exception_type("google.genai.errors", "ServerError")
+_GOOGLE_UNKNOWN_RESPONSE_ERROR = _import_exception_type(
+    "google.genai.errors", "UnknownApiResponseError"
+)
+
+_HTTPX_HTTP_STATUS_ERROR = _import_exception_type("httpx", "HTTPStatusError")
+_HTTPX_NETWORK_ERROR = _import_exception_type("httpx", "NetworkError")
+_HTTPX_REQUEST_ERROR = _import_exception_type("httpx", "RequestError")
+_HTTPX_TIMEOUT_EXCEPTION = _import_exception_type("httpx", "TimeoutException")
+
+
+def _isinstance(exc: BaseException, cls: type[BaseException] | None) -> bool:
+    return cls is not None and isinstance(exc, cls)
+
+
+def _status_code(exc: BaseException) -> int | None:
+    for attr in ("status_code", "code"):
+        value = getattr(exc, attr, None)
+        if isinstance(value, int):
+            return value
+    response = getattr(exc, "response", None)
+    value = getattr(response, "status_code", None)
+    return value if isinstance(value, int) else None
+
+
+def _status_text(exc: BaseException) -> str:
+    return str(getattr(exc, "status", "") or "").upper()
+
+
+def _contains_any(text: str, patterns: tuple[str, ...]) -> bool:
+    return any(pattern in text for pattern in patterns)
+
+
+def classify_provider_error(exc: BaseException, provider: str) -> str:
+    """Return a chat reason code for a provider exception."""
+    try:
+        exc_name = type(exc).__name__
+        exc_name_lower = exc_name.lower()
+        message_lower = str(exc).lower()
+
+        if exc_name == "QuotaExhaustedError":
+            return "provider_quota_exceeded"
+
+        if isinstance(exc, ValueError) and "no response from model" in message_lower:
+            return "provider_response_invalid"
+
+        if _isinstance(exc, _ANTHROPIC_AUTHENTICATION_ERROR) or _isinstance(
+            exc, _ANTHROPIC_PERMISSION_DENIED_ERROR
+        ):
+            return "provider_key_invalid"
+        if _isinstance(exc, _OPENAI_AUTHENTICATION_ERROR) or _isinstance(
+            exc, _OPENAI_PERMISSION_DENIED_ERROR
+        ):
+            return "provider_key_invalid"
+        if _isinstance(exc, _GOOGLE_CLIENT_ERROR) and _status_code(exc) in (401, 403):
+            return "provider_key_invalid"
+
+        if _isinstance(exc, _ANTHROPIC_RATE_LIMIT_ERROR) or _isinstance(
+            exc, _OPENAI_RATE_LIMIT_ERROR
+        ):
+            return "provider_quota_exceeded"
+        if _isinstance(exc, _GOOGLE_CLIENT_ERROR) and (
+            _status_code(exc) == 429 or _status_text(exc) == "RESOURCE_EXHAUSTED"
+        ):
+            return "provider_quota_exceeded"
+
+        if _isinstance(exc, _ANTHROPIC_API_TIMEOUT_ERROR) or _isinstance(
+            exc, _OPENAI_API_TIMEOUT_ERROR
+        ):
+            return "chat_timeout"
+        if _isinstance(exc, _HTTPX_TIMEOUT_EXCEPTION):
+            return "chat_timeout"
+
+        if _isinstance(exc, _ANTHROPIC_API_CONNECTION_ERROR) or _isinstance(
+            exc, _OPENAI_API_CONNECTION_ERROR
+        ):
+            return "network_unreachable"
+        if _isinstance(exc, _HTTPX_NETWORK_ERROR) or _isinstance(
+            exc, _HTTPX_REQUEST_ERROR
+        ):
+            return "network_unreachable"
+        if isinstance(exc, ConnectionError):
+            return "network_unreachable"
+
+        if _isinstance(exc, _OPENAI_INTERNAL_SERVER_ERROR) or _isinstance(
+            exc, _GOOGLE_SERVER_ERROR
+        ):
+            return "provider_unavailable"
+        if (
+            _isinstance(exc, _ANTHROPIC_API_STATUS_ERROR)
+            or _isinstance(exc, _OPENAI_API_STATUS_ERROR)
+            or _isinstance(exc, _HTTPX_HTTP_STATUS_ERROR)
+        ) and (_status_code(exc) or 0) >= 500:
+            return "provider_unavailable"
+
+        if _isinstance(exc, _GOOGLE_UNKNOWN_RESPONSE_ERROR):
+            return "provider_response_invalid"
+
+        if isinstance(exc, RuntimeError):
+            if _contains_any(message_lower, _CLI_UNAVAILABLE_PATTERNS):
+                return "provider_unavailable"
+            if _contains_any(message_lower, _CLI_TIMEOUT_PATTERNS):
+                return "chat_timeout"
+            if _contains_any(message_lower, _CLI_AUTH_PATTERNS):
+                return "provider_key_invalid"
+            return "unknown"
+
+        if (
+            "authenticationerror" in exc_name_lower
+            or "permissiondeniederror" in exc_name_lower
+            or "unauthorized" in exc_name_lower
+            or "forbidden" in exc_name_lower
+        ):
+            return "provider_key_invalid"
+        if (
+            "ratelimit" in exc_name_lower
+            or "toomanyrequests" in exc_name_lower
+            or "resourceexhausted" in exc_name_lower
+        ):
+            return "provider_quota_exceeded"
+        if "timeout" in exc_name_lower:
+            return "chat_timeout"
+        if "connection" in exc_name_lower or "network" in exc_name_lower:
+            return "network_unreachable"
+        if (
+            "responsevalidation" in exc_name_lower
+            or "unknownapiresponse" in exc_name_lower
+        ):
+            return "provider_response_invalid"
+        if "internalservererror" in exc_name_lower or "servererror" in exc_name_lower:
+            return "provider_unavailable"
+
+        return "unknown"
+    except Exception:
+        return "unknown"
+
+
+# ---------------------------------------------------------------------------
 # Usage Schema
 # ---------------------------------------------------------------------------
 
@@ -242,5 +436,6 @@ __all__ = [
     "JSONEventCallback",
     "ThinkingEvent",
     "USAGE_KEYS",
+    "classify_provider_error",
     "safe_raw",
 ]
