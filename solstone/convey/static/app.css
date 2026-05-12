@@ -2121,6 +2121,77 @@ a.notification-card:active {
   position: relative;
 }
 
+.report-error-modal .modal-content {
+  max-width: 560px;
+}
+
+.report-error-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.report-error-form label {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--text, #222);
+  font-size: 0.9rem;
+}
+
+.report-error-form input[type="text"],
+.report-error-form textarea,
+.report-error-form select,
+.report-error-fallback-report {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--facet-border, #e5e0db);
+  border-radius: 6px;
+  font: inherit;
+}
+
+.report-error-form textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.report-error-checkbox {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.report-error-diagnostic {
+  max-height: 240px;
+  overflow-y: auto;
+  font-family: 'SF Mono', 'Fira Code', 'Fira Mono', 'Roboto Mono', 'Consolas', monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+
+.report-error-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.report-error-fallback h2 {
+  color: var(--color-warning, #f59e0b);
+}
+
+.report-error-fallback-report {
+  min-height: 220px;
+  resize: vertical;
+  font-family: 'SF Mono', 'Fira Code', 'Fira Mono', 'Roboto Mono', 'Consolas', monospace;
+  font-size: 12px;
+}
+
+.report-error-failure-meta {
+  color: var(--muted, #666);
+  font-size: 0.85rem;
+}
+
 .close {
   position: absolute;
   top: 10px;

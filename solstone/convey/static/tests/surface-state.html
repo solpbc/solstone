@@ -19,6 +19,12 @@
   window.facetsData = [];
   window.selectedFacet = null;
   window.appFacetCounts = {};
+  window.CONVEY_COPY = {
+    RELOAD_HINT: 'reload to try again.',
+    REPORT_DEFAULT_SUBJECT: 'convey error',
+    REPORT_BUTTON_LABEL: 'Report this'
+  };
+  window.CONVEY_SETTINGS = { reportingEnabled: true };
   window.marked = { parse(value) { return value; } };
   window.DOMPurify = { sanitize(value) { return value; } };
 </script>
@@ -49,6 +55,7 @@
     const defaults = parse(window.SurfaceState.error());
     assert('error uses default heading', defaults.querySelector('.surface-state-heading').textContent === "Couldn't load this section");
     assert('error uses default desc', defaults.querySelector('.surface-state-desc').textContent === 'reload to try again.');
+    assert('error defaults to reportable button', !!defaults.querySelector('.surface-state-report'));
 
     const withServer = window.SurfaceState.error({ serverMessage: 'Bad <payload>' });
     assert('error escapes server message', withServer.includes('&lt;payload&gt;'));
@@ -108,7 +115,15 @@
     detail.remove();
 
     const reportable = parse(window.SurfaceState.error({ reportable: true }));
-    assert('reportable button renders pending no-op marker', reportable.querySelector('.surface-state-report').dataset.noOp === 'reportable-pending');
+    const reportButton = reportable.querySelector('.surface-state-report');
+    assert('reportable button renders report key', !!reportButton.getAttribute('data-report-key'));
+    assert('reportable button omits no-op marker', !reportButton.hasAttribute('data-no-op'));
+
+    const previousSettings = window.CONVEY_SETTINGS;
+    window.CONVEY_SETTINGS = { reportingEnabled: false };
+    const gated = parse(window.SurfaceState.error({ reportable: true }));
+    assert('reporting setting suppresses button', !gated.querySelector('.surface-state-report'));
+    window.CONVEY_SETTINGS = previousSettings;
 
     window.SurfaceState.replaceLoading('first-paint', window.SurfaceState.error({ serverMessage: 'first paint' }));
     const firstPaint = document.getElementById('first-paint');

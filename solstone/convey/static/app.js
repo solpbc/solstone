@@ -1525,6 +1525,46 @@
  * Examples: SurfaceState.loading({ text: 'Loading…' }), SurfaceState.empty({ icon: '🔍', heading: 'No results' }), SurfaceState.error({ heading: 'Request failed', retry: true }).
  * Load order: call only after DOMContentLoaded or from later event/callback code.
  */
+function copyToClipboard(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    return navigator.clipboard.writeText(text);
+  }
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand('copy');
+  document.body.removeChild(textarea);
+  return Promise.resolve();
+}
+
+window.convey = window.convey || {};
+window.convey.copyToClipboard = copyToClipboard;
+
+const REPORT_KEY_CAP = 100;
+const reportContexts = new Map();
+let reportKeyCounter = 0;
+
+function reportingEnabled() {
+  return !(window.CONVEY_SETTINGS && window.CONVEY_SETTINGS.reportingEnabled === false);
+}
+
+function captureReportContext({ heading, apiError, customDetail }) {
+  const key = `rk-${reportKeyCounter}`;
+  reportKeyCounter += 1;
+  if (reportContexts.size >= REPORT_KEY_CAP) {
+    reportContexts.delete(reportContexts.keys().next().value);
+  }
+  reportContexts.set(key, {
+    heading,
+    apiError: apiError || null,
+    customDetail: customDetail || ''
+  });
+  return key;
+}
+
 window.SurfaceState = (() => {
   const HEADING_LEVELS = new Set(['h1', 'h2', 'h3', 'h4', 'h5', 'h6']);
   const ERROR_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 21 19H3z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>';
@@ -1547,21 +1587,6 @@ window.SurfaceState = (() => {
     return value !== undefined && value !== null && value !== '';
   }
 
-  function copyToClipboard(text) {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      return navigator.clipboard.writeText(text);
-    }
-    const textarea = document.createElement('textarea');
-    textarea.value = text;
-    textarea.style.position = 'fixed';
-    textarea.style.opacity = '0';
-    document.body.appendChild(textarea);
-    textarea.select();
-    document.execCommand('copy');
-    document.body.removeChild(textarea);
-    return Promise.resolve();
-  }
-
   function formatDetailTimestamp(timestamp) {
     if (!hasValue(timestamp)) {
       return '';
@@ -1573,7 +1598,7 @@ window.SurfaceState = (() => {
     return date.toLocaleString();
   }
 
-  function renderErrorActions({ retry, retryLabel, secondary, reportable }) {
+  function renderErrorActions({ retry, retryLabel, secondary, reportable, heading, apiError }) {
     const parts = [];
     if (retry) {
       parts.push(`<button type="button" class="surface-state-retry">${escapeHtml(retryLabel)}</button>`);
@@ -1585,8 +1610,10 @@ window.SurfaceState = (() => {
         parts.push(`<button type="button" class="surface-state-secondary">${escapeHtml(secondary.label)}</button>`);
       }
     }
-    if (reportable) {
-      parts.push('<button type="button" class="surface-state-report" data-no-op="reportable-pending">Report this</button>');
+    if (reportable && reportingEnabled()) {
+      const reportKey = captureReportContext({ heading, apiError, customDetail: '' });
+      const label = window.CONVEY_COPY.REPORT_BUTTON_LABEL;
+      parts.push(`<button type="button" class="surface-state-report" data-report-key="${escapeHtml(reportKey)}">${escapeHtml(label)}</button>`);
     }
     return parts.length ? `<div class="surface-state-action-row">${parts.join('')}</div>` : '';
   }
@@ -1654,6 +1681,30 @@ window.SurfaceState = (() => {
     });
   });
 
+  document.addEventListener('click', event => {
+    const target = event.target instanceof Element ? event.target : null;
+    const trigger = target ? target.closest('.surface-state-report') : null;
+    if (!trigger) {
+      return;
+    }
+    const key = trigger.getAttribute('data-report-key') || '';
+    const context = reportContexts.get(key) || {
+      heading: window.CONVEY_COPY.REPORT_DEFAULT_SUBJECT,
+      apiError: null,
+      customDetail: ''
+    };
+    if (window.convey && typeof window.convey.reportError === 'function') {
+      window.convey.reportError({
+        source: 'auto',
+        heading: context.heading,
+        apiError: context.apiError,
+        customDetail: context.customDetail
+      });
+    } else if (window.logError) {
+      window.logError(new Error('report-error handler unavailable'), { context: 'surface-state report failed' });
+    }
+  });
+
   function render(kind, {
     icon = '',
     heading = '',
@@ -1703,7 +1754,7 @@ window.SurfaceState = (() => {
       retryLabel = 'Try again',
       secondary = null,
       detail = null,
-      reportable = false,
+      reportable = true,
       headingLevel = 'h2'
     } = {}) {
       const tag = normalizeHeadingLevel(headingLevel);
@@ -1712,7 +1763,7 @@ window.SurfaceState = (() => {
         + `<${tag} class="surface-state-heading">${escapeHtml(heading)}</${tag}>`
         + `<p class="surface-state-desc">${escapeHtml(desc)}</p>`
         + `${serverMessage ? `<p class="surface-state-server-message">${escapeHtml(serverMessage)}</p>` : ''}`
-        + renderErrorActions({ retry, retryLabel, secondary, reportable })
+        + renderErrorActions({ retry, retryLabel, secondary, reportable, heading, apiError: detail })
         + renderErrorDetail(detail, serverMessage)
         + `</div>`;
     },
