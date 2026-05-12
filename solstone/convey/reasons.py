@@ -70,6 +70,9 @@ INVALID_REQUEST_VALUE = Reason(
 )
 INVALID_DAY = Reason("invalid_day", "I couldn't use that day.", 400)
 INVALID_MONTH = Reason("invalid_month", "I couldn't use that month.", 400)
+TIMELINE_MONTH_NOT_FOUND = Reason(
+    "timeline_month_not_found", "I couldn't find that timeline month.", 404
+)
 INVALID_PATH = Reason("invalid_path", "I couldn't use that path.", 400)
 INVALID_SEGMENT_OR_STREAM = Reason(
     "invalid_segment_or_stream",

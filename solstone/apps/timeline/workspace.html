@@ -1,0 +1,12 @@
+<link rel="stylesheet" href="{{ url_for('app:timeline.static', filename='timeline.css') }}">
+
+<div class="workspace-content-wide">
+  <div id="timeline-shell" class="timeline-shell">
+    <section aria-label="Interactive timeline">
+      <div id="timeline-root"></div>
+    </section>
+  </div>
+</div>
+
+<script src="{{ url_for('app:timeline.static', filename='data-mock.js') }}"></script>
+<script defer src="{{ url_for('app:timeline.static', filename='timeline.js') }}"></script>

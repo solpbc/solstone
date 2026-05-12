@@ -1,0 +1,6 @@
+{
+  "icon": "🕰️",
+  "label": "timeline",
+  "facets": {"disabled": true},
+  "date_nav": false
+}
