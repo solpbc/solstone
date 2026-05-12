@@ -484,6 +484,24 @@
 .import-status.stalled { background: rgba(245, 158, 11, 0.16); color: #92400e; }
 .progress-detail { font-size: 0.8em; color: #8891a0; margin-top: 2px; }
 .progress-detail.import-stalled-meta { color: #92400e; }
+.import-retry-btn {
+  margin-left: 0.45rem;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: #fff;
+  color: #374151;
+  cursor: pointer;
+  font-size: 0.78rem;
+  padding: 0.18rem 0.45rem;
+}
+.import-retry-btn:disabled {
+  cursor: default;
+  opacity: 0.65;
+}
+.import-retry-result {
+  display: block;
+  margin-top: 0.3rem;
+}
 .file-size { color: #4b5565; font-size: 0.9rem; }
 .nowrap { white-space: nowrap; }
 .timestamp-link { color: var(--facet-color, #0f4c81); text-decoration: none; }
@@ -903,6 +921,50 @@ function humanStageName(stage, sourceDisplay = '') {
   return fallback;
 }
 
+function retryImport(event) {
+  event.stopPropagation();
+  const button = event.target.closest('[data-import-retry]');
+  if (!button) return;
+  const importId = button.dataset.importId;
+  const stage = button.dataset.stage || '';
+  const statusCell = button.closest('.status-cell');
+  const result = statusCell?.querySelector('.import-retry-result');
+  button.disabled = true;
+  button.textContent = 'retrying...';
+  if (result) result.textContent = '';
+  const payload = { import_id: importId };
+  if (stage) payload.stage = stage;
+  window.apiJson('/app/health/api/retry-import', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+    .then(() => {
+      button.textContent = 'retry sent';
+      if (result) result.textContent = 'retry sent';
+    })
+    .catch(err => {
+      window.logError(err, { context: 'import: retry-import failed' });
+      button.disabled = false;
+      button.textContent = stage ? `Retry from ${humanStageName(stage)}` : 'Retry import';
+      if (result) {
+        result.innerHTML = window.SurfaceState.error({
+          heading: "I couldn't retry that import",
+          desc: window.CONVEY_COPY?.RELOAD_HINT || 'reload to try again.',
+          serverMessage: err.serverMessage,
+          detail: err,
+          headingLevel: 'h4'
+        });
+      }
+    });
+}
+
+document.addEventListener('click', event => {
+  if (event.target.closest('[data-import-retry]')) {
+    retryImport(event);
+  }
+});
+
 function formatDateRange(dateRange) {
   if (!Array.isArray(dateRange) || !dateRange[0]) {
     return '';
@@ -1242,13 +1304,14 @@ function markRowStalled(importId) {
   importEvents[importId] = { ...(importEvents[importId] || {}), stalled: true };
 
   const row = document.querySelector(`tr[data-import-id="${importId}"]`);
-  if (row) {
-    row.classList.add('import-row--stalled');
-    const statusCell = row.querySelector('.status-cell');
-    if (statusCell) {
-      statusCell.innerHTML = `<span class="import-status stalled">stalled</span><div class="progress-detail import-stalled-meta">stalled — no updates in 10 minutes. import ID: ${escapeHtml(importId)}. ${window.CONVEY_COPY.RELOAD_HINT}</div>`;
-    }
-  }
+	  if (row) {
+	    row.classList.add('import-row--stalled');
+	    const statusCell = row.querySelector('.status-cell');
+	    if (statusCell) {
+	      const stage = importEvents[importId]?.stage || 'importing';
+	      statusCell.innerHTML = `<span class="import-status stalled">stalled</span><button type="button" class="import-retry-btn" data-import-retry="true" data-import-id="${escapeHtml(importId)}" data-stage="${escapeHtml(stage)}">Retry from ${escapeHtml(humanStageName(stage))}</button><div class="progress-detail import-stalled-meta">stalled — no updates in 10 minutes. import ID: ${escapeHtml(importId)}. ${window.CONVEY_COPY.RELOAD_HINT}</div><div class="import-retry-result"></div>`;
+	    }
+	  }
 
   refreshInlineProgress(importId);
 }
@@ -1312,11 +1375,11 @@ function updateImportRow(importId, eventData) {
       durationCell.textContent = formatElapsed(eventData.duration_ms);
     }
     setTimeout(() => loadImports(), 1000);
-  } else if (eventData.event === 'error') {
-    if (statusCell) {
-      statusCell.innerHTML = `<span class="import-status failed">failed</span><div class="progress-detail">${escapeHtml(eventData.error || 'unknown error')}</div>`;
-    }
-  }
+	  } else if (eventData.event === 'error') {
+	    if (statusCell) {
+	      statusCell.innerHTML = `<span class="import-status failed">failed</span><button type="button" class="import-retry-btn" data-import-retry="true" data-import-id="${escapeHtml(importId)}">Retry import</button><div class="progress-detail">${escapeHtml(eventData.error || 'unknown error')}</div><div class="import-retry-result"></div>`;
+	    }
+	  }
 
   refreshInlineProgress(importId, eventData);
 }
