@@ -445,6 +445,17 @@
       "title": "Support",
       "type": "cogitate"
     },
+    "timeline:segment_summary": {
+      "app": "timeline",
+      "color": "#6c757d",
+      "description": null,
+      "multi_facet": false,
+      "output_format": "json",
+      "schedule": "segment",
+      "source": "app",
+      "title": "timeline:segment_summary",
+      "type": "generate"
+    },
     "todos:daily": {
       "app": "todos",
       "color": "#ef6c00",
@@ -478,17 +489,6 @@
       "title": "TODO Weekly Scout",
       "type": "cogitate"
     },
-    "work": {
-      "app": null,
-      "color": "#6d4c41",
-      "description": "Generates a work story, topics, and structured commitments, closures, and decisions to merge onto the activity record.",
-      "multi_facet": false,
-      "output_format": "json",
-      "schedule": "activity",
-      "source": "system",
-      "title": "Work Story",
-      "type": "generate"
-    },
     "weekly_reflection": {
       "app": null,
       "color": "#6c757d",
@@ -499,6 +499,17 @@
       "source": "system",
       "title": "Weekly Reflection",
       "type": "cogitate"
+    },
+    "work": {
+      "app": null,
+      "color": "#6d4c41",
+      "description": "Generates a work story, topics, and structured commitments, closures, and decisions to merge onto the activity record.",
+      "multi_facet": false,
+      "output_format": "json",
+      "schedule": "activity",
+      "source": "system",
+      "title": "Work Story",
+      "type": "generate"
     }
   },
   "uses": []

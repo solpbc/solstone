@@ -402,6 +402,14 @@
       "tier": 2,
       "type": "generate"
     },
+    "talent.timeline.segment_summary": {
+      "disabled": false,
+      "group": "Think",
+      "label": "timeline:segment_summary",
+      "schedule": "segment",
+      "tier": 3,
+      "type": "generate"
+    },
     "talent.todos.daily": {
       "disabled": false,
       "group": "Todos",

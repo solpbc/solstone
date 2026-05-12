@@ -35,6 +35,14 @@
   ],
   "segment": [
     {
+      "app": "timeline",
+      "description": "",
+      "disabled": false,
+      "key": "timeline:segment_summary",
+      "source": "app",
+      "title": "timeline:segment_summary"
+    },
+    {
       "app": null,
       "description": "Creates a detailed documentary record of screen activity. Focuses on the 'what' - chronological account with preserved details, excerpts, and entities.",
       "disabled": false,
