@@ -14,6 +14,7 @@ from typer.testing import CliRunner
 from solstone.apps.speakers.call import app as speakers_app
 from solstone.apps.speakers.discovery import (
     _discovery_cache_path,
+    _discovery_resolved_path,
     discover_unknown_speakers,
     identify_cluster,
 )
@@ -239,7 +240,6 @@ def test_identify_idempotent(speakers_env):
 
     scan_result = discover_unknown_speakers()
     cluster_id = scan_result["clusters"][0]["cluster_id"]
-    cache_data = json.loads(_discovery_cache_path().read_text(encoding="utf-8"))
 
     first = identify_cluster(cluster_id, "Bob Smith")
     first_voiceprints = _load_voiceprint_count(env.journal, "bob_smith")
@@ -248,11 +248,12 @@ def test_identify_idempotent(speakers_env):
         for day, segment_key, _sentence_count in segments
     }
 
-    _discovery_cache_path().write_text(json.dumps(cache_data), encoding="utf-8")
     second = identify_cluster(cluster_id, "Bob Smith")
 
     assert first["voiceprints_saved"] == 20
     assert second["voiceprints_saved"] == 0
+    assert _discovery_cache_path().exists()
+    assert _discovery_resolved_path().exists()
     assert _load_voiceprint_count(env.journal, "bob_smith") == first_voiceprints
     for day, segment_key, _sentence_count in segments:
         assert (

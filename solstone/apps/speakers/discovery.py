@@ -15,6 +15,7 @@ from typing import Any
 import numpy as np
 from sklearn.cluster import HDBSCAN
 
+from solstone.think.entities.core import atomic_write
 from solstone.think.utils import day_dirs, day_path, get_journal, now_ms, segment_path
 
 logger = logging.getLogger(__name__)
@@ -67,6 +68,38 @@ def _discovery_cache_path() -> Path:
     return awareness_dir / "discovery_clusters.json"
 
 
+def _discovery_resolved_path() -> Path:
+    """Return the idempotency sentinel path for resolved discovery clusters."""
+    return _discovery_cache_path().with_suffix(".resolved.json")
+
+
+def load_resolved_cluster(cluster_id: int) -> dict[str, Any] | None:
+    """Return cached identify result metadata for a resolved cluster."""
+    path = _discovery_resolved_path()
+    if not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+    entry = data.get(str(cluster_id))
+    return entry if isinstance(entry, dict) else None
+
+
+def _write_resolved_cluster(cluster_id: int, entity_id: str, label: str) -> None:
+    path = _discovery_resolved_path()
+    try:
+        data = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    except (json.JSONDecodeError, OSError):
+        data = {}
+    data[str(cluster_id)] = {
+        "entity_id": entity_id,
+        "label": label,
+        "ts": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+    }
+    atomic_write(path, json.dumps(data, indent=2, sort_keys=True), prefix=".discovery_")
+
+
 def _get_sentence_text(segment_dir: Path, source: str, sentence_id: int) -> str | None:
     """Return transcript text for a sentence ID from the source transcript."""
     jsonl_path = segment_dir / f"{source}.jsonl"
@@ -85,6 +118,7 @@ def _get_sentence_text(segment_dir: Path, source: str, sentence_id: int) -> str 
 def _clear_discovery_cache() -> None:
     """Remove the cached discovery assignment file if present."""
     _discovery_cache_path().unlink(missing_ok=True)
+    _discovery_resolved_path().unlink(missing_ok=True)
 
 
 def discover_unknown_speakers() -> dict[str, Any]:
@@ -491,7 +525,7 @@ def identify_cluster(
             save_speaker_labels(seg_dir, labels_data)
             segments_updated += 1
 
-    cache_path.unlink(missing_ok=True)
+    _write_resolved_cluster(cluster_id, entity_id, entity_name)
 
     return {
         "status": "identified",

@@ -643,6 +643,56 @@ def test_api_speakers_empty_when_no_speakers_json(speakers_env):
         assert data["unmatched"] == []
 
 
+def test_discovery_identify_route_is_idempotent_after_success(
+    speakers_env, monkeypatch
+):
+    from solstone.apps.speakers import routes
+    from solstone.apps.speakers.routes import speakers_bp
+
+    speakers_env()
+    calls = {"count": 0}
+
+    def fake_identify(cluster_id, name):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            return {
+                "status": "identified",
+                "entity_id": "bob_smith",
+                "entity_name": "Bob Smith",
+                "entity_created": True,
+                "voiceprints_saved": 20,
+                "segments_updated": 4,
+                "sentences_attributed": 20,
+            }
+        return {"error": "No discovery scan results. Run scan first."}
+
+    monkeypatch.setattr(routes, "identify_cluster", fake_identify)
+    monkeypatch.setattr(
+        routes,
+        "load_resolved_cluster",
+        lambda cluster_id: {"entity_id": "bob_smith", "label": "Bob Smith"},
+    )
+    monkeypatch.setattr(routes, "log_app_action", lambda **kwargs: None)
+
+    app = Flask(__name__)
+    app.register_blueprint(speakers_bp)
+
+    with app.test_client() as client:
+        first = client.post(
+            "/app/speakers/api/discovery/identify",
+            json={"cluster_id": 0, "name": "Bob Smith"},
+        )
+        second = client.post(
+            "/app/speakers/api/discovery/identify",
+            json={"cluster_id": 0, "name": "Bob Smith"},
+        )
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert second.get_json()["entity_id"] == "bob_smith"
+    assert second.get_json()["voiceprints_saved"] == 0
+
+
 def test_serve_audio_sets_flac_mimetype(speakers_env, monkeypatch):
     """Serve audio endpoint returns FLAC mimetype for sample playback."""
     from solstone.apps.speakers.routes import speakers_bp

@@ -28,7 +28,11 @@ from flask import (
     url_for,
 )
 
-from solstone.apps.speakers.discovery import discover_unknown_speakers, identify_cluster
+from solstone.apps.speakers.discovery import (
+    discover_unknown_speakers,
+    identify_cluster,
+    load_resolved_cluster,
+)
 from solstone.apps.speakers.encoder_config import OWNER_THRESHOLD
 from solstone.apps.speakers.owner import (
     bootstrap_owner_from_manual_tags,
@@ -1417,10 +1421,24 @@ def api_discovery_identify() -> Any:
 
     result = identify_cluster(cluster_id, name)
     if "error" in result:
-        reason = (
-            SPEAKER_NOT_FOUND if "Entity" in result["error"] else INVALID_REQUEST_VALUE
-        )
-        return error_response(reason, detail=result["error"], status=400)
+        resolved = load_resolved_cluster(cluster_id)
+        if resolved and resolved.get("label", "").strip().lower() == name.lower():
+            result = {
+                "status": "identified",
+                "entity_id": resolved.get("entity_id"),
+                "entity_name": resolved.get("label"),
+                "entity_created": False,
+                "voiceprints_saved": 0,
+                "segments_updated": 0,
+                "sentences_attributed": 0,
+            }
+        else:
+            reason = (
+                SPEAKER_NOT_FOUND
+                if "Entity" in result["error"]
+                else INVALID_REQUEST_VALUE
+            )
+            return error_response(reason, detail=result["error"], status=400)
 
     log_app_action(
         app="speakers",

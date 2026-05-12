@@ -1247,22 +1247,14 @@
     input.disabled = true;
     status.textContent = 'identifying...';
 
-    fetch('/app/speakers/api/discovery/identify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cluster_id: clusterId, name: name }),
-    })
-      .then(r => r.json())
-      .then(data => {
-        if (data.error) {
-          status.textContent = data.error;
-          btn.disabled = false;
-          input.disabled = false;
-          return;
-        }
-
-        status.textContent = `identified as ${data.entity_name} (${data.voiceprints_saved} voiceprints, ${data.segments_updated} segments updated)`;
-        card.style.opacity = '0.5';
+	    window.apiJson('/app/speakers/api/discovery/identify', {
+	      method: 'POST',
+	      headers: { 'Content-Type': 'application/json' },
+	      body: JSON.stringify({ cluster_id: clusterId, name: name }),
+	    })
+	      .then(data => {
+	        status.textContent = `identified as ${data.entity_name} (${data.voiceprints_saved} voiceprints, ${data.segments_updated} segments updated)`;
+	        card.style.opacity = '0.5';
         loadSegments();
         if (selectedSegment && selectedSource) {
           loadReview(selectedSegment, selectedSource);
@@ -1277,11 +1269,24 @@
           }, 300);
         }, 3000);
       })
-      .catch(() => {
-        status.textContent = 'failed to identify. try again.';
-        btn.disabled = false;
-        input.disabled = false;
-      });
+	      .catch((err) => {
+	        window.logError(err, { context: 'speakers: identify discovery cluster failed' });
+	        status.innerHTML = window.SurfaceState.error({
+	          heading: "I couldn't identify that speaker",
+	          desc: window.CONVEY_COPY?.RELOAD_HINT || 'reload to try again.',
+	          retry: true,
+	          retryLabel: window.CONVEY_COPY?.ACTION_TRY_AGAIN || 'Try again',
+	          serverMessage: err.serverMessage,
+	          detail: err,
+	          headingLevel: 'h4'
+	        });
+	        const retry = status.querySelector('.surface-state-retry');
+	        if (retry) {
+	          retry.addEventListener('click', () => submitDiscoveryName(card));
+	        }
+	        btn.disabled = false;
+	        input.disabled = false;
+	      });
   }
 
   discoveryBanner.addEventListener('submit', e => {
