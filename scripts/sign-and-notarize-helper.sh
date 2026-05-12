@@ -14,7 +14,7 @@ if [ "$#" -ne 1 ]; then
 fi
 
 BINARY="$1"
-IDENTITY="${CODESIGN_IDENTITY:-Developer ID Application: sol pbc}"
+IDENTITY="${CODESIGN_IDENTITY:-Developer ID Application: sol pbc (7QCG8V4M6H)}"
 PROFILE="${NOTARY_KEYCHAIN_PROFILE:-sol-pbc-notary}"
 NOTARY_KEYCHAIN="${NOTARY_KEYCHAIN:-$HOME/Library/Keychains/sol-signing.keychain-db}"
 
@@ -25,6 +25,7 @@ fi
 
 echo "==> codesigning $BINARY (identity: $IDENTITY)"
 codesign --force --options runtime --timestamp \
+    --keychain "$NOTARY_KEYCHAIN" \
     --sign "$IDENTITY" \
     "$BINARY"
 
