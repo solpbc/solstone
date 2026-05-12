@@ -3,6 +3,7 @@
 
 (function() {
   const MAILTO_LIMIT = 1800;
+  const CONSOLE_ENTRY_LIMIT = 20000;
   const SUPPORT_EMAIL = 'support@solpbc.org';
   const TICKET_URL = '/app/support/';
   const REPORT_CATEGORY = 'error_report';
@@ -39,7 +40,101 @@
     return date.toISOString();
   }
 
-  function formatDiagnosticBundle(apiError) {
+  function formatEntryValue(value) {
+    if (!hasValue(value)) {
+      return '';
+    }
+    if (typeof value === 'object') {
+      try {
+        return JSON.stringify(value);
+      } catch (_) {
+        return String(value);
+      }
+    }
+    return String(value);
+  }
+
+  function entryApiError(entry) {
+    return entry?.detail?.apiError || null;
+  }
+
+  function formatConsoleEntry(entry) {
+    const lines = [
+      `${formatTimestamp(entry.ts)} · ${entry.severity || 'error'} · ${entry.source || 'unknown'}`,
+      `summary: ${entry.summary || ''}`,
+    ];
+    const apiError = entryApiError(entry);
+    if (apiError) {
+      const bits = [];
+      if (hasValue(apiError.status)) {
+        bits.push(`HTTP ${apiError.status}`);
+      }
+      if (hasValue(apiError.url)) {
+        bits.push(apiError.url);
+      }
+      if (hasValue(apiError.serverMessage)) {
+        bits.push(apiError.serverMessage);
+      }
+      if (bits.length) {
+        lines.push(bits.join(' · '));
+      }
+      if (hasValue(apiError.correlationId)) {
+        lines.push(`reference: ${apiError.correlationId}`);
+      }
+      if (hasValue(apiError.reasonCode)) {
+        lines.push(`reason code: ${apiError.reasonCode}`);
+      }
+    } else {
+      const detail = entry?.detail || {};
+      if (hasValue(detail.message)) {
+        lines.push(`message: ${detail.message}`);
+      }
+      if (hasValue(detail.filename) || hasValue(detail.lineno)) {
+        const location = `${detail.filename || ''}${detail.lineno ? `:${detail.lineno}` : ''}${detail.colno ? `:${detail.colno}` : ''}`;
+        lines.push(`location: ${location}`);
+      }
+      if (hasValue(detail.stack)) {
+        lines.push('stack:');
+        String(detail.stack).split('\n').slice(0, 6).forEach(line => {
+          lines.push(`  ${line}`);
+        });
+      }
+      if (detail.context && Object.keys(detail.context).length) {
+        lines.push(`context: ${formatEntryValue(detail.context)}`);
+      }
+    }
+    return lines.slice(0, 10).join('\n');
+  }
+
+  function formatConsoleEntryLines(consoleEntries) {
+    const entries = Array.isArray(consoleEntries) ? consoleEntries.filter(Boolean) : [];
+    if (!entries.length) {
+      return [
+        copyText('REPORT_DIAGNOSTIC_CONSOLE_HEADING'),
+        `  ${copyText('REPORT_NO_CONSOLE')}`,
+      ];
+    }
+
+    let rendered = entries.map(formatConsoleEntry);
+    let truncated = false;
+    while (rendered.length > 0 && rendered.join('\n\n').length > CONSOLE_ENTRY_LIMIT) {
+      rendered.shift();
+      truncated = true;
+    }
+
+    const heading = copyText('CONSOLE_REPORT_HEADING').replace('{count}', String(rendered.length));
+    const lines = [heading];
+    if (truncated) {
+      lines.push(copyText('CONSOLE_TRUNCATED'));
+    }
+    rendered.forEach(block => {
+      lines.push('');
+      lines.push(block);
+    });
+    return lines;
+  }
+
+  function formatDiagnosticBundle(apiError, consoleEntries) {
     const lines = [copyText('REPORT_DIAGNOSTIC_SUMMARY')];
     if (apiError) {
       if (hasValue(apiError.status)) {
@@ -68,8 +163,7 @@
         lines.push(`${copyText('REPORT_DIAGNOSTIC_RAW_DETAIL_LABEL')}: ${apiError.rawDetail}`);
       }
     }
-    lines.push(copyText('REPORT_DIAGNOSTIC_CONSOLE_HEADING'));
-    lines.push(`  ${copyText('REPORT_NO_CONSOLE')}`);
+    lines.push(...formatConsoleEntryLines(consoleEntries));
     lines.push(copyText('REPORT_DIAGNOSTIC_FOOTER'));
     return lines.join('\n');
   }
@@ -94,9 +188,9 @@
     });
   }
 
-  function buildFormState({ subject, detail, severity, anonymous, apiError }) {
+  function buildFormState({ subject, detail, severity, anonymous, apiError, consoleEntries }) {
     const safeSubject = String(subject || '').trim() || copyText('REPORT_DEFAULT_SUBJECT');
-    const bundle = formatDiagnosticBundle(apiError);
+    const bundle = formatDiagnosticBundle(apiError, consoleEntries);
     const description = `${detail || ''}\n\n---\n\n${bundle}`;
     const subjectLabel = copyText('REPORT_SUBJECT_LABEL');
     return {
@@ -105,6 +199,7 @@
       severity: severity || 'low',
       anonymous: Boolean(anonymous),
       apiError: apiError || null,
+      consoleEntries: Array.isArray(consoleEntries) ? consoleEntries : null,
       bundle,
       description,
       fullReport: `${subjectLabel}: ${safeSubject}\n\n${description}`,
@@ -144,7 +239,7 @@
 
     const subject = context.heading || copyText('REPORT_DEFAULT_SUBJECT');
     const detail = context.customDetail || '';
-    const bundle = formatDiagnosticBundle(context.apiError);
+    const bundle = formatDiagnosticBundle(context.apiError, context.consoleEntries);
 
     const modal = document.createElement('div');
     modal.className = 'modal report-error-modal';
@@ -251,6 +346,7 @@
         severity: severity.value,
         anonymous: anonymous.checked,
         apiError: context.apiError,
+        consoleEntries: context.consoleEntries,
       });
       submitReport(formState, { cancel, send }).catch(error => {
         logUnexpected('submit unexpected', error);
@@ -423,6 +519,7 @@
       heading: safeContext.heading || copyText('REPORT_DEFAULT_SUBJECT'),
       apiError: safeContext.apiError || null,
       customDetail: safeContext.customDetail || '',
+      consoleEntries: Array.isArray(safeContext.consoleEntries) ? safeContext.consoleEntries : null,
     };
     try {
       openModal(normalized);
@@ -434,6 +531,7 @@
         severity: 'low',
         anonymous: false,
         apiError: normalized.apiError,
+        consoleEntries: normalized.consoleEntries,
       }));
     }
   };

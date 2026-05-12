@@ -127,15 +127,6 @@ body.has-date-nav .workspace {
   margin-top: calc(var(--facet-bar-height) + var(--date-nav-height));
 }
 
-/* Reserve space when error log is visible */
-body.has-error-log .workspace {
-  margin-bottom: 30vh;
-}
-
-body.has-app-bar.has-error-log .workspace {
-  margin-bottom: calc(var(--app-bar-height) + 80px + 30vh);
-}
-
 /* Standard workspace containers */
 .workspace-content {
   max-width: 1200px;
@@ -738,6 +729,247 @@ body:has(.status-pane.visible) .facet-bar::after {
   padding: 16px;
   max-height: 380px;
   overflow-y: auto;
+}
+
+.status-pane-footer {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.status-pane-footer-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 3px 8px;
+  margin: 0 -8px;
+  border-radius: 4px;
+  color: inherit;
+  text-decoration: none;
+  font-size: 13px;
+  transition: background 0.15s ease;
+}
+
+.status-pane-footer-link:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.status-pane-footer-link:active {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+/* Diagnostic console opens on the left so it can coexist with the right-side status pane. */
+.diagnostic-console {
+  position: fixed;
+  top: var(--facet-bar-height);
+  left: 0;
+  width: min(520px, calc(100vw - 24px));
+  background: white;
+  border-right: 1px solid var(--facet-border, #e5e0db);
+  border-bottom: 1px solid var(--facet-border, #e5e0db);
+  border-radius: 0 0 12px 0;
+  box-shadow: 4px 4px 8px -2px rgba(0, 0, 0, 0.1);
+  z-index: var(--z-notifications);
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 0.25s ease, opacity 0.25s ease;
+}
+
+.diagnostic-console.visible {
+  max-height: calc(100vh - var(--facet-bar-height) - 16px);
+  opacity: 1;
+}
+
+.diagnostic-console-content {
+  padding: 16px;
+  max-height: calc(100vh - var(--facet-bar-height) - 48px);
+  overflow-y: auto;
+}
+
+.diagnostic-console-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.diagnostic-console-header h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.diagnostic-console-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.diagnostic-console-actions button,
+.diagnostic-console-entry button {
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: #fff;
+  color: #374151;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  padding: 3px 8px;
+}
+
+.diagnostic-console-actions button:hover,
+.diagnostic-console-entry button:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.diagnostic-console-close {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  line-height: 1;
+}
+
+.diagnostic-console-reporting-off {
+  margin: 0 0 12px;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.diagnostic-console-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.diagnostic-console-tabs button {
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: #fff;
+  color: #374151;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
+.diagnostic-console-tabs button[aria-selected="true"] {
+  background: rgba(0, 0, 0, 0.08);
+  border-color: #9ca3af;
+}
+
+.diagnostic-console-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.diagnostic-console-empty {
+  margin: 12px 0 0;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.diagnostic-console-entry {
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.diagnostic-console-entry summary {
+  display: grid;
+  grid-template-columns: auto auto auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  cursor: pointer;
+  list-style: none;
+  font-size: 13px;
+}
+
+.diagnostic-console-entry summary::-webkit-details-marker {
+  display: none;
+}
+
+.diagnostic-console-entry-time {
+  color: #9ca3af;
+  font-size: 11px;
+}
+
+.diagnostic-console-entry-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.diagnostic-console-entry-icon--error {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.diagnostic-console-entry-icon--warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.diagnostic-console-entry-icon--info {
+  background: #e0f2fe;
+  color: #075985;
+}
+
+.diagnostic-console-entry-source {
+  color: #6b7280;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+}
+
+.diagnostic-console-entry-summary {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diagnostic-console-entry-toggle {
+  color: #6b7280;
+  font-size: 11px;
+}
+
+.diagnostic-console-entry[open] .diagnostic-console-entry-toggle {
+  display: none;
+}
+
+.diagnostic-console-entry-detail {
+  border-top: 1px solid #e5e7eb;
+  padding: 8px;
+  color: #4b5563;
+  font-size: 12px;
+}
+
+.diagnostic-console-entry-detail div + div {
+  margin-top: 4px;
+}
+
+.diagnostic-console-entry-detail span {
+  color: #374151;
+  font-weight: 600;
+}
+
+.diagnostic-console-entry-detail pre {
+  margin: 4px 0 0;
+  padding: 8px;
+  overflow-x: auto;
+  border-radius: 4px;
+  background: #111827;
+  color: #f9fafb;
+  font-size: 11px;
+  white-space: pre-wrap;
 }
 
 .status-pane-content h3 {
@@ -1833,44 +2065,6 @@ body.menu-all .menu-bar {
   .talent-view-modal {
     padding: 12px;
   }
-}
-
-/* Error log display */
-#error-log {
-  display: none;
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: #111;
-  color: #eee;
-  padding: 1em;
-  font: 12px monospace;
-  max-height: 30vh;
-  overflow-y: auto;
-  border-top: 2px solid #ff3b30;
-  z-index: var(--z-notifications);
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.5);
-}
-
-#error-log-dismiss {
-  position: sticky;
-  top: 0;
-  float: right;
-  background: #222;
-  color: #eee;
-  border: 1px solid #444;
-  padding: 2px 8px;
-  font: 12px monospace;
-  cursor: pointer;
-}
-
-#error-log-dismiss:hover {
-  background: #333;
-}
-
-#error-log-dismiss:active {
-  background: #444;
 }
 
 /* Notification Center */

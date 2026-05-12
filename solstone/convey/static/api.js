@@ -126,6 +126,31 @@
     return readControlValue(el);
   }
 
+  function pushApiErrorToConsole(apiError, url, fetchOptions) {
+    const diagnosticConsole = window.convey?.diagnosticConsole;
+    if (!diagnosticConsole || typeof diagnosticConsole.push !== 'function') {
+      return;
+    }
+    const method = String(fetchOptions?.method || 'GET').toUpperCase();
+    diagnosticConsole.push({
+      severity: 'error',
+      source: 'api',
+      summary: `${method} ${apiError.status} ${url}`,
+      detail: {
+        apiError: {
+          status: apiError.status,
+          statusText: apiError.statusText,
+          serverMessage: apiError.serverMessage,
+          url: apiError.url,
+          correlationId: apiError.correlationId,
+          timestamp: apiError.timestamp,
+          reasonCode: apiError.reasonCode,
+          rawDetail: apiError.rawDetail
+        }
+      }
+    });
+  }
+
   function getExistingControlError(el, errorHost) {
     if (errorHost) {
       return errorHost.querySelector('[data-control-save-error]');
@@ -166,7 +191,7 @@
       const correlationId = response?.headers?.get('X-Solstone-Request-Id') || '';
       const timestamp = Date.now();
       window.location.href = '/';
-      throw new ApiError({
+      const apiError = new ApiError({
         status: response.status,
         statusText: response.statusText,
         serverMessage: 'Authentication required',
@@ -174,6 +199,8 @@
         correlationId,
         timestamp
       });
+      pushApiErrorToConsole(apiError, url, fetchOptions);
+      throw apiError;
     }
 
     const text = await response.text();
@@ -191,7 +218,7 @@
       const timestamp = Date.now();
       const reasonCode = payload?.reason_code ?? null;
       const rawDetail = payload?.detail ?? null;
-      throw new ApiError({
+      const apiError = new ApiError({
         status: response.status,
         statusText: response.statusText,
         serverMessage,
@@ -201,6 +228,8 @@
         reasonCode,
         rawDetail
       });
+      pushApiErrorToConsole(apiError, url, fetchOptions);
+      throw apiError;
     }
 
     const parsed = parseJsonPayload(text);
@@ -210,7 +239,7 @@
 
     const correlationId = response.headers.get('X-Solstone-Request-Id') || '';
     const timestamp = Date.now();
-    throw new ApiError({
+    const apiError = new ApiError({
       status: response.status,
       statusText: response.statusText,
       serverMessage: 'Malformed server response',
@@ -219,6 +248,8 @@
       correlationId,
       timestamp
     });
+    pushApiErrorToConsole(apiError, url, fetchOptions);
+    throw apiError;
   }
 
   function saveControl({

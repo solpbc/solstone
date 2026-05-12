@@ -1,0 +1,24 @@
+<aside id="diagnostic-console" class="diagnostic-console" tabindex="-1" aria-hidden="true" aria-labelledby="diagnostic-console-title">
+  <div class="diagnostic-console-content">
+    <header class="diagnostic-console-header">
+      <h3 id="diagnostic-console-title">{{ CONVEY_COPY.CONSOLE_HEADING }}</h3>
+      <div class="diagnostic-console-actions">
+        <button type="button" data-diagnostic-action="clear">{{ CONVEY_COPY.CONSOLE_ACTION_CLEAR }}</button>
+        <button type="button" data-diagnostic-action="send-all">{{ CONVEY_COPY.CONSOLE_ACTION_SEND_ALL }}</button>
+        <button type="button" class="diagnostic-console-close" data-diagnostic-action="close" aria-label="{{ CONVEY_COPY.CONSOLE_ACTION_CLOSE }}">&times;</button>
+      </div>
+    </header>
+
+    <p class="diagnostic-console-reporting-off" data-diagnostic-reporting-off hidden>{{ CONVEY_COPY.CONSOLE_REPORTING_OFF }}</p>
+
+    <div class="diagnostic-console-tabs" role="tablist" aria-label="{{ CONVEY_COPY.CONSOLE_HEADING }}">
+      <button type="button" data-diagnostic-filter="all" aria-selected="true">{{ CONVEY_COPY.CONSOLE_TAB_ALL }} <span data-diagnostic-count="all">0</span></button>
+      <button type="button" data-diagnostic-filter="error" aria-selected="false">{{ CONVEY_COPY.CONSOLE_TAB_ERRORS }} <span data-diagnostic-count="error">0</span></button>
+      <button type="button" data-diagnostic-filter="warning" aria-selected="false">{{ CONVEY_COPY.CONSOLE_TAB_WARNINGS }} <span data-diagnostic-count="warning">0</span></button>
+      <button type="button" data-diagnostic-filter="info" aria-selected="false">{{ CONVEY_COPY.CONSOLE_TAB_INFO }} <span data-diagnostic-count="info">0</span></button>
+    </div>
+
+    <div id="diagnostic-console-list" class="diagnostic-console-list"></div>
+    <p id="diagnostic-console-empty" class="diagnostic-console-empty" hidden>{{ CONVEY_COPY.CONSOLE_EMPTY }}</p>
+  </div>
+</aside>

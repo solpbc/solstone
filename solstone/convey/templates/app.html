@@ -11,6 +11,7 @@
   <script src="{{ url_for('root.static', filename='relative-time.js') }}"></script>
   <script src="{{ url_for('root.static', filename='sol_initiated_constants.js') }}"></script>
   <script src="{{ url_for('root.static', filename='convey_copy.js') }}"></script>
+  <script src="{{ url_for('root.static', filename='diagnostic-console.js') }}" defer></script>
   <script src="{{ url_for('root.static', filename='chat_reasons.js') }}"></script>
 
   <!-- Embed facets data for immediate client-side access -->
@@ -114,6 +115,7 @@
 
 <!-- Status Pane -->
 {% include "status_pane.html" %}
+{% include "diagnostic_console.html" %}
 
 <!-- Notification Center -->
 <div class="notification-center" id="notification-center" role="log" aria-live="polite" aria-label="notifications"></div>
@@ -1042,9 +1044,6 @@
     <pre id="errorMessage"></pre>
   </div>
 </div>
-
-<!-- Error Log Display -->
-<div id="error-log"></div>
 
 </body>
 </html>

@@ -8,64 +8,86 @@
  * Features:
  * - Catches window errors and unhandled promise rejections
  * - Adds error glow to status icon via .error class
- * - Displays error log at bottom of viewport
+ * - Routes diagnostics into the diagnostic console
  * - Provides modal for manual error display via window.showError()
  */
 
 (function(){
-  const statusIcon = document.querySelector('.facet-bar .status-icon');
-  const errorLog = document.getElementById('error-log');
-  const errorModal = document.getElementById('errorModal');
-  const errorMessage = document.getElementById('errorMessage');
-  const closeButton = errorModal ? errorModal.querySelector('.close') : null;
-
-  // Escape HTML to prevent XSS
-  function escapeHtml(text) {
-    return String(text).replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  }
-
-  // Log error to bottom panel
-  function appendLogLine(text) {
-    if (errorLog) {
-      if (!document.getElementById('error-log-dismiss')) {
-        var btn = document.createElement('button');
-        btn.id = 'error-log-dismiss';
-        btn.textContent = 'clear';
-        btn.setAttribute('aria-label', 'dismiss error log');
-        btn.onclick = function() {
-          errorLog.innerHTML = '';
-          errorLog.style.display = 'none';
-          document.body.classList.remove('has-error-log');
-        };
-        errorLog.insertAdjacentElement('afterbegin', btn);
+  function roundTrip(value) {
+    try {
+      const json = JSON.stringify(value);
+      if (json === undefined) {
+        return undefined;
       }
-      errorLog.insertAdjacentHTML(
-        'beforeend',
-        escapeHtml(text) + '<br>'
-      );
-      errorLog.style.display = 'block';
-      document.body.classList.add('has-error-log');
+      return JSON.parse(json);
+    } catch (_) {
+      return undefined;
     }
   }
 
-  function formatErrorText(error, context) {
-    const prefix = context && context.context ? `[${context.context}] ` : '';
-    if (typeof error === 'string') {
-      return prefix + error;
+  function normalizeContextValue(value) {
+    if (value instanceof Error) {
+      return roundTrip({
+        message: value.message,
+        stack: value.stack || ''
+      });
     }
+    return roundTrip(value);
+  }
+
+  function safeContext(context) {
+    if (!context || typeof context !== 'object') {
+      return {};
+    }
+    const result = {};
+    Object.keys(context).forEach(key => {
+      const value = normalizeContextValue(context[key]);
+      if (value !== undefined) {
+        result[key] = value;
+      }
+    });
+    return result;
+  }
+
+  function messageFromError(error) {
     if (error instanceof Error) {
-      return prefix + error.message;
+      return error.message || String(error);
     }
-    return prefix + String(error ?? 'unknown error');
+    if (typeof error === 'string') {
+      return error;
+    }
+    return String(error ?? 'unknown error');
   }
 
   window.logError = (error, context) => {
     markError();
-    appendLogLine(formatErrorText(error, context));
+    if (window.console && typeof window.console.error === 'function') {
+      window.console.error(error, context || '');
+    }
+    const safe = safeContext(context);
+    const message = messageFromError(error);
+    const diagnosticConsole = window.convey?.diagnosticConsole;
+    if (diagnosticConsole && typeof diagnosticConsole.push === 'function') {
+      diagnosticConsole.push({
+        severity: 'error',
+        source: 'js',
+        summary: safe.context ? `${safe.context}: ${message}` : message,
+        detail: {
+          message,
+          stack: error instanceof Error ? (error.stack || '') : '',
+          filename: safe.filename,
+          lineno: safe.lineno,
+          colno: safe.colno,
+          kind: safe.kind || 'logError',
+          context: safe
+        }
+      });
+    }
   };
 
   // Mark status icon as error state (red with glow)
   function markError() {
+    const statusIcon = document.querySelector('.facet-bar .status-icon');
     if (statusIcon) {
       statusIcon.classList.add('error');
     }
@@ -73,32 +95,50 @@
 
   // Global error handler
   window.addEventListener('error', (e) => {
-    window.logError(`❌ ${e.message} @ ${e.filename}:${e.lineno}`);
+    const error = e.error instanceof Error ? e.error : new Error(e.message || 'unknown error');
+    window.logError(error, {
+      kind: 'error',
+      filename: e.filename,
+      lineno: e.lineno,
+      colno: e.colno
+    });
   });
 
   // Unhandled promise rejection handler
   window.addEventListener('unhandledrejection', (e) => {
-    window.logError(`⚠️ Promise: ${e.reason}`);
+    const error = e.reason instanceof Error ? e.reason : new Error(String(e.reason ?? 'unknown rejection'));
+    window.logError(error, { kind: 'unhandled-rejection' });
   });
 
-  // Modal controls
-  if (errorModal && closeButton && errorMessage) {
-    // Provide global function for manual error display
-    window.showError = (text) => {
+  window.showError = (text) => {
+    const errorModal = document.getElementById('errorModal');
+    const errorMessage = document.getElementById('errorMessage');
+    if (errorModal && errorMessage) {
       errorMessage.textContent = text;
       errorModal.style.display = 'block';
-    };
+    }
+  };
 
-    // Close button
+  function bindModalControls() {
+    const errorModal = document.getElementById('errorModal');
+    const closeButton = errorModal ? errorModal.querySelector('.close') : null;
+    if (!errorModal || !closeButton) {
+      return;
+    }
     closeButton.onclick = () => {
       errorModal.style.display = 'none';
     };
 
-    // Click outside to close
     window.addEventListener('click', (e) => {
       if (e.target === errorModal) {
         errorModal.style.display = 'none';
       }
     });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bindModalControls, { once: true });
+  } else {
+    bindModalControls();
   }
 })();

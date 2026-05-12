@@ -234,6 +234,8 @@ def register_app_context(app: Flask, registry: AppRegistry) -> None:
     @app.context_processor
     def inject_app_context() -> dict:
         """Inject app registry and facets context for new app system."""
+        from solstone.convey import copy as convey_copy
+
         from .config import apply_app_order, load_convey_config, reporting_enabled
 
         # Parse URL path: /app/{app_name}/{day}/...
@@ -330,6 +332,11 @@ def register_app_context(app: Flask, registry: AppRegistry) -> None:
             "chat_bar_attention": chat_bar_attention,
             "chat_bar_sol_request": chat_bar_sol_request,
             "convey_settings": {"reporting_enabled": reporting_enabled()},
+            "CONVEY_COPY": {
+                name.removeprefix("CONVEY_"): getattr(convey_copy, name)
+                for name in convey_copy.__all__
+                if name.startswith("CONVEY_")
+            },
         }
 
     @app.context_processor

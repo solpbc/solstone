@@ -33,6 +33,10 @@
     <div id="notification-history" style="display: flex; flex-direction: column; gap: 4px; font-size: 13px;">
       <span style="color: #9ca3af;">no recent activity</span>
     </div>
+
+    <div class="status-pane-footer">
+      <a href="#" id="status-pane-console-link" class="status-pane-footer-link" aria-label="{{ CONVEY_COPY.CONSOLE_LINK_LABEL }}">{{ CONVEY_COPY.CONSOLE_LINK_LABEL }}</a>
+    </div>
   </div>
 </aside>
 
@@ -41,6 +45,7 @@
 (function(){
   const statusIcon = document.querySelector('.facet-bar .status-icon');
   const statusPane = document.querySelector('.status-pane');
+  const statusConsoleLink = document.getElementById('status-pane-console-link');
   const liveRegion = document.getElementById('status-live-region');
   let statusPaneOpen = false;
   let _lastHistoryLen = -1;
@@ -55,8 +60,16 @@
     const expanded = statusIcon.getAttribute('aria-expanded') === 'true';
     statusIcon.setAttribute('aria-label',
       'system status: ' + state + ', ' + (expanded ? 'expanded' : 'collapsed'));
-    if (liveRegion) liveRegion.textContent = state;
+	  if (liveRegion) liveRegion.textContent = state;
   };
+
+  function updateDiagnosticConsoleLink() {
+    if (!statusConsoleLink) return;
+    const base = window.CONVEY_COPY?.CONSOLE_LINK_LABEL || 'system messages';
+    const unread = window.convey?.diagnosticConsole?.unreadCount?.() || 0;
+    statusConsoleLink.textContent = unread > 0 ? `${base} (${unread})` : base;
+    statusConsoleLink.setAttribute('aria-label', unread > 0 ? `${base}, ${unread} unread` : base);
+  }
 
   if (statusIcon && statusPane) {
     statusIcon.addEventListener('click', (e) => {
@@ -102,12 +115,28 @@
         if (_systemStatusInterval) { clearInterval(_systemStatusInterval); _systemStatusInterval = null; }
         window.updateStatusLabel();
         statusIcon.focus();
-      }
-    });
+	  }
+	});
+
+    if (statusConsoleLink) {
+      statusConsoleLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        window.convey?.diagnosticConsole?.open?.();
+        window.convey?.diagnosticConsole?.markAllRead?.();
+        updateDiagnosticConsoleLink();
+        statusPaneOpen = false;
+        statusPane.classList.remove('visible');
+        statusIcon.setAttribute('aria-expanded', 'false');
+        if (_systemStatusInterval) { clearInterval(_systemStatusInterval); _systemStatusInterval = null; }
+        window.updateStatusLabel();
+      });
+    }
   }
 
   // Update status pane metrics
   function updateStatusPane() {
+    updateDiagnosticConsoleLink();
     if (!window.appEvents) return;
     if (!statusPaneOpen) return;
 
@@ -429,8 +458,9 @@
     });
   }
 
-  // Update status pane every second
-  setInterval(updateStatusPane, 1000);
+	  // Update status pane every second
+	  setInterval(updateStatusPane, 1000);
+  window.addEventListener('diagnostic-console-updated', updateDiagnosticConsoleLink);
   // Initial update
   setTimeout(updateStatusPane, 100);
 })();
