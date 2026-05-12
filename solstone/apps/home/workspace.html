@@ -57,7 +57,7 @@
   background: #cbd5e1;
 }
 
-.pulse-vitals a {
+.pulse-vitals > a.pulse-vitals-health-link {
   margin-left: auto;
   color: #6366f1;
   text-decoration: none;
@@ -77,6 +77,28 @@
 .pulse-vitals-attention {
   color: #dc2626;
   font-weight: 500;
+}
+
+.pulse-vitals-action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  cursor: pointer;
+}
+
+.pulse-vitals-action .pulse-vitals-item::before {
+  content: "○";
+  color: #cbd5e1;
+  flex-shrink: 0;
+  width: 0.75rem;
+  text-align: center;
+}
+
+.pulse-vitals-action-link {
+  color: #6366f1;
+  font-size: 0.75rem;
+  text-decoration: none;
 }
 
 /* Section Headers */
@@ -750,6 +772,15 @@
   margin: 0.35rem 0;
   line-height: 1.55;
 }
+.pulse-yesterday-details a {
+  color: inherit;
+  text-decoration-color: #cbd5e1;
+  text-underline-offset: 0.18rem;
+}
+.pulse-yesterday-details a:hover {
+  color: #1e293b;
+  text-decoration-color: #94a3b8;
+}
 .pulse-briefing-section-toggle {
   font-size: 0.75rem;
   font-weight: 600;
@@ -821,6 +852,25 @@
   font-style: italic;
   font-size: 0.85rem;
   margin-top: 0.5rem;
+}
+
+.pulse-briefing-status-link {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.45rem;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  color: #475569;
+  font-style: normal;
+  text-decoration: none;
+  background: #fff;
+}
+
+.pulse-briefing-status-link:hover {
+  border-color: #94a3b8;
+  color: #334155;
+  text-decoration: none;
 }
 
 .pulse-welcome {
@@ -1015,11 +1065,11 @@
 
   <!-- Vital Signs -->
   <div class="pulse-vitals" id="pulse-vitals" role="status" aria-live="polite">
-    {% set dot_class = 'active' if capture_status == 'active' else ('stale' if capture_status == 'stale' else ('offline' if capture_status == 'offline' else 'unknown')) %}
-    <div class="pulse-vitals-item">
-      <span class="pulse-vitals-dot {{ dot_class }}" aria-hidden="true"></span>
-      <span>observer {{ 'no observers' if capture_status == 'no_observers' else capture_status }}</span>
-    </div>
+	    {% set dot_class = 'active' if capture_status == 'active' else ('stale' if capture_status == 'stale' else ('offline' if capture_status == 'offline' else 'unknown')) %}
+	    <div class="pulse-vitals-item">
+	      <span class="pulse-vitals-dot {{ dot_class }}" aria-hidden="true"></span>
+	      <span>{{ capture_display_text }}</span>
+	    </div>
     {% if segment_count > 0 %}
     <div class="pulse-vitals-sep"></div>
     <div class="pulse-vitals-item">
@@ -1031,19 +1081,25 @@
     <div class="pulse-vitals-item">
       Last observation {{ last_observe_relative }}
     </div>
-    {% endif %}
-    {% if attention %}
-    <div class="pulse-vitals-sep"></div>
-    <div class="pulse-vitals-item pulse-vitals-attention">
-      {{ attention.placeholder_text }}
-    </div>
-    {% endif %}
-    {% if pipeline_status %}
-    <div class="pulse-vitals-sep"></div>
-    <div class="pulse-vitals-item pulse-vitals-attention">{{ pipeline_status.message }}</div>
-    {% endif %}
-    <a href="/app/health">health →</a>
-  </div>
+	    {% endif %}
+	    {% if attention %}
+	    <div class="pulse-vitals-sep"></div>
+	    <div class="pulse-vitals-action" role="button" tabindex="0" data-conversation="explain the current attention items.">
+	      <div class="pulse-vitals-item pulse-vitals-attention">
+	        {{ attention.placeholder_text }}
+	      </div>
+	      <a class="pulse-vitals-action-link" href="/app/health#focus=recent-errors&day=today">view details →</a>
+	    </div>
+	    {% endif %}
+	    {% if pipeline_status %}
+	    <div class="pulse-vitals-sep"></div>
+	    <div class="pulse-vitals-action" role="button" tabindex="0" data-conversation="explain pipeline health for today.">
+	      <div class="pulse-vitals-item pulse-vitals-attention">{{ pipeline_status.message }}</div>
+	      <a class="pulse-vitals-action-link" href="/app/health#focus=recent-errors&day=today">view details →</a>
+	    </div>
+	    {% endif %}
+	    <a class="pulse-vitals-health-link" href="/app/health">health →</a>
+	  </div>
 
   {% if yesterday_processing %}
   <section class="pulse-yesterday" id="pulse-yesterday" data-collapsed="{{ 'true' if yesterday_processing.default_collapsed else 'false' }}">
@@ -1059,12 +1115,15 @@
         {% for line in yesterday_processing.sparse_lines %}
         <p>{{ line }}</p>
         {% endfor %}
-      {% elif yesterday_processing.details %}
-      <ul class="pulse-yesterday-details">
-        {% for line in yesterday_processing.details %}
-        <li>{{ line }}</li>
-        {% endfor %}
-      </ul>
+	      {% elif yesterday_processing.gap_links or yesterday_processing.details %}
+	      <ul class="pulse-yesterday-details">
+	        {% for link in yesterday_processing.gap_links %}
+	        <li><a href="{{ link.href }}">{{ link.text }}</a></li>
+	        {% endfor %}
+	        {% for line in yesterday_processing.details %}
+	        <li>{{ line }}</li>
+	        {% endfor %}
+	      </ul>
       {% endif %}
     </div>
   </section>
@@ -1093,10 +1152,17 @@
     </div>
     {% if briefing_summary %}
     <div class="pulse-briefing-summary">{{ briefing_summary }}</div>
-    {% endif %}
-    {% if briefing_phase == 'pending' and not briefing_exists %}
-    <div class="pulse-briefing-placeholder">your morning briefing is being prepared...</div>
-    {% endif %}
+	    {% endif %}
+	    {% if briefing_phase == 'pending' and not briefing_exists %}
+	    <div class="pulse-briefing-placeholder">
+	      {% if briefing_lateness.late %}
+	      I usually finish your briefing by ~10 am. It's {{ briefing_lateness.late_hours }}h late.
+	      <a class="pulse-briefing-status-link" href="/app/sol/{{ today }}#morning_briefing">Check status</a>
+	      {% else %}
+	      your morning briefing is being prepared...
+	      {% endif %}
+	    </div>
+	    {% endif %}
     {% if briefing_exists %}
     <div class="pulse-briefing-body" id="pulse-briefing-body">
       {% for section_key in ['your_day', 'yesterday', 'needs_attention', 'forward_look', 'reading'] %}
@@ -1444,6 +1510,8 @@
         fetch('/app/home/api/skills/seen', {method: 'POST'});
         return;
       }
+      var plainLink = e.target.closest('a[href]');
+      if (plainLink && !plainLink.matches('[data-conversation]')) return;
       var el = e.target.closest('[data-conversation]');
       if (el) {
         e.preventDefault();
@@ -1465,6 +1533,8 @@
         fetch('/app/home/api/skills/seen', {method: 'POST'});
         return;
       }
+      var plainLink = e.target.closest('a[href]');
+      if (plainLink && !plainLink.matches('[data-conversation]')) return;
       var el = e.target.closest('[data-conversation]');
       if (el) {
         e.preventDefault();
@@ -1592,35 +1662,36 @@
     }
   }
 
-  function refreshVitals() {
-    window.apiJson('/app/home/api/pulse')
-      .then(data => {
+	  function refreshVitals() {
+	    window.apiJson('/app/home/api/pulse')
+	      .then(data => {
         const el = document.getElementById('pulse-vitals');
         if (!el) return;
         if (typeof data.capture_status !== 'string') {
           throw malformedHomeResponse('/app/home/api/pulse', 'Malformed pulse response');
         }
-        clearPulseRefreshError('pulse-vitals');
-        let dotClass = data.capture_status === 'active' ? 'active' : (data.capture_status === 'stale' ? 'stale' : (data.capture_status === 'offline' ? 'offline' : 'unknown'));
-        let displayStatus = data.capture_status === 'no_observers' ? 'no observers' : data.capture_status;
-        let html = '<div class="pulse-vitals-item"><span class="pulse-vitals-dot ' + dotClass + '" aria-hidden="true"></span><span>observer ' + esc(displayStatus) + '</span></div>';
-        if (data.segment_count > 0) {
-          html += '<div class="pulse-vitals-sep"></div><div class="pulse-vitals-item">' + data.segment_count + ' segment' + (data.segment_count !== 1 ? 's' : '');
-          if (data.duration_minutes > 0) html += ' · ' + data.duration_minutes + 'm';
+	        clearPulseRefreshError('pulse-vitals');
+	        let dotClass = data.capture_status === 'active' ? 'active' : (data.capture_status === 'stale' ? 'stale' : (data.capture_status === 'offline' ? 'offline' : 'unknown'));
+	        let displayStatus = data.capture_status === 'no_observers' ? 'no observers' : data.capture_status;
+	        let captureText = data.capture_display_text || ('observer ' + displayStatus);
+	        let html = '<div class="pulse-vitals-item"><span class="pulse-vitals-dot ' + dotClass + '" aria-hidden="true"></span><span>' + esc(captureText) + '</span></div>';
+	        if (data.segment_count > 0) {
+	          html += '<div class="pulse-vitals-sep"></div><div class="pulse-vitals-item">' + data.segment_count + ' segment' + (data.segment_count !== 1 ? 's' : '');
+	          if (data.duration_minutes > 0) html += ' · ' + data.duration_minutes + 'm';
           html += '</div>';
         }
         if (data.last_observe_relative) {
           html += '<div class="pulse-vitals-sep"></div><div class="pulse-vitals-item">last observation ' + esc(data.last_observe_relative) + '</div>';
-        }
-        if (data.attention) {
-          html += '<div class="pulse-vitals-sep"></div><div class="pulse-vitals-item pulse-vitals-attention">' + esc(data.attention.placeholder_text) + '</div>';
-        }
-        if (data.pipeline_status) {
-          html += '<div class="pulse-vitals-sep"></div><div class="pulse-vitals-item pulse-vitals-attention">' + esc(data.pipeline_status.message) + '</div>';
-        }
-        html += '<a href="/app/health">health →</a>';
-        el.innerHTML = html;
-      })
+	        }
+	        if (data.attention) {
+	          html += '<div class="pulse-vitals-sep"></div><div class="pulse-vitals-action" role="button" tabindex="0" data-conversation="explain the current attention items."><div class="pulse-vitals-item pulse-vitals-attention">' + esc(data.attention.placeholder_text) + '</div><a class="pulse-vitals-action-link" href="/app/health#focus=recent-errors&day=today">view details →</a></div>';
+	        }
+	        if (data.pipeline_status) {
+	          html += '<div class="pulse-vitals-sep"></div><div class="pulse-vitals-action" role="button" tabindex="0" data-conversation="explain pipeline health for today."><div class="pulse-vitals-item pulse-vitals-attention">' + esc(data.pipeline_status.message) + '</div><a class="pulse-vitals-action-link" href="/app/health#focus=recent-errors&day=today">view details →</a></div>';
+	        }
+	        html += '<a class="pulse-vitals-health-link" href="/app/health">health →</a>';
+	        el.innerHTML = html;
+	      })
       .catch(function(err) {
         window.logError(err, { context: 'home: refreshVitals failed' });
         window.SurfaceState.replaceLoading('pulse-vitals', window.SurfaceState.error({

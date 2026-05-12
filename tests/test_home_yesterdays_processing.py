@@ -14,14 +14,17 @@ from pathlib import Path
 import pytest
 
 from solstone.apps.home.routes import (
+    BRIEFING_LATENESS_THRESHOLD_HOURS,
+    BRIEFING_MORNING_END_HOUR,
     _briefing_freshness,
+    _briefing_lateness_state,
     _build_pulse_context,
     _collect_activities,
     _collect_anticipated_activities,
     _format_activity_label,
     _format_duration,
     _format_entity_summary,
-    _format_gap_bullets,
+    _format_gap_links,
     _format_heatmap_summary,
     _knowledge_graph_freshness,
     _newsletter_attempts_from_think_logs,
@@ -401,7 +404,10 @@ def test_yesterdays_card_degraded_shows_warning_and_partial_count(
         "I wrote 2 of 3 newsletters, but some overnight processing didn't finish."
     )
     assert summary["status_reasons"] == ["newsletter_partial", "pipeline_warning"]
-    assert summary["details"][0] == "Some of my overnight work didn't finish."
+    assert summary["gap_links"][0] == {
+        "text": "The facet newsletter run didn't finish.",
+        "href": "/app/sol/20260415#facet_newsletter",
+    }
     assert "I wrote 2 of 3 newsletters." in summary["details"]
 
 
@@ -508,7 +514,10 @@ def test_briefing_frontmatter_missing_counts_as_gap(tmp_path, monkeypatch):
 
     assert summary["mode"] == "degraded"
     assert "briefing_missing" in summary["status_reasons"]
-    assert "I didn't prepare your morning briefing overnight." in summary["details"]
+    assert {
+        "text": "I didn't prepare your morning briefing overnight.",
+        "href": "/app/sol/20260416#morning_briefing",
+    } in summary["gap_links"]
     assert _briefing_freshness("20260416") == {
         "exists": False,
         "valid": False,
@@ -516,8 +525,8 @@ def test_briefing_frontmatter_missing_counts_as_gap(tmp_path, monkeypatch):
     }
 
 
-def test_gap_bullets_show_specific_daily_and_activity_without_generic():
-    bullets = _format_gap_bullets(
+def test_gap_links_show_specific_daily_and_activity_without_generic():
+    links = _format_gap_links(
         {
             "anomalies": [
                 {"kind": "daily_agents_missing"},
@@ -527,12 +536,119 @@ def test_gap_bullets_show_specific_daily_and_activity_without_generic():
         },
         {"fresh": True},
         {"valid": True},
+        "20260415",
+        "20260416",
     )
 
-    assert bullets == [
-        "I didn't finish the full overnight review.",
-        "I didn't finish writing all of yesterday's notes.",
+    assert links == [
+        {
+            "text": "I didn't finish the full overnight review.",
+            "href": "/app/sol/20260415",
+        },
+        {
+            "text": "I didn't finish writing all of yesterday's notes.",
+            "href": "/app/sol/20260415",
+        },
     ]
+
+
+@pytest.mark.parametrize(
+    ("anomalies", "knowledge_graph", "briefing", "expected"),
+    [
+        (
+            [{"kind": "daily_agents_missing"}],
+            {"fresh": True},
+            {"valid": True},
+            {
+                "text": "I didn't finish the full overnight review.",
+                "href": "/app/sol/20260415",
+            },
+        ),
+        (
+            [{"kind": "activity_agents_missing"}],
+            {"fresh": True},
+            {"valid": True},
+            {
+                "text": "I didn't finish writing all of yesterday's notes.",
+                "href": "/app/sol/20260415",
+            },
+        ),
+        (
+            [{"kind": "talent_failure", "name": "flow", "use_id": "run-1"}],
+            {"fresh": True},
+            {"valid": True},
+            {
+                "text": "The flow run didn't finish.",
+                "href": "/app/sol/20260415#flow/run-1",
+            },
+        ),
+        (
+            [{"kind": "talent_failure", "name": "facet_newsletter"}],
+            {"fresh": True},
+            {"valid": True},
+            {
+                "text": "The facet newsletter run didn't finish.",
+                "href": "/app/sol/20260415#facet_newsletter",
+            },
+        ),
+        (
+            [{"kind": "talent_failure"}],
+            {"fresh": True},
+            {"valid": True},
+            {
+                "text": "Some of my overnight work didn't finish.",
+                "href": "/app/sol/20260415",
+            },
+        ),
+        (
+            [],
+            {"fresh": False},
+            {"valid": True},
+            {
+                "text": "I didn't refresh your knowledge graph overnight.",
+                "href": "/app/sol/20260415#knowledge_graph",
+            },
+        ),
+        (
+            [],
+            {"fresh": True},
+            {"valid": False},
+            {
+                "text": "I didn't prepare your morning briefing overnight.",
+                "href": "/app/sol/20260416#morning_briefing",
+            },
+        ),
+    ],
+)
+def test_gap_links_href_for_each_anomaly_kind(
+    anomalies, knowledge_graph, briefing, expected
+):
+    assert expected in _format_gap_links(
+        {"anomalies": anomalies},
+        knowledge_graph,
+        briefing,
+        "20260415",
+        "20260416",
+    )
+
+
+def test_briefing_lateness_threshold():
+    due_hour = BRIEFING_MORNING_END_HOUR
+    before = datetime(2026, 4, 16, due_hour + BRIEFING_LATENESS_THRESHOLD_HOURS, 45)
+    after = datetime(2026, 4, 16, due_hour + BRIEFING_LATENESS_THRESHOLD_HOURS + 1, 0)
+
+    assert _briefing_lateness_state(before, "pending") == {
+        "late": False,
+        "late_hours": 0,
+    }
+    assert _briefing_lateness_state(after, "pending") == {
+        "late": True,
+        "late_hours": BRIEFING_LATENESS_THRESHOLD_HOURS + 1,
+    }
+    assert _briefing_lateness_state(after, "active") == {
+        "late": False,
+        "late_hours": 0,
+    }
 
 
 def test_newsletter_attempts_option_a_matches_facet_newsletter_failures_only(

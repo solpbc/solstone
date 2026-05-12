@@ -11,6 +11,7 @@ import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,7 @@ from solstone.think.utils import get_journal
 
 # Briefing phase thresholds
 BRIEFING_MORNING_END_HOUR = 10
+BRIEFING_LATENESS_THRESHOLD_HOURS = 2
 BRIEFING_EOD_HOUR = 20
 
 # Section heading -> key mapping
@@ -239,6 +241,22 @@ def _compute_briefing_phase(
     if briefing_exists and segment_count > 0:
         return "active"
     return "eod"
+
+
+def _briefing_lateness_state(now: datetime, phase: str) -> dict[str, Any]:
+    """Return late-state metadata for a pending morning briefing."""
+    due_at = now.replace(
+        hour=BRIEFING_MORNING_END_HOUR,
+        minute=0,
+        second=0,
+        microsecond=0,
+    )
+    late_hours = max(0, int((now - due_at).total_seconds() // 3600))
+    is_late = (
+        phase == "pending"
+        and now.hour > BRIEFING_MORNING_END_HOUR + BRIEFING_LATENESS_THRESHOLD_HOURS
+    )
+    return {"late": is_late, "late_hours": late_hours if is_late else 0}
 
 
 def _normalize_item(text: str) -> str:
@@ -817,12 +835,56 @@ def _format_heatmap_summary(stats_data: dict[str, Any]) -> str | None:
     return "I watched most closely during " + " · ".join(ranges) + "."
 
 
-def _format_gap_bullets(
+def _format_capture_vitals_text(capture: dict[str, Any], now: datetime) -> str:
+    """Return compact owner-facing observer status for the home vitals strip."""
+    status = capture.get("status")
+    if status == "no_observers":
+        return "observer no observers"
+
+    observers = [
+        observer
+        for observer in capture.get("observers", [])
+        if observer.get("status") in {"stale", "offline"}
+    ]
+    seen_observers = [
+        observer
+        for observer in observers
+        if isinstance(observer.get("last_seen"), (int, float))
+    ]
+    if seen_observers:
+        names = [
+            str(observer.get("name") or "observer").strip() or "observer"
+            for observer in seen_observers
+        ]
+        last_seen = max(float(observer["last_seen"]) for observer in seen_observers)
+        delta_seconds = max(0.0, (now.timestamp() * 1000 - last_seen) / 1000)
+        label = "observer" if len(names) == 1 else "observers"
+        joined_names = ", ".join(names[:2])
+        if len(names) > 2:
+            joined_names += f", +{len(names) - 2}"
+        return (
+            f"{label} {joined_names} last reported {relative_time(delta_seconds)} ago"
+        )
+
+    if observers:
+        names = [
+            str(observer.get("name") or "observer").strip() or "observer"
+            for observer in observers
+        ]
+        label = "observer" if len(names) == 1 else "observers"
+        return f"{label} {', '.join(names[:2])} has not reported yet"
+
+    return f"observer {status or 'unknown'}"
+
+
+def _format_gap_links(
     pipeline_summary: dict[str, Any],
     knowledge_graph: dict[str, Any],
     briefing: dict[str, Any],
-) -> list[str]:
-    bullets = []
+    yesterday_day: str,
+    today: str,
+) -> list[dict[str, str]]:
+    links: list[dict[str, str]] = []
     anomalies = pipeline_summary.get("anomalies", [])
     has_daily = any(
         anomaly.get("kind") == "daily_agents_missing" for anomaly in anomalies
@@ -830,20 +892,65 @@ def _format_gap_bullets(
     has_activity = any(
         anomaly.get("kind") == "activity_agents_missing" for anomaly in anomalies
     )
-    has_failure = any(anomaly.get("kind") == "talent_failure" for anomaly in anomalies)
+    failure_anomalies = [
+        anomaly for anomaly in anomalies if anomaly.get("kind") == "talent_failure"
+    ]
 
     if has_daily:
-        bullets.append("I didn't finish the full overnight review.")
+        links.append(
+            {
+                "text": "I didn't finish the full overnight review.",
+                "href": f"/app/sol/{yesterday_day}",
+            }
+        )
     if has_activity:
-        bullets.append("I didn't finish writing all of yesterday's notes.")
-    if has_failure and not has_daily and not has_activity:
-        bullets.append("Some of my overnight work didn't finish.")
+        links.append(
+            {
+                "text": "I didn't finish writing all of yesterday's notes.",
+                "href": f"/app/sol/{yesterday_day}",
+            }
+        )
+
+    named_failures = []
+    for anomaly in failure_anomalies:
+        name = str(anomaly.get("name") or "").strip()
+        if not name:
+            continue
+        use_id = str(anomaly.get("use_id") or "").strip()
+        anchor = quote(name, safe="")
+        if use_id:
+            anchor += f"/{quote(use_id, safe='')}"
+        named_failures.append(
+            {
+                "text": f"The {name.replace('_', ' ')} run didn't finish.",
+                "href": f"/app/sol/{yesterday_day}#{anchor}",
+            }
+        )
+
+    links.extend(named_failures)
+    if failure_anomalies and not has_daily and not has_activity and not named_failures:
+        links.append(
+            {
+                "text": "Some of my overnight work didn't finish.",
+                "href": f"/app/sol/{yesterday_day}",
+            }
+        )
 
     if not knowledge_graph.get("fresh"):
-        bullets.append("I didn't refresh your knowledge graph overnight.")
+        links.append(
+            {
+                "text": "I didn't refresh your knowledge graph overnight.",
+                "href": f"/app/sol/{yesterday_day}#knowledge_graph",
+            }
+        )
     if not briefing.get("valid"):
-        bullets.append("I didn't prepare your morning briefing overnight.")
-    return bullets
+        links.append(
+            {
+                "text": "I didn't prepare your morning briefing overnight.",
+                "href": f"/app/sol/{today}#morning_briefing",
+            }
+        )
+    return links
 
 
 def _summarize_yesterday_processing(
@@ -875,7 +982,8 @@ def _summarize_yesterday_processing(
 
     pipeline_summary = _load_yesterday_pipeline_summary(yesterday)
     knowledge_graph = _knowledge_graph_freshness(yesterday)
-    briefing = _briefing_freshness(_today())
+    today = _today()
+    briefing = _briefing_freshness(today)
     successful_newsletters, attempted_newsletters = (
         _newsletter_attempts_from_think_logs(yesterday)
     )
@@ -918,6 +1026,7 @@ def _summarize_yesterday_processing(
             "first_week_framing": None,
             "summary_line": summary_line,
             "details": None,
+            "gap_links": [],
             "sparse_lines": [
                 "I didn't produce any facet newsletters.",
                 "There wasn't much else to process.",
@@ -926,8 +1035,11 @@ def _summarize_yesterday_processing(
         }
 
     details = []
+    gap_links: list[dict[str, str]] = []
     if mode == "degraded":
-        details.extend(_format_gap_bullets(pipeline_summary, knowledge_graph, briefing))
+        gap_links = _format_gap_links(
+            pipeline_summary, knowledge_graph, briefing, yesterday, today
+        )
 
     details.append(
         _format_newsletter_summary(successful_newsletters, attempted_newsletters)
@@ -972,6 +1084,7 @@ def _summarize_yesterday_processing(
         "mode": mode,
         "default_collapsed": default_collapsed,
         "first_week_framing": first_week_framing,
+        "gap_links": gap_links,
         "summary_line": _format_processing_summary(
             mode,
             successful_newsletters,
@@ -1264,7 +1377,9 @@ def _build_pulse_context() -> dict[str, Any]:
     now = datetime.now()
     journal_age_days = _count_journal_age_days(today)
 
-    capture_status = get_capture_health()["status"]
+    capture_health = get_capture_health()
+    capture_status = capture_health["status"]
+    capture_display_text = _format_capture_vitals_text(capture_health, now)
     cached = get_cached_state()
     last_observe_ts = cached.get("last_observe_ts")
     attention = _resolve_attention(get_current())
@@ -1326,6 +1441,7 @@ def _build_pulse_context() -> dict[str, Any]:
     briefing_sections, briefing_meta, briefing_needs = _load_briefing_md(today)
     briefing_exists = bool(briefing_sections)
     briefing_phase = _compute_briefing_phase(segment_count, now.hour, briefing_exists)
+    briefing_lateness = _briefing_lateness_state(now, briefing_phase)
     unseen_routines = [r for r in routines if not r["seen"]]
     unseen_skills = [s for s in skills if not s["seen"]]
     show_welcome = (
@@ -1432,6 +1548,7 @@ def _build_pulse_context() -> dict[str, Any]:
         "today": today,
         "now": now,
         "capture_status": capture_status,
+        "capture_display_text": capture_display_text,
         "last_observe_relative": last_observe_relative,
         "attention": attention,
         "pipeline_status": pipeline_status,
@@ -1456,6 +1573,7 @@ def _build_pulse_context() -> dict[str, Any]:
         "briefing_sections": briefing_sections,
         "briefing_meta": briefing_meta,
         "briefing_phase": briefing_phase,
+        "briefing_lateness": briefing_lateness,
         "briefing_exists": briefing_exists,
         "briefing_summary": briefing_summary,
         "briefing_needs_deduped": briefing_needs_deduped,
