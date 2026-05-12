@@ -1147,8 +1147,9 @@ body.has-app-bar.has-date-nav .workspace:has(.tr-wrap) {
 
 .tr-warning-notice {
   display: none;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
   padding: 8px 12px;
   font-size: 13px;
   color: #92400e;
@@ -1163,6 +1164,13 @@ body.has-app-bar.has-date-nav .workspace:has(.tr-wrap) {
   display: flex;
 }
 
+.tr-warning-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
 .tr-warning-notice svg {
   width: 16px;
   height: 16px;
@@ -1172,6 +1180,20 @@ body.has-app-bar.has-date-nav .workspace:has(.tr-wrap) {
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.tr-warning-caret {
+  margin-left: auto;
+}
+
+.tr-warning-details {
+  margin: 0;
+  padding-left: 24px;
+  color: #78350f;
+}
+
+.tr-warning-details[hidden] {
+  display: none;
 }
 
 /* Markdown content styling within screen entries */
@@ -1415,10 +1437,14 @@ body.presentation-mode .tr-screen-text { font-size: 16px; padding: 12px 16px; bo
         </button>
       </div>
       <div class="tr-tabs" id="trTabs"></div>
-      <div id="trWarningNotice" class="tr-warning-notice">
-        <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-        <span id="trWarningText"></span>
-      </div>
+	      <div id="trWarningNotice" class="tr-warning-notice" aria-expanded="false">
+	        <div class="tr-warning-summary" role="button" tabindex="0">
+	          <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+	          <span id="trWarningText"></span>
+	          <span class="tr-warning-caret" id="trWarningCaret">▾</span>
+	        </div>
+	        <ul class="tr-warning-details" id="trWarningDetails" hidden></ul>
+	      </div>
       <div class="tr-panel" id="trPanel">
         <div class="surface-state surface-state--empty">
           <div class="surface-state-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></div>
@@ -1494,18 +1520,71 @@ body.presentation-mode .tr-screen-text { font-size: 16px; padding: 12px 16px; bo
     activateTab(next.dataset.tab);
     next.focus();
   });
-  const panel = document.getElementById('trPanel');
-  const deleteBtn = document.getElementById('trDeleteBtn');
+	  const panel = document.getElementById('trPanel');
+	  const warningNotice = document.getElementById('trWarningNotice');
+	  const warningText = document.getElementById('trWarningText');
+	  const warningDetails = document.getElementById('trWarningDetails');
+	  const warningCaret = document.getElementById('trWarningCaret');
+	  const deleteBtn = document.getElementById('trDeleteBtn');
   const deleteSegmentModal = document.getElementById('trDeleteSegmentModal');
   const deleteSegmentModalBody = document.getElementById('trDeleteSegmentModalBody');
   const deleteSegmentModalConfirm = document.getElementById('trDeleteSegmentModalConfirm');
-  const emptyIcons = {
+	  const emptyIcons = {
     day: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>',
     nothing: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>',
     transcript: '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>',
     audio: '<svg viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>',
-    screen: '<svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>'
-  };
+	    screen: '<svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>'
+	  };
+
+	  function warningTimestampLabel(ts) {
+	    const parsed = new Date(ts);
+	    if (Number.isNaN(parsed.getTime())) return 'time unknown';
+	    return relativeTime(Date.now() - parsed.getTime()) + ' ago';
+	  }
+
+	  function renderWarningNotice(data) {
+	    const count = data.warnings || 0;
+	    const details = Array.isArray(data.warning_details) ? data.warning_details : [];
+	    warningDetails.innerHTML = '';
+	    warningNotice.setAttribute('aria-expanded', 'false');
+	    warningDetails.hidden = true;
+	    warningCaret.textContent = '▾';
+	    if (count <= 0) {
+	      warningNotice.classList.remove('visible');
+	      return;
+	    }
+	    warningText.textContent = count + ' warning' + (count === 1 ? '' : 's') + ' during processing';
+	    if (details.length === 0) {
+	      const item = document.createElement('li');
+	      item.textContent = 'warning details unavailable';
+	      warningDetails.appendChild(item);
+	    } else {
+	      for (const detail of details) {
+	        const item = document.createElement('li');
+	        const type = detail.type || 'warning';
+	        const file = detail.file || 'unknown file';
+	        item.textContent = `${type} — ${file} (${warningTimestampLabel(detail.ts)})`;
+	        warningDetails.appendChild(item);
+	      }
+	    }
+	    warningNotice.classList.add('visible');
+	  }
+
+	  function toggleWarningDetails() {
+	    const expanded = warningNotice.getAttribute('aria-expanded') === 'true';
+	    warningNotice.setAttribute('aria-expanded', String(!expanded));
+	    warningDetails.hidden = expanded;
+	    warningCaret.textContent = expanded ? '▾' : '▴';
+	  }
+
+	  const warningSummary = warningNotice.querySelector('.tr-warning-summary');
+	  warningSummary.addEventListener('click', toggleWarningDetails);
+	  warningSummary.addEventListener('keydown', (event) => {
+	    if (event.key !== 'Enter' && event.key !== ' ') return;
+	    event.preventDefault();
+	    toggleWarningDetails();
+	  });
 
   // State
   let height = timeline.clientHeight;
@@ -2270,7 +2349,7 @@ body.presentation-mode .tr-screen-text { font-size: 16px; padding: 12px 16px; bo
     frameCapture.clear();
     tabsContainer.classList.remove('visible');
     tabsContainer.innerHTML = '';
-    document.getElementById('trWarningNotice').classList.remove('visible');
+	    warningNotice.classList.remove('visible');
     panel.innerHTML = window.SurfaceState.loading({ text: 'Loading segment...' });
     panel.classList.add('loading');
 
@@ -2293,13 +2372,7 @@ body.presentation-mode .tr-screen-text { font-size: 16px; padding: 12px 16px; bo
         ) {
           activateTab(requestedTabId);
         }
-        const warningNotice = document.getElementById('trWarningNotice');
-        if (data.warnings > 0) {
-          document.getElementById('trWarningText').textContent = data.warnings + ' warning' + (data.warnings === 1 ? '' : 's') + ' during processing';
-          warningNotice.classList.add('visible');
-        } else {
-          warningNotice.classList.remove('visible');
-        }
+	        renderWarningNotice(data);
       })
       .catch(err => {
         if (err.name === 'AbortError') {
@@ -3074,12 +3147,28 @@ body.presentation-mode .tr-screen-text { font-size: 16px; padding: 12px 16px; bo
     updateZoom();
   }).observe(zoom);
 
-  // Load combined transcript data
-  fetch(`/app/transcripts/api/day/${day}`)
-    .then(r => {
-      if (!r.ok) throw new Error(`Day data failed: ${r.status}`);
-      return r.json();
-    })
+	  // Load combined transcript data
+	  function loadDayData() {
+	    fetch(`/app/transcripts/api/day/${day}`)
+	    .then(async r => {
+	      if (!r.ok) {
+	        let payload = {};
+	        try {
+	          payload = await r.json();
+	        } catch (_) {
+	          payload = {};
+	        }
+	        throw new window.ApiError({
+	          status: r.status,
+	          statusText: r.statusText,
+	          serverMessage: payload.error || `day data failed: ${r.status}`,
+	          url: r.url,
+	          reasonCode: payload.reason_code,
+	          rawDetail: payload.detail,
+	        });
+	      }
+	      return r.json();
+	    })
     .then(data => {
       // Apply dynamic timeline bounds from ranges
       const bounds = computeTimelineBounds(data);
@@ -3183,16 +3272,25 @@ body.presentation-mode .tr-screen-text { font-size: 16px; padding: 12px 16px; bo
         }
       }
     })
-    .catch(err => {
-      console.error('Failed to load transcript data:', err);
-      zoomSegments.innerHTML = '';
-      panel.innerHTML = window.SurfaceState.error({
-        heading: 'couldn\'t load transcripts',
-        desc: 'the data service may be offline. try refreshing the page.'
-      });
-    });
+	    .catch(err => {
+	      console.error('transcripts: day data load did not complete:', err);
+	      zoomSegments.innerHTML = '';
+	      panel.innerHTML = window.SurfaceState.error({
+	        heading: "I couldn't load transcripts",
+	        desc: window.CONVEY_COPY?.RELOAD_HINT || 'reload to try again.',
+	        retry: true,
+	        retryLabel: window.CONVEY_COPY?.ACTION_TRY_AGAIN || 'Try again',
+	        serverMessage: err.serverMessage,
+	        detail: err,
+	      });
+	      const retry = panel.querySelector('.surface-state-retry');
+	      if (retry) retry.addEventListener('click', loadDayData);
+	    });
+	  }
 
-  // Handle browser back/forward
+	  loadDayData();
+
+	  // Handle browser back/forward
   window.addEventListener('hashchange', () => {
     const rawHash = window.location.hash.slice(1);
     const [segKey, tabIdFromHash] = rawHash.split('/', 2);
@@ -3530,7 +3628,7 @@ body.presentation-mode .tr-screen-text { font-size: 16px; padding: 12px 16px; bo
     rangeText.textContent = '';
     tabsContainer.innerHTML = '';
     tabsContainer.classList.remove('visible');
-    document.getElementById('trWarningNotice').classList.remove('visible');
+	    warningNotice.classList.remove('visible');
     panel.innerHTML = window.SurfaceState.empty({
       icon: emptyIcons.day,
       heading: 'your day at a glance',

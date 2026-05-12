@@ -214,6 +214,31 @@ def test_segment_content_happy_path_returns_segment_payload(client):
     assert "media_sizes" in data
 
 
+def test_segment_content_returns_warning_details_for_parse_failures(
+    client, journal_copy
+):
+    day = "20990106"
+    stream = "default"
+    segment = "090000_300"
+    _write_segment(journal_copy, day, stream, segment)
+    segment_dir = journal_copy / "chronicle" / day / stream / segment
+    (segment_dir / "audio.jsonl").write_text("{bad json\n", encoding="utf-8")
+    (segment_dir / "screen.jsonl").write_text("{bad json\n", encoding="utf-8")
+
+    response = client.get(f"/app/transcripts/api/segment/{day}/{stream}/{segment}")
+
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["warnings"] == 2
+    assert [detail["type"] for detail in data["warning_details"]] == [
+        "audio",
+        "screen",
+    ]
+    assert all(detail["file"] for detail in data["warning_details"])
+    assert all(detail["message"] for detail in data["warning_details"])
+    assert all(detail["ts"] for detail in data["warning_details"])
+
+
 def test_segment_content_drops_screen_md_when_screen_chunks_present(client):
     response = client.get(
         f"/app/transcripts/api/segment/{FIXTURE_DAY}/{FIXTURE_STREAM}/{FIXTURE_SEGMENT}"

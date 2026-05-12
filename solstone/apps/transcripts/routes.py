@@ -332,7 +332,7 @@ def segment_content(day: str, stream: str, segment_key: str) -> Any:
     media_sizes: dict[str, int] = {"audio": 0, "screen": 0}
     has_raw_reference = False
     has_raw_file = False
-    warnings = 0
+    warning_details: list[dict[str, str]] = []
 
     # Load speaker labels if available.
     speaker_labels_path = Path(segment_dir) / "talents" / "speaker_labels.json"
@@ -421,11 +421,18 @@ def segment_content(day: str, stream: str, segment_key: str) -> Any:
                 if speaker_label:
                     chunk_data["speaker_label"] = speaker_label
                 chunks.append(chunk_data)
-        except Exception:
+        except Exception as exc:
             logger.warning(
                 "Failed to parse audio segment %s", audio_path, exc_info=True
             )
-            warnings += 1
+            warning_details.append(
+                {
+                    "type": "audio",
+                    "file": str(audio_path),
+                    "message": str(exc),
+                    "ts": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+                }
+            )
             continue
 
     # Process screen files and collect video URLs for client-side decoding
@@ -515,11 +522,18 @@ def segment_content(day: str, stream: str, segment_key: str) -> Any:
                         "basic": is_basic,
                     }
                 )
-        except Exception:
+        except Exception as exc:
             logger.warning(
                 "Failed to parse screen segment %s", screen_path, exc_info=True
             )
-            warnings += 1
+            warning_details.append(
+                {
+                    "type": "screen",
+                    "file": str(screen_path),
+                    "message": str(exc),
+                    "ts": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+                }
+            )
             continue
 
     # Sort all chunks by timestamp
@@ -558,7 +572,8 @@ def segment_content(day: str, stream: str, segment_key: str) -> Any:
             "cost": cost_data["cost"],
             "media_sizes": media_sizes,
             "media_purged": media_purged,
-            "warnings": warnings,
+            "warnings": len(warning_details),
+            "warning_details": warning_details,
         }
     )
 
