@@ -559,7 +559,15 @@ def _up(port: int = DEFAULT_SERVICE_PORT) -> int:
         print(_ready_timeout_message(), file=sys.stderr)
         return 1
 
-    return _status()
+    # wait_ready() succeeding is the authoritative readiness signal per the
+    # readiness primitive contract. _status() is invoked for human-readable
+    # output, but its return code (which folds in health_check()'s 10s callosum
+    # status probe) is NOT the gate. The callosum bus warms up over ~30-90s
+    # post-readiness while convey/cortex/link come online; allowing _status()
+    # to fail _up() here re-introduces the same premature-failure that the
+    # readiness primitive was meant to retire.
+    _status()
+    return 0
 
 
 def _down() -> int:
