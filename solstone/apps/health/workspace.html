@@ -451,6 +451,27 @@
 .registered-observer-meta { color: #6b7280; font-size: 0.78em; margin-left: auto; }
 .registered-observer-skew { background: #fef3c7; color: #b45309; }
 .registered-observer-skew.hidden { display: none; }
+.registered-observer-action {
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: #fff;
+  color: #374151;
+  cursor: pointer;
+  font-size: 0.75em;
+  padding: 0.25em 0.55em;
+}
+.registered-observer-action:disabled {
+  cursor: default;
+  opacity: 0.65;
+}
+.registered-observer-result {
+  color: #6b7280;
+  font-size: 0.75em;
+}
+.registered-observer-error .surface-state {
+  margin: 0;
+  padding: 0.4rem 0.5rem;
+}
 
 /* Activity Grids Container */
 .activity-grids {
@@ -783,6 +804,11 @@
 
 .logs-line.log {
   color: #a78bfa;
+}
+
+.logs-line.log-row-anchored {
+  background: rgba(250, 204, 21, 0.24);
+  transition: background 1.2s ease;
 }
 
 /* Think Card */
@@ -1311,9 +1337,12 @@
     logTotalCount: 0,
     lastLogTs: null,
     lastAgentFinishTs: null,
-    observers: new Map(),       // keyed by stream name
-    recentErrors: [],
-    localHost: null,
+	    observers: new Map(),       // keyed by stream name
+	    recentErrors: [],
+	    recentErrorsFilter: null,
+	    pendingRecentErrorsFocus: false,
+	    pendingLogAnchor: null,
+	    localHost: null,
     deepLinkMode: false,
     lastLogFilter: null,        // Last rendered filter state for incremental append
     lastEventTs: null,           // Timestamp of last event from WebSocket
@@ -1431,10 +1460,37 @@
     return formatElapsed(Math.floor(ms / 1000));
   }
 
-  function truncate(str, len) {
-    if (!str) return '';
-    return str.length > len ? str.substring(0, len) + '...' : str;
-  }
+	  function truncate(str, len) {
+	    if (!str) return '';
+	    return str.length > len ? str.substring(0, len) + '...' : str;
+	  }
+
+	  function dayKeyFromTimestamp(ts) {
+	    const date = new Date(ts);
+	    if (Number.isNaN(date.getTime())) return '';
+	    const year = String(date.getFullYear());
+	    const month = String(date.getMonth() + 1).padStart(2, '0');
+	    const day = String(date.getDate()).padStart(2, '0');
+	    return year + month + day;
+	  }
+
+	  function todayKey() {
+	    return dayKeyFromTimestamp(Date.now());
+	  }
+
+	  function resolveRecentErrorsDay(day) {
+	    if (!day || day === 'today') return todayKey();
+	    return /^\d{8}$/.test(day) ? day : null;
+	  }
+
+	  function recentErrorMatchesFilter(entry) {
+	    const filter = state.recentErrorsFilter;
+	    if (!filter) return true;
+	    const requestedDay = resolveRecentErrorsDay(filter.day);
+	    if (requestedDay && dayKeyFromTimestamp(entry.ts) !== requestedDay) return false;
+	    if (filter.talent && entry.name !== filter.talent) return false;
+	    return true;
+	  }
 
   function getAgentId(id) {
     return String(id).slice(-4);
@@ -1597,23 +1653,26 @@
   }
   updateLogsBadge();
 
-  function updateErrorSummary() {
-    if (state.recentErrors.length === 0) {
-      elements.errorSummary.classList.add('hidden');
-      return;
-    }
+	  function updateErrorSummary() {
+	    if (state.recentErrors.length === 0 && !state.recentErrorsFilter) {
+	      elements.errorSummary.classList.add('hidden');
+	      return;
+	    }
 
-    elements.errorSummary.classList.remove('hidden');
-    const container = elements.errorSummaryContent;
-    const recent = state.recentErrors.slice(-10).reverse();
+	    elements.errorSummary.classList.remove('hidden');
+	    const container = elements.errorSummaryContent;
+	    const recent = state.recentErrors
+	      .map((e, idx) => ({ e, realIdx: idx }))
+	      .filter(({ e }) => recentErrorMatchesFilter(e))
+	      .slice(-10)
+	      .reverse();
 
-    const newKeys = new Set();
-    const entries = recent.map((e, idx) => {
-      const realIdx = state.recentErrors.length - 1 - idx;
-      const key = realIdx + ':' + e.ts + ':' + e.type;
-      newKeys.add(key);
-      return { e, realIdx, key };
-    });
+	    const newKeys = new Set();
+	    const entries = recent.map(({ e, realIdx }) => {
+	      const key = realIdx + ':' + e.ts + ':' + e.type;
+	      newKeys.add(key);
+	      return { e, realIdx, key };
+	    });
 
     const existingByKey = new Map();
     for (const child of Array.from(container.children)) {
@@ -1625,11 +1684,41 @@
       if (!newKeys.has(k)) container.removeChild(child);
     }
 
-    for (const child of Array.from(container.children)) {
-      if (!child.getAttribute('data-key')) container.removeChild(child);
-    }
+	    for (const child of Array.from(container.children)) {
+	      if (!child.getAttribute('data-key')) container.removeChild(child);
+	    }
 
-    for (const { e, realIdx, key } of entries) {
+	    if (state.recentErrorsFilter) {
+	      const filter = state.recentErrorsFilter;
+	      const label = document.createElement('div');
+	      label.style.cssText = 'padding: 0.2em 0 0.45em; font-size: 0.8em; color: #6b7280; display: flex; gap: 0.5em; align-items: center;';
+	      const dayText = filter.day === 'today' ? "today's" : filter.day;
+	      label.appendChild(document.createTextNode(`showing ${dayText} errors`));
+	      if (filter.talent) {
+	        label.appendChild(document.createTextNode(` for ${filter.talent}`));
+	      }
+	      const clearBtn = document.createElement('button');
+	      clearBtn.type = 'button';
+	      clearBtn.setAttribute('data-action', 'clear-error-filter');
+	      clearBtn.className = 'error-advice-link';
+	      clearBtn.textContent = 'clear';
+	      label.appendChild(clearBtn);
+	      container.appendChild(label);
+	    }
+
+	    if (entries.length === 0) {
+	      const empty = document.createElement('div');
+	      empty.style.cssText = 'padding: 0.3em 0; font-size: 0.85em; color: #6b7280;';
+	      empty.textContent = state.recentErrorsFilter ? 'no matching recent errors yet.' : 'no recent errors.';
+	      container.appendChild(empty);
+	      if (state.pendingRecentErrorsFocus) {
+	        state.pendingRecentErrorsFocus = false;
+	        requestAnimationFrame(() => elements.errorSummary.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+	      }
+	      return;
+	    }
+
+	    for (const { e, realIdx, key } of entries) {
       let row = existingByKey.get(key);
       if (!row) {
         row = document.createElement('div');
@@ -1674,10 +1763,15 @@
       dismissBtn.setAttribute('data-error-index', realIdx);
 
       container.appendChild(row);
-    }
+	    }
 
-    // Error-type-specific advice templates
-    const types = new Set(recent.map(e => e.type));
+	    if (state.pendingRecentErrorsFocus) {
+	      state.pendingRecentErrorsFocus = false;
+	      requestAnimationFrame(() => elements.errorSummary.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+	    }
+
+	    // Error-type-specific advice templates
+	    const types = new Set(recent.map(({ e }) => e.type));
     if (types.has('agent')) {
       const advice = document.createElement('div');
       advice.style.cssText = 'padding: 0.25em 0; font-size: 0.8em; color: #9ca3af;';
@@ -1691,8 +1785,8 @@
       advice.appendChild(document.createTextNode(' for details.'));
       container.appendChild(advice);
     }
-    if (types.has('import')) {
-      const importErr = recent.find(e => e.type === 'import');
+	    if (types.has('import')) {
+	      const importErr = recent.find(({ e }) => e.type === 'import')?.e;
       const stageText = importErr?.stage && importErr.stage !== 'unknown' ? ' at ' + importErr.stage : '';
       const advice = document.createElement('div');
       advice.style.cssText = 'padding: 0.25em 0; font-size: 0.8em; color: #9ca3af;';
@@ -1722,14 +1816,15 @@
     }
   }
 
-  function viewServiceLogs(service) {
-    // Set filter to the relevant service
-    const option = Array.from(elements.logServiceFilter.options).find(o => o.value === service);
-    if (option) {
-      elements.logServiceFilter.value = service;
-    }
-    // Expand logs if collapsed
-    if (state.logsCollapsed) {
+	  function viewServiceLogs(service, ts) {
+	    // Set filter to the relevant service
+	    const option = Array.from(elements.logServiceFilter.options).find(o => o.value === service);
+	    if (option) {
+	      elements.logServiceFilter.value = service;
+	    }
+	    if (ts) state.pendingLogAnchor = ts;
+	    // Expand logs if collapsed
+	    if (state.logsCollapsed) {
       state.logsCollapsed = false;
       document.querySelector('.logs-card').classList.remove('logs-collapsed');
       elements.logsCollapseIndicator.textContent = '▼ Hide';
@@ -1750,7 +1845,7 @@
         updateErrorSummary();
         updateStatusSummary();
       }
-    } else if (action === 'view-logs') {
+	    } else if (action === 'view-logs') {
       // If data-service is set (from advice template), use it directly
       const service = btn.dataset.service;
       if (service) {
@@ -1759,13 +1854,16 @@
       }
       // Otherwise derive from the error entry
       const idx = parseInt(btn.dataset.errorIndex, 10);
-      if (!isNaN(idx) && idx >= 0 && idx < state.recentErrors.length) {
-        const err = state.recentErrors[idx];
-        const svc = err.type === 'agent' ? 'cortex' : err.type === 'import' ? 'importer' : 'supervisor';
-        viewServiceLogs(svc);
-      }
-    }
-  });
+	      if (!isNaN(idx) && idx >= 0 && idx < state.recentErrors.length) {
+	        const err = state.recentErrors[idx];
+	        const svc = err.service || (err.type === 'agent' ? 'cortex' : err.type === 'import' ? 'importer' : 'supervisor');
+	        viewServiceLogs(svc, err.ts);
+	      }
+	    } else if (action === 'clear-error-filter') {
+	      state.recentErrorsFilter = null;
+	      updateErrorSummary();
+	    }
+	  });
 
   elements.importerGrid.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-action="retry"]');
@@ -2300,12 +2398,41 @@
     }
   }
 
-  function registeredObserverMeta(observer) {
-    if (!observer.last_seen) return 'never seen';
-    const deltaMs = Date.now() - observer.last_seen;
-    if (deltaMs < 0) return 'last seen from future';
-    return `last seen ${relativeTime(deltaMs)} ago`;
-  }
+	  function registeredObserverMeta(observer) {
+	    if (!observer.last_seen) return 'never seen';
+	    const deltaMs = Date.now() - observer.last_seen;
+	    if (deltaMs < 0) return 'last seen from future';
+	    return `last reported ${relativeTime(deltaMs)} ago`;
+	  }
+
+	  function requestObserverRestart(button, resultEl, errorEl) {
+	    button.disabled = true;
+	    button.textContent = 'restarting...';
+	    resultEl.textContent = '';
+	    errorEl.textContent = '';
+	    // Observer rows are per registration key; supervisor restarts the shared sense worker.
+	    window.apiJson('/app/health/api/restart-observer', {
+	      method: 'POST',
+	      headers: { 'Content-Type': 'application/json' },
+	      body: JSON.stringify({ service: 'sense' })
+	    })
+	      .then(() => {
+	        button.textContent = window.CONVEY_COPY?.ACTION_RESTART || 'Restart';
+	        resultEl.textContent = 'restart requested';
+	      })
+	      .catch((err) => {
+	        window.logError(err, { context: 'health: restart-observer failed' });
+	        button.disabled = false;
+	        button.textContent = window.CONVEY_COPY?.ACTION_RESTART || 'Restart';
+	        errorEl.innerHTML = window.SurfaceState.error({
+	          heading: "I couldn't restart observer processing",
+	          desc: window.CONVEY_COPY?.RELOAD_HINT || 'reload to try again.',
+	          serverMessage: err.serverMessage,
+	          detail: err,
+	          headingLevel: 'h4'
+	        });
+	      });
+	  }
 
   function renderRegisteredObservers(observers) {
     if (!observers || observers.length === 0) {
@@ -2341,9 +2468,24 @@
       const skewEl = document.createElement('span');
       skewEl.className = 'registered-observer-skew' + (observer.clock_skew ? '' : ' hidden');
       skewEl.textContent = 'clock skew';
-      row.appendChild(skewEl);
+	      row.appendChild(skewEl);
 
-      elements.registeredObserversStrip.appendChild(row);
+	      if (stateClass === 'stale') {
+	        const actionBtn = document.createElement('button');
+	        actionBtn.type = 'button';
+	        actionBtn.className = 'registered-observer-action';
+	        actionBtn.textContent = window.CONVEY_COPY?.ACTION_RESTART || 'Restart';
+	        const resultEl = document.createElement('span');
+	        resultEl.className = 'registered-observer-result';
+	        const errorEl = document.createElement('span');
+	        errorEl.className = 'registered-observer-error';
+	        actionBtn.addEventListener('click', () => requestObserverRestart(actionBtn, resultEl, errorEl));
+	        row.appendChild(actionBtn);
+	        row.appendChild(resultEl);
+	        row.appendChild(errorEl);
+	      }
+
+	      elements.registeredObserversStrip.appendChild(row);
     }
   }
 
@@ -2635,9 +2777,29 @@
     updateStatusSummary();
   }
 
-  const LOG_BUFFER_SIZE = 50;
+	  const LOG_BUFFER_SIZE = 50;
 
-  function handleLogsEvent(msg) {
+	  function applyPendingLogAnchor() {
+	    const anchor = state.pendingLogAnchor;
+	    if (!anchor) return;
+	    state.pendingLogAnchor = null;
+	    const lines = Array.from(elements.logsViewport.querySelectorAll('.logs-line[data-ts]'));
+	    if (lines.length === 0) return;
+	    let best = lines[0];
+	    let bestDelta = Math.abs(Number(best.dataset.ts) - anchor);
+	    for (const line of lines.slice(1)) {
+	      const delta = Math.abs(Number(line.dataset.ts) - anchor);
+	      if (delta < bestDelta) {
+	        best = line;
+	        bestDelta = delta;
+	      }
+	    }
+	    best.classList.add('log-row-anchored');
+	    best.scrollIntoView({ behavior: 'smooth', block: 'center' });
+	    setTimeout(() => best.classList.remove('log-row-anchored'), 1600);
+	  }
+
+	  function handleLogsEvent(msg) {
     if (msg.event !== 'line') return;
 
     const name = msg.name || 'unknown';
@@ -2706,9 +2868,10 @@
           header.textContent = '── ' + serviceName(newService) + ' ──';
           viewport.appendChild(header);
         }
-        const line = document.createElement('div');
-        line.className = newRecord.stream === 'stderr' ? 'logs-line stderr' : newRecord.stream === 'log' ? 'logs-line log' : 'logs-line';
-        line.textContent = newRecord.line;
+	        const line = document.createElement('div');
+	        line.className = newRecord.stream === 'stderr' ? 'logs-line stderr' : newRecord.stream === 'log' ? 'logs-line log' : 'logs-line';
+	        line.dataset.ts = String(newRecord.ts);
+	        line.textContent = newRecord.line;
         viewport.appendChild(line);
         viewport.scrollTop = viewport.scrollHeight;
         return;
@@ -2736,22 +2899,24 @@
       header.textContent = '── ' + serviceName(svc) + ' ──';
       fragment.appendChild(header);
 
-      for (const rec of filtered) {
-        const line = document.createElement('div');
-        line.className = rec.stream === 'stderr' ? 'logs-line stderr' : rec.stream === 'log' ? 'logs-line log' : 'logs-line';
-        line.textContent = rec.line;
-        fragment.appendChild(line);
-      }
+	      for (const rec of filtered) {
+	        const line = document.createElement('div');
+	        line.className = rec.stream === 'stderr' ? 'logs-line stderr' : rec.stream === 'log' ? 'logs-line log' : 'logs-line';
+	        line.dataset.ts = String(rec.ts);
+	        line.textContent = rec.line;
+	        fragment.appendChild(line);
+	      }
     }
 
     viewport.textContent = '';
     viewport.appendChild(fragment);
 
     // Auto-scroll if following
-    if (wasAtBottom || state.logFollow) {
-      viewport.scrollTop = viewport.scrollHeight;
-    }
-  }
+	    if (wasAtBottom || state.logFollow) {
+	      viewport.scrollTop = viewport.scrollHeight;
+	    }
+	    applyPendingLogAnchor();
+	  }
 
   // Event handlers by tract
   function handleSupervisorEvent(msg) {
@@ -3081,11 +3246,20 @@
       }
     });
 
-    // Scroll logs card into view
-    logsCard.scrollIntoView({behavior: 'smooth'});
-  }
+	    // Scroll logs card into view
+	    logsCard.scrollIntoView({behavior: 'smooth'});
+	  }
 
-  // Listen to all Callosum events
+	  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+	  if (!deepLinkLog && hashParams.get('focus') === 'recent-errors') {
+	    const day = hashParams.get('day') || 'today';
+	    const talent = hashParams.get('talent') || '';
+	    state.recentErrorsFilter = { day, talent };
+	    state.pendingRecentErrorsFocus = true;
+	    updateErrorSummary();
+	  }
+
+	  // Listen to all Callosum events
   if (window.appEvents) {
     window.appEvents.listen('*', handleEvent);
   }

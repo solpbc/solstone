@@ -66,3 +66,84 @@ class TestInfoRoute:
         assert "hostname" in data
         assert isinstance(data["hostname"], str)
         assert len(data["hostname"]) > 0
+
+
+class TestRestartObserverRoute:
+    def test_restart_observer_emits_supervisor_restart(self, health_env, monkeypatch):
+        env = health_env()
+        calls = []
+
+        def fake_send(tract, event, **fields):
+            calls.append((tract, event, fields))
+            return True
+
+        monkeypatch.setattr("solstone.apps.health.routes.callosum_send", fake_send)
+
+        response = env.client.post(
+            "/app/health/api/restart-observer",
+            json={"service": "sense"},
+        )
+
+        assert response.status_code == 200
+        assert response.get_json() == {
+            "status": "restart_requested",
+            "service": "sense",
+        }
+        assert calls == [("supervisor", "restart", {"service": "sense"})]
+
+    def test_restart_observer_missing_service_returns_400(self, health_env):
+        env = health_env()
+
+        response = env.client.post("/app/health/api/restart-observer", json={})
+
+        assert response.status_code == 400
+        assert response.get_json()["reason_code"] == "missing_required_field"
+
+    def test_restart_observer_unknown_service_returns_400(self, health_env):
+        env = health_env()
+
+        response = env.client.post(
+            "/app/health/api/restart-observer",
+            json={"service": "convey"},
+        )
+
+        assert response.status_code == 400
+        assert response.get_json()["reason_code"] == "invalid_request_value"
+
+    def test_restart_observer_emit_failure_returns_503(self, health_env, monkeypatch):
+        env = health_env()
+        monkeypatch.setattr(
+            "solstone.apps.health.routes.callosum_send",
+            lambda *args, **kwargs: False,
+        )
+
+        response = env.client.post(
+            "/app/health/api/restart-observer",
+            json={"service": "sense"},
+        )
+
+        assert response.status_code == 503
+        assert response.get_json()["reason_code"] == "observer_restart_failed"
+
+
+class TestRetryImportRoute:
+    def test_retry_import_missing_import_id_returns_400(self, health_env):
+        env = health_env()
+
+        response = env.client.post("/app/health/api/retry-import", json={})
+
+        assert response.status_code == 400
+        assert response.get_json()["reason_code"] == "missing_required_field"
+
+    def test_retry_import_accepts_optional_stage_stub(self, health_env):
+        env = health_env()
+
+        response = env.client.post(
+            "/app/health/api/retry-import",
+            json={"import_id": "import-1", "stage": "transcribe"},
+        )
+
+        assert response.status_code == 501
+        data = response.get_json()
+        assert data["status"] == "not_implemented"
+        assert "transcribe" in data["message"]
