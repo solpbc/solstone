@@ -1924,36 +1924,81 @@
 
       if (currentRunId !== runId) return;
 
-      if (response.status === 202) {
-        renderRunDetailMessage(data.error || 'Run is still in progress');
-        return;
-      }
+	      if (response.status === 202) {
+	        renderRunDetailMessage({
+	          heading: 'run is still in progress',
+	          desc: data.error || 'check back soon.',
+	          error: false,
+	        });
+	        return;
+	      }
 
-      if (data.error) {
-        renderRunDetailMessage(`Unable to load run details — ${data.error}. Go back and select the run again.`);
-        return;
-      }
+	      if (data.error) {
+	        renderRunDetailMessage({
+	          heading: "I couldn't load that run",
+	          desc: window.CONVEY_COPY?.RELOAD_HINT || 'reload to try again.',
+	          retry: true,
+	          retryLabel: window.CONVEY_COPY?.ACTION_TRY_AGAIN || 'Try again',
+	          detail: new window.ApiError({
+	            status: response.status,
+	            statusText: response.statusText,
+	            serverMessage: data.error,
+	            url: response.url,
+	            reasonCode: data.reason_code,
+	            rawDetail: data.detail,
+	          }),
+	          onRetry: () => showRunDetail(runId, agentName),
+	        });
+	        return;
+	      }
 
-      renderRunDetail(data, agentName);
-    } catch (error) {
-      if (currentRunId !== runId) return;
-      renderRunDetailMessage('Unable to load run details. The server may be unreachable — check your connection and try again.');
-    }
-  }
+	      renderRunDetail(data, agentName);
+	    } catch (error) {
+	      if (currentRunId !== runId) return;
+	      renderRunDetailMessage({
+	        heading: "I couldn't load that run",
+	        desc: window.CONVEY_COPY?.RELOAD_HINT || 'reload to try again.',
+	        retry: true,
+	        retryLabel: window.CONVEY_COPY?.ACTION_TRY_AGAIN || 'Try again',
+	        detail: new window.ApiError({
+	          status: 0,
+	          statusText: 'Network Error',
+	          serverMessage: error.message || "I couldn't reach the server.",
+	          url: `api/run/${encodeURIComponent(runId)}`,
+	          cause: error,
+	        }),
+	        onRetry: () => showRunDetail(runId, agentName),
+	      });
+	    }
+	  }
 
-  function renderRunDetailMessage(message) {
-    document.getElementById('run-detail-header-mount').innerHTML = '';
-    const logPane = document.getElementById('run-detail-log-pane');
-    logPane.innerHTML = '';
-    const msg = document.createElement('div');
-    msg.className = 'run-loading';
-    msg.setAttribute('aria-live', 'polite');
-    msg.textContent = message;
-    logPane.appendChild(msg);
-    document.getElementById('run-detail-output-pane').innerHTML = '';
-    document.getElementById('tab-output').style.display = 'none';
-    activateRunDetailTab('log');
-  }
+	  function renderRunDetailMessage({ heading, desc, error = true, retry = false, retryLabel = 'Try again', detail = null, onRetry = null }) {
+	    document.getElementById('run-detail-header-mount').innerHTML = '';
+	    const logPane = document.getElementById('run-detail-log-pane');
+	    logPane.innerHTML = '';
+	    if (error) {
+	      logPane.innerHTML = window.SurfaceState.error({
+	        heading,
+	        desc,
+	        retry,
+	        retryLabel,
+	        detail,
+	      });
+	      const retryBtn = logPane.querySelector('.surface-state-retry');
+	      if (retryBtn && onRetry) {
+	        retryBtn.addEventListener('click', onRetry);
+	      }
+	    } else {
+	      const msg = document.createElement('div');
+	      msg.className = 'run-loading';
+	      msg.setAttribute('aria-live', 'polite');
+	      msg.innerHTML = `<strong>${escapeHtml(heading)}</strong>${desc ? '<div>' + escapeHtml(desc) + '</div>' : ''}`;
+	      logPane.appendChild(msg);
+	    }
+	    document.getElementById('run-detail-output-pane').innerHTML = '';
+	    document.getElementById('tab-output').style.display = 'none';
+	    activateRunDetailTab('log');
+	  }
 
   function renderRunDetail(data, agentName) {
     cachedRunDetail = data;
@@ -2115,12 +2160,19 @@
 
     try {
       const response = await fetch(`api/output/${cachedRunDetail.day}/${encodedFilename}`);
-      const data = await response.json();
+	      const data = await response.json();
 
-      if (data.error) {
-        pane.innerHTML = `<div class="run-loading" aria-live="polite">Unable to load output — ${escapeHtml(data.error)}. ${window.CONVEY_COPY.RELOAD_HINT}</div>`;
-        return;
-      }
+	      if (data.error) {
+	        renderOutputError(pane, {
+	          status: response.status,
+	          statusText: response.statusText,
+	          serverMessage: data.error,
+	          url: response.url,
+	          reasonCode: data.reason_code,
+	          rawDetail: data.detail,
+	        });
+	        return;
+	      }
 
       const container = document.createElement('div');
       container.className = 'run-output-content';
@@ -2147,12 +2199,37 @@
       pane.innerHTML = '';
       pane.appendChild(container);
       runOutputLoaded = true;
-    } catch (error) {
-      pane.innerHTML = '<div class="run-loading" aria-live="polite">Unable to load output file. The server may be unreachable — check your connection and try again.</div>';
-    } finally {
-      runOutputLoading = false;
-    }
-  }
+	    } catch (error) {
+	      renderOutputError(pane, {
+	        status: 0,
+	        statusText: 'Network Error',
+	        serverMessage: error.message || "I couldn't reach the server.",
+	        url: `api/output/${cachedRunDetail.day}/${encodedFilename}`,
+	        cause: error,
+	      });
+	    } finally {
+	      runOutputLoading = false;
+	    }
+	  }
+
+	  function renderOutputError(pane, detailFields) {
+	    const detail = new window.ApiError(detailFields);
+	    pane.innerHTML = window.SurfaceState.error({
+	      heading: "I couldn't load that output",
+	      desc: window.CONVEY_COPY?.RELOAD_HINT || 'reload to try again.',
+	      retry: true,
+	      retryLabel: window.CONVEY_COPY?.ACTION_TRY_AGAIN || 'Try again',
+	      detail,
+	    });
+	    const retryBtn = pane.querySelector('.surface-state-retry');
+	    if (retryBtn) {
+	      retryBtn.addEventListener('click', () => {
+	        runOutputLoaded = false;
+	        runOutputLoading = false;
+	        loadRunOutput();
+	      });
+	    }
+	  }
 
   // Format a millisecond timestamp to HH:MM:SS
   function formatTimestamp(ts) {
