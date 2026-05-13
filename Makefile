@@ -340,7 +340,9 @@ review: .installed
 
 # Test environment - use fixtures journal for all tests
 TEST_ENV = SOLSTONE_JOURNAL=tests/fixtures/journal
-LINK_LIVE_TESTS = --ignore=tests/link/test_integration.py --ignore=tests/link/test_privacy_scan.py --ignore=tests/link/test_lan_direct.py
+# Marker-based exclusion: anything decorated `pytest.mark.integration` is held
+# out of `make test`. New live-network tests need only the marker — no Makefile edit.
+NOT_INTEGRATION = -m "not integration"
 
 # Venv tool shortcuts
 PYTEST := $(VENV_BIN)/pytest
@@ -354,7 +356,7 @@ format-check: .installed
 # Run core tests (excluding integration and app tests)
 test: .installed format-check
 	@echo "Running core tests..."
-	$(PYTEST_BASETEMP_INIT) $(TEST_ENV) $(PYTEST) $(PYTEST_BASETEMP_FLAG) tests/ -q --cov=. --ignore=tests/integration $(LINK_LIVE_TESTS)
+	$(PYTEST_BASETEMP_INIT) $(TEST_ENV) $(PYTEST) $(PYTEST_BASETEMP_FLAG) tests/ -q --cov=. --ignore=tests/integration $(NOT_INTEGRATION)
 
 # Run app tests
 test-apps: .installed
@@ -384,7 +386,7 @@ test-only: .installed
 test-integration: .installed
 	@echo "Running integration tests..."
 	@$(PYTEST_BASETEMP_INIT) STATUS=0; \
-	$(TEST_ENV) $(PYTEST) $(PYTEST_BASETEMP_FLAG) tests/integration/ tests/link/test_integration.py tests/link/test_privacy_scan.py tests/link/test_lan_direct.py -v --tb=short --timeout=20 || STATUS=$$?; \
+	$(TEST_ENV) $(PYTEST) $(PYTEST_BASETEMP_FLAG) tests/integration/ tests/link/ -m integration -v --tb=short --timeout=20 || STATUS=$$?; \
 	if [ "$$STATUS" -ne 0 ] && [ "$$STATUS" -ne 5 ]; then exit $$STATUS; fi
 
 # Run specific integration test
@@ -406,7 +408,7 @@ test-integration-only: .installed
 # Run all tests (core + apps + integration)
 test-all: .installed
 	@echo "Running all tests (core + apps + integration)..."
-	$(PYTEST_BASETEMP_INIT) $(TEST_ENV) $(PYTEST) $(PYTEST_BASETEMP_FLAG) tests/ -v --cov=. --ignore=tests/integration $(LINK_LIVE_TESTS) && $(TEST_ENV) $(PYTEST) $(PYTEST_BASETEMP_FLAG) solstone/apps/ -v --cov=. --cov-append
+	$(PYTEST_BASETEMP_INIT) $(TEST_ENV) $(PYTEST) $(PYTEST_BASETEMP_FLAG) tests/ -v --cov=. --ignore=tests/integration $(NOT_INTEGRATION) && $(TEST_ENV) $(PYTEST) $(PYTEST_BASETEMP_FLAG) solstone/apps/ -v --cov=. --cov-append
 
 # Auto-format and fix code, then report any remaining issues
 format: .installed
@@ -490,7 +492,7 @@ watch: .installed
 
 # Generate coverage report (core + apps, excluding core integration tests)
 coverage: .installed
-	$(PYTEST_BASETEMP_INIT) $(TEST_ENV) $(PYTEST) $(PYTEST_BASETEMP_FLAG) tests/ --cov=. --cov-report=html --cov-report=term --ignore=tests/integration $(LINK_LIVE_TESTS)
+	$(PYTEST_BASETEMP_INIT) $(TEST_ENV) $(PYTEST) $(PYTEST_BASETEMP_FLAG) tests/ --cov=. --cov-report=html --cov-report=term --ignore=tests/integration $(NOT_INTEGRATION)
 	$(PYTEST_BASETEMP_INIT) $(TEST_ENV) $(PYTEST) $(PYTEST_BASETEMP_FLAG) solstone/apps/ --cov=. --cov-report=html --cov-report=term --cov-append
 	@echo "Coverage report generated in htmlcov/index.html"
 
