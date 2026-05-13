@@ -343,6 +343,7 @@ def test_transcribe_rebuilds_words_with_single_leading_space_and_speaker_none(
     )
 
 
+@pytest.mark.integration
 def test_transcribe_sample_end_to_end_when_model_available():
     if os.environ.get("PARAKEET_ONNX_E2E") == "0":
         pytest.skip("PARAKEET_ONNX_E2E=0")
