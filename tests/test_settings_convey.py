@@ -264,6 +264,68 @@ def test_api_put_network_access_refuses_without_password(journal_copy):
     assert payload["detail"] == CONVEY_REFUSE_NO_PASSWORD_NETWORK
 
 
+def test_api_put_combined_password_and_network_succeeds(journal_copy):
+    _clear_password(journal_copy)
+    client = _settings_client(journal_copy)
+
+    with patch(
+        "solstone.convey.restart.wait_for_convey_restart", return_value=(True, [])
+    ):
+        response = client.put(
+            "/app/settings/api/config",
+            json={
+                "section": "convey",
+                "data": {"password": "atomicpw8", "allow_network_access": True},
+            },
+            content_type="application/json",
+        )
+
+    assert response.status_code == 200
+    config = _read_config(journal_copy)
+    assert config["convey"]["password_hash"]
+    assert "password" not in config["convey"]
+    assert config["convey"]["allow_network_access"] is True
+
+
+def test_api_put_combined_password_too_short_rejected(journal_copy):
+    _clear_password(journal_copy)
+    client = _settings_client(journal_copy)
+
+    response = client.put(
+        "/app/settings/api/config",
+        json={
+            "section": "convey",
+            "data": {"password": "short", "allow_network_access": True},
+        },
+        content_type="application/json",
+    )
+
+    assert response.status_code == 400
+    payload = response.get_json()
+    assert payload["reason_code"] == "invalid_config_value"
+    assert "8 characters" in payload["detail"]
+    config = _read_config(journal_copy)
+    assert "password_hash" not in config["convey"]
+    assert config["convey"]["allow_network_access"] is False
+
+
+def test_api_put_network_enable_without_password_field_still_refused(journal_copy):
+    _clear_password(journal_copy)
+    client = _settings_client(journal_copy)
+
+    response = client.put(
+        "/app/settings/api/config",
+        json={"section": "convey", "data": {"allow_network_access": True}},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 400
+    payload = response.get_json()
+    assert payload["reason_code"] == "network_security_requires_password"
+    assert payload["detail"] == CONVEY_REFUSE_NO_PASSWORD_NETWORK
+    assert _read_config(journal_copy)["convey"]["allow_network_access"] is False
+
+
 def test_api_put_trust_localhost_refuses_without_password(journal_copy):
     _clear_password(journal_copy)
     client = _settings_client(journal_copy)

@@ -77,6 +77,8 @@ class TestInitDetection:
         resp = fresh_client.get("/init")
         assert resp.status_code == 200
         assert b"set up solstone" in resp.data
+        assert b'id="section-password"' not in resp.data
+        assert b'id="password"' not in resp.data
 
     def test_init_redirects_when_configured(self, configured_client):
         resp = configured_client.get("/init")
@@ -291,16 +293,21 @@ class TestInitFinalize:
         # Setup
         assert "completed_at" in config["setup"]
 
-    def test_finalize_password_required(self, fresh_client):
+    def test_finalize_no_password_succeeds(self, fresh_client, journal_copy):
         resp = fresh_client.post(
             "/init/finalize",
             json={"name": "Jane"},
             content_type="application/json",
         )
-        assert resp.status_code == 400
+        assert resp.status_code == 200
         data = resp.get_json()
-        assert data["reason_code"] == "invalid_config_value"
-        assert "8 characters" in data["detail"]
+        assert data["success"] is True
+        assert data["redirect"] == "/"
+        config = _read_config(journal_copy)
+        assert "completed_at" in config["setup"]
+        assert config["convey"]["allow_network_access"] is False
+        assert config["convey"]["trust_localhost"] is True
+        assert "password_hash" not in config["convey"]
 
     def test_finalize_password_too_short(self, fresh_client):
         resp = fresh_client.post(
@@ -311,15 +318,15 @@ class TestInitFinalize:
         assert resp.status_code == 400
 
     def test_finalize_minimal(self, fresh_client, journal_copy):
-        """Finalize with only password — optional fields omitted."""
+        """Finalize with optional fields omitted."""
         resp = fresh_client.post(
             "/init/finalize",
-            json={"password": "securepass123"},
+            json={},
             content_type="application/json",
         )
         assert resp.status_code == 200
         config = _read_config(journal_copy)
-        assert "password_hash" in config["convey"]
+        assert "password_hash" not in config["convey"]
         assert "completed_at" in config["setup"]
         # No gemini key written
         assert "GOOGLE_API_KEY" not in config.get("env", {})
@@ -327,7 +334,7 @@ class TestInitFinalize:
     def test_finalize_auto_login(self, fresh_client, journal_copy):
         fresh_client.post(
             "/init/finalize",
-            json={"password": "securepass123"},
+            json={},
             content_type="application/json",
         )
         resp = fresh_client.get("/", headers={"X-Forwarded-For": "1.2.3.4"})
@@ -346,7 +353,7 @@ class TestInitFinalize:
         """After finalize, /init redirects away."""
         fresh_client.post(
             "/init/finalize",
-            json={"password": "securepass123"},
+            json={},
             content_type="application/json",
         )
         resp = fresh_client.get("/init")
@@ -357,7 +364,6 @@ class TestInitFinalize:
         resp = fresh_client.post(
             "/init/finalize",
             json={
-                "password": "securepass123",
                 "retention_mode": "processed",
                 "retention_days": 30,
             },
@@ -372,7 +378,7 @@ class TestInitFinalize:
         """Finalize without retention fields writes default (keep/null)."""
         resp = fresh_client.post(
             "/init/finalize",
-            json={"password": "securepass123"},
+            json={},
             content_type="application/json",
         )
         assert resp.status_code == 200

@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-INIT_PASSWORD_HINT = "protects your solstone web interface when you allow network access. minimum 8 characters. you can reset it anytime by using a terminal and running the command: <code>sol password set</code>. password is not required when accessing solstone from the same system."
 CONVEY_RELOAD_HINT = "reload to try again."
 CONVEY_ACTION_TRY_AGAIN = "Try again"  # generic load-failure retry button
 CONVEY_ACTION_RELOAD = "Reload"  # full-surface reload affordance
@@ -71,6 +70,7 @@ CONVEY_REPORT_MAILTO_BODY_PREFIX = (
 )
 CONVEY_REPORT_MAILTO_TRUNCATION_SUFFIX = "\n\n[full report is in your clipboard]\n"
 CONVEY_REPORT_BUTTON_LABEL = "Report this"
+LOGIN_NO_PASSWORD_CONFIGURED = "no password is configured. set one in settings → security, or run 'sol password set' from a terminal on this machine."
 SETTINGS_SECURITY_DESC = (
     "network access and password protection for the convey web interface."
 )
@@ -84,9 +84,15 @@ SETTINGS_NETWORK_DESC_ON = "convey is reachable from other devices on the local 
 SETTINGS_LAN_URL_LABEL = "local network url"
 SETTINGS_NETWORK_BUTTON_ENABLE = "allow network access"
 SETTINGS_NETWORK_BUTTON_DISABLE = "restrict to localhost only"
-SETTINGS_NETWORK_NEEDS_PASSWORD = "set a password below first."
+SETTINGS_NETWORK_DISCLOSURE_TITLE = "protect non-localhost connections"
+SETTINGS_NETWORK_DISCLOSURE_BODY = "to reach solstone from other devices on your network, set a password. localhost connections from this machine will continue to skip the password."
+SETTINGS_NETWORK_DISCLOSURE_PASSWORD_LABEL = "password"
+SETTINGS_NETWORK_DISCLOSURE_CONFIRM_LABEL = "confirm password"
+SETTINGS_NETWORK_DISCLOSURE_SUBMIT = "set password and enable network access"
+SETTINGS_NETWORK_DISCLOSURE_MISMATCH = "passwords do not match."
+SETTINGS_NETWORK_DISCLOSURE_TOO_SHORT = "password must be at least 8 characters."
 SETTINGS_NETWORK_RESTARTING = "restarting convey…"
-SETTINGS_PASSWORD_HINT = "protects the web interface when network access is on. not required for localhost-only mode."
+SETTINGS_PASSWORD_HINT = "used when network access is on, or when localhost trust is off. not used otherwise."
 OBSERVER_CALLOSUM_LIVE_LABEL = "live"
 PAIRING_LOCALHOST_BANNER_TITLE = "convey is in localhost-only mode"
 PAIRING_LOCALHOST_BANNER_BODY_1 = (
@@ -160,7 +166,7 @@ __all__ = [
     "CONVEY_REPORT_SUCCESS_BODY",
     "CONVEY_REPORT_SUCCESS_BODY_NO_ID",
     "CONVEY_REPORT_TITLE",
-    "INIT_PASSWORD_HINT",
+    "LOGIN_NO_PASSWORD_CONFIGURED",
     "OBSERVER_CALLOSUM_LIVE_LABEL",
     "PAIRING_LOCALHOST_BANNER_ACTION",
     "PAIRING_LOCALHOST_BANNER_BODY_1",
@@ -173,10 +179,16 @@ __all__ = [
     "SETTINGS_NETWORK_BUTTON_ENABLE",
     "SETTINGS_NETWORK_DESC_OFF",
     "SETTINGS_NETWORK_DESC_ON",
+    "SETTINGS_NETWORK_DISCLOSURE_BODY",
+    "SETTINGS_NETWORK_DISCLOSURE_CONFIRM_LABEL",
+    "SETTINGS_NETWORK_DISCLOSURE_MISMATCH",
+    "SETTINGS_NETWORK_DISCLOSURE_PASSWORD_LABEL",
+    "SETTINGS_NETWORK_DISCLOSURE_SUBMIT",
+    "SETTINGS_NETWORK_DISCLOSURE_TITLE",
+    "SETTINGS_NETWORK_DISCLOSURE_TOO_SHORT",
     "SETTINGS_NETWORK_MODE_LABEL",
     "SETTINGS_NETWORK_MODE_OFF",
     "SETTINGS_NETWORK_MODE_ON",
-    "SETTINGS_NETWORK_NEEDS_PASSWORD",
     "SETTINGS_NETWORK_RESTARTING",
     "SETTINGS_PASSWORD_HINT",
     "SETTINGS_SECURITY_DESC",

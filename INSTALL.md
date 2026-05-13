@@ -41,7 +41,7 @@ sol setup
 
 this runs doctor diagnostics, confirms the journal directory at `~/journal`, installs the local transcription model (~2.5 GB on linux), installs the solstone skill for claude code if you have claude configured, and starts a background service (systemd on linux, launchd on macOS) listening on http://localhost:5015.
 
-let your human know: **open http://localhost:5015 in a browser**. the first-run wizard walks them through choosing a password, setting their identity, and connecting a gemini API key. once they've completed it, solstone is ready.
+let your human know: **open http://localhost:5015 in a browser**. the first-run wizard walks them through setting their identity and connecting a gemini API key. network access, and the password it requires, can be configured later in settings → security.
 
 if a step has missing system libraries or python extras, `sol doctor` will tell you the exact install command to run for your platform. extras (`pdf`, `whisper`) can be added at any time with `uv tool upgrade solstone --extra pdf` or `pip install 'solstone[pdf]'`. on linux, local parakeet transcription needs `solstone[parakeet-onnx-cpu]` (or `[parakeet-onnx-cuda]` for NVIDIA GPUs); install or upgrade the same way as other extras.
 

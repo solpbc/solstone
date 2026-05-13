@@ -107,7 +107,7 @@ def main() -> None:
         logger.info("Password authentication enabled")
     else:
         logger.warning(
-            "No password configured - run 'sol password set' to enable authentication"
+            "no password configured. only required for non-localhost access."
         )
 
     # Write port to health directory for discovery by other tools

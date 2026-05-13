@@ -21,7 +21,6 @@
     h1 { text-align: center; font-family: 'Comfortaa', system-ui, sans-serif; font-weight: 700; letter-spacing: 0.1em; color: #222; font-size: 2.5rem; text-transform: lowercase; margin-bottom: 0.5rem; }
     .product-tagline { text-align: center; font-family: 'Comfortaa', system-ui, sans-serif; color: #888; text-transform: lowercase; margin: 0 0 2rem; font-size: 1rem; }
     .init-section { margin-bottom: 2rem; }
-    .init-section.disabled { opacity: 0.4; pointer-events: none; }
     .init-section h3 { font-size: 1rem; font-weight: 500; border-bottom: 1px solid #eee; padding-bottom: 0.5rem; margin-bottom: 0.75rem; }
     .section-hint { font-size: 0.85rem; color: #666; margin: 0 0 0.75rem; }
     .section-hint a { color: #b06a1a; }
@@ -112,64 +111,50 @@
         <li style="margin-bottom: 0.5em;"><strong>sol</strong> — the agent that curates your memories</li>
         <li style="margin-bottom: 0.5em;"><strong>your journal</strong> — the folder on your machine that holds everything</li>
       </ul>
-      <p>install gets you all three. the steps below set up sol; you'll add observers in step 4.</p>
+      <p>install gets you all three. the steps below set up sol; you'll add observers in step 3.</p>
     </section>
 
-    <section class="init-section" id="section-password">
-      <h3>1. set a password</h3>
-      <p class="section-hint">{{ init_password_hint | safe }}</p>
-      <p class="trust-note">this hash is stored in your journal and never transmitted</p>
-      <div class="field-group">
-        <label for="password">password</label>
-        <div class="input-wrap">
-          <input type="password" id="password" autocomplete="new-password">
-          <button type="button" class="toggle-btn" id="toggle-password" onclick="togglePassword()">show</button>
-        </div>
-        <small class="field-status" aria-live="polite">&nbsp;</small>
-      </div>
-    </section>
-
-    <section class="init-section disabled" id="section-identity">
-      <h3>2. who are you?</h3>
+    <section class="init-section" id="section-identity">
+      <h3>1. who are you?</h3>
       <p class="section-hint">optional — helps sol address you correctly.</p>
       <div class="field-group">
         <label for="name">full name</label>
-        <input type="text" id="name" disabled>
+        <input type="text" id="name">
         <small class="field-status" aria-live="polite">&nbsp;</small>
       </div>
       <div class="field-group">
         <label for="preferred">preferred name</label>
-        <input type="text" id="preferred" disabled>
+        <input type="text" id="preferred">
         <small class="field-status" aria-live="polite">&nbsp;</small>
       </div>
     </section>
 
-    <section class="init-section disabled" id="section-provider">
-      <h3>3. connect gemini</h3>
-      <p class="section-hint">optional — powers sol's thinking. gemini is the best-supported provider for full media processing. get a key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" tabindex="-1">aistudio.google.com/apikey</a> — or add other providers later in settings.</p>
+    <section class="init-section" id="section-provider">
+      <h3>2. connect gemini</h3>
+      <p class="section-hint">optional — powers sol's thinking. gemini is the best-supported provider for full media processing. get a key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">aistudio.google.com/apikey</a> — or add other providers later in settings.</p>
       <p class="trust-note">your key is stored locally in your journal config</p>
       <div class="field-group">
         <label for="gemini-key">Gemini API key</label>
         <input type="text" id="gemini-key" autocomplete="off"
-               data-1p-ignore data-lpignore="true" data-bwignore="true" disabled>
+               data-1p-ignore data-lpignore="true" data-bwignore="true">
         <small class="field-status" aria-live="polite">&nbsp;</small>
       </div>
       <p class="section-hint" style="margin-top: 1rem;">get a private key from sol pbc by <a href="https://scouts.solstone.app" target="_blank" rel="noopener noreferrer">becoming a scout</a> and providing feedback on your experience</p>
       <p class="trust-note">please use a key tied to a billing account — <a href="https://ai.google.dev/gemini-api/terms" target="_blank" rel="noopener noreferrer" style="color: #b06a1a;">Google Terms</a></p>
     </section>
 
-    <section class="init-section disabled" id="section-observers">
-      <h3>4. observers</h3>
+    <section class="init-section" id="section-observers">
+      <h3>3. observers</h3>
       <div id="observer-status">
         <p class="section-hint" id="observer-label" style="display: none;">connected observers</p>
         <div id="observer-list"></div>
-        <p class="observer-empty" id="observer-empty">no observer connected yet — <a href="https://solstone.app/observers" tabindex="-1">set up an observer</a> to start observing along with you</p>
+        <p class="observer-empty" id="observer-empty">no observer connected yet — <a href="https://solstone.app/observers">set up an observer</a> to start observing along with you</p>
         <div id="observer-error" class="error-message" hidden></div>
       </div>
     </section>
 
-    <section class="init-section disabled" id="section-observed-media">
-      <h3>5. your observed media (raw audio and screencast files)</h3>
+    <section class="init-section" id="section-observed-media">
+      <h3>4. your observed media (raw audio and screencast files)</h3>
       <p class="section-hint">by default, solstone retains your observed media so your journal can re-derive insights later. we recommend leaving this on. you can also expire originals after a number of days, or delete them as soon as they're processed. <a href="https://solpbc.org/privacy#recording-laws" target="_blank" rel="noopener">recording-consent laws</a> may apply in your jurisdiction.</p>
       <div class="field-group">
         <div id="retention-days-field" class="retention-days-row">
@@ -187,8 +172,8 @@
       </div>
     </section>
 
-    <section class="init-section disabled" id="section-finalize">
-      <h3>6. get started</h3>
+    <section class="init-section" id="section-finalize">
+      <h3>5. get started</h3>
       <p class="section-hint">solstone works best with a coding agent. open a terminal, navigate to your solstone directory, and ask it to help you set up:</p>
       <p class="section-hint"><code>cd {{ repo_path }} &amp;&amp; claude "help me set up solstone"</code></p>
       <p class="section-hint"><code>cd {{ repo_path }} &amp;&amp; codex "help me set up solstone"</code></p>
@@ -201,13 +186,6 @@
   </main>
 
   <script>
-    function togglePassword() {
-      const input = document.getElementById('password');
-      const btn = document.getElementById('toggle-password');
-      if (input.type === 'password') { input.type = 'text'; btn.textContent = 'hide'; }
-      else { input.type = 'password'; btn.textContent = 'show'; }
-    }
-
     function showFieldStatus(el, type, message) {
       const group = el.closest('.field-group');
       if (!group) return;
@@ -229,23 +207,9 @@
 
     let detectedTimezone = '';
 
-    function unlockSections() {
-      ['section-identity', 'section-provider', 'section-observers', 'section-observed-media', 'section-finalize'].forEach(id => {
-        const section = document.getElementById(id);
-        section.classList.remove('disabled');
-        section.querySelectorAll('input[disabled]').forEach(inp => inp.disabled = false);
-        section.querySelectorAll('[tabindex="-1"]').forEach(el => el.removeAttribute('tabindex'));
-      });
+    document.addEventListener('DOMContentLoaded', () => {
       detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       loadObservers();
-    }
-
-    document.getElementById('password').addEventListener('blur', function() {
-      const password = this.value;
-      if (!password) return;
-      if (password.length < 8) { showFieldStatus(this, 'error', 'at least 8 characters'); return; }
-      showFieldStatus(this, 'saved', 'looks good');
-      unlockSections();
     });
 
     ['name', 'preferred'].forEach(field => {
@@ -370,7 +334,6 @@
     updateRetentionUI();
 
     async function finalize() {
-      const passwordEl = document.getElementById('password');
       const errorEl = document.getElementById('finalize-error');
       const daysInput = document.getElementById('retention-days-input');
       const dontRetainCheckbox = document.getElementById('retention-dont-retain');
@@ -380,7 +343,6 @@
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({
-            password: document.getElementById('password').value,
             name: document.getElementById('name').value.trim(),
             preferred: document.getElementById('preferred').value.trim(),
             timezone: detectedTimezone,
@@ -395,15 +357,17 @@
         }
         if (data.success && data.redirect) window.location.href = data.redirect;
         else if (data.error) {
-          showFieldStatus(passwordEl, 'error', data.error);
+          if (errorEl) {
+            errorEl.textContent = data.error;
+            errorEl.hidden = false;
+          }
         }
       } catch (err) {
         if (err instanceof window.ApiError && err.status === 400 && err.serverMessage) {
           if (errorEl) {
-            errorEl.hidden = true;
-            errorEl.textContent = '';
+            errorEl.textContent = err.serverMessage;
+            errorEl.hidden = false;
           }
-          showFieldStatus(passwordEl, 'error', err.serverMessage);
           return;
         }
         if (errorEl) {

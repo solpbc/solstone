@@ -75,7 +75,7 @@ sol setup
 
 (or `pipx install solstone && sol setup`.)
 
-then open http://localhost:5015 in a browser; the first-run wizard handles the password, identity, and gemini API key.
+then open http://localhost:5015 in a browser; the first-run wizard handles identity and the gemini API key. network access, and the password it requires, can be configured later in settings → security.
 
 see [INSTALL.md](INSTALL.md) for prerequisites, observer install, and troubleshooting; see [CONTRIBUTING.md](CONTRIBUTING.md) if you want to develop on solstone from a source checkout.
 

@@ -232,7 +232,6 @@ def update_config() -> Any:
         # Load existing config
         old_config = get_journal_config()
         config = get_journal_config()
-        has_password = _convey_password_is_set(config)
 
         # Ensure section exists
         if section not in config:
@@ -241,6 +240,24 @@ def update_config() -> Any:
         # Track changes for logging
         changed_fields = {}
         old_section = old_config.get(section, {})
+
+        if section == "convey" and "password" in data:
+            raw_password = data.pop("password") or ""
+            if raw_password:
+                if len(raw_password) < 8:
+                    return error_response(
+                        INVALID_CONFIG_VALUE,
+                        detail="Password must be at least 8 characters",
+                    )
+                from werkzeug.security import generate_password_hash
+
+                config["convey"]["password_hash"] = generate_password_hash(raw_password)
+                changed_fields["password"] = {
+                    "old": old_section.get("password_hash"),
+                    "new": config["convey"]["password_hash"],
+                }
+
+        has_password = _convey_password_is_set(config)
 
         requested_network_access = None
         if section == "convey" and "allow_network_access" in data:
@@ -280,15 +297,6 @@ def update_config() -> Any:
                         os.environ[key] = new_value
                     else:
                         os.environ.pop(key, None)
-
-        # Hash password before writing to disk
-        if section == "convey" and "password" in data:
-            raw_password = config["convey"].pop("password", "")
-            if raw_password:
-                from werkzeug.security import generate_password_hash
-
-                config["convey"]["password_hash"] = generate_password_hash(raw_password)
-            # If empty, don't touch password_hash — user didn't enter a new one
 
         # Handle nested backend configs for transcribe section
         if section == "transcribe":

@@ -32,6 +32,7 @@ from solstone.think.cluster import cluster_segments
 from solstone.think.utils import day_dirs, get_config, get_journal, get_project_root
 
 from . import bridge as convey_bridge
+from .copy import LOGIN_NO_PASSWORD_CONFIGURED
 from .reasons import INVALID_CONFIG_VALUE, PL_REVOKED
 from .secure_listener import get_authorized_clients
 from .utils import error_response, error_response_with_reason
@@ -221,7 +222,7 @@ def login() -> Any:
 
     # If no password is configured, show error page
     if not password_hash:
-        error = "No password configured. Run 'sol password set' to set one."
+        error = LOGIN_NO_PASSWORD_CONFIGURED
         return render_template("login.html", error=error, no_password=True)
 
     error = None
@@ -239,14 +240,11 @@ def init() -> Any:
     if _is_setup_complete():
         return redirect(url_for("root.index"))
 
-    from solstone.convey.copy import INIT_PASSWORD_HINT
-
     config_path = str(Path(get_journal()) / "config" / "journal.json")
     repo_path = str(Path(get_project_root()))
     return render_template(
         "init.html",
         config_path=config_path,
-        init_password_hint=INIT_PASSWORD_HINT,
         repo_path=repo_path,
     )
 
@@ -296,8 +294,8 @@ def init_observers() -> Any:
 def init_finalize() -> Any:
     data = request.get_json(silent=True) or {}
 
-    password = data.get("password", "")
-    if len(password) < 8:
+    password = data.get("password") or ""
+    if password and len(password) < 8:
         return error_response(
             INVALID_CONFIG_VALUE,
             detail="Password must be at least 8 characters",
@@ -305,16 +303,14 @@ def init_finalize() -> Any:
 
     from solstone.think.utils import now_ms
 
-    hashed = generate_password_hash(password)
-
     config = get_config()
-    config.setdefault("convey", {}).update(
-        {
-            "allow_network_access": False,
-            "password_hash": hashed,
-            "trust_localhost": True,
-        }
-    )
+    convey_update = {
+        "allow_network_access": False,
+        "trust_localhost": True,
+    }
+    if password:
+        convey_update["password_hash"] = generate_password_hash(password)
+    config.setdefault("convey", {}).update(convey_update)
     config.setdefault("identity", {}).update(
         {
             k: v

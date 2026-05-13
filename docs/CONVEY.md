@@ -18,15 +18,13 @@ convey
 
 ### Authentication
 
-Password authentication is configured via the CLI:
+Password authentication is configured from Settings → Security when enabling network access. For headless setups, use the CLI:
 
 ```bash
 sol password set
 ```
 
 When a password is set, it is stored as a secure hash in `config/journal.json` under `convey.password_hash`.
-
-If no password is set, the login page will prompt you to run `sol password set`.
 
 ## Architecture
 

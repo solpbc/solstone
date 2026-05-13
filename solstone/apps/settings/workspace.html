@@ -207,6 +207,39 @@
   display: inline;
 }
 
+.settings-disclosure {
+  margin-top: 0.75em;
+  padding: 0.85em;
+  border: 1px solid var(--facet-border, #e5e0db);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.settings-disclosure h3 {
+  margin: 0 0 0.45em;
+  font-size: 0.95em;
+  font-weight: 600;
+}
+
+.settings-disclosure p {
+  margin: 0 0 0.85em;
+  color: #666;
+  font-size: 0.9em;
+  line-height: 1.45;
+}
+
+.settings-disclosure label + input,
+.settings-disclosure input + label,
+.settings-disclosure input + button {
+  margin-top: 0.7em;
+}
+
+.settings-disclosure .control-save-error {
+  margin-top: 0.65em;
+  color: #991b1b;
+  font-size: 0.85em;
+}
+
 .sol-voice-grid {
   display: grid;
   gap: 1.25em;
@@ -2743,6 +2776,16 @@ button:focus:not(:focus-visible) {
           </div>
           <button type="button" class="setup-btn" id="conveyNetworkButton">{{ convey_copy.SETTINGS_NETWORK_BUTTON_ENABLE }}</button>
         </div>
+        <div id="conveyPasswordDisclosure" class="settings-disclosure" hidden>
+          <h3>{{ convey_copy.SETTINGS_NETWORK_DISCLOSURE_TITLE }}</h3>
+          <p>{{ convey_copy.SETTINGS_NETWORK_DISCLOSURE_BODY }}</p>
+          <label for="conveyDisclosurePassword">{{ convey_copy.SETTINGS_NETWORK_DISCLOSURE_PASSWORD_LABEL }}</label>
+          <input type="password" id="conveyDisclosurePassword" autocomplete="new-password">
+          <label for="conveyDisclosureConfirm">{{ convey_copy.SETTINGS_NETWORK_DISCLOSURE_CONFIRM_LABEL }}</label>
+          <input type="password" id="conveyDisclosureConfirm" autocomplete="new-password">
+          <button type="button" class="setup-btn" id="conveyDisclosureSubmit">{{ convey_copy.SETTINGS_NETWORK_DISCLOSURE_SUBMIT }}</button>
+          <div id="conveyDisclosureError" class="control-save-error" hidden></div>
+        </div>
         <small id="conveyNetworkStatus"></small>
       </div>
 
@@ -3209,7 +3252,8 @@ const conveyUiText = {
   networkDescOn: {{ convey_copy.SETTINGS_NETWORK_DESC_ON | tojson }},
   networkButtonEnable: {{ convey_copy.SETTINGS_NETWORK_BUTTON_ENABLE | tojson }},
   networkButtonDisable: {{ convey_copy.SETTINGS_NETWORK_BUTTON_DISABLE | tojson }},
-  networkNeedsPassword: {{ convey_copy.SETTINGS_NETWORK_NEEDS_PASSWORD | tojson }},
+  networkDisclosureMismatch: {{ convey_copy.SETTINGS_NETWORK_DISCLOSURE_MISMATCH | tojson }},
+  networkDisclosureTooShort: {{ convey_copy.SETTINGS_NETWORK_DISCLOSURE_TOO_SHORT | tojson }},
   networkRestarting: {{ convey_copy.SETTINGS_NETWORK_RESTARTING | tojson }},
   passwordHint: {{ convey_copy.SETTINGS_PASSWORD_HINT | tojson }},
   restartTimeout: {{ settings_copy.CONVEY_RESTART_TIMEOUT | tojson }},
@@ -3981,7 +4025,7 @@ async function toggleConveyNetworkAccess() {
   const convey = configData.convey || {};
   const nextValue = convey.allow_network_access !== true;
   if (nextValue && !convey.has_password) {
-    setConveyNetworkStatus(conveyUiText.networkNeedsPassword, true);
+    showConveyPasswordDisclosure();
     return;
   }
 
@@ -4009,6 +4053,67 @@ async function toggleConveyNetworkAccess() {
   } catch (err) {
     setConveyNetworkStatus(err?.serverMessage || err?.message || 'Save failed', true);
     window.logError(err, { context: 'settings: toggleConveyNetworkAccess failed' });
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function showConveyPasswordDisclosure(message = '') {
+  const panel = document.getElementById('conveyPasswordDisclosure');
+  const error = document.getElementById('conveyDisclosureError');
+  if (!panel) return;
+  panel.hidden = false;
+  if (error) {
+    error.textContent = message;
+    error.hidden = !message;
+  }
+  document.getElementById('conveyDisclosurePassword')?.focus();
+}
+
+async function submitConveyPasswordDisclosure() {
+  const password = document.getElementById('conveyDisclosurePassword');
+  const confirm = document.getElementById('conveyDisclosureConfirm');
+  const button = document.getElementById('conveyDisclosureSubmit');
+  const error = document.getElementById('conveyDisclosureError');
+  if (!password || !confirm || !button || !error || button.disabled) return;
+
+  const clearInputs = () => { password.value = ''; confirm.value = ''; };
+  const fail = (message) => {
+    clearInputs();
+    error.textContent = message;
+    error.hidden = false;
+    password.focus();
+  };
+
+  if (password.value.length < 8) return fail(conveyUiText.networkDisclosureTooShort);
+  if (password.value !== confirm.value) return fail(conveyUiText.networkDisclosureMismatch);
+
+  button.disabled = true;
+  error.hidden = true;
+  try {
+    const result = await window.apiJson('api/config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        section: 'convey',
+        data: { password: password.value, allow_network_access: true }
+      }),
+    });
+    if (!result.ok) {
+      throw new Error('Save failed');
+    }
+    clearInputs();
+    document.getElementById('conveyPasswordDisclosure').hidden = true;
+    configData.convey = configData.convey || {};
+    configData.convey.has_password = true;
+    configData.convey.allow_network_access = true;
+    configData.pairing = configData.pairing || {};
+    configData.pairing.effective_host_url = result.effective_host_url;
+    renderConveyNetworkState(configData);
+    setConveyNetworkStatus(result.restart_timeout ? conveyUiText.restartTimeout : '', result.restart_timeout);
+  } catch (err) {
+    fail(err?.serverMessage || err?.message || 'Save failed');
+    window.logError?.(err, { context: 'settings: submitConveyPasswordDisclosure failed' });
   } finally {
     button.disabled = false;
   }
@@ -4637,6 +4742,7 @@ document.querySelectorAll('.password-toggle').forEach(btn => {
 });
 
 document.getElementById('conveyNetworkButton')?.addEventListener('click', toggleConveyNetworkAccess);
+document.getElementById('conveyDisclosureSubmit')?.addEventListener('click', submitConveyPasswordDisclosure);
 
 // ========== NOTIFICATIONS ==========
 function notifyError(title, message) {
