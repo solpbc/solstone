@@ -112,11 +112,7 @@ def get_machine_id() -> str:
         except (OSError, subprocess.SubprocessError):
             pass
 
-    raise RuntimeError(
-        "Unable to determine machine id. On Linux, ensure /etc/machine-id "
-        "is populated (run `systemd-machine-id-setup`). On macOS, ensure "
-        "`ioreg -rd1 -c IOPlatformExpertDevice` reports an IOPlatformUUID."
-    )
+    return ""
 
 
 def get_self_hostname_sanitized() -> str:

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import errno
 import json
 import os
 import plistlib
@@ -319,153 +320,75 @@ class TestPackagedInstall:
         assert "uv tool install solstone" in (result.fix or "")
 
 
-class TestNpxChecks:
-    def test_npx_on_path_ok(self, doctor, monkeypatch):
-        monkeypatch.setattr(doctor.shutil, "which", lambda _name: "/usr/bin/npx")
-        result = doctor.npx_on_path_check(args(doctor))
-        assert result.status == "ok"
+def _make_fake_socket_factory(bind_exc=None):
+    class _FakeSocket:
+        def __init__(self, *_args, **_kwargs):
+            pass
 
-    def test_npx_on_path_fail(self, doctor, monkeypatch):
-        monkeypatch.setattr(doctor.shutil, "which", lambda _name: None)
-        result = doctor.npx_on_path_check(args(doctor))
-        assert result.status == "fail"
+        def bind(self, _addr):
+            if bind_exc is not None:
+                raise bind_exc
 
-    def test_npx_non_interactive_ok(self, doctor, monkeypatch):
-        monkeypatch.setattr(
-            doctor,
-            "run_probe",
-            lambda *_args, **_kwargs: doctor.ProbeOutput("10.1.0\n", "", 0),
-        )
-        result = doctor.npx_non_interactive_check(args(doctor))
-        assert result.status == "ok"
+        def close(self):
+            pass
 
-    def test_npx_non_interactive_fail_on_nonzero(self, doctor, monkeypatch):
-        monkeypatch.setattr(
-            doctor,
-            "run_probe",
-            lambda *_args, **_kwargs: doctor.make_result(
-                doctor.CHECK_MAP["npx_non_interactive"],
-                "fail",
-                "probe exited 1: boom",
-            ),
-        )
-        result = doctor.npx_non_interactive_check(args(doctor))
-        assert result.status == "fail"
-
-    def test_npx_non_interactive_fail_on_timeout(self, doctor, monkeypatch):
-        def raise_timeout(*_args, **_kwargs):
-            raise subprocess.TimeoutExpired(["npx"], timeout=2.0)
-
-        monkeypatch.setattr(doctor.subprocess, "run", raise_timeout)
-        result = doctor.npx_non_interactive_check(args(doctor))
-        assert result.status == "fail"
-        assert "timed out" in result.detail
-
-    def test_npx_non_interactive_fail_on_empty_stdout(self, doctor, monkeypatch):
-        monkeypatch.setattr(
-            doctor,
-            "run_probe",
-            lambda *_args, **_kwargs: doctor.ProbeOutput("", "", 0),
-        )
-        result = doctor.npx_non_interactive_check(args(doctor))
-        assert result.status == "fail"
-        assert "unexpected output" in result.detail
+    return _FakeSocket
 
 
 class TestPortCheck:
     def test_severity_is_advisory(self, doctor):
         assert doctor.CHECK_MAP["port_5015_free"].severity == "advisory"
 
-    def test_skip_when_lsof_missing(self, doctor, monkeypatch):
-        monkeypatch.setattr(doctor.shutil, "which", lambda _name: None)
+    def test_ok_when_port_free(self, doctor, monkeypatch, home_root, tmp_path):
+        del home_root
+        monkeypatch.setattr(doctor, "ROOT", tmp_path)
+        monkeypatch.setattr(doctor.socket, "socket", _make_fake_socket_factory())
+        result = doctor.port_5015_free_check(args(doctor))
+        assert result.status == "ok"
+
+    def test_warn_when_port_in_use(self, doctor, monkeypatch, home_root, tmp_path):
+        del home_root
+        monkeypatch.setattr(doctor, "ROOT", tmp_path)
+        monkeypatch.setattr(
+            doctor.socket,
+            "socket",
+            _make_fake_socket_factory(OSError(errno.EADDRINUSE, "in use")),
+        )
+        result = doctor.port_5015_free_check(args(doctor))
+        assert result.status == "warn"
+        assert "in use" in result.detail
+
+    def test_warn_when_permission_denied(
+        self, doctor, monkeypatch, home_root, tmp_path
+    ):
+        del home_root
+        monkeypatch.setattr(doctor, "ROOT", tmp_path)
+        monkeypatch.setattr(
+            doctor.socket,
+            "socket",
+            _make_fake_socket_factory(OSError(errno.EACCES, "permission denied")),
+        )
+        result = doctor.port_5015_free_check(args(doctor))
+        assert result.status == "warn"
+
+    def test_warn_on_other_oserror(self, doctor, monkeypatch, home_root, tmp_path):
+        del home_root
+        monkeypatch.setattr(doctor, "ROOT", tmp_path)
+        monkeypatch.setattr(
+            doctor.socket,
+            "socket",
+            _make_fake_socket_factory(OSError(99, "boom")),
+        )
+        result = doctor.port_5015_free_check(args(doctor))
+        assert result.status == "warn"
+        assert "could not probe" in result.detail
+
+    def test_skip_in_worktree(self, doctor, monkeypatch, home_root, tmp_path):
+        del home_root
+        repo = make_repo(tmp_path, worktree=True)
+        monkeypatch.setattr(doctor, "ROOT", repo)
         result = doctor.port_5015_free_check(args(doctor))
         assert result.status == "skip"
-
-    def test_ok_when_port_free(self, doctor, monkeypatch):
-        monkeypatch.setattr(
-            doctor,
-            "import_install_guard",
-            lambda: (_ for _ in ()).throw(ImportError("skip worktree guard")),
-        )
-        monkeypatch.setattr(doctor.shutil, "which", lambda _name: "/usr/bin/lsof")
-        monkeypatch.setattr(
-            doctor,
-            "run_probe",
-            lambda *_args, **_kwargs: doctor.ProbeOutput("", "", 1),
-        )
-        result = doctor.port_5015_free_check(args(doctor))
-        assert result.status == "ok"
-        assert "is free" in result.detail
-
-    def test_ok_when_owned_by_repo_sol(self, doctor, monkeypatch, tmp_path):
-        monkeypatch.setattr(doctor, "ROOT", tmp_path)
-        sol_bin = tmp_path / ".venv" / "bin" / "sol"
-        sol_bin.parent.mkdir(parents=True)
-        sol_bin.write_text("", encoding="utf-8")
-        monkeypatch.setattr(doctor.shutil, "which", lambda _name: "/usr/bin/lsof")
-        monkeypatch.setattr(
-            doctor,
-            "run_probe",
-            lambda *_args, **_kwargs: doctor.ProbeOutput("p123\n", "", 0),
-        )
-        monkeypatch.setattr(doctor, "resolve_alias_target", lambda: None)
-        monkeypatch.setattr(doctor.os, "readlink", lambda _path: str(sol_bin))
-        result = doctor.port_5015_free_check(args(doctor))
-        assert result.status == "ok"
-        assert "this repo's solstone" in result.detail
-
-    def test_warn_when_exe_not_owned_even_if_name_mentions_sol(
-        self, doctor, monkeypatch, tmp_path
-    ):
-        monkeypatch.setattr(doctor, "ROOT", tmp_path)
-        monkeypatch.setattr(doctor.shutil, "which", lambda _name: "/usr/bin/lsof")
-        monkeypatch.setattr(
-            doctor,
-            "run_probe",
-            lambda *_args, **_kwargs: doctor.ProbeOutput("p123\n", "", 0),
-        )
-        monkeypatch.setattr(doctor, "resolve_alias_target", lambda: None)
-        monkeypatch.setattr(doctor.os, "readlink", lambda _path: "/usr/bin/python3")
-        result = doctor.port_5015_free_check(args(doctor))
-        assert result.status == "warn"
-        assert result.severity == "advisory"
-        assert "/usr/bin/python3" in result.detail
-
-    def test_warn_on_lsof_timeout(self, doctor, monkeypatch):
-        monkeypatch.setattr(
-            doctor,
-            "import_install_guard",
-            lambda: (_ for _ in ()).throw(ImportError("skip worktree guard")),
-        )
-        monkeypatch.setattr(doctor.shutil, "which", lambda _name: "/usr/bin/lsof")
-
-        def raise_timeout(*_args, **_kwargs):
-            raise subprocess.TimeoutExpired(["lsof"], timeout=1.0)
-
-        monkeypatch.setattr(doctor.subprocess, "run", raise_timeout)
-        result = doctor.port_5015_free_check(args(doctor))
-        assert result.status == "warn"
-        assert result.severity == "advisory"
-        assert "timed out" in result.detail
-
-    def test_resolve_alias_target_reads_managed_wrapper_sol_bin(
-        self, doctor, home_root, tmp_path
-    ):
-        sol_bin = tmp_path / "repo" / ".venv" / "bin" / "sol"
-        sol_bin.parent.mkdir(parents=True, exist_ok=True)
-        sol_bin.write_text("", encoding="utf-8")
-        alias = home_root / ".local" / "bin" / "sol"
-        alias.parent.mkdir(parents=True, exist_ok=True)
-        alias.write_text(
-            install_guard.render_wrapper(
-                str((tmp_path / "journal").resolve()),
-                str(sol_bin),
-            ),
-            encoding="utf-8",
-        )
-        alias.chmod(0o755)
-
-        assert doctor.resolve_alias_target() == sol_bin.resolve()
 
 
 class TestDiskSpace:
@@ -574,60 +497,6 @@ class TestStaleAliasSymlink:
         assert "could not import solstone.think.install_guard" in result.detail
 
 
-class TestMacosFirewall:
-    def test_skip_on_linux(self, doctor, monkeypatch):
-        monkeypatch.setattr(doctor, "platform_tag", lambda: "linux")
-        result = doctor.macos_firewall_localhost_check(args(doctor))
-        assert result.status == "skip"
-
-    def test_ok_when_off(self, doctor, monkeypatch):
-        monkeypatch.setattr(doctor, "platform_tag", lambda: "darwin")
-        monkeypatch.setattr(doctor.Path, "exists", lambda self: True)
-        monkeypatch.setattr(
-            doctor,
-            "run_probe",
-            lambda *_args, **_kwargs: doctor.ProbeOutput(
-                "Firewall is disabled.\n", "", 0
-            ),
-        )
-        result = doctor.macos_firewall_localhost_check(args(doctor))
-        assert result.status == "ok"
-
-    def test_warn_when_blockall_on(self, doctor, monkeypatch):
-        monkeypatch.setattr(doctor, "platform_tag", lambda: "darwin")
-        monkeypatch.setattr(doctor.Path, "exists", lambda self: True)
-        outputs = iter(
-            [
-                doctor.ProbeOutput("Firewall is enabled. (State = 1)\n", "", 0),
-                doctor.ProbeOutput(
-                    "Block all incoming connections is enabled.\n", "", 0
-                ),
-            ]
-        )
-        monkeypatch.setattr(
-            doctor, "run_probe", lambda *_args, **_kwargs: next(outputs)
-        )
-        result = doctor.macos_firewall_localhost_check(args(doctor))
-        assert result.status == "warn"
-
-    def test_ok_when_blockall_off(self, doctor, monkeypatch):
-        monkeypatch.setattr(doctor, "platform_tag", lambda: "darwin")
-        monkeypatch.setattr(doctor.Path, "exists", lambda self: True)
-        outputs = iter(
-            [
-                doctor.ProbeOutput("Firewall is enabled. (State = 1)\n", "", 0),
-                doctor.ProbeOutput(
-                    "Block all incoming connections is disabled.\n", "", 0
-                ),
-            ]
-        )
-        monkeypatch.setattr(
-            doctor, "run_probe", lambda *_args, **_kwargs: next(outputs)
-        )
-        result = doctor.macos_firewall_localhost_check(args(doctor))
-        assert result.status == "ok"
-
-
 class TestLaunchdStalePlist:
     def test_skip_on_linux(self, doctor, monkeypatch):
         monkeypatch.setattr(doctor, "platform_tag", lambda: "linux")
@@ -662,30 +531,6 @@ class TestLaunchdStalePlist:
         plist_path.write_bytes(plistlib.dumps({"ProgramArguments": [str(exe)]}))
         result = doctor.launchd_stale_plist_check(args(doctor))
         assert result.status == "ok"
-
-
-class TestTccChecks:
-    def test_screen_skip_on_linux(self, doctor, monkeypatch):
-        monkeypatch.setattr(doctor, "platform_tag", lambda: "linux")
-        result = doctor.screen_recording_permission_check(args(doctor))
-        assert result.status == "skip"
-
-    def test_screen_skip_on_darwin(self, doctor, monkeypatch):
-        monkeypatch.setattr(doctor, "platform_tag", lambda: "darwin")
-        result = doctor.screen_recording_permission_check(args(doctor))
-        assert result.status == "skip"
-        assert "no adopted non-prompting probe" in result.detail
-
-    def test_microphone_skip_on_linux(self, doctor, monkeypatch):
-        monkeypatch.setattr(doctor, "platform_tag", lambda: "linux")
-        result = doctor.microphone_permission_check(args(doctor))
-        assert result.status == "skip"
-
-    def test_microphone_skip_on_darwin(self, doctor, monkeypatch):
-        monkeypatch.setattr(doctor, "platform_tag", lambda: "darwin")
-        result = doctor.microphone_permission_check(args(doctor))
-        assert result.status == "skip"
-        assert "no adopted non-prompting probe" in result.detail
 
 
 class TestJsonAndExitCodes:
@@ -892,3 +737,32 @@ class TestMakefileIntegration:
         lines = result.stdout.splitlines()
         assert all("python3 scripts/doctor.py" not in line for line in lines)
         assert any("uv sync" in line for line in lines)
+
+
+def test_doctor_runs_with_minimal_path_env(tmp_path):
+    """Doctor must complete with PATH=/usr/bin:/bin (launchd-style minimal env)."""
+    journal = tmp_path / "journal"
+    journal.mkdir()
+    env = {
+        "PATH": "/usr/bin:/bin",
+        "HOME": str(tmp_path),
+        "SOLSTONE_JOURNAL": str(journal),
+    }
+    result = subprocess.run(
+        [sys.executable, "-m", "solstone.think.sol_cli", "doctor", "--json"],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode in {0, 1}, (
+        f"doctor crashed: rc={result.returncode}\n"
+        f"stdout={result.stdout}\nstderr={result.stderr}"
+    )
+    payload = json.loads(result.stdout)
+    sync = next((c for c in payload["checks"] if c["name"] == "journal_sync"), None)
+    assert sync is not None, "journal_sync check missing from output"
+    if sync["status"] == "fail":
+        assert "machine id" not in (sync.get("detail") or "").lower(), (
+            f"journal_sync failed due to machine id: {sync}"
+        )

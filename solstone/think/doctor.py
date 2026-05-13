@@ -25,16 +25,18 @@ Decision log:
 from __future__ import annotations
 
 import argparse
+import errno
 import importlib
 import json
 import os
 import plistlib
 import re
 import shutil
+import socket
 import subprocess
 import sys
 import time
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from importlib.metadata import PackageNotFoundError, distribution
 from importlib.metadata import version as _pkg_version
 from pathlib import Path
@@ -458,105 +460,6 @@ def local_bin_sol_reachable_check(args: Args) -> CheckResult:
     return make_result(check, "warn", "; ".join(failures), LOCAL_BIN_SOL_FIX)
 
 
-def npx_on_path_check(args: Args) -> CheckResult:
-    del args
-    check = CHECK_MAP["npx_on_path"]
-    npx = shutil.which("npx")
-    if npx is None:
-        return make_result(
-            check,
-            "fail",
-            "npx not found on PATH",
-            "install Node/npm so `npx` is on PATH, then rerun doctor",
-        )
-    return make_result(check, "ok", f"npx on PATH at {npx}")
-
-
-def npx_non_interactive_check(args: Args) -> CheckResult:
-    del args
-    check = CHECK_MAP["npx_non_interactive"]
-    fix = "repair npm/npx, then rerun `CI=true npx --yes --version`"
-    probe = run_probe(
-        check,
-        ["npx", "--yes", "--version"],
-        timeout=2.0,
-        env={"CI": "true"},
-        fix=fix,
-    )
-    if isinstance(probe, CheckResult):
-        return probe
-    if not probe.stdout.strip():
-        return unexpected_output_result(check, probe.stdout, fix=fix)
-    return make_result(check, "ok", "npx --yes is non-interactive")
-
-
-def resolve_alias_target() -> Path | None:
-    alias = Path.home() / ".local" / "bin" / "sol"
-    if not alias.exists() and not alias.is_symlink():
-        return None
-    if alias.is_symlink():
-        target = Path(os.readlink(alias))
-        if not target.is_absolute():
-            target = alias.parent / target
-        return target.resolve()
-
-    try:
-        from solstone.think.install_guard import parse_wrapper
-
-        content = alias.read_text(encoding="utf-8")
-    except OSError:
-        return None
-    parsed = parse_wrapper(content)
-    if parsed is None:
-        return None
-    return Path(parsed["sol_bin"]).resolve()
-
-
-def resolve_darwin_exe(
-    check: Check,
-    pid: int,
-    *,
-    expected_repo_sol: Path,
-    alias_target: Path | None,
-) -> Path | CheckResult:
-    probe = run_probe(
-        check,
-        ["lsof", "-p", str(pid), "-Fn"],
-        timeout=1.0,
-        allow_empty_stdout=False,
-        fix=f"kill {pid}  # or run 'sol service stop' if this is your install",
-    )
-    if isinstance(probe, CheckResult):
-        return probe
-    paths: list[Path] = []
-    for line in probe.stdout.splitlines():
-        if not line.startswith("n"):
-            continue
-        value = line[1:].strip()
-        if not value.startswith("/"):
-            continue
-        paths.append(Path(value).resolve())
-    if not paths:
-        return make_result(
-            check,
-            "fail",
-            f"could not verify ownership (pid={pid}): no executable path from lsof",
-            f"kill {pid}  # or run 'sol service stop' if this is your install",
-        )
-    for candidate in paths:
-        if candidate == expected_repo_sol or candidate == alias_target:
-            return candidate
-    sol_paths = [candidate for candidate in paths if candidate.name == "sol"]
-    if len(sol_paths) == 1:
-        return sol_paths[0]
-    return make_result(
-        check,
-        "fail",
-        f"could not verify ownership (pid={pid}): ambiguous executable paths",
-        f"kill {pid}  # or run 'sol service stop' if this is your install",
-    )
-
-
 def port_5015_free_check(args: Args) -> CheckResult:
     check = CHECK_MAP["port_5015_free"]
     # In a git worktree (hopper lode, personal worktree) the host's port state
@@ -574,78 +477,26 @@ def port_5015_free_check(args: Args) -> CheckResult:
                 "skip",
                 "git worktree; run doctor from the primary clone",
             )
-    port = args.port
-    if shutil.which("lsof") is None:
-        return make_result(
-            check,
-            "skip",
-            "lsof not available; cannot probe port ownership",
-        )
-    probe = run_probe(
-        check,
-        ["lsof", "-nP", f"-iTCP:{port}", "-sTCP:LISTEN", "-Fpn"],
-        timeout=1.0,
-        ok_returncodes=(0, 1),
-        allow_empty_stdout=True,
-        fix="kill <pid>  # or run 'sol service stop' if this is your install",
-    )
-    if isinstance(probe, CheckResult):
-        return replace(probe, status="warn")
-    pids = [
-        line[1:].strip() for line in probe.stdout.splitlines() if line.startswith("p")
-    ]
-    if not pids:
-        return make_result(check, "ok", f"port {port} is free")
-    pid_text = pids[0]
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
-        pid = int(pid_text)
-    except ValueError:
-        result = unexpected_output_result(
-            check,
-            probe.stdout,
-            fix="kill <pid>  # or run 'sol service stop' if this is your install",
-        )
-        return replace(result, status="warn")
-    expected_repo_sol = (ROOT / ".venv" / "bin" / "sol").resolve()
-    alias_target = resolve_alias_target()
-    if platform_tag() == "darwin":
-        resolved = resolve_darwin_exe(
-            check,
-            pid,
-            expected_repo_sol=expected_repo_sol,
-            alias_target=alias_target,
-        )
-        if isinstance(resolved, CheckResult):
-            return replace(resolved, status="warn")
-        exe_path = resolved
-    else:
         try:
-            exe_path = Path(os.readlink(f"/proc/{pid}/exe")).resolve()
+            sock.bind(("127.0.0.1", args.port))
         except OSError as exc:
+            if exc.errno in (errno.EADDRINUSE, errno.EACCES):
+                return make_result(
+                    check,
+                    "warn",
+                    f"port {args.port} is in use; run 'sol service stop' to stop the existing solstone service. For manual investigation: 'lsof -nP -iTCP:{args.port}'.",
+                )
             return make_result(
                 check,
                 "warn",
-                f"could not verify ownership (pid={pid}): {type(exc).__name__}: {exc}",
-                f"kill {pid}  # or run 'sol service stop' if this is your install",
+                f"could not probe port {args.port}: {exc}",
             )
-    if exe_path == expected_repo_sol:
-        return make_result(
-            check,
-            "ok",
-            f"port {port} owned by this repo's solstone ({exe_path})",
-        )
-    if alias_target is not None and exe_path == alias_target:
-        return make_result(
-            check,
-            "ok",
-            f"port {port} owned by installed solstone ({exe_path})",
-        )
-    return make_result(
-        check,
-        "warn",
-        f"port {port} is in use by pid {pid} ({exe_path}); solstone may already be installed and active on this system",
-        f"kill {pid}  # or run 'sol service stop' if this is your install",
-    )
+    finally:
+        sock.close()
+    return make_result(check, "ok", f"port {args.port} is free")
 
 
 def disk_space_check(args: Args) -> CheckResult:
@@ -759,64 +610,6 @@ def stale_alias_symlink_check(args: Args) -> CheckResult:
     )
 
 
-def macos_firewall_localhost_check(args: Args) -> CheckResult:
-    del args
-    check = CHECK_MAP["macos_firewall_localhost"]
-    if platform_tag() != "darwin":
-        return make_result(check, "skip", "not supported on linux", platform="linux")
-    tool = "/usr/libexec/ApplicationFirewall/socketfilterfw"
-    if not Path(tool).exists():
-        return make_result(check, "skip", "socketfilterfw not available")
-    global_probe = run_probe(
-        check,
-        [tool, "--getglobalstate"],
-        timeout=1.0,
-        fix="sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setblockall off",
-    )
-    if isinstance(global_probe, CheckResult):
-        return global_probe
-    global_text = global_probe.stdout.lower()
-    if "disabled" in global_text or "state = 0" in global_text:
-        return make_result(
-            check,
-            "ok",
-            "firewall settings will not block localhost service access",
-        )
-    if "enabled" not in global_text and "state = 1" not in global_text:
-        return unexpected_output_result(
-            check,
-            global_probe.stdout,
-            fix="sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setblockall off",
-        )
-    block_probe = run_probe(
-        check,
-        [tool, "--getblockall"],
-        timeout=1.0,
-        fix="sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setblockall off",
-    )
-    if isinstance(block_probe, CheckResult):
-        return block_probe
-    block_text = block_probe.stdout.lower()
-    if "enabled" in block_text or "state = 1" in block_text:
-        return make_result(
-            check,
-            "warn",
-            "firewall enabled with block-all incoming; localhost service access may fail",
-            "sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setblockall off",
-        )
-    if "disabled" in block_text or "state = 0" in block_text:
-        return make_result(
-            check,
-            "ok",
-            "firewall enabled but block-all incoming is off",
-        )
-    return unexpected_output_result(
-        check,
-        block_probe.stdout,
-        fix="sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setblockall off",
-    )
-
-
 def launchd_stale_plist_check(args: Args) -> CheckResult:
     del args
     check = CHECK_MAP["launchd_stale_plist"]
@@ -852,32 +645,6 @@ def launchd_stale_plist_check(args: Args) -> CheckResult:
             "rm ~/Library/LaunchAgents/org.solpbc.solstone.plist && sol setup",
         )
     return make_result(check, "ok", f"launchd plist target exists ({executable})")
-
-
-def screen_recording_permission_check(args: Args) -> CheckResult:
-    del args
-    check = CHECK_MAP["screen_recording_permission"]
-    if platform_tag() != "darwin":
-        return make_result(check, "skip", "not supported on linux", platform="linux")
-    return make_result(
-        check,
-        "skip",
-        "no adopted non-prompting probe for CLI-scoped macOS TCC state",
-        "System Settings → Privacy & Security → Screen Recording / Screen & System Audio Recording",
-    )
-
-
-def microphone_permission_check(args: Args) -> CheckResult:
-    del args
-    check = CHECK_MAP["microphone_permission"]
-    if platform_tag() != "darwin":
-        return make_result(check, "skip", "not supported on linux", platform="linux")
-    return make_result(
-        check,
-        "skip",
-        "no adopted non-prompting probe for CLI-scoped macOS TCC state",
-        "System Settings → Privacy & Security → Microphone",
-    )
 
 
 def journal_sync_check(args: Args) -> CheckResult:
@@ -921,11 +688,6 @@ CHECKS: list[tuple[Check, Callable[[Args], CheckResult]]] = [
         Check("local_bin_sol_reachable", "advisory", ("linux", "darwin")),
         local_bin_sol_reachable_check,
     ),
-    (Check("npx_on_path", "blocker", ("linux", "darwin")), npx_on_path_check),
-    (
-        Check("npx_non_interactive", "advisory", ("linux", "darwin")),
-        npx_non_interactive_check,
-    ),
     (Check("port_5015_free", "advisory", ("linux", "darwin")), port_5015_free_check),
     (Check("disk_space", "advisory", ("linux", "darwin")), disk_space_check),
     (
@@ -937,20 +699,8 @@ CHECKS: list[tuple[Check, Callable[[Args], CheckResult]]] = [
         stale_alias_symlink_check,
     ),
     (
-        Check("macos_firewall_localhost", "advisory", ("darwin",)),
-        macos_firewall_localhost_check,
-    ),
-    (
         Check("launchd_stale_plist", "advisory", ("darwin",)),
         launchd_stale_plist_check,
-    ),
-    (
-        Check("screen_recording_permission", "advisory", ("darwin",)),
-        screen_recording_permission_check,
-    ),
-    (
-        Check("microphone_permission", "advisory", ("darwin",)),
-        microphone_permission_check,
     ),
     (Check("journal_sync", "blocker", ("linux", "darwin")), journal_sync_check),
 ]

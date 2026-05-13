@@ -14,7 +14,9 @@ from solstone.think import sync_check
 
 @pytest.fixture(autouse=True)
 def isolated_journal(tmp_path, monkeypatch):
-    monkeypatch.setenv("SOLSTONE_JOURNAL", str(tmp_path / "journal"))
+    journal = tmp_path / "journal"
+    monkeypatch.setenv("SOLSTONE_JOURNAL", str(journal))
+    return journal
 
 
 def _reset_machine_id(monkeypatch):
@@ -84,7 +86,7 @@ def test_get_machine_id_darwin_reads_ioplatform_uuid(monkeypatch):
     assert sync_check.get_machine_id() == "ABC-123"
 
 
-def test_get_machine_id_raises_when_unavailable(monkeypatch):
+def test_get_machine_id_returns_empty_when_unavailable(monkeypatch):
     _reset_machine_id(monkeypatch)
     monkeypatch.setattr(sync_check.sys, "platform", "linux")
 
@@ -93,10 +95,7 @@ def test_get_machine_id_raises_when_unavailable(monkeypatch):
 
     monkeypatch.setattr(Path, "read_text", fake_read_text)
 
-    with pytest.raises(RuntimeError) as linux_error:
-        sync_check.get_machine_id()
-
-    assert "systemd-machine-id-setup" in str(linux_error.value)
+    assert sync_check.get_machine_id() == ""
 
     _reset_machine_id(monkeypatch)
     monkeypatch.setattr(sync_check.sys, "platform", "darwin")
@@ -106,10 +105,7 @@ def test_get_machine_id_raises_when_unavailable(monkeypatch):
 
     monkeypatch.setattr(sync_check.subprocess, "run", fake_run)
 
-    with pytest.raises(RuntimeError) as darwin_error:
-        sync_check.get_machine_id()
-
-    assert "systemd-machine-id-setup" in str(darwin_error.value)
+    assert sync_check.get_machine_id() == ""
 
 
 def test_get_self_hostname_sanitized_normal_weird_empty(monkeypatch):
@@ -144,6 +140,15 @@ def test_write_self_heartbeat_writes_expected_json_and_overwrites(
     assert data["interval_seconds"] == sync_check.DEFAULT_INTERVAL_SECONDS
     assert data["journal_path"] == str(journal.resolve())
     assert second.read_text(encoding="utf-8").endswith("\n")
+
+
+def test_write_self_heartbeat_tolerates_empty_machine_id(isolated_journal, monkeypatch):
+    monkeypatch.setattr(sync_check, "get_machine_id", lambda: "")
+
+    path = sync_check.write_self_heartbeat(journal=isolated_journal)
+
+    data = json.loads(path.read_text(encoding="utf-8"))
+    assert data["machine_id"] == ""
 
 
 def test_write_self_heartbeat_replace_failure_leaves_existing_file_intact(
@@ -194,6 +199,16 @@ def test_check_journal_sync_no_dir_empty_dir_only_self_are_clean(tmp_path, monke
     result = sync_check.check_journal_sync(journal=journal, now=time.time())
     assert not result.is_conflict
     assert result.foreign_writers == ()
+
+
+def test_check_journal_sync_tolerates_empty_machine_id(isolated_journal, monkeypatch):
+    monkeypatch.setattr(sync_check, "get_machine_id", lambda: "")
+    (isolated_journal / "health" / "sync").mkdir(parents=True)
+
+    result = sync_check.check_journal_sync(journal=isolated_journal, now=1000.0)
+
+    assert result.is_conflict is False
+    assert isinstance(sync_check.format_doctor_report(result), str)
 
 
 def test_check_journal_sync_fresh_foreign_is_live(tmp_path, monkeypatch):
