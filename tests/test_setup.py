@@ -162,6 +162,15 @@ def patch_service_health(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(health_cli, "health_check", lambda: 0)
 
 
+def patch_journal_os_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "solstone.think.utils._resolve_os_identity", lambda: ("Setup User", "setup")
+    )
+    monkeypatch.setattr(
+        "solstone.think.utils._resolve_os_timezone", lambda: "America/Denver"
+    )
+
+
 STEP_NAMES = [
     "doctor",
     "journal",
@@ -466,6 +475,70 @@ def test_dry_run_side_effect_free(
     assert not (home / ".config" / "solstone" / "config.toml").exists()
     assert not (journal / "health" / "setup-state.json").exists()
     assert "setup dry-run:" in capsys.readouterr().out
+
+
+def test_step_journal_materializes_journal_config(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    patch_home(monkeypatch, tmp_path)
+    patch_source_checkout(monkeypatch, tmp_path)
+    patch_journal_os_defaults(monkeypatch)
+    monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
+    journal = tmp_path / "journal"
+    argv = ["--yes", "--journal", str(journal)]
+    ctx = setup.resolve_context(setup.build_parser().parse_args(argv), argv)
+
+    result = setup.step_journal(ctx, 2)
+
+    config_path = journal / "config" / "journal.json"
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+    assert result.status == "ok"
+    assert config["identity"]["name"] == "Setup User"
+    assert config["identity"]["preferred"] == "setup"
+    assert config["identity"]["timezone"] == "America/Denver"
+    assert config["convey"]["secret"]
+    assert str(config_path.resolve()) in result.paths
+
+
+def test_step_journal_dry_run_does_not_materialize_journal_config(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    patch_home(monkeypatch, tmp_path)
+    patch_source_checkout(monkeypatch, tmp_path)
+    patch_journal_os_defaults(monkeypatch)
+    monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
+    journal = tmp_path / "journal"
+    argv = ["--dry-run", "--journal", str(journal)]
+    ctx = setup.resolve_context(setup.build_parser().parse_args(argv), argv)
+
+    result = setup.step_journal(ctx, 2)
+
+    assert result.status == "ok"
+    assert not (journal / "config" / "journal.json").exists()
+
+
+def test_step_journal_is_idempotent(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    patch_home(monkeypatch, tmp_path)
+    patch_source_checkout(monkeypatch, tmp_path)
+    patch_journal_os_defaults(monkeypatch)
+    monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
+    journal = tmp_path / "journal"
+    argv = ["--yes", "--journal", str(journal)]
+    ctx = setup.resolve_context(setup.build_parser().parse_args(argv), argv)
+
+    setup.step_journal(ctx, 2)
+    config_path = journal / "config" / "journal.json"
+    first = config_path.stat()
+    setup.step_journal(ctx, 2)
+    second = config_path.stat()
+
+    assert second.st_ino == first.st_ino
+    assert second.st_size == first.st_size
 
 
 def test_explain_early_exit(

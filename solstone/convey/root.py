@@ -29,7 +29,13 @@ from flask import (
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from solstone.think.cluster import cluster_segments
-from solstone.think.utils import day_dirs, get_config, get_journal, get_project_root
+from solstone.think.utils import (
+    day_dirs,
+    ensure_journal_config,
+    get_config,
+    get_journal,
+    get_project_root,
+)
 
 from . import bridge as convey_bridge
 from .copy import LOGIN_NO_PASSWORD_CONFIGURED
@@ -240,12 +246,18 @@ def init() -> Any:
     if _is_setup_complete():
         return redirect(url_for("root.index"))
 
+    config = ensure_journal_config()
+    identity = config.get("identity", {})
+    identity_name = identity.get("name", "") or ""
+    identity_preferred = identity.get("preferred", "") or ""
     config_path = str(Path(get_journal()) / "config" / "journal.json")
     repo_path = str(Path(get_project_root()))
     return render_template(
         "init.html",
         config_path=config_path,
         repo_path=repo_path,
+        identity_name=identity_name,
+        identity_preferred=identity_preferred,
     )
 
 

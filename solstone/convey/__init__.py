@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import json
 import os
-import secrets
 from datetime import timedelta
 from pathlib import Path
 
@@ -15,6 +14,7 @@ from flask import Flask
 from jinja2 import ChoiceLoader, FileSystemLoader
 
 from solstone.apps import AppRegistry
+from solstone.think.utils import ensure_journal_config
 
 from . import state, system
 from .apps import register_app_context
@@ -33,24 +33,8 @@ __all__ = [
 
 def _get_or_create_secret() -> str:
     """Load convey.secret from journal.json, generating one if absent."""
-    from solstone.think.utils import get_config, get_journal
-
-    config = get_config()
-    secret = config.get("convey", {}).get("secret")
-    if secret:
-        return secret
-
-    secret = secrets.token_hex(32)
-
-    config.setdefault("convey", {})["secret"] = secret
-    config_path = Path(get_journal()) / "config" / "journal.json"
-    config_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(config_path, "w", encoding="utf-8") as f:
-        json.dump(config, f, indent=2, ensure_ascii=False)
-        f.write("\n")
-    os.chmod(config_path, 0o600)
-
-    return secret
+    config = ensure_journal_config()
+    return config["convey"]["secret"]
 
 
 def _migrate_password_hash() -> None:

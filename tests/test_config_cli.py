@@ -53,7 +53,7 @@ def make_journal(path: Path, *, active: bool | None = None) -> Path:
     config_dir = path / "config"
     config_dir.mkdir(parents=True, exist_ok=True)
     (config_dir / "journal.json").write_text(
-        json.dumps({"identity": {"name": "Owner" if active else ""}}),
+        json.dumps({"setup": {"completed_at": 1700000000000 if active else 0}}),
         encoding="utf-8",
     )
     return path

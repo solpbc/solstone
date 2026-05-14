@@ -15,7 +15,9 @@ import copy
 import json
 import logging
 import os
+import pwd
 import re
+import secrets
 import socket
 import sys
 import time
@@ -659,8 +661,94 @@ def _load_default_config() -> dict[str, Any]:
 _default_config: dict[str, Any] | None = None
 
 
+def _resolve_os_identity() -> tuple[str, str]:
+    """Return (full_name, login_name) from the OS user record, '' on failure."""
+    full_name = ""
+    login_name = ""
+    try:
+        entry = pwd.getpwuid(os.getuid())
+    except Exception:
+        return ("", "")
+    try:
+        gecos = entry.pw_gecos or ""
+        full_name = gecos.split(",", 1)[0].strip()
+    except Exception:
+        full_name = ""
+    try:
+        login_name = entry.pw_name or ""
+    except Exception:
+        login_name = ""
+    return (full_name, login_name)
+
+
+def _resolve_os_timezone() -> str:
+    """Return the system tzdata zone from /etc/localtime, '' on failure."""
+    try:
+        target = Path("/etc/localtime").resolve()
+        zoneinfo_root = Path("/usr/share/zoneinfo")
+        return str(target.relative_to(zoneinfo_root))
+    except Exception:
+        return ""
+
+
+def _write_config_atomic(path: Path, config: dict[str, Any]) -> None:
+    from solstone.think.entities.core import atomic_write
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    content = json.dumps(config, indent=2, ensure_ascii=False) + "\n"
+    atomic_write(path, content)
+    os.chmod(path, 0o600)
+
+
+def ensure_journal_config() -> dict[str, Any]:
+    """Materialize <journal>/config/journal.json and return its contents.
+
+    Idempotent after first creation, with one transitional exception: if the
+    file exists but lacks ``convey.secret``, the secret is backfilled. Identity
+    fields on an existing file are never modified.
+    """
+    global _default_config
+
+    journal = Path(get_journal())
+    config_path = journal / "config" / "journal.json"
+
+    if config_path.exists():
+        with config_path.open(encoding="utf-8") as fh:
+            config = json.load(fh)
+        if not config.get("convey", {}).get("secret"):
+            config.setdefault("convey", {})["secret"] = secrets.token_hex(32)
+            _write_config_atomic(config_path, config)
+        return config
+
+    if _default_config is None:
+        _default_config = _load_default_config()
+    config = copy.deepcopy(_default_config)
+    try:
+        full_name, login_name = _resolve_os_identity()
+    except Exception:
+        logging.getLogger(__name__).debug(
+            "Failed to resolve OS identity", exc_info=True
+        )
+        full_name = ""
+        login_name = ""
+    try:
+        timezone = _resolve_os_timezone()
+    except Exception:
+        logging.getLogger(__name__).debug(
+            "Failed to resolve OS timezone", exc_info=True
+        )
+        timezone = ""
+    config.setdefault("identity", {})
+    config["identity"]["name"] = full_name
+    config["identity"]["preferred"] = login_name
+    config["identity"]["timezone"] = timezone
+    config.setdefault("convey", {})["secret"] = secrets.token_hex(32)
+    _write_config_atomic(config_path, config)
+    return config
+
+
 def journal_is_active(path: str | Path) -> bool:
-    """Return whether ``path`` points to a claimed journal."""
+    """Return whether the journal has been onboarded (setup completed)."""
     try:
         journal_path = Path(path)
         if not journal_path.is_dir():
@@ -668,8 +756,8 @@ def journal_is_active(path: str | Path) -> bool:
         config_path = journal_path / "config" / "journal.json"
         with open(config_path, "r", encoding="utf-8") as f:
             config = json.load(f)
-        owner_name = config["identity"]["name"]
-        return isinstance(owner_name, str) and bool(owner_name.strip())
+        completed = config["setup"]["completed_at"]
+        return isinstance(completed, (int, float)) and completed > 0
     except (
         OSError,
         json.JSONDecodeError,

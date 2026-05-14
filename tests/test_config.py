@@ -195,10 +195,14 @@ def _write_journal_config(journal_path, config):
 @pytest.mark.parametrize(
     ("config", "expected"),
     [
-        ({"identity": {"name": "Active User"}}, True),
+        ({"setup": {"completed_at": 1}}, True),
+        ({"setup": {"completed_at": 1.5}}, True),
+        ({"setup": {"completed_at": 0}}, False),
+        ({"setup": {"completed_at": None}}, False),
         ({}, False),
-        ({"identity": {"name": ""}}, False),
-        ({"identity": {"name": "   "}}, False),
+        ({"setup": {"completed_at": "foo"}}, False),
+        ({"identity": {"name": "Active User"}}, False),
+        ({"identity": {"name": ""}, "setup": {"completed_at": 1}}, True),
     ],
 )
 def test_journal_is_active_from_config(tmp_path, config, expected):

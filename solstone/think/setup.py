@@ -29,7 +29,7 @@ from solstone.think.user_config import (
     read_user_config,
     write_user_config,
 )
-from solstone.think.utils import get_project_root
+from solstone.think.utils import ensure_journal_config, get_project_root
 from solstone.think.utils import is_source_checkout as source_checkout
 
 TOTAL_STEPS = 6
@@ -1075,6 +1075,15 @@ def step_journal(ctx: SetupContext, step_index: int) -> StepResult:
     if ctx.journal_path.exists() and not ctx.journal_path.is_dir():
         dead_end_journal_is_file(ctx)
     print_step_header(ctx, step_index, "journal config")
+    journal_config_path = ctx.journal_path / "config" / "journal.json"
+    if ctx.mode is SetupMode.DRY_RUN:
+        narrate(ctx, f"would materialize {journal_config_path}")
+        return step_result(
+            "journal",
+            "ok",
+            [ctx.config_path, ctx.journal_path, journal_config_path],
+            started_at,
+        )
     persisted = read_user_config().get("journal", "").strip()
     persisted_matches = bool(persisted) and expand_path(persisted) == ctx.journal_path
     if (
@@ -1090,16 +1099,18 @@ def step_journal(ctx: SetupContext, step_index: int) -> StepResult:
     if not persisted_matches:
         ctx.journal_path.mkdir(parents=True, exist_ok=True)
         write_user_config(journal=str(ctx.journal_path))
+        ensure_journal_config()
         narrate(ctx, f"[step {step_index}/{TOTAL_STEPS}] wrote {ctx.config_path}")
     else:
         narrate(
             ctx, f"[step {step_index}/{TOTAL_STEPS}] journal config already current"
         )
         ctx.journal_path.mkdir(parents=True, exist_ok=True)
+        ensure_journal_config()
     return step_result(
         "journal",
         "ok",
-        [ctx.config_path, ctx.journal_path],
+        [ctx.config_path, ctx.journal_path, journal_config_path],
         started_at,
     )
 
