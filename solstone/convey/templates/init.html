@@ -26,12 +26,12 @@
     .section-hint a { color: #b06a1a; }
     .field-group { margin-bottom: 0.75rem; }
     .field-group label { display: block; font-size: 0.85rem; color: #444; margin-bottom: 0.25rem; }
-    .field-group input {
+    .field-group input:not([type="checkbox"]):not([type="radio"]) {
       width: 100%; padding: 10px 12px; border: 2px solid #ddd; border-radius: 8px;
       font-size: 0.95rem; box-sizing: border-box;
     }
-    .field-group input:focus { outline: none; border-color: #E8923A; }
-    .field-group input:disabled { background: #f5f5f5; color: #999; }
+    .field-group input:not([type="checkbox"]):not([type="radio"]):focus { outline: none; border-color: #E8923A; }
+    .field-group input:not([type="checkbox"]):not([type="radio"]):disabled { background: #f5f5f5; color: #999; }
     .field-status { display: block; font-size: 0.8rem; min-height: 1.2em; margin-top: 0.25rem; }
     .status-saved { color: #22c55e; }
     .status-error { color: #ef4444; }
