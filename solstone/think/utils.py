@@ -681,12 +681,21 @@ def _resolve_os_identity() -> tuple[str, str]:
     return (full_name, login_name)
 
 
+def _zone_from_localtime_path(resolved: str) -> str:
+    """Extract the IANA zone name from a resolved /etc/localtime path.
+
+    macOS uses /var/db/timezone/zoneinfo/<Zone>; Linux uses /usr/share/zoneinfo/<Zone>.
+    Return everything after the last /zoneinfo/ segment, or '' if absent.
+    """
+    marker = "/zoneinfo/"
+    idx = resolved.rfind(marker)
+    return resolved[idx + len(marker):] if idx != -1 else ""
+
+
 def _resolve_os_timezone() -> str:
     """Return the system tzdata zone from /etc/localtime, '' on failure."""
     try:
-        target = Path("/etc/localtime").resolve()
-        zoneinfo_root = Path("/usr/share/zoneinfo")
-        return str(target.relative_to(zoneinfo_root))
+        return _zone_from_localtime_path(str(Path("/etc/localtime").resolve()))
     except Exception:
         return ""
 

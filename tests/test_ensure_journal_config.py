@@ -136,3 +136,83 @@ def test_ensure_journal_config_returned_dict_does_not_mutate_defaults(
     fresh = utils.get_config()
 
     assert fresh["identity"]["name"] == ""
+
+
+# Direct tests of the resolver primitives — these are mocked away in every
+# end-to-end test above, so the parsing logic itself needs explicit coverage.
+
+
+class _FakePwEntry:
+    def __init__(self, pw_gecos: str = "", pw_name: str = ""):
+        self.pw_gecos = pw_gecos
+        self.pw_name = pw_name
+
+
+def test_resolve_os_identity_linux_gecos(monkeypatch):
+    monkeypatch.setattr(
+        utils.pwd, "getpwuid", lambda _uid: _FakePwEntry("Jane Doe,,,,", "jane")
+    )
+    assert utils._resolve_os_identity() == ("Jane Doe", "jane")
+
+
+def test_resolve_os_identity_macos_single_name(monkeypatch):
+    monkeypatch.setattr(
+        utils.pwd, "getpwuid", lambda _uid: _FakePwEntry("Jane Doe", "jane")
+    )
+    assert utils._resolve_os_identity() == ("Jane Doe", "jane")
+
+
+def test_resolve_os_identity_empty_gecos(monkeypatch):
+    monkeypatch.setattr(
+        utils.pwd, "getpwuid", lambda _uid: _FakePwEntry("", "jane")
+    )
+    assert utils._resolve_os_identity() == ("", "jane")
+
+
+def test_resolve_os_identity_comma_only_gecos(monkeypatch):
+    monkeypatch.setattr(
+        utils.pwd, "getpwuid", lambda _uid: _FakePwEntry(",,,,", "jane")
+    )
+    assert utils._resolve_os_identity() == ("", "jane")
+
+
+def test_resolve_os_identity_gecos_whitespace(monkeypatch):
+    monkeypatch.setattr(
+        utils.pwd, "getpwuid", lambda _uid: _FakePwEntry("  Jane Doe  ,extra", "jane")
+    )
+    assert utils._resolve_os_identity() == ("Jane Doe", "jane")
+
+
+def test_resolve_os_identity_keyerror(monkeypatch):
+    def _raise(_uid):
+        raise KeyError("no such uid")
+
+    monkeypatch.setattr(utils.pwd, "getpwuid", _raise)
+    assert utils._resolve_os_identity() == ("", "")
+
+
+def test_zone_from_localtime_path_linux():
+    assert (
+        utils._zone_from_localtime_path("/usr/share/zoneinfo/America/Denver")
+        == "America/Denver"
+    )
+
+
+def test_zone_from_localtime_path_macos():
+    assert (
+        utils._zone_from_localtime_path(
+            "/var/db/timezone/zoneinfo/America/Los_Angeles"
+        )
+        == "America/Los_Angeles"
+    )
+
+
+def test_zone_from_localtime_path_nested_zone():
+    assert (
+        utils._zone_from_localtime_path("/usr/share/zoneinfo/Etc/GMT+7") == "Etc/GMT+7"
+    )
+
+
+def test_zone_from_localtime_path_no_zoneinfo_segment():
+    assert utils._zone_from_localtime_path("/etc/localtime") == ""
+    assert utils._zone_from_localtime_path("/var/db/timezone/icu/icudt68l.dat") == ""
