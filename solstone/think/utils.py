@@ -689,7 +689,7 @@ def _zone_from_localtime_path(resolved: str) -> str:
     """
     marker = "/zoneinfo/"
     idx = resolved.rfind(marker)
-    return resolved[idx + len(marker):] if idx != -1 else ""
+    return resolved[idx + len(marker) :] if idx != -1 else ""
 
 
 def _resolve_os_timezone() -> str:

@@ -163,9 +163,7 @@ def test_resolve_os_identity_macos_single_name(monkeypatch):
 
 
 def test_resolve_os_identity_empty_gecos(monkeypatch):
-    monkeypatch.setattr(
-        utils.pwd, "getpwuid", lambda _uid: _FakePwEntry("", "jane")
-    )
+    monkeypatch.setattr(utils.pwd, "getpwuid", lambda _uid: _FakePwEntry("", "jane"))
     assert utils._resolve_os_identity() == ("", "jane")
 
 
@@ -200,9 +198,7 @@ def test_zone_from_localtime_path_linux():
 
 def test_zone_from_localtime_path_macos():
     assert (
-        utils._zone_from_localtime_path(
-            "/var/db/timezone/zoneinfo/America/Los_Angeles"
-        )
+        utils._zone_from_localtime_path("/var/db/timezone/zoneinfo/America/Los_Angeles")
         == "America/Los_Angeles"
     )
 
