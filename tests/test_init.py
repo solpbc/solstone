@@ -1,12 +1,13 @@
 import base64
 import json
+from pathlib import Path
 
 import pytest
 
 from solstone.apps.observer.routes import ACTIVE_THRESHOLD_MS, STALE_THRESHOLD_MS
 from solstone.apps.observer.utils import save_observer
 from solstone.convey import create_app
-from solstone.think.utils import now_ms
+from solstone.think.utils import get_journal, now_ms
 
 
 def _read_config(journal_dir):
@@ -94,6 +95,48 @@ class TestInitDetection:
         assert b'value="Tester"' in resp.data
         assert b'id="section-password"' not in resp.data
         assert b'id="password"' not in resp.data
+
+    def test_init_title_is_welcome_setup(self, fresh_client):
+        resp = fresh_client.get("/init")
+        assert b"<title>solstone welcome setup</title>" in resp.data
+
+    def test_init_renders_version(self, fresh_client):
+        try:
+            from importlib.metadata import version as _v
+
+            expected = _v("solstone")
+        except Exception:
+            expected = "dev"
+
+        resp = fresh_client.get("/init")
+        assert (
+            f"solstone {expected}".encode() in resp.data or b"solstone dev" in resp.data
+        )
+
+    def test_init_renders_journal_path_in_welcome(self, fresh_client):
+        journal_path = str(Path(get_journal()))
+
+        resp = fresh_client.get("/init")
+
+        assert f"<code>{journal_path}</code>".encode() in resp.data
+
+    def test_init_sol_agent_section_renders(self, fresh_client):
+        resp = fresh_client.get("/init")
+        assert b">sol agent<" in resp.data
+        assert b"the sol agent curates your journal" in resp.data
+
+    def test_init_observers_section_removed(self, fresh_client):
+        resp = fresh_client.get("/init")
+        assert b'id="section-observers"' not in resp.data
+
+    def test_init_get_started_section_removed(self, fresh_client):
+        resp = fresh_client.get("/init")
+        assert b'id="section-finalize"' not in resp.data
+
+    def test_init_finalize_button_text(self, fresh_client):
+        resp = fresh_client.get("/init")
+        assert b"finish welcome setup" in resp.data
+        assert b'onclick="finalize()"' in resp.data
 
     def test_init_redirects_when_configured(self, configured_client):
         resp = configured_client.get("/init")

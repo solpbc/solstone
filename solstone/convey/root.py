@@ -10,6 +10,8 @@ import os
 import queue
 import time
 from datetime import date
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as _pkg_version
 from pathlib import Path
 from typing import Any
 
@@ -34,7 +36,6 @@ from solstone.think.utils import (
     ensure_journal_config,
     get_config,
     get_journal,
-    get_project_root,
 )
 
 from . import bridge as convey_bridge
@@ -250,12 +251,15 @@ def init() -> Any:
     identity = config.get("identity", {})
     identity_name = identity.get("name", "") or ""
     identity_preferred = identity.get("preferred", "") or ""
-    config_path = str(Path(get_journal()) / "config" / "journal.json")
-    repo_path = str(Path(get_project_root()))
+    try:
+        version = _pkg_version("solstone")
+    except PackageNotFoundError:
+        version = "dev"
+    journal_path = str(Path(get_journal()))
     return render_template(
         "init.html",
-        config_path=config_path,
-        repo_path=repo_path,
+        version=version,
+        journal_path=journal_path,
         identity_name=identity_name,
         identity_preferred=identity_preferred,
     )
