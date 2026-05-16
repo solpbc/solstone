@@ -1711,7 +1711,8 @@ function handleHashChange() {
 }
 
 function navigateToEntity(entityId) {
-  location.hash = entityId;
+  history.pushState({facet: window.selectedFacet}, '', '#' + entityId);
+  handleHashChange();
 }
 
 function navigateToList() {
