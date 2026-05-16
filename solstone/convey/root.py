@@ -107,6 +107,7 @@ def require_login() -> Any:
         "root.init_observers",
         "root.init_finalize",
         "root.login",
+        "static",
         "root.static",
         "root.favicon",
         # Observer ingest endpoints use key-based auth, not session
