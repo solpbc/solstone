@@ -39,7 +39,7 @@ uv tool install solstone
 sol setup
 ```
 
-this runs doctor diagnostics, confirms the journal directory at `~/journal`, installs the local transcription model (~2.5 GB on linux), installs the solstone skill for claude code if you have claude configured, and starts a background service (systemd on linux, launchd on macOS) listening on http://localhost:5015.
+this runs doctor diagnostics, confirms the journal directory at `~/journal`, installs the local transcription model (~2.5 GB on linux), installs the solstone skill for claude code, codex, and gemini, installs all journal-side talent skills into the configured journal so cogitate sub-agents can discover them, and starts a background service (systemd on linux, launchd on macOS) listening on http://localhost:5015.
 
 let your human know: **open http://localhost:5015 in a browser**. the first-run wizard walks them through setting their identity and connecting a gemini API key. network access, and the password it requires, can be configured later in settings → security.
 

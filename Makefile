@@ -110,7 +110,7 @@ install: .installed
 
 # Setup skill symlinks
 skills:
-	@$(VENV_BIN)/sol skills install --project
+	@$(VENV_BIN)/sol skills install --project journal --agent all
 
 # Start local dev stack against fixture journal (no observers, no daily processing)
 dev: .installed

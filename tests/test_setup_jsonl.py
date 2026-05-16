@@ -20,7 +20,12 @@ from solstone.think.setup_events import (
     STEP_NAMES,
 )
 from tests.test_setup import (
+    expected_service_install_command,
+    expected_skills_journal_command,
+    expected_skills_user_command,
+    expected_wrapper_command,
     patch_home,
+    patch_service_health,
     patch_source_checkout,
     patch_subprocess,
     patch_tty,
@@ -164,6 +169,7 @@ def test_setup_jsonl_step_events_paired(
     ]
     assert [event["step"] for event in started] == list(STEP_NAMES)
     assert [event["step"] for event in terminal] == list(STEP_NAMES)
+    assert {event["total"] for event in started} == {7}
 
 
 def test_setup_jsonl_forwards_doctor_events_byte_for_byte(
@@ -321,31 +327,95 @@ def test_setup_jsonl_subprocess_failure_emits_step_failed(
     patch_source_checkout(monkeypatch, tmp_path)
     monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
     (home / ".claude").mkdir()
-    patch_subprocess(
-        monkeypatch,
-        doctor_jsonl_lines=doctor_ok_lines(),
-        command_returncode=1,
-        command_stderr="first stderr line\nsecond stderr line\n",
-    )
+    patch_subprocess(monkeypatch, doctor_jsonl_lines=doctor_ok_lines())
+    journal = tmp_path / "journal"
+
+    def fake_run_step_subprocess(
+        ctx: setup.SetupContext,
+        command: list[str],
+        *,
+        timeout: float | None = None,
+    ) -> setup.StepProcessResult:
+        del ctx, timeout
+        if command == expected_skills_user_command():
+            return setup.StepProcessResult(
+                1, "", "first stderr line\nsecond stderr line\n", False
+            )
+        return setup.StepProcessResult(0, "", "", False)
+
+    monkeypatch.setattr(setup, "run_step_subprocess", fake_run_step_subprocess)
 
     rc = setup.main(
         [
             "--jsonl",
             "--yes",
             "--journal",
-            str(tmp_path / "journal"),
+            str(journal),
             "--skip-models",
             "--skip-service",
         ]
     )
     events = parse_jsonl(capsys.readouterr().out)
 
-    failed = [event for event in events if event["event"] == "step.failed"][-1]
+    failed = [event for event in events if event["event"] == "step.failed"][0]
     assert rc == 1
-    assert failed["step"] == "skills"
+    assert failed["step"] == "skills_user"
     assert failed["error"]["code"] == "step_subprocess_failed"
     assert failed["error"]["message"] == "first stderr line"
     assert "second stderr line" in failed["error"]["details"]
+
+
+def test_setup_jsonl_skills_failure_continues_and_completes_once(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    patch_home(monkeypatch, tmp_path)
+    patch_source_checkout(monkeypatch, tmp_path)
+    monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
+    patch_subprocess(monkeypatch, doctor_jsonl_lines=doctor_ok_lines())
+    patch_service_health(monkeypatch)
+    journal = tmp_path / "journal"
+    commands: list[list[str]] = []
+
+    def fake_run_step_subprocess(
+        ctx: setup.SetupContext,
+        command: list[str],
+        *,
+        timeout: float | None = None,
+    ) -> setup.StepProcessResult:
+        del ctx, timeout
+        commands.append(command)
+        if command == expected_skills_user_command():
+            return setup.StepProcessResult(1, "", "user skills failed\n", False)
+        return setup.StepProcessResult(0, "", "", False)
+
+    monkeypatch.setattr(setup, "run_step_subprocess", fake_run_step_subprocess)
+
+    rc = setup.main(["--jsonl", "--yes", "--journal", str(journal), "--skip-models"])
+    events = parse_jsonl(capsys.readouterr().out)
+
+    assert rc == 1
+    assert expected_skills_user_command() in commands
+    assert expected_skills_journal_command(journal) in commands
+    assert expected_wrapper_command() in commands
+    assert expected_service_install_command() in commands
+    started_steps = [
+        event["step"] for event in events if event["event"] == "step.started"
+    ]
+    terminal_steps = [
+        event["step"]
+        for event in events
+        if event["event"] in {"step.completed", "step.failed"}
+    ]
+    for step in ["skills_user", "skills_journal", "wrapper", "service"]:
+        assert step in started_steps
+        assert step in terminal_steps
+    completed = [event for event in events if event["event"] == "setup.completed"]
+    assert len(completed) == 1
+    assert completed[0] == events[-1]
+    assert completed[0]["status"] == "failed"
+    assert completed[0]["failed_step"] == "skills_user"
 
 
 def test_setup_jsonl_does_not_call_input(

@@ -175,7 +175,8 @@ STEP_NAMES = [
     "doctor",
     "journal",
     "install_models",
-    "skills",
+    "skills_user",
+    "skills_journal",
     "wrapper",
     "service",
 ]
@@ -204,7 +205,7 @@ def expected_install_models_command() -> list[str]:
     ]
 
 
-def expected_skills_command() -> list[str]:
+def expected_skills_user_command() -> list[str]:
     return [
         sys.executable,
         "-m",
@@ -212,7 +213,21 @@ def expected_skills_command() -> list[str]:
         "skills",
         "install",
         "--agent",
-        "claude",
+        "all",
+    ]
+
+
+def expected_skills_journal_command(journal: Path) -> list[str]:
+    return [
+        sys.executable,
+        "-m",
+        "solstone.think.sol_cli",
+        "skills",
+        "install",
+        "--project",
+        str(journal),
+        "--agent",
+        "all",
     ]
 
 
@@ -271,7 +286,15 @@ def prior_artifact_paths(journal: Path) -> dict[str, list[Path]]:
         "doctor": [],
         "journal": [setup.config_path(), journal],
         "install_models": setup.model_paths(),
-        "skills": [Path.home() / ".claude" / "skills" / "solstone" / "SKILL.md"],
+        "skills_user": [
+            Path.home() / ".claude" / "skills" / "solstone" / "SKILL.md",
+            Path.home() / ".codex" / "skills" / "solstone" / "SKILL.md",
+            Path.home() / ".gemini" / "skills" / "solstone" / "SKILL.md",
+        ],
+        "skills_journal": [
+            journal / ".claude" / "skills",
+            journal / ".agents" / "skills",
+        ],
         "wrapper": [Path.home() / ".local" / "bin" / "sol"],
         "service": [service_path] if service_path is not None else [],
     }
@@ -337,14 +360,15 @@ def test_interactive_happy_path_default_journal(
         encoding="utf-8"
     ) == f'journal = "{journal}"\n'
     manifest = read_manifest(journal)
-    assert_step_names_and_statuses(manifest, ["ok", "ok", "ok", "ok", "ok", "ok"])
+    assert_step_names_and_statuses(manifest, ["ok", "ok", "ok", "ok", "ok", "ok", "ok"])
     assert "solstone is running at http://localhost:5015" in capsys.readouterr().out
     assert_command(calls, 0, expected_doctor_command())
     assert_command(calls, 1, expected_install_models_command())
-    assert_command(calls, 2, expected_skills_command())
-    assert_command(calls, 3, expected_wrapper_command())
-    assert_command(calls, 4, expected_service_install_command())
-    assert len(calls) == 5
+    assert_command(calls, 2, expected_skills_user_command())
+    assert_command(calls, 3, expected_skills_journal_command(journal))
+    assert_command(calls, 4, expected_wrapper_command())
+    assert_command(calls, 5, expected_service_install_command())
+    assert len(calls) == 6
 
 
 def test_resolve_journal_path_precedence_chain(
@@ -403,8 +427,8 @@ def test_interactive_happy_path_journal_override(
         encoding="utf-8"
     ) == f'journal = "{journal}"\n'
     assert read_manifest(journal)["args_resolved"]["journal"]["source"] == "cli"
-    assert_command(calls, 3, expected_wrapper_command())
-    assert len(calls) == 5
+    assert_command(calls, 4, expected_wrapper_command())
+    assert len(calls) == 6
 
 
 def test_non_interactive_happy_path(
@@ -424,9 +448,9 @@ def test_non_interactive_happy_path(
     assert rc == 0
     manifest = read_manifest(journal)
     assert manifest["completed_at"] is not None
-    assert_step_names_and_statuses(manifest, ["ok", "ok", "ok", "ok", "ok", "ok"])
-    assert_command(calls, 4, expected_service_install_command())
-    assert len(calls) == 5
+    assert_step_names_and_statuses(manifest, ["ok", "ok", "ok", "ok", "ok", "ok", "ok"])
+    assert_command(calls, 5, expected_service_install_command())
+    assert len(calls) == 6
 
 
 @pytest.mark.parametrize("use_journal_flag", [False, True])
@@ -675,7 +699,8 @@ def test_clean_rerun_preface_when_manifest_complete(
             "doctor",
             "journal",
             "install_models",
-            "skills",
+            "skills_user",
+            "skills_journal",
             "wrapper",
             "service",
         )
@@ -798,7 +823,8 @@ def test_force_flag_changes_preface_text(
             "doctor",
             "journal",
             "install_models",
-            "skills",
+            "skills_user",
+            "skills_journal",
             "wrapper",
             "service",
         )
@@ -858,13 +884,16 @@ def test_partial_completion_runs_remaining_steps(
 
     assert rc == 0
     manifest = read_manifest(journal)
-    assert_step_names_and_statuses(manifest, ["skipped", "ok", "ok", "ok", "ok", "ok"])
+    assert_step_names_and_statuses(
+        manifest, ["skipped", "ok", "ok", "ok", "ok", "ok", "ok"]
+    )
     assert manifest["steps"][0]["reason"] == "prior_run_ok"
     assert_command(calls, 0, expected_install_models_command())
-    assert_command(calls, 1, expected_skills_command())
-    assert_command(calls, 2, expected_wrapper_command())
-    assert_command(calls, 3, expected_service_install_command())
-    assert len(calls) == 4
+    assert_command(calls, 1, expected_skills_user_command())
+    assert_command(calls, 2, expected_skills_journal_command(journal))
+    assert_command(calls, 3, expected_wrapper_command())
+    assert_command(calls, 4, expected_service_install_command())
+    assert len(calls) == 5
 
 
 def test_port_in_use_default_non_interactive_dead_end(
@@ -912,8 +941,8 @@ def test_interactive_port_in_use_prompts_for_choice(
         "source": "prompt",
     }
     assert_command(calls, 0, expected_doctor_command())
-    assert_command(calls, 4, expected_service_install_command(port=8080))
-    assert len(calls) == 5
+    assert_command(calls, 5, expected_service_install_command(port=8080))
+    assert len(calls) == 6
 
 
 def test_interactive_port_in_use_proceed_anyway(
@@ -934,8 +963,8 @@ def test_interactive_port_in_use_proceed_anyway(
 
     assert rc == 0
     assert_command(calls, 0, expected_doctor_command())
-    assert_command(calls, 4, expected_service_install_command(port=5015))
-    assert len(calls) == 5
+    assert_command(calls, 5, expected_service_install_command(port=5015))
+    assert len(calls) == 6
 
 
 def test_interactive_port_in_use_abort(
@@ -1090,30 +1119,186 @@ def test_packaged_install_runs_service_step(
     assert steps[-1]["status"] == "ok"
 
 
-def test_no_claude_config_skips_skills(
+def test_step_skills_user_installs_solstone_bundle_for_all_agents(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
 ) -> None:
     patch_home(monkeypatch, tmp_path)
     patch_source_checkout(monkeypatch, tmp_path)
     monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
-    calls = patch_subprocess(monkeypatch)
+    journal = tmp_path / "journal"
+    argv = ["--yes", "--journal", str(journal)]
+    ctx = setup.resolve_context(setup.build_parser().parse_args(argv), argv)
+    commands: list[list[str]] = []
+
+    def fake_run_step_subprocess(
+        ctx: setup.SetupContext,
+        command: list[str],
+        *,
+        timeout: float | None = None,
+    ) -> setup.StepProcessResult:
+        del ctx, timeout
+        commands.append(command)
+        return setup.StepProcessResult(0, "", "", False)
+
+    monkeypatch.setattr(setup, "run_step_subprocess", fake_run_step_subprocess)
+
+    result = setup.step_skills_user(ctx, 4)
+
+    assert result.status == "ok"
+    assert commands == [expected_skills_user_command()]
+    assert "--agent" in commands[0]
+    assert commands[0][-1] == "all"
+    assert "claude" not in commands[0]
+
+
+def test_step_skills_journal_installs_into_journal_path(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    patch_home(monkeypatch, tmp_path)
+    patch_source_checkout(monkeypatch, tmp_path)
+    monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
+    journal = tmp_path / "journal"
+    argv = ["--yes", "--journal", str(journal)]
+    ctx = setup.resolve_context(setup.build_parser().parse_args(argv), argv)
+    commands: list[list[str]] = []
+
+    def fake_run_step_subprocess(
+        ctx: setup.SetupContext,
+        command: list[str],
+        *,
+        timeout: float | None = None,
+    ) -> setup.StepProcessResult:
+        del ctx, timeout
+        commands.append(command)
+        return setup.StepProcessResult(0, "", "", False)
+
+    monkeypatch.setattr(setup, "run_step_subprocess", fake_run_step_subprocess)
+
+    result = setup.step_skills_journal(ctx, 5)
+
+    assert result.status == "ok"
+    assert commands == [expected_skills_journal_command(journal)]
+    assert commands[0][-3:] == [str(journal), "--agent", "all"]
+
+
+def test_step_skills_user_failure_does_not_block_skills_journal(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    patch_home(monkeypatch, tmp_path)
+    patch_source_checkout(monkeypatch, tmp_path)
+    monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
+    patch_subprocess(monkeypatch)
     patch_service_health(monkeypatch)
     journal = tmp_path / "journal"
+    commands: list[list[str]] = []
+
+    def fake_run_step_subprocess(
+        ctx: setup.SetupContext,
+        command: list[str],
+        *,
+        timeout: float | None = None,
+    ) -> setup.StepProcessResult:
+        del ctx, timeout
+        commands.append(command)
+        if command == expected_skills_user_command():
+            return setup.StepProcessResult(3, "", "user skills failed\n", False)
+        return setup.StepProcessResult(0, "", "", False)
+
+    monkeypatch.setattr(setup, "run_step_subprocess", fake_run_step_subprocess)
 
     rc = setup.main(["--yes", "--journal", str(journal), "--skip-models"])
 
-    assert rc == 0
-    assert "Claude Code config not found" in capsys.readouterr().out
-    assert_command(calls, 0, expected_doctor_command())
-    assert_command(calls, 1, expected_wrapper_command())
-    assert_command(calls, 2, expected_service_install_command())
-    assert len(calls) == 3
-    skill_step = next(
-        step for step in read_manifest(journal)["steps"] if step["name"] == "skills"
+    assert rc == 3
+    assert expected_skills_user_command() in commands
+    assert expected_skills_journal_command(journal) in commands
+    manifest = read_manifest(journal)
+    assert_step_names_and_statuses(
+        manifest, ["ok", "ok", "skipped", "failed", "ok", "ok", "ok"]
     )
-    assert skill_step["status"] == "skipped"
+
+
+def test_step_skills_journal_failure_does_not_block_subsequent_steps(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    patch_home(monkeypatch, tmp_path)
+    patch_source_checkout(monkeypatch, tmp_path)
+    monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
+    patch_subprocess(monkeypatch)
+    patch_service_health(monkeypatch)
+    journal = tmp_path / "journal"
+    commands: list[list[str]] = []
+
+    def fake_run_step_subprocess(
+        ctx: setup.SetupContext,
+        command: list[str],
+        *,
+        timeout: float | None = None,
+    ) -> setup.StepProcessResult:
+        del ctx, timeout
+        commands.append(command)
+        if command == expected_skills_journal_command(journal):
+            return setup.StepProcessResult(4, "", "journal skills failed\n", False)
+        return setup.StepProcessResult(0, "", "", False)
+
+    monkeypatch.setattr(setup, "run_step_subprocess", fake_run_step_subprocess)
+
+    rc = setup.main(["--yes", "--journal", str(journal), "--skip-models"])
+
+    assert rc == 4
+    assert commands[-2:] == [
+        expected_wrapper_command(),
+        expected_service_install_command(),
+    ]
+    manifest = read_manifest(journal)
+    assert_step_names_and_statuses(
+        manifest, ["ok", "ok", "skipped", "ok", "failed", "ok", "ok"]
+    )
+
+
+def test_skip_skills_flag_skips_both_skill_steps(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    patch_home(monkeypatch, tmp_path)
+    patch_source_checkout(monkeypatch, tmp_path)
+    monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
+    patch_subprocess(monkeypatch)
+    patch_service_health(monkeypatch)
+    journal = tmp_path / "journal"
+
+    rc = setup.main(
+        ["--yes", "--journal", str(journal), "--skip-models", "--skip-skills"]
+    )
+
+    assert rc == 0
+    steps = {step["name"]: step for step in read_manifest(journal)["steps"]}
+    assert steps["skills_user"]["status"] == "skipped"
+    assert steps["skills_user"]["reason"] == "--skip-skills"
+    assert steps["skills_journal"]["status"] == "skipped"
+    assert steps["skills_journal"]["reason"] == "--skip-skills"
+
+
+def test_doctor_failure_still_early_exits(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    patch_home(monkeypatch, tmp_path)
+    patch_source_checkout(monkeypatch, tmp_path)
+    monkeypatch.delenv("SOLSTONE_JOURNAL", raising=False)
+    journal = tmp_path / "journal"
+    calls = patch_subprocess(monkeypatch, doctor_returncode=1)
+
+    rc = setup.main(["--yes", "--journal", str(journal)])
+
+    assert rc == 1
+    assert calls == [expected_doctor_command()]
+    manifest = read_manifest(journal)
+    assert [step["name"] for step in manifest["steps"]] == ["doctor"]
+    assert manifest["steps"][0]["status"] == "failed"
 
 
 def test_resumption_skips_completed_steps(
@@ -1133,7 +1318,7 @@ def test_resumption_skips_completed_steps(
     assert rc == 0
     assert calls == []
     manifest = read_manifest(journal)
-    assert_step_names_and_statuses(manifest, ["skipped"] * 6)
+    assert_step_names_and_statuses(manifest, ["skipped"] * 7)
     assert {step["reason"] for step in manifest["steps"]} == {"prior_run_ok"}
 
 
@@ -1157,7 +1342,8 @@ def test_resumption_runs_step_when_artifact_missing(
     assert len(calls) == 1
     manifest = read_manifest(journal)
     assert_step_names_and_statuses(
-        manifest, ["skipped", "skipped", "skipped", "skipped", "ok", "skipped"]
+        manifest,
+        ["skipped", "skipped", "skipped", "skipped", "skipped", "ok", "skipped"],
     )
 
 
@@ -1249,12 +1435,13 @@ def test_force_skips_resumption(
     assert rc == 0
     assert_command(calls, 0, expected_doctor_command())
     assert_command(calls, 1, expected_install_models_command())
-    assert_command(calls, 2, expected_skills_command())
-    assert_command(calls, 3, expected_wrapper_command())
-    assert_command(calls, 4, expected_service_install_command())
-    assert len(calls) == 5
+    assert_command(calls, 2, expected_skills_user_command())
+    assert_command(calls, 3, expected_skills_journal_command(journal))
+    assert_command(calls, 4, expected_wrapper_command())
+    assert_command(calls, 5, expected_service_install_command())
+    assert len(calls) == 6
     manifest = read_manifest(journal)
-    assert_step_names_and_statuses(manifest, ["ok", "ok", "ok", "ok", "ok", "ok"])
+    assert_step_names_and_statuses(manifest, ["ok", "ok", "ok", "ok", "ok", "ok", "ok"])
     assert all(step["reason"] is None for step in manifest["steps"])
 
 
@@ -1399,10 +1586,11 @@ def test_invalid_manifest_treated_as_no_prior(
     assert "last ran cleanly" not in out and "left these steps incomplete" not in out
     assert_command(calls, 0, expected_doctor_command())
     assert_command(calls, 1, expected_install_models_command())
-    assert_command(calls, 2, expected_skills_command())
-    assert_command(calls, 3, expected_wrapper_command())
-    assert_command(calls, 4, expected_service_install_command())
-    assert len(calls) == 5
+    assert_command(calls, 2, expected_skills_user_command())
+    assert_command(calls, 3, expected_skills_journal_command(journal))
+    assert_command(calls, 4, expected_wrapper_command())
+    assert_command(calls, 5, expected_service_install_command())
+    assert len(calls) == 6
 
 
 def test_port_propagates_to_subprocess_argv(
@@ -1421,5 +1609,5 @@ def test_port_propagates_to_subprocess_argv(
 
     assert rc == 0
     assert_command(calls, 0, expected_doctor_command(port=8080))
-    assert_command(calls, 4, expected_service_install_command(port=8080))
-    assert len(calls) == 5
+    assert_command(calls, 5, expected_service_install_command(port=8080))
+    assert len(calls) == 6

@@ -42,7 +42,8 @@ STEP_NAMES: tuple[str, ...] = (
     "doctor",
     "journal",
     "install_models",
-    "skills",
+    "skills_user",
+    "skills_journal",
     "wrapper",
     "service",
 )
@@ -53,7 +54,6 @@ SKIPPED_REASONS: frozenset[str] = frozenset(
         "--skip-skills",
         "--skip-service",
         "packaged_install",
-        "claude_config_missing",
         "prior_run_ok",
         "resumed_after_restart",
     }

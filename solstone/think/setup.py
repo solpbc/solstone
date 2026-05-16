@@ -32,7 +32,7 @@ from solstone.think.user_config import (
 from solstone.think.utils import ensure_journal_config, get_project_root
 from solstone.think.utils import is_source_checkout as source_checkout
 
-TOTAL_STEPS = 6
+TOTAL_STEPS = 7
 MANIFEST_SCHEMA_VERSION = 1
 DOCTOR_TIMEOUT_SECONDS = 30
 DOCTOR_JSONL_EVENTS = frozenset(
@@ -725,7 +725,7 @@ def install_models_command(ctx: SetupContext) -> list[str]:
     ]
 
 
-def skills_command() -> list[str]:
+def skills_user_command() -> list[str]:
     return [
         sys.executable,
         "-m",
@@ -733,7 +733,21 @@ def skills_command() -> list[str]:
         "skills",
         "install",
         "--agent",
-        "claude",
+        "all",
+    ]
+
+
+def skills_journal_command(ctx: SetupContext) -> list[str]:
+    return [
+        sys.executable,
+        "-m",
+        "solstone.think.sol_cli",
+        "skills",
+        "install",
+        "--project",
+        str(ctx.journal_path),
+        "--agent",
+        "all",
     ]
 
 
@@ -1175,39 +1189,81 @@ def step_install_models(ctx: SetupContext, step_index: int) -> StepResult:
     return step_result("install_models", "ok", model_paths(), started_at)
 
 
-def step_skills(ctx: SetupContext, step_index: int) -> StepResult:
+def skills_user_paths() -> list[Path]:
+    return [
+        Path.home() / ".claude" / "skills" / "solstone" / "SKILL.md",
+        Path.home() / ".codex" / "skills" / "solstone" / "SKILL.md",
+        Path.home() / ".gemini" / "skills" / "solstone" / "SKILL.md",
+    ]
+
+
+def skills_journal_paths(ctx: SetupContext) -> list[Path]:
+    return [
+        ctx.journal_path / ".claude" / "skills",
+        ctx.journal_path / ".agents" / "skills",
+    ]
+
+
+def step_skills_user(ctx: SetupContext, step_index: int) -> StepResult:
     started_at = utc_now()
-    claude_dir = Path.home() / ".claude"
-    skill_path = claude_dir / "skills" / "solstone" / "SKILL.md"
+    paths = skills_user_paths()
     if ctx.skip_skills:
-        print_step_skipped(ctx, step_index, "skills", "--skip-skills")
-        return step_result("skills", "skipped", [], started_at, reason="--skip-skills")
-    if not claude_dir.exists():
-        reason = f"Claude Code config not found at {claude_dir}"
-        print_step_skipped(ctx, step_index, "skills", reason)
+        print_step_skipped(ctx, step_index, "skills_user", "--skip-skills")
         return step_result(
-            "skills", "skipped", [], started_at, reason="claude_config_missing"
+            "skills_user", "skipped", [], started_at, reason="--skip-skills"
         )
-    command = skills_command()
-    print_step_header(ctx, step_index, "skills", command)
+    command = skills_user_command()
+    print_step_header(ctx, step_index, "skills_user", command)
     result = run_step_subprocess(ctx, command, timeout=ctx.step_timeout_seconds)
     if result.timed_out:
         return step_result(
-            "skills",
+            "skills_user",
             "failed",
-            [skill_path],
+            paths,
             started_at,
-            subprocess_error("skills", result, timeout=ctx.step_timeout_seconds),
+            subprocess_error("skills_user", result, timeout=ctx.step_timeout_seconds),
         )
     if result.returncode != 0:
         return step_result(
-            "skills",
+            "skills_user",
             "failed",
-            [skill_path],
+            paths,
             started_at,
-            subprocess_error("skills", result),
+            subprocess_error("skills_user", result),
         )
-    return step_result("skills", "ok", [skill_path], started_at)
+    return step_result("skills_user", "ok", paths, started_at)
+
+
+def step_skills_journal(ctx: SetupContext, step_index: int) -> StepResult:
+    started_at = utc_now()
+    paths = skills_journal_paths(ctx)
+    if ctx.skip_skills:
+        print_step_skipped(ctx, step_index, "skills_journal", "--skip-skills")
+        return step_result(
+            "skills_journal", "skipped", [], started_at, reason="--skip-skills"
+        )
+    command = skills_journal_command(ctx)
+    print_step_header(ctx, step_index, "skills_journal", command)
+    result = run_step_subprocess(ctx, command, timeout=ctx.step_timeout_seconds)
+    if result.timed_out:
+        return step_result(
+            "skills_journal",
+            "failed",
+            paths,
+            started_at,
+            subprocess_error(
+                "skills_journal", result, timeout=ctx.step_timeout_seconds
+            ),
+        )
+    if result.returncode != 0:
+        return step_result(
+            "skills_journal",
+            "failed",
+            paths,
+            started_at,
+            subprocess_error("skills_journal", result),
+        )
+    return step_result("skills_journal", "ok", paths, started_at)
 
 
 def step_wrapper(ctx: SetupContext, step_index: int) -> StepResult:
@@ -1371,27 +1427,38 @@ def print_plan(ctx: SetupContext, *, dry_run: bool) -> None:
     )
     narrate(ctx, f"  source checkout: {ctx.is_source_checkout}")
     narrate(ctx)
-    narrate(ctx, f"[step 1/6] {_STEP_NAME[step_doctor]}")
+    narrate(ctx, f"[step 1/7] {_STEP_NAME[step_doctor]}")
     narrate(ctx, f"  would run: {format_command(doctor_command(ctx))}")
-    narrate(ctx, f"[step 2/6] {_STEP_NAME[step_journal]}")
+    narrate(ctx, f"[step 2/7] {_STEP_NAME[step_journal]}")
     narrate(ctx, f"  would write: {ctx.config_path}")
     narrate(ctx, f"  would use journal: {ctx.journal_path}")
-    narrate(ctx, f"[step 3/6] {_STEP_NAME[step_install_models]}")
+    narrate(ctx, f"[step 3/7] {_STEP_NAME[step_install_models]}")
     if ctx.skip_models:
         narrate(ctx, "  skipped: --skip-models")
     else:
         narrate(ctx, f"  would run: {format_command(install_models_command(ctx))}")
-    narrate(ctx, f"[step 4/6] {_STEP_NAME[step_skills]}")
+    narrate(
+        ctx,
+        f"[step 4/7] {_STEP_NAME[step_skills_user]} - installs solstone bundle for claude / codex / gemini",
+    )
     if ctx.skip_skills:
         narrate(ctx, "  skipped: --skip-skills")
     else:
-        narrate(ctx, f"  would run: {format_command(skills_command())}")
-    narrate(ctx, f"[step 5/6] {_STEP_NAME[step_wrapper]}")
+        narrate(ctx, f"  would run: {format_command(skills_user_command())}")
+    narrate(
+        ctx,
+        f"[step 5/7] {_STEP_NAME[step_skills_journal]} - installs talent skills into {ctx.journal_path}/.{{claude,agents}}/skills",
+    )
+    if ctx.skip_skills:
+        narrate(ctx, "  skipped: --skip-skills")
+    else:
+        narrate(ctx, f"  would run: {format_command(skills_journal_command(ctx))}")
+    narrate(ctx, f"[step 6/7] {_STEP_NAME[step_wrapper]}")
     if not ctx.is_source_checkout:
         narrate(ctx, "  skipped: packaged install")
     else:
         narrate(ctx, f"  would run: {format_command(wrapper_command())}")
-    narrate(ctx, f"[step 6/6] {_STEP_NAME[step_service]}")
+    narrate(ctx, f"[step 7/7] {_STEP_NAME[step_service]}")
     if ctx.skip_service:
         narrate(ctx, "  skipped: --skip-service")
     else:
@@ -1525,7 +1592,8 @@ _STEP_NAME: dict[Callable[[SetupContext, int], StepResult], str] = {
     step_doctor: "doctor",
     step_journal: "journal",
     step_install_models: "install_models",
-    step_skills: "skills",
+    step_skills_user: "skills_user",
+    step_skills_journal: "skills_journal",
     step_wrapper: "wrapper",
     step_service: "service",
 }
@@ -1534,10 +1602,14 @@ _STEPS: tuple[Callable[[SetupContext, int], StepResult], ...] = (
     step_doctor,
     step_journal,
     step_install_models,
-    step_skills,
+    step_skills_user,
+    step_skills_journal,
     step_wrapper,
     step_service,
 )
+
+
+_CONTINUE_AFTER_FAILURE: frozenset[str] = frozenset({"skills_user", "skills_journal"})
 
 
 def command_for_step(
@@ -1547,8 +1619,10 @@ def command_for_step(
         return doctor_command(ctx, jsonl=ctx.jsonl)
     if step is step_install_models:
         return install_models_command(ctx)
-    if step is step_skills:
-        return skills_command()
+    if step is step_skills_user:
+        return skills_user_command()
+    if step is step_skills_journal:
+        return skills_journal_command(ctx)
     if step is step_wrapper:
         return wrapper_command()
     if step is step_service:
@@ -1609,6 +1683,7 @@ def run_setup(ctx: SetupContext, *, started_monotonic: float | None = None) -> i
     prior_manifest = read_manifest(ctx) or {}
     prior = {} if ctx.force else prior_step_lookup(prior_manifest)
     manifest = initial_manifest(ctx)
+    aggregate_failed: list[StepResult] = []
     for index, step in enumerate(_STEPS, start=1):
         step_name = _STEP_NAME[step]
         prior_step = prior.get(step_name)
@@ -1650,6 +1725,9 @@ def run_setup(ctx: SetupContext, *, started_monotonic: float | None = None) -> i
             write_manifest(ctx, manifest)
             emit_step_result(ctx, result, step_started)
             print_failure(ctx, result)
+            if result.name in _CONTINUE_AFTER_FAILURE:
+                aggregate_failed.append(result)
+                continue
             emit_setup_completed(
                 ctx,
                 status="failed",
@@ -1663,6 +1741,9 @@ def run_setup(ctx: SetupContext, *, started_monotonic: float | None = None) -> i
         if result.status == "failed":
             print_failure(ctx, result)
             error = result.error or {}
+            if result.name in _CONTINUE_AFTER_FAILURE:
+                aggregate_failed.append(result)
+                continue
             emit_setup_completed(
                 ctx,
                 status="failed",
@@ -1670,6 +1751,17 @@ def run_setup(ctx: SetupContext, *, started_monotonic: float | None = None) -> i
                 failed_step=result.name,
             )
             return int(error.get("exit_code", 1))
+
+    if aggregate_failed:
+        emit_setup_completed(
+            ctx,
+            status="failed",
+            started_monotonic=setup_started,
+            failed_step=aggregate_failed[0].name,
+        )
+        return max(
+            int((result.error or {}).get("exit_code", 1)) for result in aggregate_failed
+        )
 
     manifest["completed_at"] = utc_now()
     write_manifest(ctx, manifest)
