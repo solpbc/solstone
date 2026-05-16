@@ -119,11 +119,59 @@ class TestInitDetection:
         resp = fresh_client.get("/init")
 
         assert f"<code>{journal_path}</code>".encode() in resp.data
+        assert b"solstone is three things working together" not in resp.data
 
     def test_init_sol_agent_section_renders(self, fresh_client):
         resp = fresh_client.get("/init")
         assert b">sol agent<" in resp.data
         assert b"the sol agent curates your journal" in resp.data
+
+    def test_init_sol_agent_paragraphs(self, fresh_client):
+        resp = fresh_client.get("/init")
+        assert b"the sol agent curates your journal" in resp.data
+        assert b"the fastest way to get started" in resp.data
+
+    def test_init_no_legacy_trust_note(self, fresh_client):
+        resp = fresh_client.get("/init")
+        assert b"your key is stored locally" not in resp.data
+
+    def test_init_gemini_label_lowercase(self, fresh_client):
+        resp = fresh_client.get("/init")
+        assert b">gemini api key<" in resp.data
+        assert b"Gemini API key" not in resp.data
+
+    def test_init_validate_button_present(self, fresh_client):
+        resp = fresh_client.get("/init")
+        assert b'id="gemini-validate"' in resp.data
+
+    def test_init_retention_radios_present(self, fresh_client):
+        resp = fresh_client.get("/init")
+        assert resp.data.count(b'<input type="radio" name="retention_mode"') == 3
+        assert b'name="retention_mode" value="keep" checked' in resp.data
+        assert b'name="retention_mode" value="days"' in resp.data
+        assert b'name="retention_mode" value="processed"' in resp.data
+
+    def test_init_retention_reflects_persisted_state(self, journal_copy):
+        config = _read_config(journal_copy)
+        config.pop("setup", None)
+        config["convey"].pop("password_hash", None)
+        config["retention"] = {"raw_media": "days", "raw_media_days": 14}
+        (journal_copy / "config" / "journal.json").write_text(
+            json.dumps(config, indent=2)
+        )
+        app = create_app(str(journal_copy))
+        app.config["TESTING"] = True
+
+        resp = app.test_client().get("/init")
+
+        assert b'name="retention_mode" value="days" checked' in resp.data
+        assert b'id="retention-days-input" min="1" value="14"' in resp.data
+
+    def test_init_observed_media_copy_updated(self, fresh_client):
+        resp = fresh_client.get("/init")
+        assert b"so you can access it again later" in resp.data
+        assert b"re-derive insights" not in resp.data
+        assert b"we recommend leaving this on" not in resp.data
 
     def test_init_observers_section_removed(self, fresh_client):
         resp = fresh_client.get("/init")
@@ -136,7 +184,12 @@ class TestInitDetection:
     def test_init_finalize_button_text(self, fresh_client):
         resp = fresh_client.get("/init")
         assert b"finish welcome setup" in resp.data
-        assert b'onclick="finalize()"' in resp.data
+        assert b'type="submit"' in resp.data
+        body = resp.data.decode()
+        form_start = body.index("<form ")
+        button = body.index("finish welcome setup")
+        form_end = body.index("</form>")
+        assert form_start < button < form_end
 
     def test_init_redirects_when_configured(self, configured_client):
         resp = configured_client.get("/init")

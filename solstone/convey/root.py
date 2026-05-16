@@ -251,6 +251,9 @@ def init() -> Any:
     identity = config.get("identity", {})
     identity_name = identity.get("name", "") or ""
     identity_preferred = identity.get("preferred", "") or ""
+    retention = config.get("retention", {})
+    retention_mode = retention.get("raw_media") or "keep"
+    retention_days = retention.get("raw_media_days")
     try:
         version = _pkg_version("solstone")
     except PackageNotFoundError:
@@ -262,6 +265,8 @@ def init() -> Any:
         journal_path=journal_path,
         identity_name=identity_name,
         identity_preferred=identity_preferred,
+        retention_mode=retention_mode,
+        retention_days=retention_days,
     )
 
 
