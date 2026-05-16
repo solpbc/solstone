@@ -84,13 +84,13 @@ sol call transcripts scan 20260327
 # Read transcript content for a specific time range
 sol call transcripts read
 sol call transcripts read 20260327
-sol call transcripts read 20260327 --start 14 --length 2
+sol call transcripts read 20260327 --start 140000 --length 120
 
 # Transcript stats for a month
 sol call transcripts stats
 ```
 
-`scan` first to see what's available, then `read` with `--start` (hour, 24h format) and `--length` (hours) to narrow down.
+`scan` first to see what's available, then `read` with `--start` (HHMMSS, 24h format) and `--length` (minutes) to narrow down.
 
 ### people — relationship strength
 
