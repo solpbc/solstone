@@ -49,7 +49,7 @@ if the service fails to start, check `sol service logs`.
 
 ## install an observer
 
-solstone needs a platform observer alongside the server.
+solstone needs a platform observer alongside your journal.
 
 ```bash
 sol observer install                    # uses hostname as stream name
