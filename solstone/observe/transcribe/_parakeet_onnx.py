@@ -11,7 +11,6 @@ from __future__ import annotations
 import logging
 import math
 import time
-import warnings
 from typing import Any
 
 import numpy as np
@@ -34,17 +33,6 @@ _MODEL_LOAD_IDS = {
 }
 _ADAPTER_CACHE: dict[tuple[str, str, str], Any] = {}
 _WARNED_INT8_CUDA: set[tuple[str, str]] = set()
-_PRECISION_DEPRECATED_MESSAGE = (
-    "transcribe.parakeet.precision is deprecated; use transcribe.parakeet.quantization"
-)
-_QUANTIZATION_WINS_MESSAGE = (
-    "transcribe.parakeet.quantization overrides deprecated "
-    "transcribe.parakeet.precision"
-)
-_FLOAT16_DOWNGRADE_MESSAGE = (
-    "transcribe.parakeet.precision=float16 is unsupported on the ONNX backend, "
-    "downgrading to fp32"
-)
 _INT8_CUDA_WARNING = (
     "Parakeet ONNX int8 on CUDA is opt-in and may underperform fp32 on some GPUs"
 )
@@ -52,34 +40,6 @@ _CUDA_REMEDIATION = (
     "device=cuda requires CUDAExecutionProvider; rerun: "
     "PARAKEET_ONNX_VARIANT=cuda make install"
 )
-
-
-def _resolve_quantization_alias(config: dict) -> dict:
-    """Return config with canonical quantization and deprecated precision removed."""
-    normalized = dict(config)
-    has_quantization = "quantization" in normalized
-    has_precision = "precision" in normalized
-
-    if has_quantization and has_precision:
-        warnings.warn(_QUANTIZATION_WINS_MESSAGE, stacklevel=2)
-        normalized.pop("precision", None)
-        return normalized
-
-    if not has_precision:
-        return normalized
-
-    warnings.warn(_PRECISION_DEPRECATED_MESSAGE, DeprecationWarning, stacklevel=2)
-    precision = normalized.pop("precision")
-    if precision == "float32":
-        normalized["quantization"] = "fp32"
-    elif precision == "float16":
-        warnings.warn(_FLOAT16_DOWNGRADE_MESSAGE, stacklevel=2)
-        normalized["quantization"] = "fp32"
-    elif precision == "auto":
-        normalized["quantization"] = "auto"
-    else:
-        normalized["quantization"] = precision
-    return normalized
 
 
 def _validate_config(config: dict) -> tuple[str, str, float, str]:
@@ -299,10 +259,7 @@ def transcribe(audio: np.ndarray, sample_rate: int, config: dict) -> list[dict]:
     if audio_array.ndim != 1:
         raise ValueError("audio must be a 1-D mono ndarray")
 
-    resolved_config = _resolve_quantization_alias(config)
-    model_version, device, _timeout_sec, quantization = _validate_config(
-        resolved_config
-    )
+    model_version, device, _timeout_sec, quantization = _validate_config(config)
     resolved_device, resolved_quantization, _providers = _resolve_runtime(
         device, quantization
     )
@@ -340,10 +297,7 @@ def get_model_info(config: dict) -> dict:
     """Return ONNX model metadata for transcript JSONL headers."""
     import onnxruntime
 
-    resolved_config = _resolve_quantization_alias(config)
-    model_version, device, _timeout_sec, quantization = _validate_config(
-        resolved_config
-    )
+    model_version, device, _timeout_sec, quantization = _validate_config(config)
     resolved_device, resolved_quantization, providers = _resolve_runtime(
         device, quantization
     )

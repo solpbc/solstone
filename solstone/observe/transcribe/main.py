@@ -840,7 +840,6 @@ def _process_one(
                 "cache_dir",
                 "timeout_sec",
                 "device",
-                "precision",
                 "quantization",
             )
         }

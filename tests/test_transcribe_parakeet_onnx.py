@@ -4,7 +4,6 @@
 import os
 import platform
 import types
-import warnings
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -218,38 +217,6 @@ def test_resolve_runtime_explicit_cuda_without_provider_raises_with_remediation(
 
     with pytest.raises(RuntimeError, match="PARAKEET_ONNX_VARIANT=cuda make install"):
         parakeet_onnx._resolve_runtime("cuda", "fp32")
-
-
-def test_precision_alias_quantization_wins_and_warns():
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        config = parakeet_onnx._resolve_quantization_alias(
-            {"precision": "float32", "quantization": "int8"}
-        )
-
-    assert config == {"quantization": "int8"}
-    assert len(caught) == 1
-    assert "overrides deprecated" in str(caught[0].message)
-
-
-def test_precision_only_float32_maps_to_fp32():
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        config = parakeet_onnx._resolve_quantization_alias({"precision": "float32"})
-
-    assert config == {"quantization": "fp32"}
-    assert len(caught) == 1
-    assert issubclass(caught[0].category, DeprecationWarning)
-
-
-def test_precision_only_float16_downgrades_to_fp32_and_warns():
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        config = parakeet_onnx._resolve_quantization_alias({"precision": "float16"})
-
-    assert config == {"quantization": "fp32"}
-    assert len(caught) == 2
-    assert any("downgrading" in str(item.message) for item in caught)
 
 
 def test_get_adapter_caches_by_resolved_tuple_and_preloads_dlls_for_cuda(
