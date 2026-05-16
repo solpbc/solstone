@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import queue
 import time
@@ -39,10 +40,17 @@ from solstone.think.utils import (
 )
 
 from . import bridge as convey_bridge
+from .config import (
+    load_convey_config,
+    save_convey_config,
+    seed_default_app_navigation,
+)
 from .copy import LOGIN_NO_PASSWORD_CONFIGURED
 from .reasons import INVALID_CONFIG_VALUE, PL_REVOKED
 from .secure_listener import get_authorized_clients
 from .utils import error_response, error_response_with_reason
+
+logger = logging.getLogger(__name__)
 
 
 def _get_password_hash() -> str:
@@ -370,6 +378,10 @@ def init_finalize() -> Any:
         json.dump(config, f, indent=2, ensure_ascii=False)
         f.write("\n")
     os.chmod(config_path, 0o600)
+
+    config = load_convey_config()
+    if seed_default_app_navigation(config) and not save_convey_config(config):
+        logger.error("default app navigation seed convey-config PERSIST failed")
 
     session["logged_in"] = True
     session.permanent = True

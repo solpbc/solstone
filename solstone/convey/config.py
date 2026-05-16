@@ -24,6 +24,18 @@ logger = logging.getLogger(__name__)
 
 bp = Blueprint("config", __name__, url_prefix="/api/config")
 
+DEFAULT_RAIL_APPS = [
+    "home",
+    "sol",
+    "chat",
+    "todos",
+    "activities",
+    "transcripts",
+    "observer",
+    "search",
+    "import",
+]
+
 
 def _get_config_path() -> Path:
     """Get path to config/convey.json in journal root."""
@@ -66,6 +78,25 @@ def save_convey_config(config: dict[str, Any]) -> bool:
     config_path.parent.mkdir(parents=True, exist_ok=True)
 
     return save_json(config_path, config, indent=2)
+
+
+def seed_default_app_navigation(config: dict[str, Any]) -> bool:
+    """Seed default starred apps + rail order into a loaded convey config.
+
+    Seeds ``apps.starred`` and ``apps.order`` independently, each only when its
+    key is ABSENT (never when present-and-empty - an empty list is a curated
+    owner preference). Mutates ``config`` in place. Returns True iff a key was
+    seeded.
+    """
+    apps_config = config.setdefault("apps", {})
+    changed = False
+    if "starred" not in apps_config:
+        apps_config["starred"] = list(DEFAULT_RAIL_APPS)
+        changed = True
+    if "order" not in apps_config:
+        apps_config["order"] = list(DEFAULT_RAIL_APPS)
+        changed = True
+    return changed
 
 
 def get_selected_facet() -> str | None:
