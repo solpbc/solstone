@@ -110,7 +110,8 @@ class TestInitDetection:
 
         resp = fresh_client.get("/init")
         assert (
-            f"solstone {expected}".encode() in resp.data or b"solstone dev" in resp.data
+            f"journal version {expected}".encode() in resp.data
+            or b"journal version dev" in resp.data
         )
 
     def test_init_renders_journal_path_in_welcome(self, fresh_client):
