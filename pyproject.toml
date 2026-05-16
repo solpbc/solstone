@@ -131,7 +131,6 @@ Documentation = "https://github.com/solpbc/solstone/blob/main/README.md"
 include = ["solstone*"]
 
 [tool.setuptools.package-data]
-"solstone" = ["_user_bundles/**/*"]
 "solstone.apps" = ["*/app.json", "*/*.html", "*/guides/*.md", "*/talent/*.md", "*/talent/*.py", "*/talent/*.json", "*/talent/*.schema.json", "*/talent/*/SKILL.md", "*/static/*", "*/static/**/*"]
 "solstone.think" = ["*.md", "*.json", "templates/*.md", "policies/*.toml"]
 "solstone.talent" = ["*.md", "*.py", "*.schema.json", "*/SKILL.md", "*/references/*.md"]

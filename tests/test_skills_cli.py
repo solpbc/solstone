@@ -6,18 +6,17 @@ from __future__ import annotations
 import os
 import shutil
 import sys
-from importlib import resources
 from pathlib import Path
 
 import pytest
 
 from solstone.think import skills_cli
 from solstone.think.skills_cli import (
-    discover_user_bundles,
     install_project,
     install_user,
     list_project_status,
     list_user_status,
+    resolve_user_skill,
     uninstall_user,
 )
 
@@ -28,9 +27,9 @@ def _write_skill(path: Path, content: bytes | None = None) -> None:
 
 
 def _mini_user_repo(tmp_path: Path, content: bytes | None = None) -> Path:
-    bundle_dir = tmp_path / "bundles"
-    _write_skill(bundle_dir / "solstone", content)
-    return bundle_dir
+    skill_dir = tmp_path / "solstone"
+    _write_skill(skill_dir, content)
+    return skill_dir
 
 
 def _mini_project_repo(tmp_path: Path) -> Path:
@@ -56,13 +55,19 @@ def test_install_user_creates_targets_for_present_agents(tmp_path):
     report = install_user(repo, home, ["all"])
 
     assert report.error_count == 0
-    source = repo / "solstone" / "SKILL.md"
+    source = repo / "SKILL.md"
     assert (
         home / ".claude" / "skills" / "solstone" / "SKILL.md"
     ).read_bytes() == source.read_bytes()
     assert (
         home / ".codex" / "skills" / "solstone" / "SKILL.md"
     ).read_bytes() == source.read_bytes()
+    assert {path.name for path in (home / ".claude" / "skills").iterdir()} == {
+        "solstone"
+    }
+    assert {path.name for path in (home / ".codex" / "skills").iterdir()} == {
+        "solstone"
+    }
 
 
 def test_install_user_creates_missing_codex_parent_dir(tmp_path):
@@ -121,7 +126,7 @@ def test_install_user_replaces_modified_source(tmp_path):
     repo = _mini_user_repo(tmp_path, b"first")
     home = _home(tmp_path, ".claude")
     install_user(repo, home, ["claude"])
-    (repo / "solstone" / "SKILL.md").write_bytes(b"second")
+    (repo / "SKILL.md").write_bytes(b"second")
 
     report = install_user(repo, home, ["claude"])
 
@@ -407,6 +412,7 @@ def test_main_install_user_default(monkeypatch, tmp_path, capsys):
     home = _home(tmp_path, ".claude")
     monkeypatch.setenv("HOME", str(home))
     monkeypatch.setattr(skills_cli, "get_project_root", lambda: str(repo))
+    monkeypatch.setattr(skills_cli, "resolve_user_skill", lambda: repo)
     monkeypatch.setattr(sys, "argv", ["sol skills", "install"])
 
     exit_code = skills_cli.main()
@@ -433,8 +439,32 @@ def test_main_install_project_no_dir_uses_cwd(monkeypatch, tmp_path):
 
 def test_repo_root_resolution_works_from_arbitrary_cwd(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-    bundle_dir = Path(str(resources.files("solstone") / "_user_bundles"))
 
-    bundles = discover_user_bundles(bundle_dir)
+    result = resolve_user_skill()
 
-    assert [bundle.name for bundle in bundles] == ["solstone"]
+    assert result.name == "solstone"
+    assert (result / "SKILL.md").is_file()
+
+
+def test_user_skill_missing_file_fails_loudly(monkeypatch, tmp_path, capsys):
+    fake_talent = tmp_path / "talent"
+    fake_talent.mkdir()
+    home = _home(tmp_path, ".claude")
+    monkeypatch.setattr(skills_cli.resources, "files", lambda _package: fake_talent)
+
+    with pytest.raises(FileNotFoundError) as exc_info:
+        resolve_user_skill()
+
+    assert "solstone/talent/solstone/SKILL.md" in str(exc_info.value)
+
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setattr(skills_cli, "get_project_root", lambda: str(tmp_path))
+    monkeypatch.setattr(sys, "argv", ["sol skills", "install"])
+
+    exit_code = skills_cli.main()
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "error:" in captured.err
+    assert "solstone/talent/solstone/SKILL.md" in captured.err
+    assert "Traceback" not in captured.err
