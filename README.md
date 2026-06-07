@@ -1,6 +1,6 @@
 # solstone
 
-an AI co-brain that experiences your life with you and gives you superhuman memory.
+an open source, local-first journal of what you see and hear, for the agents you use. on your machine, always private, only yours.
 
 solstone is a system you have, in two parts you own. **observers** experience your day
 along with you. a **journal** holds everything. **sol**, your keeper, lives in your
