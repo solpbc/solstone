@@ -5,6 +5,7 @@
 
 from functools import partial
 from http.server import HTTPServer, SimpleHTTPRequestHandler
+import json
 import os
 from pathlib import Path
 import shutil
@@ -12,7 +13,7 @@ import threading
 
 from solstone_platform.canonical import canonical_json_bytes
 from solstone_platform.generate import generate_platform_manifest
-from solstone_platform.pins import MinisignPin
+from solstone_platform.pins import MinisignPin, embedded_pins
 from solstone_platform.sign import sign_manifest
 from tools.fixture_builder import build_tiny_natives
 
@@ -133,8 +134,22 @@ def setup_test_release_server(
         pins=pin_set,
     )
 
+    # Existing installer tests intentionally use --skip-signature for native
+    # fixtures. Keep those catalogues pinned to the production identities while
+    # retaining the ephemeral signatures/hashes for digest and semantic tests.
+    manifest_obj = json.loads(manifest_bytes.decode("utf-8"))
+    production_pins = embedded_pins()
+    for component_name, selected_pin in (
+        ("journal", production_pins.journal),
+        ("desktop", production_pins.desktop),
+        ("tmux", production_pins.tmux),
+    ):
+        for arch_entry in manifest_obj["components"][component_name]["arches"].values():
+            for route_entry in arch_entry.values():
+                route_entry["authority"]["verifier_id"] = selected_pin.verifier_id()
+    manifest_bytes = canonical_json_bytes(manifest_obj)
+
     if min_installer_revision != 1:
-        import json
         m_obj = json.loads(manifest_bytes.decode("utf-8"))
         m_obj["minimum_installer_revision"] = min_installer_revision
         manifest_bytes = canonical_json_bytes(m_obj)
@@ -175,10 +190,18 @@ def setup_test_release_server(
     j_bootstrap_dir.mkdir(parents=True, exist_ok=True)
     (j_bootstrap_dir / f"solstone-journal-{j_ver}-install.sh").write_bytes(v2_boot)
 
-    # Copy all component variant archives (tar.gz, deb, rpm) to ver_dir
+    # Copy all component variant archives (tar.gz, deb, rpm) to ver_dir.
     for comp_dir in native_dirs.values():
         for archive in comp_dir.rglob("*"):
             if archive.is_file() and archive.suffix in (".gz", ".deb", ".rpm"):
                 shutil.copy2(archive, ver_dir / archive.name)
+
+    # Journal native authority objects publish beside platform.json. The delegated
+    # bootstrap remains under its separate solstone-journal coordinate above.
+    for authority_file in native_dirs["journal"].rglob("*"):
+        if not authority_file.is_file():
+            continue
+        if authority_file.name.endswith((".manifest.json", ".manifest.json.minisig", ".release", ".sha256")):
+            shutil.copy2(authority_file, ver_dir / authority_file.name)
 
     return server, server_root

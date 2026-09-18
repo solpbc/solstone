@@ -464,11 +464,12 @@ verify_minisign_signature() {
         return 0
     fi
 
-    if ! command -v minisign >/dev/null 2>&1; then
+    minisign_bin=$(command -v minisign 2>/dev/null || true)
+    if [ -z "$minisign_bin" ] || [ ! -x "$minisign_bin" ]; then
         report_exit "refusal" "verifier-missing" "minisign binary is required for cryptographic verification"
     fi
 
-    if ! minisign -V -P "$pubkey" -m "$artifact_path" -x "$sig_path" >/dev/null 2>&1; then
+    if ! "$minisign_bin" -V -P "$pubkey" -m "$artifact_path" -x "$sig_path" >/dev/null 2>&1; then
         report_exit "refusal" "signature-invalid" "Cryptographic verification failed for $artifact_path"
     fi
 }
@@ -491,6 +492,11 @@ function err(code, msg) {
 }
 
 function is_whitelisted(p) {
+    if (schema_mode == "journal") {
+        if (p ~ /^(product|version|target|files)$/) return 1
+        if (p ~ /^files\.[A-Za-z0-9][A-Za-z0-9._-]*$/) return 1
+        return 0
+    }
     if (p ~ /(_is_list)$/) return 1
     if (p ~ /^schema_version$/) return 1
     if (p ~ /^protocol_version$/) return 1
@@ -580,9 +586,13 @@ function next_tok(   c, str_val, num_val, esc) {
     tok_val = ""
 }
 
-function write_val(path_str, val,   fpath, dpath, last_slash) {
+function write_val(path_str, val, value_type,   fpath, dpath, last_slash) {
     if (!is_whitelisted(path_str)) {
         err("schema-invalid", "unknown field: " path_str)
+    }
+    if (schema_mode == "journal") {
+        if (path_str == "files") err("schema-invalid", "files must be an object")
+        if (value_type != "STRING") err("schema-invalid", "journal manifest values must be strings: " path_str)
     }
     fpath = path_str
     gsub(/\./, "/", fpath)
@@ -608,11 +618,12 @@ function write_val(path_str, val,   fpath, dpath, last_slash) {
 
 function parse_value(cur_path,   key, arr_idx, obj_id, child_path) {
     if (tok_type == "STRING" || tok_type == "NUMBER" || tok_type == "BOOL" || tok_type == "NULL") {
-        write_val(cur_path, tok_val)
+        write_val(cur_path, tok_val, tok_type)
         next_tok()
         return
     }
     if (tok_type == "{") {
+        if (schema_mode == "journal" && cur_path ~ /^files\./) err("schema-invalid", "file digest must be a string")
         next_tok()
         obj_id = ++obj_count
         if (tok_type == "}") {
@@ -644,10 +655,11 @@ function parse_value(cur_path,   key, arr_idx, obj_id, child_path) {
         return
     }
     if (tok_type == "[") {
+        if (schema_mode == "journal") err("schema-invalid", "arrays are not permitted in journal manifests")
         next_tok()
         arr_idx = 0
         if (tok_type == "]") {
-            write_val(cur_path "/_is_list", "0")
+            write_val(cur_path "/_is_list", "0", "LIST")
             next_tok()
             return
         }
@@ -656,7 +668,7 @@ function parse_value(cur_path,   key, arr_idx, obj_id, child_path) {
             parse_value(child_path)
             arr_idx++
             if (tok_type == "]") {
-                write_val(cur_path "/_is_list", arr_idx)
+                write_val(cur_path "/_is_list", arr_idx, "LIST")
                 next_tok()
                 break
             }
@@ -680,6 +692,239 @@ END {
     if (tok_type != "EOF") err("schema-invalid", "extra data at end of JSON")
 }
 EOF_AWK
+
+    cat <<'EOF_AWK' > "${SCRATCH_DIR}/parse_journal_release.awk"
+function fail(msg) {
+    print "ERROR:schema-invalid:" msg > "/dev/stderr"
+    failed = 1
+    exit 44
+}
+function allowed(k) {
+    return k ~ /^(product|version|target|commit|lock_sha256|upgrade_epoch|retention_window|min_bootstrap_revision|bootstrap_contract_version|bootstrap_filename|state_reader_min|state_reader_max)$/
+}
+{
+    line = $0
+    if (line == "" || line ~ /\r/) fail("noncanonical release line")
+    equals = index(line, "=")
+    if (equals < 2 || index(substr(line, equals + 1), "=") != 0) fail("noncanonical release line")
+    key = substr(line, 1, equals - 1)
+    value = substr(line, equals + 1)
+    if (!allowed(key) || value == "") fail("unknown or empty release field")
+    if (seen[key]++) fail("duplicate release field: " key)
+    printf "%s", value > (out_dir "/" key)
+    close(out_dir "/" key)
+}
+END {
+    if (failed) exit 44
+    required = "product version target commit lock_sha256 upgrade_epoch retention_window min_bootstrap_revision bootstrap_contract_version bootstrap_filename state_reader_min state_reader_max"
+    count = split(required, names, " ")
+    for (i = 1; i <= count; i++) if (!seen[names[i]]) fail("missing release field: " names[i])
+}
+EOF_AWK
+
+    cat <<'EOF_AWK' > "${SCRATCH_DIR}/parse_journal_sums.awk"
+function fail(msg) {
+    print "ERROR:schema-invalid:" msg > "/dev/stderr"
+    failed = 1
+    exit 45
+}
+{
+    line = $0
+    if (length(line) < 67 || substr(line, 65, 2) != "  ") fail("noncanonical checksum line")
+    digest = substr(line, 1, 64)
+    name = substr(line, 67)
+    if (length(digest) != 64 || digest !~ /^[0-9a-f]+$/) fail("invalid checksum digest")
+    if (name !~ /^[A-Za-z0-9][A-Za-z0-9._-]*$/) fail("invalid checksum filename")
+    if (seen[name]++) fail("duplicate checksum filename: " name)
+}
+END {
+    if (failed) exit 45
+    if (NR == 0) fail("empty checksum file")
+}
+EOF_AWK
+}
+
+journal_name_path() {
+    printf '%s\n' "$1" | sed 's|\.|/|g'
+}
+
+read_plain_value() {
+    cat "$1"
+    printf x
+}
+
+preflight_journal_authority() {
+    j_manifest_root="${SCRATCH_DIR}/journal-manifest"
+    j_release_root="${SCRATCH_DIR}/journal-release"
+    mkdir -p "$j_manifest_root" "$j_release_root"
+
+    j_version=$(read_plain_value "${manifest_dir}/components/journal/version")
+    j_version=${j_version%x}
+    j_target="linux-${HOST_ARCH}"
+    j_base="solstone-journal-${j_version}-${j_target}"
+    j_manifest_name="${j_base}.manifest.json"
+    j_signature_name="${j_manifest_name}.minisig"
+    j_release_name="${j_base}.release"
+    j_sums_name="${j_base}.sha256"
+    j_origin="${OPT_ORIGIN}/solstone/${OPT_LANE}/${RESOLVED_VERSION}"
+
+    j_manifest_file="${SCRATCH_DIR}/${j_manifest_name}"
+    j_signature_file="${SCRATCH_DIR}/${j_signature_name}"
+    j_release_file="${SCRATCH_DIR}/${j_release_name}"
+    j_sums_file="${SCRATCH_DIR}/${j_sums_name}"
+
+    fetch_file_with_redirect_check "${j_origin}/${j_manifest_name}" "$j_manifest_file" 65536 "journal native manifest"
+    fetch_file_with_redirect_check "${j_origin}/${j_signature_name}" "$j_signature_file" 16384 "journal native signature"
+    fetch_file_with_redirect_check "${j_origin}/${j_release_name}" "$j_release_file" 16384 "journal release metadata"
+    fetch_file_with_redirect_check "${j_origin}/${j_sums_name}" "$j_sums_file" 65536 "journal checksum sidecar"
+
+    j_authority_root="${manifest_dir}/components/journal/arches/${HOST_ARCH}/${check_var}/authority"
+    j_manifest_sha=$(read_plain_value "${j_authority_root}/manifest_sha256")
+    j_manifest_sha=${j_manifest_sha%x}
+    j_signature_sha=$(read_plain_value "${j_authority_root}/signature_sha256")
+    j_signature_sha=${j_signature_sha%x}
+    j_release_sha=$(read_plain_value "${j_authority_root}/release_sha256")
+    j_release_sha=${j_release_sha%x}
+    j_bootstrap_sha=$(read_plain_value "${j_authority_root}/bootstrap_sha256")
+    j_bootstrap_sha=${j_bootstrap_sha%x}
+
+    verify_sha256 "$j_manifest_file" "$j_manifest_sha"
+    verify_sha256 "$j_signature_file" "$j_signature_sha"
+    verify_sha256 "$j_release_file" "$j_release_sha"
+    verify_minisign_signature "$j_manifest_file" "$j_signature_file" "$JOURNAL_PUBKEY"
+
+    j_parse_err="${SCRATCH_DIR}/journal-manifest.err"
+    if ! awk -v schema_mode=journal -v out_dir="$j_manifest_root" -f "${SCRATCH_DIR}/parse_manifest.awk" "$j_manifest_file" 2>"$j_parse_err"; then
+        j_err=$(head -n 1 "$j_parse_err" | tr -d '\r\n')
+        report_exit "refusal" "schema-invalid" "Journal native manifest is invalid ($j_err)"
+    fi
+
+    for j_required in product version target; do
+        if [ ! -f "${j_manifest_root}/${j_required}" ]; then
+            report_exit "refusal" "schema-invalid" "Journal native manifest is missing $j_required"
+        fi
+    done
+    j_product=$(read_plain_value "${j_manifest_root}/product")
+    j_product=${j_product%x}
+    j_native_version=$(read_plain_value "${j_manifest_root}/version")
+    j_native_version=${j_native_version%x}
+    j_native_target=$(read_plain_value "${j_manifest_root}/target")
+    j_native_target=${j_native_target%x}
+    if [ "$j_product" != "solstone-journal" ] || [ "$j_native_version" != "$j_version" ] || [ "$j_native_target" != "$j_target" ]; then
+        report_exit "refusal" "release-coherence" "Journal native identity does not match the selected platform entry"
+    fi
+
+    j_selected_name=$(read_plain_value "${manifest_dir}/components/journal/arches/${HOST_ARCH}/${check_var}/filename")
+    j_selected_name=${j_selected_name%x}
+    j_selected_sha=$(read_plain_value "${manifest_dir}/components/journal/arches/${HOST_ARCH}/${check_var}/sha256")
+    j_selected_sha=${j_selected_sha%x}
+    case "$check_var" in
+        tree) j_expected_name="${j_base}.tar.gz" ;;
+        deb) j_expected_name="${j_base}.deb" ;;
+        rpm) j_expected_name="${j_base}.rpm" ;;
+        *) report_exit "refusal" "schema-invalid" "Journal selected route is invalid" ;;
+    esac
+    if [ "$j_selected_name" != "$j_expected_name" ]; then
+        report_exit "refusal" "release-coherence" "Journal selected filename does not match its producer route"
+    fi
+    j_bootstrap_url=$(read_plain_value "${manifest_dir}/components/journal/provenance/bootstrap/url")
+    j_bootstrap_url=${j_bootstrap_url%x}
+    j_bootstrap_name=${j_bootstrap_url##*/}
+
+    for j_name in "$j_selected_name" "$j_release_name" "$j_sums_name" "$j_bootstrap_name"; do
+        j_name_path=$(journal_name_path "$j_name")
+        if [ ! -f "${j_manifest_root}/files/${j_name_path}" ]; then
+            report_exit "refusal" "schema-invalid" "Journal native manifest is missing required file $j_name"
+        fi
+    done
+    j_selected_native_sha=$(read_plain_value "${j_manifest_root}/files/$(journal_name_path "$j_selected_name")")
+    j_selected_native_sha=${j_selected_native_sha%x}
+    j_release_native_sha=$(read_plain_value "${j_manifest_root}/files/$(journal_name_path "$j_release_name")")
+    j_release_native_sha=${j_release_native_sha%x}
+    j_sums_native_sha=$(read_plain_value "${j_manifest_root}/files/$(journal_name_path "$j_sums_name")")
+    j_sums_native_sha=${j_sums_native_sha%x}
+    j_bootstrap_native_sha=$(read_plain_value "${j_manifest_root}/files/$(journal_name_path "$j_bootstrap_name")")
+    j_bootstrap_native_sha=${j_bootstrap_native_sha%x}
+
+    if [ "$j_selected_native_sha" != "$j_selected_sha" ] || [ "$j_release_native_sha" != "$j_release_sha" ] || [ "$j_bootstrap_native_sha" != "$j_bootstrap_sha" ]; then
+        report_exit "refusal" "release-coherence" "Journal native file map does not match the selected platform entry"
+    fi
+    verify_sha256 "$j_sums_file" "$j_sums_native_sha"
+
+    j_sums_err="${SCRATCH_DIR}/journal-sums.err"
+    if ! awk -f "${SCRATCH_DIR}/parse_journal_sums.awk" "$j_sums_file" 2>"$j_sums_err"; then
+        j_err=$(head -n 1 "$j_sums_err" | tr -d '\r\n')
+        report_exit "refusal" "schema-invalid" "Journal checksum sidecar is invalid ($j_err)"
+    fi
+    for j_name in "$j_selected_name" "$j_release_name" "$j_bootstrap_name"; do
+        j_sum_value=$(awk -v wanted="$j_name" 'substr($0, 67) == wanted { print substr($0, 1, 64) }' "$j_sums_file")
+        if [ -z "$j_sum_value" ]; then
+            report_exit "refusal" "schema-invalid" "Journal checksum sidecar is missing required file $j_name"
+        fi
+    done
+    j_selected_sum_sha=$(awk -v wanted="$j_selected_name" 'substr($0, 67) == wanted { print substr($0, 1, 64) }' "$j_sums_file")
+    j_release_sum_sha=$(awk -v wanted="$j_release_name" 'substr($0, 67) == wanted { print substr($0, 1, 64) }' "$j_sums_file")
+    j_bootstrap_sum_sha=$(awk -v wanted="$j_bootstrap_name" 'substr($0, 67) == wanted { print substr($0, 1, 64) }' "$j_sums_file")
+    if [ "$j_selected_sum_sha" != "$j_selected_sha" ] || [ "$j_release_sum_sha" != "$j_release_sha" ] || [ "$j_bootstrap_sum_sha" != "$j_bootstrap_sha" ]; then
+        report_exit "refusal" "release-coherence" "Journal checksum sidecar does not match the selected platform entry"
+    fi
+
+    j_release_err="${SCRATCH_DIR}/journal-release.err"
+    if ! awk -v out_dir="$j_release_root" -f "${SCRATCH_DIR}/parse_journal_release.awk" "$j_release_file" 2>"$j_release_err"; then
+        j_err=$(head -n 1 "$j_release_err" | tr -d '\r\n')
+        report_exit "refusal" "schema-invalid" "Journal release metadata is invalid ($j_err)"
+    fi
+    j_release_product=$(read_plain_value "${j_release_root}/product")
+    j_release_product=${j_release_product%x}
+    j_release_version=$(read_plain_value "${j_release_root}/version")
+    j_release_version=${j_release_version%x}
+    j_release_target=$(read_plain_value "${j_release_root}/target")
+    j_release_target=${j_release_target%x}
+    j_release_bootstrap=$(read_plain_value "${j_release_root}/bootstrap_filename")
+    j_release_bootstrap=${j_release_bootstrap%x}
+    if [ "$j_release_product" != "solstone-journal" ] || [ "$j_release_version" != "$j_version" ] || [ "$j_release_target" != "$j_target" ] || [ "$j_release_bootstrap" != "$j_bootstrap_name" ]; then
+        report_exit "refusal" "release-coherence" "Journal release identity does not match the selected platform entry"
+    fi
+
+    j_release_commit=$(read_plain_value "${j_release_root}/commit")
+    j_release_commit=${j_release_commit%x}
+    j_release_lock=$(read_plain_value "${j_release_root}/lock_sha256")
+    j_release_lock=${j_release_lock%x}
+    case "$j_release_commit" in
+        *[!0123456789abcdef]*) report_exit "refusal" "schema-invalid" "Journal release commit is invalid" ;;
+    esac
+    if [ "${#j_release_commit}" -ne 40 ]; then
+        report_exit "refusal" "schema-invalid" "Journal release commit is invalid"
+    fi
+    case "$j_release_lock" in
+        *[!0123456789abcdef]*) report_exit "refusal" "schema-invalid" "Journal release lock digest is invalid" ;;
+    esac
+    if [ "${#j_release_lock}" -ne 64 ]; then
+        report_exit "refusal" "schema-invalid" "Journal release lock digest is invalid"
+    fi
+
+    for j_field in upgrade_epoch retention_window bootstrap_contract_version state_reader_min state_reader_max; do
+        j_release_value=$(read_plain_value "${j_release_root}/${j_field}")
+        j_release_value=${j_release_value%x}
+        if [ "$j_field" = "bootstrap_contract_version" ]; then
+            j_platform_path="${manifest_dir}/components/journal/provenance/bootstrap/contract_version"
+        else
+            j_platform_path="${manifest_dir}/components/journal/provenance/${j_field}"
+        fi
+        j_platform_value=$(read_plain_value "$j_platform_path")
+        j_platform_value=${j_platform_value%x}
+        if [ "$j_release_value" != "$j_platform_value" ]; then
+            report_exit "refusal" "release-coherence" "Journal release field $j_field does not match the selected platform entry"
+        fi
+    done
+    j_min_bootstrap=$(read_plain_value "${j_release_root}/min_bootstrap_revision")
+    j_min_bootstrap=${j_min_bootstrap%x}
+    case "$j_min_bootstrap" in
+        ""|0|0*|*[!0123456789]*) report_exit "refusal" "schema-invalid" "Journal minimum bootstrap revision is invalid" ;;
+    esac
+    if [ "${#j_min_bootstrap}" -gt 20 ]; then
+        report_exit "refusal" "schema-invalid" "Journal minimum bootstrap revision is invalid"
+    fi
 }
 
 acquire_installer_locks() {
@@ -1297,50 +1542,58 @@ main() {
         fi
     done
 
-    # 9. Verify native authority pins unless signatures are skipped
-    if [ "$OPT_SKIP_SIGNATURE" -eq 0 ]; then
-        for comp in $SELECTED_COMPONENTS; do
-            case "$comp" in
-                journal|cli)
-                    c_key="journal"
-                    expected_key_id="$JOURNAL_KEY_ID"
-                    ;;
-                desktop)
-                    c_key="desktop"
-                    expected_key_id="$DESKTOP_KEY_ID"
-                    ;;
-                tmux)
-                    c_key="tmux"
-                    expected_key_id="$TMUX_KEY_ID"
-                    ;;
-                *)
-                    c_key="$comp"
-                    expected_key_id=""
-                    ;;
-            esac
+    # 9. Verify native authority pins even when signature execution is explicitly skipped.
+    for comp in $SELECTED_COMPONENTS; do
+        case "$comp" in
+            journal|cli)
+                c_key="journal"
+                expected_key_id="$JOURNAL_KEY_ID"
+                ;;
+            desktop)
+                c_key="desktop"
+                expected_key_id="$DESKTOP_KEY_ID"
+                ;;
+            tmux)
+                c_key="tmux"
+                expected_key_id="$TMUX_KEY_ID"
+                ;;
+            *)
+                c_key="$comp"
+                expected_key_id=""
+                ;;
+        esac
 
-            actual_verifier_id=$(cat "${manifest_dir}/components/${c_key}/arches/${HOST_ARCH}/${check_var}/authority/verifier_id" 2>/dev/null || echo "")
-            expected_verifier_id="minisign:${expected_key_id}"
-            if [ "$actual_verifier_id" != "$expected_verifier_id" ]; then
-                report_exit "refusal" "pin-mismatch" "Native authority verifier_id '$actual_verifier_id' does not match expected pin '$expected_verifier_id' for component $comp"
-            fi
-        done
-    fi
+        actual_verifier_id=$(cat "${manifest_dir}/components/${c_key}/arches/${HOST_ARCH}/${check_var}/authority/verifier_id" 2>/dev/null || echo "")
+        expected_verifier_id="minisign:${expected_key_id}"
+        if [ "$actual_verifier_id" != "$expected_verifier_id" ]; then
+            report_exit "refusal" "pin-mismatch" "Native authority verifier_id '$actual_verifier_id' does not match expected pin '$expected_verifier_id' for component $comp"
+        fi
+    done
 
-    # 10. Acquire locks
+    # 10. Preflight Journal native authority before dry-run success, locks, or payload work.
+    for comp in $SELECTED_COMPONENTS; do
+        case "$comp" in
+            journal|cli)
+                preflight_journal_authority
+                break
+                ;;
+        esac
+    done
+
+    # 11. Acquire locks
     acquire_installer_locks
 
-    # 10. Handle uninstall
+    # 12. Handle uninstall
     if [ "$OPT_UNINSTALL" -eq 1 ]; then
         run_uninstall
     fi
 
-    # 11. Handle dry-run
+    # 13. Handle dry-run
     if [ "$OPT_DRY_RUN" -eq 1 ]; then
         report_exit "success" "dry-run-completed" "Dry run completed successfully"
     fi
 
-    # 12. Perform installation
+    # 14. Perform installation
     if [ "$OPT_ROUTE" = "tree" ]; then
         run_tree_install
     else
