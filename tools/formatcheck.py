@@ -8,9 +8,10 @@ from pathlib import Path
 import sys
 
 TEXT_EXTS = {".py", ".json", ".md", ".sh", ".txt", ".pub", ".keyid", ".in", "Makefile", "LICENSE"}
+CANONICAL_JSON_FILES = {Path("examples/platform.json")}
 
 
-def check_file(path: Path) -> list[str]:
+def check_file(path: Path, *, require_trailing_newline: bool = True) -> list[str]:
     errors = []
     try:
         raw = path.read_bytes()
@@ -22,7 +23,7 @@ def check_file(path: Path) -> list[str]:
     except UnicodeDecodeError as err:
         return [f"not valid UTF-8: {err}"]
 
-    if raw and not raw.endswith(b"\n"):
+    if require_trailing_newline and raw and not raw.endswith(b"\n"):
         errors.append("missing trailing newline")
 
     lines = text.splitlines()
@@ -44,11 +45,15 @@ def main() -> int:
             continue
 
         if path.suffix in TEXT_EXTS or path.name in TEXT_EXTS:
-            errs = check_file(path)
+            relative_path = path.relative_to(repo_root)
+            errs = check_file(
+                path,
+                require_trailing_newline=relative_path not in CANONICAL_JSON_FILES,
+            )
             if errs:
                 has_errors = True
                 for e in errs:
-                    print(f"{path.relative_to(repo_root)}: {e}")
+                    print(f"{relative_path}: {e}")
 
     return 1 if has_errors else 0
 

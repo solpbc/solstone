@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from solstone_platform.canonical import canonical_json_bytes, parse_json_strict
 from solstone_platform.pins import (
@@ -18,6 +19,7 @@ from solstone_platform.refusals import (
     FIXTURE_KEY_REFUSED,
     PIN_MISMATCH,
     PRODUCTION_UNAVAILABLE,
+    SCHEMA_INVALID,
     Refusal,
 )
 from solstone_platform.sign import (
@@ -135,6 +137,20 @@ class TestSign(unittest.TestCase):
                     passphrase_callback=lambda: "",
                 )
             self.assertEqual(ctx.exception.name, PIN_MISMATCH)
+
+    def test_sign_refuses_invalid_bytes_before_passphrase_or_key_derivation(self):
+        passphrase_called = []
+        with patch("solstone_platform.sign.derive_public_key_from_secret") as derive:
+            with self.assertRaises(Refusal) as ctx:
+                sign_manifest(
+                    manifest_bytes=b'{"schema_version":1}\n',
+                    secret_key_path=Path("/not-used"),
+                    selected_pin=MinisignPin(key_id=PLATFORM_KEY_ID, pubkey=PLATFORM_PUBKEY),
+                    passphrase_callback=lambda: passphrase_called.append(True) or "",
+                )
+        self.assertEqual(ctx.exception.name, SCHEMA_INVALID)
+        self.assertEqual(passphrase_called, [])
+        derive.assert_not_called()
 
 
 if __name__ == "__main__":

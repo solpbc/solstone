@@ -2,6 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://solstone.app/schemas/platform.v1.json",
   "title": "SolstonePlatformManifestV1",
+  "$comment": "Structural subset only. The canonical platform byte loader additionally enforces canonical bytes and in-object ordering, identity, digest, and cross-field invariants. Bootstrap origin/lane/version and native package/artifact coherence are contextual checks outside this JSON Schema.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -26,7 +27,7 @@
     },
     "version": {
       "type": "string",
-      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$"
+      "pattern": "^(0|[1-9][0-9]{0,19})\\.(0|[1-9][0-9]{0,19})\\.(0|[1-9][0-9]{0,19})$"
     },
     "lane": {
       "type": "string",
@@ -80,19 +81,19 @@
       "properties": {
         "version": {
           "type": "string",
-          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$"
+          "pattern": "^(0|[1-9][0-9]{0,19})\\.(0|[1-9][0-9]{0,19})\\.(0|[1-9][0-9]{0,19})$"
         },
         "handler_contract_version": {
           "type": "integer",
-          "minimum": 1
+          "const": 1
         },
         "install_entrypoint": {
           "type": "string",
-          "minLength": 1
+          "const": "install-journal"
         },
         "uninstall_service_entrypoint": {
           "type": "string",
-          "minLength": 1
+          "const": "uninstall-journal-service"
         },
         "provenance": {
           "type": "object",
@@ -120,7 +121,7 @@
                 },
                 "contract_version": {
                   "type": "integer",
-                  "minimum": 1
+                  "const": 2
                 }
               }
             },
@@ -130,11 +131,11 @@
             },
             "state_reader_min": {
               "type": "string",
-              "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$"
+              "pattern": "^(0|[1-9][0-9]{0,19})\\.(0|[1-9][0-9]{0,19})\\.(0|[1-9][0-9]{0,19})$"
             },
             "state_reader_max": {
               "type": "string",
-              "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$"
+              "pattern": "^(0|[1-9][0-9]{0,19})\\.(0|[1-9][0-9]{0,19})\\.(0|[1-9][0-9]{0,19})$"
             },
             "retention_window": {
               "type": "integer",
@@ -170,19 +171,19 @@
       "properties": {
         "version": {
           "type": "string",
-          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$"
+          "pattern": "^(0|[1-9][0-9]{0,19})\\.(0|[1-9][0-9]{0,19})\\.(0|[1-9][0-9]{0,19})$"
         },
         "handler_contract_version": {
           "type": "integer",
-          "minimum": 1
+          "const": 1
         },
         "install_entrypoint": {
           "type": "string",
-          "minLength": 1
+          "const": "install-desktop"
         },
         "uninstall_service_entrypoint": {
           "type": "string",
-          "minLength": 1
+          "const": "uninstall-desktop-service"
         },
         "arches": {
           "type": "object",
@@ -209,19 +210,19 @@
       "properties": {
         "version": {
           "type": "string",
-          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$"
+          "pattern": "^(0|[1-9][0-9]{0,19})\\.(0|[1-9][0-9]{0,19})\\.(0|[1-9][0-9]{0,19})$"
         },
         "handler_contract_version": {
           "type": "integer",
-          "minimum": 1
+          "const": 1
         },
         "install_entrypoint": {
           "type": "string",
-          "minLength": 1
+          "const": "install-tmux"
         },
         "uninstall_service_entrypoint": {
           "type": "string",
-          "minLength": 1
+          "const": "uninstall-tmux-service"
         },
         "arches": {
           "type": "object",

@@ -110,6 +110,23 @@ class TestPublish(unittest.TestCase):
         self.assertEqual(compare_semver("1.1.0", "1.0.1"), 1)
         self.assertEqual(compare_semver("2.0.0", "1.99.99"), 1)
 
+    def test_invalid_platform_bytes_refuse_before_destination_use(self):
+        rel = self._setup_fixture_release("2.0.3")
+        rel["manifest_path"].write_bytes(rel["manifest_bytes"] + b"\n")
+        with self.assertRaises(Refusal) as ctx:
+            publish_release(
+                manifest_path=rel["manifest_path"],
+                signature_path=rel["signature_path"],
+                journal_dir=rel["journal_dir"],
+                desktop_dir=rel["desktop_dir"],
+                tmux_dir=rel["tmux_dir"],
+                dest=rel["dest"],
+            )
+        self.assertEqual(ctx.exception.name, RELEASE_COHERENCE)
+        self.assertEqual(rel["dest"].ledger, [])
+        self.assertEqual(rel["dest"].network_sentinel, [])
+        self.assertEqual(rel["dest"].objects, {})
+
     def test_closed_signature_rejects_lookalike_arguments_before_capture(self):
         rel = self._setup_fixture_release("2.0.3")
         dest = rel["dest"]

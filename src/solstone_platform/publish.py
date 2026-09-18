@@ -9,7 +9,6 @@ from pathlib import Path
 import re
 from typing import Optional
 
-from solstone_platform.canonical import canonical_json_bytes, parse_json_strict
 from solstone_platform.capture import capture_release_sources
 from solstone_platform.destination import Destination, ResultStatus
 from solstone_platform.ingest import (
@@ -30,7 +29,7 @@ from solstone_platform.refusals import (
     UNSAFE_FILENAME,
     Refusal,
 )
-from solstone_platform.schema import validate_platform_manifest
+from solstone_platform.schema import load_platform_manifest_bytes
 from solstone_platform.targets import get_target_mapping
 from solstone_platform.testdest import FIXTURE_BUILD_TOKEN, FixtureDestination
 from solstone_platform.witness import get_witness
@@ -184,11 +183,11 @@ def publish_release(*args, **kwargs) -> PublishReport:
         manifest_bytes = snapshot.manifest_path.read_bytes()
         signature_bytes = snapshot.signature_path.read_bytes()
 
-        manifest_obj = parse_json_strict(manifest_bytes)
-        validate_platform_manifest(manifest_obj)
-        canonical_manifest = canonical_json_bytes(manifest_obj)
-        if canonical_manifest != manifest_bytes:
-            raise Refusal(RELEASE_COHERENCE, "platform manifest must use canonical JSON bytes")
+        manifest_obj = load_platform_manifest_bytes(
+            manifest_bytes,
+            canonical_refusal=RELEASE_COHERENCE,
+        )
+        canonical_manifest = manifest_bytes
 
         version = manifest_obj["version"]
         lane = manifest_obj["lane"]
