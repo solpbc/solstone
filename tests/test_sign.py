@@ -16,6 +16,7 @@ from solstone_platform.pins import (
     require_production_platform_pin,
 )
 from solstone_platform.refusals import (
+    DUPLICATE_KEY,
     FIXTURE_KEY_REFUSED,
     PIN_MISMATCH,
     PRODUCTION_UNAVAILABLE,
@@ -139,18 +140,25 @@ class TestSign(unittest.TestCase):
             self.assertEqual(ctx.exception.name, PIN_MISMATCH)
 
     def test_sign_refuses_invalid_bytes_before_passphrase_or_key_derivation(self):
-        passphrase_called = []
-        with patch("solstone_platform.sign.derive_public_key_from_secret") as derive:
-            with self.assertRaises(Refusal) as ctx:
-                sign_manifest(
-                    manifest_bytes=b'{"schema_version":1}\n',
-                    secret_key_path=Path("/not-used"),
-                    selected_pin=MinisignPin(key_id=PLATFORM_KEY_ID, pubkey=PLATFORM_PUBKEY),
-                    passphrase_callback=lambda: passphrase_called.append(True) or "",
-                )
-        self.assertEqual(ctx.exception.name, SCHEMA_INVALID)
-        self.assertEqual(passphrase_called, [])
-        derive.assert_not_called()
+        cases = (
+            (b'{"schema_version":1}\n', SCHEMA_INVALID),
+            (b'{"schema_version":1,"schema_version":1}', DUPLICATE_KEY),
+            (canonical_json_bytes({"schema_version": 1}), SCHEMA_INVALID),
+        )
+        for manifest_bytes, expected_name in cases:
+            with self.subTest(expected_name=expected_name):
+                passphrase_called = []
+                with patch("solstone_platform.sign.derive_public_key_from_secret") as derive:
+                    with self.assertRaises(Refusal) as ctx:
+                        sign_manifest(
+                            manifest_bytes=manifest_bytes,
+                            secret_key_path=Path("/not-used"),
+                            selected_pin=MinisignPin(key_id=PLATFORM_KEY_ID, pubkey=PLATFORM_PUBKEY),
+                            passphrase_callback=lambda: passphrase_called.append(True) or "",
+                        )
+                self.assertEqual(ctx.exception.name, expected_name)
+                self.assertEqual(passphrase_called, [])
+                derive.assert_not_called()
 
 
 if __name__ == "__main__":

@@ -15,6 +15,7 @@ from solstone_platform.pins import MinisignPin, PinSet, embedded_pins
 from solstone_platform.publish import compare_semver, publish_release
 from solstone_platform.r2 import R2Config, R2Destination
 from solstone_platform.refusals import (
+    DUPLICATE_KEY,
     PUBLISH_INDETERMINATE,
     RELEASE_COHERENCE,
     ROLLBACK_REFUSED,
@@ -126,6 +127,29 @@ class TestPublish(unittest.TestCase):
         self.assertEqual(rel["dest"].ledger, [])
         self.assertEqual(rel["dest"].network_sentinel, [])
         self.assertEqual(rel["dest"].objects, {})
+
+    def test_publish_preserves_loader_refusal_names_before_destination_use(self):
+        cases = (
+            (b'{"schema_version":1,"schema_version":1}', DUPLICATE_KEY),
+            (canonical_json_bytes({"schema_version": 1}), SCHEMA_INVALID),
+        )
+        for raw, expected_name in cases:
+            with self.subTest(expected_name=expected_name):
+                rel = self._setup_fixture_release("2.0.3")
+                rel["manifest_path"].write_bytes(raw)
+                with self.assertRaises(Refusal) as ctx:
+                    publish_release(
+                        manifest_path=rel["manifest_path"],
+                        signature_path=rel["signature_path"],
+                        journal_dir=rel["journal_dir"],
+                        desktop_dir=rel["desktop_dir"],
+                        tmux_dir=rel["tmux_dir"],
+                        dest=rel["dest"],
+                    )
+                self.assertEqual(ctx.exception.name, expected_name)
+                self.assertEqual(rel["dest"].ledger, [])
+                self.assertEqual(rel["dest"].network_sentinel, [])
+                self.assertEqual(rel["dest"].objects, {})
 
     def test_closed_signature_rejects_lookalike_arguments_before_capture(self):
         rel = self._setup_fixture_release("2.0.3")
