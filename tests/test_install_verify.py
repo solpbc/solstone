@@ -10,6 +10,7 @@ import subprocess
 import tempfile
 import unittest
 
+from solstone_platform.canonical import canonical_json_bytes
 from solstone_platform.generate import generate_platform_manifest
 from solstone_platform.pins import PinSet, embedded_pins, load_pin_file
 from solstone_platform.refusals import Refusal
@@ -30,6 +31,176 @@ class TestInstallVerify(unittest.TestCase):
 
     def tearDown(self):
         self.tmp.cleanup()
+
+    def _write_manifest(self, manifest_path, signature_path, manifest, sec, pin, *, sign):
+        manifest_bytes = canonical_json_bytes(manifest)
+        manifest_path.write_bytes(manifest_bytes)
+        if sign:
+            signature_path.write_bytes(
+                sign_manifest(
+                    manifest_bytes=manifest_bytes,
+                    secret_key_path=sec,
+                    selected_pin=pin,
+                    repo_root=REPO_ROOT,
+                    is_production=False,
+                )
+            )
+
+    def test_signed_catalogue_coordinates_must_match_request(self):
+        with ephemeral_keypair("catalogue self match") as (sec, pub, pin):
+            server, root = setup_test_release_server(self.work_dir, sec, pin)
+            try:
+                installer = self.work_dir / "install.sh"
+                build_installer(
+                    repo_root=REPO_ROOT,
+                    output_path=installer,
+                    platform_pub_path=pub,
+                    platform_key_id=pin.key_id,
+                    origin=server.origin,
+                )
+                version_dir = root / "solstone" / "release" / "2.0.0"
+                manifest_path = version_dir / "platform.json"
+                signature_path = version_dir / "platform.json.minisig"
+                original = json.loads(manifest_path.read_text(encoding="utf-8"))
+                platform_path = "/solstone/release/2.0.0/platform.json"
+
+                for field, value in (("version", "2.0.1"), ("lane", "staging")):
+                    with self.subTest(field=field):
+                        manifest = dict(original)
+                        manifest[field] = value
+                        self._write_manifest(manifest_path, signature_path, manifest, sec, pin, sign=True)
+                        server.request_paths.clear()
+                        proc = subprocess.run(
+                            [
+                                str(installer),
+                                "--version",
+                                "2.0.0",
+                                "--list",
+                                "--prefix",
+                                str(self.prefix),
+                                "--json",
+                            ],
+                            capture_output=True,
+                            text=True,
+                        )
+                        self.assertEqual(json.loads(proc.stdout)["root_code"], "release-coherence")
+                        self.assertEqual(
+                            server.request_paths,
+                            [platform_path, f"{platform_path}.minisig"],
+                        )
+                        self.assertEqual(list(self.prefix.rglob("*")), [])
+            finally:
+                server.stop()
+
+    def test_catalogue_identity_refusal_precedence(self):
+        with ephemeral_keypair("catalogue identity precedence") as (sec, pub, pin):
+            server, root = setup_test_release_server(self.work_dir, sec, pin)
+            try:
+                installer = self.work_dir / "install.sh"
+                build_installer(
+                    repo_root=REPO_ROOT,
+                    output_path=installer,
+                    platform_pub_path=pub,
+                    platform_key_id=pin.key_id,
+                    origin=server.origin,
+                )
+                version_dir = root / "solstone" / "release" / "2.0.0"
+                manifest_path = version_dir / "platform.json"
+                signature_path = version_dir / "platform.json.minisig"
+                original = json.loads(manifest_path.read_text(encoding="utf-8"))
+                platform_path = "/solstone/release/2.0.0/platform.json"
+                cases = (
+                    ("version malformed", {"version": "02.0.0"}, None, "schema-invalid"),
+                    ("lane malformed", {"lane": "beta"}, None, "schema-invalid"),
+                    ("key malformed", {"platform_key_id": "bad"}, None, "schema-invalid"),
+                    ("key trailing newline", {"platform_key_id": f"{pin.key_id}\n"}, None, "schema-invalid"),
+                    ("key unequal", {"platform_key_id": "0000000000000000"}, None, "pin-mismatch"),
+                    ("schema missing", {}, "schema_version", "schema-invalid"),
+                    ("protocol unsupported", {"protocol_version": 2}, None, "schema-invalid"),
+                    ("minimum zero", {"minimum_installer_revision": 0}, None, "schema-invalid"),
+                    ("minimum leading zero", {"minimum_installer_revision": "01"}, None, "schema-invalid"),
+                    ("minimum decimal", {"minimum_installer_revision": "1.0"}, None, "schema-invalid"),
+                )
+                for name, changes, removed, expected in cases:
+                    with self.subTest(name=name):
+                        manifest = dict(original)
+                        manifest.update(changes)
+                        if removed is not None:
+                            del manifest[removed]
+                        self._write_manifest(manifest_path, signature_path, manifest, sec, pin, sign=False)
+                        server.request_paths.clear()
+                        proc = subprocess.run(
+                            [
+                                str(installer),
+                                "--version",
+                                "2.0.0",
+                                "--skip-signature",
+                                "--list",
+                                "--prefix",
+                                str(self.prefix),
+                                "--json",
+                            ],
+                            capture_output=True,
+                            text=True,
+                        )
+                        self.assertEqual(json.loads(proc.stdout)["root_code"], expected)
+                        self.assertEqual(
+                            server.request_paths,
+                            [platform_path, f"{platform_path}.minisig"],
+                        )
+                        self.assertEqual(list(self.prefix.rglob("*")), [])
+            finally:
+                server.stop()
+
+    def test_large_installer_revision_floor_is_compared_as_decimal_text(self):
+        huge_revision = 10000000000000000000
+        with ephemeral_keypair("large revision floor") as (sec, pub, pin):
+            server, _root = setup_test_release_server(
+                self.work_dir,
+                sec,
+                pin,
+                min_installer_revision=huge_revision,
+            )
+            try:
+                old_installer = self.work_dir / "old-install.sh"
+                build_installer(
+                    repo_root=REPO_ROOT,
+                    output_path=old_installer,
+                    platform_pub_path=pub,
+                    platform_key_id=pin.key_id,
+                    origin=server.origin,
+                )
+                server.request_paths.clear()
+                old_proc = subprocess.run(
+                    [str(old_installer), "--list", "--prefix", str(self.prefix), "--json"],
+                    capture_output=True,
+                    text=True,
+                )
+                self.assertEqual(json.loads(old_proc.stdout)["root_code"], "revision-too-old")
+                self.assertEqual(len(server.request_paths), 3)
+                self.assertNotIn("integer expression", old_proc.stderr.lower())
+                self.assertEqual(list(self.prefix.rglob("*")), [])
+
+                equal_installer = self.work_dir / "equal-install.sh"
+                build_installer(
+                    repo_root=REPO_ROOT,
+                    output_path=equal_installer,
+                    platform_pub_path=pub,
+                    platform_key_id=pin.key_id,
+                    origin=server.origin,
+                    override_installer_revision=huge_revision,
+                )
+                server.request_paths.clear()
+                equal_proc = subprocess.run(
+                    [str(equal_installer), "--list", "--prefix", str(self.prefix), "--json"],
+                    capture_output=True,
+                    text=True,
+                )
+                self.assertEqual(equal_proc.returncode, 0, equal_proc.stderr)
+                self.assertEqual(json.loads(equal_proc.stdout)["root_code"], "list")
+                self.assertEqual(len(server.request_paths), 3)
+            finally:
+                server.stop()
 
     def test_valid_signature_succeeds(self):
         with ephemeral_keypair("test verify") as (sec, pub, pin):

@@ -270,6 +270,83 @@ validate_requested_coordinates() {
     fi
 }
 
+revision_is_older() {
+    current_revision="$1"
+    required_revision="$2"
+    if [ "${#current_revision}" -lt "${#required_revision}" ]; then
+        return 0
+    fi
+    if [ "${#current_revision}" -gt "${#required_revision}" ]; then
+        return 1
+    fi
+    LC_ALL=C awk -v current="$current_revision" -v required="$required_revision" '
+        BEGIN { exit !("x" required > "x" current) }
+    '
+}
+
+read_manifest_scalar() {
+    cat "$1"
+    printf x
+}
+
+validate_manifest_identity() {
+    for required_scalar in schema_version protocol_version version lane platform_key_id minimum_installer_revision; do
+        if [ ! -f "${manifest_dir}/${required_scalar}" ]; then
+            report_exit "refusal" "schema-invalid" "Manifest is missing required field $required_scalar"
+        fi
+    done
+
+    manifest_schema=$(read_manifest_scalar "${manifest_dir}/schema_version")
+    manifest_schema=${manifest_schema%x}
+    manifest_protocol=$(read_manifest_scalar "${manifest_dir}/protocol_version")
+    manifest_protocol=${manifest_protocol%x}
+    manifest_version=$(read_manifest_scalar "${manifest_dir}/version")
+    manifest_version=${manifest_version%x}
+    manifest_lane=$(read_manifest_scalar "${manifest_dir}/lane")
+    manifest_lane=${manifest_lane%x}
+    manifest_platform_key=$(read_manifest_scalar "${manifest_dir}/platform_key_id")
+    manifest_platform_key=${manifest_platform_key%x}
+    manifest_min_revision=$(read_manifest_scalar "${manifest_dir}/minimum_installer_revision")
+    manifest_min_revision=${manifest_min_revision%x}
+
+    if [ "$manifest_schema" != "1" ] || [ "$manifest_protocol" != "1" ]; then
+        report_exit "refusal" "schema-invalid" "Manifest schema and protocol versions must both be 1"
+    fi
+    if ! is_canonical_version "$manifest_version"; then
+        report_exit "refusal" "schema-invalid" "Manifest platform version is invalid"
+    fi
+    if [ "$manifest_version" != "$RESOLVED_VERSION" ]; then
+        report_exit "refusal" "release-coherence" "Manifest platform version does not match the requested version"
+    fi
+    case "$manifest_lane" in
+        release|staging|dev) ;;
+        *) report_exit "refusal" "schema-invalid" "Manifest lane is invalid" ;;
+    esac
+    if [ "$manifest_lane" != "$OPT_LANE" ]; then
+        report_exit "refusal" "release-coherence" "Manifest lane does not match the requested lane"
+    fi
+    if [ "${#manifest_platform_key}" -ne 16 ]; then
+        report_exit "refusal" "schema-invalid" "Manifest platform key ID is invalid"
+    fi
+    case "$manifest_platform_key" in
+        *[!0123456789ABCDEF]*) report_exit "refusal" "schema-invalid" "Manifest platform key ID is invalid" ;;
+    esac
+    if [ "$manifest_platform_key" != "$PLATFORM_KEY_ID" ]; then
+        report_exit "refusal" "pin-mismatch" "Manifest platform key ID does not match the embedded pin"
+    fi
+    case "$manifest_min_revision" in
+        ""|0|0*|*[!0123456789]*)
+            report_exit "refusal" "schema-invalid" "Manifest minimum installer revision is invalid"
+            ;;
+    esac
+    if [ "${#manifest_min_revision}" -gt 20 ]; then
+        report_exit "refusal" "schema-invalid" "Manifest minimum installer revision is invalid"
+    fi
+    if revision_is_older "$INSTALLER_REVISION" "$manifest_min_revision"; then
+        report_exit "refusal" "revision-too-old" "Manifest requires minimum installer revision $manifest_min_revision (current installer is revision $INSTALLER_REVISION)"
+    fi
+}
+
 enforce_file_limit() {
     limited_file="$1"
     byte_limit="$2"
@@ -1134,6 +1211,8 @@ main() {
         esac
     fi
 
+    validate_manifest_identity
+
     # 5. Check catalogue list mode
     if [ "$OPT_LIST" -eq 1 ]; then
         if [ "$OPT_JSON" -eq 1 ]; then
@@ -1153,13 +1232,7 @@ main() {
         exit 0
     fi
 
-    # 6. Check minimum installer revision
-    m_min_rev=$(cat "${manifest_dir}/minimum_installer_revision" 2>/dev/null || echo "1")
-    if [ "$INSTALLER_REVISION" -lt "$m_min_rev" ]; then
-        report_exit "refusal" "revision-too-old" "Manifest requires minimum installer revision $m_min_rev (current installer is revision $INSTALLER_REVISION)"
-    fi
-
-    # 7. Resolve component selection
+    # 6. Resolve component selection
     if [ -z "$OPT_COMPONENTS" ]; then
         interactive_selection_menu
     fi

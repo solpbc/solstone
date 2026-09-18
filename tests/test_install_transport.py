@@ -337,11 +337,22 @@ class TestInstallTransport(unittest.TestCase):
                 installer = self._build(pub, pin.key_id, origin=first.origin)
                 platform_path = "/solstone/release/2.0.0/platform.json"
                 signature_path = f"{platform_path}.minisig"
+                minimal_catalogue = json.dumps(
+                    {
+                        "schema_version": 1,
+                        "protocol_version": 1,
+                        "version": "2.0.0",
+                        "lane": "release",
+                        "platform_key_id": pin.key_id,
+                        "minimum_installer_revision": 1,
+                    },
+                    separators=(",", ":"),
+                ).encode("utf-8")
 
                 first.routes.update(
                     {
                         platform_path: (302, {"Location": f"{first.origin}/platform-target"}, b""),
-                        "/platform-target": (200, {}, b"{}"),
+                        "/platform-target": (200, {}, minimal_catalogue),
                         signature_path: (200, {}, b"signature"),
                     }
                 )
