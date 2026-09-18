@@ -815,6 +815,7 @@ run_package_install() {
         # Query existing package
         # shellcheck disable=SC2086
         query_out=$(printf "QUERY_PKG %s %s\n" "$PKG_VARIANT" "$pkg_name" | $sudo_prefix "$helper_bin" $helper_flags 2>/dev/null || echo "NOT_INSTALLED")
+        skip_install=0
         if [ "$query_out" != "NOT_INSTALLED" ] && [ -n "$query_out" ]; then
             installed_ver=$(echo "$query_out" | awk '{print $NF}' | sed -E 's/-.*//')
             if [ -n "$installed_ver" ] && [ "$installed_ver" != "$pkg_ver" ]; then
@@ -822,18 +823,46 @@ run_package_install() {
                 if [ "$older" = "$pkg_ver" ]; then
                     report_exit "refusal" "downgrade-route-unsupported" "Installed package $pkg_name version $installed_ver is newer than candidate $pkg_ver (downgrade unsupported)"
                 fi
+            elif [ "$installed_ver" = "$pkg_ver" ]; then
+                # Package DB already has the exact target package_identity (name+version)
+                # shellcheck disable=SC2086
+                etc_receipt=$(printf "READ_ETC_RECEIPT\n" | $sudo_prefix "$helper_bin" $helper_flags 2>/dev/null || echo "")
+                case "$etc_receipt" in
+                    *phase=payload*)
+                        skip_install=1
+                        if [ "$comp" = "journal" ]; then
+                            if command -v journal >/dev/null 2>&1; then
+                                journal setup 2>/dev/null || true
+                            elif command -v solstone-journal >/dev/null 2>&1; then
+                                solstone-journal setup 2>/dev/null || true
+                            fi
+                        fi
+                        ;;
+                    *phase=complete*)
+                        skip_install=1
+                        ;;
+                esac
             fi
         fi
 
-        pkg_path="${SCRATCH_DIR}/${pkg_fn}"
-        fetch_file_with_redirect_check "${OPT_ORIGIN}/solstone/${OPT_LANE}/${RESOLVED_VERSION}/${pkg_fn}" "$pkg_path"
-        verify_sha256 "$pkg_path" "$pkg_sha"
+        if [ "$skip_install" -eq 0 ]; then
+            pkg_path="${SCRATCH_DIR}/${pkg_fn}"
+            fetch_file_with_redirect_check "${OPT_ORIGIN}/solstone/${OPT_LANE}/${RESOLVED_VERSION}/${pkg_fn}" "$pkg_path"
+            verify_sha256 "$pkg_path" "$pkg_sha"
 
-        # Helper INSTALL_PKG
-        # shellcheck disable=SC2086
-        install_res=$(printf "INSTALL_PKG %s %s\n" "$PKG_VARIANT" "$pkg_path" | $sudo_prefix "$helper_bin" $helper_flags 2>/dev/null || echo "FAIL")
-        if [ "$install_res" != "OK" ]; then
-            report_exit "refusal" "package-install-failed" "Helper failed to install package $pkg_fn"
+            # Helper INSTALL_PKG
+            # shellcheck disable=SC2086
+            install_res=$(printf "INSTALL_PKG %s %s\n" "$PKG_VARIANT" "$pkg_path" | $sudo_prefix "$helper_bin" $helper_flags 2>/dev/null || echo "FAIL")
+            if [ "$install_res" != "OK" ]; then
+                report_exit "refusal" "package-install-failed" "Helper failed to install package $pkg_fn"
+            fi
+            if [ "$comp" = "journal" ]; then
+                if command -v journal >/dev/null 2>&1; then
+                    journal setup 2>/dev/null || true
+                elif command -v solstone-journal >/dev/null 2>&1; then
+                    solstone-journal setup 2>/dev/null || true
+                fi
+            fi
         fi
     done
 
@@ -927,6 +956,7 @@ main() {
 
     # Setup scratch directory
     SCRATCH_DIR=$(mktemp -d /var/tmp/solstone-install.XXXXXX 2>/dev/null || mktemp -d /tmp/solstone-install.XXXXXX)
+    chmod 0700 "$SCRATCH_DIR"
     init_awk_parser
 
     # Resolve package variant

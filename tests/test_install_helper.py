@@ -141,9 +141,11 @@ class TestInstallHelper(unittest.TestCase):
                 )
                 self.assertEqual(proc2.returncode, 0, f"Recovery install failed: {proc2.stderr}\n{proc2.stdout}")
 
-                # Verify recovery completed setup
+                # Verify recovery completed setup without re-installing package
                 content_after = receipt_file.read_text(encoding="utf-8")
                 self.assertIn("phase=complete", content_after)
+                installs_after = [l for l in log_file.read_text().splitlines() if l.strip()]
+                self.assertEqual(len(installs_after), 1, f"Expected exactly 1 install line in install.log, got {len(installs_after)}")
 
                 # 3. Test downgrade refusal: seed fake DB with higher version 3.0.0
                 pkg_file = self.fake_pkg_db / "deb" / "solstone-journal"
