@@ -14,6 +14,7 @@ import sys
 import tempfile
 from typing import Callable, Generator, Optional
 
+from solstone_platform.canonical import canonical_json_bytes, parse_json_strict
 from solstone_platform.pins import (
     MinisignPin,
     load_pin_file,
@@ -24,9 +25,11 @@ from solstone_platform.refusals import (
     FIXTURE_KEY_REFUSED,
     PIN_MISMATCH,
     PRODUCTION_UNAVAILABLE,
+    SCHEMA_INVALID,
     SIGNATURE_PIN_MISMATCH,
     Refusal,
 )
+from solstone_platform.schema import validate_platform_manifest
 
 
 def derive_public_key_from_secret(
@@ -64,6 +67,13 @@ def sign_manifest(
     repo_root: Optional[Path] = None,
 ) -> bytes:
     """Sign manifest bytes with minisign and return detached signature bytes."""
+    parsed_manifest = parse_json_strict(manifest_bytes)
+    validate_platform_manifest(parsed_manifest)
+    if canonical_json_bytes(parsed_manifest) != manifest_bytes:
+        raise Refusal(SCHEMA_INVALID, "platform manifest must be canonical before signing")
+    if parsed_manifest["platform_key_id"] != selected_pin.key_id:
+        raise Refusal(PIN_MISMATCH, "manifest platform_key_id does not match selected signing pin")
+
     if passphrase_callback is not None:
         passphrase = passphrase_callback()
     elif not sys.stdin.isatty():

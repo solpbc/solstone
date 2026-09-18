@@ -69,13 +69,13 @@ def validate_bootstrap_url(url_str: str) -> None:
 
 
 def extract_bootstrap_contract_version(script_bytes: bytes) -> int:
-    """Extract BOOTSTRAP_REVISION integer from script bytes."""
+    """Extract BOOTSTRAP_CONTRACT_VERSION from exact bootstrap bytes."""
     text = script_bytes.decode("utf-8", errors="replace")
     for line in text.splitlines():
-        match = re.match(r"^BOOTSTRAP_REVISION=([0-9]+)$", line.strip())
+        match = re.match(r"^BOOTSTRAP_CONTRACT_VERSION=([0-9]+)$", line.strip())
         if match:
             return int(match.group(1))
-    raise Refusal(RELEASE_COHERENCE, "BOOTSTRAP_REVISION not found in bootstrap script")
+    raise Refusal(RELEASE_COHERENCE, "BOOTSTRAP_CONTRACT_VERSION not found in bootstrap script")
 
 
 def parse_release_sidecar(content: str) -> dict[str, str]:
@@ -87,9 +87,28 @@ def parse_release_sidecar(content: str) -> dict[str, str]:
             continue
         if "=" not in line:
             raise Refusal(RELEASE_COHERENCE, f"malformed line in .release: '{line}'")
-        k, v = line.split("=", 1)
-        result[k.strip()] = v.strip()
+        raw_key, raw_value = line.split("=", 1)
+        k = raw_key.strip()
+        v = raw_value.strip()
+        if k != raw_key or v != raw_value:
+            raise Refusal(RELEASE_COHERENCE, f"non-canonical whitespace in .release key '{k}'")
+        if not k or k in result:
+            raise Refusal(RELEASE_COHERENCE, f"empty or duplicate key in .release: '{k}'")
+        result[k] = v
     return result
+
+
+def _semver_tuple(value: str, field: str) -> tuple[int, int, int]:
+    match = re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", value)
+    if not match:
+        raise Refusal(RELEASE_COHERENCE, f"invalid {field}: {value}")
+    return tuple(int(part) for part in match.groups())
+
+
+def _positive_int(value: str, field: str) -> int:
+    if not re.fullmatch(r"[1-9][0-9]*", value):
+        raise Refusal(RELEASE_COHERENCE, f"invalid {field}: {value}")
+    return int(value)
 
 
 @dataclass
@@ -146,57 +165,105 @@ def ingest_journal(
         expected_basename = f"solstone-journal-{ver}-{mapping.native_target}"
         if manifest_path.name != f"{expected_basename}.manifest.json":
             raise Refusal(RELEASE_COHERENCE, f"manifest filename mismatch: {manifest_path.name}")
+        if manifest_obj.get("target") != mapping.native_target:
+            raise Refusal(RELEASE_COHERENCE, f"manifest target mismatch: {manifest_obj.get('target')}")
+
+        files_map = manifest_obj.get("files")
+        if not isinstance(files_map, dict) or any(
+            not isinstance(name, str) or not isinstance(digest, str)
+            for name, digest in files_map.items()
+        ):
+            raise Refusal(RELEASE_COHERENCE, "journal manifest files must be a filename-to-digest object")
 
         release_path = arch_dir / f"{expected_basename}.release"
         if not release_path.is_file():
             raise Refusal(RELEASE_COHERENCE, f"missing {release_path.name}")
         release_bytes = release_path.read_bytes()
+        release_sha = hashlib.sha256(release_bytes).hexdigest()
+        if files_map.get(release_path.name) != release_sha:
+            raise Refusal(RELEASE_COHERENCE, f"manifest does not bind exact release bytes: {release_path.name}")
         release_dict = parse_release_sidecar(release_bytes.decode("utf-8", errors="replace"))
 
         # Check required v2 release keys
-        required_v2_keys = ["bootstrap_sha256", "state_reader_min", "state_reader_max", "upgrade_epoch", "retention_window", "min_bootstrap_revision"]
+        required_v2_keys = [
+            "product",
+            "version",
+            "target",
+            "bootstrap_contract_version",
+            "bootstrap_filename",
+            "state_reader_min",
+            "state_reader_max",
+            "upgrade_epoch",
+            "retention_window",
+            "min_bootstrap_revision",
+        ]
         for rk in required_v2_keys:
             if rk not in release_dict:
                 raise Refusal(RELEASE_COHERENCE, f"journal .release missing v2 key '{rk}'")
 
+        if release_dict["product"] != "solstone-journal":
+            raise Refusal(RELEASE_COHERENCE, f"journal .release product mismatch: {release_dict['product']}")
+        if release_dict["version"] != ver:
+            raise Refusal(RELEASE_COHERENCE, f"journal .release version mismatch: {release_dict['version']}")
+        if release_dict["target"] != mapping.native_target:
+            raise Refusal(RELEASE_COHERENCE, f"journal .release target mismatch: {release_dict['target']}")
         if release_dict.get("upgrade_epoch") != "journal-v2":
             raise Refusal(RELEASE_COHERENCE, f"unsupported upgrade_epoch: {release_dict.get('upgrade_epoch')}")
 
+        contract_version = _positive_int(release_dict["bootstrap_contract_version"], "bootstrap_contract_version")
+        if contract_version != 2:
+            raise Refusal(RELEASE_COHERENCE, f"unsupported bootstrap_contract_version: {contract_version}")
+        _positive_int(release_dict["min_bootstrap_revision"], "min_bootstrap_revision")
+        retention_window = _positive_int(release_dict["retention_window"], "retention_window")
+        reader_min = _semver_tuple(release_dict["state_reader_min"], "state_reader_min")
+        reader_max = _semver_tuple(release_dict["state_reader_max"], "state_reader_max")
+        current_version = _semver_tuple(ver, "journal version")
+        if reader_min > reader_max or not (reader_min <= current_version <= reader_max):
+            raise Refusal(RELEASE_COHERENCE, "journal version is outside its signed state reader range")
+
         # Bootstrap verification
+        bootstrap_name = release_dict["bootstrap_filename"]
+        expected_bootstrap_name = f"solstone-journal-{ver}-install.sh"
+        if bootstrap_name != expected_bootstrap_name:
+            raise Refusal(RELEASE_COHERENCE, f"bootstrap filename mismatch: {bootstrap_name}")
         if bootstrap_file and bootstrap_file.is_file():
             boot_bytes = bootstrap_file.read_bytes()
         else:
-            boot_path = arch_dir / "install.sh"
+            boot_path = arch_dir / bootstrap_name
             if not boot_path.is_file():
-                boot_path = native_dir / "install.sh"
+                boot_path = native_dir / bootstrap_name
             if not boot_path.is_file():
-                raise Refusal(RELEASE_COHERENCE, "bootstrap install.sh not found for journal")
+                raise Refusal(RELEASE_COHERENCE, f"bootstrap {bootstrap_name} not found for journal")
             boot_bytes = boot_path.read_bytes()
 
         computed_boot_sha = hashlib.sha256(boot_bytes).hexdigest()
-        if computed_boot_sha != release_dict["bootstrap_sha256"]:
-            raise Refusal(RELEASE_COHERENCE, f"bootstrap script sha256 mismatch: {computed_boot_sha} vs release {release_dict['bootstrap_sha256']}")
+        if files_map.get(bootstrap_name) != computed_boot_sha:
+            raise Refusal(RELEASE_COHERENCE, f"manifest does not bind exact bootstrap bytes: {bootstrap_name}")
 
-        contract_version = extract_bootstrap_contract_version(boot_bytes)
-        bootstrap_url = f"{origin.rstrip('/')}/solstone-journal/{lane}/{ver}/install.sh"
+        script_contract_version = extract_bootstrap_contract_version(boot_bytes)
+        if script_contract_version != contract_version:
+            raise Refusal(RELEASE_COHERENCE, "bootstrap contract version disagrees with .release")
+        bootstrap_url = f"{origin.rstrip('/')}/solstone-journal/{lane}/{ver}/{bootstrap_name}"
         validate_bootstrap_url(bootstrap_url)
 
+        arch_provenance = {
+            "bootstrap": {
+                "url": bootstrap_url,
+                "sha256": computed_boot_sha,
+                "contract_version": contract_version,
+            },
+            "upgrade_epoch": release_dict["upgrade_epoch"],
+            "state_reader_min": release_dict["state_reader_min"],
+            "state_reader_max": release_dict["state_reader_max"],
+            "retention_window": retention_window,
+        }
         if provenance_data is None:
-            provenance_data = {
-                "bootstrap": {
-                    "url": bootstrap_url,
-                    "sha256": computed_boot_sha,
-                    "contract_version": contract_version,
-                },
-                "upgrade_epoch": release_dict["upgrade_epoch"],
-                "state_reader_min": release_dict["state_reader_min"],
-                "state_reader_max": release_dict["state_reader_max"],
-                "retention_window": int(release_dict["retention_window"]),
-            }
+            provenance_data = arch_provenance
+        elif provenance_data != arch_provenance:
+            raise Refusal(RELEASE_COHERENCE, "journal provenance differs between architectures")
 
         # Process variants: tree (.tar.gz), deb (.deb), rpm (.rpm)
         variants_dict: dict[str, Any] = {}
-        files_map = manifest_obj.get("files", {})
 
         variant_files = {
             "tree": f"{expected_basename}.tar.gz",

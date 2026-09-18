@@ -6,6 +6,7 @@
 import argparse
 import os
 from pathlib import Path
+import stat
 import sys
 
 from solstone_platform.generate import generate_platform_manifest
@@ -18,6 +19,7 @@ from solstone_platform.publish import publish_release
 from solstone_platform.r2 import R2Config, R2Destination
 from solstone_platform.redact import redact_sensitive_text
 from solstone_platform.refusals import (
+    PASSPHRASE_SOURCE_INVALID,
     PRODUCTION_UNAVAILABLE,
     Refusal,
 )
@@ -32,6 +34,35 @@ def get_repo_root() -> Path:
             return curr
         curr = curr.parent
     return Path.cwd()
+
+
+def read_passphrase_file(path: Path) -> str:
+    """Read one private, caller-owned passphrase line without exposing it in argv."""
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
+    except OSError as err:
+        raise Refusal(PASSPHRASE_SOURCE_INVALID, "passphrase file must be a readable non-symlink file") from err
+    try:
+        file_stat = os.fstat(fd)
+        if not stat.S_ISREG(file_stat.st_mode):
+            raise Refusal(PASSPHRASE_SOURCE_INVALID, "passphrase file must be a regular file")
+        if file_stat.st_uid != os.geteuid():
+            raise Refusal(PASSPHRASE_SOURCE_INVALID, "passphrase file must be owned by the caller")
+        if file_stat.st_mode & 0o077:
+            raise Refusal(PASSPHRASE_SOURCE_INVALID, "passphrase file must not be accessible by group or other")
+        raw = os.read(fd, 4097)
+        if len(raw) > 4096:
+            raise Refusal(PASSPHRASE_SOURCE_INVALID, "passphrase file exceeds 4096 bytes")
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError as err:
+        raise Refusal(PASSPHRASE_SOURCE_INVALID, "passphrase file could not be read as UTF-8") from err
+    finally:
+        os.close(fd)
+    if text.endswith("\n"):
+        text = text[:-1]
+    if not text or "\n" in text or "\r" in text or "\x00" in text:
+        raise Refusal(PASSPHRASE_SOURCE_INVALID, "passphrase file must contain exactly one non-empty line")
+    return text
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -60,6 +91,7 @@ def main(argv: list[str] | None = None) -> int:
     p_sign = subparsers.add_parser("sign", help="Sign platform.json manifest with Minisign")
     p_sign.add_argument("--manifest", type=Path, required=True, help="Path to platform.json")
     p_sign.add_argument("--secret-key", type=Path, required=True, help="Path to minisign secret key")
+    p_sign.add_argument("--passphrase-file", type=Path, help="Private file containing the encrypted-key passphrase")
     p_sign.add_argument("--platform-pub", type=Path, help="Path to platform public key file")
     p_sign.add_argument("--out", type=Path, help="Output signature file (default platform.json.minisig)")
     p_sign.add_argument("--acknowledge-production", action="store_true", help="Acknowledge production signing")
@@ -109,16 +141,27 @@ def main(argv: list[str] | None = None) -> int:
 
         elif args.subcommand == "sign":
             manifest_bytes = args.manifest.read_bytes()
+            production_pin = require_production_platform_pin(repo_root)
             if args.platform_pub:
                 selected_pin = load_pin_file(args.platform_pub)
             else:
-                selected_pin = require_production_platform_pin(repo_root)
+                selected_pin = production_pin
+            is_production = selected_pin == production_pin
+            if is_production and not args.acknowledge_production:
+                raise Refusal(PRODUCTION_UNAVAILABLE, "--acknowledge-production required for production signing")
+            if is_production and os.environ.get("SOLSTONE_PLATFORM_PRODUCTION") != "ack":
+                raise Refusal(PRODUCTION_UNAVAILABLE, "SOLSTONE_PLATFORM_PRODUCTION=ack environment variable required")
 
             sig_bytes = sign_manifest(
                 manifest_bytes=manifest_bytes,
                 secret_key_path=args.secret_key,
                 selected_pin=selected_pin,
-                is_production=args.acknowledge_production,
+                passphrase_callback=(
+                    (lambda: read_passphrase_file(args.passphrase_file))
+                    if args.passphrase_file
+                    else None
+                ),
+                is_production=is_production,
                 acknowledge_production=args.acknowledge_production,
                 repo_root=repo_root,
             )
@@ -129,15 +172,13 @@ def main(argv: list[str] | None = None) -> int:
             manifest_bytes = args.manifest.read_bytes()
             sig_bytes = args.signature.read_bytes()
 
-            # Production gate for publish
-            if args.acknowledge_production or not args.platform_pub:
-                if not args.acknowledge_production:
-                    raise Refusal(PRODUCTION_UNAVAILABLE, "--acknowledge-production required for production publishing")
-                if os.environ.get("SOLSTONE_PLATFORM_PRODUCTION") != "ack":
-                    raise Refusal(PRODUCTION_UNAVAILABLE, "SOLSTONE_PLATFORM_PRODUCTION=ack environment variable required")
-                selected_pin = require_production_platform_pin(repo_root)
-            else:
-                selected_pin = load_pin_file(args.platform_pub)
+            production_pin = require_production_platform_pin(repo_root)
+            selected_pin = load_pin_file(args.platform_pub) if args.platform_pub else production_pin
+            is_production = selected_pin == production_pin
+            if is_production and not args.acknowledge_production:
+                raise Refusal(PRODUCTION_UNAVAILABLE, "--acknowledge-production required for production publishing")
+            if is_production and os.environ.get("SOLSTONE_PLATFORM_PRODUCTION") != "ack":
+                raise Refusal(PRODUCTION_UNAVAILABLE, "SOLSTONE_PLATFORM_PRODUCTION=ack environment variable required")
 
             config = R2Config.from_env()
             if not config.endpoint or not config.bucket:

@@ -44,6 +44,7 @@ ARCHIVE_PACKAGE_SCRIPT = "archive-package-script"
 ARCHIVE_PACKAGE_TRIGGER = "archive-package-trigger"
 
 PRODUCTION_UNAVAILABLE = "production-unavailable"
+PASSPHRASE_SOURCE_INVALID = "passphrase-source-invalid"
 FIXTURE_KEY_REFUSED = "fixture-key-refused"
 PIN_MISMATCH = "pin-mismatch"
 PUBLISH_INDETERMINATE = "publish-indeterminate"
@@ -88,6 +89,7 @@ ALL_REFUSALS = {
     ARCHIVE_PACKAGE_SCRIPT,
     ARCHIVE_PACKAGE_TRIGGER,
     PRODUCTION_UNAVAILABLE,
+    PASSPHRASE_SOURCE_INVALID,
     FIXTURE_KEY_REFUSED,
     PIN_MISMATCH,
     PUBLISH_INDETERMINATE,

@@ -251,13 +251,19 @@ def build_tiny_natives(
         subprocess.run(["minisign", "-S", "-W", "-s", str(t_sec), "-m", str(sums_path), "-x", str(dirs["tmux"] / "SHA256SUMS.minisig"), "-t", "solstone-tmux 2.0.3 SHA256SUMS"], check=True)
 
         # 3. Journal
-        boot_script = b"#!/bin/sh\nBOOTSTRAP_REVISION=1\necho install\n"
+        boot_script = (
+            b"#!/bin/sh\n"
+            b"BOOTSTRAP_REVISION=2\n"
+            b"BOOTSTRAP_CONTRACT_VERSION=2\n"
+            b"echo install\n"
+        )
         boot_sha = hashlib.sha256(boot_script).hexdigest()
-        (dirs["journal"] / "install.sh").write_bytes(boot_script)
+        bootstrap_name = "solstone-journal-2.0.6-install.sh"
 
         for arch, target in [("x86_64", "linux-x86_64"), ("aarch64", "linux-aarch64")]:
             arch_dir = dirs["journal"] / target
             arch_dir.mkdir(parents=True, exist_ok=True)
+            (arch_dir / bootstrap_name).write_bytes(boot_script)
             j_tar = create_tiny_tar(arch_dir / f"solstone-journal-2.0.6-{target}.tar.gz", {"usr/bin/journal": b"#!/bin/sh\necho 2.0.6\n"})
             j_deb = create_tiny_deb(arch_dir / f"solstone-journal-2.0.6-{target}.deb", "solstone-journal", "2.0.6", "amd64" if arch == "x86_64" else "arm64", "journal", b"#!/bin/sh\necho 2.0.6\n")
             real_j_rpm = Path(__file__).parent.parent / "testdata" / "native" / "journal" / "2.0.6" / target / f"solstone-journal-2.0.6-{target}.rpm"
@@ -274,8 +280,9 @@ def build_tiny_natives(
             rel_text = (
                 f"product=solstone-journal\nversion=2.0.6\ntarget={target}\ncommit=3075c36b12fad469d4c9c0ab4555908fe8ecca1b\n"
                 f"lock_sha256=0000000000000000000000000000000000000000000000000000000000000000\n"
-                f"upgrade_epoch=journal-v2\nretention_window=3\nmin_bootstrap_revision=1\n"
-                f"bootstrap_sha256={boot_sha}\nstate_reader_min=2.0.0\nstate_reader_max=2.0.6\n"
+                f"upgrade_epoch=journal-v2\nretention_window=3\nmin_bootstrap_revision=2\n"
+                f"bootstrap_contract_version=2\nbootstrap_filename={bootstrap_name}\n"
+                f"state_reader_min=2.0.0\nstate_reader_max=2.0.6\n"
             )
             (arch_dir / f"solstone-journal-2.0.6-{target}.release").write_text(rel_text, encoding="utf-8")
 
@@ -285,6 +292,7 @@ def build_tiny_natives(
                 "target": target,
                 "files": {
                     f"solstone-journal-2.0.6-{target}.release": hashlib.sha256(rel_text.encode("utf-8")).hexdigest(),
+                    bootstrap_name: boot_sha,
                     f"solstone-journal-2.0.6-{target}.tar.gz": tar_sha,
                     f"solstone-journal-2.0.6-{target}.deb": deb_sha,
                     f"solstone-journal-2.0.6-{target}.rpm": rpm_sha,

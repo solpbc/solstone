@@ -2,11 +2,12 @@
 # Copyright (c) 2026 sol pbc
 
 from pathlib import Path
+import shutil
 import tempfile
 import unittest
 
 from solstone_platform.ingest import ingest_desktop, ingest_journal, ingest_tmux
-from solstone_platform.pins import embedded_pins
+from solstone_platform.pins import embedded_pins, load_pin_file
 from solstone_platform.refusals import (
     RELEASE_COHERENCE,
     SCHEMA_INVALID,
@@ -88,11 +89,74 @@ class TestNativeIngest(unittest.TestCase):
                 )
             self.assertEqual(ctx.exception.name, URL_FRAGMENT)
 
-    def test_ingest_journal_v2_if_present(self):
+    def test_ingest_journal_v2_producer_fixture(self):
         j2_dir = self.repo_root / "testdata" / "native" / "journal-v2"
-        # If only EXPECTED is present, skip success path
-        if not (j2_dir / ".manifest.json").is_file():
-            self.skipTest("journal-v2 real fixture not present (EXPECTED only)")
+        fixture_pin = load_pin_file(j2_dir / "fixture.pub")
+        comp = ingest_journal(
+            native_dir=j2_dir,
+            lane="release",
+            origin="https://updates.solstone.app",
+            bootstrap_file=None,
+            pin=fixture_pin,
+        )
+        self.assertEqual(comp.name, "journal")
+        self.assertEqual(comp.version, "2.0.8")
+        self.assertEqual(set(comp.arches), {"x86_64", "aarch64"})
+        self.assertEqual(comp.provenance["bootstrap"]["contract_version"], 2)
+        self.assertEqual(
+            comp.provenance["bootstrap"]["url"],
+            "https://updates.solstone.app/solstone-journal/release/2.0.8/solstone-journal-2.0.8-install.sh",
+        )
+        self.assertEqual(comp.provenance["upgrade_epoch"], "journal-v2")
+        self.assertEqual(comp.provenance["state_reader_min"], "1.0.0")
+        self.assertEqual(comp.provenance["state_reader_max"], "2.0.8")
+        self.assertEqual(comp.provenance["retention_window"], 3)
+
+    def test_ingest_journal_v2_fixture_refuses_production_pin(self):
+        j2_dir = self.repo_root / "testdata" / "native" / "journal-v2"
+        with self.assertRaises(Refusal) as ctx:
+            ingest_journal(
+                native_dir=j2_dir,
+                lane="release",
+                origin="https://updates.solstone.app",
+                bootstrap_file=None,
+                pin=self.pins.journal,
+            )
+        self.assertEqual(ctx.exception.name, SIGNATURE_PIN_MISMATCH)
+
+    def test_ingest_journal_v2_refuses_signed_manifest_tamper(self):
+        source = self.repo_root / "testdata" / "native" / "journal-v2"
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            fixture = Path(tmp_dir) / "journal-v2"
+            shutil.copytree(source, fixture)
+            manifest = fixture / "linux-x86_64" / "solstone-journal-2.0.8-linux-x86_64.manifest.json"
+            manifest.write_bytes(manifest.read_bytes() + b" ")
+            with self.assertRaises(Refusal) as ctx:
+                ingest_journal(
+                    native_dir=fixture,
+                    lane="release",
+                    origin="https://updates.solstone.app",
+                    bootstrap_file=None,
+                    pin=load_pin_file(fixture / "fixture.pub"),
+                )
+            self.assertEqual(ctx.exception.name, SIGNATURE_PIN_MISMATCH)
+
+    def test_ingest_journal_v2_refuses_bootstrap_tamper(self):
+        source = self.repo_root / "testdata" / "native" / "journal-v2"
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            fixture = Path(tmp_dir) / "journal-v2"
+            shutil.copytree(source, fixture)
+            bootstrap = fixture / "linux-aarch64" / "solstone-journal-2.0.8-install.sh"
+            bootstrap.write_bytes(bootstrap.read_bytes() + b"\n# tampered\n")
+            with self.assertRaises(Refusal) as ctx:
+                ingest_journal(
+                    native_dir=fixture,
+                    lane="release",
+                    origin="https://updates.solstone.app",
+                    bootstrap_file=None,
+                    pin=load_pin_file(fixture / "fixture.pub"),
+                )
+            self.assertEqual(ctx.exception.name, RELEASE_COHERENCE)
 
     def test_ingest_unsigned_manifest_fails(self):
         with tempfile.TemporaryDirectory() as tmp_dir:

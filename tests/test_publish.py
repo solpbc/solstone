@@ -31,6 +31,14 @@ class TestPublish(unittest.TestCase):
         self.assertEqual(compare_semver("1.1.0", "1.0.1"), 1)
         self.assertEqual(compare_semver("2.0.0", "1.99.99"), 1)
 
+    def test_publish_refuses_manifest_declaring_other_key_before_destination_use(self):
+        dest = InMemoryDestination()
+        with ephemeral_keypair("publisher test key") as (sec_path, pub_path, pin):
+            with self.assertRaises(Refusal) as ctx:
+                publish_release(self.raw_manifest, b"not-a-signature", pin, dest)
+            self.assertEqual(ctx.exception.name, SIGNATURE_PIN_MISMATCH)
+            self.assertTrue(dest.get("solstone/release/2.0.3/platform.json").is_absent())
+
     def test_publish_flow_and_idempotence(self):
         dest = InMemoryDestination()
         with ephemeral_keypair("publisher test key") as (sec_path, pub_path, pin):

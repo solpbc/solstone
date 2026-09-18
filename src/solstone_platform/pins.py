@@ -20,6 +20,9 @@ DESKTOP_PUBKEY = "RWTyHDN7r5/sGTjcpaSzR+tGcH324jnxrsd7dRnfK7Qn/FAbAzU1JyGe"
 TMUX_KEY_ID = "365708FAD9F80092"
 TMUX_PUBKEY = "RWSSAPjZ+ghXNvb4ExBLSd59dQMtjqW+xIZcl9MWfpWvjsTws6sBPEZz"
 
+PLATFORM_KEY_ID = "2938B1EBDC1E3876"
+PLATFORM_PUBKEY = "RWR2OB7c67E4KfRo4OnyOoXnvfOl+sum7TG6LscqXmN8mv/Q55nlBzCD"
+
 
 @dataclass(frozen=True)
 class MinisignPin:
@@ -50,7 +53,7 @@ def parse_minisign_pub(content: str) -> MinisignPin:
     comment_line = lines[0]
     pubkey_line = lines[1]
 
-    match = re.search(r"key\s+([0-9A-Fa-f]{16})", comment_line)
+    match = re.search(r"key:?\s+([0-9A-Fa-f]{16})", comment_line)
     if not match:
         raise Refusal(PIN_MISMATCH, f"could not parse 16-char hex key id from comment: '{comment_line}'")
 
@@ -70,7 +73,7 @@ def embedded_pins() -> PinSet:
         journal=MinisignPin(key_id=JOURNAL_KEY_ID, pubkey=JOURNAL_PUBKEY),
         desktop=MinisignPin(key_id=DESKTOP_KEY_ID, pubkey=DESKTOP_PUBKEY),
         tmux=MinisignPin(key_id=TMUX_KEY_ID, pubkey=TMUX_PUBKEY),
-        platform=None,  # Production platform pin is deliberately absent
+        platform=MinisignPin(key_id=PLATFORM_KEY_ID, pubkey=PLATFORM_PUBKEY),
     )
 
 

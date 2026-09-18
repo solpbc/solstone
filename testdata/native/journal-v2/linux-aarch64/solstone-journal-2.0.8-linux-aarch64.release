@@ -1,0 +1,12 @@
+product=solstone-journal
+version=2.0.8
+target=linux-aarch64
+commit=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+lock_sha256=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+upgrade_epoch=journal-v2
+retention_window=3
+min_bootstrap_revision=2
+bootstrap_contract_version=2
+bootstrap_filename=solstone-journal-2.0.8-install.sh
+state_reader_min=1.0.0
+state_reader_max=2.0.8

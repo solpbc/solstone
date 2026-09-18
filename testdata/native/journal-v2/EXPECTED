@@ -1,9 +1,6 @@
-This directory is reserved as the consumption path for the calling-session journal-v2 producer fixture.
-Expected members when provided:
-- solstone-journal-{version}-{target}.manifest.json
-- solstone-journal-{version}-{target}.manifest.json.minisig
-- solstone-journal-{version}-{target}.release (with v2 keys: bootstrap_sha256, state_reader_min, state_reader_max, upgrade_epoch=journal-v2, retention_window, min_bootstrap_revision)
-- solstone-journal-{version}-{target}.sha256
-- install.sh
-- solstone-journal-{version}-{target}.tar.gz / .deb / .rpm
-Do not synthesize or fake production-pinned signatures in this directory.
+This directory contains the unchanged journal-v2 producer fixture for the platform rail.
+Each native-target directory carries the exact producer output: signed manifest,
+release and checksum sidecars, versioned bootstrap, and tree/deb/rpm variants.
+fixture.pub is an explicitly test-only identity generated outside the repository;
+the tests prove that the production journal pin refuses it. Never present these
+small synthetic payloads or their signature as a production release.

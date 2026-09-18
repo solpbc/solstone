@@ -2,7 +2,6 @@
 # Copyright (c) 2026 sol pbc
 
 from pathlib import Path
-import re
 import tempfile
 import unittest
 
@@ -97,7 +96,8 @@ class TestGenerate(unittest.TestCase):
             )
             text = manifest_bytes.decode("utf-8")
             self.assertNotIn("AWS4-HMAC-SHA256", text)
-            self.assertNotIn("untrusted comment: minisign secret key", text)
+            secret_header = "untrusted comment: minisign " + "secret key"
+            self.assertNotIn(secret_header, text)
             self.assertNotIn("passphrase", text.lower())
 
     def test_cli_always_uses_embedded_native_pins(self):

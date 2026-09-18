@@ -57,6 +57,8 @@ def publish_release(
     # Step 1: Canonicalize, reparse, and verify signature locally before first destination operation
     parsed_manifest = parse_json_strict(manifest_bytes)
     validate_platform_manifest(parsed_manifest)
+    if parsed_manifest["platform_key_id"] != selected_pin.key_id:
+        raise Refusal(SIGNATURE_PIN_MISMATCH, "manifest platform_key_id does not match selected verification pin")
     canonical_bytes = canonical_json_bytes(parsed_manifest)
     if canonical_bytes != manifest_bytes:
         manifest_bytes = canonical_bytes
