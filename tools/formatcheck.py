@@ -7,7 +7,7 @@
 from pathlib import Path
 import sys
 
-TEXT_EXTS = {".py", ".json", ".md", ".sh", ".txt", ".pub", ".keyid", "Makefile", "LICENSE"}
+TEXT_EXTS = {".py", ".json", ".md", ".sh", ".txt", ".pub", ".keyid", ".in", "Makefile", "LICENSE"}
 
 
 def check_file(path: Path) -> list[str]:

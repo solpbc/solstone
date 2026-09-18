@@ -158,6 +158,7 @@ def create_tiny_synthetic_rpm(dest: Path, pkg_name: str, version: str, arch: str
 def build_tiny_natives(
     target_dir: Path,
     keypair_comment: str = "fixture native test key",
+    bootstrap_script: bytes | None = None,
 ) -> tuple[PinSet, dict[str, Path]]:
     """Build tiny, coherent synthetic natives for journal, desktop, and tmux."""
     dirs = {
@@ -251,12 +252,15 @@ def build_tiny_natives(
         subprocess.run(["minisign", "-S", "-W", "-s", str(t_sec), "-m", str(sums_path), "-x", str(dirs["tmux"] / "SHA256SUMS.minisig"), "-t", "solstone-tmux 2.0.3 SHA256SUMS"], check=True)
 
         # 3. Journal
-        boot_script = (
-            b"#!/bin/sh\n"
-            b"BOOTSTRAP_REVISION=2\n"
-            b"BOOTSTRAP_CONTRACT_VERSION=2\n"
-            b"echo install\n"
-        )
+        if bootstrap_script is not None:
+            boot_script = bootstrap_script
+        else:
+            boot_script = (
+                b"#!/bin/sh\n"
+                b"BOOTSTRAP_REVISION=2\n"
+                b"BOOTSTRAP_CONTRACT_VERSION=2\n"
+                b"echo install\n"
+            )
         boot_sha = hashlib.sha256(boot_script).hexdigest()
         bootstrap_name = "solstone-journal-2.0.6-install.sh"
 

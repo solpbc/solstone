@@ -1,0 +1,63 @@
+#!/bin/sh
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 sol pbc
+
+# Tmux v1 install entrypoint handler
+set -eu
+
+PREFIX="${SOLSTONE_INSTALL_PREFIX:-$HOME/.local}"
+NO_START=0
+NO_PATH=0
+ROUTE="tree"
+ROLE="tmux"
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --prefix)
+            PREFIX="$2"
+            shift 2
+            ;;
+        --route)
+            ROUTE="$2"
+            shift 2
+            ;;
+        --role)
+            ROLE="$2"
+            shift 2
+            ;;
+        --no-start)
+            NO_START=1
+            shift 1
+            ;;
+        --no-path)
+            NO_PATH=1
+            shift 1
+            ;;
+        *)
+            shift 1
+            ;;
+    esac
+done
+
+: "${ROLE}" "${NO_START}"
+
+CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
+
+# Path registration if not --no-path and route is tree
+if [ "$NO_PATH" -eq 0 ] && [ "$ROUTE" = "tree" ]; then
+    ENV_DIR="${CONFIG_HOME}/solstone"
+    mkdir -p "$ENV_DIR"
+    ENV_FILE="${ENV_DIR}/env"
+    if [ ! -f "$ENV_FILE" ] || grep -q "### SOLSTONE-PLATFORM-MANAGED: tmux-v1-path ###" "$ENV_FILE" 2>/dev/null; then
+        cat <<EOF > "$ENV_FILE"
+### SOLSTONE-PLATFORM-MANAGED: tmux-v1-path ###
+case ":\${PATH}:" in
+    *:${PREFIX}/bin:*) ;;
+    *) export PATH="${PREFIX}/bin:\${PATH}" ;;
+esac
+EOF
+        chmod 0644 "$ENV_FILE"
+    fi
+fi
+
+exit 0

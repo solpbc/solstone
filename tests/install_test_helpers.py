@@ -1,0 +1,172 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 sol pbc
+
+"""Helper utilities and mock loopback servers for installer unit tests."""
+
+from functools import partial
+from http.server import HTTPServer, SimpleHTTPRequestHandler
+import os
+from pathlib import Path
+import shutil
+import threading
+
+from solstone_platform.canonical import canonical_json_bytes
+from solstone_platform.generate import generate_platform_manifest
+from solstone_platform.pins import MinisignPin
+from solstone_platform.sign import sign_manifest
+from tools.fixture_builder import build_tiny_natives
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+class QuietHTTPRequestHandler(SimpleHTTPRequestHandler):
+    def log_message(self, format, *args):
+        pass
+
+
+class LoopbackServer:
+    def __init__(self, root_dir: Path):
+        self.root_dir = root_dir
+        handler = partial(QuietHTTPRequestHandler, directory=str(root_dir))
+        self.httpd = HTTPServer(("127.0.0.1", 0), handler)
+        self.port = self.httpd.server_port
+        self.origin = f"http://127.0.0.1:{self.port}"
+        self.thread = threading.Thread(target=self.httpd.serve_forever, daemon=True)
+
+    def start(self):
+        self.thread.start()
+
+    def stop(self):
+        self.httpd.shutdown()
+        self.httpd.server_close()
+
+
+def setup_fake_sudo(bin_dir: Path) -> Path:
+    """Create a mock sudo binary in bin_dir that enforces -n flag and delegates without root."""
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    sudo_script = bin_dir / "sudo"
+    sudo_script.write_text(
+        "#!/bin/sh\n"
+        "if [ \"$1\" != \"-n\" ]; then\n"
+        "  echo 'sudo: a password is required' >&2\n"
+        "  exit 1\n"
+        "fi\n"
+        "shift\n"
+        "exec \"$@\"\n",
+        encoding="utf-8",
+    )
+    sudo_script.chmod(0o755)
+    return sudo_script
+
+
+def make_v2_bootstrap_script(revision: int = 2) -> bytes:
+    return (
+        f"#!/bin/sh\n"
+        f"BOOTSTRAP_REVISION={revision}\n"
+        f"ROLE='journal'\n"
+        f"PREFIX=''\n"
+        f"DRY_RUN=0\n"
+        f"while [ $# -gt 0 ]; do\n"
+        f"  case \"$1\" in\n"
+        f"    --role) ROLE=\"$2\"; shift 2 ;;\n"
+        f"    --prefix) PREFIX=\"$2\"; shift 2 ;;\n"
+        f"    --dry-run) DRY_RUN=1; shift 1 ;;\n"
+        f"    *) shift 1 ;;\n"
+        f"  esac\n"
+        f"done\n"
+        f"if [ -n \"$PREFIX\" ] && [ \"$DRY_RUN\" -eq 0 ]; then\n"
+        f"  mkdir -p \"$PREFIX/bin\"\n"
+        f"  echo \"#!/bin/sh\\necho $ROLE 2.0.6\" > \"$PREFIX/bin/journal\"\n"
+        f"  chmod +x \"$PREFIX/bin/journal\"\n"
+        f"fi\n"
+        f"exit 0\n"
+    ).encode("utf-8")
+
+
+def setup_test_release_server(
+    work_dir: Path,
+    sec_key_path: Path,
+    pin: MinisignPin,
+    lane: str = "release",
+    version: str = "2.0.0",
+    min_installer_revision: int = 1,
+    bootstrap_revision: int = 2,
+    corrupt_manifest: bool = False,
+    corrupt_signature: bool = False,
+    duplicate_key: bool = False,
+) -> tuple[LoopbackServer, Path]:
+    server_root = work_dir / "www"
+    server_root.mkdir(parents=True, exist_ok=True)
+
+    # Build tiny natives with ephemeral keys and v2 bootstrap double
+    v2_boot = make_v2_bootstrap_script(revision=bootstrap_revision)
+    pin_set, native_dirs = build_tiny_natives(
+        target_dir=work_dir / "natives",
+        bootstrap_script=v2_boot,
+    )
+
+    server = LoopbackServer(server_root)
+    server.start()
+
+    manifest_bytes = generate_platform_manifest(
+        version=version,
+        lane=lane,
+        created_unix=1773820000,
+        source_commit="3075c36b12fad469d4c9c0ab4555908fe8ecca1b",
+        platform_key_id=pin.key_id,
+        repo_root=REPO_ROOT,
+        journal_dir=native_dirs["journal"],
+        desktop_dir=native_dirs["desktop"],
+        tmux_dir=native_dirs["tmux"],
+        journal_origin=server.origin,
+        pins=pin_set,
+    )
+
+    if min_installer_revision != 1:
+        import json
+        m_obj = json.loads(manifest_bytes.decode("utf-8"))
+        m_obj["minimum_installer_revision"] = min_installer_revision
+        manifest_bytes = canonical_json_bytes(m_obj)
+
+    if duplicate_key:
+        manifest_bytes = manifest_bytes.replace(b'"schema_version":1,', b'"schema_version":1,"schema_version":1,')
+    elif corrupt_manifest:
+        manifest_bytes = manifest_bytes + b"\nINVALID_EXTRA_JSON"
+
+    # Setup web root structure: solstone/{lane}/latest and solstone/{lane}/{version}/...
+    lane_dir = server_root / "solstone" / lane
+    ver_dir = lane_dir / version
+    ver_dir.mkdir(parents=True, exist_ok=True)
+
+    # Write latest
+    (lane_dir / "latest").write_text(f"{version}\n", encoding="utf-8")
+
+    # Write manifest
+    manifest_path = ver_dir / "platform.json"
+    manifest_path.write_bytes(manifest_bytes)
+
+    # Sign manifest
+    sig_bytes = sign_manifest(
+        manifest_bytes=manifest_bytes,
+        secret_key_path=sec_key_path,
+        selected_pin=pin,
+        repo_root=REPO_ROOT,
+        is_production=False,
+    )
+    if corrupt_signature:
+        sig_bytes = b"corrupted signature bytes\n"
+    (ver_dir / "platform.json.minisig").write_bytes(sig_bytes)
+
+    # Copy journal bootstrap
+    j_ver = "2.0.6"
+    j_bootstrap_dir = server_root / "solstone-journal" / lane / j_ver
+    j_bootstrap_dir.mkdir(parents=True, exist_ok=True)
+    (j_bootstrap_dir / "install.sh").write_bytes(v2_boot)
+
+    # Copy all component variant archives (tar.gz, deb, rpm) to ver_dir
+    for comp_dir in native_dirs.values():
+        for archive in comp_dir.rglob("*"):
+            if archive.is_file() and archive.suffix in (".gz", ".deb", ".rpm"):
+                shutil.copy2(archive, ver_dir / archive.name)
+
+    return server, server_root

@@ -1,0 +1,24 @@
+#!/bin/sh
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 sol pbc
+
+# Tmux v1 uninstall-service entrypoint handler
+set -eu
+
+PREFIX="${SOLSTONE_INSTALL_PREFIX:-$HOME/.local}"
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --prefix)
+            PREFIX="$2"
+            shift 2
+            ;;
+        *)
+            shift 1
+            ;;
+    esac
+done
+
+: "${PREFIX}"
+
+exit 0

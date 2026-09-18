@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-.PHONY: all hopper-install build test lint format ci
+.PHONY: all hopper-install build build-installer test lint format ci
 
 all: ci
 
@@ -10,6 +10,9 @@ hopper-install:
 
 build:
 	python3 -m compileall -q src tools tests
+
+build-installer:
+	python3 tools/build_installer.py --production -o dist/install.sh
 
 test:
 	PYTHONPATH=src:tools python3 -m unittest discover -s tests -p "test_*.py" -v

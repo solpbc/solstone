@@ -22,14 +22,15 @@ open source. self-host it, or let [sol pbc](https://solpbc.org) operate it for y
 | **[solstone-swift](https://github.com/solpbc/solstone-swift)** | the ios app. |
 | **[solstone-tmux](https://github.com/solpbc/solstone-tmux)** | the tmux app. |
 
-## platform metadata & publish rail
+## platform metadata & installer rail
 
-This repository generates, validates, signs, and publishes the platform-level `platform.json` release metadata manifest and manages the atomic `latest` pointer across release lanes.
+This repository generates, validates, signs, and publishes the platform-level `platform.json` release metadata manifest, manages the atomic `latest` pointer across release lanes, and provides the unpublished POSIX platform installer build rail (`install.sh.in` -> `install.sh`).
 
-> **Note**: This repository does not install Solstone or replace the POSIX bootstrap installer (`https://solstone.app/install.sh`). Production key cutover, component native releases, live publication, installer integration, and URL cutovers are handled in downstream and deployment stages.
+> **Note**: This repository contains the installer generator and hermetic test suite. Production platform key cutover, live publication, and production URL cutover remain downstream. The live URL `https://solstone.app/install.sh` remains the journal one-liner bootstrap until production platform key release.
 
 For authoritative definitions, refer to:
 - Native component pins: `pins/`
+- Current installer revision: `compat/installer_revision`
 - Minimum installer revision floor: `compat/minimum_installer_revision`
 - Component handler contracts: `contracts/`
 - Target architecture and package mappings: `src/solstone_platform/targets.py`
@@ -39,6 +40,9 @@ For authoritative definitions, refer to:
 ```bash
 # Build (compile Python sources)
 make build
+
+# Build production POSIX platform installer (refuses without pins/platform.pub; local verification is make test / test seam)
+make build-installer
 
 # Run unit and regression test suite
 make test
