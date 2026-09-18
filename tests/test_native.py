@@ -6,7 +6,15 @@ import shutil
 import tempfile
 import unittest
 
-from solstone_platform.ingest import ingest_desktop, ingest_journal, ingest_tmux
+from solstone_platform.ingest import (
+    _parse_tmux_checksums,
+    _parse_tmux_target_artifacts,
+    _require_exact_artifact_names,
+    _validate_desktop_artifacts,
+    ingest_desktop,
+    ingest_journal,
+    ingest_tmux,
+)
 from solstone_platform.pins import embedded_pins, load_pin_file
 from solstone_platform.refusals import (
     RELEASE_COHERENCE,
@@ -156,6 +164,109 @@ class TestNativeIngest(unittest.TestCase):
                     bootstrap_file=None,
                     pin=load_pin_file(fixture / "fixture.pub"),
                 )
+            self.assertEqual(ctx.exception.name, RELEASE_COHERENCE)
+
+    def test_ingest_journal_v2_refuses_unbound_sidecar_bytes(self):
+        source = self.repo_root / "testdata" / "native" / "journal-v2"
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            fixture = Path(tmp_dir) / "journal-v2"
+            shutil.copytree(source, fixture)
+            sidecar = fixture / "linux-x86_64" / "solstone-journal-2.0.8-linux-x86_64.sha256"
+            sidecar.write_bytes(sidecar.read_bytes() + b"# semantically empty tamper\n")
+            with self.assertRaises(Refusal) as ctx:
+                ingest_journal(
+                    native_dir=fixture,
+                    lane="release",
+                    origin="https://updates.solstone.app",
+                    bootstrap_file=None,
+                    pin=load_pin_file(fixture / "fixture.pub"),
+                )
+            self.assertEqual(ctx.exception.name, RELEASE_COHERENCE)
+
+    def test_native_metadata_selection_refuses_ambiguity(self):
+        cases = [
+            (
+                "journal-v2",
+                self.repo_root / "testdata" / "native" / "journal-v2",
+                "linux-x86_64/solstone-journal-2.0.8-linux-x86_64.manifest.json",
+                "linux-x86_64/solstone-journal-9.9.9-linux-x86_64.manifest.json",
+            ),
+            (
+                "desktop",
+                self.repo_root / "testdata" / "native" / "desktop" / "2.0.3",
+                "solstone-linux-2.0.3-linux-x86_64.rust-release-manifest.json",
+                "solstone-linux-9.9.9-linux-x86_64.rust-release-manifest.json",
+            ),
+            (
+                "tmux",
+                self.repo_root / "testdata" / "native" / "tmux" / "2.0.3",
+                "solstone-tmux-2.0.3-x86_64-unknown-linux-musl.target.json",
+                "solstone-tmux-9.9.9-x86_64-unknown-linux-musl.target.json",
+            ),
+        ]
+        for component, source, original, duplicate in cases:
+            with self.subTest(component=component), tempfile.TemporaryDirectory() as tmp_dir:
+                fixture = Path(tmp_dir) / component
+                shutil.copytree(source, fixture)
+                duplicate_path = fixture / duplicate
+                duplicate_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(fixture / original, duplicate_path)
+                with self.assertRaises(Refusal) as ctx:
+                    if component == "journal-v2":
+                        ingest_journal(
+                            native_dir=fixture,
+                            lane="release",
+                            origin="https://updates.solstone.app",
+                            bootstrap_file=None,
+                            pin=load_pin_file(fixture / "fixture.pub"),
+                        )
+                    elif component == "desktop":
+                        ingest_desktop(fixture, self.pins.desktop)
+                    else:
+                        ingest_tmux(fixture, self.pins.tmux)
+                self.assertEqual(ctx.exception.name, RELEASE_COHERENCE)
+
+    def test_duplicate_digests_and_lengths_are_allowed_for_distinct_names(self):
+        digest = "a" * 64
+        _validate_desktop_artifacts(
+            [
+                {"path": "one.tar.gz", "sha256": digest, "bytes": 12},
+                {"path": "two.deb", "sha256": digest, "bytes": 12},
+            ]
+        )
+        self.assertEqual(
+            _parse_tmux_target_artifacts(
+                [
+                    {"name": "one.tar.gz", "sha256": digest},
+                    {"name": "two.deb", "sha256": digest},
+                ]
+            ),
+            {"one.tar.gz": digest, "two.deb": digest},
+        )
+        self.assertEqual(
+            _parse_tmux_checksums(f"{digest}  one.tar.gz\n{digest}  two.deb\n".encode()),
+            {"one.tar.gz": digest, "two.deb": digest},
+        )
+
+    def test_native_artifact_sets_refuse_missing_or_extra_members(self):
+        expected = {"one.tar.gz", "two.deb", "three.rpm"}
+        _require_exact_artifact_names(expected, expected, "fixture")
+        for actual in [expected - {"two.deb"}, expected | {"extra.tar.gz"}]:
+            with self.subTest(actual=actual), self.assertRaises(Refusal) as ctx:
+                _require_exact_artifact_names(actual, expected, "fixture")
+            self.assertEqual(ctx.exception.name, RELEASE_COHERENCE)
+
+    def test_tmux_checksums_refuse_malformed_and_duplicate_names(self):
+        digest = "b" * 64
+        invalid_inputs = [
+            b"not-a-checksum-line\n",
+            b"z" * 64 + b"  artifact.tar.gz\n",
+            f"{digest}  ../artifact.tar.gz\n".encode(),
+            f"{digest}  artifact.tar.gz\n{digest}  artifact.tar.gz\n".encode(),
+        ]
+        for content in invalid_inputs:
+            with self.subTest(content=content), self.assertRaises(Refusal) as ctx:
+                _parse_tmux_checksums(content)
             self.assertEqual(ctx.exception.name, RELEASE_COHERENCE)
 
     def test_ingest_unsigned_manifest_fails(self):

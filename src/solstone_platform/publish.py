@@ -122,6 +122,16 @@ def _verify_immutable_object(
         raise Refusal(RELEASE_COHERENCE, f"re-read cache-control mismatch on {key}: {get_res.cache_control} vs {expected_cache_control}")
 
 
+def _add_claim(
+    claims: dict[str, tuple[bytes, str, str]],
+    key: str,
+    claim: tuple[bytes, str, str],
+) -> None:
+    if key in claims:
+        raise Refusal(RELEASE_COHERENCE, f"duplicate destination claim for {key}")
+    claims[key] = claim
+
+
 def publish_release(*args, **kwargs) -> PublishReport:
     """Closed production publication entrypoint."""
     # Strict argument allowlist check BEFORE capture
@@ -177,6 +187,8 @@ def publish_release(*args, **kwargs) -> PublishReport:
         manifest_obj = parse_json_strict(manifest_bytes)
         validate_platform_manifest(manifest_obj)
         canonical_manifest = canonical_json_bytes(manifest_obj)
+        if canonical_manifest != manifest_bytes:
+            raise Refusal(RELEASE_COHERENCE, "platform manifest must use canonical JSON bytes")
 
         version = manifest_obj["version"]
         lane = manifest_obj["lane"]
@@ -293,7 +305,7 @@ def publish_release(*args, **kwargs) -> PublishReport:
                         ct = "application/octet-stream"
                     else:
                         ct = "text/plain; charset=utf-8"
-                    claims_to_make[k] = (b, ct, "public, max-age=31536000, immutable")
+                    _add_claim(claims_to_make, k, (b, ct, "public, max-age=31536000, immutable"))
 
         # Desktop objects
         d_ver = ingested_d.version
@@ -316,7 +328,7 @@ def publish_release(*args, **kwargs) -> PublishReport:
                     ct = "application/octet-stream"
                 else:
                     ct = "text/plain; charset=utf-8"
-                claims_to_make[k] = (b, ct, "public, max-age=31536000, immutable")
+                _add_claim(claims_to_make, k, (b, ct, "public, max-age=31536000, immutable"))
 
         # Tmux objects
         t_ver = ingested_t.version
@@ -342,7 +354,7 @@ def publish_release(*args, **kwargs) -> PublishReport:
                     ct = "application/octet-stream"
                 else:
                     ct = "text/plain; charset=utf-8"
-                claims_to_make[k] = (b, ct, "public, max-age=31536000, immutable")
+                _add_claim(claims_to_make, k, (b, ct, "public, max-age=31536000, immutable"))
 
         # 2. Journal bootstrap object
         if snapshot.bootstrap_file and snapshot.bootstrap_file.is_file():
@@ -406,6 +418,7 @@ def publish_release(*args, **kwargs) -> PublishReport:
                     )
                 if cmp == 0:
                     # Idempotent re-publication of current latest
+                    _verify_immutable_object(dest, latest_key, latest_body, latest_ct, latest_cc)
                     return PublishReport(
                         version=version,
                         lane=lane,
@@ -428,6 +441,7 @@ def publish_release(*args, **kwargs) -> PublishReport:
             )
 
             if cas_res.is_ok():
+                _verify_immutable_object(dest, latest_key, latest_body, latest_ct, latest_cc)
                 return PublishReport(
                     version=version,
                     lane=lane,

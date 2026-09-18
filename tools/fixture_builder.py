@@ -288,7 +288,8 @@ def build_tiny_natives(
                 f"{hashlib.sha256(rel_text.encode('utf-8')).hexdigest()}  solstone-journal-2.0.6-{target}.release",
                 f"{boot_sha}  {bootstrap_name}",
             ]
-            (arch_dir / f"solstone-journal-2.0.6-{target}.sha256").write_text("\n".join(sha256_lines) + "\n", encoding="utf-8")
+            sha256_bytes = ("\n".join(sha256_lines) + "\n").encode("utf-8")
+            (arch_dir / f"solstone-journal-2.0.6-{target}.sha256").write_bytes(sha256_bytes)
 
             j_manifest = {
                 "product": "solstone-journal",
@@ -300,6 +301,7 @@ def build_tiny_natives(
                     f"solstone-journal-2.0.6-{target}.tar.gz": tar_sha,
                     f"solstone-journal-2.0.6-{target}.deb": deb_sha,
                     f"solstone-journal-2.0.6-{target}.rpm": rpm_sha,
+                    f"solstone-journal-2.0.6-{target}.sha256": hashlib.sha256(sha256_bytes).hexdigest(),
                 },
             }
             m_path = arch_dir / f"solstone-journal-2.0.6-{target}.manifest.json"

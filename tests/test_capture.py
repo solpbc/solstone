@@ -280,6 +280,25 @@ class TestCapture(unittest.TestCase):
         self.assertEqual(ctx.exception.name, SOURCE_CHANGED_DURING_CAPTURE)
         self.assertFalse(last_private_parent().exists())
 
+    def test_race_source_growth_refuses_before_copying_past_opened_size(self):
+        def grow_hook(source_class: str, rel_path: str):
+            if source_class == "tmux" and rel_path == "SHA256SUMS":
+                with open(self.tmux_dir / "SHA256SUMS", "ab") as source:
+                    source.write(b"unexpected growth")
+
+        capture._interrupted_read_hook = grow_hook
+
+        with self.assertRaises(Refusal) as ctx:
+            capture_release_sources(
+                manifest_path=self.manifest_file,
+                signature_path=self.sig_file,
+                journal_dir=self.journal_dir,
+                desktop_dir=self.desktop_dir,
+                tmux_dir=self.tmux_dir,
+            )
+        self.assertEqual(ctx.exception.name, SOURCE_CHANGED_DURING_CAPTURE)
+        self.assertFalse(last_private_parent().exists())
+
     def test_interrupted_read_per_source_class(self):
         source_classes = [
             "platform_manifest",

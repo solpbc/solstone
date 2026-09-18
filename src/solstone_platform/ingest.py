@@ -147,6 +147,95 @@ def _positive_int(value: str, field: str) -> int:
     return int(value)
 
 
+def _require_one(paths: list[Path], description: str) -> Path:
+    if len(paths) != 1:
+        raise Refusal(RELEASE_COHERENCE, f"expected exactly one {description}, found {len(paths)}")
+    return paths[0]
+
+
+def _parse_tmux_checksums(content: bytes) -> dict[str, str]:
+    checksums: dict[str, str] = {}
+    try:
+        text = content.decode("utf-8")
+    except UnicodeDecodeError:
+        raise Refusal(RELEASE_COHERENCE, "tmux SHA256SUMS is not valid utf-8")
+
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        parts = line.split(None, 1)
+        if len(parts) != 2:
+            raise Refusal(RELEASE_COHERENCE, f"malformed tmux SHA256SUMS line: '{line}'")
+        sha = parts[0].lower()
+        fname = parts[1].lstrip("*").strip()
+        if not re.fullmatch(r"[0-9a-f]{64}", sha):
+            raise Refusal(RELEASE_COHERENCE, f"invalid sha256 in tmux SHA256SUMS: '{sha}'")
+        if not fname or "/" in fname or "\\" in fname or fname in {".", ".."}:
+            raise Refusal(RELEASE_COHERENCE, f"unsafe filename in tmux SHA256SUMS: '{fname}'")
+        if fname in checksums:
+            raise Refusal(RELEASE_COHERENCE, f"duplicate entry in tmux SHA256SUMS: {fname}")
+        checksums[fname] = sha
+    return checksums
+
+
+def _validate_desktop_artifacts(artifacts: Any) -> None:
+    if not isinstance(artifacts, list):
+        raise Refusal(RELEASE_COHERENCE, "desktop manifest artifacts must be a list")
+    seen_paths: set[str] = set()
+    for item in artifacts:
+        if not isinstance(item, dict):
+            raise Refusal(RELEASE_COHERENCE, "desktop manifest artifact must be an object")
+        path = item.get("path")
+        digest = item.get("sha256")
+        byte_length = item.get("bytes")
+        if (
+            not isinstance(path, str)
+            or not path
+            or "/" in path
+            or "\\" in path
+            or path in {".", ".."}
+            or path in seen_paths
+        ):
+            raise Refusal(RELEASE_COHERENCE, f"duplicate or invalid artifact path in desktop manifest: {path}")
+        if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+            raise Refusal(RELEASE_COHERENCE, f"invalid artifact sha256 in desktop manifest: {digest}")
+        if not isinstance(byte_length, int) or isinstance(byte_length, bool) or byte_length < 0:
+            raise Refusal(RELEASE_COHERENCE, f"invalid artifact byte length in desktop manifest: {byte_length}")
+        seen_paths.add(path)
+
+
+def _parse_tmux_target_artifacts(artifacts: Any) -> dict[str, str]:
+    if not isinstance(artifacts, list):
+        raise Refusal(RELEASE_COHERENCE, "tmux target artifacts must be a list")
+    result: dict[str, str] = {}
+    for item in artifacts:
+        if not isinstance(item, dict):
+            raise Refusal(RELEASE_COHERENCE, "tmux target artifact must be an object")
+        name = item.get("name")
+        digest = item.get("sha256")
+        if (
+            not isinstance(name, str)
+            or not name
+            or "/" in name
+            or "\\" in name
+            or name in {".", ".."}
+            or name in result
+        ):
+            raise Refusal(RELEASE_COHERENCE, f"duplicate or invalid artifact name in tmux target.json: {name}")
+        if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+            raise Refusal(RELEASE_COHERENCE, f"invalid artifact sha in tmux target.json: {digest}")
+        result[name] = digest
+    return result
+
+
+def _require_exact_artifact_names(actual: set[str], expected: set[str], description: str) -> None:
+    if actual != expected:
+        missing = sorted(expected - actual)
+        extra = sorted(actual - expected)
+        raise Refusal(RELEASE_COHERENCE, f"{description} artifact set mismatch: missing={missing}, extra={extra}")
+
+
 @dataclass
 class IngestedComponent:
     name: str
@@ -180,9 +269,7 @@ def ingest_journal(
 
         # Find manifest file
         manifests = list(arch_dir.glob(f"solstone-journal-*-{mapping.native_target}.manifest.json"))
-        if not manifests:
-            raise Refusal(RELEASE_COHERENCE, f"no journal manifest found for {mapping.native_target} in {arch_dir}")
-        manifest_path = manifests[0]
+        manifest_path = _require_one(manifests, f"journal manifest for {mapping.native_target}")
         sig_path = manifest_path.with_name(manifest_path.name + ".minisig")
 
         verify_minisign_signature(pin, manifest_path, sig_path)
@@ -332,7 +419,14 @@ def ingest_journal(
         sha256_sidecar_path = arch_dir / f"{expected_basename}.sha256"
         if not sha256_sidecar_path.is_file():
             raise Refusal(RELEASE_COHERENCE, f"missing journal .sha256 sidecar: {sha256_sidecar_path.name}")
-        sidecar_map = parse_sha256_sidecar(sha256_sidecar_path.read_text(encoding="utf-8"))
+        sha256_sidecar_bytes = sha256_sidecar_path.read_bytes()
+        if files_map.get(sha256_sidecar_path.name) != hashlib.sha256(sha256_sidecar_bytes).hexdigest():
+            raise Refusal(RELEASE_COHERENCE, f"manifest does not bind exact .sha256 bytes: {sha256_sidecar_path.name}")
+        try:
+            sha256_sidecar_text = sha256_sidecar_bytes.decode("utf-8")
+        except UnicodeDecodeError:
+            raise Refusal(RELEASE_COHERENCE, f"journal .sha256 sidecar is not valid utf-8: {sha256_sidecar_path.name}")
+        sidecar_map = parse_sha256_sidecar(sha256_sidecar_text)
 
         required_sidecar_members = [
             release_path.name,
@@ -423,9 +517,7 @@ def ingest_desktop(native_dir: Path, pin: MinisignPin) -> IngestedComponent:
         raise Refusal(DESKTOP_AARCH64, f"desktop component contains aarch64 artifacts: {[f.name for f in aarch64_files]}")
 
     manifests = list(native_dir.glob("solstone-linux-*-linux-x86_64.rust-release-manifest.json"))
-    if not manifests:
-        raise Refusal(RELEASE_COHERENCE, f"desktop rust-release-manifest not found in {native_dir}")
-    manifest_path = manifests[0]
+    manifest_path = _require_one(manifests, "desktop rust-release-manifest")
     sig_path = manifest_path.with_name(manifest_path.name + ".minisig")
 
     verify_minisign_signature(pin, manifest_path, sig_path)
@@ -455,33 +547,23 @@ def ingest_desktop(native_dir: Path, pin: MinisignPin) -> IngestedComponent:
     native_target = TARGET_MAPPINGS["x86_64"].native_target
 
     artifacts = manifest_obj.get("artifacts", [])
-    seen_artifact_paths: set[str] = set()
-    seen_artifact_shas: set[str] = set()
-    seen_artifact_bytes: set[int] = set()
-    for item in artifacts:
-        p = item.get("path")
-        s = item.get("sha256")
-        b = item.get("bytes")
-        if not p or p in seen_artifact_paths:
-            raise Refusal(RELEASE_COHERENCE, f"duplicate or invalid artifact path in desktop manifest: {p}")
-        if not s or s in seen_artifact_shas:
-            raise Refusal(RELEASE_COHERENCE, f"duplicate or invalid artifact sha256 in desktop manifest: {s}")
-        if b is None or b in seen_artifact_bytes:
-            raise Refusal(RELEASE_COHERENCE, f"duplicate or invalid artifact byte length in desktop manifest: {b}")
-        seen_artifact_paths.add(p)
-        seen_artifact_shas.add(s)
-        seen_artifact_bytes.add(b)
+    _validate_desktop_artifacts(artifacts)
 
-    # Identify tree, deb, rpm
-    tar_item = next((item for item in artifacts if item["path"].endswith(".tar.gz")), None)
-    deb_item = next((item for item in artifacts if item["path"].endswith(".deb")), None)
-    rpm_item = next((item for item in artifacts if item["path"].endswith(".rpm")), None)
-
-    if not tar_item or not deb_item or not rpm_item:
-        raise Refusal(INCOMPLETE_VARIANTS, "desktop missing tree, deb, or rpm artifact in manifest")
+    expected_artifact_names = {
+        "tree": f"solstone-linux-{ver}-linux-x86_64.tar.gz",
+        "deb": f"solstone-linux_{ver}-1_amd64.deb",
+        "rpm": f"solstone-linux-{ver}-1.x86_64.rpm",
+    }
+    items_by_name = {item["path"]: item for item in artifacts}
+    _require_exact_artifact_names(
+        set(items_by_name),
+        set(expected_artifact_names.values()),
+        "desktop",
+    )
 
     variants_dict: dict[str, Any] = {}
-    for var_type, item in [("tree", tar_item), ("deb", deb_item), ("rpm", rpm_item)]:
+    for var_type, filename in expected_artifact_names.items():
+        item = items_by_name[filename]
         filename = item["path"]
         file_path = native_dir / filename
         if not file_path.is_file():
@@ -540,23 +622,7 @@ def ingest_tmux(native_dir: Path, pin: MinisignPin) -> IngestedComponent:
     sums_bytes = sums_path.read_bytes()
     sig_bytes = sig_path.read_bytes()
 
-    # Parse SHA256SUMS with strict uniqueness of name and checksum value
-    checksums: dict[str, str] = {}
-    checksum_to_file: dict[str, str] = {}
-    for line in sums_bytes.decode("utf-8", errors="replace").splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        parts = line.split(None, 1)
-        if len(parts) == 2:
-            sha = parts[0].lower()
-            fname = parts[1].lstrip("*").strip()
-            if fname in checksums:
-                raise Refusal(RELEASE_COHERENCE, f"duplicate entry in tmux SHA256SUMS: {fname}")
-            if sha in checksum_to_file:
-                raise Refusal(RELEASE_COHERENCE, f"duplicate checksum value in tmux SHA256SUMS: {sha} ({fname} vs {checksum_to_file[sha]})")
-            checksums[fname] = sha
-            checksum_to_file[sha] = fname
+    checksums = _parse_tmux_checksums(sums_bytes)
 
     component_version: Optional[str] = None
     cross_arch_commit: Optional[str] = None
@@ -566,10 +632,7 @@ def ingest_tmux(native_dir: Path, pin: MinisignPin) -> IngestedComponent:
         mapping = get_target_mapping(target_arch)
         # Find matching target.json
         matching_targets = list(native_dir.glob(f"solstone-tmux-*-{mapping.musl_target}.target.json"))
-        if not matching_targets:
-            raise Refusal(RELEASE_COHERENCE, f"tmux target json missing for {mapping.musl_target}")
-
-        target_json_path = matching_targets[0]
+        target_json_path = _require_one(matching_targets, f"tmux target json for {mapping.musl_target}")
         if target_json_path.name not in checksums:
             raise Refusal(RELEASE_COHERENCE, f"{target_json_path.name} not in SHA256SUMS")
 
@@ -603,23 +666,18 @@ def ingest_tmux(native_dir: Path, pin: MinisignPin) -> IngestedComponent:
             raise Refusal(RELEASE_COHERENCE, f"tmux source_commit mismatch across arches: {cross_arch_commit} vs {commit_val}")
 
         # Check target artifacts with uniqueness
-        target_artifacts: dict[str, str] = {}
-        seen_target_shas: set[str] = set()
-        for item in target_obj.get("artifacts", []):
-            aname = item.get("name")
-            asha = item.get("sha256")
-            if not aname or aname in target_artifacts:
-                raise Refusal(RELEASE_COHERENCE, f"duplicate or missing artifact name in tmux target.json: {aname}")
-            if not asha or asha in seen_target_shas:
-                raise Refusal(RELEASE_COHERENCE, f"duplicate or missing artifact sha in tmux target.json: {asha}")
-            target_artifacts[aname] = asha
-            seen_target_shas.add(asha)
+        target_artifacts = _parse_tmux_target_artifacts(target_obj.get("artifacts", []))
 
 
         # Locate tree, deb, rpm
         tar_name = f"solstone-tmux-{ver}-{target_arch}-linux.tar.gz"
         deb_name = f"solstone-tmux_{ver}_{mapping.deb_arch}.deb"
         rpm_name = f"solstone-tmux-{ver}-1.{mapping.rpm_arch}.rpm"
+        _require_exact_artifact_names(
+            set(target_artifacts),
+            {tar_name, deb_name, rpm_name},
+            f"tmux {mapping.musl_target}",
+        )
 
         variants_dict: dict[str, Any] = {}
         for var_type, filename in [("tree", tar_name), ("deb", deb_name), ("rpm", rpm_name)]:

@@ -51,6 +51,7 @@ class FixtureDestination:
         self.platform_pin = platform_pin
         self._post_capture_hook: Optional[Callable[[], None]] = None
         self.cas_pre_hook: Optional[Callable[[], None]] = None
+        self.cas_post_hook: Optional[Callable[[], None]] = None
 
         self.objects: dict[str, StoredObject] = {}
         self.ledger: list[LedgerEntry] = []
@@ -180,5 +181,8 @@ class FixtureDestination:
             content_type=content_type,
             cache_control=cache_control,
         )
+        if self.cas_post_hook:
+            hook = self.cas_post_hook
+            self.cas_post_hook = None
+            hook()
         return CasResult(status=ResultStatus.OK, etag=new_etag)
-

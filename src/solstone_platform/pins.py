@@ -120,4 +120,3 @@ def embedded_pins() -> PinSet:
 def require_production_platform_pin(repo_root: Optional[Path] = None) -> MinisignPin:
     """Load production platform pin from packaged resources, ignoring caller repo_root."""
     return load_packaged_pin("platform")
-

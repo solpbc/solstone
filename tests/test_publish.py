@@ -4,6 +4,7 @@
 """Tests for atomic publication rail, complete dependency claim, and immutable destination integrity."""
 
 from pathlib import Path
+import subprocess
 import tempfile
 import unittest
 
@@ -221,6 +222,95 @@ class TestPublish(unittest.TestCase):
         # Verify no compare_and_swap in ledger
         cas_ops = [op for op in dest.ledger if op.method == "compare_and_swap"]
         self.assertEqual(len(cas_ops), 0)
+
+    def test_noncanonical_signed_platform_manifest_refuses(self):
+        rel = self._setup_fixture_release("2.0.3")
+        noncanonical_bytes = rel["manifest_bytes"] + b"\n"
+        rel["manifest_path"].write_bytes(noncanonical_bytes)
+        subprocess.run(
+            [
+                "minisign",
+                "-S",
+                "-W",
+                "-s",
+                str(rel["sec_path"]),
+                "-m",
+                str(rel["manifest_path"]),
+                "-x",
+                str(rel["signature_path"]),
+                "-t",
+                "noncanonical platform fixture",
+            ],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        with self.assertRaises(Refusal) as ctx:
+            publish_release(
+                manifest_path=rel["manifest_path"],
+                signature_path=rel["signature_path"],
+                journal_dir=rel["journal_dir"],
+                desktop_dir=rel["desktop_dir"],
+                tmux_dir=rel["tmux_dir"],
+                dest=rel["dest"],
+            )
+        self.assertEqual(ctx.exception.name, RELEASE_COHERENCE)
+        self.assertEqual(rel["dest"].ledger, [])
+
+    def test_latest_cas_success_requires_authoritative_readback(self):
+        rel = self._setup_fixture_release("2.0.3")
+        latest_key = "solstone/release/latest"
+
+        def corrupt_latest_after_cas():
+            rel["dest"].objects[latest_key] = StoredObject(
+                body=b"9.9.9\n",
+                etag='"corrupt"',
+                content_type="text/plain; charset=utf-8",
+                cache_control="no-store, max-age=0",
+            )
+
+        rel["dest"].cas_post_hook = corrupt_latest_after_cas
+        with self.assertRaises(Refusal) as ctx:
+            publish_release(
+                manifest_path=rel["manifest_path"],
+                signature_path=rel["signature_path"],
+                journal_dir=rel["journal_dir"],
+                desktop_dir=rel["desktop_dir"],
+                tmux_dir=rel["tmux_dir"],
+                dest=rel["dest"],
+            )
+        self.assertEqual(ctx.exception.name, SAME_VERSION_DIFFERENT_BYTES)
+
+    def test_equal_latest_requires_exact_metadata(self):
+        rel = self._setup_fixture_release("2.0.3")
+        publish_release(
+            manifest_path=rel["manifest_path"],
+            signature_path=rel["signature_path"],
+            journal_dir=rel["journal_dir"],
+            desktop_dir=rel["desktop_dir"],
+            tmux_dir=rel["tmux_dir"],
+            dest=rel["dest"],
+        )
+        latest_key = "solstone/release/latest"
+        current = rel["dest"].objects[latest_key]
+        rel["dest"].objects[latest_key] = StoredObject(
+            body=current.body,
+            etag=current.etag,
+            content_type=current.content_type,
+            cache_control="public, max-age=60",
+        )
+
+        with self.assertRaises(Refusal) as ctx:
+            publish_release(
+                manifest_path=rel["manifest_path"],
+                signature_path=rel["signature_path"],
+                journal_dir=rel["journal_dir"],
+                desktop_dir=rel["desktop_dir"],
+                tmux_dir=rel["tmux_dir"],
+                dest=rel["dest"],
+            )
+        self.assertEqual(ctx.exception.name, RELEASE_COHERENCE)
 
     def test_identical_retry_fills_missing_signature(self):
         rel = self._setup_fixture_release("2.0.3")
