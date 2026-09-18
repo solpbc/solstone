@@ -202,21 +202,133 @@ validate_url_security() {
     esac
 }
 
+validate_origin() {
+    case "$OPT_ORIGIN" in
+        *@*)
+            report_exit "refusal" "url-userinfo" "URL contains forbidden userinfo: $OPT_ORIGIN"
+            ;;
+        *#*)
+            report_exit "refusal" "url-fragment" "URL contains forbidden fragment: $OPT_ORIGIN"
+            ;;
+        https://updates.solstone.app)
+            return 0
+            ;;
+        http://127.0.0.1:*)
+            if [ "$TEST_SEAM" -ne 1 ]; then
+                report_exit "refusal" "origin-invalid" "Production installer origin must be https://updates.solstone.app"
+            fi
+            origin_port=${OPT_ORIGIN#http://127.0.0.1:}
+            case "$origin_port" in
+                ""|0|0*|*[!0123456789]*)
+                    report_exit "refusal" "origin-invalid" "Invalid loopback origin: $OPT_ORIGIN"
+                    ;;
+            esac
+            if [ "${#origin_port}" -gt 5 ] || [ "$origin_port" -gt 65535 ]; then
+                report_exit "refusal" "origin-invalid" "Invalid loopback origin: $OPT_ORIGIN"
+            fi
+            return 0
+            ;;
+        http://*|https://*)
+            report_exit "refusal" "url-insecure" "Origin is not approved: $OPT_ORIGIN"
+            ;;
+        *)
+            report_exit "refusal" "origin-invalid" "Invalid installer origin: $OPT_ORIGIN"
+            ;;
+    esac
+}
+
+is_canonical_version() {
+    candidate_version="$1"
+    case "$candidate_version" in
+        ""|*[!0123456789.]*) return 1 ;;
+    esac
+    saved_ifs=$IFS
+    IFS=.
+    # shellcheck disable=SC2086
+    set -- $candidate_version
+    IFS=$saved_ifs
+    [ "$#" -eq 3 ] || return 1
+    for version_part in "$@"; do
+        case "$version_part" in
+            ""|*[!0123456789]*) return 1 ;;
+            0) ;;
+            0*) return 1 ;;
+        esac
+        [ "${#version_part}" -le 20 ] || return 1
+    done
+    return 0
+}
+
+validate_requested_coordinates() {
+    validate_origin
+    case "$OPT_LANE" in
+        release|staging|dev) ;;
+        *) report_exit "refusal" "lane-invalid" "Invalid release lane: $OPT_LANE" ;;
+    esac
+    if [ -n "$OPT_VERSION" ] && ! is_canonical_version "$OPT_VERSION"; then
+        report_exit "refusal" "version-invalid" "Invalid platform version: $OPT_VERSION"
+    fi
+}
+
+enforce_file_limit() {
+    limited_file="$1"
+    byte_limit="$2"
+    response_label="$3"
+    file_bytes=$(wc -c < "$limited_file" 2>/dev/null) || file_bytes=0
+    if [ "$file_bytes" -gt "$byte_limit" ]; then
+        rm -f "$limited_file"
+        report_exit "refusal" "response-too-large" "$response_label response exceeds $byte_limit bytes"
+    fi
+}
+
+validate_latest_file() {
+    latest_path="$1"
+    latest_shape=$(od -An -tu1 -v "$latest_path" 2>/dev/null | awk '
+        { for (i = 1; i <= NF; i++) bytes[++n] = $i }
+        END {
+            data_n = n
+            if (n > 0 && bytes[n] == 10) {
+                data_n--
+                if (data_n > 0 && bytes[data_n] == 13) data_n--
+            }
+            if (data_n < 1) exit 1
+            for (i = 1; i <= data_n; i++) {
+                if (!((bytes[i] >= 48 && bytes[i] <= 57) || bytes[i] == 46)) exit 1
+            }
+            for (i = data_n + 1; i <= n; i++) {
+                if (i == data_n + 1 && bytes[i] == 10 && i == n) continue
+                if (i == data_n + 1 && bytes[i] == 13 && i + 1 == n && bytes[i + 1] == 10) continue
+                if (i == n && bytes[i] == 10 && i - 1 == data_n + 1 && bytes[i - 1] == 13) continue
+                exit 1
+            }
+            print data_n
+        }
+    ') || report_exit "refusal" "latest-invalid" "Latest version response is malformed"
+    RESOLVED_VERSION=$(dd if="$latest_path" bs=1 count="$latest_shape" 2>/dev/null)
+    if ! is_canonical_version "$RESOLVED_VERSION"; then
+        report_exit "refusal" "latest-invalid" "Latest platform version is invalid"
+    fi
+}
+
 fetch_file_with_redirect_check() {
     src_url="$1"
     dest_path="$2"
+    max_bytes="${3:-}"
+    response_label="${4:-download}"
 
     validate_url_security "$src_url"
-    init_host=$(echo "$src_url" | sed -E 's|^https?://([^/:]+).*|\1|')
-    init_scheme=$(echo "$src_url" | sed -E 's|^(https?)://.*|\1|')
+    init_authority=$(printf '%s\n' "$src_url" | sed -E 's|^([^:]+://[^/]+).*$|\1|')
 
     hdr_file="${SCRATCH_DIR}/headers.$$"
     rm -f "$hdr_file"
 
     if [ "$FETCH_TOOL" = "curl" ]; then
-        http_code=$(curl -s -S -w "%{http_code}" -D "$hdr_file" -o "$dest_path" "$src_url" 2>/dev/null || echo "000")
+        http_code=$(curl -q -s -S --connect-timeout 10 --max-time 120 --retry 0 --max-redirs 0 -w "%{http_code}" -D "$hdr_file" -o "$dest_path" "$src_url" 2>/dev/null) || http_code="000"
         if [ "$http_code" = "200" ]; then
             rm -f "$hdr_file"
+            if [ -n "$max_bytes" ]; then
+                enforce_file_limit "$dest_path" "$max_bytes" "$response_label"
+            fi
             return 0
         elif [ "$http_code" = "301" ] || [ "$http_code" = "302" ] || [ "$http_code" = "307" ] || [ "$http_code" = "308" ]; then
             loc=$(grep -i '^Location:' "$hdr_file" | head -n 1 | awk '{print $2}' | tr -d '\r\n')
@@ -226,19 +338,17 @@ fetch_file_with_redirect_check() {
             fi
             # Validate redirect URL security and host confinement
             validate_url_security "$loc"
-            loc_host=$(echo "$loc" | sed -E 's|^https?://([^/:]+).*|\1|')
-            loc_scheme=$(echo "$loc" | sed -E 's|^(https?)://.*|\1|')
-
-            if [ "$init_scheme" = "https" ] && [ "$loc_scheme" = "http" ]; then
-                report_exit "refusal" "redirect-refused" "HTTPS to HTTP downgrade forbidden in redirect"
-            fi
-            if [ "$loc_host" != "$init_host" ]; then
-                report_exit "refusal" "redirect-refused" "Redirect host change forbidden: $init_host to $loc_host"
+            loc_authority=$(printf '%s\n' "$loc" | sed -E 's|^([^:]+://[^/]+).*$|\1|')
+            if [ "$loc_authority" != "$init_authority" ]; then
+                report_exit "refusal" "redirect-refused" "Redirect scheme or authority change forbidden"
             fi
 
-            hop2_code=$(curl -s -S -w "%{http_code}" -D "$hdr_file" -o "$dest_path" "$loc" 2>/dev/null || echo "000")
+            hop2_code=$(curl -q -s -S --connect-timeout 10 --max-time 120 --retry 0 --max-redirs 0 -w "%{http_code}" -D "$hdr_file" -o "$dest_path" "$loc" 2>/dev/null) || hop2_code="000"
             rm -f "$hdr_file"
             if [ "$hop2_code" = "200" ]; then
+                if [ -n "$max_bytes" ]; then
+                    enforce_file_limit "$dest_path" "$max_bytes" "$response_label"
+                fi
                 return 0
             else
                 rm -f "$dest_path"
@@ -249,8 +359,11 @@ fetch_file_with_redirect_check() {
             report_exit "refusal" "fetch-failed" "HTTP status $http_code from $src_url"
         fi
     elif [ "$FETCH_TOOL" = "wget" ]; then
-        if ! wget --max-redirect 0 -q -O "$dest_path" "$src_url" 2>/dev/null; then
+        if ! wget --no-config --tries=1 --connect-timeout=10 --timeout=120 --max-redirect=0 -q -O "$dest_path" "$src_url" 2>/dev/null; then
             report_exit "refusal" "fetch-failed" "Failed to download $src_url"
+        fi
+        if [ -n "$max_bytes" ]; then
+            enforce_file_limit "$dest_path" "$max_bytes" "$response_label"
         fi
         return 0
     fi
@@ -951,12 +1064,15 @@ run_uninstall() {
 
 main() {
     parse_args "$@"
+    validate_requested_coordinates
     detect_arch
     detect_fetch_tool
 
     # Setup scratch directory
     SCRATCH_DIR=$(mktemp -d /var/tmp/solstone-install.XXXXXX 2>/dev/null || mktemp -d /tmp/solstone-install.XXXXXX)
     chmod 0700 "$SCRATCH_DIR"
+    trap cleanup_scratch 0
+    trap 'cleanup_scratch; exit 128' HUP INT TERM
     init_awk_parser
 
     # Resolve package variant
@@ -985,11 +1101,8 @@ main() {
     # 1. Resolve version
     if [ -z "$OPT_VERSION" ]; then
         latest_file="${SCRATCH_DIR}/latest"
-        fetch_file_with_redirect_check "${OPT_ORIGIN}/solstone/${OPT_LANE}/latest" "$latest_file"
-        RESOLVED_VERSION=$(tr -d '\r\n ' < "$latest_file")
-        if [ -z "$RESOLVED_VERSION" ]; then
-            report_exit "refusal" "version-resolution-failed" "Empty version returned from ${OPT_ORIGIN}/solstone/${OPT_LANE}/latest"
-        fi
+        fetch_file_with_redirect_check "${OPT_ORIGIN}/solstone/${OPT_LANE}/latest" "$latest_file" 64 "latest"
+        validate_latest_file "$latest_file"
     else
         RESOLVED_VERSION="$OPT_VERSION"
     fi
@@ -998,8 +1111,8 @@ main() {
     manifest_file="${SCRATCH_DIR}/platform.json"
     manifest_sig="${SCRATCH_DIR}/platform.json.minisig"
 
-    fetch_file_with_redirect_check "${OPT_ORIGIN}/solstone/${OPT_LANE}/${RESOLVED_VERSION}/platform.json" "$manifest_file"
-    fetch_file_with_redirect_check "${OPT_ORIGIN}/solstone/${OPT_LANE}/${RESOLVED_VERSION}/platform.json.minisig" "$manifest_sig"
+    fetch_file_with_redirect_check "${OPT_ORIGIN}/solstone/${OPT_LANE}/${RESOLVED_VERSION}/platform.json" "$manifest_file" 4194304 "platform catalogue"
+    fetch_file_with_redirect_check "${OPT_ORIGIN}/solstone/${OPT_LANE}/${RESOLVED_VERSION}/platform.json.minisig" "$manifest_sig" 16384 "platform signature"
 
     # 3. Minisign verification
     verify_minisign_signature "$manifest_file" "$manifest_sig" "$PLATFORM_PUBKEY"

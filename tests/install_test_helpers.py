@@ -20,6 +20,10 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 class QuietHTTPRequestHandler(SimpleHTTPRequestHandler):
+    def do_GET(self):
+        self.server.request_paths.append(self.path)
+        super().do_GET()
+
     def log_message(self, format, *args):
         pass
 
@@ -29,9 +33,14 @@ class LoopbackServer:
         self.root_dir = root_dir
         handler = partial(QuietHTTPRequestHandler, directory=str(root_dir))
         self.httpd = HTTPServer(("127.0.0.1", 0), handler)
+        self.httpd.request_paths = []
         self.port = self.httpd.server_port
         self.origin = f"http://127.0.0.1:{self.port}"
         self.thread = threading.Thread(target=self.httpd.serve_forever, daemon=True)
+
+    @property
+    def request_paths(self):
+        return self.httpd.request_paths
 
     def start(self):
         self.thread.start()

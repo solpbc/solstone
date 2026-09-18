@@ -6,6 +6,7 @@
 
 import argparse
 from pathlib import Path
+import re
 import sys
 
 from solstone_platform.pins import (
@@ -21,6 +22,17 @@ from solstone_platform.pins import (
 from solstone_platform.refusals import PIN_MISMATCH, PRODUCTION_UNAVAILABLE, Refusal
 
 DEFAULT_ORIGIN = "https://updates.solstone.app"
+LOOPBACK_ORIGIN_RE = re.compile(r"http://127\.0\.0\.1:([1-9][0-9]{0,4})", re.ASCII)
+KEY_ID_RE = re.compile(r"[0-9A-Fa-f]{16}", re.ASCII)
+
+
+def validate_origin(origin: str) -> str:
+    if origin == DEFAULT_ORIGIN:
+        return origin
+    match = LOOPBACK_ORIGIN_RE.fullmatch(origin)
+    if match is None or int(match.group(1)) > 65535:
+        raise Refusal("origin-invalid", f"unsupported installer origin: {origin}")
+    return origin
 
 
 def load_revisions(repo_root: Path) -> tuple[int, int]:
@@ -65,13 +77,27 @@ def build_installer(
     output_path: Path,
     platform_pub_path: Path | None = None,
     platform_key_id: str | None = None,
-    origin: str = DEFAULT_ORIGIN,
+    origin: str | None = None,
     override_installer_revision: int | None = None,
     is_production: bool = False,
 ) -> Path:
     template_path = repo_root / "install.sh.in"
     if not template_path.is_file():
         raise Refusal("template-missing", f"template file not found: {template_path}")
+
+    if is_production and any(
+        value is not None
+        for value in (platform_pub_path, platform_key_id, origin, override_installer_revision)
+    ):
+        raise Refusal(PRODUCTION_UNAVAILABLE, "production build forbids test seam overrides")
+
+    resolved_origin = validate_origin(DEFAULT_ORIGIN if origin is None else origin)
+    if override_installer_revision is not None and (
+        type(override_installer_revision) is not int or override_installer_revision <= 0
+    ):
+        raise Refusal("installer-revision-invalid", "installer revision must be a positive integer")
+    if platform_key_id is not None and KEY_ID_RE.fullmatch(platform_key_id) is None:
+        raise Refusal("platform-key-id-invalid", "platform key ID must be exactly 16 ASCII hex digits")
 
     inst_rev, min_rev = load_revisions(repo_root)
     if override_installer_revision is not None:
@@ -81,8 +107,6 @@ def build_installer(
 
     # Determine platform pin and test seam
     if is_production:
-        if platform_pub_path is not None or override_installer_revision is not None:
-            raise Refusal(PRODUCTION_UNAVAILABLE, "production build forbids test seam overrides")
         test_seam = "0"
         prod_pub = repo_root / "pins" / "platform.pub"
         prod_keyid = repo_root / "pins" / "platform.keyid"
@@ -101,7 +125,7 @@ def build_installer(
         test_seam = "1"
         if platform_pub_path is not None:
             plat_pin = load_pin_file(platform_pub_path)
-            plat_key_id = platform_key_id.upper() if platform_key_id else plat_pin.key_id
+            plat_key_id = platform_key_id.upper() if platform_key_id is not None else plat_pin.key_id
             plat_pubkey = plat_pin.pubkey
         else:
             # Check if production pins exist, otherwise refuse unless test seam key is provided
@@ -117,6 +141,9 @@ def build_installer(
                     "platform public key not provided (use --platform-pub or supply pins/platform.pub)",
                 )
 
+        if platform_key_id is not None and plat_key_id != plat_pin.key_id:
+            raise Refusal(PIN_MISMATCH, "supplied platform key ID does not match selected public pin")
+
     template_content = template_path.read_text(encoding="utf-8")
 
     substitutions = {
@@ -130,7 +157,7 @@ def build_installer(
         "@DESKTOP_PUBKEY@": native_pins["desktop"][1],
         "@TMUX_KEY_ID@": native_pins["tmux"][0],
         "@TMUX_PUBKEY@": native_pins["tmux"][1],
-        "@DEFAULT_ORIGIN@": origin,
+        "@DEFAULT_ORIGIN@": resolved_origin,
         "@TEST_SEAM@": test_seam,
     }
 
@@ -151,7 +178,7 @@ def main() -> int:
     parser.add_argument("--output", "-o", type=Path, default=None, help="Output script path")
     parser.add_argument("--platform-pub", type=Path, default=None, help="Test seam: path to platform public key")
     parser.add_argument("--platform-keyid", type=str, default=None, help="Test seam: platform key ID")
-    parser.add_argument("--origin", type=str, default=DEFAULT_ORIGIN, help="Default download origin")
+    parser.add_argument("--origin", type=str, default=None, help="Test seam: default download origin")
     parser.add_argument("--installer-revision", type=int, default=None, help="Test seam: override installer revision")
     parser.add_argument("--production", action="store_true", help="Build production installer")
 
