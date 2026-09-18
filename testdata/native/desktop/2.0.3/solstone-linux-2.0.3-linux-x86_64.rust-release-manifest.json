@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "product": "solstone-linux",
+  "version": "2.0.3",
+  "source_commit": "3a6bded610425b52a8ac875ae364d23f6e70ce7f",
+  "source_dirty": false,
+  "cargo_lock_sha256": "745cf52d0d1d1fdcc38671561086fcbf6940eea14beb6eecf7c97f9ae405697d",
+  "rust": {
+    "rustc_verbose": "rustc 1.97.1 (8bab26f4f 2026-07-14)\nbinary: rustc\ncommit-hash: 8bab26f4f68e0e26f0bb7960be334d5b520ea452\ncommit-date: 2026-07-14\nhost: x86_64-unknown-linux-gnu\nrelease: 1.97.1\nLLVM version: 22.1.6",
+    "cargo_version": "cargo 1.97.1 (c980f4866 2026-06-30)"
+  },
+  "target": {
+    "kind": "compiled",
+    "triple": "x86_64-unknown-linux-gnu",
+    "profile": "release",
+    "features": []
+  },
+  "native_tools": {
+    "cargo_deb": "3.7.0",
+    "cargo_generate_rpm": "0.21.0",
+    "container_engine": "podman version 5.8.3",
+    "dpkg_deb": "dpkg-deb 1.21.1",
+    "fedora_image_digest": "39a72d7fd49d5a07a539c32a10b1a8bcbb832341737f447c3f32d1bf39568d49",
+    "fedora_os": "Fedora Linux 42 (Container Image)",
+    "manifest_validator": "2.0.3",
+    "rpm": "RPM version 4.20.1",
+    "signing_mode": "unsigned",
+    "ubuntu_cargo": "cargo 1.97.1",
+    "ubuntu_compiler": "cc (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0",
+    "ubuntu_glibc": "glibc 2.35",
+    "ubuntu_gzip": "gzip 1.10",
+    "ubuntu_image_digest": "c50cbb8cdef6c0e2873ed28813920a645a292abed488101c6cf75ee08fee5172",
+    "ubuntu_linker": "GNU ld 2.38",
+    "ubuntu_os": "Ubuntu 22.04.5 LTS",
+    "ubuntu_rustc": "rustc 1.97.1",
+    "ubuntu_tar": "tar (GNU tar) 1.34"
+  },
+  "dependency_policy": {
+    "cargo_deny_version": "0.20.2",
+    "deterministic_gate": "pass",
+    "advisory_checked_at": "2026-09-15T04:16:55Z"
+  },
+  "active_exceptions": [
+    "RUSTSEC-2026-0194",
+    "RUSTSEC-2026-0195"
+  ],
+  "artifacts": [
+    {
+      "path": "solstone-linux-2.0.3-1.x86_64.rpm",
+      "sha256": "bd7d4a3c467959b69177b3e061ab623735f0258ea6528ea722fb2c84b114a107",
+      "bytes": 3784552
+    },
+    {
+      "path": "solstone-linux-2.0.3-linux-x86_64.tar.gz",
+      "sha256": "135f98bc4d4a13457568ee772a33f0899aca57f84d39e5d78120a4d7bca6f055",
+      "bytes": 4856044
+    },
+    {
+      "path": "solstone-linux_2.0.3-1_amd64.deb",
+      "sha256": "7433df80e8f694f584897d5b0d652d88c1a5d366397ad9fefe1b2bdd0c03b07e",
+      "bytes": 3523124
+    }
+  ]
+}

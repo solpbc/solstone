@@ -1,0 +1,7 @@
+{
+  "contract_version": 1,
+  "install_entrypoint": "install-journal",
+  "uninstall_service_entrypoint": "uninstall-journal-service",
+  "executable_name": "journal",
+  "version_command": ["journal", "--version"]
+}

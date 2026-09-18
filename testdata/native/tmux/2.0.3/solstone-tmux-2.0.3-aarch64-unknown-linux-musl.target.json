@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "product_version": "2.0.3",
+  "source_commit": "9a0009469a76977f1bb0a0e0fca762271d34b517",
+  "rust_target": "aarch64-unknown-linux-musl",
+  "rustc_vv": "rustc 1.97.1 (8bab26f4f 2026-07-14)\nbinary: rustc\ncommit-hash: 8bab26f4f68e0e26f0bb7960be334d5b520ea452\ncommit-date: 2026-07-14\nhost: aarch64-unknown-linux-gnu\nrelease: 1.97.1\nLLVM version: 22.1.6\n",
+  "executable": {
+    "name": "solstone-tmux",
+    "sha256": "289e9f98cfc0d8a5591eeebcd0cf12893f791c541c34192cc35b0a8fba07e6bf"
+  },
+  "artifacts": [
+    {
+      "name": "solstone-tmux-2.0.3-1.aarch64.rpm",
+      "sha256": "18e029222c52c60350dba4933ecc583c6805bbade0f93256522bf0033df8eadf"
+    },
+    {
+      "name": "solstone-tmux-2.0.3-aarch64-linux.tar.gz",
+      "sha256": "1a7352d014ad62a142fb0c01f9cd6c965a583fac6eb2d179047ba106c7cbcc4f"
+    },
+    {
+      "name": "solstone-tmux_2.0.3_arm64.deb",
+      "sha256": "1fbeb2f3b806e3161c4db06c8a164e13147224a40530e2af99834c296eaa353e"
+    }
+  ]
+}

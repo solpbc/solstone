@@ -1,0 +1,7 @@
+{
+  "contract_version": 1,
+  "install_entrypoint": "install-tmux",
+  "uninstall_service_entrypoint": "uninstall-tmux-service",
+  "executable_name": "solstone-tmux",
+  "version_command": ["solstone-tmux", "--version"]
+}

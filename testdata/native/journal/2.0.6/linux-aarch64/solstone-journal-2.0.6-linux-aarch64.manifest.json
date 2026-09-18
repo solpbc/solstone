@@ -1,0 +1,12 @@
+{
+  "product": "solstone-journal",
+  "version": "2.0.6",
+  "target": "linux-aarch64",
+  "files": {
+    "solstone-journal-2.0.6-linux-aarch64.tar.gz": "71383bb9730c72a0f9c296902f75ec1f5a4abda4c343412528e1a64da1651f8d",
+    "solstone-journal-2.0.6-linux-aarch64.deb": "f6b83d6160306dbf0a5d42805867906597ed604c5586e6908da595e21ae24e44",
+    "solstone-journal-2.0.6-linux-aarch64.rpm": "2483de4e43947ed0377c9abf82a341ff58e3d07107f914b8a19af3aea944bbe4",
+    "solstone-journal-2.0.6-linux-aarch64.release": "b2fcffaa261b2ad49151ca65a29241179e8d6c6604a8846748c3adb432bfcd69",
+    "solstone-journal-2.0.6-linux-aarch64.sha256": "aac73f73e69b4d660dd801897a21a8ecbb8fdbffabfa7fb3956aad7c6ee89e8d"
+  }
+}

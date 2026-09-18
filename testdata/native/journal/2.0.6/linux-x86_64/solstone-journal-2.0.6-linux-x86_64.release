@@ -1,0 +1,8 @@
+product=solstone-journal
+version=2.0.6
+target=linux-x86_64
+commit=3075c36b12fad469d4c9c0ab4555908fe8ecca1b
+lock_sha256=6748beb943a0b9a1a5865c4d47004f6022de5b46e17168d1c1f21f0e4a9d2ce0
+upgrade_epoch=journal-v2
+retention_window=3
+min_bootstrap_revision=1

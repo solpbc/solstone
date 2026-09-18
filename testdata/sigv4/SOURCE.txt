@@ -1,0 +1,4 @@
+AWS Signature Version 4 Test Vectors
+Source: AWS General Reference Documentation - "Create a Signed AWS API Request" (20150830)
+IAM ListUsers GET / POST examples.
+All test vectors run offline with pure Python standard library.

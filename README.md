@@ -22,6 +22,40 @@ open source. self-host it, or let [sol pbc](https://solpbc.org) operate it for y
 | **[solstone-swift](https://github.com/solpbc/solstone-swift)** | the ios app. |
 | **[solstone-tmux](https://github.com/solpbc/solstone-tmux)** | the tmux app. |
 
+## platform metadata & publish rail
+
+This repository generates, validates, signs, and publishes the platform-level `platform.json` release metadata manifest and manages the atomic `latest` pointer across release lanes.
+
+> **Note**: This repository does not install Solstone or replace the POSIX bootstrap installer (`https://solstone.app/install.sh`). Production key cutover, component native releases, live publication, installer integration, and URL cutovers are handled in downstream and deployment stages.
+
+For authoritative definitions, refer to:
+- Native component pins: `pins/`
+- Minimum installer revision floor: `compat/minimum_installer_revision`
+- Component handler contracts: `contracts/`
+- Target architecture and package mappings: `src/solstone_platform/targets.py`
+
+### Development & Verification Commands
+
+```bash
+# Build (compile Python sources)
+make build
+
+# Run unit and regression test suite
+make test
+
+# Lint source files and check headers
+make lint
+
+# Verify formatting and encoding
+make format
+
+# Run full hermetic CI gate (offline, non-root)
+make ci
+
+# Run CLI directly
+PYTHONPATH=src python3 -m solstone_platform.cli --help
+```
+
 ## why trust it with your life
 
 solstone is built by [sol pbc](https://solpbc.org), a public benefit corporation. the

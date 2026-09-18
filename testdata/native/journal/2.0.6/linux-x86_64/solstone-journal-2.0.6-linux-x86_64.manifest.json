@@ -1,0 +1,12 @@
+{
+  "product": "solstone-journal",
+  "version": "2.0.6",
+  "target": "linux-x86_64",
+  "files": {
+    "solstone-journal-2.0.6-linux-x86_64.tar.gz": "a81339bcffd158c248326159b8c4e2bb4d29f98092ef30e148488a8537b86a2f",
+    "solstone-journal-2.0.6-linux-x86_64.deb": "1c5080c34571ad24950e1d11632a8ce428e612d5bf91265f9aa1e4ad810848a9",
+    "solstone-journal-2.0.6-linux-x86_64.rpm": "c202e10b704b529629fd203a87c3aade7e0e95ad299d1be7152a303b6c8f77b1",
+    "solstone-journal-2.0.6-linux-x86_64.release": "68723505f6113df3e9367ddcd49c4a2efd57243c8e59f0dc77c72031c6be1924",
+    "solstone-journal-2.0.6-linux-x86_64.sha256": "2a6745481977df368d3c547ea73f705cdde8fb041ded41f13a97b3fdefca6328"
+  }
+}

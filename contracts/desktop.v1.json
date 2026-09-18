@@ -1,0 +1,7 @@
+{
+  "contract_version": 1,
+  "install_entrypoint": "install-desktop",
+  "uninstall_service_entrypoint": "uninstall-desktop-service",
+  "executable_name": "solstone-linux",
+  "version_command": ["solstone-linux", "--version"]
+}
