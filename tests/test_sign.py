@@ -97,8 +97,9 @@ class TestSign(unittest.TestCase):
 
     def test_production_pin_matches_vaulted_identity(self):
         pin = require_production_platform_pin(self.repo_root)
-        self.assertEqual(pin.key_id, PLATFORM_KEY_ID)
-        self.assertEqual(pin.pubkey, PLATFORM_PUBKEY)
+        disk_pin = parse_minisign_pub((self.repo_root / "pins" / "platform.pub").read_text(encoding="utf-8"))
+        self.assertEqual(pin.key_id, disk_pin.key_id)
+        self.assertEqual(pin.pubkey, disk_pin.pubkey)
 
     def test_production_sign_refuses_fixture_key_even_with_env(self):
         old_env = os.environ.get("SOLSTONE_PLATFORM_PRODUCTION")

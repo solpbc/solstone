@@ -100,7 +100,10 @@ def main(argv: list[str] | None = None) -> int:
     p_pub = subparsers.add_parser("publish", help="Publish release manifest and promote latest pointer")
     p_pub.add_argument("--manifest", type=Path, required=True, help="Path to platform.json")
     p_pub.add_argument("--signature", type=Path, required=True, help="Path to platform.json.minisig")
-    p_pub.add_argument("--platform-pub", type=Path, help="Path to platform public key file")
+    p_pub.add_argument("--journal-dir", type=Path, required=True, help="Path to solstone-journal release dir")
+    p_pub.add_argument("--desktop-dir", type=Path, required=True, help="Path to solstone-linux release dir")
+    p_pub.add_argument("--tmux-dir", type=Path, required=True, help="Path to solstone-tmux release dir")
+    p_pub.add_argument("--bootstrap-file", type=Path, help="Explicit path to bootstrap install.sh")
     p_pub.add_argument("--acknowledge-production", action="store_true", help="Acknowledge production publishing")
 
     args = parser.parse_args(argv)
@@ -169,15 +172,9 @@ def main(argv: list[str] | None = None) -> int:
             out_path.write_bytes(sig_bytes)
 
         elif args.subcommand == "publish":
-            manifest_bytes = args.manifest.read_bytes()
-            sig_bytes = args.signature.read_bytes()
-
-            production_pin = require_production_platform_pin(repo_root)
-            selected_pin = load_pin_file(args.platform_pub) if args.platform_pub else production_pin
-            is_production = selected_pin == production_pin
-            if is_production and not args.acknowledge_production:
+            if not args.acknowledge_production:
                 raise Refusal(PRODUCTION_UNAVAILABLE, "--acknowledge-production required for production publishing")
-            if is_production and os.environ.get("SOLSTONE_PLATFORM_PRODUCTION") != "ack":
+            if os.environ.get("SOLSTONE_PLATFORM_PRODUCTION") != "ack":
                 raise Refusal(PRODUCTION_UNAVAILABLE, "SOLSTONE_PLATFORM_PRODUCTION=ack environment variable required")
 
             config = R2Config.from_env()
@@ -186,11 +183,13 @@ def main(argv: list[str] | None = None) -> int:
 
             dest = R2Destination(config)
             report = publish_release(
-                manifest_bytes=manifest_bytes,
-                signature_bytes=sig_bytes,
-                selected_pin=selected_pin,
+                manifest_path=args.manifest,
+                signature_path=args.signature,
+                journal_dir=args.journal_dir,
+                desktop_dir=args.desktop_dir,
+                tmux_dir=args.tmux_dir,
                 dest=dest,
-                key_prefix=config.key_prefix,
+                bootstrap_file=args.bootstrap_file,
             )
             print(f"Published {report.version} on lane '{report.lane}' (latest promoted: {report.latest_promoted})")
 

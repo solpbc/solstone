@@ -6,7 +6,9 @@
 import hashlib
 import io
 from pathlib import Path
+import re
 import struct
+
 import subprocess
 import tarfile
 import tempfile
@@ -34,7 +36,7 @@ def create_tiny_tar(dest: Path, files: dict[str, bytes]) -> bytes:
 def create_tiny_deb(dest: Path, pkg_name: str, version: str, arch: str, exe_name: str, exe_bytes: bytes) -> bytes:
     """Create a minimal .deb ar archive containing control.tar.gz and data.tar.gz."""
     # Control tar
-    control_text = f"Package: {pkg_name}\nVersion: {version}\nArchitecture: {arch}\nMaintainer: Sol PBC\nDescription: Test\n"
+    control_text = f"Package: {pkg_name}\nVersion: {version}\nArchitecture: {arch}\nMaintainer: Sol PBC\nDescription: Package for testing platform release pipeline\n"
     cbuf = io.BytesIO()
     with tarfile.open(fileobj=cbuf, mode="w:gz") as ctf:
         ti = tarfile.TarInfo(name="control")
@@ -159,6 +161,7 @@ def build_tiny_natives(
     target_dir: Path,
     keypair_comment: str = "fixture native test key",
     bootstrap_script: bytes | None = None,
+    min_bootstrap_revision: int = 2,
 ) -> tuple[PinSet, dict[str, Path]]:
     """Build tiny, coherent synthetic natives for journal, desktop, and tmux."""
     dirs = {
@@ -179,13 +182,8 @@ def build_tiny_natives(
         # 1. Desktop
         d_tar = create_tiny_tar(dirs["desktop"] / "solstone-linux-2.0.3-linux-x86_64.tar.gz", {"usr/bin/solstone-linux": b"#!/bin/sh\necho 2.0.3\n"})
         d_deb = create_tiny_deb(dirs["desktop"] / "solstone-linux_2.0.3-1_amd64.deb", "solstone-linux", "2.0.3", "amd64", "solstone-linux", b"#!/bin/sh\necho 2.0.3\n")
-        # For RPM in test environment, use real desktop RPM or copy from testdata
-        real_d_rpm = Path(__file__).parent.parent / "testdata" / "native" / "desktop" / "2.0.3" / "solstone-linux-2.0.3-1.x86_64.rpm"
-        if real_d_rpm.is_file():
-            (dirs["desktop"] / "solstone-linux-2.0.3-1.x86_64.rpm").write_bytes(real_d_rpm.read_bytes())
-            d_rpm = real_d_rpm.read_bytes()
-        else:
-            d_rpm = create_tiny_synthetic_rpm(dirs["desktop"] / "solstone-linux-2.0.3-1.x86_64.rpm", "solstone-linux", "2.0.3", "x86_64", "solstone-linux", b"#!/bin/sh\necho 2.0.3\n")
+        d_rpm = create_tiny_synthetic_rpm(dirs["desktop"] / "solstone-linux-2.0.3-1.x86_64.rpm", "solstone-linux", "2.0.3", "x86_64", "solstone-linux", b"#!/bin/sh\necho 2.0.3\n")
+
 
         d_manifest = {
             "schema_version": 1,
@@ -213,14 +211,10 @@ def build_tiny_natives(
         # 2. Tmux
         t_sums = []
         for arch, deb_arch, rpm_arch, musl_t in [("x86_64", "amd64", "x86_64", "x86_64-unknown-linux-musl"), ("aarch64", "arm64", "aarch64", "aarch64-unknown-linux-musl")]:
-            t_tar = create_tiny_tar(dirs["tmux"] / f"solstone-tmux-2.0.3-{arch}-linux.tar.gz", {"usr/bin/solstone-tmux": b"#!/bin/sh\necho 2.0.3\n"})
-            t_deb = create_tiny_deb(dirs["tmux"] / f"solstone-tmux_2.0.3_{deb_arch}.deb", "solstone-tmux", "2.0.3", deb_arch, "solstone-tmux", b"#!/bin/sh\necho 2.0.3\n")
-            real_t_rpm = Path(__file__).parent.parent / "testdata" / "native" / "tmux" / "2.0.3" / f"solstone-tmux-2.0.3-1.{rpm_arch}.rpm"
-            if real_t_rpm.is_file():
-                (dirs["tmux"] / f"solstone-tmux-2.0.3-1.{rpm_arch}.rpm").write_bytes(real_t_rpm.read_bytes())
-                t_rpm = real_t_rpm.read_bytes()
-            else:
-                t_rpm = create_tiny_synthetic_rpm(dirs["tmux"] / f"solstone-tmux-2.0.3-1.{rpm_arch}.rpm", "solstone-tmux", "2.0.3", rpm_arch, "solstone-tmux", b"#!/bin/sh\necho 2.0.3\n")
+            tmux_exe = f"#!/bin/sh\necho 2.0.3-{arch}\n".encode("utf-8")
+            t_tar = create_tiny_tar(dirs["tmux"] / f"solstone-tmux-2.0.3-{arch}-linux.tar.gz", {"usr/bin/solstone-tmux": tmux_exe})
+            t_deb = create_tiny_deb(dirs["tmux"] / f"solstone-tmux_2.0.3_{deb_arch}.deb", "solstone-tmux", "2.0.3", deb_arch, "solstone-tmux", tmux_exe)
+            t_rpm = create_tiny_synthetic_rpm(dirs["tmux"] / f"solstone-tmux-2.0.3-1.{rpm_arch}.rpm", "solstone-tmux", "2.0.3", rpm_arch, "solstone-tmux", tmux_exe)
 
             tar_sha = hashlib.sha256(t_tar).hexdigest()
             deb_sha = hashlib.sha256(t_deb).hexdigest()
@@ -232,7 +226,7 @@ def build_tiny_natives(
                 "source_commit": "9a0009469a76977f1bb0a0e0fca762271d34b517",
                 "rust_target": musl_t,
                 "rustc_vv": "rustc 1.97.1",
-                "executable": {"name": "solstone-tmux", "sha256": hashlib.sha256(b"#!/bin/sh\necho 2.0.3\n").hexdigest()},
+                "executable": {"name": "solstone-tmux", "sha256": hashlib.sha256(tmux_exe).hexdigest()},
                 "artifacts": [
                     {"name": f"solstone-tmux-2.0.3-{arch}-linux.tar.gz", "sha256": tar_sha},
                     {"name": f"solstone-tmux_2.0.3_{deb_arch}.deb", "sha256": deb_sha},
@@ -251,7 +245,6 @@ def build_tiny_natives(
         sums_path.write_text("\n".join(t_sums) + "\n", encoding="utf-8")
         subprocess.run(["minisign", "-S", "-W", "-s", str(t_sec), "-m", str(sums_path), "-x", str(dirs["tmux"] / "SHA256SUMS.minisig"), "-t", "solstone-tmux 2.0.3 SHA256SUMS"], check=True)
 
-        # 3. Journal
         if bootstrap_script is not None:
             boot_script = bootstrap_script
         else:
@@ -261,6 +254,7 @@ def build_tiny_natives(
                 b"BOOTSTRAP_CONTRACT_VERSION=2\n"
                 b"echo install\n"
             )
+        min_boot_rev_val = min_bootstrap_revision
         boot_sha = hashlib.sha256(boot_script).hexdigest()
         bootstrap_name = "solstone-journal-2.0.6-install.sh"
 
@@ -270,12 +264,8 @@ def build_tiny_natives(
             (arch_dir / bootstrap_name).write_bytes(boot_script)
             j_tar = create_tiny_tar(arch_dir / f"solstone-journal-2.0.6-{target}.tar.gz", {"usr/bin/journal": b"#!/bin/sh\necho 2.0.6\n"})
             j_deb = create_tiny_deb(arch_dir / f"solstone-journal-2.0.6-{target}.deb", "solstone-journal", "2.0.6", "amd64" if arch == "x86_64" else "arm64", "journal", b"#!/bin/sh\necho 2.0.6\n")
-            real_j_rpm = Path(__file__).parent.parent / "testdata" / "native" / "journal" / "2.0.6" / target / f"solstone-journal-2.0.6-{target}.rpm"
-            if real_j_rpm.is_file():
-                (arch_dir / f"solstone-journal-2.0.6-{target}.rpm").write_bytes(real_j_rpm.read_bytes())
-                j_rpm = real_j_rpm.read_bytes()
-            else:
-                j_rpm = create_tiny_synthetic_rpm(arch_dir / f"solstone-journal-2.0.6-{target}.rpm", "solstone-journal", "2.0.6", "x86_64" if arch == "x86_64" else "aarch64", "journal", b"#!/bin/sh\necho 2.0.6\n")
+            j_rpm = create_tiny_synthetic_rpm(arch_dir / f"solstone-journal-2.0.6-{target}.rpm", "solstone-journal", "2.0.6", "x86_64" if arch == "x86_64" else "aarch64", "journal", b"#!/bin/sh\necho 2.0.6\n")
+
 
             tar_sha = hashlib.sha256(j_tar).hexdigest()
             deb_sha = hashlib.sha256(j_deb).hexdigest()
@@ -284,11 +274,21 @@ def build_tiny_natives(
             rel_text = (
                 f"product=solstone-journal\nversion=2.0.6\ntarget={target}\ncommit=3075c36b12fad469d4c9c0ab4555908fe8ecca1b\n"
                 f"lock_sha256=0000000000000000000000000000000000000000000000000000000000000000\n"
-                f"upgrade_epoch=journal-v2\nretention_window=3\nmin_bootstrap_revision=2\n"
+                f"upgrade_epoch=journal-v2\nretention_window=3\nmin_bootstrap_revision={min_boot_rev_val}\n"
                 f"bootstrap_contract_version=2\nbootstrap_filename={bootstrap_name}\n"
                 f"state_reader_min=2.0.0\nstate_reader_max=2.0.6\n"
             )
+
             (arch_dir / f"solstone-journal-2.0.6-{target}.release").write_text(rel_text, encoding="utf-8")
+
+            sha256_lines = [
+                f"{tar_sha}  solstone-journal-2.0.6-{target}.tar.gz",
+                f"{deb_sha}  solstone-journal-2.0.6-{target}.deb",
+                f"{rpm_sha}  solstone-journal-2.0.6-{target}.rpm",
+                f"{hashlib.sha256(rel_text.encode('utf-8')).hexdigest()}  solstone-journal-2.0.6-{target}.release",
+                f"{boot_sha}  {bootstrap_name}",
+            ]
+            (arch_dir / f"solstone-journal-2.0.6-{target}.sha256").write_text("\n".join(sha256_lines) + "\n", encoding="utf-8")
 
             j_manifest = {
                 "product": "solstone-journal",

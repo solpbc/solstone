@@ -32,6 +32,7 @@ from solstone_platform.refusals import (
     HTTP_TRUNCATED_2XX,
     LANE_INVALID,
     Refusal,
+    SCHEMA_INVALID,
     UNSAFE_FILENAME,
 )
 
@@ -141,32 +142,65 @@ class R2Destination:
     """R2 / S3 Destination adapter implementing atomic publish semantics."""
 
     def __init__(self, config: R2Config) -> None:
+        if config.key_prefix and config.key_prefix.strip("/"):
+            raise Refusal(UNSAFE_FILENAME, f"non-empty key_prefix '{config.key_prefix}' rejected on canonical R2Destination")
         self.config = config
         self.opener = urllib.request.build_opener(NoRedirectHandler)
+        self.network_sentinel: list[tuple[str, str, dict[str, str]]] = []
 
     def _validate_key_confinement(self, key: str) -> None:
-        """Enforce strict key confinement."""
-        prefix = self.config.key_prefix.strip("/")
-        expected_base = f"{prefix}/solstone/" if prefix else "solstone/"
-        if not key.startswith(expected_base):
-            raise Refusal(UNSAFE_FILENAME, f"key '{key}' escapes solstone namespace prefix")
-
+        """Enforce strict canonical key confinement."""
         if ".." in key or "//" in key or "\\" in key:
             raise Refusal(UNSAFE_FILENAME, f"key '{key}' contains illegal traversal sequence")
 
-        # Allowed patterns: solstone/{lane}/{version}/platform.json[.minisig] or solstone/{lane}/latest
-        subpath = key[len(expected_base):]
-        parts = subpath.split("/")
-        if len(parts) == 2 and parts[1] == "latest":
-            lane = parts[0]
+        parts = key.split("/")
+        if len(parts) == 3 and parts[0] == "solstone" and parts[2] == "latest":
+            lane = parts[1]
             if lane not in ("release", "staging", "dev"):
                 raise Refusal(LANE_INVALID, f"invalid lane in key: {lane}")
-        elif len(parts) == 3 and parts[2] in ("platform.json", "platform.json.minisig"):
-            lane = parts[0]
+        elif len(parts) == 4 and parts[0] == "solstone":
+            lane = parts[1]
             if lane not in ("release", "staging", "dev"):
                 raise Refusal(LANE_INVALID, f"invalid lane in key: {lane}")
+            filename = parts[3]
+            if not filename or "/" in filename:
+                raise Refusal(UNSAFE_FILENAME, f"invalid filename in key: {key}")
+        elif len(parts) == 4 and parts[0] == "solstone-journal":
+            lane = parts[1]
+            if lane not in ("release", "staging", "dev"):
+                raise Refusal(LANE_INVALID, f"invalid lane in key: {lane}")
+            filename = parts[3]
+            if not (filename.startswith("solstone-journal-") and filename.endswith("-install.sh")):
+                raise Refusal(UNSAFE_FILENAME, f"invalid solstone-journal bootstrap filename: {filename}")
         else:
             raise Refusal(UNSAFE_FILENAME, f"key '{key}' does not match allowed platform release pattern")
+
+    def _admit_request(self, method: str, key: str, headers: dict[str, str]) -> None:
+        """Lowest transport seam admission filter."""
+        self.network_sentinel.append((method, key, dict(headers)))
+        self._validate_key_confinement(key)
+
+        is_latest = key.endswith("/latest") and key.startswith("solstone/")
+        if method == "GET":
+            pass
+        elif method == "PUT":
+            if_none_match = headers.get("If-None-Match") or headers.get("if-none-match")
+            if_match = headers.get("If-Match") or headers.get("if-match")
+
+            if not is_latest:
+                # Immutable keys: strictly require If-None-Match: * and no If-Match
+                if if_none_match != "*" or if_match is not None:
+                    raise Refusal(UNSAFE_FILENAME, f"immutable key '{key}' requires exactly If-None-Match: * and no If-Match")
+            else:
+                # Latest pointer: require exactly If-Match XOR If-None-Match: *
+                has_inm = (if_none_match == "*")
+                has_im = bool(if_match and if_match.strip())
+                if not (has_inm ^ has_im):
+                    raise Refusal(UNSAFE_FILENAME, f"latest pointer '{key}' requires exactly If-Match XOR If-None-Match: *")
+        else:
+            # Reject DELETE, POST, HEAD, LIST, and any other method
+            raise Refusal(UNSAFE_FILENAME, f"HTTP method '{method}' is not admitted on R2Destination")
+
 
     def _make_url(self, key: str) -> str:
         base = self.config.endpoint.rstrip("/")
@@ -180,10 +214,10 @@ class R2Destination:
         body: bytes = b"",
         headers: Optional[dict[str, str]] = None,
     ) -> tuple[int, dict[str, str], bytes]:
-        self._validate_key_confinement(key)
+        req_headers = dict(headers or {})
+        self._admit_request(method, key, req_headers)
         url = self._make_url(key)
 
-        req_headers = dict(headers or {})
         signed_headers = compute_sigv4_headers(
             method=method,
             url=url,
@@ -299,7 +333,7 @@ class R2Destination:
         status, resp_headers, _ = self._send_request("PUT", key, body=body, headers=headers)
         if status in (200, 201, 204):
             etag = resp_headers.get("etag")
-            if not etag or not etag.strip():
+            if not etag or not entertain_etag(etag):
                 return CasResult(status=ResultStatus.MALFORMED_ETAG, detail="missing or empty ETag in CAS response")
             return CasResult(status=ResultStatus.OK, etag=etag)
         if status == 412:
@@ -313,3 +347,7 @@ class R2Destination:
         if 500 <= status < 600:
             return CasResult(status=ResultStatus.SERVER_ERROR, detail=f"HTTP {status}")
         return CasResult(status=ResultStatus.INDETERMINATE, detail=f"HTTP {status}")
+
+
+def entertain_etag(etag: Optional[str]) -> bool:
+    return bool(etag and etag.strip())

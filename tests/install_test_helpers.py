@@ -104,6 +104,7 @@ def setup_test_release_server(
     pin_set, native_dirs = build_tiny_natives(
         target_dir=work_dir / "natives",
         bootstrap_script=v2_boot,
+        min_bootstrap_revision=bootstrap_revision,
     )
 
     server = LoopbackServer(server_root)

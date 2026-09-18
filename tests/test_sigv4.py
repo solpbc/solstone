@@ -137,14 +137,25 @@ class TestSigV4(unittest.TestCase):
         self.assertEqual(res.status, ResultStatus.MALFORMED_ETAG)
 
     def test_put_precondition_failed_412(self):
-        res = self.dest.compare_and_swap(
-            "solstone/release/2.0.3/platform.json",
+        res = self.dest.put_if_absent(
+            "solstone/release/2.0.3/exists.tar.gz",
             b"{}",
-            expected_etag='"wrong-etag"',
-            content_type="application/json",
-            cache_control="no-store",
+            content_type="application/octet-stream",
+            cache_control="public",
         )
         self.assertEqual(res.status, ResultStatus.PRECONDITION_FAILED)
+
+    def test_compare_and_swap_on_immutable_key_refused_at_admission(self):
+        with self.assertRaises(Refusal) as ctx:
+            self.dest.compare_and_swap(
+                "solstone/release/2.0.3/platform.json",
+                b"{}",
+                expected_etag='"wrong-etag"',
+                content_type="application/json",
+                cache_control="no-store",
+            )
+        self.assertEqual(ctx.exception.name, UNSAFE_FILENAME)
+
 
 
 if __name__ == "__main__":

@@ -17,6 +17,7 @@ from solstone_platform.canonical import parse_json_strict
 from solstone_platform.pins import MinisignPin, PinSet, embedded_pins
 from solstone_platform.refusals import (
     DESKTOP_AARCH64,
+    DUPLICATE_KEY,
     INCOMPLETE_VARIANTS,
     RELEASE_COHERENCE,
     SCHEMA_INVALID,
@@ -33,10 +34,12 @@ from solstone_platform.targets import (
     TARGET_MAPPINGS,
     get_target_mapping,
 )
+from solstone_platform.witness import get_witness
 
 
 def verify_minisign_signature(pubkey_pin: MinisignPin, message_path: Path, signature_path: Path) -> None:
     """Verify a file's detached signature using host minisign binary."""
+    get_witness().record("pin_verify", str(message_path))
     if not message_path.is_file():
         raise Refusal(RELEASE_COHERENCE, f"message file not found: {message_path}")
     if not signature_path.is_file():
@@ -70,6 +73,7 @@ def validate_bootstrap_url(url_str: str) -> None:
 
 def extract_bootstrap_contract_version(script_bytes: bytes) -> int:
     """Extract BOOTSTRAP_CONTRACT_VERSION from exact bootstrap bytes."""
+    get_witness().record("bootstrap_contract_extract")
     text = script_bytes.decode("utf-8", errors="replace")
     for line in text.splitlines():
         match = re.match(r"^BOOTSTRAP_CONTRACT_VERSION=([0-9]+)$", line.strip())
@@ -78,8 +82,20 @@ def extract_bootstrap_contract_version(script_bytes: bytes) -> int:
     raise Refusal(RELEASE_COHERENCE, "BOOTSTRAP_CONTRACT_VERSION not found in bootstrap script")
 
 
+def extract_bootstrap_revision(script_bytes: bytes) -> int:
+    """Extract BOOTSTRAP_REVISION from exact bootstrap bytes."""
+    get_witness().record("bootstrap_revision_extract")
+    text = script_bytes.decode("utf-8", errors="replace")
+    for line in text.splitlines():
+        match = re.match(r"^BOOTSTRAP_REVISION=([0-9]+)$", line.strip())
+        if match:
+            return int(match.group(1))
+    raise Refusal(RELEASE_COHERENCE, "BOOTSTRAP_REVISION not found in bootstrap script")
+
+
 def parse_release_sidecar(content: str) -> dict[str, str]:
     """Parse key=value pairs from a .release sidecar file."""
+    get_witness().record("release_parse")
     result = {}
     for line in content.splitlines():
         line = line.strip()
@@ -95,6 +111,26 @@ def parse_release_sidecar(content: str) -> dict[str, str]:
         if not k or k in result:
             raise Refusal(RELEASE_COHERENCE, f"empty or duplicate key in .release: '{k}'")
         result[k] = v
+    return result
+
+
+def parse_sha256_sidecar(content: str) -> dict[str, str]:
+    """Parse hex  filename lines from a .sha256 sidecar file."""
+    get_witness().record("sha256_parse")
+    result: dict[str, str] = {}
+    for line in content.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split(None, 1)
+        if len(parts) != 2:
+            raise Refusal(RELEASE_COHERENCE, f"malformed line in .sha256 sidecar: '{line}'")
+        sha, fname = parts[0].lower(), parts[1].lstrip("*").strip()
+        if not re.fullmatch(r"[0-9a-f]{64}", sha):
+            raise Refusal(RELEASE_COHERENCE, f"invalid sha256 in sidecar: '{sha}'")
+        if fname in result:
+            raise Refusal(RELEASE_COHERENCE, f"duplicate filename in .sha256 sidecar: '{fname}'")
+        result[fname] = sha
     return result
 
 
@@ -132,6 +168,9 @@ def ingest_journal(
     provenance_data: Optional[dict[str, Any]] = None
     component_version: Optional[str] = None
 
+    cross_arch_commit: Optional[str] = None
+    cross_arch_lock: Optional[str] = None
+
     for target_arch in ["x86_64", "aarch64"]:
         mapping = get_target_mapping(target_arch)
         arch_dir = native_dir / mapping.native_target
@@ -150,6 +189,7 @@ def ingest_journal(
         manifest_bytes = manifest_path.read_bytes()
         sig_bytes = sig_path.read_bytes()
         manifest_obj = parse_json_strict(manifest_bytes)
+        get_witness().record("json_parse", str(manifest_path))
 
         if manifest_obj.get("product") != "solstone-journal":
             raise Refusal(RELEASE_COHERENCE, f"manifest product is '{manifest_obj.get('product')}', expected 'solstone-journal'")
@@ -175,6 +215,7 @@ def ingest_journal(
         ):
             raise Refusal(RELEASE_COHERENCE, "journal manifest files must be a filename-to-digest object")
 
+        # Check .release sidecar
         release_path = arch_dir / f"{expected_basename}.release"
         if not release_path.is_file():
             raise Refusal(RELEASE_COHERENCE, f"missing {release_path.name}")
@@ -189,6 +230,8 @@ def ingest_journal(
             "product",
             "version",
             "target",
+            "commit",
+            "lock_sha256",
             "bootstrap_contract_version",
             "bootstrap_filename",
             "state_reader_min",
@@ -200,6 +243,24 @@ def ingest_journal(
         for rk in required_v2_keys:
             if rk not in release_dict:
                 raise Refusal(RELEASE_COHERENCE, f"journal .release missing v2 key '{rk}'")
+
+        # Validate commit format (40 lowercase hex) and cross-arch equality
+        commit_val = release_dict["commit"]
+        if not re.fullmatch(r"[0-9a-f]{40}", commit_val):
+            raise Refusal(RELEASE_COHERENCE, f"journal .release commit invalid format: '{commit_val}'")
+        if cross_arch_commit is None:
+            cross_arch_commit = commit_val
+        elif cross_arch_commit != commit_val:
+            raise Refusal(RELEASE_COHERENCE, f"journal commit mismatch across arches: {cross_arch_commit} vs {commit_val}")
+
+        # Validate lock_sha256 format (64 lowercase hex) and cross-arch equality
+        lock_val = release_dict["lock_sha256"]
+        if not re.fullmatch(r"[0-9a-f]{64}", lock_val):
+            raise Refusal(RELEASE_COHERENCE, f"journal .release lock_sha256 invalid format: '{lock_val}'")
+        if cross_arch_lock is None:
+            cross_arch_lock = lock_val
+        elif cross_arch_lock != lock_val:
+            raise Refusal(RELEASE_COHERENCE, f"journal lock_sha256 mismatch across arches: {cross_arch_lock} vs {lock_val}")
 
         if release_dict["product"] != "solstone-journal":
             raise Refusal(RELEASE_COHERENCE, f"journal .release product mismatch: {release_dict['product']}")
@@ -213,7 +274,7 @@ def ingest_journal(
         contract_version = _positive_int(release_dict["bootstrap_contract_version"], "bootstrap_contract_version")
         if contract_version != 2:
             raise Refusal(RELEASE_COHERENCE, f"unsupported bootstrap_contract_version: {contract_version}")
-        _positive_int(release_dict["min_bootstrap_revision"], "min_bootstrap_revision")
+        min_boot_rev = _positive_int(release_dict["min_bootstrap_revision"], "min_bootstrap_revision")
         retention_window = _positive_int(release_dict["retention_window"], "retention_window")
         reader_min = _semver_tuple(release_dict["state_reader_min"], "state_reader_min")
         reader_max = _semver_tuple(release_dict["state_reader_max"], "state_reader_max")
@@ -243,6 +304,11 @@ def ingest_journal(
         script_contract_version = extract_bootstrap_contract_version(boot_bytes)
         if script_contract_version != contract_version:
             raise Refusal(RELEASE_COHERENCE, "bootstrap contract version disagrees with .release")
+
+        script_bootstrap_rev = extract_bootstrap_revision(boot_bytes)
+        if script_bootstrap_rev < min_boot_rev:
+            raise Refusal(RELEASE_COHERENCE, f"bootstrap revision {script_bootstrap_rev} < min_bootstrap_revision {min_boot_rev}")
+
         bootstrap_url = f"{origin.rstrip('/')}/solstone-journal/{lane}/{ver}/{bootstrap_name}"
         validate_bootstrap_url(bootstrap_url)
 
@@ -261,6 +327,28 @@ def ingest_journal(
             provenance_data = arch_provenance
         elif provenance_data != arch_provenance:
             raise Refusal(RELEASE_COHERENCE, "journal provenance differs between architectures")
+
+        # Check .sha256 sidecar
+        sha256_sidecar_path = arch_dir / f"{expected_basename}.sha256"
+        if not sha256_sidecar_path.is_file():
+            raise Refusal(RELEASE_COHERENCE, f"missing journal .sha256 sidecar: {sha256_sidecar_path.name}")
+        sidecar_map = parse_sha256_sidecar(sha256_sidecar_path.read_text(encoding="utf-8"))
+
+        required_sidecar_members = [
+            release_path.name,
+            bootstrap_name,
+            f"{expected_basename}.tar.gz",
+            f"{expected_basename}.deb",
+            f"{expected_basename}.rpm",
+        ]
+        for member in required_sidecar_members:
+            if member not in sidecar_map:
+                raise Refusal(RELEASE_COHERENCE, f"journal .sha256 sidecar missing member: {member}")
+
+        if sidecar_map[release_path.name] != release_sha:
+            raise Refusal(RELEASE_COHERENCE, f"journal .sha256 sidecar mismatch for {release_path.name}")
+        if sidecar_map[bootstrap_name] != computed_boot_sha:
+            raise Refusal(RELEASE_COHERENCE, f"journal .sha256 sidecar mismatch for {bootstrap_name}")
 
         # Process variants: tree (.tar.gz), deb (.deb), rpm (.rpm)
         variants_dict: dict[str, Any] = {}
@@ -283,8 +371,11 @@ def ingest_journal(
                 raise Refusal(RELEASE_COHERENCE, f"manifest does not list member {filename}")
             if files_map[filename] != computed_file_sha:
                 raise Refusal(RELEASE_COHERENCE, f"checksum mismatch for {filename}: computed {computed_file_sha} vs manifest {files_map[filename]}")
+            if sidecar_map[filename] != computed_file_sha:
+                raise Refusal(RELEASE_COHERENCE, f"checksum mismatch in .sha256 sidecar for {filename}")
 
             scan_res = scan_variant_archive(file_path)
+            get_witness().record("archive_scan", str(file_path))
             exe_sha = scan_res.executable_sha256.get("journal")
             if not exe_sha:
                 raise Refusal(RELEASE_COHERENCE, f"executable 'journal' not found in archive {filename}")
@@ -309,7 +400,7 @@ def ingest_journal(
                     "verifier_id": pin.verifier_id(),
                     "manifest_sha256": hashlib.sha256(manifest_bytes).hexdigest(),
                     "signature_sha256": hashlib.sha256(sig_bytes).hexdigest(),
-                    "release_sha256": hashlib.sha256(release_bytes).hexdigest(),
+                    "release_sha256": release_sha,
                     "bootstrap_sha256": computed_boot_sha,
                 },
             }
@@ -341,6 +432,7 @@ def ingest_desktop(native_dir: Path, pin: MinisignPin) -> IngestedComponent:
     manifest_bytes = manifest_path.read_bytes()
     sig_bytes = sig_path.read_bytes()
     manifest_obj = parse_json_strict(manifest_bytes)
+    get_witness().record("json_parse", str(manifest_path))
 
     if manifest_obj.get("product") != "solstone-linux":
         raise Refusal(RELEASE_COHERENCE, f"desktop manifest product mismatch: {manifest_obj.get('product')}")
@@ -349,8 +441,36 @@ def ingest_desktop(native_dir: Path, pin: MinisignPin) -> IngestedComponent:
     if not ver:
         raise Refusal(RELEASE_COHERENCE, "desktop manifest missing version")
 
+    if manifest_obj.get("source_dirty") is not False:
+        raise Refusal(RELEASE_COHERENCE, "desktop manifest source_dirty must be false")
+
+    commit = manifest_obj.get("source_commit")
+    if not commit or not re.fullmatch(r"[0-9a-f]{40}", str(commit)):
+        raise Refusal(RELEASE_COHERENCE, "desktop manifest missing or invalid source_commit")
+
+    triple = manifest_obj.get("target", {}).get("triple")
+    if triple != "x86_64-unknown-linux-gnu":
+        raise Refusal(RELEASE_COHERENCE, f"desktop target.triple mismatch: expected 'x86_64-unknown-linux-gnu', got '{triple}'")
+
+    native_target = TARGET_MAPPINGS["x86_64"].native_target
+
     artifacts = manifest_obj.get("artifacts", [])
-    artifact_map = {item["path"]: item for item in artifacts if "path" in item}
+    seen_artifact_paths: set[str] = set()
+    seen_artifact_shas: set[str] = set()
+    seen_artifact_bytes: set[int] = set()
+    for item in artifacts:
+        p = item.get("path")
+        s = item.get("sha256")
+        b = item.get("bytes")
+        if not p or p in seen_artifact_paths:
+            raise Refusal(RELEASE_COHERENCE, f"duplicate or invalid artifact path in desktop manifest: {p}")
+        if not s or s in seen_artifact_shas:
+            raise Refusal(RELEASE_COHERENCE, f"duplicate or invalid artifact sha256 in desktop manifest: {s}")
+        if b is None or b in seen_artifact_bytes:
+            raise Refusal(RELEASE_COHERENCE, f"duplicate or invalid artifact byte length in desktop manifest: {b}")
+        seen_artifact_paths.add(p)
+        seen_artifact_shas.add(s)
+        seen_artifact_bytes.add(b)
 
     # Identify tree, deb, rpm
     tar_item = next((item for item in artifacts if item["path"].endswith(".tar.gz")), None)
@@ -373,6 +493,7 @@ def ingest_desktop(native_dir: Path, pin: MinisignPin) -> IngestedComponent:
             raise Refusal(RELEASE_COHERENCE, f"desktop artifact {filename} digest or length mismatch")
 
         scan_res = scan_variant_archive(file_path)
+        get_witness().record("archive_scan", str(file_path))
         exe_sha = scan_res.executable_sha256.get("solstone-linux")
         if not exe_sha:
             raise Refusal(RELEASE_COHERENCE, f"executable 'solstone-linux' not found in {filename}")
@@ -383,7 +504,7 @@ def ingest_desktop(native_dir: Path, pin: MinisignPin) -> IngestedComponent:
             "filename": filename,
             "sha256": computed_sha,
             "bytes": len(file_bytes),
-            "native_target": "linux-x86_64",
+            "native_target": native_target,
             "package_identity": pkg_id,
             "executable": {
                 "name": "solstone-linux",
@@ -419,23 +540,31 @@ def ingest_tmux(native_dir: Path, pin: MinisignPin) -> IngestedComponent:
     sums_bytes = sums_path.read_bytes()
     sig_bytes = sig_path.read_bytes()
 
-    # Parse SHA256SUMS
+    # Parse SHA256SUMS with strict uniqueness of name and checksum value
     checksums: dict[str, str] = {}
+    checksum_to_file: dict[str, str] = {}
     for line in sums_bytes.decode("utf-8", errors="replace").splitlines():
         line = line.strip()
         if not line:
             continue
         parts = line.split(None, 1)
         if len(parts) == 2:
-            checksums[parts[1].lstrip("*")] = parts[0].lower()
+            sha = parts[0].lower()
+            fname = parts[1].lstrip("*").strip()
+            if fname in checksums:
+                raise Refusal(RELEASE_COHERENCE, f"duplicate entry in tmux SHA256SUMS: {fname}")
+            if sha in checksum_to_file:
+                raise Refusal(RELEASE_COHERENCE, f"duplicate checksum value in tmux SHA256SUMS: {sha} ({fname} vs {checksum_to_file[sha]})")
+            checksums[fname] = sha
+            checksum_to_file[sha] = fname
 
     component_version: Optional[str] = None
+    cross_arch_commit: Optional[str] = None
     arches_data: dict[str, dict[str, Any]] = {}
 
     for target_arch in ["x86_64", "aarch64"]:
         mapping = get_target_mapping(target_arch)
-        target_json_name = f"solstone-tmux-2.0.3-{mapping.musl_target}.target.json"
-        # Find any matching target.json
+        # Find matching target.json
         matching_targets = list(native_dir.glob(f"solstone-tmux-*-{mapping.musl_target}.target.json"))
         if not matching_targets:
             raise Refusal(RELEASE_COHERENCE, f"tmux target json missing for {mapping.musl_target}")
@@ -450,6 +579,8 @@ def ingest_tmux(native_dir: Path, pin: MinisignPin) -> IngestedComponent:
             raise Refusal(RELEASE_COHERENCE, f"checksum mismatch for {target_json_path.name}")
 
         target_obj = parse_json_strict(target_bytes)
+        get_witness().record("json_parse", str(target_json_path))
+
         ver = target_obj.get("product_version")
         if not ver:
             raise Refusal(RELEASE_COHERENCE, f"missing product_version in {target_json_path.name}")
@@ -458,8 +589,32 @@ def ingest_tmux(native_dir: Path, pin: MinisignPin) -> IngestedComponent:
         elif component_version != ver:
             raise Refusal(RELEASE_COHERENCE, f"tmux version mismatch: {component_version} vs {ver}")
 
-        # Artifacts from target.json
-        target_artifacts = {item["name"]: item["sha256"] for item in target_obj.get("artifacts", [])}
+        # Check rust_target
+        if target_obj.get("rust_target") != mapping.musl_target:
+            raise Refusal(RELEASE_COHERENCE, f"tmux rust_target mismatch: expected {mapping.musl_target}, got {target_obj.get('rust_target')}")
+
+        # Check source_commit and cross-arch equality
+        commit_val = target_obj.get("source_commit")
+        if not commit_val or not re.fullmatch(r"[0-9a-f]{40}", str(commit_val)):
+            raise Refusal(RELEASE_COHERENCE, f"tmux target.json missing or invalid source_commit: '{commit_val}'")
+        if cross_arch_commit is None:
+            cross_arch_commit = commit_val
+        elif cross_arch_commit != commit_val:
+            raise Refusal(RELEASE_COHERENCE, f"tmux source_commit mismatch across arches: {cross_arch_commit} vs {commit_val}")
+
+        # Check target artifacts with uniqueness
+        target_artifacts: dict[str, str] = {}
+        seen_target_shas: set[str] = set()
+        for item in target_obj.get("artifacts", []):
+            aname = item.get("name")
+            asha = item.get("sha256")
+            if not aname or aname in target_artifacts:
+                raise Refusal(RELEASE_COHERENCE, f"duplicate or missing artifact name in tmux target.json: {aname}")
+            if not asha or asha in seen_target_shas:
+                raise Refusal(RELEASE_COHERENCE, f"duplicate or missing artifact sha in tmux target.json: {asha}")
+            target_artifacts[aname] = asha
+            seen_target_shas.add(asha)
+
 
         # Locate tree, deb, rpm
         tar_name = f"solstone-tmux-{ver}-{target_arch}-linux.tar.gz"
@@ -481,9 +636,17 @@ def ingest_tmux(native_dir: Path, pin: MinisignPin) -> IngestedComponent:
                 raise Refusal(RELEASE_COHERENCE, f"checksum mismatch in target.json for tmux artifact {filename}")
 
             scan_res = scan_variant_archive(file_path)
+            get_witness().record("archive_scan", str(file_path))
             exe_sha = scan_res.executable_sha256.get("solstone-tmux")
             if not exe_sha:
                 raise Refusal(RELEASE_COHERENCE, f"executable 'solstone-tmux' not found in {filename}")
+
+            # Verify target.json executable section against canonical tree archive
+            if var_type == "tree":
+                exe_obj = target_obj.get("executable", {})
+                if exe_obj.get("name") != "solstone-tmux" or exe_obj.get("sha256") != exe_sha:
+                    raise Refusal(RELEASE_COHERENCE, f"tmux executable identity/digest mismatch in target.json vs archive")
+
 
             pkg_id = scan_res.package_identity.to_dict() if scan_res.package_identity else None
 

@@ -4,6 +4,7 @@
 """Embedded native public key pins and pin loaders."""
 
 from dataclasses import dataclass
+import importlib.resources
 from pathlib import Path
 import re
 from typing import Optional
@@ -67,27 +68,56 @@ def load_pin_file(path: Path) -> MinisignPin:
     return parse_minisign_pub(path.read_text(encoding="utf-8"))
 
 
+def load_packaged_pin(name: str) -> MinisignPin:
+    """Load a pin directly from package resources."""
+    try:
+        res = importlib.resources.files("solstone_platform.pin_resources")
+        pub_file = res / f"{name}.pub"
+        content = pub_file.read_text(encoding="utf-8")
+        return parse_minisign_pub(content)
+    except Exception as err:
+        raise Refusal(PRODUCTION_UNAVAILABLE, f"packaged pin '{name}' unavailable: {err}") from err
+
+
+def _verify_constant_synchronization() -> None:
+    """Ensure in-code constants exactly match packaged pin resources."""
+    res_pins = {
+        "journal": (JOURNAL_KEY_ID, JOURNAL_PUBKEY),
+        "desktop": (DESKTOP_KEY_ID, DESKTOP_PUBKEY),
+        "tmux": (TMUX_KEY_ID, TMUX_PUBKEY),
+        "platform": (PLATFORM_KEY_ID, PLATFORM_PUBKEY),
+    }
+    for name, (expected_id, expected_pub) in res_pins.items():
+        pkg_pin = load_packaged_pin(name)
+        if pkg_pin.key_id != expected_id or pkg_pin.pubkey != expected_pub:
+            raise Refusal(PIN_MISMATCH, f"packaged pin for {name} does not match constant: {pkg_pin.key_id} vs {expected_id}")
+
+    # Also verify platform.keyid
+    try:
+        res = importlib.resources.files("solstone_platform.pin_resources")
+        keyid_file = res / "platform.keyid"
+        keyid_val = keyid_file.read_text(encoding="utf-8").strip().upper()
+        if keyid_val != PLATFORM_KEY_ID:
+            raise Refusal(PIN_MISMATCH, f"packaged platform.keyid mismatch: {keyid_val} vs {PLATFORM_KEY_ID}")
+    except Exception as err:
+        raise Refusal(PRODUCTION_UNAVAILABLE, f"packaged platform.keyid unavailable: {err}") from err
+
+
+# Verify at import time
+_verify_constant_synchronization()
+
+
 def embedded_pins() -> PinSet:
     """Return the official embedded production pins for native components."""
     return PinSet(
-        journal=MinisignPin(key_id=JOURNAL_KEY_ID, pubkey=JOURNAL_PUBKEY),
-        desktop=MinisignPin(key_id=DESKTOP_KEY_ID, pubkey=DESKTOP_PUBKEY),
-        tmux=MinisignPin(key_id=TMUX_KEY_ID, pubkey=TMUX_PUBKEY),
-        platform=MinisignPin(key_id=PLATFORM_KEY_ID, pubkey=PLATFORM_PUBKEY),
+        journal=load_packaged_pin("journal"),
+        desktop=load_packaged_pin("desktop"),
+        tmux=load_packaged_pin("tmux"),
+        platform=load_packaged_pin("platform"),
     )
 
 
-def require_production_platform_pin(repo_root: Path) -> MinisignPin:
-    """Load production platform pin, refusing if absent."""
-    pub_path = repo_root / "pins" / "platform.pub"
-    keyid_path = repo_root / "pins" / "platform.keyid"
-    if not pub_path.is_file() or not keyid_path.is_file():
-        raise Refusal(
-            PRODUCTION_UNAVAILABLE,
-            "production platform pin is absent (pins/platform.pub and pins/platform.keyid required for production publication)",
-        )
-    pin = load_pin_file(pub_path)
-    expected_id = keyid_path.read_text(encoding="utf-8").strip()
-    if pin.key_id != expected_id.upper():
-        raise Refusal(PIN_MISMATCH, f"platform key ID mismatch: file has {pin.key_id}, keyid has {expected_id}")
-    return pin
+def require_production_platform_pin(repo_root: Optional[Path] = None) -> MinisignPin:
+    """Load production platform pin from packaged resources, ignoring caller repo_root."""
+    return load_packaged_pin("platform")
+

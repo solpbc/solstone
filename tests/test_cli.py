@@ -73,6 +73,60 @@ class TestProductionCliGate(unittest.TestCase):
         self.assertEqual(result, 1)
         self.assertIn("--acknowledge-production required", stderr.getvalue())
 
+    def test_publish_rejects_platform_pub_flag(self):
+        repo_root = Path(__file__).parent.parent
+        stderr = io.StringIO()
+        with redirect_stderr(stderr):
+            with self.assertRaises(SystemExit):
+                main([
+                    "publish",
+                    "--manifest", str(repo_root / "examples" / "platform.json"),
+                    "--signature", str(repo_root / "examples" / "platform.json"),
+                    "--journal-dir", str(repo_root / "testdata" / "native" / "journal-v2"),
+                    "--desktop-dir", str(repo_root / "testdata" / "native" / "desktop" / "2.0.3"),
+                    "--tmux-dir", str(repo_root / "testdata" / "native" / "tmux" / "2.0.3"),
+                    "--platform-pub", str(repo_root / "pins" / "platform.pub"),
+                ])
+        self.assertIn("unrecognized arguments: --platform-pub", stderr.getvalue())
+
+    def test_publish_rejects_skip_signature_flag(self):
+        repo_root = Path(__file__).parent.parent
+        stderr = io.StringIO()
+        with redirect_stderr(stderr):
+            with self.assertRaises(SystemExit):
+                main([
+                    "publish",
+                    "--manifest", str(repo_root / "examples" / "platform.json"),
+                    "--signature", str(repo_root / "examples" / "platform.json"),
+                    "--journal-dir", str(repo_root / "testdata" / "native" / "journal-v2"),
+                    "--desktop-dir", str(repo_root / "testdata" / "native" / "desktop" / "2.0.3"),
+                    "--tmux-dir", str(repo_root / "testdata" / "native" / "tmux" / "2.0.3"),
+                    "--skip-signature",
+                ])
+        self.assertIn("unrecognized arguments: --skip-signature", stderr.getvalue())
+
+    def test_publish_help_has_no_skip_signature(self):
+        stdout = io.StringIO()
+        from contextlib import redirect_stdout
+        with redirect_stdout(stdout):
+            with self.assertRaises(SystemExit):
+                main(["publish", "--help"])
+    def test_publish_requires_ack_and_env(self):
+        repo_root = Path(__file__).parent.parent
+        stderr = io.StringIO()
+        with redirect_stderr(stderr):
+            result = main([
+                "publish",
+                "--manifest", str(repo_root / "examples" / "platform.json"),
+                "--signature", str(repo_root / "examples" / "platform.json"),
+                "--journal-dir", str(repo_root / "testdata" / "native" / "journal-v2"),
+                "--desktop-dir", str(repo_root / "testdata" / "native" / "desktop" / "2.0.3"),
+                "--tmux-dir", str(repo_root / "testdata" / "native" / "tmux" / "2.0.3"),
+            ])
+        self.assertEqual(result, 1)
+        self.assertIn("--acknowledge-production required", stderr.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()
+

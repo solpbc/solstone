@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Hermetic in-memory test destination adapter for loopback testing."""
+"""Hermetic in-memory fixture destination adapter for loopback testing."""
 
 from dataclasses import dataclass
 import hashlib
-from typing import Optional
+from typing import Callable, Optional
 
 from solstone_platform.destination import (
     CasResult,
@@ -13,6 +13,10 @@ from solstone_platform.destination import (
     PutResult,
     ResultStatus,
 )
+from solstone_platform.pins import MinisignPin, PinSet
+from solstone_platform.refusals import Refusal, UNSAFE_FILENAME
+
+FIXTURE_BUILD_TOKEN = object()
 
 
 @dataclass
@@ -23,11 +27,35 @@ class StoredObject:
     cache_control: str
 
 
-class InMemoryDestination:
-    """In-memory destination supporting atomic operations and failure simulation."""
+@dataclass
+class LedgerEntry:
+    method: str
+    key: str
+    content_type: Optional[str] = None
+    cache_control: Optional[str] = None
 
-    def __init__(self) -> None:
+
+class FixtureDestination:
+    """Non-subclassable in-memory destination adapter for test fixtures."""
+
+    def __init_subclass__(cls, **kwargs):
+        raise TypeError("FixtureDestination is final and cannot be subclassed")
+
+    def __init__(
+        self,
+        pinset: Optional[PinSet] = None,
+        platform_pin: Optional[MinisignPin] = None,
+    ) -> None:
+        self._build_token = FIXTURE_BUILD_TOKEN
+        self.pinset = pinset
+        self.platform_pin = platform_pin
+        self._post_capture_hook: Optional[Callable[[], None]] = None
+        self.cas_pre_hook: Optional[Callable[[], None]] = None
+
         self.objects: dict[str, StoredObject] = {}
+        self.ledger: list[LedgerEntry] = []
+        self.network_sentinel: list[Any] = []
+
         self.fail_next_get: Optional[ResultStatus] = None
         self.get_overrides: dict[str, GetResult] = {}
         self.fail_next_put: Optional[ResultStatus] = None
@@ -45,6 +73,7 @@ class InMemoryDestination:
         return sorted(self.objects.keys())
 
     def get(self, key: str) -> GetResult:
+        self.ledger.append(LedgerEntry(method="get", key=key))
         if key in self.get_overrides:
             return self.get_overrides.pop(key)
 
@@ -72,6 +101,7 @@ class InMemoryDestination:
         content_type: str,
         cache_control: str,
     ) -> PutResult:
+        self.ledger.append(LedgerEntry(method="put_if_absent", key=key, content_type=content_type, cache_control=cache_control))
         if self.fail_next_put:
             status = self.fail_next_put
             self.fail_next_put = None
@@ -116,6 +146,17 @@ class InMemoryDestination:
         content_type: str,
         cache_control: str,
     ) -> CasResult:
+        self.ledger.append(LedgerEntry(method="compare_and_swap", key=key, content_type=content_type, cache_control=cache_control))
+        # CAS is only permitted on latest pointer
+        parts = key.split("/")
+        if not (len(parts) == 3 and parts[0] == "solstone" and parts[2] == "latest"):
+            raise Refusal(UNSAFE_FILENAME, f"compare_and_swap is strictly confined to latest pointer, rejected key: {key}")
+
+        if self.cas_pre_hook:
+            hook = self.cas_pre_hook
+            self.cas_pre_hook = None
+            hook()
+
         if self.fail_next_cas:
             status = self.fail_next_cas
             self.fail_next_cas = None
@@ -140,3 +181,4 @@ class InMemoryDestination:
             cache_control=cache_control,
         )
         return CasResult(status=ResultStatus.OK, etag=new_etag)
+
