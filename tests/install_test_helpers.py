@@ -63,6 +63,7 @@ def make_v2_bootstrap_script(revision: int = 2) -> bytes:
     return (
         f"#!/bin/sh\n"
         f"BOOTSTRAP_REVISION={revision}\n"
+        f"BOOTSTRAP_CONTRACT_VERSION=2\n"
         f"ROLE='journal'\n"
         f"PREFIX=''\n"
         f"DRY_RUN=0\n"
@@ -128,6 +129,7 @@ def setup_test_release_server(
         m_obj["minimum_installer_revision"] = min_installer_revision
         manifest_bytes = canonical_json_bytes(m_obj)
 
+    signed_manifest_bytes = manifest_bytes
     if duplicate_key:
         manifest_bytes = manifest_bytes.replace(b'"schema_version":1,', b'"schema_version":1,"schema_version":1,')
     elif corrupt_manifest:
@@ -147,7 +149,7 @@ def setup_test_release_server(
 
     # Sign manifest
     sig_bytes = sign_manifest(
-        manifest_bytes=manifest_bytes,
+        manifest_bytes=signed_manifest_bytes,
         secret_key_path=sec_key_path,
         selected_pin=pin,
         repo_root=REPO_ROOT,
@@ -161,7 +163,7 @@ def setup_test_release_server(
     j_ver = "2.0.6"
     j_bootstrap_dir = server_root / "solstone-journal" / lane / j_ver
     j_bootstrap_dir.mkdir(parents=True, exist_ok=True)
-    (j_bootstrap_dir / "install.sh").write_bytes(v2_boot)
+    (j_bootstrap_dir / f"solstone-journal-{j_ver}-install.sh").write_bytes(v2_boot)
 
     # Copy all component variant archives (tar.gz, deb, rpm) to ver_dir
     for comp_dir in native_dirs.values():

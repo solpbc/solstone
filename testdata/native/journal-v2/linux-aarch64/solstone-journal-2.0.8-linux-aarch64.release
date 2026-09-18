@@ -1,8 +1,8 @@
 product=solstone-journal
 version=2.0.8
 target=linux-aarch64
-commit=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-lock_sha256=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+commit=3aabaf0ddad4e535e917973de6bdf7a36c324247
+lock_sha256=1d7bcb50f6b969f35bdad3fc37c6df1d355d142b24f582267b3394c45c7496b0
 upgrade_epoch=journal-v2
 retention_window=3
 min_bootstrap_revision=2

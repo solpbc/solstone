@@ -8,7 +8,7 @@ open source. self-host it, or let [sol pbc](https://solpbc.org) operate it for y
 
 > **looking for the journal's code?** it moved to
 > **[solstone-journal](https://github.com/solpbc/solstone-journal)**. this repo is now
-> an index of the whole solstone family — there's no code here, pick a repo below.
+> the family index and the home of solstone's platform release metadata and installer rail.
 
 ## the family
 
@@ -26,7 +26,7 @@ open source. self-host it, or let [sol pbc](https://solpbc.org) operate it for y
 
 This repository generates, validates, signs, and publishes the platform-level `platform.json` release metadata manifest, manages the atomic `latest` pointer across release lanes, and provides the unpublished POSIX platform installer build rail (`install.sh.in` -> `install.sh`).
 
-> **Note**: This repository contains the installer generator and hermetic test suite. Production platform key cutover, live publication, and production URL cutover remain downstream. The live URL `https://solstone.app/install.sh` remains the journal one-liner bootstrap until production platform key release.
+> **Note**: The platform installer is not yet published. The live URL `https://solstone.app/install.sh` remains the journal one-liner bootstrap.
 
 For authoritative definitions, refer to:
 - Native component pins: `pins/`
@@ -35,13 +35,13 @@ For authoritative definitions, refer to:
 - Component handler contracts: `contracts/`
 - Target architecture and package mappings: `src/solstone_platform/targets.py`
 
-### Development & Verification Commands
+### development & verification commands
 
 ```bash
 # Build (compile Python sources)
 make build
 
-# Build production POSIX platform installer (refuses without pins/platform.pub; local verification is make test / test seam)
+# Build the production POSIX platform installer from the checked-in public pin
 make build-installer
 
 # Run unit and regression test suite

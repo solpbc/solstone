@@ -1,5 +1,7 @@
-This directory contains the unchanged journal-v2 producer fixture for the platform rail.
-Each native-target directory carries the exact producer output: signed manifest,
+This directory contains the journal-v2 producer fixture generated at exact
+solstone-journal source 3aabaf0ddad4e535e917973de6bdf7a36c324247 with
+core/Cargo.lock SHA-256 1d7bcb50f6b969f35bdad3fc37c6df1d355d142b24f582267b3394c45c7496b0.
+Each native-target directory carries actual producer output: signed manifest,
 release and checksum sidecars, versioned bootstrap, and tree/deb/rpm variants.
 fixture.pub is an explicitly test-only identity generated outside the repository;
 the tests prove that the production journal pin refuses it. Never present these

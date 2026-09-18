@@ -11,7 +11,8 @@ import tempfile
 import unittest
 
 from solstone_platform.generate import generate_platform_manifest
-from solstone_platform.pins import PinSet, embedded_pins
+from solstone_platform.pins import PinSet, embedded_pins, load_pin_file
+from solstone_platform.refusals import Refusal
 from solstone_platform.sign import ephemeral_keypair, sign_manifest
 from tests.install_test_helpers import LoopbackServer, make_v2_bootstrap_script, setup_test_release_server
 from tools.build_installer import build_installer
@@ -111,7 +112,13 @@ class TestInstallVerify(unittest.TestCase):
             server, server_root = setup_test_release_server(self.work_dir, sec, pin)
             try:
                 # Corrupt the bootstrap file on the server
-                j_bootstrap = server_root / "solstone-journal" / "release" / "2.0.6" / "install.sh"
+                j_bootstrap = (
+                    server_root
+                    / "solstone-journal"
+                    / "release"
+                    / "2.0.6"
+                    / "solstone-journal-2.0.6-install.sh"
+                )
                 j_bootstrap.write_bytes(b"tampered bootstrap script\n")
 
                 installer = self.work_dir / "install.sh"
@@ -185,8 +192,7 @@ class TestInstallVerify(unittest.TestCase):
             finally:
                 server.stop()
 
-    def test_production_build_without_pin_refuses(self):
-        # make build-installer refuses without pins/platform.pub
+    def test_production_build_requires_exact_checked_in_pin(self):
         out_file = self.work_dir / "prod_install.sh"
         proc = subprocess.run(
             ["python3", "tools/build_installer.py", "--production", "-o", str(out_file)],
@@ -194,8 +200,34 @@ class TestInstallVerify(unittest.TestCase):
             text=True,
             cwd=str(REPO_ROOT),
         )
-        self.assertNotEqual(proc.returncode, 0)
-        self.assertIn("production platform pin is absent", proc.stderr)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        pin = load_pin_file(REPO_ROOT / "pins" / "platform.pub")
+        script = out_file.read_text(encoding="utf-8")
+        self.assertIn(f'PLATFORM_KEY_ID="{pin.key_id}"', script)
+        self.assertIn(f'PLATFORM_PUBKEY="{pin.pubkey}"', script)
+        self.assertIn("TEST_SEAM=0", script)
+
+        fixture_repo = self.work_dir / "missing-pin-repo"
+        fixture_repo.mkdir()
+        shutil.copy2(REPO_ROOT / "install.sh.in", fixture_repo / "install.sh.in")
+        shutil.copytree(REPO_ROOT / "compat", fixture_repo / "compat")
+        shutil.copytree(REPO_ROOT / "pins", fixture_repo / "pins")
+        (fixture_repo / "pins" / "platform.pub").unlink()
+        with self.assertRaisesRegex(Refusal, "production platform pin is absent"):
+            build_installer(
+                repo_root=fixture_repo,
+                output_path=self.work_dir / "must-not-exist.sh",
+                is_production=True,
+            )
+
+        shutil.copy2(REPO_ROOT / "pins" / "platform.pub", fixture_repo / "pins" / "platform.pub")
+        (fixture_repo / "pins" / "platform.keyid").write_text("0000000000000000\n", encoding="utf-8")
+        with self.assertRaisesRegex(Refusal, "platform key ID mismatch"):
+            build_installer(
+                repo_root=fixture_repo,
+                output_path=self.work_dir / "must-not-exist.sh",
+                is_production=True,
+            )
 
     def test_native_desktop_pin_matches_checked_in_fixture(self):
         with ephemeral_keypair("test desktop pin") as (sec, pub, pin):
