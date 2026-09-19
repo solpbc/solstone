@@ -4,6 +4,7 @@
 """Test Family 6: Journal bootstrap revision checks and v2 delegation."""
 
 import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -66,16 +67,34 @@ class TestInstallBootstrap(unittest.TestCase):
                     origin=server.origin,
                 )
 
+                args_log = self.work_dir / "bootstrap-args.log"
+                env = {**os.environ, "SOLSTONE_BOOTSTRAP_ARGS_LOG": str(args_log)}
+
+                def expected_args(role: str) -> list[str]:
+                    return [
+                        "--role", role,
+                        "--prefix", str(self.prefix),
+                        "--origin", server.origin,
+                        "--lane", "release",
+                        "--version", "2.0.6",
+                        "--no-start",
+                        "--no-path",
+                        "--skip-signature",
+                        "--upgrade",
+                    ]
+
                 # 1. Install journal role
                 proc_j = subprocess.run(
-                    [str(installer), "--skip-signature", "--components", "journal", "--prefix", str(self.prefix), "--no-start", "--json"],
+                    [str(installer), "--skip-signature", "--components", "journal", "--prefix", str(self.prefix), "--no-start", "--no-path", "--upgrade", "--json"],
                     capture_output=True,
                     text=True,
+                    env=env,
                 )
                 self.assertEqual(proc_j.returncode, 0, f"Failed: {proc_j.stderr}")
                 res_j = json.loads(proc_j.stdout.strip())
                 self.assertEqual(res_j["status"], "success")
                 self.assertEqual(res_j["components"]["journal"]["role"], "journal")
+                self.assertEqual(args_log.read_text(encoding="utf-8").splitlines(), expected_args("journal"))
 
                 # Verify installed binary
                 j_bin = self.prefix / "bin" / "journal"
@@ -85,14 +104,16 @@ class TestInstallBootstrap(unittest.TestCase):
 
                 # 2. Install cli role
                 proc_c = subprocess.run(
-                    [str(installer), "--skip-signature", "--components", "cli", "--prefix", str(self.prefix), "--no-start", "--json"],
+                    [str(installer), "--skip-signature", "--components", "cli", "--prefix", str(self.prefix), "--no-start", "--no-path", "--upgrade", "--json"],
                     capture_output=True,
                     text=True,
+                    env=env,
                 )
                 self.assertEqual(proc_c.returncode, 0, f"Failed: {proc_c.stderr}")
                 res_c = json.loads(proc_c.stdout.strip())
                 self.assertEqual(res_c["status"], "success")
                 self.assertEqual(res_c["components"]["cli"]["role"], "cli")
+                self.assertEqual(args_log.read_text(encoding="utf-8").splitlines(), expected_args("cli"))
 
                 proc_out_cli = subprocess.run([str(j_bin)], capture_output=True, text=True)
                 self.assertIn("cli 2.0.6", proc_out_cli.stdout)

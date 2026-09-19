@@ -1748,7 +1748,8 @@ run_tree_install() {
             fi
 
             # Execute bootstrap
-            b_flags="--role $comp --prefix $OPT_PREFIX --origin $OPT_ORIGIN --lane $OPT_LANE"
+            b_component_version=$(cat "${manifest_dir}/components/journal/version")
+            b_flags="--role $comp --prefix $OPT_PREFIX --origin $OPT_ORIGIN --lane $OPT_LANE --version $b_component_version"
             [ "$OPT_NO_START" -eq 1 ] && b_flags="$b_flags --no-start"
             [ "$OPT_NO_PATH" -eq 1 ] && b_flags="$b_flags --no-path"
             [ "$OPT_SKIP_SIGNATURE" -eq 1 ] && b_flags="$b_flags --skip-signature"
