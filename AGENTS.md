@@ -4,7 +4,7 @@ This repository defines the `platform.json` release metadata schema, generator, 
 
 ## Key Principles & Guardrails
 
-- **Scope**: This codebase generates, signs, and publishes multi-component `platform.json` release manifests, manages the atomic `latest` pointer, and maintains the POSIX platform installer template and build rail (`install.sh.in` -> `install.sh`). The platform installer is not yet published; `https://solstone.app/install.sh` remains the journal bootstrap.
+- **Scope**: This codebase generates, signs, and publishes multi-component `platform.json` release manifests, manages the atomic `latest` pointer, and maintains the POSIX platform installer template and build rail (`install.sh.in` -> `install.sh`). The platform installer is published at `https://solstone.app/platform-install.sh`; `https://solstone.app/install.sh` remains the journal bootstrap.
 - **Source of Truth**:
   - Embedded release pins: `pins/journal.pub`, `pins/desktop.pub`, `pins/tmux.pub`.
   - Production platform pin: `pins/platform.pub` + `pins/platform.keyid`. The private key never enters this repository; production signing still requires an explicitly supplied matching key and acknowledgement.
