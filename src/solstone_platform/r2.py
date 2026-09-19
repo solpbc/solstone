@@ -36,7 +36,7 @@ from solstone_platform.refusals import (
     UNSAFE_FILENAME,
 )
 
-R2_REQUEST_TIMEOUT_SECONDS = 300
+R2_REQUEST_TIMEOUT_SECONDS = 900
 
 
 def _sign(key: bytes, msg: str) -> bytes:

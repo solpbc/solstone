@@ -186,7 +186,7 @@ class TestSigV4(unittest.TestCase):
         self.dest.opener = opener
         self.dest._send_request("GET", "solstone/release/latest")
         self.assertEqual(opener.timeout, R2_REQUEST_TIMEOUT_SECONDS)
-        self.assertEqual(opener.timeout, 300)
+        self.assertEqual(opener.timeout, 900)
 
 
 
