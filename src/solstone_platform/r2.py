@@ -36,6 +36,8 @@ from solstone_platform.refusals import (
     UNSAFE_FILENAME,
 )
 
+R2_REQUEST_TIMEOUT_SECONDS = 300
+
 
 def _sign(key: bytes, msg: str) -> bytes:
     return hmac.new(key, msg.encode("utf-8"), hashlib.sha256).digest()
@@ -232,7 +234,7 @@ class R2Destination:
 
         req = urllib.request.Request(url, data=body if method in ("PUT", "POST") else None, headers=signed_headers, method=method)
         try:
-            with self.opener.open(req, timeout=30) as resp:
+            with self.opener.open(req, timeout=R2_REQUEST_TIMEOUT_SECONDS) as resp:
                 status = resp.status
                 if 300 <= status < 400:
                     raise Refusal(HTTP_3XX, f"HTTP redirect {status} refused")

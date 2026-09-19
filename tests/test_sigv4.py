@@ -8,7 +8,12 @@ import unittest
 
 from solstone_platform.canonical import parse_json_strict
 from solstone_platform.destination import ResultStatus
-from solstone_platform.r2 import R2Config, R2Destination, compute_sigv4_headers
+from solstone_platform.r2 import (
+    R2_REQUEST_TIMEOUT_SECONDS,
+    R2Config,
+    R2Destination,
+    compute_sigv4_headers,
+)
 from solstone_platform.refusals import (
     HTTP_3XX,
     LANE_INVALID,
@@ -155,6 +160,33 @@ class TestSigV4(unittest.TestCase):
                 cache_control="no-store",
             )
         self.assertEqual(ctx.exception.name, UNSAFE_FILENAME)
+
+    def test_requests_allow_large_artifact_upload_window(self):
+        class CapturingOpener:
+            timeout = None
+
+            def open(self, request, timeout):
+                self.timeout = timeout
+                return self
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, traceback):
+                return False
+
+            status = 200
+            headers = {"ETag": '"testetag"'}
+
+            @staticmethod
+            def read():
+                return b""
+
+        opener = CapturingOpener()
+        self.dest.opener = opener
+        self.dest._send_request("GET", "solstone/release/latest")
+        self.assertEqual(opener.timeout, R2_REQUEST_TIMEOUT_SECONDS)
+        self.assertEqual(opener.timeout, 300)
 
 
 
