@@ -18,17 +18,10 @@ import time
 import unittest
 
 from solstone_platform.sign import ephemeral_keypair
-from tests.install_test_helpers import setup_test_release_server
+from tests.install_test_helpers import receipt_section, setup_test_release_server
 from tools.build_installer import build_installer
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-
-
-def receipt_section(receipt: bytes, name: str) -> bytes:
-    marker = f"[{name}]\n".encode()
-    start = receipt.index(marker)
-    next_section = receipt.find(b"\n[", start + len(marker))
-    return receipt[start:] if next_section == -1 else receipt[start:next_section + 1]
 
 
 class TestInstallTreeLifecycle(unittest.TestCase):

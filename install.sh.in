@@ -1400,6 +1400,285 @@ component_selected() {
     return 1
 }
 
+package_protocol_failure() {
+    ppf_output="$1"
+    ppf_fallback="$2"
+    ppf_message="$3"
+    case "$ppf_output" in
+        ERROR:*) report_exit "refusal" "${ppf_output#ERROR:}" "$ppf_message" ;;
+        *) report_exit "refusal" "$ppf_fallback" "$ppf_message" ;;
+    esac
+}
+
+package_read_receipt() {
+    PACKAGE_RECEIPT_FILE="${SCRATCH_DIR}/package-receipt.conf"
+    : > "$PACKAGE_RECEIPT_FILE" || report_exit "refusal" "receipt-read-failed" "Could not stage package receipt read"
+    # shellcheck disable=SC2086
+    if ! printf "READ_ETC_RECEIPT\n" | $sudo_prefix "$helper_bin" $helper_flags > "$PACKAGE_RECEIPT_FILE"; then
+        package_read_error=$(sed -n '1p' "$PACKAGE_RECEIPT_FILE")
+        package_protocol_failure "$package_read_error" "receipt-read-failed" "Could not read package receipt"
+    fi
+}
+
+package_load_section() {
+    pls_file="$1"
+    pls_component="$2"
+    pls_section="component:${pls_component}"
+    if ! PLS_PHASE=$(receipt_value "$pls_file" "$pls_section" phase 2>/dev/null) \
+        || ! PLS_STATUS=$(receipt_value "$pls_file" "$pls_section" status 2>/dev/null) \
+        || ! PLS_ROLE=$(receipt_value "$pls_file" "$pls_section" role 2>/dev/null) \
+        || ! PLS_ROUTE=$(receipt_value "$pls_file" "$pls_section" route 2>/dev/null) \
+        || ! PLS_POLICY=$(receipt_value "$pls_file" "$pls_section" service_policy 2>/dev/null) \
+        || ! PLS_NAME=$(receipt_value "$pls_file" "$pls_section" package_name 2>/dev/null) \
+        || ! PLS_VERSION=$(receipt_value "$pls_file" "$pls_section" package_version 2>/dev/null) \
+        || ! PLS_ARCH=$(receipt_value "$pls_file" "$pls_section" package_arch 2>/dev/null) \
+        || ! PLS_SHA=$(receipt_value "$pls_file" "$pls_section" artifact_sha256 2>/dev/null) \
+        || ! PLS_BUILD=$(receipt_value "$pls_file" "$pls_section" payload_build_id 2>/dev/null); then
+        return 1
+    fi
+    case "$PLS_PHASE:$PLS_STATUS" in
+        intended:intended|payload:payload|complete:installed) ;;
+        *) return 1 ;;
+    esac
+    case "$PLS_ROLE:$PLS_ROUTE:$PLS_POLICY" in
+        journal:deb:start|journal:deb:skip-service|journal:rpm:start|journal:rpm:skip-service|cli:deb:start|cli:deb:skip-service|cli:rpm:start|cli:rpm:skip-service|desktop:deb:start|desktop:deb:skip-service|desktop:rpm:start|desktop:rpm:skip-service|tmux:deb:start|tmux:deb:skip-service|tmux:rpm:start|tmux:rpm:skip-service) ;;
+        *) return 1 ;;
+    esac
+    [ -n "$PLS_NAME" ] && [ -n "$PLS_VERSION" ] && [ -n "$PLS_ARCH" ] \
+        && [ -n "$PLS_SHA" ] && [ -n "$PLS_BUILD" ] || return 1
+    PLS_HAS_PRIOR=0
+    PLS_PRIOR_ROLE=""
+    PLS_PRIOR_ROUTE=""
+    PLS_PRIOR_POLICY=""
+    PLS_PRIOR_NAME=""
+    PLS_PRIOR_VERSION=""
+    PLS_PRIOR_ARCH=""
+    PLS_PRIOR_SHA=""
+    PLS_PRIOR_BUILD=""
+    if [ "$PLS_PHASE" != "complete" ] && PLS_PRIOR_ROLE=$(receipt_value "$pls_file" "$pls_section" prior_role 2>/dev/null); then
+        if ! PLS_PRIOR_ROUTE=$(receipt_value "$pls_file" "$pls_section" prior_route 2>/dev/null) \
+            || ! PLS_PRIOR_POLICY=$(receipt_value "$pls_file" "$pls_section" prior_service_policy 2>/dev/null) \
+            || ! PLS_PRIOR_NAME=$(receipt_value "$pls_file" "$pls_section" prior_package_name 2>/dev/null) \
+            || ! PLS_PRIOR_VERSION=$(receipt_value "$pls_file" "$pls_section" prior_package_version 2>/dev/null) \
+            || ! PLS_PRIOR_ARCH=$(receipt_value "$pls_file" "$pls_section" prior_package_arch 2>/dev/null) \
+            || ! PLS_PRIOR_SHA=$(receipt_value "$pls_file" "$pls_section" prior_artifact_sha256 2>/dev/null) \
+            || ! PLS_PRIOR_BUILD=$(receipt_value "$pls_file" "$pls_section" prior_payload_build_id 2>/dev/null); then
+            return 1
+        fi
+        PLS_HAS_PRIOR=1
+    fi
+    return 0
+}
+
+package_find_owner() {
+    pfo_file="$1"
+    pfo_name="$2"
+    pfo_version="$3"
+    pfo_arch="$4"
+    PFO_COUNT=0
+    PFO_MATCH=""
+    for pfo_component in journal cli desktop tmux; do
+        if ! package_load_section "$pfo_file" "$pfo_component"; then
+            continue
+        fi
+        case "$PLS_ROUTE" in deb|rpm) ;; *) continue ;; esac
+        pfo_match=""
+        if [ "$PLS_NAME" = "$pfo_name" ] && [ "$PLS_VERSION" = "$pfo_version" ] && [ "$PLS_ARCH" = "$pfo_arch" ]; then
+            pfo_match="target"
+        fi
+        if [ "$PLS_HAS_PRIOR" -eq 1 ] && [ "$PLS_PRIOR_NAME" = "$pfo_name" ] \
+            && [ "$PLS_PRIOR_VERSION" = "$pfo_version" ] && [ "$PLS_PRIOR_ARCH" = "$pfo_arch" ]; then
+            [ -n "$pfo_match" ] && pfo_match="both" || pfo_match="prior"
+        fi
+        [ -n "$pfo_match" ] || continue
+        PFO_COUNT=$((PFO_COUNT + 1))
+        [ "$PFO_COUNT" -eq 1 ] || continue
+        PFO_MATCH="$pfo_match"
+        PFO_PHASE="$PLS_PHASE"
+        PFO_ROLE="$PLS_ROLE"
+        PFO_ROUTE="$PLS_ROUTE"
+        PFO_POLICY="$PLS_POLICY"
+        PFO_NAME="$PLS_NAME"
+        PFO_VERSION="$PLS_VERSION"
+        PFO_ARCH="$PLS_ARCH"
+        PFO_SHA="$PLS_SHA"
+        PFO_BUILD="$PLS_BUILD"
+        PFO_HAS_PRIOR="$PLS_HAS_PRIOR"
+        PFO_PRIOR_ROLE="$PLS_PRIOR_ROLE"
+        PFO_PRIOR_ROUTE="$PLS_PRIOR_ROUTE"
+        PFO_PRIOR_POLICY="$PLS_PRIOR_POLICY"
+        PFO_PRIOR_NAME="$PLS_PRIOR_NAME"
+        PFO_PRIOR_VERSION="$PLS_PRIOR_VERSION"
+        PFO_PRIOR_ARCH="$PLS_PRIOR_ARCH"
+        PFO_PRIOR_SHA="$PLS_PRIOR_SHA"
+        PFO_PRIOR_BUILD="$PLS_PRIOR_BUILD"
+    done
+}
+
+package_owner_matches_target() {
+    [ "$PFO_ROLE" = "$PC_ROLE" ] && [ "$PFO_ROUTE" = "$PC_ROUTE" ] \
+        && [ "$PFO_POLICY" = "$PC_POLICY" ] && [ "$PFO_NAME" = "$PC_NAME" ] \
+        && [ "$PFO_VERSION" = "$PC_VERSION" ] && [ "$PFO_ARCH" = "$PC_ARCH" ] \
+        && [ "$PFO_SHA" = "$PC_SHA" ] && [ "$PFO_BUILD" = "$PC_BUILD" ]
+}
+
+package_set_no_prior() {
+    PC_HAS_PRIOR=0
+    PC_PRIOR_ROLE=""
+    PC_PRIOR_ROUTE=""
+    PC_PRIOR_POLICY=""
+    PC_PRIOR_NAME=""
+    PC_PRIOR_VERSION=""
+    PC_PRIOR_ARCH=""
+    PC_PRIOR_SHA=""
+    PC_PRIOR_BUILD=""
+}
+
+package_set_prior_from_owner_target() {
+    PC_HAS_PRIOR=1
+    PC_PRIOR_ROLE="$PFO_ROLE"
+    PC_PRIOR_ROUTE="$PFO_ROUTE"
+    PC_PRIOR_POLICY="$PFO_POLICY"
+    PC_PRIOR_NAME="$PFO_NAME"
+    PC_PRIOR_VERSION="$PFO_VERSION"
+    PC_PRIOR_ARCH="$PFO_ARCH"
+    PC_PRIOR_SHA="$PFO_SHA"
+    PC_PRIOR_BUILD="$PFO_BUILD"
+}
+
+package_set_prior_from_owner_prior() {
+    PC_HAS_PRIOR=1
+    PC_PRIOR_ROLE="$PFO_PRIOR_ROLE"
+    PC_PRIOR_ROUTE="$PFO_PRIOR_ROUTE"
+    PC_PRIOR_POLICY="$PFO_PRIOR_POLICY"
+    PC_PRIOR_NAME="$PFO_PRIOR_NAME"
+    PC_PRIOR_VERSION="$PFO_PRIOR_VERSION"
+    PC_PRIOR_ARCH="$PFO_PRIOR_ARCH"
+    PC_PRIOR_SHA="$PFO_PRIOR_SHA"
+    PC_PRIOR_BUILD="$PFO_PRIOR_BUILD"
+}
+
+package_publish_phase() {
+    ppp_component="$1"
+    ppp_phase="$2"
+    ppp_status="$3"
+    ppp_section="${SCRATCH_DIR}/package-section.${ppp_component}.$$"
+    ppp_receipt="${SCRATCH_DIR}/package-receipt-next.$$"
+    {
+        printf "[component:%s]\n" "$ppp_component"
+        printf "phase=%s\n" "$ppp_phase"
+        printf "status=%s\n" "$ppp_status"
+        printf "role=%s\n" "$PC_ROLE"
+        printf "route=%s\n" "$PC_ROUTE"
+        printf "service_policy=%s\n" "$PC_POLICY"
+        printf "package_name=%s\n" "$PC_NAME"
+        printf "package_version=%s\n" "$PC_VERSION"
+        printf "package_arch=%s\n" "$PC_ARCH"
+        printf "artifact_sha256=%s\n" "$PC_SHA"
+        printf "payload_build_id=%s\n" "$PC_BUILD"
+        if [ "$ppp_phase" != "complete" ] && [ "$PC_HAS_PRIOR" -eq 1 ]; then
+            printf "prior_role=%s\n" "$PC_PRIOR_ROLE"
+            printf "prior_route=%s\n" "$PC_PRIOR_ROUTE"
+            printf "prior_service_policy=%s\n" "$PC_PRIOR_POLICY"
+            printf "prior_package_name=%s\n" "$PC_PRIOR_NAME"
+            printf "prior_package_version=%s\n" "$PC_PRIOR_VERSION"
+            printf "prior_package_arch=%s\n" "$PC_PRIOR_ARCH"
+            printf "prior_artifact_sha256=%s\n" "$PC_PRIOR_SHA"
+            printf "prior_payload_build_id=%s\n" "$PC_PRIOR_BUILD"
+        fi
+    } > "$ppp_section" || report_exit "refusal" "receipt-write-failed" "Could not stage package component receipt"
+    {
+        printf "[solstone]\n"
+        printf "schema_version=1\n"
+        printf "platform_version=%s\n" "$RESOLVED_VERSION"
+        printf "lane=%s\n" "$OPT_LANE"
+        printf "origin=%s\n" "$OPT_ORIGIN"
+        printf "arch=%s\n" "$HOST_ARCH"
+        printf "verification=%s\n" "$([ "$OPT_SKIP_SIGNATURE" -eq 1 ] && echo "digest-matched; signatures skipped" || echo "minisign")"
+        printf "installer_revision=%s\n" "$INSTALLER_REVISION"
+    } > "$ppp_receipt" || report_exit "refusal" "receipt-write-failed" "Could not stage package receipt"
+    for ppp_existing in journal cli desktop tmux; do
+        if [ "$ppp_existing" = "$ppp_component" ]; then
+            cat "$ppp_section" >> "$ppp_receipt" || report_exit "refusal" "receipt-write-failed" "Could not stage package component receipt"
+        elif component_selected "$ppp_existing"; then
+            [ ! -s "$PACKAGE_RECEIPT_FILE" ] || append_receipt_section "$PACKAGE_RECEIPT_FILE" "component:${ppp_existing}" "$ppp_receipt" || report_exit "refusal" "receipt-write-failed" "Could not preserve package receipt section"
+        else
+            [ ! -s "$PACKAGE_RECEIPT_FILE" ] || append_receipt_section "$PACKAGE_RECEIPT_FILE" "component:${ppp_existing}" "$ppp_receipt" || report_exit "refusal" "receipt-write-failed" "Could not preserve package receipt section"
+        fi
+    done
+    ppp_len=$(wc -c < "$ppp_receipt" | tr -d '[:space:]')
+    # shellcheck disable=SC2086
+    if ! ppp_result=$({ printf "WRITE_ETC_RECEIPT %s\n" "$ppp_len"; cat "$ppp_receipt"; } | $sudo_prefix "$helper_bin" $helper_flags); then
+        package_protocol_failure "$ppp_result" "receipt-write-failed" "Could not publish package receipt"
+    fi
+    [ "$ppp_result" = "OK" ] || package_protocol_failure "$ppp_result" "receipt-write-failed" "Could not publish package receipt"
+    cp "$ppp_receipt" "$PACKAGE_RECEIPT_FILE" || report_exit "refusal" "receipt-write-failed" "Could not retain package receipt state"
+}
+
+package_query_current() {
+    pqc_name="$1"
+    # shellcheck disable=SC2086
+    if ! PQUERY_OUT=$(printf "QUERY_PKG %s %s\n" "$PKG_VARIANT" "$pqc_name" | $sudo_prefix "$helper_bin" $helper_flags); then
+        package_protocol_failure "$PQUERY_OUT" "query-failed" "Could not query package $pqc_name"
+    fi
+    # shellcheck disable=SC2086
+    set -- $PQUERY_OUT
+    PQUERY_STATE="${1:-}"
+    PQUERY_NAME="${2:-}"
+    PQUERY_VERSION="${3:-}"
+    PQUERY_ARCH="${4:-}"
+    case "$PQUERY_STATE" in
+        ABSENT)
+            [ $# -eq 1 ] || report_exit "refusal" "query-malformed" "Package query returned malformed absence"
+            ;;
+        INSTALLED|CONFIG_FILES)
+            if [ $# -ne 4 ] || [ "$PQUERY_NAME" != "$pqc_name" ]; then
+                report_exit "refusal" "query-malformed" "Package query returned malformed identity"
+            fi
+            ;;
+        *) report_exit "refusal" "query-malformed" "Package query returned malformed output" ;;
+    esac
+}
+
+package_fetch_install() {
+    pfi_path="${SCRATCH_DIR}/${PC_FILENAME}"
+    fetch_file_with_redirect_check "${OPT_ORIGIN}/solstone/${OPT_LANE}/${RESOLVED_VERSION}/${PC_FILENAME}" "$pfi_path"
+    verify_sha256 "$pfi_path" "$PC_SHA"
+    # shellcheck disable=SC2086
+    if ! PINSTALL_OUT=$(printf "INSTALL_PKG %s %s\n" "$PKG_VARIANT" "$pfi_path" | $sudo_prefix "$helper_bin" $helper_flags); then
+        package_protocol_failure "$PINSTALL_OUT" "package-install-failed" "Helper failed to install package $PC_FILENAME"
+    fi
+    [ "$PINSTALL_OUT" = "OK" ] || package_protocol_failure "$PINSTALL_OUT" "package-install-failed" "Helper failed to install package $PC_FILENAME"
+    package_query_current "$PC_NAME"
+    if [ "$PQUERY_STATE" != "INSTALLED" ] || [ "$PQUERY_NAME" != "$PC_NAME" ] \
+        || [ "$PQUERY_VERSION" != "$PC_VERSION" ] || [ "$PQUERY_ARCH" != "$PC_ARCH" ]; then
+        report_exit "refusal" "package-install-failed" "Installed package identity did not match candidate $PC_NAME"
+    fi
+}
+
+package_run_setup() {
+    [ "$PC_ROLE" = "journal" ] || return 0
+    if [ "$TEST_SEAM" -eq 1 ] && [ -n "${SOLSTONE_FAKE_PKG_DB:-}" ]; then
+        [ -n "${SOLSTONE_FAKE_ROOT:-}" ] || report_exit "refusal" "setup-failed" "Fake package root is required for journal setup"
+        JOURNAL_LAUNCHER="${SOLSTONE_FAKE_ROOT}/usr/bin/journal"
+    else
+        JOURNAL_LAUNCHER="/usr/bin/journal"
+    fi
+    [ -x "$JOURNAL_LAUNCHER" ] || report_exit "refusal" "setup-failed" "Package-owned journal launcher is unavailable"
+    if [ "$OPT_NO_START" -eq 1 ]; then
+        if ! "$JOURNAL_LAUNCHER" setup --yes --installer-transaction --skip-service; then
+            report_exit "refusal" "setup-failed" "Journal setup failed"
+        fi
+    elif ! "$JOURNAL_LAUNCHER" setup --yes --installer-transaction; then
+        report_exit "refusal" "setup-failed" "Journal setup failed"
+    fi
+}
+
+package_complete_after_payload() {
+    package_run_setup
+    package_publish_phase "$PC_ROLE" complete installed
+}
+
 record_pointer_state() {
     rp_name="$1"
     rp_path="$2"
@@ -1953,6 +2232,8 @@ run_package_install() {
         [ -n "${SOLSTONE_LOCK_DIR:-}" ] && helper_flags="$helper_flags --lock-dir $SOLSTONE_LOCK_DIR"
         [ -n "${SOLSTONE_ETC_ROOT:-}" ] && helper_flags="$helper_flags --etc-root $SOLSTONE_ETC_ROOT"
         [ -n "${SOLSTONE_FAKE_PKG_DB:-}" ] && helper_flags="$helper_flags --fake-pkg-db $SOLSTONE_FAKE_PKG_DB"
+        [ -n "${SOLSTONE_FAKE_ROOT:-}" ] && helper_flags="$helper_flags --fake-root $SOLSTONE_FAKE_ROOT"
+        [ -n "${SOLSTONE_FAKE_JOURNAL_LAUNCHER:-}" ] && helper_flags="$helper_flags --fake-journal-launcher $SOLSTONE_FAKE_JOURNAL_LAUNCHER"
     fi
 
     sudo_prefix=""
@@ -1969,90 +2250,136 @@ run_package_install() {
         report_exit "refusal" "privilege-required" "Package helper PING failed"
     fi
 
+    package_read_receipt
+
     for comp in $SELECTED_COMPONENTS; do
         if [ "$comp" = "cli" ]; then
             c_key="journal"
         else
             c_key="$comp"
         fi
-        pkg_fn=$(cat "${manifest_dir}/components/${c_key}/arches/${HOST_ARCH}/${PKG_VARIANT}/filename")
-        pkg_sha=$(cat "${manifest_dir}/components/${c_key}/arches/${HOST_ARCH}/${PKG_VARIANT}/sha256")
-        pkg_name=$(cat "${manifest_dir}/components/${c_key}/arches/${HOST_ARCH}/${PKG_VARIANT}/package_identity/name")
-        pkg_ver=$(cat "${manifest_dir}/components/${c_key}/arches/${HOST_ARCH}/${PKG_VARIANT}/package_identity/version")
+        PC_ROLE="$comp"
+        PC_ROUTE="$PKG_VARIANT"
+        PC_POLICY="start"
+        [ "$OPT_NO_START" -eq 0 ] || PC_POLICY="skip-service"
+        PC_FILENAME=$(cat "${manifest_dir}/components/${c_key}/arches/${HOST_ARCH}/${PKG_VARIANT}/filename")
+        PC_SHA=$(cat "${manifest_dir}/components/${c_key}/arches/${HOST_ARCH}/${PKG_VARIANT}/sha256")
+        PC_NAME=$(cat "${manifest_dir}/components/${c_key}/arches/${HOST_ARCH}/${PKG_VARIANT}/package_identity/name")
+        PC_VERSION=$(cat "${manifest_dir}/components/${c_key}/arches/${HOST_ARCH}/${PKG_VARIANT}/package_identity/version")
+        PC_ARCH=$(cat "${manifest_dir}/components/${c_key}/arches/${HOST_ARCH}/${PKG_VARIANT}/package_identity/arch")
+        PC_BUILD=$(cat "${manifest_dir}/components/${c_key}/arches/${HOST_ARCH}/${PKG_VARIANT}/payload_build_id")
+        package_set_no_prior
 
-        # Query existing package
-        # shellcheck disable=SC2086
-        query_out=$(printf "QUERY_PKG %s %s\n" "$PKG_VARIANT" "$pkg_name" | $sudo_prefix "$helper_bin" $helper_flags 2>/dev/null || echo "NOT_INSTALLED")
-        skip_install=0
-        if [ "$query_out" != "NOT_INSTALLED" ] && [ -n "$query_out" ]; then
-            installed_ver=$(echo "$query_out" | awk '{print $NF}' | sed -E 's/-.*//')
-            if [ -n "$installed_ver" ] && [ "$installed_ver" != "$pkg_ver" ]; then
-                older=$(printf '%s\n%s\n' "$installed_ver" "$pkg_ver" | sort -V | head -n 1)
-                if [ "$older" = "$pkg_ver" ]; then
-                    report_exit "refusal" "downgrade-route-unsupported" "Installed package $pkg_name version $installed_ver is newer than candidate $pkg_ver (downgrade unsupported)"
+        package_query_current "$PC_NAME"
+        case "$PQUERY_STATE" in
+            CONFIG_FILES) PQUERY_STATE="ABSENT" ;;
+        esac
+
+        if [ "$PQUERY_STATE" = "ABSENT" ]; then
+            if package_load_section "$PACKAGE_RECEIPT_FILE" "$PC_ROLE" \
+                && [ "$PLS_PHASE" = "payload" ] && [ "$PLS_NAME" = "$PC_NAME" ] \
+                && [ "$PLS_VERSION" = "$PC_VERSION" ] && [ "$PLS_ARCH" = "$PC_ARCH" ]; then
+                report_exit "refusal" "ownership-unknown" "Package database does not confirm payload receipt for $PC_NAME"
+            fi
+            package_set_no_prior
+            if package_load_section "$PACKAGE_RECEIPT_FILE" "$PC_ROLE" \
+                && [ "$PLS_PHASE" = "intended" ] && [ "$PLS_ROLE" = "$PC_ROLE" ] \
+                && [ "$PLS_ROUTE" = "$PC_ROUTE" ] && [ "$PLS_POLICY" = "$PC_POLICY" ] \
+                && [ "$PLS_NAME" = "$PC_NAME" ] && [ "$PLS_VERSION" = "$PC_VERSION" ] \
+                && [ "$PLS_ARCH" = "$PC_ARCH" ] && [ "$PLS_SHA" = "$PC_SHA" ] && [ "$PLS_BUILD" = "$PC_BUILD" ]; then
+                if [ "$PLS_HAS_PRIOR" -eq 1 ]; then
+                    PC_HAS_PRIOR=1
+                    PC_PRIOR_ROLE="$PLS_PRIOR_ROLE"
+                    PC_PRIOR_ROUTE="$PLS_PRIOR_ROUTE"
+                    PC_PRIOR_POLICY="$PLS_PRIOR_POLICY"
+                    PC_PRIOR_NAME="$PLS_PRIOR_NAME"
+                    PC_PRIOR_VERSION="$PLS_PRIOR_VERSION"
+                    PC_PRIOR_ARCH="$PLS_PRIOR_ARCH"
+                    PC_PRIOR_SHA="$PLS_PRIOR_SHA"
+                    PC_PRIOR_BUILD="$PLS_PRIOR_BUILD"
                 fi
-            elif [ "$installed_ver" = "$pkg_ver" ]; then
-                # Package DB already has the exact target package_identity (name+version)
-                # shellcheck disable=SC2086
-                etc_receipt=$(printf "READ_ETC_RECEIPT\n" | $sudo_prefix "$helper_bin" $helper_flags 2>/dev/null || echo "")
-                case "$etc_receipt" in
-                    *phase=payload*)
-                        skip_install=1
-                        if [ "$comp" = "journal" ]; then
-                            if command -v journal >/dev/null 2>&1; then
-                                journal setup 2>/dev/null || true
-                            elif command -v solstone-journal >/dev/null 2>&1; then
-                                solstone-journal setup 2>/dev/null || true
-                            fi
-                        fi
-                        ;;
-                    *phase=complete*)
-                        skip_install=1
-                        ;;
-                esac
+            else
+                package_publish_phase "$PC_ROLE" intended intended
+            fi
+            package_fetch_install
+            package_publish_phase "$PC_ROLE" payload payload
+            package_complete_after_payload
+            continue
+        fi
+
+        [ "$PQUERY_STATE" = "INSTALLED" ] || report_exit "refusal" "query-malformed" "Package query returned an unsupported state"
+        if [ "$PQUERY_ARCH" != "$PC_ARCH" ]; then
+            report_exit "refusal" "ownership-unknown" "Installed package $PC_NAME has unexpected architecture $PQUERY_ARCH"
+        fi
+        package_find_owner "$PACKAGE_RECEIPT_FILE" "$PQUERY_NAME" "$PQUERY_VERSION" "$PQUERY_ARCH"
+        if [ "$PFO_COUNT" -ne 1 ]; then
+            report_exit "refusal" "ownership-unknown" "Installed package $PC_NAME does not have a unique package receipt"
+        fi
+
+        if { [ "$PC_ROLE" = "journal" ] || [ "$PC_ROLE" = "cli" ]; } \
+            && { [ "$PFO_MATCH" = "target" ] || [ "$PFO_MATCH" = "both" ]; } && [ "$PFO_ROLE" != "$PC_ROLE" ]; then
+            report_exit "refusal" "role-conflict" "Installed journal package is owned by role $PFO_ROLE"
+        fi
+        if [ "$PC_ROLE" = "journal" ] || [ "$PC_ROLE" = "cli" ]; then
+            package_older=$(printf '%s\n%s\n' "$PQUERY_VERSION" "$PC_VERSION" | sort -V | head -n 1)
+            if [ "$package_older" = "$PC_VERSION" ] && [ "$PQUERY_VERSION" != "$PC_VERSION" ]; then
+                report_exit "refusal" "downgrade-route-unsupported" "Installed package $PC_NAME version $PQUERY_VERSION is newer than candidate $PC_VERSION"
             fi
         fi
 
-        if [ "$skip_install" -eq 0 ]; then
-            pkg_path="${SCRATCH_DIR}/${pkg_fn}"
-            fetch_file_with_redirect_check "${OPT_ORIGIN}/solstone/${OPT_LANE}/${RESOLVED_VERSION}/${pkg_fn}" "$pkg_path"
-            verify_sha256 "$pkg_path" "$pkg_sha"
-
-            # Helper INSTALL_PKG
-            # shellcheck disable=SC2086
-            install_res=$(printf "INSTALL_PKG %s %s\n" "$PKG_VARIANT" "$pkg_path" | $sudo_prefix "$helper_bin" $helper_flags 2>/dev/null || echo "FAIL")
-            if [ "$install_res" != "OK" ]; then
-                report_exit "refusal" "package-install-failed" "Helper failed to install package $pkg_fn"
-            fi
-            if [ "$comp" = "journal" ]; then
-                if command -v journal >/dev/null 2>&1; then
-                    journal setup 2>/dev/null || true
-                elif command -v solstone-journal >/dev/null 2>&1; then
-                    solstone-journal setup 2>/dev/null || true
+        case "$PFO_PHASE" in
+            complete)
+                if package_owner_matches_target; then
+                    UNCHANGED_COMPONENTS="${UNCHANGED_COMPONENTS}${UNCHANGED_COMPONENTS:+ }${PC_ROLE}"
+                    continue
                 fi
-            fi
-        fi
+                package_set_prior_from_owner_target
+                package_publish_phase "$PC_ROLE" intended intended
+                package_fetch_install
+                package_publish_phase "$PC_ROLE" payload payload
+                package_complete_after_payload
+                ;;
+            intended)
+                if package_owner_matches_target; then
+                    if [ "$PFO_HAS_PRIOR" -eq 1 ]; then
+                        package_set_prior_from_owner_prior
+                    fi
+                    case "$PFO_MATCH" in
+                        target|both)
+                            package_publish_phase "$PC_ROLE" payload payload
+                            package_complete_after_payload
+                            ;;
+                        prior)
+                            package_set_prior_from_owner_prior
+                            package_fetch_install
+                            package_publish_phase "$PC_ROLE" payload payload
+                            package_complete_after_payload
+                            ;;
+                        *) report_exit "refusal" "ownership-unknown" "Installed package $PC_NAME does not match intended receipt" ;;
+                    esac
+                elif { [ "$PFO_MATCH" = "prior" ] || [ "$PFO_MATCH" = "both" ]; } && [ "$PFO_HAS_PRIOR" -eq 1 ]; then
+                    if { [ "$PC_ROLE" = "journal" ] || [ "$PC_ROLE" = "cli" ]; } && [ "$PFO_PRIOR_ROLE" != "$PC_ROLE" ]; then
+                        report_exit "refusal" "role-conflict" "Installed journal package is owned by role $PFO_PRIOR_ROLE"
+                    fi
+                    package_set_prior_from_owner_prior
+                    package_publish_phase "$PC_ROLE" intended intended
+                    package_fetch_install
+                    package_publish_phase "$PC_ROLE" payload payload
+                    package_complete_after_payload
+                else
+                    report_exit "refusal" "ownership-unknown" "Installed package $PC_NAME does not match intended receipt"
+                fi
+                ;;
+            payload)
+                if package_owner_matches_target && { [ "$PFO_MATCH" = "target" ] || [ "$PFO_MATCH" = "both" ]; }; then
+                    package_complete_after_payload
+                else
+                    report_exit "refusal" "ownership-unknown" "Installed package $PC_NAME does not match payload receipt"
+                fi
+                ;;
+            *) report_exit "refusal" "ownership-unknown" "Installed package $PC_NAME has an invalid receipt phase" ;;
+        esac
     done
-
-    # Write /etc/solstone/install.conf receipt via helper
-    receipt_body=$(printf "[solstone]\nplatform_version=%s\nlane=%s\nroute=package\narch=%s\nverification=%s\nphase=complete\n" \
-        "$RESOLVED_VERSION" "$OPT_LANE" "$HOST_ARCH" "$([ "$OPT_SKIP_SIGNATURE" -eq 1 ] && echo "digest-matched; signatures skipped" || echo "minisign")")
-    for comp in $SELECTED_COMPONENTS; do
-        if [ "$comp" = "cli" ]; then
-            c_key="journal"
-        else
-            c_key="$comp"
-        fi
-        c_ver=$(cat "${manifest_dir}/components/${c_key}/version" 2>/dev/null || echo "$RESOLVED_VERSION")
-        receipt_body=$(printf "%s\n[component:%s]\nrole=%s\nversion=%s\nstatus=installed\n" "$receipt_body" "$comp" "$comp" "$c_ver")
-    done
-
-    receipt_len=$(printf "%s\n" "$receipt_body" | wc -c | awk '{print $1}')
-    # shellcheck disable=SC2086
-    {
-        printf "WRITE_ETC_RECEIPT %s\n" "$receipt_len"
-        printf "%s\n" "$receipt_body"
-    } | $sudo_prefix "$helper_bin" $helper_flags >/dev/null 2>&1 || true
 }
 
 run_uninstall() {

@@ -20,6 +20,34 @@ from tools.fixture_builder import build_tiny_natives
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
+def receipt_section(receipt: bytes, name: str) -> bytes:
+    marker = f"[{name}]\n".encode()
+    start = receipt.index(marker)
+    next_section = receipt.find(b"\n[", start + len(marker))
+    return receipt[start:] if next_section == -1 else receipt[start:next_section + 1]
+
+
+def write_path_stub(bin_dir: Path, name: str, body: str) -> Path:
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    path = bin_dir / name
+    path.write_text("#!/bin/sh\n" + body, encoding="utf-8")
+    path.chmod(0o755)
+    return path
+
+
+def setup_package_launcher_spy(bin_dir: Path) -> Path:
+    return write_path_stub(
+        bin_dir,
+        "package-journal-spy",
+        "if [ -n \"${SOLSTONE_PACKAGE_SETUP_LOG:-}\" ]; then\n"
+        "  printf 'argv0=%s\\n' \"$0\" >> \"$SOLSTONE_PACKAGE_SETUP_LOG\"\n"
+        "  for arg do printf 'arg=%s\\n' \"$arg\" >> \"$SOLSTONE_PACKAGE_SETUP_LOG\"; done\n"
+        "  printf '%s\\n' -- >> \"$SOLSTONE_PACKAGE_SETUP_LOG\"\n"
+        "fi\n"
+        "exit \"${SOLSTONE_PACKAGE_SETUP_EXIT:-0}\"\n",
+    )
+
+
 class QuietHTTPRequestHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
         self.server.request_paths.append(self.path)
