@@ -12,7 +12,7 @@ build:
 	python3 -m compileall -q src tools tests
 
 build-installer:
-	python3 tools/build_installer.py --production -o dist/install.sh
+	PYTHONPATH=src:tools python3 tools/build_installer.py --production -o dist/install.sh
 
 test:
 	PYTHONPATH=src:tools python3 -m unittest discover -s tests -p "test_*.py" -v
