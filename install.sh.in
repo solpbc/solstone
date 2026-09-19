@@ -1843,12 +1843,112 @@ rollback_tree_pointers() {
     [ "$rb_failed" -eq 0 ]
 }
 
+record_handler_path_state() {
+    rhps_path="${XDG_CONFIG_HOME:-$HOME/.config}/solstone/env"
+    rhps_dir="${SCRATCH_DIR}/handler-rollback"
+    mkdir -p "$rhps_dir" || report_exit "refusal" "target-write-failed" "could not stage handler rollback state"
+    if [ -L "$rhps_path" ]; then
+        {
+            printf "symlink\n"
+            readlink "$rhps_path"
+        } > "${rhps_dir}/path-state" || report_exit "refusal" "target-read-failed" "could not record PATH state"
+    elif [ -f "$rhps_path" ]; then
+        printf "regular\n" > "${rhps_dir}/path-state" \
+            || report_exit "refusal" "target-read-failed" "could not record PATH state"
+        cp "$rhps_path" "${rhps_dir}/path-content" \
+            || report_exit "refusal" "target-read-failed" "could not record PATH state"
+    elif [ -e "$rhps_path" ]; then
+        printf "other\n" > "${rhps_dir}/path-state" \
+            || report_exit "refusal" "target-read-failed" "could not record PATH state"
+    else
+        printf "absent\n" > "${rhps_dir}/path-state" \
+            || report_exit "refusal" "target-read-failed" "could not record PATH state"
+    fi
+}
+
+restore_handler_path_state() {
+    rhps_path="${XDG_CONFIG_HOME:-$HOME/.config}/solstone/env"
+    rhps_state="${SCRATCH_DIR}/handler-rollback/path-state"
+    [ -f "$rhps_state" ] || return 0
+    rhps_kind=$(sed -n '1p' "$rhps_state")
+    case "$rhps_kind" in
+        regular)
+            [ ! -L "$rhps_path" ] || return 1
+            mkdir -p "$(dirname "$rhps_path")" || return 1
+            cp "${SCRATCH_DIR}/handler-rollback/path-content" "$rhps_path" || return 1
+            ;;
+        symlink)
+            rhps_target=$(sed -n '2p' "$rhps_state")
+            mkdir -p "$(dirname "$rhps_path")" || return 1
+            rm -f "$rhps_path" || return 1
+            ln -s "$rhps_target" "$rhps_path" || return 1
+            ;;
+        absent)
+            if [ -L "$rhps_path" ] || [ -f "$rhps_path" ]; then rm -f "$rhps_path" || return 1; fi
+            [ ! -e "$rhps_path" ] || return 1
+            ;;
+        other) [ -e "$rhps_path" ] && [ ! -f "$rhps_path" ] && [ ! -L "$rhps_path" ] || return 1 ;;
+        *) return 1 ;;
+    esac
+}
+
+record_prior_service_policy() {
+    rpsp_component="$1"
+    rpsp_receipt="$2"
+    rpsp_dir="${SCRATCH_DIR}/handler-rollback"
+    mkdir -p "$rpsp_dir" || report_exit "refusal" "target-write-failed" "could not stage handler rollback state"
+    if [ -f "$rpsp_receipt" ] \
+        && receipt_value "$rpsp_receipt" "component:${rpsp_component}" role >/dev/null 2>&1; then
+        rpsp_policy=$(receipt_value "$rpsp_receipt" "component:${rpsp_component}" no_start 2>/dev/null) \
+            || report_exit "refusal" "ownership-unknown" "tree receipt for $rpsp_component is missing service policy"
+        case "$rpsp_policy" in 0|1) ;; *) report_exit "refusal" "ownership-unknown" "tree receipt for $rpsp_component has invalid service policy" ;; esac
+        printf '%s\n' "$rpsp_policy" > "${rpsp_dir}/prior-${rpsp_component}" \
+            || report_exit "refusal" "target-write-failed" "could not stage service rollback state"
+    else
+        printf 'absent\n' > "${rpsp_dir}/prior-${rpsp_component}" \
+            || report_exit "refusal" "target-write-failed" "could not stage service rollback state"
+    fi
+}
+
+rollback_tree_handlers() {
+    rth_failed=0
+    for rth_component in tmux desktop; do
+        rth_attempted="${SCRATCH_DIR}/handler-rollback/attempted-${rth_component}"
+        if [ -f "$rth_attempted" ]; then
+            rth_new_binary=$(cat "$rth_attempted")
+            "$rth_new_binary" uninstall-service >/dev/null 2>&1 || rth_failed=1
+        fi
+    done
+    rollback_tree_pointers || rth_failed=1
+    restore_handler_path_state || rth_failed=1
+    for rth_component in desktop tmux; do
+        rth_prior="${SCRATCH_DIR}/handler-rollback/prior-${rth_component}"
+        [ -f "$rth_prior" ] || continue
+        [ "$(cat "$rth_prior")" = "0" ] || continue
+        case "$rth_component" in desktop) rth_name="solstone-linux" ;; tmux) rth_name="solstone-tmux" ;; esac
+        rth_old_binary="${OPT_PREFIX}/bin/${rth_name}"
+        if [ ! -x "$rth_old_binary" ] || ! "$rth_old_binary" install-service >/dev/null 2>&1; then
+            rth_failed=1
+        fi
+    done
+    [ "$rth_failed" -eq 0 ]
+}
+
+tree_mutation_failure() {
+    tmf_code="$1"
+    tmf_message="$2"
+    if ! rollback_tree_handlers; then
+        report_exit "refusal" "rollback-failed" "$tmf_message; the previous active installation could not be fully restored"
+    fi
+    report_exit "refusal" "$tmf_code" "$tmf_message; the previous active installation was restored"
+}
+
 tree_receipt_failure() {
     trf_message="$1"
-    if ! rollback_tree_pointers; then
-        report_exit "refusal" "rollback-failed" "$trf_message; the prior component pointers could not be restored"
+    if ! rollback_tree_handlers; then
+        report_exit "refusal" "rollback-failed" "$trf_message; the previous active installation could not be fully restored"
     fi
-    report_exit "refusal" "receipt-write-failed" "$trf_message; prior component pointers were restored"
+    report_exit "refusal" "receipt-write-failed" "$trf_message; the previous active installation was restored"
 }
 
 handler_state_matches() {
@@ -1856,52 +1956,19 @@ handler_state_matches() {
     hs_public_path="$2"
     hs_config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
 
-    if [ "$hs_component" = "desktop" ]; then
-        hs_service="${hs_config_home}/systemd/user/solstone-desktop.service"
-        hs_autostart="${hs_config_home}/autostart/solstone-desktop.desktop"
-        hs_expected_service="${SCRATCH_DIR}/expected.desktop.service"
-        hs_expected_autostart="${SCRATCH_DIR}/expected.desktop.desktop"
-        cat > "$hs_expected_service" <<EOF
-### SOLSTONE-PLATFORM-MANAGED: desktop-v1 ###
-[Unit]
-Description=Solstone Desktop
-After=graphical-session.target
-
-[Service]
-ExecStart=${hs_public_path}
-Restart=on-failure
-
-[Install]
-WantedBy=default.target
-EOF
-        cat > "$hs_expected_autostart" <<EOF
-[Desktop Entry]
-### SOLSTONE-PLATFORM-MANAGED: desktop-v1 ###
-Type=Application
-Name=Solstone Desktop
-Exec=${hs_public_path}
-Terminal=false
-EOF
-        cmp -s "$hs_service" "$hs_expected_service" || return 1
-        cmp -s "$hs_autostart" "$hs_expected_autostart" || return 1
-    fi
+    : "${hs_component}" "${hs_public_path}"
 
     if [ "$OPT_NO_PATH" -eq 0 ]; then
         hs_env="${hs_config_home}/solstone/env"
         hs_expected_env="${SCRATCH_DIR}/expected.env"
-        hs_expected_env_alt="${SCRATCH_DIR}/expected.env.alt"
-        for hs_marker in desktop-v1-path tmux-v1-path; do
-            hs_output="$hs_expected_env"
-            [ "$hs_marker" = "tmux-v1-path" ] && hs_output="$hs_expected_env_alt"
-            cat > "$hs_output" <<EOF
-### SOLSTONE-PLATFORM-MANAGED: ${hs_marker} ###
+        cat > "$hs_expected_env" <<EOF
+### SOLSTONE-PLATFORM-MANAGED: platform-v1-path ###
 case ":\${PATH}:" in
     *:${OPT_PREFIX}/bin:*) ;;
     *) export PATH="${OPT_PREFIX}/bin:\${PATH}" ;;
 esac
 EOF
-        done
-        cmp -s "$hs_env" "$hs_expected_env" || cmp -s "$hs_env" "$hs_expected_env_alt" || return 1
+        cmp -s "$hs_env" "$hs_expected_env" || return 1
     fi
     return 0
 }
@@ -2495,6 +2562,7 @@ run_tree_install() {
     if ! (umask 077 && : > "$receipt_probe") || ! rm -f "$receipt_probe"; then
         report_exit "refusal" "receipt-write-failed" "Tree receipt directory $receipt_dir is not writable"
     fi
+    handler_path_state_recorded=0
     all_selected_unchanged=1
 
     for comp in $SELECTED_COMPONENTS; do
@@ -2534,16 +2602,45 @@ run_tree_install() {
             fi
         else
             # Native tree component (desktop / tmux)
+            if [ "$handler_path_state_recorded" -eq 0 ]; then
+                record_handler_path_state
+                handler_path_state_recorded=1
+            fi
+            comp_exec_name=$(cat "${manifest_dir}/components/${comp}/arches/${HOST_ARCH}/tree/executable/name")
+            comp_entrypoint=$(cat "${manifest_dir}/components/${comp}/install_entrypoint")
+            comp_root="${OPT_PREFIX}/opt/solstone/${comp}"
+            comp_current="${comp_root}/current"
+            symlink_target="${OPT_PREFIX}/bin/${comp_exec_name}"
+            record_pointer_state "${comp}.current" "$comp_current"
+            record_pointer_state "${comp}.public" "$symlink_target"
+            record_prior_service_policy "$comp" "$receipt_file"
             if tree_component_converged "$comp" "$manifest_dir" "$receipt_file"; then
+                if [ "$TEST_SEAM" -eq 1 ] && [ -n "${SOLSTONE_HANDLER_ROOT:-}" ]; then
+                    h_root="$SOLSTONE_HANDLER_ROOT"
+                else
+                    h_root="/usr/libexec/solstone/handlers"
+                    [ ! -d "$h_root" ] && h_root="${PWD}/handlers"
+                fi
+                handler_bin="${h_root}/${comp}/v1/${comp_entrypoint}"
+                [ -f "$handler_bin" ] || tree_mutation_failure "handler-missing" "Install handler is missing for $comp"
+                chmod 0755 "$handler_bin" || tree_mutation_failure "handler-failed" "Could not make the $comp install handler executable"
+                h_flags="--prefix $OPT_PREFIX --binary $symlink_target --route tree --role $comp"
+                [ "$OPT_NO_START" -eq 1 ] && h_flags="$h_flags --no-start"
+                [ "$OPT_NO_PATH" -eq 1 ] && h_flags="$h_flags --no-path"
+                if [ "$OPT_NO_START" -eq 0 ]; then
+                    printf '%s\n' "$symlink_target" > "${SCRATCH_DIR}/handler-rollback/attempted-${comp}" \
+                        || tree_mutation_failure "handler-failed" "could not stage service rollback for $comp"
+                fi
+                # shellcheck disable=SC2086
+                "$handler_bin" $h_flags \
+                    || tree_mutation_failure "handler-failed" "Install handler failed for $comp"
                 UNCHANGED_COMPONENTS="${UNCHANGED_COMPONENTS}${UNCHANGED_COMPONENTS:+ }${comp}"
                 continue
             fi
             all_selected_unchanged=0
             comp_version=$(cat "${manifest_dir}/components/${comp}/version")
-            comp_entrypoint=$(cat "${manifest_dir}/components/${comp}/install_entrypoint")
             comp_archive_fn=$(cat "${manifest_dir}/components/${comp}/arches/${HOST_ARCH}/tree/filename")
             comp_archive_sha=$(cat "${manifest_dir}/components/${comp}/arches/${HOST_ARCH}/tree/sha256")
-            comp_exec_name=$(cat "${manifest_dir}/components/${comp}/arches/${HOST_ARCH}/tree/executable/name")
             comp_exec_sha=$(cat "${manifest_dir}/components/${comp}/arches/${HOST_ARCH}/tree/executable/sha256")
 
             archive_path="${SCRATCH_DIR}/${comp_archive_fn}"
@@ -2569,21 +2666,16 @@ run_tree_install() {
             verify_sha256 "$exec_path" "$comp_exec_sha"
             chmod 0755 "$exec_path" || report_exit "refusal" "target-write-failed" "Could not make $comp_exec_name executable"
 
-            comp_root="${OPT_PREFIX}/opt/solstone/${comp}"
-            comp_current="${comp_root}/current"
             exec_relpath=${exec_path#"${comp_dest}/"}
-            symlink_target="${OPT_PREFIX}/bin/${comp_exec_name}"
             if [ -e "$comp_current" ] && [ ! -L "$comp_current" ]; then
                 report_exit "refusal" "ownership-conflict" "Current path for $comp exists but is not a platform-managed symlink"
             fi
             if [ -e "$symlink_target" ] && [ ! -L "$symlink_target" ]; then
                 report_exit "refusal" "ownership-conflict" "Public path $symlink_target exists but is not a platform-managed symlink"
             fi
-            record_pointer_state "${comp}.current" "$comp_current"
-            record_pointer_state "${comp}.public" "$symlink_target"
-
             # Configure handler-owned state before publishing the new pointer.
-            # Handlers use the stable public path and must succeed before it moves.
+            # The selected native binary owns its service contract. The platform
+            # records enough state to restore the prior policy if a later step fails.
             if [ "$TEST_SEAM" -eq 1 ] && [ -n "${SOLSTONE_HANDLER_ROOT:-}" ]; then
                 h_root="$SOLSTONE_HANDLER_ROOT"
             else
@@ -2592,35 +2684,42 @@ run_tree_install() {
             fi
             handler_bin="${h_root}/${comp}/v1/${comp_entrypoint}"
             if [ ! -f "$handler_bin" ]; then
-                report_exit "refusal" "handler-missing" "Install handler is missing for $comp"
+                tree_mutation_failure "handler-missing" "Install handler is missing for $comp"
             fi
-            chmod 0755 "$handler_bin" || report_exit "refusal" "handler-failed" "Could not make the $comp install handler executable"
-            h_flags="--prefix $OPT_PREFIX --route tree --role $comp"
+            chmod 0755 "$handler_bin" || tree_mutation_failure "handler-failed" "Could not make the $comp install handler executable"
+            h_flags="--prefix $OPT_PREFIX --binary $exec_path --route tree --role $comp"
             [ "$OPT_NO_START" -eq 1 ] && h_flags="$h_flags --no-start"
             [ "$OPT_NO_PATH" -eq 1 ] && h_flags="$h_flags --no-path"
+            if [ "$OPT_NO_START" -eq 0 ]; then
+                printf '%s\n' "$exec_path" > "${SCRATCH_DIR}/handler-rollback/attempted-${comp}" \
+                    || tree_mutation_failure "handler-failed" "could not stage service rollback for $comp"
+            fi
             # shellcheck disable=SC2086
             if ! "$handler_bin" $h_flags; then
-                report_exit "refusal" "handler-failed" "Install handler failed for $comp"
+                tree_mutation_failure "handler-failed" "Install handler failed for $comp"
             fi
 
             # Publish the component through an atomic current-pointer replacement.
             if [ "$TEST_SEAM" -eq 1 ] && [ "${SOLSTONE_TEST_FAIL_BEFORE_CURRENT:-0}" = "1" ]; then
-                report_exit "refusal" "test-before-current" "Injected failure before current pointer publication"
+                tree_mutation_failure "test-before-current" "Injected failure before current pointer publication"
             fi
             current_tmp="${comp_root}/.current.tmp.$$"
-            ln -s "$comp_current_target" "$current_tmp" || report_exit "refusal" "pointer-publish-failed" "Could not stage current pointer for $comp"
+            ln -s "$comp_current_target" "$current_tmp" \
+                || tree_mutation_failure "pointer-publish-failed" "Could not stage current pointer for $comp"
             if ! mv -Tf "$current_tmp" "$comp_current"; then
                 rm -f "$current_tmp" 2>/dev/null || true
-                report_exit "refusal" "pointer-publish-failed" "Could not atomically publish current pointer for $comp"
+                tree_mutation_failure "pointer-publish-failed" "Could not atomically publish current pointer for $comp"
             fi
 
-            mkdir -p "${OPT_PREFIX}/bin" || report_exit "refusal" "target-write-failed" "Could not create public binary directory ${OPT_PREFIX}/bin"
+            mkdir -p "${OPT_PREFIX}/bin" \
+                || tree_mutation_failure "target-write-failed" "Could not create public binary directory ${OPT_PREFIX}/bin"
             public_target="${comp_current}/${exec_relpath}"
             if [ ! -L "$symlink_target" ] || [ "$(readlink "$symlink_target")" != "$public_target" ]; then
-                ln -s "$public_target" "${symlink_target}.tmp.$$" || report_exit "refusal" "pointer-publish-failed" "Could not stage public pointer for $comp_exec_name"
+                ln -s "$public_target" "${symlink_target}.tmp.$$" \
+                    || tree_mutation_failure "pointer-publish-failed" "Could not stage public pointer for $comp_exec_name"
                 if ! mv -Tf "${symlink_target}.tmp.$$" "$symlink_target"; then
                     rm -f "${symlink_target}.tmp.$$" 2>/dev/null || true
-                    report_exit "refusal" "pointer-publish-failed" "Could not atomically publish public pointer for $comp_exec_name"
+                    tree_mutation_failure "pointer-publish-failed" "Could not atomically publish public pointer for $comp_exec_name"
                 fi
             fi
 
@@ -2903,6 +3002,12 @@ uninstall_tree_component() {
         UNCHANGED_COMPONENTS="${UNCHANGED_COMPONENTS}${UNCHANGED_COMPONENTS:+ }${utc_component}"
         return 0
     fi
+    if [ "$TREE_STATE_PRESENT" -eq 0 ]; then
+        publish_tree_uninstall_receipt "$utc_component"
+        REMOVED_COMPONENTS="${REMOVED_COMPONENTS}${REMOVED_COMPONENTS:+ }${utc_component}"
+        SUCCEEDED_COMPONENTS="${SUCCEEDED_COMPONENTS}${SUCCEEDED_COMPONENTS:+ }${utc_component}"
+        return 0
+    fi
     if [ "$TEST_SEAM" -eq 1 ] && [ -n "${SOLSTONE_HANDLER_ROOT:-}" ]; then
         utc_handlers="$SOLSTONE_HANDLER_ROOT"
     else
@@ -2917,10 +3022,16 @@ uninstall_tree_component() {
             fi
             ;;
         desktop|tmux)
+            utc_receipt=$(tree_receipt_path)
+            utc_target=$(receipt_value "$utc_receipt" "component:${utc_component}" current_target)
+            utc_rel=$(receipt_value "$utc_receipt" "component:${utc_component}" executable_relpath)
+            utc_binary="${OPT_PREFIX}/opt/solstone/${utc_component}/${utc_target}/${utc_rel}"
+            [ -x "$utc_binary" ] \
+                || report_exit "refusal" "handler-missing" "selected binary is unavailable for $utc_component service removal"
             utc_handler="${utc_handlers}/${utc_component}/v1/uninstall-${utc_component}-service"
             [ -f "$utc_handler" ] || report_exit "refusal" "handler-missing" "Uninstall handler is missing for $utc_component"
             chmod 0755 "$utc_handler" || report_exit "refusal" "handler-failed" "Could not make the $utc_component uninstall handler executable"
-            "$utc_handler" --prefix "$OPT_PREFIX" --route tree --role "$utc_component" \
+            "$utc_handler" --prefix "$OPT_PREFIX" --binary "$utc_binary" --route tree --role "$utc_component" \
                 || report_exit "refusal" "handler-failed" "Uninstall handler failed for $utc_component"
             ;;
     esac

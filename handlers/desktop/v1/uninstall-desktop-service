@@ -2,51 +2,23 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-# Desktop v1 uninstall-service entrypoint handler
 set -eu
 
 PREFIX="${SOLSTONE_INSTALL_PREFIX:-$HOME/.local}"
+BINARY=""
+ROUTE=""
+ROLE=""
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
-        --prefix)
-            PREFIX="$2"
-            shift 2
-            ;;
-        *)
-            shift 1
-            ;;
+        --prefix) [ "$#" -ge 2 ] || exit 2; PREFIX="$2"; shift 2 ;;
+        --binary) [ "$#" -ge 2 ] || exit 2; BINARY="$2"; shift 2 ;;
+        --route) [ "$#" -ge 2 ] || exit 2; ROUTE="$2"; shift 2 ;;
+        --role) [ "$#" -ge 2 ] || exit 2; ROLE="$2"; shift 2 ;;
+        *) exit 2 ;;
     esac
 done
 
-: "${PREFIX}"
-
-CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
-SYSTEMD_USER_DIR="${CONFIG_HOME}/systemd/user"
-AUTOSTART_DIR="${CONFIG_HOME}/autostart"
-
-SERVICE_FILE="${SYSTEMD_USER_DIR}/solstone-desktop.service"
-DESKTOP_ENTRY="${AUTOSTART_DIR}/solstone-desktop.desktop"
-
-# Only remove files that possess the positive SOLSTONE-PLATFORM-MANAGED marker
-if [ -f "$SERVICE_FILE" ]; then
-    if grep -q "### SOLSTONE-PLATFORM-MANAGED: desktop-v1 ###" "$SERVICE_FILE" 2>/dev/null; then
-        if command -v systemctl >/dev/null 2>&1; then
-            systemctl --user stop solstone-desktop.service 2>/dev/null || true
-            systemctl --user disable solstone-desktop.service 2>/dev/null || true
-        fi
-        rm -f "$SERVICE_FILE"
-    fi
-fi
-
-if [ -f "$DESKTOP_ENTRY" ]; then
-    if grep -q "### SOLSTONE-PLATFORM-MANAGED: desktop-v1 ###" "$DESKTOP_ENTRY" 2>/dev/null; then
-        rm -f "$DESKTOP_ENTRY"
-    fi
-fi
-
-if command -v systemctl >/dev/null 2>&1; then
-    systemctl --user daemon-reload 2>/dev/null || true
-fi
-
-exit 0
+[ -n "$BINARY" ] || BINARY="${PREFIX}/bin/solstone-linux"
+[ "$ROUTE" = "tree" ] && [ "$ROLE" = "desktop" ] && [ -x "$BINARY" ] || exit 2
+"$BINARY" uninstall-service >/dev/null 2>&1

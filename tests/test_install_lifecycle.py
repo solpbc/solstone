@@ -106,25 +106,45 @@ class TestInstallLifecycle(unittest.TestCase):
                 data_home = self.work_dir / "xdg_data"
                 env["XDG_CONFIG_HOME"] = str(config_home)
                 env["XDG_DATA_HOME"] = str(data_home)
+                service_log = self.work_dir / "service.log"
+                env["SOLSTONE_TEST_SERVICE_LOG"] = str(service_log)
 
                 # 1. Install journal and desktop
                 proc = subprocess.run(
-                    [str(installer), "--skip-signature", "--components", "journal,desktop", "--prefix", str(self.prefix), "--no-start", "--json"],
+                    [str(installer), "--skip-signature", "--components", "journal,desktop", "--prefix", str(self.prefix), "--json"],
                     capture_output=True,
                     text=True,
                     env=env,
                 )
                 self.assertEqual(proc.returncode, 0, f"Install failed: {proc.stderr}\n{proc.stdout}")
-
-                # Check autostart desktop entry was created by desktop handler
-                autostart = config_home / "autostart" / "solstone-desktop.desktop"
-                self.assertTrue(autostart.is_file())
+                self.assertEqual(
+                    service_log.read_text(encoding="utf-8").splitlines(),
+                    ["desktop 2.0.3 install-service"],
+                )
 
                 # Check journal binary exists
                 journal_bin = self.prefix / "bin" / "journal"
                 self.assertTrue(journal_bin.is_file())
 
-                # 2. Uninstall desktop
+                # A native service refusal leaves custody intact for an identical retry.
+                receipt = data_home / "solstone" / "install.conf"
+                receipt_before = receipt.read_bytes()
+                service_fail_env = {
+                    **env,
+                    "SOLSTONE_TEST_SERVICE_FAIL": "desktop:2.0.3:uninstall-service",
+                }
+                refused = subprocess.run(
+                    [str(installer), "--skip-signature", "--uninstall", "--components", "desktop", "--prefix", str(self.prefix), "--json"],
+                    capture_output=True,
+                    text=True,
+                    env=service_fail_env,
+                )
+                self.assertNotEqual(refused.returncode, 0)
+                self.assertEqual(json.loads(refused.stdout)["root_code"], "handler-failed")
+                self.assertEqual(receipt.read_bytes(), receipt_before)
+                self.assertTrue((self.prefix / "bin" / "solstone-linux").is_symlink())
+
+                # 2. Retry uninstall desktop
                 proc2 = subprocess.run(
                     [str(installer), "--skip-signature", "--uninstall", "--components", "desktop", "--prefix", str(self.prefix), "--json"],
                     capture_output=True,
@@ -135,9 +155,10 @@ class TestInstallLifecycle(unittest.TestCase):
                 res2 = json.loads(proc2.stdout.strip())
                 self.assertEqual(res2["status"], "success")
                 self.assertEqual(res2["root_code"], "uninstalled")
-
-                # Assert handler-managed autostart file is gone
-                self.assertFalse(autostart.exists(), "Desktop autostart file should have been removed")
+                self.assertEqual(
+                    service_log.read_text(encoding="utf-8").splitlines()[-1],
+                    "desktop 2.0.3 uninstall-service",
+                )
 
                 # Assert lock file still present (never unlinked)
                 lock_file = self.prefix / ".solstone-platform.lock"
@@ -148,7 +169,6 @@ class TestInstallLifecycle(unittest.TestCase):
                 owner_data = self.work_dir / "journal-owner-data" / "entry.db"
                 owner_data.parent.mkdir()
                 owner_data.write_bytes(b"journal-owner-data")
-                receipt = data_home / "solstone" / "install.conf"
                 self.assertIn("[component:journal]", receipt.read_text(encoding="utf-8"))
                 self.assertNotIn("[component:desktop]", receipt.read_text(encoding="utf-8"))
 

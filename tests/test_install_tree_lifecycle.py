@@ -93,7 +93,15 @@ class TestInstallTreeLifecycle(unittest.TestCase):
         )
         return installer
 
-    def run_install(self, installer: Path, components: str, extra: list[str] | None = None):
+    def run_install(
+        self,
+        installer: Path,
+        components: str,
+        extra: list[str] | None = None,
+        *,
+        start: bool = False,
+        env: dict[str, str] | None = None,
+    ):
         args = [
             str(installer),
             "--skip-signature",
@@ -101,12 +109,104 @@ class TestInstallTreeLifecycle(unittest.TestCase):
             components,
             "--prefix",
             str(self.prefix),
-            "--no-start",
             "--json",
         ]
+        if not start:
+            args.append("--no-start")
         if extra:
             args.extend(extra)
-        return subprocess.run(args, capture_output=True, text=True, env=self.env)
+        return subprocess.run(args, capture_output=True, text=True, env=env or self.env)
+
+    def test_native_service_delegation_and_transaction_rollback(self):
+        with ephemeral_keypair("tree lifecycle services") as (sec, pub, pin):
+            old_server, old_installer = self.build_release(
+                "service-old", sec, pub, pin, "2.0.0", "2.0.3"
+            )
+            new_server, _ = self.build_release(
+                "service-new", sec, pub, pin, "2.0.1", "2.0.4"
+            )
+            service_log = self.work_dir / "service.log"
+            service_env = {**self.env, "SOLSTONE_TEST_SERVICE_LOG": str(service_log)}
+            try:
+                installed = self.run_install(
+                    old_installer, "desktop,tmux", start=True, env=service_env
+                )
+                self.assertEqual(installed.returncode, 0, installed.stderr + installed.stdout)
+                self.assertEqual(
+                    service_log.read_text().splitlines(),
+                    [
+                        "desktop 2.0.3 install-service",
+                        "tmux 2.0.3-x86_64 install-service",
+                    ],
+                )
+
+                rerun = self.run_install(
+                    old_installer, "desktop,tmux", start=True, env=service_env
+                )
+                self.assertEqual(rerun.returncode, 0, rerun.stderr + rerun.stdout)
+                self.assertEqual(
+                    service_log.read_text().splitlines()[-2:],
+                    [
+                        "desktop 2.0.3 install-service",
+                        "tmux 2.0.3-x86_64 install-service",
+                    ],
+                )
+
+                current_before = {
+                    component: os.readlink(
+                        self.prefix / "opt" / "solstone" / component / "current"
+                    )
+                    for component in ("desktop", "tmux")
+                }
+                receipt_before = self.receipt.read_bytes()
+                upgrade_installer = self.merge_release(
+                    new_server, old_server, "2.0.1", pub, pin
+                )
+                failing_env = {
+                    **service_env,
+                    "SOLSTONE_TEST_SERVICE_FAIL": "tmux:2.0.4-x86_64:install-service",
+                }
+                failed = self.run_install(
+                    upgrade_installer,
+                    "desktop,tmux",
+                    start=True,
+                    env=failing_env,
+                )
+                self.assertNotEqual(failed.returncode, 0)
+                self.assertEqual(json.loads(failed.stdout)["root_code"], "handler-failed")
+                self.assertEqual(self.receipt.read_bytes(), receipt_before)
+                for component, target in current_before.items():
+                    self.assertEqual(
+                        os.readlink(self.prefix / "opt" / "solstone" / component / "current"),
+                        target,
+                    )
+                self.assertEqual(
+                    service_log.read_text().splitlines()[-6:],
+                    [
+                        "desktop 2.0.4 install-service",
+                        "tmux 2.0.4-x86_64 install-service",
+                        "tmux 2.0.4-x86_64 uninstall-service",
+                        "desktop 2.0.4 uninstall-service",
+                        "desktop 2.0.3 install-service",
+                        "tmux 2.0.3-x86_64 install-service",
+                    ],
+                )
+
+                no_start_prefix = self.work_dir / "no-start-prefix"
+                self.prefix = no_start_prefix
+                no_start_log = self.work_dir / "no-start.log"
+                no_start_env = {
+                    **self.env,
+                    "XDG_DATA_HOME": str(self.work_dir / "no-start-data"),
+                    "XDG_CONFIG_HOME": str(self.work_dir / "no-start-config"),
+                    "SOLSTONE_TEST_SERVICE_LOG": str(no_start_log),
+                }
+                no_start = self.run_install(old_installer, "desktop,tmux", env=no_start_env)
+                self.assertEqual(no_start.returncode, 0, no_start.stderr + no_start.stdout)
+                self.assertFalse(no_start_log.exists())
+            finally:
+                old_server.stop()
+                new_server.stop()
 
     def test_same_version_noop_current_and_handler_repair(self):
         with ephemeral_keypair("tree lifecycle noop") as (sec, pub, pin):
@@ -177,10 +277,8 @@ class TestInstallTreeLifecycle(unittest.TestCase):
                 self.assertFalse(any(path.endswith("solstone-linux-2.0.3-linux-x86_64.tar.gz") for path in server.request_paths))
                 self.receipt.write_bytes(self.receipt.read_bytes().rsplit(b"[component:desktop]\n", 1)[0])
 
-                service = self.config_home / "systemd" / "user" / "solstone-desktop.service"
-                autostart = self.config_home / "autostart" / "solstone-desktop.desktop"
                 env_file = self.config_home / "solstone" / "env"
-                for state_file in (service, autostart, env_file):
+                for state_file in (env_file,):
                     canonical = state_file.read_bytes()
                     state_file.write_bytes(canonical + b"corrupt=true\n")
                     server.request_paths.clear()
@@ -244,13 +342,19 @@ class TestInstallTreeLifecycle(unittest.TestCase):
                 desktop_link_before = os.readlink(desktop)
 
                 mixed_installer = self.merge_release(mixed_server, old_server, "2.0.1", pub, pin)
-                failing_handlers = self.work_dir / "mixed-failing-handlers" / "tmux" / "v1"
+                handler_root = self.work_dir / "mixed-failing-handlers"
+                desktop_handlers = handler_root / "desktop" / "v1"
+                desktop_handlers.mkdir(parents=True)
+                desktop_handler = desktop_handlers / "install-desktop"
+                desktop_handler.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+                desktop_handler.chmod(0o755)
+                failing_handlers = handler_root / "tmux" / "v1"
                 failing_handlers.mkdir(parents=True)
                 failing_handler = failing_handlers / "install-tmux"
                 failing_handler.write_text("#!/bin/sh\nexit 9\n", encoding="utf-8")
                 failing_handler.chmod(0o755)
                 failing_env = self.env.copy()
-                failing_env["SOLSTONE_HANDLER_ROOT"] = str(self.work_dir / "mixed-failing-handlers")
+                failing_env["SOLSTONE_HANDLER_ROOT"] = str(handler_root)
                 mixed_failed = subprocess.run(
                     [str(mixed_installer), "--skip-signature", "--components", "desktop,tmux", "--prefix", str(self.prefix), "--no-start", "--json"],
                     capture_output=True,

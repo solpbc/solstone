@@ -2,100 +2,40 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-# Desktop v1 install entrypoint handler
 set -eu
 
 PREFIX="${SOLSTONE_INSTALL_PREFIX:-$HOME/.local}"
+BINARY=""
 NO_START=0
 NO_PATH=0
-ROUTE="tree"
-ROLE="desktop"
+ROUTE=""
+ROLE=""
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
-        --prefix)
-            PREFIX="$2"
-            shift 2
-            ;;
-        --route)
-            ROUTE="$2"
-            shift 2
-            ;;
-        --role)
-            ROLE="$2"
-            shift 2
-            ;;
-        --no-start)
-            NO_START=1
-            shift 1
-            ;;
-        --no-path)
-            NO_PATH=1
-            shift 1
-            ;;
-        *)
-            shift 1
-            ;;
+        --prefix) [ "$#" -ge 2 ] || exit 2; PREFIX="$2"; shift 2 ;;
+        --binary) [ "$#" -ge 2 ] || exit 2; BINARY="$2"; shift 2 ;;
+        --route) [ "$#" -ge 2 ] || exit 2; ROUTE="$2"; shift 2 ;;
+        --role) [ "$#" -ge 2 ] || exit 2; ROLE="$2"; shift 2 ;;
+        --no-start) NO_START=1; shift ;;
+        --no-path) NO_PATH=1; shift ;;
+        *) exit 2 ;;
     esac
 done
 
-: "${ROLE}"
+[ "$ROUTE" = "tree" ] && [ "$ROLE" = "desktop" ] && [ -x "$BINARY" ] || exit 2
 
-BIN_PATH="${PREFIX}/bin/solstone-linux"
-if [ "$ROUTE" != "tree" ]; then
-    BIN_PATH="/usr/bin/solstone-linux"
-fi
-
-CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
-SYSTEMD_USER_DIR="${CONFIG_HOME}/systemd/user"
-AUTOSTART_DIR="${CONFIG_HOME}/autostart"
-
-# 1. Systemd user service unit with positive platform-managed marker
-mkdir -p "$SYSTEMD_USER_DIR"
-SERVICE_FILE="${SYSTEMD_USER_DIR}/solstone-desktop.service"
-
-# Only overwrite or create if absent or already platform-managed
-if [ ! -f "$SERVICE_FILE" ] || grep -q "### SOLSTONE-PLATFORM-MANAGED: desktop-v1 ###" "$SERVICE_FILE" 2>/dev/null; then
-    cat <<EOF > "$SERVICE_FILE"
-### SOLSTONE-PLATFORM-MANAGED: desktop-v1 ###
-[Unit]
-Description=Solstone Desktop
-After=graphical-session.target
-
-[Service]
-ExecStart=${BIN_PATH}
-Restart=on-failure
-
-[Install]
-WantedBy=default.target
-EOF
-    chmod 0644 "$SERVICE_FILE"
-fi
-
-# 2. XDG autostart entry
-mkdir -p "$AUTOSTART_DIR"
-DESKTOP_ENTRY="${AUTOSTART_DIR}/solstone-desktop.desktop"
-
-if [ ! -f "$DESKTOP_ENTRY" ] || grep -q "### SOLSTONE-PLATFORM-MANAGED: desktop-v1 ###" "$DESKTOP_ENTRY" 2>/dev/null; then
-    cat <<EOF > "$DESKTOP_ENTRY"
-[Desktop Entry]
-### SOLSTONE-PLATFORM-MANAGED: desktop-v1 ###
-Type=Application
-Name=Solstone Desktop
-Exec=${BIN_PATH}
-Terminal=false
-EOF
-    chmod 0644 "$DESKTOP_ENTRY"
-fi
-
-# 3. Path registration if not --no-path and route is tree
-if [ "$NO_PATH" -eq 0 ] && [ "$ROUTE" = "tree" ]; then
+if [ "$NO_PATH" -eq 0 ]; then
+    CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
     ENV_DIR="${CONFIG_HOME}/solstone"
-    mkdir -p "$ENV_DIR"
     ENV_FILE="${ENV_DIR}/env"
-    if [ ! -f "$ENV_FILE" ] || grep -q "### SOLSTONE-PLATFORM-MANAGED: desktop-v1-path ###" "$ENV_FILE" 2>/dev/null; then
+    if [ -L "$ENV_FILE" ] || { [ -e "$ENV_FILE" ] && [ ! -f "$ENV_FILE" ]; }; then
+        exit 1
+    fi
+    if [ ! -e "$ENV_FILE" ] || grep -q '^### SOLSTONE-PLATFORM-MANAGED: \(desktop\|tmux\|platform\)-v1-path ###$' "$ENV_FILE"; then
+        mkdir -p "$ENV_DIR"
         cat <<EOF > "$ENV_FILE"
-### SOLSTONE-PLATFORM-MANAGED: desktop-v1-path ###
+### SOLSTONE-PLATFORM-MANAGED: platform-v1-path ###
 case ":\${PATH}:" in
     *:${PREFIX}/bin:*) ;;
     *) export PATH="${PREFIX}/bin:\${PATH}" ;;
@@ -105,11 +45,6 @@ EOF
     fi
 fi
 
-# 4. Reload daemon if not --no-start
 if [ "$NO_START" -eq 0 ]; then
-    if command -v systemctl >/dev/null 2>&1; then
-        systemctl --user daemon-reload 2>/dev/null || true
-    fi
+    "$BINARY" install-service >/dev/null 2>&1
 fi
-
-exit 0

@@ -189,7 +189,16 @@ def build_tiny_natives(
         t_version = tmux_version or native_version
         d_runtime_version = desktop_runtime_version or d_version
         marker_line = f"# {native_build_marker}\n" if native_build_marker else ""
-        desktop_exe = f"#!/bin/sh\necho {d_runtime_version}\n{marker_line}".encode("utf-8")
+        desktop_exe = (
+            "#!/bin/sh\n"
+            "case \"${1:-}\" in\n"
+            "  install-service|uninstall-service)\n"
+            f"    [ -z \"${{SOLSTONE_TEST_SERVICE_LOG:-}}\" ] || printf 'desktop {d_runtime_version} %s\\n' \"$1\" >> \"$SOLSTONE_TEST_SERVICE_LOG\"\n"
+            f"    case \"${{SOLSTONE_TEST_SERVICE_FAIL:-}}\" in \"desktop:{d_runtime_version}:$1\") exit 9 ;; esac\n"
+            "    exit 0 ;;\n"
+            "esac\n"
+            f"echo {d_runtime_version}\n{marker_line}"
+        ).encode("utf-8")
         d_tar = create_tiny_tar(dirs["desktop"] / f"solstone-linux-{d_version}-linux-x86_64.tar.gz", {"usr/bin/solstone-linux": desktop_exe})
         d_deb = create_tiny_deb(dirs["desktop"] / f"solstone-linux_{d_version}-1_amd64.deb", "solstone-linux", d_version, "amd64", "solstone-linux", desktop_exe)
         d_rpm = create_tiny_synthetic_rpm(dirs["desktop"] / f"solstone-linux-{d_version}-1.x86_64.rpm", "solstone-linux", d_version, "x86_64", "solstone-linux", desktop_exe)
@@ -221,7 +230,16 @@ def build_tiny_natives(
         # 2. Tmux
         t_sums = []
         for arch, deb_arch, rpm_arch, musl_t in [("x86_64", "amd64", "x86_64", "x86_64-unknown-linux-musl"), ("aarch64", "arm64", "aarch64", "aarch64-unknown-linux-musl")]:
-            tmux_exe = f"#!/bin/sh\necho {t_version}-{arch}\n{marker_line}".encode("utf-8")
+            tmux_exe = (
+                "#!/bin/sh\n"
+                "case \"${1:-}\" in\n"
+                "  install-service|uninstall-service)\n"
+                f"    [ -z \"${{SOLSTONE_TEST_SERVICE_LOG:-}}\" ] || printf 'tmux {t_version}-{arch} %s\\n' \"$1\" >> \"$SOLSTONE_TEST_SERVICE_LOG\"\n"
+                f"    case \"${{SOLSTONE_TEST_SERVICE_FAIL:-}}\" in \"tmux:{t_version}-{arch}:$1\") exit 9 ;; esac\n"
+                "    exit 0 ;;\n"
+                "esac\n"
+                f"echo {t_version}-{arch}\n{marker_line}"
+            ).encode("utf-8")
             t_tar = create_tiny_tar(dirs["tmux"] / f"solstone-tmux-{t_version}-{arch}-linux.tar.gz", {"usr/bin/solstone-tmux": tmux_exe})
             t_deb = create_tiny_deb(dirs["tmux"] / f"solstone-tmux_{t_version}_{deb_arch}.deb", "solstone-tmux", t_version, deb_arch, "solstone-tmux", tmux_exe)
             t_rpm = create_tiny_synthetic_rpm(dirs["tmux"] / f"solstone-tmux-{t_version}-1.{rpm_arch}.rpm", "solstone-tmux", t_version, rpm_arch, "solstone-tmux", tmux_exe)
