@@ -251,12 +251,31 @@ parse_rpm_identity() {
 
 parse_deb_identity() {
     pdi_file="$1"
-    pdi_control=$(ar t "$pdi_file" 2>/dev/null | awk '/^control\.tar/{print; exit}') || return 1
+    pdi_control=$(ar t "$pdi_file" 2>/dev/null | awk '
+        $0 == "control.tar" || $0 == "control.tar.gz" ||
+        $0 == "control.tar.xz" || $0 == "control.tar.bz2" {
+            print
+            exit
+        }
+    ') || return 1
     [ -n "$pdi_control" ] || return 1
-    pdi_text=$(ar p "$pdi_file" "$pdi_control" 2>/dev/null | tar -xOzf - control 2>/dev/null) || return 1
-    pdi_name=$(printf '%s\n' "$pdi_text" | awk -F ': *' '/^Package:/{print $2; exit}')
-    pdi_version=$(printf '%s\n' "$pdi_text" | awk -F ': *' '/^Version:/{print $2; exit}')
-    pdi_arch=$(printf '%s\n' "$pdi_text" | awk -F ': *' '/^Architecture:/{print $2; exit}')
+    case "$pdi_control" in
+        control.tar) pdi_tar_mode='-xOf' ;;
+        control.tar.gz) pdi_tar_mode='-xOzf' ;;
+        control.tar.xz) pdi_tar_mode='-xOJf' ;;
+        control.tar.bz2) pdi_tar_mode='-xOjf' ;;
+        *) return 1 ;;
+    esac
+    if pdi_text=$(ar p "$pdi_file" "$pdi_control" 2>/dev/null | tar "$pdi_tar_mode" - control 2>/dev/null); then
+        :
+    elif pdi_text=$(ar p "$pdi_file" "$pdi_control" 2>/dev/null | tar "$pdi_tar_mode" - ./control 2>/dev/null); then
+        :
+    else
+        return 1
+    fi
+    pdi_name=$(printf '%s\n' "$pdi_text" | awk '/^Package:/{sub(/^[^:]*:[[:space:]]*/, ""); print; exit}')
+    pdi_version=$(printf '%s\n' "$pdi_text" | awk '/^Version:/{sub(/^[^:]*:[[:space:]]*/, ""); print; exit}')
+    pdi_arch=$(printf '%s\n' "$pdi_text" | awk '/^Architecture:/{sub(/^[^:]*:[[:space:]]*/, ""); print; exit}')
     [ -n "$pdi_name" ] && [ -n "$pdi_version" ] && [ -n "$pdi_arch" ] || return 1
     case "$pdi_name:$pdi_version:$pdi_arch" in
         *' '*|*'\t'*) return 1 ;;
@@ -400,7 +419,7 @@ handle_write_receipt() {
     fi
 
     tmp_file="${RECEIPT_FILE}.tmp.$$"
-    if ! cat > "$tmp_file"; then
+    if ! head -c "$len" > "$tmp_file"; then
         rm -f "$tmp_file"
         echo "ERROR:receipt-truncated"
         return 1

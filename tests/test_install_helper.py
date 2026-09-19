@@ -155,6 +155,20 @@ class TestInstallHelper(unittest.TestCase):
         record = self.fake_pkg_db / "deb" / "solstone-journal"
         self.assertEqual(record.read_text(encoding="utf-8"), "INSTALLED solstone-journal 2.0.6 amd64\n")
 
+        epoch_archive = self.work_dir / "solstone-journal_epoch_amd64.deb"
+        create_tiny_deb(
+            epoch_archive,
+            "solstone-journal",
+            "1:2.0.6",
+            "amd64",
+            "journal",
+            b"#!/bin/sh\nexit 0\n",
+        )
+        epoch_fake = self.run_helper(f"INSTALL_PKG deb {epoch_archive}\n")
+        self.assertEqual(epoch_fake.returncode, 0, epoch_fake.stderr)
+        self.assertEqual(epoch_fake.stdout, "OK\n")
+        self.assertEqual(record.read_text(encoding="utf-8"), "INSTALLED solstone-journal 1:2.0.6 amd64\n")
+
         rpm_archive = self.work_dir / "solstone-journal-2.0.6-1.x86_64.rpm"
         create_tiny_synthetic_rpm(rpm_archive, "solstone-journal", "2.0.6", "x86_64", "journal", b"#!/bin/sh\nexit 0\n")
         fake_rpm = self.run_helper(f"INSTALL_PKG rpm {rpm_archive}\n")
@@ -215,6 +229,12 @@ class TestInstallHelper(unittest.TestCase):
         self.assertNotEqual(truncated.returncode, 0)
         self.assertEqual(truncated.stdout, "ERROR:receipt-truncated\n")
         self.assertEqual(receipt_file.read_bytes(), b"old-receipt\n")
+
+        empty = self.run_helper("WRITE_ETC_RECEIPT 0\n\n")
+        self.assertEqual(empty.returncode, 0, empty.stderr)
+        self.assertEqual(empty.stdout, "OK\n")
+        self.assertTrue(receipt_file.is_file())
+        self.assertEqual(receipt_file.read_bytes(), b"")
 
         receipt_file.unlink()
         receipt_file.mkdir()
