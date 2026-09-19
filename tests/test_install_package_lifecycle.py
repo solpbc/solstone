@@ -38,6 +38,9 @@ class TestInstallPackageLifecycle(unittest.TestCase):
         self.prefix = self.work_dir / "package-prefix"
         for path in (self.lock_dir, self.etc_root, self.fake_db):
             path.mkdir()
+        self.app_log = self.work_dir / "apps.log"
+        for app in ("solstone-linux", "solstone-tmux"):
+            write_path_stub(self.fake_root / "usr/bin", app, 'printf "%s %s\\n" "$0" "$*" >> "$SOLSTONE_APP_LOG"\n[ "${SOLSTONE_APP_FAIL:-0}" != 1 ]\n')
         self.setup_log = self.work_dir / "setup.log"
         self.shadow_log = self.work_dir / "shadow.log"
         self.launcher = setup_package_launcher_spy(self.bin_dir)
@@ -54,6 +57,7 @@ class TestInstallPackageLifecycle(unittest.TestCase):
             "SOLSTONE_FAKE_JOURNAL_LAUNCHER": str(self.launcher),
             "SOLSTONE_HELPER": str(HELPER_SCRIPT),
             "SOLSTONE_PACKAGE_SETUP_LOG": str(self.setup_log),
+            "SOLSTONE_APP_LOG": str(self.app_log),
             "SOLSTONE_SHADOW_LOG": str(self.shadow_log),
         }
 
@@ -109,6 +113,74 @@ class TestInstallPackageLifecycle(unittest.TestCase):
     @staticmethod
     def package_requests(paths: list[str]) -> list[str]:
         return [path for path in paths if path.endswith((".deb", ".rpm"))]
+
+    def test_unconfigured_retry_requires_matching_intent(self):
+        with ephemeral_keypair("unconfigured retry") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin)
+            try:
+                first = self.run_install(installer, "cli", no_start=True)
+                self.assertEqual(first.returncode, 0, first.stderr + first.stdout)
+                owned = self.receipt.read_bytes()
+                db_file = self.fake_db / "deb/solstone-journal"
+                self.receipt.write_bytes(owned.replace(b"phase=complete", b"phase=intended").replace(b"status=installed", b"status=intended"))
+                db_file.write_text("UNCONFIGURED solstone-journal 2.0.6 amd64\n")
+                retry = self.run_install(installer, "cli", no_start=True)
+                self.assertEqual(retry.returncode, 0, retry.stderr + retry.stdout)
+                self.assertEqual(len(self.installs()), 2)
+                self.assertIn(b"phase=complete", self.receipt.read_bytes())
+                self.receipt.unlink()
+                db_file.write_text("UNCONFIGURED solstone-journal 2.0.6 amd64\n")
+                refused = self.run_install(installer, "cli", no_start=True)
+                self.assertNotEqual(refused.returncode, 0)
+                self.assertEqual(json.loads(refused.stdout)["root_code"], "ownership-unknown")
+                self.assertEqual(len(self.installs()), 2)
+            finally:
+                server.stop()
+
+    def test_app_service_failure_retries_setup_without_reinstall(self):
+        with ephemeral_keypair("app service retry") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin)
+            try:
+                self.env["SOLSTONE_APP_FAIL"] = "1"
+                failed = self.run_install(installer, "tmux")
+                self.assertNotEqual(failed.returncode, 0)
+                self.assertEqual(json.loads(failed.stdout)["root_code"], "setup-failed")
+                self.assertIn(b"phase=payload", self.receipt.read_bytes())
+                self.env.pop("SOLSTONE_APP_FAIL")
+                retry = self.run_install(installer, "tmux")
+                self.assertEqual(retry.returncode, 0, retry.stderr + retry.stdout)
+                self.assertEqual(len(self.installs()), 1)
+                self.assertIn(b"phase=complete", self.receipt.read_bytes())
+                self.assertEqual(len(self.app_log.read_text().splitlines()), 2)
+                deferred = self.run_install(installer, "tmux", no_start=True)
+                self.assertEqual(deferred.returncode, 0, deferred.stderr + deferred.stdout)
+                self.assertEqual(len(self.app_log.read_text().splitlines()), 2)
+                removed = subprocess.run([str(installer), "--components", "tmux", "--uninstall", "--skip-signature", "--json"], env=self.env, capture_output=True, text=True)
+                self.assertEqual(removed.returncode, 0, removed.stderr + removed.stdout)
+                self.assertTrue(self.app_log.read_text().splitlines()[-1].endswith("uninstall-service"))
+            finally:
+                server.stop()
+
+    def test_package_uninstall_preview_never_invokes_helper(self):
+        with ephemeral_keypair("preview package") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin)
+            try:
+                first = self.run_install(installer, "journal", no_start=True)
+                self.assertEqual(first.returncode, 0, first.stderr + first.stdout)
+                from tests.install_test_helpers import snapshot_paths
+                before = snapshot_paths(self.fake_db, self.etc_root, self.fake_root, self.setup_log, self.lock_dir)
+                forbidden = write_path_stub(self.bin_dir, "forbidden-helper", "exit 97\n")
+                preview = subprocess.run(
+                    [str(installer), "--skip-signature", "--components", "journal", "--route", "deb", "--uninstall", "--dry-run", "--json"],
+                    capture_output=True, text=True, env={**self.env, "SOLSTONE_HELPER": str(forbidden)}, timeout=30,
+                )
+                self.assertEqual(preview.returncode, 0, preview.stderr + preview.stdout)
+                result = json.loads(preview.stdout)
+                self.assertEqual(result["root_code"], "dry-run-completed")
+                self.assertEqual(result["components"]["journal"]["status"], "planned")
+                self.assertEqual(snapshot_paths(self.fake_db, self.etc_root, self.fake_root, self.setup_log, self.lock_dir), before)
+            finally:
+                server.stop()
 
     def test_fresh_exact_identity_is_unchanged_without_fetch_or_setup(self):
         with ephemeral_keypair("package lifecycle exact") as (sec, pub, pin):
@@ -375,8 +447,8 @@ class TestInstallPackageLifecycle(unittest.TestCase):
                 server.request_paths.clear()
                 replacement = self.run_install(installer, "journal", no_start=True)
                 self.assertEqual(replacement.returncode, 0, replacement.stderr + replacement.stdout)
-                self.assertEqual(len(self.installs()), 2)
-                self.assertEqual(len(self.package_requests(server.request_paths)), 1)
+                self.assertEqual(len(self.installs()), 1)
+                self.assertEqual(len(self.package_requests(server.request_paths)), 0)
                 section = receipt_section(self.receipt.read_bytes(), "component:journal")
                 self.assertIn(b"service_policy=skip-service\n", section)
                 self.assertNotIn(b"prior_", section)
@@ -391,7 +463,7 @@ class TestInstallPackageLifecycle(unittest.TestCase):
                 twin = self.run_install(installer, "journal", no_start=True)
                 self.assertNotEqual(twin.returncode, 0)
                 self.assertEqual(json.loads(twin.stdout)["root_code"], "ownership-unknown")
-                self.assertEqual(len(self.installs()), 2)
+                self.assertEqual(len(self.installs()), 1)
                 self.assertEqual(self.package_requests(server.request_paths), [])
             finally:
                 server.stop()

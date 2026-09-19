@@ -72,6 +72,35 @@ def verify_native_pins(repo_root: Path) -> dict[str, tuple[str, str]]:
     }
 
 
+def embedded_runtime(repo_root: Path) -> str:
+    """Stage the exact reviewed runtime; never execute helpers from caller cwd."""
+    paths = [
+        "helpers/solstone-pkg-helper.sh",
+        "handlers/desktop/v1/install-desktop",
+        "handlers/desktop/v1/uninstall-desktop-service",
+        "handlers/tmux/v1/install-tmux",
+        "handlers/tmux/v1/uninstall-tmux-service",
+    ]
+    lines = ["init_bundled_runtime() {", '    BUNDLED_RUNTIME="${SCRATCH_DIR}/runtime"']
+    for index, relative in enumerate(paths):
+        content = (repo_root / relative).read_text(encoding="utf-8")
+        delimiter = f"SOLSTONE_RUNTIME_FILE_{index}_END"
+        if delimiter in content.splitlines() or not content.endswith("\n"):
+            raise Refusal("runtime-invalid", f"invalid embedding boundary: {relative}")
+        target = f'"$BUNDLED_RUNTIME/{relative}"'
+        parent = str(Path(relative).parent)
+        lines.extend([
+            f'    mkdir -p "$BUNDLED_RUNTIME/{parent}" || report_exit refusal runtime-unavailable "could not stage installer runtime"',
+            f"    if ! cat > {target} <<'{delimiter}'",
+            content[:-1],
+            delimiter,
+            '    then report_exit refusal runtime-unavailable "could not write installer runtime"; fi',
+            f'    chmod 0700 {target} || report_exit refusal runtime-unavailable "could not prepare installer runtime"',
+        ])
+    lines.append("}")
+    return "\n".join(lines)
+
+
 def build_installer(
     repo_root: Path,
     output_path: Path,
@@ -159,6 +188,7 @@ def build_installer(
         "@TMUX_PUBKEY@": native_pins["tmux"][1],
         "@DEFAULT_ORIGIN@": resolved_origin,
         "@TEST_SEAM@": test_seam,
+        "@BUNDLED_RUNTIME@": embedded_runtime(repo_root),
     }
 
     result = template_content

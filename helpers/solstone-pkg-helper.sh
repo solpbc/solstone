@@ -5,7 +5,7 @@
 # Closed-vocabulary privileged package helper for Solstone platform installer.
 # Invoked via sudo -n by the non-root installer when package-route mutation is required.
 
-set -eu
+set -efu
 
 # Default production paths (immutable unless explicitly overridden via CLI flags under test seam)
 LOCK_DIR="/run/lock/solstone-platform"
@@ -109,7 +109,7 @@ handle_query_pkg() {
         db_file="${FAKE_PKG_DB}/${pkg_type}/${pkg_name}"
         if [ -f "$db_file" ]; then
             if ! awk '
-                NR == 1 && NF == 4 && $1 == "INSTALLED" && $2 ~ /^[A-Za-z0-9._-]+$/ && $3 ~ /^[^[:space:]]+$/ && $4 ~ /^[A-Za-z0-9._-]+$/ { valid = 1; next }
+                NR == 1 && NF == 4 && ($1 == "INSTALLED" || $1 == "UNCONFIGURED") && $2 ~ /^[A-Za-z0-9._-]+$/ && $3 ~ /^[^[:space:]]+$/ && $4 ~ /^[A-Za-z0-9._-]+$/ { valid = 1; next }
                 { invalid = 1 }
                 END { exit !(valid && !invalid) }
             ' "$db_file"; then
@@ -143,6 +143,7 @@ handle_query_pkg() {
             NR != 1 || NF != 4 { bad = 1; next }
             $2 != wanted || $3 == "" || $4 !~ /^[A-Za-z0-9._-]+$/ { bad = 1; next }
             $1 == "install ok installed" { print "INSTALLED " $2 " " $3 " " $4; seen = 1; next }
+            $1 == "install ok unpacked" || $1 == "install ok half-configured" || $1 == "install ok triggers-awaited" || $1 == "install ok triggers-pending" { print "UNCONFIGURED " $2 " " $3 " " $4; seen = 1; next }
             $1 == "deinstall ok config-files" { print "CONFIG_FILES " $2 " " $3 " " $4; seen = 1; next }
             { bad = 1 }
             END { exit !(seen && !bad) }
@@ -183,112 +184,12 @@ handle_query_pkg() {
     fi
 }
 
-u32_be() {
-    u32_file="$1"
-    u32_offset="$2"
-    u32_b1=$(od -An -tu1 -j "$u32_offset" -N 1 "$u32_file" | tr -d '[:space:]')
-    u32_b2=$(od -An -tu1 -j "$((u32_offset + 1))" -N 1 "$u32_file" | tr -d '[:space:]')
-    u32_b3=$(od -An -tu1 -j "$((u32_offset + 2))" -N 1 "$u32_file" | tr -d '[:space:]')
-    u32_b4=$(od -An -tu1 -j "$((u32_offset + 3))" -N 1 "$u32_file" | tr -d '[:space:]')
-    case "$u32_b1:$u32_b2:$u32_b3:$u32_b4" in
-        *::*) return 1 ;;
-    esac
-    printf '%s\n' "$((u32_b1 * 16777216 + u32_b2 * 65536 + u32_b3 * 256 + u32_b4))"
-}
-
-rpm_string_at() {
-    rs_file="$1"
-    rs_offset="$2"
-    dd if="$rs_file" bs=1 skip="$rs_offset" 2>/dev/null | tr '\000' '\n' | sed -n '1p'
-}
-
-parse_rpm_identity() {
-    pri_file="$1"
-    pri_size=$(wc -c < "$pri_file" | tr -d '[:space:]')
-    [ "$pri_size" -ge 128 ] || return 1
-
-    pri_sig_count=$(u32_be "$pri_file" 104) || return 1
-    pri_sig_size=$(u32_be "$pri_file" 108) || return 1
-    pri_general=$((112 + pri_sig_count * 16 + pri_sig_size))
-    pri_remainder=$((pri_general % 8))
-    [ "$pri_remainder" -eq 0 ] || pri_general=$((pri_general + 8 - pri_remainder))
-    pri_count=$(u32_be "$pri_file" $((pri_general + 8))) || return 1
-    pri_data_size=$(u32_be "$pri_file" $((pri_general + 12))) || return 1
-    pri_data=$((pri_general + 16 + pri_count * 16))
-    [ $((pri_data + pri_data_size)) -le "$pri_size" ] || return 1
-
-    pri_name_offset=""
-    pri_version_offset=""
-    pri_release_offset=""
-    pri_arch_offset=""
-    pri_index=0
-    while [ "$pri_index" -lt "$pri_count" ]; do
-        pri_entry=$((pri_general + 16 + pri_index * 16))
-        pri_tag=$(u32_be "$pri_file" "$pri_entry") || return 1
-        pri_type=$(u32_be "$pri_file" $((pri_entry + 4))) || return 1
-        pri_offset=$(u32_be "$pri_file" $((pri_entry + 8))) || return 1
-        [ "$pri_type" -eq 6 ] || { pri_index=$((pri_index + 1)); continue; }
-        case "$pri_tag" in
-            1000) pri_name_offset="$pri_offset" ;;
-            1001) pri_version_offset="$pri_offset" ;;
-            1002) pri_release_offset="$pri_offset" ;;
-            1022) pri_arch_offset="$pri_offset" ;;
-        esac
-        pri_index=$((pri_index + 1))
-    done
-    [ -n "$pri_name_offset" ] && [ -n "$pri_version_offset" ] && [ -n "$pri_release_offset" ] && [ -n "$pri_arch_offset" ] || return 1
-
-    pri_name=$(rpm_string_at "$pri_file" $((pri_data + pri_name_offset)))
-    pri_version=$(rpm_string_at "$pri_file" $((pri_data + pri_version_offset)))
-    pri_release=$(rpm_string_at "$pri_file" $((pri_data + pri_release_offset)))
-    pri_arch=$(rpm_string_at "$pri_file" $((pri_data + pri_arch_offset)))
-    [ -n "$pri_name" ] && [ -n "$pri_version" ] && [ -n "$pri_release" ] && [ -n "$pri_arch" ] || return 1
-    case "$pri_name:$pri_version:$pri_release:$pri_arch" in
-        *' '*|*'\t'*) return 1 ;;
-    esac
-    printf '%s %s-%s %s\n' "$pri_name" "$pri_version" "$pri_release" "$pri_arch"
-}
-
-parse_deb_identity() {
-    pdi_file="$1"
-    pdi_control=$(ar t "$pdi_file" 2>/dev/null | awk '
-        $0 == "control.tar" || $0 == "control.tar.gz" ||
-        $0 == "control.tar.xz" || $0 == "control.tar.bz2" {
-            print
-            exit
-        }
-    ') || return 1
-    [ -n "$pdi_control" ] || return 1
-    case "$pdi_control" in
-        control.tar) pdi_tar_mode='-xOf' ;;
-        control.tar.gz) pdi_tar_mode='-xOzf' ;;
-        control.tar.xz) pdi_tar_mode='-xOJf' ;;
-        control.tar.bz2) pdi_tar_mode='-xOjf' ;;
-        *) return 1 ;;
-    esac
-    if pdi_text=$(ar p "$pdi_file" "$pdi_control" 2>/dev/null | tar "$pdi_tar_mode" - control 2>/dev/null); then
-        :
-    elif pdi_text=$(ar p "$pdi_file" "$pdi_control" 2>/dev/null | tar "$pdi_tar_mode" - ./control 2>/dev/null); then
-        :
-    else
-        return 1
-    fi
-    pdi_name=$(printf '%s\n' "$pdi_text" | awk '/^Package:/{sub(/^[^:]*:[[:space:]]*/, ""); print; exit}')
-    pdi_version=$(printf '%s\n' "$pdi_text" | awk '/^Version:/{sub(/^[^:]*:[[:space:]]*/, ""); print; exit}')
-    pdi_arch=$(printf '%s\n' "$pdi_text" | awk '/^Architecture:/{sub(/^[^:]*:[[:space:]]*/, ""); print; exit}')
-    [ -n "$pdi_name" ] && [ -n "$pdi_version" ] && [ -n "$pdi_arch" ] || return 1
-    case "$pdi_name:$pdi_version:$pdi_arch" in
-        *' '*|*'\t'*) return 1 ;;
-    esac
-    printf '%s %s %s\n' "$pdi_name" "$pdi_version" "$pdi_arch"
-}
-
 parse_archive_identity() {
-    pai_type="$1"
-    pai_path="$2"
-    case "$pai_type" in
-        deb) parse_deb_identity "$pai_path" ;;
-        rpm) parse_rpm_identity "$pai_path" ;;
+    # Package placeholders belong to dpkg-deb, not the shell.
+    # shellcheck disable=SC2016
+    case "$1" in
+        deb) dpkg-deb --show --showformat='${Package} ${Version} ${Architecture}\n' "$2" ;;
+        rpm) rpm -qp --queryformat '%{NAME} %{VERSION}-%{RELEASE} %{ARCH}\n' "$2" ;;
         *) return 1 ;;
     esac
 }
@@ -307,6 +208,8 @@ handle_install_pkg() {
         echo "ERROR:install-failed"
         return 1
     fi
+    # Deliberate whitespace split of three identity fields; pathname expansion is disabled.
+    # shellcheck disable=SC2086
     set -- $pkg_identity
     if [ $# -ne 3 ]; then
         echo "ERROR:install-failed"
@@ -348,12 +251,18 @@ handle_install_pkg() {
     fi
 
     if [ "$pkg_type" = "deb" ]; then
-        if ! dpkg -i "$archive_path" >/dev/null 2>&1; then
+        if ! DEBIAN_FRONTEND=noninteractive apt-get install -y --reinstall --no-remove "$archive_path" >&2; then
             echo "ERROR:install-failed"
             return 1
         fi
     elif [ "$pkg_type" = "rpm" ]; then
-        if ! rpm -U --replacepkgs "$archive_path" >/dev/null 2>&1; then
+        rpm_action=install
+        existing_identity=$(handle_query_pkg rpm "$pkg_name") || return 1
+        if [ "$existing_identity" = "INSTALLED $pkg_name $pkg_version $pkg_arch" ]; then
+            rpm_action=reinstall
+        fi
+        # The installer verified this local artifact; repository dependency checks remain enabled.
+        if ! dnf -y --setopt=localpkg_gpgcheck=False "$rpm_action" "$archive_path" >&2; then
             echo "ERROR:install-failed"
             return 1
         fi
@@ -394,10 +303,10 @@ handle_remove_pkg() {
     fi
 
     if [ "$pkg_type" = "deb" ]; then
-        dpkg -r "$pkg_name"
+        if ! dpkg -r "$pkg_name" >&2; then echo "ERROR:remove-failed"; return 1; fi
         echo "OK"
     elif [ "$pkg_type" = "rpm" ]; then
-        rpm -e "$pkg_name"
+        if ! rpm -e "$pkg_name" >&2; then echo "ERROR:remove-failed"; return 1; fi
         echo "OK"
     else
         echo "ERROR:unsupported-pkg-type" >&2

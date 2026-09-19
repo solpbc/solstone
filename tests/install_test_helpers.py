@@ -122,9 +122,9 @@ def make_v2_bootstrap_script(revision: int = 2) -> bytes:
         f"  echo \"#!/bin/sh\\necho $ROLE 2.0.6\" > \"$PREFIX/versions/2.0.6-fixture/bin/journal\"\n"
         f"  chmod +x \"$PREFIX/versions/2.0.6-fixture/bin/journal\"\n"
         f"  ln -sfn \"versions/2.0.6-fixture\" \"$PREFIX/current\"\n"
-        f"  ln -sfn \"$PREFIX/current/bin/journal\" \"$PREFIX/bin/journal\"\n"
         f"  printf 'schema_version=1\\njournal_version=2.0.6\\nlane=release\\norigin=fixture\\narchitecture=x86_64\\ninstaller_revision=1\\nbootstrap_revision={revision}\\nroute=tree\\nsignature_verification=skipped\\nrole=%s\\njournal_state=existing\\nservice_policy=skip-service\\nsetup_status=complete\\n' \"$ROLE\" > \"$PREFIX/install-receipt\"\n"
         f"fi\n"
+        f"[ \"${{SOLSTONE_BOOTSTRAP_FAIL:-0}}\" = 0 ] || exit 7\n"
         f"exit 0\n"
     ).encode("utf-8")
 
@@ -264,3 +264,18 @@ def setup_test_release_server(
             shutil.copy2(authority_file, ver_dir / authority_file.name)
 
     return server, server_root
+
+
+def snapshot_paths(*roots: Path) -> dict:
+    """Capture file bytes and links without following links into owner data."""
+    snapshot = {}
+    for root in roots:
+        paths = [root, *root.rglob("*")] if root.is_dir() else [root]
+        for path in paths:
+            if path.is_symlink():
+                snapshot[str(path)] = ("link", os.readlink(path))
+            elif path.is_file():
+                snapshot[str(path)] = ("file", path.read_bytes(), path.stat().st_mode)
+            elif path.is_dir():
+                snapshot[str(path)] = ("directory",)
+    return snapshot

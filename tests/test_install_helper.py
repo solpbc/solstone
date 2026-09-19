@@ -62,6 +62,18 @@ class TestInstallHelper(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, f"Helper failed: {proc.stderr}")
         self.assertEqual(proc.stdout.strip(), "PONG")
 
+    def test_real_removal_diagnostics_and_failure_stay_out_of_protocol(self):
+        manager_bin = self.work_dir / "manager-bin"
+        env = {**os.environ, "PATH": f"{manager_bin}:{os.environ['PATH']}"}
+        for manager, route in (("dpkg", "deb"), ("rpm", "rpm")):
+            for code in (0, 1):
+                write_path_stub(manager_bin, manager, f"echo removing; echo diagnostic >&2; exit {code}\n")
+                result = self.run_helper(f"REMOVE_PKG {route} solstone-tmux\n", fake_db=False, env=env)
+                self.assertEqual(result.returncode, code)
+                self.assertEqual(result.stdout.strip(), "OK" if code == 0 else "ERROR:remove-failed")
+                self.assertIn("removing", result.stderr)
+                self.assertIn("diagnostic", result.stderr)
+
     def test_helper_unknown_opcode_refused(self):
         proc = self.run_helper("FOOBAR\n")
         self.assertNotEqual(proc.returncode, 0)
@@ -197,7 +209,7 @@ class TestInstallHelper(unittest.TestCase):
         state_file = self.work_dir / "manager-state"
         write_path_stub(
             manager_bin,
-            "dpkg",
+            "apt-get",
             "printf 'ordinary package-manager warning\\n'\n"
             ": > \"$SOLSTONE_MANAGER_STATE\"\n"
             "exit 0\n",
@@ -218,6 +230,7 @@ class TestInstallHelper(unittest.TestCase):
         }
         installed = self.run_helper(f"INSTALL_PKG deb {archive}\n", fake_db=False, env=manager_env)
         self.assertEqual(installed.returncode, 0, installed.stderr)
+        self.assertIn("ordinary package-manager warning", installed.stderr)
         self.assertEqual(installed.stdout, "OK\n")
 
     def test_helper_receipt_failures_preserve_existing_file(self):

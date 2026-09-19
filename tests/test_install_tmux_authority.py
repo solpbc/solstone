@@ -235,6 +235,20 @@ class TestInstallTmuxAuthority(unittest.TestCase):
                 )
                 self.assertFalse(prefix.exists())
 
+    def test_package_postprocessing_does_not_require_raw_binary_digest(self):
+        fixture = self.fixture("package-postprocessing")
+        target = json.loads(fixture.target("x86_64").read_text())
+        target["executable"]["sha256"] = "a" * 64
+        fixture.write_target("x86_64", target)
+        package, _, _ = fixture.run("--components", "tmux", "--route", "rpm", "--dry-run")
+        self.assertEqual(package.returncode, 0, package.stderr + package.stdout)
+        tree, _, _ = fixture.run("--components", "tmux", "--route", "tree", "--dry-run")
+        self.assertEqual(self.result(tree)["root_code"], "release-coherence")
+        target["executable"]["sha256"] = "not-a-digest"
+        fixture.write_target("x86_64", target)
+        invalid, _, _ = fixture.run("--components", "tmux", "--route", "rpm", "--dry-run")
+        self.assertEqual(self.result(invalid)["root_code"], "schema-invalid")
+
     def test_digest_checks_precede_native_consumers(self):
         fixture = self.fixture("digest-order")
         shim_dir = self.work_dir / "digest-shims"

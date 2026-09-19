@@ -123,7 +123,7 @@ class TestInstallLifecycle(unittest.TestCase):
                 )
 
                 # Check journal binary exists
-                journal_bin = self.prefix / "bin" / "journal"
+                journal_bin = self.prefix / "current" / "bin" / "journal"
                 self.assertTrue(journal_bin.is_file())
 
                 # A native service refusal leaves custody intact for an identical retry.

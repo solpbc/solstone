@@ -407,7 +407,7 @@ class TestInstallDesktopAuthority(unittest.TestCase):
             "SOLSTONE_HELPER": str(HELPER_SCRIPT),
         }
         proc, _, requests = fixture.run(
-            "--skip-signature", "--route", "deb", "--components", "desktop",
+            "--skip-signature", "--route", "deb", "--components", "desktop", "--no-start",
             path=f"{bin_dir}:{os.environ['PATH']}", extra_env=env,
         )
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)

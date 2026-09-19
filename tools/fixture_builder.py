@@ -145,9 +145,9 @@ def create_tiny_synthetic_rpm(dest: Path, pkg_name: str, version: str, arch: str
     gen_hdr_prefix = b"\x8e\xad\xe8\x01\x00\x00\x00\x00" + struct.pack(">II", len(entries), gen_hdr_len)
     gen_header = gen_hdr_prefix + gen_index + str_data
 
-    # Signature header (empty dummy)
-    sig_hdr_prefix = b"\x8e\xad\xe8\x01\x00\x00\x00\x00" + struct.pack(">II", 0, 0)
-    sig_header = sig_hdr_prefix
+    # A size tag makes the fixture queryable by the native rpm reader.
+    sig_hdr_prefix = b"\x8e\xad\xe8\x01\x00\x00\x00\x00" + struct.pack(">II", 1, 4)
+    sig_header = sig_hdr_prefix + struct.pack(">IIII", 1000, 4, 0, 1) + struct.pack(">I", len(gen_header))
     if len(sig_header) % 8 != 0:
         sig_header += b"\x00" * (8 - (len(sig_header) % 8))
 

@@ -117,6 +117,49 @@ class TestInstallTreeLifecycle(unittest.TestCase):
             args.extend(extra)
         return subprocess.run(args, capture_output=True, text=True, env=env or self.env)
 
+    def test_uninstall_preview_preserves_installed_tree(self):
+        with ephemeral_keypair("preview tree") as (sec, pub, pin):
+            server, installer = self.build_release("preview", sec, pub, pin, "2.0.0", "2.0.3")
+            try:
+                installed = self.run_install(installer, "cli,desktop,tmux")
+                self.assertEqual(installed.returncode, 0, installed.stderr + installed.stdout)
+                sentinel = self.work_dir / "owner-data"
+                sentinel.write_text("keep my data")
+                from tests.install_test_helpers import snapshot_paths
+                before = snapshot_paths(self.prefix, self.data_home, self.config_home, sentinel)
+                preview = self.run_install(installer, "cli,desktop,tmux", ["--uninstall", "--dry-run"])
+                self.assertEqual(preview.returncode, 0, preview.stderr + preview.stdout)
+                result = json.loads(preview.stdout)
+                self.assertEqual(result["root_code"], "dry-run-completed")
+                self.assertTrue(all(c["status"] == "planned" and c["phase"] == "planned" for c in result["components"].values()))
+                self.assertEqual(snapshot_paths(self.prefix, self.data_home, self.config_home, sentinel), before)
+                removed = self.run_install(installer, "cli,desktop,tmux", ["--uninstall"])
+                self.assertEqual(removed.returncode, 0, removed.stderr + removed.stdout)
+                self.assertFalse(self.receipt.exists())
+                self.assertEqual(sentinel.read_text(), "keep my data")
+            finally:
+                server.stop()
+
+    def test_fresh_handler_failure_is_retryable_and_space_prefix_is_usable(self):
+        self.prefix = self.work_dir / "install space"
+        with ephemeral_keypair("fresh retry") as (sec, pub, pin):
+            server, installer = self.build_release("retry", sec, pub, pin, "2.0.0", "2.0.3")
+            try:
+                failed = self.run_install(installer, "tmux", start=True, env={**self.env, "SOLSTONE_TEST_SERVICE_FAIL": "tmux:2.0.3-x86_64:install-service"})
+                self.assertNotEqual(failed.returncode, 0)
+                self.assertEqual(json.loads(failed.stdout)["root_code"], "handler-failed")
+                self.assertFalse((self.prefix / "opt/solstone/tmux").exists())
+                self.assertFalse(self.receipt.exists())
+                retry = self.run_install(installer, "tmux")
+                self.assertEqual(retry.returncode, 0, retry.stderr + retry.stdout)
+                # Execute the generated shell code, including its space-containing PATH.
+                sourced = subprocess.run(["sh", "-c", '. "$1"; command -v solstone-tmux; solstone-tmux --version', "sh", str(self.config_home / "solstone/env")], env=self.env, capture_output=True, text=True)
+                self.assertEqual(sourced.returncode, 0, sourced.stderr)
+                self.assertEqual(sourced.stdout.splitlines()[0], str(self.prefix / "bin/solstone-tmux"))
+                self.assertIn("2.0.3", sourced.stdout)
+            finally:
+                server.stop()
+
     def test_native_service_delegation_and_transaction_rollback(self):
         with ephemeral_keypair("tree lifecycle services") as (sec, pub, pin):
             old_server, old_installer = self.build_release(
@@ -174,20 +217,20 @@ class TestInstallTreeLifecycle(unittest.TestCase):
                 )
                 self.assertNotEqual(failed.returncode, 0)
                 self.assertEqual(json.loads(failed.stdout)["root_code"], "handler-failed")
-                self.assertEqual(self.receipt.read_bytes(), receipt_before)
-                for component, target in current_before.items():
-                    self.assertEqual(
-                        os.readlink(self.prefix / "opt" / "solstone" / component / "current"),
-                        target,
-                    )
+                result = json.loads(failed.stdout)
+                self.assertEqual(result["components"]["desktop"]["status"], "succeeded")
+                self.assertEqual(result["components"]["tmux"]["status"], "failed")
+                self.assertIn(str(self.receipt), result["receipt_paths"])
+                self.assertEqual(receipt_section(self.receipt.read_bytes(), "component:tmux"), receipt_section(receipt_before, "component:tmux"))
+                self.assertIn(b"version=2.0.4\n", receipt_section(self.receipt.read_bytes(), "component:desktop"))
+                self.assertEqual(os.readlink(self.prefix / "opt/solstone/tmux/current"), current_before["tmux"])
+                self.assertNotEqual(os.readlink(self.prefix / "opt/solstone/desktop/current"), current_before["desktop"])
                 self.assertEqual(
-                    service_log.read_text().splitlines()[-6:],
+                    service_log.read_text().splitlines()[-4:],
                     [
                         "desktop 2.0.4 install-service",
                         "tmux 2.0.4-x86_64 install-service",
                         "tmux 2.0.4-x86_64 uninstall-service",
-                        "desktop 2.0.4 uninstall-service",
-                        "desktop 2.0.3 install-service",
                         "tmux 2.0.3-x86_64 install-service",
                     ],
                 )
@@ -365,7 +408,8 @@ class TestInstallTreeLifecycle(unittest.TestCase):
                 failed_result = json.loads(mixed_failed.stdout)
                 self.assertEqual(failed_result["components"]["desktop"]["status"], "unchanged")
                 self.assertEqual(failed_result["components"]["tmux"]["status"], "failed")
-                self.assertEqual(self.receipt.read_bytes(), old_receipt)
+                self.assertEqual(receipt_section(self.receipt.read_bytes(), "component:desktop"), desktop_section_before)
+                self.assertEqual(receipt_section(self.receipt.read_bytes(), "component:tmux"), old_tmux_section)
 
                 old_server.request_paths.clear()
                 mixed = self.run_install(mixed_installer, "desktop,tmux")

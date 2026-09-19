@@ -26,19 +26,16 @@ open source. self-host it, or let [sol pbc](https://solpbc.org) operate it for y
 
 This repository generates, validates, signs, and publishes the platform-level `platform.json` release metadata manifest, manages the atomic `latest` pointer across release lanes, and provides the POSIX platform installer build rail (`install.sh.in` -> `install.sh`).
 
-install solstone on linux interactively:
+for linux installation, upgrades, verification, and recovery, read [INSTALL.md](INSTALL.md).
 
-```bash
-curl -fsSL https://solstone.app/platform-install.sh | sh
+save the platform installer and inspect its options:
+
+```sh
+curl -fsSL https://solstone.app/platform-install.sh -o platform-install.sh
+sh platform-install.sh --help
 ```
 
-for non-interactive automation:
-
-```bash
-curl -fsSL https://solstone.app/platform-install.sh | sh -s -- --components all --non-interactive --yes --json
-```
-
-`https://solstone.app/install.sh` remains the journal-only bootstrap.
+check that the download succeeded before running the script. `https://solstone.app/install.sh` remains the journal-only bootstrap.
 
 For authoritative definitions, refer to:
 - Native component pins: `pins/`

@@ -260,7 +260,7 @@ class TestInstallTransport(unittest.TestCase):
             encoding="utf-8",
         )
         wrapper.chmod(0o755)
-        for command in ("uname", "mktemp", "chmod", "cat", "rm", "wc", "sed"):
+        for command in ("uname", "mktemp", "chmod", "cat", "rm", "wc", "sed", "awk", "tr"):
             command_path = shutil.which(command)
             self.assertIsNotNone(command_path)
             (bin_dir / command).symlink_to(command_path)
