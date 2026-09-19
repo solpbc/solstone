@@ -171,10 +171,11 @@ class TestInstallTreeLifecycle(unittest.TestCase):
                     receipt_stream.write(b"[component:desktop]\n")
                 server.request_paths.clear()
                 duplicate = self.run_install(platform_only_installer, "desktop")
-                self.assertEqual(duplicate.returncode, 0, duplicate.stderr + duplicate.stdout)
-                self.assertEqual(json.loads(duplicate.stdout)["components"]["desktop"]["status"], "succeeded")
-                self.assertEqual(self.receipt.read_bytes().count(b"[component:desktop]\n"), 1)
-                self.assertTrue(any(path.endswith("solstone-linux-2.0.3-linux-x86_64.tar.gz") for path in server.request_paths))
+                self.assertNotEqual(duplicate.returncode, 0)
+                self.assertEqual(json.loads(duplicate.stdout)["root_code"], "ownership-unknown")
+                self.assertEqual(self.receipt.read_bytes().count(b"[component:desktop]\n"), 2)
+                self.assertFalse(any(path.endswith("solstone-linux-2.0.3-linux-x86_64.tar.gz") for path in server.request_paths))
+                self.receipt.write_bytes(self.receipt.read_bytes().rsplit(b"[component:desktop]\n", 1)[0])
 
                 service = self.config_home / "systemd" / "user" / "solstone-desktop.service"
                 autostart = self.config_home / "autostart" / "solstone-desktop.desktop"
@@ -498,7 +499,7 @@ class TestInstallTreeLifecycle(unittest.TestCase):
                     [str(installer), "--skip-signature", "--non-interactive", "--components", "desktop", "--prefix", str(self.work_dir / "noninteractive"), "--no-start", "--json"],
                     capture_output=True,
                     text=True,
-                    env=self.env,
+                    env={**self.env, "XDG_DATA_HOME": str(self.work_dir / "noninteractive-data")},
                 )
                 self.assertEqual(noninteractive.returncode, 0, noninteractive.stderr + noninteractive.stdout)
             finally:

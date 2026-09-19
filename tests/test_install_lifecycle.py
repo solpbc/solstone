@@ -145,6 +145,147 @@ class TestInstallLifecycle(unittest.TestCase):
 
                 # Assert journal payload still present
                 self.assertTrue(journal_bin.is_file(), "Journal payload was deleted by desktop uninstall")
+                owner_data = self.work_dir / "journal-owner-data" / "entry.db"
+                owner_data.parent.mkdir()
+                owner_data.write_bytes(b"journal-owner-data")
+                receipt = data_home / "solstone" / "install.conf"
+                self.assertIn("[component:journal]", receipt.read_text(encoding="utf-8"))
+                self.assertNotIn("[component:desktop]", receipt.read_text(encoding="utf-8"))
+
+                # A completed identical rerun is an unchanged success.
+                rerun = subprocess.run(
+                    [str(installer), "--skip-signature", "--uninstall", "--components", "desktop", "--prefix", str(self.prefix), "--json"],
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                )
+                self.assertEqual(rerun.returncode, 0, rerun.stderr + rerun.stdout)
+                self.assertEqual(json.loads(rerun.stdout)["components"]["desktop"]["status"], "unchanged")
+
+                # A partial removal keeps the receipt for a safe identical retry.
+                reinstall = subprocess.run(
+                    [str(installer), "--skip-signature", "--components", "desktop", "--prefix", str(self.prefix), "--no-start", "--json"],
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                )
+                self.assertEqual(reinstall.returncode, 0, reinstall.stderr + reinstall.stdout)
+                partial_env = {**env, "SOLSTONE_TEST_FAIL_TREE_UNINSTALL_AFTER_PUBLIC": "desktop"}
+                partial = subprocess.run(
+                    [str(installer), "--skip-signature", "--uninstall", "--components", "desktop", "--prefix", str(self.prefix), "--json"],
+                    capture_output=True,
+                    text=True,
+                    env=partial_env,
+                )
+                self.assertNotEqual(partial.returncode, 0)
+                self.assertEqual(json.loads(partial.stdout)["root_code"], "remove-failed")
+                self.assertFalse((self.prefix / "bin" / "solstone-linux").exists())
+                current = self.prefix / "opt" / "solstone" / "desktop" / "current"
+                self.assertTrue(current.is_symlink())
+                self.assertIn("[component:desktop]", receipt.read_text(encoding="utf-8"))
+                remaining_root = self.prefix / "opt" / "solstone" / "desktop" / os.readlink(current)
+                remaining_binary = next(path for path in remaining_root.rglob("solstone-linux") if path.is_file())
+                remaining_bytes = remaining_binary.read_bytes()
+                remaining_binary.write_bytes(b"substituted")
+                substituted = subprocess.run(
+                    [str(installer), "--skip-signature", "--uninstall", "--components", "desktop", "--prefix", str(self.prefix), "--json"],
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                )
+                self.assertNotEqual(substituted.returncode, 0)
+                self.assertEqual(json.loads(substituted.stdout)["root_code"], "ownership-unknown")
+                self.assertTrue(current.is_symlink())
+                remaining_binary.write_bytes(remaining_bytes)
+                remaining_binary.chmod(0o755)
+                recovered = subprocess.run(
+                    [str(installer), "--skip-signature", "--uninstall", "--components", "desktop", "--prefix", str(self.prefix), "--json"],
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                )
+                self.assertEqual(recovered.returncode, 0, recovered.stderr + recovered.stdout)
+                self.assertNotIn("[component:desktop]", receipt.read_text(encoding="utf-8"))
+                self.assertEqual(owner_data.read_bytes(), b"journal-owner-data")
+
+                # Removal followed by receipt publication failure also converges.
+                reinstall2 = subprocess.run(
+                    [str(installer), "--skip-signature", "--components", "desktop", "--prefix", str(self.prefix), "--no-start", "--json"],
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                )
+                self.assertEqual(reinstall2.returncode, 0, reinstall2.stderr + reinstall2.stdout)
+                receipt_fail_env = {**env, "SOLSTONE_TEST_FAIL_UNINSTALL_RECEIPT": "desktop"}
+                receipt_fail = subprocess.run(
+                    [str(installer), "--skip-signature", "--uninstall", "--components", "desktop", "--prefix", str(self.prefix), "--json"],
+                    capture_output=True,
+                    text=True,
+                    env=receipt_fail_env,
+                )
+                self.assertNotEqual(receipt_fail.returncode, 0)
+                self.assertEqual(json.loads(receipt_fail.stdout)["root_code"], "receipt-write-failed")
+                self.assertIn("[component:desktop]", receipt.read_text(encoding="utf-8"))
+                receipt_recovery = subprocess.run(
+                    [str(installer), "--skip-signature", "--uninstall", "--components", "desktop", "--prefix", str(self.prefix), "--json"],
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                )
+                self.assertEqual(receipt_recovery.returncode, 0, receipt_recovery.stderr + receipt_recovery.stdout)
+                self.assertNotIn("[component:desktop]", receipt.read_text(encoding="utf-8"))
+                self.assertEqual(owner_data.read_bytes(), b"journal-owner-data")
+            finally:
+                server.stop()
+
+    def test_multi_component_uninstall_reports_completed_and_partial_state(self):
+        with ephemeral_keypair("test partial uninstall") as (sec, pub, pin):
+            server, _ = setup_test_release_server(self.work_dir, sec, pin)
+            try:
+                installer = self.work_dir / "install.sh"
+                build_installer(
+                    repo_root=REPO_ROOT,
+                    output_path=installer,
+                    platform_pub_path=pub,
+                    platform_key_id=pin.key_id,
+                    origin=server.origin,
+                )
+                data_home = self.work_dir / "partial-data"
+                env = {**os.environ, "XDG_DATA_HOME": str(data_home)}
+                installed = subprocess.run(
+                    [str(installer), "--skip-signature", "--components", "desktop,tmux", "--prefix", str(self.prefix), "--no-start", "--json"],
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                )
+                self.assertEqual(installed.returncode, 0, installed.stderr + installed.stdout)
+                receipt = data_home / "solstone" / "install.conf"
+                failing_env = {**env, "SOLSTONE_TEST_FAIL_TREE_UNINSTALL_AFTER_PUBLIC": "tmux"}
+                failed = subprocess.run(
+                    [str(installer), "--skip-signature", "--uninstall", "--components", "desktop,tmux", "--prefix", str(self.prefix), "--json"],
+                    capture_output=True,
+                    text=True,
+                    env=failing_env,
+                )
+                self.assertNotEqual(failed.returncode, 0)
+                result = json.loads(failed.stdout)
+                self.assertEqual(result["components"]["desktop"]["status"], "removed")
+                self.assertEqual(result["components"]["tmux"]["status"], "failed")
+                receipt_bytes = receipt.read_bytes()
+                self.assertNotIn(b"[component:desktop]\n", receipt_bytes)
+                self.assertIn(b"[component:tmux]\n", receipt_bytes)
+                self.assertFalse((self.prefix / "bin" / "solstone-linux").exists())
+                self.assertFalse((self.prefix / "bin" / "solstone-tmux").exists())
+                self.assertTrue((self.prefix / "opt" / "solstone" / "tmux" / "current").is_symlink())
+
+                recovered = subprocess.run(
+                    [str(installer), "--skip-signature", "--uninstall", "--components", "tmux", "--prefix", str(self.prefix), "--json"],
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                )
+                self.assertEqual(recovered.returncode, 0, recovered.stderr + recovered.stdout)
+                self.assertFalse(receipt.exists())
             finally:
                 server.stop()
 

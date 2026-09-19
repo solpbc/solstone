@@ -378,7 +378,17 @@ handle_remove_pkg() {
     validate_name "$pkg_name"
 
     if [ -n "$FAKE_PKG_DB" ] && [ -d "$FAKE_PKG_DB" ]; then
-        rm -f "${FAKE_PKG_DB}/${pkg_type}/${pkg_name}"
+        if ! rm -f "${FAKE_PKG_DB}/${pkg_type}/${pkg_name}" \
+            || ! printf '%s\n' "$pkg_name" >> "${FAKE_PKG_DB}/remove.log"; then
+            echo "ERROR:remove-failed"
+            return 1
+        fi
+        if [ "$pkg_name" = "solstone-journal" ] && [ -n "$FAKE_ROOT" ]; then
+            if ! rm -f "${FAKE_ROOT}/usr/bin/journal"; then
+                echo "ERROR:remove-failed"
+                return 1
+            fi
+        fi
         echo "OK"
         return 0
     fi

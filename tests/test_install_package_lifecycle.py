@@ -35,6 +35,7 @@ class TestInstallPackageLifecycle(unittest.TestCase):
         self.etc_root = self.work_dir / "etc"
         self.fake_db = self.work_dir / "db"
         self.fake_root = self.work_dir / "fake-root"
+        self.prefix = self.work_dir / "package-prefix"
         for path in (self.lock_dir, self.etc_root, self.fake_db):
             path.mkdir()
         self.setup_log = self.work_dir / "setup.log"
@@ -45,6 +46,7 @@ class TestInstallPackageLifecycle(unittest.TestCase):
         self.env = {
             **os.environ,
             "PATH": f"{self.bin_dir}:{os.environ['PATH']}",
+            "XDG_DATA_HOME": str(self.work_dir / "tree-data"),
             "SOLSTONE_LOCK_DIR": str(self.lock_dir),
             "SOLSTONE_ETC_ROOT": str(self.etc_root),
             "SOLSTONE_FAKE_PKG_DB": str(self.fake_db),
@@ -76,7 +78,8 @@ class TestInstallPackageLifecycle(unittest.TestCase):
 
     def run_install(self, installer: Path, components: str, *, no_start: bool = False):
         args = [
-            str(installer), "--skip-signature", "--route", "deb", "--components", components, "--json",
+            str(installer), "--skip-signature", "--route", "deb", "--components", components,
+            "--prefix", str(self.prefix), "--json",
         ]
         if no_start:
             args.append("--no-start")
@@ -98,6 +101,10 @@ class TestInstallPackageLifecycle(unittest.TestCase):
             else:
                 current.append(line)
         return records
+
+    def removals(self) -> list[str]:
+        log = self.fake_db / "remove.log"
+        return [] if not log.exists() else log.read_text(encoding="utf-8").splitlines()
 
     @staticmethod
     def package_requests(paths: list[str]) -> list[str]:
@@ -410,25 +417,113 @@ class TestInstallPackageLifecycle(unittest.TestCase):
                 self.assertNotEqual(mixed.returncode, 0)
                 mixed_json = json.loads(mixed.stdout)
                 self.assertEqual(mixed_json["root_code"], "ownership-unknown")
-                self.assertEqual(mixed_json["components"]["desktop"]["status"], "succeeded")
-                self.assertEqual(mixed_json["components"]["desktop"]["phase"], "complete")
+                self.assertEqual(mixed_json["components"]["desktop"]["status"], "failed")
                 self.assertEqual(mixed_json["components"]["journal"]["status"], "failed")
-                desktop_section = receipt_section(self.receipt.read_bytes(), "component:desktop")
-                self.assertIn(b"phase=complete\nstatus=installed\n", desktop_section)
+                self.assertNotIn(b"[component:desktop]\n", self.receipt.read_bytes())
                 self.assertEqual(receipt_section(self.receipt.read_bytes(), "component:tmux"), tmux_section)
                 self.assertNotIn(b"[component:journal]\n", self.receipt.read_bytes())
                 installs = self.installs()
-                self.assertEqual(len(installs), 1)
-                self.assertIn("solstone-linux", installs[0])
+                self.assertEqual(installs, [])
                 self.assertEqual(db_file.read_text(encoding="utf-8"), "INSTALLED solstone-journal 2.0.6 amd64\n")
 
-                receipt_after_mixed = self.receipt.read_bytes()
+                self.assertEqual(self.package_requests(server.request_paths), [])
+            finally:
+                server.stop()
+
+    def test_upgrade_detection_and_selective_uninstall_recovery(self):
+        with ephemeral_keypair("package route lifecycle") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin)
+            try:
+                installed = self.run_install(installer, "desktop,tmux", no_start=True)
+                self.assertEqual(installed.returncode, 0, installed.stderr + installed.stdout)
+                tmux_section = receipt_section(self.receipt.read_bytes(), "component:tmux")
+
+                upgrade = subprocess.run(
+                    [str(installer), "--skip-signature", "--upgrade", "--prefix", str(self.prefix), "--no-start", "--json"],
+                    capture_output=True,
+                    text=True,
+                    env=self.env,
+                )
+                self.assertEqual(upgrade.returncode, 0, upgrade.stderr + upgrade.stdout)
+                upgrade_json = json.loads(upgrade.stdout)
+                self.assertEqual(set(upgrade_json["components"]), {"desktop", "tmux"})
+                self.assertEqual(upgrade_json["components"]["desktop"]["route"], "deb")
+                self.assertEqual(upgrade_json["components"]["tmux"]["status"], "unchanged")
+
+                owner_data = self.fake_root / "owner-data" / "journal.db"
+                owner_data.parent.mkdir(parents=True)
+                owner_data.write_bytes(b"owner-data-sentinel")
+                uninstall_args = [
+                    str(installer), "--skip-signature", "--uninstall", "--components", "desktop", "--prefix", str(self.prefix), "--json",
+                ]
+                removed = subprocess.run(uninstall_args, capture_output=True, text=True, env=self.env)
+                self.assertEqual(removed.returncode, 0, removed.stderr + removed.stdout)
+                self.assertEqual(json.loads(removed.stdout)["components"]["desktop"]["status"], "removed")
+                self.assertFalse((self.fake_db / "deb" / "solstone-linux").exists())
+                self.assertEqual(receipt_section(self.receipt.read_bytes(), "component:tmux"), tmux_section)
+                self.assertNotIn(b"[component:desktop]\n", self.receipt.read_bytes())
+                self.assertEqual(owner_data.read_bytes(), b"owner-data-sentinel")
+                self.assertEqual(self.removals(), ["solstone-linux"])
+
+                rerun = subprocess.run(uninstall_args, capture_output=True, text=True, env=self.env)
+                self.assertEqual(rerun.returncode, 0, rerun.stderr + rerun.stdout)
+                self.assertEqual(json.loads(rerun.stdout)["components"]["desktop"]["status"], "unchanged")
+                self.assertEqual(self.removals(), ["solstone-linux"])
+
+                reinstall = self.run_install(installer, "desktop", no_start=True)
+                self.assertEqual(reinstall.returncode, 0, reinstall.stderr + reinstall.stdout)
+                failing_env = {**self.env, "SOLSTONE_TEST_FAIL_UNINSTALL_RECEIPT": "desktop"}
+                failed = subprocess.run(uninstall_args, capture_output=True, text=True, env=failing_env)
+                self.assertNotEqual(failed.returncode, 0)
+                self.assertEqual(json.loads(failed.stdout)["root_code"], "receipt-write-failed")
+                self.assertFalse((self.fake_db / "deb" / "solstone-linux").exists())
+                self.assertIn(b"[component:desktop]\n", self.receipt.read_bytes())
+                self.assertEqual(self.removals(), ["solstone-linux", "solstone-linux"])
+
+                recovered = subprocess.run(uninstall_args, capture_output=True, text=True, env=self.env)
+                self.assertEqual(recovered.returncode, 0, recovered.stderr + recovered.stdout)
+                self.assertNotIn(b"[component:desktop]\n", self.receipt.read_bytes())
+                self.assertEqual(self.removals(), ["solstone-linux", "solstone-linux"])
+                self.assertEqual(owner_data.read_bytes(), b"owner-data-sentinel")
+            finally:
+                server.stop()
+
+    def test_mixed_route_upgrade_dispatches_each_recorded_owner(self):
+        with ephemeral_keypair("mixed route upgrade") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin)
+            try:
+                prefix = self.work_dir / "mixed-prefix"
+                data_home = self.work_dir / "mixed-data"
+                env = {**self.env, "XDG_DATA_HOME": str(data_home)}
+                tree = subprocess.run(
+                    [str(installer), "--skip-signature", "--route", "tree", "--components", "desktop", "--prefix", str(prefix), "--no-start", "--json"],
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                )
+                self.assertEqual(tree.returncode, 0, tree.stderr + tree.stdout)
+                package = subprocess.run(
+                    [str(installer), "--skip-signature", "--route", "deb", "--components", "tmux", "--prefix", str(prefix), "--no-start", "--json"],
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                )
+                self.assertEqual(package.returncode, 0, package.stderr + package.stdout)
+
                 server.request_paths.clear()
-                retry = self.run_install(installer, "desktop")
-                self.assertEqual(retry.returncode, 0, retry.stderr + retry.stdout)
-                self.assertEqual(json.loads(retry.stdout)["components"]["desktop"]["status"], "unchanged")
-                self.assertEqual(self.installs(), installs)
-                self.assertEqual(self.receipt.read_bytes(), receipt_after_mixed)
+                mixed = subprocess.run(
+                    [str(installer), "--skip-signature", "--upgrade", "--prefix", str(prefix), "--no-start", "--json"],
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                )
+                self.assertEqual(mixed.returncode, 0, mixed.stderr + mixed.stdout)
+                result = json.loads(mixed.stdout)
+                self.assertEqual(result["route"], "mixed")
+                self.assertEqual(result["components"]["desktop"]["route"], "tree")
+                self.assertEqual(result["components"]["tmux"]["route"], "deb")
+                self.assertEqual(result["components"]["desktop"]["status"], "unchanged")
+                self.assertEqual(result["components"]["tmux"]["status"], "unchanged")
                 self.assertEqual(self.package_requests(server.request_paths), [])
             finally:
                 server.stop()

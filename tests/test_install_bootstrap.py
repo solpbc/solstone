@@ -70,22 +70,24 @@ class TestInstallBootstrap(unittest.TestCase):
                 args_log = self.work_dir / "bootstrap-args.log"
                 env = {**os.environ, "SOLSTONE_BOOTSTRAP_ARGS_LOG": str(args_log)}
 
-                def expected_args(role: str) -> list[str]:
-                    return [
+                def expected_args(role: str, *, upgrade: bool = False, prefix: Path | None = None) -> list[str]:
+                    args = [
                         "--role", role,
-                        "--prefix", str(self.prefix),
+                        "--prefix", str(prefix or self.prefix),
                         "--origin", server.origin,
                         "--lane", "release",
                         "--version", "2.0.6",
                         "--no-start",
                         "--no-path",
                         "--skip-signature",
-                        "--upgrade",
                     ]
+                    if upgrade:
+                        args.append("--upgrade")
+                    return args
 
                 # 1. Install journal role
                 proc_j = subprocess.run(
-                    [str(installer), "--skip-signature", "--components", "journal", "--prefix", str(self.prefix), "--no-start", "--no-path", "--upgrade", "--json"],
+                    [str(installer), "--skip-signature", "--components", "journal", "--prefix", str(self.prefix), "--no-start", "--no-path", "--json"],
                     capture_output=True,
                     text=True,
                     env=env,
@@ -96,6 +98,15 @@ class TestInstallBootstrap(unittest.TestCase):
                 self.assertEqual(res_j["components"]["journal"]["role"], "journal")
                 self.assertEqual(args_log.read_text(encoding="utf-8").splitlines(), expected_args("journal"))
 
+                proc_upgrade = subprocess.run(
+                    [str(installer), "--skip-signature", "--upgrade", "--prefix", str(self.prefix), "--no-start", "--no-path", "--json"],
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                )
+                self.assertEqual(proc_upgrade.returncode, 0, proc_upgrade.stderr + proc_upgrade.stdout)
+                self.assertEqual(args_log.read_text(encoding="utf-8").splitlines(), expected_args("journal", upgrade=True))
+
                 # Verify installed binary
                 j_bin = self.prefix / "bin" / "journal"
                 self.assertTrue(j_bin.is_file())
@@ -103,8 +114,9 @@ class TestInstallBootstrap(unittest.TestCase):
                 self.assertIn("journal 2.0.6", proc_out.stdout)
 
                 # 2. Install cli role
+                cli_prefix = self.work_dir / "cli-prefix"
                 proc_c = subprocess.run(
-                    [str(installer), "--skip-signature", "--components", "cli", "--prefix", str(self.prefix), "--no-start", "--no-path", "--upgrade", "--json"],
+                    [str(installer), "--skip-signature", "--components", "cli", "--prefix", str(cli_prefix), "--no-start", "--no-path", "--json"],
                     capture_output=True,
                     text=True,
                     env=env,
@@ -113,9 +125,9 @@ class TestInstallBootstrap(unittest.TestCase):
                 res_c = json.loads(proc_c.stdout.strip())
                 self.assertEqual(res_c["status"], "success")
                 self.assertEqual(res_c["components"]["cli"]["role"], "cli")
-                self.assertEqual(args_log.read_text(encoding="utf-8").splitlines(), expected_args("cli"))
+                self.assertEqual(args_log.read_text(encoding="utf-8").splitlines(), expected_args("cli", prefix=cli_prefix))
 
-                proc_out_cli = subprocess.run([str(j_bin)], capture_output=True, text=True)
+                proc_out_cli = subprocess.run([str(cli_prefix / "bin" / "journal")], capture_output=True, text=True)
                 self.assertIn("cli 2.0.6", proc_out_cli.stdout)
             finally:
                 server.stop()

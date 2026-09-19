@@ -29,6 +29,7 @@ OPT_UPGRADE=0
 OPT_LANE="release"
 OPT_VERSION=""
 OPT_ROUTE="tree"
+OPT_ROUTE_EXPLICIT=0
 PKG_VARIANT=""
 OPT_PREFIX="${HOME}/.local"
 OPT_ORIGIN="${DEFAULT_ORIGIN}"
@@ -45,13 +46,19 @@ OPT_NOTICES_JSON="[]"
 
 SCRATCH_DIR=""
 SELECTED_COMPONENTS=""
+REPORT_COMPONENTS=""
 UNCHANGED_COMPONENTS=""
 SUCCEEDED_COMPONENTS=""
+REMOVED_COMPONENTS=""
+ATTEMPTED_COMPONENTS=""
+TREE_SELECTED_COMPONENTS=""
+PACKAGE_SELECTED_COMPONENTS=""
 RESOLVED_VERSION=""
 HOST_ARCH=""
 FETCH_TOOL=""
 TREE_FD=8
 PKG_FD=9
+PACKAGE_HELPER_READY=0
 
 : "${EMBEDDED_MIN_INSTALLER_REVISION}" "${PLATFORM_KEY_ID}" "${JOURNAL_KEY_ID}" "${DESKTOP_KEY_ID}" "${TMUX_KEY_ID}" "${JOURNAL_PUBKEY}" "${DESKTOP_PUBKEY}" "${TMUX_PUBKEY}" "${TREE_FD}" "${PKG_FD}"
 
@@ -80,9 +87,10 @@ report_exit() {
     cleanup_scratch
     if [ "$OPT_JSON" -eq 1 ]; then
         comp_json=""
-        if [ -n "$SELECTED_COMPONENTS" ]; then
+        report_components="${REPORT_COMPONENTS:-$SELECTED_COMPONENTS}"
+        if [ -n "$report_components" ]; then
             first_c=1
-            for comp in $SELECTED_COMPONENTS; do
+            for comp in $report_components; do
                 c_role="$comp"
                 c_status="succeeded"
                 c_phase="complete"
@@ -97,8 +105,20 @@ report_exit() {
                 if [ "$status" != "success" ] && [ "$c_unchanged" -eq 0 ] && [ "$c_succeeded" -eq 0 ]; then
                     c_status="failed"
                     c_phase="failed"
+                    if [ "$OPT_UNINSTALL" -eq 1 ]; then
+                        case " $ATTEMPTED_COMPONENTS " in
+                            *" $comp "*) ;;
+                            *) c_status="unattempted"; c_phase="unattempted" ;;
+                        esac
+                    fi
                 fi
-                c_block="\"$comp\":{\"role\":\"$c_role\",\"status\":\"$c_status\",\"route\":\"$OPT_ROUTE\",\"phase\":\"$c_phase\"}"
+                c_route="$OPT_ROUTE"
+                case " $TREE_SELECTED_COMPONENTS " in *" $comp "*) c_route="tree" ;; esac
+                case " $PACKAGE_SELECTED_COMPONENTS " in *" $comp "*) c_route="$PKG_VARIANT" ;; esac
+                case " $REMOVED_COMPONENTS " in
+                    *" $comp "*) c_status="removed"; c_phase="removed" ;;
+                esac
+                c_block="\"$comp\":{\"role\":\"$c_role\",\"status\":\"$c_status\",\"route\":\"$c_route\",\"phase\":\"$c_phase\"}"
                 if [ $first_c -eq 1 ]; then
                     comp_json="$c_block"
                     first_c=0
@@ -114,13 +134,21 @@ report_exit() {
         if [ "$status" = "success" ] && [ "$OPT_DRY_RUN" -eq 0 ]; then
             lock_st="released"
             snap_st="converged"
-            if [ "$OPT_ROUTE" = "tree" ]; then
-                r_path="${XDG_DATA_HOME:-$HOME/.local/share}/solstone/install.conf"
-                receipts_json="[\"$r_path\"]"
-            else
-                r_path="${SOLSTONE_ETC_ROOT:-/etc}/solstone/install.conf"
-                receipts_json="[\"$r_path\"]"
-            fi
+            r_tree=$(tree_receipt_path)
+            r_package=$(package_receipt_path)
+            case "$OPT_ROUTE" in
+                tree) [ ! -e "$r_tree" ] || receipts_json="[\"$r_tree\"]" ;;
+                mixed)
+                    if [ -e "$r_tree" ] && [ -e "$r_package" ]; then
+                        receipts_json="[\"$r_tree\",\"$r_package\"]"
+                    elif [ -e "$r_tree" ]; then
+                        receipts_json="[\"$r_tree\"]"
+                    elif [ -e "$r_package" ]; then
+                        receipts_json="[\"$r_package\"]"
+                    fi
+                    ;;
+                *) [ ! -e "$r_package" ] || receipts_json="[\"$r_package\"]" ;;
+            esac
         fi
 
         v_layer="minisign+digest"
@@ -1317,7 +1345,7 @@ acquire_installer_locks() {
     fi
 
     # Tree lock if tree route requested
-    if [ "$OPT_ROUTE" = "tree" ]; then
+    if [ -n "$TREE_SELECTED_COMPONENTS" ]; then
         mkdir -p "$OPT_PREFIX" 2>/dev/null || true
         t_lock_file="${OPT_PREFIX}/.solstone-platform.lock"
         exec 8>>"$t_lock_file"
@@ -1413,6 +1441,37 @@ package_protocol_failure() {
         ERROR:*) report_exit "refusal" "${ppf_output#ERROR:}" "$ppf_message" ;;
         *) report_exit "refusal" "$ppf_fallback" "$ppf_message" ;;
     esac
+}
+
+init_package_helper() {
+    [ "$PACKAGE_HELPER_READY" -eq 0 ] || return 0
+    if [ "$TEST_SEAM" -eq 1 ] && [ -n "${SOLSTONE_HELPER:-}" ]; then
+        helper_bin="$SOLSTONE_HELPER"
+    else
+        helper_bin="/usr/libexec/solstone-pkg-helper.sh"
+        [ ! -f "$helper_bin" ] && helper_bin="${PWD}/helpers/solstone-pkg-helper.sh"
+    fi
+    [ -f "$helper_bin" ] || report_exit "refusal" "helper-missing" "Package helper script not found at $helper_bin"
+
+    helper_flags=""
+    if [ "$TEST_SEAM" -eq 1 ]; then
+        [ -n "${SOLSTONE_LOCK_DIR:-}" ] && helper_flags="$helper_flags --lock-dir $SOLSTONE_LOCK_DIR"
+        [ -n "${SOLSTONE_ETC_ROOT:-}" ] && helper_flags="$helper_flags --etc-root $SOLSTONE_ETC_ROOT"
+        [ -n "${SOLSTONE_FAKE_PKG_DB:-}" ] && helper_flags="$helper_flags --fake-pkg-db $SOLSTONE_FAKE_PKG_DB"
+        [ -n "${SOLSTONE_FAKE_ROOT:-}" ] && helper_flags="$helper_flags --fake-root $SOLSTONE_FAKE_ROOT"
+        [ -n "${SOLSTONE_FAKE_JOURNAL_LAUNCHER:-}" ] && helper_flags="$helper_flags --fake-journal-launcher $SOLSTONE_FAKE_JOURNAL_LAUNCHER"
+    fi
+
+    sudo_prefix=""
+    if [ "$(id -u 2>/dev/null || echo 1000)" -ne 0 ]; then
+        sudo_prefix="sudo -n "
+    fi
+    # shellcheck disable=SC2086
+    if ! ping_res=$(printf "PING\n" | $sudo_prefix "$helper_bin" $helper_flags 2>/dev/null); then
+        report_exit "refusal" "privilege-required" "Noninteractive sudo privilege is required for package operations"
+    fi
+    [ "$ping_res" = "PONG" ] || report_exit "refusal" "privilege-required" "Package helper PING failed"
+    PACKAGE_HELPER_READY=1
 }
 
 package_read_receipt() {
@@ -1929,6 +1988,386 @@ tree_component_converged() {
     return 0
 }
 
+plain_receipt_value() {
+    prv_file="$1"
+    prv_key="$2"
+    awk -v key="$prv_key" '
+        index($0, key "=") == 1 { count++; value = substr($0, length(key) + 2) }
+        END { if (count != 1) exit 1; print value }
+    ' "$prv_file"
+}
+
+tree_receipt_path() {
+    if [ "$TEST_SEAM" -eq 1 ] && [ -z "${XDG_DATA_HOME:-}" ]; then
+        printf '%s\n' "${OPT_PREFIX}/.solstone-platform/install.conf"
+    else
+        printf '%s\n' "${XDG_DATA_HOME:-$HOME/.local/share}/solstone/install.conf"
+    fi
+}
+
+tree_state_present() {
+    tsp_component="$1"
+    case "$tsp_component" in
+        journal|cli)
+            [ -e "${OPT_PREFIX}/current" ] || [ -L "${OPT_PREFIX}/current" ] \
+                || [ -e "${OPT_PREFIX}/install-receipt" ] || [ -L "${OPT_PREFIX}/install-receipt" ] \
+                || [ -e "${OPT_PREFIX}/bin/journal" ] || [ -L "${OPT_PREFIX}/bin/journal" ]
+            ;;
+        desktop|tmux)
+            tsp_name=$(cat "${manifest_dir}/components/${tsp_component}/arches/${HOST_ARCH}/tree/executable/name" 2>/dev/null || true)
+            [ -e "${OPT_PREFIX}/opt/solstone/${tsp_component}" ] || [ -L "${OPT_PREFIX}/opt/solstone/${tsp_component}" ] \
+                || { [ -n "$tsp_name" ] && { [ -e "${OPT_PREFIX}/bin/${tsp_name}" ] || [ -L "${OPT_PREFIX}/bin/${tsp_name}" ]; }; }
+            ;;
+        *) return 1 ;;
+    esac
+}
+
+tree_component_authority() {
+    tca_component="$1"
+    tca_mode="$2"
+    tca_required=3
+    TREE_CLAIM=0
+    TREE_STATE_PRESENT=0
+    tree_state_present "$tca_component" && TREE_STATE_PRESENT=1
+    tca_receipt=$(tree_receipt_path)
+    if [ ! -e "$tca_receipt" ] && [ ! -L "$tca_receipt" ]; then
+        return 0
+    fi
+    if [ -L "$tca_receipt" ] || [ ! -f "$tca_receipt" ] || [ ! -r "$tca_receipt" ]; then
+        report_exit "refusal" "receipt-write-failed" "Tree receipt path is not a readable regular file"
+    fi
+    if ! tca_role=$(receipt_value "$tca_receipt" "component:${tca_component}" role 2>/dev/null); then
+        return 0
+    fi
+    TREE_CLAIM=1
+    tca_route=$(receipt_value "$tca_receipt" "component:${tca_component}" route 2>/dev/null) \
+        || report_exit "refusal" "ownership-unknown" "Tree receipt for $tca_component is incomplete"
+    tca_prefix=$(receipt_value "$tca_receipt" "component:${tca_component}" prefix 2>/dev/null) \
+        || report_exit "refusal" "ownership-unknown" "Tree receipt for $tca_component is incomplete"
+    tca_arch=$(receipt_value "$tca_receipt" "component:${tca_component}" arch 2>/dev/null) \
+        || report_exit "refusal" "ownership-unknown" "Tree receipt for $tca_component is incomplete"
+    tca_version=$(receipt_value "$tca_receipt" "component:${tca_component}" version 2>/dev/null) \
+        || report_exit "refusal" "ownership-unknown" "Tree receipt for $tca_component is incomplete"
+    tca_status=$(receipt_value "$tca_receipt" "component:${tca_component}" status 2>/dev/null) \
+        || report_exit "refusal" "ownership-unknown" "Tree receipt for $tca_component is incomplete"
+    if [ "$tca_role" != "$tca_component" ] || [ "$tca_route" != "tree" ] \
+        || [ "$tca_prefix" != "$OPT_PREFIX" ] || [ "$tca_arch" != "$HOST_ARCH" ] \
+        || [ "$tca_status" != "installed" ] || [ -z "$tca_version" ]; then
+        report_exit "refusal" "ownership-unknown" "Tree receipt for $tca_component does not match installed state"
+    fi
+
+    case "$tca_component" in
+        journal|cli)
+            tca_native="${OPT_PREFIX}/install-receipt"
+            tca_current="${OPT_PREFIX}/current"
+            tca_public="${OPT_PREFIX}/bin/journal"
+            tca_present=0
+            for tca_path in "$tca_native" "$tca_current" "$tca_public"; do
+                if [ -e "$tca_path" ] || [ -L "$tca_path" ]; then
+                    tca_present=$((tca_present + 1))
+                fi
+            done
+            if [ -e "$tca_native" ] || [ -L "$tca_native" ]; then
+                if [ ! -f "$tca_native" ] || [ -L "$tca_native" ] || [ ! -r "$tca_native" ]; then
+                    report_exit "refusal" "ownership-unknown" "journal install receipt does not match installed state"
+                fi
+                if [ "$(plain_receipt_value "$tca_native" route 2>/dev/null || true)" != "tree" ] \
+                    || [ "$(plain_receipt_value "$tca_native" role 2>/dev/null || true)" != "$tca_component" ] \
+                    || [ "$(plain_receipt_value "$tca_native" journal_version 2>/dev/null || true)" != "$tca_version" ]; then
+                    report_exit "refusal" "ownership-unknown" "journal install receipt does not match installed state"
+                fi
+            fi
+            if [ -e "$tca_current" ] || [ -L "$tca_current" ]; then
+                [ -L "$tca_current" ] || report_exit "refusal" "ownership-unknown" "journal current pointer is not owned"
+                tca_link=$(readlink "$tca_current") || report_exit "refusal" "ownership-unknown" "journal current pointer is unreadable"
+                case "$tca_link" in versions/*) ;; *) report_exit "refusal" "ownership-unknown" "journal current pointer leaves its owned tree" ;; esac
+                if [ ! -d "${OPT_PREFIX}/${tca_link}" ] && [ "$tca_mode" != "removal" ]; then
+                    report_exit "refusal" "ownership-unknown" "journal current target is missing"
+                fi
+            fi
+            if [ -e "$tca_public" ] || [ -L "$tca_public" ]; then
+                [ -x "$tca_public" ] || report_exit "refusal" "ownership-unknown" "journal launcher does not match installed state"
+                tca_output=$("$tca_public" --version 2>/dev/null || "$tca_public" 2>/dev/null || true)
+                printf '%s\n' "$tca_output" | awk -v wanted="$tca_version" '{ for (i=1; i<=NF; i++) if ($i == wanted) found=1 } END { exit !found }' \
+                    || report_exit "refusal" "ownership-unknown" "journal launcher version does not match its receipt"
+            fi
+            ;;
+        desktop|tmux)
+            tca_current=$(receipt_value "$tca_receipt" "component:${tca_component}" current 2>/dev/null) \
+                || report_exit "refusal" "ownership-unknown" "Tree receipt for $tca_component is incomplete"
+            tca_target=$(receipt_value "$tca_receipt" "component:${tca_component}" current_target 2>/dev/null) \
+                || report_exit "refusal" "ownership-unknown" "Tree receipt for $tca_component is incomplete"
+            tca_public=$(receipt_value "$tca_receipt" "component:${tca_component}" public_path 2>/dev/null) \
+                || report_exit "refusal" "ownership-unknown" "Tree receipt for $tca_component is incomplete"
+            tca_rel=$(receipt_value "$tca_receipt" "component:${tca_component}" executable_relpath 2>/dev/null) \
+                || report_exit "refusal" "ownership-unknown" "Tree receipt for $tca_component is incomplete"
+            tca_sha=$(receipt_value "$tca_receipt" "component:${tca_component}" executable_sha256 2>/dev/null) \
+                || report_exit "refusal" "ownership-unknown" "Tree receipt for $tca_component is incomplete"
+            tca_name=$(cat "${manifest_dir}/components/${tca_component}/arches/${HOST_ARCH}/tree/executable/name")
+            tca_root="${OPT_PREFIX}/opt/solstone/${tca_component}"
+            case "$tca_target" in ''|*/*|.|..) report_exit "refusal" "ownership-unknown" "Tree receipt for $tca_component contains an unsafe target" ;; esac
+            case "$tca_rel" in "bin/${tca_name}"|"usr/bin/${tca_name}"|"${tca_name}") ;; *) report_exit "refusal" "ownership-unknown" "Tree receipt for $tca_component contains an unsafe executable path" ;; esac
+            if [ "$tca_current" != "${tca_root}/current" ] || [ "$tca_public" != "${OPT_PREFIX}/bin/${tca_name}" ]; then
+                report_exit "refusal" "ownership-unknown" "Tree receipt for $tca_component leaves its owned paths"
+            fi
+            tca_dest="${tca_root}/${tca_target}"
+            tca_exec="${tca_dest}/${tca_rel}"
+            tca_present=0
+            for tca_path in "$tca_current" "$tca_public" "$tca_dest" "$tca_exec"; do
+                if [ -e "$tca_path" ] || [ -L "$tca_path" ]; then tca_present=$((tca_present + 1)); fi
+            done
+            if [ -e "$tca_current" ] || [ -L "$tca_current" ]; then
+                if [ ! -L "$tca_current" ] || [ "$(readlink "$tca_current")" != "$tca_target" ]; then
+                    report_exit "refusal" "ownership-unknown" "Current pointer for $tca_component does not match its receipt"
+                fi
+            fi
+            if [ -e "$tca_dest" ] || [ -L "$tca_dest" ]; then
+                if [ ! -d "$tca_dest" ] || [ -L "$tca_dest" ]; then
+                    report_exit "refusal" "ownership-unknown" "Payload directory for $tca_component is not owned"
+                fi
+            fi
+            if [ -e "$tca_public" ] || [ -L "$tca_public" ]; then
+                if [ ! -L "$tca_public" ] || [ "$(readlink "$tca_public")" != "${tca_current}/${tca_rel}" ]; then
+                    report_exit "refusal" "ownership-unknown" "Public pointer for $tca_component does not match its receipt"
+                fi
+            fi
+            if [ -e "$tca_exec" ] || [ -L "$tca_exec" ]; then
+                if [ ! -f "$tca_exec" ] || [ -L "$tca_exec" ]; then
+                    report_exit "refusal" "ownership-unknown" "Executable for $tca_component is not owned"
+                fi
+                [ "$(sha256sum "$tca_exec" | awk '{print $1}')" = "$tca_sha" ] \
+                    || report_exit "refusal" "ownership-unknown" "Executable for $tca_component does not match its receipt"
+            fi
+            tca_required=4
+            ;;
+    esac
+    if [ "$tca_mode" = "complete" ] && [ "$tca_present" -lt "$tca_required" ]; then
+        report_exit "refusal" "ownership-unknown" "Tree state for $tca_component is incomplete"
+    fi
+    [ "$tca_present" -eq 0 ] && TREE_STATE_PRESENT=0 || TREE_STATE_PRESENT=1
+}
+
+package_receipt_path() {
+    if [ "$TEST_SEAM" -eq 1 ] && [ -n "${SOLSTONE_ETC_ROOT:-}" ]; then
+        printf '%s\n' "${SOLSTONE_ETC_ROOT}/solstone/install.conf"
+    else
+        printf '%s\n' "/etc/solstone/install.conf"
+    fi
+}
+
+package_probe_identity() {
+    ppi_name="$1"
+    PPROBE_STATE="ABSENT"
+    PPROBE_VERSION=""
+    PPROBE_ARCH=""
+    if [ "$TEST_SEAM" -eq 1 ] && [ -z "${SOLSTONE_FAKE_PKG_DB:-}" ]; then
+        return 0
+    fi
+    if [ "$TEST_SEAM" -eq 1 ] && [ -n "${SOLSTONE_FAKE_PKG_DB:-}" ]; then
+        ppi_file="${SOLSTONE_FAKE_PKG_DB}/${PKG_VARIANT}/${ppi_name}"
+        [ -e "$ppi_file" ] || return 0
+        if [ ! -f "$ppi_file" ] || [ ! -r "$ppi_file" ]; then
+            report_exit "refusal" "query-failed" "Could not read package identity for $ppi_name"
+        fi
+        # shellcheck disable=SC2046
+        set -- $(sed -n '1p' "$ppi_file")
+        if [ "$#" -ne 4 ] || [ "$1" != "INSTALLED" ] || [ "$2" != "$ppi_name" ]; then
+            report_exit "refusal" "query-malformed" "Package identity for $ppi_name is malformed"
+        fi
+        PPROBE_STATE="INSTALLED"
+        PPROBE_VERSION="$3"
+        PPROBE_ARCH="$4"
+        return 0
+    fi
+    if [ "$PKG_VARIANT" = "deb" ]; then
+        command -v dpkg-query >/dev/null 2>&1 || report_exit "refusal" "query-unavailable" "dpkg-query is required to detect package ownership"
+        if ppi_out=$(dpkg-query -W -f='${db:Status-Abbrev} ${Version} ${Architecture}\n' "$ppi_name" 2>/dev/null); then
+            # shellcheck disable=SC2086
+            set -- $ppi_out
+            if [ "$#" -ne 3 ] || [ "$1" != "ii" ]; then
+                report_exit "refusal" "query-malformed" "Package identity for $ppi_name is malformed"
+            fi
+            PPROBE_STATE="INSTALLED"
+            PPROBE_VERSION="$2"
+            PPROBE_ARCH="$3"
+        else
+            ppi_status=$?
+            [ "$ppi_status" -eq 1 ] || report_exit "refusal" "query-failed" "Could not query package identity for $ppi_name"
+        fi
+        return 0
+    fi
+    command -v rpm >/dev/null 2>&1 || report_exit "refusal" "query-unavailable" "rpm is required to detect package ownership"
+    if ppi_out=$(rpm -q --qf '%{VERSION}-%{RELEASE} %{ARCH}\n' "$ppi_name" 2>/dev/null); then
+        # shellcheck disable=SC2086
+        set -- $ppi_out
+        [ "$#" -eq 2 ] || report_exit "refusal" "query-malformed" "Package identity for $ppi_name is malformed"
+        PPROBE_STATE="INSTALLED"
+        PPROBE_VERSION="$1"
+        PPROBE_ARCH="$2"
+    else
+        ppi_status=$?
+        [ "$ppi_status" -eq 1 ] || report_exit "refusal" "query-failed" "Could not query package identity for $ppi_name"
+    fi
+}
+
+package_component_authority() {
+    pca_component="$1"
+    pca_mode="$2"
+    PACKAGE_CLAIM=0
+    PACKAGE_STATE_PRESENT=0
+    pca_receipt=$(package_receipt_path)
+    if [ ! -e "$pca_receipt" ] && [ ! -L "$pca_receipt" ]; then
+        pca_key="$pca_component"
+        [ "$pca_component" = "cli" ] && pca_key="journal"
+        pca_name=$(cat "${manifest_dir}/components/${pca_key}/arches/${HOST_ARCH}/${PKG_VARIANT}/package_identity/name" 2>/dev/null || true)
+        if [ -n "$pca_name" ]; then
+            package_probe_identity "$pca_name"
+            [ "$PPROBE_STATE" = "INSTALLED" ] && PACKAGE_STATE_PRESENT=1
+        fi
+        return 0
+    fi
+    if [ -L "$pca_receipt" ] || [ ! -f "$pca_receipt" ] || [ ! -r "$pca_receipt" ]; then
+        report_exit "refusal" "receipt-read-failed" "Package receipt is not a readable regular file"
+    fi
+    if ! package_load_section "$pca_receipt" "$pca_component"; then
+        pca_key="$pca_component"
+        [ "$pca_component" = "cli" ] && pca_key="journal"
+        pca_name=$(cat "${manifest_dir}/components/${pca_key}/arches/${HOST_ARCH}/${PKG_VARIANT}/package_identity/name" 2>/dev/null || true)
+        if [ -n "$pca_name" ]; then
+            package_probe_identity "$pca_name"
+            if [ "$PPROBE_STATE" = "INSTALLED" ]; then
+                PACKAGE_STATE_PRESENT=1
+                package_find_owner "$pca_receipt" "$pca_name" "$PPROBE_VERSION" "$PPROBE_ARCH"
+                [ "$PFO_COUNT" -eq 0 ] || PACKAGE_CLAIM=1
+            fi
+        fi
+        return 0
+    fi
+    PACKAGE_CLAIM=1
+    [ "$PLS_ROUTE" = "$PKG_VARIANT" ] || report_exit "refusal" "ownership-unknown" "Package receipt for $pca_component does not match this host route"
+    package_probe_identity "$PLS_NAME"
+    if [ "$PPROBE_STATE" = "ABSENT" ]; then
+        if [ "$pca_mode" != "removal" ] && [ "$PLS_PHASE" != "intended" ]; then
+            report_exit "refusal" "ownership-unknown" "Package receipt for $pca_component is not confirmed by the package database"
+        fi
+        PACKAGE_STATE_PRESENT=0
+        return 0
+    fi
+    PACKAGE_STATE_PRESENT=1
+    pca_match=0
+    if [ "$PPROBE_VERSION" = "$PLS_VERSION" ] && [ "$PPROBE_ARCH" = "$PLS_ARCH" ]; then pca_match=1; fi
+    if [ "$PLS_HAS_PRIOR" -eq 1 ] && [ "$PPROBE_VERSION" = "$PLS_PRIOR_VERSION" ] && [ "$PPROBE_ARCH" = "$PLS_PRIOR_ARCH" ]; then pca_match=1; fi
+    [ "$pca_match" -eq 1 ] || report_exit "refusal" "ownership-unknown" "Package database identity for $pca_component does not match its receipt"
+}
+
+append_selected_component() {
+    asc_var="$1"
+    asc_component="$2"
+    case "$asc_var" in
+        TREE_SELECTED_COMPONENTS)
+            case " $TREE_SELECTED_COMPONENTS " in *" $asc_component "*) return 0 ;; esac
+            TREE_SELECTED_COMPONENTS="${TREE_SELECTED_COMPONENTS}${TREE_SELECTED_COMPONENTS:+ }${asc_component}"
+            ;;
+        PACKAGE_SELECTED_COMPONENTS)
+            case " $PACKAGE_SELECTED_COMPONENTS " in *" $asc_component "*) return 0 ;; esac
+            PACKAGE_SELECTED_COMPONENTS="${PACKAGE_SELECTED_COMPONENTS}${PACKAGE_SELECTED_COMPONENTS:+ }${asc_component}"
+            ;;
+    esac
+}
+
+resolve_component_route() {
+    rcr_component="$1"
+    rcr_require_existing="$2"
+    rcr_mode="complete"
+    [ "$OPT_UNINSTALL" -eq 0 ] || rcr_mode="removal"
+    tree_component_authority "$rcr_component" "$rcr_mode"
+    rcr_tree_claim="$TREE_CLAIM"
+    rcr_tree_state="$TREE_STATE_PRESENT"
+    package_component_authority "$rcr_component" "$rcr_mode"
+    rcr_package_claim="$PACKAGE_CLAIM"
+    rcr_package_state="$PACKAGE_STATE_PRESENT"
+    if [ "$rcr_tree_claim" -eq 1 ] && [ "$rcr_package_claim" -eq 1 ]; then
+        report_exit "refusal" "ownership-conflict" "Component $rcr_component is claimed by both tree and package routes"
+    fi
+    if [ "$OPT_ROUTE_EXPLICIT" -eq 1 ]; then
+        case "$OPT_ROUTE" in
+            tree)
+                [ "$rcr_package_claim" -eq 0 ] || report_exit "refusal" "ownership-conflict" "Component $rcr_component is package-owned"
+                if [ "$rcr_tree_claim" -eq 1 ]; then append_selected_component TREE_SELECTED_COMPONENTS "$rcr_component"; return 0; fi
+                ;;
+            package|deb|rpm)
+                [ "$rcr_tree_claim" -eq 0 ] || report_exit "refusal" "ownership-conflict" "Component $rcr_component is tree-owned"
+                if [ "$rcr_package_claim" -eq 1 ]; then append_selected_component PACKAGE_SELECTED_COMPONENTS "$rcr_component"; return 0; fi
+                ;;
+        esac
+    else
+        if [ "$rcr_tree_claim" -eq 1 ]; then append_selected_component TREE_SELECTED_COMPONENTS "$rcr_component"; return 0; fi
+        if [ "$rcr_package_claim" -eq 1 ]; then append_selected_component PACKAGE_SELECTED_COMPONENTS "$rcr_component"; return 0; fi
+    fi
+    if [ "$rcr_tree_state" -eq 1 ] || [ "$rcr_package_state" -eq 1 ]; then
+        report_exit "refusal" "ownership-unknown" "Installed state for $rcr_component has no authoritative ownership receipt"
+    fi
+    if [ "$rcr_require_existing" -eq 1 ]; then
+        return 1
+    fi
+    case "$OPT_ROUTE" in
+        package|deb|rpm) append_selected_component PACKAGE_SELECTED_COMPONENTS "$rcr_component" ;;
+        *) append_selected_component TREE_SELECTED_COMPONENTS "$rcr_component" ;;
+    esac
+    return 0
+}
+
+receipt_section_count() {
+    rsc_file="$1"
+    rsc_section="$2"
+    awk -v wanted="[$rsc_section]" '$0 == wanted { count++ } END { print count + 0 }' "$rsc_file"
+}
+
+discover_upgrade_selection() {
+    dus_tree=$(tree_receipt_path)
+    dus_package=$(package_receipt_path)
+    SELECTED_COMPONENTS=""
+    for dus_file in "$dus_tree" "$dus_package"; do
+        if [ -e "$dus_file" ] || [ -L "$dus_file" ]; then
+            if [ -L "$dus_file" ] || [ ! -f "$dus_file" ] || [ ! -r "$dus_file" ]; then
+                report_exit "refusal" "receipt-read-failed" "Install receipt is not a readable regular file"
+            fi
+            for dus_component in journal cli desktop tmux; do
+                dus_count=$(receipt_section_count "$dus_file" "component:${dus_component}")
+                case "$dus_count" in
+                    0) continue ;;
+                    1) ;;
+                    *) report_exit "refusal" "ownership-unknown" "Install receipt has duplicate ownership for $dus_component" ;;
+                esac
+                dus_role=$(receipt_value "$dus_file" "component:${dus_component}" role 2>/dev/null) \
+                    || report_exit "refusal" "ownership-unknown" "Install receipt for $dus_component is malformed"
+                [ "$dus_role" = "$dus_component" ] \
+                    || report_exit "refusal" "ownership-unknown" "Install receipt for $dus_component has the wrong role"
+                case " $SELECTED_COMPONENTS " in
+                    *" $dus_component "*) ;;
+                    *) SELECTED_COMPONENTS="${SELECTED_COMPONENTS}${SELECTED_COMPONENTS:+ }${dus_component}" ;;
+                esac
+            done
+        fi
+    done
+    if [ -z "$SELECTED_COMPONENTS" ]; then
+        for dus_component in journal desktop tmux; do
+            if tree_state_present "$dus_component"; then
+                report_exit "refusal" "ownership-unknown" "Installed files exist without an ownership receipt"
+            fi
+            dus_name=$(cat "${manifest_dir}/components/${dus_component}/arches/${HOST_ARCH}/${PKG_VARIANT}/package_identity/name" 2>/dev/null || true)
+            if [ -n "$dus_name" ]; then
+                package_probe_identity "$dus_name"
+                [ "$PPROBE_STATE" = "ABSENT" ] || report_exit "refusal" "ownership-unknown" "Installed package $dus_name has no ownership receipt"
+            fi
+        done
+        report_exit "refusal" "no-selection" "No installed components were detected for upgrade"
+    fi
+    case " $SELECTED_COMPONENTS " in
+        *" journal "*) case " $SELECTED_COMPONENTS " in *" cli "*) report_exit "refusal" "source-ambiguous" "Cannot install both journal and cli simultaneously (source ambiguous)" ;; esac ;;
+    esac
+}
+
 parse_args() {
     while [ "$#" -gt 0 ]; do
         case "$1" in
@@ -1962,10 +2401,12 @@ parse_args() {
                 ;;
             --route)
                 OPT_ROUTE="$2"
+                OPT_ROUTE_EXPLICIT=1
                 shift 2
                 ;;
             --route=*)
                 OPT_ROUTE="${1#*=}"
+                OPT_ROUTE_EXPLICIT=1
                 shift 1
                 ;;
             --prefix)
@@ -2038,9 +2479,15 @@ parse_args() {
 
 run_tree_install() {
     manifest_dir="${SCRATCH_DIR}/manifest"
-    receipt_dir="${XDG_DATA_HOME:-$HOME/.local/share}/solstone"
+    for rti_component in $SELECTED_COMPONENTS; do
+        tree_component_authority "$rti_component" complete
+        if [ "$TREE_CLAIM" -eq 0 ] && [ "$TREE_STATE_PRESENT" -eq 1 ]; then
+            report_exit "refusal" "ownership-unknown" "Tree state for $rti_component changed before installation"
+        fi
+    done
+    receipt_file=$(tree_receipt_path)
+    receipt_dir=$(dirname "$receipt_file")
     mkdir -p "$receipt_dir" || report_exit "refusal" "receipt-write-failed" "Could not create tree receipt directory $receipt_dir"
-    receipt_file="${receipt_dir}/install.conf"
     if [ -L "$receipt_file" ] || { [ -e "$receipt_file" ] && [ ! -f "$receipt_file" ]; }; then
         report_exit "refusal" "receipt-write-failed" "Tree receipt path $receipt_file is not a regular file"
     fi
@@ -2262,40 +2709,7 @@ run_tree_install() {
 
 run_package_install() {
     manifest_dir="${SCRATCH_DIR}/manifest"
-    if [ "$TEST_SEAM" -eq 1 ] && [ -n "${SOLSTONE_HELPER:-}" ]; then
-        helper_bin="$SOLSTONE_HELPER"
-    else
-        helper_bin="/usr/libexec/solstone-pkg-helper.sh"
-        [ ! -f "$helper_bin" ] && helper_bin="${PWD}/helpers/solstone-pkg-helper.sh"
-    fi
-
-    if [ ! -f "$helper_bin" ]; then
-        report_exit "refusal" "helper-missing" "Package helper script not found at $helper_bin"
-    fi
-
-    helper_flags=""
-    if [ "$TEST_SEAM" -eq 1 ]; then
-        [ -n "${SOLSTONE_LOCK_DIR:-}" ] && helper_flags="$helper_flags --lock-dir $SOLSTONE_LOCK_DIR"
-        [ -n "${SOLSTONE_ETC_ROOT:-}" ] && helper_flags="$helper_flags --etc-root $SOLSTONE_ETC_ROOT"
-        [ -n "${SOLSTONE_FAKE_PKG_DB:-}" ] && helper_flags="$helper_flags --fake-pkg-db $SOLSTONE_FAKE_PKG_DB"
-        [ -n "${SOLSTONE_FAKE_ROOT:-}" ] && helper_flags="$helper_flags --fake-root $SOLSTONE_FAKE_ROOT"
-        [ -n "${SOLSTONE_FAKE_JOURNAL_LAUNCHER:-}" ] && helper_flags="$helper_flags --fake-journal-launcher $SOLSTONE_FAKE_JOURNAL_LAUNCHER"
-    fi
-
-    sudo_prefix=""
-    if [ "$(id -u 2>/dev/null || echo 1000)" -ne 0 ]; then
-        sudo_prefix="sudo -n "
-    fi
-
-    # Privilege probe
-    # shellcheck disable=SC2086
-    if ! ping_res=$(echo "PING" | $sudo_prefix "$helper_bin" $helper_flags 2>/dev/null); then
-        report_exit "refusal" "privilege-required" "Noninteractive sudo privilege is required for package operations"
-    fi
-    if [ "$ping_res" != "PONG" ]; then
-        report_exit "refusal" "privilege-required" "Package helper PING failed"
-    fi
-
+    init_package_helper
     package_read_receipt
 
     for comp in $SELECTED_COMPONENTS; do
@@ -2427,64 +2841,160 @@ run_package_install() {
     done
 }
 
+stage_receipt_without_component() {
+    srwc_source="$1"
+    srwc_component="$2"
+    srwc_output="$3"
+    : > "$srwc_output" || return 1
+    append_receipt_section "$srwc_source" solstone "$srwc_output" || return 1
+    SRWC_REMAINING=0
+    for srwc_existing in journal cli desktop tmux; do
+        [ "$srwc_existing" = "$srwc_component" ] && continue
+        if receipt_value "$srwc_source" "component:${srwc_existing}" role >/dev/null 2>&1; then
+            append_receipt_section "$srwc_source" "component:${srwc_existing}" "$srwc_output" || return 1
+            SRWC_REMAINING=$((SRWC_REMAINING + 1))
+        fi
+    done
+}
+
+publish_tree_uninstall_receipt() {
+    ptur_component="$1"
+    ptur_receipt=$(tree_receipt_path)
+    ptur_next="${ptur_receipt}.tmp.$$"
+    stage_receipt_without_component "$ptur_receipt" "$ptur_component" "$ptur_next" \
+        || report_exit "refusal" "receipt-write-failed" "Could not stage tree uninstall receipt"
+    if [ "$TEST_SEAM" -eq 1 ] && [ "${SOLSTONE_TEST_FAIL_UNINSTALL_RECEIPT:-}" = "$ptur_component" ]; then
+        rm -f "$ptur_next" 2>/dev/null || true
+        report_exit "refusal" "receipt-write-failed" "Could not publish tree uninstall receipt"
+    fi
+    if [ "$SRWC_REMAINING" -eq 0 ]; then
+        rm -f "$ptur_next" || report_exit "refusal" "receipt-write-failed" "Could not discard empty tree uninstall receipt"
+        rm -f "$ptur_receipt" || report_exit "refusal" "receipt-write-failed" "Could not remove completed tree receipt"
+    elif ! mv -Tf "$ptur_next" "$ptur_receipt"; then
+        rm -f "$ptur_next" 2>/dev/null || true
+        report_exit "refusal" "receipt-write-failed" "Could not publish tree uninstall receipt"
+    fi
+}
+
+publish_package_uninstall_receipt() {
+    ppur_component="$1"
+    ppur_next="${SCRATCH_DIR}/package-uninstall-next.$$"
+    stage_receipt_without_component "$PACKAGE_RECEIPT_FILE" "$ppur_component" "$ppur_next" \
+        || report_exit "refusal" "receipt-write-failed" "Could not stage package uninstall receipt"
+    if [ "$TEST_SEAM" -eq 1 ] && [ "${SOLSTONE_TEST_FAIL_UNINSTALL_RECEIPT:-}" = "$ppur_component" ]; then
+        report_exit "refusal" "receipt-write-failed" "Could not publish package uninstall receipt"
+    fi
+    if [ "$SRWC_REMAINING" -eq 0 ]; then : > "$ppur_next"; fi
+    ppur_len=$(wc -c < "$ppur_next" | tr -d '[:space:]')
+    # shellcheck disable=SC2086
+    if ! ppur_result=$({ printf "WRITE_ETC_RECEIPT %s\n" "$ppur_len"; cat "$ppur_next"; } | $sudo_prefix "$helper_bin" $helper_flags); then
+        package_protocol_failure "$ppur_result" "receipt-write-failed" "Could not publish package uninstall receipt"
+    fi
+    [ "$ppur_result" = "OK" ] || package_protocol_failure "$ppur_result" "receipt-write-failed" "Could not publish package uninstall receipt"
+    cp "$ppur_next" "$PACKAGE_RECEIPT_FILE" || report_exit "refusal" "receipt-write-failed" "Could not retain package uninstall receipt state"
+}
+
+uninstall_tree_component() {
+    utc_component="$1"
+    ATTEMPTED_COMPONENTS="${ATTEMPTED_COMPONENTS}${ATTEMPTED_COMPONENTS:+ }${utc_component}"
+    tree_component_authority "$utc_component" removal
+    if [ "$TREE_CLAIM" -eq 0 ]; then
+        [ "$TREE_STATE_PRESENT" -eq 0 ] || report_exit "refusal" "ownership-unknown" "Tree state for $utc_component has no ownership receipt"
+        UNCHANGED_COMPONENTS="${UNCHANGED_COMPONENTS}${UNCHANGED_COMPONENTS:+ }${utc_component}"
+        return 0
+    fi
+    if [ "$TEST_SEAM" -eq 1 ] && [ -n "${SOLSTONE_HANDLER_ROOT:-}" ]; then
+        utc_handlers="$SOLSTONE_HANDLER_ROOT"
+    else
+        utc_handlers="/usr/libexec/solstone/handlers"
+        [ ! -d "$utc_handlers" ] && utc_handlers="${PWD}/handlers"
+    fi
+    case "$utc_component" in
+        journal)
+            utc_journal="${OPT_PREFIX}/bin/journal"
+            if [ -x "$utc_journal" ] && ! "$utc_journal" setup --clean-uninstall --yes --installer-transaction; then
+                report_exit "refusal" "handler-failed" "journal clean uninstall failed"
+            fi
+            ;;
+        desktop|tmux)
+            utc_handler="${utc_handlers}/${utc_component}/v1/uninstall-${utc_component}-service"
+            [ -f "$utc_handler" ] || report_exit "refusal" "handler-missing" "Uninstall handler is missing for $utc_component"
+            chmod 0755 "$utc_handler" || report_exit "refusal" "handler-failed" "Could not make the $utc_component uninstall handler executable"
+            "$utc_handler" --prefix "$OPT_PREFIX" --route tree --role "$utc_component" \
+                || report_exit "refusal" "handler-failed" "Uninstall handler failed for $utc_component"
+            ;;
+    esac
+    case "$utc_component" in
+        journal|cli)
+            rm -f "${OPT_PREFIX}/bin/journal" || report_exit "refusal" "remove-failed" "Could not remove the journal launcher"
+            if [ "$TEST_SEAM" -eq 1 ] && [ "${SOLSTONE_TEST_FAIL_TREE_UNINSTALL_AFTER_PUBLIC:-}" = "$utc_component" ]; then
+                report_exit "refusal" "remove-failed" "Injected tree uninstall interruption"
+            fi
+            rm -f "${OPT_PREFIX}/current" "${OPT_PREFIX}/install-receipt" \
+                || report_exit "refusal" "remove-failed" "Could not remove journal ownership pointers"
+            rm -rf "${OPT_PREFIX}/versions" || report_exit "refusal" "remove-failed" "Could not remove journal payload versions"
+            ;;
+        desktop|tmux)
+            utc_receipt=$(tree_receipt_path)
+            utc_public=$(receipt_value "$utc_receipt" "component:${utc_component}" public_path)
+            utc_current=$(receipt_value "$utc_receipt" "component:${utc_component}" current)
+            utc_root="${OPT_PREFIX}/opt/solstone/${utc_component}"
+            rm -f "$utc_public" || report_exit "refusal" "remove-failed" "Could not remove the $utc_component public pointer"
+            if [ "$TEST_SEAM" -eq 1 ] && [ "${SOLSTONE_TEST_FAIL_TREE_UNINSTALL_AFTER_PUBLIC:-}" = "$utc_component" ]; then
+                report_exit "refusal" "remove-failed" "Injected tree uninstall interruption"
+            fi
+            rm -f "$utc_current" || report_exit "refusal" "remove-failed" "Could not remove the $utc_component current pointer"
+            rm -rf -- "${utc_root:?}" || report_exit "refusal" "remove-failed" "Could not remove the $utc_component payload"
+            ;;
+    esac
+    publish_tree_uninstall_receipt "$utc_component"
+    REMOVED_COMPONENTS="${REMOVED_COMPONENTS}${REMOVED_COMPONENTS:+ }${utc_component}"
+    SUCCEEDED_COMPONENTS="${SUCCEEDED_COMPONENTS}${SUCCEEDED_COMPONENTS:+ }${utc_component}"
+}
+
+uninstall_package_component() {
+    upc_component="$1"
+    ATTEMPTED_COMPONENTS="${ATTEMPTED_COMPONENTS}${ATTEMPTED_COMPONENTS:+ }${upc_component}"
+    package_component_authority "$upc_component" removal
+    if [ "$PACKAGE_CLAIM" -eq 0 ]; then
+        [ "$PACKAGE_STATE_PRESENT" -eq 0 ] || report_exit "refusal" "ownership-unknown" "Package state for $upc_component has no ownership receipt"
+        UNCHANGED_COMPONENTS="${UNCHANGED_COMPONENTS}${UNCHANGED_COMPONENTS:+ }${upc_component}"
+        return 0
+    fi
+    package_load_section "$PACKAGE_RECEIPT_FILE" "$upc_component" \
+        || report_exit "refusal" "ownership-unknown" "Package receipt for $upc_component is malformed"
+    upc_name="$PLS_NAME"
+    package_query_current "$upc_name"
+    if [ "$PQUERY_STATE" != "ABSENT" ]; then
+        if [ "$upc_component" = "journal" ]; then
+            if [ "$TEST_SEAM" -eq 1 ] && [ -n "${SOLSTONE_FAKE_ROOT:-}" ]; then upc_journal="${SOLSTONE_FAKE_ROOT}/usr/bin/journal"; else upc_journal="/usr/bin/journal"; fi
+            [ ! -x "$upc_journal" ] || "$upc_journal" setup --clean-uninstall --yes --installer-transaction \
+                || report_exit "refusal" "handler-failed" "journal clean uninstall failed"
+        fi
+        # shellcheck disable=SC2086
+        if ! upc_result=$(printf "REMOVE_PKG %s %s\n" "$PKG_VARIANT" "$upc_name" | $sudo_prefix "$helper_bin" $helper_flags); then
+            package_protocol_failure "$upc_result" "package-remove-failed" "Could not remove package $upc_name"
+        fi
+        [ "$upc_result" = "OK" ] || package_protocol_failure "$upc_result" "package-remove-failed" "Could not remove package $upc_name"
+        package_query_current "$upc_name"
+        [ "$PQUERY_STATE" = "ABSENT" ] || report_exit "refusal" "package-remove-failed" "Package $upc_name remains installed"
+    fi
+    publish_package_uninstall_receipt "$upc_component"
+    REMOVED_COMPONENTS="${REMOVED_COMPONENTS}${REMOVED_COMPONENTS:+ }${upc_component}"
+    SUCCEEDED_COMPONENTS="${SUCCEEDED_COMPONENTS}${SUCCEEDED_COMPONENTS:+ }${upc_component}"
+}
+
 run_uninstall() {
     manifest_dir="${SCRATCH_DIR}/manifest"
-    if [ "$OPT_ROUTE" = "tree" ]; then
-        for comp in $SELECTED_COMPONENTS; do
-            # Call uninstall handler if present
-            if [ "$TEST_SEAM" -eq 1 ] && [ -n "${SOLSTONE_HANDLER_ROOT:-}" ]; then
-                h_root="$SOLSTONE_HANDLER_ROOT"
-            else
-                h_root="/usr/libexec/solstone/handlers"
-                [ ! -d "$h_root" ] && h_root="${PWD}/handlers"
-            fi
-            handler_bin="${h_root}/${comp}/v1/uninstall-${comp}-service"
-            if [ -f "$handler_bin" ]; then
-                chmod 0755 "$handler_bin"
-                # shellcheck disable=SC2086
-                "$handler_bin" --prefix "$OPT_PREFIX" --route tree --role "$comp" 2>/dev/null || true
-            fi
-            comp_exec="${OPT_PREFIX}/bin/solstone-${comp}"
-            [ "$comp" = "journal" ] && comp_exec="${OPT_PREFIX}/bin/journal"
-            [ "$comp" = "desktop" ] && comp_exec="${OPT_PREFIX}/bin/solstone-linux"
-            rm -f "$comp_exec" 2>/dev/null || true
-            rm -rf "${OPT_PREFIX}/opt/solstone/${comp}" 2>/dev/null || true
+    for comp in $TREE_SELECTED_COMPONENTS; do
+        uninstall_tree_component "$comp"
+    done
+    if [ -n "$PACKAGE_SELECTED_COMPONENTS" ]; then
+        init_package_helper
+        package_read_receipt
+        for comp in $PACKAGE_SELECTED_COMPONENTS; do
+            uninstall_package_component "$comp"
         done
-        receipt_dir="${XDG_DATA_HOME:-$HOME/.local/share}/solstone"
-        receipt_file="${receipt_dir}/install.conf"
-        rm -f "$receipt_file" 2>/dev/null || true
-    else
-        if [ "$TEST_SEAM" -eq 1 ] && [ -n "${SOLSTONE_HELPER:-}" ]; then
-            helper_bin="$SOLSTONE_HELPER"
-        else
-            helper_bin="/usr/libexec/solstone-pkg-helper.sh"
-            [ ! -f "$helper_bin" ] && helper_bin="${PWD}/helpers/solstone-pkg-helper.sh"
-        fi
-
-        helper_flags=""
-        if [ "$TEST_SEAM" -eq 1 ]; then
-            [ -n "${SOLSTONE_LOCK_DIR:-}" ] && helper_flags="$helper_flags --lock-dir $SOLSTONE_LOCK_DIR"
-            [ -n "${SOLSTONE_ETC_ROOT:-}" ] && helper_flags="$helper_flags --etc-root $SOLSTONE_ETC_ROOT"
-            [ -n "${SOLSTONE_FAKE_PKG_DB:-}" ] && helper_flags="$helper_flags --fake-pkg-db $SOLSTONE_FAKE_PKG_DB"
-        fi
-
-        sudo_prefix=""
-        if [ "$(id -u 2>/dev/null || echo 1000)" -ne 0 ]; then
-            sudo_prefix="sudo -n "
-        fi
-
-        for comp in $SELECTED_COMPONENTS; do
-            if [ "$comp" = "cli" ]; then
-                c_key="journal"
-            else
-                c_key="$comp"
-            fi
-            pkg_name=$(cat "${manifest_dir}/components/${c_key}/arches/${HOST_ARCH}/${PKG_VARIANT}/package_identity/name" 2>/dev/null || echo "solstone-${c_key}")
-            # shellcheck disable=SC2086
-            printf "REMOVE_PKG %s %s\n" "$PKG_VARIANT" "$pkg_name" | $sudo_prefix "$helper_bin" $helper_flags >/dev/null 2>&1 || true
-        done
-        # shellcheck disable=SC2086
-        printf "WRITE_ETC_RECEIPT 0\n\n" | $sudo_prefix "$helper_bin" $helper_flags >/dev/null 2>&1 || true
     fi
     report_exit "success" "uninstalled" "Selected components uninstalled successfully"
 }
@@ -2502,9 +3012,9 @@ main() {
     trap 'cleanup_scratch; exit 128' HUP INT TERM
     init_awk_parser
 
-    # Resolve package variant
+    # Resolve the host package variant even when route ownership will be detected later.
     case "$OPT_ROUTE" in
-        package)
+        tree|package)
             if [ -f /etc/debian_version ] || command -v dpkg >/dev/null 2>&1; then
                 PKG_VARIANT="deb"
             else
@@ -2516,9 +3026,6 @@ main() {
             ;;
         rpm)
             PKG_VARIANT="rpm"
-            ;;
-        tree)
-            PKG_VARIANT=""
             ;;
         *)
             report_exit "refusal" "unknown-argument" "Unknown route: $OPT_ROUTE"
@@ -2582,11 +3089,15 @@ main() {
         exit 0
     fi
 
-    # 6. Resolve component selection
-    if [ -z "$OPT_COMPONENTS" ]; then
+    # 6. Resolve component selection. Upgrade without a list selects only
+    # authoritatively recorded components and never opens the menu.
+    if [ -z "$OPT_COMPONENTS" ] && [ "$OPT_UPGRADE" -eq 1 ]; then
+        discover_upgrade_selection
+    elif [ -z "$OPT_COMPONENTS" ]; then
         interactive_selection_menu
     fi
 
+    if [ -z "$SELECTED_COMPONENTS" ]; then
     case "$OPT_COMPONENTS" in
         all)
             if [ -d "${manifest_dir}/components/desktop/arches/${HOST_ARCH}" ]; then
@@ -2633,15 +3144,42 @@ main() {
             SELECTED_COMPONENTS="$raw_comps"
             ;;
     esac
+    fi
+
+    # 7. Bind each component to its existing authoritative owner. Upgrade and
+    # uninstall never add a component; a clean install defaults to tree.
+    requested_components="$SELECTED_COMPONENTS"
+    REPORT_COMPONENTS="$requested_components"
+    TREE_SELECTED_COMPONENTS=""
+    PACKAGE_SELECTED_COMPONENTS=""
+    for comp in $requested_components; do
+        require_existing=0
+        if [ "$OPT_UPGRADE" -eq 1 ] || [ "$OPT_UNINSTALL" -eq 1 ]; then require_existing=1; fi
+        if ! resolve_component_route "$comp" "$require_existing"; then
+            if [ "$OPT_UNINSTALL" -eq 1 ]; then
+                UNCHANGED_COMPONENTS="${UNCHANGED_COMPONENTS}${UNCHANGED_COMPONENTS:+ }${comp}"
+            else
+                report_exit "refusal" "not-installed" "Component $comp is not installed; upgrade installs nothing new"
+            fi
+        fi
+    done
+    if [ -n "$TREE_SELECTED_COMPONENTS" ] && [ -n "$PACKAGE_SELECTED_COMPONENTS" ]; then
+        OPT_ROUTE="mixed"
+    elif [ -n "$PACKAGE_SELECTED_COMPONENTS" ]; then
+        OPT_ROUTE="$PKG_VARIANT"
+    else
+        OPT_ROUTE="tree"
+    fi
 
     # 8. Check if target route variants exist in manifest
-    check_var="${PKG_VARIANT:-tree}"
     for comp in $SELECTED_COMPONENTS; do
         if [ "$comp" = "cli" ]; then
             c_key="journal"
         else
             c_key="$comp"
         fi
+        check_var="tree"
+        case " $PACKAGE_SELECTED_COMPONENTS " in *" $comp "*) check_var="$PKG_VARIANT" ;; esac
         if [ ! -d "${manifest_dir}/components/${c_key}/arches/${HOST_ARCH}/${check_var}" ]; then
             report_exit "refusal" "incomplete-variants" "Variant ${check_var} for ${comp} on ${HOST_ARCH} is missing in manifest"
         fi
@@ -2668,6 +3206,9 @@ main() {
                 ;;
         esac
 
+        check_var="tree"
+        case " $PACKAGE_SELECTED_COMPONENTS " in *" $comp "*) check_var="$PKG_VARIANT" ;; esac
+
         actual_verifier_id=$(cat "${manifest_dir}/components/${c_key}/arches/${HOST_ARCH}/${check_var}/authority/verifier_id" 2>/dev/null || echo "")
         expected_verifier_id="minisign:${expected_key_id}"
         if [ "$actual_verifier_id" != "$expected_verifier_id" ]; then
@@ -2679,6 +3220,8 @@ main() {
     for comp in $SELECTED_COMPONENTS; do
         case "$comp" in
             journal|cli)
+                check_var="tree"
+                case " $PACKAGE_SELECTED_COMPONENTS " in *" $comp "*) check_var="$PKG_VARIANT" ;; esac
                 preflight_journal_authority
                 break
                 ;;
@@ -2689,6 +3232,8 @@ main() {
     for comp in $SELECTED_COMPONENTS; do
         case "$comp" in
             desktop)
+                check_var="tree"
+                case " $PACKAGE_SELECTED_COMPONENTS " in *" $comp "*) check_var="$PKG_VARIANT" ;; esac
                 preflight_desktop_authority
                 break
                 ;;
@@ -2699,6 +3244,8 @@ main() {
     for comp in $SELECTED_COMPONENTS; do
         case "$comp" in
             tmux)
+                check_var="tree"
+                case " $PACKAGE_SELECTED_COMPONENTS " in *" $comp "*) check_var="$PKG_VARIANT" ;; esac
                 preflight_tmux_authority
                 break
                 ;;
@@ -2719,11 +3266,18 @@ main() {
     fi
 
     # 14. Perform installation
-    if [ "$OPT_ROUTE" = "tree" ]; then
+    SELECTED_COMPONENTS="$TREE_SELECTED_COMPONENTS"
+    if [ -n "$SELECTED_COMPONENTS" ]; then
         run_tree_install
-    else
+        for comp in $SELECTED_COMPONENTS; do
+            case " $UNCHANGED_COMPONENTS " in *" $comp "*) ;; *) SUCCEEDED_COMPONENTS="${SUCCEEDED_COMPONENTS}${SUCCEEDED_COMPONENTS:+ }${comp}" ;; esac
+        done
+    fi
+    SELECTED_COMPONENTS="$PACKAGE_SELECTED_COMPONENTS"
+    if [ -n "$SELECTED_COMPONENTS" ]; then
         run_package_install
     fi
+    SELECTED_COMPONENTS="$requested_components"
 
     report_exit "success" "installed" "All selected components installed successfully"
 }
