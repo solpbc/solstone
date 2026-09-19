@@ -46,6 +46,7 @@ OPT_NOTICES_JSON="[]"
 SCRATCH_DIR=""
 SELECTED_COMPONENTS=""
 UNCHANGED_COMPONENTS=""
+SUCCEEDED_COMPONENTS=""
 RESOLVED_VERSION=""
 HOST_ARCH=""
 FETCH_TOOL=""
@@ -86,10 +87,14 @@ report_exit() {
                 c_status="succeeded"
                 c_phase="complete"
                 c_unchanged=0
+                c_succeeded=0
                 case " $UNCHANGED_COMPONENTS " in
                     *" $comp "*) c_status="unchanged"; c_unchanged=1 ;;
                 esac
-                if [ "$status" != "success" ] && [ "$c_unchanged" -eq 0 ]; then
+                case " $SUCCEEDED_COMPONENTS " in
+                    *" $comp "*) c_succeeded=1 ;;
+                esac
+                if [ "$status" != "success" ] && [ "$c_unchanged" -eq 0 ] && [ "$c_succeeded" -eq 0 ]; then
                     c_status="failed"
                     c_phase="failed"
                 fi
@@ -1444,8 +1449,12 @@ package_load_section() {
         journal:deb:start|journal:deb:skip-service|journal:rpm:start|journal:rpm:skip-service|cli:deb:start|cli:deb:skip-service|cli:rpm:start|cli:rpm:skip-service|desktop:deb:start|desktop:deb:skip-service|desktop:rpm:start|desktop:rpm:skip-service|tmux:deb:start|tmux:deb:skip-service|tmux:rpm:start|tmux:rpm:skip-service) ;;
         *) return 1 ;;
     esac
+    [ "$PLS_ROLE" = "$pls_component" ] || return 1
     [ -n "$PLS_NAME" ] && [ -n "$PLS_VERSION" ] && [ -n "$PLS_ARCH" ] \
         && [ -n "$PLS_SHA" ] && [ -n "$PLS_BUILD" ] || return 1
+    case "$PLS_SHA" in *[!0123456789abcdef]*) return 1 ;; esac
+    case "$PLS_BUILD" in *[!0123456789abcdef]*) return 1 ;; esac
+    [ "${#PLS_SHA}" -eq 64 ] && [ "${#PLS_BUILD}" -eq 64 ] || return 1
     PLS_HAS_PRIOR=0
     PLS_PRIOR_ROLE=""
     PLS_PRIOR_ROUTE=""
@@ -1455,7 +1464,21 @@ package_load_section() {
     PLS_PRIOR_ARCH=""
     PLS_PRIOR_SHA=""
     PLS_PRIOR_BUILD=""
-    if [ "$PLS_PHASE" != "complete" ] && PLS_PRIOR_ROLE=$(receipt_value "$pls_file" "$pls_section" prior_role 2>/dev/null); then
+    pls_prior_keys=0
+    if [ "$PLS_PHASE" != "complete" ]; then
+        pls_prior_keys=$(awk -v wanted="[$pls_section]" '
+            /^\[/ { active = ($0 == wanted); next }
+            active && /^(prior_role|prior_route|prior_service_policy|prior_package_name|prior_package_version|prior_package_arch|prior_artifact_sha256|prior_payload_build_id)=/ { count++ }
+            END { print count + 0 }
+        ' "$pls_file")
+    fi
+    case "$pls_prior_keys" in
+        0) ;;
+        8) ;;
+        *) return 1 ;;
+    esac
+    if [ "$pls_prior_keys" -eq 8 ]; then
+        PLS_PRIOR_ROLE=$(receipt_value "$pls_file" "$pls_section" prior_role 2>/dev/null) || return 1
         if ! PLS_PRIOR_ROUTE=$(receipt_value "$pls_file" "$pls_section" prior_route 2>/dev/null) \
             || ! PLS_PRIOR_POLICY=$(receipt_value "$pls_file" "$pls_section" prior_service_policy 2>/dev/null) \
             || ! PLS_PRIOR_NAME=$(receipt_value "$pls_file" "$pls_section" prior_package_name 2>/dev/null) \
@@ -1465,6 +1488,14 @@ package_load_section() {
             || ! PLS_PRIOR_BUILD=$(receipt_value "$pls_file" "$pls_section" prior_payload_build_id 2>/dev/null); then
             return 1
         fi
+        case "$PLS_PRIOR_ROLE:$PLS_PRIOR_ROUTE:$PLS_PRIOR_POLICY" in
+            "$pls_component":deb:start|"$pls_component":deb:skip-service|"$pls_component":rpm:start|"$pls_component":rpm:skip-service) ;;
+            *) return 1 ;;
+        esac
+        [ -n "$PLS_PRIOR_NAME" ] && [ -n "$PLS_PRIOR_VERSION" ] && [ -n "$PLS_PRIOR_ARCH" ] || return 1
+        case "$PLS_PRIOR_SHA" in *[!0123456789abcdef]*) return 1 ;; esac
+        case "$PLS_PRIOR_BUILD" in *[!0123456789abcdef]*) return 1 ;; esac
+        [ "${#PLS_PRIOR_SHA}" -eq 64 ] && [ "${#PLS_PRIOR_BUILD}" -eq 64 ] || return 1
         PLS_HAS_PRIOR=1
     fi
     return 0
@@ -1481,12 +1512,13 @@ package_find_owner() {
         if ! package_load_section "$pfo_file" "$pfo_component"; then
             continue
         fi
-        case "$PLS_ROUTE" in deb|rpm) ;; *) continue ;; esac
+        [ "$PLS_ROUTE" = "$PKG_VARIANT" ] || continue
         pfo_match=""
         if [ "$PLS_NAME" = "$pfo_name" ] && [ "$PLS_VERSION" = "$pfo_version" ] && [ "$PLS_ARCH" = "$pfo_arch" ]; then
             pfo_match="target"
         fi
-        if [ "$PLS_HAS_PRIOR" -eq 1 ] && [ "$PLS_PRIOR_NAME" = "$pfo_name" ] \
+        if [ "$PLS_HAS_PRIOR" -eq 1 ] && [ "$PLS_PRIOR_ROUTE" = "$PKG_VARIANT" ] \
+            && [ "$PLS_PRIOR_NAME" = "$pfo_name" ] \
             && [ "$PLS_PRIOR_VERSION" = "$pfo_version" ] && [ "$PLS_PRIOR_ARCH" = "$pfo_arch" ]; then
             [ -n "$pfo_match" ] && pfo_match="both" || pfo_match="prior"
         fi
@@ -1677,6 +1709,20 @@ package_run_setup() {
 package_complete_after_payload() {
     package_run_setup
     package_publish_phase "$PC_ROLE" complete installed
+    SUCCEEDED_COMPONENTS="${SUCCEEDED_COMPONENTS}${SUCCEEDED_COMPONENTS:+ }${PC_ROLE}"
+}
+
+package_candidate_is_older() {
+    pcio_installed="$1"
+    pcio_candidate="$2"
+    if [ "$PKG_VARIANT" = "deb" ]; then
+        command -v dpkg >/dev/null 2>&1 \
+            || report_exit "refusal" "query-unavailable" "dpkg is required to compare Debian package versions"
+        dpkg --compare-versions "$pcio_candidate" lt "$pcio_installed"
+        return $?
+    fi
+    pcio_first=$(printf '%s\n%s\n' "$pcio_installed" "$pcio_candidate" | sort -V | head -n 1)
+    [ "$pcio_first" = "$pcio_candidate" ] && [ "$pcio_installed" != "$pcio_candidate" ]
 }
 
 record_pointer_state() {
@@ -2321,8 +2367,7 @@ run_package_install() {
             report_exit "refusal" "role-conflict" "Installed journal package is owned by role $PFO_ROLE"
         fi
         if [ "$PC_ROLE" = "journal" ] || [ "$PC_ROLE" = "cli" ]; then
-            package_older=$(printf '%s\n%s\n' "$PQUERY_VERSION" "$PC_VERSION" | sort -V | head -n 1)
-            if [ "$package_older" = "$PC_VERSION" ] && [ "$PQUERY_VERSION" != "$PC_VERSION" ]; then
+            if package_candidate_is_older "$PQUERY_VERSION" "$PC_VERSION"; then
                 report_exit "refusal" "downgrade-route-unsupported" "Installed package $PC_NAME version $PQUERY_VERSION is newer than candidate $PC_VERSION"
             fi
         fi

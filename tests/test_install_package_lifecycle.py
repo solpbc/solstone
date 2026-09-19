@@ -162,6 +162,100 @@ class TestInstallPackageLifecycle(unittest.TestCase):
             finally:
                 server.stop()
 
+    def test_wrong_route_section_incomplete_prior_and_epoch_downgrade_refuse(self):
+        with ephemeral_keypair("package lifecycle ownership binding") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin)
+            try:
+                desktop = self.run_install(installer, "desktop")
+                self.assertEqual(desktop.returncode, 0, desktop.stderr + desktop.stdout)
+                receipt_complete = self.receipt.read_bytes()
+                db_before = (self.fake_db / "deb" / "solstone-linux").read_bytes()
+                installs_before = self.installs()
+
+                desktop_section = receipt_section(receipt_complete, "component:desktop")
+                wrong_route = desktop_section.replace(b"route=deb\n", b"route=rpm\n")
+                self.receipt.write_bytes(receipt_complete.replace(desktop_section, wrong_route))
+                server.request_paths.clear()
+                refused_route = self.run_install(installer, "desktop")
+                self.assertNotEqual(refused_route.returncode, 0)
+                self.assertEqual(json.loads(refused_route.stdout)["root_code"], "ownership-unknown")
+                self.assertEqual(self.installs(), installs_before)
+                self.assertEqual(self.package_requests(server.request_paths), [])
+                self.assertEqual((self.fake_db / "deb" / "solstone-linux").read_bytes(), db_before)
+
+                wrong_section = desktop_section.replace(b"[component:desktop]\n", b"[component:journal]\n")
+                self.receipt.write_bytes(receipt_complete.replace(desktop_section, wrong_section))
+                server.request_paths.clear()
+                refused_section = self.run_install(installer, "desktop")
+                self.assertNotEqual(refused_section.returncode, 0)
+                self.assertEqual(json.loads(refused_section.stdout)["root_code"], "ownership-unknown")
+                self.assertEqual(self.installs(), installs_before)
+                self.assertEqual(self.package_requests(server.request_paths), [])
+
+                incomplete_prior = desktop_section.replace(
+                    b"phase=complete\nstatus=installed\n",
+                    b"phase=intended\nstatus=intended\n"
+                    b"prior_role=\nprior_route=\nprior_service_policy=\n"
+                    b"prior_package_name=solstone-linux\nprior_package_version=2.0.3-1\n"
+                    b"prior_package_arch=amd64\nprior_artifact_sha256=\nprior_payload_build_id=\n",
+                )
+                self.receipt.write_bytes(receipt_complete.replace(desktop_section, incomplete_prior))
+                server.request_paths.clear()
+                refused_prior = self.run_install(installer, "desktop")
+                self.assertNotEqual(refused_prior.returncode, 0)
+                self.assertEqual(json.loads(refused_prior.stdout)["root_code"], "ownership-unknown")
+                self.assertEqual(self.installs(), installs_before)
+                self.assertEqual(self.package_requests(server.request_paths), [])
+
+                missing_prior_role = incomplete_prior.replace(b"prior_role=\n", b"")
+                self.receipt.write_bytes(receipt_complete.replace(desktop_section, missing_prior_role))
+                server.request_paths.clear()
+                refused_missing = self.run_install(installer, "desktop")
+                self.assertNotEqual(refused_missing.returncode, 0)
+                self.assertEqual(json.loads(refused_missing.stdout)["root_code"], "ownership-unknown")
+                self.assertEqual(self.installs(), installs_before)
+                self.assertEqual(self.package_requests(server.request_paths), [])
+
+                colon_hash = incomplete_prior.replace(
+                    b"prior_role=\nprior_route=\nprior_service_policy=\n",
+                    b"prior_role=desktop\nprior_route=deb\nprior_service_policy=start\n",
+                ).replace(
+                    b"prior_artifact_sha256=\nprior_payload_build_id=\n",
+                    b"prior_artifact_sha256=:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n"
+                    b"prior_payload_build_id=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n",
+                )
+                self.receipt.write_bytes(receipt_complete.replace(desktop_section, colon_hash))
+                server.request_paths.clear()
+                refused_hash = self.run_install(installer, "desktop")
+                self.assertNotEqual(refused_hash.returncode, 0)
+                self.assertEqual(json.loads(refused_hash.stdout)["root_code"], "ownership-unknown")
+                self.assertEqual(self.installs(), installs_before)
+                self.assertEqual(self.package_requests(server.request_paths), [])
+
+                self.receipt.unlink()
+                (self.fake_db / "deb" / "solstone-linux").unlink()
+                journal = self.run_install(installer, "journal")
+                self.assertEqual(journal.returncode, 0, journal.stderr + journal.stdout)
+                journal_receipt = self.receipt.read_bytes()
+                journal_section = receipt_section(journal_receipt, "component:journal")
+                epoch_section = journal_section.replace(b"package_version=2.0.6\n", b"package_version=1:1.0\n")
+                self.receipt.write_bytes(journal_receipt.replace(journal_section, epoch_section))
+                journal_db = self.fake_db / "deb" / "solstone-journal"
+                journal_db.write_text("INSTALLED solstone-journal 1:1.0 amd64\n", encoding="utf-8")
+                receipt_before = self.receipt.read_bytes()
+                db_epoch_before = journal_db.read_bytes()
+                epoch_installs = self.installs()
+                server.request_paths.clear()
+                downgrade = self.run_install(installer, "journal")
+                self.assertNotEqual(downgrade.returncode, 0)
+                self.assertEqual(json.loads(downgrade.stdout)["root_code"], "downgrade-route-unsupported")
+                self.assertEqual(self.receipt.read_bytes(), receipt_before)
+                self.assertEqual(journal_db.read_bytes(), db_epoch_before)
+                self.assertEqual(self.installs(), epoch_installs)
+                self.assertEqual(self.package_requests(server.request_paths), [])
+            finally:
+                server.stop()
+
     def test_intended_and_payload_recovery_skip_package_fetch(self):
         with ephemeral_keypair("package lifecycle recovery") as (sec, pub, pin):
             server, installer = self.build_release(sec, pub, pin)
@@ -314,7 +408,11 @@ class TestInstallPackageLifecycle(unittest.TestCase):
 
                 mixed = self.run_install(installer, "desktop,journal")
                 self.assertNotEqual(mixed.returncode, 0)
-                self.assertEqual(json.loads(mixed.stdout)["root_code"], "ownership-unknown")
+                mixed_json = json.loads(mixed.stdout)
+                self.assertEqual(mixed_json["root_code"], "ownership-unknown")
+                self.assertEqual(mixed_json["components"]["desktop"]["status"], "succeeded")
+                self.assertEqual(mixed_json["components"]["desktop"]["phase"], "complete")
+                self.assertEqual(mixed_json["components"]["journal"]["status"], "failed")
                 desktop_section = receipt_section(self.receipt.read_bytes(), "component:desktop")
                 self.assertIn(b"phase=complete\nstatus=installed\n", desktop_section)
                 self.assertEqual(receipt_section(self.receipt.read_bytes(), "component:tmux"), tmux_section)
