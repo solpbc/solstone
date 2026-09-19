@@ -242,6 +242,12 @@ class TestPublish(unittest.TestCase):
         self.assertEqual(first_op.method, "put_if_absent")
         self.assertFalse(first_op.key.endswith("/latest"))
         self.assertFalse(first_op.key.endswith("/platform.json"))
+        bootstrap_put = next(
+            entry
+            for entry in dest.ledger
+            if entry.method == "put_if_absent" and entry.key.endswith("-install.sh")
+        )
+        self.assertEqual(bootstrap_put.content_type, "application/octet-stream")
 
         # Verify pointer in destination
         latest_get = dest.get("solstone/release/latest")

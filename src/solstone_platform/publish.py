@@ -362,7 +362,7 @@ def publish_release(*args, **kwargs) -> PublishReport:
             boot_bytes = (snapshot.journal_dir / expected_boot_filename).read_bytes() if (snapshot.journal_dir / expected_boot_filename).is_file() else (snapshot.journal_dir / "linux-x86_64" / expected_boot_filename).read_bytes()
 
         boot_key = f"solstone-journal/{lane}/{ingested_j.version}/{expected_boot_filename}"
-        bootstrap_claim = (boot_bytes, "text/plain; charset=utf-8", "public, max-age=31536000, immutable")
+        bootstrap_claim = (boot_bytes, "application/octet-stream", "public, max-age=31536000, immutable")
 
         # 3. Platform pair
         manifest_key = f"solstone/{lane}/{version}/platform.json"
