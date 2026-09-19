@@ -453,9 +453,11 @@ class TestInstallVerify(unittest.TestCase):
                 )
                 (ver_dir / "platform.json.minisig").write_bytes(sig_bytes)
 
-                # Copy real desktop tree archive
+                # Copy real desktop tree archive and its signed native authority.
                 real_desktop_dir = REPO_ROOT / "testdata" / "native" / "desktop" / "2.0.3"
-                for p in real_desktop_dir.glob("*.tar.gz"):
+                for p in real_desktop_dir.iterdir():
+                    if not (p.name.endswith(".tar.gz") or ".rust-release-manifest.json" in p.name):
+                        continue
                     shutil.copy2(p, ver_dir / p.name)
 
                 installer = self.work_dir / "install_desktop_pin.sh"

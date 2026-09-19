@@ -497,6 +497,7 @@ function is_whitelisted(p) {
         if (p ~ /^files\.[A-Za-z0-9][A-Za-z0-9._-]*$/) return 1
         return 0
     }
+    if (schema_mode == "desktop") return 1
     if (p ~ /(_is_list)$/) return 1
     if (p ~ /^schema_version$/) return 1
     if (p ~ /^protocol_version$/) return 1
@@ -594,6 +595,24 @@ function write_val(path_str, val, value_type,   fpath, dpath, last_slash) {
         if (path_str == "files") err("schema-invalid", "files must be an object")
         if (value_type != "STRING") err("schema-invalid", "journal manifest values must be strings: " path_str)
     }
+    if (schema_mode == "desktop") {
+        if (path_str == "artifacts") err("schema-invalid", "desktop artifacts must be an array")
+        if (path_str ~ /^artifacts\.[0-9]+$/) err("schema-invalid", "desktop artifact member must be an object")
+
+        if (path_str == "schema_version") {
+            if (value_type != "NUMBER" || val !~ /^(0|[1-9][0-9]*)$/) err("schema-invalid", "desktop schema_version must be an integer")
+        } else if (path_str == "source_dirty") {
+            if (value_type != "BOOL") err("schema-invalid", "desktop source_dirty must be boolean")
+        } else if (path_str ~ /^(product|version|source_commit|cargo_lock_sha256|target\.kind|target\.triple|target\.profile)$/) {
+            if (value_type != "STRING") err("schema-invalid", "desktop security field must be a string: " path_str)
+        } else if (path_str ~ /^artifacts\.[0-9]+\.(path|sha256)$/) {
+            if (value_type != "STRING") err("schema-invalid", "desktop artifact field must be a string: " path_str)
+        } else if (path_str ~ /^artifacts\.[0-9]+\.bytes$/) {
+            if (value_type != "NUMBER" || val !~ /^(0|[1-9][0-9]*)$/) err("schema-invalid", "desktop artifact bytes must be an integer")
+        } else if (path_str != "artifacts/_is_list") {
+            return
+        }
+    }
     fpath = path_str
     gsub(/\./, "/", fpath)
     fpath = out_dir "/" fpath
@@ -633,6 +652,7 @@ function parse_value(cur_path,   key, arr_idx, obj_id, child_path) {
         while (1) {
             if (tok_type != "STRING") err("schema-invalid", "expected string key")
             key = tok_val
+            if (schema_mode == "desktop" && key !~ /^[A-Za-z_][A-Za-z0-9_]*$/) err("schema-invalid", "unsafe desktop manifest key: " key)
             if ((obj_id, key) in seen) err("duplicate-key", "duplicate key: " key)
             seen[obj_id, key] = 1
 
@@ -656,6 +676,7 @@ function parse_value(cur_path,   key, arr_idx, obj_id, child_path) {
     }
     if (tok_type == "[") {
         if (schema_mode == "journal") err("schema-invalid", "arrays are not permitted in journal manifests")
+        if (schema_mode == "desktop" && cur_path ~ /^artifacts\.[0-9]+$/) err("schema-invalid", "desktop artifact member must be an object")
         next_tok()
         arr_idx = 0
         if (tok_type == "]") {
@@ -924,6 +945,140 @@ preflight_journal_authority() {
     esac
     if [ "${#j_min_bootstrap}" -gt 20 ]; then
         report_exit "refusal" "schema-invalid" "Journal minimum bootstrap revision is invalid"
+    fi
+}
+
+preflight_desktop_authority() {
+    d_manifest_root="${SCRATCH_DIR}/desktop-manifest"
+    mkdir -p "$d_manifest_root"
+
+    d_version=$(read_plain_value "${manifest_dir}/components/desktop/version")
+    d_version=${d_version%x}
+    d_base="solstone-linux-${d_version}-linux-x86_64"
+    d_manifest_name="${d_base}.rust-release-manifest.json"
+    d_signature_name="${d_manifest_name}.minisig"
+    d_origin="${OPT_ORIGIN}/solstone/${OPT_LANE}/${RESOLVED_VERSION}"
+    d_manifest_file="${SCRATCH_DIR}/${d_manifest_name}"
+    d_signature_file="${SCRATCH_DIR}/${d_signature_name}"
+
+    fetch_file_with_redirect_check "${d_origin}/${d_manifest_name}" "$d_manifest_file" 65536 "desktop native manifest"
+    fetch_file_with_redirect_check "${d_origin}/${d_signature_name}" "$d_signature_file" 16384 "desktop native signature"
+
+    d_authority_root="${manifest_dir}/components/desktop/arches/${HOST_ARCH}/${check_var}/authority"
+    d_manifest_sha=$(read_plain_value "${d_authority_root}/manifest_sha256")
+    d_manifest_sha=${d_manifest_sha%x}
+    d_signature_sha=$(read_plain_value "${d_authority_root}/signature_sha256")
+    d_signature_sha=${d_signature_sha%x}
+
+    verify_sha256 "$d_manifest_file" "$d_manifest_sha"
+    verify_sha256 "$d_signature_file" "$d_signature_sha"
+    verify_minisign_signature "$d_manifest_file" "$d_signature_file" "$DESKTOP_PUBKEY"
+
+    d_parse_err="${SCRATCH_DIR}/desktop-manifest.err"
+    if ! awk -v schema_mode=desktop -v out_dir="$d_manifest_root" -f "${SCRATCH_DIR}/parse_manifest.awk" "$d_manifest_file" 2>"$d_parse_err"; then
+        d_err=$(head -n 1 "$d_parse_err" | tr -d '\r\n')
+        report_exit "refusal" "schema-invalid" "Desktop native manifest is invalid ($d_err)"
+    fi
+
+    for d_required in schema_version product version source_commit source_dirty cargo_lock_sha256 target/kind target/triple target/profile artifacts/_is_list; do
+        if [ ! -f "${d_manifest_root}/${d_required}" ]; then
+            report_exit "refusal" "schema-invalid" "Desktop native manifest is missing $d_required"
+        fi
+    done
+
+    d_schema=$(read_plain_value "${d_manifest_root}/schema_version")
+    d_schema=${d_schema%x}
+    if [ "$d_schema" != "1" ]; then
+        report_exit "refusal" "schema-invalid" "Desktop native manifest schema_version is unsupported"
+    fi
+    d_product=$(read_plain_value "${d_manifest_root}/product")
+    d_product=${d_product%x}
+    d_native_version=$(read_plain_value "${d_manifest_root}/version")
+    d_native_version=${d_native_version%x}
+    d_source_dirty=$(read_plain_value "${d_manifest_root}/source_dirty")
+    d_source_dirty=${d_source_dirty%x}
+    d_target_kind=$(read_plain_value "${d_manifest_root}/target/kind")
+    d_target_kind=${d_target_kind%x}
+    d_target_triple=$(read_plain_value "${d_manifest_root}/target/triple")
+    d_target_triple=${d_target_triple%x}
+    d_target_profile=$(read_plain_value "${d_manifest_root}/target/profile")
+    d_target_profile=${d_target_profile%x}
+    if [ "$d_product" != "solstone-linux" ] || [ "$d_native_version" != "$d_version" ] || [ "$d_source_dirty" != "false" ] || [ "$d_target_kind" != "compiled" ] || [ "$d_target_triple" != "x86_64-unknown-linux-gnu" ] || [ "$d_target_profile" != "release" ]; then
+        report_exit "refusal" "release-coherence" "Desktop native identity does not match the selected platform entry"
+    fi
+
+    d_source_commit=$(read_plain_value "${d_manifest_root}/source_commit")
+    d_source_commit=${d_source_commit%x}
+    d_lock_sha=$(read_plain_value "${d_manifest_root}/cargo_lock_sha256")
+    d_lock_sha=${d_lock_sha%x}
+    case "$d_source_commit" in
+        *[!0123456789abcdef]*) report_exit "refusal" "schema-invalid" "Desktop source commit is invalid" ;;
+    esac
+    if [ "${#d_source_commit}" -ne 40 ]; then
+        report_exit "refusal" "schema-invalid" "Desktop source commit is invalid"
+    fi
+    case "$d_lock_sha" in
+        *[!0123456789abcdef]*) report_exit "refusal" "schema-invalid" "Desktop Cargo.lock digest is invalid" ;;
+    esac
+    if [ "${#d_lock_sha}" -ne 64 ]; then
+        report_exit "refusal" "schema-invalid" "Desktop Cargo.lock digest is invalid"
+    fi
+
+    d_selected_name=$(read_plain_value "${manifest_dir}/components/desktop/arches/${HOST_ARCH}/${check_var}/filename")
+    d_selected_name=${d_selected_name%x}
+    d_selected_sha=$(read_plain_value "${manifest_dir}/components/desktop/arches/${HOST_ARCH}/${check_var}/sha256")
+    d_selected_sha=${d_selected_sha%x}
+    d_selected_bytes=$(read_plain_value "${manifest_dir}/components/desktop/arches/${HOST_ARCH}/${check_var}/bytes")
+    d_selected_bytes=${d_selected_bytes%x}
+    case "$check_var" in
+        tree) d_expected_name="${d_base}.tar.gz" ;;
+        deb) d_expected_name="solstone-linux_${d_version}-1_amd64.deb" ;;
+        rpm) d_expected_name="solstone-linux-${d_version}-1.x86_64.rpm" ;;
+        *) report_exit "refusal" "schema-invalid" "Desktop selected route is invalid" ;;
+    esac
+    if [ "$d_selected_name" != "$d_expected_name" ]; then
+        report_exit "refusal" "release-coherence" "Desktop selected filename does not match its producer route"
+    fi
+
+    d_artifact_count=$(read_plain_value "${d_manifest_root}/artifacts/_is_list")
+    d_artifact_count=${d_artifact_count%x}
+    case "$d_artifact_count" in
+        ""|*[!0123456789]*) report_exit "refusal" "schema-invalid" "Desktop artifacts array is invalid" ;;
+    esac
+    d_index=0
+    d_selected_matches=0
+    while [ "$d_index" -lt "$d_artifact_count" ]; do
+        d_item_root="${d_manifest_root}/artifacts/${d_index}"
+        for d_field in path sha256 bytes; do
+            if [ ! -f "${d_item_root}/${d_field}" ]; then
+                report_exit "refusal" "schema-invalid" "Desktop artifact member is missing $d_field"
+            fi
+        done
+        d_item_name=$(read_plain_value "${d_item_root}/path")
+        d_item_name=${d_item_name%x}
+        d_item_sha=$(read_plain_value "${d_item_root}/sha256")
+        d_item_sha=${d_item_sha%x}
+        d_item_bytes=$(read_plain_value "${d_item_root}/bytes")
+        d_item_bytes=${d_item_bytes%x}
+        case "$d_item_sha" in
+            *[!0123456789abcdef]*) report_exit "refusal" "schema-invalid" "Desktop artifact digest is invalid" ;;
+        esac
+        if [ "${#d_item_sha}" -ne 64 ]; then
+            report_exit "refusal" "schema-invalid" "Desktop artifact digest is invalid"
+        fi
+        if [ "$d_item_name" = "$d_selected_name" ]; then
+            if [ "$d_selected_matches" -ne 0 ]; then
+                report_exit "refusal" "schema-invalid" "Desktop native manifest contains duplicate selected artifacts"
+            fi
+            d_selected_matches=$((d_selected_matches + 1))
+            if [ "$d_item_sha" != "$d_selected_sha" ] || [ "$d_item_bytes" != "$d_selected_bytes" ]; then
+                report_exit "refusal" "release-coherence" "Desktop native artifact does not match the selected platform entry"
+            fi
+        fi
+        d_index=$((d_index + 1))
+    done
+    if [ "$d_selected_matches" -eq 0 ]; then
+        report_exit "refusal" "release-coherence" "Desktop native manifest is missing the selected artifact"
     fi
 }
 
@@ -1580,15 +1735,25 @@ main() {
         esac
     done
 
-    # 11. Acquire locks
+    # 11. Preflight Desktop native authority before dry-run success, locks, or payload work.
+    for comp in $SELECTED_COMPONENTS; do
+        case "$comp" in
+            desktop)
+                preflight_desktop_authority
+                break
+                ;;
+        esac
+    done
+
+    # 12. Acquire locks
     acquire_installer_locks
 
-    # 12. Handle uninstall
+    # 13. Handle uninstall
     if [ "$OPT_UNINSTALL" -eq 1 ]; then
         run_uninstall
     fi
 
-    # 13. Handle dry-run
+    # 14. Handle dry-run
     if [ "$OPT_DRY_RUN" -eq 1 ]; then
         report_exit "success" "dry-run-completed" "Dry run completed successfully"
     fi

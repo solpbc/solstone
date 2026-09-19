@@ -204,4 +204,10 @@ def setup_test_release_server(
         if authority_file.name.endswith((".manifest.json", ".manifest.json.minisig", ".release", ".sha256")):
             shutil.copy2(authority_file, ver_dir / authority_file.name)
 
+    # Desktop's signed producer manifest is also verified by the orchestrator
+    # before payload work, so publish the exact authority pair beside platform.json.
+    for authority_file in native_dirs["desktop"].glob("*.rust-release-manifest.json*"):
+        if authority_file.is_file():
+            shutil.copy2(authority_file, ver_dir / authority_file.name)
+
     return server, server_root
