@@ -117,6 +117,66 @@ class TestInstallTreeLifecycle(unittest.TestCase):
             args.extend(extra)
         return subprocess.run(args, capture_output=True, text=True, env=env or self.env)
 
+    def test_wrapped_desktop_rejects_symlinked_installed_path(self):
+        with ephemeral_keypair("wrapped desktop") as (sec, pub, pin):
+            server, installer = self.build_release("wrapped", sec, pub, pin, "2.0.0", "2.0.3")
+            try:
+                result = self.run_install(installer, "desktop")
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                public = self.prefix / "bin/solstone-linux"
+                executable = public.resolve()
+                self.assertEqual(executable.parent.parent.name, "solstone-linux-2.0.3-linux-x86_64")
+                self.assertIn(b"executable_relpath=solstone-linux-2.0.3-linux-x86_64/bin/solstone-linux", self.receipt.read_bytes())
+                self.assertEqual(subprocess.run([str(public), "--version"], capture_output=True, text=True, check=True).stdout.strip(), "2.0.3")
+                before = self.receipt.read_bytes()
+                for path in (executable.parent.parent, executable.parent, executable):
+                    with self.subTest(path=path.name):
+                        outside = self.work_dir / "outside"
+                        path.rename(outside)
+                        path.symlink_to(outside, target_is_directory=outside.is_dir())
+                        try:
+                            for operation in ("--upgrade", "--uninstall"):
+                                refused = self.run_install(installer, "desktop", [operation])
+                                self.assertNotEqual(refused.returncode, 0)
+                                self.assertEqual(json.loads(refused.stdout)["root_code"], "ownership-unknown")
+                                self.assertEqual(self.receipt.read_bytes(), before)
+                                self.assertTrue(outside.exists())
+                        finally:
+                            path.unlink()
+                            outside.rename(path)
+                again = self.run_install(installer, "desktop", ["--upgrade"])
+                self.assertEqual(again.returncode, 0, again.stdout + again.stderr)
+                self.assertEqual(json.loads(again.stdout)["components"]["desktop"]["status"], "unchanged")
+            finally:
+                server.stop()
+
+    def test_noncanonical_desktop_wrapper_preserves_prior_install(self):
+        from unittest.mock import patch
+        from tools.fixture_builder import create_tiny_tar
+
+        def noncanonical_tar(path, files):
+            if path.name.startswith("solstone-linux-"):
+                files = {"unexpected/" + name.split("/", 1)[1]: data for name, data in files.items()}
+            return create_tiny_tar(path, files)
+
+        with ephemeral_keypair("unexpected desktop wrapper") as (sec, pub, pin):
+            old_server, installer = self.build_release("old-wrapper", sec, pub, pin, "2.0.0", "2.0.3")
+            with patch("tools.fixture_builder.create_tiny_tar", side_effect=noncanonical_tar):
+                new_server, _ = self.build_release("new-wrapper", sec, pub, pin, "2.0.1", "2.0.4")
+            try:
+                installed = self.run_install(installer, "desktop")
+                self.assertEqual(installed.returncode, 0, installed.stdout + installed.stderr)
+                public = self.prefix / "bin/solstone-linux"
+                before = self.receipt.read_bytes(), public.read_bytes(), os.readlink(public)
+                installer = self.merge_release(new_server, old_server, "2.0.1", pub, pin)
+                refused = self.run_install(installer, "desktop", ["--upgrade"])
+                self.assertNotEqual(refused.returncode, 0)
+                self.assertEqual(json.loads(refused.stdout)["root_code"], "executable-missing")
+                self.assertEqual((self.receipt.read_bytes(), public.read_bytes(), os.readlink(public)), before)
+            finally:
+                old_server.stop()
+                new_server.stop()
+
     def test_uninstall_preview_preserves_installed_tree(self):
         with ephemeral_keypair("preview tree") as (sec, pub, pin):
             server, installer = self.build_release("preview", sec, pub, pin, "2.0.0", "2.0.3")

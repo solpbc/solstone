@@ -2106,6 +2106,30 @@ global_receipt_matches_current() {
     return 0
 }
 
+# Keep the accepted layouts explicit. Desktop archives include their release root.
+app_tree_relpath_valid() {
+    atr_role="$1" atr_version="$2" atr_arch="$3" atr_name="$4" atr_rel="$5"
+    case "$atr_version" in ''|*[!A-Za-z0-9.+-]*) return 1 ;; esac
+    case "$atr_arch" in x86_64|aarch64) ;; *) return 1 ;; esac
+    case "$atr_rel" in
+        "bin/${atr_name}"|"usr/bin/${atr_name}"|"${atr_name}") return 0 ;;
+        "solstone-linux-${atr_version}-linux-${atr_arch}/bin/${atr_name}") [ "$atr_role" = desktop ] ;;
+        *) return 1 ;;
+    esac
+}
+
+app_tree_path_unlinked() {
+    atp_root="$1" atp_rel="$2"
+    [ ! -L "$atp_root" ] || return 1
+    # Called only after the relative path has passed the explicit layout allowlist.
+    while :; do
+        atp_part=${atp_rel%%/*}
+        atp_root="${atp_root}/${atp_part}"
+        [ ! -L "$atp_root" ] || return 1
+        case "$atp_rel" in */*) atp_rel=${atp_rel#*/} ;; *) return 0 ;; esac
+    done
+}
+
 tree_component_converged() {
     tc_component="$1"
     tc_manifest_dir="$2"
@@ -2130,10 +2154,8 @@ tree_component_converged() {
     tc_current="${OPT_PREFIX}/opt/solstone/${tc_component}/current"
     tc_public="${OPT_PREFIX}/bin/${tc_exec_name}"
     tc_rel=$(receipt_value "$tc_receipt" "$tc_section" executable_relpath 2>/dev/null || true)
-    case "$tc_rel" in
-        "bin/${tc_exec_name}"|"usr/bin/${tc_exec_name}"|"${tc_exec_name}") ;;
-        *) return 1 ;;
-    esac
+    app_tree_relpath_valid "$tc_component" "$tc_version" "$HOST_ARCH" "$tc_exec_name" "$tc_rel" || return 1
+    app_tree_path_unlinked "${OPT_PREFIX}/opt/solstone/${tc_component}/${tc_current_target}" "$tc_rel" || return 1
 
     [ "$(receipt_value "$tc_receipt" "$tc_section" role 2>/dev/null || true)" = "$tc_component" ] || return 1
     [ "$(receipt_value "$tc_receipt" "$tc_section" lane 2>/dev/null || true)" = "$OPT_LANE" ] || return 1
@@ -2295,12 +2317,15 @@ tree_component_authority() {
             tca_name=$(cat "${manifest_dir}/components/${tca_component}/arches/${HOST_ARCH}/tree/executable/name")
             tca_root="${OPT_PREFIX}/opt/solstone/${tca_component}"
             case "$tca_target" in ''|*/*|.|..) report_exit "refusal" "ownership-unknown" "Tree receipt for $tca_component contains an unsafe target" ;; esac
-            case "$tca_rel" in "bin/${tca_name}"|"usr/bin/${tca_name}"|"${tca_name}") ;; *) report_exit "refusal" "ownership-unknown" "Tree receipt for $tca_component contains an unsafe executable path" ;; esac
+            app_tree_relpath_valid "$tca_component" "$tca_version" "$tca_arch" "$tca_name" "$tca_rel" \
+                || report_exit "refusal" "ownership-unknown" "Tree receipt for $tca_component contains an unsafe executable path"
             if [ "$tca_current" != "${tca_root}/current" ] || [ "$tca_public" != "${OPT_PREFIX}/bin/${tca_name}" ]; then
                 report_exit "refusal" "ownership-unknown" "Tree receipt for $tca_component leaves its owned paths"
             fi
             tca_dest="${tca_root}/${tca_target}"
             tca_exec="${tca_dest}/${tca_rel}"
+            app_tree_path_unlinked "$tca_dest" "$tca_rel" \
+                || report_exit "refusal" "ownership-unknown" "Executable for $tca_component is not owned"
             tca_present=0
             for tca_path in "$tca_current" "$tca_public" "$tca_dest" "$tca_exec"; do
                 if [ -e "$tca_path" ] || [ -L "$tca_path" ]; then tca_present=$((tca_present + 1)); fi
@@ -2878,8 +2903,17 @@ run_tree_component() {
             exec_path="${comp_dest}/bin/${comp_exec_name}"
             [ ! -f "$exec_path" ] && exec_path="${comp_dest}/usr/bin/${comp_exec_name}"
             [ ! -f "$exec_path" ] && exec_path="${comp_dest}/${comp_exec_name}"
+            if [ ! -f "$exec_path" ] && [ "$comp" = desktop ]; then
+                comp_wrapper=${comp_archive_fn%.tar.gz}
+                exec_path="${comp_dest}/${comp_wrapper}/bin/${comp_exec_name}"
+            fi
             if [ ! -f "$exec_path" ]; then
                 report_exit "refusal" "executable-missing" "Executable $comp_exec_name not found in unpacked tree"
+            fi
+            exec_relpath=${exec_path#"${comp_dest}/"}
+            if ! app_tree_relpath_valid "$comp" "$comp_version" "$HOST_ARCH" "$comp_exec_name" "$exec_relpath" \
+                || ! app_tree_path_unlinked "$comp_dest" "$exec_relpath"; then
+                report_exit "refusal" "ownership-unknown" "Executable for $comp is not owned"
             fi
             verify_sha256 "$exec_path" "$comp_exec_sha"
             chmod 0755 "$exec_path" || report_exit "refusal" "target-write-failed" "Could not make $comp_exec_name executable"

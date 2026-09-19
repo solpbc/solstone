@@ -199,7 +199,7 @@ def build_tiny_natives(
             "esac\n"
             f"echo {d_runtime_version}\n{marker_line}"
         ).encode("utf-8")
-        d_tar = create_tiny_tar(dirs["desktop"] / f"solstone-linux-{d_version}-linux-x86_64.tar.gz", {"usr/bin/solstone-linux": desktop_exe})
+        d_tar = create_tiny_tar(dirs["desktop"] / f"solstone-linux-{d_version}-linux-x86_64.tar.gz", {f"solstone-linux-{d_version}-linux-x86_64/bin/solstone-linux": desktop_exe})
         d_deb = create_tiny_deb(dirs["desktop"] / f"solstone-linux_{d_version}-1_amd64.deb", "solstone-linux", d_version, "amd64", "solstone-linux", desktop_exe)
         d_rpm = create_tiny_synthetic_rpm(dirs["desktop"] / f"solstone-linux-{d_version}-1.x86_64.rpm", "solstone-linux", d_version, "x86_64", "solstone-linux", desktop_exe)
 
