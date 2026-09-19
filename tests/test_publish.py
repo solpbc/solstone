@@ -217,7 +217,7 @@ class TestPublish(unittest.TestCase):
         )
         self.assertTrue(report.latest_promoted)
         self.assertEqual(twin_flag, [True])
-        self.assertEqual(dest.ledger[0].method, "put_if_absent")
+        self.assertEqual(dest.ledger[0].method, "get")
         self.assertFalse(dest.ledger[0].key.endswith("/latest"))
         self.assertFalse(dest.ledger[0].key.endswith("/platform.json"))
 
@@ -237,9 +237,9 @@ class TestPublish(unittest.TestCase):
         self.assertEqual(report.lane, "release")
         self.assertTrue(report.latest_promoted)
 
-        # Check ledger order: first op is put_if_absent on native or bootstrap, not latest and not platform.json
+        # Check ledger order: exact-object preflight comes before mutation.
         first_op = dest.ledger[0]
-        self.assertEqual(first_op.method, "put_if_absent")
+        self.assertEqual(first_op.method, "get")
         self.assertFalse(first_op.key.endswith("/latest"))
         self.assertFalse(first_op.key.endswith("/platform.json"))
         bootstrap_put = next(
@@ -269,6 +269,8 @@ class TestPublish(unittest.TestCase):
         # Verify no compare_and_swap in ledger
         cas_ops = [op for op in dest.ledger if op.method == "compare_and_swap"]
         self.assertEqual(len(cas_ops), 0)
+        put_ops = [op for op in dest.ledger if op.method == "put_if_absent"]
+        self.assertEqual(len(put_ops), 0)
 
     def test_noncanonical_signed_platform_manifest_refuses(self):
         rel = self._setup_fixture_release("2.0.3")

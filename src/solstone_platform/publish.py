@@ -67,8 +67,30 @@ def _claim_immutable_object(
     content_type: str,
     cache_control: str,
 ) -> None:
-    """Claim an immutable release object with idempotent 412 verification."""
+    """Reuse an exact immutable object or claim its absent key conditionally."""
     get_witness().record("dest_key_select", key)
+    existing = dest.get(key)
+    if existing.is_ok():
+        if existing.body is None:
+            raise Refusal(PUBLISH_INDETERMINATE, f"existing object has no readable body on {key}")
+        if existing.body != body:
+            raise Refusal(
+                SAME_VERSION_DIFFERENT_BYTES,
+                f"destination already contains different bytes for immutable key {key}",
+            )
+        if (existing.content_type and existing.content_type != content_type) or (
+            existing.cache_control and existing.cache_control != cache_control
+        ):
+            raise Refusal(
+                RELEASE_COHERENCE,
+                f"metadata mismatch on existing object {key}: "
+                f"content-type ({existing.content_type} vs {content_type}), "
+                f"cache-control ({existing.cache_control} vs {cache_control})",
+            )
+        return
+    if not existing.is_absent():
+        raise Refusal(PUBLISH_INDETERMINATE, f"preflight read failed on immutable object {key}: {existing.status}")
+
     put_res = dest.put_if_absent(
         key=key,
         body=body,
