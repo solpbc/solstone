@@ -9,6 +9,7 @@ import unittest
 from solstone_platform.canonical import parse_json_strict
 from solstone_platform.destination import ResultStatus
 from solstone_platform.r2 import (
+    R2_READ_CHUNK_BYTES,
     R2_REQUEST_TIMEOUT_SECONDS,
     R2Config,
     R2Destination,
@@ -187,6 +188,50 @@ class TestSigV4(unittest.TestCase):
         self.dest._send_request("GET", "solstone/release/latest")
         self.assertEqual(opener.timeout, R2_REQUEST_TIMEOUT_SECONDS)
         self.assertEqual(opener.timeout, 900)
+
+    def test_immutable_get_assembles_bounded_ranges(self):
+        class Response:
+            def __init__(self, body, start, end, total):
+                self.body = body
+                self.status = 206
+                self.headers = {
+                    "Content-Length": str(len(body)),
+                    "Content-Range": f"bytes {start}-{end}/{total}",
+                    "ETag": '"stable"',
+                    "Content-Type": "application/octet-stream",
+                    "Cache-Control": "public, max-age=31536000, immutable",
+                }
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, traceback):
+                return False
+
+            def read(self):
+                return self.body
+
+        class RangedOpener:
+            def __init__(self, payload):
+                self.payload = payload
+                self.requests = []
+
+            def open(self, request, timeout):
+                self.requests.append(request)
+                range_header = request.get_header("Range")
+                start_text, end_text = range_header.removeprefix("bytes=").split("-", 1)
+                start = int(start_text)
+                end = min(int(end_text), len(self.payload) - 1)
+                return Response(self.payload[start : end + 1], start, end, len(self.payload))
+
+        payload = b"a" * (R2_READ_CHUNK_BYTES + 7)
+        opener = RangedOpener(payload)
+        self.dest.opener = opener
+        result = self.dest.get("solstone/release/2.0.0/large.tar.gz")
+        self.assertTrue(result.is_ok())
+        self.assertEqual(result.body, payload)
+        self.assertEqual(len(opener.requests), 2)
+        self.assertEqual(opener.requests[1].get_header("If-match"), '"stable"')
 
 
 

@@ -37,6 +37,7 @@ from solstone_platform.refusals import (
 )
 
 R2_REQUEST_TIMEOUT_SECONDS = 900
+R2_READ_CHUNK_BYTES = 32 * 1024 * 1024
 
 
 def _sign(key: bytes, msg: str) -> bytes:
@@ -259,9 +260,60 @@ class R2Destination:
             raise Refusal(HTTP_TIMEOUT, f"network error connecting to destination: {redact_sensitive_text(str(err))}") from err
 
     def get(self, key: str) -> GetResult:
-        status, headers, body = self._send_request("GET", key)
+        request_headers: dict[str, str] = {}
+        if not key.endswith("/latest"):
+            request_headers["Range"] = f"bytes=0-{R2_READ_CHUNK_BYTES - 1}"
+        status, headers, body = self._send_request("GET", key, headers=request_headers)
         ct = headers.get("content-type")
         cc = headers.get("cache-control")
+        if status == 206:
+            etag = headers.get("etag")
+            if not etag or not etag.strip():
+                return GetResult(status=ResultStatus.MALFORMED_ETAG, detail="missing or empty ETag in 206 response")
+            content_range = headers.get("content-range", "")
+            try:
+                unit_and_interval, total_text = content_range.split("/", 1)
+                unit, interval = unit_and_interval.split(" ", 1)
+                start_text, end_text = interval.split("-", 1)
+                start = int(start_text)
+                end = int(end_text)
+                total = int(total_text)
+            except (ValueError, TypeError):
+                raise Refusal(HTTP_TRUNCATED_2XX, "malformed Content-Range in ranged GET")
+            if unit != "bytes" or start != 0 or end < start or end >= total or len(body) != end - start + 1:
+                raise Refusal(HTTP_TRUNCATED_2XX, "incoherent Content-Range in ranged GET")
+
+            assembled = bytearray(body)
+            while len(assembled) < total:
+                range_start = len(assembled)
+                range_end = min(range_start + R2_READ_CHUNK_BYTES - 1, total - 1)
+                part_status, part_headers, part_body = self._send_request(
+                    "GET",
+                    key,
+                    headers={
+                        "Range": f"bytes={range_start}-{range_end}",
+                        "If-Match": etag,
+                    },
+                )
+                if part_status != 206:
+                    return GetResult(status=ResultStatus.INDETERMINATE, detail=f"HTTP {part_status} during ranged GET")
+                if part_headers.get("etag") != etag:
+                    return GetResult(status=ResultStatus.INDETERMINATE, detail="ETag changed during ranged GET")
+                part_range = part_headers.get("content-range", "")
+                expected_range = f"bytes {range_start}-{range_end}/{total}"
+                if part_range != expected_range or len(part_body) != range_end - range_start + 1:
+                    raise Refusal(HTTP_TRUNCATED_2XX, "incoherent continuation in ranged GET")
+                if part_headers.get("content-type") != ct or part_headers.get("cache-control") != cc:
+                    return GetResult(status=ResultStatus.INDETERMINATE, detail="metadata changed during ranged GET")
+                assembled.extend(part_body)
+
+            return GetResult(
+                status=ResultStatus.OK,
+                body=bytes(assembled),
+                etag=etag,
+                content_type=ct,
+                cache_control=cc,
+            )
         if status == 200:
             etag = headers.get("etag")
             if not etag or not etag.strip():
