@@ -162,6 +162,11 @@ def build_tiny_natives(
     keypair_comment: str = "fixture native test key",
     bootstrap_script: bytes | None = None,
     min_bootstrap_revision: int = 2,
+    native_version: str = "2.0.3",
+    desktop_version: str | None = None,
+    tmux_version: str | None = None,
+    desktop_runtime_version: str | None = None,
+    native_build_marker: str = "",
 ) -> tuple[PinSet, dict[str, Path]]:
     """Build tiny, coherent synthetic natives for journal, desktop, and tmux."""
     dirs = {
@@ -180,15 +185,20 @@ def build_tiny_natives(
         pinset = PinSet(journal=j_pin, desktop=d_pin, tmux=t_pin)
 
         # 1. Desktop
-        d_tar = create_tiny_tar(dirs["desktop"] / "solstone-linux-2.0.3-linux-x86_64.tar.gz", {"usr/bin/solstone-linux": b"#!/bin/sh\necho 2.0.3\n"})
-        d_deb = create_tiny_deb(dirs["desktop"] / "solstone-linux_2.0.3-1_amd64.deb", "solstone-linux", "2.0.3", "amd64", "solstone-linux", b"#!/bin/sh\necho 2.0.3\n")
-        d_rpm = create_tiny_synthetic_rpm(dirs["desktop"] / "solstone-linux-2.0.3-1.x86_64.rpm", "solstone-linux", "2.0.3", "x86_64", "solstone-linux", b"#!/bin/sh\necho 2.0.3\n")
+        d_version = desktop_version or native_version
+        t_version = tmux_version or native_version
+        d_runtime_version = desktop_runtime_version or d_version
+        marker_line = f"# {native_build_marker}\n" if native_build_marker else ""
+        desktop_exe = f"#!/bin/sh\necho {d_runtime_version}\n{marker_line}".encode("utf-8")
+        d_tar = create_tiny_tar(dirs["desktop"] / f"solstone-linux-{d_version}-linux-x86_64.tar.gz", {"usr/bin/solstone-linux": desktop_exe})
+        d_deb = create_tiny_deb(dirs["desktop"] / f"solstone-linux_{d_version}-1_amd64.deb", "solstone-linux", d_version, "amd64", "solstone-linux", desktop_exe)
+        d_rpm = create_tiny_synthetic_rpm(dirs["desktop"] / f"solstone-linux-{d_version}-1.x86_64.rpm", "solstone-linux", d_version, "x86_64", "solstone-linux", desktop_exe)
 
 
         d_manifest = {
             "schema_version": 1,
             "product": "solstone-linux",
-            "version": "2.0.3",
+            "version": d_version,
             "source_commit": "3a6bded610425b52a8ac875ae364d23f6e70ce7f",
             "source_dirty": False,
             "cargo_lock_sha256": "0" * 64,
@@ -198,12 +208,12 @@ def build_tiny_natives(
             "dependency_policy": {},
             "active_exceptions": [],
             "artifacts": [
-                {"path": "solstone-linux-2.0.3-linux-x86_64.tar.gz", "sha256": hashlib.sha256(d_tar).hexdigest(), "bytes": len(d_tar)},
-                {"path": "solstone-linux_2.0.3-1_amd64.deb", "sha256": hashlib.sha256(d_deb).hexdigest(), "bytes": len(d_deb)},
-                {"path": "solstone-linux-2.0.3-1.x86_64.rpm", "sha256": hashlib.sha256(d_rpm).hexdigest(), "bytes": len(d_rpm)},
+                {"path": f"solstone-linux-{d_version}-linux-x86_64.tar.gz", "sha256": hashlib.sha256(d_tar).hexdigest(), "bytes": len(d_tar)},
+                {"path": f"solstone-linux_{d_version}-1_amd64.deb", "sha256": hashlib.sha256(d_deb).hexdigest(), "bytes": len(d_deb)},
+                {"path": f"solstone-linux-{d_version}-1.x86_64.rpm", "sha256": hashlib.sha256(d_rpm).hexdigest(), "bytes": len(d_rpm)},
             ],
         }
-        d_m_path = dirs["desktop"] / "solstone-linux-2.0.3-linux-x86_64.rust-release-manifest.json"
+        d_m_path = dirs["desktop"] / f"solstone-linux-{d_version}-linux-x86_64.rust-release-manifest.json"
         d_m_bytes = canonical_json_bytes(d_manifest)
         d_m_path.write_bytes(d_m_bytes)
         subprocess.run(["minisign", "-S", "-W", "-s", str(d_sec), "-m", str(d_m_path), "-x", str(d_m_path.with_suffix(".json.minisig")), "-t", "solstone-linux release manifest"], check=True)
@@ -211,10 +221,10 @@ def build_tiny_natives(
         # 2. Tmux
         t_sums = []
         for arch, deb_arch, rpm_arch, musl_t in [("x86_64", "amd64", "x86_64", "x86_64-unknown-linux-musl"), ("aarch64", "arm64", "aarch64", "aarch64-unknown-linux-musl")]:
-            tmux_exe = f"#!/bin/sh\necho 2.0.3-{arch}\n".encode("utf-8")
-            t_tar = create_tiny_tar(dirs["tmux"] / f"solstone-tmux-2.0.3-{arch}-linux.tar.gz", {"usr/bin/solstone-tmux": tmux_exe})
-            t_deb = create_tiny_deb(dirs["tmux"] / f"solstone-tmux_2.0.3_{deb_arch}.deb", "solstone-tmux", "2.0.3", deb_arch, "solstone-tmux", tmux_exe)
-            t_rpm = create_tiny_synthetic_rpm(dirs["tmux"] / f"solstone-tmux-2.0.3-1.{rpm_arch}.rpm", "solstone-tmux", "2.0.3", rpm_arch, "solstone-tmux", tmux_exe)
+            tmux_exe = f"#!/bin/sh\necho {t_version}-{arch}\n{marker_line}".encode("utf-8")
+            t_tar = create_tiny_tar(dirs["tmux"] / f"solstone-tmux-{t_version}-{arch}-linux.tar.gz", {"usr/bin/solstone-tmux": tmux_exe})
+            t_deb = create_tiny_deb(dirs["tmux"] / f"solstone-tmux_{t_version}_{deb_arch}.deb", "solstone-tmux", t_version, deb_arch, "solstone-tmux", tmux_exe)
+            t_rpm = create_tiny_synthetic_rpm(dirs["tmux"] / f"solstone-tmux-{t_version}-1.{rpm_arch}.rpm", "solstone-tmux", t_version, rpm_arch, "solstone-tmux", tmux_exe)
 
             tar_sha = hashlib.sha256(t_tar).hexdigest()
             deb_sha = hashlib.sha256(t_deb).hexdigest()
@@ -222,28 +232,28 @@ def build_tiny_natives(
 
             t_target = {
                 "schema_version": 1,
-                "product_version": "2.0.3",
+                "product_version": t_version,
                 "source_commit": "9a0009469a76977f1bb0a0e0fca762271d34b517",
                 "rust_target": musl_t,
                 "rustc_vv": "rustc 1.97.1",
                 "executable": {"name": "solstone-tmux", "sha256": hashlib.sha256(tmux_exe).hexdigest()},
                 "artifacts": [
-                    {"name": f"solstone-tmux-2.0.3-{arch}-linux.tar.gz", "sha256": tar_sha},
-                    {"name": f"solstone-tmux_2.0.3_{deb_arch}.deb", "sha256": deb_sha},
-                    {"name": f"solstone-tmux-2.0.3-1.{rpm_arch}.rpm", "sha256": rpm_sha},
+                    {"name": f"solstone-tmux-{t_version}-{arch}-linux.tar.gz", "sha256": tar_sha},
+                    {"name": f"solstone-tmux_{t_version}_{deb_arch}.deb", "sha256": deb_sha},
+                    {"name": f"solstone-tmux-{t_version}-1.{rpm_arch}.rpm", "sha256": rpm_sha},
                 ],
             }
-            target_path = dirs["tmux"] / f"solstone-tmux-2.0.3-{musl_t}.target.json"
+            target_path = dirs["tmux"] / f"solstone-tmux-{t_version}-{musl_t}.target.json"
             target_bytes = canonical_json_bytes(t_target)
             target_path.write_bytes(target_bytes)
             t_sums.append(f"{hashlib.sha256(target_bytes).hexdigest()}  {target_path.name}")
-            t_sums.append(f"{tar_sha}  solstone-tmux-2.0.3-{arch}-linux.tar.gz")
-            t_sums.append(f"{deb_sha}  solstone-tmux_2.0.3_{deb_arch}.deb")
-            t_sums.append(f"{rpm_sha}  solstone-tmux-2.0.3-1.{rpm_arch}.rpm")
+            t_sums.append(f"{tar_sha}  solstone-tmux-{t_version}-{arch}-linux.tar.gz")
+            t_sums.append(f"{deb_sha}  solstone-tmux_{t_version}_{deb_arch}.deb")
+            t_sums.append(f"{rpm_sha}  solstone-tmux-{t_version}-1.{rpm_arch}.rpm")
 
         sums_path = dirs["tmux"] / "SHA256SUMS"
         sums_path.write_text("\n".join(t_sums) + "\n", encoding="utf-8")
-        subprocess.run(["minisign", "-S", "-W", "-s", str(t_sec), "-m", str(sums_path), "-x", str(dirs["tmux"] / "SHA256SUMS.minisig"), "-t", "solstone-tmux 2.0.3 SHA256SUMS"], check=True)
+        subprocess.run(["minisign", "-S", "-W", "-s", str(t_sec), "-m", str(sums_path), "-x", str(dirs["tmux"] / "SHA256SUMS.minisig"), "-t", f"solstone-tmux {t_version} SHA256SUMS"], check=True)
 
         if bootstrap_script is not None:
             boot_script = bootstrap_script

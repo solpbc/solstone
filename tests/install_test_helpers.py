@@ -105,6 +105,11 @@ def setup_test_release_server(
     corrupt_manifest: bool = False,
     corrupt_signature: bool = False,
     duplicate_key: bool = False,
+    native_version: str = "2.0.3",
+    desktop_version: str | None = None,
+    tmux_version: str | None = None,
+    desktop_runtime_version: str | None = None,
+    native_build_marker: str = "",
 ) -> tuple[LoopbackServer, Path]:
     server_root = work_dir / "www"
     server_root.mkdir(parents=True, exist_ok=True)
@@ -115,6 +120,11 @@ def setup_test_release_server(
         target_dir=work_dir / "natives",
         bootstrap_script=v2_boot,
         min_bootstrap_revision=bootstrap_revision,
+        native_version=native_version,
+        desktop_version=desktop_version,
+        tmux_version=tmux_version,
+        desktop_runtime_version=desktop_runtime_version,
+        native_build_marker=native_build_marker,
     )
 
     server = LoopbackServer(server_root)

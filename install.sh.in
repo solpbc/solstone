@@ -45,6 +45,7 @@ OPT_NOTICES_JSON="[]"
 
 SCRATCH_DIR=""
 SELECTED_COMPONENTS=""
+UNCHANGED_COMPONENTS=""
 RESOLVED_VERSION=""
 HOST_ARCH=""
 FETCH_TOOL=""
@@ -84,7 +85,14 @@ report_exit() {
                 c_role="$comp"
                 c_status="succeeded"
                 c_phase="complete"
-                [ "$status" != "success" ] && c_status="failed" && c_phase="failed"
+                c_unchanged=0
+                case " $UNCHANGED_COMPONENTS " in
+                    *" $comp "*) c_status="unchanged"; c_unchanged=1 ;;
+                esac
+                if [ "$status" != "success" ] && [ "$c_unchanged" -eq 0 ]; then
+                    c_status="failed"
+                    c_phase="failed"
+                fi
                 c_block="\"$comp\":{\"role\":\"$c_role\",\"status\":\"$c_status\",\"route\":\"$OPT_ROUTE\",\"phase\":\"$c_phase\"}"
                 if [ $first_c -eq 1 ]; then
                     comp_json="$c_block"
@@ -1315,12 +1323,12 @@ acquire_installer_locks() {
 }
 
 interactive_selection_menu() {
-    if [ ! -t 0 ] || [ "$OPT_NON_INTERACTIVE" -eq 1 ]; then
+    if [ "$OPT_NON_INTERACTIVE" -eq 1 ] || [ "$OPT_JSON" -eq 1 ]; then
         report_exit "refusal" "no-selection" "No components selected in non-interactive mode (use --components or --all)"
     fi
 
-    if [ ! -r /dev/tty ]; then
-        report_exit "refusal" "no-selection" "Interactive terminal /dev/tty is not readable"
+    if ! sh -c 'test -t 0' </dev/tty >/dev/null 2>&1; then
+        report_exit "refusal" "no-selection" "interactive terminal /dev/tty is not readable (use --components or --all)"
     fi
 
     printf "\nSolstone Platform Component Selection:\n" > /dev/tty
@@ -1348,6 +1356,252 @@ interactive_selection_menu() {
             report_exit "refusal" "invalid-selection" "Invalid component selection '$choice' (use --components <components>)"
             ;;
     esac
+}
+
+receipt_value() {
+    rv_file="$1"
+    rv_section="$2"
+    rv_key="$3"
+    awk -v wanted="[$rv_section]" -v key="$rv_key" '
+        /^\[/ {
+            active = ($0 == wanted)
+            if (active) sections++
+            next
+        }
+        active && index($0, key "=") == 1 {
+            count++
+            value = substr($0, length(key) + 2)
+        }
+        END {
+            if (sections != 1 || count != 1) exit 1
+            print value
+        }
+    ' "$rv_file"
+}
+
+append_receipt_section() {
+    ars_file="$1"
+    ars_section="$2"
+    ars_output="$3"
+    awk -v wanted="[$ars_section]" '
+        /^\[/ {
+            if (active && $0 != wanted) exit
+            active = ($0 == wanted)
+        }
+        active { print }
+    ' "$ars_file" >> "$ars_output"
+}
+
+component_selected() {
+    cs_wanted="$1"
+    for cs_component in $SELECTED_COMPONENTS; do
+        [ "$cs_component" = "$cs_wanted" ] && return 0
+    done
+    return 1
+}
+
+record_pointer_state() {
+    rp_name="$1"
+    rp_path="$2"
+    rp_state_dir="${SCRATCH_DIR}/pointer-rollback"
+    mkdir -p "$rp_state_dir" || report_exit "refusal" "target-write-failed" "Could not stage pointer rollback state"
+    if [ -L "$rp_path" ]; then
+        {
+            printf "symlink\n"
+            readlink "$rp_path"
+        } > "${rp_state_dir}/${rp_name}" || report_exit "refusal" "target-read-failed" "Could not record existing pointer $rp_path"
+    elif [ -e "$rp_path" ]; then
+        printf "other\n" > "${rp_state_dir}/${rp_name}" || report_exit "refusal" "target-read-failed" "Could not record existing path $rp_path"
+    else
+        printf "absent\n" > "${rp_state_dir}/${rp_name}" || report_exit "refusal" "target-read-failed" "Could not record absent pointer $rp_path"
+    fi
+}
+
+restore_pointer_state() {
+    rs_name="$1"
+    rs_path="$2"
+    rs_state="${SCRATCH_DIR}/pointer-rollback/${rs_name}"
+    [ -f "$rs_state" ] || return 0
+    rs_kind=$(sed -n '1p' "$rs_state")
+    case "$rs_kind" in
+        symlink)
+            rs_target=$(sed -n '2p' "$rs_state")
+            rs_tmp="${rs_path}.rollback.$$"
+            ln -s "$rs_target" "$rs_tmp" || return 1
+            mv -Tf "$rs_tmp" "$rs_path" || {
+                rm -f "$rs_tmp" 2>/dev/null || true
+                return 1
+            }
+            ;;
+        absent)
+            if [ -L "$rs_path" ]; then
+                rm -f "$rs_path" || return 1
+            elif [ -e "$rs_path" ]; then
+                return 1
+            fi
+            ;;
+        other)
+            [ -e "$rs_path" ] && [ ! -L "$rs_path" ] || return 1
+            ;;
+        *) return 1 ;;
+    esac
+    return 0
+}
+
+rollback_tree_pointers() {
+    rb_failed=0
+    for rb_comp in desktop tmux; do
+        rb_exec_name=$(cat "${SCRATCH_DIR}/manifest/components/${rb_comp}/arches/${HOST_ARCH}/tree/executable/name" 2>/dev/null || true)
+        [ -n "$rb_exec_name" ] || continue
+        restore_pointer_state "${rb_comp}.public" "${OPT_PREFIX}/bin/${rb_exec_name}" || rb_failed=1
+        restore_pointer_state "${rb_comp}.current" "${OPT_PREFIX}/opt/solstone/${rb_comp}/current" || rb_failed=1
+    done
+    [ "$rb_failed" -eq 0 ]
+}
+
+tree_receipt_failure() {
+    trf_message="$1"
+    if ! rollback_tree_pointers; then
+        report_exit "refusal" "rollback-failed" "$trf_message; the prior component pointers could not be restored"
+    fi
+    report_exit "refusal" "receipt-write-failed" "$trf_message; prior component pointers were restored"
+}
+
+handler_state_matches() {
+    hs_component="$1"
+    hs_public_path="$2"
+    hs_config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
+
+    if [ "$hs_component" = "desktop" ]; then
+        hs_service="${hs_config_home}/systemd/user/solstone-desktop.service"
+        hs_autostart="${hs_config_home}/autostart/solstone-desktop.desktop"
+        hs_expected_service="${SCRATCH_DIR}/expected.desktop.service"
+        hs_expected_autostart="${SCRATCH_DIR}/expected.desktop.desktop"
+        cat > "$hs_expected_service" <<EOF
+### SOLSTONE-PLATFORM-MANAGED: desktop-v1 ###
+[Unit]
+Description=Solstone Desktop
+After=graphical-session.target
+
+[Service]
+ExecStart=${hs_public_path}
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
+EOF
+        cat > "$hs_expected_autostart" <<EOF
+[Desktop Entry]
+### SOLSTONE-PLATFORM-MANAGED: desktop-v1 ###
+Type=Application
+Name=Solstone Desktop
+Exec=${hs_public_path}
+Terminal=false
+EOF
+        cmp -s "$hs_service" "$hs_expected_service" || return 1
+        cmp -s "$hs_autostart" "$hs_expected_autostart" || return 1
+    fi
+
+    if [ "$OPT_NO_PATH" -eq 0 ]; then
+        hs_env="${hs_config_home}/solstone/env"
+        hs_expected_env="${SCRATCH_DIR}/expected.env"
+        hs_expected_env_alt="${SCRATCH_DIR}/expected.env.alt"
+        for hs_marker in desktop-v1-path tmux-v1-path; do
+            hs_output="$hs_expected_env"
+            [ "$hs_marker" = "tmux-v1-path" ] && hs_output="$hs_expected_env_alt"
+            cat > "$hs_output" <<EOF
+### SOLSTONE-PLATFORM-MANAGED: ${hs_marker} ###
+case ":\${PATH}:" in
+    *:${OPT_PREFIX}/bin:*) ;;
+    *) export PATH="${OPT_PREFIX}/bin:\${PATH}" ;;
+esac
+EOF
+        done
+        cmp -s "$hs_env" "$hs_expected_env" || cmp -s "$hs_env" "$hs_expected_env_alt" || return 1
+    fi
+    return 0
+}
+
+global_receipt_matches_current() {
+    gr_receipt="$1"
+    gr_verification="minisign"
+    [ "$OPT_SKIP_SIGNATURE" -eq 1 ] && gr_verification="digest-matched; signatures skipped"
+    [ "$(receipt_value "$gr_receipt" solstone schema_version 2>/dev/null || true)" = "1" ] || return 1
+    [ "$(receipt_value "$gr_receipt" solstone platform_version 2>/dev/null || true)" = "$RESOLVED_VERSION" ] || return 1
+    [ "$(receipt_value "$gr_receipt" solstone lane 2>/dev/null || true)" = "$OPT_LANE" ] || return 1
+    [ "$(receipt_value "$gr_receipt" solstone origin 2>/dev/null || true)" = "$OPT_ORIGIN" ] || return 1
+    [ "$(receipt_value "$gr_receipt" solstone route 2>/dev/null || true)" = "tree" ] || return 1
+    [ "$(receipt_value "$gr_receipt" solstone prefix 2>/dev/null || true)" = "$OPT_PREFIX" ] || return 1
+    [ "$(receipt_value "$gr_receipt" solstone arch 2>/dev/null || true)" = "$HOST_ARCH" ] || return 1
+    [ "$(receipt_value "$gr_receipt" solstone verification 2>/dev/null || true)" = "$gr_verification" ] || return 1
+    [ "$(receipt_value "$gr_receipt" solstone installer_revision 2>/dev/null || true)" = "$INSTALLER_REVISION" ] || return 1
+    [ "$(receipt_value "$gr_receipt" solstone phase 2>/dev/null || true)" = "complete" ] || return 1
+    return 0
+}
+
+tree_component_converged() {
+    tc_component="$1"
+    tc_manifest_dir="$2"
+    tc_receipt="$3"
+    [ -f "$tc_receipt" ] || return 1
+
+    tc_verification="minisign"
+    [ "$OPT_SKIP_SIGNATURE" -eq 1 ] && tc_verification="digest-matched; signatures skipped"
+    [ "$(receipt_value "$tc_receipt" solstone schema_version 2>/dev/null || true)" = "1" ] || return 1
+    [ "$(receipt_value "$tc_receipt" solstone route 2>/dev/null || true)" = "tree" ] || return 1
+    [ "$(receipt_value "$tc_receipt" solstone prefix 2>/dev/null || true)" = "$OPT_PREFIX" ] || return 1
+    [ "$(receipt_value "$tc_receipt" solstone arch 2>/dev/null || true)" = "$HOST_ARCH" ] || return 1
+    [ "$(receipt_value "$tc_receipt" solstone phase 2>/dev/null || true)" = "complete" ] || return 1
+
+    tc_section="component:${tc_component}"
+    tc_version=$(cat "${tc_manifest_dir}/components/${tc_component}/version")
+    tc_expected_sha=$(cat "${tc_manifest_dir}/components/${tc_component}/arches/${HOST_ARCH}/tree/executable/sha256")
+    tc_archive_sha=$(cat "${tc_manifest_dir}/components/${tc_component}/arches/${HOST_ARCH}/tree/sha256")
+    tc_digest12=$(printf "%s" "$tc_archive_sha" | cut -c1-12)
+    tc_current_target="${tc_version}-${tc_digest12}"
+    tc_exec_name=$(cat "${tc_manifest_dir}/components/${tc_component}/arches/${HOST_ARCH}/tree/executable/name")
+    tc_current="${OPT_PREFIX}/opt/solstone/${tc_component}/current"
+    tc_public="${OPT_PREFIX}/bin/${tc_exec_name}"
+    tc_rel=$(receipt_value "$tc_receipt" "$tc_section" executable_relpath 2>/dev/null || true)
+    case "$tc_rel" in
+        "bin/${tc_exec_name}"|"usr/bin/${tc_exec_name}"|"${tc_exec_name}") ;;
+        *) return 1 ;;
+    esac
+
+    [ "$(receipt_value "$tc_receipt" "$tc_section" role 2>/dev/null || true)" = "$tc_component" ] || return 1
+    [ "$(receipt_value "$tc_receipt" "$tc_section" lane 2>/dev/null || true)" = "$OPT_LANE" ] || return 1
+    [ "$(receipt_value "$tc_receipt" "$tc_section" origin 2>/dev/null || true)" = "$OPT_ORIGIN" ] || return 1
+    [ "$(receipt_value "$tc_receipt" "$tc_section" route 2>/dev/null || true)" = "tree" ] || return 1
+    [ "$(receipt_value "$tc_receipt" "$tc_section" prefix 2>/dev/null || true)" = "$OPT_PREFIX" ] || return 1
+    [ "$(receipt_value "$tc_receipt" "$tc_section" arch 2>/dev/null || true)" = "$HOST_ARCH" ] || return 1
+    [ "$(receipt_value "$tc_receipt" "$tc_section" version 2>/dev/null || true)" = "$tc_version" ] || return 1
+    [ "$(receipt_value "$tc_receipt" "$tc_section" status 2>/dev/null || true)" = "installed" ] || return 1
+    [ "$(receipt_value "$tc_receipt" "$tc_section" executable_sha256 2>/dev/null || true)" = "$tc_expected_sha" ] || return 1
+    [ "$(receipt_value "$tc_receipt" "$tc_section" current 2>/dev/null || true)" = "$tc_current" ] || return 1
+    [ "$(receipt_value "$tc_receipt" "$tc_section" public_path 2>/dev/null || true)" = "$tc_public" ] || return 1
+    [ "$(receipt_value "$tc_receipt" "$tc_section" current_target 2>/dev/null || true)" = "$tc_current_target" ] || return 1
+    [ "$(receipt_value "$tc_receipt" "$tc_section" verification 2>/dev/null || true)" = "$tc_verification" ] || return 1
+    [ "$(receipt_value "$tc_receipt" "$tc_section" installer_revision 2>/dev/null || true)" = "$INSTALLER_REVISION" ] || return 1
+    [ "$(receipt_value "$tc_receipt" "$tc_section" no_start 2>/dev/null || true)" = "$OPT_NO_START" ] || return 1
+    [ "$(receipt_value "$tc_receipt" "$tc_section" no_path 2>/dev/null || true)" = "$OPT_NO_PATH" ] || return 1
+    [ -L "$tc_current" ] && [ "$(readlink "$tc_current")" = "$tc_current_target" ] || return 1
+    [ -L "$tc_public" ] && [ "$(readlink "$tc_public")" = "${tc_current}/${tc_rel}" ] || return 1
+    tc_exec="${tc_current}/${tc_rel}"
+    [ -x "$tc_exec" ] || return 1
+    tc_actual_sha=$(sha256sum "$tc_exec" | awk '{print $1}')
+    [ "$tc_actual_sha" = "$tc_expected_sha" ] || return 1
+    tc_version_output=$("$tc_exec" --version 2>/dev/null || true)
+    printf "%s\n" "$tc_version_output" | awk -v wanted="$tc_version" '
+        {
+            normalized = $0
+            gsub(/[^0-9.]+/, " ", normalized)
+            count = split(normalized, parts, /[[:space:]]+/)
+            for (i = 1; i <= count; i++) if (parts[i] == wanted) found = 1
+        }
+        END { exit !found }
+    ' || return 1
+    handler_state_matches "$tc_component" "$tc_public" || return 1
+    return 0
 }
 
 parse_args() {
@@ -1460,11 +1714,20 @@ parse_args() {
 run_tree_install() {
     manifest_dir="${SCRATCH_DIR}/manifest"
     receipt_dir="${XDG_DATA_HOME:-$HOME/.local/share}/solstone"
-    mkdir -p "$receipt_dir"
+    mkdir -p "$receipt_dir" || report_exit "refusal" "receipt-write-failed" "Could not create tree receipt directory $receipt_dir"
     receipt_file="${receipt_dir}/install.conf"
+    if [ -L "$receipt_file" ] || { [ -e "$receipt_file" ] && [ ! -f "$receipt_file" ]; }; then
+        report_exit "refusal" "receipt-write-failed" "Tree receipt path $receipt_file is not a regular file"
+    fi
+    receipt_probe="${receipt_dir}/.install.conf.probe.$$"
+    if ! (umask 077 && : > "$receipt_probe") || ! rm -f "$receipt_probe"; then
+        report_exit "refusal" "receipt-write-failed" "Tree receipt directory $receipt_dir is not writable"
+    fi
+    all_selected_unchanged=1
 
     for comp in $SELECTED_COMPONENTS; do
         if [ "$comp" = "journal" ] || [ "$comp" = "cli" ]; then
+            all_selected_unchanged=0
             # Bootstrap delegation
             b_url=$(cat "${manifest_dir}/components/journal/provenance/bootstrap/url")
             b_sha=$(cat "${manifest_dir}/components/journal/provenance/bootstrap/sha256")
@@ -1498,6 +1761,11 @@ run_tree_install() {
             fi
         else
             # Native tree component (desktop / tmux)
+            if tree_component_converged "$comp" "$manifest_dir" "$receipt_file"; then
+                UNCHANGED_COMPONENTS="${UNCHANGED_COMPONENTS}${UNCHANGED_COMPONENTS:+ }${comp}"
+                continue
+            fi
+            all_selected_unchanged=0
             comp_version=$(cat "${manifest_dir}/components/${comp}/version")
             comp_entrypoint=$(cat "${manifest_dir}/components/${comp}/install_entrypoint")
             comp_archive_fn=$(cat "${manifest_dir}/components/${comp}/arches/${HOST_ARCH}/tree/filename")
@@ -1510,9 +1778,13 @@ run_tree_install() {
             verify_sha256 "$archive_path" "$comp_archive_sha"
 
             # Unpack into versioned directory
-            comp_dest="${OPT_PREFIX}/opt/solstone/${comp}/${comp_version}"
-            mkdir -p "$comp_dest"
-            tar -xzf "$archive_path" -C "$comp_dest"
+            comp_digest12=$(printf "%s" "$comp_archive_sha" | cut -c1-12)
+            comp_current_target="${comp_version}-${comp_digest12}"
+            comp_dest="${OPT_PREFIX}/opt/solstone/${comp}/${comp_current_target}"
+            mkdir -p "$comp_dest" || report_exit "refusal" "target-write-failed" "Could not create component destination $comp_dest"
+            if ! tar -xzf "$archive_path" -C "$comp_dest"; then
+                report_exit "refusal" "archive-extract-failed" "Could not extract $comp_archive_fn into its content-addressed destination"
+            fi
 
             # Verify executable
             exec_path="${comp_dest}/bin/${comp_exec_name}"
@@ -1522,15 +1794,23 @@ run_tree_install() {
                 report_exit "refusal" "executable-missing" "Executable $comp_exec_name not found in unpacked tree"
             fi
             verify_sha256 "$exec_path" "$comp_exec_sha"
-            chmod 0755 "$exec_path"
+            chmod 0755 "$exec_path" || report_exit "refusal" "target-write-failed" "Could not make $comp_exec_name executable"
 
-            # Atomic current symlink flip
-            mkdir -p "${OPT_PREFIX}/bin"
+            comp_root="${OPT_PREFIX}/opt/solstone/${comp}"
+            comp_current="${comp_root}/current"
+            exec_relpath=${exec_path#"${comp_dest}/"}
             symlink_target="${OPT_PREFIX}/bin/${comp_exec_name}"
-            ln -sf "$exec_path" "${symlink_target}.tmp.$$"
-            mv -f "${symlink_target}.tmp.$$" "$symlink_target"
+            if [ -e "$comp_current" ] && [ ! -L "$comp_current" ]; then
+                report_exit "refusal" "ownership-conflict" "Current path for $comp exists but is not a platform-managed symlink"
+            fi
+            if [ -e "$symlink_target" ] && [ ! -L "$symlink_target" ]; then
+                report_exit "refusal" "ownership-conflict" "Public path $symlink_target exists but is not a platform-managed symlink"
+            fi
+            record_pointer_state "${comp}.current" "$comp_current"
+            record_pointer_state "${comp}.public" "$symlink_target"
 
-            # Call handler
+            # Configure handler-owned state before publishing the new pointer.
+            # Handlers use the stable public path and must succeed before it moves.
             if [ "$TEST_SEAM" -eq 1 ] && [ -n "${SOLSTONE_HANDLER_ROOT:-}" ]; then
                 h_root="$SOLSTONE_HANDLER_ROOT"
             else
@@ -1538,35 +1818,120 @@ run_tree_install() {
                 [ ! -d "$h_root" ] && h_root="${PWD}/handlers"
             fi
             handler_bin="${h_root}/${comp}/v1/${comp_entrypoint}"
-            if [ -f "$handler_bin" ]; then
-                chmod 0755 "$handler_bin"
-                h_flags="--prefix $OPT_PREFIX --route tree --role $comp"
-                [ "$OPT_NO_START" -eq 1 ] && h_flags="$h_flags --no-start"
-                [ "$OPT_NO_PATH" -eq 1 ] && h_flags="$h_flags --no-path"
-                # shellcheck disable=SC2086
-                "$handler_bin" $h_flags
+            if [ ! -f "$handler_bin" ]; then
+                report_exit "refusal" "handler-missing" "Install handler is missing for $comp"
             fi
+            chmod 0755 "$handler_bin" || report_exit "refusal" "handler-failed" "Could not make the $comp install handler executable"
+            h_flags="--prefix $OPT_PREFIX --route tree --role $comp"
+            [ "$OPT_NO_START" -eq 1 ] && h_flags="$h_flags --no-start"
+            [ "$OPT_NO_PATH" -eq 1 ] && h_flags="$h_flags --no-path"
+            # shellcheck disable=SC2086
+            if ! "$handler_bin" $h_flags; then
+                report_exit "refusal" "handler-failed" "Install handler failed for $comp"
+            fi
+
+            # Publish the component through an atomic current-pointer replacement.
+            if [ "$TEST_SEAM" -eq 1 ] && [ "${SOLSTONE_TEST_FAIL_BEFORE_CURRENT:-0}" = "1" ]; then
+                report_exit "refusal" "test-before-current" "Injected failure before current pointer publication"
+            fi
+            current_tmp="${comp_root}/.current.tmp.$$"
+            ln -s "$comp_current_target" "$current_tmp" || report_exit "refusal" "pointer-publish-failed" "Could not stage current pointer for $comp"
+            if ! mv -Tf "$current_tmp" "$comp_current"; then
+                rm -f "$current_tmp" 2>/dev/null || true
+                report_exit "refusal" "pointer-publish-failed" "Could not atomically publish current pointer for $comp"
+            fi
+
+            mkdir -p "${OPT_PREFIX}/bin" || report_exit "refusal" "target-write-failed" "Could not create public binary directory ${OPT_PREFIX}/bin"
+            public_target="${comp_current}/${exec_relpath}"
+            if [ ! -L "$symlink_target" ] || [ "$(readlink "$symlink_target")" != "$public_target" ]; then
+                ln -s "$public_target" "${symlink_target}.tmp.$$" || report_exit "refusal" "pointer-publish-failed" "Could not stage public pointer for $comp_exec_name"
+                if ! mv -Tf "${symlink_target}.tmp.$$" "$symlink_target"; then
+                    rm -f "${symlink_target}.tmp.$$" 2>/dev/null || true
+                    report_exit "refusal" "pointer-publish-failed" "Could not atomically publish public pointer for $comp_exec_name"
+                fi
+            fi
+
         fi
     done
 
-    # Write sectioned receipt
-    {
+    if [ "$all_selected_unchanged" -eq 1 ] && [ -n "$UNCHANGED_COMPONENTS" ] \
+        && global_receipt_matches_current "$receipt_file"; then
+        return 0
+    fi
+
+    # Write the canonical global section and selected component sections while
+    # retaining unselected component custody byte-for-byte.
+    receipt_tmp="${receipt_file}.tmp.$$"
+    if ! {
         printf "[solstone]\n"
+        printf "schema_version=1\n"
         printf "platform_version=%s\n" "$RESOLVED_VERSION"
         printf "lane=%s\n" "$OPT_LANE"
+        printf "origin=%s\n" "$OPT_ORIGIN"
         printf "route=tree\n"
         printf "prefix=%s\n" "$OPT_PREFIX"
         printf "arch=%s\n" "$HOST_ARCH"
         printf "verification=%s\n" "$([ "$OPT_SKIP_SIGNATURE" -eq 1 ] && echo "digest-matched; signatures skipped" || echo "minisign")"
+        printf "installer_revision=%s\n" "$INSTALLER_REVISION"
         printf "phase=complete\n"
-        for comp in $SELECTED_COMPONENTS; do
-            printf "\n[component:%s]\n" "$comp"
+    } > "$receipt_tmp"; then
+        tree_receipt_failure "Could not stage the tree install receipt"
+    fi
+
+    for existing_comp in journal cli desktop tmux; do
+        if component_selected "$existing_comp"; then
+            continue
+        fi
+        if [ -f "$receipt_file" ] && receipt_value "$receipt_file" "component:${existing_comp}" role >/dev/null 2>&1; then
+            append_receipt_section "$receipt_file" "component:${existing_comp}" "$receipt_tmp" \
+                || tree_receipt_failure "Could not preserve the $existing_comp receipt section"
+        fi
+    done
+
+    for comp in $SELECTED_COMPONENTS; do
+        if case " $UNCHANGED_COMPONENTS " in *" $comp "*) true ;; *) false ;; esac; then
+            append_receipt_section "$receipt_file" "component:${comp}" "$receipt_tmp" \
+                || tree_receipt_failure "Could not preserve the unchanged $comp receipt section"
+        else
+            c_key="$comp"
+            [ "$comp" = "cli" ] && c_key="journal"
+            c_version=$(cat "${manifest_dir}/components/${c_key}/version" 2>/dev/null || echo "$RESOLVED_VERSION")
+            {
+            printf "[component:%s]\n" "$comp"
             printf "role=%s\n" "$comp"
-            printf "version=%s\n" "$(cat "${manifest_dir}/components/${comp}/version" 2>/dev/null || echo "$RESOLVED_VERSION")"
+            printf "platform_version=%s\n" "$RESOLVED_VERSION"
+            printf "lane=%s\n" "$OPT_LANE"
+            printf "origin=%s\n" "$OPT_ORIGIN"
+            printf "route=tree\n"
+            printf "prefix=%s\n" "$OPT_PREFIX"
+            printf "arch=%s\n" "$HOST_ARCH"
+            printf "version=%s\n" "$c_version"
             printf "status=installed\n"
-        done
-    } > "${receipt_file}.tmp.$$"
-    mv -f "${receipt_file}.tmp.$$" "$receipt_file"
+            if [ "$comp" = "desktop" ] || [ "$comp" = "tmux" ]; then
+                c_exec_name=$(cat "${manifest_dir}/components/${comp}/arches/${HOST_ARCH}/tree/executable/name")
+                c_exec_sha=$(cat "${manifest_dir}/components/${comp}/arches/${HOST_ARCH}/tree/executable/sha256")
+                c_archive_sha=$(cat "${manifest_dir}/components/${comp}/arches/${HOST_ARCH}/tree/sha256")
+                c_digest12=$(printf "%s" "$c_archive_sha" | cut -c1-12)
+                c_current="${OPT_PREFIX}/opt/solstone/${comp}/current"
+                c_public="${OPT_PREFIX}/bin/${c_exec_name}"
+                c_rel=${c_public:+$(readlink "$c_public")}
+                c_rel=${c_rel#"${c_current}/"}
+                printf "executable_sha256=%s\n" "$c_exec_sha"
+                printf "executable_relpath=%s\n" "$c_rel"
+                printf "current=%s\n" "$c_current"
+                printf "current_target=%s-%s\n" "$c_version" "$c_digest12"
+                printf "public_path=%s\n" "$c_public"
+                printf "verification=%s\n" "$([ "$OPT_SKIP_SIGNATURE" -eq 1 ] && echo "digest-matched; signatures skipped" || echo "minisign")"
+                printf "installer_revision=%s\n" "$INSTALLER_REVISION"
+                printf "no_start=%s\n" "$OPT_NO_START"
+                printf "no_path=%s\n" "$OPT_NO_PATH"
+            fi
+            } >> "$receipt_tmp" || tree_receipt_failure "Could not stage the $comp receipt section"
+        fi
+    done
+    if ! mv -Tf "$receipt_tmp" "$receipt_file"; then
+        tree_receipt_failure "Could not atomically publish the tree install receipt"
+    fi
 }
 
 run_package_install() {
