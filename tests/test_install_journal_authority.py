@@ -14,7 +14,7 @@ import unittest
 
 from solstone_platform.canonical import canonical_json_bytes
 from solstone_platform.generate import generate_platform_manifest
-from solstone_platform.pins import DESKTOP_KEY_ID, DESKTOP_PUBKEY, JOURNAL_KEY_ID, JOURNAL_PUBKEY, PinSet, embedded_pins
+from solstone_platform.pins import DESKTOP_KEY_ID, DESKTOP_PUBKEY, JOURNAL_KEY_ID, JOURNAL_PUBKEY, TMUX_KEY_ID, TMUX_PUBKEY, PinSet
 from solstone_platform.sign import ephemeral_keypair, sign_manifest
 from tests.install_test_helpers import LoopbackServer
 from tools.build_installer import build_installer
@@ -64,12 +64,6 @@ class JournalFixture:
             pins=pins,
         )
         self.platform = json.loads(manifest_bytes.decode("utf-8"))
-        production_pins = embedded_pins()
-        for component_name, selected_pin in (("tmux", production_pins.tmux),):
-            for arch_entry in self.platform["components"][component_name]["arches"].values():
-                for route_entry in arch_entry.values():
-                    route_entry["authority"]["verifier_id"] = selected_pin.verifier_id()
-
         self.version_dir = self.web_root / "solstone" / "release" / PLATFORM_VERSION
         self.version_dir.mkdir(parents=True, exist_ok=True)
         latest_dir = self.version_dir.parent
@@ -83,6 +77,8 @@ class JournalFixture:
                 if source_file.is_file() and (
                     source_file.suffix in (".gz", ".deb", ".rpm")
                     or ".rust-release-manifest.json" in source_file.name
+                    or source_file.name in ("SHA256SUMS", "SHA256SUMS.minisig")
+                    or source_file.name.endswith(".target.json")
                 ):
                     shutil.copy2(source_file, self.version_dir / source_file.name)
 
@@ -105,6 +101,8 @@ class JournalFixture:
         rendered = rendered.replace(f'JOURNAL_PUBKEY="{JOURNAL_PUBKEY}"', f'JOURNAL_PUBKEY="{journal_pin.pubkey}"')
         rendered = rendered.replace(f'DESKTOP_KEY_ID="{DESKTOP_KEY_ID}"', f'DESKTOP_KEY_ID="{tiny_pins.desktop.key_id}"')
         rendered = rendered.replace(f'DESKTOP_PUBKEY="{DESKTOP_PUBKEY}"', f'DESKTOP_PUBKEY="{tiny_pins.desktop.pubkey}"')
+        rendered = rendered.replace(f'TMUX_KEY_ID="{TMUX_KEY_ID}"', f'TMUX_KEY_ID="{tiny_pins.tmux.key_id}"')
+        rendered = rendered.replace(f'TMUX_PUBKEY="{TMUX_PUBKEY}"', f'TMUX_PUBKEY="{tiny_pins.tmux.pubkey}"')
         self.installer.write_text(rendered, encoding="utf-8")
         self.installer.chmod(0o755)
 

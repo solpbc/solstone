@@ -210,4 +210,12 @@ def setup_test_release_server(
         if authority_file.is_file():
             shutil.copy2(authority_file, ver_dir / authority_file.name)
 
+    # Tmux delegates trust to its signed aggregate sums plus one arch target.
+    for authority_file in native_dirs["tmux"].iterdir():
+        if authority_file.is_file() and (
+            authority_file.name in ("SHA256SUMS", "SHA256SUMS.minisig")
+            or authority_file.name.endswith(".target.json")
+        ):
+            shutil.copy2(authority_file, ver_dir / authority_file.name)
+
     return server, server_root

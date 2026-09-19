@@ -497,7 +497,7 @@ function is_whitelisted(p) {
         if (p ~ /^files\.[A-Za-z0-9][A-Za-z0-9._-]*$/) return 1
         return 0
     }
-    if (schema_mode == "desktop") return 1
+    if (schema_mode == "desktop" || schema_mode == "tmux") return 1
     if (p ~ /(_is_list)$/) return 1
     if (p ~ /^schema_version$/) return 1
     if (p ~ /^protocol_version$/) return 1
@@ -533,6 +533,7 @@ function is_whitelisted(p) {
 }
 
 function next_tok(   c, str_val, num_val, esc) {
+    tok_had_escape = 0
     while (pos <= len) {
         c = substr(src, pos, 1)
         if (c == " " || c == "\t" || c == "\n" || c == "\r") { pos++; continue }
@@ -554,6 +555,7 @@ function next_tok(   c, str_val, num_val, esc) {
                     return
                 }
                 if (c == "\\") {
+                    tok_had_escape = 1
                     pos++
                     esc = substr(src, pos, 1)
                     pos++
@@ -599,6 +601,9 @@ function write_val(path_str, val, value_type,   fpath, dpath, last_slash) {
         if (path_str == "artifacts") err("schema-invalid", "desktop artifacts must be an array")
         if (path_str ~ /^artifacts\.[0-9]+$/) err("schema-invalid", "desktop artifact member must be an object")
 
+        if (tok_had_escape && path_str ~ /^(schema_version|source_dirty|product|version|source_commit|cargo_lock_sha256|target\.kind|target\.triple|target\.profile|artifacts\.[0-9]+\.(path|sha256|bytes))$/) {
+            err("schema-invalid", "escaped desktop security field: " path_str)
+        }
         if (path_str == "schema_version") {
             if (value_type != "NUMBER" || val !~ /^(0|[1-9][0-9]*)$/) err("schema-invalid", "desktop schema_version must be an integer")
         } else if (path_str == "source_dirty") {
@@ -609,6 +614,23 @@ function write_val(path_str, val, value_type,   fpath, dpath, last_slash) {
             if (value_type != "STRING") err("schema-invalid", "desktop artifact field must be a string: " path_str)
         } else if (path_str ~ /^artifacts\.[0-9]+\.bytes$/) {
             if (value_type != "NUMBER" || val !~ /^(0|[1-9][0-9]*)$/) err("schema-invalid", "desktop artifact bytes must be an integer")
+        } else if (path_str != "artifacts/_is_list") {
+            return
+        }
+    }
+    if (schema_mode == "tmux") {
+        if (path_str == "artifacts") err("schema-invalid", "tmux artifacts must be an array")
+        if (path_str ~ /^artifacts\.[0-9]+$/) err("schema-invalid", "tmux artifact member must be an object")
+
+        if (tok_had_escape && path_str ~ /^(schema_version|product_version|source_commit|rust_target|executable\.name|executable\.sha256|artifacts\.[0-9]+\.(name|sha256))$/) {
+            err("schema-invalid", "escaped tmux security field: " path_str)
+        }
+        if (path_str == "schema_version") {
+            if (value_type != "NUMBER" || val !~ /^(0|[1-9][0-9]*)$/) err("schema-invalid", "tmux schema_version must be an integer")
+        } else if (path_str ~ /^(product_version|source_commit|rust_target|executable\.name|executable\.sha256)$/) {
+            if (value_type != "STRING") err("schema-invalid", "tmux security field must be a string: " path_str)
+        } else if (path_str ~ /^artifacts\.[0-9]+\.(name|sha256)$/) {
+            if (value_type != "STRING") err("schema-invalid", "tmux artifact field must be a string: " path_str)
         } else if (path_str != "artifacts/_is_list") {
             return
         }
@@ -652,7 +674,8 @@ function parse_value(cur_path,   key, arr_idx, obj_id, child_path) {
         while (1) {
             if (tok_type != "STRING") err("schema-invalid", "expected string key")
             key = tok_val
-            if (schema_mode == "desktop" && key !~ /^[A-Za-z_][A-Za-z0-9_]*$/) err("schema-invalid", "unsafe desktop manifest key: " key)
+            if ((schema_mode == "desktop" || schema_mode == "tmux") && tok_had_escape) err("schema-invalid", "escaped native manifest key")
+            if ((schema_mode == "desktop" || schema_mode == "tmux") && key !~ /^[A-Za-z_][A-Za-z0-9_]*$/) err("schema-invalid", "unsafe native manifest key: " key)
             if ((obj_id, key) in seen) err("duplicate-key", "duplicate key: " key)
             seen[obj_id, key] = 1
 
@@ -676,7 +699,7 @@ function parse_value(cur_path,   key, arr_idx, obj_id, child_path) {
     }
     if (tok_type == "[") {
         if (schema_mode == "journal") err("schema-invalid", "arrays are not permitted in journal manifests")
-        if (schema_mode == "desktop" && cur_path ~ /^artifacts\.[0-9]+$/) err("schema-invalid", "desktop artifact member must be an object")
+        if ((schema_mode == "desktop" || schema_mode == "tmux") && cur_path ~ /^artifacts\.[0-9]+$/) err("schema-invalid", "native artifact member must be an object")
         next_tok()
         arr_idx = 0
         if (tok_type == "]") {
@@ -760,6 +783,27 @@ function fail(msg) {
 }
 END {
     if (failed) exit 45
+    if (NR == 0) fail("empty checksum file")
+}
+EOF_AWK
+
+    cat <<'EOF_AWK' > "${SCRATCH_DIR}/parse_tmux_sums.awk"
+function fail(msg) {
+    print "ERROR:schema-invalid:" msg > "/dev/stderr"
+    failed = 1
+    exit 46
+}
+{
+    line = $0
+    if (length(line) < 67 || substr(line, 65, 2) != "  ") fail("noncanonical checksum line")
+    digest = substr(line, 1, 64)
+    name = substr(line, 67)
+    if (digest !~ /^[0-9a-f]+$/ || length(digest) != 64) fail("invalid checksum digest")
+    if (name !~ /^[A-Za-z0-9][A-Za-z0-9._-]*$/) fail("invalid checksum filename")
+    if (seen[name]++) fail("duplicate checksum filename: " name)
+}
+END {
+    if (failed) exit 46
     if (NR == 0) fail("empty checksum file")
 }
 EOF_AWK
@@ -1079,6 +1123,174 @@ preflight_desktop_authority() {
     done
     if [ "$d_selected_matches" -eq 0 ]; then
         report_exit "refusal" "release-coherence" "Desktop native manifest is missing the selected artifact"
+    fi
+}
+
+preflight_tmux_authority() {
+    t_target_root="${SCRATCH_DIR}/tmux-target"
+    mkdir -p "$t_target_root"
+
+    t_version=$(read_plain_value "${manifest_dir}/components/tmux/version")
+    t_version=${t_version%x}
+    case "$HOST_ARCH" in
+        x86_64)
+            t_rust_target="x86_64-unknown-linux-musl"
+            t_deb_arch="amd64"
+            t_rpm_arch="x86_64"
+            ;;
+        aarch64)
+            t_rust_target="aarch64-unknown-linux-musl"
+            t_deb_arch="arm64"
+            t_rpm_arch="aarch64"
+            ;;
+        *) report_exit "refusal" "unsupported-arch" "Unsupported architecture for Tmux: $HOST_ARCH" ;;
+    esac
+    t_target_name="solstone-tmux-${t_version}-${t_rust_target}.target.json"
+    t_origin="${OPT_ORIGIN}/solstone/${OPT_LANE}/${RESOLVED_VERSION}"
+    t_sums_file="${SCRATCH_DIR}/SHA256SUMS"
+    t_signature_file="${SCRATCH_DIR}/SHA256SUMS.minisig"
+    t_target_file="${SCRATCH_DIR}/${t_target_name}"
+
+    fetch_file_with_redirect_check "${t_origin}/SHA256SUMS" "$t_sums_file" 65536 "tmux checksum manifest"
+    fetch_file_with_redirect_check "${t_origin}/SHA256SUMS.minisig" "$t_signature_file" 16384 "tmux checksum signature"
+    fetch_file_with_redirect_check "${t_origin}/${t_target_name}" "$t_target_file" 65536 "tmux target manifest"
+
+    t_authority_root="${manifest_dir}/components/tmux/arches/${HOST_ARCH}/${check_var}/authority"
+    t_sums_sha=$(read_plain_value "${t_authority_root}/sums_sha256")
+    t_sums_sha=${t_sums_sha%x}
+    t_signature_sha=$(read_plain_value "${t_authority_root}/signature_sha256")
+    t_signature_sha=${t_signature_sha%x}
+    t_target_sha=$(read_plain_value "${t_authority_root}/target_json_sha256")
+    t_target_sha=${t_target_sha%x}
+
+    verify_sha256 "$t_sums_file" "$t_sums_sha"
+    verify_sha256 "$t_signature_file" "$t_signature_sha"
+    verify_sha256 "$t_target_file" "$t_target_sha"
+    verify_minisign_signature "$t_sums_file" "$t_signature_file" "$TMUX_PUBKEY"
+
+    t_sums_err="${SCRATCH_DIR}/tmux-sums.err"
+    if ! awk -f "${SCRATCH_DIR}/parse_tmux_sums.awk" "$t_sums_file" 2>"$t_sums_err"; then
+        t_err=$(head -n 1 "$t_sums_err" | tr -d '\r\n')
+        report_exit "refusal" "schema-invalid" "Tmux checksum manifest is invalid ($t_err)"
+    fi
+
+    t_target_sum=$(awk -v wanted="$t_target_name" 'substr($0, 67) == wanted { print substr($0, 1, 64) }' "$t_sums_file")
+    if [ -z "$t_target_sum" ]; then
+        report_exit "refusal" "schema-invalid" "Tmux checksum manifest is missing $t_target_name"
+    fi
+    if [ "$t_target_sum" != "$t_target_sha" ]; then
+        report_exit "refusal" "release-coherence" "Tmux target manifest digest does not match signed checksums"
+    fi
+
+    t_parse_err="${SCRATCH_DIR}/tmux-target.err"
+    if ! awk -v schema_mode=tmux -v out_dir="$t_target_root" -f "${SCRATCH_DIR}/parse_manifest.awk" "$t_target_file" 2>"$t_parse_err"; then
+        t_err=$(head -n 1 "$t_parse_err" | tr -d '\r\n')
+        report_exit "refusal" "schema-invalid" "Tmux target manifest is invalid ($t_err)"
+    fi
+    for t_required in schema_version product_version source_commit rust_target executable/name executable/sha256 artifacts/_is_list; do
+        if [ ! -f "${t_target_root}/${t_required}" ]; then
+            report_exit "refusal" "schema-invalid" "Tmux target manifest is missing $t_required"
+        fi
+    done
+
+    t_schema=$(read_plain_value "${t_target_root}/schema_version")
+    t_schema=${t_schema%x}
+    if [ "$t_schema" != "1" ]; then
+        report_exit "refusal" "schema-invalid" "Tmux target schema_version is unsupported"
+    fi
+    t_native_version=$(read_plain_value "${t_target_root}/product_version")
+    t_native_version=${t_native_version%x}
+    t_native_target=$(read_plain_value "${t_target_root}/rust_target")
+    t_native_target=${t_native_target%x}
+    if [ "$t_native_version" != "$t_version" ] || [ "$t_native_target" != "$t_rust_target" ]; then
+        report_exit "refusal" "release-coherence" "Tmux native identity does not match the selected platform entry"
+    fi
+
+    t_source_commit=$(read_plain_value "${t_target_root}/source_commit")
+    t_source_commit=${t_source_commit%x}
+    case "$t_source_commit" in
+        *[!0123456789abcdef]*) report_exit "refusal" "schema-invalid" "Tmux source commit is invalid" ;;
+    esac
+    if [ "${#t_source_commit}" -ne 40 ]; then
+        report_exit "refusal" "schema-invalid" "Tmux source commit is invalid"
+    fi
+
+    t_selected_name=$(read_plain_value "${manifest_dir}/components/tmux/arches/${HOST_ARCH}/${check_var}/filename")
+    t_selected_name=${t_selected_name%x}
+    t_selected_sha=$(read_plain_value "${manifest_dir}/components/tmux/arches/${HOST_ARCH}/${check_var}/sha256")
+    t_selected_sha=${t_selected_sha%x}
+    case "$check_var" in
+        tree) t_expected_name="solstone-tmux-${t_version}-${HOST_ARCH}-linux.tar.gz" ;;
+        deb) t_expected_name="solstone-tmux_${t_version}_${t_deb_arch}.deb" ;;
+        rpm) t_expected_name="solstone-tmux-${t_version}-1.${t_rpm_arch}.rpm" ;;
+        *) report_exit "refusal" "schema-invalid" "Tmux selected route is invalid" ;;
+    esac
+    if [ "$t_selected_name" != "$t_expected_name" ]; then
+        report_exit "refusal" "release-coherence" "Tmux selected filename does not match its producer route"
+    fi
+    t_selected_sum=$(awk -v wanted="$t_selected_name" 'substr($0, 67) == wanted { print substr($0, 1, 64) }' "$t_sums_file")
+    if [ -z "$t_selected_sum" ]; then
+        report_exit "refusal" "schema-invalid" "Tmux checksum manifest is missing $t_selected_name"
+    fi
+    if [ "$t_selected_sum" != "$t_selected_sha" ]; then
+        report_exit "refusal" "release-coherence" "Tmux selected artifact digest does not match signed checksums"
+    fi
+
+    t_exec_name=$(read_plain_value "${t_target_root}/executable/name")
+    t_exec_name=${t_exec_name%x}
+    t_exec_sha=$(read_plain_value "${t_target_root}/executable/sha256")
+    t_exec_sha=${t_exec_sha%x}
+    t_platform_exec_name=$(read_plain_value "${manifest_dir}/components/tmux/arches/${HOST_ARCH}/${check_var}/executable/name")
+    t_platform_exec_name=${t_platform_exec_name%x}
+    t_platform_exec_sha=$(read_plain_value "${manifest_dir}/components/tmux/arches/${HOST_ARCH}/${check_var}/executable/sha256")
+    t_platform_exec_sha=${t_platform_exec_sha%x}
+    case "$t_exec_sha" in
+        *[!0123456789abcdef]*) report_exit "refusal" "schema-invalid" "Tmux executable digest is invalid" ;;
+    esac
+    if [ "${#t_exec_sha}" -ne 64 ]; then
+        report_exit "refusal" "schema-invalid" "Tmux executable digest is invalid"
+    fi
+    if [ "$t_exec_name" != "solstone-tmux" ] || [ "$t_exec_name" != "$t_platform_exec_name" ] || [ "$t_exec_sha" != "$t_platform_exec_sha" ]; then
+        report_exit "refusal" "release-coherence" "Tmux executable identity does not match the selected platform entry"
+    fi
+
+    t_artifact_count=$(read_plain_value "${t_target_root}/artifacts/_is_list")
+    t_artifact_count=${t_artifact_count%x}
+    case "$t_artifact_count" in
+        ""|*[!0123456789]*) report_exit "refusal" "schema-invalid" "Tmux artifacts array is invalid" ;;
+    esac
+    t_index=0
+    t_selected_matches=0
+    while [ "$t_index" -lt "$t_artifact_count" ]; do
+        t_item_root="${t_target_root}/artifacts/${t_index}"
+        for t_field in name sha256; do
+            if [ ! -f "${t_item_root}/${t_field}" ]; then
+                report_exit "refusal" "schema-invalid" "Tmux artifact member is missing $t_field"
+            fi
+        done
+        t_item_name=$(read_plain_value "${t_item_root}/name")
+        t_item_name=${t_item_name%x}
+        t_item_sha=$(read_plain_value "${t_item_root}/sha256")
+        t_item_sha=${t_item_sha%x}
+        case "$t_item_sha" in
+            *[!0123456789abcdef]*) report_exit "refusal" "schema-invalid" "Tmux artifact digest is invalid" ;;
+        esac
+        if [ "${#t_item_sha}" -ne 64 ]; then
+            report_exit "refusal" "schema-invalid" "Tmux artifact digest is invalid"
+        fi
+        if [ "$t_item_name" = "$t_selected_name" ]; then
+            if [ "$t_selected_matches" -ne 0 ]; then
+                report_exit "refusal" "schema-invalid" "Tmux target manifest contains duplicate selected artifacts"
+            fi
+            t_selected_matches=$((t_selected_matches + 1))
+            if [ "$t_item_sha" != "$t_selected_sha" ]; then
+                report_exit "refusal" "release-coherence" "Tmux target artifact does not match the selected platform entry"
+            fi
+        fi
+        t_index=$((t_index + 1))
+    done
+    if [ "$t_selected_matches" -eq 0 ]; then
+        report_exit "refusal" "release-coherence" "Tmux target manifest is missing the selected artifact"
     fi
 }
 
@@ -1745,15 +1957,25 @@ main() {
         esac
     done
 
-    # 12. Acquire locks
+    # 12. Preflight Tmux native authority before dry-run success, locks, or payload work.
+    for comp in $SELECTED_COMPONENTS; do
+        case "$comp" in
+            tmux)
+                preflight_tmux_authority
+                break
+                ;;
+        esac
+    done
+
+    # 13. Acquire locks
     acquire_installer_locks
 
-    # 13. Handle uninstall
+    # 14. Handle uninstall
     if [ "$OPT_UNINSTALL" -eq 1 ]; then
         run_uninstall
     fi
 
-    # 14. Handle dry-run
+    # 15. Handle dry-run
     if [ "$OPT_DRY_RUN" -eq 1 ]; then
         report_exit "success" "dry-run-completed" "Dry run completed successfully"
     fi
