@@ -252,6 +252,18 @@ class TestInstallMacOS(unittest.TestCase):
         self.assertEqual(self.result(proc)["root_code"], "unsupported-arch")
         self.assertEqual(self.server.request_paths, [])
 
+    def test_macos_14_refuses_before_download(self):
+        proc = self.run_installer(
+            "--components",
+            "journal",
+            extra_env={"SOLSTONE_FAKE_MAC_VERSION": "14.7.6"},
+        )
+        self.assertNotEqual(proc.returncode, 0)
+        result = self.result(proc)
+        self.assertEqual(result["root_code"], "unsupported-platform")
+        self.assertIn("macos 15 or later", result["message"])
+        self.assertEqual(self.server.request_paths, [])
+
     def test_dry_run_verifies_without_installing(self):
         proc = self.run_installer("--components", "all", "--dry-run")
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)

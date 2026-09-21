@@ -53,6 +53,50 @@ class TestInstallLifecycle(unittest.TestCase):
             finally:
                 server.stop()
 
+    def test_standalone_journal_refusal_names_linux_bootstrap(self):
+        with ephemeral_keypair("test standalone refusal") as (sec, pub, pin):
+            server, _ = setup_test_release_server(self.work_dir, sec, pin)
+            try:
+                installer = self.work_dir / "install.sh"
+                build_installer(
+                    repo_root=REPO_ROOT,
+                    output_path=installer,
+                    platform_pub_path=pub,
+                    platform_key_id=pin.key_id,
+                    origin=server.origin,
+                )
+                home = self.work_dir / "home"
+                standalone_receipt = home / ".local" / "solstone-journal" / "install-receipt"
+                standalone_receipt.parent.mkdir(parents=True)
+                standalone_receipt.write_text("route=tree\n", encoding="utf-8")
+                env = os.environ.copy()
+                env["HOME"] = str(home)
+
+                proc = subprocess.run(
+                    [
+                        str(installer),
+                        "--skip-signature",
+                        "--components",
+                        "journal",
+                        "--prefix",
+                        str(self.prefix),
+                        "--json",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                )
+                self.assertNotEqual(proc.returncode, 0)
+                result = json.loads(proc.stdout.strip())
+                self.assertEqual(result["root_code"], "standalone-install")
+                self.assertIn(
+                    "https://updates.solstone.app/solstone-journal/install.sh --upgrade",
+                    result["message"],
+                )
+                self.assertNotIn("https://solstone.app/install.sh --upgrade", result["message"])
+            finally:
+                server.stop()
+
     def test_receipt_creation(self):
         with ephemeral_keypair("test receipt") as (sec, pub, pin):
             server, _ = setup_test_release_server(self.work_dir, sec, pin)

@@ -3869,7 +3869,7 @@ main() {
     case " $SELECTED_COMPONENTS " in
         *" journal "*|*" cli "*)
             if [ "$OPT_PREFIX" != "$HOME/.local/solstone-journal" ] && [ -e "$HOME/.local/solstone-journal/install-receipt" ]; then
-                report_exit refusal standalone-install "an existing journal installation uses the journal-only installer; update it with https://solstone.app/install.sh --upgrade"
+                report_exit refusal standalone-install "an existing journal installation uses the low-level journal bootstrap; update it with https://updates.solstone.app/solstone-journal/install.sh --upgrade"
             fi
             ;;
     esac

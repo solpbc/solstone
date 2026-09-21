@@ -1,6 +1,6 @@
 # solstone
 
-the solstone app takes in what you see and hear, and it all goes into your journal: an open source, local-first memory the agents you use can work from. on your devices, always private, only yours.
+the solstone app takes in what you share with it, and it all goes into your journal: an open source, local-first memory the agents you use can work from. on your devices, always private, only yours.
 
 solstone is a personal memory platform, all yours, in two parts you own: **the solstone app** and your **journal**, the memory. from your journal emerges a knowledge graph of every person and project in your life, proactive meeting prep, automatic to-do tracking, and full-text search across your whole life. you stop managing your memory and start being present. your journal is always private, only yours.
 
@@ -24,25 +24,25 @@ open source. self-host it, or let [sol pbc](https://solpbc.org) operate it for y
 
 ## platform metadata & installer rail
 
-This repository generates, validates, signs, and publishes the platform-level `platform.json` release metadata manifest, manages the atomic `latest` pointer across release lanes, and provides the POSIX platform installer build rail (`install.sh.in` -> `install.sh`).
+this repository generates, validates, signs, and publishes the platform-level `platform.json` release metadata manifest, manages the atomic `latest` pointer across release lanes, and provides the POSIX platform installer build rail (`install.sh.in` -> `install.sh`).
 
-for linux installation, upgrades, verification, and recovery, read [INSTALL.md](INSTALL.md).
+for linux and macos installation and verification, plus linux recovery, read [INSTALL.md](INSTALL.md).
 
-save the platform installer and inspect its options:
+save the canonical installer and inspect its options:
 
 ```sh
-curl -fsSL https://solstone.app/platform-install.sh -o platform-install.sh
-sh platform-install.sh --help
+curl -fsSL https://solstone.app/install.sh -o install.sh
+sh install.sh --help
 ```
 
-check that the download succeeded before running the script. `https://solstone.app/install.sh` remains the journal-only bootstrap.
+check that the download succeeded before running the script. `https://solstone.app/platform-install.sh` remains a byte-identical compatibility URL. on macos, this installer acquires the native apps; it never installs a standalone journal runtime.
 
-For authoritative definitions, refer to:
-- Native component pins: `pins/`
-- Current installer revision: `compat/installer_revision`
-- Minimum installer revision floor: `compat/minimum_installer_revision`
-- Component handler contracts: `contracts/`
-- Target architecture and package mappings: `src/solstone_platform/targets.py`
+for authoritative definitions, refer to:
+- native component pins: `pins/`
+- current installer revision: `compat/installer_revision`
+- minimum installer revision floor: `compat/minimum_installer_revision`
+- component handler contracts: `contracts/`
+- target architecture and package mappings: `src/solstone_platform/targets.py`
 
 ### development & verification commands
 
