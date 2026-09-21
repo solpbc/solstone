@@ -398,20 +398,29 @@ macos_component_identity() {
 macos_verify_app() {
     mva_path="$1"
     mva_id="$2"
+    mva_context="${3:-downloaded}"
     if [ ! -d "$mva_path" ] || [ -L "$mva_path" ]; then
         macos_refuse app-invalid "Expected an application bundle at $mva_path"
     fi
-    "$MACOS_CODESIGN" --verify --strict --deep --verbose=2 "$mva_path" >/dev/null 2>&1 \
-        || macos_refuse signature-invalid "The downloaded $MAC_COMPONENT_NAME has an invalid code signature"
+    if [ "$mva_context" = installed ]; then
+        # Finder may add com.apple.FinderInfo after installation. It is outside
+        # the code seal but --strict rejects it, so installed apps use normal
+        # deep verification plus the identity and Gatekeeper checks below.
+        "$MACOS_CODESIGN" --verify --deep --verbose=2 "$mva_path" >/dev/null 2>&1 \
+            || macos_refuse signature-invalid "The $mva_context $MAC_COMPONENT_NAME has an invalid code signature"
+    else
+        "$MACOS_CODESIGN" --verify --strict --deep --verbose=2 "$mva_path" >/dev/null 2>&1 \
+            || macos_refuse signature-invalid "The $mva_context $MAC_COMPONENT_NAME has an invalid code signature"
+    fi
     mva_details="${SCRATCH_DIR}/codesign-details.$$"
     "$MACOS_CODESIGN" -dvvv "$mva_path" >"$mva_details" 2>&1 \
-        || macos_refuse signature-invalid "The downloaded $MAC_COMPONENT_NAME signing identity could not be read"
+        || macos_refuse signature-invalid "The $mva_context $MAC_COMPONENT_NAME signing identity could not be read"
     grep -Fqx "Identifier=$mva_id" "$mva_details" \
-        || macos_refuse identity-mismatch "The downloaded $MAC_COMPONENT_NAME has the wrong bundle identifier"
+        || macos_refuse identity-mismatch "The $mva_context $MAC_COMPONENT_NAME has the wrong bundle identifier"
     grep -Fqx "TeamIdentifier=$MAC_COMPONENT_TEAM" "$mva_details" \
-        || macos_refuse identity-mismatch "The downloaded $MAC_COMPONENT_NAME has the wrong signing team"
+        || macos_refuse identity-mismatch "The $mva_context $MAC_COMPONENT_NAME has the wrong signing team"
     "$MACOS_SPCTL" --assess --type execute --verbose=2 "$mva_path" >/dev/null 2>&1 \
-        || macos_refuse notarization-invalid "macos did not accept the downloaded $MAC_COMPONENT_NAME"
+        || macos_refuse notarization-invalid "macos did not accept the $mva_context $MAC_COMPONENT_NAME"
 }
 
 macos_fetch_dmg() {
@@ -453,7 +462,7 @@ macos_install_component() {
     mic_destination="${MACOS_APPLICATIONS}/${MAC_COMPONENT_NAME}"
 
     if [ -e "$mic_destination" ] || [ -L "$mic_destination" ]; then
-        macos_verify_app "$mic_destination" "$MAC_COMPONENT_ID"
+        macos_verify_app "$mic_destination" "$MAC_COMPONENT_ID" installed
         UNCHANGED_COMPONENTS="${UNCHANGED_COMPONENTS}${UNCHANGED_COMPONENTS:+ }${mic_component}"
         log_info "$MAC_COMPONENT_NAME is already installed; updates stay inside the app."
         if [ "$OPT_DRY_RUN" -eq 0 ]; then

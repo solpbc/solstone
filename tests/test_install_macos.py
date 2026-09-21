@@ -102,6 +102,7 @@ class TestInstallMacOS(unittest.TestCase):
         write_path_stub(
             self.fake_bin,
             "codesign",
+            "if [ -n \"${SOLSTONE_FAKE_CODESIGN_LOG:-}\" ]; then printf '%s\\n' \"$*\" >> \"$SOLSTONE_FAKE_CODESIGN_LOG\"; fi\n"
             "if [ \"$1\" = -dvvv ]; then\n"
             "  for arg do target=$arg; done\n"
             "  case \"$target\" in\n"
@@ -185,11 +186,34 @@ class TestInstallMacOS(unittest.TestCase):
         journal.mkdir()
         marker = journal / "owner-data"
         marker.write_text("keep", encoding="utf-8")
-        proc = self.run_installer("--components", "journal")
+        codesign_log = self.root / "codesign.log"
+        proc = self.run_installer(
+            "--components",
+            "journal",
+            extra_env={"SOLSTONE_FAKE_CODESIGN_LOG": str(codesign_log)},
+        )
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
         self.assertEqual(self.result(proc)["components"]["journal"]["status"], "unchanged")
         self.assertEqual(marker.read_text(encoding="utf-8"), "keep")
         self.assertEqual(self.server.request_paths, [])
+        verify_call = codesign_log.read_text(encoding="utf-8").splitlines()[0]
+        self.assertIn("--verify --deep", verify_call)
+        self.assertNotIn("--strict", verify_call)
+
+    def test_downloaded_app_uses_strict_code_verification(self):
+        codesign_log = self.root / "codesign.log"
+        proc = self.run_installer(
+            "--components",
+            "journal",
+            extra_env={"SOLSTONE_FAKE_CODESIGN_LOG": str(codesign_log)},
+        )
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        verify_calls = [
+            line
+            for line in codesign_log.read_text(encoding="utf-8").splitlines()
+            if line.startswith("--verify")
+        ]
+        self.assertTrue(any("--strict --deep" in line and "journal.app" in line for line in verify_calls))
 
     def test_installs_journal_app_beside_legacy_cli_without_changing_it(self):
         legacy = self.home / ".local" / "solstone-journal" / "install-receipt"
