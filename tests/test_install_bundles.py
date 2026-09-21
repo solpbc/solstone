@@ -87,13 +87,8 @@ class TestInstallBundles(unittest.TestCase):
                 self.assertIn("tmux", res["components"])
 
                 # 2. capture on aarch64 -> cli, tmux + notice
-                fake_bin = self.work_dir / "fake_bin"
-                fake_bin.mkdir(parents=True, exist_ok=True)
-                (fake_bin / "uname").write_text("#!/bin/sh\necho aarch64\n", encoding="utf-8")
-                (fake_bin / "uname").chmod(0o755)
-
                 env = os.environ.copy()
-                env["PATH"] = f"{fake_bin}:{env['PATH']}"
+                env["SOLSTONE_TEST_HOST_ARCH"] = "aarch64"
 
                 prefix_aarch64 = self.work_dir / "prefix_aarch64"
                 prefix_aarch64.mkdir(parents=True, exist_ok=True)
@@ -114,7 +109,7 @@ class TestInstallBundles(unittest.TestCase):
             finally:
                 server.stop()
 
-    def test_piped_non_tty_no_selection_refuses(self):
+    def test_piped_non_tty_no_selection_defaults_to_journal(self):
         with ephemeral_keypair("test piped non tty") as (sec, pub, pin):
             server, _ = setup_test_release_server(self.work_dir, sec, pin)
             try:
@@ -129,15 +124,16 @@ class TestInstallBundles(unittest.TestCase):
 
                 # Run with empty stdin (not a TTY) and no --components
                 proc = subprocess.run(
-                    [str(installer), "--prefix", str(self.prefix), "--json"],
+                    [str(installer), "--skip-signature", "--prefix", str(self.prefix), "--no-start", "--json"],
                     input="",
                     capture_output=True,
                     text=True,
                 )
-                self.assertNotEqual(proc.returncode, 0)
+                self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
                 res = json.loads(proc.stdout.strip())
-                self.assertEqual(res["status"], "refusal")
-                self.assertEqual(res["root_code"], "no-selection")
+                self.assertEqual(res["status"], "success")
+                self.assertEqual(res["root_code"], "installed")
+                self.assertEqual(set(res["components"]), {"journal"})
             finally:
                 server.stop()
 
@@ -154,13 +150,8 @@ class TestInstallBundles(unittest.TestCase):
                     origin=server.origin,
                 )
 
-                fake_bin = self.work_dir / "fake_bin"
-                fake_bin.mkdir(parents=True, exist_ok=True)
-                (fake_bin / "uname").write_text("#!/bin/sh\necho aarch64\n", encoding="utf-8")
-                (fake_bin / "uname").chmod(0o755)
-
                 env = os.environ.copy()
-                env["PATH"] = f"{fake_bin}:{env['PATH']}"
+                env["SOLSTONE_TEST_HOST_ARCH"] = "aarch64"
 
                 proc = subprocess.run(
                     [str(installer), "--skip-signature", "--components", "desktop", "--prefix", str(self.prefix), "--json"],

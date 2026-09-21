@@ -45,6 +45,8 @@ OPT_LIST=0
 OPT_JSON=0
 OPT_UNINSTALL=0
 OPT_NOTICES_JSON="[]"
+OPT_PREFIX_EXPLICIT=0
+OPT_ORIGIN_EXPLICIT=0
 
 SCRATCH_DIR=""
 SELECTED_COMPONENTS=""
@@ -57,6 +59,7 @@ TREE_SELECTED_COMPONENTS=""
 PACKAGE_SELECTED_COMPONENTS=""
 RESOLVED_VERSION=""
 HOST_ARCH=""
+HOST_OS=""
 FETCH_TOOL=""
 TREE_FD=8
 PKG_FD=9
@@ -265,8 +268,22 @@ report_exit() {
     fi
 }
 
-detect_arch() {
-    u_arch=$(uname -m 2>/dev/null || echo "unknown")
+detect_host() {
+    if [ "$TEST_SEAM" -eq 1 ] && [ -n "${SOLSTONE_TEST_HOST_OS:-}" ]; then
+        u_os="$SOLSTONE_TEST_HOST_OS"
+    else
+        u_os=$(uname -s 2>/dev/null || echo "unknown")
+    fi
+    if [ "$TEST_SEAM" -eq 1 ] && [ -n "${SOLSTONE_TEST_HOST_ARCH:-}" ]; then
+        u_arch="$SOLSTONE_TEST_HOST_ARCH"
+    else
+        u_arch=$(uname -m 2>/dev/null || echo "unknown")
+    fi
+    case "$u_os" in
+        Linux) HOST_OS="linux" ;;
+        Darwin) HOST_OS="darwin" ;;
+        *) report_exit "refusal" "unsupported-platform" "Operating system $u_os is not supported by Solstone" ;;
+    esac
     case "$u_arch" in
         x86_64|amd64)
             HOST_ARCH="x86_64"
@@ -278,6 +295,9 @@ detect_arch() {
             report_exit "refusal" "unsupported-arch" "Architecture $u_arch is not supported by Solstone platform"
             ;;
     esac
+    if [ "$HOST_OS" = "darwin" ] && [ "$HOST_ARCH" != "aarch64" ]; then
+        report_exit "refusal" "unsupported-arch" "Solstone on macOS requires Apple Silicon"
+    fi
 }
 
 detect_fetch_tool() {
@@ -288,6 +308,312 @@ detect_fetch_tool() {
     else
         report_exit "refusal" "missing-fetch-tool" "Neither curl nor wget is available in PATH"
     fi
+}
+
+macos_report_exit() {
+    mac_status="$1"
+    mac_code="$2"
+    mac_message="$3"
+    mac_components=""
+    mac_first=1
+    for mac_component in ${REPORT_COMPONENTS:-$SELECTED_COMPONENTS}; do
+        mac_component_status="failed"
+        case " $UNCHANGED_COMPONENTS " in *" $mac_component "*) mac_component_status="unchanged" ;; esac
+        case " $SUCCEEDED_COMPONENTS " in *" $mac_component "*) mac_component_status="installed" ;; esac
+        if [ "$mac_status" = "success" ] && [ "$OPT_DRY_RUN" -eq 1 ]; then
+            mac_component_status="planned"
+        fi
+        mac_block="\"$mac_component\":{\"role\":\"$mac_component\",\"status\":\"$mac_component_status\",\"route\":\"app\",\"phase\":\"$mac_component_status\",\"target_version\":null}"
+        if [ "$mac_first" -eq 1 ]; then
+            mac_components="$mac_block"
+            mac_first=0
+        else
+            mac_components="${mac_components},${mac_block}"
+        fi
+    done
+    if [ "$OPT_JSON" -eq 1 ]; then
+        printf '{"status":%s,"root_code":%s,"message":%s,"platform":"macos","arch":%s,"verification_layers":"developer-id+notarization","components":{%s}}\n' \
+            "$(json_string "$mac_status")" "$(json_string "$mac_code")" "$(json_string "$mac_message")" \
+            "$(json_string "$HOST_ARCH")" "$mac_components"
+    elif [ "$mac_status" = "success" ]; then
+        log_info "$mac_message"
+    else
+        log_err "$mac_code: $mac_message"
+    fi
+    [ "$mac_status" = "success" ] && exit 0
+    exit 1
+}
+
+macos_refuse() {
+    macos_report_exit refusal "$1" "$2"
+}
+
+macos_select_tools() {
+    MACOS_CODESIGN="/usr/bin/codesign"
+    MACOS_SPCTL="/usr/sbin/spctl"
+    MACOS_HDIUTIL="/usr/bin/hdiutil"
+    MACOS_DITTO="/usr/bin/ditto"
+    MACOS_SW_VERS="/usr/bin/sw_vers"
+    MACOS_APPLICATIONS="/Applications"
+    MACOS_DOWNLOAD_ORIGIN="https://solstone.app"
+    if [ "$TEST_SEAM" -eq 1 ]; then
+        MACOS_CODESIGN="${SOLSTONE_TEST_CODESIGN:-$MACOS_CODESIGN}"
+        MACOS_SPCTL="${SOLSTONE_TEST_SPCTL:-$MACOS_SPCTL}"
+        MACOS_HDIUTIL="${SOLSTONE_TEST_HDIUTIL:-$MACOS_HDIUTIL}"
+        MACOS_DITTO="${SOLSTONE_TEST_DITTO:-$MACOS_DITTO}"
+        MACOS_SW_VERS="${SOLSTONE_TEST_SW_VERS:-$MACOS_SW_VERS}"
+        MACOS_APPLICATIONS="${SOLSTONE_TEST_APPLICATIONS:-$MACOS_APPLICATIONS}"
+        MACOS_DOWNLOAD_ORIGIN="${SOLSTONE_TEST_MACOS_ORIGIN:-$MACOS_DOWNLOAD_ORIGIN}"
+    fi
+}
+
+macos_check_version() {
+    mac_version=$("$MACOS_SW_VERS" -productVersion 2>/dev/null) \
+        || macos_refuse unsupported-platform "macOS version could not be determined"
+    mac_major=${mac_version%%.*}
+    case "$mac_major" in ""|*[!0-9]*) macos_refuse unsupported-platform "macOS version $mac_version is not supported" ;; esac
+    [ "$mac_major" -ge 15 ] \
+        || macos_refuse unsupported-platform "Solstone requires macOS 15 or later"
+}
+
+macos_component_identity() {
+    case "$1" in
+        journal)
+            MAC_COMPONENT_NAME="journal.app"
+            MAC_COMPONENT_ID="app.solstone.journal"
+            MAC_COMPONENT_ROUTE="journal"
+            MAC_COMPONENT_CHANNEL="journal-macos"
+            ;;
+        app)
+            MAC_COMPONENT_NAME="solstone.app"
+            MAC_COMPONENT_ID="app.solstone.observer"
+            MAC_COMPONENT_ROUTE="macos"
+            MAC_COMPONENT_CHANNEL="solstone-macos"
+            ;;
+        *) macos_refuse unknown-component "Unrecognized macOS component: $1" ;;
+    esac
+    MAC_COMPONENT_TEAM="7QCG8V4M6H"
+}
+
+macos_verify_app() {
+    mva_path="$1"
+    mva_id="$2"
+    if [ ! -d "$mva_path" ] || [ -L "$mva_path" ]; then
+        macos_refuse app-invalid "Expected an application bundle at $mva_path"
+    fi
+    "$MACOS_CODESIGN" --verify --strict --deep --verbose=2 "$mva_path" >/dev/null 2>&1 \
+        || macos_refuse signature-invalid "The downloaded $MAC_COMPONENT_NAME has an invalid code signature"
+    mva_details="${SCRATCH_DIR}/codesign-details.$$"
+    "$MACOS_CODESIGN" -dvvv "$mva_path" >"$mva_details" 2>&1 \
+        || macos_refuse signature-invalid "The downloaded $MAC_COMPONENT_NAME signing identity could not be read"
+    grep -Fqx "Identifier=$mva_id" "$mva_details" \
+        || macos_refuse identity-mismatch "The downloaded $MAC_COMPONENT_NAME has the wrong bundle identifier"
+    grep -Fqx "TeamIdentifier=$MAC_COMPONENT_TEAM" "$mva_details" \
+        || macos_refuse identity-mismatch "The downloaded $MAC_COMPONENT_NAME has the wrong signing team"
+    "$MACOS_SPCTL" --assess --type execute --verbose=2 "$mva_path" >/dev/null 2>&1 \
+        || macos_refuse notarization-invalid "macOS did not accept the downloaded $MAC_COMPONENT_NAME"
+}
+
+macos_fetch_dmg() {
+    mfd_route="$1"
+    mfd_channel="$2"
+    mfd_dest="$3"
+    mfd_url="${MACOS_DOWNLOAD_ORIGIN}/download/${mfd_route}/latest"
+    mfd_headers="${SCRATCH_DIR}/macos-headers.$$"
+    log_info "downloading $MAC_COMPONENT_NAME"
+    command -v curl >/dev/null 2>&1 \
+        || macos_refuse missing-fetch-tool "curl is required to install the macOS apps"
+    mfd_code=$(curl -q -s -S --connect-timeout 10 --max-time 120 --retry 0 --max-redirs 0 \
+        -w "%{http_code}" -D "$mfd_headers" -o /dev/null "$mfd_url" 2>/dev/null) || mfd_code="000"
+    [ "$mfd_code" = "302" ] \
+        || macos_refuse fetch-failed "HTTP status $mfd_code from $mfd_url"
+    mfd_location=$(grep -i '^Location:' "$mfd_headers" | head -n 1 | awk '{print $2}' | tr -d '\r\n')
+    if [ "$TEST_SEAM" -eq 1 ]; then
+        case "$mfd_location" in
+            "${MACOS_DOWNLOAD_ORIGIN}/${mfd_channel}/"*.dmg) ;;
+            *) macos_refuse redirect-refused "The macOS download redirected outside its approved release channel" ;;
+        esac
+    else
+        case "$mfd_location" in
+            "https://updates.solstone.app/${mfd_channel}/"*.dmg) ;;
+            *) macos_refuse redirect-refused "The macOS download redirected outside its approved release channel" ;;
+        esac
+    fi
+    case "$mfd_location" in *'?'*|*'#'*|*'@'*) macos_refuse redirect-refused "The macOS download redirect is malformed" ;; esac
+    mfd_code=$(curl -q -s -S --connect-timeout 10 --max-time 300 --retry 1 --max-redirs 0 \
+        -w "%{http_code}" -o "$mfd_dest" "$mfd_location" 2>/dev/null) || mfd_code="000"
+    [ "$mfd_code" = "200" ] \
+        || macos_refuse fetch-failed "HTTP status $mfd_code while downloading $MAC_COMPONENT_NAME"
+    enforce_file_limit "$mfd_dest" 1073741824 "$MAC_COMPONENT_NAME disk image"
+}
+
+macos_legacy_journal_present() {
+    for mlp_path in \
+        "$HOME/.local/solstone-journal/current" \
+        "$HOME/.local/solstone-journal/install-receipt" \
+        "$HOME/.local/bin/journal" \
+        "$HOME/.local/bin/sol" \
+        "$HOME/Library/LaunchAgents/org.solpbc.solstone.plist"
+    do
+        if [ -e "$mlp_path" ] || [ -L "$mlp_path" ]; then return 0; fi
+    done
+    return 1
+}
+
+macos_install_component() {
+    mic_component="$1"
+    macos_component_identity "$mic_component"
+    mic_destination="${MACOS_APPLICATIONS}/${MAC_COMPONENT_NAME}"
+
+    if [ "$mic_component" = journal ] && macos_legacy_journal_present; then
+        macos_refuse legacy-journal-present "A command-line Journal installation is present. Nothing was changed; open the Journal app migration guidance before installing the app."
+    fi
+    if [ -e "$mic_destination" ] || [ -L "$mic_destination" ]; then
+        macos_verify_app "$mic_destination" "$MAC_COMPONENT_ID"
+        UNCHANGED_COMPONENTS="${UNCHANGED_COMPONENTS}${UNCHANGED_COMPONENTS:+ }${mic_component}"
+        log_info "$MAC_COMPONENT_NAME is already installed; updates stay inside the app."
+        return 0
+    fi
+
+    if [ ! -d "$MACOS_APPLICATIONS" ] || [ -L "$MACOS_APPLICATIONS" ]; then
+        macos_refuse applications-unavailable "$MACOS_APPLICATIONS is not an available applications directory"
+    fi
+    [ -w "$MACOS_APPLICATIONS" ] \
+        || macos_refuse applications-unwritable "$MACOS_APPLICATIONS is not writable; download the app and move it there with Finder"
+
+    mic_dmg="${SCRATCH_DIR}/${mic_component}.dmg"
+    macos_fetch_dmg "$MAC_COMPONENT_ROUTE" "$MAC_COMPONENT_CHANNEL" "$mic_dmg"
+    "$MACOS_CODESIGN" --verify --strict --verbose=2 "$mic_dmg" >/dev/null 2>&1 \
+        || macos_refuse signature-invalid "The downloaded $MAC_COMPONENT_NAME disk image has an invalid signature"
+    "$MACOS_SPCTL" --assess --type open --context context:primary-signature --verbose=2 "$mic_dmg" >/dev/null 2>&1 \
+        || macos_refuse notarization-invalid "macOS did not accept the downloaded $MAC_COMPONENT_NAME disk image"
+
+    mic_mount="${SCRATCH_DIR}/mount-${mic_component}"
+    mkdir "$mic_mount" || macos_refuse mount-failed "Could not prepare a mount point for $MAC_COMPONENT_NAME"
+    "$MACOS_HDIUTIL" attach "$mic_dmg" -mountpoint "$mic_mount" -nobrowse -readonly -quiet >/dev/null 2>&1 \
+        || macos_refuse mount-failed "Could not mount the downloaded $MAC_COMPONENT_NAME disk image"
+    MACOS_MOUNT_POINT="$mic_mount"
+    mic_source="${mic_mount}/${MAC_COMPONENT_NAME}"
+    macos_verify_app "$mic_source" "$MAC_COMPONENT_ID"
+    if [ "$OPT_DRY_RUN" -eq 1 ]; then
+        "$MACOS_HDIUTIL" detach "$mic_mount" -quiet >/dev/null 2>&1 \
+            || macos_refuse mount-failed "Could not detach the verified $MAC_COMPONENT_NAME disk image"
+        MACOS_MOUNT_POINT=""
+        return 0
+    fi
+
+    mic_stage_root=$(mktemp -d "${MACOS_APPLICATIONS}/.solstone-install.XXXXXX" 2>/dev/null) \
+        || macos_refuse install-failed "Could not create a protected staging directory in $MACOS_APPLICATIONS"
+    MACOS_STAGE_ROOT="$mic_stage_root"
+    mic_stage="${mic_stage_root}/${MAC_COMPONENT_NAME}"
+    "$MACOS_DITTO" "$mic_source" "$mic_stage" >/dev/null 2>&1 \
+        || macos_refuse install-failed "Could not stage $MAC_COMPONENT_NAME in $MACOS_APPLICATIONS"
+    macos_verify_app "$mic_stage" "$MAC_COMPONENT_ID"
+    if [ -e "$mic_destination" ] || [ -L "$mic_destination" ]; then
+        macos_refuse install-conflict "$MAC_COMPONENT_NAME appeared during installation; nothing was replaced"
+    fi
+    mv -n "$mic_stage" "$mic_destination" \
+        || macos_refuse install-failed "Could not install $MAC_COMPONENT_NAME in $MACOS_APPLICATIONS"
+    if [ -e "$mic_stage" ] || [ -L "$mic_stage" ]; then
+        macos_refuse install-conflict "$MAC_COMPONENT_NAME was not moved into place"
+    fi
+    rmdir "$mic_stage_root" 2>/dev/null || true
+    MACOS_STAGE_ROOT=""
+    if ! "$MACOS_HDIUTIL" detach "$mic_mount" -quiet >/dev/null 2>&1; then
+        log_info "Notice: $MAC_COMPONENT_NAME was installed, but its disk image remains mounted."
+    fi
+    MACOS_MOUNT_POINT=""
+    SUCCEEDED_COMPONENTS="${SUCCEEDED_COMPONENTS}${SUCCEEDED_COMPONENTS:+ }${mic_component}"
+}
+
+# Invoked indirectly by trap.
+# shellcheck disable=SC2317
+macos_cleanup() {
+    if [ -n "${MACOS_MOUNT_POINT:-}" ]; then
+        "$MACOS_HDIUTIL" detach "$MACOS_MOUNT_POINT" -quiet >/dev/null 2>&1 || true
+    fi
+    if [ -n "${MACOS_STAGE_ROOT:-}" ]; then
+        case "$MACOS_STAGE_ROOT" in "$MACOS_APPLICATIONS"/.solstone-install.*) rm -rf -- "$MACOS_STAGE_ROOT" 2>/dev/null || true ;; esac
+    fi
+    cleanup_scratch
+}
+
+macos_selection_menu() {
+    if [ "$OPT_NON_INTERACTIVE" -eq 1 ] || [ "$OPT_JSON" -eq 1 ]; then
+        OPT_COMPONENTS="journal"
+        return 0
+    fi
+    if ! sh -c 'test -t 0' </dev/tty >/dev/null 2>&1; then
+        OPT_COMPONENTS="journal"
+        return 0
+    fi
+    printf "\nSolstone for Mac:\n" > /dev/tty
+    printf "  1) Journal app and solstone app\n" > /dev/tty
+    printf "  2) Journal app only\n" > /dev/tty
+    printf "  3) Solstone app only\n" > /dev/tty
+    printf "Select 1-3: " > /dev/tty
+    read -r mac_choice < /dev/tty
+    case "$mac_choice" in
+        1) OPT_COMPONENTS="all" ;;
+        2) OPT_COMPONENTS="journal" ;;
+        3) OPT_COMPONENTS="app" ;;
+        *) macos_refuse invalid-selection "Invalid component selection '$mac_choice'" ;;
+    esac
+}
+
+run_macos() {
+    macos_select_tools
+    [ -n "${HOME:-}" ] \
+        || macos_refuse home-unavailable "A home directory is required to check for an existing Journal installation"
+    macos_check_version
+    if [ "$OPT_LANE" != release ] || [ -n "$OPT_VERSION" ]; then
+        macos_refuse unsupported-option "The macOS app installer uses the current release channel"
+    fi
+    if [ "$OPT_UPGRADE" -eq 1 ]; then
+        macos_refuse app-updates-in-app "The macOS apps update themselves; open each app to update it"
+    fi
+    if [ "$OPT_UNINSTALL" -eq 1 ]; then
+        macos_refuse unsupported-option "The macOS app installer does not remove apps"
+    fi
+    if [ "$OPT_ROUTE_EXPLICIT" -eq 1 ] || [ "$OPT_PREFIX_EXPLICIT" -eq 1 ] || [ "$OPT_ORIGIN_EXPLICIT" -eq 1 ] \
+        || [ "$OPT_NO_START" -eq 1 ] || [ "$OPT_NO_PATH" -eq 1 ] || [ "$OPT_SKIP_SIGNATURE" -eq 1 ]; then
+        macos_refuse unsupported-option "That option applies only to Linux installs"
+    fi
+
+    SCRATCH_DIR=$(mktemp -d /var/tmp/solstone-macos-install.XXXXXX 2>/dev/null || mktemp -d /tmp/solstone-macos-install.XXXXXX) \
+        || macos_refuse scratch-unavailable "Could not create the installer workspace"
+    MACOS_MOUNT_POINT=""
+    MACOS_STAGE_ROOT=""
+    trap macos_cleanup 0
+    trap 'macos_refuse interrupted "installation interrupted; no existing app was replaced"' HUP INT TERM
+    chmod 0700 "$SCRATCH_DIR" || macos_refuse scratch-unavailable "Could not protect the installer workspace"
+
+    if [ "$OPT_LIST" -eq 1 ]; then
+        SELECTED_COMPONENTS="journal app"
+        REPORT_COMPONENTS="$SELECTED_COMPONENTS"
+        macos_report_exit success list "Available macOS components: Journal app, solstone app"
+    fi
+    [ -n "$OPT_COMPONENTS" ] || macos_selection_menu
+    case "$OPT_COMPONENTS" in
+        all) SELECTED_COMPONENTS="journal app" ;;
+        *)
+            mac_raw_components=$(printf '%s' "$OPT_COMPONENTS" | tr ',' ' ')
+            SELECTED_COMPONENTS=""
+            for mac_component in $mac_raw_components; do
+                case "$mac_component" in journal|app) ;; *) macos_refuse unknown-component "Unrecognized macOS component: $mac_component" ;; esac
+                case " $SELECTED_COMPONENTS " in *" $mac_component "*) ;; *) SELECTED_COMPONENTS="${SELECTED_COMPONENTS}${SELECTED_COMPONENTS:+ }${mac_component}" ;; esac
+            done
+            [ -n "$SELECTED_COMPONENTS" ] || macos_refuse missing-value "--components needs a value"
+            ;;
+    esac
+    REPORT_COMPONENTS="$SELECTED_COMPONENTS"
+    for mac_component in $SELECTED_COMPONENTS; do
+        macos_install_component "$mac_component"
+    done
+    if [ "$OPT_DRY_RUN" -eq 1 ]; then
+        macos_report_exit success dry-run-completed "preview complete; no changes made"
+    fi
+    macos_report_exit success installed "Selected macOS apps installed successfully. Open them to finish setup and receive updates."
 }
 
 validate_url_security() {
@@ -1462,11 +1788,13 @@ acquire_installer_locks() {
 
 interactive_selection_menu() {
     if [ "$OPT_NON_INTERACTIVE" -eq 1 ] || [ "$OPT_JSON" -eq 1 ]; then
-        report_exit "refusal" "no-selection" "No components selected in non-interactive mode (use --components or --all)"
+        OPT_COMPONENTS="journal"
+        return 0
     fi
 
     if ! sh -c 'test -t 0' </dev/tty >/dev/null 2>&1; then
-        report_exit "refusal" "no-selection" "interactive terminal /dev/tty is not readable (use --components or --all)"
+        OPT_COMPONENTS="journal"
+        return 0
     fi
 
     printf "\nSolstone Platform Component Selection:\n" > /dev/tty
@@ -2594,13 +2922,13 @@ discover_upgrade_selection() {
 
 print_help() {
     cat <<'SOLSTONE_HELP'
-solstone linux installer
+solstone installer for Linux and macOS
 
 usage: sh install.sh [options]
 
-  --components LIST    journal, cli, desktop, tmux (comma-separated)
-                       all: journal + available apps; capture: cli + available apps
-                       journal and cli are alternative roles for the same download
+  --components LIST    Linux: journal, cli, desktop, tmux
+                       macOS: journal, app
+                       all selects the supported app set for this computer
   --all                select all available components
   --upgrade            update only components already owned by this installer
   --uninstall          remove selected owned software; keep your journal and data
@@ -2619,19 +2947,20 @@ usage: sh install.sh [options]
   --skip-signature     explicitly skip signatures; digests are still checked
   --help, -h           show this help; with --json, return it as JSON
 
-requires: linux, curl or wget, minisign, awk, tar, sha256sum, and flock.
-install minisign from your distribution's package manager before running.
-package installs require sudo access and the distribution's package tools.
+Linux requires curl or wget, minisign, awk, tar, sha256sum, and flock.
+macOS requires Apple Silicon and macOS 15 or later. It installs signed,
+notarized app bundles in /Applications; app updates remain inside each app.
 
-examples (after saving https://solstone.app/platform-install.sh as install.sh):
+examples (after saving https://solstone.app/install.sh as install.sh):
   sh install.sh --components all
   sh install.sh --components cli --non-interactive --json
+  sh install.sh --components journal,app
   sh install.sh --upgrade --dry-run --json
   sh install.sh --upgrade
   sh install.sh --components tmux --uninstall --dry-run
 
 without a selection, an interactive terminal shows the component menu.
-existing journal-only installs use https://solstone.app/install.sh --upgrade.
+without a terminal, the historical safe default is Journal only.
 SOLSTONE_HELP
 }
 
@@ -2691,18 +3020,22 @@ parse_args() {
                 ;;
             --prefix)
                 OPT_PREFIX="$2"
+                OPT_PREFIX_EXPLICIT=1
                 shift 2
                 ;;
             --prefix=*)
                 OPT_PREFIX="${1#*=}"
+                OPT_PREFIX_EXPLICIT=1
                 shift 1
                 ;;
             --origin)
                 OPT_ORIGIN="$2"
+                OPT_ORIGIN_EXPLICIT=1
                 shift 2
                 ;;
             --origin=*)
                 OPT_ORIGIN="${1#*=}"
+                OPT_ORIGIN_EXPLICIT=1
                 shift 1
                 ;;
             --upgrade)
@@ -3382,8 +3715,11 @@ run_uninstall() {
 
 main() {
     parse_args "$@"
+    detect_host
+    if [ "$HOST_OS" = "darwin" ]; then
+        run_macos
+    fi
     validate_requested_coordinates
-    detect_arch
     detect_fetch_tool
 
     # Setup scratch directory

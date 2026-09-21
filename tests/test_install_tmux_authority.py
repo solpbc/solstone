@@ -161,12 +161,9 @@ class TmuxFixture:
     def run(self, *args: str, arch: str = "x86_64", path: str | None = None, extra_env: dict[str, str] | None = None):
         env = os.environ.copy()
         if arch == "aarch64":
-            arch_bin = self.root / "aarch64-bin"
-            arch_bin.mkdir(exist_ok=True)
-            uname = arch_bin / "uname"
-            uname.write_text("#!/bin/sh\necho aarch64\n", encoding="utf-8")
-            uname.chmod(0o755)
-            env["PATH"] = f"{arch_bin}:{path or env['PATH']}"
+            env["SOLSTONE_TEST_HOST_ARCH"] = "aarch64"
+            if path is not None:
+                env["PATH"] = path
         elif path is not None:
             env["PATH"] = path
         if extra_env:

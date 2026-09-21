@@ -682,26 +682,28 @@ class TestInstallTreeLifecycle(unittest.TestCase):
                 self.assertTrue((self.prefix / "bin" / "solstone-linux").is_symlink())
 
                 json_prefix = self.work_dir / "json-prefix"
-                json_command = f"{shlex.quote(str(installer))} --prefix {shlex.quote(str(json_prefix))} --json"
+                json_command = (
+                    f"{shlex.quote(str(installer))} --skip-signature --no-start "
+                    f"--prefix {shlex.quote(str(json_prefix))} --json"
+                )
                 code, tty_bytes, stdout, stderr = self.run_pty_command(json_command, self.env)
-                self.assertNotEqual(code, 0)
+                self.assertEqual(code, 0, stderr + stdout)
                 self.assertNotIn(b"Component Selection", tty_bytes)
                 self.assertEqual(stderr, "")
                 lines = [line for line in stdout.splitlines() if line]
                 self.assertEqual(len(lines), 1)
-                self.assertEqual(json.loads(lines[0])["root_code"], "no-selection")
+                self.assertEqual(set(json.loads(lines[0])["components"]), {"journal"})
 
                 no_tty = subprocess.run(
-                    [str(installer), "--prefix", str(self.work_dir / "no-tty"), "--json"],
+                    [str(installer), "--skip-signature", "--no-start", "--prefix", str(self.work_dir / "no-tty"), "--json"],
                     stdin=subprocess.DEVNULL,
                     capture_output=True,
                     text=True,
-                    env=self.env,
+                    env={**self.env, "XDG_DATA_HOME": str(self.work_dir / "no-tty-data")},
                 )
-                self.assertNotEqual(no_tty.returncode, 0)
+                self.assertEqual(no_tty.returncode, 0, no_tty.stderr + no_tty.stdout)
                 no_tty_result = json.loads(no_tty.stdout)
-                self.assertEqual(no_tty_result["root_code"], "no-selection")
-                self.assertIn("--components or --all", no_tty_result["message"])
+                self.assertEqual(set(no_tty_result["components"]), {"journal"})
 
                 noninteractive = subprocess.run(
                     [str(installer), "--skip-signature", "--non-interactive", "--components", "desktop", "--prefix", str(self.work_dir / "noninteractive"), "--no-start", "--json"],

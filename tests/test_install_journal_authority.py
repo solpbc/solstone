@@ -191,12 +191,7 @@ class JournalFixture:
     def run(self, *args: str, arch: str = "x86_64", path: str | None = None):
         env = os.environ.copy()
         if arch == "aarch64":
-            fake_bin = self.root / "fake-aarch64-bin"
-            fake_bin.mkdir(exist_ok=True)
-            uname = fake_bin / "uname"
-            uname.write_text("#!/bin/sh\necho aarch64\n", encoding="utf-8")
-            uname.chmod(0o755)
-            env["PATH"] = f"{fake_bin}:{env['PATH']}"
+            env["SOLSTONE_TEST_HOST_ARCH"] = "aarch64"
         if path is not None:
             env["PATH"] = path
         prefix = self.root / f"prefix-{arch}-{len(self.server.request_paths)}"
