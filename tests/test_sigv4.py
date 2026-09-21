@@ -17,6 +17,7 @@ from solstone_platform.r2 import (
 )
 from solstone_platform.refusals import (
     HTTP_3XX,
+    HTTP_TIMEOUT,
     LANE_INVALID,
     Refusal,
     UNSAFE_FILENAME,
@@ -161,6 +162,20 @@ class TestSigV4(unittest.TestCase):
                 cache_control="no-store",
             )
         self.assertEqual(ctx.exception.name, UNSAFE_FILENAME)
+
+    def test_compare_and_swap_preserves_transport_ambiguity(self):
+        def timeout(*args, **kwargs):
+            raise Refusal(HTTP_TIMEOUT, "simulated ambiguous timeout")
+
+        self.dest._send_request = timeout
+        result = self.dest.compare_and_swap(
+            "solstone/release/latest",
+            b"2.0.1\n",
+            expected_etag='"base"',
+            content_type="text/plain; charset=utf-8",
+            cache_control="no-store, max-age=0",
+        )
+        self.assertEqual(result.status, ResultStatus.INDETERMINATE)
 
     def test_requests_allow_large_artifact_upload_window(self):
         class CapturingOpener:

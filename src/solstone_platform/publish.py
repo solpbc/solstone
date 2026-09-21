@@ -10,6 +10,7 @@ import re
 from typing import Optional
 
 from solstone_platform.capture import capture_release_sources
+from solstone_platform.canonical import parse_json_strict
 from solstone_platform.destination import Destination, ResultStatus
 from solstone_platform.ingest import (
     IngestedComponent,
@@ -153,10 +154,148 @@ def _add_claim(
     claims[key] = claim
 
 
+def _snapshot_prepared_inventory(snapshot) -> list[dict[str, object]]:
+    """Return the receipt-defined prepared file set from captured bytes."""
+    roots = (
+        (snapshot.manifest_path, "platform.json"),
+        (snapshot.journal_dir, "journal"),
+        (snapshot.desktop_dir, "desktop"),
+        (snapshot.tmux_dir, "tmux"),
+    )
+    files: list[tuple[Path, str]] = []
+    for path, rel in roots:
+        if path.is_file():
+            files.append((path, rel))
+        else:
+            for child in sorted(path.rglob("*")):
+                if child.is_file():
+                    files.append((child, f"{rel}/{child.relative_to(path)}"))
+    if snapshot.bootstrap_file:
+        files.append((snapshot.bootstrap_file, f"bootstrap/{snapshot.bootstrap_file.name}"))
+    result: list[dict[str, object]] = []
+    for path, rel in sorted(files, key=lambda item: item[1]):
+        data = path.read_bytes()
+        result.append({"path": rel, "sha256": hashlib.sha256(data).hexdigest(), "bytes": len(data)})
+    return result
+
+
+def _validate_recut_receipt(
+    receipt: dict,
+    snapshot,
+    manifest_obj: dict,
+    manifest_bytes: bytes,
+    base_obj: dict,
+) -> None:
+    if receipt.get("lane") != manifest_obj.get("lane"):
+        raise Refusal(RELEASE_COHERENCE, "recut receipt lane does not match manifest")
+    candidate = receipt.get("candidate")
+    base = receipt.get("base")
+    if not isinstance(candidate, dict) or not isinstance(base, dict):
+        raise Refusal(SCHEMA_INVALID, "recut receipt requires base and candidate objects")
+    if candidate.get("version") != manifest_obj.get("version"):
+        raise Refusal(RELEASE_COHERENCE, "recut receipt candidate version does not match manifest")
+    if candidate.get("sha256") != hashlib.sha256(manifest_bytes).hexdigest():
+        raise Refusal(RELEASE_COHERENCE, "recut receipt candidate digest does not match manifest")
+    if not isinstance(base.get("body"), str) or not isinstance(base.get("etag"), str):
+        raise Refusal(SCHEMA_INVALID, "recut receipt base pointer is incomplete")
+    if compare_semver(manifest_obj["version"], str(base.get("version"))) <= 0:
+        raise Refusal(RELEASE_COHERENCE, "recut receipt base is not older than candidate")
+    prepared_files = receipt.get("prepared_files")
+    if not isinstance(prepared_files, list) or any(not isinstance(item, dict) for item in prepared_files):
+        raise Refusal(SCHEMA_INVALID, "recut receipt prepared_files must be an object list")
+    if prepared_files != _snapshot_prepared_inventory(snapshot):
+        raise Refusal(RELEASE_COHERENCE, "captured prepared file inventory differs from recut receipt")
+    prepared_by_path = {item.get("path"): item for item in prepared_files}
+    if None in prepared_by_path or len(prepared_by_path) != len(prepared_files):
+        raise Refusal(SCHEMA_INVALID, "recut receipt prepared file paths must be unique strings")
+    sources = receipt.get("sources")
+    if not isinstance(sources, list):
+        raise Refusal(SCHEMA_INVALID, "recut receipt sources must be a list")
+    source_by_path: dict[str, dict] = {}
+    for source in sources:
+        if not isinstance(source, dict) or source.get("path") not in prepared_by_path:
+            raise Refusal(RELEASE_COHERENCE, "recut receipt source path is not inventoried")
+        source_path = source["path"]
+        if source_path in source_by_path:
+            raise Refusal(RELEASE_COHERENCE, "recut receipt maps a prepared path more than once")
+        source_by_path[source_path] = source
+        prepared = prepared_by_path[source["path"]]
+        if source.get("sha256") != prepared.get("sha256") or source.get("bytes") != prepared.get("bytes"):
+            raise Refusal(RELEASE_COHERENCE, "recut receipt source fact differs from captured file")
+
+    replacements = receipt.get("replacements")
+    if not isinstance(replacements, dict) or not replacements or not set(replacements).issubset({"journal", "desktop", "tmux"}):
+        raise Refusal(SCHEMA_INVALID, "recut receipt replacements are invalid")
+    origin = "https://updates.solstone.app"
+    base_version = base_obj["version"]
+    for field in ("schema_version", "protocol_version", "lane", "platform_key_id", "minimum_installer_revision"):
+        if manifest_obj.get(field) != base_obj.get(field):
+            raise Refusal(RELEASE_COHERENCE, f"recut changed protected top-level field {field}")
+    expected_source_paths = set(prepared_by_path) - {"platform.json"}
+    if set(source_by_path) != expected_source_paths:
+        raise Refusal(RELEASE_COHERENCE, "recut receipt source mapping is incomplete or has extras")
+
+    for component in ("journal", "desktop", "tmux"):
+        base_component = base_obj["components"][component]
+        candidate_component = manifest_obj["components"][component]
+        if component not in replacements:
+            if candidate_component != base_component:
+                raise Refusal(RELEASE_COHERENCE, f"recut changed unselected component {component}")
+        else:
+            if replacements[component] != candidate_component["version"]:
+                raise Refusal(RELEASE_COHERENCE, f"recut replacement version mismatch for {component}")
+            if compare_semver(candidate_component["version"], base_component["version"]) <= 0:
+                raise Refusal(RELEASE_COHERENCE, f"recut replacement is not newer for {component}")
+            for field in candidate_component:
+                if field not in {"version", "arches", "provenance"} and candidate_component[field] != base_component.get(field):
+                    raise Refusal(RELEASE_COHERENCE, f"recut changed protected {component} field {field}")
+
+    component_prefixes = {
+        "journal": "solstone-journal" if "journal" in replacements else "solstone",
+        "desktop": "solstone-linux" if "desktop" in replacements else "solstone",
+        "tmux": "solstone-tmux" if "tmux" in replacements else "solstone",
+    }
+    for path, source in source_by_path.items():
+        if path.startswith("bootstrap/"):
+            journal_version = manifest_obj["components"]["journal"]["version"]
+            expected_url = f"{origin}/solstone-journal/release/{journal_version}/{Path(path).name}"
+        else:
+            component = path.split("/", 1)[0]
+            version = manifest_obj["components"][component]["version"] if component in replacements else base_version
+            expected_url = f"{origin}/{component_prefixes[component]}/release/{version}/{Path(path).name}"
+        if source.get("url") != expected_url:
+            raise Refusal(RELEASE_COHERENCE, f"recut receipt source coordinate mismatch for {path}")
+
+
+def _verify_base_release(dest: Destination, receipt: dict, platform_pin, snapshot_root: Path) -> dict:
+    base = receipt["base"]
+    base_version = base["version"]
+    manifest_res = dest.get(f"solstone/release/{base_version}/platform.json")
+    signature_res = dest.get(f"solstone/release/{base_version}/platform.json.minisig")
+    if not manifest_res.is_ok() or manifest_res.body is None or not signature_res.is_ok() or signature_res.body is None:
+        raise Refusal(PUBLISH_INDETERMINATE, "could not independently read signed recut base")
+    manifest_path = snapshot_root / "verified-base-platform.json"
+    signature_path = snapshot_root / "verified-base-platform.json.minisig"
+    manifest_path.write_bytes(manifest_res.body)
+    signature_path.write_bytes(signature_res.body)
+    verify_minisign_signature(platform_pin, manifest_path, signature_path)
+    base_obj = load_platform_manifest_bytes(manifest_res.body, canonical_refusal=RELEASE_COHERENCE)
+    if (
+        base_obj.get("version") != base_version
+        or base_obj.get("lane") != receipt.get("lane")
+        or base_obj.get("platform_key_id") != platform_pin.key_id
+    ):
+        raise Refusal(RELEASE_COHERENCE, "signed recut base does not match receipt coordinate")
+    return base_obj
+
+
 def publish_release(*args, **kwargs) -> PublishReport:
     """Closed production publication entrypoint."""
     # Strict argument allowlist check BEFORE capture
-    allowed_kw = {"manifest_path", "signature_path", "journal_dir", "desktop_dir", "tmux_dir", "dest", "bootstrap_file"}
+    allowed_kw = {
+        "manifest_path", "signature_path", "journal_dir", "desktop_dir", "tmux_dir",
+        "dest", "bootstrap_file", "expected_latest_receipt", "expect_latest_absent",
+    }
     if len(args) > 7 or any(k not in allowed_kw for k in kwargs):
         raise Refusal(UNSAFE_FILENAME, "publish_release received unexpected arguments outside closed allowlist")
 
@@ -181,11 +320,15 @@ def publish_release(*args, **kwargs) -> PublishReport:
     tmux_dir: Path = Path(bound["tmux_dir"])
     dest: Destination = bound["dest"]
     bootstrap_file: Optional[Path] = Path(bound["bootstrap_file"]) if bound.get("bootstrap_file") else None
+    receipt_path: Optional[Path] = Path(bound["expected_latest_receipt"]) if bound.get("expected_latest_receipt") else None
+    expect_latest_absent = bool(bound.get("expect_latest_absent", False))
 
     is_fixture_dest = (
         type(dest) is FixtureDestination
         and getattr(dest, "_build_token", None) is FIXTURE_BUILD_TOKEN
     )
+    if not is_fixture_dest and (receipt_path is None) == (not expect_latest_absent):
+        raise Refusal(SCHEMA_INVALID, "production publish requires exactly one latest expectation")
 
     # 1. Capture release sources into private 0700 directory
     with capture_release_sources(
@@ -195,6 +338,7 @@ def publish_release(*args, **kwargs) -> PublishReport:
         desktop_dir=desktop_dir,
         tmux_dir=tmux_dir,
         bootstrap_file=bootstrap_file,
+        receipt_path=receipt_path,
     ) as snapshot:
 
         # 2. Fire post-capture hook only for authorized FixtureDestination
@@ -210,6 +354,12 @@ def publish_release(*args, **kwargs) -> PublishReport:
             canonical_refusal=RELEASE_COHERENCE,
         )
         canonical_manifest = manifest_bytes
+
+        receipt_obj = None
+        if snapshot.receipt_path:
+            receipt_obj = parse_json_strict(snapshot.receipt_path.read_bytes())
+            if not isinstance(receipt_obj, dict) or receipt_obj.get("schema_version") != 1:
+                raise Refusal(SCHEMA_INVALID, "invalid recut receipt")
 
         version = manifest_obj["version"]
         lane = manifest_obj["lane"]
@@ -228,6 +378,10 @@ def publish_release(*args, **kwargs) -> PublishReport:
             )
 
         verify_minisign_signature(platform_pin, snapshot.manifest_path, snapshot.signature_path)
+
+        if receipt_obj is not None:
+            base_obj = _verify_base_release(dest, receipt_obj, platform_pin, snapshot.snapshot_root)
+            _validate_recut_receipt(receipt_obj, snapshot, manifest_obj, manifest_bytes, base_obj)
 
         # Resolve native pins
         if is_fixture_dest and dest.pinset is not None:
@@ -392,6 +546,53 @@ def publish_release(*args, **kwargs) -> PublishReport:
         platform_manifest_claim = (canonical_manifest, "application/json", "public, max-age=31536000, immutable")
         platform_sig_claim = (signature_bytes, "application/octet-stream", "public, max-age=31536000, immutable")
 
+        latest_key = f"solstone/{lane}/latest"
+        latest_body = f"{version}\n".encode("utf-8")
+        latest_ct = "text/plain; charset=utf-8"
+        latest_cc = "no-store, max-age=0"
+
+        # Fence the release against the exact pointer observed during preparation.
+        current_latest = dest.get(latest_key)
+        expected_etag: str
+        legacy_equal = False
+        if receipt_obj is not None:
+            expected_base_body = receipt_obj["base"]["body"].encode("utf-8")
+            expected_base_etag = receipt_obj["base"]["etag"]
+            if current_latest.is_ok() and current_latest.body == latest_body:
+                for k, (b, ct, cc) in sorted(claims_to_make.items()):
+                    _verify_immutable_object(dest, k, b, ct, cc)
+                _verify_immutable_object(dest, boot_key, bootstrap_claim[0], bootstrap_claim[1], bootstrap_claim[2])
+                _verify_immutable_object(dest, manifest_key, platform_manifest_claim[0], platform_manifest_claim[1], platform_manifest_claim[2])
+                _verify_immutable_object(dest, sig_key, platform_sig_claim[0], platform_sig_claim[1], platform_sig_claim[2])
+                _verify_immutable_object(dest, latest_key, latest_body, latest_ct, latest_cc)
+                return PublishReport(version, lane, manifest_key, sig_key, latest_key, False)
+            if (
+                not current_latest.is_ok()
+                or current_latest.body != expected_base_body
+                or current_latest.etag != expected_base_etag
+            ):
+                raise Refusal(RELEASE_COHERENCE, "latest moved since recut preparation; prepare again")
+            expected_etag = expected_base_etag
+        elif expect_latest_absent:
+            if not current_latest.is_absent():
+                raise Refusal(RELEASE_COHERENCE, "initial publication expected latest to be absent")
+            expected_etag = ""
+        else:
+            # Compatibility for the sealed in-memory fixture only. Production callers
+            # are required to provide an explicit expectation above.
+            if current_latest.is_ok():
+                curr_ver = (current_latest.body or b"").decode("utf-8", errors="strict").strip()
+                cmp = compare_semver(version, curr_ver)
+                if cmp < 0:
+                    raise Refusal(ROLLBACK_REFUSED, f"incoming version {version} is older than current latest {curr_ver}")
+                if cmp == 0:
+                    legacy_equal = True
+                expected_etag = current_latest.etag or ""
+            elif current_latest.is_absent():
+                expected_etag = ""
+            else:
+                raise Refusal(PUBLISH_INDETERMINATE, f"failed to read {latest_key}: {current_latest.status}")
+
         # Execute Phase 1: Claim natives
         for k, (b, ct, cc) in sorted(claims_to_make.items()):
             _claim_immutable_object(dest, k, b, ct, cc)
@@ -410,71 +611,29 @@ def publish_release(*args, **kwargs) -> PublishReport:
         _verify_immutable_object(dest, manifest_key, platform_manifest_claim[0], platform_manifest_claim[1], platform_manifest_claim[2])
         _verify_immutable_object(dest, sig_key, platform_sig_claim[0], platform_sig_claim[1], platform_sig_claim[2])
 
-        # Execute Phase 5: Latest pointer management
-        latest_key = f"solstone/{lane}/latest"
-        latest_body = f"{version}\n".encode("utf-8")
-        latest_ct = "text/plain; charset=utf-8"
-        latest_cc = "no-store, max-age=0"
+        if legacy_equal:
+            _verify_immutable_object(dest, latest_key, latest_body, latest_ct, latest_cc)
+            return PublishReport(version, lane, manifest_key, sig_key, latest_key, False)
 
-        max_cas_retries = 3
-        for attempt in range(max_cas_retries):
-            current_get = dest.get(latest_key)
-            if not current_get.is_ok() and not current_get.is_absent():
-                raise Refusal(PUBLISH_INDETERMINATE, f"failed to read {latest_key}: status {current_get.status}")
+        # Execute Phase 5 exactly once. Never adopt a newer pointer generation.
+        cas_res = dest.compare_and_swap(
+            key=latest_key,
+            body=latest_body,
+            expected_etag=expected_etag,
+            content_type=latest_ct,
+            cache_control=latest_cc,
+        )
+        if cas_res.is_ok():
+            _verify_immutable_object(dest, latest_key, latest_body, latest_ct, latest_cc)
+            return PublishReport(version, lane, manifest_key, sig_key, latest_key, True)
 
-            if current_get.is_ok():
-                curr_body = current_get.body or b""
-                try:
-                    curr_ver = curr_body.decode("utf-8").strip()
-                except UnicodeDecodeError:
-                    raise Refusal(RELEASE_COHERENCE, "malformed latest pointer body: invalid utf-8")
-                if not re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", curr_ver):
-                    raise Refusal(RELEASE_COHERENCE, f"malformed latest pointer body: '{curr_ver}' is not valid semver")
-
-                cmp = compare_semver(version, curr_ver)
-                if cmp < 0:
-                    raise Refusal(
-                        ROLLBACK_REFUSED,
-                        f"incoming version {version} is older than current latest {curr_ver}",
-                    )
-                if cmp == 0:
-                    # Idempotent re-publication of current latest
-                    _verify_immutable_object(dest, latest_key, latest_body, latest_ct, latest_cc)
-                    return PublishReport(
-                        version=version,
-                        lane=lane,
-                        manifest_key=manifest_key,
-                        signature_key=sig_key,
-                        latest_key=latest_key,
-                        latest_promoted=False,
-                    )
-
-                expected_etag = current_get.etag or ""
-            else:
-                expected_etag = ""
-
-            cas_res = dest.compare_and_swap(
-                key=latest_key,
-                body=latest_body,
-                expected_etag=expected_etag,
-                content_type=latest_ct,
-                cache_control=latest_cc,
-            )
-
-            if cas_res.is_ok():
-                _verify_immutable_object(dest, latest_key, latest_body, latest_ct, latest_cc)
-                return PublishReport(
-                    version=version,
-                    lane=lane,
-                    manifest_key=manifest_key,
-                    signature_key=sig_key,
-                    latest_key=latest_key,
-                    latest_promoted=True,
-                )
-
-            if cas_res.is_precondition_failed():
-                continue
-
-            raise Refusal(PUBLISH_INDETERMINATE, f"CAS failed on {latest_key}: status {cas_res.status}")
-
-        raise Refusal(PUBLISH_INDETERMINATE, f"CAS retry exhausted for {latest_key}")
+        reread = dest.get(latest_key)
+        if reread.is_ok() and reread.body == latest_body:
+            _verify_immutable_object(dest, latest_key, latest_body, latest_ct, latest_cc)
+            return PublishReport(version, lane, manifest_key, sig_key, latest_key, False)
+        if reread.is_ok() and reread.body is not None:
+            observed = reread.body.decode("utf-8", errors="replace").strip()
+            if compare_semver(version, observed) < 0:
+                raise Refusal(ROLLBACK_REFUSED, f"incoming version {version} is older than current latest {observed}")
+            raise Refusal(RELEASE_COHERENCE, f"candidate is not current; latest moved to {observed}")
+        raise Refusal(PUBLISH_INDETERMINATE, f"CAS outcome indeterminate for {latest_key}: {cas_res.status}")

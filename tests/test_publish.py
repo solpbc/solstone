@@ -3,16 +3,24 @@
 
 """Tests for atomic publication rail, complete dependency claim, and immutable destination integrity."""
 
+import copy
+import hashlib
 from pathlib import Path
 import subprocess
 import tempfile
+from types import SimpleNamespace
 import unittest
 
 from solstone_platform.canonical import canonical_json_bytes, parse_json_strict
 from solstone_platform.destination import Destination
 from solstone_platform.generate import generate_platform_manifest
 from solstone_platform.pins import MinisignPin, PinSet, embedded_pins
-from solstone_platform.publish import compare_semver, publish_release
+from solstone_platform.publish import (
+    _snapshot_prepared_inventory,
+    _validate_recut_receipt,
+    compare_semver,
+    publish_release,
+)
 from solstone_platform.r2 import R2Config, R2Destination
 from solstone_platform.refusals import (
     DUPLICATE_KEY,
@@ -110,6 +118,76 @@ class TestPublish(unittest.TestCase):
         self.assertEqual(compare_semver("1.0.0", "1.0.1"), -1)
         self.assertEqual(compare_semver("1.1.0", "1.0.1"), 1)
         self.assertEqual(compare_semver("2.0.0", "1.99.99"), 1)
+
+    def test_production_destination_requires_explicit_latest_expectation(self):
+        rel = self._setup_fixture_release("2.0.3")
+        production_dest = R2Destination(R2Config(endpoint="https://example.invalid", bucket="updates"))
+        with self.assertRaises(Refusal) as ctx:
+            publish_release(
+                manifest_path=rel["manifest_path"],
+                signature_path=rel["signature_path"],
+                journal_dir=rel["journal_dir"],
+                desktop_dir=rel["desktop_dir"],
+                tmux_dir=rel["tmux_dir"],
+                dest=production_dest,
+            )
+        self.assertEqual(ctx.exception.name, SCHEMA_INVALID)
+        self.assertEqual(production_dest.network_sentinel, [])
+
+    def test_recut_receipt_source_coordinates_are_independently_checked(self):
+        rel = self._setup_fixture_release("2.0.3")
+        candidate = parse_json_strict(rel["manifest_bytes"])
+        candidate["components"]["journal"]["version"] = "2.0.0"
+        manifest_bytes = canonical_json_bytes(candidate)
+        rel["manifest_path"].write_bytes(manifest_bytes)
+
+        base = copy.deepcopy(candidate)
+        base["version"] = "2.0.2"
+        base["components"]["journal"]["version"] = "1.9.9"
+        snapshot = SimpleNamespace(
+            manifest_path=rel["manifest_path"],
+            journal_dir=rel["journal_dir"],
+            desktop_dir=rel["desktop_dir"],
+            tmux_dir=rel["tmux_dir"],
+            bootstrap_file=None,
+        )
+        inventory = _snapshot_prepared_inventory(snapshot)
+        sources = []
+        for item in inventory:
+            path = item["path"]
+            if path == "platform.json":
+                continue
+            component = str(path).split("/", 1)[0]
+            if component == "journal":
+                prefix = "solstone-journal"
+                source_version = "2.0.0"
+            else:
+                prefix = "solstone"
+                source_version = "2.0.2"
+            sources.append(
+                {
+                    **item,
+                    "url": f"https://updates.solstone.app/{prefix}/release/{source_version}/{Path(str(path)).name}",
+                }
+            )
+        receipt = {
+            "schema_version": 1,
+            "lane": "release",
+            "base": {"version": "2.0.2", "body": "2.0.2\n", "etag": '"base-etag"'},
+            "candidate": {
+                "version": "2.0.3",
+                "sha256": hashlib.sha256(manifest_bytes).hexdigest(),
+            },
+            "replacements": {"journal": "2.0.0"},
+            "prepared_files": inventory,
+            "sources": sources,
+        }
+
+        _validate_recut_receipt(receipt, snapshot, candidate, manifest_bytes, base)
+        receipt["sources"][0]["url"] = "https://updates.solstone.app/wrong/source"
+        with self.assertRaises(Refusal) as ctx:
+            _validate_recut_receipt(receipt, snapshot, candidate, manifest_bytes, base)
+        self.assertEqual(ctx.exception.name, RELEASE_COHERENCE)
 
     def test_invalid_platform_bytes_refuse_before_destination_use(self):
         rel = self._setup_fixture_release("2.0.3")
@@ -218,8 +296,7 @@ class TestPublish(unittest.TestCase):
         self.assertTrue(report.latest_promoted)
         self.assertEqual(twin_flag, [True])
         self.assertEqual(dest.ledger[0].method, "get")
-        self.assertFalse(dest.ledger[0].key.endswith("/latest"))
-        self.assertFalse(dest.ledger[0].key.endswith("/platform.json"))
+        self.assertTrue(dest.ledger[0].key.endswith("/latest"))
 
     def test_publish_flow_and_idempotence(self):
         rel = self._setup_fixture_release("2.0.3")
@@ -237,11 +314,10 @@ class TestPublish(unittest.TestCase):
         self.assertEqual(report.lane, "release")
         self.assertTrue(report.latest_promoted)
 
-        # Check ledger order: exact-object preflight comes before mutation.
+        # Check ledger order: latest is fenced before any mutation.
         first_op = dest.ledger[0]
         self.assertEqual(first_op.method, "get")
-        self.assertFalse(first_op.key.endswith("/latest"))
-        self.assertFalse(first_op.key.endswith("/platform.json"))
+        self.assertTrue(first_op.key.endswith("/latest"))
         bootstrap_put = next(
             entry
             for entry in dest.ledger

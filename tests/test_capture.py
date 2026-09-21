@@ -16,6 +16,7 @@ from solstone_platform.capture import (
     last_private_parent,
 )
 from solstone_platform.refusals import (
+    CAPTURE_PATH_ESCAPE,
     CAPTURE_DEPTH_EXCEEDED,
     CAPTURE_ENTRY_LIMIT_EXCEEDED,
     CAPTURE_HARDLINK_ALIAS,
@@ -92,6 +93,18 @@ class TestCapture(unittest.TestCase):
 
         snapshot.cleanup()
         self.assertFalse(snap_root.exists())
+
+    def test_refuse_snapshot_root_under_tmp(self):
+        with self.assertRaises(Refusal) as ctx:
+            capture_release_sources(
+                manifest_path=self.manifest_file,
+                signature_path=self.sig_file,
+                journal_dir=self.journal_dir,
+                desktop_dir=self.desktop_dir,
+                tmux_dir=self.tmux_dir,
+                temp_root=Path("/tmp/solstone-release-test"),
+            )
+        self.assertEqual(ctx.exception.name, CAPTURE_PATH_ESCAPE)
 
     def test_refuse_symlink_in_tree(self):
         symlink_file = self.desktop_dir / "symlink.txt"

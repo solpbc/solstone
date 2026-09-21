@@ -349,7 +349,14 @@ class R2Destination:
             "Cache-Control": cache_control,
             "If-None-Match": "*",
         }
-        status, resp_headers, _ = self._send_request("PUT", key, body=body, headers=headers)
+        try:
+            status, resp_headers, _ = self._send_request("PUT", key, body=body, headers=headers)
+        except Refusal as err:
+            if err.name == HTTP_TIMEOUT:
+                # A transport failure during PUT may have occurred after R2 committed.
+                # Preserve ambiguity for the publisher's authoritative re-read.
+                return PutResult(status=ResultStatus.INDETERMINATE, detail=str(err))
+            raise
         if status in (200, 201, 204):
             etag = resp_headers.get("etag")
             if not etag or not etag.strip():
@@ -384,7 +391,12 @@ class R2Destination:
         else:
             headers["If-Match"] = expected_etag
 
-        status, resp_headers, _ = self._send_request("PUT", key, body=body, headers=headers)
+        try:
+            status, resp_headers, _ = self._send_request("PUT", key, body=body, headers=headers)
+        except Refusal as err:
+            if err.name == HTTP_TIMEOUT:
+                return CasResult(status=ResultStatus.INDETERMINATE, detail=str(err))
+            raise
         if status in (200, 201, 204):
             etag = resp_headers.get("etag")
             if not etag or not entertain_etag(etag):

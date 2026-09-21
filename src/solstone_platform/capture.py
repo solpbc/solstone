@@ -63,6 +63,7 @@ class CapturedSnapshot:
     desktop_dir: Path
     tmux_dir: Path
     bootstrap_file: Optional[Path] = None
+    receipt_path: Optional[Path] = None
     captured_files: list[Path] = None
 
     def cleanup(self) -> None:
@@ -384,10 +385,16 @@ def capture_release_sources(
     desktop_dir: Path,
     tmux_dir: Path,
     bootstrap_file: Optional[Path] = None,
+    receipt_path: Optional[Path] = None,
+    temp_root: Optional[Path] = None,
 ) -> CapturedSnapshot:
     """Capture all release sources into a private 0700 snapshot directory."""
     global _last_private_parent
-    temp_dir = Path(tempfile.mkdtemp(prefix="solstone-capture-", dir=None))
+    capture_parent = (temp_root or Path(os.environ.get("SOLSTONE_RELEASE_TMPDIR", "/var/tmp/solstone-release"))).resolve()
+    if capture_parent == Path("/tmp") or Path("/tmp") in capture_parent.parents:
+        raise Refusal(CAPTURE_PATH_ESCAPE, "release snapshots must use disk-backed storage outside /tmp")
+    capture_parent.mkdir(parents=True, exist_ok=True)
+    temp_dir = Path(tempfile.mkdtemp(prefix="solstone-capture-", dir=capture_parent))
     _last_private_parent = temp_dir
     os.chmod(temp_dir, 0o700)
 
@@ -400,12 +407,15 @@ def capture_release_sources(
         desktop_dir=temp_dir / "desktop",
         tmux_dir=temp_dir / "tmux",
         bootstrap_file=temp_dir / "bootstrap" / bootstrap_file.name if bootstrap_file else None,
+        receipt_path=temp_dir / "platform" / "recut-receipt.json" if receipt_path else None,
     )
 
     try:
         # Platform manifest & signature
         capturer.capture_single_file("platform_manifest", manifest_path, snapshot.manifest_path)
         capturer.capture_single_file("platform_signature", signature_path, snapshot.signature_path)
+        if receipt_path:
+            capturer.capture_single_file("recut_receipt", receipt_path, snapshot.receipt_path)
 
         # Journal tree (allows immediate subdirs linux-x86_64 and linux-aarch64)
         capturer.capture_directory("journal", journal_dir, snapshot.journal_dir, allowed_subdirs={"linux-x86_64", "linux-aarch64"})

@@ -4,6 +4,7 @@
 """Command-line interface for platform release manifest generation, signing, and publication."""
 
 import argparse
+import json
 import os
 from pathlib import Path
 import stat
@@ -16,11 +17,13 @@ from solstone_platform.pins import (
     require_production_platform_pin,
 )
 from solstone_platform.publish import publish_release
+from solstone_platform.recut import prepare_recut
 from solstone_platform.r2 import R2Config, R2Destination
 from solstone_platform.redact import redact_sensitive_text
 from solstone_platform.refusals import (
     PASSPHRASE_SOURCE_INVALID,
     PRODUCTION_UNAVAILABLE,
+    SCHEMA_INVALID,
     Refusal,
 )
 from solstone_platform.sign import sign_manifest
@@ -105,6 +108,22 @@ def main(argv: list[str] | None = None) -> int:
     p_pub.add_argument("--tmux-dir", type=Path, required=True, help="Path to solstone-tmux release dir")
     p_pub.add_argument("--bootstrap-file", type=Path, help="Explicit path to bootstrap install.sh")
     p_pub.add_argument("--acknowledge-production", action="store_true", help="Acknowledge production publishing")
+    expectations = p_pub.add_mutually_exclusive_group()
+    expectations.add_argument("--expected-latest-receipt", type=Path, help="prepare-recut receipt binding the expected base")
+    expectations.add_argument("--expect-latest-absent", action="store_true", help="Explicitly authorize the first platform publication")
+
+    # prepare-recut subcommand
+    p_recut = subparsers.add_parser("prepare-recut", help="Prepare a platform release from published components")
+    p_recut.add_argument("--version", required=True, help="New platform version (strict X.Y.Z)")
+    p_recut.add_argument(
+        "--replace",
+        action="append",
+        default=[],
+        metavar="COMPONENT=VERSION",
+        help="Replace journal, desktop, or tmux with an exact published version",
+    )
+    p_recut.add_argument("--out", type=Path, required=True, help="Final prepared release directory")
+    p_recut.add_argument("--created-unix", type=int, help="Fixed creation epoch for deterministic preparation")
 
     args = parser.parse_args(argv)
     repo_root = get_repo_root()
@@ -176,6 +195,11 @@ def main(argv: list[str] | None = None) -> int:
                 raise Refusal(PRODUCTION_UNAVAILABLE, "--acknowledge-production required for production publishing")
             if os.environ.get("SOLSTONE_PLATFORM_PRODUCTION") != "ack":
                 raise Refusal(PRODUCTION_UNAVAILABLE, "SOLSTONE_PLATFORM_PRODUCTION=ack environment variable required")
+            if (args.expected_latest_receipt is None) == (not args.expect_latest_absent):
+                raise Refusal(
+                    PRODUCTION_UNAVAILABLE,
+                    "exactly one of --expected-latest-receipt or --expect-latest-absent is required",
+                )
 
             config = R2Config.from_env()
             if not config.endpoint or not config.bucket:
@@ -190,8 +214,33 @@ def main(argv: list[str] | None = None) -> int:
                 tmux_dir=args.tmux_dir,
                 dest=dest,
                 bootstrap_file=args.bootstrap_file,
+                expected_latest_receipt=args.expected_latest_receipt,
+                expect_latest_absent=args.expect_latest_absent,
             )
             print(f"Published {report.version} on lane '{report.lane}' (latest promoted: {report.latest_promoted})")
+
+        elif args.subcommand == "prepare-recut":
+            replacements: dict[str, str] = {}
+            for item in args.replace:
+                if item.count("=") != 1:
+                    raise Refusal(SCHEMA_INVALID, f"invalid --replace value: {item}")
+                component, replacement_version = item.split("=", 1)
+                if component in replacements:
+                    raise Refusal(SCHEMA_INVALID, f"duplicate --replace component: {component}")
+                replacements[component] = replacement_version
+
+            config = R2Config.from_env()
+            if not config.endpoint or not config.bucket:
+                raise Refusal(PRODUCTION_UNAVAILABLE, "R2 destination configuration missing in environment")
+            receipt = prepare_recut(
+                version=args.version,
+                replacements=replacements,
+                output_dir=args.out,
+                repo_root=repo_root,
+                dest=R2Destination(config),
+                created_unix=args.created_unix,
+            )
+            print(json.dumps(receipt, sort_keys=True))
 
         return 0
 
