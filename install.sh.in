@@ -296,7 +296,7 @@ detect_host() {
             ;;
     esac
     if [ "$HOST_OS" = "darwin" ] && [ "$HOST_ARCH" != "aarch64" ]; then
-        report_exit "refusal" "unsupported-arch" "Solstone on macOS requires Apple Silicon"
+        report_exit "refusal" "unsupported-arch" "solstone on macos requires Apple Silicon"
     fi
 }
 
@@ -369,11 +369,11 @@ macos_select_tools() {
 
 macos_check_version() {
     mac_version=$("$MACOS_SW_VERS" -productVersion 2>/dev/null) \
-        || macos_refuse unsupported-platform "macOS version could not be determined"
+        || macos_refuse unsupported-platform "macos version could not be determined"
     mac_major=${mac_version%%.*}
-    case "$mac_major" in ""|*[!0-9]*) macos_refuse unsupported-platform "macOS version $mac_version is not supported" ;; esac
+    case "$mac_major" in ""|*[!0-9]*) macos_refuse unsupported-platform "macos version $mac_version is not supported" ;; esac
     [ "$mac_major" -ge 15 ] \
-        || macos_refuse unsupported-platform "Solstone requires macOS 15 or later"
+        || macos_refuse unsupported-platform "solstone requires macos 15 or later"
 }
 
 macos_component_identity() {
@@ -390,7 +390,7 @@ macos_component_identity() {
             MAC_COMPONENT_ROUTE="macos"
             MAC_COMPONENT_CHANNEL="solstone-macos"
             ;;
-        *) macos_refuse unknown-component "Unrecognized macOS component: $1" ;;
+        *) macos_refuse unknown-component "Unrecognized mac component: $1" ;;
     esac
     MAC_COMPONENT_TEAM="7QCG8V4M6H"
 }
@@ -411,7 +411,7 @@ macos_verify_app() {
     grep -Fqx "TeamIdentifier=$MAC_COMPONENT_TEAM" "$mva_details" \
         || macos_refuse identity-mismatch "The downloaded $MAC_COMPONENT_NAME has the wrong signing team"
     "$MACOS_SPCTL" --assess --type execute --verbose=2 "$mva_path" >/dev/null 2>&1 \
-        || macos_refuse notarization-invalid "macOS did not accept the downloaded $MAC_COMPONENT_NAME"
+        || macos_refuse notarization-invalid "macos did not accept the downloaded $MAC_COMPONENT_NAME"
 }
 
 macos_fetch_dmg() {
@@ -422,7 +422,7 @@ macos_fetch_dmg() {
     mfd_headers="${SCRATCH_DIR}/macos-headers.$$"
     log_info "downloading $MAC_COMPONENT_NAME"
     command -v curl >/dev/null 2>&1 \
-        || macos_refuse missing-fetch-tool "curl is required to install the macOS apps"
+        || macos_refuse missing-fetch-tool "curl is required to install the mac apps"
     mfd_code=$(curl -q -s -S --connect-timeout 10 --max-time 120 --retry 0 --max-redirs 0 \
         -w "%{http_code}" -D "$mfd_headers" -o /dev/null "$mfd_url" 2>/dev/null) || mfd_code="000"
     [ "$mfd_code" = "302" ] \
@@ -431,15 +431,15 @@ macos_fetch_dmg() {
     if [ "$TEST_SEAM" -eq 1 ]; then
         case "$mfd_location" in
             "${MACOS_DOWNLOAD_ORIGIN}/${mfd_channel}/"*.dmg) ;;
-            *) macos_refuse redirect-refused "The macOS download redirected outside its approved release channel" ;;
+            *) macos_refuse redirect-refused "The mac download redirected outside its approved release channel" ;;
         esac
     else
         case "$mfd_location" in
             "https://updates.solstone.app/${mfd_channel}/"*.dmg) ;;
-            *) macos_refuse redirect-refused "The macOS download redirected outside its approved release channel" ;;
+            *) macos_refuse redirect-refused "The mac download redirected outside its approved release channel" ;;
         esac
     fi
-    case "$mfd_location" in *'?'*|*'#'*|*'@'*) macos_refuse redirect-refused "The macOS download redirect is malformed" ;; esac
+    case "$mfd_location" in *'?'*|*'#'*|*'@'*) macos_refuse redirect-refused "The mac download redirect is malformed" ;; esac
     mfd_code=$(curl -q -s -S --connect-timeout 10 --max-time 300 --retry 1 --max-redirs 0 \
         -w "%{http_code}" -o "$mfd_dest" "$mfd_location" 2>/dev/null) || mfd_code="000"
     [ "$mfd_code" = "200" ] \
@@ -473,7 +473,7 @@ macos_install_component() {
     "$MACOS_CODESIGN" --verify --strict --verbose=2 "$mic_dmg" >/dev/null 2>&1 \
         || macos_refuse signature-invalid "The downloaded $MAC_COMPONENT_NAME disk image has an invalid signature"
     "$MACOS_SPCTL" --assess --type open --context context:primary-signature --verbose=2 "$mic_dmg" >/dev/null 2>&1 \
-        || macos_refuse notarization-invalid "macOS did not accept the downloaded $MAC_COMPONENT_NAME disk image"
+        || macos_refuse notarization-invalid "macos did not accept the downloaded $MAC_COMPONENT_NAME disk image"
 
     mic_mount="${SCRATCH_DIR}/mount-${mic_component}"
     mkdir "$mic_mount" || macos_refuse mount-failed "Could not prepare a mount point for $MAC_COMPONENT_NAME"
@@ -534,10 +534,10 @@ macos_selection_menu() {
         OPT_COMPONENTS="journal"
         return 0
     fi
-    printf "\nSolstone for Mac:\n" > /dev/tty
-    printf "  1) Journal app and solstone app\n" > /dev/tty
-    printf "  2) Journal app only\n" > /dev/tty
-    printf "  3) Solstone app only\n" > /dev/tty
+    printf "\nsolstone for mac:\n" > /dev/tty
+    printf "  1) journal app and solstone app\n" > /dev/tty
+    printf "  2) journal app only\n" > /dev/tty
+    printf "  3) solstone app only\n" > /dev/tty
     printf "Select 1-3: " > /dev/tty
     read -r mac_choice < /dev/tty
     case "$mac_choice" in
@@ -551,20 +551,20 @@ macos_selection_menu() {
 run_macos() {
     macos_select_tools
     [ -n "${HOME:-}" ] \
-        || macos_refuse home-unavailable "A home directory is required to check for an existing Journal installation"
+        || macos_refuse home-unavailable "A home directory is required to check for an existing journal installation"
     macos_check_version
     if [ "$OPT_LANE" != release ] || [ -n "$OPT_VERSION" ]; then
-        macos_refuse unsupported-option "The macOS app installer uses the current release channel"
+        macos_refuse unsupported-option "The mac app installer uses the current release channel"
     fi
     if [ "$OPT_UPGRADE" -eq 1 ]; then
-        macos_refuse app-updates-in-app "The macOS apps update themselves; open each app to update it"
+        macos_refuse app-updates-in-app "The mac apps update themselves; open each app to update it"
     fi
     if [ "$OPT_UNINSTALL" -eq 1 ]; then
-        macos_refuse unsupported-option "The macOS app installer does not remove apps"
+        macos_refuse unsupported-option "The mac app installer does not remove apps"
     fi
     if [ "$OPT_ROUTE_EXPLICIT" -eq 1 ] || [ "$OPT_PREFIX_EXPLICIT" -eq 1 ] || [ "$OPT_ORIGIN_EXPLICIT" -eq 1 ] \
         || [ "$OPT_NO_START" -eq 1 ] || [ "$OPT_NO_PATH" -eq 1 ] || [ "$OPT_SKIP_SIGNATURE" -eq 1 ]; then
-        macos_refuse unsupported-option "That option applies only to Linux installs"
+        macos_refuse unsupported-option "That option applies only to linux installs"
     fi
 
     SCRATCH_DIR=$(mktemp -d /var/tmp/solstone-macos-install.XXXXXX 2>/dev/null || mktemp -d /tmp/solstone-macos-install.XXXXXX) \
@@ -578,7 +578,7 @@ run_macos() {
     if [ "$OPT_LIST" -eq 1 ]; then
         SELECTED_COMPONENTS="journal app"
         REPORT_COMPONENTS="$SELECTED_COMPONENTS"
-        macos_report_exit success list "Available macOS components: Journal app, solstone app"
+        macos_report_exit success list "Available mac components: journal app, solstone app"
     fi
     [ -n "$OPT_COMPONENTS" ] || macos_selection_menu
     case "$OPT_COMPONENTS" in
@@ -587,7 +587,7 @@ run_macos() {
             mac_raw_components=$(printf '%s' "$OPT_COMPONENTS" | tr ',' ' ')
             SELECTED_COMPONENTS=""
             for mac_component in $mac_raw_components; do
-                case "$mac_component" in journal|app) ;; *) macos_refuse unknown-component "Unrecognized macOS component: $mac_component" ;; esac
+                case "$mac_component" in journal|app) ;; *) macos_refuse unknown-component "Unrecognized mac component: $mac_component" ;; esac
                 case " $SELECTED_COMPONENTS " in *" $mac_component "*) ;; *) SELECTED_COMPONENTS="${SELECTED_COMPONENTS}${SELECTED_COMPONENTS:+ }${mac_component}" ;; esac
             done
             [ -n "$SELECTED_COMPONENTS" ] || macos_refuse missing-value "--components needs a value"
@@ -600,7 +600,7 @@ run_macos() {
     if [ "$OPT_DRY_RUN" -eq 1 ]; then
         macos_report_exit success dry-run-completed "preview complete; no changes made"
     fi
-    macos_report_exit success installed "Selected macOS apps installed successfully. Open them to finish setup and receive updates."
+    macos_report_exit success installed "Selected mac apps installed successfully. Open them to finish setup and receive updates."
 }
 
 validate_url_security() {
