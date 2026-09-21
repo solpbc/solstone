@@ -191,17 +191,17 @@ class TestInstallMacOS(unittest.TestCase):
         self.assertEqual(marker.read_text(encoding="utf-8"), "keep")
         self.assertEqual(self.server.request_paths, [])
 
-    def test_legacy_cli_journal_refuses_without_change(self):
-        legacy = self.home / ".local" / "solstone-journal" / "current"
-        legacy.mkdir(parents=True)
+    def test_installs_journal_app_beside_legacy_cli_without_changing_it(self):
+        legacy = self.home / ".local" / "solstone-journal" / "install-receipt"
+        legacy.parent.mkdir(parents=True)
+        legacy.write_text("owner-state", encoding="utf-8")
         proc = self.run_installer("--components", "journal")
-        self.assertNotEqual(proc.returncode, 0)
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
         result = self.result(proc)
-        self.assertEqual(result["status"], "refusal")
-        self.assertEqual(result["root_code"], "legacy-journal-present")
-        self.assertFalse((self.applications / "journal.app").exists())
-        self.assertTrue(legacy.is_dir())
-        self.assertEqual(self.server.request_paths, [])
+        self.assertEqual(result["status"], "success")
+        self.assertTrue((self.applications / "journal.app").is_dir())
+        self.assertEqual(legacy.read_text(encoding="utf-8"), "owner-state")
+        self.assertFalse((self.home / "Library" / "LaunchAgents").exists())
 
     def test_solstone_app_can_install_beside_legacy_journal(self):
         legacy = self.home / ".local" / "bin" / "journal"
@@ -236,6 +236,24 @@ class TestInstallMacOS(unittest.TestCase):
         self.assertEqual(result["components"]["journal"]["status"], "planned")
         self.assertFalse((self.applications / "journal.app").exists())
         self.assertFalse((self.applications / "solstone.app").exists())
+
+    def test_dry_run_verifies_current_downloads_when_apps_exist(self):
+        (self.applications / "journal.app").mkdir()
+        (self.applications / "solstone.app").mkdir()
+        journal_marker = self.applications / "journal.app" / "owner-state"
+        journal_marker.write_text("keep", encoding="utf-8")
+        proc = self.run_installer("--components", "all", "--dry-run")
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertEqual(journal_marker.read_text(encoding="utf-8"), "keep")
+        self.assertEqual(
+            self.server.request_paths,
+            [
+                "/download/journal/latest",
+                "/journal-macos/journal.dmg",
+                "/download/macos/latest",
+                "/solstone-macos/solstone.dmg",
+            ],
+        )
 
     def test_wrong_signing_team_refuses(self):
         proc = self.run_installer(

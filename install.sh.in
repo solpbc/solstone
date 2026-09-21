@@ -447,39 +447,26 @@ macos_fetch_dmg() {
     enforce_file_limit "$mfd_dest" 1073741824 "$MAC_COMPONENT_NAME disk image"
 }
 
-macos_legacy_journal_present() {
-    for mlp_path in \
-        "$HOME/.local/solstone-journal/current" \
-        "$HOME/.local/solstone-journal/install-receipt" \
-        "$HOME/.local/bin/journal" \
-        "$HOME/.local/bin/sol" \
-        "$HOME/Library/LaunchAgents/org.solpbc.solstone.plist"
-    do
-        if [ -e "$mlp_path" ] || [ -L "$mlp_path" ]; then return 0; fi
-    done
-    return 1
-}
-
 macos_install_component() {
     mic_component="$1"
     macos_component_identity "$mic_component"
     mic_destination="${MACOS_APPLICATIONS}/${MAC_COMPONENT_NAME}"
 
-    if [ "$mic_component" = journal ] && macos_legacy_journal_present; then
-        macos_refuse legacy-journal-present "A command-line Journal installation is present. Nothing was changed; open the Journal app migration guidance before installing the app."
-    fi
     if [ -e "$mic_destination" ] || [ -L "$mic_destination" ]; then
         macos_verify_app "$mic_destination" "$MAC_COMPONENT_ID"
         UNCHANGED_COMPONENTS="${UNCHANGED_COMPONENTS}${UNCHANGED_COMPONENTS:+ }${mic_component}"
         log_info "$MAC_COMPONENT_NAME is already installed; updates stay inside the app."
-        return 0
+        if [ "$OPT_DRY_RUN" -eq 0 ]; then
+            return 0
+        fi
     fi
 
     if [ ! -d "$MACOS_APPLICATIONS" ] || [ -L "$MACOS_APPLICATIONS" ]; then
         macos_refuse applications-unavailable "$MACOS_APPLICATIONS is not an available applications directory"
     fi
-    [ -w "$MACOS_APPLICATIONS" ] \
-        || macos_refuse applications-unwritable "$MACOS_APPLICATIONS is not writable; download the app and move it there with Finder"
+    if [ "$OPT_DRY_RUN" -eq 0 ] && [ ! -w "$MACOS_APPLICATIONS" ]; then
+        macos_refuse applications-unwritable "$MACOS_APPLICATIONS is not writable; download the app and move it there with Finder"
+    fi
 
     mic_dmg="${SCRATCH_DIR}/${mic_component}.dmg"
     macos_fetch_dmg "$MAC_COMPONENT_ROUTE" "$MAC_COMPONENT_CHANNEL" "$mic_dmg"
