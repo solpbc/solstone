@@ -118,6 +118,7 @@ def make_v2_bootstrap_script(revision: int = 2) -> bytes:
         f"  esac\n"
         f"done\n"
         f"[ \"${{SOLSTONE_BOOTSTRAP_FAIL_EARLY:-0}}\" = 0 ] || exit 2\n"
+        f"[ \"${{SOLSTONE_BOOTSTRAP_INTERRUPT:-0}}\" = 0 ] || {{ kill -INT \"$PPID\"; exit 130; }}\n"
         f"if [ -n \"$PREFIX\" ] && [ \"$DRY_RUN\" -eq 0 ]; then\n"
         f"  mkdir -p \"$PREFIX/bin\" \"$PREFIX/versions/2.0.6-fixture/bin\"\n"
         f"  echo \"#!/bin/sh\\necho $ROLE 2.0.6\" > \"$PREFIX/versions/2.0.6-fixture/bin/journal\"\n"

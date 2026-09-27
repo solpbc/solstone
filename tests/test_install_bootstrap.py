@@ -66,6 +66,18 @@ class TestInstallBootstrap(unittest.TestCase):
                 self.assertIn("status=installed\n", self._journal_section())
                 self.assertNotIn("prior_version", self._journal_section())
 
+    def test_an_interrupted_journal_install_says_to_run_the_same_command(self):
+        installer, _, env = self._release("interrupt")
+        args = [str(installer), "--components", "journal", "--prefix", str(self.prefix), "--no-start", "--skip-signature", "--json"]
+        interrupted = subprocess.run(args, env={**env, "SOLSTONE_BOOTSTRAP_INTERRUPT": "1"}, capture_output=True, text=True)
+        self.assertNotEqual(interrupted.returncode, 0)
+        report = json.loads(interrupted.stdout)
+        self.assertEqual(report["root_code"], "interrupted")
+        self.assertTrue(report["message"].startswith("installation was interrupted. The journal was not installed, so run the same install.sh command again."), report["message"])
+        self.assertNotIn("preserve", report["message"])
+        resumed = subprocess.run(args, env=env, capture_output=True, text=True)
+        self.assertEqual(resumed.returncode, 0, resumed.stderr + resumed.stdout)
+
     def test_a_failed_update_resumes_and_keeps_the_prior_version_until_it_finishes(self):
         installer, _, env = self._release("resume update")
         args = [str(installer), "--components", "journal", "--prefix", str(self.prefix), "--no-start", "--skip-signature", "--json"]

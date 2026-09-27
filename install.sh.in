@@ -130,6 +130,16 @@ native_recovery() {
     for nr_arg do printf ' %s' "$(shell_quote "$nr_arg")"; done
 }
 
+# A desktop or tmux install stopped mid-way is not rolled back, so it still
+# warns; the journal resumes from its pending record.
+interrupted_message() {
+    if [ "$NATIVE_ATTEMPTED" -eq 1 ]; then
+        printf '%s' "installation was interrupted"
+    else
+        printf '%s' "installation interrupted; preserve installed files and receipts before retrying"
+    fi
+}
+
 report_exit() {
     status="$1"
     code="$2"
@@ -147,13 +157,16 @@ report_exit() {
     fi
     if [ "$status" != success ] && [ "$NATIVE_ATTEMPTED" -eq 1 ]; then
         # The journal is recorded as pending before the bootstrap runs, so the
-        # same command resumes it.
+        # same command resumes it. An interrupt has no problem to fix first.
+        rx_then="once the problem above is fixed, run"
+        [ "$code" != interrupted ] || rx_then="run"
         if [ "$NATIVE_COMMITTED" -eq 1 ]; then
             message="$message; the journal installed and is ready to use, but this installer could not record that it did. Once the problem above is fixed, run the same install.sh command again to record it."
         elif ! journal_tree_shape_present; then
-            message="$message. The journal was not installed, so once the problem above is fixed, run the same install.sh command again."
+            message="$message. The journal was not installed, so $rx_then the same install.sh command again."
         else
-            message="$message. Nothing in your journal was removed. Once the problem above is fixed, run the same install.sh command again, and it will finish installing the journal."
+            if [ "$code" = interrupted ]; then rx_lead="Run"; else rx_lead="Once the problem above is fixed, run"; fi
+            message="$message. Nothing in your journal was removed. $rx_lead the same install.sh command again, and it will finish installing the journal."
         fi
     fi
     operation=install
@@ -3891,7 +3904,7 @@ main() {
     SCRATCH_DIR=$(mktemp -d /var/tmp/solstone-install.XXXXXX 2>/dev/null || mktemp -d /tmp/solstone-install.XXXXXX)
     chmod 0700 "$SCRATCH_DIR"
     trap cleanup_scratch 0
-    trap 'TREE_TXN_ACTIVE=0; report_exit refusal interrupted "installation interrupted; preserve installed files and receipts before retrying"' HUP INT TERM
+    trap 'TREE_TXN_ACTIVE=0; report_exit refusal interrupted "$(interrupted_message)"' HUP INT TERM
     init_awk_parser
 
     # Resolve the host package variant even when route ownership will be detected later.
