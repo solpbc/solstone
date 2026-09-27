@@ -43,6 +43,7 @@ class TestInstallBootstrap(unittest.TestCase):
                 self.assertIn("journal installation did not finish", message)
                 self.assertIn("Running solstone's install.sh again will not finish installing the journal", message)
                 command = message.split("To finish it, run: ", 1)[1]
+                self.assertNotIn("\n", command, "a recovery command an owner copies must be one line")
                 recovered = subprocess.run(["sh", "-c", command], env=env, cwd=self.work_dir, capture_output=True, text=True)
                 self.assertEqual(recovered.returncode, 0, recovered.stderr + recovered.stdout)
                 flags = args_log.read_text().splitlines()
@@ -80,6 +81,7 @@ class TestInstallBootstrap(unittest.TestCase):
                 self.assertEqual(report["root_code"], "ownership-unknown")
                 self.assertNotIn("see INSTALL.md", report["message"])
                 command = report["message"].split("To finish or update that journal, run: ", 1)[1]
+                self.assertNotIn("\n", command, "a recovery command an owner copies must be one line")
                 args_log.unlink()
                 recovered = subprocess.run(["sh", "-c", command], env=env, cwd=self.work_dir, capture_output=True, text=True)
                 self.assertEqual(recovered.returncode, 0, recovered.stderr + recovered.stdout)

@@ -122,7 +122,7 @@ native_recovery() {
     nr_sha=$(cat "$nr_base/provenance/bootstrap/sha256") || return 1
     nr_version=$(cat "$nr_base/version") || return 1
     printf 'curl -fsSL %s -o journal-install.sh && ' "$(shell_quote "$nr_url")"
-    printf "printf '%%s  %%s\\n' %s journal-install.sh | sha256sum -c - && " "$(shell_quote "$nr_sha")"
+    printf "printf '%%s  %%s\\\\n' %s journal-install.sh | sha256sum -c - && " "$(shell_quote "$nr_sha")"
     printf 'sh journal-install.sh'
     set -- --prefix "$OPT_PREFIX" --role "$nr_role" --version "$nr_version" --origin "$OPT_ORIGIN" --lane "$OPT_LANE" --upgrade
     [ "$OPT_NO_START" -eq 0 ] || set -- "$@" --no-start
