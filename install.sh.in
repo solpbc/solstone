@@ -70,7 +70,6 @@ TREE_TXN_ACTIVE=0
 TREE_CREATED_ROOT=""
 NATIVE_COMMITTED=0
 NATIVE_ATTEMPTED=0
-JOURNAL_RECORDED_VERSION=""
 
 : "${EMBEDDED_MIN_INSTALLER_REVISION}" "${PLATFORM_KEY_ID}" "${JOURNAL_KEY_ID}" "${DESKTOP_KEY_ID}" "${TMUX_KEY_ID}" "${JOURNAL_PUBKEY}" "${DESKTOP_PUBKEY}" "${TMUX_PUBKEY}" "${TREE_FD}" "${PKG_FD}"
 
@@ -147,18 +146,14 @@ report_exit() {
         fi
     fi
     if [ "$status" != success ] && [ "$NATIVE_ATTEMPTED" -eq 1 ]; then
+        # The journal is recorded as pending before the bootstrap runs, so the
+        # same command resumes it.
         if [ "$NATIVE_COMMITTED" -eq 1 ]; then
-            message="$message; the journal installed and is ready to use, but this installer could not record that it did, so running this installer again will not change it"
+            message="$message; the journal installed and is ready to use, but this installer could not record that it did. Once the problem above is fixed, run the same install.sh command again to record it."
         elif ! journal_tree_shape_present; then
             message="$message. The journal was not installed, so once the problem above is fixed, run the same install.sh command again."
-        elif [ -n "$JOURNAL_RECORDED_VERSION" ] \
-            && [ "$(plain_receipt_value "${OPT_PREFIX}/install-receipt" journal_version 2>/dev/null || true)" = "$JOURNAL_RECORDED_VERSION" ]; then
-            message="$message. Your journal is still at the version this installer recorded, so once the problem above is fixed, run the same install.sh command again."
         else
-            # The nested journal installer may have said to rerun this command. With
-            # its tree left behind and no matching platform record, a rerun refuses,
-            # so the last instruction must be the one that works.
-            message="$message. Nothing in your journal was removed. Running solstone's install.sh again will not finish installing the journal, even if a line above says to. To finish it, run: $(native_recovery "$SELECTED_COMPONENTS")"
+            message="$message. Nothing in your journal was removed. Once the problem above is fixed, run the same install.sh command again, and it will finish installing the journal."
         fi
     fi
     operation=install
@@ -2274,7 +2269,7 @@ package_run_setup() {
     "$JOURNAL_LAUNCHER" "$@" >&2 || prs_status=$?
     [ "$prs_status" -eq 0 ] && return 0
     if [ "$prs_status" -eq "$JOURNAL_SETUP_MODELS_UNFINISHED" ]; then
-        report_exit "refusal" "setup-failed" "$(journal_models_unfinished_message "$JOURNAL_LAUNCHER" "run the same install.sh command again")"
+        report_exit "refusal" "setup-failed" "$(journal_models_unfinished_message "$JOURNAL_LAUNCHER" "run the same install.sh command again.")"
     fi
     report_exit "refusal" "setup-failed" "Journal setup did not finish; see its output above. Once the problem is fixed, run the same install.sh command again. If model installation did not finish, run $JOURNAL_LAUNCHER install-models --variant auto first."
 }
@@ -2658,15 +2653,29 @@ tree_component_authority() {
         || report_exit "refusal" "ownership-unknown" "Tree receipt for $tca_component is incomplete"
     tca_status=$(receipt_value "$tca_receipt" "component:${tca_component}" status 2>/dev/null) \
         || report_exit "refusal" "ownership-unknown" "Tree receipt for $tca_component is incomplete"
+    # A pending journal section is this installer's own unfinished transaction:
+    # the native tree may be at the target version or still at the prior one.
+    tca_versions="$tca_version"
+    case "$tca_status:$tca_component" in
+        installed:*) ;;
+        pending:journal|pending:cli)
+            tca_prior=$(receipt_value "$tca_receipt" "component:${tca_component}" prior_version 2>/dev/null) \
+                || report_exit "refusal" "ownership-unknown" "Tree receipt for $tca_component is incomplete"
+            [ -z "$tca_prior" ] || tca_versions="$tca_versions $tca_prior"
+            ;;
+        *) tca_status=invalid ;;
+    esac
     if [ "$tca_role" != "$tca_component" ] || [ "$tca_route" != "tree" ] \
         || [ "$tca_prefix" != "$OPT_PREFIX" ] || [ "$tca_arch" != "$HOST_ARCH" ] \
-        || [ "$tca_status" != "installed" ] || [ -z "$tca_version" ]; then
+        || [ "$tca_status" = invalid ] || [ -z "$tca_version" ]; then
         report_exit "refusal" "ownership-unknown" "Tree receipt for $tca_component does not match installed state"
     fi
 
     case "$tca_component" in
         journal|cli)
-            JOURNAL_RECORDED_VERSION="$tca_version"
+            # A pending transaction may have stopped anywhere; the journal
+            # bootstrap resumes or restarts its own partial tree.
+            [ "$tca_status" != pending ] || tca_required=0
             tca_native="${OPT_PREFIX}/install-receipt"
             tca_current="${OPT_PREFIX}/current"
             tca_public="${OPT_PREFIX}/current/bin/journal"
@@ -2680,9 +2689,10 @@ tree_component_authority() {
                 if [ ! -f "$tca_native" ] || [ -L "$tca_native" ] || [ ! -r "$tca_native" ]; then
                     report_exit "refusal" "ownership-unknown" "journal install receipt does not match installed state"
                 fi
+                tca_native_version=$(plain_receipt_value "$tca_native" journal_version 2>/dev/null || true)
                 if [ "$(plain_receipt_value "$tca_native" route 2>/dev/null || true)" != "tree" ] \
                     || [ "$(plain_receipt_value "$tca_native" role 2>/dev/null || true)" != "$tca_component" ] \
-                    || [ "$(plain_receipt_value "$tca_native" journal_version 2>/dev/null || true)" != "$tca_version" ]; then
+                    || ! case " $tca_versions " in *" $tca_native_version "*) [ -n "$tca_native_version" ] ;; *) false ;; esac; then
                     report_exit "refusal" "ownership-unknown" "journal install receipt does not match installed state"
                 fi
             fi
@@ -2703,7 +2713,7 @@ tree_component_authority() {
             if [ -e "$tca_public" ] || [ -L "$tca_public" ]; then
                 [ -x "$tca_public" ] || report_exit "refusal" "ownership-unknown" "journal launcher does not match installed state"
                 tca_output=$("$tca_public" --version 2>/dev/null || "$tca_public" 2>/dev/null || true)
-                printf '%s\n' "$tca_output" | awk -v wanted="$tca_version" '{ for (i=1; i<=NF; i++) if ($i == wanted) found=1 } END { exit !found }' \
+                printf '%s\n' "$tca_output" | awk -v wanted=" $tca_versions " '{ for (i=1; i<=NF; i++) if (index(wanted, " " $i " ")) found=1 } END { exit !found }' \
                     || report_exit "refusal" "ownership-unknown" "journal launcher version does not match its receipt"
             fi
             ;;
@@ -3227,6 +3237,44 @@ run_tree_install() {
     SELECTED_COMPONENTS="$tree_pending"
 }
 
+# Before the journal bootstrap runs, record the journal as this installer's own
+# pending transaction, so that a failed or interrupted run can be resumed by the
+# same command. Every other section is kept byte-for-byte.
+record_journal_pending() {
+    rjp_component="$1"
+    rjp_version="$2"
+    rjp_receipt="$3"
+    rjp_prior=""
+    if [ -f "$rjp_receipt" ]; then
+        case "$(receipt_value "$rjp_receipt" "component:${rjp_component}" status 2>/dev/null || true)" in
+            installed) rjp_prior=$(receipt_value "$rjp_receipt" "component:${rjp_component}" version 2>/dev/null || true) ;;
+            pending) rjp_prior=$(receipt_value "$rjp_receipt" "component:${rjp_component}" prior_version 2>/dev/null || true) ;;
+        esac
+    fi
+    rjp_tmp="${rjp_receipt}.pending.$$"
+    : > "$rjp_tmp" || report_exit "refusal" "receipt-write-failed" "Could not stage the pending journal receipt"
+    if [ -f "$rjp_receipt" ] && receipt_value "$rjp_receipt" solstone schema_version >/dev/null 2>&1; then
+        append_receipt_section "$rjp_receipt" solstone "$rjp_tmp" \
+            || { rm -f "$rjp_tmp"; report_exit "refusal" "receipt-write-failed" "Could not stage the pending journal receipt"; }
+    else
+        printf '[solstone]\nschema_version=1\nplatform_version=%s\nlane=%s\norigin=%s\nroute=tree\nprefix=%s\narch=%s\ninstaller_revision=%s\nphase=pending\n' \
+            "$RESOLVED_VERSION" "$OPT_LANE" "$OPT_ORIGIN" "$OPT_PREFIX" "$HOST_ARCH" "$INSTALLER_REVISION" >> "$rjp_tmp" \
+            || { rm -f "$rjp_tmp"; report_exit "refusal" "receipt-write-failed" "Could not stage the pending journal receipt"; }
+    fi
+    for rjp_existing in journal cli desktop tmux; do
+        [ "$rjp_existing" != "$rjp_component" ] || continue
+        if [ -f "$rjp_receipt" ] && receipt_value "$rjp_receipt" "component:${rjp_existing}" role >/dev/null 2>&1; then
+            append_receipt_section "$rjp_receipt" "component:${rjp_existing}" "$rjp_tmp" \
+                || { rm -f "$rjp_tmp"; report_exit "refusal" "receipt-write-failed" "Could not preserve the $rjp_existing receipt section"; }
+        fi
+    done
+    printf '[component:%s]\nrole=%s\nplatform_version=%s\nlane=%s\norigin=%s\nroute=tree\nprefix=%s\narch=%s\nversion=%s\nprior_version=%s\nstatus=pending\ninstaller_revision=%s\n' \
+        "$rjp_component" "$rjp_component" "$RESOLVED_VERSION" "$OPT_LANE" "$OPT_ORIGIN" "$OPT_PREFIX" "$HOST_ARCH" "$rjp_version" "$rjp_prior" "$INSTALLER_REVISION" >> "$rjp_tmp" \
+        || { rm -f "$rjp_tmp"; report_exit "refusal" "receipt-write-failed" "Could not stage the pending journal receipt"; }
+    mv -Tf "$rjp_tmp" "$rjp_receipt" \
+        || { rm -f "$rjp_tmp"; report_exit "refusal" "receipt-write-failed" "Could not record the pending journal install"; }
+}
+
 run_tree_component() {
     manifest_dir="${SCRATCH_DIR}/manifest"
     for rti_component in $SELECTED_COMPONENTS; do
@@ -3277,12 +3325,13 @@ run_tree_component() {
             [ "$OPT_NO_PATH" -eq 0 ] || set -- "$@" --no-path
             [ "$OPT_SKIP_SIGNATURE" -eq 0 ] || set -- "$@" --skip-signature
             [ "$OPT_UPGRADE" -eq 0 ] || set -- "$@" --upgrade
+            record_journal_pending "$comp" "$b_component_version" "$receipt_file"
             NATIVE_ATTEMPTED=1
             b_status=0
             "$b_script" "$@" >&2 || b_status=$?
             if [ "$b_status" -eq "$JOURNAL_SETUP_MODELS_UNFINISHED" ]; then
                 NATIVE_ATTEMPTED=0
-                report_exit "refusal" "setup-failed" "$(journal_models_unfinished_message "${OPT_PREFIX}/bin/journal" "${OPT_PREFIX}/bin/journal setup")"
+                report_exit "refusal" "setup-failed" "$(journal_models_unfinished_message "${OPT_PREFIX}/current/bin/journal" "run the same install.sh command again.")"
             fi
             if [ "$b_status" -ne 0 ]; then
                 report_exit "refusal" "component-failed" "journal installation did not finish; see its output above"

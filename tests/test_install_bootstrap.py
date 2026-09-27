@@ -6,6 +6,7 @@
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -27,128 +28,122 @@ class TestInstallBootstrap(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def test_native_recovery_verifies_bootstrap_and_retains_policy(self):
-        with ephemeral_keypair("native recovery") as (sec, pub, pin):
-            server, root = setup_test_release_server(self.work_dir, sec, pin)
-            try:
-                installer = build_installer(REPO_ROOT, self.work_dir / "install.sh", platform_pub_path=pub, platform_key_id=pin.key_id, origin=server.origin)
-                data = self.work_dir / "data"
-                args_log = self.work_dir / "args"
-                env = {**os.environ, "HOME": str(self.work_dir / "home"), "XDG_DATA_HOME": str(data), "SOLSTONE_BOOTSTRAP_ARGS_LOG": str(args_log)}
-                self.prefix = self.work_dir / "owner's install"
-                args = [str(installer), "--components", "cli", "--prefix", str(self.prefix), "--no-start", "--no-path", "--skip-signature", "--json"]
-                failed = subprocess.run(args, env={**env, "SOLSTONE_BOOTSTRAP_FAIL": "1"}, capture_output=True, text=True)
+    def _release(self, label):
+        keys = ephemeral_keypair(label)
+        sec, pub, pin = keys.__enter__()
+        self.addCleanup(keys.__exit__, None, None, None)
+        server, root = setup_test_release_server(self.work_dir, sec, pin)
+        self.addCleanup(server.stop)
+        installer = build_installer(REPO_ROOT, self.work_dir / "install.sh", platform_pub_path=pub, platform_key_id=pin.key_id, origin=server.origin)
+        env = {**os.environ, "HOME": str(self.work_dir / "home"), "XDG_DATA_HOME": str(self.work_dir / "data")}
+        return installer, root, env
+
+    def _journal_section(self) -> str:
+        receipt = (self.work_dir / "data/solstone/install.conf").read_text()
+        start = receipt.index("[component:journal]\n")
+        rest = receipt[start + 1:]
+        cut = rest.find("\n[")
+        return receipt[start:] if cut == -1 else receipt[start:start + 1 + cut + 1]
+
+    def test_a_failed_journal_install_resumes_with_the_same_command(self):
+        installer, _, env = self._release("resume")
+        args = [str(installer), "--components", "journal", "--prefix", str(self.prefix), "--no-start", "--skip-signature", "--json"]
+        for fail_env, left in (({"SOLSTONE_BOOTSTRAP_FAIL": "1"}, "tree"), ({"SOLSTONE_BOOTSTRAP_FAIL_EARLY": "1"}, "nothing")):
+            with self.subTest(left=left):
+                shutil.rmtree(self.prefix, ignore_errors=True)
+                shutil.rmtree(self.work_dir / "data", ignore_errors=True)
+                failed = subprocess.run(args, env={**env, **fail_env}, capture_output=True, text=True)
                 self.assertNotEqual(failed.returncode, 0)
                 message = json.loads(failed.stdout)["message"]
-                self.assertIn("journal installation did not finish", message)
-                self.assertIn("Running solstone's install.sh again will not finish installing the journal", message)
-                command = message.split("To finish it, run: ", 1)[1]
-                self.assertNotIn("\n", command, "a recovery command an owner copies must be one line")
-                recovered = subprocess.run(["sh", "-c", command], env=env, cwd=self.work_dir, capture_output=True, text=True)
-                self.assertEqual(recovered.returncode, 0, recovered.stderr + recovered.stdout)
-                flags = args_log.read_text().splitlines()
-                for flag in ("--no-start", "--no-path", "--upgrade"):
-                    self.assertIn(flag, flags)
-                self.assertIn(str(self.prefix), flags)
-                self.assertFalse((data / "solstone/install.conf").exists())
-                self.assertTrue((self.prefix / "install-receipt").exists())
-                # Recovery cannot execute changed bootstrap bytes at the same URL.
-                native = root / "solstone-journal/release/2.0.6/solstone-journal-2.0.6-install.sh"
-                native.write_bytes(native.read_bytes() + b"\n# changed after publication\n")
-                args_log.unlink()
-                bad = subprocess.run(["sh", "-c", command], env=env, cwd=self.work_dir, capture_output=True, text=True)
-                self.assertNotEqual(bad.returncode, 0)
-                self.assertFalse(args_log.exists())
-            finally:
-                server.stop()
+                if left == "tree":
+                    self.assertIn("Once the problem above is fixed, run the same install.sh command again, and it will finish installing the journal.", message)
+                else:
+                    self.assertIn("The journal was not installed, so once the problem above is fixed, run the same install.sh command again.", message)
+                self.assertNotIn("sha256sum", message)
+                self.assertIn("status=pending\n", self._journal_section())
+                resumed = subprocess.run(args, env=env, capture_output=True, text=True)
+                self.assertEqual(resumed.returncode, 0, resumed.stderr + resumed.stdout)
+                self.assertIn("status=installed\n", self._journal_section())
+                self.assertNotIn("prior_version", self._journal_section())
 
-    def test_rerun_after_failed_journal_setup_prints_a_runnable_recovery(self):
-        with ephemeral_keypair("rerun recovery") as (sec, pub, pin):
-            server, _ = setup_test_release_server(self.work_dir, sec, pin)
-            try:
-                installer = build_installer(REPO_ROOT, self.work_dir / "install.sh", platform_pub_path=pub, platform_key_id=pin.key_id, origin=server.origin)
-                data = self.work_dir / "data"
-                args_log = self.work_dir / "args"
-                env = {**os.environ, "HOME": str(self.work_dir / "home"), "XDG_DATA_HOME": str(data), "SOLSTONE_BOOTSTRAP_ARGS_LOG": str(args_log)}
-                args = [str(installer), "--components", "journal", "--prefix", str(self.prefix), "--no-start", "--skip-signature", "--json"]
-                failed = subprocess.run(args, env={**env, "SOLSTONE_BOOTSTRAP_FAIL": "1"}, capture_output=True, text=True)
-                self.assertNotEqual(failed.returncode, 0)
-                self.assertIn("will not finish installing the journal, even if a line above says to", json.loads(failed.stdout)["message"])
+    def test_a_failed_update_resumes_and_keeps_the_prior_version_until_it_finishes(self):
+        installer, _, env = self._release("resume update")
+        args = [str(installer), "--components", "journal", "--prefix", str(self.prefix), "--no-start", "--skip-signature", "--json"]
+        first = subprocess.run(args, env=env, capture_output=True, text=True)
+        self.assertEqual(first.returncode, 0, first.stderr + first.stdout)
+        # Record an older journal consistently, so the next run is an update.
+        receipt = self.work_dir / "data/solstone/install.conf"
+        receipt.write_text(receipt.read_text().replace("version=2.0.6", "version=2.0.5"))
+        native = self.prefix / "install-receipt"
+        native.write_text(native.read_text().replace("journal_version=2.0.6", "journal_version=2.0.5"))
+        (self.prefix / "current/bin/journal").write_text("#!/bin/sh\necho journal 2.0.5\n")
+        failed = subprocess.run(args, env={**env, "SOLSTONE_BOOTSTRAP_FAIL_EARLY": "1"}, capture_output=True, text=True)
+        self.assertNotEqual(failed.returncode, 0)
+        section = self._journal_section()
+        self.assertIn("version=2.0.6\nprior_version=2.0.5\nstatus=pending\n", section)
+        resumed = subprocess.run(args, env=env, capture_output=True, text=True)
+        self.assertEqual(resumed.returncode, 0, resumed.stderr + resumed.stdout)
+        self.assertIn("version=2.0.6\nstatus=installed\n", self._journal_section())
 
-                rerun = subprocess.run(args, env=env, capture_output=True, text=True)
-                self.assertEqual(rerun.returncode, 1, rerun.stderr + rerun.stdout)
-                report = json.loads(rerun.stdout)
-                self.assertEqual(report["root_code"], "ownership-unknown")
-                self.assertNotIn("see INSTALL.md", report["message"])
-                command = report["message"].split("To finish or update that journal, run: ", 1)[1]
-                self.assertNotIn("\n", command, "a recovery command an owner copies must be one line")
-                args_log.unlink()
-                recovered = subprocess.run(["sh", "-c", command], env=env, cwd=self.work_dir, capture_output=True, text=True)
-                self.assertEqual(recovered.returncode, 0, recovered.stderr + recovered.stdout)
-                self.assertIn(str(self.prefix), args_log.read_text().splitlines())
-            finally:
-                server.stop()
+    def test_unfinished_model_installation_names_the_journal_command_then_resumes(self):
+        installer, _, env = self._release("models unfinished")
+        args = [str(installer), "--components", "journal", "--prefix", str(self.prefix), "--no-start", "--skip-signature", "--json"]
+        models = subprocess.run(args, env={**env, "SOLSTONE_BOOTSTRAP_FAIL": "1", "SOLSTONE_BOOTSTRAP_FAIL_STATUS": "80"}, capture_output=True, text=True)
+        self.assertEqual(models.returncode, 1, models.stderr + models.stdout)
+        report = json.loads(models.stdout)
+        self.assertEqual(report["root_code"], "setup-failed")
+        journal = f"{self.prefix}/current/bin/journal"
+        self.assertIn(f"model installation did not finish. Nothing in your journal was removed. To finish it, run: {journal} install-models --variant auto, then run the same install.sh command again", report["message"])
+        other = subprocess.run(args, env={**env, "SOLSTONE_BOOTSTRAP_FAIL": "1"}, capture_output=True, text=True)
+        self.assertNotIn("model installation", json.loads(other.stdout)["message"])
+        resumed = subprocess.run(args, env=env, capture_output=True, text=True)
+        self.assertEqual(resumed.returncode, 0, resumed.stderr + resumed.stdout)
 
-    def test_unfinished_model_download_names_the_two_journal_commands(self):
-        with ephemeral_keypair("models unfinished") as (sec, pub, pin):
-            server, _ = setup_test_release_server(self.work_dir, sec, pin)
-            try:
-                installer = build_installer(REPO_ROOT, self.work_dir / "install.sh", platform_pub_path=pub, platform_key_id=pin.key_id, origin=server.origin)
-                env = {**os.environ, "HOME": str(self.work_dir / "home"), "XDG_DATA_HOME": str(self.work_dir / "data"), "SOLSTONE_BOOTSTRAP_FAIL": "1"}
-                args = [str(installer), "--components", "journal", "--prefix", str(self.prefix), "--no-start", "--skip-signature", "--json"]
-                models = subprocess.run(args, env={**env, "SOLSTONE_BOOTSTRAP_FAIL_STATUS": "80"}, capture_output=True, text=True)
-                self.assertEqual(models.returncode, 1, models.stderr + models.stdout)
-                report = json.loads(models.stdout)
-                self.assertEqual(report["root_code"], "setup-failed")
-                journal = f"{self.prefix}/bin/journal"
-                self.assertIn(f"model installation did not finish. Nothing in your journal was removed. To finish it, run: {journal} install-models --variant auto, then {journal} setup", report["message"])
-                self.assertNotIn("sha256sum", report["message"])
-                other = subprocess.run(args, env=env, capture_output=True, text=True)
-                self.assertNotIn("model installation", json.loads(other.stdout)["message"])
-            finally:
-                server.stop()
-
-    def test_failed_update_of_a_recorded_journal_says_to_rerun_not_to_recover(self):
-        with ephemeral_keypair("recorded rerun") as (sec, pub, pin):
-            server, _ = setup_test_release_server(self.work_dir, sec, pin)
-            try:
-                installer = build_installer(REPO_ROOT, self.work_dir / "install.sh", platform_pub_path=pub, platform_key_id=pin.key_id, origin=server.origin)
-                env = {**os.environ, "HOME": str(self.work_dir / "home"), "XDG_DATA_HOME": str(self.work_dir / "data")}
-                args = [str(installer), "--components", "journal", "--prefix", str(self.prefix), "--no-start", "--skip-signature", "--json"]
-                first = subprocess.run(args, env=env, capture_output=True, text=True)
-                self.assertEqual(first.returncode, 0, first.stderr + first.stdout)
-                # Record an older journal consistently, so the next run is an update.
-                receipt = self.work_dir / "data/solstone/install.conf"
-                receipt.write_text(receipt.read_text().replace("version=2.0.6", "version=2.0.5"))
-                native = self.prefix / "install-receipt"
-                native.write_text(native.read_text().replace("journal_version=2.0.6", "journal_version=2.0.5"))
-                (self.prefix / "current/bin/journal").write_text("#!/bin/sh\necho journal 2.0.5\n")
-                failed = subprocess.run(args, env={**env, "SOLSTONE_BOOTSTRAP_FAIL_EARLY": "1"}, capture_output=True, text=True)
-                self.assertNotEqual(failed.returncode, 0)
-                message = json.loads(failed.stdout)["message"]
-                self.assertIn("Your journal is still at the version this installer recorded, so once the problem above is fixed, run the same install.sh command again.", message)
-                self.assertNotIn("will not finish installing the journal", message)
-            finally:
-                server.stop()
+    def test_a_journal_without_this_installers_record_gets_a_runnable_recovery(self):
+        installer, root, env = self._release("stranded recovery")
+        args_log = self.work_dir / "args"
+        env = {**env, "SOLSTONE_BOOTSTRAP_ARGS_LOG": str(args_log)}
+        self.prefix = self.work_dir / "owner's install"
+        args = [str(installer), "--components", "cli", "--prefix", str(self.prefix), "--no-start", "--no-path", "--skip-signature", "--json"]
+        failed = subprocess.run(args, env={**env, "SOLSTONE_BOOTSTRAP_FAIL": "1"}, capture_output=True, text=True)
+        self.assertNotEqual(failed.returncode, 0)
+        # A journal left by an installer before revision 6 has no pending record.
+        (self.work_dir / "data/solstone/install.conf").unlink()
+        rerun = subprocess.run(args, env=env, capture_output=True, text=True)
+        self.assertEqual(rerun.returncode, 1, rerun.stderr + rerun.stdout)
+        report = json.loads(rerun.stdout)
+        self.assertEqual(report["root_code"], "ownership-unknown")
+        command = report["message"].split("To finish or update that journal, run: ", 1)[1]
+        self.assertNotIn("\n", command, "a recovery command an owner copies must be one line")
+        args_log.unlink()
+        recovered = subprocess.run(["sh", "-c", command], env=env, cwd=self.work_dir, capture_output=True, text=True)
+        self.assertEqual(recovered.returncode, 0, recovered.stderr + recovered.stdout)
+        flags = args_log.read_text().splitlines()
+        for flag in ("--no-start", "--no-path", "--upgrade"):
+            self.assertIn(flag, flags)
+        self.assertIn(str(self.prefix), flags)
+        self.assertIn("cli", flags)
+        # Recovery cannot execute changed bootstrap bytes at the same URL.
+        native = root / "solstone-journal/release/2.0.6/solstone-journal-2.0.6-install.sh"
+        native.write_bytes(native.read_bytes() + b"\n# changed after publication\n")
+        args_log.unlink()
+        bad = subprocess.run(["sh", "-c", command], env=env, cwd=self.work_dir, capture_output=True, text=True)
+        self.assertNotEqual(bad.returncode, 0)
+        self.assertFalse(args_log.exists())
 
     def test_native_success_survives_platform_receipt_failure(self):
-        with ephemeral_keypair("native receipt failure") as (sec, pub, pin):
-            server, _ = setup_test_release_server(self.work_dir, sec, pin)
-            try:
-                installer = build_installer(REPO_ROOT, self.work_dir / "install.sh", platform_pub_path=pub, platform_key_id=pin.key_id, origin=server.origin)
-                bin_dir = self.work_dir / "bin"
-                write_path_stub(bin_dir, "mv", 'for arg do case "$arg" in */solstone/install.conf) exit 8 ;; esac; done\nexec /usr/bin/mv "$@"\n')
-                env = {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}", "XDG_DATA_HOME": str(self.work_dir / "data")}
-                result = subprocess.run([str(installer), "--components", "cli", "--prefix", str(self.prefix), "--no-start", "--no-path", "--skip-signature", "--json"], env=env, capture_output=True, text=True)
-                self.assertNotEqual(result.returncode, 0)
-                report = json.loads(result.stdout)
-                self.assertEqual(report["root_code"], "receipt-write-failed")
-                self.assertIn("the journal installed and is ready to use, but this installer could not record that it did", report["message"])
-                self.assertNotIn("To finish it", report["message"])
-                self.assertTrue((self.prefix / "current/bin/journal").exists())
-                self.assertTrue((self.prefix / "install-receipt").exists())
-            finally:
-                server.stop()
+        installer, _, env = self._release("native receipt failure")
+        bin_dir = self.work_dir / "bin"
+        write_path_stub(bin_dir, "mv", 'for arg do case "$arg" in */solstone/install.conf.tmp.*) exit 8 ;; esac; done\nexec /usr/bin/mv "$@"\n')
+        args = [str(installer), "--components", "cli", "--prefix", str(self.prefix), "--no-start", "--no-path", "--skip-signature", "--json"]
+        result = subprocess.run(args, env={**env, "PATH": f"{bin_dir}:{os.environ['PATH']}"}, capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        report = json.loads(result.stdout)
+        self.assertEqual(report["root_code"], "receipt-write-failed")
+        self.assertIn("the journal installed and is ready to use, but this installer could not record that it did. Once the problem above is fixed, run the same install.sh command again to record it.", report["message"])
+        self.assertTrue((self.prefix / "current/bin/journal").exists())
+        recorded = subprocess.run(args, env=env, capture_output=True, text=True)
+        self.assertEqual(recorded.returncode, 0, recorded.stderr + recorded.stdout)
 
     def test_v1_bootstrap_refuses(self):
         # Server with v1 bootstrap (BOOTSTRAP_REVISION=1)
