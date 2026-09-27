@@ -25,6 +25,8 @@ DEFAULT_ORIGIN="@DEFAULT_ORIGIN@"
 
 @BUNDLED_RUNTIME@
 
+@INSTALL_HINT@
+
 # Global options
 OPT_COMPONENTS=""
 OPT_UPGRADE=0
@@ -68,6 +70,7 @@ TREE_TXN_ACTIVE=0
 TREE_CREATED_ROOT=""
 NATIVE_COMMITTED=0
 NATIVE_ATTEMPTED=0
+JOURNAL_RECORDED_VERSION=""
 
 : "${EMBEDDED_MIN_INSTALLER_REVISION}" "${PLATFORM_KEY_ID}" "${JOURNAL_KEY_ID}" "${DESKTOP_KEY_ID}" "${TMUX_KEY_ID}" "${JOURNAL_PUBKEY}" "${DESKTOP_PUBKEY}" "${TMUX_PUBKEY}" "${TREE_FD}" "${PKG_FD}"
 
@@ -110,7 +113,10 @@ shell_quote() {
 }
 
 native_recovery() {
-    nr_role="$1"
+    nr_role=journal
+    for nr_component in $1; do
+        case "$nr_component" in journal|cli) nr_role="$nr_component" ;; esac
+    done
     nr_base="${SCRATCH_DIR}/manifest/components/journal"
     nr_url=$(cat "$nr_base/provenance/bootstrap/url") || return 1
     nr_sha=$(cat "$nr_base/provenance/bootstrap/sha256") || return 1
@@ -142,11 +148,18 @@ report_exit() {
     fi
     if [ "$status" != success ] && [ "$NATIVE_ATTEMPTED" -eq 1 ]; then
         if [ "$NATIVE_COMMITTED" -eq 1 ]; then
-            message="$message; native installation completed, but platform ownership was not saved"
+            message="$message; the journal installed and is ready to use, but this installer could not record that it did, so running this installer again will not change it"
+        elif ! journal_tree_shape_present; then
+            message="$message. The journal was not installed, so once the problem above is fixed, run the same install.sh command again."
+        elif [ -n "$JOURNAL_RECORDED_VERSION" ] \
+            && [ "$(plain_receipt_value "${OPT_PREFIX}/install-receipt" journal_version 2>/dev/null || true)" = "$JOURNAL_RECORDED_VERSION" ]; then
+            message="$message. Your journal is still at the version this installer recorded, so once the problem above is fixed, run the same install.sh command again."
         else
-            message="$message; native setup may be incomplete"
+            # The nested journal installer may have said to rerun this command. With
+            # its tree left behind and no matching platform record, a rerun refuses,
+            # so the last instruction must be the one that works.
+            message="$message. Nothing in your journal was removed. Running solstone's install.sh again will not finish installing the journal, even if a line above says to. To finish it, run: $(native_recovery "$SELECTED_COMPONENTS")"
         fi
-        message="$message. preserve the tree and journal data; platform ownership remains unresolved. native recovery: $(native_recovery "$SELECTED_COMPONENTS")"
     fi
     operation=install
     [ "$OPT_UPGRADE" -eq 0 ] || operation=upgrade
@@ -300,13 +313,60 @@ detect_host() {
     fi
 }
 
+os_release_path() {
+    if [ "$TEST_SEAM" -eq 1 ] && [ -n "${SOLSTONE_TEST_OS_RELEASE:-}" ]; then
+        printf '%s\n' "$SOLSTONE_TEST_OS_RELEASE"
+    else
+        printf '%s\n' /etc/os-release
+    fi
+}
+
+# A missing prerequisite refuses before anything is downloaded or changed, and
+# names the command that installs it on this distribution.
+refuse_missing_prerequisite() {
+    rmp_code="$1"
+    rmp_missing="$2"
+    rmp_package="$3"
+    rmp_purpose="$4"
+    case "$rmp_missing" in Neither*) rmp_found="was found" ;; *) rmp_found="was not found" ;; esac
+    report_exit "refusal" "$rmp_code" "$rmp_missing $rmp_found, and $rmp_purpose. Nothing was changed. To fix: $(install_hint "$rmp_package" "$(os_release_path)"), then run the installer again."
+}
+
 detect_fetch_tool() {
     if command -v curl >/dev/null 2>&1; then
         FETCH_TOOL="curl"
     elif command -v wget >/dev/null 2>&1; then
         FETCH_TOOL="wget"
     else
-        report_exit "refusal" "missing-fetch-tool" "Neither curl nor wget is available in PATH"
+        refuse_missing_prerequisite "missing-fetch-tool" "Neither curl nor wget" curl "one of them is needed to download solstone"
+    fi
+}
+
+# Every Linux prerequisite print_help declares is checked here, before the first
+# download. The later checks at each point of use stay as they are.
+preflight_linux_prerequisites() {
+    detect_fetch_tool
+    plp_tools="awk"
+    # A catalogue listing checks no download digest; a preview, a listing and a
+    # removal unpack nothing.
+    [ "$OPT_LIST" -eq 1 ] || plp_tools="$plp_tools sha256sum"
+    if [ "$OPT_DRY_RUN" -eq 0 ] && [ "$OPT_LIST" -eq 0 ] && [ "$OPT_UNINSTALL" -eq 0 ]; then
+        plp_tools="$plp_tools tar"
+    fi
+    for plp_tool in $plp_tools; do
+        command -v "$plp_tool" >/dev/null 2>&1 && continue
+        case "$plp_tool" in
+            awk) plp_package=gawk; plp_purpose="it is needed to check each download" ;;
+            sha256sum) plp_package=coreutils; plp_purpose="it is needed to check each download" ;;
+            *) plp_package="$plp_tool"; plp_purpose="it is needed to unpack each download" ;;
+        esac
+        refuse_missing_prerequisite "missing-tool" "$plp_tool" "$plp_package" "$plp_purpose"
+    done
+    if [ "$OPT_SKIP_SIGNATURE" -eq 0 ] && ! command -v minisign >/dev/null 2>&1; then
+        refuse_missing_prerequisite "verifier-missing" minisign minisign "it is needed to verify what the installer downloads"
+    fi
+    if [ "$OPT_DRY_RUN" -eq 0 ] && [ "$OPT_LIST" -eq 0 ] && ! command -v flock >/dev/null 2>&1; then
+        refuse_missing_prerequisite "lock-tool-missing" flock util-linux "it is needed so that two installs cannot run at once"
     fi
 }
 
@@ -539,7 +599,7 @@ macos_selection_menu() {
         OPT_COMPONENTS="journal"
         return 0
     fi
-    if ! sh -c 'test -t 0' </dev/tty >/dev/null 2>&1; then
+    if ! { sh -c 'test -t 0' </dev/tty; } >/dev/null 2>&1; then
         OPT_COMPONENTS="journal"
         return 0
     fi
@@ -547,14 +607,20 @@ macos_selection_menu() {
     printf "  1) journal app and solstone app\n" > /dev/tty
     printf "  2) journal app only\n" > /dev/tty
     printf "  3) solstone app only\n" > /dev/tty
-    printf "Select 1-3: " > /dev/tty
-    read -r mac_choice < /dev/tty
-    case "$mac_choice" in
-        1) OPT_COMPONENTS="all" ;;
-        2) OPT_COMPONENTS="journal" ;;
-        3) OPT_COMPONENTS="app" ;;
-        *) macos_refuse invalid-selection "Invalid component selection '$mac_choice'" ;;
-    esac
+    # Enter takes the same default as a run without a terminal; a mistype asks again.
+    mac_tries=0
+    while :; do
+        printf "Select 1-3, or press Enter for the journal app only: " > /dev/tty
+        read -r mac_choice < /dev/tty || macos_refuse invalid-selection "No component selection was made"
+        case "$mac_choice" in
+            1) OPT_COMPONENTS="all"; return 0 ;;
+            ""|2) OPT_COMPONENTS="journal"; return 0 ;;
+            3) OPT_COMPONENTS="app"; return 0 ;;
+        esac
+        mac_tries=$((mac_tries + 1))
+        [ "$mac_tries" -lt 3 ] || macos_refuse invalid-selection "Invalid component selection '$mac_choice'"
+        printf "'%s' is not one of the choices.\n" "$mac_choice" > /dev/tty
+    done
 }
 
 run_macos() {
@@ -932,7 +998,7 @@ verify_minisign_signature() {
 
     minisign_bin=$(command -v minisign 2>/dev/null || true)
     if [ -z "$minisign_bin" ] || [ ! -x "$minisign_bin" ]; then
-        report_exit "refusal" "verifier-missing" "minisign binary is required for cryptographic verification"
+        refuse_missing_prerequisite "verifier-missing" minisign minisign "it is needed to verify what the installer downloads"
     fi
 
     if ! "$minisign_bin" -V -P "$pubkey" -m "$artifact_path" -x "$sig_path" >/dev/null 2>&1; then
@@ -1768,7 +1834,7 @@ acquire_installer_locks() {
     fi
 
     if ! command -v flock >/dev/null 2>&1; then
-        report_exit "refusal" "lock-tool-missing" "flock command is required for safe platform locking"
+        refuse_missing_prerequisite "lock-tool-missing" flock util-linux "it is needed so that two installs cannot run at once"
     fi
 
     # Tree lock if tree route requested
@@ -1788,36 +1854,33 @@ interactive_selection_menu() {
         return 0
     fi
 
-    if ! sh -c 'test -t 0' </dev/tty >/dev/null 2>&1; then
+    if ! { sh -c 'test -t 0' </dev/tty; } >/dev/null 2>&1; then
         OPT_COMPONENTS="journal"
         return 0
     fi
 
-    printf "\nSolstone Platform Component Selection:\n" > /dev/tty
-    printf "  1) All available components (journal, desktop, tmux)\n" > /dev/tty
-    printf "  2) Journal only\n" > /dev/tty
-    printf "  3) Desktop only\n" > /dev/tty
-    printf "  4) Tmux only\n" > /dev/tty
-    printf "Select components by number (1-4) or specify --components flag: " > /dev/tty
-
-    read -r choice < /dev/tty
-    case "$choice" in
-        1)
-            OPT_COMPONENTS="all"
-            ;;
-        2)
-            OPT_COMPONENTS="journal"
-            ;;
-        3)
-            OPT_COMPONENTS="desktop"
-            ;;
-        4)
-            OPT_COMPONENTS="tmux"
-            ;;
-        *)
-            report_exit "refusal" "invalid-selection" "Invalid component selection '$choice' (use --components <components>)"
-            ;;
-    esac
+    printf "\nsolstone for linux:\n" > /dev/tty
+    printf "  1) everything available (journal, desktop, tmux)\n" > /dev/tty
+    printf "  2) journal only\n" > /dev/tty
+    printf "  3) desktop only\n" > /dev/tty
+    printf "  4) tmux only\n" > /dev/tty
+    # Enter takes the same default as a run without a terminal; a mistype asks again.
+    ism_tries=0
+    while :; do
+        printf "Select components by number (1-4), or press Enter for the journal only: " > /dev/tty
+        read -r choice < /dev/tty \
+            || report_exit "refusal" "invalid-selection" "No component selection was made (to skip the menu, run: curl -fsSL https://solstone.app/install.sh | sh -s -- --components journal; choices: all, journal, desktop, tmux)"
+        case "$choice" in
+            1) OPT_COMPONENTS="all"; return 0 ;;
+            ""|2) OPT_COMPONENTS="journal"; return 0 ;;
+            3) OPT_COMPONENTS="desktop"; return 0 ;;
+            4) OPT_COMPONENTS="tmux"; return 0 ;;
+        esac
+        ism_tries=$((ism_tries + 1))
+        [ "$ism_tries" -lt 3 ] \
+            || report_exit "refusal" "invalid-selection" "Invalid component selection '$choice' (to skip the menu, run: curl -fsSL https://solstone.app/install.sh | sh -s -- --components journal; choices: all, journal, desktop, tmux)"
+        printf "'%s' is not one of the choices.\n" "$choice" > /dev/tty
+    done
 }
 
 receipt_value() {
@@ -2205,13 +2268,29 @@ package_run_setup() {
         JOURNAL_LAUNCHER="/usr/bin/journal"
     fi
     [ -x "$JOURNAL_LAUNCHER" ] || report_exit "refusal" "setup-failed" "Package-owned journal launcher is unavailable"
-    if [ "$OPT_NO_START" -eq 1 ]; then
-        if ! "$JOURNAL_LAUNCHER" setup --yes --installer-transaction --skip-service >&2; then
-            report_exit "refusal" "setup-failed" "Journal setup failed"
-        fi
-    elif ! "$JOURNAL_LAUNCHER" setup --yes --installer-transaction >&2; then
-        report_exit "refusal" "setup-failed" "Journal setup failed"
+    set -- setup --yes --installer-transaction
+    [ "$OPT_NO_START" -eq 0 ] || set -- "$@" --skip-service
+    prs_status=0
+    "$JOURNAL_LAUNCHER" "$@" >&2 || prs_status=$?
+    [ "$prs_status" -eq 0 ] && return 0
+    if [ "$prs_status" -eq "$JOURNAL_SETUP_MODELS_UNFINISHED" ]; then
+        report_exit "refusal" "setup-failed" "$(journal_models_unfinished_message "$JOURNAL_LAUNCHER" "run the same install.sh command again")"
     fi
+    report_exit "refusal" "setup-failed" "Journal setup did not finish; see its output above. Once the problem is fixed, run the same install.sh command again. If model installation did not finish, run $JOURNAL_LAUNCHER install-models --variant auto first."
+}
+
+# journal setup exits with this status when install_models is the only step that
+# failed. Journals before it never return it, so they get the generic message.
+JOURNAL_SETUP_MODELS_UNFINISHED=80
+
+journal_models_unfinished_message() {
+    printf '%s' "The journal is installed, but its model installation did not finish. Nothing in your journal was removed. To finish it, run: $1 install-models --variant auto, then $2"
+}
+
+# The nested journal installer's own tree: a current pointer or its receipt.
+journal_tree_shape_present() {
+    [ -e "${OPT_PREFIX}/current" ] || [ -L "${OPT_PREFIX}/current" ] \
+        || [ -e "${OPT_PREFIX}/install-receipt" ] || [ -L "${OPT_PREFIX}/install-receipt" ]
 }
 
 package_complete_after_payload() {
@@ -2587,6 +2666,7 @@ tree_component_authority() {
 
     case "$tca_component" in
         journal|cli)
+            JOURNAL_RECORDED_VERSION="$tca_version"
             tca_native="${OPT_PREFIX}/install-receipt"
             tca_current="${OPT_PREFIX}/current"
             tca_public="${OPT_PREFIX}/current/bin/journal"
@@ -2693,15 +2773,34 @@ package_receipt_path() {
     fi
 }
 
+package_route_tools() {
+    case "$PKG_VARIANT" in deb) printf '%s\n' "dpkg-deb dpkg-query apt-get" ;; rpm) printf '%s\n' "rpm dnf" ;; esac
+}
+
+package_query_tool() {
+    if [ "$PKG_VARIANT" = "deb" ]; then printf '%s\n' dpkg-query; else printf '%s\n' rpm; fi
+}
+
+# Tests fake the package database unless they ask for the host's real tools.
+package_tools_faked() {
+    [ "$TEST_SEAM" -eq 1 ] && [ "${SOLSTONE_TEST_REAL_PKG_PROBE:-0}" != 1 ]
+}
+
+# The second argument is "discover" only when no package receipt exists. Then a
+# host without the variant's package tool (Arch, Void, Gentoo, NixOS, or a
+# /etc/debian_version with no dpkg) has no package this installer could own,
+# so the component reads as not package-owned, as the journal bootstrap reads
+# it. With a receipt, a missing tool still refuses: ownership must be confirmed.
 package_probe_identity() {
     ppi_name="$1"
+    ppi_mode="${2:-}"
     PPROBE_STATE="ABSENT"
     PPROBE_VERSION=""
     PPROBE_ARCH=""
-    if [ "$TEST_SEAM" -eq 1 ] && [ -z "${SOLSTONE_FAKE_PKG_DB:-}" ]; then
+    if package_tools_faked && [ -z "${SOLSTONE_FAKE_PKG_DB:-}" ]; then
         return 0
     fi
-    if [ "$TEST_SEAM" -eq 1 ] && [ -n "${SOLSTONE_FAKE_PKG_DB:-}" ]; then
+    if package_tools_faked && [ -n "${SOLSTONE_FAKE_PKG_DB:-}" ]; then
         ppi_file="${SOLSTONE_FAKE_PKG_DB}/${PKG_VARIANT}/${ppi_name}"
         [ -e "$ppi_file" ] || return 0
         if [ ! -f "$ppi_file" ] || [ ! -r "$ppi_file" ]; then
@@ -2715,6 +2814,9 @@ package_probe_identity() {
         PPROBE_STATE="$1"
         PPROBE_VERSION="$3"
         PPROBE_ARCH="$4"
+        return 0
+    fi
+    if [ "$ppi_mode" = discover ] && ! command -v "$(package_query_tool)" >/dev/null 2>&1; then
         return 0
     fi
     if [ "$PKG_VARIANT" = "deb" ]; then
@@ -2764,7 +2866,7 @@ package_component_authority() {
         [ "$pca_component" = "cli" ] && pca_key="journal"
         pca_name=$(cat "${manifest_dir}/components/${pca_key}/arches/${HOST_ARCH}/${PKG_VARIANT}/package_identity/name" 2>/dev/null || true)
         if [ -n "$pca_name" ]; then
-            package_probe_identity "$pca_name"
+            package_probe_identity "$pca_name" discover
             [ "$PPROBE_STATE" = "ABSENT" ] || PACKAGE_STATE_PRESENT=1
         fi
         return 0
@@ -2851,9 +2953,21 @@ resolve_component_route() {
         if [ "$rcr_package_claim" -eq 1 ]; then append_selected_component PACKAGE_SELECTED_COMPONENTS "$rcr_component"; return 0; fi
     fi
     if [ "$rcr_tree_state" -eq 1 ] || [ "$rcr_package_state" -eq 1 ]; then
-        recovery="preserve the installed files; platform ownership cannot be established"
-        case "$rcr_component" in journal|cli) recovery="$recovery. use the versioned journal installer named by the signed platform catalogue for native recovery; see INSTALL.md" ;; esac
-        report_exit refusal ownership-unknown "installed state for $rcr_component has no platform receipt; $recovery"
+        case "$rcr_component" in
+            journal|cli)
+                rcr_unrecorded="without this installer's record, so this installer will not change it. Nothing was changed."
+                if [ "$rcr_package_state" -eq 1 ]; then
+                    report_exit refusal ownership-unknown "A journal is already installed from a .deb or .rpm package $rcr_unrecorded For help, see https://github.com/solpbc/solstone-journal/blob/main/INSTALL.md#a-distribution-package"
+                fi
+                if journal_tree_shape_present; then
+                    [ "$rcr_mode" != removal ] \
+                        || report_exit refusal ownership-unknown "A journal is already installed in $OPT_PREFIX $rcr_unrecorded"
+                    report_exit refusal ownership-unknown "A journal is already installed in $OPT_PREFIX $rcr_unrecorded To finish or update that journal, run: $(native_recovery "$rcr_component")"
+                fi
+                report_exit refusal ownership-unknown "A journal is already installed $rcr_unrecorded For help, see https://github.com/solpbc/solstone-journal/blob/main/INSTALL.md"
+                ;;
+        esac
+        report_exit refusal ownership-unknown "installed state for $rcr_component has no platform receipt; preserve the installed files; platform ownership cannot be established"
     fi
     if [ "$rcr_require_existing" -eq 1 ]; then
         return 1
@@ -3164,8 +3278,14 @@ run_tree_component() {
             [ "$OPT_SKIP_SIGNATURE" -eq 0 ] || set -- "$@" --skip-signature
             [ "$OPT_UPGRADE" -eq 0 ] || set -- "$@" --upgrade
             NATIVE_ATTEMPTED=1
-            if ! "$b_script" "$@" >&2; then
-                report_exit "refusal" "component-failed" "journal installation failed; see diagnostics above"
+            b_status=0
+            "$b_script" "$@" >&2 || b_status=$?
+            if [ "$b_status" -eq "$JOURNAL_SETUP_MODELS_UNFINISHED" ]; then
+                NATIVE_ATTEMPTED=0
+                report_exit "refusal" "setup-failed" "$(journal_models_unfinished_message "${OPT_PREFIX}/bin/journal" "${OPT_PREFIX}/bin/journal setup")"
+            fi
+            if [ "$b_status" -ne 0 ]; then
+                report_exit "refusal" "component-failed" "journal installation did not finish; see its output above"
             fi
             NATIVE_COMMITTED=1
 
@@ -3716,7 +3836,7 @@ main() {
         run_macos
     fi
     validate_requested_coordinates
-    detect_fetch_tool
+    preflight_linux_prerequisites
 
     # Setup scratch directory
     SCRATCH_DIR=$(mktemp -d /var/tmp/solstone-install.XXXXXX 2>/dev/null || mktemp -d /tmp/solstone-install.XXXXXX)
@@ -3744,6 +3864,14 @@ main() {
             report_exit "refusal" "unknown-argument" "Unknown route: $OPT_ROUTE"
             ;;
     esac
+    # An explicit package route on a host without its package tools refuses
+    # before any download; the same check still runs before package mutation.
+    if [ "$OPT_ROUTE_EXPLICIT" -eq 1 ] && [ "$OPT_ROUTE" != tree ] && ! package_tools_faked; then
+        for package_tool in $(package_route_tools); do
+            command -v "$package_tool" >/dev/null 2>&1 \
+                || report_exit refusal missing-package-tool "--route $OPT_ROUTE needs $package_tool, which was not found. Nothing was changed. To fix: leave out --route, and the installer uses its default tree route."
+        done
+    fi
 
     # 1. Resolve version
     if [ -z "$OPT_VERSION" ]; then
@@ -3990,8 +4118,7 @@ main() {
 
     if [ -n "$PACKAGE_SELECTED_COMPONENTS" ]; then
         if [ "$TEST_SEAM" -eq 0 ]; then
-            case "$PKG_VARIANT" in deb) package_tools="dpkg-deb dpkg-query apt-get" ;; rpm) package_tools="rpm dnf" ;; esac
-            for package_tool in $package_tools; do
+            for package_tool in $(package_route_tools); do
                 command -v "$package_tool" >/dev/null 2>&1 || report_exit refusal missing-package-tool "package route requires $package_tool; install it or use the tree route"
             done
             if [ "$(id -u)" -eq 0 ] && [ "$OPT_NO_START" -eq 0 ]; then

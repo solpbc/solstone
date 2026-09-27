@@ -101,6 +101,22 @@ def embedded_runtime(repo_root: Path) -> str:
     return "\n".join(lines)
 
 
+INSTALL_HINT_PATH = "helpers/install-hint.sh"
+
+
+def install_hint_block(repo_root: Path) -> str:
+    """The distribution install-hint helper, shared byte-for-byte with the journal bootstrap."""
+    content = (repo_root / INSTALL_HINT_PATH).read_text(encoding="utf-8")
+    lines = content.splitlines()
+    if (
+        not content.endswith("\n")
+        or lines[0] != "# BEGIN shared install_hint"
+        or lines[-1] != "# END shared install_hint"
+    ):
+        raise Refusal("runtime-invalid", f"invalid shared helper boundary: {INSTALL_HINT_PATH}")
+    return content[:-1]
+
+
 def build_installer(
     repo_root: Path,
     output_path: Path,
@@ -189,6 +205,7 @@ def build_installer(
         "@DEFAULT_ORIGIN@": resolved_origin,
         "@TEST_SEAM@": test_seam,
         "@BUNDLED_RUNTIME@": embedded_runtime(repo_root),
+        "@INSTALL_HINT@": install_hint_block(repo_root),
     }
 
     result = template_content

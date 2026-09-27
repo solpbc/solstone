@@ -677,7 +677,7 @@ class TestInstallTreeLifecycle(unittest.TestCase):
                 )
                 code, tty_bytes, stdout, stderr = self.run_pty_command(command, self.env, b"3\n")
                 self.assertEqual(code, 0, stderr + stdout + tty_bytes.decode(errors="replace"))
-                self.assertIn(b"Solstone Platform Component Selection", tty_bytes)
+                self.assertIn(b"solstone for linux:", tty_bytes)
                 self.assertEqual(stdout, "")
                 self.assertTrue((self.prefix / "bin" / "solstone-linux").is_symlink())
 
@@ -688,7 +688,7 @@ class TestInstallTreeLifecycle(unittest.TestCase):
                 )
                 code, tty_bytes, stdout, stderr = self.run_pty_command(json_command, self.env)
                 self.assertEqual(code, 0, stderr + stdout)
-                self.assertNotIn(b"Component Selection", tty_bytes)
+                self.assertNotIn(b"solstone for linux:", tty_bytes)
                 self.assertEqual(stderr, "")
                 lines = [line for line in stdout.splitlines() if line]
                 self.assertEqual(len(lines), 1)

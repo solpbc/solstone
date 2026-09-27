@@ -137,6 +137,24 @@ class TestInstallPackageLifecycle(unittest.TestCase):
             finally:
                 server.stop()
 
+    def test_journal_setup_failure_names_the_model_command_only_as_a_condition(self):
+        with ephemeral_keypair("package models unfinished") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin)
+            try:
+                self.env["SOLSTONE_PACKAGE_SETUP_EXIT"] = "80"
+                models = self.run_install(installer, "journal", no_start=True)
+                self.assertNotEqual(models.returncode, 0)
+                message = json.loads(models.stdout)["message"]
+                self.assertIn("The journal is installed, but its model installation did not finish.", message)
+                self.assertIn("install-models --variant auto, then run the same install.sh command again", message)
+                self.env["SOLSTONE_PACKAGE_SETUP_EXIT"] = "3"
+                other = self.run_install(installer, "journal", no_start=True)
+                self.assertNotEqual(other.returncode, 0)
+                message = json.loads(other.stdout)["message"]
+                self.assertIn("Once the problem is fixed, run the same install.sh command again. If model installation did not finish, run ", message)
+            finally:
+                server.stop()
+
     def test_app_service_failure_retries_setup_without_reinstall(self):
         with ephemeral_keypair("app service retry") as (sec, pub, pin):
             server, installer = self.build_release(sec, pub, pin)

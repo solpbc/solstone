@@ -117,6 +117,7 @@ def make_v2_bootstrap_script(revision: int = 2) -> bytes:
         f"    *) shift 1 ;;\n"
         f"  esac\n"
         f"done\n"
+        f"[ \"${{SOLSTONE_BOOTSTRAP_FAIL_EARLY:-0}}\" = 0 ] || exit 2\n"
         f"if [ -n \"$PREFIX\" ] && [ \"$DRY_RUN\" -eq 0 ]; then\n"
         f"  mkdir -p \"$PREFIX/bin\" \"$PREFIX/versions/2.0.6-fixture/bin\"\n"
         f"  echo \"#!/bin/sh\\necho $ROLE 2.0.6\" > \"$PREFIX/versions/2.0.6-fixture/bin/journal\"\n"
@@ -124,7 +125,7 @@ def make_v2_bootstrap_script(revision: int = 2) -> bytes:
         f"  ln -sfn \"versions/2.0.6-fixture\" \"$PREFIX/current\"\n"
         f"  printf 'schema_version=1\\njournal_version=2.0.6\\nlane=release\\norigin=fixture\\narchitecture=x86_64\\ninstaller_revision=1\\nbootstrap_revision={revision}\\nroute=tree\\nsignature_verification=skipped\\nrole=%s\\njournal_state=existing\\nservice_policy=skip-service\\nsetup_status=complete\\n' \"$ROLE\" > \"$PREFIX/install-receipt\"\n"
         f"fi\n"
-        f"[ \"${{SOLSTONE_BOOTSTRAP_FAIL:-0}}\" = 0 ] || exit 7\n"
+        f"[ \"${{SOLSTONE_BOOTSTRAP_FAIL:-0}}\" = 0 ] || exit \"${{SOLSTONE_BOOTSTRAP_FAIL_STATUS:-7}}\"\n"
         f"exit 0\n"
     ).encode("utf-8")
 
