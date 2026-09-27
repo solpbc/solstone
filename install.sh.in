@@ -131,7 +131,8 @@ native_recovery() {
 }
 
 # A desktop or tmux install stopped mid-way is not rolled back, so it still
-# warns; the journal resumes from its pending record.
+# warns; the journal resumes from its pending record. Called from the trap.
+# shellcheck disable=SC2317
 interrupted_message() {
     if [ "$NATIVE_ATTEMPTED" -eq 1 ]; then
         printf '%s' "installation was interrupted"
