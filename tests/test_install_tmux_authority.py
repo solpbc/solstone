@@ -12,11 +12,13 @@ import subprocess
 import tempfile
 import unittest
 
+from tests.install_test_helpers import HermeticInstallerTestCase
+
 from solstone_platform.canonical import canonical_json_bytes
 from solstone_platform.generate import generate_platform_manifest
 from solstone_platform.pins import TMUX_KEY_ID, TMUX_PUBKEY, PinSet, embedded_pins
 from solstone_platform.sign import ephemeral_keypair, sign_manifest
-from tests.install_test_helpers import LoopbackServer, setup_fake_sudo
+from tests.install_test_helpers import LoopbackServer, setup_fake_sudo, write_path_stub
 from tools.build_installer import build_installer
 from tools.fixture_builder import build_tiny_natives
 
@@ -179,7 +181,7 @@ class TmuxFixture:
         return proc, prefix, list(self.server.request_paths)
 
 
-class TestInstallTmuxAuthority(unittest.TestCase):
+class TestInstallTmuxAuthority(HermeticInstallerTestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(dir="/var/tmp")
         self.work_dir = Path(self.tmp.name)
@@ -463,12 +465,20 @@ class TestInstallTmuxAuthority(unittest.TestCase):
         lock_dir = self.work_dir / "package-lock"
         etc_root = self.work_dir / "package-etc"
         fake_db = self.work_dir / "package-db"
+        fake_root = self.work_dir / "package-root"
+        app_log = self.work_dir / "package-app.log"
+        write_path_stub(
+            fake_root / "usr/bin", "solstone-tmux",
+            'printf "%s\\n" "$*" >> "$SOLSTONE_APP_LOG"\n',
+        )
         for directory in (lock_dir, etc_root, fake_db):
             directory.mkdir()
         env = {
             "SOLSTONE_LOCK_DIR": str(lock_dir),
             "SOLSTONE_ETC_ROOT": str(etc_root),
             "SOLSTONE_FAKE_PKG_DB": str(fake_db),
+            "SOLSTONE_FAKE_ROOT": str(fake_root),
+            "SOLSTONE_APP_LOG": str(app_log),
             "SOLSTONE_HELPER": str(HELPER_SCRIPT),
         }
         proc, _, requests = fixture.run(
@@ -478,6 +488,7 @@ class TestInstallTmuxAuthority(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
         self.assertTrue(any(path.endswith(".deb") for path in requests))
         self.assertTrue((fake_db / "install.log").is_file())
+        self.assertIn("install-service", app_log.read_text())
 
     def test_native_authority_caps(self):
         fixture = self.fixture("sums-cap")

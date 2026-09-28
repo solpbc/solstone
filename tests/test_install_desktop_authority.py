@@ -12,11 +12,13 @@ import subprocess
 import tempfile
 import unittest
 
+from tests.install_test_helpers import HermeticInstallerTestCase
+
 from solstone_platform.canonical import canonical_json_bytes
 from solstone_platform.generate import generate_platform_manifest
 from solstone_platform.pins import DESKTOP_KEY_ID, DESKTOP_PUBKEY, PinSet, embedded_pins
 from solstone_platform.sign import ephemeral_keypair, sign_manifest
-from tests.install_test_helpers import LoopbackServer, setup_fake_sudo
+from tests.install_test_helpers import LoopbackServer, setup_fake_sudo, write_path_stub
 from tools.build_installer import build_installer
 from tools.fixture_builder import build_tiny_natives
 
@@ -164,7 +166,7 @@ class DesktopFixture:
         return proc, prefix, list(self.server.request_paths)
 
 
-class TestInstallDesktopAuthority(unittest.TestCase):
+class TestInstallDesktopAuthority(HermeticInstallerTestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(dir="/var/tmp")
         self.work_dir = Path(self.tmp.name)
@@ -398,12 +400,20 @@ class TestInstallDesktopAuthority(unittest.TestCase):
         lock_dir = self.work_dir / "package-lock"
         etc_root = self.work_dir / "package-etc"
         fake_db = self.work_dir / "package-db"
+        fake_root = self.work_dir / "package-root"
+        app_log = self.work_dir / "package-app.log"
+        write_path_stub(
+            fake_root / "usr/bin", "solstone-linux",
+            'printf "%s\\n" "$*" >> "$SOLSTONE_APP_LOG"\n',
+        )
         for directory in (lock_dir, etc_root, fake_db):
             directory.mkdir()
         env = {
             "SOLSTONE_LOCK_DIR": str(lock_dir),
             "SOLSTONE_ETC_ROOT": str(etc_root),
             "SOLSTONE_FAKE_PKG_DB": str(fake_db),
+            "SOLSTONE_FAKE_ROOT": str(fake_root),
+            "SOLSTONE_APP_LOG": str(app_log),
             "SOLSTONE_HELPER": str(HELPER_SCRIPT),
         }
         proc, _, requests = fixture.run(

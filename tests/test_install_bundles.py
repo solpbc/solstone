@@ -10,6 +10,8 @@ import subprocess
 import tempfile
 import unittest
 
+from tests.install_test_helpers import HermeticInstallerTestCase
+
 from solstone_platform.sign import ephemeral_keypair
 from tests.install_test_helpers import setup_test_release_server
 from tools.build_installer import build_installer
@@ -17,7 +19,7 @@ from tools.build_installer import build_installer
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
-class TestInstallBundles(unittest.TestCase):
+class TestInstallBundles(HermeticInstallerTestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(dir="/var/tmp")
         self.work_dir = Path(self.tmp.name)
@@ -89,6 +91,8 @@ class TestInstallBundles(unittest.TestCase):
                 # 2. capture on aarch64 -> cli, tmux + notice
                 env = os.environ.copy()
                 env["SOLSTONE_TEST_HOST_ARCH"] = "aarch64"
+                env["XDG_DATA_HOME"] = str(self.work_dir / "aarch64-data")
+                env["XDG_CONFIG_HOME"] = str(self.work_dir / "aarch64-config")
 
                 prefix_aarch64 = self.work_dir / "prefix_aarch64"
                 prefix_aarch64.mkdir(parents=True, exist_ok=True)
@@ -99,7 +103,7 @@ class TestInstallBundles(unittest.TestCase):
                     text=True,
                     env=env,
                 )
-                self.assertEqual(proc2.returncode, 0, f"Capture on aarch64 failed: {proc2.stderr}")
+                self.assertEqual(proc2.returncode, 0, f"Capture on aarch64 failed: {proc2.stderr}\n{proc2.stdout}")
                 res2 = json.loads(proc2.stdout.strip())
                 self.assertIn("cli", res2["components"])
                 self.assertIn("tmux", res2["components"])

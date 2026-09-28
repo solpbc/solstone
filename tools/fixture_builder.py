@@ -4,6 +4,8 @@
 """Hermetic builder for tiny native component test fixtures and platform examples."""
 
 import hashlib
+from contextlib import contextmanager
+import gzip
 import io
 from pathlib import Path
 import re
@@ -19,10 +21,17 @@ from solstone_platform.pins import MinisignPin, PinSet, parse_minisign_pub
 from solstone_platform.sign import ephemeral_keypair
 
 
+@contextmanager
+def _fixed_gzip_tar(buffer: io.BytesIO):
+    with gzip.GzipFile(fileobj=buffer, mode="wb", filename="", mtime=0) as compressed:
+        with tarfile.open(fileobj=compressed, mode="w") as archive:
+            yield archive
+
+
 def create_tiny_tar(dest: Path, files: dict[str, bytes]) -> bytes:
     """Create a minimal tar.gz file containing the specified path -> bytes map."""
     buf = io.BytesIO()
-    with tarfile.open(fileobj=buf, mode="w:gz") as tf:
+    with _fixed_gzip_tar(buf) as tf:
         for path, data in files.items():
             ti = tarfile.TarInfo(name=path)
             ti.size = len(data)
@@ -38,7 +47,7 @@ def create_tiny_deb(dest: Path, pkg_name: str, version: str, arch: str, exe_name
     # Control tar
     control_text = f"Package: {pkg_name}\nVersion: {version}\nArchitecture: {arch}\nMaintainer: Sol PBC\nDescription: Package for testing platform release pipeline\n"
     cbuf = io.BytesIO()
-    with tarfile.open(fileobj=cbuf, mode="w:gz") as ctf:
+    with _fixed_gzip_tar(cbuf) as ctf:
         ti = tarfile.TarInfo(name="control")
         ti.size = len(control_text.encode("utf-8"))
         ctf.addfile(ti, io.BytesIO(control_text.encode("utf-8")))
@@ -46,7 +55,7 @@ def create_tiny_deb(dest: Path, pkg_name: str, version: str, arch: str, exe_name
 
     # Data tar
     dbuf = io.BytesIO()
-    with tarfile.open(fileobj=dbuf, mode="w:gz") as dtf:
+    with _fixed_gzip_tar(dbuf) as dtf:
         ti = tarfile.TarInfo(name=f"usr/bin/{exe_name}")
         ti.size = len(exe_bytes)
         ti.mode = 0o755

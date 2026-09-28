@@ -16,6 +16,8 @@ import tempfile
 import time
 import unittest
 
+from tests.install_test_helpers import HermeticInstallerTestCase
+
 from solstone_platform.sign import ephemeral_keypair
 from tests.install_test_helpers import setup_test_release_server
 from tools.build_installer import build_installer
@@ -73,7 +75,7 @@ def restricted_path(bin_dir: Path, drop: tuple[str, ...] = (), drop_prefixes: tu
     return str(bin_dir)
 
 
-class TestSharedInstallHint(unittest.TestCase):
+class TestSharedInstallHint(HermeticInstallerTestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(dir="/var/tmp")
         self.work_dir = Path(self.tmp.name)
@@ -115,7 +117,7 @@ class TestSharedInstallHint(unittest.TestCase):
         self.assertEqual(self.hint("curl", OS_RELEASES["arch"]), "sudo pacman -S curl")
 
 
-class TestInstallPrerequisites(unittest.TestCase):
+class TestInstallPrerequisites(HermeticInstallerTestCase):
     @classmethod
     def setUpClass(cls):
         cls.tmp = tempfile.TemporaryDirectory(dir="/var/tmp")
@@ -260,7 +262,7 @@ class TestInstallPrerequisites(unittest.TestCase):
         self.assertEqual(requests, [])
 
 
-class TestLinuxComponentMenu(unittest.TestCase):
+class TestLinuxComponentMenu(HermeticInstallerTestCase):
     @classmethod
     def setUpClass(cls):
         cls.tmp = tempfile.TemporaryDirectory(dir="/var/tmp")

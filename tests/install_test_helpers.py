@@ -4,12 +4,17 @@
 """Helper utilities and mock loopback servers for installer unit tests."""
 
 from functools import partial
+import hashlib
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 import json
 import os
 from pathlib import Path
+import pwd
 import shutil
+import tempfile
 import threading
+import unittest
+from unittest.mock import patch
 
 from solstone_platform.canonical import canonical_json_bytes
 from solstone_platform.generate import generate_platform_manifest
@@ -18,6 +23,60 @@ from solstone_platform.sign import sign_manifest
 from tools.fixture_builder import build_tiny_natives
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+def _host_config_snapshot(home: Path) -> dict[str, tuple[str, str]]:
+    """Detect installer tests that mutate the invoking user's configuration."""
+    state = {}
+    for relative in (".config/solstone", ".config/systemd/user"):
+        root = home / relative
+        if not root.exists():
+            continue
+        for path in (root, *root.rglob("*")):
+            key = str(path.relative_to(home))
+            if path.is_symlink():
+                state[key] = ("symlink", os.readlink(path))
+            elif path.is_file():
+                state[key] = ("file", hashlib.sha256(path.read_bytes()).hexdigest())
+            elif path.is_dir():
+                state[key] = ("directory", "")
+    return state
+
+
+class HermeticInstallerTestCase(unittest.TestCase):
+    """Give each installer test a private home and refuse host service access."""
+
+    def run(self, result=None):
+        real_home = Path(pwd.getpwuid(os.getuid()).pw_dir)
+        before = _host_config_snapshot(real_home)
+        with tempfile.TemporaryDirectory(prefix="solstone-install-test-", dir="/var/tmp") as temporary:
+            root = Path(temporary)
+            for name in ("home", "config", "data", "runtime", "bin"):
+                (root / name).mkdir(mode=0o700)
+            marker = root / "host-systemctl-attempted"
+            write_path_stub(
+                root / "bin",
+                "systemctl",
+                f'printf "%s\\n" "$*" >> "{marker}"\nexit 97\n',
+            )
+            isolated = {
+                "HOME": str(root / "home"),
+                "XDG_CONFIG_HOME": str(root / "config"),
+                "XDG_DATA_HOME": str(root / "data"),
+                "XDG_RUNTIME_DIR": str(root / "runtime"),
+                "DBUS_SESSION_BUS_ADDRESS": f"unix:path={root / 'no-user-bus'}",
+                "PATH": f"{root / 'bin'}:{os.environ['PATH']}",
+            }
+            with patch.dict(os.environ, isolated):
+                outcome = super().run(result)
+            if marker.exists():
+                raise AssertionError(f"installer test reached host systemctl: {marker.read_text()}")
+        after = _host_config_snapshot(real_home)
+        if before != after:
+            changed = sorted(before.keys() ^ after.keys())
+            changed.extend(key for key in before.keys() & after.keys() if before[key] != after[key])
+            raise AssertionError(f"installer test changed real user configuration: {changed}")
+        return outcome
 
 
 def receipt_section(receipt: bytes, name: str) -> bytes:

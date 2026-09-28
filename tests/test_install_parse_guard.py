@@ -8,13 +8,15 @@ import subprocess
 import tempfile
 import unittest
 
+from tests.install_test_helpers import HermeticInstallerTestCase
+
 from tools.build_installer import build_installer
 from solstone_platform.sign import ephemeral_keypair
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
-class TestInstallParseGuard(unittest.TestCase):
+class TestInstallParseGuard(HermeticInstallerTestCase):
     @classmethod
     def setUpClass(cls):
         cls.tmp_dir = tempfile.TemporaryDirectory(dir="/var/tmp")

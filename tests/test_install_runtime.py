@@ -10,6 +10,8 @@ import subprocess
 import tempfile
 import unittest
 
+from tests.install_test_helpers import HermeticInstallerTestCase
+
 from solstone_platform.sign import ephemeral_keypair
 from tests.test_install_tmux_authority import TmuxFixture
 from tools.build_installer import build_installer
@@ -17,7 +19,7 @@ from tools.build_installer import build_installer
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
-class TestInstallRuntime(unittest.TestCase):
+class TestInstallRuntime(HermeticInstallerTestCase):
     def test_materialized_runtime_preserves_source_bytes(self):
         with tempfile.TemporaryDirectory(dir="/var/tmp") as tmp:
             root = Path(tmp)

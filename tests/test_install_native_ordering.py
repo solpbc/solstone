@@ -12,6 +12,8 @@ import subprocess
 import tempfile
 import unittest
 
+from tests.install_test_helpers import HermeticInstallerTestCase
+
 from solstone_platform.sign import ephemeral_keypair
 from tests.test_install_journal_authority import JournalFixture, JOURNAL_VERSION, PLATFORM_VERSION
 
@@ -29,7 +31,7 @@ def snapshot_tree(root: Path) -> dict[str, tuple[int, bytes]]:
     return result
 
 
-class TestInstallNativeOrdering(unittest.TestCase):
+class TestInstallNativeOrdering(HermeticInstallerTestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(dir="/var/tmp")
         self.work_dir = Path(self.tmp.name)

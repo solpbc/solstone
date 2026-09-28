@@ -9,6 +9,8 @@ import subprocess
 import tempfile
 import unittest
 
+from tests.install_test_helpers import HermeticInstallerTestCase
+
 from solstone_platform.sign import ephemeral_keypair
 from tests.install_test_helpers import setup_test_release_server
 from tools.build_installer import build_installer
@@ -16,7 +18,7 @@ from tools.build_installer import build_installer
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
-class TestInstallDryRun(unittest.TestCase):
+class TestInstallDryRun(HermeticInstallerTestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(dir="/var/tmp")
         self.work_dir = Path(self.tmp.name)

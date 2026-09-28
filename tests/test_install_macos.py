@@ -12,6 +12,8 @@ import tempfile
 import threading
 import unittest
 
+from tests.install_test_helpers import HermeticInstallerTestCase
+
 from solstone_platform.sign import ephemeral_keypair
 from tests.install_test_helpers import write_path_stub
 from tools.build_installer import build_installer
@@ -67,7 +69,7 @@ class MacDownloadServer:
         self.httpd.server_close()
 
 
-class TestInstallMacOS(unittest.TestCase):
+class TestInstallMacOS(HermeticInstallerTestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(dir="/var/tmp")
         self.root = Path(self.tmp.name)

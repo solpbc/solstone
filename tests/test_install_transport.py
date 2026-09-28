@@ -15,6 +15,8 @@ import threading
 import time
 import unittest
 
+from tests.install_test_helpers import HermeticInstallerTestCase
+
 from solstone_platform.pins import load_pin_file
 from solstone_platform.refusals import Refusal
 from solstone_platform.sign import ephemeral_keypair
@@ -71,7 +73,7 @@ class RouteServer:
         self.httpd.server_close()
 
 
-class TestInstallTransport(unittest.TestCase):
+class TestInstallTransport(HermeticInstallerTestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(dir="/var/tmp")
         self.work_dir = Path(self.tmp.name)

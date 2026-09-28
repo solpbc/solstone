@@ -12,6 +12,8 @@ import subprocess
 import tempfile
 import unittest
 
+from tests.install_test_helpers import HermeticInstallerTestCase
+
 from solstone_platform.canonical import canonical_json_bytes
 from solstone_platform.generate import generate_platform_manifest
 from solstone_platform.pins import DESKTOP_KEY_ID, DESKTOP_PUBKEY, JOURNAL_KEY_ID, JOURNAL_PUBKEY, TMUX_KEY_ID, TMUX_PUBKEY, PinSet
@@ -205,7 +207,7 @@ class JournalFixture:
         return proc, prefix, list(self.server.request_paths)
 
 
-class TestInstallJournalAuthority(unittest.TestCase):
+class TestInstallJournalAuthority(HermeticInstallerTestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(dir="/var/tmp")
         self.work_dir = Path(self.tmp.name)

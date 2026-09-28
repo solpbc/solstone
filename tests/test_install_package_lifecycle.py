@@ -10,6 +10,8 @@ import subprocess
 import tempfile
 import unittest
 
+from tests.install_test_helpers import HermeticInstallerTestCase
+
 from solstone_platform.sign import ephemeral_keypair
 from tests.install_test_helpers import (
     receipt_section,
@@ -25,7 +27,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 HELPER_SCRIPT = REPO_ROOT / "helpers" / "solstone-pkg-helper.sh"
 
 
-class TestInstallPackageLifecycle(unittest.TestCase):
+class TestInstallPackageLifecycle(HermeticInstallerTestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(dir="/var/tmp")
         self.work_dir = Path(self.tmp.name)

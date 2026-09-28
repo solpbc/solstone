@@ -10,12 +10,14 @@ import subprocess
 import tempfile
 import unittest
 
+from tests.install_test_helpers import HermeticInstallerTestCase
+
 from tools.build_installer import build_installer
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
-class TestInstallInterface(unittest.TestCase):
+class TestInstallInterface(HermeticInstallerTestCase):
     def test_offline_help_and_argument_errors(self):
         with tempfile.TemporaryDirectory(dir="/var/tmp") as tmp:
             root = Path(tmp)

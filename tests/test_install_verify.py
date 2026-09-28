@@ -10,6 +10,8 @@ import subprocess
 import tempfile
 import unittest
 
+from tests.install_test_helpers import HermeticInstallerTestCase
+
 from solstone_platform.canonical import canonical_json_bytes
 from solstone_platform.generate import generate_platform_manifest
 from solstone_platform.pins import PinSet, embedded_pins, load_pin_file
@@ -22,7 +24,7 @@ from tools.fixture_builder import build_tiny_natives
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
-class TestInstallVerify(unittest.TestCase):
+class TestInstallVerify(HermeticInstallerTestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(dir="/var/tmp")
         self.work_dir = Path(self.tmp.name)
