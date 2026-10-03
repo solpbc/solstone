@@ -38,8 +38,8 @@ COMPONENT_CONTRACTS = {
         "handler_contract_version": 1,
         "install_entrypoint": "install-journal",
         "uninstall_service_entrypoint": "uninstall-journal-service",
-        "executable_name": "journal",
-        "version_command": ["journal", "--version"],
+        "executable_name": "solstone",
+        "version_command": ["solstone", "journal", "--version"],
         "authority_type": "journal-manifest-release-bootstrap",
         "package_name": "solstone-journal",
     },
@@ -424,6 +424,10 @@ def _validate_variant_object(
     if not isinstance(exe, dict) or set(exe.keys()) != {"name", "sha256", "version_command"}:
         raise Refusal(SCHEMA_INVALID, f"invalid executable object in {comp_name}/{arch}/{variant_type}")
     contract = COMPONENT_CONTRACTS[comp_name]
+    # Already published manifests bind the still-functional alias. Admit that
+    # complete pair without allowing a mixed executable/argument identity.
+    if comp_name == "journal" and exe["name"] == "journal":
+        contract = {"executable_name": "journal", "version_command": ["journal", "--version"]}
     if exe["name"] != contract["executable_name"]:
         raise Refusal(SCHEMA_INVALID, f"executable.name mismatch for {comp_name}")
     if not is_valid_sha256(exe["sha256"]):

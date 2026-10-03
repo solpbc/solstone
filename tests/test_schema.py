@@ -321,6 +321,26 @@ class TestSchema(unittest.TestCase):
         for obj in mutations:
             self.assert_schema_refusal(obj)
 
+    def test_journal_executable_and_version_command_must_form_one_identity(self):
+        # The historical signed example remains valid. Mixed alias/canonical
+        # pairs must refuse even when all digests and inventories are coherent.
+        validate_platform_manifest(self.example_obj)
+        for name, args in (
+            ("journal", ["solstone", "journal", "--version"]),
+            ("solstone", ["journal", "--version"]),
+        ):
+            obj = copy.deepcopy(self.example_obj)
+            variant = obj["components"]["journal"]["arches"]["x86_64"]["tree"]
+            old_name = variant["executable"]["name"]
+            variant["executable"]["name"] = name
+            variant["executable"]["version_command"] = args
+            for entry in variant["archive_inventory"]:
+                if entry["path"].endswith("/" + old_name):
+                    entry["path"] = entry["path"].rsplit("/", 1)[0] + "/" + name
+            variant["archive_inventory"].sort(key=lambda item: item["path"])
+            with self.subTest(name=name, args=args):
+                self.assert_schema_refusal(obj)
+
     def test_journal_provenance_contract_and_reader_window(self):
         for contract in (1, 3):
             obj = parse_json_strict(self.example_bytes)

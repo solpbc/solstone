@@ -470,9 +470,12 @@ def ingest_journal(
 
             scan_res = scan_variant_archive(file_path)
             get_witness().record("archive_scan", str(file_path))
-            exe_sha = scan_res.executable_sha256.get("journal")
+            canonical_journal = current_version >= (2, 0, 30)
+            exe_name = "solstone" if canonical_journal else "journal"
+            version_command = ["solstone", "journal", "--version"] if canonical_journal else ["journal", "--version"]
+            exe_sha = scan_res.executable_sha256.get(exe_name)
             if not exe_sha:
-                raise Refusal(RELEASE_COHERENCE, f"executable 'journal' not found in archive {filename}")
+                raise Refusal(RELEASE_COHERENCE, f"executable '{exe_name}' not found in archive {filename}")
 
             pkg_id = scan_res.package_identity.to_dict() if scan_res.package_identity else None
 
@@ -483,9 +486,9 @@ def ingest_journal(
                 "native_target": mapping.native_target,
                 "package_identity": pkg_id,
                 "executable": {
-                    "name": "journal",
+                    "name": exe_name,
                     "sha256": exe_sha,
-                    "version_command": ["journal", "--version"],
+                    "version_command": version_command,
                 },
                 "payload_build_id": scan_res.payload_build_id,
                 "archive_inventory": scan_res.inventory,

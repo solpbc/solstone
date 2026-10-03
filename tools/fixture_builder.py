@@ -176,6 +176,7 @@ def build_tiny_natives(
     tmux_version: str | None = None,
     desktop_runtime_version: str | None = None,
     native_build_marker: str = "",
+    journal_version: str = "2.0.6",
 ) -> tuple[PinSet, dict[str, Path]]:
     """Build tiny, coherent synthetic natives for journal, desktop, and tmux."""
     dirs = {
@@ -293,15 +294,17 @@ def build_tiny_natives(
             )
         min_boot_rev_val = min_bootstrap_revision
         boot_sha = hashlib.sha256(boot_script).hexdigest()
-        bootstrap_name = "solstone-journal-2.0.6-install.sh"
+        journal_exe_name = "solstone" if tuple(map(int, journal_version.split("."))) >= (2, 0, 30) else "journal"
+        journal_exe = f"#!/bin/sh\necho {journal_version}\n".encode("utf-8")
+        bootstrap_name = f"solstone-journal-{journal_version}-install.sh"
 
         for arch, target in [("x86_64", "linux-x86_64"), ("aarch64", "linux-aarch64")]:
             arch_dir = dirs["journal"] / target
             arch_dir.mkdir(parents=True, exist_ok=True)
             (arch_dir / bootstrap_name).write_bytes(boot_script)
-            j_tar = create_tiny_tar(arch_dir / f"solstone-journal-2.0.6-{target}.tar.gz", {"usr/bin/journal": b"#!/bin/sh\necho 2.0.6\n"})
-            j_deb = create_tiny_deb(arch_dir / f"solstone-journal-2.0.6-{target}.deb", "solstone-journal", "2.0.6", "amd64" if arch == "x86_64" else "arm64", "journal", b"#!/bin/sh\necho 2.0.6\n")
-            j_rpm = create_tiny_synthetic_rpm(arch_dir / f"solstone-journal-2.0.6-{target}.rpm", "solstone-journal", "2.0.6", "x86_64" if arch == "x86_64" else "aarch64", "journal", b"#!/bin/sh\necho 2.0.6\n")
+            j_tar = create_tiny_tar(arch_dir / f"solstone-journal-{journal_version}-{target}.tar.gz", {f"usr/bin/{journal_exe_name}": journal_exe})
+            j_deb = create_tiny_deb(arch_dir / f"solstone-journal-{journal_version}-{target}.deb", "solstone-journal", journal_version, "amd64" if arch == "x86_64" else "arm64", journal_exe_name, journal_exe)
+            j_rpm = create_tiny_synthetic_rpm(arch_dir / f"solstone-journal-{journal_version}-{target}.rpm", "solstone-journal", journal_version, "x86_64" if arch == "x86_64" else "aarch64", journal_exe_name, journal_exe)
 
 
             tar_sha = hashlib.sha256(j_tar).hexdigest()
@@ -309,39 +312,39 @@ def build_tiny_natives(
             rpm_sha = hashlib.sha256(j_rpm).hexdigest()
 
             rel_text = (
-                f"product=solstone-journal\nversion=2.0.6\ntarget={target}\ncommit=3075c36b12fad469d4c9c0ab4555908fe8ecca1b\n"
+                f"product=solstone-journal\nversion={journal_version}\ntarget={target}\ncommit=3075c36b12fad469d4c9c0ab4555908fe8ecca1b\n"
                 f"lock_sha256=0000000000000000000000000000000000000000000000000000000000000000\n"
                 f"upgrade_epoch=journal-v2\nretention_window=3\nmin_bootstrap_revision={min_boot_rev_val}\n"
                 f"bootstrap_contract_version=2\nbootstrap_filename={bootstrap_name}\n"
-                f"state_reader_min=2.0.0\nstate_reader_max=2.0.6\n"
+                f"state_reader_min=2.0.0\nstate_reader_max={journal_version}\n"
             )
 
-            (arch_dir / f"solstone-journal-2.0.6-{target}.release").write_text(rel_text, encoding="utf-8")
+            (arch_dir / f"solstone-journal-{journal_version}-{target}.release").write_text(rel_text, encoding="utf-8")
 
             sha256_lines = [
-                f"{tar_sha}  solstone-journal-2.0.6-{target}.tar.gz",
-                f"{deb_sha}  solstone-journal-2.0.6-{target}.deb",
-                f"{rpm_sha}  solstone-journal-2.0.6-{target}.rpm",
-                f"{hashlib.sha256(rel_text.encode('utf-8')).hexdigest()}  solstone-journal-2.0.6-{target}.release",
+                f"{tar_sha}  solstone-journal-{journal_version}-{target}.tar.gz",
+                f"{deb_sha}  solstone-journal-{journal_version}-{target}.deb",
+                f"{rpm_sha}  solstone-journal-{journal_version}-{target}.rpm",
+                f"{hashlib.sha256(rel_text.encode('utf-8')).hexdigest()}  solstone-journal-{journal_version}-{target}.release",
                 f"{boot_sha}  {bootstrap_name}",
             ]
             sha256_bytes = ("\n".join(sha256_lines) + "\n").encode("utf-8")
-            (arch_dir / f"solstone-journal-2.0.6-{target}.sha256").write_bytes(sha256_bytes)
+            (arch_dir / f"solstone-journal-{journal_version}-{target}.sha256").write_bytes(sha256_bytes)
 
             j_manifest = {
                 "product": "solstone-journal",
-                "version": "2.0.6",
+                "version": journal_version,
                 "target": target,
                 "files": {
-                    f"solstone-journal-2.0.6-{target}.release": hashlib.sha256(rel_text.encode("utf-8")).hexdigest(),
+                    f"solstone-journal-{journal_version}-{target}.release": hashlib.sha256(rel_text.encode("utf-8")).hexdigest(),
                     bootstrap_name: boot_sha,
-                    f"solstone-journal-2.0.6-{target}.tar.gz": tar_sha,
-                    f"solstone-journal-2.0.6-{target}.deb": deb_sha,
-                    f"solstone-journal-2.0.6-{target}.rpm": rpm_sha,
-                    f"solstone-journal-2.0.6-{target}.sha256": hashlib.sha256(sha256_bytes).hexdigest(),
+                    f"solstone-journal-{journal_version}-{target}.tar.gz": tar_sha,
+                    f"solstone-journal-{journal_version}-{target}.deb": deb_sha,
+                    f"solstone-journal-{journal_version}-{target}.rpm": rpm_sha,
+                    f"solstone-journal-{journal_version}-{target}.sha256": hashlib.sha256(sha256_bytes).hexdigest(),
                 },
             }
-            m_path = arch_dir / f"solstone-journal-2.0.6-{target}.manifest.json"
+            m_path = arch_dir / f"solstone-journal-{journal_version}-{target}.manifest.json"
             m_bytes = canonical_json_bytes(j_manifest)
             m_path.write_bytes(m_bytes)
             subprocess.run(["minisign", "-S", "-W", "-s", str(j_sec), "-m", str(m_path), "-x", str(m_path.with_suffix(".json.minisig")), "-t", "solstone-journal release manifest"], check=True)

@@ -76,6 +76,25 @@ class TestGenerate(unittest.TestCase):
 
             self.assertEqual(m1, m2)
 
+    def test_current_journal_binds_canonical_executable_and_version_arguments(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            pinset, dirs = build_tiny_natives(Path(tmp_dir), journal_version="2.0.30")
+            manifest = parse_json_strict(generate_platform_manifest(
+                version="2.0.22", lane="release", created_unix=1773792000,
+                source_commit="a" * 40, platform_key_id="1111222233334444",
+                repo_root=self.repo_root, journal_dir=dirs["journal"],
+                desktop_dir=dirs["desktop"], tmux_dir=dirs["tmux"],
+                journal_origin="https://127.0.0.1", pins=pinset,
+            ))
+            validate_platform_manifest(manifest)
+            for variants in manifest["components"]["journal"]["arches"].values():
+                for variant in variants.values():
+                    executable = variant["executable"]
+                    self.assertEqual(executable["name"], "solstone")
+                    self.assertEqual(executable["version_command"], ["solstone", "journal", "--version"])
+                    entry = next(item for item in variant["archive_inventory"] if item["path"].endswith("/solstone"))
+                    self.assertEqual(executable["sha256"], entry["sha256"])
+
     def test_output_contains_no_secrets(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_path = Path(tmp_dir)

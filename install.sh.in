@@ -2277,16 +2277,36 @@ package_run_setup() {
         JOURNAL_LAUNCHER="/usr/bin/journal"
     fi
     [ -x "$JOURNAL_LAUNCHER" ] || report_exit "refusal" "setup-failed" "Package-owned journal launcher is unavailable"
+    JOURNAL_COMMAND=$(installed_journal_command "$PC_VERSION" "${JOURNAL_LAUNCHER%/*}")
     set -- setup --yes --installer-transaction
     [ "$OPT_NO_START" -eq 0 ] || set -- "$@" --skip-service
     prs_status=0
-    "$JOURNAL_LAUNCHER" "$@" >&2 || prs_status=$?
+    run_installed_journal "${JOURNAL_LAUNCHER%/*}" "$PC_VERSION" "$@" >&2 || prs_status=$?
     [ "$prs_status" -eq 0 ] && return 0
     if [ "$prs_status" -eq "$JOURNAL_SETUP_MODELS_UNFINISHED" ]; then
-        report_exit "refusal" "setup-failed" "$(journal_models_unfinished_message "$JOURNAL_LAUNCHER" "run the same install.sh command again.")"
+        report_exit "refusal" "setup-failed" "$(journal_models_unfinished_message "$JOURNAL_COMMAND" "run the same install.sh command again.")"
     fi
-    report_exit "refusal" "setup-failed" "Journal setup did not finish; see its output above. Once the problem is fixed, run the same install.sh command again. If model installation did not finish, run $JOURNAL_LAUNCHER install-models --variant auto first."
+    report_exit "refusal" "setup-failed" "Journal setup did not finish; see its output above. Once the problem is fixed, run the same install.sh command again. If model installation did not finish, run $JOURNAL_COMMAND install-models --variant auto first."
 }
+
+# Older published payloads predate the namespace. Their owned setup and removal
+# operations retain the functional alias; current payloads use the canonical CLI.
+installed_journal_command() {
+    case "${1%%-*}" in
+        ''|0.*|1.*|2.0.[0-9]|2.0.[12][0-9]) printf '%s' "${2:+$2/}journal" ;;
+        *) printf '%s' "${2:+$2/}solstone journal" ;;
+    esac
+}
+
+run_installed_journal() (
+    rij_bin_dir="$1"
+    rij_command=$(installed_journal_command "$2")
+    shift 2
+    case "$rij_command" in
+        journal) exec "$rij_bin_dir/journal" "$@" ;;
+        *) exec "$rij_bin_dir/solstone" journal "$@" ;;
+    esac
+)
 
 # journal setup exits with this status when install_models is the only step that
 # failed. Journals before it never return it, so they get the generic message.
@@ -2645,6 +2665,7 @@ tree_component_authority() {
     tca_required=3
     TREE_CLAIM=0
     TREE_STATE_PRESENT=0
+    TREE_JOURNAL_VERSION=""
     tree_state_present "$tca_component" && TREE_STATE_PRESENT=1
     tca_receipt=$(tree_receipt_path)
     if [ ! -e "$tca_receipt" ] && [ ! -L "$tca_receipt" ]; then
@@ -2693,6 +2714,8 @@ tree_component_authority() {
             tca_native="${OPT_PREFIX}/install-receipt"
             tca_current="${OPT_PREFIX}/current"
             tca_public="${OPT_PREFIX}/current/bin/journal"
+            tca_native_version=""
+            tca_entry=""
             tca_present=0
             for tca_path in "$tca_native" "$tca_current" "$tca_public"; do
                 if [ -e "$tca_path" ] || [ -L "$tca_path" ]; then
@@ -2726,7 +2749,21 @@ tree_component_authority() {
             fi
             if [ -e "$tca_public" ] || [ -L "$tca_public" ]; then
                 [ -x "$tca_public" ] || report_exit "refusal" "ownership-unknown" "journal launcher does not match installed state"
-                tca_output=$("$tca_public" --version 2>/dev/null || "$tca_public" 2>/dev/null || true)
+                # A pending install may have selected the candidate while the
+                # native receipt still records the prior version. Use the
+                # selected directory only when the platform already owns it.
+                tca_entry_version=${tca_entry%%-*}
+                case " $tca_versions " in
+                    *" $tca_entry_version "*) TREE_JOURNAL_VERSION="$tca_entry_version" ;;
+                    *) TREE_JOURNAL_VERSION="$tca_native_version" ;;
+                esac
+                if [ "$(installed_journal_command "$TREE_JOURNAL_VERSION")" != journal ]; then
+                    tca_canonical="${tca_public%/*}/solstone"
+                    if [ ! -x "$tca_canonical" ] || [ -L "$tca_canonical" ]; then
+                        report_exit refusal ownership-unknown "journal command does not match its owned tree"
+                    fi
+                fi
+                tca_output=$(run_installed_journal "${tca_public%/*}" "$TREE_JOURNAL_VERSION" --version 2>/dev/null || run_installed_journal "${tca_public%/*}" "$TREE_JOURNAL_VERSION" 2>/dev/null || true)
                 printf '%s\n' "$tca_output" | awk -v wanted=" $tca_versions " '{ for (i=1; i<=NF; i++) if (index(wanted, " " $i " ")) found=1 } END { exit !found }' \
                     || report_exit "refusal" "ownership-unknown" "journal launcher version does not match its receipt"
             fi
@@ -3345,7 +3382,7 @@ run_tree_component() {
             "$b_script" "$@" >&2 || b_status=$?
             if [ "$b_status" -eq "$JOURNAL_SETUP_MODELS_UNFINISHED" ]; then
                 NATIVE_ATTEMPTED=0
-                report_exit "refusal" "setup-failed" "$(journal_models_unfinished_message "${OPT_PREFIX}/current/bin/journal" "run the same install.sh command again.")"
+                report_exit "refusal" "setup-failed" "$(journal_models_unfinished_message "$(installed_journal_command "$b_component_version" "${OPT_PREFIX}/current/bin")" "run the same install.sh command again.")"
             fi
             if [ "$b_status" -ne 0 ]; then
                 report_exit "refusal" "component-failed" "journal installation did not finish; see its output above"
@@ -3797,7 +3834,7 @@ uninstall_tree_component() {
     case "$utc_component" in
         journal)
             utc_journal="${OPT_PREFIX}/current/bin/journal"
-            if [ -x "$utc_journal" ] && ! "$utc_journal" setup --clean-uninstall --yes --installer-transaction >&2; then
+            if [ -x "$utc_journal" ] && ! run_installed_journal "${utc_journal%/*}" "$TREE_JOURNAL_VERSION" setup --clean-uninstall --yes --installer-transaction >&2; then
                 report_exit "refusal" "handler-failed" "journal clean uninstall failed"
             fi
             ;;
@@ -3858,7 +3895,7 @@ uninstall_package_component() {
     if [ "$PQUERY_STATE" != "ABSENT" ]; then
         if [ "$upc_component" = "journal" ]; then
             if [ "$TEST_SEAM" -eq 1 ] && [ -n "${SOLSTONE_FAKE_ROOT:-}" ]; then upc_journal="${SOLSTONE_FAKE_ROOT}/usr/bin/journal"; else upc_journal="/usr/bin/journal"; fi
-            [ ! -x "$upc_journal" ] || "$upc_journal" setup --clean-uninstall --yes --installer-transaction >&2 \
+            [ ! -x "$upc_journal" ] || run_installed_journal "${upc_journal%/*}" "$PQUERY_VERSION" setup --clean-uninstall --yes --installer-transaction >&2 \
                 || report_exit "refusal" "handler-failed" "journal clean uninstall failed"
         fi
         case "$upc_component" in

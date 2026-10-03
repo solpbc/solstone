@@ -58,9 +58,9 @@ a preview verifies release metadata and reads ownership. it does not install pay
 
 stdout with `--json` is one JSON document; diagnostics go to stderr. check both the exit status and each component's status. `target_version` identifies the selected release, including on a failed attempt; it is null for removal. a later failure can leave earlier components successfully installed and recorded.
 
-follow the printed PATH instructions. for a tree installation, the journal tools live at `PREFIX/current/bin/journal`; app launchers live under `PREFIX/bin`. when app PATH configuration is enabled, source `${XDG_CONFIG_HOME:-$HOME/.config}/solstone/env` in the current shell and add that source command to the appropriate shell startup file if needed. `--no-path` leaves this to you.
+follow the printed PATH instructions. for a tree installation, the journal tools live at `PREFIX/current/bin/solstone`; app launchers live under `PREFIX/bin`. when app PATH configuration is enabled, source `${XDG_CONFIG_HOME:-$HOME/.config}/solstone/env` in the current shell and add that source command to the appropriate shell startup file if needed. `--no-path` leaves this to you.
 
-verify the tools you selected with `journal --version`, `solstone-linux --version`, or `solstone-tmux --version`. for a local journal, run `journal service status`. on systemd hosts, check `systemctl --user status solstone`, `solstone-linux`, or `solstone-tmux` as applicable. installation completion means the selected setup commands succeeded; it is not a claim that intake, pairing, models, or every background service is healthy. the tmux app needs a running tmux session; the desktop app needs a graphical session.
+verify the tools you selected with `solstone journal --version`, `solstone-linux --version`, or `solstone-tmux --version`. for a local journal, run `solstone journal service status`. on systemd hosts, check `systemctl --user status solstone`, `solstone-linux`, or `solstone-tmux` as applicable. installation completion means the selected setup commands succeeded; it is not a claim that intake, pairing, models, or every background service is healthy. the tmux app needs a running tmux session; the desktop app needs a graphical session.
 
 ### update or remove
 
