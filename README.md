@@ -71,6 +71,17 @@ PYTHONPATH=src python3 -m solstone_platform.cli --help
 
 ### recutting the linux platform catalogue
 
+schema-2 catalogues use the selected journal version and a positive catalogue
+revision. journal `2.0.33` with revision `1` is published at `2.0.33-r1`.
+a desktop or tmux release can advance the revision while keeping that journal
+version and its payloads. a new journal version normally starts at revision `1`.
+historical schema-1 catalogues keep their original bare coordinates.
+
+deploy installer revision `8` before promoting the first revised catalogue.
+that reader supports both formats; after promotion, keep a capable reader at
+both installer URLs. native component and package versions keep their existing
+formats without a catalogue suffix.
+
 when a published linux component should become the platform default, prepare the
 new catalogue directly from its signed release. the
 [preparation path](src/solstone_platform/recut.py) validates the downloaded
@@ -84,25 +95,27 @@ export AWS_ACCESS_KEY_ID="<access-key-id>"
 export AWS_SECRET_ACCESS_KEY="<secret-access-key>"
 
 PYTHONPATH=src python3 -m solstone_platform.cli prepare-recut \
-  --version 2.0.1 \
-  --replace journal=2.0.12 \
-  --out /var/tmp/solstone-release/platform-2.0.1
+  --version 2.0.33-r1 \
+  --replace journal=2.0.33 \
+  --out /var/tmp/solstone-release/platform-2.0.33-r1
 ```
 
 inspect `platform.json` and `recut-receipt.json`, and compare the candidate's
 `components` object with the signed base named in the receipt before signing.
-signing remains a separate, explicit production step. publish the
+signing remains a separate, explicit production step. retain the prepared files,
+receipt and detached signature before publication so an interrupted attempt can
+retry those exact bytes. publish the
 signed candidate with its receipt:
 
 ```bash
 SOLSTONE_PLATFORM_PRODUCTION=ack PYTHONPATH=src python3 -m solstone_platform.cli publish \
-  --manifest /var/tmp/solstone-release/platform-2.0.1/platform.json \
-  --signature /var/tmp/solstone-release/platform-2.0.1/platform.json.minisig \
-  --journal-dir /var/tmp/solstone-release/platform-2.0.1/journal \
-  --desktop-dir /var/tmp/solstone-release/platform-2.0.1/desktop \
-  --tmux-dir /var/tmp/solstone-release/platform-2.0.1/tmux \
-  --bootstrap-file /var/tmp/solstone-release/platform-2.0.1/bootstrap/solstone-journal-2.0.12-install.sh \
-  --expected-latest-receipt /var/tmp/solstone-release/platform-2.0.1/recut-receipt.json \
+  --manifest /var/tmp/solstone-release/platform-2.0.33-r1/platform.json \
+  --signature /var/tmp/solstone-release/platform-2.0.33-r1/platform.json.minisig \
+  --journal-dir /var/tmp/solstone-release/platform-2.0.33-r1/journal \
+  --desktop-dir /var/tmp/solstone-release/platform-2.0.33-r1/desktop \
+  --tmux-dir /var/tmp/solstone-release/platform-2.0.33-r1/tmux \
+  --bootstrap-file /var/tmp/solstone-release/platform-2.0.33-r1/bootstrap/solstone-journal-2.0.33-install.sh \
+  --expected-latest-receipt /var/tmp/solstone-release/platform-2.0.33-r1/recut-receipt.json \
   --acknowledge-production
 ```
 
@@ -111,7 +124,15 @@ refuses without adopting the new base. prepare a new candidate from the current
 release instead. on a retry, the
 [publisher](src/solstone_platform/publish.py) reuses an immutable object only
 when its bytes and metadata match, and uses at most one conditional write to
-advance `latest`.
+advance `latest`. if an abandoned attempt has claimed a coordinate, select a
+higher revision for the same genuine component update. preparation requires a
+strictly newer selected component; changing only catalogue metadata is refused.
+
+run the additional offline qualification explicitly:
+
+```sh
+PYTHONPATH=src:. python3 qualify/catalogue_revision.py -v
+```
 
 ## why trust it with your life
 

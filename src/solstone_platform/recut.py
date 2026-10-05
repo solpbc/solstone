@@ -34,9 +34,17 @@ from solstone_platform.refusals import (
     RELEASE_COHERENCE,
     SCHEMA_INVALID,
     UNSAFE_FILENAME,
+    VERSION_INVALID,
     Refusal,
 )
-from solstone_platform.schema import load_platform_manifest_bytes
+from solstone_platform.schema import (
+    SCHEMA_2_INSTALLER_FLOOR,
+    catalogue_coordinate,
+    compare_catalogue_coordinates,
+    load_platform_manifest_bytes,
+    parse_catalogue_coordinate,
+    validate_catalogue_transition,
+)
 from solstone_platform.targets import get_target_mapping
 from solstone_platform.testdest import FIXTURE_BUILD_TOKEN, FixtureDestination
 
@@ -268,6 +276,8 @@ def prepare_recut(
     if output_dir == Path("/tmp") or Path("/tmp") in output_dir.parents or output_dir == repo_resolved or repo_resolved in output_dir.parents:
         raise Refusal(UNSAFE_FILENAME, "recut output must be outside the repository and /tmp")
 
+    _, cand_triple, cand_rev = parse_catalogue_coordinate(version)
+
     source_commit = _git_identity(repo_root)
     latest = dest.get("solstone/release/latest")
     if not latest.is_ok() or latest.body is None or not latest.etag:
@@ -276,7 +286,7 @@ def prepare_recut(
         base_version = latest.body.decode("utf-8").strip()
     except UnicodeDecodeError as err:
         raise Refusal(RELEASE_COHERENCE, "latest is not UTF-8") from err
-    if compare_semver(version, base_version) <= 0:
+    if compare_catalogue_coordinates(version, base_version) <= 0:
         raise Refusal(RELEASE_COHERENCE, f"candidate {version} must be newer than base {base_version}")
 
     existing_receipt: dict[str, Any] | None = None
@@ -320,7 +330,7 @@ def prepare_recut(
         verify_minisign_signature(platform_pin, base_manifest_path, base_sig_path)
         base_obj = load_platform_manifest_bytes(base_manifest_result.body, canonical_refusal=RELEASE_COHERENCE)
         if (
-            base_obj["version"] != base_version
+            catalogue_coordinate(base_obj) != base_version
             or base_obj["lane"] != "release"
             or base_obj["platform_key_id"] != platform_pin.key_id
         ):
@@ -331,6 +341,10 @@ def prepare_recut(
             if compare_semver(replacement, component_versions[name]) <= 0:
                 raise Refusal(RELEASE_COHERENCE, f"{name} replacement must be newer than {component_versions[name]}")
             component_versions[name] = replacement
+
+        cand_core_str = f"{cand_triple[0]}.{cand_triple[1]}.{cand_triple[2]}"
+        if cand_rev is not None and component_versions["journal"] != cand_core_str:
+            raise Refusal(RELEASE_COHERENCE, f"candidate catalogue coordinate core '{cand_core_str}' does not match journal version '{component_versions['journal']}'")
 
         downloader = _Downloader()
         base_prefix = f"{origin}/solstone/release/{base_version}"
@@ -363,7 +377,8 @@ def prepare_recut(
         else:
             epoch = int(time.time())
         manifest = generate_platform_manifest(
-            version=version,
+            version=version if cand_rev is None else None,
+            catalogue_revision=cand_rev,
             lane="release",
             created_unix=epoch,
             source_commit=source_commit,
@@ -380,9 +395,7 @@ def prepare_recut(
         manifest_path.write_bytes(manifest)
         candidate = load_platform_manifest_bytes(manifest, canonical_refusal=RELEASE_COHERENCE)
 
-        for field in ("schema_version", "protocol_version", "lane", "platform_key_id", "minimum_installer_revision"):
-            if candidate[field] != base_obj[field]:
-                raise Refusal(RELEASE_COHERENCE, f"recut changed protected top-level field {field}")
+        validate_catalogue_transition(base_obj, candidate, SCHEMA_2_INSTALLER_FLOOR)
         for name in KNOWN_COMPONENTS:
             base_component = base_obj["components"][name]
             candidate_component = candidate["components"][name]

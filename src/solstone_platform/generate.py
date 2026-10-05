@@ -20,7 +20,7 @@ from solstone_platform.refusals import (
     VERSION_INVALID,
     Refusal,
 )
-from solstone_platform.schema import is_valid_semver, validate_platform_manifest
+from solstone_platform.schema import is_valid_catalogue_revision, is_valid_semver, validate_platform_manifest
 
 
 def load_minimum_installer_revision(repo_root: Path) -> int:
@@ -65,7 +65,7 @@ def build_component_manifest(
 
 
 def generate_platform_manifest(
-    version: str,
+    version: Optional[str],
     lane: str,
     created_unix: int,
     source_commit: str,
@@ -77,10 +77,25 @@ def generate_platform_manifest(
     journal_origin: str,
     bootstrap_file: Optional[Path] = None,
     pins: Optional[PinSet] = None,
+    catalogue_revision: Optional[int] = None,
 ) -> bytes:
     """Generate a canonical, validated platform.json manifest."""
-    if not is_valid_semver(version):
-        raise Refusal(VERSION_INVALID, f"invalid platform version: '{version}'")
+    if repo_root is None or journal_dir is None or desktop_dir is None or tmux_dir is None:
+        raise Refusal(SCHEMA_INVALID, "missing required directories for manifest generation")
+
+    if catalogue_revision is None:
+        # Schema 1 mode
+        if version is None or not is_valid_semver(version):
+            raise Refusal(VERSION_INVALID, f"invalid platform version: '{version}'")
+        manifest_version = version
+        schema_version = 1
+    else:
+        # Schema 2 mode
+        if version is not None:
+            raise Refusal(SCHEMA_INVALID, "version must not be specified when catalogue_revision is set")
+        if not is_valid_catalogue_revision(catalogue_revision):
+            raise Refusal(SCHEMA_INVALID, f"invalid catalogue_revision: {catalogue_revision}")
+        schema_version = 2
 
     if pins is None:
         pins = embedded_pins()
@@ -104,6 +119,9 @@ def generate_platform_manifest(
         pin=pins.tmux,
     )
 
+    if catalogue_revision is not None:
+        manifest_version = journal_comp.version
+
     journal_contract = load_handler_contract(repo_root, "journal")
     desktop_contract = load_handler_contract(repo_root, "desktop")
     tmux_contract = load_handler_contract(repo_root, "tmux")
@@ -115,9 +133,9 @@ def generate_platform_manifest(
     }
 
     manifest = {
-        "schema_version": 1,
+        "schema_version": schema_version,
         "protocol_version": 1,
-        "version": version,
+        "version": manifest_version,
         "lane": lane,
         "created_unix": created_unix,
         "platform_key_id": platform_key_id,
@@ -125,6 +143,9 @@ def generate_platform_manifest(
         "source_commit": source_commit,
         "components": components,
     }
+
+    if catalogue_revision is not None:
+        manifest["catalogue_revision"] = catalogue_revision
 
     # Validate against full schema rules
     validate_platform_manifest(manifest)

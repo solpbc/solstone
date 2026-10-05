@@ -30,7 +30,13 @@ from solstone_platform.refusals import (
     UNSAFE_FILENAME,
     Refusal,
 )
-from solstone_platform.schema import load_platform_manifest_bytes
+from solstone_platform.schema import (
+    SCHEMA_2_INSTALLER_FLOOR,
+    catalogue_coordinate,
+    compare_catalogue_coordinates,
+    load_platform_manifest_bytes,
+    validate_catalogue_transition,
+)
 from solstone_platform.targets import get_target_mapping
 from solstone_platform.testdest import FIXTURE_BUILD_TOKEN, FixtureDestination
 from solstone_platform.witness import get_witness
@@ -192,13 +198,14 @@ def _validate_recut_receipt(
     base = receipt.get("base")
     if not isinstance(candidate, dict) or not isinstance(base, dict):
         raise Refusal(SCHEMA_INVALID, "recut receipt requires base and candidate objects")
-    if candidate.get("version") != manifest_obj.get("version"):
+    candidate_coord = catalogue_coordinate(manifest_obj)
+    if candidate.get("version") != candidate_coord:
         raise Refusal(RELEASE_COHERENCE, "recut receipt candidate version does not match manifest")
     if candidate.get("sha256") != hashlib.sha256(manifest_bytes).hexdigest():
         raise Refusal(RELEASE_COHERENCE, "recut receipt candidate digest does not match manifest")
     if not isinstance(base.get("body"), str) or not isinstance(base.get("etag"), str):
         raise Refusal(SCHEMA_INVALID, "recut receipt base pointer is incomplete")
-    if compare_semver(manifest_obj["version"], str(base.get("version"))) <= 0:
+    if compare_catalogue_coordinates(candidate_coord, str(base.get("version"))) <= 0:
         raise Refusal(RELEASE_COHERENCE, "recut receipt base is not older than candidate")
     prepared_files = receipt.get("prepared_files")
     if not isinstance(prepared_files, list) or any(not isinstance(item, dict) for item in prepared_files):
@@ -227,10 +234,8 @@ def _validate_recut_receipt(
     if not isinstance(replacements, dict) or not replacements or not set(replacements).issubset({"journal", "desktop", "tmux"}):
         raise Refusal(SCHEMA_INVALID, "recut receipt replacements are invalid")
     origin = "https://updates.solstone.app"
-    base_version = base_obj["version"]
-    for field in ("schema_version", "protocol_version", "lane", "platform_key_id", "minimum_installer_revision"):
-        if manifest_obj.get(field) != base_obj.get(field):
-            raise Refusal(RELEASE_COHERENCE, f"recut changed protected top-level field {field}")
+    base_version = catalogue_coordinate(base_obj)
+    validate_catalogue_transition(base_obj, manifest_obj, SCHEMA_2_INSTALLER_FLOOR)
     expected_source_paths = set(prepared_by_path) - {"platform.json"}
     if set(source_by_path) != expected_source_paths:
         raise Refusal(RELEASE_COHERENCE, "recut receipt source mapping is incomplete or has extras")
@@ -281,7 +286,7 @@ def _verify_base_release(dest: Destination, receipt: dict, platform_pin, snapsho
     verify_minisign_signature(platform_pin, manifest_path, signature_path)
     base_obj = load_platform_manifest_bytes(manifest_res.body, canonical_refusal=RELEASE_COHERENCE)
     if (
-        base_obj.get("version") != base_version
+        catalogue_coordinate(base_obj) != base_version
         or base_obj.get("lane") != receipt.get("lane")
         or base_obj.get("platform_key_id") != platform_pin.key_id
     ):
@@ -361,7 +366,7 @@ def publish_release(*args, **kwargs) -> PublishReport:
             if not isinstance(receipt_obj, dict) or receipt_obj.get("schema_version") != 1:
                 raise Refusal(SCHEMA_INVALID, "invalid recut receipt")
 
-        version = manifest_obj["version"]
+        version = catalogue_coordinate(manifest_obj)
         lane = manifest_obj["lane"]
         platform_key_id = manifest_obj["platform_key_id"]
 
@@ -582,7 +587,10 @@ def publish_release(*args, **kwargs) -> PublishReport:
             # are required to provide an explicit expectation above.
             if current_latest.is_ok():
                 curr_ver = (current_latest.body or b"").decode("utf-8", errors="strict").strip()
-                cmp = compare_semver(version, curr_ver)
+                try:
+                    cmp = compare_catalogue_coordinates(version, curr_ver)
+                except Refusal as err:
+                    raise Refusal(RELEASE_COHERENCE, f"existing latest pointer is not a valid coordinate: '{curr_ver}'") from err
                 if cmp < 0:
                     raise Refusal(ROLLBACK_REFUSED, f"incoming version {version} is older than current latest {curr_ver}")
                 if cmp == 0:
@@ -633,7 +641,7 @@ def publish_release(*args, **kwargs) -> PublishReport:
             return PublishReport(version, lane, manifest_key, sig_key, latest_key, False)
         if reread.is_ok() and reread.body is not None:
             observed = reread.body.decode("utf-8", errors="replace").strip()
-            if compare_semver(version, observed) < 0:
+            if compare_catalogue_coordinates(version, observed) < 0:
                 raise Refusal(ROLLBACK_REFUSED, f"incoming version {version} is older than current latest {observed}")
             raise Refusal(RELEASE_COHERENCE, f"candidate is not current; latest moved to {observed}")
         raise Refusal(PUBLISH_INDETERMINATE, f"CAS outcome indeterminate for {latest_key}: {cas_res.status}")

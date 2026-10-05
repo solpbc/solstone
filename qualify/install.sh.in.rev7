@@ -766,84 +766,6 @@ validate_origin() {
     esac
 }
 
-# BEGIN GENERATED CATALOGUE IDENTITY
-CATALOGUE_MAX_DIGITS=20
-CATALOGUE_LATEST_MAX_BYTES=86
-
-is_bare_coordinate() {
-    candidate_version="$1"
-    is_canonical_version "$candidate_version"
-}
-
-is_revised_coordinate() {
-    rc_raw="$1"
-    case "$rc_raw" in
-        *-r*) ;;
-        *) return 1 ;;
-    esac
-    rc_core="${rc_raw%-r*}"
-    rc_rev="${rc_raw##*-r}"
-    is_canonical_version "$rc_core" || return 1
-    case "$rc_rev" in
-        ""|0|0*|*[!0123456789]*) return 1 ;;
-    esac
-    [ "${#rc_rev}" -le 20 ] || return 1
-    return 0
-}
-
-is_catalogue_coordinate() {
-    is_bare_coordinate "$1" || is_revised_coordinate "$1"
-}
-
-validate_catalogue_identity() {
-    vci_manifest_dir="$1"
-    vci_schema="$2"
-    vci_protocol="$3"
-    vci_version="$4"
-    vci_resolved="$5"
-    if [ "$vci_protocol" != "1" ]; then
-        report_exit "refusal" "schema-invalid" "manifest protocol version must be 1"
-    fi
-    if [ "$vci_schema" = "1" ]; then
-        if [ -f "${vci_manifest_dir}/catalogue_revision" ]; then
-            report_exit "refusal" "schema-invalid" "schema 1 manifest must not contain catalogue_revision"
-        fi
-        if ! is_bare_coordinate "$vci_version"; then
-            report_exit "refusal" "schema-invalid" "manifest platform version is invalid"
-        fi
-        if [ "$vci_version" != "$vci_resolved" ]; then
-            report_exit "refusal" "release-coherence" "manifest platform version does not match the requested coordinate"
-        fi
-    elif [ "$vci_schema" = "2" ]; then
-        if [ ! -f "${vci_manifest_dir}/catalogue_revision" ]; then
-            report_exit "refusal" "schema-invalid" "schema 2 manifest missing catalogue_revision"
-        fi
-        vci_rev=$(cat "${vci_manifest_dir}/catalogue_revision")
-        case "$vci_rev" in
-            ""|0|0*|*[!0123456789]*)
-                report_exit "refusal" "schema-invalid" "manifest catalogue_revision is invalid"
-                ;;
-        esac
-        if [ "${#vci_rev}" -gt 20 ]; then
-            report_exit "refusal" "schema-invalid" "manifest catalogue_revision exceeds maximum digits"
-        fi
-        if ! is_canonical_version "$vci_version"; then
-            report_exit "refusal" "schema-invalid" "manifest platform version is invalid"
-        fi
-        vci_journal_ver=$(cat "${vci_manifest_dir}/components/journal/version" 2>/dev/null || true)
-        if [ "$vci_version" != "$vci_journal_ver" ]; then
-            report_exit "refusal" "schema-invalid" "schema 2 manifest version must equal components.journal.version"
-        fi
-        vci_derived="${vci_version}-r${vci_rev}"
-        if [ "$vci_derived" != "$vci_resolved" ]; then
-            report_exit "refusal" "release-coherence" "manifest catalogue coordinate does not match the requested coordinate"
-        fi
-    else
-        report_exit "refusal" "schema-invalid" "unsupported schema_version: $vci_schema"
-    fi
-}
-# END GENERATED CATALOGUE IDENTITY
-
 is_canonical_version() {
     candidate_version="$1"
     case "$candidate_version" in
@@ -861,7 +783,7 @@ is_canonical_version() {
             0) ;;
             0*) return 1 ;;
         esac
-        [ "${#version_part}" -le "$CATALOGUE_MAX_DIGITS" ] || return 1
+        [ "${#version_part}" -le 20 ] || return 1
     done
     return 0
 }
@@ -883,7 +805,7 @@ validate_requested_coordinates() {
         release|staging|dev) ;;
         *) report_exit "refusal" "lane-invalid" "Invalid release lane: $OPT_LANE" ;;
     esac
-    if [ -n "$OPT_VERSION" ] && ! is_catalogue_coordinate "$OPT_VERSION"; then
+    if [ -n "$OPT_VERSION" ] && ! is_canonical_version "$OPT_VERSION"; then
         report_exit "refusal" "version-invalid" "Invalid platform version: $OPT_VERSION"
     fi
 }
@@ -927,8 +849,15 @@ validate_manifest_identity() {
     manifest_min_revision=$(read_manifest_scalar "${manifest_dir}/minimum_installer_revision")
     manifest_min_revision=${manifest_min_revision%x}
 
-    validate_catalogue_identity "$manifest_dir" "$manifest_schema" "$manifest_protocol" "$manifest_version" "$RESOLVED_VERSION"
-
+    if [ "$manifest_schema" != "1" ] || [ "$manifest_protocol" != "1" ]; then
+        report_exit "refusal" "schema-invalid" "Manifest schema and protocol versions must both be 1"
+    fi
+    if ! is_canonical_version "$manifest_version"; then
+        report_exit "refusal" "schema-invalid" "Manifest platform version is invalid"
+    fi
+    if [ "$manifest_version" != "$RESOLVED_VERSION" ]; then
+        report_exit "refusal" "release-coherence" "Manifest platform version does not match the requested version"
+    fi
     case "$manifest_lane" in
         release|staging|dev) ;;
         *) report_exit "refusal" "schema-invalid" "Manifest lane is invalid" ;;
@@ -981,7 +910,7 @@ validate_latest_file() {
             }
             if (data_n < 1) exit 1
             for (i = 1; i <= data_n; i++) {
-                if (!((bytes[i] >= 48 && bytes[i] <= 57) || bytes[i] == 46 || bytes[i] == 45 || bytes[i] == 114)) exit 1
+                if (!((bytes[i] >= 48 && bytes[i] <= 57) || bytes[i] == 46)) exit 1
             }
             for (i = data_n + 1; i <= n; i++) {
                 if (i == data_n + 1 && bytes[i] == 10 && i == n) continue
@@ -993,7 +922,7 @@ validate_latest_file() {
         }
     ') || report_exit "refusal" "latest-invalid" "Latest version response is malformed"
     RESOLVED_VERSION=$(dd if="$latest_path" bs=1 count="$latest_shape" 2>/dev/null)
-    if ! is_catalogue_coordinate "$RESOLVED_VERSION"; then
+    if ! is_canonical_version "$RESOLVED_VERSION"; then
         report_exit "refusal" "latest-invalid" "Latest platform version is invalid"
     fi
 }
@@ -1111,9 +1040,15 @@ function is_whitelisted(p) {
     }
     if (schema_mode == "desktop" || schema_mode == "tmux") return 1
     if (p ~ /(_is_list)$/) return 1
-    # BEGIN GENERATED CATALOGUE KEYS
-    if (p ~ /^(catalogue_revision|components|created_unix|lane|minimum_installer_revision|platform_key_id|protocol_version|schema_version|source_commit|version)$/) return 1
-    # END GENERATED CATALOGUE KEYS
+    if (p ~ /^schema_version$/) return 1
+    if (p ~ /^protocol_version$/) return 1
+    if (p ~ /^version$/) return 1
+    if (p ~ /^lane$/) return 1
+    if (p ~ /^created_unix$/) return 1
+    if (p ~ /^platform_key_id$/) return 1
+    if (p ~ /^minimum_installer_revision$/) return 1
+    if (p ~ /^source_commit$/) return 1
+    if (p ~ /^components$/) return 1
     if (p ~ /^components\.(journal|desktop|tmux)$/) return 1
     if (p ~ /^components\.(journal|desktop|tmux)\.(version|handler_contract_version|install_entrypoint|uninstall_service_entrypoint)$/) return 1
     if (p ~ /^components\.journal\.provenance$/) return 1
@@ -1198,13 +1133,6 @@ function next_tok(   c, str_val, num_val, esc) {
 function write_val(path_str, val, value_type,   fpath, dpath, last_slash) {
     if (!is_whitelisted(path_str)) {
         err("schema-invalid", "unknown field: " path_str)
-    }
-    if (schema_mode == "platform") {
-        if (path_str ~ /^(schema_version|protocol_version|catalogue_revision|created_unix|minimum_installer_revision)$/) {
-            if (value_type != "NUMBER" || val !~ /^(0|[1-9][0-9]*)$/) err("schema-invalid", "platform identity field must be an integer: " path_str)
-        } else if (path_str ~ /^(version|lane|platform_key_id|source_commit|components\.(journal|desktop|tmux)\.version)$/) {
-            if (value_type != "STRING") err("schema-invalid", "platform identity field must be a string: " path_str)
-        }
     }
     if (schema_mode == "journal") {
         if (path_str == "files") err("schema-invalid", "files must be an object")
@@ -3828,50 +3756,6 @@ run_package_install() {
             *) report_exit "refusal" "ownership-unknown" "Installed package $PC_NAME has an invalid receipt phase" ;;
         esac
     done
-
-    # If every selected component was already unchanged and no payload mutation occurred,
-    # refresh the global section if needed without modifying component sections or running setup.
-    all_pkg_selected_unchanged=1
-    for psu_comp in $SELECTED_COMPONENTS; do
-        case " $UNCHANGED_COMPONENTS " in
-            *" $psu_comp "*) ;;
-            *) all_pkg_selected_unchanged=0; break ;;
-        esac
-    done
-    if [ "$all_pkg_selected_unchanged" -eq 1 ] && [ -s "$PACKAGE_RECEIPT_FILE" ]; then
-        pgr_staged="${SCRATCH_DIR}/package-receipt-global-refresh.$$"
-        {
-            printf "[solstone]\n"
-            printf "schema_version=1\n"
-            printf "platform_version=%s\n" "$RESOLVED_VERSION"
-            printf "lane=%s\n" "$OPT_LANE"
-            printf "origin=%s\n" "$OPT_ORIGIN"
-            printf "arch=%s\n" "$HOST_ARCH"
-            printf "verification=%s\n" "$([ "$OPT_SKIP_SIGNATURE" -eq 1 ] && echo "digest-matched; signatures skipped" || echo "minisign")"
-            printf "installer_revision=%s\n" "$INSTALLER_REVISION"
-        } > "$pgr_staged" || report_exit "refusal" "receipt-write-failed" "could not stage refreshed package receipt"
-        for pgr_existing in journal cli desktop tmux; do
-            if receipt_value "$PACKAGE_RECEIPT_FILE" "component:${pgr_existing}" role >/dev/null 2>&1; then
-                append_receipt_section "$PACKAGE_RECEIPT_FILE" "component:${pgr_existing}" "$pgr_staged" \
-                    || report_exit "refusal" "receipt-write-failed" "could not preserve package receipt section for $pgr_existing"
-            fi
-        done
-        if cmp -s "$pgr_staged" "$PACKAGE_RECEIPT_FILE"; then
-            rm -f "$pgr_staged" 2>/dev/null || true
-            return 0
-        fi
-        if [ "$TEST_SEAM" -eq 1 ] && [ "${SOLSTONE_TEST_FAIL_PACKAGE_GLOBAL_REFRESH:-0}" = "1" ]; then
-            rm -f "$pgr_staged" 2>/dev/null || true
-            report_exit "refusal" "receipt-write-failed" "test seam forced package global refresh failure"
-        fi
-        pgr_len=$(wc -c < "$pgr_staged" | tr -d '[:space:]')
-        # shellcheck disable=SC2086
-        if ! pgr_result=$({ printf "WRITE_ETC_RECEIPT %s\n" "$pgr_len"; cat "$pgr_staged"; } | $sudo_prefix "$helper_bin" $helper_flags); then
-            package_protocol_failure "$pgr_result" "receipt-write-failed" "could not publish refreshed package receipt"
-        fi
-        [ "$pgr_result" = "OK" ] || package_protocol_failure "$pgr_result" "receipt-write-failed" "could not publish refreshed package receipt"
-        cp "$pgr_staged" "$PACKAGE_RECEIPT_FILE" || report_exit "refusal" "receipt-write-failed" "could not retain package receipt state"
-    fi
 }
 
 stage_receipt_without_component() {
@@ -4092,7 +3976,7 @@ main() {
     # 1. Resolve version
     if [ -z "$OPT_VERSION" ]; then
         latest_file="${SCRATCH_DIR}/latest"
-        fetch_file_with_redirect_check "${OPT_ORIGIN}/solstone/${OPT_LANE}/latest" "$latest_file" "$CATALOGUE_LATEST_MAX_BYTES" "latest"
+        fetch_file_with_redirect_check "${OPT_ORIGIN}/solstone/${OPT_LANE}/latest" "$latest_file" 64 "latest"
         validate_latest_file "$latest_file"
     else
         RESOLVED_VERSION="$OPT_VERSION"
@@ -4113,7 +3997,7 @@ main() {
     mkdir -p "$manifest_dir"
 
     awk_stderr="${SCRATCH_DIR}/awk.err"
-    if ! awk -v schema_mode=platform -v out_dir="$manifest_dir" -f "${SCRATCH_DIR}/parse_manifest.awk" "$manifest_file" 2>"$awk_stderr"; then
+    if ! awk -v out_dir="$manifest_dir" -f "${SCRATCH_DIR}/parse_manifest.awk" "$manifest_file" 2>"$awk_stderr"; then
         awk_err_msg=$(head -n 1 "$awk_stderr" | tr -d '\r\n')
         case "$awk_err_msg" in
             *duplicate-key*)

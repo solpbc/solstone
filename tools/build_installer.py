@@ -125,14 +125,22 @@ def build_installer(
     origin: str | None = None,
     override_installer_revision: int | None = None,
     is_production: bool = False,
+    template_path: Path | None = None,
 ) -> Path:
-    template_path = repo_root / "install.sh.in"
+    if template_path is None:
+        template_path = repo_root / "install.sh.in"
     if not template_path.is_file():
         raise Refusal("template-missing", f"template file not found: {template_path}")
 
     if is_production and any(
         value is not None
-        for value in (platform_pub_path, platform_key_id, origin, override_installer_revision)
+        for value in (
+            platform_pub_path,
+            platform_key_id,
+            origin,
+            override_installer_revision,
+            None if template_path == repo_root / "install.sh.in" else template_path,
+        )
     ):
         raise Refusal(PRODUCTION_UNAVAILABLE, "production build forbids test seam overrides")
 

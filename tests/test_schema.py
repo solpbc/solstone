@@ -40,16 +40,16 @@ class TestSchema(unittest.TestCase):
     def test_installer_revision_allows(self):
         min_rev_path = self.repo_root / "compat" / "minimum_installer_revision"
         min_rev = load_minimum_installer_revision(min_rev_path)
-        self.assertEqual(min_rev, 1)
+        self.assertEqual(min_rev, 8)
 
-        # Actual 0 vs min 1 -> False
-        self.assertFalse(installer_revision_allows(actual=0, minimum=1))
-        # Actual 1 vs min 1 -> True
-        self.assertTrue(installer_revision_allows(actual=1, minimum=1))
-        # Actual 2 vs min 1 -> True
-        self.assertTrue(installer_revision_allows(actual=2, minimum=1))
-        # Actual 1 vs min 2 -> False
-        self.assertFalse(installer_revision_allows(actual=1, minimum=2))
+        # Actual 7 vs min 8 -> False
+        self.assertFalse(installer_revision_allows(actual=7, minimum=8))
+        # Actual 8 vs min 8 -> True
+        self.assertTrue(installer_revision_allows(actual=8, minimum=8))
+        # Actual 9 vs min 8 -> True
+        self.assertTrue(installer_revision_allows(actual=9, minimum=8))
+        # Actual 8 vs min 9 -> False
+        self.assertFalse(installer_revision_allows(actual=8, minimum=9))
 
     def test_non_positive_minimum_installer_revision_refused(self):
         obj = parse_json_strict(self.example_bytes)
@@ -444,7 +444,10 @@ class TestSchema(unittest.TestCase):
             self.assertEqual(expected["version_command"], contract["version_command"])
 
     def test_json_schema_direct_constraints_match_python_contract(self):
-        schema = parse_json_strict((self.repo_root / "schema" / "platform.v1.json").read_bytes())
+        from solstone_platform.schema import render_platform_schema
+        schema_text = (self.repo_root / "schema" / "platform.v1.json").read_text(encoding="utf-8")
+        self.assertEqual(schema_text, render_platform_schema())
+        schema = parse_json_strict(schema_text.encode("utf-8"))
         self.assertIn("Structural subset only", schema["$comment"])
         for component, expected in COMPONENT_CONTRACTS.items():
             definition = schema["definitions"][f"{component}_component"]["properties"]

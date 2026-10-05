@@ -255,7 +255,7 @@ def setup_test_release_server(
                 route_entry["authority"]["verifier_id"] = selected_pin.verifier_id()
     manifest_bytes = canonical_json_bytes(manifest_obj)
 
-    if min_installer_revision != 1:
+    if min_installer_revision != manifest_obj.get("minimum_installer_revision"):
         m_obj = json.loads(manifest_bytes.decode("utf-8"))
         m_obj["minimum_installer_revision"] = min_installer_revision
         manifest_bytes = canonical_json_bytes(m_obj)
@@ -283,6 +283,7 @@ def setup_test_release_server(
         manifest_bytes=signed_manifest_bytes,
         secret_key_path=sec_key_path,
         selected_pin=pin,
+        passphrase_callback=lambda: "",
         repo_root=REPO_ROOT,
         is_production=False,
     )

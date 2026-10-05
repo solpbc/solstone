@@ -4,68 +4,160 @@
   "title": "SolstonePlatformManifestV1",
   "$comment": "Structural subset only. The canonical platform byte loader additionally enforces canonical bytes and in-object ordering, identity, digest, and cross-field invariants. Bootstrap origin/lane/version and native package/artifact coherence are contextual checks outside this JSON Schema.",
   "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "schema_version",
-    "protocol_version",
-    "version",
-    "lane",
-    "created_unix",
-    "platform_key_id",
-    "minimum_installer_revision",
-    "source_commit",
-    "components"
-  ],
-  "properties": {
-    "schema_version": {
-      "type": "integer",
-      "const": 1
-    },
-    "protocol_version": {
-      "type": "integer",
-      "const": 1
-    },
-    "version": {
-      "type": "string",
-      "pattern": "^(0|[1-9][0-9]{0,19})\\.(0|[1-9][0-9]{0,19})\\.(0|[1-9][0-9]{0,19})$"
-    },
-    "lane": {
-      "type": "string",
-      "enum": ["release", "staging", "dev"]
-    },
-    "created_unix": {
-      "type": "integer",
-      "minimum": 0
-    },
-    "platform_key_id": {
-      "type": "string",
-      "pattern": "^[0-9A-F]{16}$"
-    },
-    "minimum_installer_revision": {
-      "type": "integer",
-      "minimum": 1
-    },
-    "source_commit": {
-      "type": "string",
-      "pattern": "^[0-9a-f]{40}$"
-    },
-    "components": {
+  "oneOf": [
+    {
       "type": "object",
       "additionalProperties": false,
-      "required": ["journal", "desktop", "tmux"],
+      "required": [
+        "schema_version",
+        "protocol_version",
+        "version",
+        "lane",
+        "created_unix",
+        "platform_key_id",
+        "minimum_installer_revision",
+        "source_commit",
+        "components"
+      ],
       "properties": {
-        "journal": {
-          "$ref": "#/definitions/journal_component"
+        "schema_version": {
+          "type": "integer",
+          "const": 1
         },
-        "desktop": {
-          "$ref": "#/definitions/desktop_component"
+        "protocol_version": {
+          "type": "integer",
+          "const": 1
         },
-        "tmux": {
-          "$ref": "#/definitions/tmux_component"
+        "version": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]{0,19})\\.(0|[1-9][0-9]{0,19})\\.(0|[1-9][0-9]{0,19})$"
+        },
+        "lane": {
+          "type": "string",
+          "enum": [
+            "dev",
+            "release",
+            "staging"
+          ]
+        },
+        "created_unix": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "platform_key_id": {
+          "type": "string",
+          "pattern": "^[0-9A-F]{16}$"
+        },
+        "minimum_installer_revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "source_commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "components": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "journal",
+            "desktop",
+            "tmux"
+          ],
+          "properties": {
+            "journal": {
+              "$ref": "#/definitions/journal_component"
+            },
+            "desktop": {
+              "$ref": "#/definitions/desktop_component"
+            },
+            "tmux": {
+              "$ref": "#/definitions/tmux_component"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "protocol_version",
+        "version",
+        "lane",
+        "created_unix",
+        "platform_key_id",
+        "minimum_installer_revision",
+        "source_commit",
+        "components",
+        "catalogue_revision"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "integer",
+          "const": 2
+        },
+        "protocol_version": {
+          "type": "integer",
+          "const": 1
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]{0,19})\\.(0|[1-9][0-9]{0,19})\\.(0|[1-9][0-9]{0,19})$"
+        },
+        "lane": {
+          "type": "string",
+          "enum": [
+            "dev",
+            "release",
+            "staging"
+          ]
+        },
+        "created_unix": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "platform_key_id": {
+          "type": "string",
+          "pattern": "^[0-9A-F]{16}$"
+        },
+        "minimum_installer_revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "source_commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "components": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "journal",
+            "desktop",
+            "tmux"
+          ],
+          "properties": {
+            "journal": {
+              "$ref": "#/definitions/journal_component"
+            },
+            "desktop": {
+              "$ref": "#/definitions/desktop_component"
+            },
+            "tmux": {
+              "$ref": "#/definitions/tmux_component"
+            }
+          }
+        },
+        "catalogue_revision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 99999999999999999999
         }
       }
     }
-  },
+  ],
   "definitions": {
     "journal_component": {
       "type": "object",
@@ -109,7 +201,11 @@
             "bootstrap": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["url", "sha256", "contract_version"],
+              "required": [
+                "url",
+                "sha256",
+                "contract_version"
+              ],
               "properties": {
                 "url": {
                   "type": "string",
@@ -146,7 +242,10 @@
         "arches": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["x86_64", "aarch64"],
+          "required": [
+            "x86_64",
+            "aarch64"
+          ],
           "properties": {
             "x86_64": {
               "$ref": "#/definitions/arch_variants"
@@ -188,7 +287,9 @@
         "arches": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["x86_64"],
+          "required": [
+            "x86_64"
+          ],
           "properties": {
             "x86_64": {
               "$ref": "#/definitions/arch_variants"
@@ -227,7 +328,10 @@
         "arches": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["x86_64", "aarch64"],
+          "required": [
+            "x86_64",
+            "aarch64"
+          ],
           "properties": {
             "x86_64": {
               "$ref": "#/definitions/arch_variants"
@@ -242,7 +346,11 @@
     "arch_variants": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["tree", "deb", "rpm"],
+      "required": [
+        "tree",
+        "deb",
+        "rpm"
+      ],
       "properties": {
         "tree": {
           "$ref": "#/definitions/variant_object"
@@ -283,12 +391,22 @@
         },
         "native_target": {
           "type": "string",
-          "enum": ["linux-x86_64", "linux-aarch64"]
+          "enum": [
+            "linux-x86_64",
+            "linux-aarch64"
+          ]
         },
         "package_identity": {
-          "type": ["object", "null"],
+          "type": [
+            "object",
+            "null"
+          ],
           "additionalProperties": false,
-          "required": ["name", "version", "arch"],
+          "required": [
+            "name",
+            "version",
+            "arch"
+          ],
           "properties": {
             "name": {
               "type": "string",
@@ -307,7 +425,11 @@
         "executable": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["name", "sha256", "version_command"],
+          "required": [
+            "name",
+            "sha256",
+            "version_command"
+          ],
           "properties": {
             "name": {
               "type": "string",
@@ -339,7 +461,10 @@
         "authority": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["type", "verifier_id"],
+          "required": [
+            "type",
+            "verifier_id"
+          ],
           "properties": {
             "type": {
               "type": "string",
@@ -384,7 +509,11 @@
     "inventory_entry": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["path", "kind", "size"],
+      "required": [
+        "path",
+        "kind",
+        "size"
+      ],
       "properties": {
         "path": {
           "type": "string",
@@ -392,7 +521,11 @@
         },
         "kind": {
           "type": "string",
-          "enum": ["file", "dir", "symlink"]
+          "enum": [
+            "file",
+            "dir",
+            "symlink"
+          ]
         },
         "size": {
           "type": "integer",

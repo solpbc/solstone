@@ -26,6 +26,7 @@ from solstone_platform.refusals import (
     SCHEMA_INVALID,
     Refusal,
 )
+from solstone_platform.schema import parse_catalogue_revision
 from solstone_platform.sign import sign_manifest
 
 
@@ -77,7 +78,7 @@ def main(argv: list[str] | None = None) -> int:
 
     # generate subcommand
     p_gen = subparsers.add_parser("generate", help="Generate canonical platform.json manifest")
-    p_gen.add_argument("--version", required=True, help="Platform version (strict X.Y.Z)")
+    p_gen.add_argument("--catalogue-revision", default="1", help="catalogue revision (positive integer; catalogue version is derived from the journal version)")
     p_gen.add_argument("--lane", required=True, choices=["release", "staging", "dev"], help="Release lane")
     p_gen.add_argument("--created-unix", type=int, required=True, help="Unix timestamp in seconds")
     p_gen.add_argument("--source-commit", required=True, help="40-character lowercase commit hash")
@@ -114,7 +115,7 @@ def main(argv: list[str] | None = None) -> int:
 
     # prepare-recut subcommand
     p_recut = subparsers.add_parser("prepare-recut", help="Prepare a platform release from published components")
-    p_recut.add_argument("--version", required=True, help="New platform version (strict X.Y.Z)")
+    p_recut.add_argument("--version", required=True, help="new platform catalogue coordinate (X.Y.Z-rN or bare X.Y.Z)")
     p_recut.add_argument(
         "--replace",
         action="append",
@@ -130,6 +131,8 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         if args.subcommand == "generate":
+            cat_rev = parse_catalogue_revision(args.catalogue_revision)
+
             key_id = args.platform_key_id
             if not key_id and args.platform_pub:
                 pin = load_pin_file(args.platform_pub)
@@ -143,7 +146,7 @@ def main(argv: list[str] | None = None) -> int:
                     raise Refusal(PRODUCTION_UNAVAILABLE, "--platform-key-id or --platform-pub required")
 
             manifest_bytes = generate_platform_manifest(
-                version=args.version,
+                version=None,
                 lane=args.lane,
                 created_unix=args.created_unix,
                 source_commit=args.source_commit,
@@ -155,6 +158,7 @@ def main(argv: list[str] | None = None) -> int:
                 journal_origin=args.journal_origin,
                 bootstrap_file=args.bootstrap_file,
                 pins=embedded_pins(),  # CLI always uses embedded native pins
+                catalogue_revision=cat_rev,
             )
             if args.out:
                 args.out.write_bytes(manifest_bytes)

@@ -69,18 +69,6 @@ def sign_manifest(
     if parsed_manifest["platform_key_id"] != selected_pin.key_id:
         raise Refusal(PIN_MISMATCH, "manifest platform_key_id does not match selected signing pin")
 
-    if passphrase_callback is not None:
-        passphrase = passphrase_callback()
-    elif not sys.stdin.isatty():
-        passphrase = ""
-    else:
-        passphrase = getpass.getpass("Enter minisign passphrase: ")
-
-    # Always derive public key directly from secret key and verify against selected pin before signing
-    derived_pin = derive_public_key_from_secret(secret_key_path, passphrase)
-    if derived_pin.pubkey != selected_pin.pubkey or derived_pin.key_id != selected_pin.key_id:
-        raise Refusal(PIN_MISMATCH, f"secret key derives pin {derived_pin.key_id} ({derived_pin.pubkey}), does not match selected pin {selected_pin.key_id} ({selected_pin.pubkey})")
-
     if is_production:
         if repo_root is None:
             raise Refusal(PRODUCTION_UNAVAILABLE, "repo_root required for production signing")
@@ -94,6 +82,20 @@ def sign_manifest(
         if "fixture" in str(secret_key_path).lower() or "test key" in str(secret_key_path).lower() or "fixture" in sec_content.lower() or "test key" in sec_content.lower():
             raise Refusal(FIXTURE_KEY_REFUSED, "fixture secret key rejected for production signing")
 
+    if passphrase_callback is not None:
+        passphrase = passphrase_callback()
+    elif not sys.stdin.isatty():
+        passphrase = ""
+    else:
+        passphrase = getpass.getpass("Enter minisign passphrase: ")
+
+    # Always derive public key directly from secret key and verify against selected pin before signing
+    derived_pin = derive_public_key_from_secret(secret_key_path, passphrase)
+    if derived_pin.pubkey != selected_pin.pubkey or derived_pin.key_id != selected_pin.key_id:
+        raise Refusal(PIN_MISMATCH, f"secret key derives pin {derived_pin.key_id} ({derived_pin.pubkey}), does not match selected pin {selected_pin.key_id} ({selected_pin.pubkey})")
+
+    if is_production:
+        assert repo_root is not None
         prod_pin = require_production_platform_pin(repo_root)
         if derived_pin.key_id != prod_pin.key_id or derived_pin.pubkey != prod_pin.pubkey:
             raise Refusal(PIN_MISMATCH, "derived secret key is not the production platform pin")
