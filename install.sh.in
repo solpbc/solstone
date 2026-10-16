@@ -3356,7 +3356,7 @@ usage: sh install.sh [options]
   --no-path            leave shell PATH configuration to you
   --non-interactive    never open the component menu; select components explicitly
   --confirm-package-command
-                       show each linux apt or dnf command and wait for approval
+                       show each linux package installation command and wait for approval
   --yes, -y            accepted for unattended invocations
   --json               one JSON result on stdout; diagnostics on stderr
   --skip-signature     explicitly skip signatures; digests are still checked
