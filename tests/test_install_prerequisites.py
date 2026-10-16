@@ -27,13 +27,14 @@ HINT_HELPER = REPO_ROOT / "helpers" / "install-hint.sh"
 
 # The same digest is pinned by solstone-journal core/distribution/install.test.sh
 # for its copy of this block. Change both copies and both pins together.
-SHARED_INSTALL_HINT_SHA256 = "a39261fb9cef1e5ac12de862a686368141911442823a89954425e1f8a8990318"
+SHARED_INSTALL_HINT_SHA256 = "04cfc9ebb8d4a4c5f786399b50a8582d7f197d26b9cdd06543a3be78d412842e"
 
 OS_RELEASES = {
     "fedora": 'NAME="Fedora Linux"\nID=fedora\nVERSION_ID=43\n',
     "almalinux": 'ID="almalinux"\nID_LIKE="rhel centos fedora"\n',
     "rhel": 'ID="rhel"\nID_LIKE="fedora"\n',
     "ubuntu": "ID=ubuntu\nID_LIKE=debian\n",
+    "ubuntu22": 'ID=ubuntu\nID_LIKE=debian\nVERSION_ID="22.04"\n',
     "debian": "ID=debian\n",
     "mint": 'ID=linuxmint\nID_LIKE="ubuntu debian"\n',
     "arch": "ID=arch\n",
@@ -47,6 +48,7 @@ MINISIGN_HINTS = {
     "almalinux": "sudo dnf install epel-release && sudo dnf install minisign",
     "rhel": "enable EPEL (https://docs.fedoraproject.org/en-US/epel/) and run sudo dnf install minisign",
     "ubuntu": "sudo apt install minisign",
+    "ubuntu22": "install minisign from https://jedisct1.github.io/minisign/",
     "debian": "sudo apt install minisign",
     "mint": "sudo apt install minisign",
     "arch": "sudo pacman -S minisign",

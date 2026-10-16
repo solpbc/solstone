@@ -7,10 +7,18 @@ install_hint() {
 	_hint_file=${2:-/etc/os-release}
 	_hint_id=
 	_hint_like=
+	_hint_version=
 	if [ -r "$_hint_file" ]; then
 		_hint_id=$(awk -F= '$1 == "ID" {gsub(/^"|"$/, "", $2); print $2; exit}' "$_hint_file")
 		_hint_like=$(awk -F= '$1 == "ID_LIKE" {gsub(/^"|"$/, "", $2); print $2; exit}' "$_hint_file")
+		_hint_version=$(awk -F= '$1 == "VERSION_ID" {gsub(/^"|"$/, "", $2); print $2; exit}' "$_hint_file")
 	fi
+	case "${_hint_id}:${_hint_version}:${_hint_pkg}" in
+	ubuntu:22.04:minisign)
+		printf '%s' 'install minisign from https://jedisct1.github.io/minisign/'
+		return
+		;;
+	esac
 	case " ${_hint_id} " in
 	" fedora ") _hint_family=fedora ;;
 	" rhel ") _hint_family=rhel ;;
