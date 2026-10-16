@@ -1012,7 +1012,7 @@ fetch_file_with_redirect_check() {
     rm -f "$hdr_file"
 
     if [ "$FETCH_TOOL" = "curl" ]; then
-        http_code=$(curl -q -s -S --connect-timeout 10 --max-time 120 --retry 0 --max-redirs 0 -w "%{http_code}" -D "$hdr_file" -o "$dest_path" "$src_url" 2>/dev/null) || http_code="000"
+        http_code=$(curl -q -s -S --connect-timeout 10 --max-time 120 --retry 2 --retry-delay 1 --retry-max-time 30 --max-redirs 0 -w "%{http_code}" -D "$hdr_file" -o "$dest_path" "$src_url" 2>/dev/null) || http_code="000"
         if [ "$http_code" = "200" ]; then
             rm -f "$hdr_file"
             if [ -n "$max_bytes" ]; then
@@ -1032,7 +1032,7 @@ fetch_file_with_redirect_check() {
                 report_exit "refusal" "redirect-refused" "Redirect scheme or authority change forbidden"
             fi
 
-            hop2_code=$(curl -q -s -S --connect-timeout 10 --max-time 120 --retry 0 --max-redirs 0 -w "%{http_code}" -D "$hdr_file" -o "$dest_path" "$loc" 2>/dev/null) || hop2_code="000"
+            hop2_code=$(curl -q -s -S --connect-timeout 10 --max-time 120 --retry 2 --retry-delay 1 --retry-max-time 30 --max-redirs 0 -w "%{http_code}" -D "$hdr_file" -o "$dest_path" "$loc" 2>/dev/null) || hop2_code="000"
             rm -f "$hdr_file"
             if [ "$hop2_code" = "200" ]; then
                 if [ -n "$max_bytes" ]; then
@@ -1048,7 +1048,7 @@ fetch_file_with_redirect_check() {
             report_exit "refusal" "fetch-failed" "HTTP status $http_code from $src_url"
         fi
     elif [ "$FETCH_TOOL" = "wget" ]; then
-        if ! wget --no-config --tries=1 --connect-timeout=10 --timeout=120 --max-redirect=0 -q -O "$dest_path" "$src_url" 2>/dev/null; then
+        if ! wget --no-config --tries=3 --waitretry=1 --retry-on-http-error=500,502,503,504 --connect-timeout=10 --timeout=120 --max-redirect=0 -q -O "$dest_path" "$src_url" 2>/dev/null; then
             report_exit "refusal" "fetch-failed" "Failed to download $src_url"
         fi
         if [ -n "$max_bytes" ]; then
@@ -1931,13 +1931,11 @@ acquire_installer_locks() {
 
 interactive_selection_menu() {
     if [ "$OPT_NON_INTERACTIVE" -eq 1 ] || [ "$OPT_JSON" -eq 1 ]; then
-        OPT_COMPONENTS="journal"
-        return 0
+        report_exit refusal no-selection "choose what to install with --components journal, cli, desktop, tmux, all, or capture. for example: sh install.sh --components journal"
     fi
 
     if ! { sh -c 'test -t 0' </dev/tty; } >/dev/null 2>&1; then
-        OPT_COMPONENTS="journal"
-        return 0
+        report_exit refusal no-selection "choose what to install with --components journal, cli, desktop, tmux, all, or capture. for example: sh install.sh --components journal"
     fi
 
     printf "\nsolstone for linux:\n" > /dev/tty
@@ -2411,6 +2409,80 @@ package_candidate_is_older() {
     fi
     pcio_first=$(printf '%s\n%s\n' "$pcio_installed" "$pcio_candidate" | sort -V | head -n 1)
     [ "$pcio_first" = "$pcio_candidate" ] && [ "$pcio_installed" != "$pcio_candidate" ]
+}
+
+# Reject unsupported downgrades before any component or pending receipt changes.
+# The native journal owns compatibility; an absent declaration never permits it.
+preflight_journal_downgrade() {
+    [ "$OPT_UNINSTALL" -eq 0 ] || return 0
+    pjd_version=$(cat "${manifest_dir}/components/journal/version")
+    case " $PACKAGE_SELECTED_COMPONENTS " in
+        *" journal "*|*" cli "*)
+            pjd_name=$(cat "${manifest_dir}/components/journal/arches/${HOST_ARCH}/${PKG_VARIANT}/package_identity/name")
+            pjd_package_version=$(cat "${manifest_dir}/components/journal/arches/${HOST_ARCH}/${PKG_VARIANT}/package_identity/version")
+            package_probe_identity "$pjd_name"
+            if [ "$PPROBE_STATE" = INSTALLED ] && package_candidate_is_older "$PPROBE_VERSION" "$pjd_package_version"; then
+                report_exit refusal downgrade-route-unsupported "this package route cannot install an older journal. nothing was changed. run the installer again without --version to install the latest release."
+            fi
+            return 0
+            ;;
+    esac
+    case " $TREE_SELECTED_COMPONENTS " in
+        *" journal "*) pjd_role=journal ;;
+        *" cli "*) pjd_role=cli ;;
+        *) return 0 ;;
+    esac
+    tree_component_authority "$pjd_role" complete
+    [ -n "$TREE_JOURNAL_VERSION" ] || return 0
+    [ "$pjd_version" != "$TREE_JOURNAL_VERSION" ] || return 0
+    pjd_first=$(printf '%s\n%s\n' "$pjd_version" "$TREE_JOURNAL_VERSION" | sort -V | head -n 1)
+    [ "$pjd_first" = "$pjd_version" ] || return 0
+    pjd_release="${OPT_PREFIX}/current/.release"
+    pjd_min=$(plain_receipt_value "$pjd_release" state_reader_min 2>/dev/null || true)
+    pjd_max=$(plain_receipt_value "$pjd_release" state_reader_max 2>/dev/null || true)
+    pjd_state=$(plain_receipt_value "${OPT_PREFIX}/install-receipt" journal_state 2>/dev/null || true)
+    if [ "$pjd_state" != present ] || ! is_canonical_version "$pjd_min" || ! is_canonical_version "$pjd_max" \
+        || [ "$(printf '%s\n%s\n' "$pjd_version" "$pjd_min" | sort -V | head -n 1)" != "$pjd_min" ] \
+        || [ "$(printf '%s\n%s\n' "$pjd_version" "$pjd_max" | sort -V | tail -n 1)" != "$pjd_max" ]; then
+        report_exit refusal compatibility-unknown "the installed journal does not declare this older version able to read its state. nothing was changed. run the installer again without --version to install the latest release."
+    fi
+    pjd_epoch=$(plain_receipt_value "$pjd_release" upgrade_epoch 2>/dev/null || true)
+    pjd_target_epoch=$(cat "${manifest_dir}/components/journal/provenance/upgrade_epoch")
+    pjd_window=$(plain_receipt_value "$pjd_release" retention_window 2>/dev/null || true)
+    pjd_target_window=$(cat "${manifest_dir}/components/journal/provenance/retention_window")
+    pjd_recovery="this older journal cannot be safely installed here. nothing was changed. run the installer again without --version to install the latest release."
+    if [ "$pjd_epoch" != journal-v2 ] || [ "$pjd_target_epoch" != "$pjd_epoch" ]; then
+        report_exit refusal downgrade-epoch "$pjd_recovery"
+    fi
+    if [ "$pjd_window" != 3 ] || [ "$pjd_target_window" != "$pjd_window" ]; then
+        report_exit refusal retention-policy-unsupported "$pjd_recovery"
+    fi
+    pjd_sha=$(cat "${manifest_dir}/components/journal/arches/${HOST_ARCH}/tree/sha256")
+    pjd_dest="${OPT_PREFIX}/versions/${pjd_version}-$(printf '%s' "$pjd_sha" | cut -c1-12)"
+    if [ ! -d "$pjd_dest" ] || [ -L "$pjd_dest" ]; then
+        report_exit refusal downgrade-window "$pjd_recovery"
+    fi
+    # Match the native bootstrap's three-directory window, counting current
+    # first even when an interrupted install left a newer directory behind.
+    pjd_current=$(readlink "${OPT_PREFIX}/current")
+    pjd_kept=1
+    pjd_found=0
+    pjd_ifs=$IFS
+    IFS='
+'
+    # Prefix control characters are refused; owned names are version/digest.
+    # shellcheck disable=SC2045
+    for pjd_entry in $(ls -1dt -- "${OPT_PREFIX}"/versions/* 2>/dev/null); do
+        [ "$pjd_entry" != "${OPT_PREFIX}/${pjd_current}" ] || continue
+        pjd_kept=$((pjd_kept + 1))
+        if [ "$pjd_entry" = "$pjd_dest" ] && [ "$pjd_kept" -le "$pjd_window" ]; then
+            pjd_found=1
+            break
+        fi
+        [ "$pjd_kept" -lt "$pjd_window" ] || break
+    done
+    IFS=$pjd_ifs
+    [ "$pjd_found" -eq 1 ] || report_exit refusal downgrade-window "$pjd_recovery"
 }
 
 record_pointer_state() {
@@ -3203,7 +3275,7 @@ examples (after saving https://solstone.app/install.sh as install.sh):
   sh install.sh --components tmux --uninstall --dry-run
 
 without a selection, an interactive terminal shows the component menu.
-without a terminal, the historical safe default is Journal only.
+on linux without a terminal, choose components with --components.
 SOLSTONE_HELP
 }
 
@@ -4327,6 +4399,8 @@ main() {
     VERIFICATION_LAYERS="minisign+digest"
     [ "$OPT_SKIP_SIGNATURE" -eq 0 ] || VERIFICATION_LAYERS="digest-matched; signatures skipped"
 
+    preflight_journal_downgrade
+
     # A preview returns before any lock, helper, or mutation, including removal.
     if [ "$OPT_DRY_RUN" -eq 1 ]; then
         report_exit "success" "dry-run-completed" "preview complete; no changes made"
@@ -4347,6 +4421,7 @@ main() {
     init_bundled_runtime
     [ -z "$PACKAGE_SELECTED_COMPONENTS" ] || init_package_helper
     acquire_installer_locks
+    preflight_journal_downgrade
     if [ "$OPT_UNINSTALL" -eq 1 ]; then
         run_uninstall
     fi

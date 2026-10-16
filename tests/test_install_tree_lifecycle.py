@@ -119,6 +119,73 @@ class TestInstallTreeLifecycle(HermeticInstallerTestCase):
             args.extend(extra)
         return subprocess.run(args, capture_output=True, text=True, env=env or self.env)
 
+    def test_unknown_downgrade_refuses_before_any_component_or_receipt_changes(self):
+        with ephemeral_keypair("downgrade preflight") as (sec, pub, pin):
+            old, installer = self.build_release("downgrade-old", sec, pub, pin, "2.0.0", "2.0.3")
+            new, _ = self.build_release("downgrade-new", sec, pub, pin, "2.0.1", "2.0.4")
+            try:
+                installer = self.merge_release(new, old, "2.0.1", pub, pin)
+                installed = self.run_install(installer, "journal,tmux", ["--version", "2.0.1"])
+                self.assertEqual(installed.returncode, 0, installed.stderr)
+                # The shared bootstrap double always writes Journal 2.0.6.
+                # Model an owned newer install without changing the candidate.
+                native = self.prefix / "versions" / "2.0.6-fixture"
+                newer = native.with_name("2.0.7-fixture")
+                native.rename(newer)
+                (self.prefix / "current").unlink()
+                (self.prefix / "current").symlink_to("versions/2.0.7-fixture")
+                for entry in (newer / "bin" / "journal", self.prefix / "install-receipt", self.receipt):
+                    entry.write_text(entry.read_text().replace("2.0.6", "2.0.7"))
+
+                def snapshot():
+                    result = {}
+                    for root in (self.prefix, self.data_home, self.config_home):
+                        if not root.exists():
+                            continue
+                        for entry in root.rglob("*"):
+                            if entry.is_symlink():
+                                result[str(entry)] = ("link", os.readlink(entry))
+                            elif entry.is_file():
+                                result[str(entry)] = ("file", entry.read_bytes(), entry.stat().st_mtime_ns)
+                    return result
+
+                before = snapshot()
+                # Put a different component first: a late Journal refusal must
+                # not let its older companion install before the refusal.
+                refused = self.run_install(installer, "tmux,journal", ["--upgrade", "--version", "2.0.0"])
+                self.assertNotEqual(refused.returncode, 0)
+                self.assertEqual(json.loads(refused.stdout)["root_code"], "compatibility-unknown")
+                self.assertEqual(before, snapshot())
+
+                native_receipt = self.prefix / "install-receipt"
+                native_receipt.write_text(native_receipt.read_text().replace("journal_state=existing", "journal_state=present"))
+                release = newer / ".release"
+                cases = (
+                    ("2.0.7", "journal-v2", "compatibility-unknown"),
+                    ("1.0.0", "journal-v3", "downgrade-epoch"),
+                    ("1.0.0", "journal-v2", "downgrade-window"),
+                )
+                for minimum, epoch, code in cases:
+                    with self.subTest(code=code):
+                        release.write_text(f"state_reader_min={minimum}\nstate_reader_max=2.0.7\nupgrade_epoch={epoch}\nretention_window=3\n")
+                        before = snapshot()
+                        refused = self.run_install(installer, "tmux,journal", ["--upgrade", "--version", "2.0.0"])
+                        self.assertNotEqual(refused.returncode, 0)
+                        self.assertEqual(json.loads(refused.stdout)["root_code"], code)
+                        self.assertEqual(before, snapshot())
+
+                # A compatible retained target still reaches the native
+                # bootstrap; the preflight must not disable all downgrades.
+                manifest = json.loads((old.root_dir / "solstone/release/2.0.0/platform.json").read_bytes())
+                digest = manifest["components"]["journal"]["arches"]["x86_64"]["tree"]["sha256"]
+                retained = self.prefix / "versions" / ("2.0.6-" + digest[:12])
+                shutil.copytree(newer, retained)
+                accepted = self.run_install(installer, "tmux,journal", ["--upgrade", "--version", "2.0.0"])
+                self.assertEqual(accepted.returncode, 0, accepted.stderr)
+            finally:
+                old.stop()
+                new.stop()
+
     def test_wrapped_desktop_rejects_symlinked_installed_path(self):
         with ephemeral_keypair("wrapped desktop") as (sec, pub, pin):
             server, installer = self.build_release("wrapped", sec, pub, pin, "2.0.0", "2.0.3")
@@ -689,12 +756,13 @@ class TestInstallTreeLifecycle(HermeticInstallerTestCase):
                     f"--prefix {shlex.quote(str(json_prefix))} --json"
                 )
                 code, tty_bytes, stdout, stderr = self.run_pty_command(json_command, self.env)
-                self.assertEqual(code, 0, stderr + stdout)
+                self.assertNotEqual(code, 0, stderr + stdout)
                 self.assertNotIn(b"solstone for linux:", tty_bytes)
                 self.assertEqual(stderr, "")
                 lines = [line for line in stdout.splitlines() if line]
                 self.assertEqual(len(lines), 1)
-                self.assertEqual(set(json.loads(lines[0])["components"]), {"journal"})
+                self.assertEqual(json.loads(lines[0])["root_code"], "no-selection")
+                self.assertFalse(json_prefix.exists())
 
                 no_tty = subprocess.run(
                     [str(installer), "--skip-signature", "--no-start", "--prefix", str(self.work_dir / "no-tty"), "--json"],
@@ -703,9 +771,10 @@ class TestInstallTreeLifecycle(HermeticInstallerTestCase):
                     text=True,
                     env={**self.env, "XDG_DATA_HOME": str(self.work_dir / "no-tty-data")},
                 )
-                self.assertEqual(no_tty.returncode, 0, no_tty.stderr + no_tty.stdout)
+                self.assertNotEqual(no_tty.returncode, 0, no_tty.stderr + no_tty.stdout)
                 no_tty_result = json.loads(no_tty.stdout)
-                self.assertEqual(set(no_tty_result["components"]), {"journal"})
+                self.assertEqual(no_tty_result["root_code"], "no-selection")
+                self.assertFalse((self.work_dir / "no-tty").exists())
 
                 noninteractive = subprocess.run(
                     [str(installer), "--skip-signature", "--non-interactive", "--components", "desktop", "--prefix", str(self.work_dir / "noninteractive"), "--no-start", "--json"],

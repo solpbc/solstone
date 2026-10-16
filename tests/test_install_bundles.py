@@ -113,7 +113,7 @@ class TestInstallBundles(HermeticInstallerTestCase):
             finally:
                 server.stop()
 
-    def test_piped_non_tty_no_selection_defaults_to_journal(self):
+    def test_piped_non_tty_no_selection_refuses_without_installing(self):
         with ephemeral_keypair("test piped non tty") as (sec, pub, pin):
             server, _ = setup_test_release_server(self.work_dir, sec, pin)
             try:
@@ -133,11 +133,11 @@ class TestInstallBundles(HermeticInstallerTestCase):
                     capture_output=True,
                     text=True,
                 )
-                self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+                self.assertNotEqual(proc.returncode, 0, proc.stdout + proc.stderr)
                 res = json.loads(proc.stdout.strip())
-                self.assertEqual(res["status"], "success")
-                self.assertEqual(res["root_code"], "installed")
-                self.assertEqual(set(res["components"]), {"journal"})
+                self.assertEqual(res["status"], "refusal")
+                self.assertEqual(res["root_code"], "no-selection")
+                self.assertEqual(list(self.prefix.iterdir()), [])
             finally:
                 server.stop()
 

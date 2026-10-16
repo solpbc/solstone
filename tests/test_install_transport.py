@@ -262,7 +262,7 @@ class TestInstallTransport(HermeticInstallerTestCase):
             encoding="utf-8",
         )
         wrapper.chmod(0o755)
-        for command in ("uname", "mktemp", "chmod", "cat", "rm", "wc", "sed", "awk", "tr"):
+        for command in ("uname", "mktemp", "chmod", "cat", "rm", "wc", "sed", "awk", "tr", "dd", "od"):
             command_path = shutil.which(command)
             self.assertIsNotNone(command_path)
             (bin_dir / command).symlink_to(command_path)
@@ -300,7 +300,7 @@ class TestInstallTransport(HermeticInstallerTestCase):
                 self.assertEqual(json.loads(oversized.stdout)["root_code"], "response-too-large")
                 self.assertEqual(len(server.request_paths), 1)
                 curl_args = curl_log.read_text(encoding="utf-8")
-                for flag in ("-q", "--connect-timeout 10", "--max-time 120", "--retry 0", "--max-redirs 0"):
+                for flag in ("-q", "--connect-timeout 10", "--max-time 120", "--retry 2", "--max-redirs 0"):
                     self.assertIn(flag, curl_args)
 
                 manifest.write_bytes(valid_manifest)
@@ -324,8 +324,39 @@ class TestInstallTransport(HermeticInstallerTestCase):
                 self.assertEqual(json.loads(oversized_sig.stdout)["root_code"], "response-too-large")
                 self.assertEqual(len(server.request_paths), 2)
                 wget_args = wget_log.read_text(encoding="utf-8")
-                for flag in ("--no-config", "--tries=1", "--connect-timeout=10", "--timeout=120", "--max-redirect=0"):
+                for flag in ("--no-config", "--tries=3", "--connect-timeout=10", "--timeout=120", "--max-redirect=0"):
                     self.assertIn(flag, wget_args)
+            finally:
+                server.stop()
+
+    def test_transient_origin_errors_retry_but_permanent_errors_stop(self):
+        with ephemeral_keypair("transient origin") as (_sec, pub, pin):
+            server = RouteServer()
+            server.start()
+            try:
+                installer = self._build(pub, pin.key_id, origin=server.origin)
+                wget_env, _log = self._recording_wget_env()
+                for client in ("curl", "wget"):
+                    for status in (500, 503, 404):
+                        with self.subTest(client=client, status=status):
+                            calls = []
+
+                            def respond(handler):
+                                calls.append(1)
+                                code = status if len(calls) < 3 else 200
+                                handler.send_response(code)
+                                handler.end_headers()
+                                handler.wfile.write(b"2.0.0\n" if code == 200 else b"temporary")
+
+                            server.routes["/solstone/release/latest"] = respond
+                            env = None
+                            if client == "wget":
+                                env = wget_env
+                            proc = self._run(installer, "--skip-signature", "--list", env=env)
+                            self.assertNotEqual(proc.returncode, 0)
+                            # A successful retry reaches the absent manifest.
+                            self.assertEqual(len(calls), 1 if status == 404 else 3)
+                            self.assertEqual(json.loads(proc.stdout)["root_code"], "fetch-failed")
             finally:
                 server.stop()
 
