@@ -363,9 +363,246 @@ class TestInstallHelper(HermeticInstallerTestCase):
                 self.assertEqual(pkg_file.read_bytes(), db_before)
                 self.assertEqual(log_file.read_bytes(), installs_before)
                 self.assertFalse(any(path.endswith((".deb", ".rpm")) for path in server.request_paths))
+
+                # Sibling with --confirm-package-command
+                server.request_paths.clear()
+                proc4 = subprocess.run(
+                    [str(installer), "--skip-signature", "--confirm-package-command", "--route", "package", "--components", "journal", "--json"],
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                )
+                self.assertNotEqual(proc4.returncode, 0)
+                res4 = json.loads(proc4.stdout.strip())
+                self.assertEqual(res4["status"], "refusal")
+                self.assertEqual(res4["root_code"], "downgrade-route-unsupported")
+                self.assertEqual(receipt_file.read_bytes(), receipt_before)
+                self.assertEqual(pkg_file.read_bytes(), db_before)
+                self.assertEqual(log_file.read_bytes(), installs_before)
+                self.assertFalse(any(path.endswith((".deb", ".rpm")) for path in server.request_paths))
             finally:
                 server.stop()
+
+    def test_helper_deb_plan_and_apply_argv_and_isolation(self):
+        archive = self.work_dir / "solstone-journal_2.0.6_amd64.deb"
+        create_tiny_deb(archive, "solstone-journal", "2.0.6", "amd64", "journal", b"#!/bin/sh\nexit 0\n")
+        manager_bin = self.work_dir / "deb-manager-bin"
+        spy_log = self.work_dir / "apt-spy.log"
+        write_path_stub(
+            manager_bin,
+            "apt-get",
+            f'printf "env=%s argv=%s\\n" "$DEBIAN_FRONTEND" "$*" >> "{spy_log}"\n'
+            'printf "apt-get stdout message\\n"\n'
+            'printf "apt-get stderr message\\n" >&2\n'
+            'exit 0\n',
+        )
+        write_path_stub(
+            manager_bin,
+            "dpkg-query",
+            f'if [ -f "{spy_log}" ]; then\n'
+            '  printf "install ok installed\\tsolstone-journal\\t2.0.6\\tamd64\\n"\n'
+            '  exit 0\n'
+            'fi\n'
+            'exit 1\n',
+        )
+        env = {
+            **os.environ,
+            "PATH": f"{manager_bin}:{os.environ['PATH']}",
+        }
+        # 1. PLAN_PKG
+        plan = self.run_helper(f"PLAN_PKG deb {archive}\n", fake_db=False, env=env)
+        self.assertEqual(plan.returncode, 0, plan.stderr)
+        expected_plan = f"PLAN deb reinstall {archive} DEBIAN_FRONTEND=noninteractive apt-get install -y --reinstall --no-remove {archive}\n"
+        self.assertEqual(plan.stdout, expected_plan)
+        self.assertFalse(spy_log.exists(), "apt-get ran during PLAN_PKG")
+
+        # 2. APPLY_PKG
+        applied = self.run_helper(f"APPLY_PKG deb {archive} reinstall\n", fake_db=False, env=env)
+        self.assertEqual(applied.returncode, 0, applied.stderr)
+        self.assertEqual(applied.stdout, "OK\n")
+        self.assertIn("apt-get stdout message", applied.stderr)
+        self.assertIn("apt-get stderr message", applied.stderr)
+        self.assertTrue(spy_log.exists())
+        self.assertEqual(
+            spy_log.read_text(encoding="utf-8").strip(),
+            f"env=noninteractive argv=install -y --reinstall --no-remove {archive}",
+        )
+
+    def test_helper_rpm_plan_and_apply_install_vs_reinstall(self):
+        archive = self.work_dir / "solstone-journal-2.0.6-1.x86_64.rpm"
+        create_tiny_synthetic_rpm(archive, "solstone-journal", "2.0.6", "x86_64", "journal", b"#!/bin/sh\nexit 0\n")
+        manager_bin = self.work_dir / "rpm-manager-bin"
+        dnf_log = self.work_dir / "dnf-spy.log"
+        state_file = self.work_dir / "rpm-state.txt"
+        state_file.write_text("ABSENT\n", encoding="utf-8")
+        write_path_stub(
+            manager_bin,
+            "dnf",
+            f'printf "argv=%s\\n" "$*" >> "{dnf_log}"\n'
+            f'printf "INSTALLED\\n" > "{state_file}"\n'
+            'exit 0\n',
+        )
+        write_path_stub(
+            manager_bin,
+            "rpm",
+            'for arg do\n'
+            '  case "$arg" in\n'
+            '    *-qp*|-qp)\n'
+            '      exec /usr/bin/rpm "$@"\n'
+            '      ;;\n'
+            '  esac\n'
+            'done\n'
+            f'state=$(cat "{state_file}" 2>/dev/null || echo ABSENT)\n'
+            'if [ "$state" = "INSTALLED" ]; then\n'
+            '  printf "solstone-journal\\t2.0.6-1\\tx86_64\\n"\n'
+            '  exit 0\n'
+            'fi\n'
+            'exit 1\n',
+        )
+        env = {
+            **os.environ,
+            "PATH": f"{manager_bin}:{os.environ['PATH']}",
+        }
+        # Case A: Absent identity -> plans and applies "install"
+        plan_install = self.run_helper(f"PLAN_PKG rpm {archive}\n", fake_db=False, env=env)
+        self.assertEqual(plan_install.returncode, 0, plan_install.stderr)
+        expected_plan_install = f"PLAN rpm install {archive} dnf -y --setopt=localpkg_gpgcheck=False install {archive}\n"
+        self.assertEqual(plan_install.stdout, expected_plan_install)
+
+        apply_install = self.run_helper(f"APPLY_PKG rpm {archive} install\n", fake_db=False, env=env)
+        self.assertEqual(apply_install.returncode, 0, apply_install.stderr)
+        self.assertEqual(apply_install.stdout, "OK\n")
+        self.assertTrue(dnf_log.exists())
+        self.assertEqual(
+            dnf_log.read_text(encoding="utf-8").strip(),
+            f"argv=-y --setopt=localpkg_gpgcheck=False install {archive}",
+        )
+
+        # Now state_file has INSTALLED.
+        # Case B: Installed identity -> plans and applies "reinstall"
+        dnf_log.unlink()
+        plan_reinstall = self.run_helper(f"PLAN_PKG rpm {archive}\n", fake_db=False, env=env)
+        self.assertEqual(plan_reinstall.returncode, 0, plan_reinstall.stderr)
+        expected_plan_reinstall = f"PLAN rpm reinstall {archive} dnf -y --setopt=localpkg_gpgcheck=False reinstall {archive}\n"
+        self.assertEqual(plan_reinstall.stdout, expected_plan_reinstall)
+
+        apply_reinstall = self.run_helper(f"APPLY_PKG rpm {archive} reinstall\n", fake_db=False, env=env)
+        self.assertEqual(apply_reinstall.returncode, 0, apply_reinstall.stderr)
+        self.assertEqual(apply_reinstall.stdout, "OK\n")
+        self.assertEqual(
+            dnf_log.read_text(encoding="utf-8").strip(),
+            f"argv=-y --setopt=localpkg_gpgcheck=False reinstall {archive}",
+        )
+
+    def test_helper_rpm_stale_plan_refused(self):
+        archive = self.work_dir / "solstone-journal-2.0.6-1.x86_64.rpm"
+        create_tiny_synthetic_rpm(archive, "solstone-journal", "2.0.6", "x86_64", "journal", b"#!/bin/sh\nexit 0\n")
+        manager_bin = self.work_dir / "stale-manager-bin"
+        dnf_log = self.work_dir / "dnf-stale.log"
+        state_file = self.work_dir / "stale-state.txt"
+        state_file.write_text("ABSENT\n", encoding="utf-8")
+        write_path_stub(
+            manager_bin,
+            "dnf",
+            f'printf "%s\\n" "$*" >> "{dnf_log}"\nexit 0\n',
+        )
+        write_path_stub(
+            manager_bin,
+            "rpm",
+            'for arg do\n'
+            '  case "$arg" in\n'
+            '    *-qp*|-qp)\n'
+            '      exec /usr/bin/rpm "$@"\n'
+            '      ;;\n'
+            '  esac\n'
+            'done\n'
+            f'state=$(cat "{state_file}" 2>/dev/null || echo ABSENT)\n'
+            'if [ "$state" = "INSTALLED" ]; then\n'
+            '  printf "solstone-journal\\t2.0.6-1\\tx86_64\\n"\n'
+            '  exit 0\n'
+            'fi\n'
+            'exit 1\n',
+        )
+        env = {
+            **os.environ,
+            "PATH": f"{manager_bin}:{os.environ['PATH']}",
+        }
+        plan = self.run_helper(f"PLAN_PKG rpm {archive}\n", fake_db=False, env=env)
+        self.assertEqual(plan.returncode, 0)
+        self.assertIn("install", plan.stdout)
+
+        # State flips to INSTALLED before apply
+        state_file.write_text("INSTALLED\n", encoding="utf-8")
+        applied = self.run_helper(f"APPLY_PKG rpm {archive} install\n", fake_db=False, env=env)
+        self.assertNotEqual(applied.returncode, 0)
+        self.assertEqual(applied.stdout, "ERROR:stale-plan\n")
+        self.assertFalse(dnf_log.exists())
+
+    def test_helper_archive_missing_and_unparseable_with_basename(self):
+        missing = self.work_dir / "missing-solstone-journal.deb"
+        plan_missing = self.run_helper(f"PLAN_PKG deb {missing}\n", fake_db=False)
+        self.assertNotEqual(plan_missing.returncode, 0)
+        self.assertEqual(plan_missing.stdout, f"ERROR:archive-missing {missing.name}\n")
+
+        apply_missing = self.run_helper(f"APPLY_PKG deb {missing} reinstall\n", fake_db=False)
+        self.assertNotEqual(apply_missing.returncode, 0)
+        self.assertEqual(apply_missing.stdout, f"ERROR:archive-missing {missing.name}\n")
+
+        install_missing = self.run_helper(f"INSTALL_PKG deb {missing}\n", fake_db=False)
+        self.assertNotEqual(install_missing.returncode, 0)
+        self.assertEqual(install_missing.stdout, f"ERROR:archive-missing {missing.name}\n")
+
+        garbage = self.work_dir / "garbage-solstone-journal.deb"
+        garbage.write_bytes(b"not a deb file\n")
+        plan_garbage = self.run_helper(f"PLAN_PKG deb {garbage}\n", fake_db=False)
+        self.assertNotEqual(plan_garbage.returncode, 0)
+        self.assertEqual(plan_garbage.stdout, f"ERROR:archive-unparseable {garbage.name}\n")
+
+        apply_garbage = self.run_helper(f"APPLY_PKG deb {garbage} reinstall\n", fake_db=False)
+        self.assertNotEqual(apply_garbage.returncode, 0)
+        self.assertEqual(apply_garbage.stdout, f"ERROR:archive-unparseable {garbage.name}\n")
+
+        install_garbage = self.run_helper(f"INSTALL_PKG deb {garbage}\n", fake_db=False)
+        self.assertNotEqual(install_garbage.returncode, 0)
+        self.assertEqual(install_garbage.stdout, f"ERROR:archive-unparseable {garbage.name}\n")
+
+    def test_helper_rpm_query_failure_before_manager(self):
+        archive = self.work_dir / "solstone-journal-2.0.6-1.x86_64.rpm"
+        create_tiny_synthetic_rpm(archive, "solstone-journal", "2.0.6", "x86_64", "journal", b"#!/bin/sh\nexit 0\n")
+        manager_bin = self.work_dir / "query-fail-manager-bin"
+        dnf_log = self.work_dir / "dnf-query-fail.log"
+        write_path_stub(
+            manager_bin,
+            "dnf",
+            f'printf "%s\\n" "$*" >> "{dnf_log}"\nexit 0\n',
+        )
+        write_path_stub(
+            manager_bin,
+            "rpm",
+            'for arg do\n'
+            '  case "$arg" in\n'
+            '    *-qp*|-qp)\n'
+            '      exec /usr/bin/rpm "$@"\n'
+            '      ;;\n'
+            '  esac\n'
+            'done\n'
+            'exit 2\n',
+        )
+        env = {
+            **os.environ,
+            "PATH": f"{manager_bin}:{os.environ['PATH']}",
+        }
+        plan = self.run_helper(f"PLAN_PKG rpm {archive}\n", fake_db=False, env=env)
+        self.assertNotEqual(plan.returncode, 0)
+        self.assertEqual(plan.stdout, "ERROR:query-failed\n")
+        self.assertFalse(dnf_log.exists())
+
+        apply_res = self.run_helper(f"APPLY_PKG rpm {archive} install\n", fake_db=False, env=env)
+        self.assertNotEqual(apply_res.returncode, 0)
+        self.assertEqual(apply_res.stdout, "ERROR:query-failed\n")
+        self.assertFalse(dnf_log.exists())
 
 
 if __name__ == "__main__":
     unittest.main()
+

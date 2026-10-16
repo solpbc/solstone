@@ -252,6 +252,17 @@ class TestInstallVerify(HermeticInstallerTestCase):
                 res = json.loads(proc.stdout.strip())
                 self.assertEqual(res["status"], "refusal")
                 self.assertEqual(res["root_code"], "signature-invalid")
+
+                # Sibling with --confirm-package-command
+                proc_confirm = subprocess.run(
+                    [str(installer), "--confirm-package-command", "--list", "--json"],
+                    capture_output=True,
+                    text=True,
+                )
+                self.assertNotEqual(proc_confirm.returncode, 0)
+                res_confirm = json.loads(proc_confirm.stdout.strip())
+                self.assertEqual(res_confirm["status"], "refusal")
+                self.assertEqual(res_confirm["root_code"], "signature-invalid")
             finally:
                 server.stop()
 
@@ -312,6 +323,17 @@ class TestInstallVerify(HermeticInstallerTestCase):
                 res = json.loads(proc.stdout.strip())
                 self.assertEqual(res["status"], "refusal")
                 self.assertEqual(res["root_code"], "digest-mismatch")
+
+                # Sibling with --confirm-package-command
+                proc_confirm = subprocess.run(
+                    [str(installer), "--skip-signature", "--confirm-package-command", "--components", "journal", "--prefix", str(self.prefix), "--json"],
+                    capture_output=True,
+                    text=True,
+                )
+                self.assertNotEqual(proc_confirm.returncode, 0)
+                res_confirm = json.loads(proc_confirm.stdout.strip())
+                self.assertEqual(res_confirm["status"], "refusal")
+                self.assertEqual(res_confirm["root_code"], "digest-mismatch")
             finally:
                 server.stop()
 

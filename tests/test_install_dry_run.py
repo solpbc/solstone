@@ -71,6 +71,54 @@ class TestInstallDryRun(HermeticInstallerTestCase):
             finally:
                 server.stop()
 
+    def test_dry_run_with_confirm_package_command_invariance(self):
+        with ephemeral_keypair("test dry run confirm") as (sec, pub, pin):
+            server, _ = setup_test_release_server(self.work_dir, sec, pin)
+            try:
+                installer = self.work_dir / "install.sh"
+                build_installer(
+                    repo_root=REPO_ROOT,
+                    output_path=installer,
+                    platform_pub_path=pub,
+                    platform_key_id=pin.key_id,
+                    origin=server.origin,
+                )
+
+                before_snapshot = self.snapshot_dir(self.prefix)
+
+                server.request_paths.clear()
+                proc = subprocess.run(
+                    [
+                        str(installer),
+                        "--skip-signature",
+                        "--confirm-package-command",
+                        "--dry-run",
+                        "--route",
+                        "package",
+                        "--components",
+                        "all",
+                        "--prefix",
+                        str(self.prefix),
+                        "--json",
+                    ],
+                    capture_output=True,
+                    text=True,
+                )
+                self.assertEqual(proc.returncode, 0, f"Dry run failed: {proc.stderr}\n{proc.stdout}")
+
+                after_snapshot = self.snapshot_dir(self.prefix)
+                self.assertEqual(before_snapshot, after_snapshot, "Target prefix modified during --dry-run")
+
+                res = json.loads(proc.stdout.strip())
+                self.assertEqual(res["status"], "success")
+                self.assertEqual(res["lock_state"], "unlocked")
+                self.assertEqual(res["snapshot_consistency"], "unlocked")
+                self.assertEqual(res["receipt_paths"], [])
+                self.assertFalse(any(path.endswith((".deb", ".rpm")) for path in server.request_paths))
+            finally:
+                server.stop()
+
 
 if __name__ == "__main__":
     unittest.main()
+

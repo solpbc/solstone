@@ -39,6 +39,7 @@ OPT_PREFIX="${HOME}/.local"
 OPT_ORIGIN="${DEFAULT_ORIGIN}"
 OPT_DRY_RUN=0
 OPT_NON_INTERACTIVE=0
+OPT_CONFIRM_PACKAGE_COMMAND=0
 OPT_YES=0
 OPT_NO_START=0
 OPT_NO_PATH=0
@@ -2009,6 +2010,12 @@ package_protocol_failure() {
     ppf_fallback="$2"
     ppf_message="$3"
     case "$ppf_output" in
+        ERROR:archive-missing\ *|ERROR:archive-unparseable\ *)
+            ppf_code=${ppf_output#ERROR:}
+            ppf_detail=${ppf_code#* }
+            ppf_code=${ppf_code%% *}
+            report_exit "refusal" "$ppf_code" "$ppf_message: $ppf_detail"
+            ;;
         ERROR:*) report_exit "refusal" "${ppf_output#ERROR:}" "$ppf_message" ;;
         *) report_exit "refusal" "$ppf_fallback" "$ppf_message" ;;
     esac
@@ -2309,11 +2316,102 @@ package_fetch_install() {
     pfi_path="${SCRATCH_DIR}/${PC_FILENAME}"
     fetch_file_with_redirect_check "${OPT_ORIGIN}/solstone/${OPT_LANE}/${RESOLVED_VERSION}/${PC_FILENAME}" "$pfi_path"
     verify_sha256 "$pfi_path" "$PC_SHA"
-    # shellcheck disable=SC2086
-    if ! PINSTALL_OUT=$(printf "INSTALL_PKG %s %s\n" "$PKG_VARIANT" "$pfi_path" | $sudo_prefix "$helper_bin" $helper_flags); then
-        package_protocol_failure "$PINSTALL_OUT" "package-install-failed" "Helper failed to install package $PC_FILENAME"
+    if [ "$OPT_CONFIRM_PACKAGE_COMMAND" -eq 1 ]; then
+        # shellcheck disable=SC2086
+        if ! PPLAN_OUT=$(printf "PLAN_PKG %s %s\n" "$PKG_VARIANT" "$pfi_path" | $sudo_prefix "$helper_bin" $helper_flags); then
+            package_protocol_failure "$PPLAN_OUT" "package-install-failed" "Package helper failed to plan package $PC_FILENAME"
+        fi
+        case "$PPLAN_OUT" in
+            ERROR:*)
+                package_protocol_failure "$PPLAN_OUT" "package-install-failed" "Package helper failed to plan package $PC_FILENAME"
+                ;;
+        esac
+        # shellcheck disable=SC2086
+        set -- $PPLAN_OUT
+        plan_valid=1
+        [ "${1:-}" = "PLAN" ] || plan_valid=0
+        [ "${2:-}" = "$PKG_VARIANT" ] || plan_valid=0
+        case "$PKG_VARIANT" in
+            deb)
+                [ "${3:-}" = "reinstall" ] || plan_valid=0
+                [ "$#" -eq 11 ] || plan_valid=0
+                [ "${11:-}" = "$pfi_path" ] || plan_valid=0
+                ;;
+            rpm)
+                case "${3:-}" in
+                    install|reinstall) ;;
+                    *) plan_valid=0 ;;
+                esac
+                [ "$#" -eq 9 ] || plan_valid=0
+                [ "${9:-}" = "$pfi_path" ] || plan_valid=0
+                [ "${8:-}" = "${3:-}" ] || plan_valid=0
+                ;;
+            *) plan_valid=0 ;;
+        esac
+        [ "${4:-}" = "$pfi_path" ] || plan_valid=0
+
+        if [ "$plan_valid" -eq 0 ]; then
+            report_exit "refusal" "plan-invalid" "package command plan was not usable"
+        fi
+
+        plan_action="$3"
+        shift 4
+        display_cmd="$*"
+
+        if [ "$OPT_JSON" -eq 1 ]; then
+            consent_to_tty=0
+        elif { sh -c 'test -t 0' </dev/tty; } >/dev/null 2>&1; then
+            consent_to_tty=1
+        else
+            consent_to_tty=0
+        fi
+
+        if [ "$consent_to_tty" -eq 1 ]; then
+            printf '%s\n' "$display_cmd" > /dev/tty
+        else
+            printf '%s\n' "$display_cmd" >&2
+        fi
+
+        # Consent matrix
+        if [ "$OPT_YES" -eq 1 ]; then
+            : # approve
+        elif [ "$OPT_NON_INTERACTIVE" -eq 1 ]; then
+            report_exit refusal consent-required "package command needs approval before it can run"
+        elif ! { sh -c 'test -t 0' </dev/tty; } >/dev/null 2>&1; then
+            report_exit refusal consent-required "package command needs approval before it can run"
+        else
+            if [ "$consent_to_tty" -eq 1 ]; then
+                printf '%s\n' "run this package command? answer yes or no" > /dev/tty
+            else
+                printf '%s\n' "run this package command? answer yes or no" >&2
+            fi
+            if read -r consent_reply < /dev/tty; then
+                case "$consent_reply" in
+                    yes) ;; # approve
+                    *) report_exit refusal consent-declined "package command was not approved" ;;
+                esac
+            else
+                report_exit refusal consent-required "package command needs approval before it can run"
+            fi
+        fi
+
+        if [ "$PC_PUBLISH_INTENDED" -eq 1 ]; then
+            package_publish_phase "$PC_ROLE" intended intended
+        fi
+
+        # shellcheck disable=SC2086
+        if ! PINSTALL_OUT=$(printf "APPLY_PKG %s %s %s\n" "$PKG_VARIANT" "$pfi_path" "$plan_action" | $sudo_prefix "$helper_bin" $helper_flags); then
+            package_protocol_failure "$PINSTALL_OUT" "package-install-failed" "Helper failed to install package $PC_FILENAME"
+        fi
+        [ "$PINSTALL_OUT" = "OK" ] || package_protocol_failure "$PINSTALL_OUT" "package-install-failed" "Helper failed to install package $PC_FILENAME"
+    else
+        # shellcheck disable=SC2086
+        if ! PINSTALL_OUT=$(printf "INSTALL_PKG %s %s\n" "$PKG_VARIANT" "$pfi_path" | $sudo_prefix "$helper_bin" $helper_flags); then
+            package_protocol_failure "$PINSTALL_OUT" "package-install-failed" "Helper failed to install package $PC_FILENAME"
+        fi
+        [ "$PINSTALL_OUT" = "OK" ] || package_protocol_failure "$PINSTALL_OUT" "package-install-failed" "Helper failed to install package $PC_FILENAME"
     fi
-    [ "$PINSTALL_OUT" = "OK" ] || package_protocol_failure "$PINSTALL_OUT" "package-install-failed" "Helper failed to install package $PC_FILENAME"
+    PC_PUBLISH_INTENDED=0
     package_query_current "$PC_NAME"
     if [ "$PQUERY_STATE" != "INSTALLED" ] || [ "$PQUERY_NAME" != "$PC_NAME" ] \
         || [ "$PQUERY_VERSION" != "$PC_VERSION" ] || [ "$PQUERY_ARCH" != "$PC_ARCH" ]; then
@@ -3257,6 +3355,8 @@ usage: sh install.sh [options]
   --no-start           leave service setup/start to you
   --no-path            leave shell PATH configuration to you
   --non-interactive    never open the component menu; select components explicitly
+  --confirm-package-command
+                       show each linux apt or dnf command and wait for approval
   --yes, -y            accepted for unattended invocations
   --json               one JSON result on stdout; diagnostics on stderr
   --skip-signature     explicitly skip signatures; digests are still checked
@@ -3365,6 +3465,10 @@ parse_args() {
                 OPT_NON_INTERACTIVE=1
                 shift 1
                 ;;
+            --confirm-package-command)
+                OPT_CONFIRM_PACKAGE_COMMAND=1
+                shift 1
+                ;;
             -y|--yes)
                 OPT_YES=1
                 shift 1
@@ -3406,7 +3510,6 @@ parse_args() {
                 ;;
         esac
     done
-    : "${OPT_YES}"
 }
 
 run_tree_install() {
@@ -3757,6 +3860,7 @@ run_package_install() {
 
     for comp in $SELECTED_COMPONENTS; do
         ATTEMPTED_COMPONENTS="${ATTEMPTED_COMPONENTS}${ATTEMPTED_COMPONENTS:+ }${comp}"
+        PC_PUBLISH_INTENDED=0
         if [ "$comp" = "cli" ]; then
             c_key="journal"
         else
@@ -3802,8 +3906,13 @@ run_package_install() {
                     PC_PRIOR_SHA="$PLS_PRIOR_SHA"
                     PC_PRIOR_BUILD="$PLS_PRIOR_BUILD"
                 fi
+                PC_PUBLISH_INTENDED=0
             else
-                package_publish_phase "$PC_ROLE" intended intended
+                if [ "$OPT_CONFIRM_PACKAGE_COMMAND" -eq 1 ]; then
+                    PC_PUBLISH_INTENDED=1
+                else
+                    package_publish_phase "$PC_ROLE" intended intended
+                fi
             fi
             package_fetch_install
             package_publish_phase "$PC_ROLE" payload payload
@@ -3817,6 +3926,7 @@ run_package_install() {
                 || [ "$PLS_ARCH" != "$PC_ARCH" ] || [ "$PLS_SHA" != "$PC_SHA" ] || [ "$PLS_BUILD" != "$PC_BUILD" ]; then
                 report_exit refusal ownership-unknown "unconfigured package $PC_NAME does not match the pending installation"
             fi
+            PC_PUBLISH_INTENDED=0
             package_fetch_install
             package_publish_phase "$PC_ROLE" payload payload
             package_complete_after_payload
@@ -3854,7 +3964,11 @@ run_package_install() {
                     continue
                 fi
                 package_set_prior_from_owner_target
-                package_publish_phase "$PC_ROLE" intended intended
+                if [ "$OPT_CONFIRM_PACKAGE_COMMAND" -eq 1 ]; then
+                    PC_PUBLISH_INTENDED=1
+                else
+                    package_publish_phase "$PC_ROLE" intended intended
+                fi
                 package_fetch_install
                 package_publish_phase "$PC_ROLE" payload payload
                 package_complete_after_payload
@@ -3871,6 +3985,7 @@ run_package_install() {
                             ;;
                         prior)
                             package_set_prior_from_owner_prior
+                            PC_PUBLISH_INTENDED=0
                             package_fetch_install
                             package_publish_phase "$PC_ROLE" payload payload
                             package_complete_after_payload
@@ -3882,7 +3997,11 @@ run_package_install() {
                         report_exit "refusal" "role-conflict" "Installed journal package is owned by role $PFO_PRIOR_ROLE"
                     fi
                     package_set_prior_from_owner_prior
-                    package_publish_phase "$PC_ROLE" intended intended
+                    if [ "$OPT_CONFIRM_PACKAGE_COMMAND" -eq 1 ]; then
+                        PC_PUBLISH_INTENDED=1
+                    else
+                        package_publish_phase "$PC_ROLE" intended intended
+                    fi
                     package_fetch_install
                     package_publish_phase "$PC_ROLE" payload payload
                     package_complete_after_payload

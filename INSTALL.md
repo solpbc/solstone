@@ -73,6 +73,8 @@ sh install.sh --components tmux --uninstall --non-interactive --json
 
 include the same `--prefix` for a custom tree. repeat `--no-start` and `--no-path` if those policies should continue. removal keeps journal data and does not remove unrelated packages or their dependencies.
 
+add `--confirm-package-command` to show each linux package installation command and wait for approval before it runs. `--yes` approves only after that command is shown. without the flag, package installation stays unattended.
+
 ### when an operation stops
 
 read stderr and the JSON result before retrying. package receipts retain pending installation or setup state so a matching retry can continue. a failed app tree update attempts to restore the previous active app. if recovery is incomplete, preserve the payload and receipts for inspection. successful earlier components stay installed.

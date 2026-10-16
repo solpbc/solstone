@@ -6,8 +6,12 @@
 import json
 import os
 from pathlib import Path
+import pty
+import select
+import signal
 import subprocess
 import tempfile
+import time
 import unittest
 
 from tests.install_test_helpers import HermeticInstallerTestCase
@@ -617,6 +621,638 @@ class TestInstallPackageLifecycle(HermeticInstallerTestCase):
                 self.assertEqual(result["components"]["desktop"]["status"], "unchanged")
                 self.assertEqual(result["components"]["tmux"]["status"], "unchanged")
                 self.assertEqual(self.package_requests(server.request_paths), [])
+            finally:
+                server.stop()
+
+    def setup_deb_manager_spies(self, bin_dir: Path, spy_log: Path, *, fail_apply: bool = False):
+        bin_dir.mkdir(parents=True, exist_ok=True)
+        installed_db = bin_dir / "dpkg-installed.db"
+        apt_action = (
+            "exit 1\n"
+            if fail_apply
+            else (
+                'if [ -f "$deb_path" ]; then\n'
+                '  ident=$(/usr/bin/dpkg-deb --show --showformat=\'${Package} ${Version} ${Architecture}\\n\' "$deb_path") || exit 1\n'
+                '  # shellcheck disable=SC2086\n'
+                '  set -- $ident\n'
+                '  [ "$#" -eq 3 ] || exit 1\n'
+                f'  printf \'install ok installed\\t%s\\t%s\\t%s\\n\' "$1" "$2" "$3" >> "{installed_db}"\n'
+                'fi\n'
+                'exit 0\n'
+            )
+        )
+        write_path_stub(
+            bin_dir,
+            "apt-get",
+            f'printf "DEBIAN_FRONTEND=%s apt-get %s\\n" "$DEBIAN_FRONTEND" "$*" >> "{spy_log}"\n'
+            'for arg do deb_path="$arg"; done\n'
+            f'{apt_action}',
+        )
+        write_path_stub(
+            bin_dir,
+            "dpkg-query",
+            f'for arg do pkg_name="$arg"; done\n'
+            f'if [ -f "{installed_db}" ]; then\n'
+            f'  awk -F \'\\t\' -v pkg="$pkg_name" \'$2 == pkg {{ line = $0 }} END {{ if (line) {{ print line; exit 0 }} exit 1 }}\' "{installed_db}" && exit 0\n'
+            f'fi\n'
+            f'exit 1\n',
+        )
+
+    def setup_rpm_manager_spies(self, bin_dir: Path, spy_log: Path, *, fail_apply: bool = False):
+        bin_dir.mkdir(parents=True, exist_ok=True)
+        installed_db = bin_dir / "rpm-installed.db"
+        dnf_action = (
+            "exit 1\n"
+            if fail_apply
+            else (
+                'if [ -f "$rpm_path" ]; then\n'
+                f'  /usr/bin/rpm -qp --queryformat=\'%{{NAME}}\\t%{{VERSION}}-%{{RELEASE}}\\t%{{ARCH}}\\n\' "$rpm_path" 2>/dev/null >> "{installed_db}"\n'
+                'fi\n'
+                'exit 0\n'
+            )
+        )
+        write_path_stub(
+            bin_dir,
+            "dnf",
+            f'printf "dnf %s\\n" "$*" >> "{spy_log}"\n'
+            'for arg do rpm_path="$arg"; done\n'
+            f'{dnf_action}',
+        )
+        write_path_stub(
+            bin_dir,
+            "rpm",
+            'for arg do\n'
+            '  case "$arg" in\n'
+            '    *-qp*|-qp)\n'
+            '      exec /usr/bin/rpm "$@" 2>/dev/null\n'
+            '      ;;\n'
+            '  esac\n'
+            'done\n'
+            f'for arg do pkg_name="$arg"; done\n'
+            f'if [ -f "{installed_db}" ]; then\n'
+            f'  awk -v pkg="$pkg_name" \'$1 == pkg {{ line = $0 }} END {{ if (line) {{ print line; exit 0 }} exit 1 }}\' "{installed_db}" && exit 0\n'
+            f'fi\n'
+            'exit 1\n',
+        )
+
+    def run_pty_command(
+        self,
+        command_list: list[str],
+        env: dict[str, str],
+        responses: list[bytes] | bytes | None = None,
+        timeout: float = 30.0,
+    ):
+        if isinstance(responses, bytes):
+            responses = [responses]
+        elif responses is None:
+            responses = []
+        stdout_path = self.work_dir / f"pty-stdout-{time.monotonic_ns()}"
+        stderr_path = self.work_dir / f"pty-stderr-{time.monotonic_ns()}"
+        pid, master = pty.fork()
+        if pid == 0:
+            out_fd = os.open(stdout_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            err_fd = os.open(stderr_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            os.dup2(out_fd, 1)
+            os.dup2(err_fd, 2)
+            os.execve("/bin/sh", ["sh"] + command_list, env)
+
+        tty_output = bytearray()
+        sent_index = 0
+        status = None
+        deadline = time.monotonic() + timeout
+        try:
+            while time.monotonic() < deadline:
+                ready, _, _ = select.select([master], [], [], 0.05)
+                if ready:
+                    try:
+                        chunk = os.read(master, 4096)
+                    except OSError:
+                        chunk = b""
+                    tty_output.extend(chunk)
+                if sent_index < len(responses):
+                    stderr_content = stderr_path.read_text(encoding="utf-8", errors="replace") if stderr_path.exists() else ""
+                    tty_content = tty_output.decode(encoding="utf-8", errors="replace")
+                    combined = stderr_content + "\n" + tty_content
+                    cmd_count = sum(
+                        1
+                        for line in combined.splitlines()
+                        if "apt-get install -y --reinstall --no-remove" in line
+                        or "dnf -y --setopt=localpkg_gpgcheck=False" in line
+                    )
+                    if cmd_count > sent_index:
+                        os.write(master, responses[sent_index])
+                        sent_index += 1
+                waited, status = os.waitpid(pid, os.WNOHANG)
+                if waited == pid:
+                    break
+            else:
+                os.kill(pid, signal.SIGKILL)
+                os.waitpid(pid, 0)
+                self.fail("PTY installer invocation timed out")
+        finally:
+            os.close(master)
+        return (
+            os.waitstatus_to_exitcode(status),
+            bytes(tty_output),
+            stdout_path.read_text(encoding="utf-8") if stdout_path.exists() else "",
+            stderr_path.read_text(encoding="utf-8") if stderr_path.exists() else "",
+        )
+
+    def test_confirm_package_command_embedded_helper_argv_recorded(self):
+        with ephemeral_keypair("confirm package embedded helper") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin)
+            try:
+                # 1. DEB route
+                deb_bin = self.work_dir / "emb-deb-bin"
+                deb_spy_log = self.work_dir / "emb-deb-spy.log"
+                self.setup_deb_manager_spies(deb_bin, deb_spy_log)
+
+                deb_env = dict(self.env)
+                deb_env.pop("SOLSTONE_HELPER", None)
+                deb_env.pop("SOLSTONE_FAKE_PKG_DB", None)
+                deb_env["PATH"] = f"{deb_bin}:{self.bin_dir}:{os.environ['PATH']}"
+
+                deb_proc = subprocess.run(
+                    [
+                        str(installer),
+                        "--skip-signature",
+                        "--route", "deb",
+                        "--components", "desktop",
+                        "--no-start",
+                        "--confirm-package-command",
+                        "--yes",
+                        "--json",
+                        "--prefix", str(self.prefix),
+                    ],
+                    capture_output=True,
+                    text=True,
+                    env=deb_env,
+                    timeout=30,
+                )
+                self.assertEqual(deb_proc.returncode, 0, deb_proc.stderr + deb_proc.stdout)
+                deb_json = json.loads(deb_proc.stdout.strip())
+                self.assertEqual(deb_json["status"], "success")
+                self.assertEqual(deb_json["components"]["desktop"]["status"], "succeeded")
+                self.assertEqual(deb_json["components"]["desktop"]["phase"], "complete")
+                self.assertIn(b"phase=complete", receipt_section(self.receipt.read_bytes(), "component:desktop"))
+                deb_spy = deb_spy_log.read_text(encoding="utf-8").strip()
+                deb_stderr_lines = [l for l in deb_proc.stderr.splitlines() if l.startswith("DEBIAN_FRONTEND=")]
+                self.assertTrue(deb_stderr_lines, "DEB command display missing from stderr")
+                self.assertEqual(deb_spy, deb_stderr_lines[0])
+
+                # 2. RPM sibling
+                rpm_bin = self.work_dir / "emb-rpm-bin"
+                rpm_spy_log = self.work_dir / "emb-rpm-spy.log"
+                self.setup_rpm_manager_spies(rpm_bin, rpm_spy_log)
+
+                rpm_etc_root = self.work_dir / "rpm-etc"
+                rpm_etc_root.mkdir()
+                rpm_env = dict(self.env)
+                rpm_env.pop("SOLSTONE_HELPER", None)
+                rpm_env.pop("SOLSTONE_FAKE_PKG_DB", None)
+                rpm_env["SOLSTONE_ETC_ROOT"] = str(rpm_etc_root)
+                rpm_env["PATH"] = f"{rpm_bin}:{self.bin_dir}:{os.environ['PATH']}"
+
+                rpm_prefix = self.work_dir / "rpm-prefix"
+                rpm_proc = subprocess.run(
+                    [
+                        str(installer),
+                        "--skip-signature",
+                        "--route", "rpm",
+                        "--components", "desktop",
+                        "--no-start",
+                        "--confirm-package-command",
+                        "--yes",
+                        "--json",
+                        "--prefix", str(rpm_prefix),
+                    ],
+                    capture_output=True,
+                    text=True,
+                    env=rpm_env,
+                    timeout=30,
+                )
+                self.assertEqual(rpm_proc.returncode, 0, rpm_proc.stderr + rpm_proc.stdout)
+                rpm_json = json.loads(rpm_proc.stdout.strip())
+                self.assertEqual(rpm_json["status"], "success")
+                self.assertEqual(rpm_json["components"]["desktop"]["status"], "succeeded")
+                self.assertEqual(rpm_json["components"]["desktop"]["phase"], "complete")
+                rpm_receipt = rpm_etc_root / "solstone" / "install.conf"
+                self.assertIn(b"phase=complete", receipt_section(rpm_receipt.read_bytes(), "component:desktop"))
+                rpm_spy = rpm_spy_log.read_text(encoding="utf-8").strip()
+                rpm_stderr_lines = [l for l in rpm_proc.stderr.splitlines() if l.startswith("dnf ")]
+                self.assertTrue(rpm_stderr_lines, "RPM command display missing from stderr")
+                self.assertEqual(rpm_spy, rpm_stderr_lines[0])
+            finally:
+                server.stop()
+
+    def test_confirm_package_command_pty_yes_approves(self):
+        with ephemeral_keypair("pty yes approves") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin)
+            try:
+                deb_bin = self.work_dir / "pty-yes-bin"
+                spy_log = self.work_dir / "pty-yes-spy.log"
+                self.setup_deb_manager_spies(deb_bin, spy_log)
+                env = dict(self.env)
+                env.pop("SOLSTONE_HELPER", None)
+                env.pop("SOLSTONE_FAKE_PKG_DB", None)
+                env["PATH"] = f"{deb_bin}:{self.bin_dir}:{os.environ['PATH']}"
+
+                code, tty_bytes, stdout, stderr = self.run_pty_command(
+                    [
+                        str(installer),
+                        "--skip-signature",
+                        "--route", "deb",
+                        "--components", "desktop",
+                        "--no-start",
+                        "--confirm-package-command",
+                        "--json",
+                        "--prefix", str(self.prefix),
+                    ],
+                    env,
+                    responses=b"yes\n",
+                )
+                self.assertEqual(code, 0, f"exit={code}\nstderr={stderr}\nstdout={stdout}")
+                res = json.loads(stdout.strip())
+                self.assertEqual(res["status"], "success")
+                self.assertEqual(res["components"]["desktop"]["status"], "succeeded")
+                self.assertEqual(res["components"]["desktop"]["phase"], "complete")
+                self.assertTrue(spy_log.exists())
+                spy_cmd = spy_log.read_text(encoding="utf-8").strip()
+                self.assertIn(spy_cmd, stderr)
+                self.assertIn(b"phase=complete", receipt_section(self.receipt.read_bytes(), "component:desktop"))
+            finally:
+                server.stop()
+
+    def test_confirm_package_command_pty_no_declines(self):
+        with ephemeral_keypair("pty no declines") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin)
+            try:
+                deb_bin = self.work_dir / "pty-no-bin"
+                spy_log = self.work_dir / "pty-no-spy.log"
+                self.setup_deb_manager_spies(deb_bin, spy_log)
+                env = dict(self.env)
+                env.pop("SOLSTONE_HELPER", None)
+                env.pop("SOLSTONE_FAKE_PKG_DB", None)
+                env["PATH"] = f"{deb_bin}:{self.bin_dir}:{os.environ['PATH']}"
+
+                code, tty_bytes, stdout, stderr = self.run_pty_command(
+                    [
+                        str(installer),
+                        "--skip-signature",
+                        "--route", "deb",
+                        "--components", "desktop",
+                        "--no-start",
+                        "--confirm-package-command",
+                        "--json",
+                        "--prefix", str(self.prefix),
+                    ],
+                    env,
+                    responses=b"no\n",
+                )
+                self.assertNotEqual(code, 0)
+                res = json.loads(stdout.strip())
+                self.assertEqual(res["status"], "refusal")
+                self.assertEqual(res["root_code"], "consent-declined")
+                self.assertFalse(spy_log.exists(), "Spy should not have run after decline")
+                if self.receipt.exists():
+                    self.assertNotIn(b"phase=complete", self.receipt.read_bytes())
+                    self.assertNotIn(b"[component:desktop]", self.receipt.read_bytes())
+            finally:
+                server.stop()
+
+    def test_confirm_package_command_no_tty_requires_consent(self):
+        with ephemeral_keypair("no tty consent required") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin)
+            try:
+                deb_bin = self.work_dir / "no-tty-bin"
+                spy_log = self.work_dir / "no-tty-spy.log"
+                self.setup_deb_manager_spies(deb_bin, spy_log)
+                env = dict(self.env)
+                env.pop("SOLSTONE_HELPER", None)
+                env.pop("SOLSTONE_FAKE_PKG_DB", None)
+                env["PATH"] = f"{deb_bin}:{self.bin_dir}:{os.environ['PATH']}"
+
+                # 1. setsid without controlling terminal
+                proc = subprocess.run(
+                    [
+                        "setsid",
+                        str(installer),
+                        "--skip-signature",
+                        "--route", "deb",
+                        "--components", "desktop",
+                        "--no-start",
+                        "--confirm-package-command",
+                        "--json",
+                        "--prefix", str(self.prefix),
+                    ],
+                    stdin=subprocess.DEVNULL,
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                    timeout=30,
+                )
+                self.assertNotEqual(proc.returncode, 0)
+                res = json.loads(proc.stdout.strip())
+                self.assertEqual(res["status"], "refusal")
+                self.assertEqual(res["root_code"], "consent-required")
+                self.assertFalse(spy_log.exists())
+
+                # 2. EOF on PTY
+                code, tty_bytes, stdout, stderr = self.run_pty_command(
+                    [
+                        str(installer),
+                        "--skip-signature",
+                        "--route", "deb",
+                        "--components", "desktop",
+                        "--no-start",
+                        "--confirm-package-command",
+                        "--json",
+                        "--prefix", str(self.prefix),
+                    ],
+                    env,
+                    responses=b"\x04",
+                )
+                self.assertNotEqual(code, 0)
+                res_eof = json.loads(stdout.strip())
+                self.assertEqual(res_eof["status"], "refusal")
+                self.assertEqual(res_eof["root_code"], "consent-required")
+                self.assertFalse(spy_log.exists())
+            finally:
+                server.stop()
+
+    def test_confirm_package_command_non_interactive_requires_consent(self):
+        with ephemeral_keypair("non interactive consent required") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin)
+            try:
+                deb_bin = self.work_dir / "non-int-bin"
+                spy_log = self.work_dir / "non-int-spy.log"
+                self.setup_deb_manager_spies(deb_bin, spy_log)
+                env = dict(self.env)
+                env.pop("SOLSTONE_HELPER", None)
+                env.pop("SOLSTONE_FAKE_PKG_DB", None)
+                env["PATH"] = f"{deb_bin}:{self.bin_dir}:{os.environ['PATH']}"
+
+                code, tty_bytes, stdout, stderr = self.run_pty_command(
+                    [
+                        str(installer),
+                        "--skip-signature",
+                        "--non-interactive",
+                        "--route", "deb",
+                        "--components", "desktop",
+                        "--no-start",
+                        "--confirm-package-command",
+                        "--json",
+                        "--prefix", str(self.prefix),
+                    ],
+                    env,
+                    responses=b"yes\n",
+                )
+                self.assertNotEqual(code, 0)
+                res = json.loads(stdout.strip())
+                self.assertEqual(res["status"], "refusal")
+                self.assertEqual(res["root_code"], "consent-required")
+                self.assertFalse(spy_log.exists())
+            finally:
+                server.stop()
+
+    def test_confirm_package_command_json_without_tty_requires_consent(self):
+        with ephemeral_keypair("json no tty consent required") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin)
+            try:
+                deb_bin = self.work_dir / "json-notty-bin"
+                spy_log = self.work_dir / "json-notty-spy.log"
+                self.setup_deb_manager_spies(deb_bin, spy_log)
+                env = dict(self.env)
+                env.pop("SOLSTONE_HELPER", None)
+                env.pop("SOLSTONE_FAKE_PKG_DB", None)
+                env["PATH"] = f"{deb_bin}:{self.bin_dir}:{os.environ['PATH']}"
+
+                proc = subprocess.run(
+                    [
+                        "setsid",
+                        str(installer),
+                        "--skip-signature",
+                        "--route", "deb",
+                        "--components", "desktop",
+                        "--no-start",
+                        "--confirm-package-command",
+                        "--json",
+                        "--prefix", str(self.prefix),
+                    ],
+                    stdin=subprocess.DEVNULL,
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                    timeout=30,
+                )
+                self.assertNotEqual(proc.returncode, 0)
+                res = json.loads(proc.stdout.strip())
+                self.assertEqual(res["status"], "refusal")
+                self.assertEqual(res["root_code"], "consent-required")
+                self.assertFalse(spy_log.exists())
+            finally:
+                server.stop()
+
+    def test_confirm_package_command_json_yes_succeeds(self):
+        with ephemeral_keypair("json yes succeeds") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin)
+            try:
+                deb_bin = self.work_dir / "json-yes-bin"
+                spy_log = self.work_dir / "json-yes-spy.log"
+                self.setup_deb_manager_spies(deb_bin, spy_log)
+                env = dict(self.env)
+                env.pop("SOLSTONE_HELPER", None)
+                env.pop("SOLSTONE_FAKE_PKG_DB", None)
+                env["PATH"] = f"{deb_bin}:{self.bin_dir}:{os.environ['PATH']}"
+
+                proc = subprocess.run(
+                    [
+                        str(installer),
+                        "--skip-signature",
+                        "--route", "deb",
+                        "--components", "desktop",
+                        "--no-start",
+                        "--confirm-package-command",
+                        "--yes",
+                        "--json",
+                        "--prefix", str(self.prefix),
+                    ],
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                    timeout=30,
+                )
+                self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
+                res = json.loads(proc.stdout.strip())
+                self.assertEqual(res["status"], "success")
+                self.assertEqual(res["components"]["desktop"]["status"], "succeeded")
+                self.assertEqual(res["components"]["desktop"]["phase"], "complete")
+                self.assertTrue(spy_log.exists())
+                spy_cmd = spy_log.read_text(encoding="utf-8").strip()
+                self.assertIn(spy_cmd, proc.stderr)
+            finally:
+                server.stop()
+
+    def test_confirm_package_command_malformed_plan_refused(self):
+        with ephemeral_keypair("plan invalid refused") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin)
+            try:
+                deb_bin = self.work_dir / "plan-inv-bin"
+                spy_log = self.work_dir / "plan-inv-spy.log"
+                self.setup_deb_manager_spies(deb_bin, spy_log)
+
+                stub_helper = self.work_dir / "bad-plan-helper.sh"
+                write_path_stub(
+                    self.work_dir,
+                    "bad-plan-helper.sh",
+                    'if IFS= read -r line; then\n'
+                    '  case "$line" in\n'
+                    '    PLAN_PKG*)\n'
+                    '      echo "PLAN deb reinstall /var/tmp/corrupted-archive.deb DEBIAN_FRONTEND=noninteractive apt-get install -y --reinstall --no-remove /var/tmp/corrupted-archive.deb"\n'
+                    '      exit 0\n'
+                    '      ;;\n'
+                    '  esac\n'
+                    f'  {{ printf "%s\\n" "$line"; cat; }} | exec "{HELPER_SCRIPT}" "$@"\n'
+                    'fi\n',
+                )
+
+                env = dict(self.env)
+                env["SOLSTONE_HELPER"] = str(stub_helper)
+                env.pop("SOLSTONE_FAKE_PKG_DB", None)
+                env["PATH"] = f"{deb_bin}:{self.bin_dir}:{os.environ['PATH']}"
+
+                proc = subprocess.run(
+                    [
+                        str(installer),
+                        "--skip-signature",
+                        "--route", "deb",
+                        "--components", "desktop",
+                        "--no-start",
+                        "--confirm-package-command",
+                        "--yes",
+                        "--json",
+                        "--prefix", str(self.prefix),
+                    ],
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                    timeout=30,
+                )
+                self.assertNotEqual(proc.returncode, 0)
+                res = json.loads(proc.stdout.strip())
+                self.assertEqual(res["status"], "refusal")
+                self.assertEqual(res["root_code"], "plan-invalid")
+                self.assertFalse(spy_log.exists())
+                if self.receipt.exists():
+                    self.assertNotIn(b"phase=complete", self.receipt.read_bytes())
+            finally:
+                server.stop()
+
+    def test_confirm_package_command_manager_failure_leaves_intended_and_resume_preserves(self):
+        with ephemeral_keypair("manager failure intended resume") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin)
+            try:
+                deb_bin = self.work_dir / "fail-mgr-bin"
+                spy_log = self.work_dir / "fail-mgr-spy.log"
+                self.setup_deb_manager_spies(deb_bin, spy_log, fail_apply=True)
+
+                env = dict(self.env)
+                env.pop("SOLSTONE_HELPER", None)
+                env.pop("SOLSTONE_FAKE_PKG_DB", None)
+                env["PATH"] = f"{deb_bin}:{self.bin_dir}:{os.environ['PATH']}"
+
+                proc = subprocess.run(
+                    [
+                        str(installer),
+                        "--skip-signature",
+                        "--route", "deb",
+                        "--components", "desktop",
+                        "--no-start",
+                        "--confirm-package-command",
+                        "--yes",
+                        "--json",
+                        "--prefix", str(self.prefix),
+                    ],
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                    timeout=30,
+                )
+                self.assertNotEqual(proc.returncode, 0)
+                res = json.loads(proc.stdout.strip())
+                self.assertIn(res["root_code"], ("install-failed", "package-install-failed"))
+                self.assertTrue(self.receipt.exists())
+                section = receipt_section(self.receipt.read_bytes(), "component:desktop")
+                self.assertIn(b"phase=intended", section)
+                self.assertNotIn(b"phase=complete", section)
+
+                # Resume: run again with the flag and answer 'no'
+                receipt_before = self.receipt.read_bytes()
+                code, tty_bytes, stdout, stderr = self.run_pty_command(
+                    [
+                        str(installer),
+                        "--skip-signature",
+                        "--route", "deb",
+                        "--components", "desktop",
+                        "--no-start",
+                        "--confirm-package-command",
+                        "--json",
+                        "--prefix", str(self.prefix),
+                    ],
+                    env,
+                    responses=b"no\n",
+                )
+                self.assertNotEqual(code, 0)
+                res_resume = json.loads(stdout.strip())
+                self.assertEqual(res_resume["root_code"], "consent-declined")
+                self.assertEqual(self.receipt.read_bytes(), receipt_before)
+            finally:
+                server.stop()
+
+    def test_confirm_package_command_two_components_partial_consent(self):
+        with ephemeral_keypair("two components partial consent") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin)
+            try:
+                deb_bin = self.work_dir / "two-comp-bin"
+                spy_log = self.work_dir / "two-comp-spy.log"
+                self.setup_deb_manager_spies(deb_bin, spy_log)
+
+                env = dict(self.env)
+                env.pop("SOLSTONE_HELPER", None)
+                env.pop("SOLSTONE_FAKE_PKG_DB", None)
+                env["PATH"] = f"{deb_bin}:{self.bin_dir}:{os.environ['PATH']}"
+
+                code, tty_bytes, stdout, stderr = self.run_pty_command(
+                    [
+                        str(installer),
+                        "--skip-signature",
+                        "--route", "deb",
+                        "--components", "desktop,tmux",
+                        "--no-start",
+                        "--confirm-package-command",
+                        "--json",
+                        "--prefix", str(self.prefix),
+                    ],
+                    env,
+                    responses=[b"yes\n", b"no\n"],
+                )
+                self.assertNotEqual(code, 0)
+                res = json.loads(stdout.strip())
+                self.assertEqual(res["root_code"], "consent-declined")
+                self.assertEqual(res["components"]["desktop"]["status"], "succeeded")
+                self.assertEqual(res["components"]["tmux"]["status"], "failed")
+
+                self.assertTrue(self.receipt.exists())
+                section_desktop = receipt_section(self.receipt.read_bytes(), "component:desktop")
+                self.assertIn(b"phase=complete", section_desktop)
+                if b"[component:tmux]\n" in self.receipt.read_bytes():
+                    section_tmux = receipt_section(self.receipt.read_bytes(), "component:tmux")
+                    self.assertNotIn(b"phase=complete", section_tmux)
+
+                # Verify only the first manager invocation occurred
+                spy_content = spy_log.read_text(encoding="utf-8")
+                self.assertIn("solstone-linux", spy_content)
+                self.assertNotIn("solstone-tmux", spy_content)
             finally:
                 server.stop()
 

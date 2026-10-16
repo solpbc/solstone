@@ -194,87 +194,225 @@ parse_archive_identity() {
     esac
 }
 
-handle_install_pkg() {
-    pkg_type="$1"
-    archive_path="$2"
-    validate_path "$archive_path"
+preflight_package_archive() {
+    ppa_type="$1"
+    ppa_path="$2"
+    validate_path "$ppa_path"
 
-    if [ ! -f "$archive_path" ]; then
-        echo "ERROR:archive-missing" >&2
-        exit 1
+    if [ ! -f "$ppa_path" ]; then
+        echo "ERROR:archive-missing ${ppa_path##*/}"
+        return 1
     fi
 
-    if ! pkg_identity=$(parse_archive_identity "$pkg_type" "$archive_path"); then
-        echo "ERROR:install-failed"
+    if ! ppa_identity=$(parse_archive_identity "$ppa_type" "$ppa_path"); then
+        echo "ERROR:archive-unparseable ${ppa_path##*/}"
         return 1
     fi
     # Deliberate whitespace split of three identity fields; pathname expansion is disabled.
     # shellcheck disable=SC2086
-    set -- $pkg_identity
+    set -- $ppa_identity
     if [ $# -ne 3 ]; then
-        echo "ERROR:install-failed"
+        echo "ERROR:archive-unparseable ${ppa_path##*/}"
         return 1
     fi
+    PKG_ARCHIVE_NAME="$1"
+    PKG_ARCHIVE_VERSION="$2"
+    PKG_ARCHIVE_ARCH="$3"
+    validate_name "$PKG_ARCHIVE_NAME"
+}
+
+resolve_rpm_action() {
     pkg_name="$1"
-    pkg_version="$2"
-    pkg_arch="$3"
-    validate_name "$pkg_name"
-
-    if [ -n "$FAKE_PKG_DB" ] && [ -d "$FAKE_PKG_DB" ]; then
-        mkdir -p "${FAKE_PKG_DB}/${pkg_type}"
-        printf 'INSTALLED %s %s %s\n' "$pkg_name" "$pkg_version" "$pkg_arch" > "${FAKE_PKG_DB}/${pkg_type}/${pkg_name}"
-        if [ "$pkg_name" = "solstone-journal" ] && [ -n "$FAKE_ROOT" ]; then
-            if [ -z "$FAKE_JOURNAL_LAUNCHER" ] || [ ! -x "$FAKE_JOURNAL_LAUNCHER" ]; then
-                echo "ERROR:install-failed"
-                return 1
-            fi
-            fake_journal_dir="${FAKE_ROOT}/usr/bin"
-            if [ -L "$FAKE_ROOT" ] || [ -L "$fake_journal_dir" ] || [ -L "${fake_journal_dir}/journal" ]; then
-                echo "ERROR:install-failed"
-                return 1
-            fi
-            mkdir -p "$fake_journal_dir"
-            cp "$FAKE_JOURNAL_LAUNCHER" "${fake_journal_dir}/journal"
-            chmod 0755 "${fake_journal_dir}/journal"
+    target_identity="$2"
+    if ! existing_identity=$(handle_query_pkg rpm "$pkg_name"); then
+        if [ -n "$existing_identity" ]; then
+            printf '%s\n' "$existing_identity"
+        else
+            echo "ERROR:query-failed"
         fi
-        echo "$archive_path" >> "${FAKE_PKG_DB}/install.log"
-        if ! installed_identity=$(handle_query_pkg "$pkg_type" "$pkg_name"); then
-            echo "ERROR:install-failed"
-            return 1
-        fi
-        if [ "$installed_identity" != "INSTALLED $pkg_name $pkg_version $pkg_arch" ]; then
-            echo "ERROR:install-failed"
-            return 1
-        fi
-        echo "OK"
-        return 0
-    fi
-
-    if [ "$pkg_type" = "deb" ]; then
-        if ! DEBIAN_FRONTEND=noninteractive apt-get install -y --reinstall --no-remove "$archive_path" >&2; then
-            echo "ERROR:install-failed"
-            return 1
-        fi
-    elif [ "$pkg_type" = "rpm" ]; then
-        rpm_action=install
-        existing_identity=$(handle_query_pkg rpm "$pkg_name") || return 1
-        if [ "$existing_identity" = "INSTALLED $pkg_name $pkg_version $pkg_arch" ]; then
-            rpm_action=reinstall
-        fi
-        # The installer verified this local artifact; repository dependency checks remain enabled.
-        if ! dnf -y --setopt=localpkg_gpgcheck=False "$rpm_action" "$archive_path" >&2; then
-            echo "ERROR:install-failed"
-            return 1
-        fi
-    else
-        echo "ERROR:unsupported-pkg-type"
         return 1
     fi
-    if ! installed_identity=$(handle_query_pkg "$pkg_type" "$pkg_name"); then
+    if [ "$existing_identity" = "$target_identity" ]; then
+        RESOLVED_ACTION="reinstall"
+    else
+        RESOLVED_ACTION="install"
+    fi
+    return 0
+}
+
+package_manager_command() {
+    pmc_mode="$1"
+    pmc_type="$2"
+    pmc_action="$3"
+    pmc_path="$4"
+    case "$pmc_type" in
+        deb)
+            if [ "$pmc_action" != "reinstall" ]; then
+                echo "ERROR:plan-invalid"
+                return 1
+            fi
+            set -- apt-get install -y --reinstall --no-remove "$pmc_path"
+            if [ "$pmc_mode" = "plan" ]; then
+                printf 'DEBIAN_FRONTEND=noninteractive %s %s %s %s %s %s\n' "$1" "$2" "$3" "$4" "$5" "$6"
+                return 0
+            elif [ "$pmc_mode" = "exec" ]; then
+                DEBIAN_FRONTEND=noninteractive "$@" >&2
+                return $?
+            fi
+            ;;
+        rpm)
+            case "$pmc_action" in
+                install|reinstall) ;;
+                *)
+                    echo "ERROR:plan-invalid"
+                    return 1
+                    ;;
+            esac
+            set -- dnf -y --setopt=localpkg_gpgcheck=False "$pmc_action" "$pmc_path"
+            if [ "$pmc_mode" = "plan" ]; then
+                printf '%s %s %s %s %s\n' "$1" "$2" "$3" "$4" "$5"
+                return 0
+            elif [ "$pmc_mode" = "exec" ]; then
+                "$@" >&2
+                return $?
+            fi
+            ;;
+        *)
+            echo "ERROR:plan-invalid"
+            return 1
+            ;;
+    esac
+}
+
+handle_fake_db_install() {
+    hf_type="$1"
+    hf_path="$2"
+    hf_name="$3"
+    hf_version="$4"
+    hf_arch="$5"
+    mkdir -p "${FAKE_PKG_DB}/${hf_type}"
+    printf 'INSTALLED %s %s %s\n' "$hf_name" "$hf_version" "$hf_arch" > "${FAKE_PKG_DB}/${hf_type}/${hf_name}"
+    if [ "$hf_name" = "solstone-journal" ] && [ -n "$FAKE_ROOT" ]; then
+        if [ -z "$FAKE_JOURNAL_LAUNCHER" ] || [ ! -x "$FAKE_JOURNAL_LAUNCHER" ]; then
+            echo "ERROR:install-failed"
+            return 1
+        fi
+        fake_journal_dir="${FAKE_ROOT}/usr/bin"
+        if [ -L "$FAKE_ROOT" ] || [ -L "$fake_journal_dir" ] || [ -L "${fake_journal_dir}/journal" ]; then
+            echo "ERROR:install-failed"
+            return 1
+        fi
+        mkdir -p "$fake_journal_dir"
+        cp "$FAKE_JOURNAL_LAUNCHER" "${fake_journal_dir}/journal"
+        chmod 0755 "${fake_journal_dir}/journal"
+    fi
+    echo "$hf_path" >> "${FAKE_PKG_DB}/install.log"
+    if ! installed_identity=$(handle_query_pkg "$hf_type" "$hf_name"); then
         echo "ERROR:install-failed"
         return 1
     fi
-    if [ "$installed_identity" != "INSTALLED $pkg_name $pkg_version $pkg_arch" ]; then
+    if [ "$installed_identity" != "INSTALLED $hf_name $hf_version $hf_arch" ]; then
+        echo "ERROR:install-failed"
+        return 1
+    fi
+    echo "OK"
+    return 0
+}
+
+handle_plan_pkg() {
+    hpp_type="$1"
+    hpp_path="$2"
+    preflight_package_archive "$hpp_type" "$hpp_path" || return 1
+    case "$hpp_type" in
+        deb)
+            hpp_action="reinstall"
+            ;;
+        rpm)
+            resolve_rpm_action "$PKG_ARCHIVE_NAME" "INSTALLED $PKG_ARCHIVE_NAME $PKG_ARCHIVE_VERSION $PKG_ARCHIVE_ARCH" || return 1
+            hpp_action="$RESOLVED_ACTION"
+            ;;
+        *)
+            echo "ERROR:unsupported-pkg-type"
+            return 1
+            ;;
+    esac
+    if ! plan_display=$(package_manager_command plan "$hpp_type" "$hpp_action" "$hpp_path"); then
+        return 1
+    fi
+    printf 'PLAN %s %s %s %s\n' "$hpp_type" "$hpp_action" "$hpp_path" "$plan_display"
+}
+
+handle_apply_pkg() {
+    hap_type="$1"
+    hap_path="$2"
+    hap_action="$3"
+    preflight_package_archive "$hap_type" "$hap_path" || return 1
+    case "$hap_type" in
+        deb)
+            current_action="reinstall"
+            ;;
+        rpm)
+            resolve_rpm_action "$PKG_ARCHIVE_NAME" "INSTALLED $PKG_ARCHIVE_NAME $PKG_ARCHIVE_VERSION $PKG_ARCHIVE_ARCH" || return 1
+            current_action="$RESOLVED_ACTION"
+            ;;
+        *)
+            echo "ERROR:unsupported-pkg-type"
+            return 1
+            ;;
+    esac
+    if [ "$current_action" != "$hap_action" ]; then
+        echo "ERROR:stale-plan"
+        return 1
+    fi
+    if [ -n "$FAKE_PKG_DB" ] && [ -d "$FAKE_PKG_DB" ]; then
+        handle_fake_db_install "$hap_type" "$hap_path" "$PKG_ARCHIVE_NAME" "$PKG_ARCHIVE_VERSION" "$PKG_ARCHIVE_ARCH"
+        return $?
+    fi
+    if ! package_manager_command exec "$hap_type" "$hap_action" "$hap_path"; then
+        echo "ERROR:install-failed"
+        return 1
+    fi
+    if ! installed_identity=$(handle_query_pkg "$hap_type" "$PKG_ARCHIVE_NAME"); then
+        echo "ERROR:install-failed"
+        return 1
+    fi
+    if [ "$installed_identity" != "INSTALLED $PKG_ARCHIVE_NAME $PKG_ARCHIVE_VERSION $PKG_ARCHIVE_ARCH" ]; then
+        echo "ERROR:install-failed"
+        return 1
+    fi
+    echo "OK"
+}
+
+handle_install_pkg() {
+    hip_type="$1"
+    hip_path="$2"
+    preflight_package_archive "$hip_type" "$hip_path" || return 1
+    case "$hip_type" in
+        deb)
+            hip_action="reinstall"
+            ;;
+        rpm)
+            resolve_rpm_action "$PKG_ARCHIVE_NAME" "INSTALLED $PKG_ARCHIVE_NAME $PKG_ARCHIVE_VERSION $PKG_ARCHIVE_ARCH" || return 1
+            hip_action="$RESOLVED_ACTION"
+            ;;
+        *)
+            echo "ERROR:unsupported-pkg-type"
+            return 1
+            ;;
+    esac
+    if [ -n "$FAKE_PKG_DB" ] && [ -d "$FAKE_PKG_DB" ]; then
+        handle_fake_db_install "$hip_type" "$hip_path" "$PKG_ARCHIVE_NAME" "$PKG_ARCHIVE_VERSION" "$PKG_ARCHIVE_ARCH"
+        return $?
+    fi
+    if ! package_manager_command exec "$hip_type" "$hip_action" "$hip_path"; then
+        echo "ERROR:install-failed"
+        return 1
+    fi
+    if ! installed_identity=$(handle_query_pkg "$hip_type" "$PKG_ARCHIVE_NAME"); then
+        echo "ERROR:install-failed"
+        return 1
+    fi
+    if [ "$installed_identity" != "INSTALLED $PKG_ARCHIVE_NAME $PKG_ARCHIVE_VERSION $PKG_ARCHIVE_ARCH" ]; then
         echo "ERROR:install-failed"
         return 1
     fi
@@ -405,6 +543,41 @@ while IFS= read -r line || [ -n "$line" ]; do
                 exit 1
             fi
             handle_install_pkg "$2" "$3"
+            ;;
+        PLAN_PKG)
+            if [ $# -ne 3 ]; then
+                echo "ERROR:invalid-plan-operands" >&2
+                exit 1
+            fi
+            handle_plan_pkg "$2" "$3"
+            ;;
+        APPLY_PKG)
+            if [ $# -ne 4 ]; then
+                echo "ERROR:invalid-apply-operands" >&2
+                exit 1
+            fi
+            case "$2" in
+                deb)
+                    if [ "$4" != "reinstall" ]; then
+                        echo "ERROR:invalid-apply-operands" >&2
+                        exit 1
+                    fi
+                    ;;
+                rpm)
+                    case "$4" in
+                        install|reinstall) ;;
+                        *)
+                            echo "ERROR:invalid-apply-operands" >&2
+                            exit 1
+                            ;;
+                    esac
+                    ;;
+                *)
+                    echo "ERROR:invalid-apply-operands" >&2
+                    exit 1
+                    ;;
+            esac
+            handle_apply_pkg "$2" "$3" "$4"
             ;;
         REMOVE_PKG)
             if [ $# -ne 3 ]; then

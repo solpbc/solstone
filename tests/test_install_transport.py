@@ -467,51 +467,55 @@ class TestInstallTransport(HermeticInstallerTestCase):
             self.assertEqual(log_path.read_text(encoding="utf-8").splitlines(), ["call"])
 
     def test_signal_cleanup_during_catalogue_fetch(self):
-        with ephemeral_keypair("signal cleanup") as (_sec, pub, pin):
-            server = RouteServer()
-            request_started = threading.Event()
-            release_request = threading.Event()
+        prev_hup = signal.signal(signal.SIGHUP, signal.SIG_DFL)
+        try:
+            with ephemeral_keypair("signal cleanup") as (_sec, pub, pin):
+                server = RouteServer()
+                request_started = threading.Event()
+                release_request = threading.Event()
 
-            def hold_request(handler):
-                request_started.set()
-                release_request.wait(timeout=5)
-                handler.send_response(200)
-                handler.end_headers()
+                def hold_request(handler):
+                    request_started.set()
+                    release_request.wait(timeout=5)
+                    handler.send_response(200)
+                    handler.end_headers()
+                    try:
+                        handler.wfile.write(b"2.0.0\n")
+                    except BrokenPipeError:
+                        pass
+
+                server.routes["/solstone/release/latest"] = hold_request
+                server.start()
                 try:
-                    handler.wfile.write(b"2.0.0\n")
-                except BrokenPipeError:
-                    pass
-
-            server.routes["/solstone/release/latest"] = hold_request
-            server.start()
-            try:
-                installer = self._build(pub, pin.key_id, origin=server.origin)
-                for caught_signal in (signal.SIGHUP, signal.SIGINT, signal.SIGTERM):
-                    with self.subTest(signal=caught_signal):
-                        request_started.clear()
-                        release_request.clear()
-                        before = set(Path("/var/tmp").glob("solstone-install.*"))
-                        proc = subprocess.Popen(
-                            [str(installer), "--skip-signature", "--list", "--json"],
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE,
-                            text=True,
-                            start_new_session=True,
-                        )
-                        self.assertTrue(request_started.wait(timeout=3))
-                        os.killpg(proc.pid, caught_signal)
-                        proc.communicate(timeout=3)
-                        release_request.set()
-                        self.assertNotEqual(proc.returncode, 0)
-                        deadline = time.monotonic() + 1
-                        while time.monotonic() < deadline:
-                            if set(Path("/var/tmp").glob("solstone-install.*")) <= before:
-                                break
-                            time.sleep(0.02)
-                        self.assertLessEqual(set(Path("/var/tmp").glob("solstone-install.*")), before)
-            finally:
-                release_request.set()
-                server.stop()
+                    installer = self._build(pub, pin.key_id, origin=server.origin)
+                    for caught_signal in (signal.SIGHUP, signal.SIGINT, signal.SIGTERM):
+                        with self.subTest(signal=caught_signal):
+                            request_started.clear()
+                            release_request.clear()
+                            before = set(Path("/var/tmp").glob("solstone-install.*"))
+                            proc = subprocess.Popen(
+                                [str(installer), "--skip-signature", "--list", "--json"],
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE,
+                                text=True,
+                                start_new_session=True,
+                            )
+                            self.assertTrue(request_started.wait(timeout=3))
+                            os.killpg(proc.pid, caught_signal)
+                            proc.communicate(timeout=3)
+                            release_request.set()
+                            self.assertNotEqual(proc.returncode, 0)
+                            deadline = time.monotonic() + 1
+                            while time.monotonic() < deadline:
+                                if set(Path("/var/tmp").glob("solstone-install.*")) <= before:
+                                    break
+                                time.sleep(0.02)
+                            self.assertLessEqual(set(Path("/var/tmp").glob("solstone-install.*")), before)
+                finally:
+                    release_request.set()
+                    server.stop()
+        finally:
+            signal.signal(signal.SIGHUP, prev_hup)
 
     def test_insecure_remote_http_refuses(self):
         with ephemeral_keypair("test transport") as (sec, pub, pin):
