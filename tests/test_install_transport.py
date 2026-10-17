@@ -300,7 +300,7 @@ class TestInstallTransport(HermeticInstallerTestCase):
                 self.assertEqual(json.loads(oversized.stdout)["root_code"], "response-too-large")
                 self.assertEqual(len(server.request_paths), 1)
                 curl_args = curl_log.read_text(encoding="utf-8")
-                for flag in ("-q", "--connect-timeout 10", "--max-time 120", "--retry 2", "--max-redirs 0"):
+                for flag in ("-q", "--connect-timeout 10", "--speed-limit 1", "--speed-time 120", "--retry 2", "--max-redirs 0"):
                     self.assertIn(flag, curl_args)
 
                 manifest.write_bytes(valid_manifest)

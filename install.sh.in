@@ -519,7 +519,7 @@ macos_fetch_dmg() {
         esac
     fi
     case "$mfd_location" in *'?'*|*'#'*|*'@'*) macos_refuse redirect-refused "The mac download redirect is malformed" ;; esac
-    mfd_code=$(curl -q -s -S --connect-timeout 10 --max-time 300 --retry 1 --max-redirs 0 \
+    mfd_code=$(curl -q -s -S --connect-timeout 10 --speed-limit 1 --speed-time 120 --retry 1 --max-redirs 0 \
         -w "%{http_code}" -o "$mfd_dest" "$mfd_location" 2>/dev/null) || mfd_code="000"
     [ "$mfd_code" = "200" ] \
         || macos_refuse fetch-failed "HTTP status $mfd_code while downloading $MAC_COMPONENT_NAME"
@@ -1013,7 +1013,9 @@ fetch_file_with_redirect_check() {
     rm -f "$hdr_file"
 
     if [ "$FETCH_TOOL" = "curl" ]; then
-        http_code=$(curl -q -s -S --connect-timeout 10 --max-time 120 --retry 2 --retry-delay 1 --retry-max-time 30 --max-redirs 0 -w "%{http_code}" -D "$hdr_file" -o "$dest_path" "$src_url" 2>/dev/null) || http_code="000"
+        # A stalled transfer times out, not a long one: journal packages are
+        # hundreds of megabytes, so a whole-transfer cap fails slower links.
+        http_code=$(curl -q -s -S --connect-timeout 10 --speed-limit 1 --speed-time 120 --retry 2 --retry-delay 1 --max-redirs 0 -w "%{http_code}" -D "$hdr_file" -o "$dest_path" "$src_url" 2>/dev/null) || http_code="000"
         if [ "$http_code" = "200" ]; then
             rm -f "$hdr_file"
             if [ -n "$max_bytes" ]; then
@@ -1033,7 +1035,7 @@ fetch_file_with_redirect_check() {
                 report_exit "refusal" "redirect-refused" "Redirect scheme or authority change forbidden"
             fi
 
-            hop2_code=$(curl -q -s -S --connect-timeout 10 --max-time 120 --retry 2 --retry-delay 1 --retry-max-time 30 --max-redirs 0 -w "%{http_code}" -D "$hdr_file" -o "$dest_path" "$loc" 2>/dev/null) || hop2_code="000"
+            hop2_code=$(curl -q -s -S --connect-timeout 10 --speed-limit 1 --speed-time 120 --retry 2 --retry-delay 1 --max-redirs 0 -w "%{http_code}" -D "$hdr_file" -o "$dest_path" "$loc" 2>/dev/null) || hop2_code="000"
             rm -f "$hdr_file"
             if [ "$hop2_code" = "200" ]; then
                 if [ -n "$max_bytes" ]; then
