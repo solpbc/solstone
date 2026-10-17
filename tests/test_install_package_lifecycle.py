@@ -116,6 +116,24 @@ class TestInstallPackageLifecycle(HermeticInstallerTestCase):
         log = self.fake_db / "remove.log"
         return [] if not log.exists() else log.read_text(encoding="utf-8").splitlines()
 
+    def test_package_handoff_uses_package_owned_runtime(self):
+        with ephemeral_keypair("package browser handoff") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin)
+            try:
+                opened = self.work_dir / "opened"
+                write_path_stub(self.bin_dir, "xdg-open", 'printf "%s\\n" "$@" >> "$OPENED"\n')
+                result = subprocess.run(
+                    [str(installer), "--skip-signature", "--route", "deb", "--components", "journal", "--prefix", str(self.prefix)],
+                    capture_output=True, text=True,
+                    env={**self.env, "DISPLAY": ":1", "WAYLAND_DISPLAY": "", "OPENED": str(opened)},
+                )
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(opened.read_text().splitlines(), ["http://localhost:6234/init"])
+                self.assertEqual(len(self.setup_records()), 1)
+                self.assertFalse(self.shadow_log.exists())
+            finally:
+                server.stop()
+
     @staticmethod
     def package_requests(paths: list[str]) -> list[str]:
         return [path for path in paths if path.endswith((".deb", ".rpm"))]

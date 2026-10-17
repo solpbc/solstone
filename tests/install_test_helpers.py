@@ -98,6 +98,7 @@ def setup_package_launcher_spy(bin_dir: Path) -> Path:
     return write_path_stub(
         bin_dir,
         "package-journal-spy",
+        'if [ "$1" = settings ]; then printf \'{\\n  "dashboard_url": "http://localhost:6234"\\n}\\n\'; exit 0; fi\n'
         "if [ -n \"${SOLSTONE_PACKAGE_SETUP_LOG:-}\" ]; then\n"
         "  printf 'argv0=%s\\n' \"$0\" >> \"$SOLSTONE_PACKAGE_SETUP_LOG\"\n"
         "  for arg do printf 'arg=%s\\n' \"$arg\" >> \"$SOLSTONE_PACKAGE_SETUP_LOG\"; done\n"
@@ -180,7 +181,7 @@ def make_v2_bootstrap_script(revision: int = 2) -> bytes:
         f"[ \"${{SOLSTONE_BOOTSTRAP_INTERRUPT:-0}}\" = 0 ] || {{ kill -INT \"$PPID\"; exit 130; }}\n"
         f"if [ -n \"$PREFIX\" ] && [ \"$DRY_RUN\" -eq 0 ]; then\n"
         f"  mkdir -p \"$PREFIX/bin\" \"$PREFIX/versions/2.0.6-fixture/bin\"\n"
-        f"  echo \"#!/bin/sh\\necho $ROLE 2.0.6\" > \"$PREFIX/versions/2.0.6-fixture/bin/journal\"\n"
+        '  printf \'%s\\n\' \'#!/bin/sh\' \'if [ "$1" = settings ]; then printf "{\\n  \\"dashboard_url\\": \\"http://localhost:%s\\"\\n}\\n" "${SOLSTONE_FIXTURE_PORT:-6123}"; exit 0; fi\' "echo $ROLE 2.0.6" > "$PREFIX/versions/2.0.6-fixture/bin/journal"\n'
         f"  chmod +x \"$PREFIX/versions/2.0.6-fixture/bin/journal\"\n"
         f"  ln -sfn \"versions/2.0.6-fixture\" \"$PREFIX/current\"\n"
         f"  printf 'schema_version=1\\njournal_version=2.0.6\\nlane=release\\norigin=fixture\\narchitecture=x86_64\\ninstaller_revision=1\\nbootstrap_revision={revision}\\nroute=tree\\nsignature_verification=skipped\\nrole=%s\\njournal_state=existing\\nservice_policy=skip-service\\nsetup_status=complete\\n' \"$ROLE\" > \"$PREFIX/install-receipt\"\n"

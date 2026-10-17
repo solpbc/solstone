@@ -47,6 +47,48 @@ class TestInstallBootstrap(HermeticInstallerTestCase):
         cut = rest.find("\n[")
         return receipt[start:] if cut == -1 else receipt[start:start + 1 + cut + 1]
 
+    def test_linux_handoff_uses_installed_journal_port(self):
+        installer, _, env = self._release("browser handoff")
+        opened = self.work_dir / "opened"
+        bin_dir = self.work_dir / "bin"
+        write_path_stub(bin_dir, "xdg-open", 'printf "%s\\n" "$@" >> "$OPENED"\nexit "${OPEN_EXIT:-0}"\n')
+        env = {**env, "PATH": f"{bin_dir}:{os.environ['PATH']}", "OPENED": str(opened), "DISPLAY": ":1", "WAYLAND_DISPLAY": ""}
+        args = [str(installer), "--components", "journal", "--prefix", str(self.prefix), "--no-path", "--skip-signature"]
+        graphical = subprocess.run(args, env=env, capture_output=True, text=True)
+        self.assertEqual(graphical.returncode, 0, graphical.stdout + graphical.stderr)
+        self.assertEqual(opened.read_text().splitlines(), ["http://localhost:6123/init"])
+        self.assertIn("http://localhost:6123/app/network/", graphical.stdout + graphical.stderr)
+
+        opened.unlink()
+        headless = subprocess.run(args, env={**env, "DISPLAY": ""}, capture_output=True, text=True)
+        self.assertEqual(headless.returncode, 0, headless.stdout + headless.stderr)
+        self.assertFalse(opened.exists())
+        self.assertIn("-L 6123:127.0.0.1:6123", headless.stdout + headless.stderr)
+
+        failed_open = subprocess.run(args, env={**env, "OPEN_EXIT": "1"}, capture_output=True, text=True)
+        self.assertEqual(failed_open.returncode, 0, failed_open.stdout + failed_open.stderr)
+        self.assertIn("http://localhost:6123/init", failed_open.stdout + failed_open.stderr)
+        self.assertEqual(opened.read_text().splitlines(), ["http://localhost:6123/init"])
+
+        for flags in (["--json"], ["--no-start"], ["--dry-run"], ["--upgrade"]):
+            with self.subTest(flags=flags):
+                opened.unlink(missing_ok=True)
+                result = subprocess.run([*args, *flags], env=env, capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertFalse(opened.exists())
+                if flags == ["--json"]:
+                    self.assertEqual(json.loads(result.stdout)["status"], "success")
+
+        cli = subprocess.run([str(installer), "--components", "cli", "--prefix", str(self.work_dir / "cli"), "--no-path", "--skip-signature"], env=env, capture_output=True, text=True)
+        self.assertEqual(cli.returncode, 0, cli.stdout + cli.stderr)
+        self.assertFalse(opened.exists())
+
+        for port in ("70000", "9999999999999999999999999999999"):
+            with self.subTest(port=port):
+                invalid = subprocess.run(args, env={**env, "SOLSTONE_FIXTURE_PORT": port}, capture_output=True, text=True)
+                self.assertEqual(invalid.returncode, 0, invalid.stdout + invalid.stderr)
+                self.assertFalse(opened.exists())
+
     def test_a_failed_journal_install_resumes_with_the_same_command(self):
         installer, _, env = self._release("resume")
         args = [str(installer), "--components", "journal", "--prefix", str(self.prefix), "--no-start", "--skip-signature", "--json"]

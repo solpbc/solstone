@@ -144,3 +144,5 @@ him the language can only get stronger, never weaker. or skip the trust question
 entirely and run it yourself.
 
 [product site](https://solstone.app) · [company](https://solpbc.org) · bluesky [@solstone.app](https://bsky.app/profile/solstone.app)
+
+See [changes](CHANGELOG.md) for installer updates.

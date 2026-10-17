@@ -142,6 +142,46 @@ interrupted_message() {
     fi
 }
 
+# The installed journal owns its location and published browser port.
+finish_journal_install() {
+    [ "$HOST_OS" = linux ] && [ "$OPT_UPGRADE" -eq 0 ] && [ "$OPT_NO_START" -eq 0 ] || return 0
+    case " ${REPORT_COMPONENTS:-$SELECTED_COMPONENTS} " in *" journal "*) ;; *) return 0 ;; esac
+    fj_bin="${OPT_PREFIX}/current/bin"
+    case " $PACKAGE_SELECTED_COMPONENTS " in
+        *" journal "*)
+            fj_bin=/usr/bin
+            if [ "$TEST_SEAM" -eq 1 ] && [ -n "${SOLSTONE_FAKE_ROOT:-}" ]; then
+                fj_bin="${SOLSTONE_FAKE_ROOT}/usr/bin"
+            fi
+            ;;
+    esac
+    fj_version=$(cat "${SCRATCH_DIR}/manifest/components/journal/version")
+    if ! fj_status=$(run_installed_journal "$fj_bin" "$fj_version" settings convey status --json); then
+        log_info "to finish setup, use the browser link printed by journal setup above."
+        return 0
+    fi
+    fj_url=$(printf '%s\n' "$fj_status" | sed -n 's/^[[:space:]]*"dashboard_url"[[:space:]]*:[[:space:]]*"\(http:\/\/localhost:[0-9][0-9]*\)"[[:space:]]*$/\1/p')
+    fj_port=${fj_url##*:}
+    case "$fj_port" in ''|*[!0-9]*|??????*) fj_port=0 ;; esac
+    if [ "$fj_port" -lt 1 ] || [ "$fj_port" -gt 65535 ]; then
+        log_info "to finish setup, use the browser link printed by journal setup above."
+        return 0
+    fi
+    log_info "finish setup: $fj_url/init"
+    if [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ] && command -v xdg-open >/dev/null 2>&1; then
+        if ! xdg-open "$fj_url/init" </dev/null >/dev/null 2>&1; then
+            log_info "the browser could not open. open the setup link above."
+        fi
+    else
+        log_info "from another computer, forward the journal's port over SSH:"
+        log_info "  ssh -N -L ${fj_port}:127.0.0.1:${fj_port} YOUR_LOGIN@JOURNAL_COMPUTER"
+        log_info "replace YOUR_LOGIN and JOURNAL_COMPUTER with this computer's SSH login and address. keep that terminal open, then open $fj_url/init on the other computer."
+    fi
+    log_info "next: add the solstone app on this computer."
+    log_info "after setup, open $fj_url/app/network/ and choose pair a device to make its pairing link."
+    log_info "linux app setup: https://github.com/solpbc/solstone-linux/blob/main/INSTALL.md"
+}
+
 report_exit() {
     status="$1"
     code="$2"
@@ -277,6 +317,7 @@ report_exit() {
                 if [ "$OPT_NO_PATH" -eq 0 ] && [ -f "${XDG_CONFIG_HOME:-$HOME/.config}/solstone/env" ]; then
                     log_info "to use the apps in this shell: . \"${XDG_CONFIG_HOME:-$HOME/.config}/solstone/env\""
                 fi
+                finish_journal_install
             fi
         else
             log_err "$code: $message"
@@ -3628,7 +3669,7 @@ run_tree_component() {
             record_journal_pending "$comp" "$b_component_version" "$receipt_file"
             NATIVE_ATTEMPTED=1
             b_status=0
-            "$b_script" "$@" >&2 || b_status=$?
+            SOLSTONE_INSTALLER_NO_HANDOFF=1 "$b_script" "$@" >&2 || b_status=$?
             if [ "$b_status" -eq "$JOURNAL_SETUP_MODELS_UNFINISHED" ]; then
                 NATIVE_ATTEMPTED=0
                 report_exit "refusal" "setup-failed" "$(journal_models_unfinished_message "$(installed_journal_command "$b_component_version" "${OPT_PREFIX}/current/bin")" "run the same install.sh command again.")"
