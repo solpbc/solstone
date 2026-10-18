@@ -173,9 +173,9 @@ finish_journal_install() {
             log_info "the browser could not open. open the setup link above."
         fi
     else
-        log_info "from another computer, forward the journal's port over SSH:"
-        log_info "  ssh -N -L ${fj_port}:127.0.0.1:${fj_port} YOUR_LOGIN@JOURNAL_COMPUTER"
-        log_info "replace YOUR_LOGIN and JOURNAL_COMPUTER with this computer's SSH login and address. keep that terminal open, then open $fj_url/init on the other computer."
+        log_info "from another computer, forward the journal's ports over SSH:"
+        log_info "  ssh -N -L ${fj_port}:127.0.0.1:${fj_port} -L 7659:127.0.0.1:7659 YOUR_LOGIN@JOURNAL_COMPUTER"
+        log_info "replace YOUR_LOGIN and JOURNAL_COMPUTER with this computer's SSH login and address. keep that terminal open, then open $fj_url/init on the other computer. the second port lets an agent on this computer finish connecting from that browser."
     fi
     log_info "next: add the solstone app on this computer."
     log_info "after setup, open $fj_url/app/network/ and choose pair a device to make its pairing link."
@@ -1975,11 +1975,11 @@ acquire_installer_locks() {
 
 interactive_selection_menu() {
     if [ "$OPT_NON_INTERACTIVE" -eq 1 ] || [ "$OPT_JSON" -eq 1 ]; then
-        report_exit refusal no-selection "choose what to install with --components journal, cli, desktop, tmux, all, or capture. for example: sh install.sh --components journal"
+        report_exit refusal no-selection "choose what to install with --components journal, cli, desktop, tmux, all, or capture. for example: curl -fsSL https://solstone.app/install.sh | sh -s -- --components journal"
     fi
 
     if ! { sh -c 'test -t 0' </dev/tty; } >/dev/null 2>&1; then
-        report_exit refusal no-selection "choose what to install with --components journal, cli, desktop, tmux, all, or capture. for example: sh install.sh --components journal"
+        report_exit refusal no-selection "choose what to install with --components journal, cli, desktop, tmux, all, or capture. for example: curl -fsSL https://solstone.app/install.sh | sh -s -- --components journal"
     fi
 
     printf "\nsolstone for linux:\n" > /dev/tty
@@ -1987,7 +1987,7 @@ interactive_selection_menu() {
     printf "  2) journal only\n" > /dev/tty
     printf "  3) desktop only\n" > /dev/tty
     printf "  4) tmux only\n" > /dev/tty
-    # Enter takes the same default as a run without a terminal; a mistype asks again.
+    # Enter takes the journal; a run without a terminal must name --components. A mistype asks again.
     ism_tries=0
     while :; do
         printf "Select components by number (1-4), or press Enter for the journal only: " > /dev/tty
