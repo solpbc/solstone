@@ -177,9 +177,13 @@ finish_journal_install() {
         log_info "  ssh -N -L ${fj_port}:127.0.0.1:${fj_port} -L 7659:127.0.0.1:7659 YOUR_LOGIN@JOURNAL_COMPUTER"
         log_info "replace YOUR_LOGIN and JOURNAL_COMPUTER with this computer's SSH login and address. keep that terminal open, then open $fj_url/init on the other computer. the second port lets an agent on this computer finish connecting from that browser."
     fi
-    log_info "next: add the solstone app on this computer."
+    if [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; then
+        log_info "next: add the solstone app on this computer."
+    fi
     log_info "after setup, open $fj_url/app/network/ and choose pair a device to make its pairing link."
-    log_info "linux app setup: https://github.com/solpbc/solstone-linux/blob/main/INSTALL.md"
+    if [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; then
+        log_info "linux app setup: https://github.com/solpbc/solstone-linux/blob/main/INSTALL.md"
+    fi
 }
 
 report_exit() {

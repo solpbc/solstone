@@ -31,6 +31,9 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 HELPER_SCRIPT = REPO_ROOT / "helpers" / "solstone-pkg-helper.sh"
 
 
+LINUX_APP_SETUP_URL = "https://github.com/solpbc/solstone-linux/blob/main/INSTALL.md"
+
+
 class TestInstallPackageLifecycle(HermeticInstallerTestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(dir="/var/tmp")
@@ -129,8 +132,26 @@ class TestInstallPackageLifecycle(HermeticInstallerTestCase):
                 )
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 self.assertEqual(opened.read_text().splitlines(), ["http://localhost:6234/init"])
+                self.assertIn(LINUX_APP_SETUP_URL, result.stdout + result.stderr)
                 self.assertEqual(len(self.setup_records()), 1)
                 self.assertFalse(self.shadow_log.exists())
+            finally:
+                server.stop()
+
+    def test_headless_handoff_leaves_out_the_desktop_app_step(self):
+        with ephemeral_keypair("package headless handoff") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin)
+            try:
+                result = subprocess.run(
+                    [str(installer), "--skip-signature", "--route", "deb", "--components", "journal", "--prefix", str(self.prefix)],
+                    capture_output=True, text=True,
+                    env={**self.env, "DISPLAY": "", "WAYLAND_DISPLAY": ""},
+                )
+                output = result.stdout + result.stderr
+                self.assertEqual(result.returncode, 0, output)
+                self.assertIn("-L 7659:127.0.0.1:7659", output)
+                self.assertIn("http://localhost:6234/app/network/", output)
+                self.assertNotIn(LINUX_APP_SETUP_URL, output)
             finally:
                 server.stop()
 
