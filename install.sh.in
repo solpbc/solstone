@@ -2007,11 +2007,11 @@ tmux_available() {
 
 interactive_selection_menu() {
     if [ "$OPT_NON_INTERACTIVE" -eq 1 ] || [ "$OPT_JSON" -eq 1 ]; then
-        report_exit refusal no-selection "choose what to install with --components journal, cli, desktop, tmux, all, or capture. for example: curl -fsSL https://solstone.app/install.sh | sh -s -- --components journal"
+        report_exit refusal no-selection "choose what to install with --components journal, cli, desktop, tmux, or all. for example: curl -fsSL https://solstone.app/install.sh | sh -s -- --components journal"
     fi
 
     if ! { sh -c 'test -t 0' </dev/tty; } >/dev/null 2>&1; then
-        report_exit refusal no-selection "choose what to install with --components journal, cli, desktop, tmux, all, or capture. for example: curl -fsSL https://solstone.app/install.sh | sh -s -- --components journal"
+        report_exit refusal no-selection "choose what to install with --components journal, cli, desktop, tmux, or all. for example: curl -fsSL https://solstone.app/install.sh | sh -s -- --components journal"
     fi
 
     printf "\nsolstone for linux:\n" > /dev/tty
