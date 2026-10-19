@@ -23,3 +23,11 @@ case "$ROLE" in desktop) NAME=solstone-linux ;; tmux) NAME=solstone-tmux ;; *) e
 [ -n "$BINARY" ] || BINARY="${PREFIX}/bin/${NAME}"
 [ "$ROUTE" = "tree" ] && [ -x "$BINARY" ] || exit 2
 "$BINARY" uninstall-service >&2
+
+# Remove the app-menu launcher only when the desktop install handler wrote it.
+if [ "$ROLE" = desktop ]; then
+    LAUNCHER="${XDG_DATA_HOME:-$HOME/.local/share}/applications/org.solpbc.solstone.Window.desktop"
+    if [ -f "$LAUNCHER" ] && [ ! -L "$LAUNCHER" ] && grep -qx 'X-Solstone-Installer=platform-v1' "$LAUNCHER"; then
+        rm -f "$LAUNCHER"
+    fi
+fi

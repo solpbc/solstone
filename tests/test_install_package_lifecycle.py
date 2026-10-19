@@ -31,7 +31,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 HELPER_SCRIPT = REPO_ROOT / "helpers" / "solstone-pkg-helper.sh"
 
 
-LINUX_APP_SETUP_URL = "https://github.com/solpbc/solstone-linux/blob/main/INSTALL.md"
+DESKTOP_APP_COMMAND = "--components desktop"
 
 
 class TestInstallPackageLifecycle(HermeticInstallerTestCase):
@@ -132,7 +132,7 @@ class TestInstallPackageLifecycle(HermeticInstallerTestCase):
                 )
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 self.assertEqual(opened.read_text().splitlines(), ["http://localhost:6234/init"])
-                self.assertIn(LINUX_APP_SETUP_URL, result.stdout + result.stderr)
+                self.assertIn(DESKTOP_APP_COMMAND, result.stdout + result.stderr)
                 self.assertEqual(len(self.setup_records()), 1)
                 self.assertFalse(self.shadow_log.exists())
             finally:
@@ -151,7 +151,7 @@ class TestInstallPackageLifecycle(HermeticInstallerTestCase):
                 self.assertEqual(result.returncode, 0, output)
                 self.assertIn("-L 7659:127.0.0.1:7659", output)
                 self.assertIn("http://localhost:6234/app/network/", output)
-                self.assertNotIn(LINUX_APP_SETUP_URL, output)
+                self.assertNotIn(DESKTOP_APP_COMMAND, output)
             finally:
                 server.stop()
 

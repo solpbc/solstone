@@ -177,13 +177,32 @@ finish_journal_install() {
         log_info "  ssh -N -L ${fj_port}:127.0.0.1:${fj_port} -L 7659:127.0.0.1:7659 YOUR_LOGIN@JOURNAL_COMPUTER"
         log_info "replace YOUR_LOGIN and JOURNAL_COMPUTER with this computer's SSH login and address. keep that terminal open, then open $fj_url/init on the other computer. the second port lets an agent on this computer finish connecting from that browser."
     fi
-    if [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; then
-        log_info "next: add the solstone app on this computer."
-    fi
     log_info "after setup, open $fj_url/app/network/ and choose pair a device to make its pairing link."
-    if [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; then
-        log_info "linux app setup: https://github.com/solpbc/solstone-linux/blob/main/INSTALL.md"
-    fi
+    case " ${REPORT_COMPONENTS:-$SELECTED_COMPONENTS} " in
+        *" desktop "*)
+            log_info "then open solstone from your app menu and paste the link in its journal tab."
+            ;;
+        *)
+            # Name the desktop app only where it can run: a computer with a
+            # desktop, on an architecture the app is published for.
+            if [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ] && [ -d "${SCRATCH_DIR}/manifest/components/desktop/arches/${HOST_ARCH}" ]; then
+                log_info "to add the solstone app on this computer, run:"
+                log_info "  curl -fsSL https://solstone.app/install.sh | sh -s -- --components desktop"
+                log_info "then open solstone from your app menu and paste the link in its journal tab."
+            fi
+            ;;
+    esac
+}
+
+# A desktop-only install has no journal step to follow, so it names its own.
+finish_desktop_install() {
+    [ "$HOST_OS" = linux ] && [ "$OPT_UPGRADE" -eq 0 ] || return 0
+    case " ${REPORT_COMPONENTS:-$SELECTED_COMPONENTS} " in
+        *" journal "*) return 0 ;;
+        *" desktop "*) ;;
+        *) return 0 ;;
+    esac
+    log_info "next: open solstone from your app menu and paste your journal's pairing link in its journal tab."
 }
 
 report_exit() {
@@ -322,6 +341,7 @@ report_exit() {
                     log_info "to use the apps in this shell: . \"${XDG_CONFIG_HOME:-$HOME/.config}/solstone/env\""
                 fi
                 finish_journal_install
+                finish_desktop_install
             fi
         else
             log_err "$code: $message"
@@ -1975,6 +1995,14 @@ acquire_installer_locks() {
             report_exit "refusal" "tree-locked" "Another platform installation holds the tree lock at $OPT_PREFIX"
         fi
     fi
+}
+
+tmux_available() {
+    if [ "$TEST_SEAM" -eq 1 ]; then
+        [ "${SOLSTONE_TEST_TMUX_PRESENT:-1}" = 1 ]
+        return
+    fi
+    command -v tmux >/dev/null 2>&1
 }
 
 interactive_selection_menu() {
@@ -4394,24 +4422,29 @@ main() {
 
     if [ -z "$SELECTED_COMPONENTS" ]; then
     case "$OPT_COMPONENTS" in
-        all)
-            if [ -d "${manifest_dir}/components/desktop/arches/${HOST_ARCH}" ]; then
-                SELECTED_COMPONENTS="journal desktop tmux"
-            else
-                notice_msg="Solstone Desktop is not available for $HOST_ARCH; installing journal and tmux."
-                log_info "Notice: $notice_msg"
-                OPT_NOTICES_JSON="[\"$notice_msg\"]"
-                SELECTED_COMPONENTS="journal tmux"
+        all|capture)
+            bundle_base=journal
+            [ "$OPT_COMPONENTS" = all ] || bundle_base=cli
+            bundle_desktop=1
+            [ -d "${manifest_dir}/components/desktop/arches/${HOST_ARCH}" ] || bundle_desktop=0
+            # A bundle that starts services leaves out tmux where tmux isn't
+            # installed: its service can't start, which would fail the whole run.
+            bundle_tmux=1
+            if [ "$OPT_NO_START" -eq 0 ] && ! tmux_available; then bundle_tmux=0; fi
+            SELECTED_COMPONENTS="$bundle_base"
+            [ "$bundle_desktop" -eq 0 ] || SELECTED_COMPONENTS="$SELECTED_COMPONENTS desktop"
+            [ "$bundle_tmux" -eq 0 ] || SELECTED_COMPONENTS="$SELECTED_COMPONENTS tmux"
+            notice_msg=""
+            if [ "$bundle_desktop" -eq 0 ] && [ "$bundle_tmux" -eq 0 ]; then
+                notice_msg="the desktop app isn't available for $HOST_ARCH and tmux is not installed; installing $bundle_base."
+            elif [ "$bundle_desktop" -eq 0 ]; then
+                notice_msg="the desktop app isn't available for $HOST_ARCH; installing $bundle_base and tmux."
+            elif [ "$bundle_tmux" -eq 0 ]; then
+                notice_msg="tmux is not installed; installing $bundle_base and desktop. to add the tmux app later, install tmux and run: curl -fsSL https://solstone.app/install.sh | sh -s -- --components tmux"
             fi
-            ;;
-        capture)
-            if [ -d "${manifest_dir}/components/desktop/arches/${HOST_ARCH}" ]; then
-                SELECTED_COMPONENTS="cli desktop tmux"
-            else
-                notice_msg="Solstone Desktop is not available for $HOST_ARCH; installing cli and tmux."
+            if [ -n "$notice_msg" ]; then
                 log_info "Notice: $notice_msg"
                 OPT_NOTICES_JSON="[\"$notice_msg\"]"
-                SELECTED_COMPONENTS="cli tmux"
             fi
             ;;
         *)
@@ -4424,7 +4457,7 @@ main() {
                     cli) has_cli=1 ;;
                     desktop)
                         if [ ! -d "${manifest_dir}/components/desktop/arches/${HOST_ARCH}" ]; then
-                            report_exit "refusal" "desktop-aarch64" "Solstone Desktop is not supported on $HOST_ARCH"
+                            report_exit "refusal" "desktop-aarch64" "the desktop app isn't available for $HOST_ARCH"
                         fi
                         ;;
                     tmux) ;;

@@ -46,6 +46,43 @@ EOF
     fi
 fi
 
+LAUNCHER_MARK="X-Solstone-Installer=platform-v1"
+
+# The window's launcher lives inside the unpacked tree, where no app menu looks.
+# Publish a copy in the owner's applications folder with an absolute Exec, so
+# the menu entry works before the shell PATH change takes effect.
+if [ "$ROLE" = desktop ]; then
+    # A fresh install passes the unpacked binary; a converged one passes the
+    # public link. Exec always uses the public link, which tracks upgrades.
+    if [ -L "$BINARY" ]; then TREE_BIN=$(readlink "$BINARY" 2>/dev/null || true); else TREE_BIN="$BINARY"; fi
+    TREE_DIR=${TREE_BIN%/bin/*}
+    PUBLIC_BIN="${PREFIX}/bin/solstone-linux"
+    SOURCE_LAUNCHER="${TREE_DIR}/share/applications/org.solpbc.solstone.Window.desktop"
+    APPS_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
+    LAUNCHER="${APPS_DIR}/org.solpbc.solstone.Window.desktop"
+    ICON="${TREE_DIR}/share/icons/hicolor/256x256/apps/solstone-observer.png"
+    if [ -n "$TREE_BIN" ] && [ -f "$SOURCE_LAUNCHER" ] && [ ! -L "$LAUNCHER" ] \
+        && { [ ! -e "$LAUNCHER" ] || grep -qx "$LAUNCHER_MARK" "$LAUNCHER"; }; then
+        # Best effort: a menu entry that can't be written never fails the install.
+        LAUNCHER_NEXT="${LAUNCHER}.next.$$"
+        if mkdir -p "$APPS_DIR" 2>/dev/null && {
+            while IFS= read -r line || [ -n "$line" ]; do
+                case "$line" in
+                    Exec=*) printf 'Exec="%s" window\n' "$PUBLIC_BIN" ;;
+                    Icon=*) if [ -f "$ICON" ]; then printf 'Icon=%s\n' "$ICON"; else printf '%s\n' "$line"; fi ;;
+                    "$LAUNCHER_MARK") ;;
+                    *) printf '%s\n' "$line" ;;
+                esac
+            done < "$SOURCE_LAUNCHER"
+            printf '%s\n' "$LAUNCHER_MARK"
+        } > "$LAUNCHER_NEXT" 2>/dev/null && chmod 0644 "$LAUNCHER_NEXT" && mv -f "$LAUNCHER_NEXT" "$LAUNCHER"; then
+            :
+        else
+            rm -f "$LAUNCHER_NEXT" 2>/dev/null || true
+        fi
+    fi
+fi
+
 if [ "$NO_START" -eq 0 ]; then
     "$BINARY" install-service >&2
 fi

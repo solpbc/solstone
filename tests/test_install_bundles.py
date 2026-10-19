@@ -108,8 +108,7 @@ class TestInstallBundles(HermeticInstallerTestCase):
                 self.assertIn("cli", res2["components"])
                 self.assertIn("tmux", res2["components"])
                 self.assertNotIn("desktop", res2["components"])
-                self.assertTrue(len(res2["notices"]) > 0)
-                self.assertIn("Desktop is not available", res2["notices"][0])
+                self.assertEqual(len(res2["notices"]), 1)
             finally:
                 server.stop()
 
