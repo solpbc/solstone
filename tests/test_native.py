@@ -1,10 +1,17 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
+from contextlib import contextmanager
+import json
 from pathlib import Path
 import shutil
+import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
+
+from solstone_platform.canonical import canonical_json_bytes
+from solstone_platform.generate import generate_platform_manifest
 
 from solstone_platform.ingest import (
     _parse_tmux_checksums,
@@ -16,6 +23,8 @@ from solstone_platform.ingest import (
     ingest_tmux,
 )
 from solstone_platform.pins import embedded_pins, load_pin_file
+from solstone_platform.schema import load_platform_manifest_bytes
+from solstone_platform.sign import ephemeral_keypair
 from solstone_platform.refusals import (
     RELEASE_COHERENCE,
     SCHEMA_INVALID,
@@ -25,6 +34,7 @@ from solstone_platform.refusals import (
     URL_USERINFO,
     Refusal,
 )
+from tools.fixture_builder import build_tiny_natives
 
 
 class TestNativeIngest(unittest.TestCase):
@@ -277,6 +287,121 @@ class TestNativeIngest(unittest.TestCase):
             with self.assertRaises(Refusal) as ctx:
                 ingest_desktop(tmp_p, self.pins.desktop)
             self.assertIn(ctx.exception.name, (SIGNATURE_PIN_MISMATCH, SCHEMA_INVALID, RELEASE_COHERENCE))
+
+
+class TestDesktopAarch64Ingest(unittest.TestCase):
+    """Desktop carries x86_64 always and aarch64 when the release has a signed aarch64 set."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp.name)
+        keys = ephemeral_keypair("desktop aarch64 ingest")
+        self.secret, _, self.pin = keys.__enter__()
+        self.addCleanup(keys.__exit__, None, None, None)
+        self.addCleanup(self.temp.cleanup)
+
+    def build(self, arches=("x86_64", "aarch64"), label="natives"):
+        @contextmanager
+        def retained(*args, **kwargs):
+            yield self.secret, None, self.pin
+
+        with patch("tools.fixture_builder.ephemeral_keypair", retained):
+            pins, dirs = build_tiny_natives(self.root / label, desktop_arches=arches)
+        return pins, dirs
+
+    def manifest(self, desktop: Path, arch: str) -> Path:
+        return desktop / f"solstone-linux-2.0.3-linux-{arch}.rust-release-manifest.json"
+
+    def rewrite(self, desktop: Path, arch: str, change) -> None:
+        path = self.manifest(desktop, arch)
+        obj = json.loads(path.read_text(encoding="utf-8"))
+        change(obj)
+        path.write_bytes(canonical_json_bytes(obj))
+        subprocess.run(["minisign", "-S", "-W", "-s", str(self.secret), "-m", str(path),
+                        "-x", str(path) + ".minisig"], check=True, capture_output=True)
+
+    def refuses(self, desktop: Path, code: str = RELEASE_COHERENCE) -> None:
+        with self.assertRaises(Refusal) as ctx:
+            ingest_desktop(desktop, self.pin)
+        self.assertEqual(ctx.exception.name, code, str(ctx.exception))
+
+    def test_both_arches_ingest_with_their_own_names_and_authority(self):
+        pins, dirs = self.build()
+        comp = ingest_desktop(dirs["desktop"], self.pin)
+        self.assertEqual(set(comp.arches), {"x86_64", "aarch64"})
+        arm = comp.arches["aarch64"]
+        self.assertEqual(
+            {route: entry["filename"] for route, entry in arm.items()},
+            {
+                "tree": "solstone-linux-2.0.3-linux-aarch64.tar.gz",
+                "deb": "solstone-linux_2.0.3-1_arm64.deb",
+                "rpm": "solstone-linux-2.0.3-1.aarch64.rpm",
+            },
+        )
+        self.assertEqual({entry["native_target"] for entry in arm.values()}, {"linux-aarch64"})
+        self.assertEqual(arm["deb"]["package_identity"]["arch"], "arm64")
+        self.assertEqual(arm["rpm"]["package_identity"]["arch"], "aarch64")
+        self.assertNotEqual(arm["tree"]["authority"]["manifest_sha256"], comp.arches["x86_64"]["tree"]["authority"]["manifest_sha256"])
+
+        manifest = generate_platform_manifest(
+            version="2.0.3", lane="release", created_unix=1700000000,
+            source_commit="3075c36b12fad469d4c9c0ab4555908fe8ecca1b", platform_key_id=self.pin.key_id,
+            repo_root=Path(__file__).parent.parent, journal_dir=dirs["journal"], desktop_dir=dirs["desktop"],
+            tmux_dir=dirs["tmux"], journal_origin="https://updates.solstone.app", pins=pins,
+        )
+        obj = load_platform_manifest_bytes(manifest)
+        self.assertEqual(set(obj["components"]["desktop"]["arches"]), {"x86_64", "aarch64"})
+
+    def test_x86_64_only_release_stays_x86_64_only(self):
+        _, dirs = self.build(arches=("x86_64",))
+        self.assertEqual(set(ingest_desktop(dirs["desktop"], self.pin).arches), {"x86_64"})
+
+    def test_x86_64_is_required(self):
+        _, dirs = self.build(arches=("aarch64",))
+        self.refuses(dirs["desktop"])
+
+    def test_aarch64_payloads_without_signed_manifest_refuse(self):
+        _, dirs = self.build()
+        for name in ("manifest", "signature"):
+            with self.subTest(missing=name):
+                desktop = self.root / f"stray-{name}"
+                shutil.copytree(dirs["desktop"], desktop)
+                manifest = self.manifest(desktop, "aarch64")
+                manifest.with_name(manifest.name + ".minisig").unlink()
+                if name == "manifest":
+                    manifest.unlink()
+                self.refuses(desktop)
+
+    def test_aarch64_set_is_verified_like_x86_64(self):
+        _, dirs = self.build()
+        cases = {
+            "x86-triple": lambda o: o["target"].__setitem__("triple", "x86_64-unknown-linux-gnu"),
+            "version": lambda o: o.__setitem__("version", "2.0.4"),
+            "commit": lambda o: o.__setitem__("source_commit", "b" * 40),
+            "dirty": lambda o: o.__setitem__("source_dirty", True),
+            "amd64-names": lambda o: [item.__setitem__("path", item["path"].replace("arm64", "amd64").replace("aarch64", "x86_64")) for item in o["artifacts"]],
+            "digest": lambda o: o["artifacts"][0].__setitem__("sha256", "f" * 64),
+        }
+        for label, change in cases.items():
+            with self.subTest(case=label):
+                desktop = self.root / f"mutated-{label}"
+                shutil.copytree(dirs["desktop"], desktop)
+                self.rewrite(desktop, "aarch64", change)
+                self.refuses(desktop)
+
+        desktop = self.root / "foreign-signature"
+        shutil.copytree(dirs["desktop"], desktop)
+        with ephemeral_keypair("foreign desktop key") as (foreign, _, _):
+            manifest = self.manifest(desktop, "aarch64")
+            subprocess.run(["minisign", "-S", "-W", "-s", str(foreign), "-m", str(manifest),
+                            "-x", str(manifest) + ".minisig"], check=True, capture_output=True)
+        self.refuses(desktop, SIGNATURE_PIN_MISMATCH)
+
+        desktop = self.root / "payload-bytes"
+        shutil.copytree(dirs["desktop"], desktop)
+        deb = desktop / "solstone-linux_2.0.3-1_arm64.deb"
+        deb.write_bytes(deb.read_bytes() + b"x")
+        self.refuses(desktop)
 
 
 if __name__ == "__main__":

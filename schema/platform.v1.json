@@ -293,6 +293,9 @@
           "properties": {
             "x86_64": {
               "$ref": "#/definitions/arch_variants"
+            },
+            "aarch64": {
+              "$ref": "#/definitions/arch_variants"
             }
           }
         }

@@ -177,6 +177,7 @@ def build_tiny_natives(
     desktop_runtime_version: str | None = None,
     native_build_marker: str = "",
     journal_version: str = "2.0.6",
+    desktop_arches: tuple[str, ...] = ("x86_64",),
 ) -> tuple[PinSet, dict[str, Path]]:
     """Build tiny, coherent synthetic natives for journal, desktop, and tmux."""
     dirs = {
@@ -209,33 +210,35 @@ def build_tiny_natives(
             "esac\n"
             f"echo {d_runtime_version}\n{marker_line}"
         ).encode("utf-8")
-        d_tar = create_tiny_tar(dirs["desktop"] / f"solstone-linux-{d_version}-linux-x86_64.tar.gz", {f"solstone-linux-{d_version}-linux-x86_64/bin/solstone-linux": desktop_exe})
-        d_deb = create_tiny_deb(dirs["desktop"] / f"solstone-linux_{d_version}-1_amd64.deb", "solstone-linux", d_version, "amd64", "solstone-linux", desktop_exe)
-        d_rpm = create_tiny_synthetic_rpm(dirs["desktop"] / f"solstone-linux-{d_version}-1.x86_64.rpm", "solstone-linux", d_version, "x86_64", "solstone-linux", desktop_exe)
+        for arch, deb_arch, rpm_arch in [("x86_64", "amd64", "x86_64"), ("aarch64", "arm64", "aarch64")]:
+            if arch not in desktop_arches:
+                continue
+            d_tar = create_tiny_tar(dirs["desktop"] / f"solstone-linux-{d_version}-linux-{arch}.tar.gz", {f"solstone-linux-{d_version}-linux-{arch}/bin/solstone-linux": desktop_exe})
+            d_deb = create_tiny_deb(dirs["desktop"] / f"solstone-linux_{d_version}-1_{deb_arch}.deb", "solstone-linux", d_version, deb_arch, "solstone-linux", desktop_exe)
+            d_rpm = create_tiny_synthetic_rpm(dirs["desktop"] / f"solstone-linux-{d_version}-1.{rpm_arch}.rpm", "solstone-linux", d_version, rpm_arch, "solstone-linux", desktop_exe)
 
-
-        d_manifest = {
-            "schema_version": 1,
-            "product": "solstone-linux",
-            "version": d_version,
-            "source_commit": "3a6bded610425b52a8ac875ae364d23f6e70ce7f",
-            "source_dirty": False,
-            "cargo_lock_sha256": "0" * 64,
-            "rust": {"rustc_verbose": "1", "cargo_version": "1"},
-            "target": {"kind": "compiled", "triple": "x86_64-unknown-linux-gnu", "profile": "release", "features": []},
-            "native_tools": {},
-            "dependency_policy": {},
-            "active_exceptions": [],
-            "artifacts": [
-                {"path": f"solstone-linux-{d_version}-linux-x86_64.tar.gz", "sha256": hashlib.sha256(d_tar).hexdigest(), "bytes": len(d_tar)},
-                {"path": f"solstone-linux_{d_version}-1_amd64.deb", "sha256": hashlib.sha256(d_deb).hexdigest(), "bytes": len(d_deb)},
-                {"path": f"solstone-linux-{d_version}-1.x86_64.rpm", "sha256": hashlib.sha256(d_rpm).hexdigest(), "bytes": len(d_rpm)},
-            ],
-        }
-        d_m_path = dirs["desktop"] / f"solstone-linux-{d_version}-linux-x86_64.rust-release-manifest.json"
-        d_m_bytes = canonical_json_bytes(d_manifest)
-        d_m_path.write_bytes(d_m_bytes)
-        subprocess.run(["minisign", "-S", "-W", "-s", str(d_sec), "-m", str(d_m_path), "-x", str(d_m_path.with_suffix(".json.minisig")), "-t", "solstone-linux release manifest"], check=True)
+            d_manifest = {
+                "schema_version": 1,
+                "product": "solstone-linux",
+                "version": d_version,
+                "source_commit": "3a6bded610425b52a8ac875ae364d23f6e70ce7f",
+                "source_dirty": False,
+                "cargo_lock_sha256": "0" * 64,
+                "rust": {"rustc_verbose": "1", "cargo_version": "1"},
+                "target": {"kind": "compiled", "triple": f"{arch}-unknown-linux-gnu", "profile": "release", "features": []},
+                "native_tools": {},
+                "dependency_policy": {},
+                "active_exceptions": [],
+                "artifacts": [
+                    {"path": f"solstone-linux-{d_version}-linux-{arch}.tar.gz", "sha256": hashlib.sha256(d_tar).hexdigest(), "bytes": len(d_tar)},
+                    {"path": f"solstone-linux_{d_version}-1_{deb_arch}.deb", "sha256": hashlib.sha256(d_deb).hexdigest(), "bytes": len(d_deb)},
+                    {"path": f"solstone-linux-{d_version}-1.{rpm_arch}.rpm", "sha256": hashlib.sha256(d_rpm).hexdigest(), "bytes": len(d_rpm)},
+                ],
+            }
+            d_m_path = dirs["desktop"] / f"solstone-linux-{d_version}-linux-{arch}.rust-release-manifest.json"
+            d_m_bytes = canonical_json_bytes(d_manifest)
+            d_m_path.write_bytes(d_m_bytes)
+            subprocess.run(["minisign", "-S", "-W", "-s", str(d_sec), "-m", str(d_m_path), "-x", str(d_m_path.with_suffix(".json.minisig")), "-t", "solstone-linux release manifest"], check=True)
 
         # 2. Tmux
         t_sums = []

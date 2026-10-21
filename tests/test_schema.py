@@ -10,7 +10,6 @@ from unittest.mock import patch
 from solstone_platform.canonical import canonical_json_bytes, parse_json_strict
 from solstone_platform.compat import installer_revision_allows, load_minimum_installer_revision
 from solstone_platform.refusals import (
-    DESKTOP_AARCH64,
     DUPLICATE_KEY,
     INCOMPLETE_VARIANTS,
     LANE_INVALID,
@@ -70,12 +69,41 @@ class TestSchema(unittest.TestCase):
             parse_json_strict(raw)
         self.assertEqual(ctx.exception.name, DUPLICATE_KEY)
 
-    def test_desktop_aarch64_refusal(self):
+    @staticmethod
+    def aarch64_desktop(x86_variants: dict) -> dict:
+        variants = copy.deepcopy(x86_variants)
+        for route, (old, new) in {"tree": ("linux-x86_64", "linux-aarch64"), "deb": ("_amd64", "_arm64"), "rpm": (".x86_64", ".aarch64")}.items():
+            variants[route]["filename"] = variants[route]["filename"].replace(old, new)
+            variants[route]["native_target"] = "linux-aarch64"
+        variants["deb"]["package_identity"]["arch"] = "arm64"
+        variants["rpm"]["package_identity"]["arch"] = "aarch64"
+        return variants
+
+    def test_desktop_arch_sets(self):
         obj = parse_json_strict(self.example_bytes)
-        obj["components"]["desktop"]["arches"]["aarch64"] = dict(obj["components"]["desktop"]["arches"]["x86_64"])
-        with self.assertRaises(Refusal) as ctx:
-            validate_platform_manifest(obj)
-        self.assertEqual(ctx.exception.name, DESKTOP_AARCH64)
+        desktop = obj["components"]["desktop"]
+        self.assertEqual(set(desktop["arches"]), {"x86_64"})
+        validate_platform_manifest(obj)
+
+        desktop["arches"]["aarch64"] = self.aarch64_desktop(desktop["arches"]["x86_64"])
+        validate_platform_manifest(obj)
+        load_platform_manifest_bytes(canonical_json_bytes(obj))
+
+        aarch64_only = copy.deepcopy(obj)
+        del aarch64_only["components"]["desktop"]["arches"]["x86_64"]
+        self.assert_schema_refusal(aarch64_only)
+
+        # An aarch64 entry must describe aarch64 payloads, not reuse the x86_64 ones.
+        mislabeled = copy.deepcopy(obj)
+        mislabeled["components"]["desktop"]["arches"]["aarch64"] = copy.deepcopy(desktop["arches"]["x86_64"])
+        self.assert_schema_refusal(mislabeled)
+        mislabeled = copy.deepcopy(obj)
+        mislabeled["components"]["desktop"]["arches"]["aarch64"]["deb"]["package_identity"]["arch"] = "amd64"
+        self.assert_schema_refusal(mislabeled)
+
+        unknown = copy.deepcopy(obj)
+        unknown["components"]["desktop"]["arches"]["riscv64"] = copy.deepcopy(desktop["arches"]["aarch64"])
+        self.assert_schema_refusal(unknown)
 
     def test_incomplete_variants_refusal(self):
         obj = parse_json_strict(self.example_bytes)
@@ -442,6 +470,13 @@ class TestSchema(unittest.TestCase):
             self.assertEqual(expected["uninstall_service_entrypoint"], contract["uninstall_service_entrypoint"])
             self.assertEqual(expected["executable_name"], contract["executable_name"])
             self.assertEqual(expected["version_command"], contract["version_command"])
+
+    def test_json_schema_desktop_arches(self):
+        from solstone_platform.schema import render_platform_schema
+        arches = parse_json_strict(render_platform_schema().encode("utf-8"))["definitions"]["desktop_component"]["properties"]["arches"]
+        self.assertEqual(arches["required"], ["x86_64"])
+        self.assertEqual(set(arches["properties"]), {"x86_64", "aarch64"})
+        self.assertFalse(arches["additionalProperties"])
 
     def test_json_schema_direct_constraints_match_python_contract(self):
         from solstone_platform.schema import render_platform_schema

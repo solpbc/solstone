@@ -43,6 +43,7 @@ from solstone_platform.schema import (
     compare_catalogue_coordinates,
     load_platform_manifest_bytes,
     parse_catalogue_coordinate,
+    validate_arch_retention,
     validate_catalogue_transition,
 )
 from solstone_platform.targets import get_target_mapping
@@ -73,7 +74,8 @@ class _Downloader:
         self.total = 0
         self.sources: list[dict[str, Any]] = []
 
-    def fetch(self, url: str, destination: Path, *, artifact: bool = False) -> bytes:
+    def fetch(self, url: str, destination: Path, *, artifact: bool = False, optional: bool = False) -> bytes | None:
+        """Fetch exact bytes; with optional, an HTTP 404 alone returns None and records nothing."""
         started = time.monotonic()
         limit = MAX_ARTIFACT_BYTES if artifact else MAX_METADATA_BYTES
         request = urllib.request.Request(url, headers={"User-Agent": "solstone-platform-recut/1"})
@@ -82,6 +84,9 @@ class _Downloader:
         except Refusal:
             raise
         except urllib.error.HTTPError as err:
+            err.close()
+            if optional and err.code == 404:
+                return None
             if 300 <= err.code < 400:
                 raise Refusal(HTTP_3XX, f"redirect refused for {url}") from err
             raise Refusal(RELEASE_COHERENCE, f"download failed for {url}: HTTP {err.code}") from err
@@ -154,9 +159,10 @@ def _git_identity(repo_root: Path) -> str:
     return commit
 
 
-def _write_remote(downloader: _Downloader, url: str, path: Path, *, artifact: bool = False) -> bytes:
-    data = downloader.fetch(url, path, artifact=artifact)
-    downloader.sources[-1]["path"] = str(path)
+def _write_remote(downloader: _Downloader, url: str, path: Path, *, artifact: bool = False, optional: bool = False) -> bytes | None:
+    data = downloader.fetch(url, path, artifact=artifact, optional=optional)
+    if data is not None:
+        downloader.sources[-1]["path"] = str(path)
     return data
 
 
@@ -182,20 +188,27 @@ def _download_journal(d: _Downloader, root: Path, version: str, prefix: str) -> 
     return out
 
 
-def _download_desktop(d: _Downloader, root: Path, version: str, prefix: str) -> Path:
+def _download_desktop(d: _Downloader, root: Path, version: str, prefix: str, base_arches: set[str], probe: bool) -> Path:
+    """Fetch every base arch; when probing a new release, add aarch64 unless its manifest is a 404."""
     out = root / "desktop"
-    name = f"solstone-linux-{version}-linux-x86_64.rust-release-manifest.json"
-    manifest = _write_remote(d, f"{prefix}/{name}", out / name)
-    _write_remote(d, f"{prefix}/{name}.minisig", out / f"{name}.minisig")
-    obj = parse_json_strict(manifest)
-    artifacts = obj.get("artifacts") if isinstance(obj, dict) else None
-    if not isinstance(artifacts, list):
-        raise Refusal(RELEASE_COHERENCE, "desktop manifest has no artifacts list")
-    for item in artifacts:
-        if not isinstance(item, dict) or not isinstance(item.get("path"), str):
-            raise Refusal(RELEASE_COHERENCE, "desktop manifest has invalid artifact entry")
-        artifact = _safe_name(item["path"])
-        _write_remote(d, f"{prefix}/{artifact}", out / artifact, artifact=True)
+    for arch in ("x86_64", "aarch64"):
+        required = arch == "x86_64" or arch in base_arches
+        if not required and not probe:
+            continue
+        name = f"solstone-linux-{version}-{get_target_mapping(arch).native_target}.rust-release-manifest.json"
+        manifest = _write_remote(d, f"{prefix}/{name}", out / name, optional=not required)
+        if manifest is None:
+            continue
+        _write_remote(d, f"{prefix}/{name}.minisig", out / f"{name}.minisig")
+        obj = parse_json_strict(manifest)
+        artifacts = obj.get("artifacts") if isinstance(obj, dict) else None
+        if not isinstance(artifacts, list):
+            raise Refusal(RELEASE_COHERENCE, f"desktop manifest {name} has no artifacts list")
+        for item in artifacts:
+            if not isinstance(item, dict) or not isinstance(item.get("path"), str):
+                raise Refusal(RELEASE_COHERENCE, "desktop manifest has invalid artifact entry")
+            artifact = _safe_name(item["path"])
+            _write_remote(d, f"{prefix}/{artifact}", out / artifact, artifact=True)
     return out
 
 
@@ -353,7 +366,9 @@ def prepare_recut(
         tmux_prefix = f"{origin}/solstone-tmux/release/{component_versions['tmux']}" if "tmux" in replacements else base_prefix
 
         journal_dir = _download_journal(downloader, stage, component_versions["journal"], journal_prefix)
-        desktop_dir = _download_desktop(downloader, stage, component_versions["desktop"], desktop_prefix)
+        # A replacement desktop must carry every arch the base carried; aarch64 is otherwise optional per release.
+        desktop_dir = _download_desktop(downloader, stage, component_versions["desktop"], desktop_prefix,
+                                        set(base_obj["components"]["desktop"]["arches"]), "desktop" in replacements)
         tmux_dir = _download_tmux(downloader, stage, component_versions["tmux"], tmux_prefix)
 
         bootstrap_name = f"solstone-journal-{component_versions['journal']}-install.sh"
@@ -396,6 +411,7 @@ def prepare_recut(
         candidate = load_platform_manifest_bytes(manifest, canonical_refusal=RELEASE_COHERENCE)
 
         validate_catalogue_transition(base_obj, candidate, SCHEMA_2_INSTALLER_FLOOR)
+        validate_arch_retention(base_obj, candidate)
         for name in KNOWN_COMPONENTS:
             base_component = base_obj["components"][name]
             candidate_component = candidate["components"][name]

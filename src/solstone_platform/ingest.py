@@ -16,7 +16,6 @@ from solstone_platform.archive import scan_variant_archive
 from solstone_platform.canonical import parse_json_strict
 from solstone_platform.pins import MinisignPin, PinSet, embedded_pins
 from solstone_platform.refusals import (
-    DESKTOP_AARCH64,
     DUPLICATE_KEY,
     INCOMPLETE_VARIANTS,
     RELEASE_COHERENCE,
@@ -31,7 +30,6 @@ from solstone_platform.refusals import (
 from solstone_platform.targets import (
     MUSL_TO_ARCH,
     NATIVE_TO_ARCH,
-    TARGET_MAPPINGS,
     get_target_mapping,
 )
 from solstone_platform.witness import get_witness
@@ -513,104 +511,122 @@ def ingest_journal(
 
 
 def ingest_desktop(native_dir: Path, pin: MinisignPin) -> IngestedComponent:
-    """Ingest solstone-linux desktop release (x86_64 only)."""
-    # Verify no aarch64 exists in desktop native dir
-    aarch64_files = list(native_dir.glob("*aarch64*"))
-    if aarch64_files:
-        raise Refusal(DESKTOP_AARCH64, f"desktop component contains aarch64 artifacts: {[f.name for f in aarch64_files]}")
+    """Ingest solstone-linux desktop release: x86_64 always, aarch64 when its signed manifest is present."""
+    component_version: Optional[str] = None
+    cross_arch_commit: Optional[str] = None
+    arches_data: dict[str, dict[str, Any]] = {}
 
-    manifests = list(native_dir.glob("solstone-linux-*-linux-x86_64.rust-release-manifest.json"))
-    manifest_path = _require_one(manifests, "desktop rust-release-manifest")
-    sig_path = manifest_path.with_name(manifest_path.name + ".minisig")
+    for target_arch in ["x86_64", "aarch64"]:
+        mapping = get_target_mapping(target_arch)
+        manifests = list(native_dir.glob(f"solstone-linux-*-{mapping.native_target}.rust-release-manifest.json"))
+        if target_arch != "x86_64" and not manifests:
+            continue
+        manifest_path = _require_one(manifests, f"desktop rust-release-manifest for {mapping.native_target}")
+        sig_path = manifest_path.with_name(manifest_path.name + ".minisig")
 
-    verify_minisign_signature(pin, manifest_path, sig_path)
-    manifest_bytes = manifest_path.read_bytes()
-    sig_bytes = sig_path.read_bytes()
-    manifest_obj = parse_json_strict(manifest_bytes)
-    get_witness().record("json_parse", str(manifest_path))
+        verify_minisign_signature(pin, manifest_path, sig_path)
+        manifest_bytes = manifest_path.read_bytes()
+        sig_bytes = sig_path.read_bytes()
+        manifest_obj = parse_json_strict(manifest_bytes)
+        get_witness().record("json_parse", str(manifest_path))
 
-    if manifest_obj.get("product") != "solstone-linux":
-        raise Refusal(RELEASE_COHERENCE, f"desktop manifest product mismatch: {manifest_obj.get('product')}")
+        if manifest_obj.get("product") != "solstone-linux":
+            raise Refusal(RELEASE_COHERENCE, f"desktop manifest product mismatch: {manifest_obj.get('product')}")
 
-    ver = manifest_obj.get("version")
-    if not ver:
-        raise Refusal(RELEASE_COHERENCE, "desktop manifest missing version")
+        ver = manifest_obj.get("version")
+        if not ver:
+            raise Refusal(RELEASE_COHERENCE, "desktop manifest missing version")
+        if component_version is None:
+            component_version = ver
+        elif component_version != ver:
+            raise Refusal(RELEASE_COHERENCE, f"desktop version mismatch between arches: {component_version} vs {ver}")
+        if manifest_path.name != f"solstone-linux-{ver}-{mapping.native_target}.rust-release-manifest.json":
+            raise Refusal(RELEASE_COHERENCE, f"desktop manifest filename mismatch: {manifest_path.name}")
 
-    if manifest_obj.get("source_dirty") is not False:
-        raise Refusal(RELEASE_COHERENCE, "desktop manifest source_dirty must be false")
+        if manifest_obj.get("source_dirty") is not False:
+            raise Refusal(RELEASE_COHERENCE, "desktop manifest source_dirty must be false")
 
-    commit = manifest_obj.get("source_commit")
-    if not commit or not re.fullmatch(r"[0-9a-f]{40}", str(commit)):
-        raise Refusal(RELEASE_COHERENCE, "desktop manifest missing or invalid source_commit")
+        commit = manifest_obj.get("source_commit")
+        if not commit or not re.fullmatch(r"[0-9a-f]{40}", str(commit)):
+            raise Refusal(RELEASE_COHERENCE, "desktop manifest missing or invalid source_commit")
+        if cross_arch_commit is None:
+            cross_arch_commit = commit
+        elif cross_arch_commit != commit:
+            raise Refusal(RELEASE_COHERENCE, f"desktop source_commit mismatch across arches: {cross_arch_commit} vs {commit}")
 
-    triple = manifest_obj.get("target", {}).get("triple")
-    if triple != "x86_64-unknown-linux-gnu":
-        raise Refusal(RELEASE_COHERENCE, f"desktop target.triple mismatch: expected 'x86_64-unknown-linux-gnu', got '{triple}'")
+        triple = manifest_obj.get("target", {}).get("triple")
+        if triple != mapping.gnu_target:
+            raise Refusal(RELEASE_COHERENCE, f"desktop target.triple mismatch: expected '{mapping.gnu_target}', got '{triple}'")
 
-    native_target = TARGET_MAPPINGS["x86_64"].native_target
+        artifacts = manifest_obj.get("artifacts", [])
+        _validate_desktop_artifacts(artifacts)
 
-    artifacts = manifest_obj.get("artifacts", [])
-    _validate_desktop_artifacts(artifacts)
-
-    expected_artifact_names = {
-        "tree": f"solstone-linux-{ver}-linux-x86_64.tar.gz",
-        "deb": f"solstone-linux_{ver}-1_amd64.deb",
-        "rpm": f"solstone-linux-{ver}-1.x86_64.rpm",
-    }
-    items_by_name = {item["path"]: item for item in artifacts}
-    _require_exact_artifact_names(
-        set(items_by_name),
-        set(expected_artifact_names.values()),
-        "desktop",
-    )
-
-    variants_dict: dict[str, Any] = {}
-    for var_type, filename in expected_artifact_names.items():
-        item = items_by_name[filename]
-        filename = item["path"]
-        file_path = native_dir / filename
-        if not file_path.is_file():
-            raise Refusal(INCOMPLETE_VARIANTS, f"desktop artifact file {filename} not found on disk")
-
-        file_bytes = file_path.read_bytes()
-        computed_sha = hashlib.sha256(file_bytes).hexdigest()
-        if computed_sha != item["sha256"] or len(file_bytes) != item["bytes"]:
-            raise Refusal(RELEASE_COHERENCE, f"desktop artifact {filename} digest or length mismatch")
-
-        scan_res = scan_variant_archive(file_path)
-        get_witness().record("archive_scan", str(file_path))
-        exe_sha = scan_res.executable_sha256.get("solstone-linux")
-        if not exe_sha:
-            raise Refusal(RELEASE_COHERENCE, f"executable 'solstone-linux' not found in {filename}")
-
-        pkg_id = scan_res.package_identity.to_dict() if scan_res.package_identity else None
-
-        variants_dict[var_type] = {
-            "filename": filename,
-            "sha256": computed_sha,
-            "bytes": len(file_bytes),
-            "native_target": native_target,
-            "package_identity": pkg_id,
-            "executable": {
-                "name": "solstone-linux",
-                "sha256": exe_sha,
-                "version_command": ["solstone-linux", "--version"],
-            },
-            "payload_build_id": scan_res.payload_build_id,
-            "archive_inventory": scan_res.inventory,
-            "authority": {
-                "type": "desktop-rust-release-manifest",
-                "verifier_id": pin.verifier_id(),
-                "manifest_sha256": hashlib.sha256(manifest_bytes).hexdigest(),
-                "signature_sha256": hashlib.sha256(sig_bytes).hexdigest(),
-            },
+        expected_artifact_names = {
+            "tree": f"solstone-linux-{ver}-{mapping.native_target}.tar.gz",
+            "deb": f"solstone-linux_{ver}-1_{mapping.deb_arch}.deb",
+            "rpm": f"solstone-linux-{ver}-1.{mapping.rpm_arch}.rpm",
         }
+        items_by_name = {item["path"]: item for item in artifacts}
+        _require_exact_artifact_names(
+            set(items_by_name),
+            set(expected_artifact_names.values()),
+            f"desktop {mapping.native_target}",
+        )
+
+        variants_dict: dict[str, Any] = {}
+        for var_type, filename in expected_artifact_names.items():
+            item = items_by_name[filename]
+            file_path = native_dir / filename
+            if not file_path.is_file():
+                raise Refusal(INCOMPLETE_VARIANTS, f"desktop artifact file {filename} not found on disk")
+
+            file_bytes = file_path.read_bytes()
+            computed_sha = hashlib.sha256(file_bytes).hexdigest()
+            if computed_sha != item["sha256"] or len(file_bytes) != item["bytes"]:
+                raise Refusal(RELEASE_COHERENCE, f"desktop artifact {filename} digest or length mismatch")
+
+            scan_res = scan_variant_archive(file_path)
+            get_witness().record("archive_scan", str(file_path))
+            exe_sha = scan_res.executable_sha256.get("solstone-linux")
+            if not exe_sha:
+                raise Refusal(RELEASE_COHERENCE, f"executable 'solstone-linux' not found in {filename}")
+
+            pkg_id = scan_res.package_identity.to_dict() if scan_res.package_identity else None
+
+            variants_dict[var_type] = {
+                "filename": filename,
+                "sha256": computed_sha,
+                "bytes": len(file_bytes),
+                "native_target": mapping.native_target,
+                "package_identity": pkg_id,
+                "executable": {
+                    "name": "solstone-linux",
+                    "sha256": exe_sha,
+                    "version_command": ["solstone-linux", "--version"],
+                },
+                "payload_build_id": scan_res.payload_build_id,
+                "archive_inventory": scan_res.inventory,
+                "authority": {
+                    "type": "desktop-rust-release-manifest",
+                    "verifier_id": pin.verifier_id(),
+                    "manifest_sha256": hashlib.sha256(manifest_bytes).hexdigest(),
+                    "signature_sha256": hashlib.sha256(sig_bytes).hexdigest(),
+                },
+            }
+
+        arches_data[target_arch] = variants_dict
+
+    # Without a signed aarch64 manifest, stray aarch64 payloads are a partial set, not an absent arch.
+    if "aarch64" not in arches_data:
+        stray = sorted(f.name for f in native_dir.iterdir() if "aarch64" in f.name or "arm64" in f.name)
+        if stray:
+            raise Refusal(RELEASE_COHERENCE, f"desktop aarch64 artifacts without a signed aarch64 manifest: {stray}")
 
     return IngestedComponent(
         name="desktop",
-        version=ver,
+        version=component_version or "",
         provenance=None,
-        arches={"x86_64": variants_dict},
+        arches=arches_data,
     )
 
 

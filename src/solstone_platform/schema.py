@@ -10,7 +10,6 @@ from typing import Any
 from solstone_platform.archive import normalize_member_path, validate_symlink_target
 from solstone_platform.canonical import canonical_json_bytes, parse_json_strict
 from solstone_platform.refusals import (
-    DESKTOP_AARCH64,
     INCOMPLETE_VARIANTS,
     LANE_INVALID,
     RELEASE_COHERENCE,
@@ -229,6 +228,14 @@ def validate_catalogue_transition(
     raise Refusal(RELEASE_COHERENCE, f"unsupported schema transition from {base_schema} to {cand_schema}")
 
 
+def validate_arch_retention(base: dict[str, Any], candidate: dict[str, Any]) -> None:
+    """A recut may add a component architecture but never drop one the base carried."""
+    for name, base_component in base["components"].items():
+        dropped = set(base_component["arches"]) - set(candidate["components"][name]["arches"])
+        if dropped:
+            raise Refusal(RELEASE_COHERENCE, f"recut would drop {name} architectures carried by the base: {sorted(dropped)}")
+
+
 def _semver_key(value: str) -> tuple[tuple[int, str], ...]:
     if not is_valid_semver(value):
         raise Refusal(VERSION_INVALID, f"invalid semver '{value}'")
@@ -437,10 +444,8 @@ def _validate_component(name: str, comp: Any, seen_filenames: set[str]) -> None:
         raise Refusal(SCHEMA_INVALID, f"component '{name}' arches must be an object")
 
     if name == "desktop":
-        if "aarch64" in arches:
-            raise Refusal(DESKTOP_AARCH64, "desktop component must not contain aarch64 architecture")
-        if set(arches.keys()) != {"x86_64"}:
-            raise Refusal(SCHEMA_INVALID, f"desktop arches must only contain x86_64, got {sorted(arches.keys())}")
+        if set(arches.keys()) not in ({"x86_64"}, {"x86_64", "aarch64"}):
+            raise Refusal(SCHEMA_INVALID, f"desktop arches must be x86_64, optionally with aarch64, got {sorted(arches.keys())}")
     else:
         if set(arches.keys()) != {"x86_64", "aarch64"}:
             raise Refusal(SCHEMA_INVALID, f"component '{name}' arches must contain x86_64 and aarch64")
@@ -848,6 +853,7 @@ def render_platform_schema() -> str:
                     "required": ["x86_64"],
                     "properties": {
                         "x86_64": {"$ref": "#/definitions/arch_variants"},
+                        "aarch64": {"$ref": "#/definitions/arch_variants"},
                     },
                 },
             },

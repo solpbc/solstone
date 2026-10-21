@@ -59,12 +59,14 @@ class TestPublish(unittest.TestCase):
         lane: str = "release",
         bootstrap_script: bytes | None = None,
         min_bootstrap_revision: int = 2,
+        desktop_arches: tuple[str, ...] = ("x86_64",),
     ):
         natives_dir = self.root / f"natives-{version}"
         built_pinset, dirs = build_tiny_natives(
             natives_dir,
             bootstrap_script=bootstrap_script,
             min_bootstrap_revision=min_bootstrap_revision,
+            desktop_arches=desktop_arches,
         )
 
         p_pin = self.platform_pin
@@ -1003,6 +1005,50 @@ class TestPublish(unittest.TestCase):
                 pins=built_pinset,
             )
         self.assertEqual(ctx.exception.name, RELEASE_COHERENCE)
+
+    def test_desktop_claims_follow_ingested_arches(self):
+        def publish(rel):
+            return publish_release(
+                manifest_path=rel["manifest_path"],
+                signature_path=rel["signature_path"],
+                journal_dir=rel["journal_dir"],
+                desktop_dir=rel["desktop_dir"],
+                tmux_dir=rel["tmux_dir"],
+                dest=rel["dest"],
+            )
+
+        rel = self._setup_fixture_release("2.0.3")
+        publish(rel)
+        desktop_keys = {key.rsplit("/", 1)[1] for key in rel["dest"].objects if "/solstone-linux" in key}
+        self.assertEqual(desktop_keys, {
+            "solstone-linux-2.0.3-linux-x86_64.rust-release-manifest.json",
+            "solstone-linux-2.0.3-linux-x86_64.rust-release-manifest.json.minisig",
+            "solstone-linux-2.0.3-linux-x86_64.tar.gz",
+            "solstone-linux_2.0.3-1_amd64.deb",
+            "solstone-linux-2.0.3-1.x86_64.rpm",
+        })
+
+        rel = self._setup_fixture_release("2.0.4", desktop_arches=("x86_64", "aarch64"))
+        publish(rel)
+        desktop_keys = {key.rsplit("/", 1)[1] for key in rel["dest"].objects if key.startswith("solstone/release/2.0.4/solstone-linux")}
+        self.assertEqual(len(desktop_keys), 10)
+        self.assertTrue({
+            "solstone-linux-2.0.3-linux-aarch64.rust-release-manifest.json",
+            "solstone-linux-2.0.3-linux-aarch64.rust-release-manifest.json.minisig",
+            "solstone-linux-2.0.3-linux-aarch64.tar.gz",
+            "solstone-linux_2.0.3-1_arm64.deb",
+            "solstone-linux-2.0.3-1.aarch64.rpm",
+        } <= desktop_keys)
+
+        # A signed catalogue listing desktop aarch64 cannot publish without the aarch64 set it names.
+        rel = self._setup_fixture_release("2.0.5", desktop_arches=("x86_64", "aarch64"))
+        for path in rel["desktop_dir"].iterdir():
+            if "aarch64" in path.name or "arm64" in path.name:
+                path.unlink()
+        with self.assertRaises(Refusal) as ctx:
+            publish(rel)
+        self.assertEqual(ctx.exception.name, RELEASE_COHERENCE)
+        self.assertFalse(any(item.method == "put_if_absent" for item in rel["dest"].ledger))
 
     def test_destination_overwrite_denial_and_no_delete(self):
         rel = self._setup_fixture_release("2.0.3")

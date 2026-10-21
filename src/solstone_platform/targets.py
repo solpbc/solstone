@@ -16,6 +16,7 @@ class TargetMapping:
     deb_arch: str         # deb package arch: "amd64" | "arm64"
     rpm_arch: str         # rpm package arch: "x86_64" | "aarch64"
     musl_target: str      # tmux target triple: "x86_64-unknown-linux-musl" | "aarch64-unknown-linux-musl"
+    gnu_target: str       # desktop target triple: "x86_64-unknown-linux-gnu" | "aarch64-unknown-linux-gnu"
 
 
 # The authoritative mapping table
@@ -26,6 +27,7 @@ TARGET_MAPPINGS: dict[str, TargetMapping] = {
         deb_arch="amd64",
         rpm_arch="x86_64",
         musl_target="x86_64-unknown-linux-musl",
+        gnu_target="x86_64-unknown-linux-gnu",
     ),
     "aarch64": TargetMapping(
         arch="aarch64",
@@ -33,6 +35,7 @@ TARGET_MAPPINGS: dict[str, TargetMapping] = {
         deb_arch="arm64",
         rpm_arch="aarch64",
         musl_target="aarch64-unknown-linux-musl",
+        gnu_target="aarch64-unknown-linux-gnu",
     ),
 }
 

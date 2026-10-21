@@ -35,6 +35,7 @@ from solstone_platform.schema import (
     catalogue_coordinate,
     compare_catalogue_coordinates,
     load_platform_manifest_bytes,
+    validate_arch_retention,
     validate_catalogue_transition,
 )
 from solstone_platform.targets import get_target_mapping
@@ -236,6 +237,7 @@ def _validate_recut_receipt(
     origin = "https://updates.solstone.app"
     base_version = catalogue_coordinate(base_obj)
     validate_catalogue_transition(base_obj, manifest_obj, SCHEMA_2_INSTALLER_FLOOR)
+    validate_arch_retention(base_obj, manifest_obj)
     expected_source_paths = set(prepared_by_path) - {"platform.json"}
     if set(source_by_path) != expected_source_paths:
         raise Refusal(RELEASE_COHERENCE, "recut receipt source mapping is incomplete or has extras")
@@ -438,6 +440,8 @@ def publish_release(*args, **kwargs) -> PublishReport:
             comp_obj = manifest_obj["components"][comp_name]
             if comp_obj.get("version") != scanned_comp.version:
                 raise Refusal(RELEASE_COHERENCE, f"component '{comp_name}' version mismatch: manifest {comp_obj.get('version')} vs scanned {scanned_comp.version}")
+            if set(comp_obj.get("arches", {})) != set(scanned_comp.arches):
+                raise Refusal(RELEASE_COHERENCE, f"component '{comp_name}' arches differ: manifest {sorted(comp_obj.get('arches', {}))} vs scanned {sorted(scanned_comp.arches)}")
 
             for arch_name, scanned_variants in scanned_comp.arches.items():
                 if arch_name not in comp_obj.get("arches", {}):
@@ -489,12 +493,11 @@ def publish_release(*args, **kwargs) -> PublishReport:
 
         # Desktop objects
         d_ver = ingested_d.version
-        d_files = {
-            f"solstone-linux-{d_ver}-linux-x86_64.rust-release-manifest.json",
-            f"solstone-linux-{d_ver}-linux-x86_64.rust-release-manifest.json.minisig",
-        }
-        if "x86_64" in ingested_d.arches:
-            for var_data in ingested_d.arches["x86_64"].values():
+        d_files: set[str] = set()
+        for target_arch, d_variants in ingested_d.arches.items():
+            d_manifest = f"solstone-linux-{d_ver}-{get_target_mapping(target_arch).native_target}.rust-release-manifest.json"
+            d_files.update({d_manifest, f"{d_manifest}.minisig"})
+            for var_data in d_variants.values():
                 d_files.add(var_data["filename"])
 
         for fname in sorted(d_files):
