@@ -87,6 +87,11 @@ new catalogue directly from its signed release. the
 [preparation path](src/solstone_platform/recut.py) validates the downloaded
 artifacts, requires every unselected component entry to remain exact, and records
 the `latest` version and ETag that publication is allowed to replace.
+a desktop release adds its aarch64 set when it publishes
+`solstone-linux-<version>-linux-aarch64.rust-release-manifest.json` beside the
+x86_64 one. a recut that would drop an architecture the current catalogue
+carries is refused. deploy installer revision `16` before promoting the first
+catalogue that lists desktop aarch64.
 
 ```bash
 export SOLSTONE_R2_ENDPOINT="https://<account>.r2.cloudflarestorage.com"
