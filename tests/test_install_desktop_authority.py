@@ -34,8 +34,9 @@ def sha256(path: Path) -> str:
 
 
 class DesktopFixture:
-    def __init__(self, root: Path, platform_sec: Path, platform_pub: Path, platform_pin, desktop_sec: Path | None, desktop_pin, real: bool = False):
+    def __init__(self, root: Path, platform_sec: Path, platform_pub: Path, platform_pin, desktop_sec: Path | None, desktop_pin, real: bool = False, host_arch: str = "x86_64"):
         self.root = root
+        self.host_arch = host_arch
         self.platform_sec = platform_sec
         self.platform_pin = platform_pin
         self.desktop_sec = desktop_sec
@@ -44,22 +45,23 @@ class DesktopFixture:
         self.server = LoopbackServer(self.web_root)
         self.server.start()
 
-        tiny_pins, native_dirs = build_tiny_natives(root / "natives")
+        desktop_arches = ("x86_64",) if host_arch == "x86_64" else ("x86_64", host_arch)
+        tiny_pins, native_dirs = build_tiny_natives(root / "natives", desktop_arches=desktop_arches)
         if real:
             self.desktop_dir = REPO_ROOT / "testdata" / "native" / "desktop" / DESKTOP_VERSION
         else:
             self.desktop_dir = native_dirs["desktop"]
-            manifest = next(self.desktop_dir.glob("*.rust-release-manifest.json"))
-            subprocess.run(
-                [
-                    "minisign", "-S", "-W", "-s", str(desktop_sec),
-                    "-m", str(manifest), "-x", str(manifest.with_name(manifest.name + ".minisig")),
-                    "-t", "solstone-linux test release manifest",
-                ],
-                check=True,
-                capture_output=True,
-                text=True,
-            )
+            for manifest in self.desktop_dir.glob("*.rust-release-manifest.json"):
+                subprocess.run(
+                    [
+                        "minisign", "-S", "-W", "-s", str(desktop_sec),
+                        "-m", str(manifest), "-x", str(manifest.with_name(manifest.name + ".minisig")),
+                        "-t", "solstone-linux test release manifest",
+                    ],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
         pins = PinSet(journal=tiny_pins.journal, desktop=desktop_pin, tmux=tiny_pins.tmux)
         manifest_bytes = generate_platform_manifest(
             version=PLATFORM_VERSION,
@@ -103,7 +105,7 @@ class DesktopFixture:
 
     @property
     def native_manifest(self) -> Path:
-        return self.version_dir / f"solstone-linux-{DESKTOP_VERSION}-linux-x86_64.rust-release-manifest.json"
+        return self.version_dir / f"solstone-linux-{DESKTOP_VERSION}-linux-{self.host_arch}.rust-release-manifest.json"
 
     @property
     def native_signature(self) -> Path:
@@ -124,7 +126,7 @@ class DesktopFixture:
         )
 
     def refresh_outer(self):
-        for route in self.platform["components"]["desktop"]["arches"]["x86_64"].values():
+        for route in self.platform["components"]["desktop"]["arches"][self.host_arch].values():
             route["authority"]["manifest_sha256"] = sha256(self.native_manifest)
             route["authority"]["signature_sha256"] = sha256(self.native_signature)
 
@@ -151,6 +153,7 @@ class DesktopFixture:
 
     def run(self, *args: str, path: str | None = None, extra_env: dict[str, str] | None = None):
         env = os.environ.copy()
+        env["SOLSTONE_TEST_HOST_ARCH"] = self.host_arch
         if path is not None:
             env["PATH"] = path
         if extra_env:
@@ -174,7 +177,7 @@ class TestInstallDesktopAuthority(HermeticInstallerTestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def fixture(self, label: str, real: bool = False) -> DesktopFixture:
+    def fixture(self, label: str, real: bool = False, host_arch: str = "x86_64") -> DesktopFixture:
         platform_keys = ephemeral_keypair(f"desktop platform {label}")
         p_sec, p_pub, p_pin = platform_keys.__enter__()
         self.addCleanup(platform_keys.__exit__, None, None, None)
@@ -185,7 +188,7 @@ class TestInstallDesktopAuthority(HermeticInstallerTestCase):
             desktop_keys = ephemeral_keypair(f"desktop native {label}")
             d_sec, _, d_pin = desktop_keys.__enter__()
             self.addCleanup(desktop_keys.__exit__, None, None, None)
-        fixture = DesktopFixture(self.work_dir / label, p_sec, p_pub, p_pin, d_sec, d_pin, real=real)
+        fixture = DesktopFixture(self.work_dir / label, p_sec, p_pub, p_pin, d_sec, d_pin, real=real, host_arch=host_arch)
         self.addCleanup(fixture.close)
         return fixture
 
@@ -214,6 +217,53 @@ class TestInstallDesktopAuthority(HermeticInstallerTestCase):
             ],
         )
         self.assertFalse(prefix.exists())
+
+    def test_aarch64_host_verifies_its_own_authority(self):
+        fixture = self.fixture("aarch64", host_arch="aarch64")
+        arm = f"/solstone/release/{PLATFORM_VERSION}/solstone-linux-{DESKTOP_VERSION}-linux-aarch64.rust-release-manifest.json"
+        names = {
+            "tree": f"solstone-linux-{DESKTOP_VERSION}-linux-aarch64.tar.gz",
+            "deb": f"solstone-linux_{DESKTOP_VERSION}-1_arm64.deb",
+            "rpm": f"solstone-linux-{DESKTOP_VERSION}-1.aarch64.rpm",
+        }
+        for route, name in names.items():
+            with self.subTest(route=route):
+                self.assertEqual(fixture.platform["components"]["desktop"]["arches"]["aarch64"][route]["filename"], name)
+                proc, prefix, requests = fixture.run("--components", "desktop", "--dry-run", "--route", route)
+                self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+                self.assertEqual(requests[3:], [arm, arm + ".minisig"])
+                self.assertFalse(prefix.exists())
+
+        # The same dual-arch catalogue still serves x86_64 hosts their own manifest.
+        fixture.host_arch = "x86_64"
+        proc, _, requests = fixture.run("--components", "desktop", "--dry-run")
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertTrue(requests[3].endswith("-linux-x86_64.rust-release-manifest.json"), requests)
+
+    def test_aarch64_host_refuses_x86_64_authority(self):
+        fixture = self.fixture("aarch64-cross-digest", host_arch="aarch64")
+        x86_manifest = fixture.version_dir / f"solstone-linux-{DESKTOP_VERSION}-linux-x86_64.rust-release-manifest.json"
+        for route in fixture.platform["components"]["desktop"]["arches"]["aarch64"].values():
+            route["authority"]["manifest_sha256"] = sha256(x86_manifest)
+        fixture.write_platform()
+        proc, _, requests = fixture.run("--components", "desktop", "--dry-run")
+        self.assertEqual(self.result(proc)["root_code"], "digest-mismatch")
+        self.assertFalse(any(path.endswith((".tar.gz", ".deb", ".rpm")) for path in requests))
+
+        mutations = {
+            "x86-triple": lambda o: o["target"].__setitem__("triple", "x86_64-unknown-linux-gnu"),
+            "amd64-route": lambda o: [item.__setitem__("path", item["path"].replace("arm64", "amd64")) for item in o["artifacts"]],
+        }
+        for label, mutate in mutations.items():
+            with self.subTest(label=label):
+                fixture = self.fixture(f"aarch64-{label}", host_arch="aarch64")
+                obj = json.loads(fixture.native_manifest.read_text(encoding="utf-8"))
+                mutate(obj)
+                fixture.write_native(obj)
+                proc, prefix, requests = fixture.run("--components", "desktop", "--dry-run", "--route", "deb")
+                self.assertEqual(self.result(proc)["root_code"], "release-coherence", proc.stdout + proc.stderr)
+                self.assertFalse(prefix.exists())
+                self.assertFalse(any(path.endswith((".tar.gz", ".deb", ".rpm")) for path in requests))
 
     def test_digest_checks_precede_native_consumers(self):
         fixture = self.fixture("digest-order")

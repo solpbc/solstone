@@ -4,6 +4,7 @@
 
 ### changed
 
+- on an arm64 linux computer, the installer can now add the desktop app when the release includes it.
 - when the installer asks what to install, it lists the current component names.
 
 - on a linux computer with a desktop, the installer opens setup in your browser and shows where to add the solstone app. without a desktop, it prints the setup link and an SSH tunnel command for another computer.

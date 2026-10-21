@@ -207,6 +207,7 @@ def setup_test_release_server(
     tmux_version: str | None = None,
     desktop_runtime_version: str | None = None,
     native_build_marker: str = "",
+    desktop_arches: tuple[str, ...] = ("x86_64",),
 ) -> tuple[LoopbackServer, Path]:
     server_root = work_dir / "www"
     server_root.mkdir(parents=True, exist_ok=True)
@@ -222,6 +223,7 @@ def setup_test_release_server(
         tmux_version=tmux_version,
         desktop_runtime_version=desktop_runtime_version,
         native_build_marker=native_build_marker,
+        desktop_arches=desktop_arches,
     )
 
     server = LoopbackServer(server_root)

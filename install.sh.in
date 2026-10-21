@@ -1679,7 +1679,20 @@ preflight_desktop_authority() {
 
     d_version=$(read_plain_value "${manifest_dir}/components/desktop/version")
     d_version=${d_version%x}
-    d_base="solstone-linux-${d_version}-linux-x86_64"
+    case "$HOST_ARCH" in
+        x86_64)
+            d_rust_target="x86_64-unknown-linux-gnu"
+            d_deb_arch="amd64"
+            d_rpm_arch="x86_64"
+            ;;
+        aarch64)
+            d_rust_target="aarch64-unknown-linux-gnu"
+            d_deb_arch="arm64"
+            d_rpm_arch="aarch64"
+            ;;
+        *) report_exit "refusal" "unsupported-arch" "Unsupported architecture for Desktop: $HOST_ARCH" ;;
+    esac
+    d_base="solstone-linux-${d_version}-linux-${HOST_ARCH}"
     d_manifest_name="${d_base}.rust-release-manifest.json"
     d_signature_name="${d_manifest_name}.minisig"
     d_origin="${OPT_ORIGIN}/solstone/${OPT_LANE}/${RESOLVED_VERSION}"
@@ -1728,7 +1741,7 @@ preflight_desktop_authority() {
     d_target_triple=${d_target_triple%x}
     d_target_profile=$(read_plain_value "${d_manifest_root}/target/profile")
     d_target_profile=${d_target_profile%x}
-    if [ "$d_product" != "solstone-linux" ] || [ "$d_native_version" != "$d_version" ] || [ "$d_source_dirty" != "false" ] || [ "$d_target_kind" != "compiled" ] || [ "$d_target_triple" != "x86_64-unknown-linux-gnu" ] || [ "$d_target_profile" != "release" ]; then
+    if [ "$d_product" != "solstone-linux" ] || [ "$d_native_version" != "$d_version" ] || [ "$d_source_dirty" != "false" ] || [ "$d_target_kind" != "compiled" ] || [ "$d_target_triple" != "$d_rust_target" ] || [ "$d_target_profile" != "release" ]; then
         report_exit "refusal" "release-coherence" "Desktop native identity does not match the selected platform entry"
     fi
 
@@ -1757,8 +1770,8 @@ preflight_desktop_authority() {
     d_selected_bytes=${d_selected_bytes%x}
     case "$check_var" in
         tree) d_expected_name="${d_base}.tar.gz" ;;
-        deb) d_expected_name="solstone-linux_${d_version}-1_amd64.deb" ;;
-        rpm) d_expected_name="solstone-linux-${d_version}-1.x86_64.rpm" ;;
+        deb) d_expected_name="solstone-linux_${d_version}-1_${d_deb_arch}.deb" ;;
+        rpm) d_expected_name="solstone-linux-${d_version}-1.${d_rpm_arch}.rpm" ;;
         *) report_exit "refusal" "schema-invalid" "Desktop selected route is invalid" ;;
     esac
     if [ "$d_selected_name" != "$d_expected_name" ]; then

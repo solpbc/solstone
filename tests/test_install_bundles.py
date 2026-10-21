@@ -112,6 +112,46 @@ class TestInstallBundles(HermeticInstallerTestCase):
             finally:
                 server.stop()
 
+    def test_bundle_all_aarch64_includes_desktop_when_catalogued(self):
+        with ephemeral_keypair("test bundle aarch64 desktop") as (sec, pub, pin):
+            server, _ = setup_test_release_server(self.work_dir, sec, pin, desktop_arches=("x86_64", "aarch64"))
+            try:
+                installer = self.work_dir / "install.sh"
+                build_installer(
+                    repo_root=REPO_ROOT,
+                    output_path=installer,
+                    platform_pub_path=pub,
+                    platform_key_id=pin.key_id,
+                    origin=server.origin,
+                )
+                for arch in ("aarch64", "x86_64"):
+                    with self.subTest(arch=arch):
+                        env = os.environ.copy()
+                        env["SOLSTONE_TEST_HOST_ARCH"] = arch
+                        env["XDG_DATA_HOME"] = str(self.work_dir / f"{arch}-data")
+                        env["XDG_CONFIG_HOME"] = str(self.work_dir / f"{arch}-config")
+                        prefix = self.work_dir / f"prefix-{arch}"
+                        server.request_paths.clear()
+                        proc = subprocess.run(
+                            [str(installer), "--skip-signature", "--components", "all", "--prefix", str(prefix), "--no-start", "--json"],
+                            capture_output=True,
+                            text=True,
+                            env=env,
+                        )
+                        self.assertEqual(proc.returncode, 0, f"all on {arch} failed: {proc.stderr}\n{proc.stdout}")
+                        res = json.loads(proc.stdout.strip())
+                        self.assertEqual(res["arch"], arch)
+                        for component in ("journal", "desktop", "tmux"):
+                            self.assertIn(component, res["components"])
+                        self.assertEqual(res["notices"], [])
+                        fetched = [path.rsplit("/", 1)[1] for path in server.request_paths if "solstone-linux" in path]
+                        self.assertIn(f"solstone-linux-2.0.3-linux-{arch}.rust-release-manifest.json", fetched)
+                        self.assertIn(f"solstone-linux-2.0.3-linux-{arch}.tar.gz", fetched)
+                        self.assertFalse(any(arch not in name and name.startswith("solstone-linux-") for name in fetched), fetched)
+                        self.assertTrue(any(prefix.rglob(f"solstone-linux-2.0.3-linux-{arch}")))
+            finally:
+                server.stop()
+
     def test_piped_non_tty_no_selection_refuses_without_installing(self):
         with ephemeral_keypair("test piped non tty") as (sec, pub, pin):
             server, _ = setup_test_release_server(self.work_dir, sec, pin)
