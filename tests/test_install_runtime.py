@@ -81,6 +81,89 @@ class TestInstallRuntime(HermeticInstallerTestCase):
                         self.assertIn("ownership-unknown", result.stderr)
                         self.assertFalse(log.exists())
 
+    def _recording_executable(self, path: Path, version: str) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            '#!/usr/bin/env python3\nimport json, os, sys\n'
+            'from pathlib import Path\n'
+            'with Path(os.environ["ARGUMENT_LOG"]).open("a") as f: '
+            'f.write(json.dumps(sys.argv) + "\\n")\n'
+            f'print("journal (solstone) {version}")\n')
+        path.chmod(0o755)
+
+    def test_tree_without_journal_launcher_is_owned_and_cleaned_through_solstone(self):
+        with tempfile.TemporaryDirectory(dir="/var/tmp") as tmp:
+            root = Path(tmp)
+            script = build_installer(REPO_ROOT, root / "install.sh", is_production=True)
+            content = script.read_text()
+            script.write_text(content.replace(
+                'main "$@"', 'OPT_PREFIX="$1"; HOST_ARCH=x86_64; uninstall_tree_component journal'))
+            version = "2.0.61"
+            prefix = root / "owned prefix"
+            binaries = prefix / "versions" / f"{version}-abcdef" / "bin"
+            self._recording_executable(binaries / "solstone", version)
+            (prefix / "current").symlink_to(f"versions/{version}-abcdef")
+            (prefix / "install-receipt").write_text(
+                f"route=tree\nrole=journal\njournal_version={version}\n")
+            data_home = root / "data"
+            receipt = data_home / "solstone" / "install.conf"
+            receipt.parent.mkdir(parents=True)
+            receipt.write_text(
+                f"[component:journal]\nrole=journal\nroute=tree\nprefix={prefix}\n"
+                f"arch=x86_64\nversion={version}\nstatus=installed\n")
+            log = root / "argv.jsonl"
+            # An update reads the installation as complete and owned.
+            audit = root / "audit.sh"
+            audit.write_text(content.replace(
+                'main "$@"',
+                'OPT_PREFIX="$1"; HOST_ARCH=x86_64; tree_component_authority journal complete; '
+                'printf "%s\\n" "$TREE_JOURNAL_VERSION"'))
+            audit.chmod(0o755)
+            audited = subprocess.run(
+                [str(audit), str(prefix)],
+                env={**os.environ, "XDG_DATA_HOME": str(data_home), "ARGUMENT_LOG": str(log)},
+                capture_output=True, text=True, timeout=10)
+            self.assertEqual(audited.returncode, 0, audited.stderr)
+            self.assertEqual(audited.stdout.splitlines()[-1], version)
+            log.unlink()
+            result = subprocess.run(
+                [str(script), str(prefix)],
+                env={**os.environ, "XDG_DATA_HOME": str(data_home), "ARGUMENT_LOG": str(log)},
+                capture_output=True, text=True, timeout=10)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertFalse((binaries / "journal").exists())
+            command = [str(prefix / "current" / "bin" / "solstone"), "journal"]
+            log_lines = log.read_text().splitlines()
+            self.assertEqual([json.loads(line) for line in log_lines], [
+                [*command, "--version"],
+                [*command, "setup", "--clean-uninstall", "--yes", "--installer-transaction"],
+            ])
+
+    def test_package_setup_runs_solstone_when_the_package_has_no_journal_launcher(self):
+        with tempfile.TemporaryDirectory(dir="/var/tmp") as tmp:
+            root = Path(tmp)
+            script = build_installer(REPO_ROOT, root / "install.sh", is_production=True)
+            content = script.read_text()
+            script.write_text(content.replace(
+                'main "$@"',
+                'TEST_SEAM=1; OPT_NO_START=1; PC_ROLE=journal; PC_VERSION="$1"; package_run_setup'))
+            fake_root = root / "fake root"
+            for version, name in (("2.0.61", "solstone"), ("2.0.6", "journal")):
+                with self.subTest(version=version):
+                    bin_dir = fake_root / version / "usr" / "bin"
+                    self._recording_executable(bin_dir / name, version)
+                    log = root / f"argv-{version}.jsonl"
+                    result = subprocess.run(
+                        [str(script), version],
+                        env={**os.environ, "SOLSTONE_FAKE_PKG_DB": str(root / "db"),
+                             "SOLSTONE_FAKE_ROOT": str(fake_root / version), "ARGUMENT_LOG": str(log)},
+                        capture_output=True, text=True, timeout=10)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    command = [str(bin_dir / name)] + (["journal"] if name == "solstone" else [])
+                    self.assertEqual([json.loads(line) for line in log.read_text().splitlines()], [
+                        [*command, "setup", "--yes", "--installer-transaction", "--skip-service"],
+                    ])
+
     def test_current_and_historical_journal_invocations_preserve_argv_and_exit(self):
         with tempfile.TemporaryDirectory(dir="/var/tmp") as tmp:
             root = Path(tmp)

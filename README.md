@@ -92,6 +92,9 @@ a desktop release adds its aarch64 set when it publishes
 x86_64 one. a recut that would drop an architecture the current catalogue
 carries is refused. deploy installer revision `16` before promoting the first
 catalogue that lists desktop aarch64.
+deploy installer revision `17` before promoting the first catalogue whose
+journal no longer ships a `journal` command; earlier revisions look for it to
+run journal setup and uninstall.
 
 ```bash
 export SOLSTONE_R2_ENDPOINT="https://<account>.r2.cloudflarestorage.com"

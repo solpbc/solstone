@@ -4,6 +4,7 @@
 
 ### changed
 
+- the installer no longer needs the `journal` command to set up, update or remove a journal, so it keeps working once journals stop including it.
 - on an arm64 linux computer, the installer can now add the desktop app when the release includes it.
 - when the installer asks what to install, it lists the current component names.
 
