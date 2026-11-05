@@ -164,6 +164,92 @@ class TestInstallRuntime(HermeticInstallerTestCase):
                         [*command, "setup", "--yes", "--installer-transaction", "--skip-service"],
                     ])
 
+    def test_a_fresh_journal_opens_with_a_link_and_setup_leaves_the_handoff_to_the_installer(self):
+        with tempfile.TemporaryDirectory(dir="/var/tmp") as tmp:
+            root = Path(tmp)
+            script = build_installer(REPO_ROOT, root / "install.sh", is_production=True)
+            content = script.read_text()
+            script.write_text(content.replace(
+                'main "$@"',
+                'TEST_SEAM=1; HOST_OS=linux; HOST_ARCH=x86_64; OPT_PREFIX="$1"; SCRATCH_DIR="$2"; '
+                'OPT_NO_PATH="$3"; SELECTED_COMPONENTS=journal; finish_journal_install'))
+            log = root / "argv.jsonl"
+            prefix = root / "prefix"
+            executable = prefix / "current" / "bin" / "solstone"
+            executable.parent.mkdir(parents=True)
+            executable.write_text(
+                '#!/usr/bin/env python3\nimport json, os, sys\n'
+                'from pathlib import Path\n'
+                'with Path(os.environ["ARGUMENT_LOG"]).open("a") as f: '
+                'f.write(json.dumps(sys.argv[1:]) + "\\n")\n'
+                'if sys.argv[2] == "settings": print(\'{\\n  "dashboard_url": "http://localhost:6123"\\n}\')\n'
+                'if sys.argv[2] == "open": sys.exit(int(os.environ.get("OPEN_EXIT", "0")))\n')
+            executable.chmod(0o755)
+            opener = root / "bin" / "xdg-open"
+            opener.parent.mkdir()
+            opener.write_text('#!/bin/sh\nprintf "%s\\n" "$@" >> "$ARGUMENT_LOG"\n')
+            opener.chmod(0o755)
+            scratch = root / "scratch"
+            (scratch / "manifest/components/journal").mkdir(parents=True)
+            status = ["journal", "settings", "convey", "status", "--json"]
+
+            def run(version, display, open_exit="0", no_path="0"):
+                (scratch / "manifest/components/journal/version").write_text(version + "\n")
+                log.unlink(missing_ok=True)
+                result = subprocess.run(
+                    [str(script), str(prefix), str(scratch), no_path],
+                    env={**os.environ, "ARGUMENT_LOG": str(log), "OPEN_EXIT": open_exit,
+                         "PATH": f"{opener.parent}:{os.environ['PATH']}",
+                         "DISPLAY": display, "WAYLAND_DISPLAY": ""},
+                    capture_output=True, text=True, timeout=10)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                return [json.loads(line) if line.startswith("[") else line
+                        for line in log.read_text().splitlines()], result.stderr
+
+            calls, said = run("2.0.68", ":1")
+            self.assertEqual(calls, [status, ["journal", "open", "/init"]])
+            self.assertIn("finish setup in the browser that just opened. if you close it, run: solstone journal open /init", said)
+            self.assertNotIn("localhost:6123", said)
+
+            calls, said = run("2.0.68", ":1", open_exit="1")
+            self.assertIn("finish setup: solstone journal open /init\nthe browser could not open.", said)
+
+            calls, said = run("2.0.69", "")
+            self.assertEqual(calls, [status])
+            self.assertIn("-L 6123:127.0.0.1:6123", said)
+            self.assertIn("then run solstone journal open /init --print-url on this computer", said)
+            self.assertIn("after setup, run solstone journal open /app/network/ --print-url on this computer", said)
+            self.assertNotIn("http://localhost", said)
+
+            calls, said = run("2.0.68", "", no_path="1")
+            self.assertIn(f"finish setup: '{executable}' journal open /init", said)
+
+            # A journal from before the one-time link still opens at its address.
+            calls, said = run("2.0.67", ":1")
+            self.assertEqual(calls, [status, "http://localhost:6123/init"])
+
+        with tempfile.TemporaryDirectory(dir="/var/tmp") as tmp:
+            root = Path(tmp)
+            script = build_installer(REPO_ROOT, root / "install.sh", is_production=True)
+            script.write_text(script.read_text().replace(
+                'main "$@"',
+                'TEST_SEAM=1; OPT_NO_START="$1"; PC_ROLE=journal; PC_VERSION=2.0.68; package_run_setup'))
+            bin_dir = root / "usr" / "bin"
+            bin_dir.mkdir(parents=True)
+            spy = bin_dir / "solstone"
+            spy.write_text('#!/bin/sh\nprintf "%s\\n" "${SOLSTONE_INSTALLER_NO_HANDOFF:-unset}" > "$FLAG_LOG"\n')
+            spy.chmod(0o755)
+            flag = root / "flag"
+            for no_start, expected in (("0", "1"), ("1", "unset")):
+                with self.subTest(no_start=no_start):
+                    result = subprocess.run(
+                        [str(script), no_start],
+                        env={**os.environ, "SOLSTONE_FAKE_PKG_DB": str(root / "db"),
+                             "SOLSTONE_FAKE_ROOT": str(root), "FLAG_LOG": str(flag)},
+                        capture_output=True, text=True, timeout=10)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertEqual(flag.read_text().strip(), expected)
+
     def test_current_and_historical_journal_invocations_preserve_argv_and_exit(self):
         with tempfile.TemporaryDirectory(dir="/var/tmp") as tmp:
             root = Path(tmp)
