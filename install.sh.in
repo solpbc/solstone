@@ -233,7 +233,7 @@ finish_journal_install() {
             if [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ] && [ -d "${SCRATCH_DIR}/manifest/components/desktop/arches/${HOST_ARCH}" ]; then
                 log_info "to add the solstone app on this computer, run:"
                 log_info "  curl -fsSL https://solstone.app/install.sh | sh -s -- --components desktop"
-                log_info "or open solstone from your app menu: its journal tab finds your journal, and one press connects."
+                log_info "then open solstone from your app menu: its journal tab finds your journal, and one press connects."
             fi
             ;;
     esac

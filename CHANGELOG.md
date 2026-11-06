@@ -4,7 +4,7 @@
 
 ### changed
 
-- when it finishes, the installer now says the solstone app's journal tab finds a journal on this computer and connects with one press.
+- on linux, when it finishes, the installer now says the solstone app's journal tab finds a journal on this computer and connects with one press.
 - on linux, the installer now finishes setup with `solstone journal open /init`, which opens your journal with a one-time link, and it prints one setup step instead of two. without a desktop, it says to forward the ports over SSH, then run that command with `--print-url` and open the link on your other computer. an older journal still opens at its address.
 - on an arm64 linux computer, the installer can now add the desktop app when the release includes it.
 - when the installer asks what to install, it lists the current component names.
