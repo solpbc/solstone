@@ -225,7 +225,7 @@ finish_journal_install() {
     fi
     case " ${REPORT_COMPONENTS:-$SELECTED_COMPONENTS} " in
         *" desktop "*)
-            log_info "then open solstone from your app menu and paste the link in its journal tab."
+            log_info "or open solstone from your app menu: its journal tab finds your journal, and one press connects."
             ;;
         *)
             # Name the desktop app only where it can run: a computer with a
@@ -233,7 +233,7 @@ finish_journal_install() {
             if [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ] && [ -d "${SCRATCH_DIR}/manifest/components/desktop/arches/${HOST_ARCH}" ]; then
                 log_info "to add the solstone app on this computer, run:"
                 log_info "  curl -fsSL https://solstone.app/install.sh | sh -s -- --components desktop"
-                log_info "then open solstone from your app menu and paste the link in its journal tab."
+                log_info "or open solstone from your app menu: its journal tab finds your journal, and one press connects."
             fi
             ;;
     esac
@@ -247,7 +247,7 @@ finish_desktop_install() {
         *" desktop "*) ;;
         *) return 0 ;;
     esac
-    log_info "next: open solstone from your app menu and paste your journal's pairing link in its journal tab."
+    log_info "next: open solstone from your app menu. its journal tab finds a journal on this computer, or takes a pairing link from one on another computer."
 }
 
 report_exit() {
