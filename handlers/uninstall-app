@@ -29,5 +29,8 @@ if [ "$ROLE" = desktop ]; then
     LAUNCHER="${XDG_DATA_HOME:-$HOME/.local/share}/applications/org.solpbc.solstone.Window.desktop"
     if [ -f "$LAUNCHER" ] && [ ! -L "$LAUNCHER" ] && grep -qx 'X-Solstone-Installer=platform-v1' "$LAUNCHER"; then
         rm -f "$LAUNCHER"
+        if command -v update-desktop-database >/dev/null 2>&1; then
+            update-desktop-database "${LAUNCHER%/*}" >/dev/null 2>&1 || true
+        fi
     fi
 fi

@@ -30,8 +30,13 @@ class TestDesktopLauncherHandler(unittest.TestCase):
         self.root = Path(self.tmp.name)
         self.prefix = self.root / "prefix"
         self.data_home = self.root / "data"
+        self.tools = self.root / "tools"
+        self.tools.mkdir()
+        self.registered = self.root / "registered"
+        self.registration_tool("exit 0")
         self.env = {
             **os.environ,
+            "PATH": f"{self.tools}{os.pathsep}{os.environ['PATH']}",
             "HOME": str(self.root / "home"),
             "XDG_DATA_HOME": str(self.data_home),
             "XDG_CONFIG_HOME": str(self.root / "config"),
@@ -44,8 +49,8 @@ class TestDesktopLauncherHandler(unittest.TestCase):
         apps = self.tree / "share" / "applications"
         apps.mkdir(parents=True)
         (apps / LAUNCHER_NAME).write_text(
-            "[Desktop Entry]\nType=Application\nName=solstone\nExec=solstone-linux window\n"
-            "Icon=solstone-observer\nCategories=Utility;\n"
+            "[Desktop Entry]\nType=Application\nName=solstone\nExec=solstone-linux window %u\n"
+            "Icon=solstone-observer\nCategories=Utility;\nMimeType=x-scheme-handler/solstone;\n"
         )
         self.icon = self.tree / "share" / "icons" / "hicolor" / "256x256" / "apps" / "solstone-observer.png"
         self.icon.parent.mkdir(parents=True)
@@ -56,6 +61,11 @@ class TestDesktopLauncherHandler(unittest.TestCase):
 
     def tearDown(self):
         self.tmp.cleanup()
+
+    def registration_tool(self, ending: str):
+        tool = self.tools / "update-desktop-database"
+        tool.write_text(f'#!/bin/sh\nprintf "%s\\n" "$1" >> "{self.registered}"\n{ending}\n')
+        tool.chmod(0o755)
 
     @property
     def launcher(self) -> Path:
@@ -71,7 +81,8 @@ class TestDesktopLauncherHandler(unittest.TestCase):
     def test_fresh_install_publishes_launcher_with_public_exec(self):
         self.run_handler(INSTALL_HANDLER, self.binary, "desktop", "--no-start", "--no-path")
         lines = self.launcher.read_text().splitlines()
-        self.assertIn(f'Exec="{self.public}" window', lines)
+        self.assertIn(f'Exec="{self.public}" window %u', lines)
+        self.assertIn("MimeType=x-scheme-handler/solstone;", lines)
         self.assertIn(f"Icon={self.icon}", lines)
         self.assertEqual(lines.count(MARK), 1)
 
@@ -79,8 +90,14 @@ class TestDesktopLauncherHandler(unittest.TestCase):
         self.run_handler(INSTALL_HANDLER, self.binary, "desktop", "--no-start", "--no-path")
         self.run_handler(INSTALL_HANDLER, self.public, "desktop", "--no-start", "--no-path")
         lines = self.launcher.read_text().splitlines()
-        self.assertIn(f'Exec="{self.public}" window', lines)
+        self.assertIn(f'Exec="{self.public}" window %u', lines)
         self.assertEqual(lines.count(MARK), 1)
+        self.assertEqual(self.registered.read_text().splitlines(), [str(self.launcher.parent)] * 2)
+
+    def test_link_registration_failing_does_not_fail_the_install(self):
+        self.registration_tool("exit 1")
+        self.run_handler(INSTALL_HANDLER, self.binary, "desktop", "--no-start", "--no-path")
+        self.assertTrue(self.launcher.is_file())
 
     def test_launcher_not_written_by_the_installer_is_left_alone(self):
         self.launcher.parent.mkdir(parents=True)
@@ -95,6 +112,7 @@ class TestDesktopLauncherHandler(unittest.TestCase):
         self.assertTrue(self.launcher.is_file())
         self.run_handler(UNINSTALL_HANDLER, self.public)
         self.assertFalse(self.launcher.exists())
+        self.assertEqual(self.registered.read_text().splitlines(), [str(self.launcher.parent)] * 2)
 
     def test_unwritable_applications_folder_does_not_fail_the_install(self):
         self.data_home.mkdir(parents=True)

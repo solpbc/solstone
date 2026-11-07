@@ -4,6 +4,7 @@
 
 ### changed
 
+- on linux, installing the desktop app with this installer now sets it up to open `solstone:` links, so `open in the solstone app` on a pairing link's page opens the window with the link filled in. if you installed it before this, run the installer again with `--components desktop --upgrade`. if the button still goes nowhere, paste the pairing link in the solstone app's journal tab.
 - on linux, when it finishes, the installer now says the solstone app's journal tab finds a journal on this computer and connects with one press.
 - on linux, the installer now finishes setup with `solstone journal open /init`, which opens your journal with a one-time link, and it prints one setup step instead of two. without a desktop, it says to forward the ports over SSH, then run that command with `--print-url` and open the link on your other computer. an older journal still opens at its address.
 - on an arm64 linux computer, the installer can now add the desktop app when the release includes it.

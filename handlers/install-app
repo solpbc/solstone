@@ -68,7 +68,7 @@ if [ "$ROLE" = desktop ]; then
         if mkdir -p "$APPS_DIR" 2>/dev/null && {
             while IFS= read -r line || [ -n "$line" ]; do
                 case "$line" in
-                    Exec=*) printf 'Exec="%s" window\n' "$PUBLIC_BIN" ;;
+                    Exec=*) printf 'Exec="%s" window %%u\n' "$PUBLIC_BIN" ;;
                     Icon=*) if [ -f "$ICON" ]; then printf 'Icon=%s\n' "$ICON"; else printf '%s\n' "$line"; fi ;;
                     "$LAUNCHER_MARK") ;;
                     *) printf '%s\n' "$line" ;;
@@ -76,7 +76,11 @@ if [ "$ROLE" = desktop ]; then
             done < "$SOURCE_LAUNCHER"
             printf '%s\n' "$LAUNCHER_MARK"
         } > "$LAUNCHER_NEXT" 2>/dev/null && chmod 0644 "$LAUNCHER_NEXT" && mv -f "$LAUNCHER_NEXT" "$LAUNCHER"; then
-            :
+            # Tells the desktop this app opens solstone: links. Without it a clicked
+            # link goes nowhere and pasting still works, so a missing tool isn't a failure.
+            if command -v update-desktop-database >/dev/null 2>&1; then
+                update-desktop-database "$APPS_DIR" >/dev/null 2>&1 || true
+            fi
         else
             rm -f "$LAUNCHER_NEXT" 2>/dev/null || true
         fi
