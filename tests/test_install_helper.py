@@ -76,6 +76,34 @@ class TestInstallHelper(HermeticInstallerTestCase):
                 self.assertIn("removing", result.stderr)
                 self.assertIn("diagnostic", result.stderr)
 
+    def test_delete_receipt_removes_only_a_receipt_without_components(self):
+        receipt = self.etc_root / "solstone" / "install.conf"
+        receipt.parent.mkdir(parents=True, exist_ok=True)
+
+        for body in (b"", b"[solstone]\nschema_version=1\nplatform_version=2.0.0\nlane=release\n"):
+            with self.subTest(size=len(body)):
+                receipt.write_bytes(body)
+                proc = self.run_helper("DELETE_ETC_RECEIPT\n")
+                self.assertEqual(proc.returncode, 0, proc.stderr)
+                self.assertEqual(proc.stdout.strip(), "OK")
+                self.assertFalse(receipt.exists())
+
+        proc = self.run_helper("DELETE_ETC_RECEIPT\n")
+        self.assertEqual(proc.stdout.strip(), "OK")
+
+    def test_delete_receipt_refuses_a_receipt_that_records_a_component(self):
+        receipt = self.etc_root / "solstone" / "install.conf"
+        receipt.parent.mkdir(parents=True, exist_ok=True)
+        body = (
+            b"[solstone]\nschema_version=1\nplatform_version=2.0.0\nlane=release\n"
+            b"[component:tmux]\nphase=complete\nstatus=installed\nrole=tmux\n"
+        )
+        receipt.write_bytes(body)
+        proc = self.run_helper("DELETE_ETC_RECEIPT\n")
+        self.assertNotEqual(proc.stdout.strip(), "OK")
+        self.assertTrue(proc.stdout.startswith("ERROR:"))
+        self.assertEqual(receipt.read_bytes(), body)
+
     def test_helper_unknown_opcode_refused(self):
         proc = self.run_helper("FOOBAR\n")
         self.assertNotEqual(proc.returncode, 0)

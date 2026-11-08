@@ -20,6 +20,7 @@ from solstone_platform.canonical import canonical_json_bytes
 from solstone_platform.generate import generate_platform_manifest
 from solstone_platform.pins import MinisignPin, embedded_pins
 from solstone_platform.publish import compare_semver
+from solstone_platform.schema import TMUX_RETIREMENT_FLOOR
 from solstone_platform.sign import sign_manifest
 from tools.fixture_builder import build_tiny_natives
 
@@ -216,7 +217,7 @@ def setup_test_release_server(
     server_root = work_dir / "www"
     server_root.mkdir(parents=True, exist_ok=True)
 
-    repo_retirement_floor = int((REPO_ROOT / "compat" / "minimum_installer_revision").read_text(encoding="utf-8").strip())
+    repo_retirement_floor = TMUX_RETIREMENT_FLOOR
     repo_desktop_min = (REPO_ROOT / "compat" / "terminal_capture_desktop_minimum").read_text(encoding="utf-8").strip()
 
     effective_desktop_version = desktop_version

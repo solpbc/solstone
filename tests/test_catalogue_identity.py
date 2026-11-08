@@ -18,6 +18,7 @@ from solstone_platform.schema import (
     MAX_SEMVER_DIGITS,
     SCHEMA_1_KEYS,
     SCHEMA_2_KEYS,
+    TMUX_RETIREMENT_FLOOR,
     allocate_catalogue_revision,
     catalogue_coordinate,
     compare_catalogue_coordinates,
@@ -25,7 +26,6 @@ from solstone_platform.schema import (
     render_platform_schema,
     render_posix_catalogue_keys,
     render_posix_identity_fragment,
-    retirement_floor,
     validate_catalogue_transition,
     validate_platform_manifest,
 )
@@ -133,13 +133,13 @@ class TestCatalogueIdentity(unittest.TestCase):
         del cand_s2["components"]["tmux"]
         cand_s2["schema_version"] = 2
         cand_s2["catalogue_revision"] = 1
-        cand_s2["minimum_installer_revision"] = retirement_floor()
+        cand_s2["minimum_installer_revision"] = TMUX_RETIREMENT_FLOOR
         cand_s2["version"] = cand_s2["components"]["journal"]["version"]
 
-        # Valid s1 -> s2 (Case a)
+        # Schema 1 to schema 2 at the retirement floor without tmux is accepted
         validate_catalogue_transition(base_s1, cand_s2)
 
-        # s1 -> s2 with wrong floor (Case b: floors 8, 19, 21 refused)
+        # Schema 1 to schema 2 at any other floor is refused
         for bad_floor in (8, 19, 21):
             cand_s2_bad = copy.deepcopy(cand_s2)
             cand_s2_bad["minimum_installer_revision"] = bad_floor
@@ -153,7 +153,7 @@ class TestCatalogueIdentity(unittest.TestCase):
         cand_s2_next["catalogue_revision"] = 2
         validate_catalogue_transition(base_s2, cand_s2_next)
 
-        # s2 with tmux (floor 8) -> s2 retiring tmux (floor 20): accepted (Case a)
+        # A floor-8 base with tmux followed by a floor-20 candidate without it is accepted
         base_s2_tmux = copy.deepcopy(self.example_obj)
         base_s2_tmux["schema_version"] = 2
         base_s2_tmux["catalogue_revision"] = 1
@@ -162,10 +162,10 @@ class TestCatalogueIdentity(unittest.TestCase):
 
         cand_s2_retired = copy.deepcopy(cand_s2)
         cand_s2_retired["catalogue_revision"] = 2
-        cand_s2_retired["minimum_installer_revision"] = retirement_floor()
+        cand_s2_retired["minimum_installer_revision"] = TMUX_RETIREMENT_FLOOR
         validate_catalogue_transition(base_s2_tmux, cand_s2_retired)
 
-        # Retirement with bad candidate floor (Case b: 8, 19, 21 refused)
+        # Retiring tmux at any floor other than the retirement floor is refused
         for bad_floor in (8, 19, 21):
             cand_bad = copy.deepcopy(cand_s2_retired)
             cand_bad["minimum_installer_revision"] = bad_floor
@@ -173,7 +173,7 @@ class TestCatalogueIdentity(unittest.TestCase):
                 validate_catalogue_transition(base_s2_tmux, cand_bad)
             self.assertEqual(ctx.exception.name, RELEASE_COHERENCE)
 
-        # Case d: tmux-less base to candidate with tmux refused
+        # A candidate that carries tmux after a base without it is refused
         cand_with_tmux = copy.deepcopy(base_s2_tmux)
         cand_with_tmux["catalogue_revision"] = 3
         with self.assertRaises(Refusal) as ctx:

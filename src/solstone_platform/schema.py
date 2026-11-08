@@ -26,19 +26,12 @@ MAX_SEMVER_DIGITS = 20
 SCHEMA_2_INSTALLER_FLOOR = 8  # Historical schema-2 introduction floor
 
 
-def retirement_floor() -> int:
-    """Load the minimum installer revision retirement floor from compat."""
-    compat_path = Path(__file__).resolve().parents[2] / "compat" / "minimum_installer_revision"
-    if not compat_path.is_file():
-        raise Refusal(SCHEMA_INVALID, "compat/minimum_installer_revision file not found")
-    content = compat_path.read_text(encoding="utf-8").strip()
-    try:
-        rev = int(content)
-        if rev < 1:
-            raise ValueError()
-        return rev
-    except ValueError as err:
-        raise Refusal(SCHEMA_INVALID, f"invalid minimum_installer_revision floor: {content!r}") from err
+# A schema-2 catalogue carries tmux if and only if its minimum installer
+# revision is below this fixed floor: revision 20 is the first installer that
+# serves a recorded tmux from a catalogue without it. The compatibility floor
+# in compat/minimum_installer_revision may rise later without changing which
+# published catalogues carry tmux.
+TMUX_RETIREMENT_FLOOR = 20
 
 
 MAX_CATALOGUE_REVISION = 10**MAX_SEMVER_DIGITS - 1
@@ -207,7 +200,7 @@ def validate_catalogue_transition(
         if candidate.get(field) != base.get(field):
             raise Refusal(RELEASE_COHERENCE, f"recut changed protected field {field}")
 
-    rf = retirement_floor()
+    rf = TMUX_RETIREMENT_FLOOR
     base_components = base.get("components", {})
     cand_components = candidate.get("components", {})
     base_has_tmux = "tmux" in base_components
@@ -432,7 +425,7 @@ def _validate_platform_manifest(manifest: Any) -> None:
         raise Refusal(SCHEMA_INVALID, "components must be an object")
 
     comp_keys = set(components.keys())
-    rf = retirement_floor()
+    rf = TMUX_RETIREMENT_FLOOR
     if min_rev >= rf:
         expected_components = {"journal", "desktop"}
     else:

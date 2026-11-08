@@ -38,6 +38,7 @@ from solstone_platform.refusals import (
     Refusal,
 )
 from solstone_platform.schema import (
+    TMUX_RETIREMENT_FLOOR,
     catalogue_coordinate,
     compare_catalogue_coordinates,
     load_platform_manifest_bytes,
@@ -328,8 +329,7 @@ def prepare_recut(
 
     retire_tmux = base_has_tmux
     if retire_tmux:
-        floor_file = repo_root / "compat" / "minimum_installer_revision"
-        stamped_floor = int(floor_file.read_text(encoding="utf-8").strip())
+        stamped_floor = TMUX_RETIREMENT_FLOOR
     else:
         stamped_floor = base_obj["minimum_installer_revision"]
 

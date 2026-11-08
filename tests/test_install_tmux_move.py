@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Tests for Linux catalogue drop of tmux and installer revision 20 move to desktop."""
+"""A recorded tmux app on a catalogue without tmux: kept, or moved into the desktop app."""
 
 import hashlib
 import json
@@ -23,6 +23,7 @@ from tests.install_test_helpers import (
     setup_fake_sudo,
     setup_package_launcher_spy,
     setup_test_release_server,
+    snapshot_paths,
     write_path_stub,
 )
 from solstone_platform.sign import ephemeral_keypair
@@ -37,6 +38,54 @@ def safe_receipt_section(receipt: bytes, name: str) -> bytes:
         return receipt_section(receipt, name)
     except ValueError:
         return b""
+
+
+def receipt_header(receipt: bytes) -> dict[str, str]:
+    values: dict[str, str] = {}
+    section = None
+    for line in receipt.decode("utf-8").splitlines():
+        if line.startswith("["):
+            section = line
+            continue
+        if section == "[solstone]" and "=" in line:
+            key, value = line.split("=", 1)
+            values[key] = value
+    return values
+
+
+def receipt_sections(receipt: bytes) -> list[str]:
+    return [line for line in receipt.decode("utf-8").splitlines() if line.startswith("[")]
+
+
+def remedy_commands(stderr: str) -> list[list[str]]:
+    """Every stderr line that parses to a command reaching the move again."""
+    found = []
+    for line in stderr.splitlines():
+        try:
+            tokens = shlex.split(line)
+        except ValueError:
+            continue
+        if len(tokens) == 4 and tokens[1:3] == ["update", "--lane"] and tokens[0].endswith("solstone"):
+            found.append(tokens)
+        elif tokens[:2] == ["curl", "-fsSL"] and "--" in tokens and "--upgrade" in tokens[tokens.index("--") + 1:]:
+            found.append(tokens)
+    return found
+
+
+def installer_arguments(command: list[str]) -> list[str]:
+    return command[command.index("--") + 1:]
+
+
+def uninstall_commands(stderr: str) -> list[list[str]]:
+    found = []
+    for line in stderr.splitlines():
+        try:
+            tokens = shlex.split(line)
+        except ValueError:
+            continue
+        if tokens[:2] == ["curl", "-fsSL"] and "--" in tokens and "--uninstall" in installer_arguments(tokens):
+            found.append(installer_arguments(tokens))
+    return found
 
 
 class TestInstallTmuxMove(HermeticInstallerTestCase):
@@ -67,10 +116,12 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
             "      marker_status=\"marker-exists\"\n"
             "    fi\n"
             "    [ -z \"${SOLSTONE_TEST_SERVICE_LOG:-}\" ] || printf 'desktop %s %s\\n' \"$1\" \"$marker_status\" >> \"$SOLSTONE_TEST_SERVICE_LOG\"\n"
+            "    [ \"${1:-}\" != install-service ] || [ -z \"${SOLSTONE_DESKTOP_SERVICE_FAIL:-}\" ] || exit 9\n"
             "    exit 0 ;;\n"
             "esac\n"
             "if [ \"${1:-}\" = \"terminal\" ] && [ \"${2:-}\" = \"adopt-tmux\" ]; then\n"
             "  [ -z \"${SOLSTONE_ADOPT_LOG:-}\" ] || printf '%s\\n' \"$*\" >> \"$SOLSTONE_ADOPT_LOG\"\n"
+            "  [ -z \"${SOLSTONE_ADOPT_STDOUT:-}\" ] || printf '%s\\n' \"$SOLSTONE_ADOPT_STDOUT\"\n"
             "  [ -z \"${SOLSTONE_ADOPT_STDERR:-}\" ] || printf '%s\\n' \"$SOLSTONE_ADOPT_STDERR\" >&2\n"
             "  exit \"${SOLSTONE_ADOPT_EXIT:-0}\"\n"
             "fi\n"
@@ -117,11 +168,47 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
     def marker_path(self) -> Path:
         return Path(os.environ["HOME"]) / ".local" / "share" / "solstone-linux" / "desktop-capture-off"
 
-    def seed_package_tmux(self, version: str = "0.1.0", lane: str = "staging") -> bytes:
+    def run_installer(self, installer: Path, *args: str, env: dict[str, str] | None = None) -> subprocess.CompletedProcess:
+        # A new session has no controlling terminal: the run sees no tty.
+        return subprocess.run(
+            [str(installer), "--skip-signature", *args],
+            env=self.env if env is None else env,
+            capture_output=True,
+            text=True,
+            start_new_session=True,
+        )
+
+    def service_log_text(self) -> str:
+        return self.service_log.read_text(encoding="utf-8") if self.service_log.exists() else ""
+
+    def assert_ran(self, proc: subprocess.CompletedProcess, code: int = 0) -> dict:
+        self.assertEqual(proc.returncode, code, f"{proc.stderr}\n{proc.stdout}")
+        return json.loads(proc.stdout)
+
+    def add_catalogue(self, sec: Path, pin, *, platform_version: str, desktop_version: str, lane: str = "release") -> None:
+        """Publish one more floor-20 catalogue beside the first, and point latest at it."""
+        # The first catalogue's objects are already published; build fresh natives.
+        shutil.rmtree(self.work_dir / "natives", ignore_errors=True)
+        server, _ = setup_test_release_server(
+            self.work_dir,
+            sec,
+            pin,
+            lane=lane,
+            version=platform_version,
+            min_installer_revision=20,
+            desktop_version=desktop_version,
+        )
+        # Its journal bootstrap URL names this server, which serves the same files.
+        self.addCleanup(server.stop)
+
+    def append_package_section(self, section: bytes) -> None:
+        self.package_receipt.write_bytes(self.package_receipt.read_bytes() + section)
+
+    def seed_package_tmux(self, version: str = "0.1.0", lane: str = "staging", policy: str = "start") -> bytes:
         self.package_receipt.parent.mkdir(parents=True, exist_ok=True)
         tmux_section = (
             f"[component:tmux]\n"
-            f"phase=complete\nstatus=installed\nrole=tmux\nroute=deb\nservice_policy=start\n"
+            f"phase=complete\nstatus=installed\nrole=tmux\nroute=deb\nservice_policy={policy}\n"
             f"package_name=solstone-tmux\npackage_version={version}\npackage_arch=amd64\n"
             f"artifact_sha256={'0'*64}\npayload_build_id={'0'*64}\n"
         ).encode("utf-8")
@@ -142,6 +229,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
         no_start: int = 0,
         no_path: int = 0,
         arch: str = "x86_64",
+        append: bool = False,
     ) -> bytes:
         if prefix is None:
             prefix = Path(os.environ["HOME"]) / ".local"
@@ -154,7 +242,11 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
         dest.mkdir(parents=True, exist_ok=True)
         exec_file = dest / relpath
         exec_file.parent.mkdir(parents=True, exist_ok=True)
-        exec_content = b"#!/bin/sh\nexit 0\n"
+        exec_content = (
+            b"#!/bin/sh\n"
+            b"[ -z \"${SOLSTONE_TEST_SERVICE_LOG:-}\" ] || printf 'tmux %s\\n' \"$1\" >> \"$SOLSTONE_TEST_SERVICE_LOG\"\n"
+            b"exit 0\n"
+        )
         exec_file.write_bytes(exec_content)
         exec_file.chmod(0o755)
         sha = hashlib.sha256(exec_content).hexdigest()
@@ -182,11 +274,18 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
             f"executable_relpath={relpath}\n"
             f"executable_sha256={sha}\n"
         ).encode("utf-8")
+        if append:
+            self.tree_receipt.write_bytes(self.tree_receipt.read_bytes() + tmux_section)
+            return tmux_section
         header = (
             f"[solstone]\nschema_version=1\nplatform_version=1.9.0\nlane={lane}\n"
         ).encode("utf-8")
         self.tree_receipt.write_bytes(header + tmux_section)
         return tmux_section
+
+    def tmux_tree_paths(self, prefix: Path | None = None) -> list[Path]:
+        prefix = prefix or Path(os.environ["HOME"]) / ".local"
+        return [prefix / "opt" / "solstone" / "tmux", prefix / "bin" / "solstone-tmux"]
 
     def build_release(
         self,
@@ -294,12 +393,20 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 self.assertEqual(receipt_section(self.package_receipt.read_bytes(), "component:tmux"), pkg_tmux_sec)
                 self.assertEqual(safe_receipt_section(self.tree_receipt.read_bytes(), "component:tmux"), b"")
 
-                tree_text = self.tree_receipt.read_text(encoding="utf-8")
-                pkg_text = self.package_receipt.read_text(encoding="utf-8")
-                self.assertIn("platform_version=2.0.0", tree_text)
-                self.assertIn("platform_version=2.0.0", pkg_text)
+                tree_header = receipt_header(self.tree_receipt.read_bytes())
+                package_header = receipt_header(self.package_receipt.read_bytes())
+                for header in (tree_header, package_header):
+                    self.assertEqual(header["platform_version"], "2.0.0")
+                    self.assertEqual(header["lane"], "release")
+                    self.assertEqual(header["origin"], server.origin)
+                    self.assertEqual(header["installer_revision"], "20")
+                self.assertEqual(tree_header["route"], "tree")
+                self.assertEqual(tree_header["phase"], "complete")
+                self.assertIn("prefix", tree_header)
+                self.assertNotIn("route", package_header)
                 stderr_nonempty = [l for l in proc.stderr.splitlines() if l.strip()]
                 self.assertEqual(len(stderr_nonempty), 1)
+                self.assertEqual(len(remedy_commands(proc.stderr)), 1)
             finally:
                 server.stop()
 
@@ -352,6 +459,9 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 self.assertIn(b"[component:desktop]\n", self.package_receipt.read_bytes())
                 self.assertFalse((self.fake_db / "deb" / "solstone-tmux").exists())
                 self.assertTrue((self.fake_db / "deb" / "solstone-linux").exists())
+                self.assertEqual(receipt_sections(self.package_receipt.read_bytes()), ["[solstone]", "[component:desktop]"])
+                self.assertEqual(receipt_header(self.package_receipt.read_bytes())["platform_version"], "2.0.0")
+                self.assertEqual(self.adopt_log.read_text(encoding="utf-8").splitlines()[-1], "terminal adopt-tmux --yes")
             finally:
                 server.stop()
 
@@ -455,11 +565,17 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 )
                 self.assertEqual(proc.returncode, 0, f"Failed: {proc.stderr}\n{proc.stdout}")
                 doc = json.loads(proc.stdout)
+                self.assertEqual(doc["status"], "success")
+                self.assertNotEqual(doc["root_code"], "installed")
                 self.assertEqual(doc["components"]["tmux"]["status"], "kept")
                 self.assertEqual(doc["components"]["tmux"]["reason"], "desktop-failed")
+                self.assertNotIn("desktop", doc["components"])
                 self.assertEqual(receipt_section(self.package_receipt.read_bytes(), "component:tmux"), pkg_sec)
                 self.assertNotIn(b"[component:desktop]\n", self.package_receipt.read_bytes())
                 self.assertFalse((self.fake_db / "deb" / "solstone-linux").exists())
+                self.assertFalse(self.adopt_log.exists())
+                self.assertEqual(sum(str(self.marker_path) in line for line in proc.stderr.splitlines()), 1)
+                self.assertEqual(len(remedy_commands(proc.stderr)), 1)
             finally:
                 server.stop()
 
@@ -482,7 +598,14 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 self.assertEqual(doc["components"]["tmux"]["status"], "kept")
                 self.assertEqual(doc["components"]["tmux"]["reason"], "retry")
                 self.assertEqual(receipt_section(self.package_receipt.read_bytes(), "component:tmux"), pkg_sec)
-                self.assertTrue(proc.stderr.strip())
+                # Removal waits for adopt's answer: the tmux package is still installed.
+                self.assertTrue((self.fake_db / "deb" / "solstone-tmux").exists())
+                self.assertNotIn("tmux uninstall-service", self.service_log.read_text(encoding="utf-8"))
+                self.assertIn("desktop install-service marker-exists", self.service_log.read_text(encoding="utf-8"))
+                self.assertEqual(self.adopt_log.read_text(encoding="utf-8").splitlines(), ["terminal adopt-tmux --yes"])
+                remedies = remedy_commands(proc.stderr)
+                self.assertEqual(len(remedies), 1)
+                self.assertEqual(installer_arguments(remedies[0])[:5], ["--upgrade", "--components", "tmux", "--lane", "release"])
             finally:
                 server.stop()
 
@@ -516,6 +639,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
             try:
                 test_env = self.env.copy()
                 test_env["SOLSTONE_ADOPT_EXIT"] = "9"
+                test_env["SOLSTONE_ADOPT_STDERR"] = "first diagnostic line\n\nthe last diagnostic line\n"
                 pkg_sec = self.seed_package_tmux(version="0.1.0", lane="staging")
 
                 proc = subprocess.run(
@@ -527,8 +651,14 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 self.assertEqual(proc.returncode, 0, f"Failed: {proc.stderr}\n{proc.stdout}")
                 doc = json.loads(proc.stdout)
                 self.assertEqual(doc["components"]["tmux"]["status"], "failed")
+                self.assertEqual(doc["components"]["tmux"]["reason"], "failed")
                 self.assertEqual(receipt_section(self.package_receipt.read_bytes(), "component:tmux"), pkg_sec)
                 self.assertIn(b"[component:desktop]\n", self.package_receipt.read_bytes())
+                self.assertTrue((self.fake_db / "deb" / "solstone-tmux").exists())
+                self.assertIn("desktop install-service marker-exists", self.service_log.read_text(encoding="utf-8"))
+                self.assertEqual(sum("the last diagnostic line" in line for line in proc.stderr.splitlines()), 1)
+                self.assertNotIn("first diagnostic line", proc.stderr)
+                self.assertEqual(len(remedy_commands(proc.stderr)), 1)
             finally:
                 server.stop()
 
@@ -542,14 +672,15 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                     f"{installer} --skip-signature --upgrade --confirm-package-command",
                     self.env,
                     [
-                        (b"move to solstone app?", b"yes\n"),
-                        (b"run this package command?", b"yes\n"),
-                        (b"run this package command?", b"no\n"),
+                        (b"yes or no", b"yes\n"),
+                        (b"yes or no", b"yes\n"),
+                        (b"yes or no", b"no\n"),
                     ],
                 )
                 self.assertEqual(code, 0, f"Failed with code {code}: {stderr}\n{stdout}")
-                self.assertIn("curl -fsSL https://solstone.app/install.sh", stderr)
-                self.assertIn("--uninstall --components tmux", stderr)
+                self.assertEqual(uninstall_commands(stderr), [["--uninstall", "--components", "tmux", "--lane", "release"]])
+                self.assertEqual(remedy_commands(stderr), [])
+                self.assertTrue((self.fake_db / "deb" / "solstone-tmux").exists())
                 self.assertEqual(receipt_section(self.package_receipt.read_bytes(), "component:tmux"), pkg_sec)
                 self.assertIn(b"[component:desktop]\n", self.package_receipt.read_bytes())
             finally:
@@ -581,8 +712,29 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 self.assertEqual(doc["components"]["tmux"]["status"], "kept")
                 self.assertEqual(doc["components"]["tmux"]["reason"], "root")
                 self.assertEqual(receipt_section(self.package_receipt.read_bytes(), "component:tmux"), pkg_sec)
-                self.assertNotIn("update --lane", proc.stderr)
-                self.assertNotIn("curl -fsSL https://solstone.app", proc.stderr)
+                self.assertTrue((self.fake_db / "deb" / "solstone-tmux").exists())
+                self.assertEqual(remedy_commands(proc.stderr), [])
+                self.assertEqual(len([l for l in proc.stderr.splitlines() if l.strip()]), 1)
+                self.assertFalse(self.marker_path.exists())
+
+                # The tree route, the other way a root run reaches the move.
+                self.package_receipt.unlink()
+                tree_sec = self.seed_tree_tmux(version="0.1.0", lane="staging")
+                before = snapshot_paths(*self.tmux_tree_paths())
+                proc_tree = subprocess.run(
+                    [str(installer), "--skip-signature", "--upgrade", "--yes", "--json"],
+                    env=self.env,
+                    capture_output=True,
+                    text=True,
+                )
+                doc_tree = self.assert_ran(proc_tree)
+                self.assertEqual(doc_tree["components"]["tmux"]["status"], "kept")
+                self.assertEqual(doc_tree["components"]["tmux"]["reason"], "root")
+                self.assertEqual(receipt_section(self.tree_receipt.read_bytes(), "component:tmux"), tree_sec)
+                self.assertEqual(snapshot_paths(*self.tmux_tree_paths()), before)
+                self.assertEqual(remedy_commands(proc_tree.stderr), [])
+                self.assertEqual(len([l for l in proc_tree.stderr.splitlines() if l.strip()]), 1)
+                self.assertNotIn(b"[component:desktop]", self.tree_receipt.read_bytes())
             finally:
                 server.stop()
 
@@ -605,8 +757,8 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 self.assertEqual(doc["components"]["tmux"]["status"], "kept")
                 self.assertEqual(doc["components"]["tmux"]["reason"], "unavailable")
                 self.assertEqual(receipt_section(self.tree_receipt.read_bytes(), "component:tmux"), tree_sec)
-                self.assertNotIn("update --lane", proc.stderr)
-                self.assertNotIn("curl -fsSL https://solstone.app", proc.stderr)
+                self.assertEqual(remedy_commands(proc.stderr), [])
+                self.assertEqual(len([l for l in proc.stderr.splitlines() if l.strip()]), 1)
             finally:
                 server.stop()
 
@@ -650,17 +802,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
         with ephemeral_keypair("test omit tmux floor 20") as (sec, pub, pin):
             server, installer = self.build_release(sec, pub, pin, min_installer_revision=20)
             try:
-                # 1. --help
-                proc_help = subprocess.run(
-                    [str(installer), "--help", "--skip-signature"],
-                    env=self.env,
-                    capture_output=True,
-                    text=True,
-                )
-                self.assertEqual(proc_help.returncode, 0)
-                self.assertNotIn("desktop, tmux", proc_help.stdout)
-
-                # 2. interactive menu
+                # 1. interactive menu
                 code, tty_bytes, _, _ = self.run_pty_interaction(
                     f"{installer} --skip-signature",
                     self.env,
@@ -671,7 +813,8 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 self.assertNotIn(b"(1-4)", tty_bytes)
                 self.assertNotIn(b"Solstone Tmux", tty_bytes)
 
-                # 3. --components all --dry-run --json
+                # 2. --components all --dry-run --json, with tmux on PATH
+                write_path_stub(self.bin_dir, "tmux", "exit 0\n")
                 proc_all = subprocess.run(
                     [str(installer), "--skip-signature", "--components", "all", "--dry-run", "--json"],
                     env=self.env,
@@ -684,7 +827,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 self.assertIn("desktop", doc_all["components"])
                 self.assertIn("journal", doc_all["components"])
 
-                # 4. --list --json
+                # 3. --list --json
                 proc_list = subprocess.run(
                     [str(installer), "--skip-signature", "--list", "--json"],
                     env=self.env,
@@ -697,21 +840,30 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
             finally:
                 server.stop()
 
+    def test_help_prints_without_reaching_the_catalogue(self):
+        with ephemeral_keypair("test help offline") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin, min_installer_revision=20)
+            server.stop()
+            requests_before = len(server.request_paths)
+            for args in (["--help"], ["-h"], ["--json", "--help"], ["--origin", "http://127.0.0.1:9", "--help"]):
+                with self.subTest(args=args):
+                    proc = subprocess.run([str(installer), *args], env=self.env, capture_output=True, text=True, timeout=30)
+                    self.assertEqual(proc.returncode, 0, proc.stderr)
+                    text = json.loads(proc.stdout)["help"] if "--json" in args else proc.stdout
+                    linux_line = next(line for line in text.splitlines() if "--components LIST" in line)
+                    for component in ("journal", "cli", "desktop"):
+                        self.assertIn(component, linux_line)
+                    # tmux appears only where it is removed from a receipt.
+                    tmux_lines = [line for line in text.splitlines() if "tmux" in line]
+                    self.assertTrue(tmux_lines)
+                    self.assertTrue(all("--uninstall" in line for line in tmux_lines), tmux_lines)
+            self.assertEqual(len(server.request_paths), requests_before)
+
     def test_help_menu_all_list_include_tmux_on_three_component_catalogue(self):
         with ephemeral_keypair("test include tmux floor 1") as (sec, pub, pin):
             server, installer = self.build_release(sec, pub, pin, min_installer_revision=1)
             try:
-                # 1. --help
-                proc_help = subprocess.run(
-                    [str(installer), "--help", "--skip-signature"],
-                    env=self.env,
-                    capture_output=True,
-                    text=True,
-                )
-                self.assertEqual(proc_help.returncode, 0)
-                self.assertIn("Linux: journal, cli, desktop, tmux", proc_help.stdout)
-
-                # 2. interactive menu
+                # 1. interactive menu
                 code, tty_bytes, _, _ = self.run_pty_interaction(
                     f"{installer} --skip-signature",
                     self.env,
@@ -721,7 +873,8 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 self.assertIn(b"(1-4)", tty_bytes)
                 self.assertIn(b"tmux", tty_bytes)
 
-                # 3. --components all --dry-run --json
+                # 2. --components all --dry-run --json, with tmux on PATH
+                write_path_stub(self.bin_dir, "tmux", "exit 0\n")
                 proc_all = subprocess.run(
                     [str(installer), "--skip-signature", "--components", "all", "--dry-run", "--json"],
                     env=self.env,
@@ -732,7 +885,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 doc_all = json.loads(proc_all.stdout)
                 self.assertIn("tmux", doc_all["components"])
 
-                # 4. --list --json
+                # 3. --list --json
                 proc_list = subprocess.run(
                     [str(installer), "--skip-signature", "--list", "--json"],
                     env=self.env,
@@ -745,30 +898,36 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
             finally:
                 server.stop()
 
-    def test_revision_19_behaviour_preserved_on_three_component_catalogue(self):
-        with ephemeral_keypair("test rev 19 on 3-comp") as (sec, pub, pin):
-            server, installer = self.build_release(
-                sec,
-                pub,
-                pin,
-                min_installer_revision=1,
-                override_installer_revision=19,
-            )
+    def test_tmux_carrying_catalogue_upgrades_and_installs_tmux_without_asking(self):
+        with ephemeral_keypair("test tmux catalogue") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin, min_installer_revision=8)
             try:
-                self.seed_tree_tmux(version="0.0.9", lane="staging")
-
-                proc = subprocess.run(
-                    [str(installer), "--skip-signature", "--upgrade", "--json"],
-                    env=self.env,
-                    capture_output=True,
-                    text=True,
+                self.seed_tree_tmux(version="0.0.9", lane="release")
+                # A terminal is attached and nothing answers: an installer that
+                # asked would wait here until the harness gave up.
+                code, tty_bytes, stdout, stderr = self.run_pty_interaction(
+                    f"{installer} --skip-signature --upgrade --json",
+                    self.env,
+                    [],
                 )
-                self.assertEqual(proc.returncode, 0, f"Failed: {proc.stderr}\n{proc.stdout}")
-                doc = json.loads(proc.stdout)
+                self.assertEqual(code, 0, f"{stderr}\n{stdout}")
+                doc = json.loads(stdout)
                 self.assertEqual(doc["root_code"], "installed")
                 self.assertEqual(doc["components"]["tmux"]["status"], "succeeded")
                 self.assertNotIn("reason", doc["components"]["tmux"])
-                self.assertNotIn("update --lane", proc.stderr)
+                self.assertEqual(remedy_commands(stderr), [])
+                self.assertFalse(self.marker_path.exists())
+                tmux_section = receipt_section(self.tree_receipt.read_bytes(), "component:tmux")
+                self.assertNotIn(b"version=0.0.9\n", tmux_section)
+
+                fresh_env = {**self.env, "XDG_DATA_HOME": str(self.work_dir / "fresh-data")}
+                proc = self.run_installer(installer, "--components", "tmux", "--prefix", str(self.tree_prefix), "--yes", "--json", env=fresh_env)
+                doc_fresh = self.assert_ran(proc)
+                self.assertEqual(doc_fresh["components"]["tmux"]["status"], "succeeded")
+                fresh_receipt = self.work_dir / "fresh-data" / "solstone" / "install.conf"
+                self.assertIn(b"[component:tmux]\n", fresh_receipt.read_bytes())
+                self.assertTrue((self.tree_prefix / "bin" / "solstone-tmux").is_symlink())
+                self.assertEqual(remedy_commands(proc.stderr), [])
             finally:
                 server.stop()
 
@@ -898,42 +1057,41 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
             finally:
                 server.stop()
 
-    def test_zero_byte_package_receipt_deleted_when_helper_already_used(self):
-        with ephemeral_keypair("test zero byte receipt deleted") as (sec, pub, pin):
+    def test_zero_byte_package_receipt_reads_as_absent_for_a_package_install(self):
+        with ephemeral_keypair("test zero byte receipt replaced") as (sec, pub, pin):
             server, installer = self.build_release(sec, pub, pin, min_installer_revision=20)
             try:
                 self.package_receipt.parent.mkdir(parents=True, exist_ok=True)
                 self.package_receipt.touch()
-                self.assertTrue(self.package_receipt.exists())
 
-                proc = subprocess.run(
-                    [str(installer), "--skip-signature", "--route", "deb", "--uninstall", "--components", "desktop", "--yes", "--json"],
-                    env=self.env,
-                    capture_output=True,
-                    text=True,
-                )
-                self.assertEqual(proc.returncode, 0, f"Failed: {proc.stderr}\n{proc.stdout}")
-                self.assertFalse(self.package_receipt.exists())
+                proc = self.run_installer(installer, "--route", "deb", "--components", "desktop", "--yes", "--json")
+                doc = self.assert_ran(proc)
+                self.assertEqual(doc["root_code"], "installed")
+                self.assertEqual(receipt_sections(self.package_receipt.read_bytes()), ["[solstone]", "[component:desktop]"])
+                self.assertEqual(receipt_header(self.package_receipt.read_bytes())["platform_version"], "2.0.0")
             finally:
                 server.stop()
 
-    def test_zero_byte_package_receipt_left_intact_when_helper_not_in_use(self):
+    def test_zero_byte_package_receipt_left_with_one_line_while_the_run_continues(self):
         with ephemeral_keypair("test zero byte receipt left intact") as (sec, pub, pin):
             server, installer = self.build_release(sec, pub, pin, min_installer_revision=20)
             try:
                 self.package_receipt.parent.mkdir(parents=True, exist_ok=True)
                 self.package_receipt.touch()
-                self.assertTrue(self.package_receipt.exists())
 
-                proc = subprocess.run(
-                    [str(installer), "--skip-signature", "--route", "tree", "--components", "desktop", "--prefix", str(self.tree_prefix), "--yes", "--json"],
-                    env=self.env,
-                    capture_output=True,
-                    text=True,
-                )
-                self.assertEqual(proc.returncode, 0, f"Failed: {proc.stderr}\n{proc.stdout}")
-                self.assertTrue(self.package_receipt.exists())
-                self.assertEqual(self.package_receipt.stat().st_size, 0)
+                for extra in ([], ["--upgrade"]):
+                    with self.subTest(extra=extra):
+                        proc = self.run_installer(
+                            installer, *extra, "--route", "tree", "--components", "desktop",
+                            "--prefix", str(self.tree_prefix), "--yes", "--json",
+                        )
+                        doc = self.assert_ran(proc)
+                        self.assertEqual(doc["root_code"], "installed")
+                        self.assertIn(doc["components"]["desktop"]["status"], ("succeeded", "unchanged"))
+                        self.assertIn(b"[component:desktop]\n", self.tree_receipt.read_bytes())
+                        self.assertTrue(self.package_receipt.exists())
+                        self.assertEqual(self.package_receipt.stat().st_size, 0)
+                        self.assertEqual(sum(str(self.package_receipt) in line for line in proc.stderr.splitlines()), 1)
             finally:
                 server.stop()
 
@@ -963,9 +1121,14 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                     text=True,
                 )
                 self.assertEqual(proc.returncode, 0, f"Failed: {proc.stderr}\n{proc.stdout}")
-                log_text = helper_in_log.read_text(encoding="utf-8")
-                self.assertIn("DELETE_ETC_RECEIPT", log_text)
-                self.assertNotIn("WRITE_ETC_RECEIPT 0", log_text)
+                log_lines = helper_in_log.read_text(encoding="utf-8").splitlines()
+                self.assertIn("DELETE_ETC_RECEIPT", log_lines)
+                self.assertNotIn("WRITE_ETC_RECEIPT 0", log_lines)
+                # The emptied receipt is first written as its header alone, then deleted.
+                delete_at = log_lines.index("DELETE_ETC_RECEIPT")
+                writes = [i for i, line in enumerate(log_lines) if line.startswith("WRITE_ETC_RECEIPT ")]
+                self.assertTrue(writes and writes[-1] < delete_at)
+                self.assertNotIn("[component:", "\n".join(log_lines[writes[-1]:delete_at]))
                 self.assertFalse(self.package_receipt.exists())
             finally:
                 server.stop()
@@ -1086,6 +1249,493 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 desktop_sec = receipt_section(self.tree_receipt.read_bytes(), "component:desktop")
                 self.assertIn(b"no_start=1", desktop_sec)
                 self.assertIn(b"no_path=1", desktop_sec)
+            finally:
+                server.stop()
+
+    def install_tree_desktop(self, installer: Path, *args: str) -> bytes:
+        proc = self.run_installer(installer, "--components", "desktop", "--yes", "--json", *args)
+        self.assert_ran(proc)
+        return receipt_section(self.tree_receipt.read_bytes(), "component:desktop")
+
+    def install_tree_journal(self, installer: Path, prefix: Path) -> None:
+        proc = self.run_installer(installer, "--components", "journal", "--prefix", str(prefix), "--no-start", "--yes", "--json")
+        self.assert_ran(proc)
+
+    def test_adopt_stdout_reaches_stderr_and_json_stays_parseable(self):
+        with ephemeral_keypair("test adopt stdout") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin, min_installer_revision=20)
+            try:
+                self.seed_package_tmux(version="0.1.0", lane="staging")
+                test_env = {**self.env, "SOLSTONE_ADOPT_STDOUT": "adopt wrote this to stdout"}
+                proc = self.run_installer(installer, "--upgrade", "--yes", "--json", env=test_env)
+                doc = self.assert_ran(proc)
+                self.assertEqual(doc["components"]["tmux"]["status"], "moved")
+                self.assertNotIn("adopt wrote this to stdout", proc.stdout)
+                self.assertIn("adopt wrote this to stdout", proc.stderr)
+            finally:
+                server.stop()
+
+    def test_marker_directories_are_created_private_and_existing_ones_are_left_alone(self):
+        with ephemeral_keypair("test marker modes") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin, min_installer_revision=20)
+            try:
+                home = Path(os.environ["HOME"])
+                local, share, marker_dir = home / ".local", home / ".local" / "share", self.marker_path.parent
+                cases = (
+                    (None, {local: 0o700, share: 0o700, marker_dir: 0o700}),
+                    (share, {share: 0o755, marker_dir: 0o700}),
+                    (marker_dir, {marker_dir: 0o755}),
+                )
+                for existing, expected_modes in cases:
+                    with self.subTest(existing=str(existing)):
+                        shutil.rmtree(local, ignore_errors=True)
+                        shutil.rmtree(self.fake_db)
+                        self.fake_db.mkdir()
+                        self.package_receipt.unlink(missing_ok=True)
+                        if existing is not None:
+                            existing.mkdir(parents=True)
+                            existing.chmod(0o755)
+                        self.seed_package_tmux(version="0.1.0", lane="release")
+                        self.assert_ran(self.run_installer(installer, "--upgrade", "--yes", "--json"))
+                        self.assertTrue(self.marker_path.is_file())
+                        self.assertEqual(self.marker_path.stat().st_size, 0)
+                        for directory, mode in expected_modes.items():
+                            self.assertEqual(directory.stat().st_mode & 0o777, mode, directory)
+            finally:
+                server.stop()
+
+    def test_no_start_desktop_one_version_behind_moves_in_a_start_invocation(self):
+        with ephemeral_keypair("test recorded no-start desktop") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin, min_installer_revision=20)
+            try:
+                prefix = Path(os.environ["HOME"]) / ".local"
+                self.install_tree_journal(installer, prefix)
+                self.install_tree_desktop(installer, "--prefix", str(prefix), "--no-start")
+                self.seed_tree_tmux(prefix=prefix, version="0.1.0", append=True)
+                self.add_catalogue(sec, pin, platform_version="2.0.1", desktop_version="2.0.38")
+                self.service_log.unlink(missing_ok=True)
+
+                bootstrap_args = self.work_dir / "bootstrap-args.log"
+                test_env = {**self.env, "SOLSTONE_BOOTSTRAP_ARGS_LOG": str(bootstrap_args)}
+                proc = self.run_installer(
+                    installer, "--upgrade", "--components", "journal,tmux", "--prefix", str(prefix),
+                    "--no-path", "--yes", "--json", env=test_env,
+                )
+                doc = self.assert_ran(proc)
+                self.assertEqual(doc["components"]["tmux"]["status"], "moved")
+                self.assertEqual(doc["components"]["desktop"]["status"], "succeeded")
+                receipt = self.tree_receipt.read_bytes()
+                desktop = receipt_section(receipt, "component:desktop")
+                self.assertIn(b"version=2.0.38\n", desktop)
+                self.assertIn(b"no_start=1\n", desktop)
+                self.assertIn(b"no_path=0\n", desktop)
+                self.assertEqual(safe_receipt_section(receipt, "component:tmux"), b"")
+                # The journal ran with the invocation's own Start policy.
+                journal_args = bootstrap_args.read_text(encoding="utf-8").splitlines()
+                self.assertIn("--upgrade", journal_args)
+                self.assertNotIn("--no-start", journal_args)
+                self.assertIn("--no-path", journal_args)
+                # adopt ran against the desktop the move had just made current.
+                self.assertEqual(self.adopt_log.read_text(encoding="utf-8").splitlines(), ["2.0.38 terminal adopt-tmux --yes"])
+                self.assertNotIn("desktop 2.0.38 install-service", self.service_log_text())
+                self.assertEqual(receipt_header(receipt)["platform_version"], "2.0.1")
+                self.assertEqual(receipt_header(receipt)["prefix"], str(prefix))
+            finally:
+                server.stop()
+
+    def test_no_start_tmux_moves_into_a_started_desktop_without_changing_its_policy(self):
+        with ephemeral_keypair("test recorded start desktop") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin, min_installer_revision=20)
+            try:
+                self.install_tree_desktop(installer)
+                self.seed_tree_tmux(version="0.1.0", no_start=1, append=True)
+                self.add_catalogue(sec, pin, platform_version="2.0.1", desktop_version="2.0.38")
+                self.service_log.unlink(missing_ok=True)
+
+                proc = self.run_installer(installer, "--upgrade", "--components", "tmux", "--no-start", "--yes", "--json")
+                doc = self.assert_ran(proc)
+                self.assertEqual(doc["components"]["tmux"]["status"], "moved")
+                desktop = receipt_section(self.tree_receipt.read_bytes(), "component:desktop")
+                self.assertIn(b"version=2.0.38\n", desktop)
+                self.assertIn(b"no_start=0\n", desktop)
+                self.assertIn("desktop 2.0.38 install-service", self.service_log_text())
+            finally:
+                server.stop()
+
+    def test_tree_desktop_under_its_own_prefix_takes_over_a_package_tmux(self):
+        with ephemeral_keypair("test tree desktop package tmux") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin, min_installer_revision=20)
+            try:
+                desktop_prefix = self.work_dir / "desktop prefix"
+                self.install_tree_desktop(installer, "--prefix", str(desktop_prefix))
+                self.seed_package_tmux(version="0.1.0", lane="release")
+                self.add_catalogue(sec, pin, platform_version="2.0.1", desktop_version="2.0.38")
+
+                proc = self.run_installer(installer, "--upgrade", "--components", "tmux", "--yes", "--json")
+                doc = self.assert_ran(proc)
+                self.assertEqual(doc["components"]["tmux"]["status"], "moved")
+                self.assertEqual(doc["components"]["tmux"]["reason"], "moved")
+                self.assertEqual(doc["components"]["desktop"]["route"], "tree")
+                tree = self.tree_receipt.read_bytes()
+                desktop = receipt_section(tree, "component:desktop")
+                self.assertIn(f"prefix={desktop_prefix}\n".encode(), desktop)
+                self.assertIn(b"version=2.0.38\n", desktop)
+                self.assertTrue((desktop_prefix / "bin" / "solstone-linux").is_symlink())
+                self.assertFalse((Path(os.environ["HOME"]) / ".local" / "bin" / "solstone-linux").exists())
+                self.assertFalse((self.fake_db / "deb" / "solstone-linux").exists())
+                self.assertFalse((self.fake_db / "deb" / "solstone-tmux").exists())
+                # The package receipt, left with no component, is gone; the tree
+                # receipt alone records every component, on the new coordinate.
+                self.assertFalse(self.package_receipt.exists())
+                self.assertEqual(receipt_sections(tree), ["[solstone]", "[component:desktop]"])
+                header = receipt_header(tree)
+                self.assertEqual(header["platform_version"], "2.0.1")
+                self.assertEqual(header["lane"], "release")
+                self.assertEqual(header["prefix"], str(desktop_prefix))
+                self.assertEqual(self.adopt_log.read_text(encoding="utf-8").splitlines(), ["2.0.38 terminal adopt-tmux --yes"])
+            finally:
+                server.stop()
+
+    def test_declined_move_keeps_tmux_bytes_while_other_components_update(self):
+        with ephemeral_keypair("test declined keeps tmux bytes") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin, min_installer_revision=20)
+            try:
+                prefix = Path(os.environ["HOME"]) / ".local"
+                self.install_tree_desktop(installer)
+                tmux_section = self.seed_tree_tmux(version="0.1.0", append=True)
+                before = snapshot_paths(*self.tmux_tree_paths())
+                self.add_catalogue(sec, pin, platform_version="2.0.1", desktop_version="2.0.38")
+
+                proc = self.run_installer(installer, "--upgrade", "--json")
+                doc = self.assert_ran(proc)
+                self.assertEqual(doc["components"]["tmux"]["status"], "kept")
+                self.assertEqual(doc["components"]["tmux"]["reason"], "declined")
+                self.assertEqual(doc["components"]["desktop"]["status"], "succeeded")
+                tree = self.tree_receipt.read_bytes()
+                self.assertEqual(receipt_section(tree, "component:tmux"), tmux_section)
+                self.assertEqual(snapshot_paths(*self.tmux_tree_paths()), before)
+                self.assertIn(b"version=2.0.38\n", receipt_section(tree, "component:desktop"))
+                self.assertEqual(receipt_header(tree)["platform_version"], "2.0.1")
+                self.assertFalse(self.adopt_log.exists())
+                self.assertFalse(self.marker_path.exists())
+                remedies = remedy_commands(proc.stderr)
+                self.assertEqual(len(remedies), 1)
+                self.assertEqual(
+                    installer_arguments(remedies[0]),
+                    ["--upgrade", "--components", "tmux", "--lane", "release", "--prefix", str(prefix)],
+                )
+            finally:
+                server.stop()
+
+    def test_declined_move_with_a_tree_journal_and_a_package_tmux_advances_both_headers(self):
+        with ephemeral_keypair("test declined mixed routes") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin, min_installer_revision=20)
+            try:
+                self.install_tree_journal(installer, self.tree_prefix)
+                tmux_section = self.seed_package_tmux(version="0.1.0", lane="release")
+                self.add_catalogue(sec, pin, platform_version="2.0.1", desktop_version="2.0.38")
+
+                bootstrap_args = self.work_dir / "bootstrap-args.log"
+                test_env = {**self.env, "SOLSTONE_BOOTSTRAP_ARGS_LOG": str(bootstrap_args)}
+                proc = self.run_installer(
+                    installer, "--upgrade", "--non-interactive", "--json", "--prefix", str(self.tree_prefix), env=test_env,
+                )
+                doc = self.assert_ran(proc)
+                self.assertEqual(doc["components"]["tmux"]["status"], "kept")
+                self.assertEqual(doc["components"]["journal"]["status"], "succeeded")
+                self.assertIn("--upgrade", bootstrap_args.read_text(encoding="utf-8").splitlines())
+                package = self.package_receipt.read_bytes()
+                tree = self.tree_receipt.read_bytes()
+                self.assertEqual(receipt_section(package, "component:tmux"), tmux_section)
+                self.assertTrue((self.fake_db / "deb" / "solstone-tmux").exists())
+                for key in ("platform_version", "lane"):
+                    self.assertEqual(receipt_header(tree)[key], receipt_header(package)[key])
+                self.assertEqual(receipt_header(package)["platform_version"], "2.0.1")
+                self.assertEqual(remedy_commands(proc.stderr), [[f"{self.tree_prefix}/bin/solstone", "update", "--lane", "release"]])
+            finally:
+                server.stop()
+
+    def test_fresh_desktop_download_failure_leaves_no_marker_and_keeps_tmux(self):
+        with ephemeral_keypair("test fresh desktop download failure") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin, min_installer_revision=20)
+            try:
+                for archive in (self.work_dir / "www" / "solstone" / "release" / "2.0.0").glob("solstone-linux-*.tar.gz"):
+                    archive.unlink()
+                tmux_section = self.seed_tree_tmux(version="0.1.0", lane="release")
+                before = snapshot_paths(*self.tmux_tree_paths())
+
+                proc = self.run_installer(installer, "--upgrade", "--yes", "--json")
+                doc = self.assert_ran(proc, code=1)
+                self.assertEqual(doc["status"], "refusal")
+                self.assertEqual(doc["components"]["tmux"]["status"], "kept")
+                self.assertEqual(doc["components"]["tmux"]["reason"], "desktop-failed")
+                self.assertFalse(self.marker_path.exists())
+                self.assertFalse(self.adopt_log.exists())
+                self.assertEqual(receipt_section(self.tree_receipt.read_bytes(), "component:tmux"), tmux_section)
+                self.assertNotIn(b"[component:desktop]", self.tree_receipt.read_bytes())
+                self.assertEqual(snapshot_paths(*self.tmux_tree_paths()), before)
+                self.assertEqual(len(remedy_commands(proc.stderr)), 1)
+            finally:
+                server.stop()
+
+    def test_ordinary_desktop_install_writes_no_marker(self):
+        with ephemeral_keypair("test ordinary desktop install") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin, min_installer_revision=20)
+            try:
+                self.install_tree_desktop(installer, "--prefix", str(self.tree_prefix))
+                self.assertFalse(self.marker_path.exists())
+                self.assertFalse(self.marker_path.parent.exists())
+            finally:
+                server.stop()
+
+    def test_interrupted_package_desktop_resumes_on_its_own_route_during_the_move(self):
+        with ephemeral_keypair("test interrupted package desktop") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin, min_installer_revision=20)
+            try:
+                self.seed_tree_tmux(version="0.1.0", lane="release")
+                self.package_receipt.parent.mkdir(parents=True, exist_ok=True)
+                self.package_receipt.write_bytes(
+                    b"[solstone]\nschema_version=1\nplatform_version=1.9.0\nlane=release\n"
+                    b"[component:desktop]\nphase=intended\nstatus=intended\nrole=desktop\nroute=deb\nservice_policy=start\n"
+                    b"package_name=solstone-linux\npackage_version=2.0.36\npackage_arch=amd64\n"
+                    + f"artifact_sha256={'1'*64}\npayload_build_id={'1'*64}\n".encode()
+                    + b"prior_role=desktop\nprior_route=deb\nprior_service_policy=start\n"
+                    b"prior_package_name=solstone-linux\nprior_package_version=2.0.30\nprior_package_arch=amd64\n"
+                    + f"prior_artifact_sha256={'2'*64}\nprior_payload_build_id={'2'*64}\n".encode()
+                )
+                (self.fake_db / "deb").mkdir(parents=True, exist_ok=True)
+                (self.fake_db / "deb" / "solstone-linux").write_text("INSTALLED solstone-linux 2.0.30 amd64\n", encoding="utf-8")
+
+                proc = self.run_installer(installer, "--upgrade", "--components", "tmux", "--yes", "--json")
+                doc = self.assert_ran(proc)
+                self.assertEqual(doc["components"]["tmux"]["status"], "moved")
+                self.assertEqual(doc["components"]["desktop"]["route"], "deb")
+                desktop = receipt_section(self.package_receipt.read_bytes(), "component:desktop")
+                self.assertIn(b"phase=complete\n", desktop)
+                self.assertNotIn(b"prior_", desktop)
+                self.assertNotIn(b"package_version=2.0.30\n", desktop)
+                self.assertNotIn("2.0.30", (self.fake_db / "deb" / "solstone-linux").read_text(encoding="utf-8"))
+                # Never reinstalled on tmux's tree route; the tmux tree and its receipt are gone.
+                self.assertFalse((Path(os.environ["HOME"]) / ".local" / "bin" / "solstone-linux").exists())
+                self.assertFalse(self.tree_receipt.exists())
+                self.assertTrue(self.marker_path.exists())
+            finally:
+                server.stop()
+
+    def test_fresh_desktop_failure_after_the_other_components_exits_failed(self):
+        with ephemeral_keypair("test fresh desktop failure") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin, min_installer_revision=20)
+            try:
+                self.install_tree_journal(installer, self.tree_prefix)
+                tmux_section = self.seed_tree_tmux(prefix=self.tree_prefix, version="0.1.0", append=True)
+                before = snapshot_paths(*self.tmux_tree_paths(self.tree_prefix))
+                self.add_catalogue(sec, pin, platform_version="2.0.1", desktop_version="2.0.38")
+
+                bootstrap_args = self.work_dir / "bootstrap-args.log"
+                test_env = {
+                    **self.env,
+                    "SOLSTONE_BOOTSTRAP_ARGS_LOG": str(bootstrap_args),
+                    "SOLSTONE_TEST_SERVICE_FAIL": "desktop:2.0.38:install-service",
+                }
+                proc = self.run_installer(installer, "--upgrade", "--prefix", str(self.tree_prefix), "--yes", "--json", env=test_env)
+                doc = self.assert_ran(proc, code=1)
+                self.assertEqual(doc["components"]["journal"]["status"], "succeeded")
+                self.assertIn("--upgrade", bootstrap_args.read_text(encoding="utf-8").splitlines())
+                self.assertEqual(doc["components"]["desktop"]["status"], "failed")
+                self.assertEqual(doc["components"]["tmux"]["status"], "kept")
+                self.assertEqual(doc["components"]["tmux"]["reason"], "desktop-failed")
+                self.assertFalse(self.adopt_log.exists())
+                self.assertFalse(self.marker_path.exists())
+                tree = self.tree_receipt.read_bytes()
+                self.assertEqual(receipt_section(tree, "component:tmux"), tmux_section)
+                self.assertNotIn(b"[component:desktop]", tree)
+                self.assertEqual(snapshot_paths(*self.tmux_tree_paths(self.tree_prefix)), before)
+                self.assertEqual(remedy_commands(proc.stderr), [[f"{self.tree_prefix}/bin/solstone", "update", "--lane", "release"]])
+            finally:
+                server.stop()
+
+    def test_recorded_desktop_whose_upgrade_fails_is_left_as_it_was(self):
+        with ephemeral_keypair("test recorded desktop failure") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin, min_installer_revision=20)
+            try:
+                prefix = Path(os.environ["HOME"]) / ".local"
+                desktop_section = self.install_tree_desktop(installer)
+                desktop_paths = [prefix / "bin" / "solstone-linux", prefix / "opt" / "solstone" / "desktop" / "current"]
+                old_target = prefix / "opt" / "solstone" / "desktop" / os.readlink(desktop_paths[1])
+                before = snapshot_paths(*desktop_paths, old_target)
+                tmux_section = self.seed_tree_tmux(version="0.1.0", append=True)
+                self.add_catalogue(sec, pin, platform_version="2.0.1", desktop_version="2.0.38")
+
+                test_env = {**self.env, "SOLSTONE_TEST_SERVICE_FAIL": "desktop:2.0.38:install-service"}
+                proc = self.run_installer(installer, "--upgrade", "--components", "tmux", "--yes", "--json", env=test_env)
+                doc = self.assert_ran(proc, code=1)
+                self.assertEqual(doc["components"]["tmux"]["status"], "kept")
+                self.assertEqual(doc["components"]["tmux"]["reason"], "desktop-failed")
+                self.assertFalse(self.adopt_log.exists())
+                tree = self.tree_receipt.read_bytes()
+                self.assertEqual(receipt_section(tree, "component:desktop"), desktop_section)
+                self.assertEqual(receipt_section(tree, "component:tmux"), tmux_section)
+                self.assertEqual(snapshot_paths(*desktop_paths, old_target), before)
+                self.assertEqual(len(remedy_commands(proc.stderr)), 1)
+            finally:
+                server.stop()
+
+    def test_declined_desktop_package_command_declines_the_move(self):
+        with ephemeral_keypair("test declined desktop package command") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin, min_installer_revision=20)
+            try:
+                tmux_section = self.seed_package_tmux(version="0.1.0", lane="staging")
+                code, _, stdout, stderr = self.run_pty_interaction(
+                    f"{installer} --skip-signature --upgrade --confirm-package-command",
+                    self.env,
+                    [(b"yes or no", b"yes\n"), (b"yes or no", b"no\n")],
+                )
+                self.assertEqual(code, 0, f"{stderr}\n{stdout}")
+                self.assertFalse((self.fake_db / "deb" / "solstone-linux").exists())
+                package = self.package_receipt.read_bytes()
+                self.assertEqual(receipt_section(package, "component:tmux"), tmux_section)
+                self.assertNotIn(b"[component:desktop]", package)
+                self.assertFalse(self.marker_path.exists())
+                self.assertFalse(self.adopt_log.exists())
+                remedies = remedy_commands(stderr)
+                self.assertEqual(len(remedies), 1)
+                self.assertEqual(installer_arguments(remedies[0])[:5], ["--upgrade", "--components", "tmux", "--lane", "release"])
+
+                # The same decline with --json reports the move as declined.
+                # With --json the package question goes to stderr, so both answers
+                # are typed ahead on the terminal.
+                proc_code, _, json_out, json_err = self.run_pty_interaction(
+                    f"{installer} --skip-signature --upgrade --confirm-package-command --json",
+                    self.env,
+                    [(b"yes or no", b"yes\nno\n")],
+                )
+                self.assertEqual(proc_code, 0, f"{json_err}\n{json_out}")
+                doc = json.loads(json_out)
+                self.assertEqual(doc["components"]["tmux"]["status"], "kept")
+                self.assertEqual(doc["components"]["tmux"]["reason"], "declined")
+                self.assertNotIn("desktop", doc["components"])
+                self.assertFalse(self.marker_path.exists())
+            finally:
+                server.stop()
+
+    def test_incomplete_package_desktop_points_the_remedy_at_the_direct_upgrade(self):
+        with ephemeral_keypair("test incomplete package desktop") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin, lane="staging", min_installer_revision=20)
+            try:
+                tmux_section = self.seed_package_tmux(version="0.1.0", lane="staging")
+                self.append_package_section(
+                    b"[component:journal]\nphase=complete\nstatus=installed\nrole=journal\nroute=deb\nservice_policy=start\n"
+                    b"package_name=solstone-journal\npackage_version=2.0.6\npackage_arch=amd64\n"
+                    + f"artifact_sha256={'0'*64}\npayload_build_id={'0'*64}\n".encode()
+                )
+                (self.fake_db / "deb" / "solstone-journal").write_text("INSTALLED solstone-journal 2.0.6 amd64\n", encoding="utf-8")
+
+                test_env = {**self.env, "SOLSTONE_DESKTOP_SERVICE_FAIL": "1"}
+                proc = self.run_installer(installer, "--upgrade", "--lane", "staging", "--components", "tmux", "--yes", "--json", env=test_env)
+                doc = self.assert_ran(proc, code=1)
+                self.assertEqual(doc["components"]["tmux"]["reason"], "desktop-failed")
+                package = self.package_receipt.read_bytes()
+                self.assertIn(b"phase=payload\n", receipt_section(package, "component:desktop"))
+                self.assertEqual(receipt_section(package, "component:tmux"), tmux_section)
+                self.assertFalse(self.adopt_log.exists())
+                # A desktop section was written, so the marker stays for that app's first start.
+                self.assertTrue(self.marker_path.exists())
+                remedies = remedy_commands(proc.stderr)
+                self.assertEqual(len(remedies), 1)
+                self.assertEqual(remedies[0][:2], ["curl", "-fsSL"])
+                self.assertEqual(installer_arguments(remedies[0])[:5], ["--upgrade", "--components", "tmux", "--lane", "staging"])
+            finally:
+                server.stop()
+
+    def test_failed_removal_reports_removal_failed_and_a_rerun_removes_tmux(self):
+        with ephemeral_keypair("test removal failure rerun") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin, min_installer_revision=20)
+            try:
+                wrapper = self.bin_dir / "helper-failing-removal"
+                wrapper.write_text(
+                    "#!/bin/sh\n"
+                    "request=$(mktemp)\n"
+                    "cat > \"$request\"\n"
+                    "if [ -n \"${SOLSTONE_TEST_FAIL_REMOVE:-}\" ] && head -n 1 \"$request\" | grep -q '^REMOVE_PKG '; then\n"
+                    "  rm -f \"$request\"; echo ERROR:remove-failed; exit 0\n"
+                    "fi\n"
+                    f"'{HELPER_SCRIPT}' \"$@\" < \"$request\"\n"
+                    "status=$?\n"
+                    "rm -f \"$request\"\n"
+                    "exit $status\n",
+                    encoding="utf-8",
+                )
+                wrapper.chmod(0o755)
+                tmux_section = self.seed_package_tmux(version="0.1.0", lane="staging")
+
+                failing_env = {**self.env, "SOLSTONE_HELPER": str(wrapper), "SOLSTONE_TEST_FAIL_REMOVE": "1"}
+                proc = self.run_installer(installer, "--upgrade", "--yes", "--json", env=failing_env)
+                doc = self.assert_ran(proc)
+                self.assertEqual(doc["components"]["tmux"]["status"], "moved")
+                self.assertEqual(doc["components"]["tmux"]["reason"], "removal-failed")
+                self.assertEqual(uninstall_commands(proc.stderr), [["--uninstall", "--components", "tmux", "--lane", "release"]])
+                self.assertEqual(receipt_section(self.package_receipt.read_bytes(), "component:tmux"), tmux_section)
+                self.assertTrue((self.fake_db / "deb" / "solstone-tmux").exists())
+                self.assertIn(b"[component:desktop]\n", self.package_receipt.read_bytes())
+
+                retry_env = {**self.env, "SOLSTONE_HELPER": str(wrapper)}
+                proc_retry = self.run_installer(installer, "--upgrade", "--yes", "--json", env=retry_env)
+                doc_retry = self.assert_ran(proc_retry)
+                self.assertEqual(doc_retry["components"]["tmux"]["status"], "moved")
+                self.assertEqual(doc_retry["components"]["tmux"]["reason"], "moved")
+                self.assertEqual(safe_receipt_section(self.package_receipt.read_bytes(), "component:tmux"), b"")
+                self.assertFalse((self.fake_db / "deb" / "solstone-tmux").exists())
+                self.assertEqual(len(self.adopt_log.read_text(encoding="utf-8").splitlines()), 2)
+            finally:
+                server.stop()
+
+    def test_uninstall_tree_tmux_from_the_receipt_removes_its_service(self):
+        with ephemeral_keypair("test uninstall tree tmux") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin, min_installer_revision=20)
+            try:
+                for handler_root in (None, self.work_dir / "no-handlers"):
+                    with self.subTest(bundled_handler=handler_root is None):
+                        test_env = dict(self.env)
+                        if handler_root is not None:
+                            handler_root.mkdir(exist_ok=True)
+                            test_env["SOLSTONE_HANDLER_ROOT"] = str(handler_root)
+                        self.service_log.unlink(missing_ok=True)
+                        self.seed_tree_tmux(version="0.1.0", lane="release")
+                        proc = self.run_installer(installer, "--uninstall", "--components", "tmux", "--yes", "--json", env=test_env)
+                        doc = self.assert_ran(proc)
+                        self.assertEqual(doc["root_code"], "uninstalled")
+                        self.assertEqual(doc["components"]["tmux"]["status"], "removed")
+                        self.assertIn("tmux uninstall-service", self.service_log.read_text(encoding="utf-8"))
+                        self.assertFalse(self.tree_receipt.exists())
+                        for path in self.tmux_tree_paths():
+                            self.assertFalse(path.exists() or path.is_symlink(), path)
+            finally:
+                server.stop()
+
+    def test_uninstall_package_tmux_keeps_the_remaining_section_under_a_valid_header(self):
+        with ephemeral_keypair("test uninstall package tmux remaining") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin, min_installer_revision=20)
+            try:
+                self.seed_package_tmux(version="0.1.0", lane="release")
+                desktop_section = (
+                    b"[component:desktop]\nphase=complete\nstatus=installed\nrole=desktop\nroute=deb\nservice_policy=start\n"
+                    b"package_name=solstone-linux\npackage_version=2.0.37\npackage_arch=amd64\n"
+                    + f"artifact_sha256={'3'*64}\npayload_build_id={'3'*64}\n".encode()
+                )
+                self.append_package_section(desktop_section)
+                (self.fake_db / "deb" / "solstone-linux").write_text("INSTALLED solstone-linux 2.0.37 amd64\n", encoding="utf-8")
+
+                proc = self.run_installer(installer, "--uninstall", "--components", "tmux", "--yes", "--json")
+                doc = self.assert_ran(proc)
+                self.assertEqual(doc["components"]["tmux"]["status"], "removed")
+                package = self.package_receipt.read_bytes()
+                self.assertEqual(receipt_sections(package), ["[solstone]", "[component:desktop]"])
+                self.assertEqual(receipt_section(package, "component:desktop"), desktop_section)
+                header = receipt_header(package)
+                self.assertEqual(header["schema_version"], "1")
+                self.assertEqual(header["lane"], "release")
+                self.assertIn("platform_version", header)
+                self.assertFalse((self.fake_db / "deb" / "solstone-tmux").exists())
             finally:
                 server.stop()
 

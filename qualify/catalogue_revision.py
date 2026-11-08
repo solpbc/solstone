@@ -29,7 +29,7 @@ from solstone_platform.pins import PinSet
 from solstone_platform.publish import publish_release
 from solstone_platform.recut import prepare_recut
 from solstone_platform.refusals import Refusal
-from solstone_platform.schema import catalogue_coordinate, load_platform_manifest_bytes, parse_catalogue_coordinate, retirement_floor
+from solstone_platform.schema import catalogue_coordinate, load_platform_manifest_bytes, parse_catalogue_coordinate, TMUX_RETIREMENT_FLOOR
 from solstone_platform.sign import ephemeral_keypair, sign_manifest
 from solstone_platform.testdest import FixtureDestination, StoredObject
 from tests.install_test_helpers import HermeticInstallerTestCase, LoopbackServer, receipt_section, setup_test_release_server
@@ -96,13 +96,13 @@ class PublicationQualification(unittest.TestCase):
                 catalogue_revision=revision, lane="release", created_unix=1700000000,
                 source_commit="3075c36b12fad469d4c9c0ab4555908fe8ecca1b", platform_key_id=self.pin.key_id,
                 repo_root=self.repo, journal_dir=dirs["journal"], desktop_dir=dirs["desktop"],
-                tmux_dir=dirs["tmux"] if floor < retirement_floor() else None,
+                tmux_dir=dirs["tmux"] if floor < TMUX_RETIREMENT_FLOOR else None,
                 journal_origin=ORIGIN, pins=self.pinset,
                 minimum_installer_revision=floor)
         path = self.root / f"release-{self.sequence}"
         path.mkdir()
         for name, directory in dirs.items():
-            if name == "tmux" and floor >= retirement_floor():
+            if name == "tmux" and floor >= TMUX_RETIREMENT_FLOOR:
                 continue
             shutil.copytree(directory, path / name)
         (path / "platform.json").write_bytes(data)
@@ -164,13 +164,12 @@ class PublicationQualification(unittest.TestCase):
         self.assertEqual(result.exception.name, code, str(result.exception))
 
     def test_signed_desktop_then_tmux_then_journal_sequence_and_exact_retry(self):
-        min_rev = int((self.repo / "compat" / "minimum_installer_revision").read_text(encoding="utf-8").strip())
         first = self.prepare("2.0.33-r1", {"desktop": self.desktop_min})
         first_obj = load_platform_manifest_bytes((first / "platform.json").read_bytes())
         base_obj = load_platform_manifest_bytes((self.base / "platform.json").read_bytes())
         self.assertEqual(first_obj["components"]["journal"], base_obj["components"]["journal"])
         self.assertNotIn("tmux", first_obj["components"])
-        self.assertEqual(first_obj["minimum_installer_revision"], min_rev)
+        self.assertEqual(first_obj["minimum_installer_revision"], TMUX_RETIREMENT_FLOOR)
         first_receipt = parse_json_strict((first / "recut-receipt.json").read_bytes())
         self.assertEqual(first_receipt.get("retired_components"), ["tmux"])
         self.assertEqual(self.publish(first).version, "2.0.33-r1")

@@ -31,10 +31,10 @@ from solstone_platform.refusals import (
     Refusal,
 )
 from solstone_platform.schema import (
+    TMUX_RETIREMENT_FLOOR,
     catalogue_coordinate,
     compare_catalogue_coordinates,
     load_platform_manifest_bytes,
-    retirement_floor,
     validate_arch_retention,
     validate_catalogue_transition,
 )
@@ -74,7 +74,7 @@ def validate_produced_catalogue(
     desktop_minimum_path: Path | None = None,
 ) -> None:
     """Validate that produced catalogues meeting or exceeding retirement floor carry desktop >= minimum."""
-    rf = retirement_floor()
+    rf = TMUX_RETIREMENT_FLOOR
     min_rev = manifest.get("minimum_installer_revision")
     if isinstance(min_rev, int) and min_rev >= rf:
         if desktop_minimum_path is None:

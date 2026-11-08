@@ -162,9 +162,10 @@ class TestDesktopAarch64Recut(unittest.TestCase):
                                          tmux_version=tmux, desktop_arches=desktop_arches)
         return dirs
 
-    def publish_base(self, desktop_arches, desktop_version: str = "2.0.37") -> dict:
+    def publish_base(self, desktop_arches, desktop_version: str = "2.0.37", *, schema_1: bool = False) -> dict:
         dirs = self.natives(desktop_version, "2.0.14", desktop_arches)
-        data = generate_platform_manifest(version=None, catalogue_revision=1, lane="release", created_unix=1700000000,
+        data = generate_platform_manifest(version="2.0.6" if schema_1 else None,
+                catalogue_revision=None if schema_1 else 1, lane="release", created_unix=1700000000,
                 minimum_installer_revision=1,
                 source_commit="3075c36b12fad469d4c9c0ab4555908fe8ecca1b", platform_key_id=self.pin.key_id,
                 repo_root=self.repo, journal_dir=dirs["journal"], desktop_dir=dirs["desktop"], tmux_dir=dirs["tmux"],
@@ -187,6 +188,33 @@ class TestDesktopAarch64Recut(unittest.TestCase):
                 shutil.copytree(source, target / source.name, dirs_exist_ok=True)
             else:
                 shutil.copyfile(source, target / source.name)
+
+    def add_journal_release(self, version: str) -> None:
+        self.sequence += 1
+
+        @contextmanager
+        def retained(*args, **kwargs):
+            yield self.native_keys
+
+        with patch("tools.fixture_builder.ephemeral_keypair", retained):
+            _, dirs = build_tiny_natives(self.root / f"natives-{self.sequence}", journal_version=version)
+        target = self.www / "solstone-journal" / "release" / version
+        target.mkdir(parents=True, exist_ok=True)
+        for source in dirs["journal"].rglob("*"):
+            if source.is_file():
+                shutil.copyfile(source, target / source.name)
+
+    def assert_refused_before_preparing(self, coordinate: str, replacements: dict[str, str], name: str = RELEASE_COHERENCE):
+        before = sorted(path.name for path in self.root.iterdir())
+        with self.assertRaises(Refusal) as ctx:
+            self.prepare(coordinate, replacements)
+        self.assertEqual(ctx.exception.name, name)
+        # No candidate output and no staging directory was left behind.
+        self.assertEqual(sorted(path.name for path in self.root.iterdir()), before)
+        return ctx.exception
+
+    def manifest(self, path: Path) -> dict:
+        return load_platform_manifest_bytes((path / "platform.json").read_bytes())
 
     def sign(self, path: Path) -> None:
         (path / "platform.json.minisig").write_bytes(
@@ -271,8 +299,78 @@ class TestDesktopAarch64Recut(unittest.TestCase):
         self.assertEqual(ctx.exception.name, RELEASE_COHERENCE)
         validate_arch_retention(candidate, base)
 
+    def test_journal_recut_on_a_tmux_base_with_an_old_carried_desktop_refuses_before_preparing(self):
+        self.publish_base(("x86_64",), desktop_version="2.0.14")
+        self.add_journal_release("2.0.7")
+        minimum = (self.repo / "compat" / "terminal_capture_desktop_minimum").read_text(encoding="utf-8").strip()
+        refusal = self.assert_refused_before_preparing("2.0.7-r1", {"journal": "2.0.7"})
+        self.assertIn(minimum, str(refusal))
+
+    def test_journal_recut_on_a_tmux_base_with_a_carried_desktop_at_the_minimum_retires_tmux(self):
+        base = self.publish_base(("x86_64",), desktop_version="2.0.37")
+        self.add_journal_release("2.0.7")
+        prepared = self.prepare("2.0.7-r1", {"journal": "2.0.7"})
+        candidate = self.manifest(prepared)
+        self.assertEqual(set(candidate["components"]), {"journal", "desktop"})
+        self.assertEqual(candidate["minimum_installer_revision"], 20)
+        self.assertEqual(candidate["components"]["desktop"], base["components"]["desktop"])
+        self.assertEqual(candidate["components"]["journal"]["version"], "2.0.7")
+        receipt = parse_json_strict((prepared / "recut-receipt.json").read_bytes())
+        self.assertEqual(receipt.get("retired_components"), ["tmux"])
+
+    def test_retirement_at_the_minimum_publishes_no_tmux_object_and_the_steady_state_follows(self):
+        self.publish_base(("x86_64",), desktop_version="2.0.14")
+        minimum = (self.repo / "compat" / "terminal_capture_desktop_minimum").read_text(encoding="utf-8").strip()
+        self.add_release("desktop", minimum)
+        prepared = self.prepare("2.0.6-r2", {"desktop": minimum})
+        candidate = self.manifest(prepared)
+        self.assertEqual(set(candidate["components"]), {"journal", "desktop"})
+        self.assertEqual(candidate["minimum_installer_revision"], 20)
+        self.assertEqual(candidate["components"]["desktop"]["version"], minimum)
+        self.assertEqual(parse_json_strict((prepared / "recut-receipt.json").read_bytes()).get("retired_components"), ["tmux"])
+
+        existing = {key: obj.body for key, obj in self.dest.objects.items()}
+        self.assertEqual(self.publish(prepared).version, "2.0.6-r2")
+        new_keys = [key for key in self.dest.objects if key.startswith("solstone/release/2.0.6-r2/")]
+        self.assertTrue(new_keys)
+        self.assertFalse([key for key in new_keys if "tmux" in key])
+        for key, body in existing.items():
+            if key == "solstone/release/latest":
+                continue
+            self.assertEqual(self.dest.objects[key].body, body, key)
+        self.assertEqual(self.dest.get("solstone/release/latest").body, b"2.0.6-r2\n")
+
+        # From the tmux-less floor-20 base: a journal recut succeeds and stays without tmux.
+        self.sync()
+        self.add_journal_release("2.0.7")
+        steady = self.prepare("2.0.7-r1", {"journal": "2.0.7"})
+        steady_manifest = self.manifest(steady)
+        self.assertEqual(set(steady_manifest["components"]), {"journal", "desktop"})
+        self.assertEqual(steady_manifest["minimum_installer_revision"], 20)
+        self.assertNotIn("retired_components", parse_json_strict((steady / "recut-receipt.json").read_bytes()))
+        self.assertEqual(self.publish(steady).version, "2.0.7-r1")
+        self.assertFalse([key for key in self.dest.objects if key.startswith("solstone/release/2.0.7-r1/") and "tmux" in key])
+
+        # tmux is never a replacement on a tmux-less base either.
+        self.sync()
+        self.assert_refused_before_preparing("2.0.7-r2", {"tmux": "2.0.15"}, SCHEMA_INVALID)
+
+    def test_schema_1_base_recut_follows_the_retirement_rule(self):
+        self.publish_base(("x86_64",), desktop_version="2.0.14", schema_1=True)
+        self.add_journal_release("2.0.7")
+        self.assert_refused_before_preparing("2.0.7-r1", {"journal": "2.0.7"})
+
+        minimum = (self.repo / "compat" / "terminal_capture_desktop_minimum").read_text(encoding="utf-8").strip()
+        self.add_release("desktop", minimum)
+        prepared = self.prepare("2.0.6-r1", {"desktop": minimum})
+        candidate = self.manifest(prepared)
+        self.assertEqual(candidate["schema_version"], 2)
+        self.assertEqual(candidate["minimum_installer_revision"], 20)
+        self.assertEqual(set(candidate["components"]), {"journal", "desktop"})
+        self.assertEqual(self.publish(prepared).version, "2.0.6-r1")
+
     def test_recut_tmux_replace_refused(self):
-        # Case (c): --replace tmux refuses immediately
+        # tmux is never a replacement, refused before the destination is read
         with self.assertRaises(Refusal) as ctx:
             self.prepare("2.0.6-r2", {"tmux": "2.0.15"})
         self.assertEqual(ctx.exception.name, SCHEMA_INVALID)

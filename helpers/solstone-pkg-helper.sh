@@ -525,13 +525,27 @@ handle_write_receipt() {
     echo "OK"
 }
 
+# Delete the receipt only when it records no component: zero bytes, or a
+# header alone. A receipt that still records a component is refused.
 handle_delete_receipt() {
     receipt_dir=$(dirname "$RECEIPT_FILE")
     if [ -L "$receipt_dir" ] || [ -L "$RECEIPT_FILE" ] || [ -d "$RECEIPT_FILE" ] || { [ -e "$RECEIPT_FILE" ] && [ ! -f "$RECEIPT_FILE" ]; }; then
         echo "ERROR:receipt-dest-invalid"
         return 1
     fi
-    rm -f "$RECEIPT_FILE"
+    if [ -e "$RECEIPT_FILE" ]; then
+        if grep -q '^\[component:' "$RECEIPT_FILE"; then
+            echo "ERROR:receipt-not-empty"
+            return 1
+        elif [ "$?" -ne 1 ]; then
+            echo "ERROR:receipt-read-failed"
+            return 1
+        fi
+    fi
+    if ! rm -f "$RECEIPT_FILE"; then
+        echo "ERROR:receipt-dest-invalid"
+        return 1
+    fi
     echo "OK"
 }
 

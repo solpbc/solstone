@@ -21,8 +21,8 @@ from solstone_platform.schema import (
     COMPONENT_CONTRACTS,
     MAX_PLATFORM_BYTES,
     _scan_platform_json_limits,
+    TMUX_RETIREMENT_FLOOR,
     load_platform_manifest_bytes,
-    retirement_floor,
     validate_platform_manifest,
 )
 
@@ -40,7 +40,8 @@ class TestSchema(unittest.TestCase):
     def test_installer_revision_allows(self):
         min_rev_path = self.repo_root / "compat" / "minimum_installer_revision"
         min_rev = load_minimum_installer_revision(min_rev_path)
-        self.assertEqual(min_rev, retirement_floor())
+        # New catalogues carry no tmux, so no installer below the retirement floor may read them.
+        self.assertGreaterEqual(min_rev, TMUX_RETIREMENT_FLOOR)
 
         # Actual min_rev - 1 vs min_rev -> False
         self.assertFalse(installer_revision_allows(actual=min_rev - 1, minimum=min_rev))
@@ -496,7 +497,8 @@ class TestSchema(unittest.TestCase):
 
     def test_published_floor_8_tmux_manifest_and_rendered_schema(self):
         from solstone_platform.schema import render_platform_schema
-        # Case (e): published-shape floor-8 tmux manifest validates
+        # A published-shape tmux catalogue at floor 8 still validates, and the
+        # rendered schema keeps tmux as an optional property.
         obj = parse_json_strict(self.example_bytes)
         obj["minimum_installer_revision"] = 8
         self.assertIn("tmux", obj["components"])
@@ -509,8 +511,9 @@ class TestSchema(unittest.TestCase):
             self.assertIn("tmux", comps["properties"])
 
     def test_catalogue_floor_drop_tmux_rules(self):
-        floor = retirement_floor()
-        # Case (f): floor with tmux refused, floor 8 without tmux refused
+        floor = TMUX_RETIREMENT_FLOOR
+        # A catalogue at the retirement floor that carries tmux, and one at
+        # floor 8 that lacks it, are both refused.
         obj_floor_with_tmux = parse_json_strict(self.example_bytes)
         obj_floor_with_tmux["minimum_installer_revision"] = floor
         with self.assertRaises(Refusal) as ctx:
@@ -527,12 +530,41 @@ class TestSchema(unittest.TestCase):
         obj_floor_no_tmux["minimum_installer_revision"] = floor
         validate_platform_manifest(obj_floor_no_tmux)
 
+    def test_retirement_floor_is_fixed_when_the_compatibility_floor_rises(self):
+        no_tmux = parse_json_strict(self.example_bytes)
+        del no_tmux["components"]["tmux"]
+        no_tmux["minimum_installer_revision"] = 21
+        validate_platform_manifest(no_tmux)
+
+        with_tmux = parse_json_strict(self.example_bytes)
+        with_tmux["minimum_installer_revision"] = 21
+        with self.assertRaises(Refusal) as ctx:
+            validate_platform_manifest(with_tmux)
+        self.assertEqual(ctx.exception.name, SCHEMA_INVALID)
+
+        # With the compatibility floor raised to 21, a published floor-20
+        # catalogue without tmux is still valid.
+        floor_20 = copy.deepcopy(no_tmux)
+        floor_20["minimum_installer_revision"] = 20
+        real_read_text = Path.read_text
+
+        def compat_floor_21(path, *args, **kwargs):
+            if path.name == "minimum_installer_revision":
+                return "21\n"
+            return real_read_text(path, *args, **kwargs)
+
+        with patch.object(Path, "read_text", compat_floor_21):
+            self.assertEqual(load_minimum_installer_revision(self.repo_root / "compat" / "minimum_installer_revision"), 21)
+            validate_platform_manifest(floor_20)
+            validate_platform_manifest(no_tmux)
+
     def test_validate_produced_catalogue_enforces_desktop_minimum(self):
-        # Case (g): producer checks validate_produced_catalogue
+        # A produced catalogue at the retirement floor needs a desktop at or
+        # above the terminal-capture minimum; a floor-8 one never applies it.
         from solstone_platform.publish import validate_produced_catalogue
         from solstone_platform.refusals import RELEASE_COHERENCE
 
-        floor = retirement_floor()
+        floor = TMUX_RETIREMENT_FLOOR
         passing_ver = (self.repo_root / "compat" / "terminal_capture_desktop_minimum").read_text(encoding="utf-8").strip()
         failing_ver = "0.0.1"
 

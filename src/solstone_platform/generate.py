@@ -22,9 +22,9 @@ from solstone_platform.refusals import (
     Refusal,
 )
 from solstone_platform.schema import (
+    TMUX_RETIREMENT_FLOOR,
     is_valid_catalogue_revision,
     is_valid_semver,
-    retirement_floor,
     validate_platform_manifest,
 )
 
@@ -112,7 +112,7 @@ def generate_platform_manifest(
     else:
         min_installer_rev = load_minimum_installer_revision(repo_root)
 
-    rf = retirement_floor()
+    rf = TMUX_RETIREMENT_FLOOR
     include_tmux = (min_installer_rev < rf)
 
     if include_tmux and tmux_dir is None:
