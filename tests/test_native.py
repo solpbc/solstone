@@ -347,7 +347,8 @@ class TestDesktopAarch64Ingest(unittest.TestCase):
             version="2.0.3", lane="release", created_unix=1700000000,
             source_commit="3075c36b12fad469d4c9c0ab4555908fe8ecca1b", platform_key_id=self.pin.key_id,
             repo_root=Path(__file__).parent.parent, journal_dir=dirs["journal"], desktop_dir=dirs["desktop"],
-            tmux_dir=dirs["tmux"], journal_origin="https://updates.solstone.app", pins=pins,
+            tmux_dir=dirs["tmux"], minimum_installer_revision=1,
+            journal_origin="https://updates.solstone.app", pins=pins,
         )
         obj = load_platform_manifest_bytes(manifest)
         self.assertEqual(set(obj["components"]["desktop"]["arches"]), {"x86_64", "aarch64"})

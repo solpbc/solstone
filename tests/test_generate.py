@@ -30,6 +30,7 @@ class TestGenerate(unittest.TestCase):
                 journal_dir=dirs["journal"],
                 desktop_dir=dirs["desktop"],
                 tmux_dir=dirs["tmux"],
+                minimum_installer_revision=1,
                 journal_origin="https://127.0.0.1",
                 pins=pinset,
             )
@@ -56,6 +57,7 @@ class TestGenerate(unittest.TestCase):
                 journal_dir=dirs["journal"],
                 desktop_dir=dirs["desktop"],
                 tmux_dir=dirs["tmux"],
+                minimum_installer_revision=1,
                 journal_origin="https://127.0.0.1",
                 pins=pinset,
             )
@@ -70,6 +72,7 @@ class TestGenerate(unittest.TestCase):
                 journal_dir=dirs["journal"],
                 desktop_dir=dirs["desktop"],
                 tmux_dir=dirs["tmux"],
+                minimum_installer_revision=1,
                 journal_origin="https://127.0.0.1",
                 pins=pinset,
             )
@@ -84,6 +87,7 @@ class TestGenerate(unittest.TestCase):
                 source_commit="a" * 40, platform_key_id="1111222233334444",
                 repo_root=self.repo_root, journal_dir=dirs["journal"],
                 desktop_dir=dirs["desktop"], tmux_dir=dirs["tmux"],
+                minimum_installer_revision=1,
                 journal_origin="https://127.0.0.1", pins=pinset,
             ))
             validate_platform_manifest(manifest)
@@ -110,6 +114,7 @@ class TestGenerate(unittest.TestCase):
                 journal_dir=dirs["journal"],
                 desktop_dir=dirs["desktop"],
                 tmux_dir=dirs["tmux"],
+                minimum_installer_revision=1,
                 journal_origin="https://127.0.0.1",
                 pins=pinset,
             )

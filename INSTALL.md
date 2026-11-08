@@ -25,7 +25,7 @@ after acquisition, open the journal app. it owns journal setup, verified legacy 
 
 ## linux
 
-on linux, the installer installs the journal, the desktop app, or the tmux app from signed releases. `cli` installs the journal tools without setting up a local journal.
+on linux, the installer installs the journal or the desktop app from signed releases. `cli` installs the journal tools without setting up a local journal. terminal capture is part of the desktop app, turned on in it, and needs tmux on the computer. an owner who has the tmux app moves it with `solstone update`, or with `curl -fsSL https://solstone.app/install.sh | sh -s -- --upgrade --components tmux` when only the tmux app is installed.
 
 ### check what is already there
 
@@ -39,19 +39,19 @@ keep the existing prefix and route. use `--upgrade` for a platform-owned install
 
 ### choose together
 
-choose `journal` for a journal on this device, or `cli` for the tools alone. they are alternative roles for the same download. add `desktop` or `tmux` as needed. `all` selects the journal and available apps; `capture` selects the cli and available apps. the signed catalogue determines availability on this architecture.
+choose `journal` for a journal on this device, or `cli` for the tools alone. they are alternative roles for the same download. add `desktop` as needed. `all` selects the journal and available apps; `capture` selects the cli and available apps. the signed catalogue determines availability on this architecture.
 
 the default is a tree under `$HOME/.local`, owned by the current account. `--route package` uses apt on debian/ubuntu or dnf on fedora, with sudo for package operations. run as the person who will use solstone so service setup belongs to their account. agents should use `--non-interactive --json`; use `--no-start` when service setup must wait for the person's session.
 
 ### install and verify
 
-the help lists options and prerequisites, including minisign. install missing prerequisites with the distribution's package manager. the journal's local models also need the OpenMP runtime (`libgomp1` on debian/ubuntu, `libgomp` on fedora). the tmux app needs tmux; package installation resolves its declared dependencies.
+the help lists options and prerequisites, including minisign. install missing prerequisites with the distribution's package manager. the journal's local models also need the OpenMP runtime (`libgomp1` on debian/ubuntu, `libgomp` on fedora). package installation resolves declared dependencies.
 
 preview the agreed selection, then install it:
 
 ```sh
-sh install.sh --components cli,tmux --dry-run --non-interactive --json
-sh install.sh --components cli,tmux --non-interactive --json
+sh install.sh --components cli,desktop --dry-run --non-interactive --json
+sh install.sh --components cli,desktop --non-interactive --json
 ```
 
 a preview verifies release metadata and reads ownership. it does not install payloads, acquire installation locks, or change services. inspect refusals before proceeding. signature and digest verification run by default; do not add `--skip-signature` to work around a verification failure.
@@ -60,7 +60,7 @@ stdout with `--json` is one JSON document; diagnostics go to stderr. check both 
 
 follow the printed PATH instructions. for a tree installation, the journal tools live at `PREFIX/current/bin/solstone`; app launchers live under `PREFIX/bin`. when app PATH configuration is enabled, source `${XDG_CONFIG_HOME:-$HOME/.config}/solstone/env` in the current shell and add that source command to the appropriate shell startup file if needed. `--no-path` leaves this to you.
 
-verify the tools you selected with `solstone journal --version`, `solstone-linux --version`, or `solstone-tmux --version`. for a local journal, run `solstone journal service status`. on systemd hosts, check `systemctl --user status solstone`, `solstone-linux`, or `solstone-tmux` as applicable. installation completion means the selected setup commands succeeded; it is not a claim that intake, pairing, models, or every background service is healthy. the tmux app needs a running tmux session; the desktop app needs a graphical session.
+verify the tools you selected with `solstone journal --version`, `solstone-linux --version`, or `solstone-tmux --version`. for a local journal, run `solstone journal service status`. on systemd hosts, check `systemctl --user status solstone`, `solstone-linux`, or `solstone-tmux` as applicable. installation completion means the selected setup commands succeeded; it is not a claim that intake, pairing, models, or every background service is healthy. screen and audio need the owner's desktop session; terminal capture does not.
 
 ### update or remove
 

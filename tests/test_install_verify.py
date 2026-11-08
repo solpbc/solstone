@@ -457,6 +457,7 @@ class TestInstallVerify(HermeticInstallerTestCase):
                     journal_dir=native_dirs["journal"],
                     desktop_dir=REPO_ROOT / "testdata" / "native" / "desktop" / "2.0.3",
                     tmux_dir=REPO_ROOT / "testdata" / "native" / "tmux" / "2.0.3",
+                    minimum_installer_revision=1,
                     journal_origin=server.origin,
                     pins=mixed_pinset,
                 )

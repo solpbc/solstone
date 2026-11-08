@@ -61,7 +61,7 @@ class CapturedSnapshot:
     signature_path: Path
     journal_dir: Path
     desktop_dir: Path
-    tmux_dir: Path
+    tmux_dir: Optional[Path] = None
     bootstrap_file: Optional[Path] = None
     receipt_path: Optional[Path] = None
     captured_files: list[Path] = None
@@ -383,7 +383,7 @@ def capture_release_sources(
     signature_path: Path,
     journal_dir: Path,
     desktop_dir: Path,
-    tmux_dir: Path,
+    tmux_dir: Optional[Path] = None,
     bootstrap_file: Optional[Path] = None,
     receipt_path: Optional[Path] = None,
     temp_root: Optional[Path] = None,
@@ -405,7 +405,7 @@ def capture_release_sources(
         signature_path=temp_dir / "platform" / "platform.json.minisig",
         journal_dir=temp_dir / "journal",
         desktop_dir=temp_dir / "desktop",
-        tmux_dir=temp_dir / "tmux",
+        tmux_dir=temp_dir / "tmux" if tmux_dir else None,
         bootstrap_file=temp_dir / "bootstrap" / bootstrap_file.name if bootstrap_file else None,
         receipt_path=temp_dir / "platform" / "recut-receipt.json" if receipt_path else None,
     )
@@ -424,7 +424,8 @@ def capture_release_sources(
         capturer.capture_directory("desktop", desktop_dir, snapshot.desktop_dir, allowed_subdirs=None)
 
         # Tmux tree (root regular files only)
-        capturer.capture_directory("tmux", tmux_dir, snapshot.tmux_dir, allowed_subdirs=None)
+        if tmux_dir:
+            capturer.capture_directory("tmux", tmux_dir, snapshot.tmux_dir, allowed_subdirs=None)
 
         # Optional explicit bootstrap file
         if bootstrap_file:

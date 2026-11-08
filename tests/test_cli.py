@@ -84,7 +84,6 @@ class TestProductionCliGate(unittest.TestCase):
                     "--signature", str(repo_root / "examples" / "platform.json"),
                     "--journal-dir", str(repo_root / "testdata" / "native" / "journal-v2"),
                     "--desktop-dir", str(repo_root / "testdata" / "native" / "desktop" / "2.0.3"),
-                    "--tmux-dir", str(repo_root / "testdata" / "native" / "tmux" / "2.0.3"),
                     "--platform-pub", str(repo_root / "pins" / "platform.pub"),
                 ])
         self.assertIn("unrecognized arguments: --platform-pub", stderr.getvalue())
@@ -100,7 +99,6 @@ class TestProductionCliGate(unittest.TestCase):
                     "--signature", str(repo_root / "examples" / "platform.json"),
                     "--journal-dir", str(repo_root / "testdata" / "native" / "journal-v2"),
                     "--desktop-dir", str(repo_root / "testdata" / "native" / "desktop" / "2.0.3"),
-                    "--tmux-dir", str(repo_root / "testdata" / "native" / "tmux" / "2.0.3"),
                     "--skip-signature",
                 ])
         self.assertIn("unrecognized arguments: --skip-signature", stderr.getvalue())
@@ -111,6 +109,7 @@ class TestProductionCliGate(unittest.TestCase):
         with redirect_stdout(stdout):
             with self.assertRaises(SystemExit):
                 main(["publish", "--help"])
+
     def test_publish_requires_ack_and_env(self):
         repo_root = Path(__file__).parent.parent
         stderr = io.StringIO()
@@ -121,10 +120,51 @@ class TestProductionCliGate(unittest.TestCase):
                 "--signature", str(repo_root / "examples" / "platform.json"),
                 "--journal-dir", str(repo_root / "testdata" / "native" / "journal-v2"),
                 "--desktop-dir", str(repo_root / "testdata" / "native" / "desktop" / "2.0.3"),
-                "--tmux-dir", str(repo_root / "testdata" / "native" / "tmux" / "2.0.3"),
             ])
         self.assertEqual(result, 1)
         self.assertIn("--acknowledge-production required", stderr.getvalue())
+
+    def test_cli_generate_desktop_minimum_enforcement(self):
+        from unittest.mock import patch
+        from tools.fixture_builder import build_tiny_natives
+        repo_root = Path(__file__).parent.parent
+        with tempfile.TemporaryDirectory(dir="/var/tmp") as tmp_str:
+            tmp = Path(tmp_str)
+            pinset_old, dirs_old = build_tiny_natives(tmp / "natives_old", desktop_version="2.0.36")
+            out_old = tmp / "out_old.json"
+            stderr = io.StringIO()
+            with redirect_stderr(stderr):
+                with patch("solstone_platform.cli.embedded_pins", return_value=pinset_old):
+                    res_old = main([
+                        "generate",
+                        "--lane", "release",
+                        "--created-unix", "1700000000",
+                        "--journal-origin", "https://updates.solstone.app",
+                        "--journal-dir", str(dirs_old["journal"]),
+                        "--desktop-dir", str(dirs_old["desktop"]),
+                        "--platform-key-id", "0123456789ABCDEF",
+                        "--source-commit", "3075c36b12fad469d4c9c0ab4555908fe8ecca1b",
+                        "--out", str(out_old),
+                    ])
+            self.assertEqual(res_old, 1)
+            self.assertIn("older than terminal capture desktop minimum 2.0.37", stderr.getvalue())
+
+            pinset_new, dirs_new = build_tiny_natives(tmp / "natives_new", desktop_version="2.0.37")
+            out_new = tmp / "out_new.json"
+            with patch("solstone_platform.cli.embedded_pins", return_value=pinset_new):
+                res_new = main([
+                    "generate",
+                    "--lane", "release",
+                    "--created-unix", "1700000000",
+                    "--journal-origin", "https://updates.solstone.app",
+                    "--journal-dir", str(dirs_new["journal"]),
+                    "--desktop-dir", str(dirs_new["desktop"]),
+                    "--platform-key-id", "0123456789ABCDEF",
+                    "--source-commit", "3075c36b12fad469d4c9c0ab4555908fe8ecca1b",
+                    "--out", str(out_new),
+                ])
+            self.assertEqual(res_new, 0)
+            self.assertTrue(out_new.exists())
 
 
 if __name__ == "__main__":

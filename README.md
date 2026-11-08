@@ -37,6 +37,8 @@ sh install.sh --help
 
 check that the download succeeded before running the script. `https://solstone.app/platform-install.sh` remains a byte-identical compatibility URL. on macos, this installer acquires the native apps; it never installs a standalone journal runtime.
 
+terminal capture is part of the desktop app, is turned on in it, and needs tmux on the computer. an owner who already has the tmux app moves it with `solstone update`. when only the tmux app is installed, the direct upgrade is `curl -fsSL https://solstone.app/install.sh | sh -s -- --upgrade --components tmux`.
+
 for authoritative definitions, refer to:
 - native component pins: `pins/`
 - current installer revision: `compat/installer_revision`
@@ -73,7 +75,7 @@ PYTHONPATH=src python3 -m solstone_platform.cli --help
 
 schema-2 catalogues use the selected journal version and a positive catalogue
 revision. journal `2.0.33` with revision `1` is published at `2.0.33-r1`.
-a desktop or tmux release can advance the revision while keeping that journal
+a desktop release can advance the revision while keeping that journal
 version and its payloads. a new journal version normally starts at revision `1`.
 historical schema-1 catalogues keep their original bare coordinates.
 
@@ -121,7 +123,6 @@ SOLSTONE_PLATFORM_PRODUCTION=ack PYTHONPATH=src python3 -m solstone_platform.cli
   --signature /var/tmp/solstone-release/platform-2.0.33-r1/platform.json.minisig \
   --journal-dir /var/tmp/solstone-release/platform-2.0.33-r1/journal \
   --desktop-dir /var/tmp/solstone-release/platform-2.0.33-r1/desktop \
-  --tmux-dir /var/tmp/solstone-release/platform-2.0.33-r1/tmux \
   --bootstrap-file /var/tmp/solstone-release/platform-2.0.33-r1/bootstrap/solstone-journal-2.0.33-install.sh \
   --expected-latest-receipt /var/tmp/solstone-release/platform-2.0.33-r1/recut-receipt.json \
   --acknowledge-production

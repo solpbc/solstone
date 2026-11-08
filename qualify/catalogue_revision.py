@@ -29,7 +29,7 @@ from solstone_platform.pins import PinSet
 from solstone_platform.publish import publish_release
 from solstone_platform.recut import prepare_recut
 from solstone_platform.refusals import Refusal
-from solstone_platform.schema import catalogue_coordinate, load_platform_manifest_bytes, parse_catalogue_coordinate
+from solstone_platform.schema import catalogue_coordinate, load_platform_manifest_bytes, parse_catalogue_coordinate, retirement_floor
 from solstone_platform.sign import ephemeral_keypair, sign_manifest
 from solstone_platform.testdest import FixtureDestination, StoredObject
 from tests.install_test_helpers import HermeticInstallerTestCase, LoopbackServer, receipt_section, setup_test_release_server
@@ -65,11 +65,12 @@ class PublicationQualification(unittest.TestCase):
         self.stack.callback(self.server.stop)
         self.dest = FixtureDestination(pinset=self.pinset, platform_pin=self.pin)
         self.sequence = 0
+        self.desktop_min = (self.repo / "compat" / "terminal_capture_desktop_minimum").read_text(encoding="utf-8").strip()
         self.base = self.release("9.0.0", journal="2.0.33", desktop="2.0.14", tmux="2.0.14", floor=1)
         self.publish(self.base)
         self.sync_destination()
-        self.add_native_release("2.0.33", "2.0.15", "2.0.15")
-        self.add_native_release("2.0.34", "2.0.15", "2.0.15")
+        self.add_native_release("2.0.33", self.desktop_min, "2.0.15")
+        self.add_native_release("2.0.34", self.desktop_min, "2.0.15")
 
     def tearDown(self):
         self.stack.close()
@@ -94,15 +95,17 @@ class PublicationQualification(unittest.TestCase):
         data = generate_platform_manifest(version=coordinate if revision is None else None,
                 catalogue_revision=revision, lane="release", created_unix=1700000000,
                 source_commit="3075c36b12fad469d4c9c0ab4555908fe8ecca1b", platform_key_id=self.pin.key_id,
-                repo_root=self.repo, journal_dir=dirs["journal"], desktop_dir=dirs["desktop"], tmux_dir=dirs["tmux"],
-                journal_origin=ORIGIN, pins=self.pinset)
-        obj = parse_json_strict(data)
-        obj["minimum_installer_revision"] = floor
+                repo_root=self.repo, journal_dir=dirs["journal"], desktop_dir=dirs["desktop"],
+                tmux_dir=dirs["tmux"] if floor < retirement_floor() else None,
+                journal_origin=ORIGIN, pins=self.pinset,
+                minimum_installer_revision=floor)
         path = self.root / f"release-{self.sequence}"
         path.mkdir()
         for name, directory in dirs.items():
+            if name == "tmux" and floor >= retirement_floor():
+                continue
             shutil.copytree(directory, path / name)
-        (path / "platform.json").write_bytes(canonical_json_bytes(obj))
+        (path / "platform.json").write_bytes(data)
         self.sign(path)
         return path
 
@@ -114,7 +117,7 @@ class PublicationQualification(unittest.TestCase):
         receipt = path / "recut-receipt.json"
         bootstrap = list((path / "bootstrap").glob("*.sh"))
         return publish_release(manifest_path=path / "platform.json", signature_path=path / "platform.json.minisig",
-                journal_dir=path / "journal", desktop_dir=path / "desktop", tmux_dir=path / "tmux", dest=self.dest,
+                journal_dir=path / "journal", desktop_dir=path / "desktop", dest=self.dest,
                 bootstrap_file=bootstrap[0] if bootstrap else None,
                 **({"expected_latest_receipt": receipt} if receipt.is_file() else {}))
 
@@ -161,33 +164,40 @@ class PublicationQualification(unittest.TestCase):
         self.assertEqual(result.exception.name, code, str(result.exception))
 
     def test_signed_desktop_then_tmux_then_journal_sequence_and_exact_retry(self):
-        first = self.prepare("2.0.33-r1", {"desktop": "2.0.15"})
+        min_rev = int((self.repo / "compat" / "minimum_installer_revision").read_text(encoding="utf-8").strip())
+        first = self.prepare("2.0.33-r1", {"desktop": self.desktop_min})
         first_obj = load_platform_manifest_bytes((first / "platform.json").read_bytes())
         base_obj = load_platform_manifest_bytes((self.base / "platform.json").read_bytes())
         self.assertEqual(first_obj["components"]["journal"], base_obj["components"]["journal"])
-        self.assertEqual(first_obj["components"]["tmux"], base_obj["components"]["tmux"])
-        self.assertEqual(first_obj["minimum_installer_revision"], 8)
+        self.assertNotIn("tmux", first_obj["components"])
+        self.assertEqual(first_obj["minimum_installer_revision"], min_rev)
+        first_receipt = parse_json_strict((first / "recut-receipt.json").read_bytes())
+        self.assertEqual(first_receipt.get("retired_components"), ["tmux"])
         self.assertEqual(self.publish(first).version, "2.0.33-r1")
         self.assertFalse(self.publish(first).latest_promoted)
         self.sync_destination()
-        second = self.prepare("2.0.33-r2", {"tmux": "2.0.15"})
+        second = self.prepare("2.0.34-r1", {"journal": "2.0.34"})
+        second_receipt = parse_json_strict((second / "recut-receipt.json").read_bytes())
+        self.assertNotIn("retired_components", second_receipt)
         self.assertTrue(self.publish(second).latest_promoted)
-        self.sync_destination()
-        third = self.prepare("2.0.34-r1", {"journal": "2.0.34"})
-        self.assertTrue(self.publish(third).latest_promoted)
         self.assertEqual(self.dest.get(LATEST).body, b"2.0.34-r1\n")
         cas = [item for item in self.dest.ledger if item.method == "compare_and_swap"]
-        self.assertEqual(len(cas), 4)  # Initial fixture base and three prepared publications.
+        self.assertEqual(len(cas), 3)  # Initial fixture base and two prepared publications.
 
-    def test_first_tmux_only_migration_and_positive_gap(self):
-        candidate = self.prepare("2.0.33-r7", {"tmux": "2.0.15"})
+    def test_tmux_replacement_refused_and_positive_gap_retirement(self):
+        self.refuse(self.prepare, "schema-invalid", "2.0.33-r7", {"tmux": "2.0.15"})
+        candidate = self.prepare("2.0.33-r7", {"desktop": self.desktop_min})
+        cand_obj = load_platform_manifest_bytes((candidate / "platform.json").read_bytes())
+        self.assertNotIn("tmux", cand_obj["components"])
+        cand_receipt = parse_json_strict((candidate / "recut-receipt.json").read_bytes())
+        self.assertEqual(cand_receipt.get("retired_components"), ["tmux"])
         self.assertTrue(self.publish(candidate).latest_promoted)
         self.assertEqual(self.dest.get(LATEST).body, b"2.0.33-r7\n")
 
     def test_preparation_rejects_wrong_core_nonincrease_and_floor_twin(self):
-        self.refuse(self.prepare, "release-coherence", "2.0.32-r1", {"tmux": "2.0.15"})
-        self.refuse(self.prepare, "release-coherence", "9.0.1", {"tmux": "2.0.15"})
-        first = self.prepare("2.0.33-r1", {"tmux": "2.0.15"})
+        self.refuse(self.prepare, "release-coherence", "2.0.32-r1", {"desktop": self.desktop_min})
+        self.refuse(self.prepare, "release-coherence", "9.0.1", {"desktop": self.desktop_min})
+        first = self.prepare("2.0.33-r1", {"desktop": self.desktop_min})
         self.publish(first)
         self.sync_destination()
         for coordinate in ("2.0.33-r1", "2.0.32-r9", "9.0.1"):
@@ -208,12 +218,12 @@ class PublicationQualification(unittest.TestCase):
         self.sign(path)
 
     def test_independent_publisher_refuses_transition_twins_before_writes(self):
-        cases = [lambda obj: obj.update(minimum_installer_revision=7),
+        cases = [lambda obj: obj.update(minimum_installer_revision=21),
                  lambda obj: obj.update(protocol_version=2),
                  lambda obj: obj.update(lane="staging"),
                  lambda obj: obj["components"]["journal"]["provenance"].update(retention_window=99)]
         for number, change in enumerate(cases):
-            candidate = self.prepare("2.0.33-r1", {"desktop": "2.0.15"}, name=f"twin-{number}")
+            candidate = self.prepare("2.0.33-r1", {"desktop": self.desktop_min}, name=f"twin-{number}")
             # Invalid protocol cannot pass the signer, which is itself an independent boundary.
             if number == 1:
                 self.refuse(self.mutate_candidate, "schema-invalid", candidate, change)
@@ -222,18 +232,18 @@ class PublicationQualification(unittest.TestCase):
             self.dest.ledger.clear()
             self.refuse(self.publish, "release-coherence", candidate)
             self.assertFalse(any(item.method in {"put_if_absent", "compare_and_swap"} for item in self.dest.ledger))
-        first = self.prepare("2.0.33-r1", {"tmux": "2.0.15"})
+        first = self.prepare("2.0.33-r1", {"desktop": self.desktop_min})
         self.publish(first)
         self.sync_destination()
-        candidate = self.prepare("2.0.33-r2", {"desktop": "2.0.15"})
-        self.mutate_candidate(candidate, lambda obj: obj.update(minimum_installer_revision=9))
+        candidate = self.prepare("2.0.34-r1", {"journal": "2.0.34"})
+        self.mutate_candidate(candidate, lambda obj: obj.update(minimum_installer_revision=21))
         self.dest.ledger.clear()
         self.refuse(self.publish, "release-coherence", candidate)
         self.assertFalse(any(item.method == "put_if_absent" for item in self.dest.ledger))
 
     def test_competing_candidates_refuse_stale_base_without_claims(self):
-        first = self.prepare("2.0.33-r1", {"desktop": "2.0.15"})
-        competing = self.prepare("2.0.33-r2", {"tmux": "2.0.15"})
+        first = self.prepare("2.0.33-r1", {"desktop": self.desktop_min})
+        competing = self.prepare("2.0.33-r2", {"desktop": self.desktop_min})
         self.publish(first)
         self.dest.ledger.clear()
         self.refuse(self.publish, "release-coherence", competing)
@@ -241,8 +251,8 @@ class PublicationQualification(unittest.TestCase):
         self.assertEqual(self.dest.get(LATEST).body, b"2.0.33-r1\n")
 
     def test_competing_publication_between_read_and_cas_never_demotes(self):
-        first = self.prepare("2.0.33-r1", {"desktop": "2.0.15"})
-        competing = self.prepare("2.0.33-r2", {"tmux": "2.0.15"})
+        first = self.prepare("2.0.33-r1", {"desktop": self.desktop_min})
+        competing = self.prepare("2.0.33-r2", {"desktop": self.desktop_min})
         saved_cas = self.dest.compare_and_swap
         requests = []
         def observed_cas(**kwargs):
@@ -258,7 +268,7 @@ class PublicationQualification(unittest.TestCase):
         self.assertEqual(self.dest.get(LATEST).body, b"2.0.33-r2\n")
 
     def test_partial_manifest_claim_original_retry_and_conflicting_bytes(self):
-        candidate = self.prepare("2.0.33-r1", {"desktop": "2.0.15"})
+        candidate = self.prepare("2.0.33-r1", {"desktop": self.desktop_min})
         original = (candidate / "platform.json").read_bytes()
         saved_put = self.dest.put_if_absent
 
@@ -289,7 +299,7 @@ class PublicationQualification(unittest.TestCase):
 
     def test_abandon_first_and_new_core_attempts_at_higher_revision(self):
         for first_coordinate, next_coordinate, replacements in (
-                ("2.0.33-r1", "2.0.33-r3", {"desktop": "2.0.15"}),
+                ("2.0.33-r1", "2.0.33-r3", {"desktop": self.desktop_min}),
                 ("2.0.34-r1", "2.0.34-r4", {"journal": "2.0.34"})):
             self.sync_destination()
             failed = self.prepare(first_coordinate, replacements)
@@ -309,7 +319,7 @@ class PublicationQualification(unittest.TestCase):
             self.assertEqual(self.dest.get(LATEST).body, (next_coordinate + "\n").encode())
 
     def test_indeterminate_cas_never_adopts_new_generation(self):
-        candidate = self.prepare("2.0.33-r1", {"desktop": "2.0.15"})
+        candidate = self.prepare("2.0.33-r1", {"desktop": self.desktop_min})
         self.dest.ledger.clear()
         self.dest.fail_next_cas = ResultStatus.TIMEOUT
         def unreadable_latest():
@@ -321,7 +331,7 @@ class PublicationQualification(unittest.TestCase):
         self.assertTrue(self.publish(candidate).latest_promoted)
 
     def test_complete_dependencies_precede_single_cas(self):
-        candidate = self.prepare("2.0.33-r1", {"desktop": "2.0.15"})
+        candidate = self.prepare("2.0.33-r1", {"desktop": self.desktop_min})
         saved_put = self.dest.put_if_absent
         def corrupt_dependency(**kwargs):
             result = saved_put(**kwargs)
@@ -392,7 +402,7 @@ class ReaderQualification(HermeticInstallerTestCase):
             self.assertEqual(report["platform_version"], coordinate)
             self.assertEqual(report["verification_layers"], "minisign+digest")
         obj = self.revised(9)
-        obj["minimum_installer_revision"] = 9
+        obj["minimum_installer_revision"] = 21
         self.signed(obj, "2.0.6-r9")
         result, report = self.run_reader()
         self.assertNotEqual(result.returncode, 0)
@@ -526,7 +536,8 @@ class PackageQualification(HermeticInstallerTestCase):
         self.assertEqual(success.returncode, 0, success.stderr + success.stdout)
         current = self.driver.receipt.read_bytes()
         self.assertIn(b"platform_version=2.0.6-r1\n", current)
-        self.assertIn(b"installer_revision=8\n", current)
+        installer_rev = (ROOT / "compat" / "installer_revision").read_text(encoding="utf-8").strip()
+        self.assertIn(f"installer_revision={installer_rev}\n".encode(), current)
         self.assertEqual(receipt_section(current, "component:cli"), component)
         self.assertEqual(self.driver.installs(), installs)
         self.assertEqual(self.driver.setup_records(), setup)

@@ -162,27 +162,31 @@ class TestDesktopAarch64Recut(unittest.TestCase):
                                          tmux_version=tmux, desktop_arches=desktop_arches)
         return dirs
 
-    def publish_base(self, desktop_arches) -> dict:
-        dirs = self.natives("2.0.14", "2.0.14", desktop_arches)
+    def publish_base(self, desktop_arches, desktop_version: str = "2.0.37") -> dict:
+        dirs = self.natives(desktop_version, "2.0.14", desktop_arches)
         data = generate_platform_manifest(version=None, catalogue_revision=1, lane="release", created_unix=1700000000,
+                minimum_installer_revision=1,
                 source_commit="3075c36b12fad469d4c9c0ab4555908fe8ecca1b", platform_key_id=self.pin.key_id,
                 repo_root=self.repo, journal_dir=dirs["journal"], desktop_dir=dirs["desktop"], tmux_dir=dirs["tmux"],
                 journal_origin=ORIGIN, pins=self.pinset)
-        path = self.root / "base"
+        path = self.root / f"base-{self.sequence}"
         path.mkdir()
         (path / "platform.json").write_bytes(data)
         self.sign(path)
         publish_release(manifest_path=path / "platform.json", signature_path=path / "platform.json.minisig",
-                        journal_dir=dirs["journal"], desktop_dir=dirs["desktop"], tmux_dir=dirs["tmux"], dest=self.dest)
+                        journal_dir=dirs["journal"], desktop_dir=dirs["desktop"], dest=self.dest)
         self.sync()
         return load_platform_manifest_bytes(data)
 
     def add_release(self, component: str, version: str, desktop_arches=("x86_64",)) -> None:
         dirs = self.natives(version, version, desktop_arches)
-        target = self.www / {"desktop": "solstone-linux", "tmux": "solstone-tmux"}[component] / "release" / version
-        target.mkdir(parents=True)
+        target = self.www / {"desktop": "solstone-linux", "tmux": "solstone-tmux", "journal": "solstone-journal"}[component] / "release" / version
+        target.mkdir(parents=True, exist_ok=True)
         for source in dirs[component].iterdir():
-            shutil.copyfile(source, target / source.name)
+            if source.is_dir():
+                shutil.copytree(source, target / source.name, dirs_exist_ok=True)
+            else:
+                shutil.copyfile(source, target / source.name)
 
     def sign(self, path: Path) -> None:
         (path / "platform.json.minisig").write_bytes(
@@ -213,9 +217,11 @@ class TestDesktopAarch64Recut(unittest.TestCase):
         return path
 
     def publish(self, path: Path):
+        bootstrap_files = list((path / "bootstrap").glob("*.sh"))
+        bootstrap_file = bootstrap_files[0] if bootstrap_files else None
         return publish_release(manifest_path=path / "platform.json", signature_path=path / "platform.json.minisig",
-                               journal_dir=path / "journal", desktop_dir=path / "desktop", tmux_dir=path / "tmux",
-                               dest=self.dest, bootstrap_file=next((path / "bootstrap").glob("*.sh")),
+                               journal_dir=path / "journal", desktop_dir=path / "desktop",
+                               dest=self.dest, bootstrap_file=bootstrap_file,
                                expected_latest_receipt=path / "recut-receipt.json")
 
     def desktop_arches(self, path: Path) -> set[str]:
@@ -223,33 +229,33 @@ class TestDesktopAarch64Recut(unittest.TestCase):
 
     def test_desktop_replacement_adds_aarch64_and_publish_claims_it(self):
         self.publish_base(("x86_64",))
-        self.add_release("desktop", "2.0.15", ("x86_64", "aarch64"))
-        prepared = self.prepare("2.0.6-r2", {"desktop": "2.0.15"})
+        self.add_release("desktop", "2.0.38", ("x86_64", "aarch64"))
+        prepared = self.prepare("2.0.6-r2", {"desktop": "2.0.38"})
         self.assertEqual(self.desktop_arches(prepared), {"x86_64", "aarch64"})
         self.assertEqual(self.publish(prepared).version, "2.0.6-r2")
         claimed = {key.rsplit("/", 1)[1] for key in self.dest.objects if key.startswith("solstone/release/2.0.6-r2/")}
-        self.assertTrue({name.format(v="2.0.15") for name in ARM_DESKTOP} <= claimed)
-        self.assertIn("solstone-linux-2.0.15-linux-x86_64.rust-release-manifest.json", claimed)
+        self.assertTrue({name.format(v="2.0.38") for name in ARM_DESKTOP} <= claimed)
+        self.assertIn("solstone-linux-2.0.38-linux-x86_64.rust-release-manifest.json", claimed)
 
         # Once carried, an unrelated recut re-reads aarch64 from the base catalogue and keeps it exact.
         self.sync()
-        self.add_release("tmux", "2.0.15")
-        kept = self.prepare("2.0.6-r3", {"tmux": "2.0.15"})
+        self.add_release("desktop", "2.0.39", ("x86_64", "aarch64"))
+        kept = self.prepare("2.0.6-r3", {"desktop": "2.0.39"})
         self.assertEqual(self.desktop_arches(kept), {"x86_64", "aarch64"})
         self.assertEqual(self.publish(kept).version, "2.0.6-r3")
 
         # A newer desktop release without aarch64 would drop it: refused before anything is prepared.
         self.sync()
-        self.add_release("desktop", "2.0.16")
+        self.add_release("desktop", "2.0.40")
         with self.assertRaises(Refusal) as ctx:
-            self.prepare("2.0.6-r4", {"desktop": "2.0.16"})
+            self.prepare("2.0.6-r4", {"desktop": "2.0.40"})
         self.assertEqual(ctx.exception.name, RELEASE_COHERENCE)
         self.assertFalse((self.root / "prepared-2.0.6-r4").exists())
 
     def test_desktop_release_without_aarch64_stays_x86_64_only(self):
         self.publish_base(("x86_64",))
-        self.add_release("desktop", "2.0.15")
-        prepared = self.prepare("2.0.6-r2", {"desktop": "2.0.15"})
+        self.add_release("desktop", "2.0.38")
+        prepared = self.prepare("2.0.6-r2", {"desktop": "2.0.38"})
         self.assertEqual(self.desktop_arches(prepared), {"x86_64"})
         receipt = parse_json_strict((prepared / "recut-receipt.json").read_bytes())
         self.assertFalse(any("aarch64" in source["url"] for source in receipt["sources"] if "/solstone-linux/" in source["url"]))
@@ -264,6 +270,29 @@ class TestDesktopAarch64Recut(unittest.TestCase):
             validate_arch_retention(base, candidate)
         self.assertEqual(ctx.exception.name, RELEASE_COHERENCE)
         validate_arch_retention(candidate, base)
+
+    def test_recut_tmux_replace_refused(self):
+        # Case (c): --replace tmux refuses immediately
+        with self.assertRaises(Refusal) as ctx:
+            self.prepare("2.0.6-r2", {"tmux": "2.0.15"})
+        self.assertEqual(ctx.exception.name, SCHEMA_INVALID)
+
+    def test_recut_carried_desktop_below_minimum_refuses(self):
+        self.publish_base(("x86_64",), desktop_version="2.0.14")
+        self.add_release("desktop", "2.0.36")
+        with self.assertRaises(Refusal) as ctx:
+            self.prepare("2.0.6-r2", {"desktop": "2.0.36"})
+        self.assertEqual(ctx.exception.name, RELEASE_COHERENCE)
+
+    def test_recut_tmux_retirement_at_minimum_succeeds(self):
+        self.publish_base(("x86_64",), desktop_version="2.0.37")
+        self.add_release("desktop", "2.0.38")
+        prepared = self.prepare("2.0.6-r2", {"desktop": "2.0.38"})
+        manifest = parse_json_strict((prepared / "platform.json").read_bytes())
+        self.assertEqual(manifest["minimum_installer_revision"], 20)
+        self.assertNotIn("tmux", manifest["components"])
+        receipt = parse_json_strict((prepared / "recut-receipt.json").read_bytes())
+        self.assertEqual(receipt.get("retired_components"), ["tmux"])
 
 
 if __name__ == "__main__":

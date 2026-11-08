@@ -14,13 +14,19 @@ from solstone_platform.ingest import (
     ingest_tmux,
 )
 from solstone_platform.pins import PinSet, embedded_pins
+from solstone_platform.publish import validate_produced_catalogue
 from solstone_platform.refusals import (
     RELEASE_COHERENCE,
     SCHEMA_INVALID,
     VERSION_INVALID,
     Refusal,
 )
-from solstone_platform.schema import is_valid_catalogue_revision, is_valid_semver, validate_platform_manifest
+from solstone_platform.schema import (
+    is_valid_catalogue_revision,
+    is_valid_semver,
+    retirement_floor,
+    validate_platform_manifest,
+)
 
 
 def load_minimum_installer_revision(repo_root: Path) -> int:
@@ -73,14 +79,15 @@ def generate_platform_manifest(
     repo_root: Path,
     journal_dir: Path,
     desktop_dir: Path,
-    tmux_dir: Path,
-    journal_origin: str,
+    tmux_dir: Optional[Path] = None,
+    journal_origin: str = "https://updates.solstone.app",
     bootstrap_file: Optional[Path] = None,
     pins: Optional[PinSet] = None,
     catalogue_revision: Optional[int] = None,
+    minimum_installer_revision: Optional[int] = None,
 ) -> bytes:
     """Generate a canonical, validated platform.json manifest."""
-    if repo_root is None or journal_dir is None or desktop_dir is None or tmux_dir is None:
+    if repo_root is None or journal_dir is None or desktop_dir is None:
         raise Refusal(SCHEMA_INVALID, "missing required directories for manifest generation")
 
     if catalogue_revision is None:
@@ -100,7 +107,16 @@ def generate_platform_manifest(
     if pins is None:
         pins = embedded_pins()
 
-    min_installer_rev = load_minimum_installer_revision(repo_root)
+    if minimum_installer_revision is not None:
+        min_installer_rev = minimum_installer_revision
+    else:
+        min_installer_rev = load_minimum_installer_revision(repo_root)
+
+    rf = retirement_floor()
+    include_tmux = (min_installer_rev < rf)
+
+    if include_tmux and tmux_dir is None:
+        raise Refusal(SCHEMA_INVALID, "tmux_dir is required for catalogues below the retirement floor")
 
     # Ingest components
     journal_comp = ingest_journal(
@@ -114,23 +130,26 @@ def generate_platform_manifest(
         native_dir=desktop_dir,
         pin=pins.desktop,
     )
-    tmux_comp = ingest_tmux(
-        native_dir=tmux_dir,
-        pin=pins.tmux,
-    )
 
     if catalogue_revision is not None:
         manifest_version = journal_comp.version
 
     journal_contract = load_handler_contract(repo_root, "journal")
     desktop_contract = load_handler_contract(repo_root, "desktop")
-    tmux_contract = load_handler_contract(repo_root, "tmux")
 
     components = {
         "journal": build_component_manifest(journal_comp, journal_contract),
         "desktop": build_component_manifest(desktop_comp, desktop_contract),
-        "tmux": build_component_manifest(tmux_comp, tmux_contract),
     }
+
+    if include_tmux:
+        assert tmux_dir is not None
+        tmux_comp = ingest_tmux(
+            native_dir=tmux_dir,
+            pin=pins.tmux,
+        )
+        tmux_contract = load_handler_contract(repo_root, "tmux")
+        components["tmux"] = build_component_manifest(tmux_comp, tmux_contract)
 
     manifest = {
         "schema_version": schema_version,
@@ -149,6 +168,10 @@ def generate_platform_manifest(
 
     # Validate against full schema rules
     validate_platform_manifest(manifest)
+    validate_produced_catalogue(
+        manifest,
+        desktop_minimum_path=repo_root / "compat" / "terminal_capture_desktop_minimum",
+    )
 
     # Serialize to RFC 8785 canonical bytes
     return canonical_json_bytes(manifest)

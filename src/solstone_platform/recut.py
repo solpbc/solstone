@@ -25,7 +25,7 @@ from solstone_platform.destination import Destination
 from solstone_platform.generate import generate_platform_manifest
 from solstone_platform.ingest import ingest_desktop, ingest_journal, ingest_tmux, verify_minisign_signature
 from solstone_platform.pins import embedded_pins, require_production_platform_pin
-from solstone_platform.publish import compare_semver
+from solstone_platform.publish import compare_semver, validate_produced_catalogue
 from solstone_platform.refusals import (
     CAPTURE_SIZE_LIMIT_EXCEEDED,
     HTTP_3XX,
@@ -38,7 +38,6 @@ from solstone_platform.refusals import (
     Refusal,
 )
 from solstone_platform.schema import (
-    SCHEMA_2_INSTALLER_FLOOR,
     catalogue_coordinate,
     compare_catalogue_coordinates,
     load_platform_manifest_bytes,
@@ -282,14 +281,19 @@ def prepare_recut(
     created_unix: int | None = None,
     origin: str = CANONICAL_ORIGIN,
 ) -> dict[str, Any]:
+    if "tmux" in replacements:
+        raise Refusal(SCHEMA_INVALID, "tmux is not a replacement")
     if not replacements or not set(replacements).issubset(KNOWN_COMPONENTS):
         raise Refusal(SCHEMA_INVALID, "at least one known component replacement is required")
+
+    _, cand_triple, cand_rev = parse_catalogue_coordinate(version)
+    if cand_rev is None:
+        raise Refusal(RELEASE_COHERENCE, "bare catalogue coordinate is not allowed for recut")
+
     output_dir = output_dir.resolve()
     repo_resolved = repo_root.resolve()
     if output_dir == Path("/tmp") or Path("/tmp") in output_dir.parents or output_dir == repo_resolved or repo_resolved in output_dir.parents:
         raise Refusal(UNSAFE_FILENAME, "recut output must be outside the repository and /tmp")
-
-    _, cand_triple, cand_rev = parse_catalogue_coordinate(version)
 
     source_commit = _git_identity(repo_root)
     latest = dest.get("solstone/release/latest")
@@ -301,6 +305,33 @@ def prepare_recut(
         raise Refusal(RELEASE_COHERENCE, "latest is not UTF-8") from err
     if compare_catalogue_coordinates(version, base_version) <= 0:
         raise Refusal(RELEASE_COHERENCE, f"candidate {version} must be newer than base {base_version}")
+
+    base_manifest_result = dest.get(f"solstone/release/{base_version}/platform.json")
+    base_sig_result = dest.get(f"solstone/release/{base_version}/platform.json.minisig")
+    if not base_manifest_result.is_ok() or base_manifest_result.body is None or not base_sig_result.is_ok() or base_sig_result.body is None:
+        raise Refusal(RELEASE_COHERENCE, "could not read signed base platform release")
+
+    base_obj = load_platform_manifest_bytes(base_manifest_result.body, canonical_refusal=RELEASE_COHERENCE)
+    base_has_tmux = "tmux" in base_obj["components"]
+
+    if base_has_tmux:
+        desktop_ver_to_check = replacements.get("desktop", base_obj["components"]["desktop"]["version"])
+        min_file = repo_root / "compat" / "terminal_capture_desktop_minimum"
+        if not min_file.is_file():
+            raise Refusal(SCHEMA_INVALID, "compat/terminal_capture_desktop_minimum file not found")
+        min_desktop_text = min_file.read_text(encoding="utf-8").strip()
+        if compare_semver(desktop_ver_to_check, min_desktop_text) < 0:
+            raise Refusal(
+                RELEASE_COHERENCE,
+                f"desktop version {desktop_ver_to_check} is older than terminal capture desktop minimum {min_desktop_text}",
+            )
+
+    retire_tmux = base_has_tmux
+    if retire_tmux:
+        floor_file = repo_root / "compat" / "minimum_installer_revision"
+        stamped_floor = int(floor_file.read_text(encoding="utf-8").strip())
+    else:
+        stamped_floor = base_obj["minimum_installer_revision"]
 
     existing_receipt: dict[str, Any] | None = None
     if output_dir.exists():
@@ -330,10 +361,6 @@ def prepare_recut(
     stage = Path(tempfile.mkdtemp(prefix=f".{output_dir.name}.prepare-", dir=parent))
     os.chmod(stage, 0o700)
     try:
-        base_manifest_result = dest.get(f"solstone/release/{base_version}/platform.json")
-        base_sig_result = dest.get(f"solstone/release/{base_version}/platform.json.minisig")
-        if not base_manifest_result.is_ok() or base_manifest_result.body is None or not base_sig_result.is_ok() or base_sig_result.body is None:
-            raise Refusal(RELEASE_COHERENCE, "could not read signed base platform release")
         base_manifest_path = stage / ".base-platform.json"
         base_sig_path = stage / ".base-platform.json.minisig"
         base_manifest_path.write_bytes(base_manifest_result.body)
@@ -341,7 +368,6 @@ def prepare_recut(
         is_fixture_dest = type(dest) is FixtureDestination and getattr(dest, "_build_token", None) is FIXTURE_BUILD_TOKEN
         platform_pin = dest.platform_pin if is_fixture_dest and dest.platform_pin is not None else require_production_platform_pin(repo_root)
         verify_minisign_signature(platform_pin, base_manifest_path, base_sig_path)
-        base_obj = load_platform_manifest_bytes(base_manifest_result.body, canonical_refusal=RELEASE_COHERENCE)
         if (
             catalogue_coordinate(base_obj) != base_version
             or base_obj["lane"] != "release"
@@ -349,7 +375,8 @@ def prepare_recut(
         ):
             raise Refusal(RELEASE_COHERENCE, "base platform coordinate does not match signed manifest")
 
-        component_versions = {name: base_obj["components"][name]["version"] for name in KNOWN_COMPONENTS}
+        active_components = ["journal", "desktop"] if (retire_tmux or not base_has_tmux) else ["journal", "desktop", "tmux"]
+        component_versions = {name: base_obj["components"][name]["version"] for name in active_components}
         for name, replacement in replacements.items():
             if compare_semver(replacement, component_versions[name]) <= 0:
                 raise Refusal(RELEASE_COHERENCE, f"{name} replacement must be newer than {component_versions[name]}")
@@ -363,13 +390,16 @@ def prepare_recut(
         base_prefix = f"{origin}/solstone/release/{base_version}"
         journal_prefix = f"{origin}/solstone-journal/release/{component_versions['journal']}" if "journal" in replacements else base_prefix
         desktop_prefix = f"{origin}/solstone-linux/release/{component_versions['desktop']}" if "desktop" in replacements else base_prefix
-        tmux_prefix = f"{origin}/solstone-tmux/release/{component_versions['tmux']}" if "tmux" in replacements else base_prefix
 
         journal_dir = _download_journal(downloader, stage, component_versions["journal"], journal_prefix)
         # A replacement desktop must carry every arch the base carried; aarch64 is otherwise optional per release.
         desktop_dir = _download_desktop(downloader, stage, component_versions["desktop"], desktop_prefix,
                                         set(base_obj["components"]["desktop"]["arches"]), "desktop" in replacements)
-        tmux_dir = _download_tmux(downloader, stage, component_versions["tmux"], tmux_prefix)
+        if not retire_tmux and base_has_tmux:
+            tmux_prefix = f"{origin}/solstone-tmux/release/{component_versions['tmux']}" if "tmux" in replacements else base_prefix
+            tmux_dir = _download_tmux(downloader, stage, component_versions["tmux"], tmux_prefix)
+        else:
+            tmux_dir = None
 
         bootstrap_name = f"solstone-journal-{component_versions['journal']}-install.sh"
         bootstrap_url = base_obj["components"]["journal"].get("provenance", {}).get("bootstrap", {}).get("url")
@@ -383,7 +413,8 @@ def prepare_recut(
         pins = dest.pinset if is_fixture_dest and dest.pinset is not None else embedded_pins()
         ingest_journal(journal_dir, "release", origin, bootstrap_path, pins.journal)
         ingest_desktop(desktop_dir, pins.desktop)
-        ingest_tmux(tmux_dir, pins.tmux)
+        if tmux_dir:
+            ingest_tmux(tmux_dir, pins.tmux)
 
         if created_unix is not None:
             epoch = int(created_unix)
@@ -405,14 +436,15 @@ def prepare_recut(
             journal_origin=origin,
             bootstrap_file=bootstrap_path,
             pins=pins,
+            minimum_installer_revision=stamped_floor,
         )
         manifest_path = stage / "platform.json"
         manifest_path.write_bytes(manifest)
         candidate = load_platform_manifest_bytes(manifest, canonical_refusal=RELEASE_COHERENCE)
 
-        validate_catalogue_transition(base_obj, candidate, SCHEMA_2_INSTALLER_FLOOR)
+        validate_catalogue_transition(base_obj, candidate)
         validate_arch_retention(base_obj, candidate)
-        for name in KNOWN_COMPONENTS:
+        for name in active_components:
             base_component = base_obj["components"][name]
             candidate_component = candidate["components"][name]
             if name not in replacements:
@@ -441,6 +473,8 @@ def prepare_recut(
             "sources": sorted(source_records, key=lambda item: (item["url"], item["path"])),
             "prepared_files": prepared_files,
         }
+        if retire_tmux:
+            receipt["retired_components"] = ["tmux"]
         receipt_bytes = canonical_json_bytes(receipt)
         (stage / "recut-receipt.json").write_bytes(receipt_bytes)
 

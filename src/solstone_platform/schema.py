@@ -4,6 +4,7 @@
 """Self-contained validator for platform release metadata and catalogue identity."""
 
 import json
+from pathlib import Path
 import re
 from typing import Any
 
@@ -22,7 +23,24 @@ from solstone_platform.targets import TARGET_MAPPINGS
 MAX_PLATFORM_BYTES = 4 * 1024 * 1024
 MAX_PLATFORM_DEPTH = 64
 MAX_SEMVER_DIGITS = 20
-SCHEMA_2_INSTALLER_FLOOR = 8
+SCHEMA_2_INSTALLER_FLOOR = 8  # Historical schema-2 introduction floor
+
+
+def retirement_floor() -> int:
+    """Load the minimum installer revision retirement floor from compat."""
+    compat_path = Path(__file__).resolve().parents[2] / "compat" / "minimum_installer_revision"
+    if not compat_path.is_file():
+        raise Refusal(SCHEMA_INVALID, "compat/minimum_installer_revision file not found")
+    content = compat_path.read_text(encoding="utf-8").strip()
+    try:
+        rev = int(content)
+        if rev < 1:
+            raise ValueError()
+        return rev
+    except ValueError as err:
+        raise Refusal(SCHEMA_INVALID, f"invalid minimum_installer_revision floor: {content!r}") from err
+
+
 MAX_CATALOGUE_REVISION = 10**MAX_SEMVER_DIGITS - 1
 CATALOGUE_REVISION_REGEX = re.compile(rf"[1-9][0-9]{{0,{MAX_SEMVER_DIGITS - 1}}}")
 
@@ -182,7 +200,6 @@ def allocate_catalogue_revision(
 def validate_catalogue_transition(
     base: dict[str, Any],
     candidate: dict[str, Any],
-    required_schema2_floor: int,
 ) -> None:
     base_schema = base.get("schema_version")
     cand_schema = candidate.get("schema_version")
@@ -190,12 +207,26 @@ def validate_catalogue_transition(
         if candidate.get(field) != base.get(field):
             raise Refusal(RELEASE_COHERENCE, f"recut changed protected field {field}")
 
+    rf = retirement_floor()
+    base_components = base.get("components", {})
+    cand_components = candidate.get("components", {})
+    base_has_tmux = "tmux" in base_components
+    cand_has_tmux = "tmux" in cand_components
+
+    if not base_has_tmux and cand_has_tmux:
+        raise Refusal(RELEASE_COHERENCE, "cannot add tmux after a tmux-less base")
+
     if base_schema == 1 and cand_schema == 2:
-        cand_floor = candidate.get("minimum_installer_revision")
-        if cand_floor != required_schema2_floor:
+        if cand_has_tmux:
             raise Refusal(
                 RELEASE_COHERENCE,
-                f"schema 1 to schema 2 transition requires minimum_installer_revision {required_schema2_floor}, got {cand_floor}",
+                "schema 1 to schema 2 transition requires dropping tmux",
+            )
+        cand_floor = candidate.get("minimum_installer_revision")
+        if cand_floor != rf:
+            raise Refusal(
+                RELEASE_COHERENCE,
+                f"schema 1 to schema 2 transition requires minimum_installer_revision {rf}, got {cand_floor}",
             )
         return
 
@@ -205,13 +236,36 @@ def validate_catalogue_transition(
             "protocol_version",
             "lane",
             "platform_key_id",
-            "minimum_installer_revision",
         ):
             if candidate.get(field) != base.get(field):
                 raise Refusal(
                     RELEASE_COHERENCE,
                     f"schema 2 transition changed protected field {field}: {candidate.get(field)} vs {base.get(field)}",
                 )
+
+        base_floor = base.get("minimum_installer_revision")
+        cand_floor = candidate.get("minimum_installer_revision")
+
+        is_retirement = (
+            base_has_tmux
+            and isinstance(base_floor, int)
+            and base_floor < rf
+            and not cand_has_tmux
+        )
+
+        if is_retirement:
+            if cand_floor != rf:
+                raise Refusal(
+                    RELEASE_COHERENCE,
+                    f"retiring tmux requires minimum_installer_revision {rf}, got {cand_floor}",
+                )
+            return
+
+        if cand_floor != base_floor:
+            raise Refusal(
+                RELEASE_COHERENCE,
+                f"schema 2 transition changed protected field minimum_installer_revision: {cand_floor} vs {base_floor}",
+            )
         return
 
     if base_schema == 1 and cand_schema == 1:
@@ -231,6 +285,8 @@ def validate_catalogue_transition(
 def validate_arch_retention(base: dict[str, Any], candidate: dict[str, Any]) -> None:
     """A recut may add a component architecture but never drop one the base carried."""
     for name, base_component in base["components"].items():
+        if name not in candidate["components"]:
+            continue
         dropped = set(base_component["arches"]) - set(candidate["components"][name]["arches"])
         if dropped:
             raise Refusal(RELEASE_COHERENCE, f"recut would drop {name} architectures carried by the base: {sorted(dropped)}")
@@ -376,7 +432,12 @@ def _validate_platform_manifest(manifest: Any) -> None:
         raise Refusal(SCHEMA_INVALID, "components must be an object")
 
     comp_keys = set(components.keys())
-    expected_components = {"journal", "desktop", "tmux"}
+    rf = retirement_floor()
+    if min_rev >= rf:
+        expected_components = {"journal", "desktop"}
+    else:
+        expected_components = {"journal", "desktop", "tmux"}
+
     if comp_keys != expected_components:
         extra = comp_keys - expected_components
         missing = expected_components - comp_keys
@@ -386,7 +447,7 @@ def _validate_platform_manifest(manifest: Any) -> None:
             raise Refusal(SCHEMA_INVALID, f"missing component keys: {sorted(missing)}")
 
     seen_filenames: set[str] = set()
-    for comp_name in ["journal", "desktop", "tmux"]:
+    for comp_name in sorted(expected_components):
         _validate_component(comp_name, components[comp_name], seen_filenames)
 
     if schema_version == 2:
@@ -727,7 +788,7 @@ def render_platform_schema() -> str:
         "components": {
             "type": "object",
             "additionalProperties": False,
-            "required": ["journal", "desktop", "tmux"],
+            "required": ["journal", "desktop"],
             "properties": {
                 "journal": {"$ref": "#/definitions/journal_component"},
                 "desktop": {"$ref": "#/definitions/desktop_component"},

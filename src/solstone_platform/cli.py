@@ -86,7 +86,6 @@ def main(argv: list[str] | None = None) -> int:
     p_gen.add_argument("--platform-pub", type=Path, help="Path to platform.pub key file")
     p_gen.add_argument("--journal-dir", type=Path, required=True, help="Path to solstone-journal release dir")
     p_gen.add_argument("--desktop-dir", type=Path, required=True, help="Path to solstone-linux release dir")
-    p_gen.add_argument("--tmux-dir", type=Path, required=True, help="Path to solstone-tmux release dir")
     p_gen.add_argument("--journal-origin", required=True, help="Journal origin URL (https:// or loopback)")
     p_gen.add_argument("--bootstrap-file", type=Path, help="Explicit path to bootstrap install.sh")
     p_gen.add_argument("--out", type=Path, help="Output file path (default stdout)")
@@ -106,7 +105,6 @@ def main(argv: list[str] | None = None) -> int:
     p_pub.add_argument("--signature", type=Path, required=True, help="Path to platform.json.minisig")
     p_pub.add_argument("--journal-dir", type=Path, required=True, help="Path to solstone-journal release dir")
     p_pub.add_argument("--desktop-dir", type=Path, required=True, help="Path to solstone-linux release dir")
-    p_pub.add_argument("--tmux-dir", type=Path, required=True, help="Path to solstone-tmux release dir")
     p_pub.add_argument("--bootstrap-file", type=Path, help="Explicit path to bootstrap install.sh")
     p_pub.add_argument("--acknowledge-production", action="store_true", help="Acknowledge production publishing")
     expectations = p_pub.add_mutually_exclusive_group()
@@ -154,7 +152,6 @@ def main(argv: list[str] | None = None) -> int:
                 repo_root=repo_root,
                 journal_dir=args.journal_dir,
                 desktop_dir=args.desktop_dir,
-                tmux_dir=args.tmux_dir,
                 journal_origin=args.journal_origin,
                 bootstrap_file=args.bootstrap_file,
                 pins=embedded_pins(),  # CLI always uses embedded native pins
@@ -215,7 +212,6 @@ def main(argv: list[str] | None = None) -> int:
                 signature_path=args.signature,
                 journal_dir=args.journal_dir,
                 desktop_dir=args.desktop_dir,
-                tmux_dir=args.tmux_dir,
                 dest=dest,
                 bootstrap_file=args.bootstrap_file,
                 expected_latest_receipt=args.expected_latest_receipt,

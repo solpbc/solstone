@@ -61,8 +61,7 @@
           "additionalProperties": false,
           "required": [
             "journal",
-            "desktop",
-            "tmux"
+            "desktop"
           ],
           "properties": {
             "journal": {
@@ -135,8 +134,7 @@
           "additionalProperties": false,
           "required": [
             "journal",
-            "desktop",
-            "tmux"
+            "desktop"
           ],
           "properties": {
             "journal": {

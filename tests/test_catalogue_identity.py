@@ -25,6 +25,7 @@ from solstone_platform.schema import (
     render_platform_schema,
     render_posix_catalogue_keys,
     render_posix_identity_fragment,
+    retirement_floor,
     validate_catalogue_transition,
     validate_platform_manifest,
 )
@@ -129,37 +130,66 @@ class TestCatalogueIdentity(unittest.TestCase):
     def test_validate_catalogue_transition(self):
         base_s1 = copy.deepcopy(self.example_obj)
         cand_s2 = copy.deepcopy(self.example_obj)
+        del cand_s2["components"]["tmux"]
         cand_s2["schema_version"] = 2
         cand_s2["catalogue_revision"] = 1
-        cand_s2["minimum_installer_revision"] = 8
+        cand_s2["minimum_installer_revision"] = retirement_floor()
         cand_s2["version"] = cand_s2["components"]["journal"]["version"]
 
-        # Valid s1 -> s2
-        validate_catalogue_transition(base_s1, cand_s2, required_schema2_floor=8)
+        # Valid s1 -> s2 (Case a)
+        validate_catalogue_transition(base_s1, cand_s2)
 
-        # s1 -> s2 with wrong floor
-        cand_s2_bad = copy.deepcopy(cand_s2)
-        cand_s2_bad["minimum_installer_revision"] = 7
-        with self.assertRaises(Refusal) as ctx:
-            validate_catalogue_transition(base_s1, cand_s2_bad, required_schema2_floor=8)
-        self.assertEqual(ctx.exception.name, RELEASE_COHERENCE)
+        # s1 -> s2 with wrong floor (Case b: floors 8, 19, 21 refused)
+        for bad_floor in (8, 19, 21):
+            cand_s2_bad = copy.deepcopy(cand_s2)
+            cand_s2_bad["minimum_installer_revision"] = bad_floor
+            with self.assertRaises(Refusal) as ctx:
+                validate_catalogue_transition(base_s1, cand_s2_bad)
+            self.assertEqual(ctx.exception.name, RELEASE_COHERENCE)
 
-        # s2 -> s2 valid
+        # s2 -> s2 valid continuity without tmux
         base_s2 = copy.deepcopy(cand_s2)
         cand_s2_next = copy.deepcopy(cand_s2)
         cand_s2_next["catalogue_revision"] = 2
-        validate_catalogue_transition(base_s2, cand_s2_next, required_schema2_floor=8)
+        validate_catalogue_transition(base_s2, cand_s2_next)
+
+        # s2 with tmux (floor 8) -> s2 retiring tmux (floor 20): accepted (Case a)
+        base_s2_tmux = copy.deepcopy(self.example_obj)
+        base_s2_tmux["schema_version"] = 2
+        base_s2_tmux["catalogue_revision"] = 1
+        base_s2_tmux["minimum_installer_revision"] = 8
+        base_s2_tmux["version"] = base_s2_tmux["components"]["journal"]["version"]
+
+        cand_s2_retired = copy.deepcopy(cand_s2)
+        cand_s2_retired["catalogue_revision"] = 2
+        cand_s2_retired["minimum_installer_revision"] = retirement_floor()
+        validate_catalogue_transition(base_s2_tmux, cand_s2_retired)
+
+        # Retirement with bad candidate floor (Case b: 8, 19, 21 refused)
+        for bad_floor in (8, 19, 21):
+            cand_bad = copy.deepcopy(cand_s2_retired)
+            cand_bad["minimum_installer_revision"] = bad_floor
+            with self.assertRaises(Refusal) as ctx:
+                validate_catalogue_transition(base_s2_tmux, cand_bad)
+            self.assertEqual(ctx.exception.name, RELEASE_COHERENCE)
+
+        # Case d: tmux-less base to candidate with tmux refused
+        cand_with_tmux = copy.deepcopy(base_s2_tmux)
+        cand_with_tmux["catalogue_revision"] = 3
+        with self.assertRaises(Refusal) as ctx:
+            validate_catalogue_transition(base_s2, cand_with_tmux)
+        self.assertEqual(ctx.exception.name, RELEASE_COHERENCE)
 
         # s2 -> s2 protected field changed
         cand_s2_changed = copy.deepcopy(cand_s2_next)
         cand_s2_changed["lane"] = "staging"
         with self.assertRaises(Refusal) as ctx:
-            validate_catalogue_transition(base_s2, cand_s2_changed, required_schema2_floor=8)
+            validate_catalogue_transition(base_s2, cand_s2_changed)
         self.assertEqual(ctx.exception.name, RELEASE_COHERENCE)
 
         # s2 -> s1 rollback refused
         with self.assertRaises(Refusal) as ctx:
-            validate_catalogue_transition(base_s2, base_s1, required_schema2_floor=8)
+            validate_catalogue_transition(base_s2, base_s1)
         self.assertEqual(ctx.exception.name, RELEASE_COHERENCE)
 
     def test_schema_2_manifest_validation(self):

@@ -19,6 +19,7 @@ from unittest.mock import patch
 from solstone_platform.canonical import canonical_json_bytes
 from solstone_platform.generate import generate_platform_manifest
 from solstone_platform.pins import MinisignPin, embedded_pins
+from solstone_platform.publish import compare_semver
 from solstone_platform.sign import sign_manifest
 from tools.fixture_builder import build_tiny_natives
 
@@ -145,6 +146,9 @@ def setup_fake_sudo(bin_dir: Path) -> Path:
     sudo_script = bin_dir / "sudo"
     sudo_script.write_text(
         "#!/bin/sh\n"
+        "if [ \"$1\" = \"-v\" ]; then\n"
+        "  exit 0\n"
+        "fi\n"
         "if [ \"$1\" != \"-n\" ]; then\n"
         "  echo 'sudo: a password is required' >&2\n"
         "  exit 1\n"
@@ -212,6 +216,15 @@ def setup_test_release_server(
     server_root = work_dir / "www"
     server_root.mkdir(parents=True, exist_ok=True)
 
+    repo_retirement_floor = int((REPO_ROOT / "compat" / "minimum_installer_revision").read_text(encoding="utf-8").strip())
+    repo_desktop_min = (REPO_ROOT / "compat" / "terminal_capture_desktop_minimum").read_text(encoding="utf-8").strip()
+
+    effective_desktop_version = desktop_version
+    if min_installer_revision >= repo_retirement_floor:
+        cur_desk = desktop_version or native_version
+        if compare_semver(cur_desk, repo_desktop_min) < 0:
+            effective_desktop_version = repo_desktop_min
+
     # Build tiny natives with ephemeral keys and v2 bootstrap double
     v2_boot = make_v2_bootstrap_script(revision=bootstrap_revision)
     pin_set, native_dirs = build_tiny_natives(
@@ -219,7 +232,7 @@ def setup_test_release_server(
         bootstrap_script=v2_boot,
         min_bootstrap_revision=bootstrap_revision,
         native_version=native_version,
-        desktop_version=desktop_version,
+        desktop_version=effective_desktop_version,
         tmux_version=tmux_version,
         desktop_runtime_version=desktop_runtime_version,
         native_build_marker=native_build_marker,
@@ -228,6 +241,13 @@ def setup_test_release_server(
 
     server = LoopbackServer(server_root)
     server.start()
+
+    if min_installer_revision < repo_retirement_floor:
+        gen_floor = min_installer_revision
+        gen_tmux_dir = native_dirs["tmux"]
+    else:
+        gen_floor = min_installer_revision
+        gen_tmux_dir = None
 
     manifest_bytes = generate_platform_manifest(
         version=version,
@@ -238,7 +258,8 @@ def setup_test_release_server(
         repo_root=REPO_ROOT,
         journal_dir=native_dirs["journal"],
         desktop_dir=native_dirs["desktop"],
-        tmux_dir=native_dirs["tmux"],
+        tmux_dir=gen_tmux_dir,
+        minimum_installer_revision=gen_floor,
         journal_origin=server.origin,
         pins=pin_set,
     )
@@ -248,20 +269,14 @@ def setup_test_release_server(
     # retaining the ephemeral signatures/hashes for digest and semantic tests.
     manifest_obj = json.loads(manifest_bytes.decode("utf-8"))
     production_pins = embedded_pins()
-    for component_name, selected_pin in (
-        ("journal", production_pins.journal),
-        ("desktop", production_pins.desktop),
-        ("tmux", production_pins.tmux),
-    ):
+    components_to_pin = [("journal", production_pins.journal), ("desktop", production_pins.desktop)]
+    if "tmux" in manifest_obj["components"]:
+        components_to_pin.append(("tmux", production_pins.tmux))
+    for component_name, selected_pin in components_to_pin:
         for arch_entry in manifest_obj["components"][component_name]["arches"].values():
             for route_entry in arch_entry.values():
                 route_entry["authority"]["verifier_id"] = selected_pin.verifier_id()
     manifest_bytes = canonical_json_bytes(manifest_obj)
-
-    if min_installer_revision != manifest_obj.get("minimum_installer_revision"):
-        m_obj = json.loads(manifest_bytes.decode("utf-8"))
-        m_obj["minimum_installer_revision"] = min_installer_revision
-        manifest_bytes = canonical_json_bytes(m_obj)
 
     signed_manifest_bytes = manifest_bytes
     if duplicate_key:

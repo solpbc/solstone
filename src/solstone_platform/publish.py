@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import hashlib
 from pathlib import Path
 import re
-from typing import Optional
+from typing import Any, Optional
 
 from solstone_platform.capture import capture_release_sources
 from solstone_platform.canonical import parse_json_strict
@@ -31,10 +31,10 @@ from solstone_platform.refusals import (
     Refusal,
 )
 from solstone_platform.schema import (
-    SCHEMA_2_INSTALLER_FLOOR,
     catalogue_coordinate,
     compare_catalogue_coordinates,
     load_platform_manifest_bytes,
+    retirement_floor,
     validate_arch_retention,
     validate_catalogue_transition,
 )
@@ -66,6 +66,33 @@ def compare_semver(a: str, b: str) -> int:
     if ta > tb:
         return 1
     return 0
+
+
+def validate_produced_catalogue(
+    manifest: dict[str, Any],
+    *,
+    desktop_minimum_path: Path | None = None,
+) -> None:
+    """Validate that produced catalogues meeting or exceeding retirement floor carry desktop >= minimum."""
+    rf = retirement_floor()
+    min_rev = manifest.get("minimum_installer_revision")
+    if isinstance(min_rev, int) and min_rev >= rf:
+        if desktop_minimum_path is None:
+            desktop_minimum_path = (
+                Path(__file__).resolve().parents[2]
+                / "compat"
+                / "terminal_capture_desktop_minimum"
+            )
+        if not desktop_minimum_path.is_file():
+            raise Refusal(SCHEMA_INVALID, "compat/terminal_capture_desktop_minimum file not found")
+        min_desktop_ver = desktop_minimum_path.read_text(encoding="utf-8").strip()
+        desktop_comp = manifest.get("components", {}).get("desktop", {})
+        cand_desktop_ver = desktop_comp.get("version", "")
+        if compare_semver(cand_desktop_ver, min_desktop_ver) < 0:
+            raise Refusal(
+                RELEASE_COHERENCE,
+                f"desktop version {cand_desktop_ver} is older than terminal capture desktop minimum {min_desktop_ver}",
+            )
 
 
 def _claim_immutable_object(
@@ -163,12 +190,14 @@ def _add_claim(
 
 def _snapshot_prepared_inventory(snapshot) -> list[dict[str, object]]:
     """Return the receipt-defined prepared file set from captured bytes."""
-    roots = (
+    roots = [
         (snapshot.manifest_path, "platform.json"),
         (snapshot.journal_dir, "journal"),
         (snapshot.desktop_dir, "desktop"),
-        (snapshot.tmux_dir, "tmux"),
-    )
+    ]
+    tmux_dir = getattr(snapshot, "tmux_dir", None)
+    if tmux_dir and tmux_dir.exists():
+        roots.append((tmux_dir, "tmux"))
     files: list[tuple[Path, str]] = []
     for path, rel in roots:
         if path.is_file():
@@ -236,13 +265,36 @@ def _validate_recut_receipt(
         raise Refusal(SCHEMA_INVALID, "recut receipt replacements are invalid")
     origin = "https://updates.solstone.app"
     base_version = catalogue_coordinate(base_obj)
-    validate_catalogue_transition(base_obj, manifest_obj, SCHEMA_2_INSTALLER_FLOOR)
+    validate_catalogue_transition(base_obj, manifest_obj)
     validate_arch_retention(base_obj, manifest_obj)
+    validate_produced_catalogue(manifest_obj)
+
+    retired = receipt.get("retired_components", [])
+    if not isinstance(retired, list) or not set(retired).issubset({"tmux"}):
+        raise Refusal(SCHEMA_INVALID, "recut receipt retired_components are invalid")
+
+    base_has_tmux = "tmux" in base_obj["components"]
+    cand_has_tmux = "tmux" in manifest_obj["components"]
+    if base_has_tmux and not cand_has_tmux:
+        if retired != ["tmux"]:
+            raise Refusal(RELEASE_COHERENCE, "recut retiring tmux requires retired_components: ['tmux']")
+    else:
+        if "retired_components" in receipt:
+            raise Refusal(RELEASE_COHERENCE, "retired_components only permitted on retirement transition")
+
     expected_source_paths = set(prepared_by_path) - {"platform.json"}
     if set(source_by_path) != expected_source_paths:
         raise Refusal(RELEASE_COHERENCE, "recut receipt source mapping is incomplete or has extras")
 
     for component in ("journal", "desktop", "tmux"):
+        if component in retired:
+            if component in manifest_obj["components"]:
+                raise Refusal(RELEASE_COHERENCE, f"recut retired component {component} still present in manifest")
+            continue
+        if component not in manifest_obj["components"]:
+            continue
+        if component not in base_obj["components"]:
+            continue
         base_component = base_obj["components"][component]
         candidate_component = manifest_obj["components"][component]
         if component not in replacements:
@@ -300,14 +352,16 @@ def publish_release(*args, **kwargs) -> PublishReport:
     """Closed production publication entrypoint."""
     # Strict argument allowlist check BEFORE capture
     allowed_kw = {
-        "manifest_path", "signature_path", "journal_dir", "desktop_dir", "tmux_dir",
+        "manifest_path", "signature_path", "journal_dir", "desktop_dir",
         "dest", "bootstrap_file", "expected_latest_receipt", "expect_latest_absent",
     }
-    if len(args) > 7 or any(k not in allowed_kw for k in kwargs):
+    if "tmux_dir" in kwargs:
+        raise Refusal(UNSAFE_FILENAME, "publish_release received unexpected arguments outside closed allowlist")
+    if len(args) > 6 or any(k not in allowed_kw for k in kwargs):
         raise Refusal(UNSAFE_FILENAME, "publish_release received unexpected arguments outside closed allowlist")
 
     # Map parameters
-    pos_names = ["manifest_path", "signature_path", "journal_dir", "desktop_dir", "tmux_dir", "dest", "bootstrap_file"]
+    pos_names = ["manifest_path", "signature_path", "journal_dir", "desktop_dir", "dest", "bootstrap_file"]
     bound = {}
     for idx, arg in enumerate(args):
         bound[pos_names[idx]] = arg
@@ -316,7 +370,7 @@ def publish_release(*args, **kwargs) -> PublishReport:
             raise Refusal(SCHEMA_INVALID, f"duplicate argument: {k}")
         bound[k] = v
 
-    for req in ["manifest_path", "signature_path", "journal_dir", "desktop_dir", "tmux_dir", "dest"]:
+    for req in ["manifest_path", "signature_path", "journal_dir", "desktop_dir", "dest"]:
         if req not in bound:
             raise Refusal(SCHEMA_INVALID, f"missing required argument: {req}")
 
@@ -324,7 +378,6 @@ def publish_release(*args, **kwargs) -> PublishReport:
     signature_path: Path = Path(bound["signature_path"])
     journal_dir: Path = Path(bound["journal_dir"])
     desktop_dir: Path = Path(bound["desktop_dir"])
-    tmux_dir: Path = Path(bound["tmux_dir"])
     dest: Destination = bound["dest"]
     bootstrap_file: Optional[Path] = Path(bound["bootstrap_file"]) if bound.get("bootstrap_file") else None
     receipt_path: Optional[Path] = Path(bound["expected_latest_receipt"]) if bound.get("expected_latest_receipt") else None
@@ -336,6 +389,17 @@ def publish_release(*args, **kwargs) -> PublishReport:
     )
     if not is_fixture_dest and (receipt_path is None) == (not expect_latest_absent):
         raise Refusal(SCHEMA_INVALID, "production publish requires exactly one latest expectation")
+
+    # Check manifest before capture
+    manifest_pre = parse_json_strict(manifest_path.read_text(encoding="utf-8"))
+    manifest_has_tmux = "tmux" in manifest_pre.get("components", {})
+    if manifest_has_tmux:
+        if not is_fixture_dest:
+            raise Refusal(RELEASE_COHERENCE, "production publish does not accept manifests containing tmux")
+        sibling_tmux = desktop_dir.parent / "tmux"
+        tmux_dir = sibling_tmux if sibling_tmux.exists() else None
+    else:
+        tmux_dir = None
 
     # 1. Capture release sources into private 0700 directory
     with capture_release_sources(
@@ -410,10 +474,11 @@ def publish_release(*args, **kwargs) -> PublishReport:
             native_dir=snapshot.desktop_dir,
             pin=pins.desktop,
         )
-        ingested_t = ingest_tmux(
-            native_dir=snapshot.tmux_dir,
-            pin=pins.tmux,
-        )
+        if manifest_has_tmux:
+            ingested_t = ingest_tmux(
+                native_dir=snapshot.tmux_dir,
+                pin=pins.tmux,
+            )
 
         # Require provenance bootstrap URL to match exact production format
         j_manifest_comp = manifest_obj["components"].get("journal", {})
@@ -431,8 +496,9 @@ def publish_release(*args, **kwargs) -> PublishReport:
         scanned_components = {
             "journal": ingested_j,
             "desktop": ingested_d,
-            "tmux": ingested_t,
         }
+        if manifest_has_tmux:
+            scanned_components["tmux"] = ingested_t
 
         for comp_name, scanned_comp in scanned_components.items():
             if comp_name not in manifest_obj["components"]:
@@ -514,30 +580,31 @@ def publish_release(*args, **kwargs) -> PublishReport:
                 _add_claim(claims_to_make, k, (b, ct, "public, max-age=31536000, immutable"))
 
         # Tmux objects
-        t_ver = ingested_t.version
-        t_files = {
-            "SHA256SUMS",
-            "SHA256SUMS.minisig",
-        }
-        for target_arch in ["x86_64", "aarch64"]:
-            mapping = get_target_mapping(target_arch)
-            t_files.add(f"solstone-tmux-{t_ver}-{mapping.musl_target}.target.json")
-            if target_arch in ingested_t.arches:
-                for var_data in ingested_t.arches[target_arch].values():
-                    t_files.add(var_data["filename"])
+        if manifest_has_tmux:
+            t_ver = ingested_t.version
+            t_files = {
+                "SHA256SUMS",
+                "SHA256SUMS.minisig",
+            }
+            for target_arch in ["x86_64", "aarch64"]:
+                mapping = get_target_mapping(target_arch)
+                t_files.add(f"solstone-tmux-{t_ver}-{mapping.musl_target}.target.json")
+                if target_arch in ingested_t.arches:
+                    for var_data in ingested_t.arches[target_arch].values():
+                        t_files.add(var_data["filename"])
 
-        for fname in sorted(t_files):
-            fpath = snapshot.tmux_dir / fname
-            if fpath.is_file():
-                k = f"solstone/{lane}/{version}/{fname}"
-                b = fpath.read_bytes()
-                if fname.endswith(".json"):
-                    ct = "application/json"
-                elif fname.endswith(".minisig") or fname.endswith(".tar.gz") or fname.endswith(".deb") or fname.endswith(".rpm"):
-                    ct = "application/octet-stream"
-                else:
-                    ct = "text/plain; charset=utf-8"
-                _add_claim(claims_to_make, k, (b, ct, "public, max-age=31536000, immutable"))
+            for fname in sorted(t_files):
+                fpath = snapshot.tmux_dir / fname
+                if fpath.is_file():
+                    k = f"solstone/{lane}/{version}/{fname}"
+                    b = fpath.read_bytes()
+                    if fname.endswith(".json"):
+                        ct = "application/json"
+                    elif fname.endswith(".minisig") or fname.endswith(".tar.gz") or fname.endswith(".deb") or fname.endswith(".rpm"):
+                        ct = "application/octet-stream"
+                    else:
+                        ct = "text/plain; charset=utf-8"
+                    _add_claim(claims_to_make, k, (b, ct, "public, max-age=31536000, immutable"))
 
         # 2. Journal bootstrap object
         if snapshot.bootstrap_file and snapshot.bootstrap_file.is_file():

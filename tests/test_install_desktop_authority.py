@@ -73,6 +73,7 @@ class DesktopFixture:
             journal_dir=native_dirs["journal"],
             desktop_dir=self.desktop_dir,
             tmux_dir=native_dirs["tmux"],
+            minimum_installer_revision=1,
             journal_origin=self.server.origin,
             pins=pins,
         )

@@ -62,6 +62,7 @@ class JournalFixture:
             journal_dir=self.journal_dir,
             desktop_dir=native_dirs["desktop"],
             tmux_dir=native_dirs["tmux"],
+            minimum_installer_revision=1,
             journal_origin=self.server.origin,
             pins=pins,
         )

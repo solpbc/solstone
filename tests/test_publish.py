@@ -76,6 +76,7 @@ class TestPublish(unittest.TestCase):
             version=version,
             lane=lane,
             created_unix=1700000000,
+            minimum_installer_revision=1,
             source_commit="3075c36b12fad469d4c9c0ab4555908fe8ecca1b",
             platform_key_id=p_pin.key_id,
             repo_root=self.repo_root,
@@ -130,7 +131,6 @@ class TestPublish(unittest.TestCase):
                 signature_path=rel["signature_path"],
                 journal_dir=rel["journal_dir"],
                 desktop_dir=rel["desktop_dir"],
-                tmux_dir=rel["tmux_dir"],
                 dest=production_dest,
             )
         self.assertEqual(ctx.exception.name, SCHEMA_INVALID)
@@ -150,7 +150,6 @@ class TestPublish(unittest.TestCase):
             manifest_path=rel["manifest_path"],
             journal_dir=rel["journal_dir"],
             desktop_dir=rel["desktop_dir"],
-            tmux_dir=rel["tmux_dir"],
             bootstrap_file=None,
         )
         inventory = _snapshot_prepared_inventory(snapshot)
@@ -200,7 +199,6 @@ class TestPublish(unittest.TestCase):
                 signature_path=rel["signature_path"],
                 journal_dir=rel["journal_dir"],
                 desktop_dir=rel["desktop_dir"],
-                tmux_dir=rel["tmux_dir"],
                 dest=rel["dest"],
             )
         self.assertEqual(ctx.exception.name, RELEASE_COHERENCE)
@@ -223,7 +221,6 @@ class TestPublish(unittest.TestCase):
                         signature_path=rel["signature_path"],
                         journal_dir=rel["journal_dir"],
                         desktop_dir=rel["desktop_dir"],
-                        tmux_dir=rel["tmux_dir"],
                         dest=rel["dest"],
                     )
                 self.assertEqual(ctx.exception.name, expected_name)
@@ -242,7 +239,6 @@ class TestPublish(unittest.TestCase):
                 rel["signature_path"],
                 rel["journal_dir"],
                 rel["desktop_dir"],
-                rel["tmux_dir"],
                 dest,
                 None,  # bootstrap_file (7th)
                 "lookalike_8th_positional",  # 8th positional
@@ -273,7 +269,6 @@ class TestPublish(unittest.TestCase):
                         signature_path=rel["signature_path"],
                         journal_dir=rel["journal_dir"],
                         desktop_dir=rel["desktop_dir"],
-                        tmux_dir=rel["tmux_dir"],
                         dest=dest,
                         **kwargs,
                     )
@@ -292,7 +287,6 @@ class TestPublish(unittest.TestCase):
             signature_path=rel["signature_path"],
             journal_dir=rel["journal_dir"],
             desktop_dir=rel["desktop_dir"],
-            tmux_dir=rel["tmux_dir"],
             dest=dest,
         )
         self.assertTrue(report.latest_promoted)
@@ -309,7 +303,6 @@ class TestPublish(unittest.TestCase):
             signature_path=rel["signature_path"],
             journal_dir=rel["journal_dir"],
             desktop_dir=rel["desktop_dir"],
-            tmux_dir=rel["tmux_dir"],
             dest=dest,
         )
         self.assertEqual(report.version, "2.0.3")
@@ -339,7 +332,6 @@ class TestPublish(unittest.TestCase):
             signature_path=rel["signature_path"],
             journal_dir=rel["journal_dir"],
             desktop_dir=rel["desktop_dir"],
-            tmux_dir=rel["tmux_dir"],
             dest=dest,
         )
         self.assertEqual(report2.version, "2.0.3")
@@ -379,7 +371,6 @@ class TestPublish(unittest.TestCase):
                 signature_path=rel["signature_path"],
                 journal_dir=rel["journal_dir"],
                 desktop_dir=rel["desktop_dir"],
-                tmux_dir=rel["tmux_dir"],
                 dest=rel["dest"],
             )
         self.assertEqual(ctx.exception.name, RELEASE_COHERENCE)
@@ -404,7 +395,6 @@ class TestPublish(unittest.TestCase):
                 signature_path=rel["signature_path"],
                 journal_dir=rel["journal_dir"],
                 desktop_dir=rel["desktop_dir"],
-                tmux_dir=rel["tmux_dir"],
                 dest=rel["dest"],
             )
         self.assertEqual(ctx.exception.name, SAME_VERSION_DIFFERENT_BYTES)
@@ -416,7 +406,6 @@ class TestPublish(unittest.TestCase):
             signature_path=rel["signature_path"],
             journal_dir=rel["journal_dir"],
             desktop_dir=rel["desktop_dir"],
-            tmux_dir=rel["tmux_dir"],
             dest=rel["dest"],
         )
         latest_key = "solstone/release/latest"
@@ -434,7 +423,6 @@ class TestPublish(unittest.TestCase):
                 signature_path=rel["signature_path"],
                 journal_dir=rel["journal_dir"],
                 desktop_dir=rel["desktop_dir"],
-                tmux_dir=rel["tmux_dir"],
                 dest=rel["dest"],
             )
         self.assertEqual(ctx.exception.name, RELEASE_COHERENCE)
@@ -449,7 +437,6 @@ class TestPublish(unittest.TestCase):
             signature_path=rel["signature_path"],
             journal_dir=rel["journal_dir"],
             desktop_dir=rel["desktop_dir"],
-            tmux_dir=rel["tmux_dir"],
             dest=dest,
         )
         self.assertTrue(report1.latest_promoted)
@@ -464,7 +451,6 @@ class TestPublish(unittest.TestCase):
             signature_path=rel["signature_path"],
             journal_dir=rel["journal_dir"],
             desktop_dir=rel["desktop_dir"],
-            tmux_dir=rel["tmux_dir"],
             dest=dest,
         )
         # Idempotent retry fills missing signature, does not promote latest again
@@ -495,7 +481,6 @@ class TestPublish(unittest.TestCase):
             signature_path=rel["signature_path"],
             journal_dir=rel["journal_dir"],
             desktop_dir=rel["desktop_dir"],
-            tmux_dir=rel["tmux_dir"],
             dest=dest,
         )
         # Succeeded idempotently because re-read SemVer matched
@@ -516,7 +501,6 @@ class TestPublish(unittest.TestCase):
             signature_path=rel["signature_path"],
             journal_dir=rel["journal_dir"],
             desktop_dir=rel["desktop_dir"],
-            tmux_dir=rel["tmux_dir"],
             dest=dest,
         )
 
@@ -541,7 +525,6 @@ class TestPublish(unittest.TestCase):
                 signature_path=rel["signature_path"],
                 journal_dir=rel["journal_dir"],
                 desktop_dir=rel["desktop_dir"],
-                tmux_dir=rel["tmux_dir"],
                 dest=dest,
             )
         self.assertEqual(ctx.exception.name, SIGNATURE_PIN_MISMATCH)
@@ -557,7 +540,6 @@ class TestPublish(unittest.TestCase):
             signature_path=rel1["signature_path"],
             journal_dir=rel1["journal_dir"],
             desktop_dir=rel1["desktop_dir"],
-            tmux_dir=rel1["tmux_dir"],
             dest=dest,
         )
 
@@ -577,7 +559,6 @@ class TestPublish(unittest.TestCase):
                 signature_path=rel2["signature_path"],
                 journal_dir=rel2["journal_dir"],
                 desktop_dir=rel2["desktop_dir"],
-                tmux_dir=rel2["tmux_dir"],
                 dest=dest,
             )
         self.assertIn(ctx.exception.name, (RELEASE_COHERENCE, SAME_VERSION_DIFFERENT_BYTES))
@@ -600,7 +581,6 @@ class TestPublish(unittest.TestCase):
                 signature_path=rel["signature_path"],
                 journal_dir=rel["journal_dir"],
                 desktop_dir=rel["desktop_dir"],
-                tmux_dir=rel["tmux_dir"],
                 dest=dest,
             )
         self.assertEqual(ctx.exception.name, SAME_VERSION_DIFFERENT_BYTES)
@@ -615,7 +595,6 @@ class TestPublish(unittest.TestCase):
             signature_path=rel["signature_path"],
             journal_dir=rel["journal_dir"],
             desktop_dir=rel["desktop_dir"],
-            tmux_dir=rel["tmux_dir"],
             dest=dest,
         )
 
@@ -635,7 +614,6 @@ class TestPublish(unittest.TestCase):
                 signature_path=rel["signature_path"],
                 journal_dir=rel["journal_dir"],
                 desktop_dir=rel["desktop_dir"],
-                tmux_dir=rel["tmux_dir"],
                 dest=dest,
             )
         self.assertIn(ctx.exception.name, (RELEASE_COHERENCE, SAME_VERSION_DIFFERENT_BYTES))
@@ -652,7 +630,6 @@ class TestPublish(unittest.TestCase):
                 signature_path=rel["signature_path"],
                 journal_dir=rel["journal_dir"],
                 desktop_dir=rel["desktop_dir"],
-                tmux_dir=rel["tmux_dir"],
                 dest=dest,
             )
         self.assertEqual(ctx.exception.name, PUBLISH_INDETERMINATE)
@@ -669,7 +646,6 @@ class TestPublish(unittest.TestCase):
                 signature_path=rel["signature_path"],
                 journal_dir=rel["journal_dir"],
                 desktop_dir=rel["desktop_dir"],
-                tmux_dir=rel["tmux_dir"],
                 dest=dest,
             )
         self.assertEqual(ctx.exception.name, RELEASE_COHERENCE)
@@ -683,7 +659,6 @@ class TestPublish(unittest.TestCase):
             signature_path=rel_new["signature_path"],
             journal_dir=rel_new["journal_dir"],
             desktop_dir=rel_new["desktop_dir"],
-            tmux_dir=rel_new["tmux_dir"],
             dest=dest,
         )
 
@@ -696,7 +671,6 @@ class TestPublish(unittest.TestCase):
                 signature_path=rel_old["signature_path"],
                 journal_dir=rel_old["journal_dir"],
                 desktop_dir=rel_old["desktop_dir"],
-                tmux_dir=rel_old["tmux_dir"],
                 dest=dest,
             )
         self.assertEqual(ctx.exception.name, ROLLBACK_REFUSED)
@@ -722,7 +696,6 @@ class TestPublish(unittest.TestCase):
                 signature_path=rel["signature_path"],
                 journal_dir=rel["journal_dir"],
                 desktop_dir=rel["desktop_dir"],
-                tmux_dir=rel["tmux_dir"],
                 dest=dest,
             )
         self.assertEqual(ctx.exception.name, ROLLBACK_REFUSED)
@@ -745,7 +718,6 @@ class TestPublish(unittest.TestCase):
                 signature_path=rel["signature_path"],
                 journal_dir=rel["journal_dir"],
                 desktop_dir=rel["desktop_dir"],
-                tmux_dir=rel["tmux_dir"],
                 dest=dest,
             )
         self.assertEqual(ctx.exception.name, RELEASE_COHERENCE)
@@ -782,7 +754,6 @@ class TestPublish(unittest.TestCase):
             signature_path=rel["signature_path"],
             journal_dir=rel["journal_dir"],
             desktop_dir=rel["desktop_dir"],
-            tmux_dir=rel["tmux_dir"],
             dest=dest,
         )
         self.assertEqual(report.version, "2.0.3")
@@ -824,7 +795,6 @@ class TestPublish(unittest.TestCase):
                 signature_path=rel["signature_path"],
                 journal_dir=rel["journal_dir"],
                 desktop_dir=rel["desktop_dir"],
-                tmux_dir=rel["tmux_dir"],
                 dest=dest,
             )
         self.assertEqual(ctx.exception.name, SIGNATURE_PIN_MISMATCH)
@@ -843,7 +813,6 @@ class TestPublish(unittest.TestCase):
                 signature_path=rel_sig["signature_path"],
                 journal_dir=rel_sig["journal_dir"],
                 desktop_dir=rel_sig["desktop_dir"],
-                tmux_dir=rel_sig["tmux_dir"],
                 dest=dest_sig,
             )
         self.assertEqual(ctx.exception.name, SIGNATURE_PIN_MISMATCH)
@@ -879,7 +848,6 @@ class TestPublish(unittest.TestCase):
                 signature_path=rel["signature_path"],
                 journal_dir=rel["journal_dir"],
                 desktop_dir=rel["desktop_dir"],
-                tmux_dir=rel["tmux_dir"],
                 dest=dest,
             )
         self.assertEqual(ctx.exception.name, SIGNATURE_PIN_MISMATCH)
@@ -898,7 +866,6 @@ class TestPublish(unittest.TestCase):
                 signature_path=rel_sig["signature_path"],
                 journal_dir=rel_sig["journal_dir"],
                 desktop_dir=rel_sig["desktop_dir"],
-                tmux_dir=rel_sig["tmux_dir"],
                 dest=dest_sig,
             )
         self.assertEqual(ctx.exception.name, SIGNATURE_PIN_MISMATCH)
@@ -934,7 +901,6 @@ class TestPublish(unittest.TestCase):
                 signature_path=rel["signature_path"],
                 journal_dir=rel["journal_dir"],
                 desktop_dir=rel["desktop_dir"],
-                tmux_dir=rel["tmux_dir"],
                 dest=dest,
             )
         self.assertEqual(ctx.exception.name, SIGNATURE_PIN_MISMATCH)
@@ -953,7 +919,6 @@ class TestPublish(unittest.TestCase):
                 signature_path=rel_sig["signature_path"],
                 journal_dir=rel_sig["journal_dir"],
                 desktop_dir=rel_sig["desktop_dir"],
-                tmux_dir=rel_sig["tmux_dir"],
                 dest=dest_sig,
             )
         self.assertEqual(ctx.exception.name, SIGNATURE_PIN_MISMATCH)
@@ -968,7 +933,6 @@ class TestPublish(unittest.TestCase):
             signature_path=rel_v2["signature_path"],
             journal_dir=rel_v2["journal_dir"],
             desktop_dir=rel_v2["desktop_dir"],
-            tmux_dir=rel_v2["tmux_dir"],
             dest=rel_v2["dest"],
         )
         self.assertEqual(report_v2.version, "2.0.3")
@@ -981,7 +945,6 @@ class TestPublish(unittest.TestCase):
             signature_path=rel_v3["signature_path"],
             journal_dir=rel_v3["journal_dir"],
             desktop_dir=rel_v3["desktop_dir"],
-            tmux_dir=rel_v3["tmux_dir"],
             dest=rel_v3["dest"],
         )
         self.assertEqual(report_v3.version, "2.0.4")
@@ -995,6 +958,7 @@ class TestPublish(unittest.TestCase):
                 version="2.0.5",
                 lane="release",
                 created_unix=1700000000,
+                minimum_installer_revision=1,
                 source_commit="3075c36b12fad469d4c9c0ab4555908fe8ecca1b",
                 platform_key_id=self.platform_pin.key_id,
                 repo_root=self.repo_root,
@@ -1013,7 +977,6 @@ class TestPublish(unittest.TestCase):
                 signature_path=rel["signature_path"],
                 journal_dir=rel["journal_dir"],
                 desktop_dir=rel["desktop_dir"],
-                tmux_dir=rel["tmux_dir"],
                 dest=rel["dest"],
             )
 
@@ -1065,7 +1028,6 @@ class TestPublish(unittest.TestCase):
             signature_path=rel["signature_path"],
             journal_dir=rel["journal_dir"],
             desktop_dir=rel["desktop_dir"],
-            tmux_dir=rel["tmux_dir"],
             dest=dest,
         )
 

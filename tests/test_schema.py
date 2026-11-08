@@ -22,6 +22,7 @@ from solstone_platform.schema import (
     MAX_PLATFORM_BYTES,
     _scan_platform_json_limits,
     load_platform_manifest_bytes,
+    retirement_floor,
     validate_platform_manifest,
 )
 
@@ -39,16 +40,16 @@ class TestSchema(unittest.TestCase):
     def test_installer_revision_allows(self):
         min_rev_path = self.repo_root / "compat" / "minimum_installer_revision"
         min_rev = load_minimum_installer_revision(min_rev_path)
-        self.assertEqual(min_rev, 8)
+        self.assertEqual(min_rev, retirement_floor())
 
-        # Actual 7 vs min 8 -> False
-        self.assertFalse(installer_revision_allows(actual=7, minimum=8))
-        # Actual 8 vs min 8 -> True
-        self.assertTrue(installer_revision_allows(actual=8, minimum=8))
-        # Actual 9 vs min 8 -> True
-        self.assertTrue(installer_revision_allows(actual=9, minimum=8))
-        # Actual 8 vs min 9 -> False
-        self.assertFalse(installer_revision_allows(actual=8, minimum=9))
+        # Actual min_rev - 1 vs min_rev -> False
+        self.assertFalse(installer_revision_allows(actual=min_rev - 1, minimum=min_rev))
+        # Actual min_rev vs min_rev -> True
+        self.assertTrue(installer_revision_allows(actual=min_rev, minimum=min_rev))
+        # Actual min_rev + 1 vs min_rev -> True
+        self.assertTrue(installer_revision_allows(actual=min_rev + 1, minimum=min_rev))
+        # Actual min_rev vs min_rev + 1 -> False
+        self.assertFalse(installer_revision_allows(actual=min_rev, minimum=min_rev + 1))
 
     def test_non_positive_minimum_installer_revision_refused(self):
         obj = parse_json_strict(self.example_bytes)
@@ -492,6 +493,65 @@ class TestSchema(unittest.TestCase):
                 definition["uninstall_service_entrypoint"]["const"],
                 expected["uninstall_service_entrypoint"],
             )
+
+    def test_published_floor_8_tmux_manifest_and_rendered_schema(self):
+        from solstone_platform.schema import render_platform_schema
+        # Case (e): published-shape floor-8 tmux manifest validates
+        obj = parse_json_strict(self.example_bytes)
+        obj["minimum_installer_revision"] = 8
+        self.assertIn("tmux", obj["components"])
+        validate_platform_manifest(obj)
+
+        schema = parse_json_strict(render_platform_schema().encode("utf-8"))
+        for variant in schema["oneOf"]:
+            comps = variant["properties"]["components"]
+            self.assertEqual(comps["required"], ["journal", "desktop"])
+            self.assertIn("tmux", comps["properties"])
+
+    def test_catalogue_floor_drop_tmux_rules(self):
+        floor = retirement_floor()
+        # Case (f): floor with tmux refused, floor 8 without tmux refused
+        obj_floor_with_tmux = parse_json_strict(self.example_bytes)
+        obj_floor_with_tmux["minimum_installer_revision"] = floor
+        with self.assertRaises(Refusal) as ctx:
+            validate_platform_manifest(obj_floor_with_tmux)
+        self.assertEqual(ctx.exception.name, SCHEMA_INVALID)
+
+        obj_floor_8_no_tmux = parse_json_strict(self.example_bytes)
+        del obj_floor_8_no_tmux["components"]["tmux"]
+        with self.assertRaises(Refusal) as ctx:
+            validate_platform_manifest(obj_floor_8_no_tmux)
+        self.assertEqual(ctx.exception.name, SCHEMA_INVALID)
+
+        obj_floor_no_tmux = copy.deepcopy(obj_floor_8_no_tmux)
+        obj_floor_no_tmux["minimum_installer_revision"] = floor
+        validate_platform_manifest(obj_floor_no_tmux)
+
+    def test_validate_produced_catalogue_enforces_desktop_minimum(self):
+        # Case (g): producer checks validate_produced_catalogue
+        from solstone_platform.publish import validate_produced_catalogue
+        from solstone_platform.refusals import RELEASE_COHERENCE
+
+        floor = retirement_floor()
+        passing_ver = (self.repo_root / "compat" / "terminal_capture_desktop_minimum").read_text(encoding="utf-8").strip()
+        failing_ver = "0.0.1"
+
+        obj = parse_json_strict(self.example_bytes)
+        del obj["components"]["tmux"]
+        obj["minimum_installer_revision"] = floor
+        obj["components"]["desktop"]["version"] = passing_ver
+        validate_produced_catalogue(obj)
+
+        obj["components"]["desktop"]["version"] = failing_ver
+        with self.assertRaises(Refusal) as ctx:
+            validate_produced_catalogue(obj)
+        self.assertEqual(ctx.exception.name, RELEASE_COHERENCE)
+
+        # Floor below retirement floor does not enforce terminal capture desktop minimum
+        obj_floor_8 = parse_json_strict(self.example_bytes)
+        obj_floor_8["minimum_installer_revision"] = 8
+        obj_floor_8["components"]["desktop"]["version"] = failing_ver
+        validate_produced_catalogue(obj_floor_8)
 
 
 if __name__ == "__main__":

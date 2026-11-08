@@ -208,6 +208,11 @@ def build_tiny_natives(
             f"    case \"${{SOLSTONE_TEST_SERVICE_FAIL:-}}\" in \"desktop:{d_runtime_version}:$1\") exit 9 ;; esac\n"
             "    exit 0 ;;\n"
             "esac\n"
+            "if [ \"${1:-}\" = \"terminal\" ] && [ \"${2:-}\" = \"adopt-tmux\" ]; then\n"
+            "  [ -z \"${SOLSTONE_ADOPT_LOG:-}\" ] || printf '%s\\n' \"$*\" >> \"$SOLSTONE_ADOPT_LOG\"\n"
+            "  [ -z \"${SOLSTONE_ADOPT_STDERR:-}\" ] || printf '%s\\n' \"$SOLSTONE_ADOPT_STDERR\" >&2\n"
+            "  exit \"${SOLSTONE_ADOPT_EXIT:-0}\"\n"
+            "fi\n"
             f"echo {d_runtime_version}\n{marker_line}"
         ).encode("utf-8")
         for arch, deb_arch, rpm_arch in [("x86_64", "amd64", "x86_64"), ("aarch64", "arm64", "aarch64")]:

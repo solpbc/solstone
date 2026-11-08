@@ -245,15 +245,24 @@ package_manager_command() {
     pmc_type="$2"
     pmc_action="$3"
     pmc_path="$4"
+    pmc_extra="${5:-}"
     case "$pmc_type" in
         deb)
             if [ "$pmc_action" != "reinstall" ]; then
                 echo "ERROR:plan-invalid"
                 return 1
             fi
-            set -- apt-get install -y --reinstall --no-remove "$pmc_path"
+            if [ "$pmc_extra" = "no-weak-deps" ]; then
+                set -- apt-get install -y --reinstall --no-remove --no-install-recommends "$pmc_path"
+            else
+                set -- apt-get install -y --reinstall --no-remove "$pmc_path"
+            fi
             if [ "$pmc_mode" = "plan" ]; then
-                printf 'DEBIAN_FRONTEND=noninteractive %s %s %s %s %s %s\n' "$1" "$2" "$3" "$4" "$5" "$6"
+                printf 'DEBIAN_FRONTEND=noninteractive'
+                for arg in "$@"; do
+                    printf ' %s' "$arg"
+                done
+                printf '\n'
                 return 0
             elif [ "$pmc_mode" = "exec" ]; then
                 DEBIAN_FRONTEND=noninteractive "$@" >&2
@@ -268,9 +277,22 @@ package_manager_command() {
                     return 1
                     ;;
             esac
-            set -- dnf -y --setopt=localpkg_gpgcheck=False "$pmc_action" "$pmc_path"
+            if [ "$pmc_extra" = "no-weak-deps" ]; then
+                set -- dnf -y --setopt=localpkg_gpgcheck=False --setopt=install_weak_deps=False "$pmc_action" "$pmc_path"
+            else
+                set -- dnf -y --setopt=localpkg_gpgcheck=False "$pmc_action" "$pmc_path"
+            fi
             if [ "$pmc_mode" = "plan" ]; then
-                printf '%s %s %s %s %s\n' "$1" "$2" "$3" "$4" "$5"
+                first=1
+                for arg in "$@"; do
+                    if [ $first -eq 1 ]; then
+                        printf '%s' "$arg"
+                        first=0
+                    else
+                        printf ' %s' "$arg"
+                    fi
+                done
+                printf '\n'
                 return 0
             elif [ "$pmc_mode" = "exec" ]; then
                 "$@" >&2
@@ -290,6 +312,7 @@ handle_fake_db_install() {
     hf_name="$3"
     hf_version="$4"
     hf_arch="$5"
+    hf_extra="${6:-}"
     mkdir -p "${FAKE_PKG_DB}/${hf_type}"
     printf 'INSTALLED %s %s %s\n' "$hf_name" "$hf_version" "$hf_arch" > "${FAKE_PKG_DB}/${hf_type}/${hf_name}"
     if [ "$hf_name" = "solstone-journal" ] && [ -n "$FAKE_ROOT" ]; then
@@ -306,7 +329,11 @@ handle_fake_db_install() {
         cp "$FAKE_JOURNAL_LAUNCHER" "${fake_journal_dir}/journal"
         chmod 0755 "${fake_journal_dir}/journal"
     fi
-    echo "$hf_path" >> "${FAKE_PKG_DB}/install.log"
+    if [ "$hf_extra" = "no-weak-deps" ]; then
+        echo "$hf_path no-weak-deps" >> "${FAKE_PKG_DB}/install.log"
+    else
+        echo "$hf_path" >> "${FAKE_PKG_DB}/install.log"
+    fi
     if ! installed_identity=$(handle_query_pkg "$hf_type" "$hf_name"); then
         echo "ERROR:install-failed"
         return 1
@@ -322,6 +349,7 @@ handle_fake_db_install() {
 handle_plan_pkg() {
     hpp_type="$1"
     hpp_path="$2"
+    hpp_extra="${3:-}"
     preflight_package_archive "$hpp_type" "$hpp_path" || return 1
     case "$hpp_type" in
         deb)
@@ -336,7 +364,7 @@ handle_plan_pkg() {
             return 1
             ;;
     esac
-    if ! plan_display=$(package_manager_command plan "$hpp_type" "$hpp_action" "$hpp_path"); then
+    if ! plan_display=$(package_manager_command plan "$hpp_type" "$hpp_action" "$hpp_path" "$hpp_extra"); then
         return 1
     fi
     printf 'PLAN %s %s %s %s\n' "$hpp_type" "$hpp_action" "$hpp_path" "$plan_display"
@@ -346,6 +374,7 @@ handle_apply_pkg() {
     hap_type="$1"
     hap_path="$2"
     hap_action="$3"
+    hap_extra="${4:-}"
     preflight_package_archive "$hap_type" "$hap_path" || return 1
     case "$hap_type" in
         deb)
@@ -365,10 +394,10 @@ handle_apply_pkg() {
         return 1
     fi
     if [ -n "$FAKE_PKG_DB" ] && [ -d "$FAKE_PKG_DB" ]; then
-        handle_fake_db_install "$hap_type" "$hap_path" "$PKG_ARCHIVE_NAME" "$PKG_ARCHIVE_VERSION" "$PKG_ARCHIVE_ARCH"
+        handle_fake_db_install "$hap_type" "$hap_path" "$PKG_ARCHIVE_NAME" "$PKG_ARCHIVE_VERSION" "$PKG_ARCHIVE_ARCH" "$hap_extra"
         return $?
     fi
-    if ! package_manager_command exec "$hap_type" "$hap_action" "$hap_path"; then
+    if ! package_manager_command exec "$hap_type" "$hap_action" "$hap_path" "$hap_extra"; then
         echo "ERROR:install-failed"
         return 1
     fi
@@ -386,6 +415,7 @@ handle_apply_pkg() {
 handle_install_pkg() {
     hip_type="$1"
     hip_path="$2"
+    hip_extra="${3:-}"
     preflight_package_archive "$hip_type" "$hip_path" || return 1
     case "$hip_type" in
         deb)
@@ -401,10 +431,10 @@ handle_install_pkg() {
             ;;
     esac
     if [ -n "$FAKE_PKG_DB" ] && [ -d "$FAKE_PKG_DB" ]; then
-        handle_fake_db_install "$hip_type" "$hip_path" "$PKG_ARCHIVE_NAME" "$PKG_ARCHIVE_VERSION" "$PKG_ARCHIVE_ARCH"
+        handle_fake_db_install "$hip_type" "$hip_path" "$PKG_ARCHIVE_NAME" "$PKG_ARCHIVE_VERSION" "$PKG_ARCHIVE_ARCH" "$hip_extra"
         return $?
     fi
-    if ! package_manager_command exec "$hip_type" "$hip_action" "$hip_path"; then
+    if ! package_manager_command exec "$hip_type" "$hip_action" "$hip_path" "$hip_extra"; then
         echo "ERROR:install-failed"
         return 1
     fi
@@ -495,6 +525,16 @@ handle_write_receipt() {
     echo "OK"
 }
 
+handle_delete_receipt() {
+    receipt_dir=$(dirname "$RECEIPT_FILE")
+    if [ -L "$receipt_dir" ] || [ -L "$RECEIPT_FILE" ] || [ -d "$RECEIPT_FILE" ] || { [ -e "$RECEIPT_FILE" ] && [ ! -f "$RECEIPT_FILE" ]; }; then
+        echo "ERROR:receipt-dest-invalid"
+        return 1
+    fi
+    rm -f "$RECEIPT_FILE"
+    echo "OK"
+}
+
 handle_read_receipt() {
     if [ ! -e "$RECEIPT_FILE" ] && [ ! -L "$RECEIPT_FILE" ]; then
         return 0
@@ -538,21 +578,31 @@ while IFS= read -r line || [ -n "$line" ]; do
             handle_query_pkg "$2" "$3"
             ;;
         INSTALL_PKG)
-            if [ $# -ne 3 ]; then
+            if [ $# -eq 3 ]; then
+                handle_install_pkg "$2" "$3"
+            elif [ $# -eq 4 ] && [ "$4" = "no-weak-deps" ]; then
+                handle_install_pkg "$2" "$3" "$4"
+            else
                 echo "ERROR:invalid-install-operands" >&2
                 exit 1
             fi
-            handle_install_pkg "$2" "$3"
             ;;
         PLAN_PKG)
-            if [ $# -ne 3 ]; then
+            if [ $# -eq 3 ]; then
+                handle_plan_pkg "$2" "$3"
+            elif [ $# -eq 4 ] && [ "$4" = "no-weak-deps" ]; then
+                handle_plan_pkg "$2" "$3" "$4"
+            else
                 echo "ERROR:invalid-plan-operands" >&2
                 exit 1
             fi
-            handle_plan_pkg "$2" "$3"
             ;;
         APPLY_PKG)
-            if [ $# -ne 4 ]; then
+            if [ $# -eq 4 ]; then
+                extra_opt=""
+            elif [ $# -eq 5 ] && [ "$5" = "no-weak-deps" ]; then
+                extra_opt="$5"
+            else
                 echo "ERROR:invalid-apply-operands" >&2
                 exit 1
             fi
@@ -577,7 +627,11 @@ while IFS= read -r line || [ -n "$line" ]; do
                     exit 1
                     ;;
             esac
-            handle_apply_pkg "$2" "$3" "$4"
+            if [ -n "$extra_opt" ]; then
+                handle_apply_pkg "$2" "$3" "$4" "$extra_opt"
+            else
+                handle_apply_pkg "$2" "$3" "$4"
+            fi
             ;;
         REMOVE_PKG)
             if [ $# -ne 3 ]; then
@@ -592,6 +646,13 @@ while IFS= read -r line || [ -n "$line" ]; do
                 exit 1
             fi
             handle_write_receipt "$2"
+            ;;
+        DELETE_ETC_RECEIPT)
+            if [ $# -ne 1 ]; then
+                echo "ERROR:invalid-delete-receipt-operands" >&2
+                exit 1
+            fi
+            handle_delete_receipt
             ;;
         READ_ETC_RECEIPT)
             if [ $# -ne 1 ]; then
