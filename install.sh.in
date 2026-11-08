@@ -2772,7 +2772,7 @@ package_command_declined() {
             TMUX_MOVE_REASON="declined"
             REPORT_COMPONENTS=$(remove_word "$REPORT_COMPONENTS" desktop)
             MOVE_DESKTOP_ROUTE=""
-            settle_zero_byte_package_receipt
+            settle_empty_package_receipt
             report_exit "success" "installed" "All selected components installed successfully"
         fi
     fi
@@ -3463,6 +3463,18 @@ package_receipt_path() {
     fi
 }
 
+# A package receipt that records no component reads as absent: zero bytes, as
+# an earlier revision left it, or its [solstone] header alone, as a removal
+# whose final delete did not complete leaves it.
+package_receipt_records_nothing() {
+    prn_receipt="$1"
+    [ -f "$prn_receipt" ] && [ ! -L "$prn_receipt" ] || return 1
+    [ -s "$prn_receipt" ] || return 0
+    [ -r "$prn_receipt" ] && [ "$(sed -n '1p' "$prn_receipt")" = "[solstone]" ] || return 1
+    grep -q '^\[component:' "$prn_receipt"
+    [ $? -eq 1 ]
+}
+
 package_route_tools() {
     case "$PKG_VARIANT" in deb) printf '%s\n' "dpkg-deb dpkg-query apt-get" ;; rpm) printf '%s\n' "rpm dnf" ;; esac
 }
@@ -3551,9 +3563,8 @@ package_component_authority() {
     PACKAGE_CLAIM=0
     PACKAGE_STATE_PRESENT=0
     pca_receipt=$(package_receipt_path)
-    # A zero-byte receipt left by an earlier revision records nothing.
     if { [ ! -e "$pca_receipt" ] && [ ! -L "$pca_receipt" ]; } \
-        || { [ -f "$pca_receipt" ] && [ ! -L "$pca_receipt" ] && [ ! -s "$pca_receipt" ]; }; then
+        || package_receipt_records_nothing "$pca_receipt"; then
         pca_key="$pca_component"
         [ "$pca_component" = "cli" ] && pca_key="journal"
         pca_name=$(cat "${manifest_dir}/components/${pca_key}/arches/${HOST_ARCH}/${PKG_VARIANT}/package_identity/name" 2>/dev/null || true)
@@ -4427,7 +4438,7 @@ run_package_install() {
             *) all_pkg_selected_unchanged=0; break ;;
         esac
     done
-    if [ "$all_pkg_selected_unchanged" -eq 1 ] && [ -s "$PACKAGE_RECEIPT_FILE" ]; then
+    if [ "$all_pkg_selected_unchanged" -eq 1 ] && ! package_receipt_records_nothing "$PACKAGE_RECEIPT_FILE"; then
         pgr_staged="${SCRATCH_DIR}/package-receipt-global-refresh.$$"
         {
             printf "[solstone]\n"
@@ -4652,12 +4663,12 @@ move_say() {
     printf '%s\n' "$1" >&2
 }
 
-# A zero-byte package receipt left by an earlier revision records nothing. A
-# run that already has the privileged helper running removes it; any other
-# run leaves it as it is and says so.
-settle_zero_byte_package_receipt() {
+# A package receipt that records nothing reads as absent. A run that already
+# has the privileged helper running removes it; any other run leaves it as it
+# is and says so.
+settle_empty_package_receipt() {
     szb_receipt=$(package_receipt_path)
-    [ -f "$szb_receipt" ] && [ ! -L "$szb_receipt" ] && [ ! -s "$szb_receipt" ] || return 0
+    package_receipt_records_nothing "$szb_receipt" || return 0
     if [ "$PACKAGE_HELPER_READY" -eq 1 ]; then
         # shellcheck disable=SC2086
         if szb_result=$(printf "DELETE_ETC_RECEIPT\n" | $sudo_prefix "$helper_bin" $helper_flags) && [ "$szb_result" = "OK" ]; then
@@ -4707,7 +4718,7 @@ refresh_receipt_headers() {
         fi
     fi
     rrh_package=$(package_receipt_path)
-    if [ -f "$rrh_package" ] && [ ! -L "$rrh_package" ] && [ -s "$rrh_package" ]; then
+    if [ -f "$rrh_package" ] && [ ! -L "$rrh_package" ] && ! package_receipt_records_nothing "$rrh_package"; then
         init_package_helper
         package_read_receipt
         rrh_next="${SCRATCH_DIR}/package-receipt-header.$$"
@@ -4754,6 +4765,25 @@ move_restore_options() {
     SELECTED_COMPONENTS="$MOVE_SAVED_SELECTED"
     PKG_EXTRA_OPT="$MOVE_SAVED_EXTRA"
     MOVE_DESKTOP_STEP=0
+}
+
+# Whether the desktop app already has its own configuration, which makes it
+# ignore the terminal-only marker. Its service reads the configuration under
+# XDG_CONFIG_HOME when that is absolute in the user service manager's
+# environment, and under ~/.config otherwise; this shell's XDG_CONFIG_HOME
+# is checked as well.
+desktop_config_exists() {
+    [ ! -e "${HOME}/.config/solstone-linux/config.json" ] || return 0
+    case "${XDG_CONFIG_HOME:-}" in
+        /*) [ ! -e "${XDG_CONFIG_HOME}/solstone-linux/config.json" ] || return 0 ;;
+    esac
+    command -v systemctl >/dev/null 2>&1 || return 1
+    dce_manager=$(systemctl --user show-environment 2>/dev/null) || return 1
+    dce_manager=$(printf '%s\n' "$dce_manager" | sed -n 's/^XDG_CONFIG_HOME=//p')
+    case "$dce_manager" in
+        /*) [ ! -e "${dce_manager}/solstone-linux/config.json" ] || return 0 ;;
+    esac
+    return 1
 }
 
 # Decide, before locks or any change, what happens to a recorded tmux when
@@ -4842,7 +4872,7 @@ handle_tmux_move() {
             printf '\n%s\n' "terminal capture is now part of the solstone app. this moves this computer's tmux app into it, keeps everything the tmux app holds, and removes the old tmux app."
             # The app records desktop capture off at its first start when this
             # user has never configured it (the marker below).
-            if [ ! -e "${HOME}/.config/solstone-linux/config.json" ]; then
+            if ! desktop_config_exists; then
                 printf '%s\n' "on this computer the solstone app will capture only the terminal until you turn more on in the app."
             fi
             printf '%s' "move the tmux app into the solstone app? answer yes or no: "
@@ -4971,6 +5001,7 @@ remove_moved_tree_tmux() {
 }
 
 # Remove the moved tmux package through the consented package command.
+# run_tmux_move calls this in a subshell where report_exit fails the removal.
 remove_moved_package_tmux() {
     if [ "$OPT_CONFIRM_PACKAGE_COMMAND" -eq 1 ]; then
         case "$PKG_VARIANT" in
@@ -5048,10 +5079,19 @@ run_tmux_move() {
     case "$rtm_code" in
         0)
             TMUX_MOVE_STATUS="moved"
-            if [ "$TMUX_OLD_ROUTE" = "tree" ]; then
-                remove_moved_tree_tmux && rtm_removed=1 || rtm_removed=0
-            else
-                remove_moved_package_tmux && rtm_removed=1 || rtm_removed=0
+            # The move has happened, so nothing in the removal may stop the
+            # run: in this subshell a failure that would refuse the run only
+            # fails the removal.
+            rtm_removed=0
+            if (
+                report_exit() { exit 1; }
+                if [ "$TMUX_OLD_ROUTE" = "tree" ]; then
+                    remove_moved_tree_tmux
+                else
+                    remove_moved_package_tmux
+                fi
+            ); then
+                rtm_removed=1
             fi
             if [ "$rtm_removed" -eq 1 ]; then
                 TMUX_MOVE_REASON="moved"
@@ -5099,7 +5139,7 @@ run_uninstall() {
             uninstall_package_component "$comp"
         done
     fi
-    settle_zero_byte_package_receipt
+    settle_empty_package_receipt
     report_exit "success" "uninstalled" "Selected components uninstalled successfully"
 }
 
@@ -5468,7 +5508,7 @@ main() {
     SELECTED_COMPONENTS="$requested_components"
 
     tmux_move_finish
-    settle_zero_byte_package_receipt
+    settle_empty_package_receipt
 
     report_exit "success" "${MOVE_ROOT_CODE:-installed}" "${MOVE_ROOT_MESSAGE:-All selected components installed successfully}"
 }

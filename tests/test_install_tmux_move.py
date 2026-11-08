@@ -95,6 +95,18 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
         self.bin_dir = self.work_dir / "bin"
         self.bin_dir.mkdir(parents=True, exist_ok=True)
         setup_fake_sudo(self.bin_dir)
+        # The user manager's environment comes from SOLSTONE_TEST_MANAGER_ENV;
+        # every other systemctl call still reaches the hermetic guard.
+        guard = shutil.which("systemctl", path=os.environ["PATH"])
+        write_path_stub(
+            self.bin_dir,
+            "systemctl",
+            "if [ \"$*\" = \"--user show-environment\" ]; then\n"
+            "  [ -z \"${SOLSTONE_TEST_MANAGER_ENV:-}\" ] || printf '%s\\n' \"$SOLSTONE_TEST_MANAGER_ENV\"\n"
+            "  exit 0\n"
+            "fi\n"
+            f"exec {shlex.quote(str(guard))} \"$@\"\n",
+        )
         self.lock_dir = self.work_dir / "lock"
         self.etc_root = self.work_dir / "etc"
         self.fake_db = self.work_dir / "db"
@@ -545,6 +557,50 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 )
                 self.assertEqual(proc_rel.returncode, 0, f"Failed: {proc_rel.stderr}\n{proc_rel.stdout}")
                 self.assertTrue(self.marker_path.exists())
+            finally:
+                server.stop()
+
+    def test_terminal_only_line_shows_only_when_no_desktop_config_exists(self):
+        with ephemeral_keypair("test terminal only line") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin, min_installer_revision=20)
+            try:
+                self.seed_tree_tmux(version="0.1.0", lane="release")
+
+                def consent_lines(env: dict[str, str]) -> int:
+                    code, tty_bytes, stdout, stderr = self.run_pty_interaction(
+                        f"{installer} --skip-signature --upgrade", env, [(b"yes or no", b"no\n")],
+                    )
+                    self.assertEqual(code, 0, f"{stderr}\n{stdout}")
+                    before = tty_bytes[: tty_bytes.index(b"yes or no")].decode("utf-8")
+                    return sum(1 for line in before.splitlines() if line.strip())
+
+                def config_under(root: Path) -> Path:
+                    config = root / "solstone-linux" / "config.json"
+                    config.parent.mkdir(parents=True, exist_ok=True)
+                    config.write_text("{}\n", encoding="utf-8")
+                    return config
+
+                none_anywhere = consent_lines(self.env)
+
+                shell_xdg = self.work_dir / "shell-config"
+                config_under(shell_xdg)
+                in_shell_xdg = consent_lines({**self.env, "XDG_CONFIG_HOME": str(shell_xdg)})
+
+                manager_xdg = self.work_dir / "manager-config"
+                config_under(manager_xdg)
+                manager_env = f"HOME={os.environ['HOME']}\nXDG_CONFIG_HOME={manager_xdg}"
+                in_manager_xdg = consent_lines({**self.env, "SOLSTONE_TEST_MANAGER_ENV": manager_env})
+                relative_manager = consent_lines({**self.env, "SOLSTONE_TEST_MANAGER_ENV": "XDG_CONFIG_HOME=manager-config"})
+
+                home_config = config_under(Path(os.environ["HOME"]) / ".config")
+                in_home = consent_lines(self.env)
+                home_config.unlink()
+
+                self.assertEqual(none_anywhere, in_shell_xdg + 1)
+                self.assertEqual(in_manager_xdg, in_shell_xdg)
+                self.assertEqual(in_home, in_shell_xdg)
+                self.assertEqual(relative_manager, none_anywhere)
+                self.assertEqual(self.tree_receipt.read_bytes().count(b"[component:tmux]\n"), 1)
             finally:
                 server.stop()
 
@@ -1092,6 +1148,48 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                         self.assertTrue(self.package_receipt.exists())
                         self.assertEqual(self.package_receipt.stat().st_size, 0)
                         self.assertEqual(sum(str(self.package_receipt) in line for line in proc.stderr.splitlines()), 1)
+            finally:
+                server.stop()
+
+    HEADER_ONLY_RECEIPT = b"[solstone]\nschema_version=1\nplatform_version=1.9.0\nlane=release\n"
+
+    def test_header_only_package_receipt_reads_as_absent_for_a_package_install(self):
+        with ephemeral_keypair("test header only receipt replaced") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin, min_installer_revision=20)
+            try:
+                self.package_receipt.parent.mkdir(parents=True, exist_ok=True)
+                self.package_receipt.write_bytes(self.HEADER_ONLY_RECEIPT)
+
+                proc = self.run_installer(installer, "--route", "deb", "--components", "desktop", "--yes", "--json")
+                doc = self.assert_ran(proc)
+                self.assertEqual(doc["root_code"], "installed")
+                self.assertEqual(receipt_sections(self.package_receipt.read_bytes()), ["[solstone]", "[component:desktop]"])
+                self.assertEqual(receipt_header(self.package_receipt.read_bytes())["platform_version"], "2.0.0")
+            finally:
+                server.stop()
+
+    def test_header_only_package_receipt_left_with_one_line_during_a_tree_move(self):
+        with ephemeral_keypair("test header only receipt left intact") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin, min_installer_revision=20)
+            try:
+                self.seed_tree_tmux(version="0.1.0", lane="release")
+                self.package_receipt.parent.mkdir(parents=True, exist_ok=True)
+                self.package_receipt.write_bytes(self.HEADER_ONLY_RECEIPT)
+
+                proc = self.run_installer(installer, "--upgrade", "--yes", "--json")
+                doc = self.assert_ran(proc)
+                self.assertEqual(doc["root_code"], "installed")
+                self.assertEqual(doc["components"]["tmux"]["status"], "moved")
+                self.assertEqual(doc["components"]["tmux"]["reason"], "moved")
+                self.assertIn(b"[component:desktop]\n", self.tree_receipt.read_bytes())
+                self.assertEqual(self.package_receipt.read_bytes(), self.HEADER_ONLY_RECEIPT)
+                self.assertEqual(sum(str(self.package_receipt) in line for line in proc.stderr.splitlines()), 1)
+
+                proc_again = self.run_installer(installer, "--upgrade", "--yes", "--json")
+                doc_again = self.assert_ran(proc_again)
+                self.assertEqual(doc_again["root_code"], "installed")
+                self.assertEqual(self.package_receipt.read_bytes(), self.HEADER_ONLY_RECEIPT)
+                self.assertEqual(sum(str(self.package_receipt) in line for line in proc_again.stderr.splitlines()), 1)
             finally:
                 server.stop()
 
@@ -1686,6 +1784,47 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 self.assertEqual(safe_receipt_section(self.package_receipt.read_bytes(), "component:tmux"), b"")
                 self.assertFalse((self.fake_db / "deb" / "solstone-tmux").exists())
                 self.assertEqual(len(self.adopt_log.read_text(encoding="utf-8").splitlines()), 2)
+            finally:
+                server.stop()
+
+    def test_package_query_failure_during_removal_reports_removal_failed_and_exits_zero(self):
+        with ephemeral_keypair("test removal query failure") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin, min_installer_revision=20)
+            try:
+                wrapper = self.bin_dir / "helper-failing-tmux-query"
+                wrapper.write_text(
+                    "#!/bin/sh\n"
+                    "request=$(mktemp)\n"
+                    "cat > \"$request\"\n"
+                    "if [ \"$(head -n 1 \"$request\")\" = \"QUERY_PKG deb solstone-tmux\" ]; then\n"
+                    "  rm -f \"$request\"; printf '%s\\n' \"$SOLSTONE_TEST_QUERY_ANSWER\"; exit \"$SOLSTONE_TEST_QUERY_EXIT\"\n"
+                    "fi\n"
+                    f"'{HELPER_SCRIPT}' \"$@\" < \"$request\"\n"
+                    "status=$?\n"
+                    "rm -f \"$request\"\n"
+                    "exit $status\n",
+                    encoding="utf-8",
+                )
+                wrapper.chmod(0o755)
+                tmux_section = self.seed_package_tmux(version="0.1.0", lane="staging")
+
+                for answer, exit_code in (("ERROR:query-failed", "1"), ("NOT-A-STATE", "0")):
+                    with self.subTest(answer=answer):
+                        env = {
+                            **self.env,
+                            "SOLSTONE_HELPER": str(wrapper),
+                            "SOLSTONE_TEST_QUERY_ANSWER": answer,
+                            "SOLSTONE_TEST_QUERY_EXIT": exit_code,
+                        }
+                        proc = self.run_installer(installer, "--upgrade", "--yes", "--json", env=env)
+                        doc = self.assert_ran(proc)
+                        self.assertEqual(doc["status"], "success")
+                        self.assertEqual(doc["root_code"], "installed")
+                        self.assertEqual(doc["components"]["tmux"]["status"], "moved")
+                        self.assertEqual(doc["components"]["tmux"]["reason"], "removal-failed")
+                        self.assertEqual(uninstall_commands(proc.stderr), [["--uninstall", "--components", "tmux", "--lane", "release"]])
+                        self.assertEqual(receipt_section(self.package_receipt.read_bytes(), "component:tmux"), tmux_section)
+                        self.assertIn(b"[component:desktop]\n", self.package_receipt.read_bytes())
             finally:
                 server.stop()
 
