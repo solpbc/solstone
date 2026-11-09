@@ -20,7 +20,7 @@ open source and self-hostable, with optional services operated by [sol pbc](http
 | **[solstone-windows](https://github.com/solpbc/solstone-windows)** | the windows app. |
 | **[solstone-android](https://github.com/solpbc/solstone-android)** | the android app. |
 | **[solstone-swift](https://github.com/solpbc/solstone-swift)** | the ios app. |
-| **[solstone-tmux](https://github.com/solpbc/solstone-tmux)** | the tmux app. |
+| **[solstone-tmux](https://github.com/solpbc/solstone-tmux)** | solstone for tmux. |
 
 ## platform metadata & installer rail
 
@@ -37,7 +37,7 @@ sh install.sh --help
 
 check that the download succeeded before running the script. `https://solstone.app/platform-install.sh` remains a byte-identical compatibility URL. on macos, this installer acquires the native apps; it never installs a standalone journal runtime.
 
-terminal capture is part of the desktop app, is turned on in it, and needs tmux on the computer. an owner who already has the tmux app moves it with `solstone update`. when only the tmux app is installed, the direct upgrade is `curl -fsSL https://solstone.app/install.sh | sh -s -- --upgrade --components tmux`.
+terminal is part of the solstone app, is turned on in it, and needs tmux on the computer. an owner who already has solstone for tmux moves it with `solstone update`. when only solstone for tmux is installed, the direct upgrade is `curl -fsSL https://solstone.app/install.sh | sh -s -- --upgrade --components tmux`.
 
 for authoritative definitions, refer to:
 - native component pins: `pins/`

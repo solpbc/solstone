@@ -25,7 +25,7 @@ after acquisition, open the journal app. it owns journal setup, verified legacy 
 
 ## linux
 
-on linux, the installer installs the journal or the desktop app from signed releases. `cli` installs the journal tools without setting up a local journal. terminal capture is part of the desktop app, turned on in it, and needs tmux on the computer. an owner who has the tmux app moves it with `solstone update`, or with `curl -fsSL https://solstone.app/install.sh | sh -s -- --upgrade --components tmux` when only the tmux app is installed.
+on linux, the installer installs the journal or the desktop app from signed releases. `cli` installs the journal tools without setting up a local journal. terminal is part of the solstone app, turned on in it, and needs tmux on the computer. an owner who has solstone for tmux moves it with `solstone update`, or with `curl -fsSL https://solstone.app/install.sh | sh -s -- --upgrade --components tmux` when only solstone for tmux is installed.
 
 ### check what is already there
 
@@ -60,7 +60,7 @@ stdout with `--json` is one JSON document; diagnostics go to stderr. check both 
 
 follow the printed PATH instructions. for a tree installation, the journal tools live at `PREFIX/current/bin/solstone`; app launchers live under `PREFIX/bin`. when app PATH configuration is enabled, source `${XDG_CONFIG_HOME:-$HOME/.config}/solstone/env` in the current shell and add that source command to the appropriate shell startup file if needed. `--no-path` leaves this to you.
 
-verify the tools you selected with `solstone journal --version` or `solstone-linux --version`. for a local journal, run `solstone journal service status`. on systemd hosts, check `systemctl --user status solstone` or `solstone-linux` as applicable. installation completion means the selected setup commands succeeded; it is not a claim that intake, pairing, models, or every background service is healthy. screen and audio need the owner's desktop session; terminal capture does not.
+verify the tools you selected with `solstone journal --version` or `solstone-linux --version`. for a local journal, run `solstone journal service status`. on systemd hosts, check `systemctl --user status solstone` or `solstone-linux` as applicable. installation completion means the selected setup commands succeeded; it is not a claim that intake, pairing, models, or every background service is healthy. screen and audio need the owner's desktop session; terminal does not.
 
 ### update or remove
 

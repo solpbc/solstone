@@ -2225,7 +2225,7 @@ interactive_selection_menu() {
         printf "\nsolstone for linux:\n" > /dev/tty
         printf "  1) everything available (journal, desktop)\n" > /dev/tty
         printf "  2) journal only\n" > /dev/tty
-        printf "  3) desktop only (terminal capture is part of the desktop app)\n" > /dev/tty
+        printf "  3) the solstone app only (includes terminal, with or without a desktop)\n" > /dev/tty
         ism_tries=0
         while :; do
             printf "Select components by number (1-3), or press Enter for the journal only: " > /dev/tty
@@ -3743,7 +3743,7 @@ solstone installer for Linux and macOS
 
 usage: sh install.sh [options]
 
-  --components LIST    Linux: journal, cli, desktop (the desktop app includes terminal capture)
+  --components LIST    Linux: journal, cli, desktop (the solstone app, includes terminal)
                        macOS: journal, app
                        all selects the supported app set for this computer
   --all                select all available components
@@ -4826,7 +4826,7 @@ handle_tmux_move() {
     if [ "$(id -u)" -eq 0 ]; then
         TMUX_MOVE_REASON="root"
         TMUX_MOVE_NO_REMEDY=1
-        move_say "the tmux app was not moved into the solstone app. to move it, run this installer as yourself, not as root."
+        move_say "solstone for tmux was not moved into the solstone app. to move it, run this installer as yourself, not as root."
         return 0
     fi
 
@@ -4860,7 +4860,7 @@ handle_tmux_move() {
         MOVE_DESKTOP_FRESH=0
         TMUX_MOVE_REASON="unavailable"
         TMUX_MOVE_NO_REMEDY=1
-        move_say "the tmux app was not moved into the solstone app: the move is not available on this computer yet."
+        move_say "solstone for tmux was not moved into the solstone app: the move is not available on this computer yet."
         return 0
     fi
 
@@ -4869,13 +4869,17 @@ handle_tmux_move() {
         htm_consent=1
     elif [ "$OPT_NON_INTERACTIVE" -eq 0 ] && { sh -c 'test -t 0' </dev/tty; } >/dev/null 2>&1; then
         {
-            printf '\n%s\n' "terminal capture is now part of the solstone app. this moves this computer's tmux app into it, keeps everything the tmux app holds, and removes the old tmux app."
+            if [ "$MOVE_DESKTOP_FRESH" -eq 1 ]; then
+                printf '\n%s\n' "this installs the solstone app, moves solstone for tmux into it, and removes solstone for tmux. what it still has waiting goes into your journal through the solstone app, and anything that can't go stays on this computer."
+            else
+                printf '\n%s\n' "this moves solstone for tmux into the solstone app, and removes solstone for tmux. what it still has waiting goes into your journal through the solstone app, and anything that can't go stays on this computer. if the solstone app isn't paired yet, it pairs with the journal solstone for tmux uses."
+            fi
             # The app records desktop capture off at its first start when this
             # user has never configured it (the marker below).
             if ! desktop_config_exists; then
-                printf '%s\n' "on this computer the solstone app will capture only the terminal until you turn more on in the app."
+                printf '%s\n' "on this computer the solstone app won't take in your screen, audio or desktop activity until you turn them on in the app."
             fi
-            printf '%s' "move the tmux app into the solstone app? answer yes or no: "
+            printf '%s' "move solstone for tmux into the solstone app? answer yes or no: "
         } > /dev/tty
         if read -r htm_reply < /dev/tty && [ "$htm_reply" = "yes" ]; then
             htm_consent=1
@@ -5060,9 +5064,9 @@ run_tmux_move() {
     fi
 
     if ! create_tmux_marker; then
-        move_say "the tmux app was not moved into the solstone app: could not create $HOME/.local/share/solstone-linux/desktop-capture-off"
+        move_say "solstone for tmux was not moved into the solstone app: could not create $HOME/.local/share/solstone-linux/desktop-capture-off"
         MOVE_ROOT_CODE="move-not-started"
-        MOVE_ROOT_MESSAGE="The tmux app was not moved: the terminal-only marker could not be created"
+        MOVE_ROOT_MESSAGE="solstone for tmux was not moved: a setting it needs could not be saved"
         TMUX_MOVE_FRESH_DESKTOP=0
         case " $requested_components " in
             *" desktop "*) move_install_desktop ;;
@@ -5110,9 +5114,9 @@ run_tmux_move() {
             TMUX_MOVE_REASON="failed"
             rtm_last=$(awk 'NF { line = $0 } END { print line }' "$rtm_err" 2>/dev/null || true)
             if [ -n "$rtm_last" ]; then
-                move_say "the solstone app could not take over the tmux app: $rtm_last"
+                move_say "the solstone app could not take over solstone for tmux: $rtm_last"
             else
-                move_say "the solstone app could not take over the tmux app (exit $rtm_code)"
+                move_say "the solstone app could not take over solstone for tmux (exit $rtm_code)"
             fi
             ;;
     esac
@@ -5290,7 +5294,7 @@ main() {
                 elif [ "$bundle_desktop" -eq 0 ]; then
                     notice_msg="the desktop app isn't available for $HOST_ARCH; installing $bundle_base and tmux."
                 elif [ "$bundle_tmux" -eq 0 ]; then
-                    notice_msg="tmux is not installed; installing $bundle_base and desktop. to add the tmux app later, install tmux and run: curl -fsSL https://solstone.app/install.sh | sh -s -- --components tmux"
+                    notice_msg="tmux is not installed; installing $bundle_base and desktop. to add solstone for tmux later, install tmux and run: curl -fsSL https://solstone.app/install.sh | sh -s -- --components tmux"
                 fi
             else
                 if [ "$bundle_desktop" -eq 0 ]; then
@@ -5317,7 +5321,7 @@ main() {
                         ;;
                     tmux)
                         if [ "$catalogue_has_tmux" -eq 0 ] && [ "$OPT_UPGRADE" -eq 0 ] && [ "$OPT_UNINSTALL" -eq 0 ]; then
-                            report_exit "refusal" "invalid-selection" "terminal capture is part of the desktop app; choose desktop"
+                            report_exit "refusal" "invalid-selection" "terminal is part of the solstone app; choose desktop"
                         fi
                         ;;
                     *)
