@@ -4,6 +4,7 @@
 
 ### changed
 
+- when the solstone app can't start because libraries it needs aren't installed, the installer now names them and how to install them, and once they're installed, running the installer again works.
 - in installer revision 20, a new catalogue does not carry solstone for tmux, terminal is part of the solstone app, and upgrade asks before moving an installed solstone for tmux into it.
 - on linux, installing the desktop app with this installer now sets it up to open `solstone:` links, so `open in the solstone app` on a pairing link's page opens the window with the link filled in. if you installed it before this, run the installer again with `--components desktop --upgrade`. if the button still goes nowhere, paste the pairing link in the solstone app's journal tab.
 - on linux, when it finishes, the installer now says the solstone app's journal tab finds a journal on this computer and connects with one press.

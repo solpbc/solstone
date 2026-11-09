@@ -3977,6 +3977,33 @@ record_journal_pending() {
         || { rm -f "$rjp_tmp"; report_exit "refusal" "receipt-write-failed" "Could not record the pending journal install"; }
 }
 
+# The desktop app links GLib, GStreamer and PulseAudio, and a tree install has
+# no package manager to bring them. A binary that cannot load cannot run its own
+# service handlers, so rollback cannot complete either: check before anything is
+# put in place, and leave nothing behind so the same command works once they are
+# installed.
+refuse_unloadable_desktop() {
+    rud_exec="$1"
+    rud_dest="$2"
+    rud_rc=0
+    "$rud_exec" --version >/dev/null 2>&1 || rud_rc=$?
+    [ "$rud_rc" -eq 127 ] || return 0
+    rud_missing=$(ldd "$rud_exec" 2>/dev/null | awk '/=> not found/ { printf "%s%s", sep, $1; sep=", " }')
+    if command -v apt-get >/dev/null 2>&1; then
+        rud_how="sudo apt install libglib2.0-bin libgstreamer1.0-0 libpulse0"
+    elif command -v dnf >/dev/null 2>&1; then
+        rud_how="sudo dnf install glib2 gstreamer1 pulseaudio-libs"
+    elif command -v zypper >/dev/null 2>&1; then
+        rud_how="sudo zypper install glib2-tools gstreamer libpulse0"
+    elif command -v pacman >/dev/null 2>&1; then
+        rud_how="sudo pacman -S glib2 gstreamer libpulse"
+    else
+        rud_how="your package manager"
+    fi
+    rm -rf -- "$rud_dest"
+    report_exit "refusal" "runtime-libraries-missing" "the solstone app can't start on this computer yet, because it needs libraries that aren't installed${rud_missing:+: $rud_missing}. install them with $rud_how and then run the same command again."
+}
+
 run_tree_component() {
     manifest_dir="${SCRATCH_DIR}/manifest"
     for rti_component in $SELECTED_COMPONENTS; do
@@ -4121,6 +4148,7 @@ run_tree_component() {
             fi
             verify_sha256 "$exec_path" "$comp_exec_sha"
             chmod 0755 "$exec_path" || report_exit "refusal" "target-write-failed" "Could not make $comp_exec_name executable"
+            [ "$comp" != desktop ] || refuse_unloadable_desktop "$exec_path" "$comp_dest"
 
             exec_relpath=${exec_path#"${comp_dest}/"}
             if [ -e "$comp_current" ] && [ ! -L "$comp_current" ]; then

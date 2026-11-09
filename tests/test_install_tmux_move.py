@@ -411,7 +411,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                     self.assertEqual(header["platform_version"], "2.0.0")
                     self.assertEqual(header["lane"], "release")
                     self.assertEqual(header["origin"], server.origin)
-                    self.assertEqual(header["installer_revision"], "20")
+                    self.assertEqual(header["installer_revision"], (REPO_ROOT / "compat" / "installer_revision").read_text(encoding="utf-8").strip())
                 self.assertEqual(tree_header["route"], "tree")
                 self.assertEqual(tree_header["phase"], "complete")
                 self.assertIn("prefix", tree_header)
@@ -474,6 +474,38 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 self.assertEqual(receipt_sections(self.package_receipt.read_bytes()), ["[solstone]", "[component:desktop]"])
                 self.assertEqual(receipt_header(self.package_receipt.read_bytes())["platform_version"], "2.0.0")
                 self.assertEqual(self.adopt_log.read_text(encoding="utf-8").splitlines()[-1], "terminal adopt-tmux --yes")
+            finally:
+                server.stop()
+
+    def test_tree_move_with_an_app_that_cannot_load_changes_nothing_and_can_be_retried(self):
+        with ephemeral_keypair("test unloadable desktop") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin, min_installer_revision=20)
+            try:
+                tmux_section = self.seed_tree_tmux(version="0.1.0", lane="staging")
+                home_prefix = Path(os.environ["HOME"]) / ".local"
+                blocked = self.env.copy()
+                blocked["SOLSTONE_DESKTOP_UNLOADABLE"] = "1"
+                refused = subprocess.run(
+                    [str(installer), "--skip-signature", "--upgrade", "--yes", "--json"],
+                    env=blocked,
+                    capture_output=True,
+                    text=True,
+                )
+                self.assertNotEqual(refused.returncode, 0, refused.stdout)
+                self.assertEqual(json.loads(refused.stdout)["root_code"], "runtime-libraries-missing")
+                self.assertEqual(safe_receipt_section(self.tree_receipt.read_bytes(), "component:tmux"), tmux_section)
+                self.assertFalse((home_prefix / "opt" / "solstone" / "desktop").exists())
+                self.assertTrue((home_prefix / "bin" / "solstone-tmux").exists())
+
+                moved = subprocess.run(
+                    [str(installer), "--skip-signature", "--upgrade", "--yes", "--json"],
+                    env=self.env,
+                    capture_output=True,
+                    text=True,
+                )
+                self.assertEqual(moved.returncode, 0, f"Failed: {moved.stderr}\n{moved.stdout}")
+                self.assertEqual(json.loads(moved.stdout)["components"]["tmux"]["status"], "moved")
+                self.assertTrue((home_prefix / "bin" / "solstone-linux").exists())
             finally:
                 server.stop()
 

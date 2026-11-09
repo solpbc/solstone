@@ -202,6 +202,7 @@ def build_tiny_natives(
         marker_line = f"# {native_build_marker}\n" if native_build_marker else ""
         desktop_exe = (
             "#!/bin/sh\n"
+            "if [ -n \"${SOLSTONE_DESKTOP_UNLOADABLE:-}\" ]; then echo 'error while loading shared libraries: libgstreamer-1.0.so.0' >&2; exit 127; fi\n"
             "case \"${1:-}\" in\n"
             "  install-service|uninstall-service)\n"
             f"    [ -z \"${{SOLSTONE_TEST_SERVICE_LOG:-}}\" ] || printf 'desktop {d_runtime_version} %s\\n' \"$1\" >> \"$SOLSTONE_TEST_SERVICE_LOG\"\n"
