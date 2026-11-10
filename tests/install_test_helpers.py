@@ -3,7 +3,9 @@
 
 """Helper utilities and mock loopback servers for installer unit tests."""
 
-from functools import partial
+import atexit
+from contextlib import ExitStack, contextmanager
+from functools import cache, partial
 import hashlib
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 import json
@@ -11,17 +13,17 @@ import os
 from pathlib import Path
 import pwd
 import shutil
+import subprocess
 import tempfile
 import threading
 import unittest
 from unittest.mock import patch
 
-from solstone_platform.canonical import canonical_json_bytes
 from solstone_platform.generate import generate_platform_manifest
-from solstone_platform.pins import MinisignPin, embedded_pins
+from solstone_platform.pins import MinisignPin
 from solstone_platform.publish import compare_semver
 from solstone_platform.schema import TMUX_RETIREMENT_FLOOR
-from solstone_platform.sign import sign_manifest
+from solstone_platform.sign import ephemeral_keypair
 from tools.fixture_builder import build_tiny_natives
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -122,6 +124,7 @@ class QuietHTTPRequestHandler(SimpleHTTPRequestHandler):
 class LoopbackServer:
     def __init__(self, root_dir: Path):
         self.root_dir = root_dir
+        self.native_pins = None
         handler = partial(QuietHTTPRequestHandler, directory=str(root_dir))
         self.httpd = HTTPServer(("127.0.0.1", 0), handler)
         self.httpd.request_paths = []
@@ -189,11 +192,25 @@ def make_v2_bootstrap_script(revision: int = 2) -> bytes:
         '  printf \'%s\\n\' \'#!/bin/sh\' \'if [ "$1" = settings ]; then printf "{\\n  \\"dashboard_url\\": \\"http://localhost:%s\\"\\n}\\n" "${SOLSTONE_FIXTURE_PORT:-6123}"; exit 0; fi\' "echo $ROLE 2.0.6" > "$PREFIX/versions/2.0.6-fixture/bin/journal"\n'
         f"  chmod +x \"$PREFIX/versions/2.0.6-fixture/bin/journal\"\n"
         f"  ln -sfn \"versions/2.0.6-fixture\" \"$PREFIX/current\"\n"
-        f"  printf 'schema_version=1\\njournal_version=2.0.6\\nlane=release\\norigin=fixture\\narchitecture=x86_64\\ninstaller_revision=1\\nbootstrap_revision={revision}\\nroute=tree\\nsignature_verification=skipped\\nrole=%s\\njournal_state=existing\\nservice_policy=skip-service\\nsetup_status=complete\\n' \"$ROLE\" > \"$PREFIX/install-receipt\"\n"
+        f"  printf 'schema_version=1\\njournal_version=2.0.6\\nlane=release\\norigin=fixture\\narchitecture=x86_64\\ninstaller_revision=1\\nbootstrap_revision={revision}\\nroute=tree\\nsignature_verification=verified\\nrole=%s\\njournal_state=existing\\nservice_policy=skip-service\\nsetup_status=complete\\n' \"$ROLE\" > \"$PREFIX/install-receipt\"\n"
         f"fi\n"
         f"[ \"${{SOLSTONE_BOOTSTRAP_FAIL:-0}}\" = 0 ] || exit \"${{SOLSTONE_BOOTSTRAP_FAIL_STATUS:-7}}\"\n"
         f"exit 0\n"
     ).encode("utf-8")
+
+
+@cache
+def _fixture_native_keys():
+    # Multiple catalogues served to the same installer share a trust root.
+    with ExitStack() as stack:
+        keys = tuple(stack.enter_context(ephemeral_keypair("installer fixture native key")) for _ in range(3))
+        atexit.register(stack.pop_all().close)
+    return keys
+
+
+def sign_fixture_file(path: Path, key: Path) -> None:
+    """Sign the bytes as given, including fixtures with deliberately invalid JSON."""
+    subprocess.run(["minisign", "-S", "-s", str(key), "-m", str(path)], check=True, capture_output=True)
 
 
 def setup_test_release_server(
@@ -228,19 +245,27 @@ def setup_test_release_server(
 
     # Build tiny natives with ephemeral keys and v2 bootstrap double
     v2_boot = make_v2_bootstrap_script(revision=bootstrap_revision)
-    pin_set, native_dirs = build_tiny_natives(
-        target_dir=work_dir / "natives",
-        bootstrap_script=v2_boot,
-        min_bootstrap_revision=bootstrap_revision,
-        native_version=native_version,
-        desktop_version=effective_desktop_version,
-        tmux_version=tmux_version,
-        desktop_runtime_version=desktop_runtime_version,
-        native_build_marker=native_build_marker,
-        desktop_arches=desktop_arches,
-    )
+    fixture_keys = iter(_fixture_native_keys())
+
+    @contextmanager
+    def retained_key(_comment):
+        yield next(fixture_keys)
+
+    with patch("tools.fixture_builder.ephemeral_keypair", retained_key):
+        pin_set, native_dirs = build_tiny_natives(
+            target_dir=work_dir / "natives",
+            bootstrap_script=v2_boot,
+            min_bootstrap_revision=bootstrap_revision,
+            native_version=native_version,
+            desktop_version=effective_desktop_version,
+            tmux_version=tmux_version,
+            desktop_runtime_version=desktop_runtime_version,
+            native_build_marker=native_build_marker,
+            desktop_arches=desktop_arches,
+        )
 
     server = LoopbackServer(server_root)
+    server.native_pins = pin_set
     server.start()
 
     if min_installer_revision < repo_retirement_floor:
@@ -265,21 +290,6 @@ def setup_test_release_server(
         pins=pin_set,
     )
 
-    # Existing installer tests intentionally use --skip-signature for native
-    # fixtures. Keep those catalogues pinned to the production identities while
-    # retaining the ephemeral signatures/hashes for digest and semantic tests.
-    manifest_obj = json.loads(manifest_bytes.decode("utf-8"))
-    production_pins = embedded_pins()
-    components_to_pin = [("journal", production_pins.journal), ("desktop", production_pins.desktop)]
-    if "tmux" in manifest_obj["components"]:
-        components_to_pin.append(("tmux", production_pins.tmux))
-    for component_name, selected_pin in components_to_pin:
-        for arch_entry in manifest_obj["components"][component_name]["arches"].values():
-            for route_entry in arch_entry.values():
-                route_entry["authority"]["verifier_id"] = selected_pin.verifier_id()
-    manifest_bytes = canonical_json_bytes(manifest_obj)
-
-    signed_manifest_bytes = manifest_bytes
     if duplicate_key:
         manifest_bytes = manifest_bytes.replace(b'"schema_version":1,', b'"schema_version":1,"schema_version":1,')
     elif corrupt_manifest:
@@ -297,18 +307,9 @@ def setup_test_release_server(
     manifest_path = ver_dir / "platform.json"
     manifest_path.write_bytes(manifest_bytes)
 
-    # Sign manifest
-    sig_bytes = sign_manifest(
-        manifest_bytes=signed_manifest_bytes,
-        secret_key_path=sec_key_path,
-        selected_pin=pin,
-        passphrase_callback=lambda: "",
-        repo_root=REPO_ROOT,
-        is_production=False,
-    )
+    sign_fixture_file(manifest_path, sec_key_path)
     if corrupt_signature:
-        sig_bytes = b"corrupted signature bytes\n"
-    (ver_dir / "platform.json.minisig").write_bytes(sig_bytes)
+        (ver_dir / "platform.json.minisig").write_bytes(b"corrupted signature bytes\n")
 
     # Copy journal bootstrap
     j_ver = "2.0.6"

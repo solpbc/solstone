@@ -134,6 +134,7 @@ class TestInstallPrerequisites(HermeticInstallerTestCase):
             platform_pub_path=pub,
             platform_key_id=pin.key_id,
             origin=cls.server.origin,
+            native_test_pins=cls.server.native_pins,
         )
         cls.os_release = cls.work_dir / "os-release"
         cls.os_release.write_text(OS_RELEASES["fedora"], encoding="utf-8")
@@ -174,41 +175,58 @@ class TestInstallPrerequisites(HermeticInstallerTestCase):
         self.assertEqual(requests, [], "a prerequisite refusal must come before any download")
         self.assertFalse((self.case_dir / "prefix").exists())
 
-    def test_missing_minisign_refuses_before_download_with_the_install_command(self):
-        path = restricted_path(self.case_dir / "bin", drop=("minisign",))
-        proc, requests = self.run_installer("--components", "journal", "--dry-run", path=path)
-        self.assert_prerequisite_refusal(proc, requests, "verifier-missing", "sudo dnf install minisign")
+    def test_signature_opt_out_is_rejected(self):
+        proc, requests = self.run_installer("--components", "journal", "--dry-run", "--skip-signature")
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        self.assertEqual(json.loads(proc.stdout)["root_code"], "unknown-argument")
+        self.assertEqual(requests, [])
 
-    def test_missing_minisign_hint_is_printed_to_a_person(self):
-        env = os.environ.copy()
-        env.update({
-            "PATH": restricted_path(self.case_dir / "bin", drop=("minisign",)),
-            "SOLSTONE_TEST_OS_RELEASE": str(self.os_release),
-            "HOME": str(self.case_dir / "home"),
-        })
-        proc = subprocess.run(
-            [str(self.installer), "--components", "journal", "--non-interactive"],
-            capture_output=True, text=True, env=env, stdin=subprocess.DEVNULL,
+    def test_missing_minisign_downloads_only_a_digest_matched_verifier(self):
+        path = restricted_path(self.case_dir / "bin", drop=("minisign", "curl"))
+        verifier = Path(shutil.which("minisign"))
+        real_curl = shutil.which("curl")
+        fixture = self.case_dir / "verifier"
+        fixture.write_bytes(verifier.read_bytes())
+        installer = self.case_dir / "install.sh"
+        script = self.installer.read_text()
+        fixture_sha = hashlib.sha256(fixture.read_bytes()).hexdigest()
+        for pinned_sha in (
+            "2c74dffcc1c9a5ee55957c60971998ace2b89f22585631594ec2152c588af8db",
+            "cec9f88be8c975af76854a53b4d49c3d257feae38d916edb0d16fb55aacd3000",
+        ):
+            script = script.replace(pinned_sha, fixture_sha)
+        installer.write_text(script)
+        installer.chmod(0o755)
+        curl = Path(path) / "curl"
+        curl.write_text(
+            "#!/bin/sh\n"
+            'for arg do url=$arg; done\n'
+            'case "$url" in https://solstone.app/install-tools/minisign/0.12/*/minisign)\n'
+            '  while [ "$1" != -o ]; do shift; done\n'
+            f'  cp "{fixture}" "$2" && printf 200\n'
+            '  ;;\n'
+            f'*) exec "{real_curl}" "$@" ;;\n'
+            'esac\n'
         )
-        self.assertEqual(proc.returncode, 1)
-        self.assertEqual(proc.stdout, "")
-        self.assertEqual(
-            proc.stderr,
-            "ERROR: verifier-missing: minisign was not found, and it is needed to verify what the "
-            "installer downloads. Nothing was changed. To fix: sudo dnf install minisign, then run the installer again.\n",
-        )
+        curl.chmod(0o755)
+        self.installer = installer
 
-    def test_skip_signature_does_not_require_minisign(self):
-        path = restricted_path(self.case_dir / "bin", drop=("minisign",))
-        proc, requests = self.run_installer("--components", "journal", "--dry-run", "--skip-signature", path=path)
+        proc, requests = self.run_installer("--list", path=path)
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
         self.assertTrue(requests)
+
+        fixture.write_text("#!/bin/sh\nexit 0\n")
+        self.server.request_paths.clear()
+        proc, requests = self.run_installer("--list", path=path)
+        self.assertEqual(json.loads(proc.stdout)["root_code"], "verifier-missing")
+        self.assertEqual(requests, [])
+        self.assertFalse((self.case_dir / "prefix").exists())
 
     def test_missing_flock_refuses_before_download_and_a_preview_does_not_need_it(self):
         path = restricted_path(self.case_dir / "bin", drop=("flock",))
         proc, requests = self.run_installer("--components", "journal", "--no-start", path=path)
         self.assert_prerequisite_refusal(proc, requests, "lock-tool-missing", "sudo dnf install util-linux")
-        proc, _ = self.run_installer("--components", "journal", "--dry-run", "--skip-signature", path=path)
+        proc, _ = self.run_installer("--components", "journal", "--dry-run", path=path)
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
 
     def test_missing_fetch_tool_refuses_with_the_install_command(self):
@@ -220,13 +238,13 @@ class TestInstallPrerequisites(HermeticInstallerTestCase):
         path = restricted_path(self.case_dir / "bin", drop=("tar",))
         proc, requests = self.run_installer("--components", "journal", "--no-start", path=path)
         self.assert_prerequisite_refusal(proc, requests, "missing-tool", "sudo dnf install tar")
-        proc, _ = self.run_installer("--components", "journal", "--dry-run", "--skip-signature", path=path)
+        proc, _ = self.run_installer("--components", "journal", "--dry-run", path=path)
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
 
     def test_host_without_a_package_tool_installs_on_the_tree_route(self):
         path = restricted_path(self.case_dir / "bin", drop_prefixes=PACKAGE_TOOL_PREFIXES)
         proc, _ = self.run_installer(
-            "--components", "journal", "--skip-signature", "--no-start", "--non-interactive",
+            "--components", "journal", "--no-start", "--non-interactive",
             path=path, extra_env={"SOLSTONE_TEST_REAL_PKG_PROBE": "1"},
         )
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
@@ -245,7 +263,7 @@ class TestInstallPrerequisites(HermeticInstallerTestCase):
             stub.write_text("#!/bin/sh\n" + body, encoding="utf-8")
             stub.chmod(0o755)
         proc, _ = self.run_installer(
-            "--components", "journal", "--skip-signature", "--no-start", "--non-interactive",
+            "--components", "journal", "--no-start", "--non-interactive",
             path=path, extra_env={"SOLSTONE_TEST_REAL_PKG_PROBE": "1"},
         )
         self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
@@ -279,6 +297,7 @@ class TestLinuxComponentMenu(HermeticInstallerTestCase):
             platform_pub_path=pub,
             platform_key_id=pin.key_id,
             origin=cls.server.origin,
+            native_test_pins=cls.server.native_pins,
         )
 
     @classmethod
@@ -295,7 +314,7 @@ class TestLinuxComponentMenu(HermeticInstallerTestCase):
         stdout_path = case_dir / "stdout"
         stderr_path = case_dir / "stderr"
         command = (
-            f"{shlex.quote(str(self.installer))} --skip-signature --dry-run --no-start "
+            f"{shlex.quote(str(self.installer))} --dry-run --no-start "
             f"--prefix {shlex.quote(str(case_dir / 'prefix'))} </dev/null"
         )
         pid, master = pty.fork()

@@ -20,7 +20,7 @@ from tests.install_test_helpers import HermeticInstallerTestCase
 from solstone_platform.pins import load_pin_file
 from solstone_platform.refusals import Refusal
 from solstone_platform.sign import ephemeral_keypair
-from tests.install_test_helpers import LoopbackServer, setup_test_release_server
+from tests.install_test_helpers import LoopbackServer, setup_test_release_server, sign_fixture_file
 from tools.build_installer import DEFAULT_ORIGIN, build_installer
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -209,7 +209,7 @@ class TestInstallTransport(HermeticInstallerTestCase):
                     with self.subTest(valid=body):
                         latest.write_bytes(body)
                         server.request_paths.clear()
-                        proc = self._run(installer, "--skip-signature", "--list")
+                        proc = self._run(installer, "--list")
                         self.assertEqual(proc.returncode, 0, proc.stderr)
                         self.assertEqual(len(server.request_paths), 3)
 
@@ -224,7 +224,7 @@ class TestInstallTransport(HermeticInstallerTestCase):
                     with self.subTest(invalid=body):
                         latest.write_bytes(body)
                         server.request_paths.clear()
-                        proc = self._run(installer, "--skip-signature", "--list")
+                        proc = self._run(installer, "--list")
                         self.assertNotEqual(proc.returncode, 0)
                         self.assertIn(json.loads(proc.stdout)["root_code"], {"latest-invalid", "response-too-large"})
                         self.assertEqual(len(server.request_paths), 1)
@@ -262,7 +262,7 @@ class TestInstallTransport(HermeticInstallerTestCase):
             encoding="utf-8",
         )
         wrapper.chmod(0o755)
-        for command in ("uname", "mktemp", "chmod", "cat", "rm", "wc", "sed", "awk", "tr", "dd", "od"):
+        for command in ("uname", "mktemp", "chmod", "cat", "rm", "wc", "sed", "awk", "tr", "dd", "od", "minisign"):
             command_path = shutil.which(command)
             self.assertIsNotNone(command_path)
             (bin_dir / command).symlink_to(command_path)
@@ -281,8 +281,9 @@ class TestInstallTransport(HermeticInstallerTestCase):
                 valid_manifest = manifest.read_bytes()
 
                 manifest.write_bytes(b"{" * 4194304)
+                sign_fixture_file(manifest, sec)
                 server.request_paths.clear()
-                exact = self._run(installer, "--version", "2.0.0", "--skip-signature", "--list")
+                exact = self._run(installer, "--version", "2.0.0", "--list")
                 self.assertEqual(json.loads(exact.stdout)["root_code"], "schema-invalid")
                 self.assertEqual(len(server.request_paths), 2)
 
@@ -293,7 +294,6 @@ class TestInstallTransport(HermeticInstallerTestCase):
                     installer,
                     "--version",
                     "2.0.0",
-                    "--skip-signature",
                     "--list",
                     env=curl_env,
                 )
@@ -306,8 +306,8 @@ class TestInstallTransport(HermeticInstallerTestCase):
                 manifest.write_bytes(valid_manifest)
                 signature.write_bytes(b"s" * 16384)
                 server.request_paths.clear()
-                exact_sig = self._run(installer, "--version", "2.0.0", "--skip-signature", "--list")
-                self.assertEqual(exact_sig.returncode, 0, exact_sig.stderr)
+                exact_sig = self._run(installer, "--version", "2.0.0", "--list")
+                self.assertEqual(json.loads(exact_sig.stdout)["root_code"], "signature-invalid")
                 self.assertEqual(len(server.request_paths), 2)
 
                 signature.write_bytes(b"s" * 16385)
@@ -317,7 +317,6 @@ class TestInstallTransport(HermeticInstallerTestCase):
                     installer,
                     "--version",
                     "2.0.0",
-                    "--skip-signature",
                     "--list",
                     env=wget_env,
                 )
@@ -352,7 +351,7 @@ class TestInstallTransport(HermeticInstallerTestCase):
                             env = None
                             if client == "wget":
                                 env = wget_env
-                            proc = self._run(installer, "--skip-signature", "--list", env=env)
+                            proc = self._run(installer, "--list", env=env)
                             self.assertNotEqual(proc.returncode, 0)
                             # A successful retry reaches the absent manifest.
                             self.assertEqual(len(calls), 1 if status == 404 else 3)
@@ -361,7 +360,7 @@ class TestInstallTransport(HermeticInstallerTestCase):
                 server.stop()
 
     def test_redirect_confinement_hop_limit_and_wget_refusal(self):
-        with ephemeral_keypair("redirect transport") as (_sec, pub, pin):
+        with ephemeral_keypair("redirect transport") as (sec, pub, pin):
             first = RouteServer()
             second = RouteServer()
             first.start()
@@ -382,14 +381,19 @@ class TestInstallTransport(HermeticInstallerTestCase):
                     separators=(",", ":"),
                 ).encode("utf-8")
 
+                signed = self.work_dir / "platform.json"
+                signed.write_bytes(minimal_catalogue)
+                sign_fixture_file(signed, sec)
+                signature = signed.with_suffix(".json.minisig").read_bytes()
+
                 first.routes.update(
                     {
                         platform_path: (302, {"Location": f"{first.origin}/platform-target"}, b""),
                         "/platform-target": (200, {}, minimal_catalogue),
-                        signature_path: (200, {}, b"signature"),
+                        signature_path: (200, {}, signature),
                     }
                 )
-                proc = self._run(installer, "--version", "2.0.0", "--skip-signature", "--list")
+                proc = self._run(installer, "--version", "2.0.0", "--list")
                 self.assertEqual(proc.returncode, 0, proc.stderr)
                 self.assertEqual(json.loads(proc.stdout)["root_code"], "list")
                 self.assertEqual(first.request_paths, [platform_path, "/platform-target", signature_path])
@@ -397,7 +401,7 @@ class TestInstallTransport(HermeticInstallerTestCase):
                 first.request_paths.clear()
                 first.routes[platform_path] = (302, {"Location": f"{first.origin}/hop-two"}, b"")
                 first.routes["/hop-two"] = (302, {"Location": f"{first.origin}/hop-three"}, b"")
-                proc = self._run(installer, "--version", "2.0.0", "--skip-signature", "--list")
+                proc = self._run(installer, "--version", "2.0.0", "--list")
                 self.assertEqual(json.loads(proc.stdout)["root_code"], "redirect-refused")
                 self.assertEqual(first.request_paths, [platform_path, "/hop-two"])
 
@@ -405,7 +409,7 @@ class TestInstallTransport(HermeticInstallerTestCase):
                 second.request_paths.clear()
                 second.routes["/foreign"] = (200, {}, b"{}")
                 first.routes[platform_path] = (302, {"Location": f"{second.origin}/foreign"}, b"")
-                proc = self._run(installer, "--version", "2.0.0", "--skip-signature", "--list")
+                proc = self._run(installer, "--version", "2.0.0", "--list")
                 self.assertEqual(json.loads(proc.stdout)["root_code"], "redirect-refused")
                 self.assertEqual(first.request_paths, [platform_path])
                 self.assertEqual(second.request_paths, [])
@@ -417,7 +421,6 @@ class TestInstallTransport(HermeticInstallerTestCase):
                     installer,
                     "--version",
                     "2.0.0",
-                    "--skip-signature",
                     "--list",
                     env=wget_env,
                 )
@@ -459,7 +462,7 @@ class TestInstallTransport(HermeticInstallerTestCase):
                 installer,
                 "--version",
                 "2.0.0",
-                "--skip-signature",
+
                 "--list",
                 env=env,
             )
@@ -494,7 +497,7 @@ class TestInstallTransport(HermeticInstallerTestCase):
                             release_request.clear()
                             before = set(Path("/var/tmp").glob("solstone-install.*"))
                             proc = subprocess.Popen(
-                                [str(installer), "--skip-signature", "--list", "--json"],
+                                [str(installer), "--list", "--json"],
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE,
                                 text=True,
@@ -610,11 +613,12 @@ class TestInstallTransport(HermeticInstallerTestCase):
                     platform_pub_path=pub,
                     platform_key_id=pin.key_id,
                     origin=server.origin,
+                    native_test_pins=server.native_pins,
                     override_installer_revision=1,
                 )
 
                 proc = subprocess.run(
-                    [str(installer_v1), "--skip-signature", "--components", "journal", "--prefix", str(self.prefix), "--json"],
+                    [str(installer_v1), "--components", "journal", "--prefix", str(self.prefix), "--json"],
                     capture_output=True,
                     text=True,
                 )
@@ -631,11 +635,12 @@ class TestInstallTransport(HermeticInstallerTestCase):
                     platform_pub_path=pub,
                     platform_key_id=pin.key_id,
                     origin=server.origin,
+                    native_test_pins=server.native_pins,
                     override_installer_revision=2,
                 )
 
                 proc2 = subprocess.run(
-                    [str(installer_v2), "--skip-signature", "--components", "journal", "--prefix", str(self.prefix), "--json"],
+                    [str(installer_v2), "--components", "journal", "--prefix", str(self.prefix), "--json"],
                     capture_output=True,
                     text=True,
                 )
@@ -651,11 +656,12 @@ class TestInstallTransport(HermeticInstallerTestCase):
                     platform_pub_path=pub,
                     platform_key_id=pin.key_id,
                     origin=server.origin,
+                    native_test_pins=server.native_pins,
                     override_installer_revision=3,
                 )
 
                 proc3 = subprocess.run(
-                    [str(installer_v3), "--skip-signature", "--components", "journal", "--prefix", str(self.prefix), "--json"],
+                    [str(installer_v3), "--components", "journal", "--prefix", str(self.prefix), "--json"],
                     capture_output=True,
                     text=True,
                 )

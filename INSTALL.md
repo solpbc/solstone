@@ -45,7 +45,7 @@ the default is a tree under `$HOME/.local`, owned by the current account. `--rou
 
 ### install and verify
 
-the help lists options and prerequisites, including minisign. install missing prerequisites with the distribution's package manager. the journal's local models also need the OpenMP runtime (`libgomp1` on debian/ubuntu, `libgomp` on fedora). package installation resolves declared dependencies.
+the help lists options and prerequisites. the installer uses minisign to verify releases and downloads a pinned copy if you don't have it. the journal's local models also need the OpenMP runtime (`libgomp1` on debian/ubuntu, `libgomp` on fedora). package installation resolves declared dependencies.
 
 preview the agreed selection, then install it:
 
@@ -54,7 +54,7 @@ sh install.sh --components cli,desktop --dry-run --non-interactive --json
 sh install.sh --components cli,desktop --non-interactive --json
 ```
 
-a preview verifies release metadata and reads ownership. it does not install payloads, acquire installation locks, or change services. inspect refusals before proceeding. signature and digest verification run by default; do not add `--skip-signature` to work around a verification failure.
+a preview verifies release metadata and reads ownership. it does not install payloads, acquire installation locks, or change services. inspect refusals before proceeding. signature and digest verification are required.
 
 stdout with `--json` is one JSON document; diagnostics go to stderr. check both the exit status and each component's status. `target_version` identifies the selected release, including on a failed attempt; it is null for removal. a later failure can leave earlier components successfully installed and recorded.
 

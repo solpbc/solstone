@@ -310,9 +310,9 @@ class TestInstallDesktopAuthority(HermeticInstallerTestCase):
         for route in fixture.platform["components"]["desktop"]["arches"]["x86_64"].values():
             route["authority"]["signature_sha256"] = "0" * 64
         fixture.write_platform()
-        proc, _, _ = fixture.run("--skip-signature", "--components", "desktop", "--dry-run", path=path)
+        proc, _, _ = fixture.run("--components", "desktop", "--dry-run", path=path)
         self.assertEqual(self.result(proc)["root_code"], "digest-mismatch")
-        self.assertFalse(mini_log.exists())
+        self.assertEqual(len(mini_log.read_text().splitlines()), 1)
         self.assertFalse(any("schema_mode=desktop" in line for line in awk_log.read_text().splitlines()))
 
     def test_native_signature_and_verifier_stage(self):
@@ -425,14 +425,14 @@ class TestInstallDesktopAuthority(HermeticInstallerTestCase):
         obj = json.loads(fixture.native_manifest.read_text(encoding="utf-8"))
         obj["product"] = "other"
         fixture.write_native(obj)
-        proc, _, _ = fixture.run("--skip-signature", "--components", "desktop", "--dry-run")
+        proc, _, _ = fixture.run("--components", "desktop", "--dry-run")
         self.assertEqual(self.result(proc)["root_code"], "release-coherence")
 
         fixture = self.fixture("skip-pin")
         for route in fixture.platform["components"]["desktop"]["arches"]["x86_64"].values():
             route["authority"]["verifier_id"] = "minisign:0000000000000000"
         fixture.write_platform()
-        proc, _, _ = fixture.run("--skip-signature", "--components", "desktop", "--dry-run")
+        proc, _, _ = fixture.run("--components", "desktop", "--dry-run")
         self.assertEqual(self.result(proc)["root_code"], "pin-mismatch")
 
     def test_failure_is_pre_mutation_and_valid_package_reaches_helper(self):
@@ -468,7 +468,7 @@ class TestInstallDesktopAuthority(HermeticInstallerTestCase):
             "SOLSTONE_HELPER": str(HELPER_SCRIPT),
         }
         proc, _, requests = fixture.run(
-            "--skip-signature", "--route", "deb", "--components", "desktop", "--no-start",
+            "--route", "deb", "--components", "desktop", "--no-start",
             path=f"{bin_dir}:{os.environ['PATH']}", extra_env=env,
         )
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)

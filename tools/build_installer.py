@@ -16,6 +16,7 @@ from solstone_platform.pins import (
     JOURNAL_PUBKEY,
     TMUX_KEY_ID,
     TMUX_PUBKEY,
+    PinSet,
     load_pin_file,
     parse_minisign_pub,
 )
@@ -126,6 +127,7 @@ def build_installer(
     override_installer_revision: int | None = None,
     is_production: bool = False,
     template_path: Path | None = None,
+    native_test_pins: PinSet | None = None,
 ) -> Path:
     if template_path is None:
         template_path = repo_root / "install.sh.in"
@@ -139,6 +141,7 @@ def build_installer(
             platform_key_id,
             origin,
             override_installer_revision,
+            native_test_pins,
             None if template_path == repo_root / "install.sh.in" else template_path,
         )
     ):
@@ -157,6 +160,10 @@ def build_installer(
         inst_rev = override_installer_revision
 
     native_pins = verify_native_pins(repo_root)
+    if native_test_pins is not None:
+        for name in native_pins:
+            pin = getattr(native_test_pins, name)
+            native_pins[name] = (pin.key_id, pin.pubkey)
 
     # Determine platform pin and test seam
     if is_production:
@@ -214,7 +221,11 @@ def build_installer(
         "@TEST_SEAM@": test_seam,
         "@BUNDLED_RUNTIME@": embedded_runtime(repo_root),
         "@INSTALL_HINT@": install_hint_block(repo_root),
+        "@INSTALL_VERIFIER@": (repo_root / "helpers/install-verifier.sh").read_text(encoding="utf-8").rstrip("\n"),
     }
+
+    if template_path != repo_root / "install.sh.in" and "@INSTALL_VERIFIER@" not in template_content:
+        substitutions.pop("@INSTALL_VERIFIER@")
 
     result = template_content
     for placeholder, val in substitutions.items():

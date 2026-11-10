@@ -32,7 +32,7 @@ from solstone_platform.refusals import Refusal
 from solstone_platform.schema import catalogue_coordinate, load_platform_manifest_bytes, parse_catalogue_coordinate, TMUX_RETIREMENT_FLOOR
 from solstone_platform.sign import ephemeral_keypair, sign_manifest
 from solstone_platform.testdest import FixtureDestination, StoredObject
-from tests.install_test_helpers import HermeticInstallerTestCase, LoopbackServer, receipt_section, setup_test_release_server
+from tests.install_test_helpers import HermeticInstallerTestCase, LoopbackServer, receipt_section, setup_test_release_server, sign_fixture_file
 from tests.test_install_package_lifecycle import TestInstallPackageLifecycle as PackageDriver
 from tools.build_installer import build_installer
 from tools.fixture_builder import build_tiny_natives
@@ -401,7 +401,7 @@ class ReaderQualification(HermeticInstallerTestCase):
             self.assertEqual(report["platform_version"], coordinate)
             self.assertEqual(report["verification_layers"], "minisign+digest")
         obj = self.revised(9)
-        obj["minimum_installer_revision"] = 21
+        obj["minimum_installer_revision"] = int((ROOT / "compat" / "installer_revision").read_text()) + 1
         self.signed(obj, "2.0.6-r9")
         result, report = self.run_reader()
         self.assertNotEqual(result.returncode, 0)
@@ -462,7 +462,7 @@ class ReaderQualification(HermeticInstallerTestCase):
                          "6159d066b8253b46c4547b5574d0c8f8cb331ed42ba57d2cf9ed33ef594728c8")
         old = self.root / "reader7.sh"
         build_installer(ROOT, old, platform_pub_path=self.public, platform_key_id=self.pin.key_id,
-                        origin=self.server.origin, override_installer_revision=7, template_path=template)
+                        origin=self.server.origin, override_installer_revision=7, native_test_pins=self.server.native_pins, template_path=template)
         self.signed(self.revised(), "2.0.6-r1")
         self.server.request_paths.clear()
         result = subprocess.run(["sh", str(old), "--list", "--json"], env=self.env,
@@ -485,10 +485,10 @@ class PackageQualification(HermeticInstallerTestCase):
         self.old = self.driver.work_dir / "old.sh"
         self.new = self.driver.work_dir / "new.sh"
         build_installer(ROOT, self.old, platform_pub_path=self.public, platform_key_id=self.pin.key_id,
-                        origin=self.server.origin, override_installer_revision=7,
+                        origin=self.server.origin, override_installer_revision=7, native_test_pins=self.server.native_pins,
                         template_path=ROOT / "qualify/install.sh.in.rev7")
         build_installer(ROOT, self.new, platform_pub_path=self.public, platform_key_id=self.pin.key_id,
-                        origin=self.server.origin)
+                        origin=self.server.origin, native_test_pins=self.server.native_pins)
         self.sentinel = self.driver.work_dir / "tree-data/synthetic-owner-record"
         self.sentinel.parent.mkdir(parents=True, exist_ok=True)
         self.sentinel.write_bytes(b"owner data\n")
@@ -498,7 +498,7 @@ class PackageQualification(HermeticInstallerTestCase):
         self.driver.tearDown()
 
     def run_install(self, reader, coordinate, components="cli", *extra):
-        result = subprocess.run(["sh", str(reader), "--skip-signature", "--route", "deb", "--components", components,
+        result = subprocess.run(["sh", str(reader), "--route", "deb", "--components", components,
                 "--version", coordinate, "--prefix", str(self.driver.prefix), "--no-start", "--json", *extra],
                 env=self.driver.env, capture_output=True, text=True, timeout=30)
         self.assertEqual(self.sentinel.read_bytes(), b"owner data\n")
@@ -512,7 +512,9 @@ class PackageQualification(HermeticInstallerTestCase):
         obj.update(schema_version=2, version="2.0.6", catalogue_revision=number, minimum_installer_revision=8)
         # An unselected desktop shipment changes catalogue facts while CLI native facts remain exact.
         obj["components"]["desktop"]["version"] = "2.0.4"
-        (target / "platform.json").write_bytes(canonical_json_bytes(obj))
+        manifest = target / "platform.json"
+        manifest.write_bytes(canonical_json_bytes(obj))
+        sign_fixture_file(manifest, self.secret)
         return f"2.0.6-r{number}"
 
     def test_old_receipt_global_only_refresh_failure_retry_and_exact_rerun(self):
@@ -555,7 +557,7 @@ class PackageQualification(HermeticInstallerTestCase):
         installs = self.driver.installs()
         setup = self.driver.setup_records()
         coordinate = self.revision(1)
-        migrated = subprocess.run(["sh", str(self.new), "--skip-signature", "--components", "cli,tmux",
+        migrated = subprocess.run(["sh", str(self.new), "--components", "cli,tmux",
                 "--upgrade", "--version", coordinate, "--prefix", str(self.driver.prefix), "--no-start", "--json"],
                 env=self.driver.env, capture_output=True, text=True, timeout=30)
         self.assertEqual(self.sentinel.read_bytes(), b"owner data\n")

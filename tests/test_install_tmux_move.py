@@ -183,7 +183,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
     def run_installer(self, installer: Path, *args: str, env: dict[str, str] | None = None) -> subprocess.CompletedProcess:
         # A new session has no controlling terminal: the run sees no tty.
         return subprocess.run(
-            [str(installer), "--skip-signature", *args],
+            [str(installer), *args],
             env=self.env if env is None else env,
             capture_output=True,
             text=True,
@@ -329,6 +329,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
             platform_pub_path=pub,
             platform_key_id=pin.key_id,
             origin=server.origin,
+            native_test_pins=server.native_pins,
             override_installer_revision=override_installer_revision,
         )
         return server, installer
@@ -391,7 +392,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 pkg_tmux_sec = self.seed_package_tmux(version="0.1.0", lane="release")
 
                 proc = subprocess.run(
-                    [str(installer), "--skip-signature", "--upgrade", "--non-interactive", "--json"],
+                    [str(installer), "--upgrade", "--non-interactive", "--json"],
                     env=self.env,
                     capture_output=True,
                     text=True,
@@ -429,7 +430,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 # Tree move
                 self.seed_tree_tmux(version="0.1.0", lane="staging")
                 proc_tree = subprocess.run(
-                    [str(installer), "--skip-signature", "--upgrade", "--yes", "--json"],
+                    [str(installer), "--upgrade", "--yes", "--json"],
                     env=self.env,
                     capture_output=True,
                     text=True,
@@ -456,7 +457,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 self.seed_package_tmux(version="0.1.0", lane="staging")
 
                 proc_pkg = subprocess.run(
-                    [str(installer), "--skip-signature", "--upgrade", "--yes", "--json"],
+                    [str(installer), "--upgrade", "--yes", "--json"],
                     env=self.env,
                     capture_output=True,
                     text=True,
@@ -486,7 +487,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 blocked = self.env.copy()
                 blocked["SOLSTONE_DESKTOP_UNLOADABLE"] = "1"
                 refused = subprocess.run(
-                    [str(installer), "--skip-signature", "--upgrade", "--yes", "--json"],
+                    [str(installer), "--upgrade", "--yes", "--json"],
                     env=blocked,
                     capture_output=True,
                     text=True,
@@ -498,7 +499,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 self.assertTrue((home_prefix / "bin" / "solstone-tmux").exists())
 
                 moved = subprocess.run(
-                    [str(installer), "--skip-signature", "--upgrade", "--yes", "--json"],
+                    [str(installer), "--upgrade", "--yes", "--json"],
                     env=self.env,
                     capture_output=True,
                     text=True,
@@ -516,7 +517,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 # Non-confirm path
                 self.seed_package_tmux(version="0.1.0", lane="staging")
                 proc = subprocess.run(
-                    [str(installer), "--skip-signature", "--upgrade", "--yes"],
+                    [str(installer), "--upgrade", "--yes"],
                     env=self.env,
                     capture_output=True,
                     text=True,
@@ -539,7 +540,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 self.seed_package_tmux(version="0.1.0", lane="staging")
 
                 proc_conf = subprocess.run(
-                    [str(installer), "--skip-signature", "--upgrade", "--yes", "--confirm-package-command"],
+                    [str(installer), "--upgrade", "--yes", "--confirm-package-command"],
                     env=self.env,
                     capture_output=True,
                     text=True,
@@ -561,7 +562,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 test_env["XDG_CONFIG_HOME"] = str(abs_config)
                 self.seed_package_tmux(version="0.1.0", lane="staging")
                 proc = subprocess.run(
-                    [str(installer), "--skip-signature", "--upgrade", "--yes"],
+                    [str(installer), "--upgrade", "--yes"],
                     env=test_env,
                     capture_output=True,
                     text=True,
@@ -582,7 +583,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 test_env["XDG_CONFIG_HOME"] = "relative-custom-config"
                 self.seed_package_tmux(version="0.1.0", lane="staging")
                 proc_rel = subprocess.run(
-                    [str(installer), "--skip-signature", "--upgrade", "--yes"],
+                    [str(installer), "--upgrade", "--yes"],
                     env=test_env,
                     capture_output=True,
                     text=True,
@@ -600,7 +601,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
 
                 def consent_lines(env: dict[str, str]) -> int:
                     code, tty_bytes, stdout, stderr = self.run_pty_interaction(
-                        f"{installer} --skip-signature --upgrade", env, [(b"yes or no", b"no\n")],
+                        f"{installer} --upgrade", env, [(b"yes or no", b"no\n")],
                     )
                     self.assertEqual(code, 0, f"{stderr}\n{stdout}")
                     before = tty_bytes[: tty_bytes.index(b"yes or no")].decode("utf-8")
@@ -646,7 +647,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
 
                 pkg_sec = self.seed_package_tmux(version="0.1.0", lane="staging")
                 proc = subprocess.run(
-                    [str(installer), "--skip-signature", "--upgrade", "--yes", "--json"],
+                    [str(installer), "--upgrade", "--yes", "--json"],
                     env=self.env,
                     capture_output=True,
                     text=True,
@@ -676,7 +677,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 pkg_sec = self.seed_package_tmux(version="0.1.0", lane="staging")
 
                 proc = subprocess.run(
-                    [str(installer), "--skip-signature", "--upgrade", "--yes", "--json"],
+                    [str(installer), "--upgrade", "--yes", "--json"],
                     env=test_env,
                     capture_output=True,
                     text=True,
@@ -707,7 +708,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 pkg_sec = self.seed_package_tmux(version="0.1.0", lane="staging")
 
                 proc = subprocess.run(
-                    [str(installer), "--skip-signature", "--upgrade", "--yes", "--json"],
+                    [str(installer), "--upgrade", "--yes", "--json"],
                     env=test_env,
                     capture_output=True,
                     text=True,
@@ -731,7 +732,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 pkg_sec = self.seed_package_tmux(version="0.1.0", lane="staging")
 
                 proc = subprocess.run(
-                    [str(installer), "--skip-signature", "--upgrade", "--yes", "--json"],
+                    [str(installer), "--upgrade", "--yes", "--json"],
                     env=test_env,
                     capture_output=True,
                     text=True,
@@ -757,7 +758,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 pkg_sec = self.seed_package_tmux(version="0.1.0", lane="staging")
 
                 code, tty_bytes, stdout, stderr = self.run_pty_interaction(
-                    f"{installer} --skip-signature --upgrade --confirm-package-command",
+                    f"{installer} --upgrade --confirm-package-command",
                     self.env,
                     [
                         (b"yes or no", b"yes\n"),
@@ -790,7 +791,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 pkg_sec = self.seed_package_tmux(version="0.1.0", lane="staging")
 
                 proc = subprocess.run(
-                    [str(installer), "--skip-signature", "--upgrade", "--yes", "--json"],
+                    [str(installer), "--upgrade", "--yes", "--json"],
                     env=self.env,
                     capture_output=True,
                     text=True,
@@ -810,7 +811,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 tree_sec = self.seed_tree_tmux(version="0.1.0", lane="staging")
                 before = snapshot_paths(*self.tmux_tree_paths())
                 proc_tree = subprocess.run(
-                    [str(installer), "--skip-signature", "--upgrade", "--yes", "--json"],
+                    [str(installer), "--upgrade", "--yes", "--json"],
                     env=self.env,
                     capture_output=True,
                     text=True,
@@ -835,7 +836,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 tree_sec = self.seed_tree_tmux(version="0.1.0", lane="staging", arch="aarch64")
 
                 proc = subprocess.run(
-                    [str(installer), "--skip-signature", "--upgrade", "--yes", "--json"],
+                    [str(installer), "--upgrade", "--yes", "--json"],
                     env=test_env,
                     capture_output=True,
                     text=True,
@@ -855,7 +856,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
             server, installer = self.build_release(sec, pub, pin, min_installer_revision=20)
             try:
                 proc = subprocess.run(
-                    [str(installer), "--skip-signature", "--components", "tmux", "--json"],
+                    [str(installer), "--components", "tmux", "--json"],
                     env=self.env,
                     capture_output=True,
                     text=True,
@@ -873,7 +874,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 self.seed_package_tmux(version="0.1.0", lane="staging")
 
                 proc = subprocess.run(
-                    [str(installer), "--skip-signature", "--uninstall", "--components", "tmux", "--yes", "--json"],
+                    [str(installer), "--uninstall", "--components", "tmux", "--yes", "--json"],
                     env=self.env,
                     capture_output=True,
                     text=True,
@@ -892,7 +893,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
             try:
                 # 1. interactive menu
                 code, tty_bytes, _, _ = self.run_pty_interaction(
-                    f"{installer} --skip-signature",
+                    f"{installer}",
                     self.env,
                     [(b"Select components by number", b"2\n")],
                 )
@@ -904,7 +905,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 # 2. --components all --dry-run --json, with tmux on PATH
                 write_path_stub(self.bin_dir, "tmux", "exit 0\n")
                 proc_all = subprocess.run(
-                    [str(installer), "--skip-signature", "--components", "all", "--dry-run", "--json"],
+                    [str(installer), "--components", "all", "--dry-run", "--json"],
                     env=self.env,
                     capture_output=True,
                     text=True,
@@ -917,7 +918,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
 
                 # 3. --list --json
                 proc_list = subprocess.run(
-                    [str(installer), "--skip-signature", "--list", "--json"],
+                    [str(installer), "--list", "--json"],
                     env=self.env,
                     capture_output=True,
                     text=True,
@@ -953,7 +954,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
             try:
                 # 1. interactive menu
                 code, tty_bytes, _, _ = self.run_pty_interaction(
-                    f"{installer} --skip-signature",
+                    f"{installer}",
                     self.env,
                     [(b"Select components by number", b"2\n")],
                 )
@@ -964,7 +965,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 # 2. --components all --dry-run --json, with tmux on PATH
                 write_path_stub(self.bin_dir, "tmux", "exit 0\n")
                 proc_all = subprocess.run(
-                    [str(installer), "--skip-signature", "--components", "all", "--dry-run", "--json"],
+                    [str(installer), "--components", "all", "--dry-run", "--json"],
                     env=self.env,
                     capture_output=True,
                     text=True,
@@ -975,7 +976,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
 
                 # 3. --list --json
                 proc_list = subprocess.run(
-                    [str(installer), "--skip-signature", "--list", "--json"],
+                    [str(installer), "--list", "--json"],
                     env=self.env,
                     capture_output=True,
                     text=True,
@@ -994,7 +995,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 # A terminal is attached and nothing answers: an installer that
                 # asked would wait here until the harness gave up.
                 code, tty_bytes, stdout, stderr = self.run_pty_interaction(
-                    f"{installer} --skip-signature --upgrade --json",
+                    f"{installer} --upgrade --json",
                     self.env,
                     [],
                 )
@@ -1031,7 +1032,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 # Confirm path
                 self.seed_package_tmux(version="0.1.0", lane="staging")
                 proc_conf = subprocess.run(
-                    [str(installer), "--skip-signature", "--upgrade", "--yes", "--confirm-package-command"],
+                    [str(installer), "--upgrade", "--yes", "--confirm-package-command"],
                     env=test_env,
                     capture_output=True,
                     text=True,
@@ -1052,7 +1053,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 self.seed_package_tmux(version="0.1.0", lane="staging")
 
                 proc_nonconf = subprocess.run(
-                    [str(installer), "--skip-signature", "--upgrade", "--yes"],
+                    [str(installer), "--upgrade", "--yes"],
                     env=test_env,
                     capture_output=True,
                     text=True,
@@ -1076,7 +1077,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 # Confirm path
                 self.seed_package_tmux(version="0.1.0", lane="staging")
                 proc_conf = subprocess.run(
-                    [str(installer), "--skip-signature", "--upgrade", "--yes", "--confirm-package-command"],
+                    [str(installer), "--upgrade", "--yes", "--confirm-package-command"],
                     env=test_env,
                     capture_output=True,
                     text=True,
@@ -1097,7 +1098,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 self.seed_package_tmux(version="0.1.0", lane="staging")
 
                 proc_nonconf = subprocess.run(
-                    [str(installer), "--skip-signature", "--upgrade", "--yes"],
+                    [str(installer), "--upgrade", "--yes"],
                     env=test_env,
                     capture_output=True,
                     text=True,
@@ -1131,7 +1132,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 test_env["SOLSTONE_HELPER"] = str(wrapper_bin)
 
                 proc = subprocess.run(
-                    [str(installer), "--skip-signature", "--route", "deb", "--components", "desktop", "--confirm-package-command", "--yes"],
+                    [str(installer), "--route", "deb", "--components", "desktop", "--confirm-package-command", "--yes"],
                     env=test_env,
                     capture_output=True,
                     text=True,
@@ -1245,7 +1246,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 test_env["SOLSTONE_HELPER"] = str(wrapper_bin)
 
                 proc = subprocess.run(
-                    [str(installer), "--skip-signature", "--uninstall", "--components", "tmux", "--yes", "--json"],
+                    [str(installer), "--uninstall", "--components", "tmux", "--yes", "--json"],
                     env=test_env,
                     capture_output=True,
                     text=True,
@@ -1294,7 +1295,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 self.tree_receipt.write_bytes(header + journal_sec + tmux_sec)
 
                 proc = subprocess.run(
-                    [str(installer), "--skip-signature", "--upgrade", "--lane", "staging", "--non-interactive", "--json", "--prefix", str(self.tree_prefix)],
+                    [str(installer), "--upgrade", "--lane", "staging", "--non-interactive", "--json", "--prefix", str(self.tree_prefix)],
                     env=self.env,
                     capture_output=True,
                     text=True,
@@ -1331,7 +1332,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 (db_dir / "solstone-tmux").write_text("INSTALLED solstone-tmux 0.1.0 amd64\n", encoding="utf-8")
 
                 proc = subprocess.run(
-                    [str(installer), "--skip-signature", "--upgrade", "--lane", "staging", "--non-interactive", "--json"],
+                    [str(installer), "--upgrade", "--lane", "staging", "--non-interactive", "--json"],
                     env=self.env,
                     capture_output=True,
                     text=True,
@@ -1351,7 +1352,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 self.seed_tree_tmux(prefix=space_prefix, version="0.1.0", lane="staging", no_start=1, no_path=1)
 
                 proc = subprocess.run(
-                    [str(installer), "--skip-signature", "--upgrade", "--lane", "staging", "--non-interactive", "--json", "--prefix", str(space_prefix)],
+                    [str(installer), "--upgrade", "--lane", "staging", "--non-interactive", "--json", "--prefix", str(space_prefix)],
                     env=self.env,
                     capture_output=True,
                     text=True,
@@ -1367,7 +1368,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 self.assertEqual(sub_args[sub_args.index("--prefix") + 1], str(space_prefix))
 
                 proc_up = subprocess.run(
-                    [str(installer), *sub_args, "--yes", "--skip-signature", "--json"],
+                    [str(installer), *sub_args, "--yes", "--json"],
                     env=self.env,
                     capture_output=True,
                     text=True,
@@ -1716,7 +1717,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
             try:
                 tmux_section = self.seed_package_tmux(version="0.1.0", lane="staging")
                 code, _, stdout, stderr = self.run_pty_interaction(
-                    f"{installer} --skip-signature --upgrade --confirm-package-command",
+                    f"{installer} --upgrade --confirm-package-command",
                     self.env,
                     [(b"yes or no", b"yes\n"), (b"yes or no", b"no\n")],
                 )
@@ -1735,7 +1736,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
                 # With --json the package question goes to stderr, so both answers
                 # are typed ahead on the terminal.
                 proc_code, _, json_out, json_err = self.run_pty_interaction(
-                    f"{installer} --skip-signature --upgrade --confirm-package-command --json",
+                    f"{installer} --upgrade --confirm-package-command --json",
                     self.env,
                     [(b"yes or no", b"yes\nno\n")],
                 )
@@ -1921,7 +1922,7 @@ class TestInstallTmuxMove(HermeticInstallerTestCase):
             )
             try:
                 proc = subprocess.run(
-                    [str(installer), "--components", "desktop", "--json", "--skip-signature", "--prefix", str(self.tree_prefix)],
+                    [str(installer), "--components", "desktop", "--json", "--prefix", str(self.tree_prefix)],
                     env=self.env,
                     capture_output=True,
                     text=True,

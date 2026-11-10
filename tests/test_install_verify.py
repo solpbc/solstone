@@ -17,7 +17,7 @@ from solstone_platform.generate import generate_platform_manifest
 from solstone_platform.pins import PinSet, embedded_pins, load_pin_file
 from solstone_platform.refusals import Refusal
 from solstone_platform.sign import ephemeral_keypair, sign_manifest
-from tests.install_test_helpers import LoopbackServer, make_v2_bootstrap_script, setup_test_release_server
+from tests.install_test_helpers import LoopbackServer, make_v2_bootstrap_script, setup_test_release_server, sign_fixture_file
 from tools.build_installer import build_installer
 from tools.fixture_builder import build_tiny_natives
 
@@ -34,20 +34,6 @@ class TestInstallVerify(HermeticInstallerTestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def _write_manifest(self, manifest_path, signature_path, manifest, sec, pin, *, sign):
-        manifest_bytes = canonical_json_bytes(manifest)
-        manifest_path.write_bytes(manifest_bytes)
-        if sign:
-            signature_path.write_bytes(
-                sign_manifest(
-                    manifest_bytes=manifest_bytes,
-                    secret_key_path=sec,
-                    selected_pin=pin,
-                    repo_root=REPO_ROOT,
-                    is_production=False,
-                )
-            )
-
     def test_signed_catalogue_coordinates_must_match_request(self):
         with ephemeral_keypair("catalogue self match") as (sec, pub, pin):
             server, root = setup_test_release_server(self.work_dir, sec, pin)
@@ -59,10 +45,10 @@ class TestInstallVerify(HermeticInstallerTestCase):
                     platform_pub_path=pub,
                     platform_key_id=pin.key_id,
                     origin=server.origin,
+                    native_test_pins=server.native_pins,
                 )
                 version_dir = root / "solstone" / "release" / "2.0.0"
                 manifest_path = version_dir / "platform.json"
-                signature_path = version_dir / "platform.json.minisig"
                 original = json.loads(manifest_path.read_text(encoding="utf-8"))
                 platform_path = "/solstone/release/2.0.0/platform.json"
 
@@ -70,7 +56,8 @@ class TestInstallVerify(HermeticInstallerTestCase):
                     with self.subTest(field=field):
                         manifest = dict(original)
                         manifest[field] = value
-                        self._write_manifest(manifest_path, signature_path, manifest, sec, pin, sign=True)
+                        manifest_path.write_bytes(canonical_json_bytes(manifest))
+                        sign_fixture_file(manifest_path, sec)
                         server.request_paths.clear()
                         proc = subprocess.run(
                             [
@@ -105,10 +92,10 @@ class TestInstallVerify(HermeticInstallerTestCase):
                     platform_pub_path=pub,
                     platform_key_id=pin.key_id,
                     origin=server.origin,
+                    native_test_pins=server.native_pins,
                 )
                 version_dir = root / "solstone" / "release" / "2.0.0"
                 manifest_path = version_dir / "platform.json"
-                signature_path = version_dir / "platform.json.minisig"
                 original = json.loads(manifest_path.read_text(encoding="utf-8"))
                 platform_path = "/solstone/release/2.0.0/platform.json"
                 cases = (
@@ -129,14 +116,14 @@ class TestInstallVerify(HermeticInstallerTestCase):
                         manifest.update(changes)
                         if removed is not None:
                             del manifest[removed]
-                        self._write_manifest(manifest_path, signature_path, manifest, sec, pin, sign=False)
+                        manifest_path.write_bytes(canonical_json_bytes(manifest))
+                        sign_fixture_file(manifest_path, sec)
                         server.request_paths.clear()
                         proc = subprocess.run(
                             [
                                 str(installer),
                                 "--version",
                                 "2.0.0",
-                                "--skip-signature",
                                 "--list",
                                 "--prefix",
                                 str(self.prefix),
@@ -171,6 +158,7 @@ class TestInstallVerify(HermeticInstallerTestCase):
                     platform_pub_path=pub,
                     platform_key_id=pin.key_id,
                     origin=server.origin,
+                    native_test_pins=server.native_pins,
                 )
                 server.request_paths.clear()
                 old_proc = subprocess.run(
@@ -190,6 +178,7 @@ class TestInstallVerify(HermeticInstallerTestCase):
                     platform_pub_path=pub,
                     platform_key_id=pin.key_id,
                     origin=server.origin,
+                    native_test_pins=server.native_pins,
                     override_installer_revision=huge_revision,
                 )
                 server.request_paths.clear()
@@ -215,6 +204,7 @@ class TestInstallVerify(HermeticInstallerTestCase):
                     platform_pub_path=pub,
                     platform_key_id=pin.key_id,
                     origin=server.origin,
+                    native_test_pins=server.native_pins,
                 )
 
                 proc = subprocess.run(
@@ -241,6 +231,7 @@ class TestInstallVerify(HermeticInstallerTestCase):
                     platform_pub_path=pub,
                     platform_key_id=pin.key_id,
                     origin=server.origin,
+                    native_test_pins=server.native_pins,
                 )
 
                 proc = subprocess.run(
@@ -266,32 +257,7 @@ class TestInstallVerify(HermeticInstallerTestCase):
             finally:
                 server.stop()
 
-    def test_skip_signature_bypasses_minisig(self):
-        with ephemeral_keypair("test verify skip") as (sec, pub, pin):
-            server, _ = setup_test_release_server(self.work_dir, sec, pin, corrupt_signature=True)
-            try:
-                installer = self.work_dir / "install.sh"
-                build_installer(
-                    repo_root=REPO_ROOT,
-                    output_path=installer,
-                    platform_pub_path=pub,
-                    platform_key_id=pin.key_id,
-                    origin=server.origin,
-                )
-
-                proc = subprocess.run(
-                    [str(installer), "--skip-signature", "--components", "journal", "--prefix", str(self.prefix), "--json"],
-                    capture_output=True,
-                    text=True,
-                )
-                self.assertEqual(proc.returncode, 0, f"Install failed: {proc.stderr}\n{proc.stdout}")
-                res = json.loads(proc.stdout.strip())
-                self.assertEqual(res["status"], "success")
-                self.assertEqual(res["verification_layers"], "digest-matched; signatures skipped")
-            finally:
-                server.stop()
-
-    def test_skip_signature_still_refuses_digest_mismatch(self):
+    def test_signed_catalogue_refuses_bootstrap_digest_mismatch(self):
         with ephemeral_keypair("test verify digest mismatch") as (sec, pub, pin):
             server, server_root = setup_test_release_server(self.work_dir, sec, pin)
             try:
@@ -312,10 +278,11 @@ class TestInstallVerify(HermeticInstallerTestCase):
                     platform_pub_path=pub,
                     platform_key_id=pin.key_id,
                     origin=server.origin,
+                    native_test_pins=server.native_pins,
                 )
 
                 proc = subprocess.run(
-                    [str(installer), "--skip-signature", "--components", "journal", "--prefix", str(self.prefix), "--json"],
+                    [str(installer), "--components", "journal", "--prefix", str(self.prefix), "--json"],
                     capture_output=True,
                     text=True,
                 )
@@ -326,7 +293,7 @@ class TestInstallVerify(HermeticInstallerTestCase):
 
                 # Sibling with --confirm-package-command
                 proc_confirm = subprocess.run(
-                    [str(installer), "--skip-signature", "--confirm-package-command", "--components", "journal", "--prefix", str(self.prefix), "--json"],
+                    [str(installer), "--confirm-package-command", "--components", "journal", "--prefix", str(self.prefix), "--json"],
                     capture_output=True,
                     text=True,
                 )
@@ -348,10 +315,11 @@ class TestInstallVerify(HermeticInstallerTestCase):
                     platform_pub_path=pub,
                     platform_key_id=pin.key_id,
                     origin=server.origin,
+                    native_test_pins=server.native_pins,
                 )
 
                 proc = subprocess.run(
-                    [str(installer), "--skip-signature", "--components", "journal", "--prefix", str(self.prefix), "--json"],
+                    [str(installer), "--components", "journal", "--prefix", str(self.prefix), "--json"],
                     capture_output=True,
                     text=True,
                 )
@@ -373,10 +341,11 @@ class TestInstallVerify(HermeticInstallerTestCase):
                     platform_pub_path=pub,
                     platform_key_id=pin.key_id,
                     origin=server.origin,
+                    native_test_pins=server.native_pins,
                 )
 
                 proc = subprocess.run(
-                    [str(installer), "--skip-signature", "--components", "journal", "--prefix", str(self.prefix), "--json"],
+                    [str(installer), "--components", "journal", "--prefix", str(self.prefix), "--json"],
                     capture_output=True,
                     text=True,
                 )
@@ -492,9 +461,10 @@ class TestInstallVerify(HermeticInstallerTestCase):
                     platform_pub_path=pub,
                     platform_key_id=pin.key_id,
                     origin=server.origin,
+                    native_test_pins=server.native_pins,
                 )
 
-                # Run installer with --components desktop without --skip-signature
+                # Run installer with --components desktop
                 proc = subprocess.run(
                     [str(installer), "--components", "desktop", "--dry-run", "--prefix", str(self.prefix), "--json"],
                     capture_output=True,

@@ -303,7 +303,7 @@ class TestInstallJournalAuthority(HermeticInstallerTestCase):
         for route in fixture.platform["components"]["journal"]["arches"]["x86_64"].values():
             route["authority"]["verifier_id"] = "minisign:0000000000000000"
         fixture.write_platform()
-        proc, prefix, _ = fixture.run("--skip-signature", "--components", "journal", "--dry-run")
+        proc, prefix, _ = fixture.run("--components", "journal", "--dry-run")
         self.assertNotEqual(proc.returncode, 0)
         self.assertEqual(json.loads(proc.stdout)["root_code"], "pin-mismatch")
         self.assertFalse(prefix.exists())
@@ -417,7 +417,7 @@ class TestInstallJournalAuthority(HermeticInstallerTestCase):
         fixture = self.fixture("skip-digest")
         signature = fixture.native_path("x86_64", ".manifest.json.minisig")
         signature.write_bytes(signature.read_bytes() + b"changed")
-        proc, prefix, _ = fixture.run("--skip-signature", "--components", "journal", "--dry-run")
+        proc, prefix, _ = fixture.run("--components", "journal", "--dry-run")
         self.assertNotEqual(proc.returncode, 0)
         self.assertEqual(json.loads(proc.stdout)["root_code"], "digest-mismatch")
         self.assertFalse(prefix.exists())
@@ -429,7 +429,7 @@ class TestInstallJournalAuthority(HermeticInstallerTestCase):
         manifest_path.write_bytes(canonical_json_bytes(manifest))
         fixture.resign_native("x86_64")
         fixture.write_platform()
-        proc, prefix, _ = fixture.run("--skip-signature", "--components", "journal", "--dry-run")
+        proc, prefix, _ = fixture.run("--components", "journal", "--dry-run")
         self.assertNotEqual(proc.returncode, 0)
         self.assertEqual(json.loads(proc.stdout)["root_code"], "release-coherence")
         self.assertFalse(prefix.exists())

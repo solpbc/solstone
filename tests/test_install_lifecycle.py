@@ -40,11 +40,12 @@ class TestInstallLifecycle(HermeticInstallerTestCase):
                     platform_pub_path=pub,
                     platform_key_id=pin.key_id,
                     origin=server.origin,
+                    native_test_pins=server.native_pins,
                 )
 
                 # Passing both journal and cli in --components must refuse with source-ambiguous
                 proc = subprocess.run(
-                    [str(installer), "--skip-signature", "--components", "journal,cli", "--prefix", str(self.prefix), "--json"],
+                    [str(installer), "--components", "journal,cli", "--prefix", str(self.prefix), "--json"],
                     capture_output=True,
                     text=True,
                 )
@@ -66,6 +67,7 @@ class TestInstallLifecycle(HermeticInstallerTestCase):
                     platform_pub_path=pub,
                     platform_key_id=pin.key_id,
                     origin=server.origin,
+                    native_test_pins=server.native_pins,
                 )
                 home = self.work_dir / "home"
                 standalone_receipt = home / ".local" / "solstone-journal" / "install-receipt"
@@ -77,7 +79,7 @@ class TestInstallLifecycle(HermeticInstallerTestCase):
                 proc = subprocess.run(
                     [
                         str(installer),
-                        "--skip-signature",
+
                         "--components",
                         "journal",
                         "--prefix",
@@ -110,6 +112,7 @@ class TestInstallLifecycle(HermeticInstallerTestCase):
                     platform_pub_path=pub,
                     platform_key_id=pin.key_id,
                     origin=server.origin,
+                    native_test_pins=server.native_pins,
                 )
 
                 env = os.environ.copy()
@@ -117,7 +120,7 @@ class TestInstallLifecycle(HermeticInstallerTestCase):
                 env["XDG_DATA_HOME"] = str(data_home)
 
                 proc = subprocess.run(
-                    [str(installer), "--skip-signature", "--components", "journal,desktop,tmux", "--prefix", str(self.prefix), "--no-start", "--json"],
+                    [str(installer), "--components", "journal,desktop,tmux", "--prefix", str(self.prefix), "--no-start", "--json"],
                     capture_output=True,
                     text=True,
                     env=env,
@@ -145,6 +148,7 @@ class TestInstallLifecycle(HermeticInstallerTestCase):
                     platform_pub_path=pub,
                     platform_key_id=pin.key_id,
                     origin=server.origin,
+                    native_test_pins=server.native_pins,
                 )
 
                 env = os.environ.copy()
@@ -157,7 +161,7 @@ class TestInstallLifecycle(HermeticInstallerTestCase):
 
                 # 1. Install journal and desktop
                 proc = subprocess.run(
-                    [str(installer), "--skip-signature", "--components", "journal,desktop", "--prefix", str(self.prefix), "--json"],
+                    [str(installer), "--components", "journal,desktop", "--prefix", str(self.prefix), "--json"],
                     capture_output=True,
                     text=True,
                     env=env,
@@ -180,7 +184,7 @@ class TestInstallLifecycle(HermeticInstallerTestCase):
                     "SOLSTONE_TEST_SERVICE_FAIL": "desktop:2.0.3:uninstall-service",
                 }
                 refused = subprocess.run(
-                    [str(installer), "--skip-signature", "--uninstall", "--components", "desktop", "--prefix", str(self.prefix), "--json"],
+                    [str(installer), "--uninstall", "--components", "desktop", "--prefix", str(self.prefix), "--json"],
                     capture_output=True,
                     text=True,
                     env=service_fail_env,
@@ -192,7 +196,7 @@ class TestInstallLifecycle(HermeticInstallerTestCase):
 
                 # 2. Retry uninstall desktop
                 proc2 = subprocess.run(
-                    [str(installer), "--skip-signature", "--uninstall", "--components", "desktop", "--prefix", str(self.prefix), "--json"],
+                    [str(installer), "--uninstall", "--components", "desktop", "--prefix", str(self.prefix), "--json"],
                     capture_output=True,
                     text=True,
                     env=env,
@@ -220,7 +224,7 @@ class TestInstallLifecycle(HermeticInstallerTestCase):
 
                 # A completed identical rerun is an unchanged success.
                 rerun = subprocess.run(
-                    [str(installer), "--skip-signature", "--uninstall", "--components", "desktop", "--prefix", str(self.prefix), "--json"],
+                    [str(installer), "--uninstall", "--components", "desktop", "--prefix", str(self.prefix), "--json"],
                     capture_output=True,
                     text=True,
                     env=env,
@@ -230,7 +234,7 @@ class TestInstallLifecycle(HermeticInstallerTestCase):
 
                 # A partial removal keeps the receipt for a safe identical retry.
                 reinstall = subprocess.run(
-                    [str(installer), "--skip-signature", "--components", "desktop", "--prefix", str(self.prefix), "--no-start", "--json"],
+                    [str(installer), "--components", "desktop", "--prefix", str(self.prefix), "--no-start", "--json"],
                     capture_output=True,
                     text=True,
                     env=env,
@@ -238,7 +242,7 @@ class TestInstallLifecycle(HermeticInstallerTestCase):
                 self.assertEqual(reinstall.returncode, 0, reinstall.stderr + reinstall.stdout)
                 partial_env = {**env, "SOLSTONE_TEST_FAIL_TREE_UNINSTALL_AFTER_PUBLIC": "desktop"}
                 partial = subprocess.run(
-                    [str(installer), "--skip-signature", "--uninstall", "--components", "desktop", "--prefix", str(self.prefix), "--json"],
+                    [str(installer), "--uninstall", "--components", "desktop", "--prefix", str(self.prefix), "--json"],
                     capture_output=True,
                     text=True,
                     env=partial_env,
@@ -254,7 +258,7 @@ class TestInstallLifecycle(HermeticInstallerTestCase):
                 remaining_bytes = remaining_binary.read_bytes()
                 remaining_binary.write_bytes(b"substituted")
                 substituted = subprocess.run(
-                    [str(installer), "--skip-signature", "--uninstall", "--components", "desktop", "--prefix", str(self.prefix), "--json"],
+                    [str(installer), "--uninstall", "--components", "desktop", "--prefix", str(self.prefix), "--json"],
                     capture_output=True,
                     text=True,
                     env=env,
@@ -265,7 +269,7 @@ class TestInstallLifecycle(HermeticInstallerTestCase):
                 remaining_binary.write_bytes(remaining_bytes)
                 remaining_binary.chmod(0o755)
                 recovered = subprocess.run(
-                    [str(installer), "--skip-signature", "--uninstall", "--components", "desktop", "--prefix", str(self.prefix), "--json"],
+                    [str(installer), "--uninstall", "--components", "desktop", "--prefix", str(self.prefix), "--json"],
                     capture_output=True,
                     text=True,
                     env=env,
@@ -276,7 +280,7 @@ class TestInstallLifecycle(HermeticInstallerTestCase):
 
                 # Removal followed by receipt publication failure also converges.
                 reinstall2 = subprocess.run(
-                    [str(installer), "--skip-signature", "--components", "desktop", "--prefix", str(self.prefix), "--no-start", "--json"],
+                    [str(installer), "--components", "desktop", "--prefix", str(self.prefix), "--no-start", "--json"],
                     capture_output=True,
                     text=True,
                     env=env,
@@ -284,7 +288,7 @@ class TestInstallLifecycle(HermeticInstallerTestCase):
                 self.assertEqual(reinstall2.returncode, 0, reinstall2.stderr + reinstall2.stdout)
                 receipt_fail_env = {**env, "SOLSTONE_TEST_FAIL_UNINSTALL_RECEIPT": "desktop"}
                 receipt_fail = subprocess.run(
-                    [str(installer), "--skip-signature", "--uninstall", "--components", "desktop", "--prefix", str(self.prefix), "--json"],
+                    [str(installer), "--uninstall", "--components", "desktop", "--prefix", str(self.prefix), "--json"],
                     capture_output=True,
                     text=True,
                     env=receipt_fail_env,
@@ -293,7 +297,7 @@ class TestInstallLifecycle(HermeticInstallerTestCase):
                 self.assertEqual(json.loads(receipt_fail.stdout)["root_code"], "receipt-write-failed")
                 self.assertIn("[component:desktop]", receipt.read_text(encoding="utf-8"))
                 receipt_recovery = subprocess.run(
-                    [str(installer), "--skip-signature", "--uninstall", "--components", "desktop", "--prefix", str(self.prefix), "--json"],
+                    [str(installer), "--uninstall", "--components", "desktop", "--prefix", str(self.prefix), "--json"],
                     capture_output=True,
                     text=True,
                     env=env,
@@ -315,11 +319,12 @@ class TestInstallLifecycle(HermeticInstallerTestCase):
                     platform_pub_path=pub,
                     platform_key_id=pin.key_id,
                     origin=server.origin,
+                    native_test_pins=server.native_pins,
                 )
                 data_home = self.work_dir / "partial-data"
                 env = {**os.environ, "XDG_DATA_HOME": str(data_home)}
                 installed = subprocess.run(
-                    [str(installer), "--skip-signature", "--components", "desktop,tmux", "--prefix", str(self.prefix), "--no-start", "--json"],
+                    [str(installer), "--components", "desktop,tmux", "--prefix", str(self.prefix), "--no-start", "--json"],
                     capture_output=True,
                     text=True,
                     env=env,
@@ -328,7 +333,7 @@ class TestInstallLifecycle(HermeticInstallerTestCase):
                 receipt = data_home / "solstone" / "install.conf"
                 failing_env = {**env, "SOLSTONE_TEST_FAIL_TREE_UNINSTALL_AFTER_PUBLIC": "tmux"}
                 failed = subprocess.run(
-                    [str(installer), "--skip-signature", "--uninstall", "--components", "desktop,tmux", "--prefix", str(self.prefix), "--json"],
+                    [str(installer), "--uninstall", "--components", "desktop,tmux", "--prefix", str(self.prefix), "--json"],
                     capture_output=True,
                     text=True,
                     env=failing_env,
@@ -345,7 +350,7 @@ class TestInstallLifecycle(HermeticInstallerTestCase):
                 self.assertTrue((self.prefix / "opt" / "solstone" / "tmux" / "current").is_symlink())
 
                 recovered = subprocess.run(
-                    [str(installer), "--skip-signature", "--uninstall", "--components", "tmux", "--prefix", str(self.prefix), "--json"],
+                    [str(installer), "--uninstall", "--components", "tmux", "--prefix", str(self.prefix), "--json"],
                     capture_output=True,
                     text=True,
                     env=env,

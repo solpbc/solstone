@@ -289,9 +289,9 @@ class TestInstallTmuxAuthority(HermeticInstallerTestCase):
         awk_log.unlink()
         authority["sums_sha256"] = "0" * 64
         fixture.write_platform()
-        proc, _, _ = fixture.run("--skip-signature", "--components", "tmux", "--dry-run", path=path)
+        proc, _, _ = fixture.run("--components", "tmux", "--dry-run", path=path)
         self.assertEqual(self.result(proc)["root_code"], "digest-mismatch")
-        self.assertFalse(mini_log.exists())
+        self.assertEqual(len(mini_log.read_text().splitlines()), 1)
         native_lines = [line for line in awk_log.read_text().splitlines() if "parse_tmux_sums" in line or "schema_mode=tmux" in line]
         self.assertEqual(native_lines, [])
 
@@ -440,14 +440,14 @@ class TestInstallTmuxAuthority(HermeticInstallerTestCase):
         obj = json.loads(fixture.target("x86_64").read_text(encoding="utf-8"))
         obj["product_version"] = "9.9.9"
         fixture.write_target("x86_64", obj)
-        proc, _, _ = fixture.run("--skip-signature", "--components", "tmux", "--dry-run")
+        proc, _, _ = fixture.run("--components", "tmux", "--dry-run")
         self.assertEqual(self.result(proc)["root_code"], "release-coherence")
 
         fixture = self.fixture("skip-pin")
         for route in fixture.platform["components"]["tmux"]["arches"]["x86_64"].values():
             route["authority"]["verifier_id"] = "minisign:0000000000000000"
         fixture.write_platform()
-        proc, _, _ = fixture.run("--skip-signature", "--components", "tmux", "--dry-run")
+        proc, _, _ = fixture.run("--components", "tmux", "--dry-run")
         self.assertEqual(self.result(proc)["root_code"], "pin-mismatch")
 
     def test_failure_is_pre_mutation_and_valid_package_reaches_helper(self):
@@ -483,7 +483,7 @@ class TestInstallTmuxAuthority(HermeticInstallerTestCase):
             "SOLSTONE_HELPER": str(HELPER_SCRIPT),
         }
         proc, _, requests = fixture.run(
-            "--skip-signature", "--route", "deb", "--components", "tmux",
+            "--route", "deb", "--components", "tmux",
             path=f"{bin_dir}:{os.environ['PATH']}", extra_env=env,
         )
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)

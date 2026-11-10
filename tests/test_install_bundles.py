@@ -40,10 +40,11 @@ class TestInstallBundles(HermeticInstallerTestCase):
                     platform_pub_path=pub,
                     platform_key_id=pin.key_id,
                     origin=server.origin,
+                    native_test_pins=server.native_pins,
                 )
 
                 proc = subprocess.run(
-                    [str(installer), "--skip-signature", "--components", "all", "--prefix", str(self.prefix), "--no-start", "--json"],
+                    [str(installer), "--components", "all", "--prefix", str(self.prefix), "--no-start", "--json"],
                     capture_output=True,
                     text=True,
                 )
@@ -56,7 +57,7 @@ class TestInstallBundles(HermeticInstallerTestCase):
                 self.assertEqual(res["status"], "success")
                 self.assertEqual(res["root_code"], "installed")
                 self.assertEqual(res["snapshot_consistency"], "converged")
-                self.assertEqual(res["verification_layers"], "digest-matched; signatures skipped")
+                self.assertEqual(res["verification_layers"], "minisign+digest")
                 self.assertIn("journal", res["components"])
                 self.assertIn("desktop", res["components"])
                 self.assertIn("tmux", res["components"])
@@ -74,11 +75,12 @@ class TestInstallBundles(HermeticInstallerTestCase):
                     platform_pub_path=pub,
                     platform_key_id=pin.key_id,
                     origin=server.origin,
+                    native_test_pins=server.native_pins,
                 )
 
                 # 1. capture on x86_64 -> cli, desktop, tmux
                 proc = subprocess.run(
-                    [str(installer), "--skip-signature", "--components", "capture", "--prefix", str(self.prefix), "--no-start", "--json"],
+                    [str(installer), "--components", "capture", "--prefix", str(self.prefix), "--no-start", "--json"],
                     capture_output=True,
                     text=True,
                 )
@@ -98,7 +100,7 @@ class TestInstallBundles(HermeticInstallerTestCase):
                 prefix_aarch64.mkdir(parents=True, exist_ok=True)
 
                 proc2 = subprocess.run(
-                    [str(installer), "--skip-signature", "--components", "capture", "--prefix", str(prefix_aarch64), "--no-start", "--json"],
+                    [str(installer), "--components", "capture", "--prefix", str(prefix_aarch64), "--no-start", "--json"],
                     capture_output=True,
                     text=True,
                     env=env,
@@ -123,6 +125,7 @@ class TestInstallBundles(HermeticInstallerTestCase):
                     platform_pub_path=pub,
                     platform_key_id=pin.key_id,
                     origin=server.origin,
+                    native_test_pins=server.native_pins,
                 )
                 for arch in ("aarch64", "x86_64"):
                     with self.subTest(arch=arch):
@@ -133,7 +136,7 @@ class TestInstallBundles(HermeticInstallerTestCase):
                         prefix = self.work_dir / f"prefix-{arch}"
                         server.request_paths.clear()
                         proc = subprocess.run(
-                            [str(installer), "--skip-signature", "--components", "all", "--prefix", str(prefix), "--no-start", "--json"],
+                            [str(installer), "--components", "all", "--prefix", str(prefix), "--no-start", "--json"],
                             capture_output=True,
                             text=True,
                             env=env,
@@ -163,11 +166,12 @@ class TestInstallBundles(HermeticInstallerTestCase):
                     platform_pub_path=pub,
                     platform_key_id=pin.key_id,
                     origin=server.origin,
+                    native_test_pins=server.native_pins,
                 )
 
                 # Run with empty stdin (not a TTY) and no --components
                 proc = subprocess.run(
-                    [str(installer), "--skip-signature", "--prefix", str(self.prefix), "--no-start", "--json"],
+                    [str(installer), "--prefix", str(self.prefix), "--no-start", "--json"],
                     input="",
                     capture_output=True,
                     text=True,
@@ -191,13 +195,14 @@ class TestInstallBundles(HermeticInstallerTestCase):
                     platform_pub_path=pub,
                     platform_key_id=pin.key_id,
                     origin=server.origin,
+                    native_test_pins=server.native_pins,
                 )
 
                 env = os.environ.copy()
                 env["SOLSTONE_TEST_HOST_ARCH"] = "aarch64"
 
                 proc = subprocess.run(
-                    [str(installer), "--skip-signature", "--components", "desktop", "--prefix", str(self.prefix), "--json"],
+                    [str(installer), "--components", "desktop", "--prefix", str(self.prefix), "--json"],
                     capture_output=True,
                     text=True,
                     env=env,

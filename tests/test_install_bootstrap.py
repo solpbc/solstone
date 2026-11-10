@@ -36,7 +36,7 @@ class TestInstallBootstrap(HermeticInstallerTestCase):
         self.addCleanup(keys.__exit__, None, None, None)
         server, root = setup_test_release_server(self.work_dir, sec, pin)
         self.addCleanup(server.stop)
-        installer = build_installer(REPO_ROOT, self.work_dir / "install.sh", platform_pub_path=pub, platform_key_id=pin.key_id, origin=server.origin)
+        installer = build_installer(REPO_ROOT, self.work_dir / "install.sh", platform_pub_path=pub, platform_key_id=pin.key_id, origin=server.origin, native_test_pins=server.native_pins)
         env = {**os.environ, "HOME": str(self.work_dir / "home"), "XDG_DATA_HOME": str(self.work_dir / "data")}
         return installer, root, env
 
@@ -53,7 +53,7 @@ class TestInstallBootstrap(HermeticInstallerTestCase):
         bin_dir = self.work_dir / "bin"
         write_path_stub(bin_dir, "xdg-open", 'printf "%s\\n" "$@" >> "$OPENED"\nexit "${OPEN_EXIT:-0}"\n')
         env = {**env, "PATH": f"{bin_dir}:{os.environ['PATH']}", "OPENED": str(opened), "DISPLAY": ":1", "WAYLAND_DISPLAY": ""}
-        args = [str(installer), "--components", "journal", "--prefix", str(self.prefix), "--no-path", "--skip-signature"]
+        args = [str(installer), "--components", "journal", "--prefix", str(self.prefix), "--no-path"]
         graphical = subprocess.run(args, env=env, capture_output=True, text=True)
         self.assertEqual(graphical.returncode, 0, graphical.stdout + graphical.stderr)
         self.assertEqual(opened.read_text().splitlines(), ["http://localhost:6123/init"])
@@ -79,7 +79,7 @@ class TestInstallBootstrap(HermeticInstallerTestCase):
                 if flags == ["--json"]:
                     self.assertEqual(json.loads(result.stdout)["status"], "success")
 
-        cli = subprocess.run([str(installer), "--components", "cli", "--prefix", str(self.work_dir / "cli"), "--no-path", "--skip-signature"], env=env, capture_output=True, text=True)
+        cli = subprocess.run([str(installer), "--components", "cli", "--prefix", str(self.work_dir / "cli"), "--no-path"], env=env, capture_output=True, text=True)
         self.assertEqual(cli.returncode, 0, cli.stdout + cli.stderr)
         self.assertFalse(opened.exists())
 
@@ -91,7 +91,7 @@ class TestInstallBootstrap(HermeticInstallerTestCase):
 
     def test_a_failed_journal_install_resumes_with_the_same_command(self):
         installer, _, env = self._release("resume")
-        args = [str(installer), "--components", "journal", "--prefix", str(self.prefix), "--no-start", "--skip-signature", "--json"]
+        args = [str(installer), "--components", "journal", "--prefix", str(self.prefix), "--no-start", "--json"]
         for fail_env, left in (({"SOLSTONE_BOOTSTRAP_FAIL": "1"}, "tree"), ({"SOLSTONE_BOOTSTRAP_FAIL_EARLY": "1"}, "nothing")):
             with self.subTest(left=left):
                 shutil.rmtree(self.prefix, ignore_errors=True)
@@ -112,7 +112,7 @@ class TestInstallBootstrap(HermeticInstallerTestCase):
 
     def test_an_interrupted_journal_install_says_to_run_the_same_command(self):
         installer, _, env = self._release("interrupt")
-        args = [str(installer), "--components", "journal", "--prefix", str(self.prefix), "--no-start", "--skip-signature", "--json"]
+        args = [str(installer), "--components", "journal", "--prefix", str(self.prefix), "--no-start", "--json"]
         interrupted = subprocess.run(args, env={**env, "SOLSTONE_BOOTSTRAP_INTERRUPT": "1"}, capture_output=True, text=True)
         self.assertNotEqual(interrupted.returncode, 0)
         report = json.loads(interrupted.stdout)
@@ -124,7 +124,7 @@ class TestInstallBootstrap(HermeticInstallerTestCase):
 
     def test_a_failed_update_resumes_and_keeps_the_prior_version_until_it_finishes(self):
         installer, _, env = self._release("resume update")
-        args = [str(installer), "--components", "journal", "--prefix", str(self.prefix), "--no-start", "--skip-signature", "--json"]
+        args = [str(installer), "--components", "journal", "--prefix", str(self.prefix), "--no-start", "--json"]
         first = subprocess.run(args, env=env, capture_output=True, text=True)
         self.assertEqual(first.returncode, 0, first.stderr + first.stdout)
         # Record an older journal consistently, so the next run is an update.
@@ -143,7 +143,7 @@ class TestInstallBootstrap(HermeticInstallerTestCase):
 
     def test_unfinished_model_installation_names_the_journal_command_then_resumes(self):
         installer, _, env = self._release("models unfinished")
-        args = [str(installer), "--components", "journal", "--prefix", str(self.prefix), "--no-start", "--skip-signature", "--json"]
+        args = [str(installer), "--components", "journal", "--prefix", str(self.prefix), "--no-start", "--json"]
         models = subprocess.run(args, env={**env, "SOLSTONE_BOOTSTRAP_FAIL": "1", "SOLSTONE_BOOTSTRAP_FAIL_STATUS": "80"}, capture_output=True, text=True)
         self.assertEqual(models.returncode, 1, models.stderr + models.stdout)
         report = json.loads(models.stdout)
@@ -160,7 +160,7 @@ class TestInstallBootstrap(HermeticInstallerTestCase):
         args_log = self.work_dir / "args"
         env = {**env, "SOLSTONE_BOOTSTRAP_ARGS_LOG": str(args_log)}
         self.prefix = self.work_dir / "owner's install"
-        args = [str(installer), "--components", "cli", "--prefix", str(self.prefix), "--no-start", "--no-path", "--skip-signature", "--json"]
+        args = [str(installer), "--components", "cli", "--prefix", str(self.prefix), "--no-start", "--no-path", "--json"]
         failed = subprocess.run(args, env={**env, "SOLSTONE_BOOTSTRAP_FAIL": "1"}, capture_output=True, text=True)
         self.assertNotEqual(failed.returncode, 0)
         # A journal left by an installer before revision 6 has no pending record.
@@ -191,7 +191,7 @@ class TestInstallBootstrap(HermeticInstallerTestCase):
         installer, _, env = self._release("native receipt failure")
         bin_dir = self.work_dir / "bin"
         write_path_stub(bin_dir, "mv", 'for arg do case "$arg" in */solstone/install.conf.tmp.*) exit 8 ;; esac; done\nexec /usr/bin/mv "$@"\n')
-        args = [str(installer), "--components", "cli", "--prefix", str(self.prefix), "--no-start", "--no-path", "--skip-signature", "--json"]
+        args = [str(installer), "--components", "cli", "--prefix", str(self.prefix), "--no-start", "--no-path", "--json"]
         result = subprocess.run(args, env={**env, "PATH": f"{bin_dir}:{os.environ['PATH']}"}, capture_output=True, text=True)
         self.assertNotEqual(result.returncode, 0)
         report = json.loads(result.stdout)
@@ -213,10 +213,11 @@ class TestInstallBootstrap(HermeticInstallerTestCase):
                     platform_pub_path=pub,
                     platform_key_id=pin.key_id,
                     origin=server.origin,
+                    native_test_pins=server.native_pins,
                 )
 
                 proc = subprocess.run(
-                    [str(installer), "--skip-signature", "--components", "journal", "--prefix", str(self.prefix), "--json"],
+                    [str(installer), "--components", "journal", "--prefix", str(self.prefix), "--json"],
                     capture_output=True,
                     text=True,
                 )
@@ -239,6 +240,7 @@ class TestInstallBootstrap(HermeticInstallerTestCase):
                     platform_pub_path=pub,
                     platform_key_id=pin.key_id,
                     origin=server.origin,
+                    native_test_pins=server.native_pins,
                 )
 
                 args_log = self.work_dir / "bootstrap-args.log"
@@ -253,7 +255,7 @@ class TestInstallBootstrap(HermeticInstallerTestCase):
                         "--version", "2.0.6",
                         "--no-start",
                         "--no-path",
-                        "--skip-signature",
+
                     ]
                     if upgrade:
                         args.append("--upgrade")
@@ -261,7 +263,7 @@ class TestInstallBootstrap(HermeticInstallerTestCase):
 
                 # 1. Install journal role
                 proc_j = subprocess.run(
-                    [str(installer), "--skip-signature", "--components", "journal", "--prefix", str(self.prefix), "--no-start", "--no-path", "--json"],
+                    [str(installer), "--components", "journal", "--prefix", str(self.prefix), "--no-start", "--no-path", "--json"],
                     capture_output=True,
                     text=True,
                     env=env,
@@ -273,7 +275,7 @@ class TestInstallBootstrap(HermeticInstallerTestCase):
                 self.assertEqual(args_log.read_text(encoding="utf-8").splitlines(), expected_args("journal"))
 
                 proc_upgrade = subprocess.run(
-                    [str(installer), "--skip-signature", "--upgrade", "--prefix", str(self.prefix), "--no-start", "--no-path", "--json"],
+                    [str(installer), "--upgrade", "--prefix", str(self.prefix), "--no-start", "--no-path", "--json"],
                     capture_output=True,
                     text=True,
                     env=env,
@@ -290,7 +292,7 @@ class TestInstallBootstrap(HermeticInstallerTestCase):
                 # 2. Install cli role
                 cli_prefix = self.work_dir / "cli prefix"
                 proc_c = subprocess.run(
-                    [str(installer), "--skip-signature", "--components", "cli", "--prefix", str(cli_prefix), "--no-start", "--no-path", "--json"],
+                    [str(installer), "--components", "cli", "--prefix", str(cli_prefix), "--no-start", "--no-path", "--json"],
                     capture_output=True,
                     text=True,
                     env=env,

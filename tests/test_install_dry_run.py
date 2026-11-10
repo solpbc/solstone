@@ -49,12 +49,13 @@ class TestInstallDryRun(HermeticInstallerTestCase):
                     platform_pub_path=pub,
                     platform_key_id=pin.key_id,
                     origin=server.origin,
+                    native_test_pins=server.native_pins,
                 )
 
                 before_snapshot = self.snapshot_dir(self.prefix)
 
                 proc = subprocess.run(
-                    [str(installer), "--skip-signature", "--dry-run", "--components", "all", "--prefix", str(self.prefix), "--json"],
+                    [str(installer), "--dry-run", "--components", "all", "--prefix", str(self.prefix), "--json"],
                     capture_output=True,
                     text=True,
                 )
@@ -82,6 +83,7 @@ class TestInstallDryRun(HermeticInstallerTestCase):
                     platform_pub_path=pub,
                     platform_key_id=pin.key_id,
                     origin=server.origin,
+                    native_test_pins=server.native_pins,
                 )
 
                 before_snapshot = self.snapshot_dir(self.prefix)
@@ -90,7 +92,7 @@ class TestInstallDryRun(HermeticInstallerTestCase):
                 proc = subprocess.run(
                     [
                         str(installer),
-                        "--skip-signature",
+
                         "--confirm-package-command",
                         "--dry-run",
                         "--route",

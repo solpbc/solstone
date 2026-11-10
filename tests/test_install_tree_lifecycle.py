@@ -77,6 +77,7 @@ class TestInstallTreeLifecycle(HermeticInstallerTestCase):
             platform_pub_path=pub,
             platform_key_id=pin.key_id,
             origin=server.origin,
+            native_test_pins=server.native_pins,
         )
         return server, installer
 
@@ -92,6 +93,7 @@ class TestInstallTreeLifecycle(HermeticInstallerTestCase):
             platform_pub_path=pub,
             platform_key_id=pin.key_id,
             origin=destination_server.origin,
+            native_test_pins=destination_server.native_pins,
         )
         return installer
 
@@ -106,7 +108,6 @@ class TestInstallTreeLifecycle(HermeticInstallerTestCase):
     ):
         args = [
             str(installer),
-            "--skip-signature",
             "--components",
             components,
             "--prefix",
@@ -463,6 +464,34 @@ class TestInstallTreeLifecycle(HermeticInstallerTestCase):
                 server.stop()
                 platform_only_server.stop()
 
+    def test_same_version_reverifies_skipped_desktop(self):
+        with ephemeral_keypair("recover skipped desktop") as (sec, pub, pin):
+            server, installer = self.build_release("skipped-desktop", sec, pub, pin, "2.0.0", "2.0.3")
+            self.addCleanup(server.stop)
+            installed = self.run_install(installer, "desktop")
+            self.assertEqual(installed.returncode, 0, installed.stdout + installed.stderr)
+
+            skipped = self.receipt.read_bytes().replace(
+                b"verification=minisign", b"verification=digest-matched; signatures skipped"
+            )
+            self.receipt.write_bytes(skipped)
+            current = self.prefix / "opt/solstone/desktop/current"
+            target = current.readlink()
+            extra = current / "unverified-file"
+            extra.write_bytes(b"unexpected content")
+
+            refused = self.run_install(installer, "desktop")
+            self.assertEqual(json.loads(refused.stdout)["root_code"], "digest-mismatch")
+            self.assertEqual(self.receipt.read_bytes(), skipped)
+            self.assertEqual(current.readlink(), target)
+            self.assertTrue(extra.exists())
+
+            extra.unlink()
+            recovered = self.run_install(installer, "desktop")
+            self.assertEqual(recovered.returncode, 0, recovered.stdout + recovered.stderr)
+            self.assertEqual(current.readlink(), target)
+            self.assertIn(b"verification=minisign", receipt_section(self.receipt.read_bytes(), "component:desktop"))
+
     def test_wrong_runtime_version_never_reports_unchanged(self):
         with ephemeral_keypair("tree lifecycle runtime version") as (sec, pub, pin):
             server, installer = self.build_release(
@@ -528,7 +557,7 @@ class TestInstallTreeLifecycle(HermeticInstallerTestCase):
                 failing_env = self.env.copy()
                 failing_env["SOLSTONE_HANDLER_ROOT"] = str(handler_root)
                 mixed_failed = subprocess.run(
-                    [str(mixed_installer), "--skip-signature", "--components", "desktop,tmux", "--prefix", str(self.prefix), "--no-start", "--json"],
+                    [str(mixed_installer), "--components", "desktop,tmux", "--prefix", str(self.prefix), "--no-start", "--json"],
                     capture_output=True,
                     text=True,
                     env=failing_env,
@@ -598,7 +627,7 @@ class TestInstallTreeLifecycle(HermeticInstallerTestCase):
                 handler_env = self.env.copy()
                 handler_env["SOLSTONE_HANDLER_ROOT"] = str(self.work_dir / "failing-handlers")
                 handler_failed = subprocess.run(
-                    [str(new_installer), "--skip-signature", "--components", "desktop", "--prefix", str(self.prefix), "--no-start", "--json"],
+                    [str(new_installer), "--components", "desktop", "--prefix", str(self.prefix), "--no-start", "--json"],
                     capture_output=True,
                     text=True,
                     env=handler_env,
@@ -612,7 +641,7 @@ class TestInstallTreeLifecycle(HermeticInstallerTestCase):
                 fail_env = self.env.copy()
                 fail_env["SOLSTONE_TEST_FAIL_BEFORE_CURRENT"] = "1"
                 failed = subprocess.run(
-                    [str(new_installer), "--skip-signature", "--components", "desktop", "--prefix", str(self.prefix), "--no-start", "--json"],
+                    [str(new_installer), "--components", "desktop", "--prefix", str(self.prefix), "--no-start", "--json"],
                     capture_output=True,
                     text=True,
                     env=fail_env,
@@ -638,7 +667,7 @@ class TestInstallTreeLifecycle(HermeticInstallerTestCase):
                 rename_env = self.env.copy()
                 rename_env["PATH"] = f"{fake_bin}:{rename_env['PATH']}"
                 rename_failed = subprocess.run(
-                    [str(new_installer), "--skip-signature", "--components", "desktop", "--prefix", str(self.prefix), "--no-start", "--json"],
+                    [str(new_installer), "--components", "desktop", "--prefix", str(self.prefix), "--no-start", "--json"],
                     capture_output=True,
                     text=True,
                     env=rename_env,
@@ -656,7 +685,7 @@ class TestInstallTreeLifecycle(HermeticInstallerTestCase):
                     encoding="utf-8",
                 )
                 receipt_publish_failed = subprocess.run(
-                    [str(new_installer), "--skip-signature", "--components", "desktop", "--prefix", str(self.prefix), "--no-start", "--json"],
+                    [str(new_installer), "--components", "desktop", "--prefix", str(self.prefix), "--no-start", "--json"],
                     capture_output=True,
                     text=True,
                     env=rename_env,
@@ -741,7 +770,7 @@ class TestInstallTreeLifecycle(HermeticInstallerTestCase):
             try:
                 command = (
                     f"{{ cat {shlex.quote(str(installer))}; printf '\\n# trailing-pipe-marker\\n'; }} | "
-                    f"/bin/sh -s -- --skip-signature "
+                    f"/bin/sh -s -- "
                     f"--prefix {shlex.quote(str(self.prefix))} --no-start"
                 )
                 code, tty_bytes, stdout, stderr = self.run_pty_command(command, self.env, b"3\n")
@@ -752,7 +781,7 @@ class TestInstallTreeLifecycle(HermeticInstallerTestCase):
 
                 json_prefix = self.work_dir / "json-prefix"
                 json_command = (
-                    f"{shlex.quote(str(installer))} --skip-signature --no-start "
+                    f"{shlex.quote(str(installer))} --no-start "
                     f"--prefix {shlex.quote(str(json_prefix))} --json"
                 )
                 code, tty_bytes, stdout, stderr = self.run_pty_command(json_command, self.env)
@@ -765,7 +794,7 @@ class TestInstallTreeLifecycle(HermeticInstallerTestCase):
                 self.assertFalse(json_prefix.exists())
 
                 no_tty = subprocess.run(
-                    [str(installer), "--skip-signature", "--no-start", "--prefix", str(self.work_dir / "no-tty"), "--json"],
+                    [str(installer), "--no-start", "--prefix", str(self.work_dir / "no-tty"), "--json"],
                     stdin=subprocess.DEVNULL,
                     capture_output=True,
                     text=True,
@@ -777,7 +806,7 @@ class TestInstallTreeLifecycle(HermeticInstallerTestCase):
                 self.assertFalse((self.work_dir / "no-tty").exists())
 
                 noninteractive = subprocess.run(
-                    [str(installer), "--skip-signature", "--non-interactive", "--components", "desktop", "--prefix", str(self.work_dir / "noninteractive"), "--no-start", "--json"],
+                    [str(installer), "--non-interactive", "--components", "desktop", "--prefix", str(self.work_dir / "noninteractive"), "--no-start", "--json"],
                     capture_output=True,
                     text=True,
                     env={**self.env, "XDG_DATA_HOME": str(self.work_dir / "noninteractive-data")},

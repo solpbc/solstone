@@ -86,12 +86,13 @@ class TestInstallPackageLifecycle(HermeticInstallerTestCase):
             platform_pub_path=pub,
             platform_key_id=pin.key_id,
             origin=server.origin,
+            native_test_pins=server.native_pins,
         )
         return server, installer
 
     def run_install(self, installer: Path, components: str, *, no_start: bool = False):
         args = [
-            str(installer), "--skip-signature", "--route", "deb", "--components", components,
+            str(installer), "--route", "deb", "--components", components,
             "--prefix", str(self.prefix), "--json",
         ]
         if no_start:
@@ -126,7 +127,7 @@ class TestInstallPackageLifecycle(HermeticInstallerTestCase):
                 opened = self.work_dir / "opened"
                 write_path_stub(self.bin_dir, "xdg-open", 'printf "%s\\n" "$@" >> "$OPENED"\n')
                 result = subprocess.run(
-                    [str(installer), "--skip-signature", "--route", "deb", "--components", "journal", "--prefix", str(self.prefix)],
+                    [str(installer), "--route", "deb", "--components", "journal", "--prefix", str(self.prefix)],
                     capture_output=True, text=True,
                     env={**self.env, "DISPLAY": ":1", "WAYLAND_DISPLAY": "", "OPENED": str(opened)},
                 )
@@ -143,7 +144,7 @@ class TestInstallPackageLifecycle(HermeticInstallerTestCase):
             server, installer = self.build_release(sec, pub, pin)
             try:
                 result = subprocess.run(
-                    [str(installer), "--skip-signature", "--route", "deb", "--components", "journal", "--prefix", str(self.prefix)],
+                    [str(installer), "--route", "deb", "--components", "journal", "--prefix", str(self.prefix)],
                     capture_output=True, text=True,
                     env={**self.env, "DISPLAY": "", "WAYLAND_DISPLAY": ""},
                 )
@@ -218,7 +219,7 @@ class TestInstallPackageLifecycle(HermeticInstallerTestCase):
                 deferred = self.run_install(installer, "tmux", no_start=True)
                 self.assertEqual(deferred.returncode, 0, deferred.stderr + deferred.stdout)
                 self.assertEqual(len(self.app_log.read_text().splitlines()), 2)
-                removed = subprocess.run([str(installer), "--components", "tmux", "--uninstall", "--skip-signature", "--json"], env=self.env, capture_output=True, text=True)
+                removed = subprocess.run([str(installer), "--components", "tmux", "--uninstall", "--json"], env=self.env, capture_output=True, text=True)
                 self.assertEqual(removed.returncode, 0, removed.stderr + removed.stdout)
                 self.assertTrue(self.app_log.read_text().splitlines()[-1].endswith("uninstall-service"))
             finally:
@@ -234,7 +235,7 @@ class TestInstallPackageLifecycle(HermeticInstallerTestCase):
                 before = snapshot_paths(self.fake_db, self.etc_root, self.fake_root, self.setup_log, self.lock_dir)
                 forbidden = write_path_stub(self.bin_dir, "forbidden-helper", "exit 97\n")
                 preview = subprocess.run(
-                    [str(installer), "--skip-signature", "--components", "journal", "--route", "deb", "--uninstall", "--dry-run", "--json"],
+                    [str(installer), "--components", "journal", "--route", "deb", "--uninstall", "--dry-run", "--json"],
                     capture_output=True, text=True, env={**self.env, "SOLSTONE_HELPER": str(forbidden)}, timeout=30,
                 )
                 self.assertEqual(preview.returncode, 0, preview.stderr + preview.stdout)
@@ -574,7 +575,7 @@ class TestInstallPackageLifecycle(HermeticInstallerTestCase):
                 tmux_section = receipt_section(self.receipt.read_bytes(), "component:tmux")
 
                 upgrade = subprocess.run(
-                    [str(installer), "--skip-signature", "--upgrade", "--prefix", str(self.prefix), "--no-start", "--json"],
+                    [str(installer), "--upgrade", "--prefix", str(self.prefix), "--no-start", "--json"],
                     capture_output=True,
                     text=True,
                     env=self.env,
@@ -589,7 +590,7 @@ class TestInstallPackageLifecycle(HermeticInstallerTestCase):
                 owner_data.parent.mkdir(parents=True)
                 owner_data.write_bytes(b"owner-data-sentinel")
                 uninstall_args = [
-                    str(installer), "--skip-signature", "--uninstall", "--components", "desktop", "--prefix", str(self.prefix), "--json",
+                    str(installer), "--uninstall", "--components", "desktop", "--prefix", str(self.prefix), "--json",
                 ]
                 removed = subprocess.run(uninstall_args, capture_output=True, text=True, env=self.env)
                 self.assertEqual(removed.returncode, 0, removed.stderr + removed.stdout)
@@ -631,14 +632,14 @@ class TestInstallPackageLifecycle(HermeticInstallerTestCase):
                 data_home = self.work_dir / "mixed-data"
                 env = {**self.env, "XDG_DATA_HOME": str(data_home)}
                 tree = subprocess.run(
-                    [str(installer), "--skip-signature", "--route", "tree", "--components", "desktop", "--prefix", str(prefix), "--no-start", "--json"],
+                    [str(installer), "--route", "tree", "--components", "desktop", "--prefix", str(prefix), "--no-start", "--json"],
                     capture_output=True,
                     text=True,
                     env=env,
                 )
                 self.assertEqual(tree.returncode, 0, tree.stderr + tree.stdout)
                 package = subprocess.run(
-                    [str(installer), "--skip-signature", "--route", "deb", "--components", "tmux", "--prefix", str(prefix), "--no-start", "--json"],
+                    [str(installer), "--route", "deb", "--components", "tmux", "--prefix", str(prefix), "--no-start", "--json"],
                     capture_output=True,
                     text=True,
                     env=env,
@@ -647,7 +648,7 @@ class TestInstallPackageLifecycle(HermeticInstallerTestCase):
 
                 server.request_paths.clear()
                 mixed = subprocess.run(
-                    [str(installer), "--skip-signature", "--upgrade", "--prefix", str(prefix), "--no-start", "--json"],
+                    [str(installer), "--upgrade", "--prefix", str(prefix), "--no-start", "--json"],
                     capture_output=True,
                     text=True,
                     env=env,
@@ -814,7 +815,7 @@ class TestInstallPackageLifecycle(HermeticInstallerTestCase):
                 deb_proc = subprocess.run(
                     [
                         str(installer),
-                        "--skip-signature",
+
                         "--route", "deb",
                         "--components", "desktop",
                         "--no-start",
@@ -856,7 +857,7 @@ class TestInstallPackageLifecycle(HermeticInstallerTestCase):
                 rpm_proc = subprocess.run(
                     [
                         str(installer),
-                        "--skip-signature",
+
                         "--route", "rpm",
                         "--components", "desktop",
                         "--no-start",
@@ -899,7 +900,7 @@ class TestInstallPackageLifecycle(HermeticInstallerTestCase):
                 code, tty_bytes, stdout, stderr = self.run_pty_command(
                     [
                         str(installer),
-                        "--skip-signature",
+
                         "--route", "deb",
                         "--components", "desktop",
                         "--no-start",
@@ -937,7 +938,7 @@ class TestInstallPackageLifecycle(HermeticInstallerTestCase):
                 code, tty_bytes, stdout, stderr = self.run_pty_command(
                     [
                         str(installer),
-                        "--skip-signature",
+
                         "--route", "deb",
                         "--components", "desktop",
                         "--no-start",
@@ -976,7 +977,7 @@ class TestInstallPackageLifecycle(HermeticInstallerTestCase):
                     [
                         "setsid",
                         str(installer),
-                        "--skip-signature",
+
                         "--route", "deb",
                         "--components", "desktop",
                         "--no-start",
@@ -1000,7 +1001,7 @@ class TestInstallPackageLifecycle(HermeticInstallerTestCase):
                 code, tty_bytes, stdout, stderr = self.run_pty_command(
                     [
                         str(installer),
-                        "--skip-signature",
+
                         "--route", "deb",
                         "--components", "desktop",
                         "--no-start",
@@ -1034,7 +1035,7 @@ class TestInstallPackageLifecycle(HermeticInstallerTestCase):
                 code, tty_bytes, stdout, stderr = self.run_pty_command(
                     [
                         str(installer),
-                        "--skip-signature",
+
                         "--non-interactive",
                         "--route", "deb",
                         "--components", "desktop",
@@ -1070,7 +1071,7 @@ class TestInstallPackageLifecycle(HermeticInstallerTestCase):
                     [
                         "setsid",
                         str(installer),
-                        "--skip-signature",
+
                         "--route", "deb",
                         "--components", "desktop",
                         "--no-start",
@@ -1107,7 +1108,7 @@ class TestInstallPackageLifecycle(HermeticInstallerTestCase):
                 proc = subprocess.run(
                     [
                         str(installer),
-                        "--skip-signature",
+
                         "--route", "deb",
                         "--components", "desktop",
                         "--no-start",
@@ -1163,7 +1164,7 @@ class TestInstallPackageLifecycle(HermeticInstallerTestCase):
                 proc = subprocess.run(
                     [
                         str(installer),
-                        "--skip-signature",
+
                         "--route", "deb",
                         "--components", "desktop",
                         "--no-start",
@@ -1203,7 +1204,7 @@ class TestInstallPackageLifecycle(HermeticInstallerTestCase):
                 proc = subprocess.run(
                     [
                         str(installer),
-                        "--skip-signature",
+
                         "--route", "deb",
                         "--components", "desktop",
                         "--no-start",
@@ -1230,7 +1231,7 @@ class TestInstallPackageLifecycle(HermeticInstallerTestCase):
                 code, tty_bytes, stdout, stderr = self.run_pty_command(
                     [
                         str(installer),
-                        "--skip-signature",
+
                         "--route", "deb",
                         "--components", "desktop",
                         "--no-start",
@@ -1264,7 +1265,7 @@ class TestInstallPackageLifecycle(HermeticInstallerTestCase):
                 code, tty_bytes, stdout, stderr = self.run_pty_command(
                     [
                         str(installer),
-                        "--skip-signature",
+
                         "--route", "deb",
                         "--components", "desktop,tmux",
                         "--no-start",

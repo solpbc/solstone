@@ -141,10 +141,10 @@ class TestBundleWithoutTmux(HermeticInstallerTestCase):
                 installer = self.work_dir / "install.sh"
                 build_installer(
                     repo_root=REPO_ROOT, output_path=installer, platform_pub_path=pub,
-                    platform_key_id=pin.key_id, origin=server.origin,
+                    platform_key_id=pin.key_id, origin=server.origin, native_test_pins=server.native_pins,
                 )
                 proc = subprocess.run(
-                    [str(installer), "--skip-signature", "--dry-run", "--components", "all", "--prefix", str(self.prefix), "--json", *extra],
+                    [str(installer), "--dry-run", "--components", "all", "--prefix", str(self.prefix), "--json", *extra],
                     capture_output=True, text=True,
                     env={**os.environ, "SOLSTONE_TEST_TMUX_PRESENT": tmux_present},
                 )

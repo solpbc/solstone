@@ -309,6 +309,7 @@ class TestInstallHelper(HermeticInstallerTestCase):
                     platform_pub_path=pub,
                     platform_key_id=pin.key_id,
                     origin=server.origin,
+                    native_test_pins=server.native_pins,
                 )
 
                 env = os.environ.copy()
@@ -326,7 +327,7 @@ class TestInstallHelper(HermeticInstallerTestCase):
 
                 # 1. First installation via --route package
                 proc = subprocess.run(
-                    [str(installer), "--skip-signature", "--route", "package", "--components", "journal", "--json"],
+                    [str(installer), "--route", "package", "--components", "journal", "--json"],
                     capture_output=True,
                     text=True,
                     env=env,
@@ -350,7 +351,7 @@ class TestInstallHelper(HermeticInstallerTestCase):
 
                 # Rerun installer --route package --components journal
                 proc2 = subprocess.run(
-                    [str(installer), "--skip-signature", "--route", "package", "--components", "journal", "--json"],
+                    [str(installer), "--route", "package", "--components", "journal", "--json"],
                     capture_output=True,
                     text=True,
                     env=env,
@@ -378,7 +379,7 @@ class TestInstallHelper(HermeticInstallerTestCase):
                 installs_before = log_file.read_bytes()
                 server.request_paths.clear()
                 proc3 = subprocess.run(
-                    [str(installer), "--skip-signature", "--route", "package", "--components", "journal", "--json"],
+                    [str(installer), "--route", "package", "--components", "journal", "--json"],
                     capture_output=True,
                     text=True,
                     env=env,
@@ -395,7 +396,7 @@ class TestInstallHelper(HermeticInstallerTestCase):
                 # Sibling with --confirm-package-command
                 server.request_paths.clear()
                 proc4 = subprocess.run(
-                    [str(installer), "--skip-signature", "--confirm-package-command", "--route", "package", "--components", "journal", "--json"],
+                    [str(installer), "--confirm-package-command", "--route", "package", "--components", "journal", "--json"],
                     capture_output=True,
                     text=True,
                     env=env,
