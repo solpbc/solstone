@@ -267,7 +267,8 @@ class TestInstallPrerequisites(HermeticInstallerTestCase):
             path=path, extra_env={"SOLSTONE_TEST_REAL_PKG_PROBE": "1"},
         )
         self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
-        self.assertEqual(json.loads(proc.stdout)["root_code"], "ownership-unknown")
+        # The package is seen: taking it over first compares its version, which needs dpkg.
+        self.assertIn(json.loads(proc.stdout)["root_code"], ("query-unavailable", "ownership-unknown"))
 
     def test_explicit_package_route_without_package_tools_refuses_before_download(self):
         path = restricted_path(self.case_dir / "bin", drop_prefixes=PACKAGE_TOOL_PREFIXES)

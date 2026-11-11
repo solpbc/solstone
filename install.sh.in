@@ -50,6 +50,22 @@ OPT_UNINSTALL=0
 OPT_NOTICES_JSON="[]"
 OPT_PREFIX_EXPLICIT=0
 OPT_ORIGIN_EXPLICIT=0
+OPT_LANE_EXPLICIT=0
+# The journal's own installer, run by itself, installs into this prefix with
+# only its own receipt. This installer takes such a journal over where it is
+# and records that prefix for it; every other component keeps OPT_PREFIX.
+STANDALONE_PREFIX="${HOME}/.local/solstone-journal"
+JOURNAL_PREFIX=""
+STANDALONE_MOVE=0
+STANDALONE_ROLE=""
+STANDALONE_VERSION=""
+STANDALONE_NO_START=0
+STANDALONE_NO_PATH=0
+MOVE_RECEIPT_ACTIVE=0
+MOVE_RECEIPT_SNAPSHOT=""
+# Packages installed by hand that this run authenticates and records.
+ADOPT_PACKAGE_COMPONENTS=""
+ADOPT_PACKAGE_REPLACE=""
 # The consented move of a recorded tmux app into the desktop app. The move's
 # desktop step and tmux removal carry their own route, prefix and service
 # policy; the invocation's options stay with every other component.
@@ -111,6 +127,16 @@ log_info() {
     fi
 }
 
+# Notices print as they happen and are returned in the JSON result.
+add_notice() {
+    log_info "$1"
+    an_json=$(json_string "$1")
+    case "$OPT_NOTICES_JSON" in
+        "[]") OPT_NOTICES_JSON="[$an_json]" ;;
+        *) OPT_NOTICES_JSON="${OPT_NOTICES_JSON%]},$an_json]" ;;
+    esac
+}
+
 cleanup_scratch() {
     if [ -n "$SCRATCH_DIR" ] && [ -d "$SCRATCH_DIR" ]; then
         rm -rf "$SCRATCH_DIR" 2>/dev/null || true
@@ -149,7 +175,7 @@ native_recovery() {
     printf 'curl -fsSL %s -o journal-install.sh && ' "$(shell_quote "$nr_url")"
     printf "printf '%%s  %%s\\\\n' %s journal-install.sh | sha256sum -c - && " "$(shell_quote "$nr_sha")"
     printf 'sh journal-install.sh'
-    set -- --prefix "$OPT_PREFIX" --role "$nr_role" --version "$nr_version" --origin "$OPT_ORIGIN" --lane "$OPT_LANE" --upgrade
+    set -- --prefix "${JOURNAL_PREFIX:-$OPT_PREFIX}" --role "$nr_role" --version "$nr_version" --origin "$OPT_ORIGIN" --lane "$OPT_LANE" --upgrade
     [ "$OPT_NO_START" -eq 0 ] || set -- "$@" --no-start
     [ "$OPT_NO_PATH" -eq 0 ] || set -- "$@" --no-path
     for nr_arg do printf ' %s' "$(shell_quote "$nr_arg")"; done
@@ -256,7 +282,8 @@ interrupted_message() {
 # own installer and setup are told to leave it out. An update or --no-start
 # install gets setup's own line instead.
 installer_owns_journal_handoff() {
-    [ "$OPT_UPGRADE" -eq 0 ] && [ "$OPT_NO_START" -eq 0 ]
+    [ "$OPT_UPGRADE" -eq 0 ] && [ "$OPT_NO_START" -eq 0 ] && [ "$STANDALONE_MOVE" -eq 0 ] \
+        && [ -z "$ADOPT_PACKAGE_COMPONENTS" ]
 }
 
 # Journals from 2.0.68 on open themselves with a one-time link from
@@ -273,7 +300,7 @@ journal_opens_with_link() {
 finish_journal_install() {
     [ "$HOST_OS" = linux ] && [ "${JOURNAL_REVERIFIED:-0}" -eq 0 ] && installer_owns_journal_handoff || return 0
     case " ${REPORT_COMPONENTS:-$SELECTED_COMPONENTS} " in *" journal "*) ;; *) return 0 ;; esac
-    fj_bin="${OPT_PREFIX}/current/bin"
+    fj_bin="${JOURNAL_PREFIX:-$OPT_PREFIX}/current/bin"
     fj_cmd="solstone journal"
     case " $PACKAGE_SELECTED_COMPONENTS " in
         *" journal "*)
@@ -382,6 +409,31 @@ report_exit() {
     # A failure inside the move's desktop step reports with the invocation's
     # own options, after the rollback above has used the desktop's.
     [ "$MOVE_DESKTOP_STEP" -eq 0 ] || move_restore_options
+    # A takeover that did not finish leaves the journal with its own installer,
+    # exactly as it was recorded before this run.
+    if [ "$status" != success ] && [ "$MOVE_RECEIPT_ACTIVE" -eq 1 ]; then
+        MOVE_RECEIPT_ACTIVE=0
+        mr_receipt=$(tree_receipt_path)
+        if [ -n "$MOVE_RECEIPT_SNAPSHOT" ]; then
+            mr_restored=0
+            cp -p "$MOVE_RECEIPT_SNAPSHOT" "${mr_receipt}.restore.$$" 2>/dev/null \
+                && mv -Tf "${mr_receipt}.restore.$$" "$mr_receipt" 2>/dev/null && mr_restored=1
+        else
+            mr_restored=0
+            rm -f "$mr_receipt" 2>/dev/null && mr_restored=1
+        fi
+        if [ "$mr_restored" -eq 0 ]; then
+            code=rollback-failed
+            message="$message; this installer could not put back its install receipt at $mr_receipt"
+        elif [ "$NATIVE_COMMITTED" -eq 1 ]; then
+            message="$message. Your journal was updated where it is, in ${JOURNAL_PREFIX:-$OPT_PREFIX}, but this installer did not take it over. Once the problem above is fixed, run the same install.sh command again."
+        else
+            mr_lead="Once the problem above is fixed, run"
+            [ "$code" != interrupted ] || mr_lead="Run"
+            message="$message. This installer did not take over your journal, and it works as it did before, in ${JOURNAL_PREFIX:-$OPT_PREFIX}. $mr_lead the same install.sh command to try again."
+        fi
+        NATIVE_ATTEMPTED=0
+    fi
     if [ "$status" != success ] && [ "$NATIVE_ATTEMPTED" -eq 1 ]; then
         # The journal is recorded as pending before the bootstrap runs, so the
         # same command resumes it. An interrupt has no problem to fix first.
@@ -2858,8 +2910,9 @@ journal_models_unfinished_message() {
 
 # The nested journal installer's own tree: a current pointer or its receipt.
 journal_tree_shape_present() {
-    [ -e "${OPT_PREFIX}/current" ] || [ -L "${OPT_PREFIX}/current" ] \
-        || [ -e "${OPT_PREFIX}/install-receipt" ] || [ -L "${OPT_PREFIX}/install-receipt" ]
+    jtsp_prefix="${JOURNAL_PREFIX:-$OPT_PREFIX}"
+    [ -e "${jtsp_prefix}/current" ] || [ -L "${jtsp_prefix}/current" ] \
+        || [ -e "${jtsp_prefix}/install-receipt" ] || [ -L "${jtsp_prefix}/install-receipt" ]
 }
 
 package_complete_after_payload() {
@@ -2907,10 +2960,10 @@ preflight_journal_downgrade() {
     [ "$pjd_version" != "$TREE_JOURNAL_VERSION" ] || return 0
     pjd_first=$(printf '%s\n%s\n' "$pjd_version" "$TREE_JOURNAL_VERSION" | sort -V | head -n 1)
     [ "$pjd_first" = "$pjd_version" ] || return 0
-    pjd_release="${OPT_PREFIX}/current/.release"
+    pjd_release="${JOURNAL_PREFIX:-$OPT_PREFIX}/current/.release"
     pjd_min=$(plain_receipt_value "$pjd_release" state_reader_min 2>/dev/null || true)
     pjd_max=$(plain_receipt_value "$pjd_release" state_reader_max 2>/dev/null || true)
-    pjd_state=$(plain_receipt_value "${OPT_PREFIX}/install-receipt" journal_state 2>/dev/null || true)
+    pjd_state=$(plain_receipt_value "${JOURNAL_PREFIX:-$OPT_PREFIX}/install-receipt" journal_state 2>/dev/null || true)
     if [ "$pjd_state" != present ] || ! is_canonical_version "$pjd_min" || ! is_canonical_version "$pjd_max" \
         || [ "$(printf '%s\n%s\n' "$pjd_version" "$pjd_min" | sort -V | head -n 1)" != "$pjd_min" ] \
         || [ "$(printf '%s\n%s\n' "$pjd_version" "$pjd_max" | sort -V | tail -n 1)" != "$pjd_max" ]; then
@@ -2928,13 +2981,13 @@ preflight_journal_downgrade() {
         report_exit refusal retention-policy-unsupported "$pjd_recovery"
     fi
     pjd_sha=$(cat "${manifest_dir}/components/journal/arches/${HOST_ARCH}/tree/sha256")
-    pjd_dest="${OPT_PREFIX}/versions/${pjd_version}-$(printf '%s' "$pjd_sha" | cut -c1-12)"
+    pjd_dest="${JOURNAL_PREFIX:-$OPT_PREFIX}/versions/${pjd_version}-$(printf '%s' "$pjd_sha" | cut -c1-12)"
     if [ ! -d "$pjd_dest" ] || [ -L "$pjd_dest" ]; then
         report_exit refusal downgrade-window "$pjd_recovery"
     fi
     # Match the native bootstrap's three-directory window, counting current
     # first even when an interrupted install left a newer directory behind.
-    pjd_current=$(readlink "${OPT_PREFIX}/current")
+    pjd_current=$(readlink "${JOURNAL_PREFIX:-$OPT_PREFIX}/current")
     pjd_kept=1
     pjd_found=0
     pjd_ifs=$IFS
@@ -2942,8 +2995,8 @@ preflight_journal_downgrade() {
 '
     # Prefix control characters are refused; owned names are version/digest.
     # shellcheck disable=SC2045
-    for pjd_entry in $(ls -1dt -- "${OPT_PREFIX}"/versions/* 2>/dev/null); do
-        [ "$pjd_entry" != "${OPT_PREFIX}/${pjd_current}" ] || continue
+    for pjd_entry in $(ls -1dt -- "${JOURNAL_PREFIX:-$OPT_PREFIX}"/versions/* 2>/dev/null); do
+        [ "$pjd_entry" != "${JOURNAL_PREFIX:-$OPT_PREFIX}/${pjd_current}" ] || continue
         pjd_kept=$((pjd_kept + 1))
         if [ "$pjd_entry" = "$pjd_dest" ] && [ "$pjd_kept" -le "$pjd_window" ]; then
             pjd_found=1
@@ -3254,13 +3307,28 @@ tree_receipt_path() {
     fi
 }
 
+# The 1.0 line's journal command: a Python console script, or the wrapper its
+# setup wrote (managed-version 7 and earlier; a 2.x setup writes 8 or later).
+# Setup recognizes it exactly and replaces it, so it is not a journal this
+# installer would be installing over.
+legacy_v1_launcher() {
+    lvl_path="$1"
+    [ -f "$lvl_path" ] && [ -r "$lvl_path" ] || return 1
+    lvl_first=$(head -n 1 "$lvl_path" 2>/dev/null) || return 1
+    case "$lvl_first" in
+        '#!/'*python*) return 0 ;;
+    esac
+    grep -Eq '^# managed-version: [1-7]$' "$lvl_path" 2>/dev/null
+}
+
 tree_state_present() {
     tsp_component="$1"
     case "$tsp_component" in
         journal|cli)
-            [ -e "${OPT_PREFIX}/current" ] || [ -L "${OPT_PREFIX}/current" ] \
-                || [ -e "${OPT_PREFIX}/install-receipt" ] || [ -L "${OPT_PREFIX}/install-receipt" ] \
-                || [ -e "${OPT_PREFIX}/bin/journal" ] || [ -L "${OPT_PREFIX}/bin/journal" ]
+            [ -e "${JOURNAL_PREFIX:-$OPT_PREFIX}/current" ] || [ -L "${JOURNAL_PREFIX:-$OPT_PREFIX}/current" ] \
+                || [ -e "${JOURNAL_PREFIX:-$OPT_PREFIX}/install-receipt" ] || [ -L "${JOURNAL_PREFIX:-$OPT_PREFIX}/install-receipt" ] \
+                || { { [ -e "${OPT_PREFIX}/bin/journal" ] || [ -L "${OPT_PREFIX}/bin/journal" ]; } \
+                    && ! legacy_v1_launcher "${OPT_PREFIX}/bin/journal"; }
             ;;
         desktop|tmux)
             tsp_name=$(cat "${manifest_dir}/components/${tsp_component}/arches/${HOST_ARCH}/tree/executable/name" 2>/dev/null || true)
@@ -3279,6 +3347,13 @@ tree_component_authority() {
     TREE_STATE_PRESENT=0
     TREE_JOURNAL_VERSION=""
     tree_state_present "$tca_component" && TREE_STATE_PRESENT=1
+    # A journal from its own installer that this run identified and takes over.
+    if [ "$STANDALONE_MOVE" -eq 1 ] && [ "$tca_component" = "$STANDALONE_ROLE" ]; then
+        TREE_CLAIM=1
+        TREE_STATE_PRESENT=1
+        TREE_JOURNAL_VERSION="$STANDALONE_VERSION"
+        return 0
+    fi
     tca_receipt=$(tree_receipt_path)
     if [ ! -e "$tca_receipt" ] && [ ! -L "$tca_receipt" ]; then
         return 0
@@ -3312,8 +3387,10 @@ tree_component_authority() {
             ;;
         *) tca_status=invalid ;;
     esac
+    tca_owned_prefix="$OPT_PREFIX"
+    case "$tca_component" in journal|cli) tca_owned_prefix="${JOURNAL_PREFIX:-$OPT_PREFIX}" ;; esac
     if [ "$tca_role" != "$tca_component" ] || [ "$tca_route" != "tree" ] \
-        || [ "$tca_prefix" != "$OPT_PREFIX" ] || [ "$tca_arch" != "$HOST_ARCH" ] \
+        || [ "$tca_prefix" != "$tca_owned_prefix" ] || [ "$tca_arch" != "$HOST_ARCH" ] \
         || [ "$tca_status" = invalid ] || [ -z "$tca_version" ]; then
         report_exit "refusal" "ownership-unknown" "Tree receipt for $tca_component does not match installed state"
     fi
@@ -3323,13 +3400,13 @@ tree_component_authority() {
             # A pending transaction may have stopped anywhere; the journal
             # bootstrap resumes or restarts its own partial tree.
             [ "$tca_status" != pending ] || tca_required=0
-            tca_native="${OPT_PREFIX}/install-receipt"
-            tca_current="${OPT_PREFIX}/current"
+            tca_native="${JOURNAL_PREFIX:-$OPT_PREFIX}/install-receipt"
+            tca_current="${JOURNAL_PREFIX:-$OPT_PREFIX}/current"
             # The selected payload's command entry: solstone, or the journal
             # launcher in a payload from before the namespace that lacks it.
-            tca_public="${OPT_PREFIX}/current/bin/solstone"
+            tca_public="${JOURNAL_PREFIX:-$OPT_PREFIX}/current/bin/solstone"
             if [ ! -e "$tca_public" ] && [ ! -L "$tca_public" ]; then
-                tca_public="${OPT_PREFIX}/current/bin/journal"
+                tca_public="${JOURNAL_PREFIX:-$OPT_PREFIX}/current/bin/journal"
             fi
             tca_native_version=""
             tca_entry=""
@@ -3356,11 +3433,11 @@ tree_component_authority() {
                 case "$tca_link" in versions/*) ;; *) report_exit "refusal" "ownership-unknown" "journal current pointer leaves its owned tree" ;; esac
                 tca_entry=${tca_link#versions/}
                 case "$tca_entry" in ''|.|..|*/*) report_exit refusal ownership-unknown "journal current pointer leaves its owned tree" ;; esac
-                if [ -L "${OPT_PREFIX}/versions" ] || [ -L "${OPT_PREFIX}/${tca_link}" ] \
-                    || [ -L "${OPT_PREFIX}/${tca_link}/bin" ] || [ -L "$tca_public" ]; then
+                if [ -L "${JOURNAL_PREFIX:-$OPT_PREFIX}/versions" ] || [ -L "${JOURNAL_PREFIX:-$OPT_PREFIX}/${tca_link}" ] \
+                    || [ -L "${JOURNAL_PREFIX:-$OPT_PREFIX}/${tca_link}/bin" ] || [ -L "$tca_public" ]; then
                     report_exit refusal ownership-unknown "journal payload contains an unsupported symbolic link"
                 fi
-                if [ ! -d "${OPT_PREFIX}/${tca_link}" ] && [ "$tca_mode" != "removal" ]; then
+                if [ ! -d "${JOURNAL_PREFIX:-$OPT_PREFIX}/${tca_link}" ] && [ "$tca_mode" != "removal" ]; then
                     report_exit "refusal" "ownership-unknown" "journal current target is missing"
                 fi
             fi
@@ -3449,6 +3526,143 @@ tree_component_authority() {
         report_exit "refusal" "ownership-unknown" "Tree state for $tca_component is incomplete"
     fi
     [ "$tca_present" -eq 0 ] && TREE_STATE_PRESENT=0 || TREE_STATE_PRESENT=1
+}
+
+# The tree receipt's own record of where the journal lives. A journal this
+# installer took over from the journal's own installer stays in that prefix.
+resolve_journal_prefix() {
+    JOURNAL_PREFIX="$OPT_PREFIX"
+    rjpx_receipt=$(tree_receipt_path)
+    [ -f "$rjpx_receipt" ] && [ ! -L "$rjpx_receipt" ] && [ -r "$rjpx_receipt" ] || return 0
+    for rjpx_role in journal cli; do
+        rjpx_prefix=$(receipt_value "$rjpx_receipt" "component:${rjpx_role}" prefix 2>/dev/null) || continue
+        if [ "$rjpx_prefix" = "$STANDALONE_PREFIX" ]; then
+            JOURNAL_PREFIX="$STANDALONE_PREFIX"
+        fi
+    done
+}
+
+tree_receipt_records_journal() {
+    trrj_receipt=$(tree_receipt_path)
+    [ -f "$trrj_receipt" ] || return 1
+    receipt_value "$trrj_receipt" component:journal role >/dev/null 2>&1 \
+        || receipt_value "$trrj_receipt" component:cli role >/dev/null 2>&1
+}
+
+standalone_receipt_present() {
+    [ -e "${STANDALONE_PREFIX}/install-receipt" ] || [ -L "${STANDALONE_PREFIX}/install-receipt" ]
+}
+
+standalone_refuse() {
+    report_exit refusal standalone-unverified "the journal in $STANDALONE_PREFIX could not be identified, so this installer did not take it over: $1. Nothing was changed. For help, see https://github.com/solpbc/solstone/blob/main/INSTALL.md"
+}
+
+# A journal installed by running the journal's own installer by itself has
+# only its own receipt in STANDALONE_PREFIX. This installer takes it over
+# where it is: the journal stays in that prefix, and this installer records
+# the prefix and updates the journal there from now on. Nothing on disk moves,
+# so the service, the managed wrapper and the PATH lines stay as they are.
+# Only a positively identified installation is taken over, and any doubt
+# refuses before anything changes.
+detect_standalone_journal() {
+    dsj_wanted="$1"
+    dsj_prefix="$STANDALONE_PREFIX"
+    dsj_receipt="${dsj_prefix}/install-receipt"
+    if [ -L "$dsj_receipt" ] || [ ! -f "$dsj_receipt" ] || [ ! -r "$dsj_receipt" ]; then
+        standalone_refuse "its install receipt is not a readable file"
+    fi
+    [ "$(wc -c < "$dsj_receipt" | tr -d '[:space:]')" -le 4096 ] || standalone_refuse "its install receipt is too large"
+    for dsj_key in schema_version journal_version lane origin route signature_verification role service_policy setup_status; do
+        plain_receipt_value "$dsj_receipt" "$dsj_key" >/dev/null 2>&1 \
+            || standalone_refuse "its install receipt has no single $dsj_key"
+    done
+    dsj_version=$(plain_receipt_value "$dsj_receipt" journal_version)
+    dsj_lane=$(plain_receipt_value "$dsj_receipt" lane)
+    dsj_role=$(plain_receipt_value "$dsj_receipt" role)
+    dsj_signature=$(plain_receipt_value "$dsj_receipt" signature_verification)
+    dsj_policy=$(plain_receipt_value "$dsj_receipt" service_policy)
+    dsj_setup=$(plain_receipt_value "$dsj_receipt" setup_status)
+    [ "$(plain_receipt_value "$dsj_receipt" schema_version)" = 1 ] || standalone_refuse "its install receipt has an unsupported schema"
+    [ "$(plain_receipt_value "$dsj_receipt" route)" = tree ] || standalone_refuse "its install receipt is not for a tree install"
+    [ "$(plain_receipt_value "$dsj_receipt" origin)" = "$OPT_ORIGIN" ] || standalone_refuse "it was not installed from $OPT_ORIGIN"
+    case "$dsj_signature" in verified|skipped) ;; *) standalone_refuse "its install receipt does not record signature verification" ;; esac
+    case "$dsj_role:$dsj_setup:$dsj_policy" in
+        journal:complete:start|journal:complete:no-start|journal:pending:start|journal:pending:no-start|journal:pending:none|cli:not-applicable:none) ;;
+        *) standalone_refuse "its install receipt records an unsupported role or setup state" ;;
+    esac
+    is_canonical_version "$dsj_version" || standalone_refuse "its install receipt records an invalid version"
+    case "$dsj_lane" in
+        release|staging|dev) ;;
+        *) standalone_refuse "its install receipt records no release lane" ;;
+    esac
+    if [ "$dsj_lane" != "$OPT_LANE" ] && [ "$OPT_LANE_EXPLICIT" -eq 0 ]; then
+        report_exit refusal lane-mismatch "the journal in $dsj_prefix follows the $dsj_lane lane. To keep it there, run the same command again with --lane $dsj_lane. Nothing was changed."
+    fi
+    if [ -n "$dsj_wanted" ] && [ "$dsj_wanted" != "$dsj_role" ]; then
+        report_exit refusal role-conflict "the journal in $dsj_prefix is installed as $dsj_role. To update it, run the same command again with --components $dsj_role. Nothing was changed."
+    fi
+    # The tree the receipt describes: current selects one content-addressed
+    # version directory that carries its own release record.
+    if [ -L "${dsj_prefix}/versions" ] || [ ! -d "${dsj_prefix}/versions" ] || [ ! -L "${dsj_prefix}/current" ]; then
+        standalone_refuse "its version directory or current pointer is missing"
+    fi
+    dsj_link=$(readlink "${dsj_prefix}/current") || standalone_refuse "its current pointer is unreadable"
+    case "$dsj_link" in versions/*) ;; *) standalone_refuse "its current pointer leaves its own tree" ;; esac
+    dsj_entry=${dsj_link#versions/}
+    case "$dsj_entry" in ''|.|..|*/*) standalone_refuse "its current pointer leaves its own tree" ;; esac
+    dsj_dest="${dsj_prefix}/versions/${dsj_entry}"
+    if [ -L "$dsj_dest" ] || [ ! -d "$dsj_dest" ] || [ -L "${dsj_dest}/bin" ]; then
+        standalone_refuse "the version it selects is not a real directory"
+    fi
+    for dsj_file in .release .archive-sha256; do
+        if [ -L "${dsj_dest}/${dsj_file}" ] || [ ! -f "${dsj_dest}/${dsj_file}" ]; then
+            standalone_refuse "the version it selects has no $dsj_file record"
+        fi
+    done
+    dsj_digest=$(cat "${dsj_dest}/.archive-sha256")
+    case "$dsj_digest" in *[!0123456789abcdef]*|'') standalone_refuse "the version it selects has an invalid digest record" ;; esac
+    [ "${#dsj_digest}" -eq 64 ] || standalone_refuse "the version it selects has an invalid digest record"
+    [ "$dsj_entry" = "${dsj_version}-$(printf '%s' "$dsj_digest" | cut -c1-12)" ] \
+        || standalone_refuse "the version it selects does not match its install receipt"
+    [ "$(plain_receipt_value "${dsj_dest}/.release" version 2>/dev/null || true)" = "$dsj_version" ] \
+        || standalone_refuse "the version it selects does not match its release record"
+    dsj_launcher=$(installed_journal_launcher "$dsj_version" "${dsj_dest}/bin")
+    if [ -L "$dsj_launcher" ] || [ ! -f "$dsj_launcher" ] || [ ! -x "$dsj_launcher" ]; then
+        standalone_refuse "its journal command is missing"
+    fi
+    # An unverified tree never runs here; the journal's installer checks its
+    # files against the signed release before it runs anything in it.
+    if [ "$dsj_signature" = verified ]; then
+        dsj_output=$(run_installed_journal "${dsj_dest}/bin" "$dsj_version" --version 2>/dev/null || true)
+        printf '%s\n' "$dsj_output" | awk -v wanted="$dsj_version" '{ for (i=1; i<=NF; i++) if ($i == wanted) found=1 } END { exit !found }' \
+            || standalone_refuse "its journal command does not report the version in its install receipt"
+    fi
+    dsj_package=$(cat "${manifest_dir}/components/journal/arches/${HOST_ARCH}/${PKG_VARIANT}/package_identity/name" 2>/dev/null || true)
+    if [ -n "$dsj_package" ]; then
+        package_probe_identity "$dsj_package" discover
+        [ "$PPROBE_STATE" = ABSENT ] || standalone_refuse "a journal package is installed on this computer too"
+    fi
+    # The journal this release delivers must find a journal that stays in its
+    # own prefix, or solstone update could not identify it afterwards. Its
+    # bootstrap, built from the same source, says whether it does.
+    dsj_bootstrap="${SCRATCH_DIR}/bootstrap.takeover.sh"
+    fetch_file_with_redirect_check "$(cat "${manifest_dir}/components/journal/provenance/bootstrap/url")" "$dsj_bootstrap"
+    verify_sha256 "$dsj_bootstrap" "$(cat "${manifest_dir}/components/journal/provenance/bootstrap/sha256")"
+    if ! grep -Fqx 'BOOTSTRAP_PLATFORM_TAKEOVER=1' "$dsj_bootstrap"; then
+        report_exit refusal standalone-install "an existing journal installation uses the low-level journal bootstrap; update it with https://updates.solstone.app/solstone-journal/install.sh --upgrade"
+    fi
+    STANDALONE_MOVE=1
+    STANDALONE_ROLE="$dsj_role"
+    STANDALONE_VERSION="$dsj_version"
+    JOURNAL_PREFIX="$dsj_prefix"
+    [ "$dsj_policy" != no-start ] || STANDALONE_NO_START=1
+    # Keep the PATH lines exactly as they are: the journal's installer rewrites
+    # its own block only where one already exists for this prefix.
+    STANDALONE_NO_PATH=1
+    dsj_profile="${SOLSTONE_PROFILE:-$HOME/.profile}"
+    if [ -f "$dsj_profile" ] && grep -Fqx "PATH=\"${dsj_prefix}/current/bin\${PATH:+:\$PATH}\"" "$dsj_profile" 2>/dev/null; then
+        STANDALONE_NO_PATH=0
+    fi
 }
 
 package_receipt_path() {
@@ -3553,6 +3767,162 @@ package_probe_identity() {
     fi
 }
 
+# The files the package database says a package installed, one absolute path
+# per line. Tests read a fake database beside the fake package identity.
+package_file_list() {
+    pfl_name="$1"
+    if package_tools_faked; then
+        [ -n "${SOLSTONE_FAKE_PKG_DB:-}" ] && [ -f "${SOLSTONE_FAKE_PKG_DB}/${PKG_VARIANT}/${pfl_name}.files" ] || return 1
+        cat "${SOLSTONE_FAKE_PKG_DB}/${PKG_VARIANT}/${pfl_name}.files"
+        return
+    fi
+    if [ "$PKG_VARIANT" = deb ]; then
+        dpkg-query -L "$pfl_name" 2>/dev/null
+    else
+        rpm -q --qf '[%{FILESTATES:fstate} %{FILENAMES}\n]' "$pfl_name" 2>/dev/null \
+            | sed -e 's/^not installed /- /' -e 's/^[a-z][a-z ]* \//\//'
+    fi
+}
+
+# Whether the package manager left a packaged path out on purpose: rpm's
+# nodocs marks such a file "not installed", and dpkg's path-exclude filters
+# skip it while dpkg still lists it. Only a path that is also absent counts.
+dpkg_path_excluded() {
+    dpe_path="$1"
+    dpe_excluded=1
+    for dpe_cfg in /etc/dpkg/dpkg.cfg /etc/dpkg/dpkg.cfg.d/*; do
+        [ -f "$dpe_cfg" ] || continue
+        while IFS= read -r dpe_line || [ -n "$dpe_line" ]; do
+            case "$dpe_line" in
+                path-exclude=*)
+                    # shellcheck disable=SC2254
+                    case "$dpe_path" in ${dpe_line#path-exclude=}) dpe_excluded=0 ;; esac ;;
+                path-include=*)
+                    # shellcheck disable=SC2254
+                    case "$dpe_path" in ${dpe_line#path-include=}) dpe_excluded=1 ;; esac ;;
+            esac
+        done < "$dpe_cfg"
+    done
+    return "$dpe_excluded"
+}
+
+adopt_refuse() {
+    report_exit refusal "$1" "$2 This installer did not take it over. Nothing was changed."
+}
+
+# A journal or solstone app installed from a .deb or .rpm without this
+# installer has no receipt. Before this installer records it, it checks what
+# is installed against the signed release: the package database must name the
+# package at this release's version and architecture, every file it installed
+# must be a file this release's signed inventory lists, and each must have
+# exactly the listed bytes. An older package is replaced with this release's
+# verified package instead. Nothing is written until the check passes.
+authenticate_installed_package() {
+    aip_component="$1"
+    aip_key="$aip_component"
+    [ "$aip_component" != cli ] || aip_key=journal
+    aip_base="${manifest_dir}/components/${aip_key}/arches/${HOST_ARCH}/${PKG_VARIANT}"
+    aip_name=$(cat "${aip_base}/package_identity/name")
+    aip_version=$(cat "${aip_base}/package_identity/version")
+    aip_arch=$(cat "${aip_base}/package_identity/arch")
+    package_probe_identity "$aip_name"
+    case "$PPROBE_STATE" in
+        INSTALLED) ;;
+        *)
+            if [ "$PKG_VARIANT" = deb ]; then aip_audit="sudo dpkg --audit"; else aip_audit="sudo rpm -V $aip_name"; fi
+            adopt_refuse package-unconfigured "The $aip_name package on this computer is not fully installed. Check it with $aip_audit first."
+            ;;
+    esac
+    [ "$PPROBE_ARCH" = "$aip_arch" ] \
+        || adopt_refuse ownership-unknown "The $aip_name package on this computer is for $PPROBE_ARCH, and this release is for $aip_arch."
+    if [ "$PPROBE_VERSION" != "$aip_version" ]; then
+        if package_candidate_is_older "$PPROBE_VERSION" "$aip_version"; then
+            adopt_refuse downgrade-route-unsupported "The $aip_name package on this computer, $PPROBE_VERSION, is newer than this release."
+        fi
+        ADOPT_PACKAGE_REPLACE="${ADOPT_PACKAGE_REPLACE}${ADOPT_PACKAGE_REPLACE:+ }${aip_component}"
+        return 0
+    fi
+    aip_root=""
+    if [ "$TEST_SEAM" -eq 1 ] && [ -n "${SOLSTONE_FAKE_ROOT:-}" ]; then aip_root="$SOLSTONE_FAKE_ROOT"; fi
+    aip_count=$(cat "${aip_base}/archive_inventory/_is_list" 2>/dev/null || true)
+    case "$aip_count" in ''|*[!0123456789]*|0) adopt_refuse ownership-unknown "This release has no file inventory for the $aip_name package." ;; esac
+    aip_sums="${SCRATCH_DIR}/adopt-${aip_component}.sha256"
+    aip_listed="${SCRATCH_DIR}/adopt-${aip_component}.listed"
+    aip_installed="${SCRATCH_DIR}/adopt-${aip_component}.installed"
+    if ! awk -v base="${aip_base}/archive_inventory" -v count="$aip_count" -v root="$aip_root" \
+        -v sums="$aip_sums" -v listed="$aip_listed" '
+        function field(i, name,   f, v) {
+            f = base "/" i "/" name
+            v = ""
+            if ((getline v < f) < 0) v = ""
+            close(f)
+            return v
+        }
+        BEGIN {
+            for (i = 0; i < count; i++) {
+                kind = field(i, "kind")
+                path = field(i, "path")
+                if (path == "" || path ~ /^\// || path ~ /(^|\/)\.\.?(\/|$)/ || index(path, "\t") || index(path, "\r")) exit 1
+                if (kind == "dir") continue
+                if (kind != "file") exit 1
+                digest = field(i, "sha256")
+                if (digest !~ /^[0-9a-f]+$/ || length(digest) != 64) exit 1
+                printf "%s  %s/%s\n", digest, root, path > sums
+                printf "/%s\n", path > listed
+            }
+        }'; then
+        adopt_refuse ownership-unknown "This release's file inventory for the $aip_name package is not usable."
+    fi
+    sort -u "$aip_listed" -o "$aip_listed"
+    if ! package_file_list "$aip_name" > "${aip_installed}.raw"; then
+        adopt_refuse query-failed "Could not read the files the $aip_name package installed."
+    fi
+    : > "$aip_installed"
+    : > "${aip_installed}.skipped"
+    while IFS= read -r aip_path || [ -n "$aip_path" ]; do
+        aip_left_out=0
+        case "$aip_path" in
+            '- /'*) aip_path=${aip_path#- }; aip_left_out=1 ;;
+        esac
+        case "$aip_path" in
+            /.|'') continue ;;
+            /*) ;;
+            *) adopt_refuse ownership-unknown "The package database lists something other than a file for the $aip_name package: $aip_path." ;;
+        esac
+        if [ -d "${aip_root}${aip_path}" ] && [ ! -L "${aip_root}${aip_path}" ]; then
+            continue
+        fi
+        if [ ! -e "${aip_root}${aip_path}" ] && [ ! -L "${aip_root}${aip_path}" ]; then
+            if [ "$aip_left_out" -eq 1 ] || { [ "$PKG_VARIANT" = deb ] && ! package_tools_faked && dpkg_path_excluded "$aip_path"; }; then
+                printf '%s\n' "$aip_path" >> "${aip_installed}.skipped"
+                continue
+            fi
+        fi
+        printf '%s\n' "$aip_path" >> "$aip_installed"
+    done < "${aip_installed}.raw"
+    sort -u "$aip_installed" -o "$aip_installed"
+    # What the package manager left out on purpose has no bytes to check.
+    if [ -s "${aip_installed}.skipped" ]; then
+        grep -Fvx -f "${aip_installed}.skipped" "$aip_listed" > "${aip_listed}.kept" || true
+        mv -f "${aip_listed}.kept" "$aip_listed"
+        awk -v root="$aip_root" 'NR == FNR { skip[root $0] = 1; next } { path = substr($0, 67); if (!(path in skip)) print }' \
+            "${aip_installed}.skipped" "$aip_sums" > "${aip_sums}.kept"
+        mv -f "${aip_sums}.kept" "$aip_sums"
+    fi
+    if ! cmp -s "$aip_listed" "$aip_installed"; then
+        adopt_refuse digest-mismatch "The files the $aip_name package installed are not the files of the signed release."
+    fi
+    while IFS= read -r aip_path; do
+        if [ -L "${aip_root}${aip_path}" ] || [ ! -f "${aip_root}${aip_path}" ]; then
+            adopt_refuse digest-mismatch "$aip_path from the $aip_name package is missing or is not a regular file."
+        fi
+    done < "$aip_listed"
+    if ! sha256sum -c --status "$aip_sums" 2>/dev/null; then
+        aip_changed=$(sha256sum -c "$aip_sums" 2>/dev/null | awk '/: FAILED/ { sub(/: FAILED.*$/, ""); print; exit }')
+        adopt_refuse digest-mismatch "${aip_changed:+$aip_changed from }the $aip_name package does not match the signed release."
+    fi
+}
+
 package_component_authority() {
     pca_component="$1"
     pca_mode="$2"
@@ -3654,12 +4024,39 @@ resolve_component_route() {
         if [ "$rcr_tree_claim" -eq 1 ]; then append_selected_component TREE_SELECTED_COMPONENTS "$rcr_component"; return 0; fi
         if [ "$rcr_package_claim" -eq 1 ]; then append_selected_component PACKAGE_SELECTED_COMPONENTS "$rcr_component"; return 0; fi
     fi
+    # A journal or solstone app installed from a package by hand becomes this
+    # installer's package install once its files check out.
+    if [ "$rcr_package_state" -eq 1 ] && [ "$rcr_mode" != removal ] \
+        && ! { [ "$OPT_ROUTE_EXPLICIT" -eq 1 ] && [ "$OPT_ROUTE" = tree ]; }; then
+        rcr_adopt=0
+        case "$rcr_component" in
+            journal|cli) journal_tree_shape_present || rcr_adopt=1 ;;
+            desktop) [ "$rcr_tree_state" -eq 1 ] || rcr_adopt=1 ;;
+        esac
+        # A receipt that names the package already claims it, however it reads.
+        rcr_key="$rcr_component"
+        [ "$rcr_component" != cli ] || rcr_key=journal
+        rcr_name=$(cat "${manifest_dir}/components/${rcr_key}/arches/${HOST_ARCH}/${PKG_VARIANT}/package_identity/name" 2>/dev/null || true)
+        rcr_package_receipt=$(package_receipt_path)
+        if [ -z "$rcr_name" ] || { [ -f "$rcr_package_receipt" ] && grep -Fqx "package_name=$rcr_name" "$rcr_package_receipt" 2>/dev/null; }; then
+            rcr_adopt=0
+        fi
+        if [ "$rcr_adopt" -eq 1 ]; then
+            authenticate_installed_package "$rcr_component"
+            ADOPT_PACKAGE_COMPONENTS="${ADOPT_PACKAGE_COMPONENTS}${ADOPT_PACKAGE_COMPONENTS:+ }${rcr_component}"
+            append_selected_component PACKAGE_SELECTED_COMPONENTS "$rcr_component"
+            return 0
+        fi
+    fi
     if [ "$rcr_tree_state" -eq 1 ] || [ "$rcr_package_state" -eq 1 ]; then
         case "$rcr_component" in
             journal|cli)
                 rcr_unrecorded="without this installer's record, so this installer will not change it. Nothing was changed."
                 if [ "$rcr_package_state" -eq 1 ]; then
-                    report_exit refusal ownership-unknown "A journal is already installed from a .deb or .rpm package $rcr_unrecorded For help, see https://github.com/solpbc/solstone-journal/blob/main/INSTALL.md#a-distribution-package"
+                    if [ "$rcr_mode" = removal ]; then
+                        report_exit refusal ownership-unknown "A journal is already installed from a .deb or .rpm package $rcr_unrecorded To remove it with this installer, run this installer with --route package first, which records it, then remove it."
+                    fi
+                    report_exit refusal ownership-unknown "A journal is already installed from a .deb or .rpm package $rcr_unrecorded To update it with this installer, run it with --route package instead."
                 fi
                 if journal_tree_shape_present; then
                     [ "$rcr_mode" != removal ] \
@@ -3715,6 +4112,30 @@ discover_upgrade_selection() {
             done
         fi
     done
+    # A journal or solstone app installed from a package by hand is taken over
+    # by an upgrade, once its files check out.
+    for dus_component in journal desktop; do
+        case "$dus_component: $SELECTED_COMPONENTS " in
+            journal:*" journal "*|journal:*" cli "*|desktop:*" desktop "*) continue ;;
+        esac
+        dus_name=$(cat "${manifest_dir}/components/${dus_component}/arches/${HOST_ARCH}/${PKG_VARIANT}/package_identity/name" 2>/dev/null || true)
+        [ -n "$dus_name" ] || continue
+        package_probe_identity "$dus_name" discover
+        [ "$PPROBE_STATE" != ABSENT ] || continue
+        [ "$dus_component" != journal ] || ! standalone_receipt_present || continue
+        SELECTED_COMPONENTS="${SELECTED_COMPONENTS}${SELECTED_COMPONENTS:+ }${dus_component}"
+    done
+    # A journal from the journal's own installer is taken over by an upgrade.
+    case " $SELECTED_COMPONENTS " in
+        *" journal "*|*" cli "*) ;;
+        *)
+            if standalone_receipt_present; then
+                dus_role=$(plain_receipt_value "${STANDALONE_PREFIX}/install-receipt" role 2>/dev/null || true)
+                case "$dus_role" in cli) ;; *) dus_role=journal ;; esac
+                SELECTED_COMPONENTS="${SELECTED_COMPONENTS}${SELECTED_COMPONENTS:+ }${dus_role}"
+            fi
+            ;;
+    esac
     if [ -z "$SELECTED_COMPONENTS" ]; then
         for dus_component in journal desktop tmux; do
             if tree_state_present "$dus_component"; then
@@ -3809,10 +4230,12 @@ parse_args() {
                 ;;
             --lane)
                 OPT_LANE="$2"
+                OPT_LANE_EXPLICIT=1
                 shift 2
                 ;;
             --lane=*)
                 OPT_LANE="${1#*=}"
+                OPT_LANE_EXPLICIT=1
                 shift 1
                 ;;
             --version)
@@ -3963,7 +4386,7 @@ record_journal_pending() {
         fi
     done
     printf '[component:%s]\nrole=%s\nplatform_version=%s\nlane=%s\norigin=%s\nroute=tree\nprefix=%s\narch=%s\nversion=%s\nprior_version=%s\nstatus=pending\ninstaller_revision=%s\n' \
-        "$rjp_component" "$rjp_component" "$RESOLVED_VERSION" "$OPT_LANE" "$OPT_ORIGIN" "$OPT_PREFIX" "$HOST_ARCH" "$rjp_version" "$rjp_prior" "$INSTALLER_REVISION" >> "$rjp_tmp" \
+        "$rjp_component" "$rjp_component" "$RESOLVED_VERSION" "$OPT_LANE" "$OPT_ORIGIN" "${JOURNAL_PREFIX:-$OPT_PREFIX}" "$HOST_ARCH" "$rjp_version" "$rjp_prior" "$INSTALLER_REVISION" >> "$rjp_tmp" \
         || { rm -f "$rjp_tmp"; report_exit "refusal" "receipt-write-failed" "Could not stage the pending journal receipt"; }
     mv -Tf "$rjp_tmp" "$rjp_receipt" \
         || { rm -f "$rjp_tmp"; report_exit "refusal" "receipt-write-failed" "Could not record the pending journal install"; }
@@ -4041,23 +4464,35 @@ run_tree_component() {
 
             # Execute bootstrap
             b_component_version=$(cat "${manifest_dir}/components/journal/version")
-            b_native_receipt="${OPT_PREFIX}/install-receipt"
+            b_native_receipt="${JOURNAL_PREFIX:-$OPT_PREFIX}/install-receipt"
             b_reverify_current=
             if [ "$(plain_receipt_value "$b_native_receipt" signature_verification 2>/dev/null || true)" = skipped ]; then
                 if [ "$(plain_receipt_value "$b_native_receipt" setup_status 2>/dev/null || true)" = complete ]; then
-                    b_reverify_current=$(readlink "${OPT_PREFIX}/current" 2>/dev/null || true)
+                    b_reverify_current=$(readlink "${JOURNAL_PREFIX:-$OPT_PREFIX}/current" 2>/dev/null || true)
                 fi
                 b_archive_sha=$(cat "${manifest_dir}/components/journal/arches/${HOST_ARCH}/tree/sha256")
-                b_dest="${OPT_PREFIX}/versions/${b_component_version}-$(printf '%s' "$b_archive_sha" | cut -c1-12)"
+                b_dest="${JOURNAL_PREFIX:-$OPT_PREFIX}/versions/${b_component_version}-$(printf '%s' "$b_archive_sha" | cut -c1-12)"
                 if { [ -e "$b_dest" ] || [ -L "$b_dest" ]; } \
                     && ! grep -Fqx 'BOOTSTRAP_RECOVERS_SKIPPED=1' "$b_script"; then
                     report_exit refusal signature-invalid "This release cannot verify the installed journal program. To verify the current installation, use the journal installer from https://updates.solstone.app/solstone-journal/install.sh with the installed prefix, role, and journal version from its install receipt."
                 fi
             fi
-            set -- --role "$comp" --prefix "$OPT_PREFIX" --origin "$OPT_ORIGIN" --lane "$OPT_LANE" --version "$b_component_version"
-            [ "$OPT_NO_START" -eq 0 ] || set -- "$@" --no-start
-            [ "$OPT_NO_PATH" -eq 0 ] || set -- "$@" --no-path
-            [ "$OPT_UPGRADE" -eq 0 ] || set -- "$@" --upgrade
+            set -- --role "$comp" --prefix "${JOURNAL_PREFIX:-$OPT_PREFIX}" --origin "$OPT_ORIGIN" --lane "$OPT_LANE" --version "$b_component_version"
+            # A journal taken over from its own installer keeps its service
+            # policy and PATH setup, and is updated rather than set up anew.
+            if [ "$OPT_NO_START" -eq 1 ] || [ "$STANDALONE_NO_START" -eq 1 ]; then set -- "$@" --no-start; fi
+            if [ "$OPT_NO_PATH" -eq 1 ] || [ "$STANDALONE_NO_PATH" -eq 1 ]; then set -- "$@" --no-path; fi
+            if [ "$OPT_UPGRADE" -eq 1 ] || [ "$STANDALONE_MOVE" -eq 1 ]; then set -- "$@" --upgrade; fi
+            if [ "$STANDALONE_MOVE" -eq 1 ]; then
+                MOVE_RECEIPT_SNAPSHOT="${SCRATCH_DIR}/receipt-before-move"
+                if [ -f "$receipt_file" ]; then
+                    cp -p "$receipt_file" "$MOVE_RECEIPT_SNAPSHOT" \
+                        || report_exit refusal receipt-write-failed "Could not keep a copy of the install receipt before taking over the journal. Nothing was changed."
+                else
+                    MOVE_RECEIPT_SNAPSHOT=""
+                fi
+                MOVE_RECEIPT_ACTIVE=1
+            fi
             record_journal_pending "$comp" "$b_component_version" "$receipt_file"
             NATIVE_ATTEMPTED=1
             b_status=0
@@ -4068,7 +4503,7 @@ run_tree_component() {
             fi
             if [ "$b_status" -eq "$JOURNAL_SETUP_MODELS_UNFINISHED" ]; then
                 NATIVE_ATTEMPTED=0
-                report_exit "refusal" "setup-failed" "$(journal_models_unfinished_message "$(installed_journal_command "$b_component_version" "${OPT_PREFIX}/current/bin")" "run the same install.sh command again.")"
+                report_exit "refusal" "setup-failed" "$(journal_models_unfinished_message "$(installed_journal_command "$b_component_version" "${JOURNAL_PREFIX:-$OPT_PREFIX}/current/bin")" "run the same install.sh command again.")"
             fi
             if [ "$b_status" -ne 0 ]; then
                 report_exit "refusal" "component-failed" "journal installation did not finish; see its output above"
@@ -4076,7 +4511,7 @@ run_tree_component() {
             if [ "$(plain_receipt_value "$b_native_receipt" signature_verification 2>/dev/null || true)" = skipped ]; then
                 report_exit refusal signature-invalid "The Journal installer did not verify the existing files."
             fi
-            if [ -n "$b_reverify_current" ] && [ "$(readlink "${OPT_PREFIX}/current" 2>/dev/null || true)" = "$b_reverify_current" ]; then
+            if [ -n "$b_reverify_current" ] && [ "$(readlink "${JOURNAL_PREFIX:-$OPT_PREFIX}/current" 2>/dev/null || true)" = "$b_reverify_current" ]; then
                 JOURNAL_REVERIFIED=1
             fi
             NATIVE_COMMITTED=1
@@ -4279,7 +4714,10 @@ run_tree_component() {
             printf "lane=%s\n" "$OPT_LANE"
             printf "origin=%s\n" "$OPT_ORIGIN"
             printf "route=tree\n"
-            printf "prefix=%s\n" "$OPT_PREFIX"
+            case "$comp" in
+                journal|cli) printf "prefix=%s\n" "${JOURNAL_PREFIX:-$OPT_PREFIX}" ;;
+                *) printf "prefix=%s\n" "$OPT_PREFIX" ;;
+            esac
             printf "arch=%s\n" "$HOST_ARCH"
             printf "version=%s\n" "$c_version"
             printf "status=installed\n"
@@ -4308,6 +4746,10 @@ run_tree_component() {
     if [ "$MOVE_DESKTOP_STEP" -eq 1 ] && component_selected desktop; then MOVE_DESKTOP_WRITTEN=1; fi
     if ! mv -Tf "$receipt_tmp" "$receipt_file"; then
         tree_receipt_failure "Could not atomically publish the tree install receipt"
+    fi
+    if [ "$MOVE_RECEIPT_ACTIVE" -eq 1 ]; then
+        MOVE_RECEIPT_ACTIVE=0
+        add_notice "your journal now updates with this installer, from where it is: ${JOURNAL_PREFIX:-$OPT_PREFIX}"
     fi
 }
 
@@ -4403,6 +4845,19 @@ run_package_install() {
             report_exit "refusal" "ownership-unknown" "Installed package $PC_NAME has unexpected architecture $PQUERY_ARCH"
         fi
         package_find_owner "$PACKAGE_RECEIPT_FILE" "$PQUERY_NAME" "$PQUERY_VERSION" "$PQUERY_ARCH"
+        if [ "$PFO_COUNT" -eq 0 ] && case " $ADOPT_PACKAGE_COMPONENTS " in *" $PC_ROLE "*) true ;; *) false ;; esac; then
+            # Authenticated before any change: record it as installed, or
+            # replace an older package with this release's verified one.
+            package_set_no_prior
+            PC_PUBLISH_INTENDED=0
+            case " $ADOPT_PACKAGE_REPLACE " in
+                *" $PC_ROLE "*) package_fetch_install ;;
+            esac
+            package_publish_phase "$PC_ROLE" payload payload
+            package_complete_after_payload
+            add_notice "the $PC_NAME package on this computer now updates with this installer."
+            continue
+        fi
         if [ "$PFO_COUNT" -ne 1 ]; then
             report_exit "refusal" "ownership-unknown" "Installed package $PC_NAME does not have a unique package receipt"
         fi
@@ -4617,7 +5072,7 @@ uninstall_tree_component() {
     fi
     case "$utc_component" in
         journal)
-            utc_journal=$(installed_journal_launcher "$TREE_JOURNAL_VERSION" "${OPT_PREFIX}/current/bin")
+            utc_journal=$(installed_journal_launcher "$TREE_JOURNAL_VERSION" "${JOURNAL_PREFIX:-$OPT_PREFIX}/current/bin")
             if [ -x "$utc_journal" ] && ! run_installed_journal "${utc_journal%/*}" "$TREE_JOURNAL_VERSION" setup --clean-uninstall --yes --installer-transaction >&2; then
                 report_exit "refusal" "handler-failed" "journal clean uninstall failed"
             fi
@@ -4648,9 +5103,9 @@ uninstall_tree_component() {
             if [ "$TEST_SEAM" -eq 1 ] && [ "${SOLSTONE_TEST_FAIL_TREE_UNINSTALL_AFTER_PUBLIC:-}" = "$utc_component" ]; then
                 report_exit "refusal" "remove-failed" "Injected tree uninstall interruption"
             fi
-            rm -f "${OPT_PREFIX}/current" "${OPT_PREFIX}/install-receipt" \
+            rm -f "${JOURNAL_PREFIX:-$OPT_PREFIX}/current" "${JOURNAL_PREFIX:-$OPT_PREFIX}/install-receipt" \
                 || report_exit "refusal" "remove-failed" "Could not remove journal ownership pointers"
-            rm -rf "${OPT_PREFIX}/versions" || report_exit "refusal" "remove-failed" "Could not remove journal payload versions"
+            rm -rf "${JOURNAL_PREFIX:-$OPT_PREFIX}/versions" || report_exit "refusal" "remove-failed" "Could not remove journal payload versions"
             ;;
         desktop|tmux)
             utc_receipt=$(tree_receipt_path)
@@ -5205,6 +5660,7 @@ run_uninstall() {
 
 main() {
     parse_args "$@"
+    JOURNAL_PREFIX="$OPT_PREFIX"
     detect_host
     if [ "$HOST_OS" = "darwin" ]; then
         run_macos
@@ -5290,6 +5746,7 @@ main() {
 
     catalogue_has_tmux=0
     [ ! -d "${manifest_dir}/components/tmux" ] || catalogue_has_tmux=1
+    resolve_journal_prefix
 
     # 5. Check catalogue list mode
     if [ "$OPT_LIST" -eq 1 ]; then
@@ -5405,8 +5862,15 @@ main() {
 
     case " $SELECTED_COMPONENTS " in
         *" journal "*|*" cli "*)
-            if [ "$OPT_PREFIX" != "$HOME/.local/solstone-journal" ] && [ -e "$HOME/.local/solstone-journal/install-receipt" ]; then
-                report_exit refusal standalone-install "an existing journal installation uses the low-level journal bootstrap; update it with https://updates.solstone.app/solstone-journal/install.sh --upgrade"
+            if standalone_receipt_present && ! tree_receipt_records_journal; then
+                if [ "$OPT_UNINSTALL" -eq 1 ]; then
+                    report_exit refusal standalone-install "the journal in $STANDALONE_PREFIX was installed by the journal's own installer. To remove it with this installer, run this installer with --upgrade first, which takes the journal over where it is, then remove it. Nothing was changed."
+                fi
+                sel_role=journal
+                case " $SELECTED_COMPONENTS " in *" cli "*) sel_role=cli ;; esac
+                detect_standalone_journal "$sel_role"
+            elif standalone_receipt_present && [ "${JOURNAL_PREFIX:-$OPT_PREFIX}" != "$STANDALONE_PREFIX" ] && [ "$OPT_PREFIX" != "$STANDALONE_PREFIX" ]; then
+                report_exit refusal standalone-install "this computer has a second journal installation in $STANDALONE_PREFIX, from the journal's own installer, so this installer will not change either one. Nothing was changed. For help, see https://github.com/solpbc/solstone/blob/main/INSTALL.md"
             fi
             ;;
     esac

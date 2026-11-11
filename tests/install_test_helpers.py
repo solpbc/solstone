@@ -165,12 +165,13 @@ def setup_fake_sudo(bin_dir: Path) -> Path:
     return sudo_script
 
 
-def make_v2_bootstrap_script(revision: int = 2) -> bytes:
+def make_v2_bootstrap_script(revision: int = 2, takeover: bool = True) -> bytes:
     return (
         f"#!/bin/sh\n"
         f"BOOTSTRAP_REVISION={revision}\n"
         f"BOOTSTRAP_CONTRACT_VERSION=2\n"
-        f"ROLE='journal'\n"
+        + ("BOOTSTRAP_PLATFORM_TAKEOVER=1\n" if takeover else "")
+        + f"ROLE='journal'\n"
         f"PREFIX=''\n"
         f"DRY_RUN=0\n"
         f"if [ -n \"${{SOLSTONE_BOOTSTRAP_ARGS_LOG:-}}\" ]; then\n"
@@ -221,6 +222,7 @@ def setup_test_release_server(
     version: str = "2.0.0",
     min_installer_revision: int = 1,
     bootstrap_revision: int = 2,
+    bootstrap_takeover: bool = True,
     corrupt_manifest: bool = False,
     corrupt_signature: bool = False,
     duplicate_key: bool = False,
@@ -244,7 +246,7 @@ def setup_test_release_server(
             effective_desktop_version = repo_desktop_min
 
     # Build tiny natives with ephemeral keys and v2 bootstrap double
-    v2_boot = make_v2_bootstrap_script(revision=bootstrap_revision)
+    v2_boot = make_v2_bootstrap_script(revision=bootstrap_revision, takeover=bootstrap_takeover)
     fixture_keys = iter(_fixture_native_keys())
 
     @contextmanager

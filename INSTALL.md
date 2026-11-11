@@ -35,7 +35,7 @@ read the existing receipts before choosing a new installation:
 - package installs: `/etc/solstone/install.conf`
 - journal-only installs: `$HOME/.local/solstone-journal/install-receipt`
 
-keep the existing prefix and route. use `--upgrade` for a platform-owned installation; it selects installed components and does not add new ones. a journal-only installation continues to use [the low-level journal bootstrap](https://updates.solstone.app/solstone-journal/install.sh). do not delete receipts or create a second journal to get past an ownership refusal.
+keep the existing prefix and route. use `--upgrade` for a platform-owned installation; it selects installed components and does not add new ones. a journal or desktop app installed from a `.deb` or `.rpm` without this installer has no receipt: the installer checks every file the package installed against the signed release, records it as a package install if they all match, and refuses with nothing changed if one doesn't. an older package is replaced with the current signed one. any run except `--route tree` does this, `--upgrade` included. a journal-only installation continues to use [the low-level journal bootstrap](https://updates.solstone.app/solstone-journal/install.sh). do not delete receipts or create a second journal to get past an ownership refusal.
 
 ### choose together
 

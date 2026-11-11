@@ -178,7 +178,7 @@ class TestInstallPackageLifecycle(HermeticInstallerTestCase):
                 db_file.write_text("UNCONFIGURED solstone-journal 2.0.6 amd64\n")
                 refused = self.run_install(installer, "cli", no_start=True)
                 self.assertNotEqual(refused.returncode, 0)
-                self.assertEqual(json.loads(refused.stdout)["root_code"], "ownership-unknown")
+                self.assertEqual(json.loads(refused.stdout)["root_code"], "package-unconfigured")
                 self.assertEqual(len(self.installs()), 2)
             finally:
                 server.stop()
@@ -290,9 +290,10 @@ class TestInstallPackageLifecycle(HermeticInstallerTestCase):
                 db_file = self.fake_db / "deb" / "solstone-journal"
                 db_file.parent.mkdir()
                 db_file.write_text("INSTALLED solstone-journal 2.0.6 amd64\n", encoding="utf-8")
+                # Without a readable file list, the unrecorded package cannot be authenticated.
                 unknown = self.run_install(installer, "journal")
                 self.assertNotEqual(unknown.returncode, 0)
-                self.assertEqual(json.loads(unknown.stdout)["root_code"], "ownership-unknown")
+                self.assertEqual(json.loads(unknown.stdout)["root_code"], "query-failed")
                 self.assertEqual(self.package_requests(server.request_paths), [])
                 self.assertEqual(self.installs(), [])
 
@@ -552,7 +553,8 @@ class TestInstallPackageLifecycle(HermeticInstallerTestCase):
                 mixed = self.run_install(installer, "desktop,journal")
                 self.assertNotEqual(mixed.returncode, 0)
                 mixed_json = json.loads(mixed.stdout)
-                self.assertEqual(mixed_json["root_code"], "ownership-unknown")
+                # The unrecorded journal package cannot be authenticated without its file list.
+                self.assertEqual(mixed_json["root_code"], "query-failed")
                 self.assertEqual(mixed_json["components"]["desktop"]["status"], "failed")
                 self.assertEqual(mixed_json["components"]["journal"]["status"], "failed")
                 self.assertNotIn(b"[component:desktop]\n", self.receipt.read_bytes())
