@@ -270,6 +270,32 @@ class TestInstallTreeLifecycle(HermeticInstallerTestCase):
             finally:
                 server.stop()
 
+    def test_uninstall_removes_only_this_prefixs_path_blocks(self):
+        home = Path(os.environ["HOME"])
+        bin_dir = f"{self.prefix}/current/bin"
+        ours_profile = f'# BEGIN solstone-journal PATH\nPATH="{bin_dir}${{PATH:+:$PATH}}"\nexport PATH\n# END solstone-journal PATH\n'
+        ours_rc = (
+            "# BEGIN solstone-journal PATH\n"
+            f'case ":${{PATH}}:" in *":{bin_dir}:"*) ;; *) PATH="{bin_dir}${{PATH:+:$PATH}}" ;; esac\n'
+            "export PATH\n# END solstone-journal PATH\n"
+        )
+        other = '# BEGIN solstone-journal PATH\nPATH="/elsewhere/current/bin${PATH:+:$PATH}"\nexport PATH\n# END solstone-journal PATH\n'
+        with ephemeral_keypair("uninstall path blocks") as (sec, pub, pin):
+            server, installer = self.build_release("pathblocks", sec, pub, pin, "2.0.0", "2.0.3")
+            try:
+                installed = self.run_install(installer, "cli", ["--no-path"])
+                self.assertEqual(installed.returncode, 0, installed.stderr + installed.stdout)
+                (home / ".profile").write_text("# owner profile\n" + ours_profile + "# owner tail\n")
+                (home / ".bashrc").write_text("# owner bashrc\n" + ours_rc)
+                (home / ".zshrc").write_text(other + "# owner zshrc\n")
+                removed = self.run_install(installer, "cli", ["--uninstall"])
+                self.assertEqual(removed.returncode, 0, removed.stderr + removed.stdout)
+                self.assertEqual((home / ".profile").read_text(), "# owner profile\n# owner tail\n")
+                self.assertEqual((home / ".bashrc").read_text(), "# owner bashrc\n")
+                self.assertEqual((home / ".zshrc").read_text(), other + "# owner zshrc\n")
+            finally:
+                server.stop()
+
     def test_fresh_handler_failure_is_retryable_and_space_prefix_is_usable(self):
         self.prefix = self.work_dir / "install space"
         with ephemeral_keypair("fresh retry") as (sec, pub, pin):

@@ -5050,6 +5050,32 @@ publish_package_uninstall_receipt() {
         || package_protocol_failure "$PPWC_RESULT" "receipt-write-failed" "Could not publish package uninstall receipt"
 }
 
+# The journal's installer marks its PATH lines with these two lines, in
+# ~/.profile and, for a cli install, ~/.bashrc and ~/.zshrc. Only a block that
+# names this prefix goes; everything else in each file stays as it was.
+remove_journal_path_blocks() {
+    rjpb_bin="$1/current/bin"
+    for rjpb_file in "${SOLSTONE_PROFILE:-$HOME/.profile}" "$HOME/.bashrc" "$HOME/.zshrc"; do
+        [ -f "$rjpb_file" ] || continue
+        grep -Fqx '# BEGIN solstone-journal PATH' "$rjpb_file" 2>/dev/null || continue
+        rjpb_tmp="${SCRATCH_DIR}/path-block.$$"
+        awk -v begin='# BEGIN solstone-journal PATH' -v end='# END solstone-journal PATH' -v bin="$rjpb_bin" '
+            $0 == begin { inblock = 1; block = $0 "\n"; ours = 0; next }
+            inblock && $0 == end {
+                inblock = 0
+                if (!ours) printf "%s%s\n", block, $0
+                next
+            }
+            inblock { block = block $0 "\n"; if (index($0, bin "${PATH") || index($0, ":" bin ":")) ours = 1; next }
+            { print }
+            END { if (inblock) printf "%s", block }
+        ' "$rjpb_file" > "$rjpb_tmp" || return 1
+        cmp -s "$rjpb_tmp" "$rjpb_file" || cat "$rjpb_tmp" > "$rjpb_file" || return 1
+        rm -f "$rjpb_tmp"
+    done
+    return 0
+}
+
 uninstall_tree_component() {
     utc_component="$1"
     ATTEMPTED_COMPONENTS="${ATTEMPTED_COMPONENTS}${ATTEMPTED_COMPONENTS:+ }${utc_component}"
@@ -5106,6 +5132,8 @@ uninstall_tree_component() {
             rm -f "${JOURNAL_PREFIX:-$OPT_PREFIX}/current" "${JOURNAL_PREFIX:-$OPT_PREFIX}/install-receipt" \
                 || report_exit "refusal" "remove-failed" "Could not remove journal ownership pointers"
             rm -rf "${JOURNAL_PREFIX:-$OPT_PREFIX}/versions" || report_exit "refusal" "remove-failed" "Could not remove journal payload versions"
+            remove_journal_path_blocks "${JOURNAL_PREFIX:-$OPT_PREFIX}" \
+                || report_exit "refusal" "remove-failed" "Could not remove the journal's PATH lines from your shell startup files"
             ;;
         desktop|tmux)
             utc_receipt=$(tree_receipt_path)
