@@ -2,7 +2,7 @@
 
 the solstone app takes in what you share with it, and it all goes into your journal: an open source, local-first memory the agents you use can work from. on your devices, always private, only yours.
 
-solstone is a personal memory platform, all yours, in two parts you own: **the solstone app** and your **journal**, the memory. from your journal emerges a knowledge graph of every person and project in your life, proactive meeting prep, automatic to-do tracking, and full-text search across your whole life. you stop managing your memory and start being present. your journal is always private, only yours.
+solstone is a personal journal platform, all yours, in two parts you own: **the solstone app** and your **journal**, the memory. from your journal emerge a knowledge graph of every person and project in your life and full-text search across your whole life. you stop managing your memory and start being present. your journal is always private, only yours.
 
 open source and self-hostable, with optional services operated by [sol pbc](https://solpbc.org).
 
