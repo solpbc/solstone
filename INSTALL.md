@@ -33,9 +33,10 @@ read the existing receipts before choosing a new installation:
 
 - tree installs: `${XDG_DATA_HOME:-$HOME/.local/share}/solstone/install.conf`
 - package installs: `/etc/solstone/install.conf`
+- repository installs: `/etc/apt/sources.list.d/solstone.sources`, `/etc/yum.repos.d/solstone.repo`, or `/etc/zypp/repos.d/solstone.repo`
 - journal-only installs: `$HOME/.local/solstone-journal/install-receipt`
 
-keep the existing prefix and route. use `--upgrade` for a platform-owned installation; it selects installed components and does not add new ones. a journal or desktop app installed from a `.deb` or `.rpm` without this installer has no receipt: the installer checks every file the package installed against the signed release, records it as a package install if they all match, and refuses with nothing changed if one doesn't. an older package is replaced with the current signed one. any run except `--route tree` does this, `--upgrade` included. `--upgrade` updates a journal-only installation in `$HOME/.local/solstone-journal` to the current signed release where it is and records it as a tree install, and from then on it updates with this installer. from journal 2.0.75, `solstone update` does the same. if the installer can't confirm the journal, it refuses with nothing changed and the journal works as before. do not delete receipts or create a second journal to get past an ownership refusal.
+keep the existing prefix and route. use `--upgrade` for a platform-owned installation; it selects installed components and does not add new ones. an installation from the signed apt, dnf or zypper repository has no `install.conf` receipt: `solstone update --check` recognizes it from the installed packages and repository file, and you can update it with your package manager (`sudo apt update && sudo apt upgrade`, `sudo dnf upgrade` or `sudo zypper update`), or with `solstone update` on debian, ubuntu, fedora and RHEL. a journal or desktop app installed from a standalone `.deb` or `.rpm` without a repository file or this installer has no receipt: the installer checks every file the package installed against the signed release, records it as a package install if they all match, and refuses with nothing changed if one doesn't. an older package is replaced with the current signed one. any run except `--route tree` does this, `--upgrade` included. `--upgrade` updates a journal-only installation in `$HOME/.local/solstone-journal` to the current signed release where it is and records it as a tree install, and from then on it updates with this installer. from journal 2.0.75, `solstone update` does the same. if the installer can't confirm the journal, it refuses with nothing changed and the journal works as before. do not delete receipts or create a second journal to get past an ownership refusal.
 
 ### choose together
 
@@ -74,6 +75,45 @@ sh install.sh --components tmux --uninstall --non-interactive --json
 include the same `--prefix` for a custom tree. repeat `--no-start` and `--no-path` if those policies should continue. removal keeps journal data and does not remove unrelated packages or their dependencies.
 
 add `--confirm-package-command` to show each linux package installation command and wait for approval before it runs. `--yes` approves only after that command is shown. without the flag, package installation stays unattended.
+
+### install from the apt, dnf or zypper repository
+
+on debian/ubuntu, fedora/RHEL and openSUSE, you can add the signed solstone repository instead of running `install.sh`. the repository provides three packages: `solstone` (installs both `solstone-journal` and `solstone-linux`), `solstone-journal` (your journal and CLI alone), and `solstone-linux` (the desktop app alone).
+
+the repository is signed with the solstone OpenPGP key (`BD77BD200A710D13EDF1D2555BF7582BF7EBA751`), and the armored public key at `https://updates.solstone.app/linux/keys/solstone-archive-keyring.asc` has a companion `.minisig` signed by the platform release key (`RWR2OB7c67E4KfRo4OnyOoXnvfOl+sum7TG6LscqXmN8mv/Q55nlBzCD`).
+
+on debian or ubuntu:
+
+```sh
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSLo /etc/apt/keyrings/solstone-archive-keyring.gpg https://updates.solstone.app/linux/keys/solstone-archive-keyring.gpg
+sudo chmod a+r /etc/apt/keyrings/solstone-archive-keyring.gpg
+printf 'Types: deb\nURIs: https://updates.solstone.app/linux/apt\nSuites: release\nComponents: main\nArchitectures: %s\nSigned-By: /etc/apt/keyrings/solstone-archive-keyring.gpg\n' "$(dpkg --print-architecture)" | sudo tee /etc/apt/sources.list.d/solstone.sources >/dev/null
+sudo apt update && sudo apt install solstone
+```
+
+on fedora or RHEL:
+
+```sh
+sudo rpmkeys --import https://updates.solstone.app/linux/keys/solstone-archive-keyring.asc
+printf '[solstone]\nname=solstone\nbaseurl=https://updates.solstone.app/linux/rpm/release/$basearch\nenabled=1\ngpgcheck=1\nrepo_gpgcheck=1\ngpgkey=https://updates.solstone.app/linux/keys/solstone-archive-keyring.asc\n' | sudo tee /etc/yum.repos.d/solstone.repo >/dev/null
+sudo dnf install solstone
+```
+
+on openSUSE:
+
+```sh
+sudo rpm --import https://updates.solstone.app/linux/keys/solstone-archive-keyring.asc
+printf '[solstone]\nname=solstone\nenabled=1\nautorefresh=1\nbaseurl=https://updates.solstone.app/linux/rpm/release/$basearch\ntype=rpm-md\ngpgcheck=1\nrepo_gpgcheck=1\npkg_gpgcheck=1\ngpgkey=https://updates.solstone.app/linux/keys/solstone-archive-keyring.asc\n' | sudo tee /etc/zypp/repos.d/solstone.repo >/dev/null
+sudo zypper refresh solstone && sudo zypper install solstone
+```
+
+packages install binaries under `/usr/bin` and do not start per-user services as root. after installing, set up the components you installed under your own account:
+
+```sh
+solstone journal setup
+solstone-linux install-service
+```
 
 ### when an operation stops
 
