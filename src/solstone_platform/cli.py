@@ -14,10 +14,12 @@ from solstone_platform.generate import generate_platform_manifest
 from solstone_platform.pins import (
     embedded_pins,
     load_pin_file,
+    require_production_openpgp_pin,
     require_production_platform_pin,
 )
 from solstone_platform.publish import publish_release
 from solstone_platform.recut import prepare_recut
+from solstone_platform.repo_publish import build_repos, publish_repos
 from solstone_platform.r2 import R2Config, R2Destination
 from solstone_platform.redact import redact_sensitive_text
 from solstone_platform.refusals import (
@@ -123,6 +125,23 @@ def main(argv: list[str] | None = None) -> int:
     )
     p_recut.add_argument("--out", type=Path, required=True, help="Final prepared release directory")
     p_recut.add_argument("--created-unix", type=int, help="Fixed creation epoch for deterministic preparation")
+
+    # build-repos subcommand
+    p_brepos = subparsers.add_parser("build-repos", help="Build and sign APT and RPM package repositories")
+    p_brepos.add_argument("--manifest", type=Path, required=True, help="Path to platform.json")
+    p_brepos.add_argument("--signature", type=Path, required=True, help="Path to platform.json.minisig")
+    p_brepos.add_argument("--journal-dir", type=Path, required=True, help="Path to solstone-journal release dir")
+    p_brepos.add_argument("--desktop-dir", type=Path, required=True, help="Path to solstone-linux release dir")
+    p_brepos.add_argument("--gpg-secret-key", type=Path, required=True, help="Path to OpenPGP secret key file")
+    p_brepos.add_argument("--passphrase-file", type=Path, help="Private file containing the encrypted-key passphrase")
+    p_brepos.add_argument("--platform-pub", type=Path, help="Path to platform public key file")
+    p_brepos.add_argument("--out", type=Path, required=True, help="Output directory for staged repositories")
+    p_brepos.add_argument("--acknowledge-production", action="store_true", help="Acknowledge production signing")
+
+    # publish-repos subcommand
+    p_prepos = subparsers.add_parser("publish-repos", help="Atomically publish staged APT and RPM package repositories")
+    p_prepos.add_argument("--repo-dir", type=Path, required=True, help="Path to staged repository directory containing repo-manifest.json")
+    p_prepos.add_argument("--acknowledge-production", action="store_true", help="Acknowledge production publishing")
 
     args = parser.parse_args(argv)
     repo_root = get_repo_root()
@@ -241,6 +260,64 @@ def main(argv: list[str] | None = None) -> int:
                 created_unix=args.created_unix,
             )
             print(json.dumps(receipt, sort_keys=True))
+
+        elif args.subcommand == "build-repos":
+            production_platform_pin = require_production_platform_pin(repo_root)
+            production_openpgp_pin = require_production_openpgp_pin(repo_root)
+            selected_platform_pin = (
+                load_pin_file(args.platform_pub)
+                if args.platform_pub
+                else production_platform_pin
+            )
+            is_production = selected_platform_pin == production_platform_pin
+            if is_production and not args.acknowledge_production:
+                raise Refusal(PRODUCTION_UNAVAILABLE, "--acknowledge-production required for production repository build")
+            if is_production and os.environ.get("SOLSTONE_PLATFORM_PRODUCTION") != "ack":
+                raise Refusal(PRODUCTION_UNAVAILABLE, "SOLSTONE_PLATFORM_PRODUCTION=ack environment variable required")
+
+            repo_manifest = build_repos(
+                manifest_path=args.manifest,
+                signature_path=args.signature,
+                journal_dir=args.journal_dir,
+                desktop_dir=args.desktop_dir,
+                output_dir=args.out,
+                gpg_secret_key_path=args.gpg_secret_key,
+                passphrase_callback=(
+                    (lambda: read_passphrase_file(args.passphrase_file))
+                    if args.passphrase_file
+                    else None
+                ),
+                repo_root=repo_root,
+                selected_platform_pin=selected_platform_pin,
+                selected_openpgp_pin=production_openpgp_pin,
+                is_production=is_production,
+                acknowledge_production=args.acknowledge_production,
+            )
+            print(
+                f"Built repositories for {repo_manifest['version']} on lane '{repo_manifest['lane']}' "
+                f"({len(repo_manifest['immutable_objects'])} immutable, {len(repo_manifest['pointer_objects'])} pointers)"
+            )
+
+        elif args.subcommand == "publish-repos":
+            if not args.acknowledge_production:
+                raise Refusal(PRODUCTION_UNAVAILABLE, "--acknowledge-production required for production publishing")
+            if os.environ.get("SOLSTONE_PLATFORM_PRODUCTION") != "ack":
+                raise Refusal(PRODUCTION_UNAVAILABLE, "SOLSTONE_PLATFORM_PRODUCTION=ack environment variable required")
+
+            config = R2Config.from_env()
+            if not config.endpoint or not config.bucket:
+                raise Refusal(PRODUCTION_UNAVAILABLE, "R2 destination configuration missing in environment")
+
+            dest = R2Destination(config)
+            report = publish_repos(
+                repo_dir=args.repo_dir,
+                dest=dest,
+                repo_root=repo_root,
+            )
+            print(
+                f"Published repositories for {report.version} on lane '{report.lane}' "
+                f"({report.immutable_count} immutable, {report.pointers_promoted}/{report.pointer_count} pointers promoted)"
+            )
 
         return 0
 

@@ -8,6 +8,7 @@ import datetime
 import hashlib
 import hmac
 import os
+import re
 from typing import Any, Optional
 import urllib.error
 import urllib.parse
@@ -38,6 +39,141 @@ from solstone_platform.refusals import (
 
 R2_REQUEST_TIMEOUT_SECONDS = 900
 R2_READ_CHUNK_BYTES = 32 * 1024 * 1024
+
+_ALLOWED_LANES = ("release", "staging", "dev")
+_SAFE_SEGMENT_RE = re.compile(r"^[A-Za-z0-9._+-]+$")
+_HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
+_HEX16_RE = re.compile(r"^[0-9a-f]{16}$")
+_REPODATA_IMMUTABLE_RE = re.compile(
+    r"^[0-9a-f]{64}-(primary|filelists|other)\.xml\.gz$"
+)
+_KEYRING_POINTER_FILES = (
+    "solstone-archive-keyring.gpg",
+    "solstone-archive-keyring.asc",
+    "solstone-archive-keyring.asc.minisig",
+)
+_APT_RELEASE_POINTER_FILES = ("Release", "InRelease", "Release.gpg")
+_APT_PACKAGES_POINTER_FILES = ("Packages", "Packages.gz", "Packages.xz")
+_APT_POOL_PACKAGES = ("solstone", "solstone-journal", "solstone-linux")
+
+
+def _require_valid_lane(lane: str) -> None:
+    if lane not in _ALLOWED_LANES:
+        raise Refusal(LANE_INVALID, f"invalid lane in key: {lane}")
+
+
+def _require_safe_segment(segment: str, key: str) -> None:
+    if not segment or not _SAFE_SEGMENT_RE.fullmatch(segment):
+        raise Refusal(UNSAFE_FILENAME, f"invalid path segment '{segment}' in key '{key}'")
+
+
+def classify_destination_key(key: str) -> str:
+    """Validate destination key confinement and return 'immutable' or 'pointer'."""
+    if (
+        not key
+        or key.startswith("/")
+        or key.endswith("/")
+        or ".." in key
+        or "//" in key
+        or "\\" in key
+        or "\x00" in key
+    ):
+        raise Refusal(UNSAFE_FILENAME, f"key '{key}' contains illegal path sequence")
+
+    parts = key.split("/")
+
+    if len(parts) == 3 and parts[0] == "solstone" and parts[2] == "latest":
+        _require_valid_lane(parts[1])
+        return "pointer"
+
+    if len(parts) == 4 and parts[0] == "solstone":
+        _require_valid_lane(parts[1])
+        _require_safe_segment(parts[2], key)
+        _require_safe_segment(parts[3], key)
+        return "immutable"
+
+    if len(parts) == 4 and parts[0] == "solstone-journal":
+        _require_valid_lane(parts[1])
+        _require_safe_segment(parts[2], key)
+        filename = parts[3]
+        _require_safe_segment(filename, key)
+        if not (filename.startswith("solstone-journal-") and filename.endswith("-install.sh")):
+            raise Refusal(UNSAFE_FILENAME, f"invalid solstone-journal bootstrap filename: {filename}")
+        return "immutable"
+
+    if len(parts) == 3 and parts[:2] == ["linux", "keys"]:
+        if parts[2] not in _KEYRING_POINTER_FILES:
+            raise Refusal(UNSAFE_FILENAME, f"invalid linux keyring filename in key: {key}")
+        return "pointer"
+
+    if len(parts) == 8 and parts[:3] == ["linux", "apt", "pool"] and parts[4:6] == ["main", "s"]:
+        _require_valid_lane(parts[3])
+        pkg = parts[6]
+        filename = parts[7]
+        if pkg not in _APT_POOL_PACKAGES:
+            raise Refusal(UNSAFE_FILENAME, f"invalid apt pool package directory in key: {key}")
+        _require_safe_segment(filename, key)
+        if not (
+            filename.startswith((f"{pkg}_", f"{pkg}-"))
+            and filename.endswith(".deb")
+        ):
+            raise Refusal(UNSAFE_FILENAME, f"invalid apt pool .deb filename in key: {key}")
+        return "immutable"
+
+    if len(parts) == 5 and parts[:3] == ["linux", "apt", "dists"]:
+        _require_valid_lane(parts[3])
+        if parts[4] not in _APT_RELEASE_POINTER_FILES:
+            raise Refusal(UNSAFE_FILENAME, f"invalid apt dists release filename in key: {key}")
+        return "pointer"
+
+    if len(parts) == 7 and parts[:3] == ["linux", "apt", "dists"] and parts[4] == "main":
+        _require_valid_lane(parts[3])
+        if parts[5] not in ("binary-amd64", "binary-arm64"):
+            raise Refusal(UNSAFE_FILENAME, f"invalid apt binary arch directory in key: {key}")
+        if parts[6] not in _APT_PACKAGES_POINTER_FILES:
+            raise Refusal(UNSAFE_FILENAME, f"invalid apt Packages index filename in key: {key}")
+        return "pointer"
+
+    if (
+        len(parts) == 9
+        and parts[:3] == ["linux", "apt", "dists"]
+        and parts[4] == "main"
+        and parts[6:8] == ["by-hash", "SHA256"]
+    ):
+        _require_valid_lane(parts[3])
+        if parts[5] not in ("binary-amd64", "binary-arm64"):
+            raise Refusal(UNSAFE_FILENAME, f"invalid apt binary arch directory in key: {key}")
+        if not _HEX64_RE.fullmatch(parts[8]):
+            raise Refusal(UNSAFE_FILENAME, f"invalid apt by-hash SHA256 digest in key: {key}")
+        return "immutable"
+
+    if len(parts) == 7 and parts[:2] == ["linux", "rpm"] and parts[4] == "Packages":
+        _require_valid_lane(parts[2])
+        if parts[3] not in ("x86_64", "aarch64"):
+            raise Refusal(UNSAFE_FILENAME, f"invalid rpm arch directory in key: {key}")
+        if not _HEX16_RE.fullmatch(parts[5]):
+            raise Refusal(UNSAFE_FILENAME, f"invalid rpm package hash prefix in key: {key}")
+        filename = parts[6]
+        _require_safe_segment(filename, key)
+        if not (
+            filename.endswith(".rpm")
+            and filename.startswith(("solstone-", "solstone-journal-", "solstone-linux-"))
+        ):
+            raise Refusal(UNSAFE_FILENAME, f"invalid rpm package filename in key: {key}")
+        return "immutable"
+
+    if len(parts) == 6 and parts[:2] == ["linux", "rpm"] and parts[4] == "repodata":
+        _require_valid_lane(parts[2])
+        if parts[3] not in ("x86_64", "aarch64"):
+            raise Refusal(UNSAFE_FILENAME, f"invalid rpm arch directory in key: {key}")
+        filename = parts[5]
+        if filename in ("repomd.xml", "repomd.xml.asc"):
+            return "pointer"
+        if _REPODATA_IMMUTABLE_RE.fullmatch(filename):
+            return "immutable"
+        raise Refusal(UNSAFE_FILENAME, f"invalid rpm repodata filename in key: {key}")
+
+    raise Refusal(UNSAFE_FILENAME, f"key '{key}' does not match allowed platform release pattern")
 
 
 def _sign(key: bytes, msg: str) -> bytes:
@@ -151,55 +287,31 @@ class R2Destination:
         self.opener = urllib.request.build_opener(NoRedirectHandler)
         self.network_sentinel: list[tuple[str, str, dict[str, str]]] = []
 
-    def _validate_key_confinement(self, key: str) -> None:
-        """Enforce strict canonical key confinement."""
-        if ".." in key or "//" in key or "\\" in key:
-            raise Refusal(UNSAFE_FILENAME, f"key '{key}' contains illegal traversal sequence")
-
-        parts = key.split("/")
-        if len(parts) == 3 and parts[0] == "solstone" and parts[2] == "latest":
-            lane = parts[1]
-            if lane not in ("release", "staging", "dev"):
-                raise Refusal(LANE_INVALID, f"invalid lane in key: {lane}")
-        elif len(parts) == 4 and parts[0] == "solstone":
-            lane = parts[1]
-            if lane not in ("release", "staging", "dev"):
-                raise Refusal(LANE_INVALID, f"invalid lane in key: {lane}")
-            filename = parts[3]
-            if not filename or "/" in filename:
-                raise Refusal(UNSAFE_FILENAME, f"invalid filename in key: {key}")
-        elif len(parts) == 4 and parts[0] == "solstone-journal":
-            lane = parts[1]
-            if lane not in ("release", "staging", "dev"):
-                raise Refusal(LANE_INVALID, f"invalid lane in key: {lane}")
-            filename = parts[3]
-            if not (filename.startswith("solstone-journal-") and filename.endswith("-install.sh")):
-                raise Refusal(UNSAFE_FILENAME, f"invalid solstone-journal bootstrap filename: {filename}")
-        else:
-            raise Refusal(UNSAFE_FILENAME, f"key '{key}' does not match allowed platform release pattern")
+    def _validate_key_confinement(self, key: str) -> str:
+        """Enforce strict canonical key confinement and return key class."""
+        return classify_destination_key(key)
 
     def _admit_request(self, method: str, key: str, headers: dict[str, str]) -> None:
         """Lowest transport seam admission filter."""
         self.network_sentinel.append((method, key, dict(headers)))
-        self._validate_key_confinement(key)
+        key_class = self._validate_key_confinement(key)
 
-        is_latest = key.endswith("/latest") and key.startswith("solstone/")
         if method == "GET":
             pass
         elif method == "PUT":
             if_none_match = headers.get("If-None-Match") or headers.get("if-none-match")
             if_match = headers.get("If-Match") or headers.get("if-match")
 
-            if not is_latest:
+            if key_class == "immutable":
                 # Immutable keys: strictly require If-None-Match: * and no If-Match
                 if if_none_match != "*" or if_match is not None:
                     raise Refusal(UNSAFE_FILENAME, f"immutable key '{key}' requires exactly If-None-Match: * and no If-Match")
             else:
-                # Latest pointer: require exactly If-Match XOR If-None-Match: *
+                # Pointer keys: require exactly If-Match XOR If-None-Match: *
                 has_inm = (if_none_match == "*")
                 has_im = bool(if_match and if_match.strip())
                 if not (has_inm ^ has_im):
-                    raise Refusal(UNSAFE_FILENAME, f"latest pointer '{key}' requires exactly If-Match XOR If-None-Match: *")
+                    raise Refusal(UNSAFE_FILENAME, f"pointer key '{key}' requires exactly If-Match XOR If-None-Match: *")
         else:
             # Reject DELETE, POST, HEAD, LIST, and any other method
             raise Refusal(UNSAFE_FILENAME, f"HTTP method '{method}' is not admitted on R2Destination")
@@ -261,7 +373,7 @@ class R2Destination:
 
     def get(self, key: str) -> GetResult:
         request_headers: dict[str, str] = {}
-        if not key.endswith("/latest"):
+        if classify_destination_key(key) == "immutable":
             request_headers["Range"] = f"bytes=0-{R2_READ_CHUNK_BYTES - 1}"
         status, headers, body = self._send_request("GET", key, headers=request_headers)
         ct = headers.get("content-type")

@@ -4,6 +4,7 @@
 """Embedded native public key pins and pin loaders."""
 
 from dataclasses import dataclass
+import hashlib
 import importlib.resources
 from pathlib import Path
 import re
@@ -23,6 +24,21 @@ TMUX_PUBKEY = "RWSSAPjZ+ghXNvb4ExBLSd59dQMtjqW+xIZcl9MWfpWvjsTws6sBPEZz"
 
 PLATFORM_KEY_ID = "2938B1EBDC1E3876"
 PLATFORM_PUBKEY = "RWR2OB7c67E4KfRo4OnyOoXnvfOl+sum7TG6LscqXmN8mv/Q55nlBzCD"
+
+# Production Linux package repository OpenPGP signing key
+LINUX_REPO_OPENPGP_FINGERPRINT = "BD77BD200A710D13EDF1D2555BF7582BF7EBA751"
+LINUX_REPO_OPENPGP_KEY_ID = "5BF7582BF7EBA751"
+LINUX_REPO_OPENPGP_ASC_SHA256 = "dced05bb053606766e5ae54f2bf0ae30a41d0f0f9b483c0d5a663be085909abf"
+LINUX_REPO_OPENPGP_GPG_SHA256 = "973587f0c6e926f312bef65e94812a9dcb0e7ad98f7541e6c1a958853b4d65e7"
+
+
+@dataclass(frozen=True)
+class OpenPGPPin:
+    fingerprint: str
+    key_id: str
+    asc_bytes: bytes
+    asc_minisig_bytes: bytes
+    gpg_bytes: bytes
 
 
 @dataclass(frozen=True)
@@ -101,6 +117,40 @@ def _verify_constant_synchronization() -> None:
             raise Refusal(PIN_MISMATCH, f"packaged platform.keyid mismatch: {keyid_val} vs {PLATFORM_KEY_ID}")
     except Exception as err:
         raise Refusal(PRODUCTION_UNAVAILABLE, f"packaged platform.keyid unavailable: {err}") from err
+
+    # Verify packaged Linux repository OpenPGP keyring resources
+    openpgp_pin = load_packaged_openpgp_pin()
+    asc_sha = hashlib.sha256(openpgp_pin.asc_bytes).hexdigest()
+    gpg_sha = hashlib.sha256(openpgp_pin.gpg_bytes).hexdigest()
+    if asc_sha != LINUX_REPO_OPENPGP_ASC_SHA256:
+        raise Refusal(PIN_MISMATCH, f"packaged linux-repo.asc sha256 mismatch: {asc_sha} vs {LINUX_REPO_OPENPGP_ASC_SHA256}")
+    if gpg_sha != LINUX_REPO_OPENPGP_GPG_SHA256:
+        raise Refusal(PIN_MISMATCH, f"packaged linux-repo.gpg sha256 mismatch: {gpg_sha} vs {LINUX_REPO_OPENPGP_GPG_SHA256}")
+    if not openpgp_pin.gpg_bytes or (openpgp_pin.gpg_bytes[0] & 0x80) == 0 or openpgp_pin.gpg_bytes[:4] == b"KBXf":
+        raise Refusal(PIN_MISMATCH, "packaged linux-repo.gpg must be an RFC 4880 binary OpenPGP packet, not KBXf")
+
+
+def load_packaged_openpgp_pin() -> OpenPGPPin:
+    """Load the official Linux package repository OpenPGP public key pin from package resources."""
+    try:
+        res = importlib.resources.files("solstone_platform.pin_resources")
+        asc_bytes = (res / "linux-repo.asc").read_bytes()
+        asc_minisig_bytes = (res / "linux-repo.asc.minisig").read_bytes()
+        gpg_bytes = (res / "linux-repo.gpg").read_bytes()
+    except Exception as err:
+        raise Refusal(PRODUCTION_UNAVAILABLE, f"packaged Linux repository OpenPGP pin unavailable: {err}") from err
+    return OpenPGPPin(
+        fingerprint=LINUX_REPO_OPENPGP_FINGERPRINT,
+        key_id=LINUX_REPO_OPENPGP_KEY_ID,
+        asc_bytes=asc_bytes,
+        asc_minisig_bytes=asc_minisig_bytes,
+        gpg_bytes=gpg_bytes,
+    )
+
+
+def require_production_openpgp_pin(repo_root: Optional[Path] = None) -> OpenPGPPin:
+    """Load production Linux repository OpenPGP pin from packaged resources, ignoring caller repo_root."""
+    return load_packaged_openpgp_pin()
 
 
 # Verify at import time

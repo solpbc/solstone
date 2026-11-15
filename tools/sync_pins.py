@@ -37,6 +37,11 @@ def sync_pins(repo_root: Path) -> None:
     keyid_content = keyid_file.read_text(encoding="utf-8").strip()
     (pkg_res_dir / "platform.keyid").write_text(f"{keyid_content}\n", encoding="utf-8")
 
+    for repo_pin_file in ("linux-repo.asc", "linux-repo.asc.minisig", "linux-repo.gpg"):
+        src_file = pins_dir / repo_pin_file
+        if src_file.is_file():
+            (pkg_res_dir / repo_pin_file).write_bytes(src_file.read_bytes())
+
     # Update pins.py constant block
     pins_py = repo_root / "src" / "solstone_platform" / "pins.py"
     content = pins_py.read_text(encoding="utf-8")

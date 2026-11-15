@@ -14,6 +14,7 @@ from solstone_platform.destination import (
     ResultStatus,
 )
 from solstone_platform.pins import MinisignPin, PinSet
+from solstone_platform.r2 import classify_destination_key
 from solstone_platform.refusals import Refusal, UNSAFE_FILENAME
 
 FIXTURE_BUILD_TOKEN = object()
@@ -148,10 +149,9 @@ class FixtureDestination:
         cache_control: str,
     ) -> CasResult:
         self.ledger.append(LedgerEntry(method="compare_and_swap", key=key, content_type=content_type, cache_control=cache_control))
-        # CAS is only permitted on latest pointer
-        parts = key.split("/")
-        if not (len(parts) == 3 and parts[0] == "solstone" and parts[2] == "latest"):
-            raise Refusal(UNSAFE_FILENAME, f"compare_and_swap is strictly confined to latest pointer, rejected key: {key}")
+        # CAS is only permitted on pointer keys
+        if classify_destination_key(key) != "pointer":
+            raise Refusal(UNSAFE_FILENAME, f"compare_and_swap is strictly confined to pointer keys, rejected key: {key}")
 
         if self.cas_pre_hook:
             hook = self.cas_pre_hook
