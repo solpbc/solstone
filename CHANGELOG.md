@@ -4,6 +4,11 @@
 
 ### changed
 
+- on linux, a new journal installed on this installer's default route now updates itself once a day, and the installer says so when it finishes. `--no-auto-update` leaves it off. this needs journal 2.0.82 or later; the installer leaves an older journal as it was.
+- on linux, running the installer again no longer restarts the solstone app when the app didn't change. a running app keeps running, and an app you quit stays quit.
+- on linux, after the solstone app updates, the installer keeps the new version and the two before it, and removes older ones.
+- on linux, a package install now ends by saying where to add the solstone repository, when it isn't set up yet, so updates come through your system's updater.
+- in installer revision 22, a catalogue can name the installer published beside it, with its digest, so a journal can check that copy before it updates itself.
 - on linux, removing the journal or the command-line tools with `--uninstall` now also takes out the PATH lines the journal's installer added to `~/.profile`, `~/.bashrc` and `~/.zshrc`. everything else in those files stays as it was.
 - on linux, the installer now takes over a journal installed by the journal's own installer and updates it where it is from then on. it says so in one line. the journal stays where it is, and its service and PATH lines are kept. if the takeover can't finish, the journal keeps working with its own installer, where it is.
 - on linux, a journal or the solstone app you installed from a `.deb` or `.rpm` by hand is now recorded as a package install once every file it installed matches the signed release, and `solstone update` updates it after that. if a file doesn't match, the installer stops and changes nothing.

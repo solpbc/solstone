@@ -72,6 +72,8 @@ sh install.sh --components tmux --uninstall --dry-run --json
 sh install.sh --components tmux --uninstall --non-interactive --json
 ```
 
+from journal 2.0.82, a new journal on the tree route updates itself once a day, and the installer says so when it finishes. with `--no-start` or `--no-auto-update` it stays off, and the journal's status pane asks once. `solstone update --automatic on`, `off` or `status` changes or shows it later. an automatic update never restarts the journal. with `desktop`, the solstone app updates too, and a running app restarts only when it changed. running the installer again leaves a solstone app that didn't change as it was, running or quit.
+
 include the same `--prefix` for a custom tree. repeat `--no-start` and `--no-path` if those policies should continue. removal keeps journal data and does not remove unrelated packages or their dependencies.
 
 add `--confirm-package-command` to show each linux package installation command and wait for approval before it runs. `--yes` approves only after that command is shown. without the flag, package installation stays unattended.
