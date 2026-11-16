@@ -85,6 +85,7 @@ def generate_platform_manifest(
     pins: Optional[PinSet] = None,
     catalogue_revision: Optional[int] = None,
     minimum_installer_revision: Optional[int] = None,
+    installer: Optional[dict[str, Any]] = None,
 ) -> bytes:
     """Generate a canonical, validated platform.json manifest."""
     if repo_root is None or journal_dir is None or desktop_dir is None:
@@ -165,6 +166,10 @@ def generate_platform_manifest(
 
     if catalogue_revision is not None:
         manifest["catalogue_revision"] = catalogue_revision
+    if installer is not None:
+        if catalogue_revision is None:
+            raise Refusal(SCHEMA_INVALID, "only a schema 2 catalogue names its installer")
+        manifest["installer"] = dict(installer)
 
     # Validate against full schema rules
     validate_platform_manifest(manifest)

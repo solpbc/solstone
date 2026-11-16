@@ -165,7 +165,13 @@ def setup_fake_sudo(bin_dir: Path) -> Path:
     return sudo_script
 
 
-def make_v2_bootstrap_script(revision: int = 2, takeover: bool = True) -> bytes:
+def make_v2_bootstrap_script(revision: int = 2, takeover: bool = True, journal_cli: bool = False) -> bytes:
+    # With journal_cli, the payload also carries a solstone command that logs what
+    # it is asked and answers with SOLSTONE_TEST_JOURNAL_STATUS.
+    solstone_cli = (
+        '  printf \'%s\\n\' \'#!/bin/sh\' \'[ -z "${SOLSTONE_TEST_JOURNAL_LOG:-}" ] || printf "%s\\n" "$*" >> "$SOLSTONE_TEST_JOURNAL_LOG"\' \'exit "${SOLSTONE_TEST_JOURNAL_STATUS:-0}"\' > "$PREFIX/versions/2.0.6-fixture/bin/solstone"\n'
+        f"  chmod +x \"$PREFIX/versions/2.0.6-fixture/bin/solstone\"\n"
+    ) if journal_cli else ""
     return (
         f"#!/bin/sh\n"
         f"BOOTSTRAP_REVISION={revision}\n"
@@ -192,6 +198,7 @@ def make_v2_bootstrap_script(revision: int = 2, takeover: bool = True) -> bytes:
         f"  mkdir -p \"$PREFIX/bin\" \"$PREFIX/versions/2.0.6-fixture/bin\"\n"
         '  printf \'%s\\n\' \'#!/bin/sh\' \'if [ "$1" = settings ]; then printf "{\\n  \\"dashboard_url\\": \\"http://localhost:%s\\"\\n}\\n" "${SOLSTONE_FIXTURE_PORT:-6123}"; exit 0; fi\' "echo $ROLE 2.0.6" > "$PREFIX/versions/2.0.6-fixture/bin/journal"\n'
         f"  chmod +x \"$PREFIX/versions/2.0.6-fixture/bin/journal\"\n"
+        + solstone_cli +
         f"  ln -sfn \"versions/2.0.6-fixture\" \"$PREFIX/current\"\n"
         f"  printf 'schema_version=1\\njournal_version=2.0.6\\nlane=release\\norigin=fixture\\narchitecture=x86_64\\ninstaller_revision=1\\nbootstrap_revision={revision}\\nroute=tree\\nsignature_verification=verified\\nrole=%s\\njournal_state=existing\\nservice_policy=skip-service\\nsetup_status=complete\\n' \"$ROLE\" > \"$PREFIX/install-receipt\"\n"
         f"fi\n"
@@ -232,6 +239,7 @@ def setup_test_release_server(
     desktop_runtime_version: str | None = None,
     native_build_marker: str = "",
     desktop_arches: tuple[str, ...] = ("x86_64",),
+    bootstrap_journal_cli: bool = False,
 ) -> tuple[LoopbackServer, Path]:
     server_root = work_dir / "www"
     server_root.mkdir(parents=True, exist_ok=True)
@@ -246,7 +254,9 @@ def setup_test_release_server(
             effective_desktop_version = repo_desktop_min
 
     # Build tiny natives with ephemeral keys and v2 bootstrap double
-    v2_boot = make_v2_bootstrap_script(revision=bootstrap_revision, takeover=bootstrap_takeover)
+    v2_boot = make_v2_bootstrap_script(
+        revision=bootstrap_revision, takeover=bootstrap_takeover, journal_cli=bootstrap_journal_cli
+    )
     fixture_keys = iter(_fixture_native_keys())
 
     @contextmanager

@@ -65,6 +65,7 @@ class CapturedSnapshot:
     bootstrap_file: Optional[Path] = None
     receipt_path: Optional[Path] = None
     captured_files: list[Path] = None
+    installer_file: Optional[Path] = None
 
     def cleanup(self) -> None:
         if self.snapshot_root and self.snapshot_root.exists():
@@ -387,6 +388,7 @@ def capture_release_sources(
     bootstrap_file: Optional[Path] = None,
     receipt_path: Optional[Path] = None,
     temp_root: Optional[Path] = None,
+    installer_file: Optional[Path] = None,
 ) -> CapturedSnapshot:
     """Capture all release sources into a private 0700 snapshot directory."""
     global _last_private_parent
@@ -408,6 +410,7 @@ def capture_release_sources(
         tmux_dir=temp_dir / "tmux" if tmux_dir else None,
         bootstrap_file=temp_dir / "bootstrap" / bootstrap_file.name if bootstrap_file else None,
         receipt_path=temp_dir / "platform" / "recut-receipt.json" if receipt_path else None,
+        installer_file=temp_dir / "installer" / installer_file.name if installer_file else None,
     )
 
     try:
@@ -430,6 +433,10 @@ def capture_release_sources(
         # Optional explicit bootstrap file
         if bootstrap_file:
             capturer.capture_single_file("bootstrap", bootstrap_file, snapshot.bootstrap_file)
+
+        # Optional installer copy the catalogue names
+        if installer_file:
+            capturer.capture_single_file("installer", installer_file, snapshot.installer_file)
 
         for directory in sorted(
             (path for path in temp_dir.rglob("*") if path.is_dir()),

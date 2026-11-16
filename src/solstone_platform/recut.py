@@ -8,11 +8,13 @@ from __future__ import annotations
 import ctypes
 import errno
 import hashlib
+import importlib.util
 import os
 from pathlib import Path
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 from typing import Any
@@ -38,6 +40,9 @@ from solstone_platform.refusals import (
     Refusal,
 )
 from solstone_platform.schema import (
+    INSTALLER_BLOCK_FIRST_REVISION,
+    INSTALLER_COPY_FILENAME,
+    SERVED_INSTALLER_URL,
     TMUX_RETIREMENT_FLOOR,
     catalogue_coordinate,
     compare_catalogue_coordinates,
@@ -234,6 +239,54 @@ def _download_tmux(d: _Downloader, root: Path, version: str, prefix: str) -> Pat
     return out
 
 
+def _installer_revision(data: bytes) -> int:
+    for line in data.decode("utf-8", errors="replace").splitlines()[:40]:
+        match = re.fullmatch(r"INSTALLER_REVISION=([1-9][0-9]{0,19})", line)
+        if match:
+            return int(match.group(1))
+    raise Refusal(RELEASE_COHERENCE, "the served installer names no installer revision")
+
+
+def _prepare_installer_copy(d: _Downloader, stage: Path, repo_root: Path, installer_url: str) -> dict[str, Any]:
+    """Pair the catalogue with the installer owners run today, built from this commit.
+
+    The copy is the served installer's exact bytes, and only after the clean
+    commit this recut is recorded from builds those same bytes, so a served file
+    that differs from reviewed source is never signed for an unattended run.
+    """
+    copy_path = stage / "installer" / INSTALLER_COPY_FILENAME
+    served = _write_remote(d, installer_url, copy_path)
+    spec = importlib.util.spec_from_file_location("solstone_recut_build_installer", repo_root / "tools" / "build_installer.py")
+    if spec is None or spec.loader is None:
+        raise Refusal(RELEASE_COHERENCE, "could not load the installer build")
+    module = importlib.util.module_from_spec(spec)
+    # Loading writes no bytecode into the repository, which must stay clean.
+    writes_bytecode = sys.dont_write_bytecode
+    sys.dont_write_bytecode = True
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.dont_write_bytecode = writes_bytecode
+    built_path = stage / ".built-install.sh"
+    module.build_installer(repo_root=repo_root, output_path=built_path, is_production=True)
+    built = built_path.read_bytes()
+    built_path.unlink()
+    if served != built:
+        raise Refusal(
+            RELEASE_COHERENCE,
+            f"the installer served at {installer_url} is not the one this commit builds; "
+            "publish the installer from this commit first, then prepare again",
+        )
+    revision = _installer_revision(served)
+    if revision < INSTALLER_BLOCK_FIRST_REVISION:
+        raise Refusal(
+            RELEASE_COHERENCE,
+            f"the served installer is revision {revision}; a catalogue may name its installer only "
+            f"from revision {INSTALLER_BLOCK_FIRST_REVISION}",
+        )
+    return {"filename": INSTALLER_COPY_FILENAME, "revision": revision, "sha256": hashlib.sha256(served).hexdigest()}
+
+
 def _file_inventory(root: Path) -> list[dict[str, Any]]:
     result: list[dict[str, Any]] = []
     for path in sorted(root.rglob("*")):
@@ -281,6 +334,7 @@ def prepare_recut(
     dest: Destination,
     created_unix: int | None = None,
     origin: str = CANONICAL_ORIGIN,
+    installer_url: str = SERVED_INSTALLER_URL,
 ) -> dict[str, Any]:
     if "tmux" in replacements:
         raise Refusal(SCHEMA_INVALID, "tmux is not a replacement")
@@ -410,6 +464,8 @@ def prepare_recut(
         bootstrap_path = stage / "bootstrap" / bootstrap_name
         _write_remote(downloader, bootstrap_url, bootstrap_path)
 
+        installer = _prepare_installer_copy(downloader, stage, repo_root, installer_url)
+
         pins = dest.pinset if is_fixture_dest and dest.pinset is not None else embedded_pins()
         ingest_journal(journal_dir, "release", origin, bootstrap_path, pins.journal)
         ingest_desktop(desktop_dir, pins.desktop)
@@ -437,6 +493,7 @@ def prepare_recut(
             bootstrap_file=bootstrap_path,
             pins=pins,
             minimum_installer_revision=stamped_floor,
+            installer=installer,
         )
         manifest_path = stage / "platform.json"
         manifest_path.write_bytes(manifest)

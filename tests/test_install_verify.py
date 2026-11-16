@@ -141,6 +141,48 @@ class TestInstallVerify(HermeticInstallerTestCase):
             finally:
                 server.stop()
 
+    def test_catalogue_naming_its_installer_copy_is_read_and_a_malformed_one_refused(self):
+        with ephemeral_keypair("catalogue installer block") as (sec, pub, pin):
+            server, root = setup_test_release_server(self.work_dir, sec, pin)
+            try:
+                installer = self.work_dir / "install.sh"
+                build_installer(
+                    repo_root=REPO_ROOT,
+                    output_path=installer,
+                    platform_pub_path=pub,
+                    platform_key_id=pin.key_id,
+                    origin=server.origin,
+                    native_test_pins=server.native_pins,
+                )
+                original = json.loads((root / "solstone" / "release" / "2.0.0" / "platform.json").read_text(encoding="utf-8"))
+                journal_version = original["components"]["journal"]["version"]
+                coordinate = f"{journal_version}-r1"
+                version_dir = root / "solstone" / "release" / coordinate
+                version_dir.mkdir(parents=True)
+                manifest_path = version_dir / "platform.json"
+                block = {"filename": "install.sh", "revision": 22, "sha256": "a" * 64}
+                cases = (
+                    ("named", block, "success"),
+                    ("unknown field", {**block, "url": "https://example.invalid/install.sh"}, "schema-invalid"),
+                    ("revision as text", {**block, "revision": "22"}, "schema-invalid"),
+                    ("not an object", "install.sh", "schema-invalid"),
+                )
+                for name, value, expected in cases:
+                    with self.subTest(name=name):
+                        manifest = dict(original, schema_version=2, catalogue_revision=1, version=journal_version, installer=value)
+                        manifest_path.write_bytes(canonical_json_bytes(manifest))
+                        sign_fixture_file(manifest_path, sec)
+                        proc = subprocess.run(
+                            [str(installer), "--version", coordinate, "--list", "--prefix", str(self.prefix), "--json"],
+                            capture_output=True,
+                            text=True,
+                        )
+                        result = json.loads(proc.stdout)
+                        self.assertEqual(result["status"] if expected == "success" else result["root_code"], expected, proc.stderr)
+                        self.assertEqual(list(self.prefix.rglob("*")), [])
+            finally:
+                server.stop()
+
     def test_large_installer_revision_floor_is_compared_as_decimal_text(self):
         huge_revision = 10000000000000000000
         with ephemeral_keypair("large revision floor") as (sec, pub, pin):

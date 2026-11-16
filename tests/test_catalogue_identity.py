@@ -15,6 +15,7 @@ from solstone_platform.refusals import (
     Refusal,
 )
 from solstone_platform.schema import (
+    INSTALLER_BLOCK_FIRST_REVISION,
     MAX_SEMVER_DIGITS,
     SCHEMA_1_KEYS,
     SCHEMA_2_KEYS,
@@ -228,6 +229,28 @@ class TestCatalogueIdentity(unittest.TestCase):
         with self.assertRaises(Refusal) as ctx:
             validate_platform_manifest(s2_str_rev)
         self.assertEqual(ctx.exception.name, SCHEMA_INVALID)
+
+    def test_schema_2_catalogue_may_name_its_installer_copy(self):
+        s2_obj = copy.deepcopy(self.example_obj)
+        s2_obj.update(schema_version=2, catalogue_revision=1, version=s2_obj["components"]["journal"]["version"])
+        block = {"filename": "install.sh", "revision": INSTALLER_BLOCK_FIRST_REVISION, "sha256": "a" * 64}
+        validate_platform_manifest({**s2_obj, "installer": block})
+        validate_platform_manifest(s2_obj)
+
+        refused = {
+            "schema 1": {**self.example_obj, "installer": block},
+            "extra field": {**s2_obj, "installer": {**block, "url": "https://example.invalid/install.sh"}},
+            "missing field": {**s2_obj, "installer": {k: v for k, v in block.items() if k != "sha256"}},
+            "other filename": {**s2_obj, "installer": {**block, "filename": "other.sh"}},
+            "short digest": {**s2_obj, "installer": {**block, "sha256": "a" * 63}},
+            "revision before the reader": {**s2_obj, "installer": {**block, "revision": INSTALLER_BLOCK_FIRST_REVISION - 1}},
+            "revision as bool": {**s2_obj, "installer": {**block, "revision": True}},
+            "not an object": {**s2_obj, "installer": "install.sh"},
+        }
+        for name, manifest in refused.items():
+            with self.subTest(name=name), self.assertRaises(Refusal) as ctx:
+                validate_platform_manifest(manifest)
+            self.assertEqual(ctx.exception.name, SCHEMA_INVALID)
 
     def test_schema_1_manifest_validation(self):
         s1_obj = copy.deepcopy(self.example_obj)

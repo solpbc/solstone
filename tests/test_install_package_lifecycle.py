@@ -139,6 +139,26 @@ class TestInstallPackageLifecycle(HermeticInstallerTestCase):
             finally:
                 server.stop()
 
+    def test_package_install_points_to_the_repository_until_it_is_set_up(self):
+        pointer = "add the solstone repository: solstone.app/install#linux-packages"
+        with ephemeral_keypair("package repository pointer") as (sec, pub, pin):
+            server, installer = self.build_release(sec, pub, pin)
+            try:
+                env = {**self.env, "DISPLAY": "", "WAYLAND_DISPLAY": ""}
+                args = [str(installer), "--route", "deb", "--components", "journal", "--prefix", str(self.prefix)]
+                first = subprocess.run(args, capture_output=True, text=True, env=env)
+                self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+                self.assertIn(pointer, first.stderr)
+
+                sources = self.etc_root / "apt" / "sources.list.d" / "solstone.sources"
+                sources.parent.mkdir(parents=True)
+                sources.write_text("Types: deb\nURIs: https://updates.solstone.app/linux/apt\nSuites: release\n")
+                second = subprocess.run(args, capture_output=True, text=True, env=env)
+                self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
+                self.assertNotIn(pointer, second.stderr)
+            finally:
+                server.stop()
+
     def test_headless_handoff_leaves_out_the_desktop_app_step(self):
         with ephemeral_keypair("package headless handoff") as (sec, pub, pin):
             server, installer = self.build_release(sec, pub, pin)

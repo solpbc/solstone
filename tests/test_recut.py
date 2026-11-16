@@ -5,6 +5,7 @@
 
 from contextlib import ExitStack, contextmanager
 import copy
+import hashlib
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 import shutil
@@ -22,10 +23,11 @@ from solstone_platform.pins import PinSet
 from solstone_platform.publish import publish_release
 from solstone_platform.recut import _Downloader, _rename_noreplace, prepare_recut
 from solstone_platform.refusals import HTTP_3XX, RELEASE_COHERENCE, SCHEMA_INVALID, Refusal
-from solstone_platform.schema import load_platform_manifest_bytes, validate_arch_retention
+from solstone_platform.schema import INSTALLER_BLOCK_FIRST_REVISION, load_platform_manifest_bytes, validate_arch_retention
 from solstone_platform.sign import ephemeral_keypair, sign_manifest
 from solstone_platform.testdest import FixtureDestination
 from tests.install_test_helpers import LoopbackServer
+from tools.build_installer import build_installer
 from tools.fixture_builder import build_tiny_natives
 
 
@@ -137,13 +139,17 @@ class TestDesktopAarch64Recut(unittest.TestCase):
         self.pinset = PinSet(journal=self.native_keys[2], desktop=self.native_keys[2], tmux=self.native_keys[2])
         self.repo = self.root / "repo"
         self.repo.mkdir()
-        for name in ("compat", "contracts", "pins"):
-            shutil.copytree(Path(__file__).parent.parent / name, self.repo / name)
+        source_root = Path(__file__).parent.parent
+        for name in ("compat", "contracts", "pins", "helpers", "handlers", "tools"):
+            shutil.copytree(source_root / name, self.repo / name, ignore=shutil.ignore_patterns("__pycache__"))
+        shutil.copyfile(source_root / "install.sh.in", self.repo / "install.sh.in")
         for argv in (["git", "init", "-q"], ["git", "add", "."],
                      ["git", "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "-qm", "fixture"]):
             subprocess.run(argv, cwd=self.repo, check=True, capture_output=True)
         self.www = self.root / "www"
         self.www.mkdir()
+        # The installer owners run by hand is the one this commit builds.
+        build_installer(repo_root=self.repo, output_path=self.www / "solstone.app" / "install.sh", is_production=True)
         self.server = LoopbackServer(self.www)
         self.server.start()
         self.addCleanup(self.server.stop)
@@ -233,6 +239,8 @@ class TestDesktopAarch64Recut(unittest.TestCase):
         class OfflineOpener:
             def open(self, request, timeout):
                 parsed = urllib.parse.urlsplit(request.full_url)
+                if parsed.netloc == "solstone.app" and parsed.path == "/install.sh":
+                    return inner.open(urllib.request.Request(server_origin + "/solstone.app/install.sh"), timeout=timeout)
                 if parsed.netloc != "updates.solstone.app":
                     raise AssertionError("recut attempted an unexpected origin")
                 return inner.open(urllib.request.Request(server_origin + parsed.path), timeout=timeout)
@@ -250,6 +258,7 @@ class TestDesktopAarch64Recut(unittest.TestCase):
         return publish_release(manifest_path=path / "platform.json", signature_path=path / "platform.json.minisig",
                                journal_dir=path / "journal", desktop_dir=path / "desktop",
                                dest=self.dest, bootstrap_file=bootstrap_file,
+                               installer_file=path / "installer" / "install.sh",
                                expected_latest_receipt=path / "recut-receipt.json")
 
     def desktop_arches(self, path: Path) -> set[str]:
@@ -391,6 +400,57 @@ class TestDesktopAarch64Recut(unittest.TestCase):
         self.assertNotIn("tmux", manifest["components"])
         receipt = parse_json_strict((prepared / "recut-receipt.json").read_bytes())
         self.assertEqual(receipt.get("retired_components"), ["tmux"])
+
+    def test_recut_names_the_served_installer_and_publish_claims_it_beside_the_catalogue(self):
+        self.publish_base(("x86_64",))
+        self.add_release("desktop", "2.0.38")
+        served = (self.www / "solstone.app" / "install.sh").read_bytes()
+        prepared = self.prepare("2.0.6-r2", {"desktop": "2.0.38"})
+        block = self.manifest(prepared)["installer"]
+        self.assertEqual(block, {
+            "filename": "install.sh",
+            "revision": int((self.repo / "compat" / "installer_revision").read_text(encoding="utf-8")),
+            "sha256": hashlib.sha256(served).hexdigest(),
+        })
+        self.assertEqual((prepared / "installer" / "install.sh").read_bytes(), served)
+        self.publish(prepared)
+        self.assertEqual(self.dest.objects["solstone/release/2.0.6-r2/install.sh"].body, served)
+
+    def test_recut_refuses_a_served_installer_this_commit_does_not_build(self):
+        self.publish_base(("x86_64",))
+        self.add_release("desktop", "2.0.38")
+        served = self.www / "solstone.app" / "install.sh"
+        served.write_bytes(served.read_bytes() + b"# changed after review\n")
+        refusal = self.assert_refused_before_preparing("2.0.6-r2", {"desktop": "2.0.38"})
+        self.assertIn("publish the installer", str(refusal))
+
+    def test_recut_refuses_while_the_served_installer_is_older_than_the_reader(self):
+        self.publish_base(("x86_64",))
+        self.add_release("desktop", "2.0.38")
+        (self.repo / "compat" / "installer_revision").write_text(f"{INSTALLER_BLOCK_FIRST_REVISION - 1}\n", encoding="utf-8")
+        subprocess.run(["git", "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",
+                        "commit", "-qam", "older installer"], cwd=self.repo, check=True, capture_output=True)
+        build_installer(repo_root=self.repo, output_path=self.www / "solstone.app" / "install.sh", is_production=True)
+        refusal = self.assert_refused_before_preparing("2.0.6-r2", {"desktop": "2.0.38"})
+        self.assertIn(f"revision {INSTALLER_BLOCK_FIRST_REVISION - 1}", str(refusal))
+
+    def test_publish_refuses_a_catalogue_without_the_exact_installer_copy_it_names(self):
+        self.publish_base(("x86_64",))
+        self.add_release("desktop", "2.0.38")
+        prepared = self.prepare("2.0.6-r2", {"desktop": "2.0.38"})
+        args = dict(manifest_path=prepared / "platform.json", signature_path=prepared / "platform.json.minisig",
+                    journal_dir=prepared / "journal", desktop_dir=prepared / "desktop", dest=self.dest,
+                    expected_latest_receipt=prepared / "recut-receipt.json")
+        with self.assertRaises(Refusal) as ctx:
+            publish_release(**args)
+        self.assertEqual(ctx.exception.name, RELEASE_COHERENCE)
+        copy_path = prepared / "installer" / "install.sh"
+        copy_path.write_bytes(copy_path.read_bytes() + b"# changed\n")
+        with self.assertRaises(Refusal) as ctx:
+            publish_release(**args, installer_file=copy_path)
+        self.assertEqual(ctx.exception.name, RELEASE_COHERENCE)
+        self.assertFalse([key for key in self.dest.objects if key.startswith("solstone/release/2.0.6-r2/")])
+        self.assertEqual(self.dest.get("solstone/release/latest").body, b"2.0.6-r1\n")
 
 
 if __name__ == "__main__":

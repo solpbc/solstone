@@ -108,6 +108,7 @@ def main(argv: list[str] | None = None) -> int:
     p_pub.add_argument("--journal-dir", type=Path, required=True, help="Path to solstone-journal release dir")
     p_pub.add_argument("--desktop-dir", type=Path, required=True, help="Path to solstone-linux release dir")
     p_pub.add_argument("--bootstrap-file", type=Path, help="Explicit path to bootstrap install.sh")
+    p_pub.add_argument("--installer-file", type=Path, help="The installer copy the catalogue names (prepared installer/install.sh)")
     p_pub.add_argument("--acknowledge-production", action="store_true", help="Acknowledge production publishing")
     expectations = p_pub.add_mutually_exclusive_group()
     expectations.add_argument("--expected-latest-receipt", type=Path, help="prepare-recut receipt binding the expected base")
@@ -233,6 +234,7 @@ def main(argv: list[str] | None = None) -> int:
                 desktop_dir=args.desktop_dir,
                 dest=dest,
                 bootstrap_file=args.bootstrap_file,
+                installer_file=args.installer_file,
                 expected_latest_receipt=args.expected_latest_receipt,
                 expect_latest_absent=args.expect_latest_absent,
             )

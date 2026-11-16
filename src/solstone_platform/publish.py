@@ -31,6 +31,8 @@ from solstone_platform.refusals import (
     Refusal,
 )
 from solstone_platform.schema import (
+    INSTALLER_COPY_FILENAME,
+    SERVED_INSTALLER_URL,
     TMUX_RETIREMENT_FLOOR,
     catalogue_coordinate,
     compare_catalogue_coordinates,
@@ -208,6 +210,9 @@ def _snapshot_prepared_inventory(snapshot) -> list[dict[str, object]]:
                     files.append((child, f"{rel}/{child.relative_to(path)}"))
     if snapshot.bootstrap_file:
         files.append((snapshot.bootstrap_file, f"bootstrap/{snapshot.bootstrap_file.name}"))
+    installer_file = getattr(snapshot, "installer_file", None)
+    if installer_file:
+        files.append((installer_file, f"installer/{installer_file.name}"))
     result: list[dict[str, object]] = []
     for path, rel in sorted(files, key=lambda item: item[1]):
         data = path.read_bytes()
@@ -318,6 +323,8 @@ def _validate_recut_receipt(
         if path.startswith("bootstrap/"):
             journal_version = manifest_obj["components"]["journal"]["version"]
             expected_url = f"{origin}/solstone-journal/release/{journal_version}/{Path(path).name}"
+        elif path == f"installer/{INSTALLER_COPY_FILENAME}":
+            expected_url = SERVED_INSTALLER_URL
         else:
             component = path.split("/", 1)[0]
             version = manifest_obj["components"][component]["version"] if component in replacements else base_version
@@ -354,6 +361,7 @@ def publish_release(*args, **kwargs) -> PublishReport:
     allowed_kw = {
         "manifest_path", "signature_path", "journal_dir", "desktop_dir",
         "dest", "bootstrap_file", "expected_latest_receipt", "expect_latest_absent",
+        "installer_file",
     }
     if "tmux_dir" in kwargs:
         raise Refusal(UNSAFE_FILENAME, "publish_release received unexpected arguments outside closed allowlist")
@@ -382,6 +390,7 @@ def publish_release(*args, **kwargs) -> PublishReport:
     bootstrap_file: Optional[Path] = Path(bound["bootstrap_file"]) if bound.get("bootstrap_file") else None
     receipt_path: Optional[Path] = Path(bound["expected_latest_receipt"]) if bound.get("expected_latest_receipt") else None
     expect_latest_absent = bool(bound.get("expect_latest_absent", False))
+    installer_file: Optional[Path] = Path(bound["installer_file"]) if bound.get("installer_file") else None
 
     is_fixture_dest = (
         type(dest) is FixtureDestination
@@ -410,6 +419,7 @@ def publish_release(*args, **kwargs) -> PublishReport:
         tmux_dir=tmux_dir,
         bootstrap_file=bootstrap_file,
         receipt_path=receipt_path,
+        installer_file=installer_file,
     ) as snapshot:
 
         # 2. Fire post-capture hook only for authorized FixtureDestination
@@ -614,6 +624,27 @@ def publish_release(*args, **kwargs) -> PublishReport:
 
         boot_key = f"solstone-journal/{lane}/{ingested_j.version}/{expected_boot_filename}"
         bootstrap_claim = (boot_bytes, "application/octet-stream", "public, max-age=31536000, immutable")
+
+        # The installer copy the catalogue names is claimed with the natives,
+        # before the platform pair, and only with the exact bytes it names.
+        installer_block = manifest_obj.get("installer")
+        if (installer_block is None) != (snapshot.installer_file is None):
+            raise Refusal(
+                RELEASE_COHERENCE,
+                "the catalogue names an installer copy exactly when one is published with it",
+            )
+        if installer_block is not None:
+            installer_bytes = snapshot.installer_file.read_bytes()
+            if (
+                snapshot.installer_file.name != installer_block["filename"]
+                or hashlib.sha256(installer_bytes).hexdigest() != installer_block["sha256"]
+            ):
+                raise Refusal(RELEASE_COHERENCE, "the installer copy is not the one the catalogue names")
+            _add_claim(
+                claims_to_make,
+                f"solstone/{lane}/{version}/{installer_block['filename']}",
+                (installer_bytes, "text/plain; charset=utf-8", "public, max-age=31536000, immutable"),
+            )
 
         # 3. Platform pair
         manifest_key = f"solstone/{lane}/{version}/platform.json"

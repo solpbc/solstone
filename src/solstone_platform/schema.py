@@ -64,6 +64,17 @@ SCHEMA_1_KEYS: tuple[str, ...] = (
     "components",
 )
 SCHEMA_2_KEYS: tuple[str, ...] = SCHEMA_1_KEYS + ("catalogue_revision",)
+# A schema 2 catalogue may carry the installer copy published beside it, which a
+# journal checks before it runs that copy unattended.
+SCHEMA_2_OPTIONAL_KEYS: tuple[str, ...] = ("installer",)
+INSTALLER_COPY_FILENAME = "install.sh"
+# The installer owners run by hand. A catalogue's copy is these exact bytes.
+SERVED_INSTALLER_URL = "https://solstone.app/install.sh"
+INSTALLER_BLOCK_KEYS: tuple[str, ...] = ("filename", "revision", "sha256")
+# The first installer revision that reads a catalogue carrying the block. An older
+# installer refuses any unknown catalogue field, so no catalogue may carry the block
+# until this revision is the one served.
+INSTALLER_BLOCK_FIRST_REVISION = 22
 
 COMPONENT_CONTRACTS = {
     "journal": {
@@ -376,12 +387,14 @@ def _validate_platform_manifest(manifest: Any) -> None:
 
     if schema_version == 1:
         expected_top_keys = set(SCHEMA_1_KEYS)
+        optional_top_keys: set[str] = set()
     else:
         expected_top_keys = set(SCHEMA_2_KEYS)
+        optional_top_keys = set(SCHEMA_2_OPTIONAL_KEYS)
 
     top_keys = set(manifest.keys())
-    if top_keys != expected_top_keys:
-        extra = top_keys - expected_top_keys
+    if top_keys - optional_top_keys != expected_top_keys:
+        extra = top_keys - expected_top_keys - optional_top_keys
         missing = expected_top_keys - top_keys
         if extra:
             raise Refusal(SCHEMA_INVALID, f"unexpected top-level keys: {sorted(extra)}")
@@ -399,6 +412,8 @@ def _validate_platform_manifest(manifest: Any) -> None:
         cat_rev = manifest["catalogue_revision"]
         if not is_valid_catalogue_revision(cat_rev):
             raise Refusal(SCHEMA_INVALID, f"invalid catalogue_revision: {cat_rev}")
+        if "installer" in manifest:
+            validate_installer_block(manifest["installer"])
 
     lane = manifest["lane"]
     if lane not in VALID_LANES:
@@ -450,6 +465,22 @@ def _validate_platform_manifest(manifest: Any) -> None:
                 SCHEMA_INVALID,
                 f"schema 2 platform version '{version}' must equal components.journal.version '{journal_ver}'",
             )
+
+
+def validate_installer_block(block: Any) -> None:
+    """The installer copy a catalogue names: its fixed filename, digest and revision."""
+    if not isinstance(block, dict) or set(block) != set(INSTALLER_BLOCK_KEYS):
+        raise Refusal(SCHEMA_INVALID, f"installer must have exactly {list(INSTALLER_BLOCK_KEYS)}")
+    if block["filename"] != INSTALLER_COPY_FILENAME:
+        raise Refusal(SCHEMA_INVALID, f"installer filename must be {INSTALLER_COPY_FILENAME}")
+    if not is_valid_sha256(block["sha256"]):
+        raise Refusal(SCHEMA_INVALID, "installer sha256 must be 64 lowercase hex digits")
+    revision = block["revision"]
+    if type(revision) is not int or not INSTALLER_BLOCK_FIRST_REVISION <= revision <= MAX_CATALOGUE_REVISION:
+        raise Refusal(
+            SCHEMA_INVALID,
+            f"installer revision must be an integer from {INSTALLER_BLOCK_FIRST_REVISION}, got {revision}",
+        )
 
 
 def _validate_component(name: str, comp: Any, seen_filenames: set[str]) -> None:
@@ -798,6 +829,20 @@ def render_platform_schema() -> str:
             "type": "integer",
             "minimum": 1,
             "maximum": 10**MAX_SEMVER_DIGITS - 1,
+        },
+        "installer": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": list(INSTALLER_BLOCK_KEYS),
+            "properties": {
+                "filename": {"type": "string", "const": INSTALLER_COPY_FILENAME},
+                "revision": {
+                    "type": "integer",
+                    "minimum": INSTALLER_BLOCK_FIRST_REVISION,
+                    "maximum": 10**MAX_SEMVER_DIGITS - 1,
+                },
+                "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            },
         },
     }
 
@@ -1161,7 +1206,7 @@ validate_catalogue_identity() {
 
 def render_posix_catalogue_keys() -> str:
     """Render AWK parser top-level keys alternation regex."""
-    all_keys = sorted(set(SCHEMA_2_KEYS))
+    all_keys = sorted(set(SCHEMA_2_KEYS + SCHEMA_2_OPTIONAL_KEYS))
     keys_regex = "|".join(all_keys)
     return f"""    # BEGIN GENERATED CATALOGUE KEYS
     if (p ~ /^({keys_regex})$/) return 1

@@ -44,6 +44,8 @@ OPT_CONFIRM_PACKAGE_COMMAND=0
 OPT_YES=0
 OPT_NO_START=0
 OPT_NO_PATH=0
+OPT_NO_AUTO_UPDATE=0
+AUTO_UPDATE_FRESH=0
 OPT_LIST=0
 OPT_JSON=0
 OPT_UNINSTALL=0
@@ -376,6 +378,93 @@ finish_journal_install() {
     esac
 }
 
+# An app version directory is named for its version and archive digest.
+is_app_version_dir_name() {
+    avn_name="$1"
+    avn_digest=${avn_name##*-}
+    avn_version=${avn_name%-*}
+    [ "${#avn_digest}" -eq 12 ] || return 1
+    case "$avn_digest" in *[!0123456789abcdef]*) return 1 ;; esac
+    is_canonical_version "$avn_version"
+}
+
+# A version directory that something still runs from stays, whatever its age:
+# the app's service unit or a browser registration naming it, or a running
+# program started from it.
+app_version_dir_in_use() {
+    avu_dir="$1"
+    avu_real=$(cd "$avu_dir" 2>/dev/null && pwd -P) || return 0
+    for avu_file in "${HOME}/.config/systemd/user/$2.service" \
+        "${HOME}"/.config/*/NativeMessagingHosts/*.json \
+        "${HOME}"/.config/BraveSoftware/Brave-Browser/NativeMessagingHosts/*.json \
+        "${HOME}"/.mozilla/native-messaging-hosts/*.json; do
+        [ -f "$avu_file" ] || continue
+        grep -F -e "$avu_dir/" -e "$avu_real/" "$avu_file" >/dev/null 2>&1 && return 0
+    done
+    for avu_exe in /proc/[0-9]*/exe; do
+        avu_target=$(readlink "$avu_exe" 2>/dev/null) || continue
+        case "$avu_target" in "$avu_real"/*) return 0 ;; esac
+    done
+    return 1
+}
+
+# After an app changed, keep the version it runs now and the two installed
+# before it, as the journal does. Daily updates would otherwise keep every one.
+prune_app_versions() {
+    pav_root="${OPT_PREFIX}/opt/solstone/$1"
+    case "$1" in desktop) pav_unit=solstone-linux ;; *) pav_unit=solstone-tmux ;; esac
+    pav_current=$(readlink "${pav_root}/current" 2>/dev/null) || return 0
+    pav_kept=1
+    pav_oldifs=$IFS
+    IFS='
+'
+    # shellcheck disable=SC2045
+    for pav_dir in $(ls -1dt -- "$pav_root"/* 2>/dev/null); do
+        pav_name=${pav_dir##*/}
+        if [ ! -d "$pav_dir" ] || [ -L "$pav_dir" ]; then continue; fi
+        [ "$pav_name" != "$pav_current" ] || continue
+        is_app_version_dir_name "$pav_name" || continue
+        if [ "$pav_kept" -lt 3 ]; then
+            pav_kept=$((pav_kept + 1))
+            continue
+        fi
+        app_version_dir_in_use "$pav_dir" "$pav_unit" && continue
+        rm -rf -- "$pav_dir" 2>/dev/null || true
+    done
+    IFS=$pav_oldifs
+}
+
+# A new tree journal updates itself. The journal writes its own timer, so a
+# journal too old to know the switch refuses it, and nothing is said.
+enable_automatic_updates() {
+    [ "$HOST_OS" = linux ] && [ "$AUTO_UPDATE_FRESH" -eq 1 ] && [ "$OPT_NO_AUTO_UPDATE" -eq 0 ] \
+        && [ "$OPT_NO_START" -eq 0 ] && [ "$OPT_UPGRADE" -eq 0 ] || return 0
+    case " $SUCCEEDED_COMPONENTS " in *" journal "*) ;; *) return 0 ;; esac
+    eau_bin="${JOURNAL_PREFIX:-$OPT_PREFIX}/current/bin/solstone"
+    "$eau_bin" update --automatic on </dev/null >/dev/null 2>&1 || return 0
+    eau_off="solstone update --automatic off"
+    [ "$OPT_NO_PATH" -eq 0 ] || eau_off="$(shell_quote "$eau_bin") update --automatic off"
+    case " ${REPORT_COMPONENTS:-$SELECTED_COMPONENTS} " in
+        *" desktop "*)
+            add_notice "your journal and the solstone app update themselves: once a day they check for a new version and install it in the background. your journal never restarts on its own; the new version starts the next time it does. to turn this off: $eau_off"
+            ;;
+        *)
+            add_notice "your journal updates itself: once a day it checks for a new version and installs it in the background. the new version starts the next time your journal does. to turn this off: $eau_off"
+            ;;
+    esac
+}
+
+# A package install updates through the system's updater once the solstone
+# repository is set up. Say where to get it when it isn't.
+point_package_route_at_repository() {
+    [ "$HOST_OS" = linux ] && [ -n "$PACKAGE_SELECTED_COMPONENTS" ] || return 0
+    ppr_etc=/etc
+    if [ "$TEST_SEAM" -eq 1 ] && [ -n "${SOLSTONE_ETC_ROOT:-}" ]; then ppr_etc="$SOLSTONE_ETC_ROOT"; fi
+    grep -rqsF 'updates.solstone.app/linux/' "$ppr_etc/apt/sources.list" "$ppr_etc/apt/sources.list.d" \
+        "$ppr_etc/yum.repos.d" "$ppr_etc/zypp/repos.d" && return 0
+    log_info "to get updates through your system's updater, add the solstone repository: solstone.app/install#linux-packages"
+}
+
 # A desktop-only install has no journal step to follow, so it names its own.
 finish_desktop_install() {
     [ "$HOST_OS" = linux ] || return 0
@@ -565,6 +654,7 @@ report_exit() {
                 fi
                 finish_journal_install
                 finish_desktop_install
+                point_package_route_at_repository
             fi
         else
             log_err "$code: $message"
@@ -1418,8 +1508,9 @@ function is_whitelisted(p) {
     if (schema_mode == "desktop" || schema_mode == "tmux") return 1
     if (p ~ /(_is_list)$/) return 1
     # BEGIN GENERATED CATALOGUE KEYS
-    if (p ~ /^(catalogue_revision|components|created_unix|lane|minimum_installer_revision|platform_key_id|protocol_version|schema_version|source_commit|version)$/) return 1
+    if (p ~ /^(catalogue_revision|components|created_unix|installer|lane|minimum_installer_revision|platform_key_id|protocol_version|schema_version|source_commit|version)$/) return 1
     # END GENERATED CATALOGUE KEYS
+    if (p ~ /^installer\.(filename|revision|sha256)$/) return 1
     if (p ~ /^components\.(journal|desktop|tmux)$/) return 1
     if (p ~ /^components\.(journal|desktop|tmux)\.(version|handler_contract_version|install_entrypoint|uninstall_service_entrypoint)$/) return 1
     if (p ~ /^components\.journal\.provenance$/) return 1
@@ -1510,6 +1601,12 @@ function write_val(path_str, val, value_type,   fpath, dpath, last_slash) {
             if (value_type != "NUMBER" || val !~ /^(0|[1-9][0-9]*)$/) err("schema-invalid", "platform identity field must be an integer: " path_str)
         } else if (path_str ~ /^(version|lane|platform_key_id|source_commit|components\.(journal|desktop|tmux)\.version)$/) {
             if (value_type != "STRING") err("schema-invalid", "platform identity field must be a string: " path_str)
+        } else if (path_str == "installer") {
+            err("schema-invalid", "installer must be an object")
+        } else if (path_str == "installer.revision") {
+            if (value_type != "NUMBER" || val !~ /^[1-9][0-9]*$/) err("schema-invalid", "installer revision must be an integer")
+        } else if (path_str ~ /^installer\.(filename|sha256)$/) {
+            if (value_type != "STRING") err("schema-invalid", "installer field must be a string: " path_str)
         }
     }
     if (schema_mode == "journal") {
@@ -4175,6 +4272,7 @@ usage: sh install.sh [options]
   --origin URL         download origin (default: https://updates.solstone.app)
   --no-start           leave service setup/start to you
   --no-path            leave shell PATH configuration to you
+  --no-auto-update     linux: a new journal does not update itself
   --non-interactive    never open the component menu; select components explicitly
   --confirm-package-command
                        show each linux package installation command and wait for approval
@@ -4302,6 +4400,10 @@ parse_args() {
                 ;;
             --no-path)
                 OPT_NO_PATH=1
+                shift 1
+                ;;
+            --no-auto-update)
+                OPT_NO_AUTO_UPDATE=1
                 shift 1
                 ;;
             --list)
@@ -4540,10 +4642,17 @@ run_tree_component() {
                 handler_bin="${h_root}/${comp}/v1/${comp_entrypoint}"
                 [ -f "$handler_bin" ] || tree_mutation_failure "handler-missing" "Install handler is missing for $comp"
                 chmod 0755 "$handler_bin" || tree_mutation_failure "handler-failed" "Could not make the $comp install handler executable"
+                # An unchanged app whose service is in place keeps its run
+                # state: running stays running, quit stays quit, and nothing
+                # restarts it. Its launcher and PATH files are still refreshed.
+                # A missing service is set up again.
+                cv_no_start="$OPT_NO_START"
+                case "$comp" in desktop) cv_unit=solstone-linux ;; *) cv_unit=solstone-tmux ;; esac
+                [ ! -f "${HOME}/.config/systemd/user/${cv_unit}.service" ] || cv_no_start=1
                 set -- --prefix "$OPT_PREFIX" --binary "$symlink_target" --route tree --role "$comp"
-                [ "$OPT_NO_START" -eq 0 ] || set -- "$@" --no-start
+                [ "$cv_no_start" -eq 0 ] || set -- "$@" --no-start
                 [ "$OPT_NO_PATH" -eq 0 ] || set -- "$@" --no-path
-                if [ "$OPT_NO_START" -eq 0 ]; then
+                if [ "$cv_no_start" -eq 0 ]; then
                     printf '%s\n' "$symlink_target" > "${SCRATCH_DIR}/handler-rollback/attempted-${comp}" \
                         || tree_mutation_failure "handler-failed" "could not stage service rollback for $comp"
                 fi
@@ -6050,6 +6159,17 @@ main() {
         run_uninstall
     fi
 
+    # A journal this installer has never installed here is a new install, and
+    # new installs update themselves. An existing one is asked in its own window.
+    case " $TREE_SELECTED_COMPONENTS " in
+        *" journal "*)
+            if [ "$STANDALONE_MOVE" -eq 0 ] \
+                && [ "$(receipt_value "$(tree_receipt_path)" component:journal status 2>/dev/null || true)" != installed ]; then
+                AUTO_UPDATE_FRESH=1
+            fi
+            ;;
+    esac
+
     # 14. Perform installation
     SELECTED_COMPONENTS="$TREE_SELECTED_COMPONENTS"
     if [ -n "$SELECTED_COMPONENTS" ]; then
@@ -6063,6 +6183,12 @@ main() {
 
     tmux_move_finish
     settle_empty_package_receipt
+    for comp in desktop tmux; do
+        case " $SUCCEEDED_COMPONENTS " in *" $comp "*) ;; *) continue ;; esac
+        case " $UNCHANGED_COMPONENTS " in *" $comp "*) continue ;; esac
+        prune_app_versions "$comp"
+    done
+    enable_automatic_updates
 
     report_exit "success" "${MOVE_ROOT_CODE:-installed}" "${MOVE_ROOT_MESSAGE:-All selected components installed successfully}"
 }

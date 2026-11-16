@@ -152,6 +152,30 @@
           "type": "integer",
           "minimum": 1,
           "maximum": 99999999999999999999
+        },
+        "installer": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "filename",
+            "revision",
+            "sha256"
+          ],
+          "properties": {
+            "filename": {
+              "type": "string",
+              "const": "install.sh"
+            },
+            "revision": {
+              "type": "integer",
+              "minimum": 22,
+              "maximum": 99999999999999999999
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
         }
       }
     }
