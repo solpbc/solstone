@@ -139,10 +139,10 @@ advance `latest`. if an abandoned attempt has claimed a coordinate, select a
 higher revision for the same genuine component update. preparation requires a
 strictly newer selected component; changing only catalogue metadata is refused.
 
-run the additional offline qualification explicitly:
+`make ci` also runs the offline catalogue qualification. to run it alone:
 
 ```sh
-PYTHONPATH=src:. python3 qualify/catalogue_revision.py -v
+make qualify
 ```
 
 ## why trust it with your life

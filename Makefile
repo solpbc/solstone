@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-.PHONY: all agent-setup build build-installer check-installer-catalog test lint format ci
+.PHONY: all agent-setup build build-installer check-installer-catalog test qualify lint format ci
 
 all: ci
 
@@ -20,12 +20,15 @@ check-installer-catalog: build-installer
 test:
 	PYTHONPATH=src:tools python3 -m unittest discover -s tests -p "test_*.py" -v
 
+qualify:
+	PYTHONPATH=src:. python3 qualify/catalogue_revision.py -v
+
 lint:
-	python3 -m py_compile src/solstone_platform/*.py tools/*.py tests/*.py
+	python3 -m py_compile src/solstone_platform/*.py tools/*.py tests/*.py qualify/*.py
 
 format:
 	python3 tools/formatcheck.py
 
-ci: build lint format test check-installer-catalog
+ci: build lint format test qualify check-installer-catalog
 	python3 tools/secretscan.py
 	@echo "All CI gates passed successfully."

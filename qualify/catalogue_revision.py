@@ -52,14 +52,17 @@ class PublicationQualification(unittest.TestCase):
         self.pinset = PinSet(journal=self.keys[1][2], desktop=self.keys[2][2], tmux=self.keys[3][2])
         self.repo = self.root / "repo"
         self.repo.mkdir()
-        for name in ("compat", "contracts", "pins"):
-            shutil.copytree(ROOT / name, self.repo / name)
+        for name in ("compat", "contracts", "pins", "helpers", "handlers", "i18n", "tools"):
+            shutil.copytree(ROOT / name, self.repo / name, ignore=shutil.ignore_patterns("__pycache__"))
+        shutil.copyfile(ROOT / "install.sh.in", self.repo / "install.sh.in")
         for argv in (["git", "init", "-q"], ["git", "add", "."],
                      ["git", "-c", "user.name=Qualification", "-c", "user.email=qualification@example.invalid",
                       "commit", "-qm", "Fixture contracts"]):
             subprocess.run(argv, cwd=self.repo, check=True, capture_output=True)
         self.www = self.root / "www"
         self.www.mkdir()
+        # Preparation reads the served installer, so serve the one this commit builds.
+        build_installer(repo_root=self.repo, output_path=self.www / "solstone.app" / "install.sh", is_production=True)
         self.server = LoopbackServer(self.www)
         self.server.start()
         self.stack.callback(self.server.stop)
@@ -119,6 +122,8 @@ class PublicationQualification(unittest.TestCase):
         return publish_release(manifest_path=path / "platform.json", signature_path=path / "platform.json.minisig",
                 journal_dir=path / "journal", desktop_dir=path / "desktop", dest=self.dest,
                 bootstrap_file=bootstrap[0] if bootstrap else None,
+                **({"installer_file": path / "installer" / "install.sh"}
+                   if (path / "installer" / "install.sh").is_file() else {}),
                 **({"expected_latest_receipt": receipt} if receipt.is_file() else {}))
 
     def sync_destination(self):
@@ -146,6 +151,8 @@ class PublicationQualification(unittest.TestCase):
         class OfflineOpener:
             def open(self, request, timeout):
                 parsed = urllib.parse.urlsplit(request.full_url)
+                if parsed.scheme == "https" and parsed.netloc == "solstone.app" and parsed.path == "/install.sh":
+                    return inner.open(urllib.request.Request(server_origin + "/solstone.app/install.sh"), timeout=timeout)
                 if parsed.scheme != "https" or parsed.netloc != "updates.solstone.app":
                     raise AssertionError("qualification attempted an unexpected origin")
                 local = urllib.request.Request(server_origin + parsed.path, headers=dict(request.headers))
