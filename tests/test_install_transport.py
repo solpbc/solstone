@@ -430,6 +430,20 @@ class TestInstallTransport(HermeticInstallerTestCase):
                 first.stop()
                 second.stop()
 
+    def test_curl_transport_diagnostic_reaches_stderr(self):
+        with ephemeral_keypair("failed fetch") as (_sec, pub, pin):
+            installer = self._build(pub, pin.key_id, origin="http://127.0.0.1:4444")
+            bin_dir = self.work_dir / "bin"
+            bin_dir.mkdir(exist_ok=True)
+            curl = bin_dir / "curl"
+            curl.write_text("#!/bin/sh\necho 'curl: connection reset by peer' >&2\nprintf 000\nexit 56\n")
+            curl.chmod(0o755)
+            proc = self._run(installer, "--version", "2.0.0", "--list",
+                             env={**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}"})
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertEqual(json.loads(proc.stdout)["root_code"], "fetch-failed")
+            self.assertIn("connection reset by peer", proc.stderr)
+
     def test_curl_refuses_scheme_change_before_second_hop(self):
         with ephemeral_keypair("scheme redirect") as (_sec, pub, pin):
             installer = self._build(pub, pin.key_id, origin="http://127.0.0.1:4444")
