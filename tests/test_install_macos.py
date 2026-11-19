@@ -87,13 +87,19 @@ class TestInstallMacOS(HermeticInstallerTestCase):
         sec, pub, pin = keys.__enter__()
         self.addCleanup(keys.__exit__, None, None, None)
         del sec
+        self.platform_public = pub
+        self.platform_key_id = pin.key_id
         self.installer = self.root / "install.sh"
+        self.build_installer()
+
+    def build_installer(self, *, pseudo_locale=False):
         build_installer(
             repo_root=REPO_ROOT,
             output_path=self.installer,
-            platform_pub_path=pub,
-            platform_key_id=pin.key_id,
+            platform_pub_path=self.platform_public,
+            platform_key_id=self.platform_key_id,
             origin=self.server.origin,
+            pseudo_locale=pseudo_locale,
         )
 
     def tearDown(self):
@@ -201,6 +207,22 @@ class TestInstallMacOS(HermeticInstallerTestCase):
         verify_call = codesign_log.read_text(encoding="utf-8").splitlines()[0]
         self.assertIn("--verify --deep", verify_call)
         self.assertNotIn("--strict", verify_call)
+
+    def test_pseudo_locale_keeps_component_roles_and_installed_verification(self):
+        self.build_installer(pseudo_locale=True)
+        (self.applications / "journal.app").mkdir()
+        codesign_log = self.root / "codesign.log"
+        proc = self.run_installer(
+            "--components", "all",
+            extra_env={"SOLSTONE_FAKE_CODESIGN_LOG": str(codesign_log)},
+        )
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        result = self.result(proc)
+        self.assertEqual(result["components"]["journal"]["status"], "unchanged")
+        self.assertEqual(result["components"]["app"]["status"], "installed")
+        first_verification = codesign_log.read_text(encoding="utf-8").splitlines()[0]
+        self.assertIn("--verify --deep", first_verification)
+        self.assertNotIn("--strict", first_verification)
 
     def test_downloaded_app_uses_strict_code_verification(self):
         codesign_log = self.root / "codesign.log"

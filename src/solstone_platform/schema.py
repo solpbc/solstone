@@ -1161,44 +1161,44 @@ validate_catalogue_identity() {
     vci_version="$4"
     vci_resolved="$5"
     if [ "$vci_protocol" != "1" ]; then
-        report_exit "refusal" "schema-invalid" "manifest protocol version must be 1"
+        report_exit "refusal" "schema-invalid" "@{installer-manifest-protocol-version-must-be-1:d}@"
     fi
     if [ "$vci_schema" = "1" ]; then
         if [ -f "${vci_manifest_dir}/catalogue_revision" ]; then
-            report_exit "refusal" "schema-invalid" "schema 1 manifest must not contain catalogue_revision"
+            report_exit "refusal" "schema-invalid" "@{installer-schema-1-manifest-must-not-contain-catalogue:d ["catalogue_revision"]}@"
         fi
         if ! is_bare_coordinate "$vci_version"; then
-            report_exit "refusal" "schema-invalid" "manifest platform version is invalid"
+            report_exit "refusal" "schema-invalid" "@{installer-manifest-platform-version-is-invalid:d}@"
         fi
         if [ "$vci_version" != "$vci_resolved" ]; then
-            report_exit "refusal" "release-coherence" "manifest platform version does not match the requested coordinate"
+            report_exit "refusal" "release-coherence" "@{installer-manifest-platform-version-does-not-match-the:d}@"
         fi
     elif [ "$vci_schema" = "2" ]; then
         if [ ! -f "${vci_manifest_dir}/catalogue_revision" ]; then
-            report_exit "refusal" "schema-invalid" "schema 2 manifest missing catalogue_revision"
+            report_exit "refusal" "schema-invalid" "@{installer-schema-2-manifest-missing-catalogue-revision:d ["catalogue_revision"]}@"
         fi
         vci_rev=$(cat "${vci_manifest_dir}/catalogue_revision")
         case "$vci_rev" in
             ""|0|0*|*[!0123456789]*)
-                report_exit "refusal" "schema-invalid" "manifest catalogue_revision is invalid"
+                report_exit "refusal" "schema-invalid" "@{installer-manifest-catalogue-revision-is-invalid:d ["catalogue_revision"]}@"
                 ;;
         esac
         if [ "${#vci_rev}" -gt @MAX_DIGITS@ ]; then
-            report_exit "refusal" "schema-invalid" "manifest catalogue_revision exceeds maximum digits"
+            report_exit "refusal" "schema-invalid" "@{installer-manifest-catalogue-revision-exceeds-maximum-digits:d ["catalogue_revision"]}@"
         fi
         if ! is_canonical_version "$vci_version"; then
-            report_exit "refusal" "schema-invalid" "manifest platform version is invalid"
+            report_exit "refusal" "schema-invalid" "@{installer-manifest-platform-version-is-invalid:d}@"
         fi
         vci_journal_ver=$(cat "${vci_manifest_dir}/components/journal/version" 2>/dev/null || true)
         if [ "$vci_version" != "$vci_journal_ver" ]; then
-            report_exit "refusal" "schema-invalid" "schema 2 manifest version must equal components.journal.version"
+            report_exit "refusal" "schema-invalid" "@{installer-schema-2-manifest-version-must-equal-components:d}@"
         fi
         vci_derived="${vci_version}-r${vci_rev}"
         if [ "$vci_derived" != "$vci_resolved" ]; then
-            report_exit "refusal" "release-coherence" "manifest catalogue coordinate does not match the requested coordinate"
+            report_exit "refusal" "release-coherence" "@{installer-manifest-catalogue-coordinate-does-not-match-the:d}@"
         fi
     else
-        report_exit "refusal" "schema-invalid" "unsupported schema_version: $vci_schema"
+        report_exit "refusal" "schema-invalid" "@{installer-unsupported-schema-version:d ["schema_version", "$vci_schema"]}@"
     fi
 }
 # END GENERATED CATALOGUE IDENTITY""".replace("@MAX_DIGITS@", str(MAX_SEMVER_DIGITS)).replace("@LATEST_BYTES@", str(MAX_LATEST_BYTES))

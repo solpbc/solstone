@@ -140,7 +140,7 @@ class TestDesktopAarch64Recut(unittest.TestCase):
         self.repo = self.root / "repo"
         self.repo.mkdir()
         source_root = Path(__file__).parent.parent
-        for name in ("compat", "contracts", "pins", "helpers", "handlers", "tools"):
+        for name in ("compat", "contracts", "pins", "helpers", "handlers", "i18n", "tools"):
             shutil.copytree(source_root / name, self.repo / name, ignore=shutil.ignore_patterns("__pycache__"))
         shutil.copyfile(source_root / "install.sh.in", self.repo / "install.sh.in")
         for argv in (["git", "init", "-q"], ["git", "add", "."],

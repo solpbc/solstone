@@ -1,0 +1,25 @@
+{
+  "installer-move-solstone-for-tmux-into-the-solstone": {
+    "kind": "operational-confirmation",
+    "note": "Keep the literal answer tokens. This prompt authorizes a local operation."
+  },
+  "installer-nor": {
+    "note": "Keep `{ $arg1 }` first so the message starts with `Neither`."
+  },
+  "installer-on-this-computer-the-solstone-app-won": {
+    "kind": "operational-confirmation",
+    "note": "Shown before confirming a local move into the solstone app."
+  },
+  "installer-run-this-package-command-answer-or": {
+    "kind": "operational-confirmation",
+    "note": "Keep the literal answer tokens. This prompt authorizes a local operation."
+  },
+  "installer-this-installs-the-solstone-app-moves-solstone": {
+    "kind": "operational-confirmation",
+    "note": "Shown before confirming a local move into the solstone app."
+  },
+  "installer-this-moves-solstone-for-tmux-into-the": {
+    "kind": "operational-confirmation",
+    "note": "Shown before confirming a local move into the solstone app."
+  }
+}

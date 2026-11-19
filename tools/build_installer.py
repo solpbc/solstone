@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 import sys
 
+from solstone_platform.installer_strings import ENGLISH_CATALOG, read_catalog, render_installer_strings
 from solstone_platform.pins import (
     DESKTOP_KEY_ID,
     DESKTOP_PUBKEY,
@@ -91,22 +92,22 @@ def embedded_runtime(repo_root: Path) -> str:
         target = f'"$BUNDLED_RUNTIME/{relative}"'
         parent = str(Path(relative).parent)
         lines.extend([
-            f'    mkdir -p "$BUNDLED_RUNTIME/{parent}" || report_exit refusal runtime-unavailable "could not stage installer runtime"',
+            f'    mkdir -p "$BUNDLED_RUNTIME/{parent}" || report_exit refusal runtime-unavailable "@{{installer-could-not-stage-installer-runtime:d}}@"',
             f"    if ! cat > {target} <<'{delimiter}'",
             content[:-1],
             delimiter,
-            '    then report_exit refusal runtime-unavailable "could not write installer runtime"; fi',
-            f'    chmod 0700 {target} || report_exit refusal runtime-unavailable "could not prepare installer runtime"',
+            '    then report_exit refusal runtime-unavailable "@{installer-could-not-write-installer-runtime:d}@"; fi',
+            f'    chmod 0700 {target} || report_exit refusal runtime-unavailable "@{{installer-could-not-prepare-installer-runtime:d}}@"',
         ])
     lines.append("}")
     return "\n".join(lines)
 
 
-INSTALL_HINT_PATH = "helpers/install-hint.sh"
+INSTALL_HINT_PATH = "helpers/install-hint.sh.in"
 
 
 def install_hint_block(repo_root: Path) -> str:
-    """The distribution install-hint helper, shared byte-for-byte with the journal bootstrap."""
+    """Read the shared hint block before rendering its installer strings."""
     content = (repo_root / INSTALL_HINT_PATH).read_text(encoding="utf-8")
     lines = content.splitlines()
     if (
@@ -128,11 +129,15 @@ def build_installer(
     is_production: bool = False,
     template_path: Path | None = None,
     native_test_pins: PinSet | None = None,
+    pseudo_locale: bool = False,
 ) -> Path:
     if template_path is None:
         template_path = repo_root / "install.sh.in"
     if not template_path.is_file():
         raise Refusal("template-missing", f"template file not found: {template_path}")
+
+    if is_production and pseudo_locale:
+        raise Refusal(PRODUCTION_UNAVAILABLE, "production installer must use en-US")
 
     if is_production and any(
         value is not None
@@ -233,6 +238,11 @@ def build_installer(
             raise Refusal("placeholder-missing", f"template missing expected placeholder '{placeholder}'")
         result = result.replace(placeholder, val)
 
+    result = render_installer_strings(
+        result, read_catalog(repo_root / ENGLISH_CATALOG),
+        pseudo_locale=pseudo_locale, require_all=template_path == repo_root / "install.sh.in",
+    )
+
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(result, encoding="utf-8")
     output_path.chmod(0o755)
@@ -246,6 +256,7 @@ def main() -> int:
     parser.add_argument("--platform-keyid", type=str, default=None, help="Test seam: platform key ID")
     parser.add_argument("--origin", type=str, default=None, help="Test seam: default download origin")
     parser.add_argument("--installer-revision", type=int, default=None, help="Test seam: override installer revision")
+    parser.add_argument("--pseudo-locale", action="store_true", help="Render en-XA in a test build")
     parser.add_argument("--production", action="store_true", help="Build production installer")
 
     args = parser.parse_args()
@@ -262,6 +273,7 @@ def main() -> int:
             origin=args.origin,
             override_installer_revision=args.installer_revision,
             is_production=args.production,
+            pseudo_locale=args.pseudo_locale,
         )
         print(f"Built installer: {out_path}")
         return 0

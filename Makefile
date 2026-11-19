@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-.PHONY: all agent-setup build build-installer test lint format ci
+.PHONY: all agent-setup build build-installer check-installer-catalog test lint format ci
 
 all: ci
 
@@ -14,6 +14,9 @@ build:
 build-installer:
 	PYTHONPATH=src:tools python3 tools/build_installer.py --production -o dist/install.sh
 
+check-installer-catalog: build-installer
+	sh -n dist/install.sh
+
 test:
 	PYTHONPATH=src:tools python3 -m unittest discover -s tests -p "test_*.py" -v
 
@@ -23,6 +26,6 @@ lint:
 format:
 	python3 tools/formatcheck.py
 
-ci: build lint format test
+ci: build lint format test check-installer-catalog
 	python3 tools/secretscan.py
 	@echo "All CI gates passed successfully."

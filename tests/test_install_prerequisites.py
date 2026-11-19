@@ -18,12 +18,12 @@ import unittest
 
 from tests.install_test_helpers import HermeticInstallerTestCase
 
+from solstone_platform.installer_strings import ENGLISH_CATALOG, read_catalog, render_installer_strings
 from solstone_platform.sign import ephemeral_keypair
 from tests.install_test_helpers import setup_test_release_server
-from tools.build_installer import build_installer
+from tools.build_installer import build_installer, install_hint_block
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-HINT_HELPER = REPO_ROOT / "helpers" / "install-hint.sh"
 
 # The same digest is pinned by solstone-journal core/distribution/install.test.sh
 # for its copy of this block. Change both copies and both pins together.
@@ -82,6 +82,13 @@ class TestSharedInstallHint(HermeticInstallerTestCase):
         self.tmp = tempfile.TemporaryDirectory(dir="/var/tmp")
         self.work_dir = Path(self.tmp.name)
 
+        self.hint_helper = self.work_dir / "install-hint.sh"
+        content = render_installer_strings(
+            install_hint_block(REPO_ROOT), read_catalog(REPO_ROOT / ENGLISH_CATALOG),
+            pseudo_locale=False, require_all=False,
+        )
+        self.hint_helper.write_text(content + "\n", encoding="utf-8")
+
     def tearDown(self):
         self.tmp.cleanup()
 
@@ -92,7 +99,7 @@ class TestSharedInstallHint(HermeticInstallerTestCase):
         else:
             path.write_text(os_release, encoding="utf-8")
         proc = subprocess.run(
-            ["sh", "-c", 'set -eu; . "$1"; install_hint "$2" "$3"', "sh", str(HINT_HELPER), package, str(path)],
+            ["sh", "-c", 'set -eu; . "$1"; install_hint "$2" "$3"', "sh", str(self.hint_helper), package, str(path)],
             capture_output=True,
             text=True,
         )
@@ -100,12 +107,12 @@ class TestSharedInstallHint(HermeticInstallerTestCase):
         return proc.stdout
 
     def test_shared_block_digest_is_pinned_with_the_journal_bootstrap(self):
-        self.assertEqual(hashlib.sha256(HINT_HELPER.read_bytes()).hexdigest(), SHARED_INSTALL_HINT_SHA256)
+        self.assertEqual(hashlib.sha256(self.hint_helper.read_bytes()).hexdigest(), SHARED_INSTALL_HINT_SHA256)
 
     def test_production_installer_embeds_the_shared_block_verbatim(self):
         out = self.work_dir / "install.sh"
         build_installer(repo_root=REPO_ROOT, output_path=out, is_production=True)
-        self.assertIn(HINT_HELPER.read_text(encoding="utf-8"), out.read_text(encoding="utf-8"))
+        self.assertIn(self.hint_helper.read_text(encoding="utf-8"), out.read_text(encoding="utf-8"))
 
     def test_minisign_hint_for_each_distribution_family(self):
         for distro, os_release in OS_RELEASES.items():

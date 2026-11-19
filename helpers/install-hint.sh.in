@@ -15,7 +15,7 @@ install_hint() {
 	fi
 	case "${_hint_id}:${_hint_version}:${_hint_pkg}" in
 	ubuntu:22.04:minisign)
-		printf '%s' 'install minisign from https://jedisct1.github.io/minisign/'
+		printf '%s' '@{installer-install-from:s ["minisign", "https://jedisct1.github.io/minisign/"]}@'
 		return
 		;;
 	esac
@@ -37,11 +37,11 @@ install_hint() {
 	debian:*) printf 'sudo apt install %s' "$_hint_pkg" ;;
 	fedora:*) printf 'sudo dnf install %s' "$_hint_pkg" ;;
 	el:minisign) printf '%s' "sudo dnf install epel-release && sudo dnf install minisign" ;;
-	rhel:minisign) printf '%s' "enable EPEL (https://docs.fedoraproject.org/en-US/epel/) and run sudo dnf install minisign" ;;
+	rhel:minisign) printf '%s' "@{installer-enable-and-run:d ["EPEL", "https://docs.fedoraproject.org/en-US/epel/", "sudo dnf install minisign"]}@" ;;
 	el:* | rhel:*) printf 'sudo dnf install %s' "$_hint_pkg" ;;
 	arch:*) printf 'sudo pacman -S %s' "$_hint_pkg" ;;
 	suse:*) printf 'sudo zypper install %s' "$_hint_pkg" ;;
-	*) printf 'install %s from your distribution'"'"'s packages' "$_hint_pkg" ;;
+	*) printf '@{installer-install-from-your-distribution-s-packages:q ["%s"]}@' "$_hint_pkg" ;;
 	esac
 }
 # END shared install_hint

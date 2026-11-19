@@ -7,7 +7,7 @@
 from pathlib import Path
 import sys
 
-TEXT_EXTS = {".py", ".json", ".md", ".sh", ".txt", ".pub", ".keyid", ".in", "Makefile", "LICENSE"}
+TEXT_EXTS = {".py", ".json", ".ftl", ".md", ".sh", ".txt", ".pub", ".keyid", ".in", "Makefile", "LICENSE"}
 CANONICAL_JSON_FILES = {Path("examples/platform.json")}
 
 

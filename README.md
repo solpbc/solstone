@@ -46,6 +46,8 @@ for authoritative definitions, refer to:
 - component handler contracts: `contracts/`
 - target architecture and package mappings: `src/solstone_platform/targets.py`
 
+for terminal copy and local previews, see [installer strings](i18n/README.md).
+
 ### development & verification commands
 
 ```bash
