@@ -277,7 +277,14 @@ package_manager_command() {
                     return 1
                     ;;
             esac
-            if [ "$pmc_extra" = "no-weak-deps" ]; then
+            if command -v zypper >/dev/null 2>&1 && ! command -v dnf >/dev/null 2>&1; then
+                # Only the individually verified local RPM is unsigned.
+                # Dependencies still use the repository's signature policy.
+                set -- zypper --non-interactive install --allow-unsigned-rpm
+                if [ "$pmc_extra" = no-weak-deps ]; then set -- "$@" --no-recommends; else set -- "$@" --recommends; fi
+                [ "$pmc_action" != reinstall ] || set -- "$@" --force
+                set -- "$@" "$pmc_path"
+            elif [ "$pmc_extra" = "no-weak-deps" ]; then
                 set -- dnf -y --setopt=localpkg_gpgcheck=False --setopt=install_weak_deps=False "$pmc_action" "$pmc_path"
             else
                 set -- dnf -y --setopt=localpkg_gpgcheck=False "$pmc_action" "$pmc_path"
@@ -370,6 +377,26 @@ handle_plan_pkg() {
     printf 'PLAN %s %s %s %s\n' "$hpp_type" "$hpp_action" "$hpp_path" "$plan_display"
 }
 
+# The profile uses AppArmor 4 syntax. Keep older parsers outside this path.
+activate_journal_profile() {
+    [ "$1:$2" = deb:solstone-linux ] || return 0
+    profile=/usr/share/solstone-linux/apparmor/solstone-linux-journal
+    active=/etc/apparmor.d/solstone-linux-journal
+    [ -f "$profile" ] && [ -x /usr/sbin/apparmor_parser ] &&
+        [ -f /etc/apparmor.d/abi/4.0 ] &&
+        [ "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns 2>/dev/null)" = 1 ] || return 0
+    # Respect an administrator's existing profile. An existing link must name
+    # the precise file installed by this package.
+    if [ -L "$active" ]; then
+        [ "$(readlink "$active")" = "$profile" ] || return 0
+    elif [ -e "$active" ]; then
+        return 0
+    else
+        ln -s "$profile" "$active" || return 1
+    fi
+    /usr/sbin/apparmor_parser -r "$active" >&2 || { echo "ERROR:journal-profile-load-failed"; return 1; }
+}
+
 handle_apply_pkg() {
     hap_type="$1"
     hap_path="$2"
@@ -409,6 +436,7 @@ handle_apply_pkg() {
         echo "ERROR:install-failed"
         return 1
     fi
+    activate_journal_profile "$hap_type" "$PKG_ARCHIVE_NAME" || return 1
     echo "OK"
 }
 
@@ -446,6 +474,7 @@ handle_install_pkg() {
         echo "ERROR:install-failed"
         return 1
     fi
+    activate_journal_profile "$hip_type" "$PKG_ARCHIVE_NAME" || return 1
     echo "OK"
 }
 
@@ -472,6 +501,18 @@ handle_remove_pkg() {
 
     if [ "$pkg_type" = "deb" ]; then
         if ! dpkg -r "$pkg_name" >&2; then echo "ERROR:remove-failed"; return 1; fi
+        profile=/usr/share/solstone-linux/apparmor/solstone-linux-journal
+        active=/etc/apparmor.d/solstone-linux-journal
+        if [ "$pkg_name" = solstone-linux ] && [ "$(readlink "$active" 2>/dev/null)" = "$profile" ]; then
+            # Delete only the registration made for our own package.
+            if [ -x /usr/sbin/apparmor_parser ] &&
+                grep -qF "solstone-linux-journal (" /sys/kernel/security/apparmor/profiles 2>/dev/null; then
+                /usr/sbin/apparmor_parser -R >&2 <<'PROFILE' || return 1
+profile solstone-linux-journal {}
+PROFILE
+            fi
+            rm -- "$active" || return 1
+        fi
         echo "OK"
     elif [ "$pkg_type" = "rpm" ]; then
         if ! rpm -e "$pkg_name" >&2; then echo "ERROR:remove-failed"; return 1; fi

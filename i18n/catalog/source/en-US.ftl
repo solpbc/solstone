@@ -552,3 +552,6 @@ installer-your-journal-now-updates-with-this-installer = your journal now update
 installer-your-journal-updates-itself-once-a-day = your journal updates itself: once a day it checks for a new version and installs it in the background. the new version starts the next time your journal does. to turn this off: { $arg1 }
 installer-your-journal-was-updated-where-it-is = { $arg1 }. Your journal was updated where it is, in { $arg2 }, but this installer did not take it over. Once the problem above is fixed, run the same { $arg3 } command again.
 installer-your-package-manager = your package manager
+
+installer-journal-viewer-dependencies = your journal will open in your browser. to install the desktop libraries for its own window, run { $arg1 }.
+installer-journal-viewer-system-package = your journal will open in your browser. to use the journal window on this computer, install the solstone desktop system package with its AppArmor profile.

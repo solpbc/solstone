@@ -523,6 +523,23 @@ class TestInstallHelper(HermeticInstallerTestCase):
             f"argv=-y --setopt=localpkg_gpgcheck=False reinstall {archive}",
         )
 
+    def test_zypper_desktop_requests_recommendations_on_minimal_systems(self):
+        archive = self.work_dir / "solstone-linux-2.0.6-1.x86_64.rpm"
+        create_tiny_synthetic_rpm(archive, "solstone-linux", "2.0.6", "x86_64", "solstone-linux", b"#!/bin/sh\nexit 0\n")
+        # Run with the utilities from this host, except for dnf. This reproduces
+        # the command selection even when the test runner has both managers.
+        manager_bin = self.work_dir / "suse-bin"
+        manager_bin.mkdir()
+        for utility in ("mkdir", "flock", "awk", "dirname", "cat", "rm"):
+            (manager_bin / utility).symlink_to(Path("/usr/bin") / utility)
+        write_path_stub(manager_bin, "rpm", 'case "$1" in -qp*) exec /usr/bin/rpm "$@";; *) exit 1;; esac\n')
+        write_path_stub(manager_bin, "zypper", 'exit 0\n')
+        env = {**os.environ, "PATH": str(manager_bin)}
+        for extra, switch in (("", "--recommends"), (" no-weak-deps", "--no-recommends")):
+            plan = self.run_helper(f"PLAN_PKG rpm {archive}{extra}\n", fake_db=False, env=env)
+            self.assertEqual(plan.returncode, 0, plan.stderr)
+            self.assertIn(f"zypper --non-interactive install --allow-unsigned-rpm {switch} {archive}", plan.stdout)
+
     def test_helper_rpm_stale_plan_refused(self):
         archive = self.work_dir / "solstone-journal-2.0.6-1.x86_64.rpm"
         create_tiny_synthetic_rpm(archive, "solstone-journal", "2.0.6", "x86_64", "journal", b"#!/bin/sh\nexit 0\n")

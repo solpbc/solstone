@@ -63,6 +63,17 @@ follow the printed PATH instructions. for a tree installation, the journal tools
 
 verify the tools you selected with `solstone journal --version` or `solstone-linux --version`. for a local journal, run `solstone journal service status`. on systemd hosts, check `systemctl --user status solstone` or `solstone-linux` as applicable. installation completion means the selected setup commands succeeded; it is not a claim that intake, pairing, models, or every background service is healthy. screen and audio need the owner's desktop session; terminal does not.
 
+### opening your journal on linux
+
+the desktop app opens your journal in its own window. it includes WebKit and uses your computer's GTK, graphics drivers and GStreamer media plugins. keep recommended packages enabled for a graphical install. a portable install uses the libraries on your computer. if the window cannot open, your journal opens in your browser.
+
+on ubuntu systems that restrict user namespaces, use the system package for the journal window. the platform package installer activates its AppArmor profile. after installing directly with apt, enable the profile with these commands.
+
+```sh
+sudo ln -s /usr/share/solstone-linux/apparmor/solstone-linux-journal /etc/apparmor.d/solstone-linux-journal
+sudo apparmor_parser -r /etc/apparmor.d/solstone-linux-journal
+```
+
 ### update or remove
 
 ```sh
@@ -107,7 +118,7 @@ on openSUSE:
 ```sh
 sudo rpm --import https://updates.solstone.app/linux/keys/solstone-archive-keyring.asc
 printf '[solstone]\nname=solstone\nenabled=1\nautorefresh=1\nbaseurl=https://updates.solstone.app/linux/rpm/release/$basearch\ntype=rpm-md\ngpgcheck=1\nrepo_gpgcheck=1\npkg_gpgcheck=1\ngpgkey=https://updates.solstone.app/linux/keys/solstone-archive-keyring.asc\n' | sudo tee /etc/zypp/repos.d/solstone.repo >/dev/null
-sudo zypper refresh solstone && sudo zypper install solstone
+sudo zypper refresh solstone && sudo zypper install --recommends solstone
 ```
 
 packages install binaries under `/usr/bin` and do not start per-user services as root. after installing, set up the components you installed under your own account:
