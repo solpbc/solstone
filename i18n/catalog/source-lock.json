@@ -4,2227 +4,3339 @@
   "messages": {
     "installer-1-everything-available-journal-desktop": {
       "source": "faea7766afba16dcc9abad5a712dbb16dab3c4ed8e44dd62aa42ad71056f51ee",
-      "translations": {}
+      "translations": {
+        "es-419": "faea7766afba16dcc9abad5a712dbb16dab3c4ed8e44dd62aa42ad71056f51ee"
+      }
     },
     "installer-1-everything-available-journal-desktop-tmux": {
       "source": "ea9af96124082f8f5348f841b0fd4ceef14f5587f2f7cfebc8c007b65ab90056",
-      "translations": {}
+      "translations": {
+        "es-419": "ea9af96124082f8f5348f841b0fd4ceef14f5587f2f7cfebc8c007b65ab90056"
+      }
     },
     "installer-1-journal-app-and-solstone-app": {
       "source": "1063dd9b0be48c36916b212d69e68b6db15ca05b389a21940edf9693d7e6ab4d",
-      "translations": {}
+      "translations": {
+        "es-419": "1063dd9b0be48c36916b212d69e68b6db15ca05b389a21940edf9693d7e6ab4d"
+      }
     },
     "installer-2-journal-app-only": {
       "source": "92a6719bbc12655caf9d4805821d5f44895f7cd67d980bedbe337435783b6501",
-      "translations": {}
+      "translations": {
+        "es-419": "92a6719bbc12655caf9d4805821d5f44895f7cd67d980bedbe337435783b6501"
+      }
     },
     "installer-2-journal-only": {
       "source": "660c0985108bda2da863a4a144dd451b808f95b746889cd1967da3d9c4cbf32f",
-      "translations": {}
+      "translations": {
+        "es-419": "660c0985108bda2da863a4a144dd451b808f95b746889cd1967da3d9c4cbf32f"
+      }
     },
     "installer-3-desktop-only": {
       "source": "5aaaeb0b7e4d28558e269bb00a53c5b03dd4c2dfc0f77bc7dedbeab84a901623",
-      "translations": {}
+      "translations": {
+        "es-419": "5aaaeb0b7e4d28558e269bb00a53c5b03dd4c2dfc0f77bc7dedbeab84a901623"
+      }
     },
     "installer-3-solstone-app-only": {
       "source": "4117c52c02d7f1bdcdca8d5b2833c3deaf71dbe16db0183d7ccf26722d3ecae2",
-      "translations": {}
+      "translations": {
+        "es-419": "4117c52c02d7f1bdcdca8d5b2833c3deaf71dbe16db0183d7ccf26722d3ecae2"
+      }
     },
     "installer-3-the-solstone-app-only-includes-terminal": {
       "source": "8d46951138a12f8b932dfd014a7c78e3cf82f51003575b15d30cf3ce40ba4f5c",
-      "translations": {}
+      "translations": {
+        "es-419": "8d46951138a12f8b932dfd014a7c78e3cf82f51003575b15d30cf3ce40ba4f5c"
+      }
     },
     "installer-4-tmux-only": {
       "source": "415386b0acf5596b97b9a042c5546158257e364fc0c2036e69ceeddd4c262738",
-      "translations": {}
+      "translations": {
+        "es-419": "415386b0acf5596b97b9a042c5546158257e364fc0c2036e69ceeddd4c262738"
+      }
     },
     "installer-a-home-directory-is-required-to-check": {
       "source": "d3b30db5a6fb7ce018df494c77971a89caa7c4cb4fa9bdb7c7aee103222fb052",
-      "translations": {}
+      "translations": {
+        "es-419": "d3b30db5a6fb7ce018df494c77971a89caa7c4cb4fa9bdb7c7aee103222fb052"
+      }
     },
     "installer-a-journal-is-already-installed-for-help": {
       "source": "f02d30c44e3c1e7b184de3e41157232913552e4cd7595908d374fc51367e2937",
-      "translations": {}
+      "translations": {
+        "es-419": "f02d30c44e3c1e7b184de3e41157232913552e4cd7595908d374fc51367e2937"
+      }
     },
     "installer-a-journal-is-already-installed-from-a": {
       "source": "d72b2e0888ff7c7085ff65378a5f3e40d551834c0952d148ef86f9be6518f8db",
-      "translations": {}
+      "translations": {
+        "es-419": "d72b2e0888ff7c7085ff65378a5f3e40d551834c0952d148ef86f9be6518f8db"
+      }
     },
     "installer-a-journal-is-already-installed-from-a-2": {
       "source": "345a4b56acb08da1f72a509049bb4315b05f015d97eab21d29f2e892296ca7c3",
-      "translations": {}
+      "translations": {
+        "es-419": "345a4b56acb08da1f72a509049bb4315b05f015d97eab21d29f2e892296ca7c3"
+      }
     },
     "installer-a-journal-is-already-installed-in": {
       "source": "e5a995d66fb92dc16f853b7f903f50af1d899cc0bd099868fde614e7903ad3a3",
-      "translations": {}
+      "translations": {
+        "es-419": "e5a995d66fb92dc16f853b7f903f50af1d899cc0bd099868fde614e7903ad3a3"
+      }
     },
     "installer-a-journal-is-already-installed-in-to": {
       "source": "43b36fbf909809756161a4bdf77a8754cd218282554d88cf49eff9d76a9a3adf",
-      "translations": {}
+      "translations": {
+        "es-419": "43b36fbf909809756161a4bdf77a8754cd218282554d88cf49eff9d76a9a3adf"
+      }
     },
     "installer-a-journal-package-is-installed-on-this": {
       "source": "08cfedac2df29cf42ad7c6622bc4444e2c92a35dc0954236c3eab1e5cf40f495",
-      "translations": {}
+      "translations": {
+        "es-419": "08cfedac2df29cf42ad7c6622bc4444e2c92a35dc0954236c3eab1e5cf40f495"
+      }
     },
     "installer-absolute-install-directory-default": {
       "source": "13e068996d2c9b0c39f23e45cb61b7b437aecd4f2ab18106cab4df3fe2289d3a",
-      "translations": {}
+      "translations": {
+        "es-419": "13e068996d2c9b0c39f23e45cb61b7b437aecd4f2ab18106cab4df3fe2289d3a"
+      }
     },
     "installer-accepted-for-unattended-invocations": {
       "source": "f9d82c7386814c9c4241f48273f87eb541e95e2933052e6bfb40b3dfdd7269da",
-      "translations": {}
+      "translations": {
+        "es-419": "f9d82c7386814c9c4241f48273f87eb541e95e2933052e6bfb40b3dfdd7269da"
+      }
     },
     "installer-after-setup-open-and-choose-pair-a": {
       "source": "9ccc9646dcd8d330dfe137d93b77b328d9e0af1e769026ca46cb2d6b5ba13717",
-      "translations": {}
+      "translations": {
+        "es-419": "9ccc9646dcd8d330dfe137d93b77b328d9e0af1e769026ca46cb2d6b5ba13717"
+      }
     },
     "installer-after-setup-run-and-choose-pair-a": {
       "source": "58ee8745e35df7ba90a60b912c393c6b263e27ab7b344a45557c6c4764c51933",
-      "translations": {}
+      "translations": {
+        "es-419": "58ee8745e35df7ba90a60b912c393c6b263e27ab7b344a45557c6c4764c51933"
+      }
     },
     "installer-after-setup-run-on-this-computer-open": {
       "source": "0097c316b913fd2d1b523bc9e6a3332a068033be6fe5f9d6629a738c279a53ec",
-      "translations": {}
+      "translations": {
+        "es-419": "0097c316b913fd2d1b523bc9e6a3332a068033be6fe5f9d6629a738c279a53ec"
+      }
     },
     "installer-all-selected-components-installed-successfully": {
       "source": "f34ed2aab741f94e8c5bc767a43a1e1a88be6347885ce9a9214f6b66cae4e273",
-      "translations": {}
+      "translations": {
+        "es-419": "f34ed2aab741f94e8c5bc767a43a1e1a88be6347885ce9a9214f6b66cae4e273"
+      }
     },
     "installer-an-empty-package-receipt-was-left-at": {
       "source": "49c928eef0ae28e5b4f28ca05e3c445bd07c2d87c71a064badf836e5715adf35",
-      "translations": {}
+      "translations": {
+        "es-419": "49c928eef0ae28e5b4f28ca05e3c445bd07c2d87c71a064badf836e5715adf35"
+      }
     },
     "installer-an-existing-journal-installation-uses-the-low": {
       "source": "ccacb9294fa55d603a7a363414eea05d251c783fb2b633bd5a24ca20825d0bd0",
-      "translations": {}
+      "translations": {
+        "es-419": "ccacb9294fa55d603a7a363414eea05d251c783fb2b633bd5a24ca20825d0bd0"
+      }
     },
     "installer-and-nothing-was-changed-to-fix-then": {
       "source": "c3f5eff3438308387a94fb2b19584c5899e440b428467d2be58ddd7f02a352a2",
-      "translations": {}
+      "translations": {
+        "es-419": "c3f5eff3438308387a94fb2b19584c5899e440b428467d2be58ddd7f02a352a2"
+      }
     },
     "installer-another-platform-installation-holds-the-tree-lock": {
       "source": "4df247a301446736347bad3961863f2a1ba16804b00d161a78c3b35a80ec8c28",
-      "translations": {}
+      "translations": {
+        "es-419": "4df247a301446736347bad3961863f2a1ba16804b00d161a78c3b35a80ec8c28"
+      }
     },
     "installer-appeared-during-installation-nothing-was-replaced": {
       "source": "47fd7b139be8c4f50d3f408650bf4680f78afe5dbf8a10e19433a2aab113c1db",
-      "translations": {}
+      "translations": {
+        "es-419": "47fd7b139be8c4f50d3f408650bf4680f78afe5dbf8a10e19433a2aab113c1db"
+      }
     },
     "installer-architecture-is-not-supported-by-solstone-platform": {
       "source": "898f2436b2d7e78974a95f173e2537d93f5a757661f10fb1341c689b12036deb",
-      "translations": {}
+      "translations": {
+        "es-419": "898f2436b2d7e78974a95f173e2537d93f5a757661f10fb1341c689b12036deb"
+      }
     },
     "installer-arrays-are-not-permitted-in-journal-manifests": {
       "source": "f68e762e5ff689aa268d98fbb1a13084aa3db383f28098c6a2326d9f3738bcb2",
-      "translations": {}
+      "translations": {
+        "es-419": "f68e762e5ff689aa268d98fbb1a13084aa3db383f28098c6a2326d9f3738bcb2"
+      }
     },
     "installer-available-mac-components-journal-app-solstone-app": {
       "source": "22bf870cf7369f4dc588b1416c96330d2362371771d43021631d7284253202af",
-      "translations": {}
+      "translations": {
+        "es-419": "22bf870cf7369f4dc588b1416c96330d2362371771d43021631d7284253202af"
+      }
     },
     "installer-bootstrap-contract-version-is-unsupported-requires-2": {
       "source": "54f305267a9c856004d8f3f202079fc83fc47c6ba89f6bc2ea54c718c69faab9",
-      "translations": {}
+      "translations": {
+        "es-419": "54f305267a9c856004d8f3f202079fc83fc47c6ba89f6bc2ea54c718c69faab9"
+      }
     },
     "installer-bootstrap-revision-is-unsupported-requires-2": {
       "source": "71c783ec41539525a46cbf86202e306f81a97aad2a0be33b7c8751d94292ec9e",
-      "translations": {}
+      "translations": {
+        "es-419": "71c783ec41539525a46cbf86202e306f81a97aad2a0be33b7c8751d94292ec9e"
+      }
     },
     "installer-cannot-be-combined-with-or": {
       "source": "daddebe7222dd40bc38de0ebf6fb1ceae907b85b55b28e682ad0be78219278dd",
-      "translations": {}
+      "translations": {
+        "es-419": "daddebe7222dd40bc38de0ebf6fb1ceae907b85b55b28e682ad0be78219278dd"
+      }
     },
     "installer-cannot-contain-control-characters": {
       "source": "70efce73c4c61bd88cf8b8065421f521e0a97f0f5683fdfadce328d02e09c94c",
-      "translations": {}
+      "translations": {
+        "es-419": "70efce73c4c61bd88cf8b8065421f521e0a97f0f5683fdfadce328d02e09c94c"
+      }
     },
     "installer-cannot-install-both-journal-and-cli-simultaneously": {
       "source": "43fdc28a184ea4b71ff48c583a3fab2c74c0d0b44e21d1a106a549b896100819",
-      "translations": {}
+      "translations": {
+        "es-419": "43fdc28a184ea4b71ff48c583a3fab2c74c0d0b44e21d1a106a549b896100819"
+      }
     },
     "installer-catalogue-retrieved": {
       "source": "60760bea56996238338eb61906ffc3bba8c4d73331d08a6680d2d98ff1b0cd4f",
-      "translations": {}
+      "translations": {
+        "es-419": "60760bea56996238338eb61906ffc3bba8c4d73331d08a6680d2d98ff1b0cd4f"
+      }
     },
     "installer-choose-or": {
       "source": "4ea7b889f3e1a5999891e97845ad1051fb8566d48ef9fd5ea3443f22d83a0f22",
-      "translations": {}
+      "translations": {
+        "es-419": "4ea7b889f3e1a5999891e97845ad1051fb8566d48ef9fd5ea3443f22d83a0f22"
+      }
     },
     "installer-choose-what-to-install-with-for-example": {
       "source": "c27fbab061b1b81d4356f10f928cc03ac4cb8c4ab32559ae09b158062b3759d4",
-      "translations": {}
+      "translations": {
+        "es-419": "c27fbab061b1b81d4356f10f928cc03ac4cb8c4ab32559ae09b158062b3759d4"
+      }
     },
     "installer-complete": {
       "source": "40df89165ff32be65a1bf39faec8091af23ffc786cda5ebde59d7ac9d02d5cb9",
-      "translations": {}
+      "translations": {
+        "es-419": "40df89165ff32be65a1bf39faec8091af23ffc786cda5ebde59d7ac9d02d5cb9"
+      }
     },
     "installer-component-is-claimed-by-both-tree-and": {
       "source": "c419054220fa232611a930fb81d51a6621757a07ac87038bdf086464fc06af2f",
-      "translations": {}
+      "translations": {
+        "es-419": "c419054220fa232611a930fb81d51a6621757a07ac87038bdf086464fc06af2f"
+      }
     },
     "installer-component-is-not-installed-upgrade-installs-nothing": {
       "source": "be100d82d39da54f3bc54645bcb1b85715efee11aa792eab8694b64590259632",
-      "translations": {}
+      "translations": {
+        "es-419": "be100d82d39da54f3bc54645bcb1b85715efee11aa792eab8694b64590259632"
+      }
     },
     "installer-component-is-package-owned": {
       "source": "126a63b867634af30244bce2a55b6ca288f7fe4d030c4ef38f78c434c4727d5d",
-      "translations": {}
+      "translations": {
+        "es-419": "126a63b867634af30244bce2a55b6ca288f7fe4d030c4ef38f78c434c4727d5d"
+      }
     },
     "installer-component-is-tree-owned": {
       "source": "b8b914868f2626d22ac4f89b7fb948b3f8b58f62c0766dedba33d40bf034d9be",
-      "translations": {}
+      "translations": {
+        "es-419": "b8b914868f2626d22ac4f89b7fb948b3f8b58f62c0766dedba33d40bf034d9be"
+      }
     },
     "installer-contains-unsupported-shell-or-path-syntax": {
       "source": "581b5d75ae7e5a5fdde033bc88f895a96e2083eddf647e21af2bf157fb017062",
-      "translations": {}
+      "translations": {
+        "es-419": "581b5d75ae7e5a5fdde033bc88f895a96e2083eddf647e21af2bf157fb017062"
+      }
     },
     "installer-could-not-atomically-publish-current-pointer-for": {
       "source": "d03de37c80a7e8e330420abace284ba4f8b76cb5156893315a3a08499f9a31ec",
-      "translations": {}
+      "translations": {
+        "es-419": "d03de37c80a7e8e330420abace284ba4f8b76cb5156893315a3a08499f9a31ec"
+      }
     },
     "installer-could-not-atomically-publish-public-pointer-for": {
       "source": "c0979cf01979ba8bfdf7d21e8adcb58575e2cfa9c3951e368f98ed35786526e4",
-      "translations": {}
+      "translations": {
+        "es-419": "c0979cf01979ba8bfdf7d21e8adcb58575e2cfa9c3951e368f98ed35786526e4"
+      }
     },
     "installer-could-not-atomically-publish-the-tree-install": {
       "source": "a37a727662ba447605ead820ae64a9e3380d106453453a30efc37e9fc7764df3",
-      "translations": {}
+      "translations": {
+        "es-419": "a37a727662ba447605ead820ae64a9e3380d106453453a30efc37e9fc7764df3"
+      }
     },
     "installer-could-not-create-a-protected-staging-directory": {
       "source": "debc059caf3d4ff065ad9f24e670f68d9d3b8fce340419a1ec66696df225ed1a",
-      "translations": {}
+      "translations": {
+        "es-419": "debc059caf3d4ff065ad9f24e670f68d9d3b8fce340419a1ec66696df225ed1a"
+      }
     },
     "installer-could-not-create-component-destination": {
       "source": "0bd5bd48b70b9c100c66b4806cfedd7d5dd9e29f940d515d1b378dbd9774b8bb",
-      "translations": {}
+      "translations": {
+        "es-419": "0bd5bd48b70b9c100c66b4806cfedd7d5dd9e29f940d515d1b378dbd9774b8bb"
+      }
     },
     "installer-could-not-create-public-binary-directory-bin": {
       "source": "80fdc345efd22318b25daf23c956e2837d7fe6a81b10c1deaff7ed366c25bd7b",
-      "translations": {}
+      "translations": {
+        "es-419": "80fdc345efd22318b25daf23c956e2837d7fe6a81b10c1deaff7ed366c25bd7b"
+      }
     },
     "installer-could-not-create-the-installer-workspace": {
       "source": "1c7d653c74a09caa9f417014f4e21cd2ab1abaa38a10623550024cfddb6a4e7f",
-      "translations": {}
+      "translations": {
+        "es-419": "1c7d653c74a09caa9f417014f4e21cd2ab1abaa38a10623550024cfddb6a4e7f"
+      }
     },
     "installer-could-not-create-tree-receipt-directory": {
       "source": "a32467f999c77b5cc4fcaca34896c55c1a6a895a3bc2793eeaa004f2bbdcb3b9",
-      "translations": {}
+      "translations": {
+        "es-419": "a32467f999c77b5cc4fcaca34896c55c1a6a895a3bc2793eeaa004f2bbdcb3b9"
+      }
     },
     "installer-could-not-detach-the-verified-disk-image": {
       "source": "665c96eeda3489a6be2a7b47b80182d81c0090fc9916a32c580dcd44d1c67fb9",
-      "translations": {}
+      "translations": {
+        "es-419": "665c96eeda3489a6be2a7b47b80182d81c0090fc9916a32c580dcd44d1c67fb9"
+      }
     },
     "installer-could-not-discard-empty-tree-uninstall-receipt": {
       "source": "83805ffa42fba0196e2c938fccfbd4e002ffbcf03194f30dd964554f8e69238e",
-      "translations": {}
+      "translations": {
+        "es-419": "83805ffa42fba0196e2c938fccfbd4e002ffbcf03194f30dd964554f8e69238e"
+      }
     },
     "installer-could-not-download-and-verify-minisign-check": {
       "source": "2383284d4615331aa230c3d18901f06cb995fbb19e51b4e0ecd150b3b34312af",
-      "translations": {}
+      "translations": {
+        "es-419": "2383284d4615331aa230c3d18901f06cb995fbb19e51b4e0ecd150b3b34312af"
+      }
     },
     "installer-could-not-extract-into-its-content-addressed": {
       "source": "258463bb9e416a62149ce99e1b969db92eb33f322d644b8e2d661b815231ead8",
-      "translations": {}
+      "translations": {
+        "es-419": "258463bb9e416a62149ce99e1b969db92eb33f322d644b8e2d661b815231ead8"
+      }
     },
     "installer-could-not-extract-the-verified-archive": {
       "source": "7227df31fc31b91664b25f8c1732b78e54b4c70c544ffdbbc08e315bd21dc212",
-      "translations": {}
+      "translations": {
+        "es-419": "7227df31fc31b91664b25f8c1732b78e54b4c70c544ffdbbc08e315bd21dc212"
+      }
     },
     "installer-could-not-install-in": {
       "source": "c1b533a0995dd1094c1865110eb185bae8ac6154bca3a94a9899e04be911cf34",
-      "translations": {}
+      "translations": {
+        "es-419": "c1b533a0995dd1094c1865110eb185bae8ac6154bca3a94a9899e04be911cf34"
+      }
     },
     "installer-could-not-keep-a-copy-of-the": {
       "source": "2827af1c9a350175480c79165090dd417562cd0779529699a046054bd0acd80b",
-      "translations": {}
+      "translations": {
+        "es-419": "2827af1c9a350175480c79165090dd417562cd0779529699a046054bd0acd80b"
+      }
     },
     "installer-could-not-make-executable": {
       "source": "3f3d90e905ca6d906c4544ec5740fba72b2ad2c9542d133bbe06a7738634d5e6",
-      "translations": {}
+      "translations": {
+        "es-419": "3f3d90e905ca6d906c4544ec5740fba72b2ad2c9542d133bbe06a7738634d5e6"
+      }
     },
     "installer-could-not-make-the-install-handler-executable": {
       "source": "b06043f54f917bd0fa532cf31797a58fc7a9aa7d168b47e8b5c072d4e48e504c",
-      "translations": {}
+      "translations": {
+        "es-419": "b06043f54f917bd0fa532cf31797a58fc7a9aa7d168b47e8b5c072d4e48e504c"
+      }
     },
     "installer-could-not-make-the-uninstall-handler-executable": {
       "source": "332602590d668974f1079257d369b5f08e032e8d750e6ca2c36c16f2f461e841",
-      "translations": {}
+      "translations": {
+        "es-419": "332602590d668974f1079257d369b5f08e032e8d750e6ca2c36c16f2f461e841"
+      }
     },
     "installer-could-not-mount-the-downloaded-disk-image": {
       "source": "d8205af2ae75732171f4dc7401eda6194017120233ad02b1123a2b35a8b754d1",
-      "translations": {}
+      "translations": {
+        "es-419": "d8205af2ae75732171f4dc7401eda6194017120233ad02b1123a2b35a8b754d1"
+      }
     },
     "installer-could-not-prepare-a-mount-point-for": {
       "source": "8ed92530f4204da4f358825b90535b63214e7519f93bb038fec779f1f9c3e58c",
-      "translations": {}
+      "translations": {
+        "es-419": "8ed92530f4204da4f358825b90535b63214e7519f93bb038fec779f1f9c3e58c"
+      }
     },
     "installer-could-not-prepare-installer-runtime": {
       "source": "d3fa8a27ad732d830c32cae5ea28b4c51717b1eab1b2b223c6df9d4a0e4bd420",
-      "translations": {}
+      "translations": {
+        "es-419": "d3fa8a27ad732d830c32cae5ea28b4c51717b1eab1b2b223c6df9d4a0e4bd420"
+      }
     },
     "installer-could-not-preserve-package-receipt-section": {
       "source": "113c1e6b7d7688bcdb1152df888d3f09182d7ff5a649c9adf64ce53bdbaf469f",
-      "translations": {}
+      "translations": {
+        "es-419": "113c1e6b7d7688bcdb1152df888d3f09182d7ff5a649c9adf64ce53bdbaf469f"
+      }
     },
     "installer-could-not-preserve-package-receipt-section-for": {
       "source": "86ae6c511cd91ea132b6db27a6e09705f905e3359df355d8287b975d0c824fbd",
-      "translations": {}
+      "translations": {
+        "es-419": "86ae6c511cd91ea132b6db27a6e09705f905e3359df355d8287b975d0c824fbd"
+      }
     },
     "installer-could-not-preserve-package-receipt-section-for-2": {
       "source": "03e0e681517060ae3d75d30056eceb42053f85378e34f7a23cf344ddb95bf59a",
-      "translations": {}
+      "translations": {
+        "es-419": "03e0e681517060ae3d75d30056eceb42053f85378e34f7a23cf344ddb95bf59a"
+      }
     },
     "installer-could-not-preserve-the-receipt-section": {
       "source": "baa80ee7ece3fb207f48b753ebcb35abccbf07d040531d3b03c8df532d59b7a8",
-      "translations": {}
+      "translations": {
+        "es-419": "baa80ee7ece3fb207f48b753ebcb35abccbf07d040531d3b03c8df532d59b7a8"
+      }
     },
     "installer-could-not-preserve-the-unchanged-receipt-section": {
       "source": "de1c1067adff5544b1238d4923b69b19359b6b571efd26fbc7381f53793ee811",
-      "translations": {}
+      "translations": {
+        "es-419": "de1c1067adff5544b1238d4923b69b19359b6b571efd26fbc7381f53793ee811"
+      }
     },
     "installer-could-not-protect-the-installer-workspace": {
       "source": "4e810e798908ec42bdacb8a8914a2342e128e2fbc9a7f72f7fad2ee63d32c585",
-      "translations": {}
+      "translations": {
+        "es-419": "4e810e798908ec42bdacb8a8914a2342e128e2fbc9a7f72f7fad2ee63d32c585"
+      }
     },
     "installer-could-not-publish-package-receipt": {
       "source": "af99bd489b3d866edc03bc6c87949e8f7b32f4210f7b774895ca0c1cfb4c6f04",
-      "translations": {}
+      "translations": {
+        "es-419": "af99bd489b3d866edc03bc6c87949e8f7b32f4210f7b774895ca0c1cfb4c6f04"
+      }
     },
     "installer-could-not-publish-package-uninstall-receipt": {
       "source": "7325aa54181aab9be3791f8fa3e621288366799823a4de76f82902dd4eaa89f7",
-      "translations": {}
+      "translations": {
+        "es-419": "7325aa54181aab9be3791f8fa3e621288366799823a4de76f82902dd4eaa89f7"
+      }
     },
     "installer-could-not-publish-refreshed-package-receipt": {
       "source": "a995c36613f0f265fabf7e573615bd84f3e4a0df855ec64904fdca8804c1a502",
-      "translations": {}
+      "translations": {
+        "es-419": "a995c36613f0f265fabf7e573615bd84f3e4a0df855ec64904fdca8804c1a502"
+      }
     },
     "installer-could-not-publish-the-package-receipt-header": {
       "source": "369afdd7db8da53a7db7cea75562b31653b6c57859a0773d7ffaf1b0669ed4ba",
-      "translations": {}
+      "translations": {
+        "es-419": "369afdd7db8da53a7db7cea75562b31653b6c57859a0773d7ffaf1b0669ed4ba"
+      }
     },
     "installer-could-not-publish-the-tree-receipt-header": {
       "source": "956ed9fc4a25bb9b494251baf56a7dfe7da891108b135103369b4106de054d7a",
-      "translations": {}
+      "translations": {
+        "es-419": "956ed9fc4a25bb9b494251baf56a7dfe7da891108b135103369b4106de054d7a"
+      }
     },
     "installer-could-not-publish-tree-uninstall-receipt": {
       "source": "6223138ca7174ddb3b7f435afa214d45cecf8103bed4e76b7fd2f882148f3ebb",
-      "translations": {}
+      "translations": {
+        "es-419": "6223138ca7174ddb3b7f435afa214d45cecf8103bed4e76b7fd2f882148f3ebb"
+      }
     },
     "installer-could-not-query-package": {
       "source": "c48377910c1398bd57c84888e8963cb7510f52947fc173e48b489da9de2627d0",
-      "translations": {}
+      "translations": {
+        "es-419": "c48377910c1398bd57c84888e8963cb7510f52947fc173e48b489da9de2627d0"
+      }
     },
     "installer-could-not-query-package-identity-for": {
       "source": "019d7f4e951ce3e5306940d3d486fece8fd588ea7385a67d96487b1015f7b085",
-      "translations": {}
+      "translations": {
+        "es-419": "019d7f4e951ce3e5306940d3d486fece8fd588ea7385a67d96487b1015f7b085"
+      }
     },
     "installer-could-not-read": {
       "source": "eddc02d9294fa1771993ef1d4ec6291f622ba2ac26cd11ded9b59ab75f05bb3b",
-      "translations": {}
+      "translations": {
+        "es-419": "eddc02d9294fa1771993ef1d4ec6291f622ba2ac26cd11ded9b59ab75f05bb3b"
+      }
     },
     "installer-could-not-read-package-identity-for": {
       "source": "92bb9d1ea90fc4d2af598da15d779b327914df24dac7ffde488ac290d1e6b208",
-      "translations": {}
+      "translations": {
+        "es-419": "92bb9d1ea90fc4d2af598da15d779b327914df24dac7ffde488ac290d1e6b208"
+      }
     },
     "installer-could-not-read-package-receipt": {
       "source": "e62ffe4e3d918f35d95c6b772dd54d88172b54234434b18a01f764ce9bf7e5df",
-      "translations": {}
+      "translations": {
+        "es-419": "e62ffe4e3d918f35d95c6b772dd54d88172b54234434b18a01f764ce9bf7e5df"
+      }
     },
     "installer-could-not-read-the-files-the-package": {
       "source": "3c08ca89f97d4601e14901b3132874cbfa791ca783f5a22893e894ccc5e1706b",
-      "translations": {}
+      "translations": {
+        "es-419": "3c08ca89f97d4601e14901b3132874cbfa791ca783f5a22893e894ccc5e1706b"
+      }
     },
     "installer-could-not-record-absent-pointer": {
       "source": "87c0b0c1386a839b6d2d79552c3ec9d3918c7082a6f6f859518fbcd17feff4ed",
-      "translations": {}
+      "translations": {
+        "es-419": "87c0b0c1386a839b6d2d79552c3ec9d3918c7082a6f6f859518fbcd17feff4ed"
+      }
     },
     "installer-could-not-record-existing-path": {
       "source": "62003364b685941b1827f438201fd5db3895c4da09746388eb3b8ebb8288592c",
-      "translations": {}
+      "translations": {
+        "es-419": "62003364b685941b1827f438201fd5db3895c4da09746388eb3b8ebb8288592c"
+      }
     },
     "installer-could-not-record-existing-pointer": {
       "source": "bd9432b25fe23b8dcace46852d8583e7bfe2b9f077c76d040a4c43589d41c1c5",
-      "translations": {}
+      "translations": {
+        "es-419": "bd9432b25fe23b8dcace46852d8583e7bfe2b9f077c76d040a4c43589d41c1c5"
+      }
     },
     "installer-could-not-record-path-state": {
       "source": "55420b17d679e7314a0b57ddf6580ef50b35f37ac99fd896a7bd1748cae30f12",
-      "translations": {}
+      "translations": {
+        "es-419": "55420b17d679e7314a0b57ddf6580ef50b35f37ac99fd896a7bd1748cae30f12"
+      }
     },
     "installer-could-not-record-the-pending-journal-install": {
       "source": "ed5a86253e6699c918da021a5706fc42b25e791df147a5084ef87594e56f7e75",
-      "translations": {}
+      "translations": {
+        "es-419": "ed5a86253e6699c918da021a5706fc42b25e791df147a5084ef87594e56f7e75"
+      }
     },
     "installer-could-not-remove-completed-tree-receipt": {
       "source": "fb2bcdb15d6a60d1a667d3f9c15ed1be128b25c28ae3f977c29567516728c0fa",
-      "translations": {}
+      "translations": {
+        "es-419": "fb2bcdb15d6a60d1a667d3f9c15ed1be128b25c28ae3f977c29567516728c0fa"
+      }
     },
     "installer-could-not-remove-incomplete-payload-at": {
       "source": "37321447a3a708be4b8e2474850246fa36ca49f952fb748b980c4d182a7c5937",
-      "translations": {}
+      "translations": {
+        "es-419": "37321447a3a708be4b8e2474850246fa36ca49f952fb748b980c4d182a7c5937"
+      }
     },
     "installer-could-not-remove-journal-ownership-pointers": {
       "source": "5dbdc3626ca1de0ee71cdaea80f6d0ab046fe271bb4da80bea9318621ce1d851",
-      "translations": {}
+      "translations": {
+        "es-419": "5dbdc3626ca1de0ee71cdaea80f6d0ab046fe271bb4da80bea9318621ce1d851"
+      }
     },
     "installer-could-not-remove-journal-payload-versions": {
       "source": "37104eda79e37572ae3d8915f15498caeb67128d9507c576cc80f82ac1273827",
-      "translations": {}
+      "translations": {
+        "es-419": "37104eda79e37572ae3d8915f15498caeb67128d9507c576cc80f82ac1273827"
+      }
     },
     "installer-could-not-remove-package": {
       "source": "6ba10e27336b763d4d533acffabc47a70432648cfe1d6b5518ef320efda141b2",
-      "translations": {}
+      "translations": {
+        "es-419": "6ba10e27336b763d4d533acffabc47a70432648cfe1d6b5518ef320efda141b2"
+      }
     },
     "installer-could-not-remove-the-current-pointer": {
       "source": "5fd3a0ffea05497732ef5173ea5c4c4c9338d7b3043c2c3370d40eb38a1f56e8",
-      "translations": {}
+      "translations": {
+        "es-419": "5fd3a0ffea05497732ef5173ea5c4c4c9338d7b3043c2c3370d40eb38a1f56e8"
+      }
     },
     "installer-could-not-remove-the-journal-s-path": {
       "source": "3eaff44bcb0e22680d3c3feff9217a6ffba8e987bc876798c3c3871dbead2f25",
-      "translations": {}
+      "translations": {
+        "es-419": "3eaff44bcb0e22680d3c3feff9217a6ffba8e987bc876798c3c3871dbead2f25"
+      }
     },
     "installer-could-not-remove-the-payload": {
       "source": "08583bca85c4bdc22c940afbac468f49cb4b9adf35f2741027622b4cb47b976b",
-      "translations": {}
+      "translations": {
+        "es-419": "08583bca85c4bdc22c940afbac468f49cb4b9adf35f2741027622b4cb47b976b"
+      }
     },
     "installer-could-not-remove-the-public-pointer": {
       "source": "c11e654cb77de832f634744701a800d7accc8bf39cb3cb9d6fc577efb9d7dc49",
-      "translations": {}
+      "translations": {
+        "es-419": "c11e654cb77de832f634744701a800d7accc8bf39cb3cb9d6fc577efb9d7dc49"
+      }
     },
     "installer-could-not-retain-package-receipt-state": {
       "source": "a8451fd9dedbe37cc7601516221785fe011f61c6d6ebd08b193400199c2005da",
-      "translations": {}
+      "translations": {
+        "es-419": "a8451fd9dedbe37cc7601516221785fe011f61c6d6ebd08b193400199c2005da"
+      }
     },
     "installer-could-not-retain-package-receipt-state-2": {
       "source": "d91cb39d5e35fd1d7624ce285020715f565acd04920cd58cf3f3fd4334bfff32",
-      "translations": {}
+      "translations": {
+        "es-419": "d91cb39d5e35fd1d7624ce285020715f565acd04920cd58cf3f3fd4334bfff32"
+      }
     },
     "installer-could-not-stage-current-pointer-for": {
       "source": "a247a89f027ab3775bda85e9cef55418607e88ea55524a7bb25bb6952b86bdb3",
-      "translations": {}
+      "translations": {
+        "es-419": "a247a89f027ab3775bda85e9cef55418607e88ea55524a7bb25bb6952b86bdb3"
+      }
     },
     "installer-could-not-stage-handler-rollback-state": {
       "source": "b0306cff31d9595a60efd62f6507d5e1986af70702b40356013fc30f76619177",
-      "translations": {}
+      "translations": {
+        "es-419": "b0306cff31d9595a60efd62f6507d5e1986af70702b40356013fc30f76619177"
+      }
     },
     "installer-could-not-stage-in": {
       "source": "546f02f93f1a12d9134e64cf3a83ad0e49fe19f7b94d4e2fcbe8462a1b162058",
-      "translations": {}
+      "translations": {
+        "es-419": "546f02f93f1a12d9134e64cf3a83ad0e49fe19f7b94d4e2fcbe8462a1b162058"
+      }
     },
     "installer-could-not-stage-installer-runtime": {
       "source": "f16e6c583c2e445ab53a73a69ef716c75a07f4c138dd0f4b3706d6f15095cdd6",
-      "translations": {}
+      "translations": {
+        "es-419": "f16e6c583c2e445ab53a73a69ef716c75a07f4c138dd0f4b3706d6f15095cdd6"
+      }
     },
     "installer-could-not-stage-package-component-receipt": {
       "source": "f76242dfbc5bc3aa98c287f132990a62a0c42822754c34c12fdfe83aeb96c01d",
-      "translations": {}
+      "translations": {
+        "es-419": "f76242dfbc5bc3aa98c287f132990a62a0c42822754c34c12fdfe83aeb96c01d"
+      }
     },
     "installer-could-not-stage-package-receipt": {
       "source": "7470b792c330d30444d1c5728368aeb4b531b3c61aee59e627e5d16090565ae5",
-      "translations": {}
+      "translations": {
+        "es-419": "7470b792c330d30444d1c5728368aeb4b531b3c61aee59e627e5d16090565ae5"
+      }
     },
     "installer-could-not-stage-package-receipt-read": {
       "source": "051c301377f270196f64d7f1320f27af40f10bacbfb52524ebff12db167be6fa",
-      "translations": {}
+      "translations": {
+        "es-419": "051c301377f270196f64d7f1320f27af40f10bacbfb52524ebff12db167be6fa"
+      }
     },
     "installer-could-not-stage-pointer-rollback-state": {
       "source": "ac7e73f29b4c0f77112567393971a35395daf2912550910520585ab36ac85af1",
-      "translations": {}
+      "translations": {
+        "es-419": "ac7e73f29b4c0f77112567393971a35395daf2912550910520585ab36ac85af1"
+      }
     },
     "installer-could-not-stage-public-pointer-for": {
       "source": "c36e85dd11bdc0080384aca459babc5f7705b4bafb38256b8ec9e3c3c2e2debe",
-      "translations": {}
+      "translations": {
+        "es-419": "c36e85dd11bdc0080384aca459babc5f7705b4bafb38256b8ec9e3c3c2e2debe"
+      }
     },
     "installer-could-not-stage-refreshed-package-receipt": {
       "source": "a2862f50c254d0d119218f32cdacc1db9e27e6062f53d52c2158905637646abd",
-      "translations": {}
+      "translations": {
+        "es-419": "a2862f50c254d0d119218f32cdacc1db9e27e6062f53d52c2158905637646abd"
+      }
     },
     "installer-could-not-stage-service-rollback-for": {
       "source": "7083fdf47680cb5a87cd0584a0f06e82cb3a7e4a1251a8199160d322a934aa1e",
-      "translations": {}
+      "translations": {
+        "es-419": "7083fdf47680cb5a87cd0584a0f06e82cb3a7e4a1251a8199160d322a934aa1e"
+      }
     },
     "installer-could-not-stage-service-rollback-state": {
       "source": "a93175f97c434cebdfa4bb4d19d3cdf373138f02bba0d16ee929f8d530f5b934",
-      "translations": {}
+      "translations": {
+        "es-419": "a93175f97c434cebdfa4bb4d19d3cdf373138f02bba0d16ee929f8d530f5b934"
+      }
     },
     "installer-could-not-stage-the-package-receipt-header": {
       "source": "45e8bbbeea0c330a26728597d9a4c14873cc38e42097a954dbdc23ff32ca9e86",
-      "translations": {}
+      "translations": {
+        "es-419": "45e8bbbeea0c330a26728597d9a4c14873cc38e42097a954dbdc23ff32ca9e86"
+      }
     },
     "installer-could-not-stage-the-pending-journal-receipt": {
       "source": "e8889df6c66315f412afc9d2e01dd184da1e0ec92aaeab209f2c2e91ac29144f",
-      "translations": {}
+      "translations": {
+        "es-419": "e8889df6c66315f412afc9d2e01dd184da1e0ec92aaeab209f2c2e91ac29144f"
+      }
     },
     "installer-could-not-stage-the-receipt-section": {
       "source": "2169fcebc77362c56f914d720c70785e613c007a3d9893ac5359bafbe5304523",
-      "translations": {}
+      "translations": {
+        "es-419": "2169fcebc77362c56f914d720c70785e613c007a3d9893ac5359bafbe5304523"
+      }
     },
     "installer-could-not-stage-the-tree-install-receipt": {
       "source": "d3a272c187f621c10464949c4877272843317bde5955fe025ed934bd331db49a",
-      "translations": {}
+      "translations": {
+        "es-419": "d3a272c187f621c10464949c4877272843317bde5955fe025ed934bd331db49a"
+      }
     },
     "installer-could-not-stage-the-tree-receipt-header": {
       "source": "a82356bbe04dd1ce8d23190b04e5d0f00423c9a8da5f2fb0da5d03beb254cd88",
-      "translations": {}
+      "translations": {
+        "es-419": "a82356bbe04dd1ce8d23190b04e5d0f00423c9a8da5f2fb0da5d03beb254cd88"
+      }
     },
     "installer-could-not-stage-tree-uninstall-receipt": {
       "source": "4d9f7d21519b7ed9071badc041bcc662ebe23c81322687ce4c76b1086cb03a46",
-      "translations": {}
+      "translations": {
+        "es-419": "4d9f7d21519b7ed9071badc041bcc662ebe23c81322687ce4c76b1086cb03a46"
+      }
     },
     "installer-could-not-verify-the-installed-files-against": {
       "source": "db0cf14468e4ba088e6bbcbeb6e2fb90a45cfed6c96eb47098479608c7c1fc1f",
-      "translations": {}
+      "translations": {
+        "es-419": "db0cf14468e4ba088e6bbcbeb6e2fb90a45cfed6c96eb47098479608c7c1fc1f"
+      }
     },
     "installer-could-not-write-installer-runtime": {
       "source": "7dc3e320a5a3b269d6ea529c26969a0c9420a753133b174ffcf2382808ba53c8",
-      "translations": {}
+      "translations": {
+        "es-419": "7dc3e320a5a3b269d6ea529c26969a0c9420a753133b174ffcf2382808ba53c8"
+      }
     },
     "installer-cryptographic-verification-failed-for": {
       "source": "7121e73de51c04b30e12dfcb0770225e4af3c53a9d1aa04e4fde8315613f9195",
-      "translations": {}
+      "translations": {
+        "es-419": "7121e73de51c04b30e12dfcb0770225e4af3c53a9d1aa04e4fde8315613f9195"
+      }
     },
     "installer-curl-is-required-to-install-the-mac": {
       "source": "19aec01d85336ddbbd636538e8e4885781fd148fdeab3b7a7e34aa70b8cd2cc7",
-      "translations": {}
+      "translations": {
+        "es-419": "19aec01d85336ddbbd636538e8e4885781fd148fdeab3b7a7e34aa70b8cd2cc7"
+      }
     },
     "installer-current-path-for-exists-but-is-not": {
       "source": "e3d1d4cfadcc5656102c176462bf3ab3597d31d323a7ba31e1f45301a6b47515",
-      "translations": {}
+      "translations": {
+        "es-419": "e3d1d4cfadcc5656102c176462bf3ab3597d31d323a7ba31e1f45301a6b47515"
+      }
     },
     "installer-current-pointer-for-does-not-match-its": {
       "source": "1d4efc8236da0eeb10dd932ce41d560bfa3f6e3ba71627de2c62c824ac512afa",
-      "translations": {}
+      "translations": {
+        "es-419": "1d4efc8236da0eeb10dd932ce41d560bfa3f6e3ba71627de2c62c824ac512afa"
+      }
     },
     "installer-default-or": {
       "source": "1f5181b8a23f93e5471272e1bf3de09c7074ef9580619318ded720470cd0def6",
-      "translations": {}
+      "translations": {
+        "es-419": "1f5181b8a23f93e5471272e1bf3de09c7074ef9580619318ded720470cd0def6"
+      }
     },
     "installer-default-or-keep-existing-ownership": {
       "source": "b22cf4be81db4547657da2228c212fb8ae192aff4e96b2f417b44e5376bc9313",
-      "translations": {}
+      "translations": {
+        "es-419": "b22cf4be81db4547657da2228c212fb8ae192aff4e96b2f417b44e5376bc9313"
+      }
     },
     "installer-desktop-artifact-bytes-must-be-an-integer": {
       "source": "a50faefc5e2dfb5ff3b992e91d9e5c08aad28ba3a24c551e812f4391f0d70fcf",
-      "translations": {}
+      "translations": {
+        "es-419": "a50faefc5e2dfb5ff3b992e91d9e5c08aad28ba3a24c551e812f4391f0d70fcf"
+      }
     },
     "installer-desktop-artifact-digest-is-invalid": {
       "source": "c457f9a575f49deb7972db984dee7de7b79eed5494d32c50b910b1361ff69b2a",
-      "translations": {}
+      "translations": {
+        "es-419": "c457f9a575f49deb7972db984dee7de7b79eed5494d32c50b910b1361ff69b2a"
+      }
     },
     "installer-desktop-artifact-field-must-be-a-string": {
       "source": "ae8061fb1048d1cace042baf3e1775ad069c2527814d9e6e07c9b2248409c4cb",
-      "translations": {}
+      "translations": {
+        "es-419": "ae8061fb1048d1cace042baf3e1775ad069c2527814d9e6e07c9b2248409c4cb"
+      }
     },
     "installer-desktop-artifact-member-is-missing": {
       "source": "8d02f402111ddb3e9c8334ff65b17cf3839564d85e2e1458f91b68ac85f7c6d1",
-      "translations": {}
+      "translations": {
+        "es-419": "8d02f402111ddb3e9c8334ff65b17cf3839564d85e2e1458f91b68ac85f7c6d1"
+      }
     },
     "installer-desktop-artifact-member-must-be-an-object": {
       "source": "e992eeede63da53762e9aceaac670b578e61b7d49c2bfa9f88bba3eba4eb3472",
-      "translations": {}
+      "translations": {
+        "es-419": "e992eeede63da53762e9aceaac670b578e61b7d49c2bfa9f88bba3eba4eb3472"
+      }
     },
     "installer-desktop-artifacts-array-is-invalid": {
       "source": "d7d5720266f2a62295ad799a64c432469634607aad26fae3f40537bf1f12eca6",
-      "translations": {}
+      "translations": {
+        "es-419": "d7d5720266f2a62295ad799a64c432469634607aad26fae3f40537bf1f12eca6"
+      }
     },
     "installer-desktop-artifacts-must-be-an-array": {
       "source": "85455c39d64024fef25a9fadda836c9d5e372b9ee3cfaec0909d303c175e9fcf",
-      "translations": {}
+      "translations": {
+        "es-419": "85455c39d64024fef25a9fadda836c9d5e372b9ee3cfaec0909d303c175e9fcf"
+      }
     },
     "installer-desktop-cargo-lock-digest-is-invalid": {
       "source": "ada63b5ddedbc43aaccf503c858e91de399e406bbc51602e1027cff6c864d697",
-      "translations": {}
+      "translations": {
+        "es-419": "ada63b5ddedbc43aaccf503c858e91de399e406bbc51602e1027cff6c864d697"
+      }
     },
     "installer-desktop-native-artifact-does-not-match-the": {
       "source": "16bb37f4301b139497e7419a16c46ea06a89094d838f07387083b94e4c1264cd",
-      "translations": {}
+      "translations": {
+        "es-419": "16bb37f4301b139497e7419a16c46ea06a89094d838f07387083b94e4c1264cd"
+      }
     },
     "installer-desktop-native-identity-does-not-match-the": {
       "source": "c2ce4f86e89155a1be8483d09d0252e5d3abc6829230c4cc7cc2f387e5f46cd5",
-      "translations": {}
+      "translations": {
+        "es-419": "c2ce4f86e89155a1be8483d09d0252e5d3abc6829230c4cc7cc2f387e5f46cd5"
+      }
     },
     "installer-desktop-native-manifest": {
       "source": "644534de55dae077e7e75a1ec2807843493c13ed2888453f9e13dcd5dbee8a72",
-      "translations": {}
+      "translations": {
+        "es-419": "644534de55dae077e7e75a1ec2807843493c13ed2888453f9e13dcd5dbee8a72"
+      }
     },
     "installer-desktop-native-manifest-contains-duplicate-selected-artifacts": {
       "source": "a8c6f28f057e43f1bff61b379f08225f1dddb246d0cebf7a04e9b8cd0848e9da",
-      "translations": {}
+      "translations": {
+        "es-419": "a8c6f28f057e43f1bff61b379f08225f1dddb246d0cebf7a04e9b8cd0848e9da"
+      }
     },
     "installer-desktop-native-manifest-is-invalid": {
       "source": "00f02f1ee3121a06b1871fcda13d14804ee165127c8ca1be4029fb1e091914c2",
-      "translations": {}
+      "translations": {
+        "es-419": "00f02f1ee3121a06b1871fcda13d14804ee165127c8ca1be4029fb1e091914c2"
+      }
     },
     "installer-desktop-native-manifest-is-missing": {
       "source": "cde6a1180f81799df78ecf5cf2bf370680c32ef44da57fc1d4a51885ba326efd",
-      "translations": {}
+      "translations": {
+        "es-419": "cde6a1180f81799df78ecf5cf2bf370680c32ef44da57fc1d4a51885ba326efd"
+      }
     },
     "installer-desktop-native-manifest-is-missing-the-selected": {
       "source": "0b53a00fc28bbae93d753041d730021eae00d5632c97e9e9868037a950e21d5f",
-      "translations": {}
+      "translations": {
+        "es-419": "0b53a00fc28bbae93d753041d730021eae00d5632c97e9e9868037a950e21d5f"
+      }
     },
     "installer-desktop-native-manifest-schema-version-is-unsupported": {
       "source": "7406c6604eb01e648d218e801e9b81a38b1638006894f85f5e2e6f2d8e697d53",
-      "translations": {}
+      "translations": {
+        "es-419": "7406c6604eb01e648d218e801e9b81a38b1638006894f85f5e2e6f2d8e697d53"
+      }
     },
     "installer-desktop-native-signature": {
       "source": "c852269f0b2ff79a919eae3564a7b1c372f88c9e7b159d517c5bb8c71ecde721",
-      "translations": {}
+      "translations": {
+        "es-419": "c852269f0b2ff79a919eae3564a7b1c372f88c9e7b159d517c5bb8c71ecde721"
+      }
     },
     "installer-desktop-schema-version-must-be-an-integer": {
       "source": "01adff62816d7dce5ae4efa8c5def4959fff92565c6aae96e03d7f8061eb6cd0",
-      "translations": {}
+      "translations": {
+        "es-419": "01adff62816d7dce5ae4efa8c5def4959fff92565c6aae96e03d7f8061eb6cd0"
+      }
     },
     "installer-desktop-security-field-must-be-a-string": {
       "source": "8844c8caff5f2b120aa10ab55e58163a5ebab902c5279238f4e11834fa6cebac",
-      "translations": {}
+      "translations": {
+        "es-419": "8844c8caff5f2b120aa10ab55e58163a5ebab902c5279238f4e11834fa6cebac"
+      }
     },
     "installer-desktop-selected-filename-does-not-match-its": {
       "source": "2d8a6ce18b39372a47c43b51dd3c46751845465d493e73752122f527a7ed95aa",
-      "translations": {}
+      "translations": {
+        "es-419": "2d8a6ce18b39372a47c43b51dd3c46751845465d493e73752122f527a7ed95aa"
+      }
     },
     "installer-desktop-selected-route-is-invalid": {
       "source": "2a2c3362e8a403284589ea7a6b2fdedb529b363338ed2f22c80b0bc752ec7076",
-      "translations": {}
+      "translations": {
+        "es-419": "2a2c3362e8a403284589ea7a6b2fdedb529b363338ed2f22c80b0bc752ec7076"
+      }
     },
     "installer-desktop-solstone-desktop-role-desktop-version": {
       "source": "8eb6f0e5621759401c862db061652c10cb28cbfa599d16d3b63c4d43eb9378ea",
-      "translations": {}
+      "translations": {
+        "es-419": "8eb6f0e5621759401c862db061652c10cb28cbfa599d16d3b63c4d43eb9378ea"
+      }
     },
     "installer-desktop-source-commit-is-invalid": {
       "source": "44dd7bd2340a5406a1a5e62e651ec910a930f825ab256b872f6dd6118101709c",
-      "translations": {}
+      "translations": {
+        "es-419": "44dd7bd2340a5406a1a5e62e651ec910a930f825ab256b872f6dd6118101709c"
+      }
     },
     "installer-desktop-source-dirty-must-be-boolean": {
       "source": "33425edefa5a6454baa08eb033cee523f98253da386b425642237236c8d76e35",
-      "translations": {}
+      "translations": {
+        "es-419": "33425edefa5a6454baa08eb033cee523f98253da386b425642237236c8d76e35"
+      }
     },
     "installer-disk-image": {
       "source": "fd8f0bc5d13827fed8f89718881e3638e1344e7755dd5a3957d813d0379c0c84",
-      "translations": {}
+      "translations": {
+        "es-419": "fd8f0bc5d13827fed8f89718881e3638e1344e7755dd5a3957d813d0379c0c84"
+      }
     },
     "installer-download": {
       "source": "68ff63fb82e0e5dfec2a8496bf9afef608ad639ed552e740268eb537fa52067f",
-      "translations": {}
+      "translations": {
+        "es-419": "68ff63fb82e0e5dfec2a8496bf9afef608ad639ed552e740268eb537fa52067f"
+      }
     },
     "installer-download-origin-default": {
       "source": "b057bf2c186e288a5e9a6366e8c7cf6d945bea4ddc0fc13d4e2c39faa8242c33",
-      "translations": {}
+      "translations": {
+        "es-419": "b057bf2c186e288a5e9a6366e8c7cf6d945bea4ddc0fc13d4e2c39faa8242c33"
+      }
     },
     "installer-downloading": {
       "source": "a531de266bbbf95016b43db7aec29a1ebf5ab57ceb3412f6bcab673534df25ab",
-      "translations": {}
+      "translations": {
+        "es-419": "a531de266bbbf95016b43db7aec29a1ebf5ab57ceb3412f6bcab673534df25ab"
+      }
     },
     "installer-dpkg-is-required-to-compare-debian-package": {
       "source": "257b6cad6acd0ed18d83430cb18a7afdaf1bb5dfeba016a2aec3921aa02f7e44",
-      "translations": {}
+      "translations": {
+        "es-419": "257b6cad6acd0ed18d83430cb18a7afdaf1bb5dfeba016a2aec3921aa02f7e44"
+      }
     },
     "installer-dpkg-query-is-required-to-detect-package": {
       "source": "ee3f83eb1bb91ec73916f4bf58aa62adcb450349d1ab2035e302c697fd858739",
-      "translations": {}
+      "translations": {
+        "es-419": "ee3f83eb1bb91ec73916f4bf58aa62adcb450349d1ab2035e302c697fd858739"
+      }
     },
     "installer-duplicate-checksum-filename": {
       "source": "c58cc8f6afc259aa7f537cf03b7b9949734991264d9d4af4da06b6745dca312f",
-      "translations": {}
+      "translations": {
+        "es-419": "c58cc8f6afc259aa7f537cf03b7b9949734991264d9d4af4da06b6745dca312f"
+      }
     },
     "installer-duplicate-key": {
       "source": "e6dd861c1ed34baa1aadfc56f6a34a3a6dde69ac3ca49de48f8d345a9a246ec4",
-      "translations": {}
+      "translations": {
+        "es-419": "e6dd861c1ed34baa1aadfc56f6a34a3a6dde69ac3ca49de48f8d345a9a246ec4"
+      }
     },
     "installer-duplicate-release-field": {
       "source": "b0d08a9bd4cd1992d21ea0ecea9f42e24379abbe847cd5fab0af7c176bf514ce",
-      "translations": {}
+      "translations": {
+        "es-419": "b0d08a9bd4cd1992d21ea0ecea9f42e24379abbe847cd5fab0af7c176bf514ce"
+      }
     },
     "installer-empty-checksum-file": {
       "source": "96f97d2d4bd0f4e3ee3e6c82f9dbb7d99bf53b35d14ff7f9c5f0516a26441d7b",
-      "translations": {}
+      "translations": {
+        "es-419": "96f97d2d4bd0f4e3ee3e6c82f9dbb7d99bf53b35d14ff7f9c5f0516a26441d7b"
+      }
     },
     "installer-enable-and-run": {
       "source": "128c25df59d1149c26e10815c73790c591202dd6cfe1605f3c97ff0304214874",
-      "translations": {}
+      "translations": {
+        "es-419": "128c25df59d1149c26e10815c73790c591202dd6cfe1605f3c97ff0304214874"
+      }
     },
     "installer-escaped-desktop-security-field": {
       "source": "d0edb7adf2805ddb7ddce62456161aeed32f6e10162c0d7d06bbf8e7d24bc5e1",
-      "translations": {}
+      "translations": {
+        "es-419": "d0edb7adf2805ddb7ddce62456161aeed32f6e10162c0d7d06bbf8e7d24bc5e1"
+      }
     },
     "installer-escaped-native-manifest-key": {
       "source": "a859fb77628cf9c4ef47b2163657236c4d5719f7443ddc939ae442b1e0c270aa",
-      "translations": {}
+      "translations": {
+        "es-419": "a859fb77628cf9c4ef47b2163657236c4d5719f7443ddc939ae442b1e0c270aa"
+      }
     },
     "installer-escaped-tmux-security-field": {
       "source": "a45fdc9b42286f3c6166a97d11a4bf7087b98a83ca94a8b403738615ee8315fc",
-      "translations": {}
+      "translations": {
+        "es-419": "a45fdc9b42286f3c6166a97d11a4bf7087b98a83ca94a8b403738615ee8315fc"
+      }
     },
     "installer-examples-after-saving-as": {
       "source": "604d27e872516e7ef9b5cf7fb0b647269fa69f2c323d8c6d7e30a2ec82eef9f9",
-      "translations": {}
+      "translations": {
+        "es-419": "604d27e872516e7ef9b5cf7fb0b647269fa69f2c323d8c6d7e30a2ec82eef9f9"
+      }
     },
     "installer-executable-for-does-not-match-its-receipt": {
       "source": "baed7b4c4c848e8e2b4c261125493af5c81390df5313715fc6b1a43871c10181",
-      "translations": {}
+      "translations": {
+        "es-419": "baed7b4c4c848e8e2b4c261125493af5c81390df5313715fc6b1a43871c10181"
+      }
     },
     "installer-executable-for-is-not-owned": {
       "source": "9669121492234a7d38387c7c7f3f88e7a2d559f9fdbe9450f23ba652838ccf48",
-      "translations": {}
+      "translations": {
+        "es-419": "9669121492234a7d38387c7c7f3f88e7a2d559f9fdbe9450f23ba652838ccf48"
+      }
     },
     "installer-executable-not-found-in-unpacked-tree": {
       "source": "2b97e81c08f4e83f891ed77843b7cdc57b170aa7ea7a5316b2cea381495f1354",
-      "translations": {}
+      "translations": {
+        "es-419": "2b97e81c08f4e83f891ed77843b7cdc57b170aa7ea7a5316b2cea381495f1354"
+      }
     },
     "installer-expected-an-application-bundle-at": {
       "source": "ead69bc3d7e37edccd3ddfb150e50839305d03a72af216c3066d7b70af8b7033",
-      "translations": {}
+      "translations": {
+        "es-419": "ead69bc3d7e37edccd3ddfb150e50839305d03a72af216c3066d7b70af8b7033"
+      }
     },
     "installer-expected-colon": {
       "source": "33315580854dd4625f7c532a5f78302db76e20f3306ba51c798e767c3dcd0ff2",
-      "translations": {}
+      "translations": {
+        "es-419": "33315580854dd4625f7c532a5f78302db76e20f3306ba51c798e767c3dcd0ff2"
+      }
     },
     "installer-expected-comma": {
       "source": "773c23ec6401982892abb06198b4224fa9c894298ebc3e35d821e719c34ca944",
-      "translations": {}
+      "translations": {
+        "es-419": "773c23ec6401982892abb06198b4224fa9c894298ebc3e35d821e719c34ca944"
+      }
     },
     "installer-expected-comma-in-array": {
       "source": "e8ceaf064f9c14d8f1243dad69dc789e12d90e40b7f0de508f9a857ca3dff9b6",
-      "translations": {}
+      "translations": {
+        "es-419": "e8ceaf064f9c14d8f1243dad69dc789e12d90e40b7f0de508f9a857ca3dff9b6"
+      }
     },
     "installer-expected-string-key": {
       "source": "fc008ccd2bc7c2620620b728ea4ee5cfef7fc5354c635a95988fd00a51e30dd1",
-      "translations": {}
+      "translations": {
+        "es-419": "fc008ccd2bc7c2620620b728ea4ee5cfef7fc5354c635a95988fd00a51e30dd1"
+      }
     },
     "installer-extra-data-at-end-of-json": {
       "source": "060f113c457b17c574443d1c7dd9a9db0efcf84c244329c40efdf777fc6a8a6b",
-      "translations": {}
+      "translations": {
+        "es-419": "060f113c457b17c574443d1c7dd9a9db0efcf84c244329c40efdf777fc6a8a6b"
+      }
     },
     "installer-failed-to-download": {
       "source": "3a98bfb973de47755ad6406de0fa52094ab9dccd8aa0ab05b7d7cfdce2ab091a",
-      "translations": {}
+      "translations": {
+        "es-419": "3a98bfb973de47755ad6406de0fa52094ab9dccd8aa0ab05b7d7cfdce2ab091a"
+      }
     },
     "installer-fake-package-root-is-required-for-journal": {
       "source": "0b12c5587fc32a6b663316072b146b6757ac2cdce6664cf8730958a0a1f6f5da",
-      "translations": {}
+      "translations": {
+        "es-419": "0b12c5587fc32a6b663316072b146b6757ac2cdce6664cf8730958a0a1f6f5da"
+      }
     },
     "installer-file-digest-must-be-a-string": {
       "source": "3619fbf7fb8b205e3b6ba94838ca530cc6326f13ac89120805bcd7ed3b0a112e",
-      "translations": {}
+      "translations": {
+        "es-419": "3619fbf7fb8b205e3b6ba94838ca530cc6326f13ac89120805bcd7ed3b0a112e"
+      }
     },
     "installer-files-must-be-an-object": {
       "source": "66bcc8881ae2edb94046518df090d200d27ad1c3c2b6ee65596a2eb87aa8a933",
-      "translations": {}
+      "translations": {
+        "es-419": "66bcc8881ae2edb94046518df090d200d27ad1c3c2b6ee65596a2eb87aa8a933"
+      }
     },
     "installer-finish-setup": {
       "source": "6c6bc9b76c9ce5351732321465f71f2f8d92bdcfde58b938fe72d2c4b89850de",
-      "translations": {}
+      "translations": {
+        "es-419": "6c6bc9b76c9ce5351732321465f71f2f8d92bdcfde58b938fe72d2c4b89850de"
+      }
     },
     "installer-finish-setup-2": {
       "source": "d786c1b3f0476ab5793bd75c4a7e307ace0d7dc4ef64d5408a85420b84b26b1a",
-      "translations": {}
+      "translations": {
+        "es-419": "d786c1b3f0476ab5793bd75c4a7e307ace0d7dc4ef64d5408a85420b84b26b1a"
+      }
     },
     "installer-finish-setup-in-the-browser-that-just": {
       "source": "f39b90e40d3d48ac0e4e1805cd01f4a1450576cd57d96c0c23a16e6a3b00d632",
-      "translations": {}
+      "translations": {
+        "es-419": "f39b90e40d3d48ac0e4e1805cd01f4a1450576cd57d96c0c23a16e6a3b00d632"
+      }
     },
     "installer-from-another-computer-forward-the-journal-s": {
       "source": "794d2c983143767cc152f3c0ced22b36d3b12d47fc668f400b2cba093a1973b2",
-      "translations": {}
+      "translations": {
+        "es-419": "794d2c983143767cc152f3c0ced22b36d3b12d47fc668f400b2cba093a1973b2"
+      }
     },
     "installer-from-the-package-is-missing-or-is": {
       "source": "903a714ec07a4b1eefe2430a95bf42fd663407e772247d11cb976e5d0fdaee30",
-      "translations": {}
+      "translations": {
+        "es-419": "903a714ec07a4b1eefe2430a95bf42fd663407e772247d11cb976e5d0fdaee30"
+      }
     },
     "installer-helper-failed-to-install-package": {
       "source": "29702e4ee7f012a117dce977c6a324987b42dcf5be56ac3ee1754093f6e8a7f0",
-      "translations": {}
+      "translations": {
+        "es-419": "29702e4ee7f012a117dce977c6a324987b42dcf5be56ac3ee1754093f6e8a7f0"
+      }
     },
     "installer-http-scheme-is-only-permitted-for-loopback": {
       "source": "f7230ad3c463799f9f92d80a339e454e3433bd852a31fa1833777807ca254687",
-      "translations": {}
+      "translations": {
+        "es-419": "f7230ad3c463799f9f92d80a339e454e3433bd852a31fa1833777807ca254687"
+      }
     },
     "installer-http-status-from": {
       "source": "c3d9c83e79e23d0c175b70ea3731713ec0598d4275e40dbf4b9e0b70901e8a5d",
-      "translations": {}
+      "translations": {
+        "es-419": "c3d9c83e79e23d0c175b70ea3731713ec0598d4275e40dbf4b9e0b70901e8a5d"
+      }
     },
     "installer-http-status-while-downloading": {
       "source": "0029d672fe470fea16baf5ad6c8e5923ded53f98c6443ebbb75147a1a461511c",
-      "translations": {}
+      "translations": {
+        "es-419": "0029d672fe470fea16baf5ad6c8e5923ded53f98c6443ebbb75147a1a461511c"
+      }
     },
     "installer-https-host-not-approved": {
       "source": "d7c3aefd678aae7816c2443591dcee4ed82c2f415d2f0ac732ef2f1391345cec",
-      "translations": {}
+      "translations": {
+        "es-419": "d7c3aefd678aae7816c2443591dcee4ed82c2f415d2f0ac732ef2f1391345cec"
+      }
     },
     "installer-injected-failure-before-current-pointer-publication": {
       "source": "9d9a84983acc4c7e0b901924241b7c2312f3ff0d7efa27b6ba22ea64f94934df",
-      "translations": {}
+      "translations": {
+        "es-419": "9d9a84983acc4c7e0b901924241b7c2312f3ff0d7efa27b6ba22ea64f94934df"
+      }
     },
     "installer-injected-tree-uninstall-interruption": {
       "source": "7974fa1cd7823b9ca3e81c04cef12313e721720b2c456b880cacadfa7132dcbf",
-      "translations": {}
+      "translations": {
+        "es-419": "7974fa1cd7823b9ca3e81c04cef12313e721720b2c456b880cacadfa7132dcbf"
+      }
     },
     "installer-install-directory": {
       "source": "cec4be8ffa2d31c739ea15ab9e6690b5c4e77d6a4cd10146e10afafd609d430f",
-      "translations": {}
+      "translations": {
+        "es-419": "cec4be8ffa2d31c739ea15ab9e6690b5c4e77d6a4cd10146e10afafd609d430f"
+      }
     },
     "installer-install-from": {
       "source": "cdbd2ca088230bb42d7323e820a555677d7266bc9456e61a3aee390883803755",
-      "translations": {}
+      "translations": {
+        "es-419": "cdbd2ca088230bb42d7323e820a555677d7266bc9456e61a3aee390883803755"
+      }
     },
     "installer-install-from-your-distribution-s-packages": {
       "source": "8225790cb479ef0666702c5d267b9f717c5e1341d7a3a824887904094d54543c",
-      "translations": {}
+      "translations": {
+        "es-419": "8225790cb479ef0666702c5d267b9f717c5e1341d7a3a824887904094d54543c"
+      }
     },
     "installer-install-handler-failed-for": {
       "source": "50372bef7f2885c2d4271edef4fe4f5499809b12ea17824d6322f2a8c89fa231",
-      "translations": {}
+      "translations": {
+        "es-419": "50372bef7f2885c2d4271edef4fe4f5499809b12ea17824d6322f2a8c89fa231"
+      }
     },
     "installer-install-handler-is-missing-for": {
       "source": "699d670df7c1ef0b5282e8427a1505c6f23b58f07b46ee25a8cb67ba71801fdf",
-      "translations": {}
+      "translations": {
+        "es-419": "699d670df7c1ef0b5282e8427a1505c6f23b58f07b46ee25a8cb67ba71801fdf"
+      }
     },
     "installer-install-receipt-for-has-the-wrong-role": {
       "source": "a85013544eadca90fcd6e956722f50cbd5ca6152e36597d7fdf179e3b1d64cad",
-      "translations": {}
+      "translations": {
+        "es-419": "a85013544eadca90fcd6e956722f50cbd5ca6152e36597d7fdf179e3b1d64cad"
+      }
     },
     "installer-install-receipt-for-is-malformed": {
       "source": "e7c78ef376e49f40078c15340b722d700d0b742b077750d0eb722ebbafe6fbe3",
-      "translations": {}
+      "translations": {
+        "es-419": "e7c78ef376e49f40078c15340b722d700d0b742b077750d0eb722ebbafe6fbe3"
+      }
     },
     "installer-install-receipt-has-duplicate-ownership-for": {
       "source": "1cd6cb5e4827ffcf980dbac4ed7c5b1aed053cb3601e5a3672abb826efed066a",
-      "translations": {}
+      "translations": {
+        "es-419": "1cd6cb5e4827ffcf980dbac4ed7c5b1aed053cb3601e5a3672abb826efed066a"
+      }
     },
     "installer-install-receipt-is-not-a-readable-regular": {
       "source": "14fc87226820679bd3cc72c5310adf748f48349388beb521ba6dc7dc93a89eb6",
-      "translations": {}
+      "translations": {
+        "es-419": "14fc87226820679bd3cc72c5310adf748f48349388beb521ba6dc7dc93a89eb6"
+      }
     },
     "installer-installation-interrupted-no-existing-app-was-replaced": {
       "source": "11270514d2fba507442618aad59cc3839ca855489c223e540674ae3353ee9dcb",
-      "translations": {}
+      "translations": {
+        "es-419": "11270514d2fba507442618aad59cc3839ca855489c223e540674ae3353ee9dcb"
+      }
     },
     "installer-installation-interrupted-preserve-installed-files-and-receipts": {
       "source": "f9f76e9557377e8fd41cd34cf7b6f29fc3a5a06a41468badf8d11bc36b232083",
-      "translations": {}
+      "translations": {
+        "es-419": "f9f76e9557377e8fd41cd34cf7b6f29fc3a5a06a41468badf8d11bc36b232083"
+      }
     },
     "installer-installation-was-interrupted": {
       "source": "6f5f49c193e8fcba59cc0acfda3b36c9d609ee93c5cc633cfc0a0ae412435ee9",
-      "translations": {}
+      "translations": {
+        "es-419": "6f5f49c193e8fcba59cc0acfda3b36c9d609ee93c5cc633cfc0a0ae412435ee9"
+      }
     },
     "installer-installed-files-exist-without-an-ownership-receipt": {
       "source": "a537feabfd7da7557b035868da9440b3adc5b3de90260d4bdaccb239e57b2570",
-      "translations": {}
+      "translations": {
+        "es-419": "a537feabfd7da7557b035868da9440b3adc5b3de90260d4bdaccb239e57b2570"
+      }
     },
     "installer-installed-journal-package-is-owned-by-role": {
       "source": "d8f8064947be50e8c2e017263dfa6d8bf6757dae528266c189a35717028d1011",
-      "translations": {}
+      "translations": {
+        "es-419": "d8f8064947be50e8c2e017263dfa6d8bf6757dae528266c189a35717028d1011"
+      }
     },
     "installer-installed-package-does-not-have-a-unique": {
       "source": "3b06d45ea77b3babfbf66656a64eb40e03adae5501f20776f33945cfce8b65d4",
-      "translations": {}
+      "translations": {
+        "es-419": "3b06d45ea77b3babfbf66656a64eb40e03adae5501f20776f33945cfce8b65d4"
+      }
     },
     "installer-installed-package-does-not-match-intended-receipt": {
       "source": "19c6a18f2c1cc369f841b624a82f99cf93aac6032c6dd6f782e95e8a9f9e360e",
-      "translations": {}
+      "translations": {
+        "es-419": "19c6a18f2c1cc369f841b624a82f99cf93aac6032c6dd6f782e95e8a9f9e360e"
+      }
     },
     "installer-installed-package-does-not-match-payload-receipt": {
       "source": "c5d04aa59eccea9a19ffe9b0d342dfb3d48a7c970ff015ad5db943b59cba926f",
-      "translations": {}
+      "translations": {
+        "es-419": "c5d04aa59eccea9a19ffe9b0d342dfb3d48a7c970ff015ad5db943b59cba926f"
+      }
     },
     "installer-installed-package-has-an-invalid-receipt-phase": {
       "source": "fa3efcc451711005209b7894accda03cfd5e64d104ab9bc9e12533338860c31a",
-      "translations": {}
+      "translations": {
+        "es-419": "fa3efcc451711005209b7894accda03cfd5e64d104ab9bc9e12533338860c31a"
+      }
     },
     "installer-installed-package-has-no-ownership-receipt": {
       "source": "a02840d3ecc07859bece32718f34f8d8eaab2d12bc4e745d4a1f3e73437edeee",
-      "translations": {}
+      "translations": {
+        "es-419": "a02840d3ecc07859bece32718f34f8d8eaab2d12bc4e745d4a1f3e73437edeee"
+      }
     },
     "installer-installed-package-has-unexpected-architecture": {
       "source": "d1c9b4013a60c6b62057ec03e882ba4e8944cb2ebcc4ed95c8347ddf486ca774",
-      "translations": {}
+      "translations": {
+        "es-419": "d1c9b4013a60c6b62057ec03e882ba4e8944cb2ebcc4ed95c8347ddf486ca774"
+      }
     },
     "installer-installed-package-identity-did-not-match-candidate": {
       "source": "37459cd5fbe85ef25f6012f738bc059d5a61ce661936c2d3d88178b93809fed6",
-      "translations": {}
+      "translations": {
+        "es-419": "37459cd5fbe85ef25f6012f738bc059d5a61ce661936c2d3d88178b93809fed6"
+      }
     },
     "installer-installed-package-version-is-newer-than-candidate": {
       "source": "1b8c43515fc9d5a0d98aabde4ce12c4361d283c4371bc617eded3e40e96f3b2b",
-      "translations": {}
+      "translations": {
+        "es-419": "1b8c43515fc9d5a0d98aabde4ce12c4361d283c4371bc617eded3e40e96f3b2b"
+      }
     },
     "installer-installed-state-for-has-no-platform-receipt": {
       "source": "5536568f29a9c39e43937950ccb57d6b81a185228f9b5c3e02acdc29212fbb84",
-      "translations": {}
+      "translations": {
+        "es-419": "5536568f29a9c39e43937950ccb57d6b81a185228f9b5c3e02acdc29212fbb84"
+      }
     },
     "installer-installer-field-must-be-a-string": {
       "source": "3fc80250e8e918d39be92cfee531897fea5041096f40f9ba2ae6889bdf70e728",
-      "translations": {}
+      "translations": {
+        "es-419": "3fc80250e8e918d39be92cfee531897fea5041096f40f9ba2ae6889bdf70e728"
+      }
     },
     "installer-installer-must-be-an-object": {
       "source": "706aa45f23fcebe701401cc65efda0f0448f900f338d7f1b42cd2a272b869b7b",
-      "translations": {}
+      "translations": {
+        "es-419": "706aa45f23fcebe701401cc65efda0f0448f900f338d7f1b42cd2a272b869b7b"
+      }
     },
     "installer-installer-revision-must-be-an-integer": {
       "source": "7de8b592a7808bbacb6c26ec5eebb59bab5f6e96b24f7a0bb291f0d8b44d40f3",
-      "translations": {}
+      "translations": {
+        "es-419": "7de8b592a7808bbacb6c26ec5eebb59bab5f6e96b24f7a0bb291f0d8b44d40f3"
+      }
     },
     "installer-invalid-checksum-digest": {
       "source": "99bc7d3239bceb9afe918319f5ce3415c293678649fd0a74ad0f8368e00aa8da",
-      "translations": {}
+      "translations": {
+        "es-419": "99bc7d3239bceb9afe918319f5ce3415c293678649fd0a74ad0f8368e00aa8da"
+      }
     },
     "installer-invalid-checksum-filename": {
       "source": "94b2a349be5c7a5d9dced027d37b6a5a962a605a196386a0bfa1d0480e2f18b1",
-      "translations": {}
+      "translations": {
+        "es-419": "94b2a349be5c7a5d9dced027d37b6a5a962a605a196386a0bfa1d0480e2f18b1"
+      }
     },
     "installer-invalid-component-selection": {
       "source": "d13cb21192ebb111718cd3cd7e362df90682bb6ad3ef14d10519474957067e84",
-      "translations": {}
+      "translations": {
+        "es-419": "d13cb21192ebb111718cd3cd7e362df90682bb6ad3ef14d10519474957067e84"
+      }
     },
     "installer-invalid-component-selection-to-skip-the-menu": {
       "source": "fa3ceb64c17797c7b2a8c9d685d2dcc90434f1bfee1752c8c397ae4db3bbf94a",
-      "translations": {}
+      "translations": {
+        "es-419": "fa3ceb64c17797c7b2a8c9d685d2dcc90434f1bfee1752c8c397ae4db3bbf94a"
+      }
     },
     "installer-invalid-installer-origin": {
       "source": "bf28676d912df91dfdc9aa8dc08d32ea16a8e01ecffbe5d1512a7c17a3fbf67f",
-      "translations": {}
+      "translations": {
+        "es-419": "bf28676d912df91dfdc9aa8dc08d32ea16a8e01ecffbe5d1512a7c17a3fbf67f"
+      }
     },
     "installer-invalid-loopback-origin": {
       "source": "6a48505d5f439980c1fdeb61563e0bcf55ed4099a64eac950dd102641647a03e",
-      "translations": {}
+      "translations": {
+        "es-419": "6a48505d5f439980c1fdeb61563e0bcf55ed4099a64eac950dd102641647a03e"
+      }
     },
     "installer-invalid-platform-version": {
       "source": "356c99eb7937fc7c68da2d3889234fc2438b6a1407d28c04dfb6a7082dd2197b",
-      "translations": {}
+      "translations": {
+        "es-419": "356c99eb7937fc7c68da2d3889234fc2438b6a1407d28c04dfb6a7082dd2197b"
+      }
     },
     "installer-invalid-release-lane": {
       "source": "eeb211fa9a8f0e21f500c076c6c146631e11e296da34fde0076ee9f921b7f497",
-      "translations": {}
+      "translations": {
+        "es-419": "eeb211fa9a8f0e21f500c076c6c146631e11e296da34fde0076ee9f921b7f497"
+      }
     },
     "installer-is-already-installed-updates-stay-inside-the": {
       "source": "510e121058659186c8ba685fbc6790b99f2c0cbd8757480c98a409111a87b593",
-      "translations": {}
+      "translations": {
+        "es-419": "510e121058659186c8ba685fbc6790b99f2c0cbd8757480c98a409111a87b593"
+      }
     },
     "installer-is-not-an-available-applications-directory": {
       "source": "2bbffbd83bb450aeebc4e3c56e48d61160056461a4885fe333952b2b469e0243",
-      "translations": {}
+      "translations": {
+        "es-419": "2bbffbd83bb450aeebc4e3c56e48d61160056461a4885fe333952b2b469e0243"
+      }
     },
     "installer-is-not-one-of-the-choices": {
       "source": "ce01ed3aac68ba646ff67baf75b76b5d77d8d91be1895494b3b1e13618f073f2",
-      "translations": {}
+      "translations": {
+        "es-419": "ce01ed3aac68ba646ff67baf75b76b5d77d8d91be1895494b3b1e13618f073f2"
+      }
     },
     "installer-is-not-writable-download-the-app-and": {
       "source": "6c576396f82ffe0acc679f2933df34de9bd43c6493f4026ccd35e72a6fa59097",
-      "translations": {}
+      "translations": {
+        "es-419": "6c576396f82ffe0acc679f2933df34de9bd43c6493f4026ccd35e72a6fa59097"
+      }
     },
     "installer-it-is-needed-so-that-two-installs": {
       "source": "5c0b60f971656424d2312cea5ddc245331e63f6871361ea2f607fff0c8ff33b7",
-      "translations": {}
+      "translations": {
+        "es-419": "5c0b60f971656424d2312cea5ddc245331e63f6871361ea2f607fff0c8ff33b7"
+      }
     },
     "installer-it-is-needed-to-check-each-download": {
       "source": "b366af13982daa1822e6a02c04e5cfc109f597583a6fef90176d7d75e9bc0c9b",
-      "translations": {}
+      "translations": {
+        "es-419": "b366af13982daa1822e6a02c04e5cfc109f597583a6fef90176d7d75e9bc0c9b"
+      }
     },
     "installer-it-is-needed-to-unpack-each-download": {
       "source": "da0d130eee1dcc8b3a6b42f5555c6c6478c4b6845ab3fe0b8109367aeea315c3",
-      "translations": {}
+      "translations": {
+        "es-419": "da0d130eee1dcc8b3a6b42f5555c6c6478c4b6845ab3fe0b8109367aeea315c3"
+      }
     },
     "installer-it-was-not-installed-from": {
       "source": "7f3d45dda41ab926b85db23eaaf9abe984858a986be8266df1256c9bc08b205c",
-      "translations": {}
+      "translations": {
+        "es-419": "7f3d45dda41ab926b85db23eaaf9abe984858a986be8266df1256c9bc08b205c"
+      }
     },
     "installer-its-current-pointer-is-unreadable": {
       "source": "cb2c52a0c24bc5e76b7e0adf19f6a4e57497acf4fe7e24822d583e6e7faf97e9",
-      "translations": {}
+      "translations": {
+        "es-419": "cb2c52a0c24bc5e76b7e0adf19f6a4e57497acf4fe7e24822d583e6e7faf97e9"
+      }
     },
     "installer-its-current-pointer-leaves-its-own-tree": {
       "source": "6e65f072b15d938b2e506a61384f95b4de26ca3ae30c46d688d343c7ecea65d2",
-      "translations": {}
+      "translations": {
+        "es-419": "6e65f072b15d938b2e506a61384f95b4de26ca3ae30c46d688d343c7ecea65d2"
+      }
     },
     "installer-its-install-receipt-does-not-record-signature": {
       "source": "c6ea0dea7cca2e19cdc1d9bcefb2053d1f6202307beea9ef8ce23ba53503bc3f",
-      "translations": {}
+      "translations": {
+        "es-419": "c6ea0dea7cca2e19cdc1d9bcefb2053d1f6202307beea9ef8ce23ba53503bc3f"
+      }
     },
     "installer-its-install-receipt-has-an-unsupported-schema": {
       "source": "5070c48cc22a8b8fd0440abdda3dc5c584cb8b53359ac62af790f45a8d72bf89",
-      "translations": {}
+      "translations": {
+        "es-419": "5070c48cc22a8b8fd0440abdda3dc5c584cb8b53359ac62af790f45a8d72bf89"
+      }
     },
     "installer-its-install-receipt-has-no-single": {
       "source": "e8f5238aa6b9ee423793c6c1466a03c49a6237c53c367acfba6c5f4bd66f11f7",
-      "translations": {}
+      "translations": {
+        "es-419": "e8f5238aa6b9ee423793c6c1466a03c49a6237c53c367acfba6c5f4bd66f11f7"
+      }
     },
     "installer-its-install-receipt-is-not-a-readable": {
       "source": "de3cca46fde572eff5f8f8e260ef0265f8d7cb76986e09d9a02f9d9446ac6e52",
-      "translations": {}
+      "translations": {
+        "es-419": "de3cca46fde572eff5f8f8e260ef0265f8d7cb76986e09d9a02f9d9446ac6e52"
+      }
     },
     "installer-its-install-receipt-is-not-for-a": {
       "source": "b74bde89ebdbb46332454a8bed184bd3de9e897ab64fa34fa3f6d346ae3f1beb",
-      "translations": {}
+      "translations": {
+        "es-419": "b74bde89ebdbb46332454a8bed184bd3de9e897ab64fa34fa3f6d346ae3f1beb"
+      }
     },
     "installer-its-install-receipt-is-too-large": {
       "source": "1251b61ed00746f2361739cf03507e90d29aee91224823f9a051582f4f41a1be",
-      "translations": {}
+      "translations": {
+        "es-419": "1251b61ed00746f2361739cf03507e90d29aee91224823f9a051582f4f41a1be"
+      }
     },
     "installer-its-install-receipt-records-an-invalid-version": {
       "source": "09869e86aae60d11882141d162de270d27b67fba0c3be728da178d4f602c5e7a",
-      "translations": {}
+      "translations": {
+        "es-419": "09869e86aae60d11882141d162de270d27b67fba0c3be728da178d4f602c5e7a"
+      }
     },
     "installer-its-install-receipt-records-an-unsupported-role": {
       "source": "74d1f7db7fbf18abfe73bcff59305ef9e47f101176da1cc4745a4a4b7d2afd1c",
-      "translations": {}
+      "translations": {
+        "es-419": "74d1f7db7fbf18abfe73bcff59305ef9e47f101176da1cc4745a4a4b7d2afd1c"
+      }
     },
     "installer-its-install-receipt-records-no-release-lane": {
       "source": "b9bcd8c92108433c320607c93ae9054743eeaf775f9041deb3bbaa65295e61bc",
-      "translations": {}
+      "translations": {
+        "es-419": "b9bcd8c92108433c320607c93ae9054743eeaf775f9041deb3bbaa65295e61bc"
+      }
     },
     "installer-its-journal-command-does-not-report-the": {
       "source": "f09a21d040d7cfb96fa277fe55c1539bc9c250ab3eebf377c76ae27d8752c911",
-      "translations": {}
+      "translations": {
+        "es-419": "f09a21d040d7cfb96fa277fe55c1539bc9c250ab3eebf377c76ae27d8752c911"
+      }
     },
     "installer-its-journal-command-is-missing": {
       "source": "6a62edc13c57d0ba1fabc9265c9cb257e717a42596c08bc56334207e6f525741",
-      "translations": {}
+      "translations": {
+        "es-419": "6a62edc13c57d0ba1fabc9265c9cb257e717a42596c08bc56334207e6f525741"
+      }
     },
     "installer-its-version-directory-or-current-pointer-is": {
       "source": "a7964089d73137678e9fbc5225a738da597a104fbbf4e0673d68d05f508379c4",
-      "translations": {}
+      "translations": {
+        "es-419": "a7964089d73137678e9fbc5225a738da597a104fbbf4e0673d68d05f508379c4"
+      }
     },
     "installer-journal-checksum-sidecar": {
       "source": "e64dd06a7cda6d31e9224854b532d19ea199b19717a494fea60eaa4e5e6acf86",
-      "translations": {}
+      "translations": {
+        "es-419": "e64dd06a7cda6d31e9224854b532d19ea199b19717a494fea60eaa4e5e6acf86"
+      }
     },
     "installer-journal-checksum-sidecar-does-not-match-the": {
       "source": "36ac8c51defb6561085d0f784967c203bec3c1ec155928def1f2c01f11a217b8",
-      "translations": {}
+      "translations": {
+        "es-419": "36ac8c51defb6561085d0f784967c203bec3c1ec155928def1f2c01f11a217b8"
+      }
     },
     "installer-journal-checksum-sidecar-is-invalid": {
       "source": "3cacc3cd7eebec1c1e50de62f3948097f66e86e9788c4ee83c70b45f45224b55",
-      "translations": {}
+      "translations": {
+        "es-419": "3cacc3cd7eebec1c1e50de62f3948097f66e86e9788c4ee83c70b45f45224b55"
+      }
     },
     "installer-journal-checksum-sidecar-is-missing-required-file": {
       "source": "0b2325fd53cdb6ddd24d1c5f1305ce5d35a1b00034e667bf4cb66c3448678538",
-      "translations": {}
+      "translations": {
+        "es-419": "0b2325fd53cdb6ddd24d1c5f1305ce5d35a1b00034e667bf4cb66c3448678538"
+      }
     },
     "installer-journal-clean-uninstall-failed": {
       "source": "1ff842a9793cb44a26d6fd3eea82e37db4342f4f4d5dd8b2133bd3d446217eae",
-      "translations": {}
+      "translations": {
+        "es-419": "1ff842a9793cb44a26d6fd3eea82e37db4342f4f4d5dd8b2133bd3d446217eae"
+      }
     },
     "installer-journal-command-does-not-match-its-owned": {
       "source": "9ea676692e85580bad43c1d5ac1464c82eb31bb0671cbc0d0510610d69a30c8f",
-      "translations": {}
+      "translations": {
+        "es-419": "9ea676692e85580bad43c1d5ac1464c82eb31bb0671cbc0d0510610d69a30c8f"
+      }
     },
     "installer-journal-current-pointer-is-not-owned": {
       "source": "add566da385d420bebd1107494ca2d054d04cc30b094a936de16c0255443ccec",
-      "translations": {}
+      "translations": {
+        "es-419": "add566da385d420bebd1107494ca2d054d04cc30b094a936de16c0255443ccec"
+      }
     },
     "installer-journal-current-pointer-is-unreadable": {
       "source": "ff8ae2e4885e6a839d82e80a8662effa26dfc0ddd40032a826f7775f0626bd86",
-      "translations": {}
+      "translations": {
+        "es-419": "ff8ae2e4885e6a839d82e80a8662effa26dfc0ddd40032a826f7775f0626bd86"
+      }
     },
     "installer-journal-current-pointer-leaves-its-owned-tree": {
       "source": "f65a5ef0b49b5807ff53b10676a4219682e7702a810bc29e24f84a59c6611235",
-      "translations": {}
+      "translations": {
+        "es-419": "f65a5ef0b49b5807ff53b10676a4219682e7702a810bc29e24f84a59c6611235"
+      }
     },
     "installer-journal-current-target-is-missing": {
       "source": "a2e96a70e1530f1613d03c660a99afa82d1625b0ec889ebaa626f19f9a89b0e9",
-      "translations": {}
+      "translations": {
+        "es-419": "a2e96a70e1530f1613d03c660a99afa82d1625b0ec889ebaa626f19f9a89b0e9"
+      }
     },
     "installer-journal-install-receipt-does-not-match-installed": {
       "source": "3342742430b15576ea3883d3b2d63fcaac4ab71c304c347e32d64da5cd344c54",
-      "translations": {}
+      "translations": {
+        "es-419": "3342742430b15576ea3883d3b2d63fcaac4ab71c304c347e32d64da5cd344c54"
+      }
     },
     "installer-journal-installation-did-not-finish-see-its": {
       "source": "41ff4241f033397f853ec930177b8fe6d03871fe6719844a54c71ff9a9205b9b",
-      "translations": {}
+      "translations": {
+        "es-419": "41ff4241f033397f853ec930177b8fe6d03871fe6719844a54c71ff9a9205b9b"
+      }
     },
     "installer-journal-launcher-does-not-match-installed-state": {
       "source": "3887b4bc2315e457b1aae8a57edd92f1ead4ddc17617fde0824b52bbb6a403ad",
-      "translations": {}
+      "translations": {
+        "es-419": "3887b4bc2315e457b1aae8a57edd92f1ead4ddc17617fde0824b52bbb6a403ad"
+      }
     },
     "installer-journal-launcher-version-does-not-match-its": {
       "source": "de481129f462603286a9a1498be52b6dff9cfd587e46f35b29f740ce463880cb",
-      "translations": {}
+      "translations": {
+        "es-419": "de481129f462603286a9a1498be52b6dff9cfd587e46f35b29f740ce463880cb"
+      }
     },
     "installer-journal-manifest-values-must-be-strings": {
       "source": "989bb8dbb77d30fb55d37d51ad076715bf065dbdd089c3b183f016b60c78dcae",
-      "translations": {}
+      "translations": {
+        "es-419": "989bb8dbb77d30fb55d37d51ad076715bf065dbdd089c3b183f016b60c78dcae"
+      }
     },
     "installer-journal-minimum-bootstrap-revision-is-invalid": {
       "source": "ee9e25235ee23dbe1abdf9762c163b87a0aecf2c14a2a4f53a48a70dd4ee7b27",
-      "translations": {}
+      "translations": {
+        "es-419": "ee9e25235ee23dbe1abdf9762c163b87a0aecf2c14a2a4f53a48a70dd4ee7b27"
+      }
     },
     "installer-journal-native-file-map-does-not-match": {
       "source": "7d64fadc772fb393a7cc4a49af28e4255eb3e4309658f120af90c477331748a6",
-      "translations": {}
+      "translations": {
+        "es-419": "7d64fadc772fb393a7cc4a49af28e4255eb3e4309658f120af90c477331748a6"
+      }
     },
     "installer-journal-native-identity-does-not-match-the": {
       "source": "a8c88ec4c0cf30488a98025e1b121946cc0ca83d4a4338c0b7844a74dc5f54d5",
-      "translations": {}
+      "translations": {
+        "es-419": "a8c88ec4c0cf30488a98025e1b121946cc0ca83d4a4338c0b7844a74dc5f54d5"
+      }
     },
     "installer-journal-native-manifest": {
       "source": "d8233741a684146978867b3ebeb5ebf2b081ceeea1184dd55524d29c712a9630",
-      "translations": {}
+      "translations": {
+        "es-419": "d8233741a684146978867b3ebeb5ebf2b081ceeea1184dd55524d29c712a9630"
+      }
     },
     "installer-journal-native-manifest-is-invalid": {
       "source": "6ff549698839e1e37888a44c13e6f293d231f8679644e903a853aab97a2578db",
-      "translations": {}
+      "translations": {
+        "es-419": "6ff549698839e1e37888a44c13e6f293d231f8679644e903a853aab97a2578db"
+      }
     },
     "installer-journal-native-manifest-is-missing": {
       "source": "806aa660ff0205f500132ee53f48c18e84c4483da0c16e4f69d85dc303ddc6ec",
-      "translations": {}
+      "translations": {
+        "es-419": "806aa660ff0205f500132ee53f48c18e84c4483da0c16e4f69d85dc303ddc6ec"
+      }
     },
     "installer-journal-native-manifest-is-missing-required-file": {
       "source": "f29a438ed1d8926837e1ca3ef1666b8e79c9acb6d6df25c8a5dfd21bc1bff838",
-      "translations": {}
+      "translations": {
+        "es-419": "f29a438ed1d8926837e1ca3ef1666b8e79c9acb6d6df25c8a5dfd21bc1bff838"
+      }
     },
     "installer-journal-native-signature": {
       "source": "69b1463f276b0aecaddfe82f42b3bb1053b88bc83e7145dd351cffe5d51594ed",
-      "translations": {}
+      "translations": {
+        "es-419": "69b1463f276b0aecaddfe82f42b3bb1053b88bc83e7145dd351cffe5d51594ed"
+      }
     },
     "installer-journal-payload-contains-an-unsupported-symbolic-link": {
       "source": "886b230238e1f7aeb32ff76b2175b225a079d2aea918b4af8f7b546cf953919f",
-      "translations": {}
+      "translations": {
+        "es-419": "886b230238e1f7aeb32ff76b2175b225a079d2aea918b4af8f7b546cf953919f"
+      }
     },
     "installer-journal-release-commit-is-invalid": {
       "source": "cd8efcc9dd0c9261cc9259fd3a4b2b1118fe5c2026e3fd283bd84439d86757aa",
-      "translations": {}
+      "translations": {
+        "es-419": "cd8efcc9dd0c9261cc9259fd3a4b2b1118fe5c2026e3fd283bd84439d86757aa"
+      }
     },
     "installer-journal-release-field-does-not-match-the": {
       "source": "6d28ff90d8d494a772eb6bef5458943754ee381b249b6eff73451a489184bd0c",
-      "translations": {}
+      "translations": {
+        "es-419": "6d28ff90d8d494a772eb6bef5458943754ee381b249b6eff73451a489184bd0c"
+      }
     },
     "installer-journal-release-identity-does-not-match-the": {
       "source": "03f1a344632df22c8d538e6d9419ff06235949267b19637cf529dfd6a6146d9c",
-      "translations": {}
+      "translations": {
+        "es-419": "03f1a344632df22c8d538e6d9419ff06235949267b19637cf529dfd6a6146d9c"
+      }
     },
     "installer-journal-release-lock-digest-is-invalid": {
       "source": "f6c54a0f97dd8672da6a4fda722ae17315440f27c4ef412ab1573e55a60db3af",
-      "translations": {}
+      "translations": {
+        "es-419": "f6c54a0f97dd8672da6a4fda722ae17315440f27c4ef412ab1573e55a60db3af"
+      }
     },
     "installer-journal-release-metadata": {
       "source": "78ca0aac3521ea49dfb4667138aa05e0ebd92700b4e8035c08dbf6033796e5f5",
-      "translations": {}
+      "translations": {
+        "es-419": "78ca0aac3521ea49dfb4667138aa05e0ebd92700b4e8035c08dbf6033796e5f5"
+      }
     },
     "installer-journal-release-metadata-is-invalid": {
       "source": "cd6277c4da8d0addd42a8570cd4f725a9b847a475eae8965cfd8d3c2245379f8",
-      "translations": {}
+      "translations": {
+        "es-419": "cd6277c4da8d0addd42a8570cd4f725a9b847a475eae8965cfd8d3c2245379f8"
+      }
     },
     "installer-journal-selected-filename-does-not-match-its": {
       "source": "2865d5671abaa459b87bf78660799b7836cdc418f9775f3f70a343a679fc100e",
-      "translations": {}
+      "translations": {
+        "es-419": "2865d5671abaa459b87bf78660799b7836cdc418f9775f3f70a343a679fc100e"
+      }
     },
     "installer-journal-selected-route-is-invalid": {
       "source": "5b9be46b4479f552c60e649f09e0a60b5798b2ac0708b93d8147fe8a1c9d5c4f",
-      "translations": {}
+      "translations": {
+        "es-419": "5b9be46b4479f552c60e649f09e0a60b5798b2ac0708b93d8147fe8a1c9d5c4f"
+      }
     },
     "installer-journal-setup-did-not-finish-see-its": {
       "source": "cc011d1b4a2241469a33f65065cf8ee612570b1b53525bc705a2a5da50c6b6c2",
-      "translations": {}
+      "translations": {
+        "es-419": "cc011d1b4a2241469a33f65065cf8ee612570b1b53525bc705a2a5da50c6b6c2"
+      }
     },
     "installer-journal-solstone-journal-role-journal-cli-version": {
       "source": "93fd6bbf4cec5cbdcc8bb8ee924a6f1217ef8b70c37fd0217cccbb34055aa52c",
-      "translations": {}
+      "translations": {
+        "es-419": "93fd6bbf4cec5cbdcc8bb8ee924a6f1217ef8b70c37fd0217cccbb34055aa52c"
+      }
     },
     "installer-journal-viewer-dependencies": {
       "source": "9f02bc70ba1a3f21c01834b600f98a1c1e4397d1580caa80845974f70095b721",
-      "translations": {}
+      "translations": {
+        "es-419": "9f02bc70ba1a3f21c01834b600f98a1c1e4397d1580caa80845974f70095b721"
+      }
     },
     "installer-journal-viewer-system-package": {
       "source": "368b515272899208487850b38c01fae9f1c3bd39eb3bfc1a74c2728c608c9476",
-      "translations": {}
+      "translations": {
+        "es-419": "368b515272899208487850b38c01fae9f1c3bd39eb3bfc1a74c2728c608c9476"
+      }
     },
     "installer-latest-platform-version-is-invalid": {
       "source": "f6a0eb5d81b72022943bad36223bbc785b58d6ae6be9de30eb2f2faea322d800",
-      "translations": {}
+      "translations": {
+        "es-419": "f6a0eb5d81b72022943bad36223bbc785b58d6ae6be9de30eb2f2faea322d800"
+      }
     },
     "installer-latest-version-response-is-malformed": {
       "source": "835448f85b00e7b8f1544fd0ca2d12a3298ac43f688ee7b071c4c232e67804af",
-      "translations": {}
+      "translations": {
+        "es-419": "835448f85b00e7b8f1544fd0ca2d12a3298ac43f688ee7b071c4c232e67804af"
+      }
     },
     "installer-leave-service-setup-start-to-you": {
       "source": "5361fca7c6bbeae6bfc2c5b6f33c17c89702de291c64b8bde5e2d2a8ce2fad1a",
-      "translations": {}
+      "translations": {
+        "es-419": "5361fca7c6bbeae6bfc2c5b6f33c17c89702de291c64b8bde5e2d2a8ce2fad1a"
+      }
     },
     "installer-leave-shell-configuration-to-you": {
       "source": "8cc68f5482d91c8787f2919c2de7f19238d9fb81e07f76aff671c26bd696cb3c",
-      "translations": {}
+      "translations": {
+        "es-419": "8cc68f5482d91c8787f2919c2de7f19238d9fb81e07f76aff671c26bd696cb3c"
+      }
     },
     "installer-linux-a-new-journal-does-not-update": {
       "source": "c8529384e3f07b967bce4a03dd828bab2b52fdddcdb04120938fa36caed625ae",
-      "translations": {}
+      "translations": {
+        "es-419": "c8529384e3f07b967bce4a03dd828bab2b52fdddcdb04120938fa36caed625ae"
+      }
     },
     "installer-linux-requires-or-and": {
       "source": "edca633beb2471cbf26f8da265858cead4c61a7c464045b09a4883c0c7eda953",
-      "translations": {}
+      "translations": {
+        "es-419": "edca633beb2471cbf26f8da265858cead4c61a7c464045b09a4883c0c7eda953"
+      }
     },
     "installer-list-the-signed-release-catalogue": {
       "source": "608a30a114e9c67644cd48273af22c7ee87c0045f6c91bda039c2915cfac2c92",
-      "translations": {}
+      "translations": {
+        "es-419": "608a30a114e9c67644cd48273af22c7ee87c0045f6c91bda039c2915cfac2c92"
+      }
     },
     "installer-macos-did-not-accept-the": {
       "source": "1778325af839f4f974219e93768f283a2ef629cfe1eeef637f4affe09b91c837",
-      "translations": {}
+      "translations": {
+        "es-419": "1778325af839f4f974219e93768f283a2ef629cfe1eeef637f4affe09b91c837"
+      }
     },
     "installer-macos-did-not-accept-the-downloaded-disk": {
       "source": "2417f8ff387c6da8ce82167396dbf5523a437293e2c5a89d897c9e554eabfdb1",
-      "translations": {}
+      "translations": {
+        "es-419": "2417f8ff387c6da8ce82167396dbf5523a437293e2c5a89d897c9e554eabfdb1"
+      }
     },
     "installer-macos-requires-apple-silicon-and-macos-15": {
       "source": "514e8c68bdc4fc88c29a07c53991d0bb42c5e1eae44c8a5494ed35524db05682",
-      "translations": {}
+      "translations": {
+        "es-419": "514e8c68bdc4fc88c29a07c53991d0bb42c5e1eae44c8a5494ed35524db05682"
+      }
     },
     "installer-macos-version-could-not-be-determined": {
       "source": "54c6ab83fc1a3613b6c4dd32acaad70c17a822f3257dfeed1cbbfcf14ff35f15",
-      "translations": {}
+      "translations": {
+        "es-419": "54c6ab83fc1a3613b6c4dd32acaad70c17a822f3257dfeed1cbbfcf14ff35f15"
+      }
     },
     "installer-macos-version-is-not-supported": {
       "source": "4a5f1e687b1557d80314201e8b6071db2a65e71dd9df1b6b4c8ae9742892b54c",
-      "translations": {}
+      "translations": {
+        "es-419": "4a5f1e687b1557d80314201e8b6071db2a65e71dd9df1b6b4c8ae9742892b54c"
+      }
     },
     "installer-manifest-catalogue-coordinate-does-not-match-the": {
       "source": "3e6a349fba7356aea4dcbb9ceac4a63f0411da8e7e82472366d29085328c192c",
-      "translations": {}
+      "translations": {
+        "es-419": "3e6a349fba7356aea4dcbb9ceac4a63f0411da8e7e82472366d29085328c192c"
+      }
     },
     "installer-manifest-catalogue-revision-exceeds-maximum-digits": {
       "source": "ce02475c28d53b9ed16d9d251739d010163dab15891434498c90df837d3ccfba",
-      "translations": {}
+      "translations": {
+        "es-419": "ce02475c28d53b9ed16d9d251739d010163dab15891434498c90df837d3ccfba"
+      }
     },
     "installer-manifest-catalogue-revision-is-invalid": {
       "source": "b9295f28afc4c6b4d3c2a5706be3efcf73ad4f27e2081bcdf7c5e873f166b485",
-      "translations": {}
+      "translations": {
+        "es-419": "b9295f28afc4c6b4d3c2a5706be3efcf73ad4f27e2081bcdf7c5e873f166b485"
+      }
     },
     "installer-manifest-contains-duplicate-keys": {
       "source": "8c080aeda8e58fb1a1fd82a4cc5ab5a98459b685fffc28e9873b9d3fbc8f3f71",
-      "translations": {}
+      "translations": {
+        "es-419": "8c080aeda8e58fb1a1fd82a4cc5ab5a98459b685fffc28e9873b9d3fbc8f3f71"
+      }
     },
     "installer-manifest-is-missing-required-field": {
       "source": "d9fd2767849e0a4c1313e45b25cefb847f4d5168f18830c44427c93ed3c69cb9",
-      "translations": {}
+      "translations": {
+        "es-419": "d9fd2767849e0a4c1313e45b25cefb847f4d5168f18830c44427c93ed3c69cb9"
+      }
     },
     "installer-manifest-lane-does-not-match-the-requested": {
       "source": "3e4455247f93f0b7bb5dd76a125f8a0992a8addae563511082e1fc6ba1e079d6",
-      "translations": {}
+      "translations": {
+        "es-419": "3e4455247f93f0b7bb5dd76a125f8a0992a8addae563511082e1fc6ba1e079d6"
+      }
     },
     "installer-manifest-lane-is-invalid": {
       "source": "70935eed3a8743e63a6dde6d4f48f6bcff8c590ab187995ce4e3f91d52459865",
-      "translations": {}
+      "translations": {
+        "es-419": "70935eed3a8743e63a6dde6d4f48f6bcff8c590ab187995ce4e3f91d52459865"
+      }
     },
     "installer-manifest-minimum-installer-revision-is-invalid": {
       "source": "324ba9b0f4d59ad265c00aebb7824d16cf039df50e84680106611346bee3a310",
-      "translations": {}
+      "translations": {
+        "es-419": "324ba9b0f4d59ad265c00aebb7824d16cf039df50e84680106611346bee3a310"
+      }
     },
     "installer-manifest-platform-key-id-does-not-match": {
       "source": "4cb6b6946c9a0a26caeed7ca96cab114d86474fee738aa02dad7352b89778754",
-      "translations": {}
+      "translations": {
+        "es-419": "4cb6b6946c9a0a26caeed7ca96cab114d86474fee738aa02dad7352b89778754"
+      }
     },
     "installer-manifest-platform-key-id-is-invalid": {
       "source": "873a14953e43a37dfbcc492e49a2bbe3e145fb9ba0dc73f07bac1169bb54805f",
-      "translations": {}
+      "translations": {
+        "es-419": "873a14953e43a37dfbcc492e49a2bbe3e145fb9ba0dc73f07bac1169bb54805f"
+      }
     },
     "installer-manifest-platform-version-does-not-match-the": {
       "source": "c4d9790c5579420b604355e2e33e5f253f3499fb5de44ea16e568a50c67af741",
-      "translations": {}
+      "translations": {
+        "es-419": "c4d9790c5579420b604355e2e33e5f253f3499fb5de44ea16e568a50c67af741"
+      }
     },
     "installer-manifest-platform-version-is-invalid": {
       "source": "89fdaa736d231560b44cd789842791d19d7ab0cd78ccbf0f68fd47978bce04e1",
-      "translations": {}
+      "translations": {
+        "es-419": "89fdaa736d231560b44cd789842791d19d7ab0cd78ccbf0f68fd47978bce04e1"
+      }
     },
     "installer-manifest-protocol-version-must-be-1": {
       "source": "77605b1451949742edf35bc5d3b2c47bd147bd60c94fd0558dff92e96abf3f77",
-      "translations": {}
+      "translations": {
+        "es-419": "77605b1451949742edf35bc5d3b2c47bd147bd60c94fd0558dff92e96abf3f77"
+      }
     },
     "installer-manifest-rejected-by-rfc-8785-schema-whitelist": {
       "source": "79f0d340b8874b836e1a1f6d2167546d61dc9723fd043dade7375412bee7b95b",
-      "translations": {}
+      "translations": {
+        "es-419": "79f0d340b8874b836e1a1f6d2167546d61dc9723fd043dade7375412bee7b95b"
+      }
     },
     "installer-manifest-requires-minimum-installer-revision-current-installer": {
       "source": "28ba928fc9007b1098170307fe7bd2a87d9963bf8b56d0dc174b2386f8821c73",
-      "translations": {}
+      "translations": {
+        "es-419": "28ba928fc9007b1098170307fe7bd2a87d9963bf8b56d0dc174b2386f8821c73"
+      }
     },
     "installer-minisign-became-unavailable-during-verification-run-the": {
       "source": "84cb71fc86cbf196499343b7ab29127674807a5d54ebfe8b1fd177c30d0a90b4",
-      "translations": {}
+      "translations": {
+        "es-419": "84cb71fc86cbf196499343b7ab29127674807a5d54ebfe8b1fd177c30d0a90b4"
+      }
     },
     "installer-missing-release-field": {
       "source": "f7fbde5ab78f0d810040865fa524bae4dd37cedec39a4f6e2adbdb9a2af48f49",
-      "translations": {}
+      "translations": {
+        "es-419": "f7fbde5ab78f0d810040865fa524bae4dd37cedec39a4f6e2adbdb9a2af48f49"
+      }
     },
     "installer-move-solstone-for-tmux-into-the-solstone": {
       "source": "c8e1730a32be2e6b075b50126724b85d31acaac8c5cdc82886b4ca1719d3daff",
-      "translations": {}
+      "translations": {
+        "es-419": "c8e1730a32be2e6b075b50126724b85d31acaac8c5cdc82886b4ca1719d3daff"
+      }
     },
     "installer-multi-hop-redirect-or-non-200-code": {
       "source": "09f353fef1286830cd033f92bdf03f66623c749d63946d506f848a32a4cdb2f9",
-      "translations": {}
+      "translations": {
+        "es-419": "09f353fef1286830cd033f92bdf03f66623c749d63946d506f848a32a4cdb2f9"
+      }
     },
     "installer-native-artifact-member-must-be-an-object": {
       "source": "1639654e6a729ebb8962438b4eab3f4846d0267282849ed5989bf18dcd4ad1ee",
-      "translations": {}
+      "translations": {
+        "es-419": "1639654e6a729ebb8962438b4eab3f4846d0267282849ed5989bf18dcd4ad1ee"
+      }
     },
     "installer-native-authority-verifier-id-does-not-match": {
       "source": "981ccd7a7f203f022e0dce8119d4f9b700b72c2afbb025bb5951c12def3933cb",
-      "translations": {}
+      "translations": {
+        "es-419": "981ccd7a7f203f022e0dce8119d4f9b700b72c2afbb025bb5951c12def3933cb"
+      }
     },
     "installer-native-authority-verifier-id-does-not-match-2": {
       "source": "e3c3134d1488a0676002359f7e3e7edacc42757d2f20d053027a7aee14ef4be4",
-      "translations": {}
+      "translations": {
+        "es-419": "e3c3134d1488a0676002359f7e3e7edacc42757d2f20d053027a7aee14ef4be4"
+      }
     },
     "installer-needs-a-value": {
       "source": "0337759d2af4a45b63a986deeeac173fe4f285af7549839a9f14ba59b6c33142",
-      "translations": {}
+      "translations": {
+        "es-419": "0337759d2af4a45b63a986deeeac173fe4f285af7549839a9f14ba59b6c33142"
+      }
     },
     "installer-needs-a-value-see": {
       "source": "cfe1f8230d006475402ad90ea55c913d93cad3b0d30068df02bb3ff8a469287c",
-      "translations": {}
+      "translations": {
+        "es-419": "cfe1f8230d006475402ad90ea55c913d93cad3b0d30068df02bb3ff8a469287c"
+      }
     },
     "installer-needs-an-absolute-directory": {
       "source": "8d6d0e38ce245e976cdbc8a68ea18060cb87dcd83d1ecd634dd94537c487bf7f",
-      "translations": {}
+      "translations": {
+        "es-419": "8d6d0e38ce245e976cdbc8a68ea18060cb87dcd83d1ecd634dd94537c487bf7f"
+      }
     },
     "installer-needs-which-was-not-found-nothing-was": {
       "source": "3bd8c98577d4c8ea4ab9f3df1644b2c3c1f9f5edead3168f55a884455911ba2c",
-      "translations": {}
+      "translations": {
+        "es-419": "3bd8c98577d4c8ea4ab9f3df1644b2c3c1f9f5edead3168f55a884455911ba2c"
+      }
     },
     "installer-never-open-the-component-menu-select-components": {
       "source": "916f5887d402670549f8125263956de86960fbc703bff1029337e4073a485bff",
-      "translations": {}
+      "translations": {
+        "es-419": "916f5887d402670549f8125263956de86960fbc703bff1029337e4073a485bff"
+      }
     },
     "installer-next-open-solstone-from-your-app-menu": {
       "source": "dad037148e8285f2deff83238ab24c187d695e478e15ae53d77e322cfa6fdcae",
-      "translations": {}
+      "translations": {
+        "es-419": "dad037148e8285f2deff83238ab24c187d695e478e15ae53d77e322cfa6fdcae"
+      }
     },
     "installer-no-component-selection-was-made": {
       "source": "25e0d9968855f0766417b03625039a1270272466f319be16b7cc63b42fb78610",
-      "translations": {}
+      "translations": {
+        "es-419": "25e0d9968855f0766417b03625039a1270272466f319be16b7cc63b42fb78610"
+      }
     },
     "installer-no-component-selection-was-made-to-skip": {
       "source": "a762609a6dcb71049d598d9c5dd1bc0cb77029333a65e419bd6e224af69746aa",
-      "translations": {}
+      "translations": {
+        "es-419": "a762609a6dcb71049d598d9c5dd1bc0cb77029333a65e419bd6e224af69746aa"
+      }
     },
     "installer-no-installed-components-were-detected-for-upgrade": {
       "source": "363fe75a5a2f0e86cf4ceaf45b474a4a240b855ef07f6a4572494330270a0c3a",
-      "translations": {}
+      "translations": {
+        "es-419": "363fe75a5a2f0e86cf4ceaf45b474a4a240b855ef07f6a4572494330270a0c3a"
+      }
     },
     "installer-noncanonical-checksum-line": {
       "source": "09b0a79558ffc284881b65c3c2aa10d05706c41c8ddc7f6fd58cf783b3091602",
-      "translations": {}
+      "translations": {
+        "es-419": "09b0a79558ffc284881b65c3c2aa10d05706c41c8ddc7f6fd58cf783b3091602"
+      }
     },
     "installer-noncanonical-release-line": {
       "source": "b5033bec5dfe0eb51fdd74875c8c69e3a06bddca2de9dbc5d6249ba6e645071d",
-      "translations": {}
+      "translations": {
+        "es-419": "b5033bec5dfe0eb51fdd74875c8c69e3a06bddca2de9dbc5d6249ba6e645071d"
+      }
     },
     "installer-nor": {
       "source": "40a9e05b867fb652191881afb5397e120c102ee183bb261bf3f24c7ea88eabe6",
-      "translations": {}
+      "translations": {
+        "es-419": "40a9e05b867fb652191881afb5397e120c102ee183bb261bf3f24c7ea88eabe6"
+      }
     },
     "installer-notarized-app-bundles-in-app-updates-remain": {
       "source": "c696e21062a7d684bd6ff093300cda2d1b695c12f44f91adf608aca5aaab6f28",
-      "translations": {}
+      "translations": {
+        "es-419": "c696e21062a7d684bd6ff093300cda2d1b695c12f44f91adf608aca5aaab6f28"
+      }
     },
     "installer-nothing-in-your-journal-was-removed-the": {
       "source": "f4e146ad56beb1c44e62fb4f0435c4f20546642b6acf01828880e691e525d525",
-      "translations": {}
+      "translations": {
+        "es-419": "f4e146ad56beb1c44e62fb4f0435c4f20546642b6acf01828880e691e525d525"
+      }
     },
     "installer-notice": {
       "source": "0bdc0a88d0421138fac568ef87f706d1c587530c13401779e2a0974d568e18df",
-      "translations": {}
+      "translations": {
+        "es-419": "0bdc0a88d0421138fac568ef87f706d1c587530c13401779e2a0974d568e18df"
+      }
     },
     "installer-notice-was-installed-but-its-disk-image": {
       "source": "9a483b72e8d72f5c073fc5296e2518c3931ba03ed83ae3a97042e976c91486bc",
-      "translations": {}
+      "translations": {
+        "es-419": "9a483b72e8d72f5c073fc5296e2518c3931ba03ed83ae3a97042e976c91486bc"
+      }
     },
     "installer-on-linux-without-a-terminal-choose-components": {
       "source": "5c257e7bd2958df3735088eab128691374d5c1d84f2172eda382ddf2926b0921",
-      "translations": {}
+      "translations": {
+        "es-419": "5c257e7bd2958df3735088eab128691374d5c1d84f2172eda382ddf2926b0921"
+      }
     },
     "installer-on-this-computer-the-solstone-app-won": {
       "source": "ea774ae0dc0d5e4fcda244f8cbcef7d30ba3a0a50e135a999e17c1725e337bb1",
-      "translations": {}
+      "translations": {
+        "es-419": "ea774ae0dc0d5e4fcda244f8cbcef7d30ba3a0a50e135a999e17c1725e337bb1"
+      }
     },
     "installer-once-the-problem-above-is-fixed-run": {
       "source": "880313934517a0c8cc99cd1fa56a8e10c1f509c8ab50d20b24dd73044b12f1a7",
-      "translations": {}
+      "translations": {
+        "es-419": "880313934517a0c8cc99cd1fa56a8e10c1f509c8ab50d20b24dd73044b12f1a7"
+      }
     },
     "installer-once-the-problem-above-is-fixed-run-2": {
       "source": "7594cf999b5ec09ae27d945585c863a4220b3874f04a9ab27eacdae25c24f121",
-      "translations": {}
+      "translations": {
+        "es-419": "7594cf999b5ec09ae27d945585c863a4220b3874f04a9ab27eacdae25c24f121"
+      }
     },
     "installer-one-json-result-on-stdout-diagnostics-on": {
       "source": "b7c1af22efd8d72cdddaf48d94bca201ac1f88f2d7d9752c070158d95acc25b0",
-      "translations": {}
+      "translations": {
+        "es-419": "b7c1af22efd8d72cdddaf48d94bca201ac1f88f2d7d9752c070158d95acc25b0"
+      }
     },
     "installer-one-of-them-is-needed-to-download": {
       "source": "daf69eef901b7fa3108340da884c751562e091f6138eded481251cc4d76a9f1a",
-      "translations": {}
+      "translations": {
+        "es-419": "daf69eef901b7fa3108340da884c751562e091f6138eded481251cc4d76a9f1a"
+      }
     },
     "installer-operating-system-is-not-supported-by-solstone": {
       "source": "3771177a2e2e6fd373761e642108aeeb485b37d953db715a86e3b88d1b2b871c",
-      "translations": {}
+      "translations": {
+        "es-419": "3771177a2e2e6fd373761e642108aeeb485b37d953db715a86e3b88d1b2b871c"
+      }
     },
     "installer-or-open-solstone-from-your-app-menu": {
       "source": "e0649093c80c5e51c34a87107ce72141df82451d91394af6bd87008b8aa07c6b",
-      "translations": {}
+      "translations": {
+        "es-419": "e0649093c80c5e51c34a87107ce72141df82451d91394af6bd87008b8aa07c6b"
+      }
     },
     "installer-origin-is-not-approved": {
       "source": "f982b46f1779ba1e8d4005fcb504ffd6147e591532fc46eb36809bf18db3174f",
-      "translations": {}
+      "translations": {
+        "es-419": "f982b46f1779ba1e8d4005fcb504ffd6147e591532fc46eb36809bf18db3174f"
+      }
     },
     "installer-package-command-needs-approval-before-it-can": {
       "source": "7f6204b0fdde4097068e4a0e636fa2e628133e8279d4e910445c90568e596d36",
-      "translations": {}
+      "translations": {
+        "es-419": "7f6204b0fdde4097068e4a0e636fa2e628133e8279d4e910445c90568e596d36"
+      }
     },
     "installer-package-command-plan-was-not-usable": {
       "source": "6bb8858af48944a943c1578beb02b4e0ef936aeda6d2e50488d4d9fccda1208f",
-      "translations": {}
+      "translations": {
+        "es-419": "6bb8858af48944a943c1578beb02b4e0ef936aeda6d2e50488d4d9fccda1208f"
+      }
     },
     "installer-package-command-was-not-approved": {
       "source": "ad2a154f1a65f7c2c7fa65bffe89ebeba8ba0d59d8cabfe379a53f0fb912d206",
-      "translations": {}
+      "translations": {
+        "es-419": "ad2a154f1a65f7c2c7fa65bffe89ebeba8ba0d59d8cabfe379a53f0fb912d206"
+      }
     },
     "installer-package-database-does-not-confirm-payload-receipt": {
       "source": "2720a010b82c7c09352a561762913cdcc83fe314141846c3c61d7bd982f8a33c",
-      "translations": {}
+      "translations": {
+        "es-419": "2720a010b82c7c09352a561762913cdcc83fe314141846c3c61d7bd982f8a33c"
+      }
     },
     "installer-package-database-identity-for-does-not-match": {
       "source": "d03c25e55c474fce617d0979cd50459f1f9e6892a42c4aa627e10115cba81c0d",
-      "translations": {}
+      "translations": {
+        "es-419": "d03c25e55c474fce617d0979cd50459f1f9e6892a42c4aa627e10115cba81c0d"
+      }
     },
     "installer-package-helper-failed-to-plan-package": {
       "source": "d42a0bd0e4fa55cb5212a8b481115253d8657e1446bae5dac7aba610f4b51fde",
-      "translations": {}
+      "translations": {
+        "es-419": "d42a0bd0e4fa55cb5212a8b481115253d8657e1446bae5dac7aba610f4b51fde"
+      }
     },
     "installer-package-helper-ping-failed": {
       "source": "ade983405dfc5e1ecbb58c22dafb6261342988bf3aa17ac81f5b329a5a4ee133",
-      "translations": {}
+      "translations": {
+        "es-419": "ade983405dfc5e1ecbb58c22dafb6261342988bf3aa17ac81f5b329a5a4ee133"
+      }
     },
     "installer-package-helper-script-not-found-at": {
       "source": "c663d3a8ada07d62ab31c681b488dc65db0367de60ad771892452b748d0d58fe",
-      "translations": {}
+      "translations": {
+        "es-419": "c663d3a8ada07d62ab31c681b488dc65db0367de60ad771892452b748d0d58fe"
+      }
     },
     "installer-package-identity-for-is-malformed": {
       "source": "078a8d927fc4cd94a434b456321b2080e67a84bf4ff1e8012149a5426e1df610",
-      "translations": {}
+      "translations": {
+        "es-419": "078a8d927fc4cd94a434b456321b2080e67a84bf4ff1e8012149a5426e1df610"
+      }
     },
     "installer-package-operations-need-sudo-access-run-then": {
       "source": "296d7fb5372589603ea548dd599f920c19d3e03596f74172097f6028b52a83a1",
-      "translations": {}
+      "translations": {
+        "es-419": "296d7fb5372589603ea548dd599f920c19d3e03596f74172097f6028b52a83a1"
+      }
     },
     "installer-package-operations-need-sudo-install-it-or": {
       "source": "cd5215733286f13cc2cac198c7e006e3dd07513bd62393809a1d6903d27005bb",
-      "translations": {}
+      "translations": {
+        "es-419": "cd5215733286f13cc2cac198c7e006e3dd07513bd62393809a1d6903d27005bb"
+      }
     },
     "installer-package-owned-journal-launcher-is-unavailable": {
       "source": "11735642fc756bba715d9076a0436988be31460b5dbd9afb85f7942079bb55dd",
-      "translations": {}
+      "translations": {
+        "es-419": "11735642fc756bba715d9076a0436988be31460b5dbd9afb85f7942079bb55dd"
+      }
     },
     "installer-package-owned-launcher-is-unavailable": {
       "source": "04584781dcb124421775e62dec3b4c0928c40f3a72229ffef329a9f5e1e66fe1",
-      "translations": {}
+      "translations": {
+        "es-419": "04584781dcb124421775e62dec3b4c0928c40f3a72229ffef329a9f5e1e66fe1"
+      }
     },
     "installer-package-query-returned-an-unsupported-state": {
       "source": "1712b810c220e6ff32cd761fda9e039e6e4b28388682cc46e23799506b531aa7",
-      "translations": {}
+      "translations": {
+        "es-419": "1712b810c220e6ff32cd761fda9e039e6e4b28388682cc46e23799506b531aa7"
+      }
     },
     "installer-package-query-returned-malformed-absence": {
       "source": "75691707858fcf9257b77a2f9a237899e00330da6c26bae6c76d61cac8b5cbb3",
-      "translations": {}
+      "translations": {
+        "es-419": "75691707858fcf9257b77a2f9a237899e00330da6c26bae6c76d61cac8b5cbb3"
+      }
     },
     "installer-package-query-returned-malformed-identity": {
       "source": "8a19e4adab1977717ae9cb2de555bd4e4fa28d2116c7e85bb7e61cff63e7604d",
-      "translations": {}
+      "translations": {
+        "es-419": "8a19e4adab1977717ae9cb2de555bd4e4fa28d2116c7e85bb7e61cff63e7604d"
+      }
     },
     "installer-package-query-returned-malformed-output": {
       "source": "52f6a0c2ed287887026083c21f7004f463965e01fbe20a90cf8164b646a7d8c2",
-      "translations": {}
+      "translations": {
+        "es-419": "52f6a0c2ed287887026083c21f7004f463965e01fbe20a90cf8164b646a7d8c2"
+      }
     },
     "installer-package-receipt-for-does-not-match-this": {
       "source": "27a14748f9fd820d750ceb3ad7084c19bd8fce95f03916d828c1a9d757396390",
-      "translations": {}
+      "translations": {
+        "es-419": "27a14748f9fd820d750ceb3ad7084c19bd8fce95f03916d828c1a9d757396390"
+      }
     },
     "installer-package-receipt-for-is-malformed": {
       "source": "1630d47114da6c98b3048ca9cd0b10fb968429e85afb956bcfa309b4e0f75f73",
-      "translations": {}
+      "translations": {
+        "es-419": "1630d47114da6c98b3048ca9cd0b10fb968429e85afb956bcfa309b4e0f75f73"
+      }
     },
     "installer-package-receipt-for-is-not-confirmed-by": {
       "source": "cd2d20b01bfaf788d9f3412fbe44693bd2a38d0f7c9418c44f25246ea4bf7576",
-      "translations": {}
+      "translations": {
+        "es-419": "cd2d20b01bfaf788d9f3412fbe44693bd2a38d0f7c9418c44f25246ea4bf7576"
+      }
     },
     "installer-package-receipt-is-not-a-readable-regular": {
       "source": "3fd67452aba795829b1c99eb4983baa1712ae4e9d9776774580887c0437d6adc",
-      "translations": {}
+      "translations": {
+        "es-419": "3fd67452aba795829b1c99eb4983baa1712ae4e9d9776774580887c0437d6adc"
+      }
     },
     "installer-package-remains-installed": {
       "source": "8c255cad1e78cd73284f7d0a55191f2b68c89c4bb221f73cd3e6f4580214a5b8",
-      "translations": {}
+      "translations": {
+        "es-419": "8c255cad1e78cd73284f7d0a55191f2b68c89c4bb221f73cd3e6f4580214a5b8"
+      }
     },
     "installer-package-route-requires-install-it-or-use": {
       "source": "eac15d3ad0e569eca059a29f73c9bd51c8e8d92924373f9be8e37bd556e6c697",
-      "translations": {}
+      "translations": {
+        "es-419": "eac15d3ad0e569eca059a29f73c9bd51c8e8d92924373f9be8e37bd556e6c697"
+      }
     },
     "installer-package-state-for-has-no-ownership-receipt": {
       "source": "fca2753413f615ae8187d7d290905e72ec254efbdc687bf8fb55eddc6cde8fd2",
-      "translations": {}
+      "translations": {
+        "es-419": "fca2753413f615ae8187d7d290905e72ec254efbdc687bf8fb55eddc6cde8fd2"
+      }
     },
     "installer-package-state-for-needs-inspection-with": {
       "source": "d542e6acee87ab0e346f4ecf74a4f6e46c4427fafc8654660b761ebbfac60ec8",
-      "translations": {}
+      "translations": {
+        "es-419": "d542e6acee87ab0e346f4ecf74a4f6e46c4427fafc8654660b761ebbfac60ec8"
+      }
     },
     "installer-payload-directory-for-is-not-owned": {
       "source": "380c4b8b5b182e4683cafecd4058cb03d280f2c6f5e177af9dccf3b21bbdd743",
-      "translations": {}
+      "translations": {
+        "es-419": "380c4b8b5b182e4683cafecd4058cb03d280f2c6f5e177af9dccf3b21bbdd743"
+      }
     },
     "installer-platform-catalogue": {
       "source": "26a765d64f3c9a8c89a6429e1b84cdd13c0774686a68fadd1d6ff921f08dd955",
-      "translations": {}
+      "translations": {
+        "es-419": "26a765d64f3c9a8c89a6429e1b84cdd13c0774686a68fadd1d6ff921f08dd955"
+      }
     },
     "installer-platform-identity-field-must-be-a-string": {
       "source": "2f844c95eee056fd902fe01f4cbd8c5e98c6e182c371e610b4bf5f554d18c33c",
-      "translations": {}
+      "translations": {
+        "es-419": "2f844c95eee056fd902fe01f4cbd8c5e98c6e182c371e610b4bf5f554d18c33c"
+      }
     },
     "installer-platform-identity-field-must-be-an-integer": {
       "source": "6530be57a9b046426ce725db15d7c5d5075f02bd4a50fe7759544d92c839c6f0",
-      "translations": {}
+      "translations": {
+        "es-419": "6530be57a9b046426ce725db15d7c5d5075f02bd4a50fe7759544d92c839c6f0"
+      }
     },
     "installer-platform-signature": {
       "source": "b6172c995b4eef5244cd6b903b2e2a978bfbb4922398ed67d35e51bc82931fb1",
-      "translations": {}
+      "translations": {
+        "es-419": "b6172c995b4eef5244cd6b903b2e2a978bfbb4922398ed67d35e51bc82931fb1"
+      }
     },
     "installer-preview-complete-no-changes-made": {
       "source": "2260fa04e685d9b6ff149f0447e699425c6924196ecdd2084126ac93c9306eea",
-      "translations": {}
+      "translations": {
+        "es-419": "2260fa04e685d9b6ff149f0447e699425c6924196ecdd2084126ac93c9306eea"
+      }
     },
     "installer-preview-complete-no-changes-made-2": {
       "source": "2321d35e93e7a47c62eac810c7992f3cfa7a2db34521ba0ab421ed33926da6ad",
-      "translations": {}
+      "translations": {
+        "es-419": "2321d35e93e7a47c62eac810c7992f3cfa7a2db34521ba0ab421ed33926da6ad"
+      }
     },
     "installer-production-installer-origin-must-be": {
       "source": "d70cf44b43376f6180fb2745ffcde4bdff3a041327c17650b6426813ad8c1ef2",
-      "translations": {}
+      "translations": {
+        "es-419": "d70cf44b43376f6180fb2745ffcde4bdff3a041327c17650b6426813ad8c1ef2"
+      }
     },
     "installer-public-path-exists-but-is-not-a": {
       "source": "58f2d6fa96304a18abd6a674e064c49820266b859322e43c4cbb33ee33ab3ca7",
-      "translations": {}
+      "translations": {
+        "es-419": "58f2d6fa96304a18abd6a674e064c49820266b859322e43c4cbb33ee33ab3ca7"
+      }
     },
     "installer-public-pointer-for-does-not-match-its": {
       "source": "4f774a0527182f9fa21f6335c0b885749c2046462c7dee428e94e796e04999e2",
-      "translations": {}
+      "translations": {
+        "es-419": "4f774a0527182f9fa21f6335c0b885749c2046462c7dee428e94e796e04999e2"
+      }
     },
     "installer-recovery-is-incomplete-preserve-the-payload-and": {
       "source": "b520045509df007f9e6ae75f70f909f97f563966709a3bdb63c7e01dd60f4b30",
-      "translations": {}
+      "translations": {
+        "es-419": "b520045509df007f9e6ae75f70f909f97f563966709a3bdb63c7e01dd60f4b30"
+      }
     },
     "installer-redirect-response-missing-location-header-from": {
       "source": "52b03db75f18f3333649fdf8786d5808ccb00af680b2f7f559656de09108e27a",
-      "translations": {}
+      "translations": {
+        "es-419": "52b03db75f18f3333649fdf8786d5808ccb00af680b2f7f559656de09108e27a"
+      }
     },
     "installer-redirect-scheme-or-authority-change-forbidden": {
       "source": "d8ef644351dc2cd8c23c17c6c485bfadbe1ba22c62006470dbfdad919cc95b0a",
-      "translations": {}
+      "translations": {
+        "es-419": "d8ef644351dc2cd8c23c17c6c485bfadbe1ba22c62006470dbfdad919cc95b0a"
+      }
     },
     "installer-remove-selected-owned-software-keep-your-journal": {
       "source": "6852f9c7636d2a15b866dcd61a0de7edd663748a83e31a04a202e7e35d6259c9",
-      "translations": {}
+      "translations": {
+        "es-419": "6852f9c7636d2a15b866dcd61a0de7edd663748a83e31a04a202e7e35d6259c9"
+      }
     },
     "installer-replace-and-with-this-computer-s-login": {
       "source": "1a831f910cb4b52fe77cf1a30c5981637dfb3b3cd3659b5c8790c4fac017f8d1",
-      "translations": {}
+      "translations": {
+        "es-419": "1a831f910cb4b52fe77cf1a30c5981637dfb3b3cd3659b5c8790c4fac017f8d1"
+      }
     },
     "installer-replace-and-with-this-computer-s-login-2": {
       "source": "e0e2370591653f2a6d6ee11e51acfb11575d9553506d967516db1fb4931a747d",
-      "translations": {}
+      "translations": {
+        "es-419": "e0e2370591653f2a6d6ee11e51acfb11575d9553506d967516db1fb4931a747d"
+      }
     },
     "installer-response-exceeds-bytes": {
       "source": "e5fd6642e49bb746c0f817e87e95ec790a54d69a312ce169d68bb26758158659",
-      "translations": {}
+      "translations": {
+        "es-419": "e5fd6642e49bb746c0f817e87e95ec790a54d69a312ce169d68bb26758158659"
+      }
     },
     "installer-rpm-is-required-to-detect-package-ownership": {
       "source": "ee3f83eb1bb91ec73916f4bf58aa62adcb450349d1ab2035e302c697fd858739",
-      "translations": {}
+      "translations": {
+        "es-419": "ee3f83eb1bb91ec73916f4bf58aa62adcb450349d1ab2035e302c697fd858739"
+      }
     },
     "installer-run": {
       "source": "00d60e31a4e6b8344d4201f25a6a7dee770713107f6d097abb01559d32b17f26",
-      "translations": {}
+      "translations": {
+        "es-419": "00d60e31a4e6b8344d4201f25a6a7dee770713107f6d097abb01559d32b17f26"
+      }
     },
     "installer-run-2": {
       "source": "acba25512100f80b56fc3ccd14c65be55d94800cda77585c5f41a887e398f9be",
-      "translations": {}
+      "translations": {
+        "es-419": "acba25512100f80b56fc3ccd14c65be55d94800cda77585c5f41a887e398f9be"
+      }
     },
     "installer-run-the-installer-as-the-person-who": {
       "source": "22670e4188d17522e3c067df83605e8af4075eaa6f7956ea61b8074921fbcfff",
-      "translations": {}
+      "translations": {
+        "es-419": "22670e4188d17522e3c067df83605e8af4075eaa6f7956ea61b8074921fbcfff"
+      }
     },
     "installer-run-the-same-command-again": {
       "source": "ccd1c7a1e935200861e811754018e84ff5fc2bb59641ba6c7f67a998fafed683",
-      "translations": {}
+      "translations": {
+        "es-419": "ccd1c7a1e935200861e811754018e84ff5fc2bb59641ba6c7f67a998fafed683"
+      }
     },
     "installer-run-this-package-command-answer-or": {
       "source": "ed309ee915166d422027808869548a5b7b608841bfa6b1dcd93d6bbe7da61373",
-      "translations": {}
+      "translations": {
+        "es-419": "ed309ee915166d422027808869548a5b7b608841bfa6b1dcd93d6bbe7da61373"
+      }
     },
     "installer-schema-1-manifest-must-not-contain-catalogue": {
       "source": "1306d887d55815fb9a6b9f4915d54adb6bf1c7ed7a7d58984ffdb9c6768c6b13",
-      "translations": {}
+      "translations": {
+        "es-419": "1306d887d55815fb9a6b9f4915d54adb6bf1c7ed7a7d58984ffdb9c6768c6b13"
+      }
     },
     "installer-schema-2-manifest-missing-catalogue-revision": {
       "source": "cf340c8a3331319e40aa4985d2f5d813fda0d61f692a9eea9cccf55bf7de6ecf",
-      "translations": {}
+      "translations": {
+        "es-419": "cf340c8a3331319e40aa4985d2f5d813fda0d61f692a9eea9cccf55bf7de6ecf"
+      }
     },
     "installer-schema-2-manifest-version-must-equal-components": {
       "source": "89a6b089f6068564cda32b09cca28321c4b182dd471801505bb32ec6f2a0e2e0",
-      "translations": {}
+      "translations": {
+        "es-419": "89a6b089f6068564cda32b09cca28321c4b182dd471801505bb32ec6f2a0e2e0"
+      }
     },
     "installer-select-1-3-or-press-for-the": {
       "source": "28d855a7c0a3418d80ab3d855559b8d3d3de86cde277712bbd7e6e80b7dafc12",
-      "translations": {}
+      "translations": {
+        "es-419": "28d855a7c0a3418d80ab3d855559b8d3d3de86cde277712bbd7e6e80b7dafc12"
+      }
     },
     "installer-select-a-platform-default-in-the-lane": {
       "source": "e2f074c58c66ff7ed47ee28508e2b06fee90fff2948febdecf38a2600e54fd18",
-      "translations": {}
+      "translations": {
+        "es-419": "e2f074c58c66ff7ed47ee28508e2b06fee90fff2948febdecf38a2600e54fd18"
+      }
     },
     "installer-select-all-available-components": {
       "source": "24d493e7f414c396c9ea6608c1defe1785715ed73fc2cdd94946bb73bee58b26",
-      "translations": {}
+      "translations": {
+        "es-419": "24d493e7f414c396c9ea6608c1defe1785715ed73fc2cdd94946bb73bee58b26"
+      }
     },
     "installer-select-components-by-number-1-3-or": {
       "source": "ce0a5bd8fb44398dadf17b5784167f40c666117a8db15baa0da5fa8007636018",
-      "translations": {}
+      "translations": {
+        "es-419": "ce0a5bd8fb44398dadf17b5784167f40c666117a8db15baa0da5fa8007636018"
+      }
     },
     "installer-select-components-by-number-1-4-or": {
       "source": "4d7790aac5553c729fb07d62998d5ea24f7ee6b10a8ed76e77424a8a72904667",
-      "translations": {}
+      "translations": {
+        "es-419": "4d7790aac5553c729fb07d62998d5ea24f7ee6b10a8ed76e77424a8a72904667"
+      }
     },
     "installer-selected-binary-is-unavailable-for-service-removal": {
       "source": "bf73af8d6a0fe66c77f93c0ea78f6ef5bcef36f992f7a4c5f28618217a16534f",
-      "translations": {}
+      "translations": {
+        "es-419": "bf73af8d6a0fe66c77f93c0ea78f6ef5bcef36f992f7a4c5f28618217a16534f"
+      }
     },
     "installer-selected-components-uninstalled-successfully": {
       "source": "0ce2226c15b53c15c408de8e7e957033718aa44f4536859930ded59d47211f53",
-      "translations": {}
+      "translations": {
+        "es-419": "0ce2226c15b53c15c408de8e7e957033718aa44f4536859930ded59d47211f53"
+      }
     },
     "installer-selected-mac-apps-installed-successfully-open-them": {
       "source": "9db803660e07340a53aa452fc3eaee02531b9f9f6f08df481737204ed0a2831f",
-      "translations": {}
+      "translations": {
+        "es-419": "9db803660e07340a53aa452fc3eaee02531b9f9f6f08df481737204ed0a2831f"
+      }
     },
     "installer-selects-the-supported-app-set-for-this": {
       "source": "6ff00f24408873b9ffc1583f2f4546662ca0c83aa3e8e7aa12d4ebd227480b12",
-      "translations": {}
+      "translations": {
+        "es-419": "6ff00f24408873b9ffc1583f2f4546662ca0c83aa3e8e7aa12d4ebd227480b12"
+      }
     },
     "installer-service-operation-failed-see-diagnostics-above": {
       "source": "99ed9fcbd19894bf7736d085dadd68f78c191c58f10bfa3d94efc2da852adf0f",
-      "translations": {}
+      "translations": {
+        "es-419": "99ed9fcbd19894bf7736d085dadd68f78c191c58f10bfa3d94efc2da852adf0f"
+      }
     },
     "installer-service-removal-failed-for": {
       "source": "9ade3ebe0d1ef5624532100b187698964b93652eac4ea012537d8ca25b97c46e",
-      "translations": {}
+      "translations": {
+        "es-419": "9ade3ebe0d1ef5624532100b187698964b93652eac4ea012537d8ca25b97c46e"
+      }
     },
     "installer-service-setup-start-was-skipped": {
       "source": "db745418ffef12ee0d6ba718d2b69351934350553e01d9b10df1a6caf7721143",
-      "translations": {}
+      "translations": {
+        "es-419": "db745418ffef12ee0d6ba718d2b69351934350553e01d9b10df1a6caf7721143"
+      }
     },
     "installer-sha256-mismatch-for-expected-got": {
       "source": "7bb168dda1ec7abe1f5d8c8e91385a7b0117fefef960c56967f035e3cb507450",
-      "translations": {}
+      "translations": {
+        "es-419": "7bb168dda1ec7abe1f5d8c8e91385a7b0117fefef960c56967f035e3cb507450"
+      }
     },
     "installer-show-each-linux-package-installation-command-and": {
       "source": "d66afa5a94affcc431fd9166c7e4111ccd0ea3efcc10955c19120ad7a71485c6",
-      "translations": {}
+      "translations": {
+        "es-419": "d66afa5a94affcc431fd9166c7e4111ccd0ea3efcc10955c19120ad7a71485c6"
+      }
     },
     "installer-show-this-help-with-return-it-as": {
       "source": "d2282c8008fe9169278eb33563ac64ecd96370480eb9fe78aa6da0b9b6abd604",
-      "translations": {}
+      "translations": {
+        "es-419": "d2282c8008fe9169278eb33563ac64ecd96370480eb9fe78aa6da0b9b6abd604"
+      }
     },
     "installer-solstone-for-linux": {
       "source": "e7a5c3ba10cc3a4570a6ecbc32fded792eb34e154e0072e246cdbab7e995e9b5",
-      "translations": {}
+      "translations": {
+        "es-419": "e7a5c3ba10cc3a4570a6ecbc32fded792eb34e154e0072e246cdbab7e995e9b5"
+      }
     },
     "installer-solstone-for-mac": {
       "source": "dfbcbf4d8ec0b41778e1454c756158c0d8af67c4871d9ba7a86e00658f900a55",
-      "translations": {}
+      "translations": {
+        "es-419": "dfbcbf4d8ec0b41778e1454c756158c0d8af67c4871d9ba7a86e00658f900a55"
+      }
     },
     "installer-solstone-for-tmux-was-not-moved-a": {
       "source": "3accebeac9daf866b2fcde27b40eea299590d2fb0b907a78becbc346799381d8",
-      "translations": {}
+      "translations": {
+        "es-419": "3accebeac9daf866b2fcde27b40eea299590d2fb0b907a78becbc346799381d8"
+      }
     },
     "installer-solstone-for-tmux-was-not-moved-into": {
       "source": "54aa90c8e49c86ff903ab67b0f500e85c04c78c619fc879a3243651444621906",
-      "translations": {}
+      "translations": {
+        "es-419": "54aa90c8e49c86ff903ab67b0f500e85c04c78c619fc879a3243651444621906"
+      }
     },
     "installer-solstone-for-tmux-was-not-moved-into-2": {
       "source": "e04fd3f31090343c73b77aff8b1799fbef51a16b005fa57cb7fc08171efdf9fe",
-      "translations": {}
+      "translations": {
+        "es-419": "e04fd3f31090343c73b77aff8b1799fbef51a16b005fa57cb7fc08171efdf9fe"
+      }
     },
     "installer-solstone-for-tmux-was-not-moved-into-3": {
       "source": "defb0483814d94c80a82ef12adcdafbaa83009fda54b3a4149fb1804825b4b1b",
-      "translations": {}
+      "translations": {
+        "es-419": "defb0483814d94c80a82ef12adcdafbaa83009fda54b3a4149fb1804825b4b1b"
+      }
     },
     "installer-solstone-installer-for-linux-and-macos": {
       "source": "3454164368f9a6dc27e891187f4ad2226e2540dc3eef3de32124593cd4ad92c6",
-      "translations": {}
+      "translations": {
+        "es-419": "3454164368f9a6dc27e891187f4ad2226e2540dc3eef3de32124593cd4ad92c6"
+      }
     },
     "installer-solstone-on-macos-requires-apple-silicon": {
       "source": "e645f51651b2ef13c0f3d206becb7cad322fa16974bcf1b36dabeb38de5abbfa",
-      "translations": {}
+      "translations": {
+        "es-419": "e645f51651b2ef13c0f3d206becb7cad322fa16974bcf1b36dabeb38de5abbfa"
+      }
     },
     "installer-solstone-platform-catalogue": {
       "source": "104dbadb606ab74f9660b3d56e920a58c0c79be75087b5be86bfaec9da2acba2",
-      "translations": {}
+      "translations": {
+        "es-419": "104dbadb606ab74f9660b3d56e920a58c0c79be75087b5be86bfaec9da2acba2"
+      }
     },
     "installer-solstone-requires-macos-15-or-later": {
       "source": "50e6d45131d9d46f557aad16614c8b5a72330ce861691f26e1b93bcb5adb033b",
-      "translations": {}
+      "translations": {
+        "es-419": "50e6d45131d9d46f557aad16614c8b5a72330ce861691f26e1b93bcb5adb033b"
+      }
     },
     "installer-sudo-authentication-failed": {
       "source": "0bce1ce79d72d91ae80e520b4fd3b2cae6b5b5c2d10a8622b0844eab65b22e9c",
-      "translations": {}
+      "translations": {
+        "es-419": "0bce1ce79d72d91ae80e520b4fd3b2cae6b5b5c2d10a8622b0844eab65b22e9c"
+      }
     },
     "installer-terminal-is-part-of-the-solstone-app": {
       "source": "9b17d0b6aa2cecf85bdee615c1473a289578c649e057561bbfabbaa4a3fafa1f",
-      "translations": {}
+      "translations": {
+        "es-419": "9b17d0b6aa2cecf85bdee615c1473a289578c649e057561bbfabbaa4a3fafa1f"
+      }
     },
     "installer-test-seam-forced-package-global-refresh-failure": {
       "source": "11edac54dfbf0c3c10229d1a1b963313a398c5bef5dba273af4b2a9dbc395928",
-      "translations": {}
+      "translations": {
+        "es-419": "11edac54dfbf0c3c10229d1a1b963313a398c5bef5dba273af4b2a9dbc395928"
+      }
     },
     "installer-that-option-applies-only-to-linux-installs": {
       "source": "89288a7f9f123bd1a7b38c044bada145f185e9cc4dcb40e5d3203d24dd9dfe16",
-      "translations": {}
+      "translations": {
+        "es-419": "89288a7f9f123bd1a7b38c044bada145f185e9cc4dcb40e5d3203d24dd9dfe16"
+      }
     },
     "installer-the-browser-could-not-open-open-the": {
       "source": "7f268a7bd55216546ce150bdad62e1408cd952d21442a85540e23de9d4eb87fd",
-      "translations": {}
+      "translations": {
+        "es-419": "7f268a7bd55216546ce150bdad62e1408cd952d21442a85540e23de9d4eb87fd"
+      }
     },
     "installer-the-browser-could-not-open-run-the": {
       "source": "5bca87ff24c2fa95b158e56759ca29df13abe1a7860d9ebc4725d0c9813cba8a",
-      "translations": {}
+      "translations": {
+        "es-419": "5bca87ff24c2fa95b158e56759ca29df13abe1a7860d9ebc4725d0c9813cba8a"
+      }
     },
     "installer-the-desktop-app-isn-t-available-for": {
       "source": "b4c9b41b8d58894f81adffe9488751e1b589b716fb293386635ad2f0d1a7f530",
-      "translations": {}
+      "translations": {
+        "es-419": "b4c9b41b8d58894f81adffe9488751e1b589b716fb293386635ad2f0d1a7f530"
+      }
     },
     "installer-the-desktop-app-isn-t-available-for-2": {
       "source": "c7697fc5a2ebfc5957cb6961cb2e7a7b3ab421ece00a29eb0c413aba2fd9733d",
-      "translations": {}
+      "translations": {
+        "es-419": "c7697fc5a2ebfc5957cb6961cb2e7a7b3ab421ece00a29eb0c413aba2fd9733d"
+      }
     },
     "installer-the-desktop-app-isn-t-available-for-3": {
       "source": "ac813c6cc2ce8de0ae3679e3d7657f77a78731ed38da5cd391af0618a8f0ffba",
-      "translations": {}
+      "translations": {
+        "es-419": "ac813c6cc2ce8de0ae3679e3d7657f77a78731ed38da5cd391af0618a8f0ffba"
+      }
     },
     "installer-the-desktop-app-isn-t-available-for-4": {
       "source": "4b7e75519083b7a9c0754db71f64ef76c833f04397b5cf55126f67889f343915",
-      "translations": {}
+      "translations": {
+        "es-419": "4b7e75519083b7a9c0754db71f64ef76c833f04397b5cf55126f67889f343915"
+      }
     },
     "installer-the-downloaded-disk-image-has-an-invalid": {
       "source": "b25930d060cfb677ae2d24f4161f2e346467e2d61718c3200dcbc3a50155cf3e",
-      "translations": {}
+      "translations": {
+        "es-419": "b25930d060cfb677ae2d24f4161f2e346467e2d61718c3200dcbc3a50155cf3e"
+      }
     },
     "installer-the-files-the-package-installed-are-not": {
       "source": "f9706892247e339e93193d676e3d23f12d60195ec5ad6c2f6808f62cc35c18d8",
-      "translations": {}
+      "translations": {
+        "es-419": "f9706892247e339e93193d676e3d23f12d60195ec5ad6c2f6808f62cc35c18d8"
+      }
     },
     "installer-the-has-an-invalid-code-signature": {
       "source": "a85539f4464cc8b2955242c78ab2fa31807c8981b06a360266532df058483555",
-      "translations": {}
+      "translations": {
+        "es-419": "a85539f4464cc8b2955242c78ab2fa31807c8981b06a360266532df058483555"
+      }
     },
     "installer-the-has-the-wrong-bundle-identifier": {
       "source": "b292641f408333305d302a0d93b0def2f3a494816a83a3dfbe6072629173596b",
-      "translations": {}
+      "translations": {
+        "es-419": "b292641f408333305d302a0d93b0def2f3a494816a83a3dfbe6072629173596b"
+      }
     },
     "installer-the-has-the-wrong-signing-team": {
       "source": "8078bcf8cdab7fa0517225b512f39e42089a4cdff9012ce8fba1840cf399c4f4",
-      "translations": {}
+      "translations": {
+        "es-419": "8078bcf8cdab7fa0517225b512f39e42089a4cdff9012ce8fba1840cf399c4f4"
+      }
     },
     "installer-the-installed-journal-does-not-declare-this": {
       "source": "d8c0f59d9d43fc028f1d63bfa87004114a24a28b909d0de125b27d0859df2a88",
-      "translations": {}
+      "translations": {
+        "es-419": "d8c0f59d9d43fc028f1d63bfa87004114a24a28b909d0de125b27d0859df2a88"
+      }
     },
     "installer-the-installer-uses-from-or-downloads-a": {
       "source": "22e5a008d9f6a8047ca5220a63a24dc7fef30a6ce817a4e40639050438d28ae8",
-      "translations": {}
+      "translations": {
+        "es-419": "22e5a008d9f6a8047ca5220a63a24dc7fef30a6ce817a4e40639050438d28ae8"
+      }
     },
     "installer-the-journal-in-could-not-be-identified": {
       "source": "e646f4028c75095e24e7df9f0d80393331e4dc33060617a73a5369ae6ddfc953",
-      "translations": {}
+      "translations": {
+        "es-419": "e646f4028c75095e24e7df9f0d80393331e4dc33060617a73a5369ae6ddfc953"
+      }
     },
     "installer-the-journal-in-follows-the-lane-to": {
       "source": "f89bbbebb2952608692ef5011e11883fa90fe51efa12faa7d1b7a1a758c56b1f",
-      "translations": {}
+      "translations": {
+        "es-419": "f89bbbebb2952608692ef5011e11883fa90fe51efa12faa7d1b7a1a758c56b1f"
+      }
     },
     "installer-the-journal-in-is-installed-as-to": {
       "source": "a12f6b940fe4d8e95001aaf66451d1debda9f7c345add807a89f0ff29b8c400a",
-      "translations": {}
+      "translations": {
+        "es-419": "a12f6b940fe4d8e95001aaf66451d1debda9f7c345add807a89f0ff29b8c400a"
+      }
     },
     "installer-the-journal-in-was-installed-by-the": {
       "source": "447bd54fed85f3300c9b77fc410ea30f8014594d63259576f859dc9e31f49df8",
-      "translations": {}
+      "translations": {
+        "es-419": "447bd54fed85f3300c9b77fc410ea30f8014594d63259576f859dc9e31f49df8"
+      }
     },
     "installer-the-journal-installed-and-is-ready-to": {
       "source": "da46123af5d9ef2b29be3672c4b483c9c592448c679f27707079a427af57b141",
-      "translations": {}
+      "translations": {
+        "es-419": "da46123af5d9ef2b29be3672c4b483c9c592448c679f27707079a427af57b141"
+      }
     },
     "installer-the-journal-installer-did-not-verify-the": {
       "source": "caaf761dc69862f55f9a02f89bb61209e26f0e6db5d56add8013e366033afb01",
-      "translations": {}
+      "translations": {
+        "es-419": "caaf761dc69862f55f9a02f89bb61209e26f0e6db5d56add8013e366033afb01"
+      }
     },
     "installer-the-journal-is-installed-but-its-model": {
       "source": "6a3b671f58ad9d6f9d79910cfa1adacdf0166925fb80a35e38990f03790637fd",
-      "translations": {}
+      "translations": {
+        "es-419": "6a3b671f58ad9d6f9d79910cfa1adacdf0166925fb80a35e38990f03790637fd"
+      }
     },
     "installer-the-journal-was-not-installed-so-the": {
       "source": "2a156e80e361195e7468e86b7a763c6522ddc2fdc1f6fdbe5d3660db946bfc66",
-      "translations": {}
+      "translations": {
+        "es-419": "2a156e80e361195e7468e86b7a763c6522ddc2fdc1f6fdbe5d3660db946bfc66"
+      }
     },
     "installer-the-mac-app-installer-does-not-remove": {
       "source": "bed1e739315ba0bc102b97594e31b96e62284755bdb35cf951156c834967ee85",
-      "translations": {}
+      "translations": {
+        "es-419": "bed1e739315ba0bc102b97594e31b96e62284755bdb35cf951156c834967ee85"
+      }
     },
     "installer-the-mac-app-installer-uses-the-current": {
       "source": "b32e001610755771376287e10b15b92d00cb48f1cb399d87263f82407bebd326",
-      "translations": {}
+      "translations": {
+        "es-419": "b32e001610755771376287e10b15b92d00cb48f1cb399d87263f82407bebd326"
+      }
     },
     "installer-the-mac-apps-update-themselves-open-each": {
       "source": "9ffff3a28d3eebb743bc135660884430593a618df6ec75015e0f6ca10175a5c7",
-      "translations": {}
+      "translations": {
+        "es-419": "9ffff3a28d3eebb743bc135660884430593a618df6ec75015e0f6ca10175a5c7"
+      }
     },
     "installer-the-mac-download-redirect-is-malformed": {
       "source": "0bd6a082a339de72c74bb0e0a940d3efba5eabf374e095f3be82c361dfe04506",
-      "translations": {}
+      "translations": {
+        "es-419": "0bd6a082a339de72c74bb0e0a940d3efba5eabf374e095f3be82c361dfe04506"
+      }
     },
     "installer-the-mac-download-redirected-outside-its-approved": {
       "source": "bcce2163c52f2c0badc07572854447614ed304e99e26d9cefd39d5cd05215138",
-      "translations": {}
+      "translations": {
+        "es-419": "bcce2163c52f2c0badc07572854447614ed304e99e26d9cefd39d5cd05215138"
+      }
     },
     "installer-the-package-database-lists-something-other-than": {
       "source": "02f97ba818ab4a074eabdaeb552e7f68d21a5b71fa21029a854a27dc82a7e648",
-      "translations": {}
+      "translations": {
+        "es-419": "02f97ba818ab4a074eabdaeb552e7f68d21a5b71fa21029a854a27dc82a7e648"
+      }
     },
     "installer-the-package-does-not-match-the-signed": {
       "source": "b850e90155ca91e5720b7e721b4635ded95c6ec34b5a374f0ed4a70028774af3",
-      "translations": {}
+      "translations": {
+        "es-419": "b850e90155ca91e5720b7e721b4635ded95c6ec34b5a374f0ed4a70028774af3"
+      }
     },
     "installer-the-package-on-this-computer-is-for": {
       "source": "55f1133941f20947f624af13696f8dceff724590e8a385cc9a5abee8ac2fbd7e",
-      "translations": {}
+      "translations": {
+        "es-419": "55f1133941f20947f624af13696f8dceff724590e8a385cc9a5abee8ac2fbd7e"
+      }
     },
     "installer-the-package-on-this-computer-is-newer": {
       "source": "e5d980014edd1262439be2bd37195c3533d921866e5571bc9bb2ccd7a2c50f72",
-      "translations": {}
+      "translations": {
+        "es-419": "e5d980014edd1262439be2bd37195c3533d921866e5571bc9bb2ccd7a2c50f72"
+      }
     },
     "installer-the-package-on-this-computer-is-not": {
       "source": "63fd24372f84f91d71a833b05edc4d51ea9e9acc584b1e7e30678175495a140d",
-      "translations": {}
+      "translations": {
+        "es-419": "63fd24372f84f91d71a833b05edc4d51ea9e9acc584b1e7e30678175495a140d"
+      }
     },
     "installer-the-package-on-this-computer-now-updates": {
       "source": "3dba4bc04ab8002e18621a1919f7f8ec64eedaaaf456c8e8968388a81e5cc6e4",
-      "translations": {}
+      "translations": {
+        "es-419": "3dba4bc04ab8002e18621a1919f7f8ec64eedaaaf456c8e8968388a81e5cc6e4"
+      }
     },
     "installer-the-signing-identity-could-not-be-read": {
       "source": "2d062e28d91e5168b038b7f4feb853b67259e15962d9c441636672dd53c1d01e",
-      "translations": {}
+      "translations": {
+        "es-419": "2d062e28d91e5168b038b7f4feb853b67259e15962d9c441636672dd53c1d01e"
+      }
     },
     "installer-the-solstone-app-can-t-start-on": {
       "source": "dad71df86b575a101bb9dedfa9099516251f1b5ee2754806b25dedecd61c78c6",
-      "translations": {}
+      "translations": {
+        "es-419": "dad71df86b575a101bb9dedfa9099516251f1b5ee2754806b25dedecd61c78c6"
+      }
     },
     "installer-the-solstone-app-could-not-take-over": {
       "source": "dea1fe68b755130c340bcc24eb761c8518eda552d27e1ec6e258286b06d239c6",
-      "translations": {}
+      "translations": {
+        "es-419": "dea1fe68b755130c340bcc24eb761c8518eda552d27e1ec6e258286b06d239c6"
+      }
     },
     "installer-the-solstone-app-could-not-take-over-2": {
       "source": "18094167998198a5be9be4cb36739362a6daec33563504a324788bfa9c64d528",
-      "translations": {}
+      "translations": {
+        "es-419": "18094167998198a5be9be4cb36739362a6daec33563504a324788bfa9c64d528"
+      }
     },
     "installer-the-solstone-app-includes-terminal": {
       "source": "842be7e807aba236067ab4d564a042fe8e022316b76b16ae26e5b7586d356db0",
-      "translations": {}
+      "translations": {
+        "es-419": "842be7e807aba236067ab4d564a042fe8e022316b76b16ae26e5b7586d356db0"
+      }
     },
     "installer-the-version-it-selects-does-not-match": {
       "source": "6a7c1a7008c68163a3385cbc5f466db74cf8454b7e0ffecda3d71d3aeff775f5",
-      "translations": {}
+      "translations": {
+        "es-419": "6a7c1a7008c68163a3385cbc5f466db74cf8454b7e0ffecda3d71d3aeff775f5"
+      }
     },
     "installer-the-version-it-selects-does-not-match-2": {
       "source": "4a296d6c3a3d0a9b9e285410b9cea0449a299f8f7d4444a45cc1fca61847d49e",
-      "translations": {}
+      "translations": {
+        "es-419": "4a296d6c3a3d0a9b9e285410b9cea0449a299f8f7d4444a45cc1fca61847d49e"
+      }
     },
     "installer-the-version-it-selects-has-an-invalid": {
       "source": "31d6fb2243ded1efc527f8ca3d6d2a949b2afcef7ee44119ca65562cb6e7d94f",
-      "translations": {}
+      "translations": {
+        "es-419": "31d6fb2243ded1efc527f8ca3d6d2a949b2afcef7ee44119ca65562cb6e7d94f"
+      }
     },
     "installer-the-version-it-selects-has-no-record": {
       "source": "906027e2a81471bab4562a6d1781209c6580d2d523f2ff3a0842d1d3dad92e7d",
-      "translations": {}
+      "translations": {
+        "es-419": "906027e2a81471bab4562a6d1781209c6580d2d523f2ff3a0842d1d3dad92e7d"
+      }
     },
     "installer-the-version-it-selects-is-not-a": {
       "source": "e4816f4f4f159e8455a1ed546424c9b3daab0cf5854e1ea2d047fa2605205a3d",
-      "translations": {}
+      "translations": {
+        "es-419": "e4816f4f4f159e8455a1ed546424c9b3daab0cf5854e1ea2d047fa2605205a3d"
+      }
     },
     "installer-then-open-solstone-from-your-app-menu": {
       "source": "730d2d3446027b58cc48968ea62b0d94862c98954dfc08563a642293019b401a",
-      "translations": {}
+      "translations": {
+        "es-419": "730d2d3446027b58cc48968ea62b0d94862c98954dfc08563a642293019b401a"
+      }
     },
     "installer-then-run-on-this-computer-and-open": {
       "source": "405f7c3276d842b7be958961a4adb56bd76058aa8c567549956188393b4578c6",
-      "translations": {}
+      "translations": {
+        "es-419": "405f7c3276d842b7be958961a4adb56bd76058aa8c567549956188393b4578c6"
+      }
     },
     "installer-this-computer-has-a-second-journal-installation": {
       "source": "38dd3862323999ae09cff96f7b6388f6d4930c2718179e6808ccdc599697dcdc",
-      "translations": {}
+      "translations": {
+        "es-419": "38dd3862323999ae09cff96f7b6388f6d4930c2718179e6808ccdc599697dcdc"
+      }
     },
     "installer-this-installer-could-not-put-back-its": {
       "source": "e8bb5d4b3c9a7956563fac64ff8089d7bd107d2b110cb06f839fa7f544cb158a",
-      "translations": {}
+      "translations": {
+        "es-419": "e8bb5d4b3c9a7956563fac64ff8089d7bd107d2b110cb06f839fa7f544cb158a"
+      }
     },
     "installer-this-installer-did-not-take-it-over": {
       "source": "636c00d192087a98d02673a4c30e7487fa1cf475c7e05c91db0f16846b33aa64",
-      "translations": {}
+      "translations": {
+        "es-419": "636c00d192087a98d02673a4c30e7487fa1cf475c7e05c91db0f16846b33aa64"
+      }
     },
     "installer-this-installer-did-not-take-over-your": {
       "source": "309353bf0035b6b0b3ff9a679fe362acde3b92537eb1697a0033c6b1d066419b",
-      "translations": {}
+      "translations": {
+        "es-419": "309353bf0035b6b0b3ff9a679fe362acde3b92537eb1697a0033c6b1d066419b"
+      }
     },
     "installer-this-installs-the-solstone-app-moves-solstone": {
       "source": "45d46066b68737e9aeff3a75803628eeb1af9d444ce9a1085f301285fa71e5f8",
-      "translations": {}
+      "translations": {
+        "es-419": "45d46066b68737e9aeff3a75803628eeb1af9d444ce9a1085f301285fa71e5f8"
+      }
     },
     "installer-this-moves-solstone-for-tmux-into-the": {
       "source": "b2f802853b7bf0d4d88810c54eebee1affdf89c42599c51d1946485aba0d50e9",
-      "translations": {}
+      "translations": {
+        "es-419": "b2f802853b7bf0d4d88810c54eebee1affdf89c42599c51d1946485aba0d50e9"
+      }
     },
     "installer-this-older-journal-cannot-be-safely-installed": {
       "source": "2729a0076263fafdff78fb4df1217b93ff9734f7431884be766cf82da50f0511",
-      "translations": {}
+      "translations": {
+        "es-419": "2729a0076263fafdff78fb4df1217b93ff9734f7431884be766cf82da50f0511"
+      }
     },
     "installer-this-package-route-cannot-install-an-older": {
       "source": "f290593995e42e382559ba8f66827b7f442f1987e6b30f2e25de009d67a90eca",
-      "translations": {}
+      "translations": {
+        "es-419": "f290593995e42e382559ba8f66827b7f442f1987e6b30f2e25de009d67a90eca"
+      }
     },
     "installer-this-release-cannot-verify-the-installed-journal": {
       "source": "d5ef02c9645a6b9832d50236e2067af6a0f09b67c5e739ebac50245609d515e2",
-      "translations": {}
+      "translations": {
+        "es-419": "d5ef02c9645a6b9832d50236e2067af6a0f09b67c5e739ebac50245609d515e2"
+      }
     },
     "installer-this-release-has-no-file-inventory-for": {
       "source": "34a9f8b3f6d8e553a5328df759d86d23922f776e20b54adda8c206371917e61b",
-      "translations": {}
+      "translations": {
+        "es-419": "34a9f8b3f6d8e553a5328df759d86d23922f776e20b54adda8c206371917e61b"
+      }
     },
     "installer-this-release-s-file-inventory-for-the": {
       "source": "da1d33ffa84a0176aebe46ff08a4eed273f0c01efd1ce4e0ce07ad51e39f8732",
-      "translations": {}
+      "translations": {
+        "es-419": "da1d33ffa84a0176aebe46ff08a4eed273f0c01efd1ce4e0ce07ad51e39f8732"
+      }
     },
     "installer-tmux-artifact-digest-is-invalid": {
       "source": "f5bb4dda7626e7b391b0f039978b789197f3be8dd3eb0b06c565a48b1120d171",
-      "translations": {}
+      "translations": {
+        "es-419": "f5bb4dda7626e7b391b0f039978b789197f3be8dd3eb0b06c565a48b1120d171"
+      }
     },
     "installer-tmux-artifact-field-must-be-a-string": {
       "source": "55804d6eb98576c99851c30ef16eb3b280ec27551b794173e50ea47a86fdad89",
-      "translations": {}
+      "translations": {
+        "es-419": "55804d6eb98576c99851c30ef16eb3b280ec27551b794173e50ea47a86fdad89"
+      }
     },
     "installer-tmux-artifact-member-is-missing": {
       "source": "394246d800222be5b03f3d67783ff8cfd7905924b982e9fc4b6508f6c79eaa0f",
-      "translations": {}
+      "translations": {
+        "es-419": "394246d800222be5b03f3d67783ff8cfd7905924b982e9fc4b6508f6c79eaa0f"
+      }
     },
     "installer-tmux-artifact-member-must-be-an-object": {
       "source": "7cbf3ce1c372ea00e37ef6ab553fbfd44807b680f1fa06af353940063bfae16e",
-      "translations": {}
+      "translations": {
+        "es-419": "7cbf3ce1c372ea00e37ef6ab553fbfd44807b680f1fa06af353940063bfae16e"
+      }
     },
     "installer-tmux-artifacts-array-is-invalid": {
       "source": "d11b80b96215056fd8b847a3581924ecc48d049f5bd4858b1165a26a62321aef",
-      "translations": {}
+      "translations": {
+        "es-419": "d11b80b96215056fd8b847a3581924ecc48d049f5bd4858b1165a26a62321aef"
+      }
     },
     "installer-tmux-artifacts-must-be-an-array": {
       "source": "910b475ef79c9b502784fa746e791e97d782269cd827bb2963f6dbd61750b247",
-      "translations": {}
+      "translations": {
+        "es-419": "910b475ef79c9b502784fa746e791e97d782269cd827bb2963f6dbd61750b247"
+      }
     },
     "installer-tmux-checksum-manifest": {
       "source": "f360000a0784187cbf7ed69cbe7770a2d34c4e6d57bb37544bb97c79d8fcbcc9",
-      "translations": {}
+      "translations": {
+        "es-419": "f360000a0784187cbf7ed69cbe7770a2d34c4e6d57bb37544bb97c79d8fcbcc9"
+      }
     },
     "installer-tmux-checksum-manifest-is-invalid": {
       "source": "01e5835484575154c1c1a8ae40c0c4226d72e5a340a6a6042b451e5d1126a65b",
-      "translations": {}
+      "translations": {
+        "es-419": "01e5835484575154c1c1a8ae40c0c4226d72e5a340a6a6042b451e5d1126a65b"
+      }
     },
     "installer-tmux-checksum-manifest-is-missing": {
       "source": "8b5a4e2dae49894971183c4dfe4a148c623cea0db506102e12fcab27eb3e43b5",
-      "translations": {}
+      "translations": {
+        "es-419": "8b5a4e2dae49894971183c4dfe4a148c623cea0db506102e12fcab27eb3e43b5"
+      }
     },
     "installer-tmux-checksum-signature": {
       "source": "77b64c7b38c85baa768c4723439e02c48d7d8e39f28a766520dfa520de96edb7",
-      "translations": {}
+      "translations": {
+        "es-419": "77b64c7b38c85baa768c4723439e02c48d7d8e39f28a766520dfa520de96edb7"
+      }
     },
     "installer-tmux-executable-digest-is-invalid": {
       "source": "569189266781a6655129d4036d012cf8e0d37b3f5af7d26e8d430869d6cbaa79",
-      "translations": {}
+      "translations": {
+        "es-419": "569189266781a6655129d4036d012cf8e0d37b3f5af7d26e8d430869d6cbaa79"
+      }
     },
     "installer-tmux-executable-identity-does-not-match-the": {
       "source": "3dda672173062c55697044e690a34a9787dfe3b444db3a2ba8f83476b744f195",
-      "translations": {}
+      "translations": {
+        "es-419": "3dda672173062c55697044e690a34a9787dfe3b444db3a2ba8f83476b744f195"
+      }
     },
     "installer-tmux-is-not-installed-installing-and-desktop": {
       "source": "14544f54ce80b838e5a712847a00675fde53999f1c29906c0486aa095f1ad9cc",
-      "translations": {}
+      "translations": {
+        "es-419": "14544f54ce80b838e5a712847a00675fde53999f1c29906c0486aa095f1ad9cc"
+      }
     },
     "installer-tmux-native-identity-does-not-match-the": {
       "source": "9d583ef92852bfe4e3a69923d9c885438491da36cfd97eb394070ec0816f7c4a",
-      "translations": {}
+      "translations": {
+        "es-419": "9d583ef92852bfe4e3a69923d9c885438491da36cfd97eb394070ec0816f7c4a"
+      }
     },
     "installer-tmux-schema-version-must-be-an-integer": {
       "source": "39c534988dbf7e22668589239acb4217c01282354e3551a07653b9207fd48788",
-      "translations": {}
+      "translations": {
+        "es-419": "39c534988dbf7e22668589239acb4217c01282354e3551a07653b9207fd48788"
+      }
     },
     "installer-tmux-security-field-must-be-a-string": {
       "source": "4a853866c66c715067bf5692c25f771bdea1e091df4b91851f69c32538de212b",
-      "translations": {}
+      "translations": {
+        "es-419": "4a853866c66c715067bf5692c25f771bdea1e091df4b91851f69c32538de212b"
+      }
     },
     "installer-tmux-selected-artifact-digest-does-not-match": {
       "source": "5aad7881547da467888de17830c40b1a129f3f9165de70ee940ab1f1d0a14889",
-      "translations": {}
+      "translations": {
+        "es-419": "5aad7881547da467888de17830c40b1a129f3f9165de70ee940ab1f1d0a14889"
+      }
     },
     "installer-tmux-selected-filename-does-not-match-its": {
       "source": "5076053c1538606e5e19b2df3f0e8be9094c7015ba84837c608f9437652adb98",
-      "translations": {}
+      "translations": {
+        "es-419": "5076053c1538606e5e19b2df3f0e8be9094c7015ba84837c608f9437652adb98"
+      }
     },
     "installer-tmux-selected-route-is-invalid": {
       "source": "c2600d2f19a73930baac98453f23cd8b400717b565d93f66fd77cb1b406d3c6b",
-      "translations": {}
+      "translations": {
+        "es-419": "c2600d2f19a73930baac98453f23cd8b400717b565d93f66fd77cb1b406d3c6b"
+      }
     },
     "installer-tmux-solstone-tmux-integration-role-tmux-version": {
       "source": "02267c84d1b9e1e5c12e1a7f94f1aef4d294ce4f15395994a2bbad5739348b12",
-      "translations": {}
+      "translations": {
+        "es-419": "02267c84d1b9e1e5c12e1a7f94f1aef4d294ce4f15395994a2bbad5739348b12"
+      }
     },
     "installer-tmux-source-commit-is-invalid": {
       "source": "0f31f2d2af150f943dc9160090a53f0a7d6d92ac8df32c9ab8fefd314dd2c1e4",
-      "translations": {}
+      "translations": {
+        "es-419": "0f31f2d2af150f943dc9160090a53f0a7d6d92ac8df32c9ab8fefd314dd2c1e4"
+      }
     },
     "installer-tmux-target-artifact-does-not-match-the": {
       "source": "2d2d5c29060908dcf4fd5438ac3d59386fddd0c789597dec8431d76cb1507365",
-      "translations": {}
+      "translations": {
+        "es-419": "2d2d5c29060908dcf4fd5438ac3d59386fddd0c789597dec8431d76cb1507365"
+      }
     },
     "installer-tmux-target-manifest": {
       "source": "950e5880e049df41db8c5132f581cc20c069169aa5bb8927e745cc80a89f17d6",
-      "translations": {}
+      "translations": {
+        "es-419": "950e5880e049df41db8c5132f581cc20c069169aa5bb8927e745cc80a89f17d6"
+      }
     },
     "installer-tmux-target-manifest-contains-duplicate-selected-artifacts": {
       "source": "8a1319377ff1ed8a8122550980298bd91855881b9faba5e5c52e55a0ccbbf3b3",
-      "translations": {}
+      "translations": {
+        "es-419": "8a1319377ff1ed8a8122550980298bd91855881b9faba5e5c52e55a0ccbbf3b3"
+      }
     },
     "installer-tmux-target-manifest-digest-does-not-match": {
       "source": "89f02121a6f64ae4ceace51edd814a495614f55e1c10fbdf5bc5c460bb6c0d70",
-      "translations": {}
+      "translations": {
+        "es-419": "89f02121a6f64ae4ceace51edd814a495614f55e1c10fbdf5bc5c460bb6c0d70"
+      }
     },
     "installer-tmux-target-manifest-is-invalid": {
       "source": "6bf52eef4e1e9771c80f954baeb3e23b5a9b8347320d02f9d5d5c7f6cc248d95",
-      "translations": {}
+      "translations": {
+        "es-419": "6bf52eef4e1e9771c80f954baeb3e23b5a9b8347320d02f9d5d5c7f6cc248d95"
+      }
     },
     "installer-tmux-target-manifest-is-missing": {
       "source": "585f67157bb39f18d93248b98c7673a763e2994ea40bc0a8f16356caf87d8f74",
-      "translations": {}
+      "translations": {
+        "es-419": "585f67157bb39f18d93248b98c7673a763e2994ea40bc0a8f16356caf87d8f74"
+      }
     },
     "installer-tmux-target-manifest-is-missing-the-selected": {
       "source": "627b13fa584864219d69ef1d425b09a61bce04848e598a0b9afc01bb988521dc",
-      "translations": {}
+      "translations": {
+        "es-419": "627b13fa584864219d69ef1d425b09a61bce04848e598a0b9afc01bb988521dc"
+      }
     },
     "installer-tmux-target-schema-version-is-unsupported": {
       "source": "0fc00bf126d35c318fa3584365deb85d2e1e4c7fb725b02760331d5d7adafa3b",
-      "translations": {}
+      "translations": {
+        "es-419": "0fc00bf126d35c318fa3584365deb85d2e1e4c7fb725b02760331d5d7adafa3b"
+      }
     },
     "installer-to-add-the-solstone-app-on-this": {
       "source": "725876a3c0f57be64c37bdb01e704c9605f91f44138886255a9ae2bea6a6d23c",
-      "translations": {}
+      "translations": {
+        "es-419": "725876a3c0f57be64c37bdb01e704c9605f91f44138886255a9ae2bea6a6d23c"
+      }
     },
     "installer-to-finish-setup-open-your-journal-s": {
       "source": "0f235b18ad9ab7dfcb7fa759d49ada3b1cee2dd58d8c35459371398da13f24ff",
-      "translations": {}
+      "translations": {
+        "es-419": "0f235b18ad9ab7dfcb7fa759d49ada3b1cee2dd58d8c35459371398da13f24ff"
+      }
     },
     "installer-to-get-updates-through-your-system-s": {
       "source": "4132c8a4d8b3818cb79e0194de55dc0374e93d8ce845f936e71ffb2948feb250",
-      "translations": {}
+      "translations": {
+        "es-419": "4132c8a4d8b3818cb79e0194de55dc0374e93d8ce845f936e71ffb2948feb250"
+      }
     },
     "installer-to-use-the-apps-in-this-shell": {
       "source": "12fa5204b588507023463c7084467a82f2fe10ba05a0e72f4f799fda76745136",
-      "translations": {}
+      "translations": {
+        "es-419": "12fa5204b588507023463c7084467a82f2fe10ba05a0e72f4f799fda76745136"
+      }
     },
     "installer-tree-receipt-directory-is-not-writable": {
       "source": "df398fcc7f4d2e1a0e8f43e85ec03915f1e9c14182113d1cad27b5fb9d38fa5b",
-      "translations": {}
+      "translations": {
+        "es-419": "df398fcc7f4d2e1a0e8f43e85ec03915f1e9c14182113d1cad27b5fb9d38fa5b"
+      }
     },
     "installer-tree-receipt-for-contains-an-unsafe-executable": {
       "source": "1d60fbf825c72eb0f9838c9ad7a1626b98c4df5d1b22bee95faaf71f29be8354",
-      "translations": {}
+      "translations": {
+        "es-419": "1d60fbf825c72eb0f9838c9ad7a1626b98c4df5d1b22bee95faaf71f29be8354"
+      }
     },
     "installer-tree-receipt-for-contains-an-unsafe-target": {
       "source": "3ce2bc0f7270b7c60b6705da3618640251d7bbc5d86772407d1bda912e054b5c",
-      "translations": {}
+      "translations": {
+        "es-419": "3ce2bc0f7270b7c60b6705da3618640251d7bbc5d86772407d1bda912e054b5c"
+      }
     },
     "installer-tree-receipt-for-does-not-match-installed": {
       "source": "31382a07f931f3fd6d27b42fc98b1e0c9f44990e69e0732f6f86c99658ae753c",
-      "translations": {}
+      "translations": {
+        "es-419": "31382a07f931f3fd6d27b42fc98b1e0c9f44990e69e0732f6f86c99658ae753c"
+      }
     },
     "installer-tree-receipt-for-has-invalid-service-policy": {
       "source": "4a604a743674a987da20442ee10940f6f761e145c83568d85022e0424d0d4e17",
-      "translations": {}
+      "translations": {
+        "es-419": "4a604a743674a987da20442ee10940f6f761e145c83568d85022e0424d0d4e17"
+      }
     },
     "installer-tree-receipt-for-is-incomplete": {
       "source": "097f62a15076e8065e67bba7fb528a9f4566d5079ce1e84e9b86e6a12323e10e",
-      "translations": {}
+      "translations": {
+        "es-419": "097f62a15076e8065e67bba7fb528a9f4566d5079ce1e84e9b86e6a12323e10e"
+      }
     },
     "installer-tree-receipt-for-is-missing-service-policy": {
       "source": "ec3d097b68a8a2113ad33648720d2b88075b8142640087b4668457d580bc1046",
-      "translations": {}
+      "translations": {
+        "es-419": "ec3d097b68a8a2113ad33648720d2b88075b8142640087b4668457d580bc1046"
+      }
     },
     "installer-tree-receipt-for-leaves-its-owned-paths": {
       "source": "128b61c9a3e9efae0b330f11db756865afba8662506192133f087948b6a280e9",
-      "translations": {}
+      "translations": {
+        "es-419": "128b61c9a3e9efae0b330f11db756865afba8662506192133f087948b6a280e9"
+      }
     },
     "installer-tree-receipt-path-is-not-a-readable": {
       "source": "c71fd91fae295c5dfd2cc5e5deb19e7dc5a2cfe2d1c08c5f893eed3bd137b431",
-      "translations": {}
+      "translations": {
+        "es-419": "c71fd91fae295c5dfd2cc5e5deb19e7dc5a2cfe2d1c08c5f893eed3bd137b431"
+      }
     },
     "installer-tree-receipt-path-is-not-a-regular": {
       "source": "b35c5146b0ba018c2472016fb97abfe2259262d6e093104652503200ee7bae44",
-      "translations": {}
+      "translations": {
+        "es-419": "b35c5146b0ba018c2472016fb97abfe2259262d6e093104652503200ee7bae44"
+      }
     },
     "installer-tree-state-for-changed-before-installation": {
       "source": "21dcd00c78b73d42ea99590c2ea8136a59967b3e5f68a32e8c988860cb2e40f6",
-      "translations": {}
+      "translations": {
+        "es-419": "21dcd00c78b73d42ea99590c2ea8136a59967b3e5f68a32e8c988860cb2e40f6"
+      }
     },
     "installer-tree-state-for-has-no-ownership-receipt": {
       "source": "eb4b4922a9701b96d526ac735987453b7f218a5e30f69ba78fb3f8ef4eec9732",
-      "translations": {}
+      "translations": {
+        "es-419": "eb4b4922a9701b96d526ac735987453b7f218a5e30f69ba78fb3f8ef4eec9732"
+      }
     },
     "installer-tree-state-for-is-incomplete": {
       "source": "7961ac8aea4eb165699870a9f602e07679c879393c0786ce7b0d20171d685b1e",
-      "translations": {}
+      "translations": {
+        "es-419": "7961ac8aea4eb165699870a9f602e07679c879393c0786ce7b0d20171d685b1e"
+      }
     },
     "installer-unconfigured-package-does-not-match-the-pending": {
       "source": "f7215081affa45f9118246cfcc7afdab97c20a44b2b0c1daf4a68ffe716844a2",
-      "translations": {}
+      "translations": {
+        "es-419": "f7215081affa45f9118246cfcc7afdab97c20a44b2b0c1daf4a68ffe716844a2"
+      }
     },
     "installer-unconfigured-package-has-no-matching-pending-installation": {
       "source": "b10f548700643cda5b4ab3fde46c7fb18f29a42882a49aa73ade96699d8d9786",
-      "translations": {}
+      "translations": {
+        "es-419": "b10f548700643cda5b4ab3fde46c7fb18f29a42882a49aa73ade96699d8d9786"
+      }
     },
     "installer-unexpected-token": {
       "source": "d6594163bf3e64db42b0312da13e995781b78f5bbefd52c8adb7b2a9235ae95f",
-      "translations": {}
+      "translations": {
+        "es-419": "d6594163bf3e64db42b0312da13e995781b78f5bbefd52c8adb7b2a9235ae95f"
+      }
     },
     "installer-uninstall-handler-failed-for": {
       "source": "3299f6ef57aaf2436730bcc2df537aff05a598d42f75b62966db6f0bd0b2de4b",
-      "translations": {}
+      "translations": {
+        "es-419": "3299f6ef57aaf2436730bcc2df537aff05a598d42f75b62966db6f0bd0b2de4b"
+      }
     },
     "installer-uninstall-handler-is-missing-for": {
       "source": "64ba5302cb589f8a00faceadd181fcef2051b5118c7513f5596d78d21cd62233",
-      "translations": {}
+      "translations": {
+        "es-419": "64ba5302cb589f8a00faceadd181fcef2051b5118c7513f5596d78d21cd62233"
+      }
     },
     "installer-unknown-argument": {
       "source": "00a62f1efc4cf08ed4cdc080af00d1ac4e4830e58a4bc030e5a0d3f5d20c9123",
-      "translations": {}
+      "translations": {
+        "es-419": "00a62f1efc4cf08ed4cdc080af00d1ac4e4830e58a4bc030e5a0d3f5d20c9123"
+      }
     },
     "installer-unknown-field": {
       "source": "3731d6dd6cba71aeca3e195f29598be10caaa865055d07e8164f541f85295c02",
-      "translations": {}
+      "translations": {
+        "es-419": "3731d6dd6cba71aeca3e195f29598be10caaa865055d07e8164f541f85295c02"
+      }
     },
     "installer-unknown-key": {
       "source": "e8827f0decc4a52c32a5b7d0e4642674c876e86f4c2d58b90b86ab3c1824dfaa",
-      "translations": {}
+      "translations": {
+        "es-419": "e8827f0decc4a52c32a5b7d0e4642674c876e86f4c2d58b90b86ab3c1824dfaa"
+      }
     },
     "installer-unknown-or-empty-release-field": {
       "source": "d31fca1d72ecdaec9f9ebd2731b6ee04c666d014ce39ba13044e7a4b013d723e",
-      "translations": {}
+      "translations": {
+        "es-419": "d31fca1d72ecdaec9f9ebd2731b6ee04c666d014ce39ba13044e7a4b013d723e"
+      }
     },
     "installer-unknown-route": {
       "source": "0e28ebadefb7e3bd238535af5482f6949d2cba0580cd3f96445d6201c5718efb",
-      "translations": {}
+      "translations": {
+        "es-419": "0e28ebadefb7e3bd238535af5482f6949d2cba0580cd3f96445d6201c5718efb"
+      }
     },
     "installer-unrecognized-component": {
       "source": "9c3704994f1bdc5310c2958d750ed64b3a2957b889b21660501f18ce7a564664",
-      "translations": {}
+      "translations": {
+        "es-419": "9c3704994f1bdc5310c2958d750ed64b3a2957b889b21660501f18ce7a564664"
+      }
     },
     "installer-unrecognized-mac-component": {
       "source": "e79424f93375b895a52bb2d4c138cb802addab0d550185afa74a0d35e20f9dab",
-      "translations": {}
+      "translations": {
+        "es-419": "e79424f93375b895a52bb2d4c138cb802addab0d550185afa74a0d35e20f9dab"
+      }
     },
     "installer-unsafe-native-manifest-key": {
       "source": "7c93cf347353f8c69a7432ab07064759fb12eb78cc9563ce31b0d65a02edc517",
-      "translations": {}
+      "translations": {
+        "es-419": "7c93cf347353f8c69a7432ab07064759fb12eb78cc9563ce31b0d65a02edc517"
+      }
     },
     "installer-unsupported-architecture-for-desktop": {
       "source": "1abd9686d3b19dbce0ac5808267e362c67ccc23fc152e6d84e688334c475ebe5",
-      "translations": {}
+      "translations": {
+        "es-419": "1abd9686d3b19dbce0ac5808267e362c67ccc23fc152e6d84e688334c475ebe5"
+      }
     },
     "installer-unsupported-architecture-for-tmux": {
       "source": "e3f78f8b6a48aaa67a4807d64831aa197d9ab9f629e9cd9d6c3f911faab690eb",
-      "translations": {}
+      "translations": {
+        "es-419": "e3f78f8b6a48aaa67a4807d64831aa197d9ab9f629e9cd9d6c3f911faab690eb"
+      }
     },
     "installer-unsupported-schema-version": {
       "source": "f36f844c6b62e8358d23ec0beccb402f1529b7d2aa6920898b5340aee2f6e746",
-      "translations": {}
+      "translations": {
+        "es-419": "f36f844c6b62e8358d23ec0beccb402f1529b7d2aa6920898b5340aee2f6e746"
+      }
     },
     "installer-unsupported-url-scheme": {
       "source": "b800aaf125e9f86c472b518077a8287dfab86bbd25301bce328c3d4accc20b6c",
-      "translations": {}
+      "translations": {
+        "es-419": "b800aaf125e9f86c472b518077a8287dfab86bbd25301bce328c3d4accc20b6c"
+      }
     },
     "installer-unterminated-string": {
       "source": "7aa5aee44e1e6f0d97a71ce4ec1f890b9c9dc4314bcdc9482bce6b436be9c032",
-      "translations": {}
+      "translations": {
+        "es-419": "7aa5aee44e1e6f0d97a71ce4ec1f890b9c9dc4314bcdc9482bce6b436be9c032"
+      }
     },
     "installer-update-only-components-already-owned-by-this": {
       "source": "b5e072b8a8cea7427313df24fa74843e7291f3a6f39b22a89a4b2a96d4df3430",
-      "translations": {}
+      "translations": {
+        "es-419": "b5e072b8a8cea7427313df24fa74843e7291f3a6f39b22a89a4b2a96d4df3430"
+      }
     },
     "installer-url-contains-forbidden-fragment": {
       "source": "b51b0e4aa00f8a73b3b8613484704a8f5bba571ceb108ab3c265e1849e039c4e",
-      "translations": {}
+      "translations": {
+        "es-419": "b51b0e4aa00f8a73b3b8613484704a8f5bba571ceb108ab3c265e1849e039c4e"
+      }
     },
     "installer-url-contains-forbidden-userinfo": {
       "source": "c99c1b906b6eb553ce021db963e5baba6672550ae488f48be8ce4376c9166a95",
-      "translations": {}
+      "translations": {
+        "es-419": "c99c1b906b6eb553ce021db963e5baba6672550ae488f48be8ce4376c9166a95"
+      }
     },
     "installer-usage": {
       "source": "7885baa745df0b9bfbe4f2ee1210d7f3f55c6458c507b13bad8a462da4d16f4d",
-      "translations": {}
+      "translations": {
+        "es-419": "7885baa745df0b9bfbe4f2ee1210d7f3f55c6458c507b13bad8a462da4d16f4d"
+      }
     },
     "installer-variant-for-on-is-missing-in-manifest": {
       "source": "a29ae6fea55b5f747569d5585e661a5063e1bb29ee9fed324817f8d18db5f242",
-      "translations": {}
+      "translations": {
+        "es-419": "a29ae6fea55b5f747569d5585e661a5063e1bb29ee9fed324817f8d18db5f242"
+      }
     },
     "installer-verify-and-preview-without-changing-the-installation": {
       "source": "cf43eb731d27846c22eeaf103c97dcc135418955074ffc6f94bb160f243d2a02",
-      "translations": {}
+      "translations": {
+        "es-419": "cf43eb731d27846c22eeaf103c97dcc135418955074ffc6f94bb160f243d2a02"
+      }
     },
     "installer-verify-the-journal-installation-before-removing-it": {
       "source": "1837a1f12cbfa8273ec55180bc447117b40bc42fc83d491dfeaa8a913b1029a6",
-      "translations": {}
+      "translations": {
+        "es-419": "1837a1f12cbfa8273ec55180bc447117b40bc42fc83d491dfeaa8a913b1029a6"
+      }
     },
     "installer-was-found": {
       "source": "1989aaea3fb707f98795d3db584e5002d1373dd035b774c41df60c49309b3b90",
-      "translations": {}
+      "translations": {
+        "es-419": "1989aaea3fb707f98795d3db584e5002d1373dd035b774c41df60c49309b3b90"
+      }
     },
     "installer-was-not-found": {
       "source": "786d3325dc463d2e8b5f2dd8e0b4b267be7178a26ec2cf2fdcbfaf7dfcd42f50",
-      "translations": {}
+      "translations": {
+        "es-419": "786d3325dc463d2e8b5f2dd8e0b4b267be7178a26ec2cf2fdcbfaf7dfcd42f50"
+      }
     },
     "installer-was-not-moved-into-place": {
       "source": "fb7649f49fb87add5ab18ecb83f9b03f1f3acd8e515a1db1f9637ecf229cf89c",
-      "translations": {}
+      "translations": {
+        "es-419": "fb7649f49fb87add5ab18ecb83f9b03f1f3acd8e515a1db1f9637ecf229cf89c"
+      }
     },
     "installer-without-a-selection-an-interactive-terminal-shows": {
       "source": "51d9901ec9f2baa8d3fa39bb0b30b6f6e8c5e1521b32c4dcd4c220154c96f568",
-      "translations": {}
+      "translations": {
+        "es-419": "51d9901ec9f2baa8d3fa39bb0b30b6f6e8c5e1521b32c4dcd4c220154c96f568"
+      }
     },
     "installer-without-this-installer-s-record-so-this": {
       "source": "58b687780ccddec22dde1b8bacc558f2d91b0a5483b3c5fd1575f8bd1f5dc459",
-      "translations": {}
+      "translations": {
+        "es-419": "58b687780ccddec22dde1b8bacc558f2d91b0a5483b3c5fd1575f8bd1f5dc459"
+      }
     },
     "installer-your-journal-and-the-solstone-app-update": {
       "source": "879dabfb63b8f7b9579d4a6165230394a518bb82f97da26aa678335943163e24",
-      "translations": {}
+      "translations": {
+        "es-419": "879dabfb63b8f7b9579d4a6165230394a518bb82f97da26aa678335943163e24"
+      }
     },
     "installer-your-journal-now-updates-with-this-installer": {
       "source": "6421115205ed5028b7217329ed9922877ef111fedc6959c661b3f22b3865b041",
-      "translations": {}
+      "translations": {
+        "es-419": "6421115205ed5028b7217329ed9922877ef111fedc6959c661b3f22b3865b041"
+      }
     },
     "installer-your-journal-updates-itself-once-a-day": {
       "source": "a51d04a772c66a801ab0115b9294edfd7828012d775bd757e3549482293835fc",
-      "translations": {}
+      "translations": {
+        "es-419": "a51d04a772c66a801ab0115b9294edfd7828012d775bd757e3549482293835fc"
+      }
     },
     "installer-your-journal-was-updated-where-it-is": {
       "source": "a26c7293f065209a7b5eeb49cd88d1c693ef67dff8479fba72b9ab3e43f344a6",
-      "translations": {}
+      "translations": {
+        "es-419": "a26c7293f065209a7b5eeb49cd88d1c693ef67dff8479fba72b9ab3e43f344a6"
+      }
     },
     "installer-your-package-manager": {
       "source": "7ca5185046a99278712feac005e3bbde4103d19242e2e6d34091d02e60275f23",
-      "translations": {}
+      "translations": {
+        "es-419": "7ca5185046a99278712feac005e3bbde4103d19242e2e6d34091d02e60275f23"
+      }
     }
   }
 }
