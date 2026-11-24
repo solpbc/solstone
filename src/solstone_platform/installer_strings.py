@@ -3,14 +3,20 @@
 
 """Build-time rendering for the installer's portable Fluent patterns."""
 
+import argparse
+import hashlib
 import json
 from pathlib import Path
 import re
+import sys
 from collections.abc import Callable
 
 from solstone_platform.refusals import Refusal
 
 ENGLISH_CATALOG = Path("i18n/catalog/source/en-US.ftl")
+TRANSLATIONS_DIR = Path("i18n/catalog/translations")
+SOURCE_LOCK = Path("i18n/catalog/source-lock.json")
+LOCALE_TAG = re.compile(r"^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$")
 ID = r"installer-[a-z0-9]+(?:-[a-z0-9]+)*"
 DEFINITION = re.compile(rf"({ID}) = (.+)")
 PLACEABLE = re.compile(r'\{ (?:\$arg([1-9][0-9]*)|"((?:[^"\\]|\\["\\]|\\u[0-9a-fA-F]{4})*)") \}')
@@ -167,3 +173,193 @@ def render_installer_strings(
     if require_all and used != catalog.keys():
         raise invalid(f"unreferenced messages: {', '.join(sorted(catalog.keys() - used))}")
     return result
+
+
+def validate_locale_tag(locale: str) -> str:
+    if not LOCALE_TAG.fullmatch(locale):
+        raise invalid(f"invalid locale tag: {locale}")
+    return locale
+
+
+def read_raw_messages(path: Path) -> dict[str, str]:
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeError) as err:
+        raise invalid(f"cannot read {path}: {err}") from err
+    messages: dict[str, str] = {}
+    for number, line in enumerate(lines, 1):
+        if not line or line.startswith("#"):
+            continue
+        location = f"{path}:{number}"
+        match = DEFINITION.fullmatch(line)
+        if match is None:
+            raise invalid(f"{location}: expected a Fluent message definition")
+        key, value = match.groups()
+        if key in messages:
+            raise invalid(f"{location}: duplicate message {key}")
+        parse_pattern(value, location)
+        messages[key] = value
+    return messages
+
+
+def hash_message_value(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def read_locale_catalog(
+    repo_root: Path, locale: str | None = None
+) -> dict[str, list[str | int]]:
+    english = read_catalog(repo_root / ENGLISH_CATALOG)
+    if locale is None or locale == "en-US":
+        return english
+    validate_locale_tag(locale)
+    translation_path = repo_root / TRANSLATIONS_DIR / f"{locale}.ftl"
+    if not translation_path.is_file():
+        return english
+    translated = read_catalog(translation_path)
+    unknown = sorted(translated.keys() - english.keys())
+    if unknown:
+        raise invalid(f"{translation_path}: unknown message IDs: {', '.join(unknown)}")
+    merged = dict(english)
+    for key, pieces in translated.items():
+        en_args = sorted(p for p in english[key] if isinstance(p, int))
+        tr_args = sorted(p for p in pieces if isinstance(p, int))
+        if tr_args != en_args:
+            raise invalid(f"{translation_path}: {key}: argument mismatch vs en-US")
+        merged[key] = pieces
+    return merged
+
+
+def load_source_lock(lock_path: Path) -> dict:
+    if not lock_path.is_file():
+        return {"schema_version": 1, "source_locale": "en-US", "messages": {}}
+    data = json.loads(lock_path.read_text(encoding="utf-8"))
+    if data.get("schema_version") != 1 or not isinstance(data.get("messages"), dict):
+        raise invalid(f"invalid source-lock schema: {lock_path}")
+    return data
+
+
+def update_source_lock(
+    repo_root: Path,
+    *,
+    acknowledge_locale: str | None = None,
+    ids: set[str] | None = None,
+) -> dict:
+    en_messages = read_raw_messages(repo_root / ENGLISH_CATALOG)
+    lock_path = repo_root / SOURCE_LOCK
+    existing = load_source_lock(lock_path)
+    existing_msgs = existing.get("messages", {})
+
+    tr_messages: dict[str, str] = {}
+    if acknowledge_locale is not None:
+        validate_locale_tag(acknowledge_locale)
+        if acknowledge_locale == "en-US":
+            raise invalid("cannot acknowledge source locale en-US")
+        tr_path = repo_root / TRANSLATIONS_DIR / f"{acknowledge_locale}.ftl"
+        if tr_path.is_file():
+            tr_messages = read_raw_messages(tr_path)
+            unknown = sorted(tr_messages.keys() - en_messages.keys())
+            if unknown:
+                raise invalid(f"{tr_path}: unknown message IDs: {', '.join(unknown)}")
+        if ids is not None:
+            bad = sorted(ids - set(tr_messages.keys()))
+            if bad:
+                raise invalid(
+                    f"cannot acknowledge {acknowledge_locale} IDs absent from {tr_path}: {', '.join(bad)}"
+                )
+        ack_targets = set(tr_messages.keys()) if ids is None else ids
+    else:
+        ack_targets = set()
+
+    out_messages: dict[str, dict] = {}
+    for key in sorted(en_messages):
+        src_hash = hash_message_value(en_messages[key])
+        prev = existing_msgs.get(key, {})
+        prev_tr = dict(prev.get("translations", {})) if isinstance(prev, dict) else {}
+        if acknowledge_locale is not None and key in ack_targets:
+            prev_tr[acknowledge_locale] = src_hash
+        out_messages[key] = {
+            "source": src_hash,
+            "translations": dict(sorted(prev_tr.items())),
+        }
+
+    result = {
+        "schema_version": 1,
+        "source_locale": "en-US",
+        "messages": out_messages,
+    }
+    lock_path.write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    return result
+
+
+def locale_status(repo_root: Path, locale: str, ids: set[str] | None = None) -> dict:
+    validate_locale_tag(locale)
+    en_messages = read_raw_messages(repo_root / ENGLISH_CATALOG)
+    lock_data = load_source_lock(repo_root / SOURCE_LOCK)
+    lock_msgs = lock_data.get("messages", {})
+    tr_path = repo_root / TRANSLATIONS_DIR / f"{locale}.ftl"
+    tr_messages = read_raw_messages(tr_path) if tr_path.is_file() else {}
+    target_ids = sorted(en_messages.keys() if ids is None else (ids & en_messages.keys()))
+
+    fresh: list[str] = []
+    stale: list[str] = []
+    missing: list[str] = []
+    for key in target_ids:
+        src_hash = hash_message_value(en_messages[key])
+        if key not in tr_messages:
+            missing.append(key)
+            continue
+        ack = lock_msgs.get(key, {}).get("translations", {}).get(locale)
+        if ack == src_hash:
+            fresh.append(key)
+        else:
+            stale.append(key)
+    return {
+        "locale": locale,
+        "fresh": fresh,
+        "stale": stale,
+        "missing": missing,
+    }
+
+
+def _main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Manage installer string catalog locks and draft status.")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    p_lock = sub.add_parser("lock", help="Refresh i18n/catalog/source-lock.json")
+    p_lock.add_argument("--root", type=Path, default=Path("."))
+    p_lock.add_argument("--acknowledge", default=None)
+    p_lock.add_argument("--ids-file", type=Path, default=None)
+
+    p_status = sub.add_parser("status", help="Inspect draft locale freshness")
+    p_status.add_argument("--root", type=Path, default=Path("."))
+    p_status.add_argument("--locale", required=True)
+    p_status.add_argument("--ids-file", type=Path, default=None)
+    p_status.add_argument("--json", action="store_true")
+
+    args = parser.parse_args(argv)
+    root = args.root.resolve()
+    ids: set[str] | None = None
+    if args.ids_file is not None:
+        ids = {
+            line.strip()
+            for line in args.ids_file.read_text(encoding="utf-8").splitlines()
+            if line.strip() and not line.strip().startswith("#")
+        }
+
+    if args.command == "lock":
+        update_source_lock(root, acknowledge_locale=args.acknowledge, ids=ids)
+        return 0
+    report = locale_status(root, args.locale, ids=ids)
+    if args.json:
+        print(json.dumps(report, indent=2, ensure_ascii=False))
+    else:
+        print(
+            f"{report['locale']}: fresh={len(report['fresh'])} "
+            f"stale={len(report['stale'])} missing={len(report['missing'])}"
+        )
+    return 1 if report["stale"] else 0
+
+
+if __name__ == "__main__":
+    sys.exit(_main())

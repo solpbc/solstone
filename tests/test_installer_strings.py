@@ -9,7 +9,15 @@ import subprocess
 import tempfile
 import unittest
 
-from solstone_platform.installer_strings import parse_pattern, render_installer_strings
+from solstone_platform.installer_strings import (
+    ENGLISH_CATALOG,
+    TRANSLATIONS_DIR,
+    locale_status,
+    parse_pattern,
+    read_locale_catalog,
+    render_installer_strings,
+    update_source_lock,
+)
 from solstone_platform.refusals import Refusal
 from tools.build_installer import build_installer
 
@@ -48,3 +56,64 @@ class TestInstallerStrings(unittest.TestCase):
             with self.assertRaisesRegex(Refusal, "production installer must use en-US"):
                 build_installer(REPO_ROOT, path, is_production=True, pseudo_locale=True)
             self.assertFalse(path.exists())
+
+    def test_production_refuses_draft_locale(self):
+        with tempfile.TemporaryDirectory(dir="/var/tmp") as tmp:
+            path = Path(tmp) / "install.sh"
+            with self.assertRaisesRegex(Refusal, "production installer must use en-US"):
+                build_installer(REPO_ROOT, path, is_production=True, locale="es-419")
+            self.assertFalse(path.exists())
+
+    def test_draft_locale_overlays_translations_falls_back_and_tracks_staleness(self):
+        with tempfile.TemporaryDirectory(dir="/var/tmp") as tmp:
+            root = Path(tmp)
+            en_path = root / ENGLISH_CATALOG
+            tr_dir = root / TRANSLATIONS_DIR
+            en_path.parent.mkdir(parents=True, exist_ok=True)
+            tr_dir.mkdir(parents=True, exist_ok=True)
+            en_path.write_text(
+                "installer-hello = hello { $arg1 }\ninstaller-keep = keep English\n",
+                encoding="utf-8",
+            )
+            (tr_dir / "es-419.ftl").write_text(
+                "installer-hello = hola { $arg1 }\n",
+                encoding="utf-8",
+            )
+
+            merged = read_locale_catalog(root, locale="es-419")
+            self.assertEqual(merged["installer-hello"], ["hola ", 1])
+            self.assertEqual(merged["installer-keep"], ["keep English"])
+
+            update_source_lock(root, acknowledge_locale="es-419")
+            st = locale_status(root, "es-419")
+            self.assertEqual(st["fresh"], ["installer-hello"])
+            self.assertEqual(st["stale"], [])
+            self.assertEqual(st["missing"], ["installer-keep"])
+
+            # Another editor updates English prose and runs lock without --acknowledge es-419.
+            en_path.write_text(
+                "installer-hello = hello again { $arg1 }\ninstaller-keep = keep English\n",
+                encoding="utf-8",
+            )
+            update_source_lock(root)
+            st_after = locale_status(root, "es-419")
+            self.assertEqual(st_after["fresh"], [])
+            self.assertEqual(st_after["stale"], ["installer-hello"])
+            self.assertEqual(st_after["missing"], ["installer-keep"])
+
+    def test_draft_locale_refuses_unknown_id_and_argument_mismatch(self):
+        with tempfile.TemporaryDirectory(dir="/var/tmp") as tmp:
+            root = Path(tmp)
+            en_path = root / ENGLISH_CATALOG
+            tr_dir = root / TRANSLATIONS_DIR
+            en_path.parent.mkdir(parents=True, exist_ok=True)
+            tr_dir.mkdir(parents=True, exist_ok=True)
+            en_path.write_text("installer-hello = hello { $arg1 }\n", encoding="utf-8")
+
+            (tr_dir / "es-419.ftl").write_text("installer-unknown = hola\n", encoding="utf-8")
+            with self.assertRaisesRegex(Refusal, "unknown message IDs"):
+                read_locale_catalog(root, locale="es-419")
+
+            (tr_dir / "es-419.ftl").write_text("installer-hello = hola sin argumento\n", encoding="utf-8")
+            with self.assertRaisesRegex(Refusal, "argument mismatch"):
+                read_locale_catalog(root, locale="es-419")

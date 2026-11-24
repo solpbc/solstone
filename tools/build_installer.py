@@ -9,7 +9,7 @@ from pathlib import Path
 import re
 import sys
 
-from solstone_platform.installer_strings import ENGLISH_CATALOG, read_catalog, render_installer_strings
+from solstone_platform.installer_strings import read_locale_catalog, render_installer_strings
 from solstone_platform.pins import (
     DESKTOP_KEY_ID,
     DESKTOP_PUBKEY,
@@ -130,14 +130,17 @@ def build_installer(
     template_path: Path | None = None,
     native_test_pins: PinSet | None = None,
     pseudo_locale: bool = False,
+    locale: str | None = None,
 ) -> Path:
     if template_path is None:
         template_path = repo_root / "install.sh.in"
     if not template_path.is_file():
         raise Refusal("template-missing", f"template file not found: {template_path}")
 
-    if is_production and pseudo_locale:
+    if is_production and (pseudo_locale or (locale is not None and locale != "en-US")):
         raise Refusal(PRODUCTION_UNAVAILABLE, "production installer must use en-US")
+    if pseudo_locale and locale is not None and locale != "en-US":
+        raise Refusal("locale-conflict", "cannot combine --pseudo-locale with --locale")
 
     if is_production and any(
         value is not None
@@ -239,7 +242,7 @@ def build_installer(
         result = result.replace(placeholder, val)
 
     result = render_installer_strings(
-        result, read_catalog(repo_root / ENGLISH_CATALOG),
+        result, read_locale_catalog(repo_root, locale=locale),
         pseudo_locale=pseudo_locale, require_all=template_path == repo_root / "install.sh.in",
     )
 
@@ -257,6 +260,7 @@ def main() -> int:
     parser.add_argument("--origin", type=str, default=None, help="Test seam: default download origin")
     parser.add_argument("--installer-revision", type=int, default=None, help="Test seam: override installer revision")
     parser.add_argument("--pseudo-locale", action="store_true", help="Render en-XA in a test build")
+    parser.add_argument("--locale", type=str, default=None, help="Render a draft locale in a non-production build")
     parser.add_argument("--production", action="store_true", help="Build production installer")
 
     args = parser.parse_args()
@@ -274,6 +278,7 @@ def main() -> int:
             override_installer_revision=args.installer_revision,
             is_production=args.production,
             pseudo_locale=args.pseudo_locale,
+            locale=args.locale,
         )
         print(f"Built installer: {out_path}")
         return 0
