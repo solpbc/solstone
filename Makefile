@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-.PHONY: all agent-setup build build-installer check-installer-catalog test qualify lint format ci
+.PHONY: all agent-setup build build-installer build-installer-dev check-installer-catalog test qualify lint format ci
+
+LOCALE ?= es-419
 
 all: ci
 
@@ -13,6 +15,10 @@ build:
 
 build-installer:
 	PYTHONPATH=src:tools python3 tools/build_installer.py --production -o dist/install.sh
+
+build-installer-dev:
+	PYTHONPATH=src:tools python3 tools/build_installer.py --locale $(LOCALE) -o dist/install-$(LOCALE).sh
+	sh -n dist/install-$(LOCALE).sh
 
 check-installer-catalog: build-installer
 	sh -n dist/install.sh
